@@ -645,6 +645,8 @@
   .kb-table tr.kb-group td { color: var(--accent); font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; padding-top: 16px; border: none; }
   .obs-preview { font-family: var(--mono); font-size: 11.5px; line-height: 1.65; color: var(--text-muted); background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r); padding: 11px 13px; margin: 0; white-space: pre-wrap; width: 340px; max-width: 100%; }
   .set-field code { font-family: var(--mono); font-size: 0.92em; color: var(--accent); }
+  .set-subhead { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--accent); margin: 0 0 14px; }
+  .set-subhead.sep { border-top: 1px solid var(--border); padding-top: 20px; margin-top: 4px; }
 
   /* ── Cheat sheet ──────────────────────────── */
   #cheat { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; }
@@ -1116,6 +1118,9 @@ const settings = {
     default: "",
     blocking: { suggestion: false, nit: false, question: false, issue: true, praise: false },
   },
+  saveSessions: true,
+  storagePath: "",
+  defaultSaveAction: "ask",
   obsidian: {
     enabled: false,
     vaultPath: "~/vaults/notes",
@@ -2975,6 +2980,14 @@ function renderSettingsBody() {
     blk += "</div>";
     html += blk;
   } else if (settingsTab === "saving") {
+    html += '<div class="set-subhead">Saving</div>';
+    html += field("Save sessions", "Reviewed sessions are written to disk automatically when you finish, so you can reopen or export them later.",
+      toggleHTML("saveSessions", settings.saveSessions, "Auto-save reviewed sessions to disk"));
+    html += field("Storage location", "Empty = default location.",
+      '<input class="set-input" id="set-storage-path" style="width:340px" placeholder="Leave empty for default (~/.cueloop)" value="' + esc(settings.storagePath) + '">');
+    html += field("Default action for ⌘S", "What ⌘S does when you save a review.",
+      segHTML("defaultSaveAction", [["ask", "Ask each time"], ["download", "Download annotations"], ["obsidian", "Save to Obsidian"]], settings.defaultSaveAction));
+    html += '<div class="set-subhead sep">Integrations</div>';
     html += field("Obsidian integration", "Save the finished review as a Markdown note in your Obsidian vault. ⌘S saves at any time.",
       toggleHTML("obsidian-enabled", settings.obsidian.enabled, settings.obsidian.enabled ? "On" : "Off"));
     html += field("Vault path", "Absolute path to your Obsidian vault on disk.",
@@ -3025,6 +3038,8 @@ function wireSettingsBody() {
   if (name) name.addEventListener("input", () => { settings.displayName = name.value || autoName(); updateCrumb(); });
   const regen = $("#set-name-regen");
   if (regen) regen.addEventListener("click", () => { settings.displayName = autoName(); renderSettingsBody(); updateCrumb(); });
+  const storagePath = $("#set-storage-path");
+  if (storagePath) storagePath.addEventListener("input", () => { settings.storagePath = storagePath.value; });
   const obsVault = $("#set-obs-vault");
   if (obsVault) obsVault.addEventListener("input", () => { settings.obsidian.vaultPath = obsVault.value; });
   const obsFolder = $("#set-obs-folder");
@@ -3073,6 +3088,16 @@ function obsidianFrontmatter() {
 }
 function saveToObsidian() {
   flash("Saved to Obsidian vault → " + settings.obsidian.folder);
+}
+function saveToObsidianOrHint() {
+  if (settings.obsidian.enabled) saveToObsidian();
+  else flash("Enable Obsidian saving in Settings → Saving");
+}
+/* Resolves ⌘S to the configured default action. */
+function performSave() {
+  if (settings.defaultSaveAction === "obsidian") return saveToObsidianOrHint();
+  if (settings.defaultSaveAction === "download") return flash("Annotations downloaded → " + settings.displayName + ".json");
+  saveToObsidianOrHint();
 }
 
 /* ═══════════ Input mode / mode bar ═══════════ */
@@ -3158,8 +3183,7 @@ document.addEventListener("keydown", e => {
   if (meta && e.key === ",") { e.preventDefault(); openSettings(); return; }
   if (meta && (e.key === "s" || e.key === "S")) {
     e.preventDefault();
-    if (settings.obsidian.enabled) saveToObsidian();
-    else flash("Enable Obsidian saving in Settings → Saving");
+    performSave();
     return;
   }
 
