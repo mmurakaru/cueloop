@@ -1,0 +1,1066 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cueloop · Command deck</title>
+<style>
+  :root {
+    --bg: #0b0e12;
+    --bg-raise: #11151b;
+    --bg-palette: #12171e;
+    --line: #1e252e;
+    --line-soft: #171d24;
+    --text: #d7dee7;
+    --text-dim: #8b96a3;
+    --text-faint: #566170;
+    --accent: #55d6bc;
+    --accent-dim: rgba(85, 214, 188, 0.14);
+    --pending: #e6b566;
+    --pending-dim: rgba(230, 181, 102, 0.12);
+    --ins: #7fdc9a;
+    --ins-bg: rgba(90, 200, 130, 0.13);
+    --del: #ef8ba1;
+    --del-bg: rgba(230, 110, 140, 0.12);
+    --sel: rgba(85, 214, 188, 0.09);
+    --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --serif: "Charter", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    background:
+      radial-gradient(1200px 500px at 50% -10%, rgba(85,214,188,0.045), transparent 65%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.62;
+    min-height: 100vh;
+  }
+  ::selection { background: rgba(85,214,188,0.25); }
+
+  /* ---------- corner label ---------- */
+  .corner {
+    position: fixed; top: 14px; left: 18px; z-index: 30;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.02em;
+    color: var(--text-faint); line-height: 1.5; pointer-events: auto;
+  }
+  .corner a { color: var(--text-dim); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .corner a:hover { color: var(--accent); border-color: var(--accent); }
+  .corner .stance { color: var(--text-faint); }
+
+  /* ---------- document ---------- */
+  .doc {
+    max-width: 700px; margin: 0 auto; padding: 96px 32px 140px;
+  }
+  .doc h1 {
+    font-size: 30px; line-height: 1.25; font-weight: 600;
+    letter-spacing: -0.01em; margin-bottom: 8px;
+  }
+  .doc h2 {
+    font-size: 13px; font-family: var(--mono); font-weight: 500;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-top: 44px; margin-bottom: 4px;
+  }
+  .doc p { color: var(--text); margin-top: 12px; }
+  .doc ul, .doc ol { margin-top: 12px; padding-left: 26px; }
+  .doc li { margin-top: 6px; }
+  .doc li::marker { color: var(--text-faint); }
+  .doc code {
+    font-family: var(--mono); font-size: 0.85em;
+    background: var(--bg-raise); border: 1px solid var(--line-soft);
+    border-radius: 4px; padding: 1px 5px; color: #b9e8dd;
+  }
+  .doc pre {
+    margin-top: 16px; background: var(--bg-raise);
+    border: 1px solid var(--line-soft); border-radius: 8px;
+    padding: 18px 20px; overflow-x: auto;
+    font-family: var(--mono); font-size: 13px; line-height: 1.7;
+    white-space: pre-wrap;
+  }
+  .doc pre code { background: none; border: none; padding: 0; color: #c4ccd6; font-size: inherit; }
+  .tok-kw { color: #8fb8f0; } .tok-ty { color: #7fdcc8; } .tok-pn { color: #5c6773; }
+
+  /* ---------- blocks & cursor ---------- */
+  .blk {
+    position: relative; border-radius: 6px;
+    padding: 2px 14px; margin-left: -14px; margin-right: -14px;
+    transition: background 90ms ease;
+  }
+  .blk.cur { background: var(--sel); }
+  .blk.cur::before {
+    content: ""; position: absolute; left: 0; top: 6px; bottom: 6px;
+    width: 2px; border-radius: 2px; background: var(--accent);
+  }
+  .blk.has-note { background: var(--pending-dim); }
+  .blk.has-note.cur { background: var(--pending-dim); }
+  .blk.has-note::after {
+    content: attr(data-notes); position: absolute; right: -34px; top: 8px;
+    font-family: var(--mono); font-size: 10px; color: var(--pending);
+    border: 1px solid rgba(230,181,102,0.4); border-radius: 10px;
+    min-width: 18px; height: 18px; line-height: 16px; text-align: center;
+  }
+  .blk.flash { animation: flash 700ms ease; }
+  @keyframes flash {
+    0% { background: rgba(230,181,102,0.28); }
+    100% { background: var(--pending-dim); }
+  }
+  ins { background: var(--ins-bg); color: var(--ins); text-decoration: none; border-radius: 2px; padding: 0 1px; }
+  del { background: var(--del-bg); color: var(--del); text-decoration: line-through; border-radius: 2px; padding: 0 1px; }
+
+  /* ---------- inline editor / comment box ---------- */
+  .inline-box { margin: 10px 0 4px; }
+  .inline-box textarea {
+    width: 100%; background: var(--bg-raise); color: var(--text);
+    border: 1px solid var(--accent); border-radius: 8px;
+    font-family: var(--mono); font-size: 13px; line-height: 1.65;
+    padding: 12px 14px; resize: vertical; min-height: 64px; outline: none;
+  }
+  .inline-box.comment textarea { border-color: var(--pending); min-height: 48px; }
+  .inline-box .hint {
+    font-family: var(--mono); font-size: 10.5px; color: var(--text-faint);
+    margin-top: 5px; letter-spacing: 0.03em;
+  }
+
+  /* ---------- diff view ---------- */
+  .diffwrap { max-width: 860px; margin: 0 auto; padding: 96px 32px 140px; font-family: var(--mono); font-size: 13px; }
+  .diffwrap h1 { font-family: var(--serif); font-size: 24px; font-weight: 600; margin-bottom: 24px; }
+  .dfile { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: 26px; }
+  .dhead {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--bg-raise); border-bottom: 1px solid var(--line);
+    padding: 9px 16px; font-size: 12px; color: var(--text-dim);
+  }
+  .dhead .stat { letter-spacing: 0.03em; }
+  .dhead .plus { color: var(--ins); } .dhead .minus { color: var(--del); }
+  .dhead .newtag { color: var(--accent); border: 1px solid rgba(85,214,188,0.4); border-radius: 4px; padding: 0 6px; font-size: 10px; margin-left: 8px; }
+  .dline { display: flex; line-height: 1.75; white-space: pre; position: relative; }
+  .dline .gut {
+    width: 44px; flex: none; text-align: right; padding-right: 12px;
+    color: var(--text-faint); user-select: none; font-size: 11px; line-height: inherit;
+  }
+  .dline .txt { flex: 1; padding-right: 16px; }
+  .dline.add { background: rgba(90,200,130,0.07); } .dline.add .txt { color: var(--ins); }
+  .dline.rem { background: rgba(230,110,140,0.07); } .dline.rem .txt { color: var(--del); }
+  .dline.hunk { color: var(--text-faint); background: var(--bg-raise); }
+  .dline.cur { background: var(--sel); box-shadow: inset 2px 0 0 var(--accent); }
+  .dline.has-note { box-shadow: inset 2px 0 0 var(--pending); background: var(--pending-dim); }
+  .dline.cur.has-note { box-shadow: inset 2px 0 0 var(--accent); }
+  .dline.flash { animation: flash 700ms ease; }
+  .dcomment { padding: 6px 16px 10px 44px; background: var(--bg-raise); }
+  .dcomment textarea {
+    width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--pending); border-radius: 6px;
+    font-family: var(--mono); font-size: 12.5px; padding: 8px 10px;
+    min-height: 40px; resize: vertical; outline: none;
+  }
+
+  /* ---------- status strip ---------- */
+  .strip {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    display: flex; align-items: center; gap: 20px;
+    padding: 7px 18px;
+    background: rgba(11,14,18,0.92); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line-soft);
+    font-family: var(--mono); font-size: 11px; color: var(--text-faint);
+    letter-spacing: 0.03em;
+  }
+  .strip .seg b { font-weight: 500; }
+  .strip .pend b { color: var(--pending); }
+  .strip .edits .plus { color: var(--ins); } .strip .edits .minus { color: var(--del); }
+  .strip .view b { color: var(--accent); }
+  .strip .spacer { flex: 1; }
+  .strip kbd {
+    font-family: var(--mono); font-size: 10px; color: var(--text-dim);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; background: var(--bg-raise);
+  }
+
+  /* ---------- palette ---------- */
+  .veil {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(5,7,9,0.55); backdrop-filter: blur(2px);
+    display: none; align-items: flex-start; justify-content: center;
+    padding-top: 14vh;
+  }
+  .veil.open { display: flex; }
+  .palette {
+    width: 620px; max-width: calc(100vw - 40px);
+    background: var(--bg-palette);
+    border: 1px solid #26303b; border-radius: 12px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(85,214,188,0.06);
+    overflow: hidden; font-family: var(--mono);
+  }
+  .pal-crumb {
+    padding: 10px 18px 0; font-size: 10.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  .pal-input {
+    width: 100%; background: none; border: none; outline: none;
+    color: var(--text); font-family: var(--mono); font-size: 15px;
+    padding: 15px 18px 13px; caret-color: var(--accent);
+  }
+  .pal-input::placeholder { color: var(--text-faint); }
+  .pal-list { border-top: 1px solid var(--line-soft); max-height: 340px; overflow-y: auto; padding: 6px 0; }
+  .pal-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 18px; font-size: 13px; color: var(--text-dim); cursor: pointer;
+  }
+  .pal-row .label { flex: 1; color: var(--text); }
+  .pal-row .label .m { color: var(--accent); font-weight: 600; }
+  .pal-row .sub { font-size: 11px; color: var(--text-faint); }
+  .pal-row .key {
+    display: flex; gap: 4px;
+  }
+  .pal-row .key kbd {
+    font-size: 10.5px; color: var(--text-dim); background: var(--bg-raise);
+    border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; min-width: 16px; text-align: center;
+  }
+  .pal-row.sel { background: var(--accent-dim); }
+  .pal-row.sel .label { color: #eafaf5; }
+  .pal-row.sel .key kbd { border-color: rgba(85,214,188,0.35); }
+  .pal-row .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .pal-empty { padding: 22px 18px; font-size: 12.5px; color: var(--text-faint); }
+  .pal-foot {
+    display: flex; gap: 16px; padding: 8px 18px;
+    border-top: 1px solid var(--line-soft); font-size: 10.5px; color: var(--text-faint);
+  }
+  .pal-foot kbd { border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font-size: 9.5px; color: var(--text-dim); }
+  .pal-note {
+    padding: 12px 18px 6px; font-size: 12px; color: var(--text-dim); line-height: 1.6;
+  }
+  .pal-confirm { padding: 4px 0 6px; }
+  .pal-confirm .cline {
+    display: flex; gap: 10px; padding: 6px 18px; font-size: 12px; color: var(--text-dim); align-items: baseline;
+  }
+  .pal-confirm .cline .tag {
+    flex: none; font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 1px 6px; border-radius: 4px; margin-top: 1px;
+  }
+  .tag-comment { color: var(--pending); border: 1px solid rgba(230,181,102,0.35); }
+  .tag-edit { color: var(--ins); border: 1px solid rgba(127,220,154,0.3); }
+  .pal-confirm .cline .where { color: var(--text-faint); flex: none; }
+  .pal-confirm .cline .what { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pal-verdict-head { padding: 12px 18px 4px; font-size: 12px; color: var(--text-dim); }
+
+  /* ---------- cheat sheet ---------- */
+  .cheat {
+    position: fixed; inset: 0; z-index: 45; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(5,7,9,0.6); backdrop-filter: blur(2px);
+  }
+  .cheat.open { display: flex; }
+  .cheat-card {
+    background: var(--bg-palette); border: 1px solid #26303b; border-radius: 12px;
+    padding: 26px 32px; width: 560px; max-width: calc(100vw - 40px);
+    font-family: var(--mono); box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  }
+  .cheat-card h3 { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent); margin: 14px 0 8px; font-weight: 500; }
+  .cheat-card h3:first-child { margin-top: 0; }
+  .cheat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 32px; }
+  .cheat-grid .ck { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); padding: 2px 0; }
+  .cheat-grid .ck kbd { color: var(--text); background: var(--bg-raise); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; font-size: 10.5px; }
+
+  /* ---------- done state ---------- */
+  .done {
+    max-width: 520px; margin: 0 auto; padding: 26vh 32px 0; text-align: center;
+    font-family: var(--mono);
+  }
+  .done .mark { color: var(--accent); font-size: 28px; }
+  .done h1 { font-family: var(--serif); font-size: 24px; font-weight: 600; margin: 14px 0 6px; }
+  .done .verdict { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .done .sum { color: var(--text-dim); font-size: 13px; margin-top: 14px; line-height: 1.8; }
+  .done .again { color: var(--text-faint); font-size: 11px; margin-top: 34px; }
+  .done .again kbd { border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; color: var(--text-dim); }
+
+  /* ---------- toast ---------- */
+  .toast {
+    position: fixed; bottom: 46px; left: 50%; transform: translateX(-50%) translateY(6px);
+    background: var(--bg-palette); border: 1px solid #26303b; border-radius: 8px;
+    font-family: var(--mono); font-size: 12px; color: var(--text-dim);
+    padding: 8px 16px; z-index: 35; opacity: 0; pointer-events: none;
+    transition: opacity 160ms ease, transform 160ms ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="corner">
+  <a href="index.html">cueloop</a> · concept: Command deck<br>
+  <span class="stance">zero chrome — summon everything from the palette (⌘K)</span>
+</div>
+
+<main id="app"></main>
+
+<div class="strip" id="strip"></div>
+<div class="toast" id="toast"></div>
+
+<div class="veil" id="veil"><div class="palette" id="palette"></div></div>
+<div class="cheat" id="cheat"></div>
+
+<script>
+"use strict";
+(() => {
+
+/* ================= sample content ================= */
+
+const PLAN_BLOCKS = [
+  { tag: "h1", section: null, text: "Implementation Plan: Session Persistence" },
+  { tag: "h2", section: "Context", text: "Context" },
+  { tag: "p", section: "Context", text: "Review sessions currently live only in daemon memory. If the daemon crashes or the machine reboots mid-review, every pending annotation and the submitted-but-unacknowledged verdict are lost, and the agent is left waiting on a session that no longer exists. This plan persists each session to disk as it changes, so a restarted daemon can pick up exactly where the reviewer left off." },
+  { tag: "h2", section: "Phase 1", text: "Phase 1: Storage layer" },
+  { tag: "p", section: "Phase 1", text: "Introduce a small append-friendly storage module under server/storage/. Writes happen on every state transition (annotation added, verdict recorded) using an atomic write-then-rename, so a crash can never leave a half-written session file on disk." },
+  { tag: "ul", section: "Phase 1", items: [
+      "server/storage/store.ts — read/write session records with atomic rename semantics",
+      "server/storage/schema.ts — zod schema and schemaVersion constant for on-disk records",
+      "server/storage/index.ts — public API surface re-exporting store and schema"
+    ] },
+  { tag: "pre", section: "Phase 1", text:
+`interface SessionRecord {
+  id: string
+  schemaVersion: string
+  artifact: Artifact
+  annotations: Annotation[]
+  verdict: Verdict | null
+}` },
+  { tag: "h2", section: "Phase 2", text: "Phase 2: Recovery on boot" },
+  { tag: "p", section: "Phase 2", text: "On startup the daemon scans the storage directory before accepting any new connections. Records that parse cleanly are rehydrated into live sessions; records with an older schemaVersion are migrated forward; anything unreadable is quarantined rather than deleted, so no reviewer work is ever silently discarded." },
+  { tag: "ol", section: "Phase 2", items: [
+      "Enumerate *.session.json files and parse each against the current schema",
+      "Migrate records with an older schemaVersion through registered migration steps",
+      "Re-open a live session for each recovered record and notify the waiting agent"
+    ] },
+  { tag: "h2", section: "Open questions", text: "Open questions" },
+  { tag: "ul", section: "Open questions", items: [
+      "Should quarantined records surface in the UI, or only in the daemon log?",
+      "Is one file per session fine, or do we need a single append-only journal for write volume?"
+    ] }
+];
+
+const DIFF_FILES = [
+  {
+    name: "server/storage/store.ts", status: "modified", plus: 12, minus: 3,
+    lines: [
+      { k: "hunk", t: "@@ -1,9 +1,18 @@" },
+      { k: "ctx", old: 1, neu: 1, t: "import { promises as fs } from 'node:fs'" },
+      { k: "ctx", old: 2, neu: 2, t: "import * as path from 'node:path'" },
+      { k: "add", neu: 3, t: "import { SessionRecord, SCHEMA_VERSION } from './schema'" },
+      { k: "ctx", old: 3, neu: 4, t: "" },
+      { k: "rem", old: 4, t: "const sessions = new Map<string, unknown>()" },
+      { k: "add", neu: 5, t: "const sessions = new Map<string, SessionRecord>()" },
+      { k: "add", neu: 6, t: "const storageDir = process.env.CUELOOP_STATE ?? defaultStateDir()" },
+      { k: "ctx", old: 5, neu: 7, t: "" },
+      { k: "rem", old: 6, t: "export function saveSession(id: string, record: unknown) {" },
+      { k: "rem", old: 7, t: "  sessions.set(id, record)" },
+      { k: "add", neu: 8, t: "export async function saveSession(record: SessionRecord) {" },
+      { k: "add", neu: 9, t: "  sessions.set(record.id, record)" },
+      { k: "add", neu: 10, t: "  const file = path.join(storageDir, `${record.id}.session.json`)" },
+      { k: "add", neu: 11, t: "  const tmp = `${file}.tmp-${process.pid}`" },
+      { k: "add", neu: 12, t: "  await fs.writeFile(tmp, JSON.stringify(record, null, 2))" },
+      { k: "add", neu: 13, t: "  await fs.rename(tmp, file)" },
+      { k: "ctx", old: 8, neu: 14, t: "}" },
+      { k: "ctx", old: 9, neu: 15, t: "" },
+      { k: "add", neu: 16, t: "export async function loadAll(): Promise<SessionRecord[]> {" },
+      { k: "add", neu: 17, t: "  const entries = await fs.readdir(storageDir)" },
+      { k: "add", neu: 18, t: "  return hydrate(entries.filter(f => f.endsWith('.session.json')))" },
+      { k: "add", neu: 19, t: "}" }
+    ]
+  },
+  {
+    name: "server/storage/index.ts", status: "new", plus: 4, minus: 0,
+    lines: [
+      { k: "hunk", t: "@@ -0,0 +1,4 @@" },
+      { k: "add", neu: 1, t: "export { saveSession, loadAll } from './store'" },
+      { k: "add", neu: 2, t: "export { SessionRecord, SCHEMA_VERSION } from './schema'" },
+      { k: "add", neu: 3, t: "export type { Verdict, Annotation } from './schema'" },
+      { k: "add", neu: 4, t: "" }
+    ]
+  }
+];
+
+/* ================= state ================= */
+
+const state = {
+  view: "plan",              // plan | diff | done
+  anchor: 0, head: 0,        // plan block span selection
+  diffCursor: 1,             // index into flat diff lines
+  pending: [],               // { id, kind: comment|edit, view, target, label, text, plus, minus }
+  undo: [],                  // { kind, ... }
+  nextId: 1,
+  editsPlus: 0, editsMinus: 0,
+  navIndex: -1,              // n/p position within pending
+  submitted: null,           // { verdict, note, counts }
+  originals: {},             // blockIndex -> original block def (for undo of edits)
+  edited: {}                 // blockIndex -> current text after edit
+};
+
+const palette = { open: false, mode: "commands", query: "", sel: 0, flow: { verdict: null, note: "" } };
+let pendingKey = null, pendingKeyTimer = null;
+let activeInlineBox = null;  // {el, close()}
+let cheatOpen = false;
+
+/* ================= helpers ================= */
+
+const $ = sel => document.querySelector(sel);
+const app = $("#app"), strip = $("#strip"), veil = $("#veil"), pal = $("#palette"), cheat = $("#cheat"), toastEl = $("#toast");
+
+function esc(s) {
+  return s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+let toastTimer = null;
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
+}
+function blockText(i) {
+  if (state.edited[i] !== undefined) return state.edited[i];
+  const b = PLAN_BLOCKS[i];
+  return b.items ? b.items.join("\n") : b.text;
+}
+function blockLabel(i) {
+  const b = PLAN_BLOCKS[i];
+  return b.section ? b.section : "Title";
+}
+function spanRange() {
+  return [Math.min(state.anchor, state.head), Math.max(state.anchor, state.head)];
+}
+
+/* word-level diff via LCS, returns html with <ins>/<del> and counts */
+function wordDiff(a, b) {
+  const ta = a.split(/(\s+)/).filter(x => x !== "");
+  const tb = b.split(/(\s+)/).filter(x => x !== "");
+  const n = ta.length, m = tb.length;
+  const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      dp[i][j] = ta[i] === tb[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  let i = 0, j = 0, html = "", plus = 0, minus = 0;
+  const isWord = t => /\S/.test(t);
+  while (i < n && j < m) {
+    if (ta[i] === tb[j]) { html += esc(ta[i]); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      if (isWord(ta[i])) { html += "<del>" + esc(ta[i]) + "</del>"; minus++; } else html += esc(ta[i]);
+      i++;
+    } else {
+      if (isWord(tb[j])) { html += "<ins>" + esc(tb[j]) + "</ins>"; plus++; } else html += esc(tb[j]);
+      j++;
+    }
+  }
+  while (i < n) { if (isWord(ta[i])) { html += "<del>" + esc(ta[i]) + "</del>"; minus++; } else html += esc(ta[i]); i++; }
+  while (j < m) { if (isWord(tb[j])) { html += "<ins>" + esc(tb[j]) + "</ins>"; plus++; } else html += esc(tb[j]); j++; }
+  return { html, plus, minus };
+}
+
+/* fuzzy subsequence match; returns { score, idx[] } or null */
+function fuzzy(query, text) {
+  if (!query) return { score: 0, idx: [] };
+  const q = query.toLowerCase(), t = text.toLowerCase();
+  const idx = [];
+  let ti = 0, score = 0, streak = 0;
+  for (let qi = 0; qi < q.length; qi++) {
+    const found = t.indexOf(q[qi], ti);
+    if (found === -1) return null;
+    if (found === ti && idx.length) streak++; else streak = 0;
+    score += 1 + streak * 2 + (found === 0 || t[found - 1] === " " ? 3 : 0) - (found - ti) * 0.05;
+    idx.push(found);
+    ti = found + 1;
+  }
+  return { score, idx };
+}
+function highlight(text, idx) {
+  let out = "", set = new Set(idx);
+  for (let i = 0; i < text.length; i++)
+    out += set.has(i) ? '<span class="m">' + esc(text[i]) + "</span>" : esc(text[i]);
+  return out;
+}
+
+/* ================= plan rendering ================= */
+
+function highlightTs(code) {
+  return esc(code)
+    .replace(/\b(interface|string|null)\b/g, '<span class="tok-kw">$1</span>')
+    .replace(/\b(SessionRecord|Artifact|Annotation|Verdict)\b/g, '<span class="tok-ty">$1</span>');
+}
+
+function renderPlan() {
+  const [lo, hi] = spanRange();
+  let html = '<div class="doc">';
+  PLAN_BLOCKS.forEach((b, i) => {
+    const notes = state.pending.filter(p => p.view === "plan" && i >= p.target[0] && i <= p.target[1]).length;
+    const cls = ["blk"];
+    if (i >= lo && i <= hi) cls.push("cur");
+    if (notes) cls.push("has-note");
+    const attrs = `class="${cls.join(" ")}" data-blk="${i}"` + (notes ? ` data-notes="${notes}"` : "");
+    const editedHtml = state.editedHtml && state.editedHtml[i];
+    if (b.tag === "pre") {
+      const inner = editedHtml || highlightTs(blockText(i));
+      html += `<pre ${attrs}><code>${inner}</code></pre>`;
+    } else if (b.items) {
+      const lines = blockText(i).split("\n");
+      const origLines = b.items;
+      const lis = lines.map((ln, k) => {
+        if (editedHtml) {
+          const d = wordDiff(origLines[k] !== undefined ? origLines[k] : "", ln);
+          return "<li>" + d.html + "</li>";
+        }
+        return "<li>" + esc(ln) + "</li>";
+      }).join("");
+      html += `<${b.tag} ${attrs}>${lis}</${b.tag}>`;
+    } else {
+      html += `<${b.tag} ${attrs}>${editedHtml || esc(blockText(i))}</${b.tag}>`;
+    }
+  });
+  html += "</div>";
+  app.innerHTML = html;
+  const cur = app.querySelector(`[data-blk="${state.head}"]`);
+  if (cur) cur.scrollIntoView({ block: "nearest", behavior: "instant" });
+  app.querySelectorAll(".blk").forEach(el => {
+    el.addEventListener("click", () => {
+      state.anchor = state.head = +el.dataset.blk;
+      render();
+    });
+  });
+}
+
+/* ================= diff rendering ================= */
+
+function flatDiff() {
+  const out = [];
+  DIFF_FILES.forEach((f, fi) => f.lines.forEach((l, li) => out.push({ file: fi, line: li, ...l })));
+  return out;
+}
+
+function renderDiff() {
+  const flat = flatDiff();
+  let html = '<div class="diffwrap"><h1>Changes under review</h1>';
+  let flatIdx = 0;
+  DIFF_FILES.forEach(f => {
+    html += `<div class="dfile"><div class="dhead"><span>${esc(f.name)}${f.status === "new" ? '<span class="newtag">new file</span>' : ""}</span><span class="stat"><span class="plus">+${f.plus}</span> <span class="minus">−${f.minus}</span></span></div>`;
+    f.lines.forEach(l => {
+      const notes = state.pending.filter(p => p.view === "diff" && p.target === flatIdx).length;
+      const cls = ["dline", l.k === "add" ? "add" : l.k === "rem" ? "rem" : l.k === "hunk" ? "hunk" : ""];
+      if (flatIdx === state.diffCursor) cls.push("cur");
+      if (notes) cls.push("has-note");
+      const gut = l.k === "hunk" ? "" : (l.k === "rem" ? l.old : l.neu);
+      const sign = l.k === "add" ? "+" : l.k === "rem" ? "−" : " ";
+      html += `<div class="${cls.filter(Boolean).join(" ")}" data-dl="${flatIdx}"><span class="gut">${gut ?? ""}</span><span class="txt">${l.k === "hunk" ? esc(l.t) : sign + " " + esc(l.t)}</span></div>`;
+      flatIdx++;
+    });
+    html += "</div>";
+  });
+  html += "</div>";
+  app.innerHTML = html;
+  const cur = app.querySelector(`[data-dl="${state.diffCursor}"]`);
+  if (cur) cur.scrollIntoView({ block: "nearest" });
+  app.querySelectorAll(".dline").forEach(el => {
+    el.addEventListener("click", () => { state.diffCursor = +el.dataset.dl; render(); });
+  });
+}
+
+/* ================= done rendering ================= */
+
+function renderDone() {
+  const s = state.submitted;
+  const comments = s.counts.comments, edits = s.counts.edits;
+  const color = s.verdict === "Approve" ? "var(--ins)" : s.verdict === "Request changes" ? "var(--del)" : "var(--pending)";
+  app.innerHTML = `
+    <div class="done">
+      <div class="mark">◈</div>
+      <h1>Review submitted</h1>
+      <div class="verdict" style="color:${color}">${esc(s.verdict)}</div>
+      <div class="sum">
+        ${comments} comment${comments === 1 ? "" : "s"} · ${edits} edit${edits === 1 ? "" : "s"} (+${s.counts.plus} −${s.counts.minus}) delivered atomically.<br>
+        ${s.note ? "“" + esc(s.note) + "”<br>" : ""}
+        The agent sees everything at once — nothing leaked early.
+      </div>
+      <div class="again"><kbd>r</kbd> start a new pass</div>
+    </div>`;
+}
+
+/* ================= status strip ================= */
+
+function renderStrip() {
+  const pend = state.pending.length;
+  const viewName = state.view === "plan" ? "plan" : state.view === "diff" ? "diff" : "submitted";
+  strip.innerHTML = `
+    <span class="seg pend"><b>${pend}</b> pending</span>
+    <span class="seg edits">edits <span class="plus">+${state.editsPlus}</span> <span class="minus">−${state.editsMinus}</span></span>
+    <span class="seg view">view <b>${viewName}</b></span>
+    <span class="spacer"></span>
+    <span class="seg"><kbd>⌘K</kbd> commands · <kbd>?</kbd> keys</span>`;
+}
+
+function render() {
+  if (state.view === "plan") renderPlan();
+  else if (state.view === "diff") renderDiff();
+  else renderDone();
+  renderStrip();
+}
+
+/* ================= annotations ================= */
+
+function closeInlineBox() {
+  if (activeInlineBox) { activeInlineBox.remove(); activeInlineBox = null; }
+}
+
+function startComment() {
+  if (state.view === "done") return;
+  closeInlineBox();
+  render();
+  let host, label, target;
+  if (state.view === "plan") {
+    const [lo, hi] = spanRange();
+    target = [lo, hi];
+    label = lo === hi ? blockLabel(lo) : blockLabel(lo) + " – " + blockLabel(hi);
+    host = app.querySelector(`[data-blk="${hi}"]`);
+  } else {
+    target = state.diffCursor;
+    const flat = flatDiff();
+    const l = flat[state.diffCursor];
+    if (!l || l.k === "hunk") { toast("Move the cursor onto a code line first (j/k)"); return; }
+    label = DIFF_FILES[l.file].name + ":" + (l.neu ?? l.old);
+    host = app.querySelector(`[data-dl="${state.diffCursor}"]`);
+  }
+  if (!host) return;
+  const box = document.createElement("div");
+  box.className = state.view === "diff" ? "dcomment" : "inline-box comment";
+  box.innerHTML = `<textarea placeholder="Comment on ${esc(label)}…"></textarea><div class="hint">↵ save as pending · esc cancel</div>`;
+  host.insertAdjacentElement("afterend", box);
+  activeInlineBox = box;
+  const ta = box.querySelector("textarea");
+  ta.focus();
+  ta.addEventListener("keydown", ev => {
+    ev.stopPropagation();
+    if (ev.key === "Escape") { closeInlineBox(); render(); }
+    else if (ev.key === "Enter" && !ev.shiftKey) {
+      ev.preventDefault();
+      const text = ta.value.trim();
+      closeInlineBox();
+      if (text) {
+        const ann = { id: state.nextId++, kind: "comment", view: state.view, target, label, text };
+        state.pending.push(ann);
+        state.undo.push({ kind: "comment", id: ann.id });
+        toast("Pending comment on " + label + " — invisible until submit");
+      }
+      render();
+    }
+  });
+}
+
+function startEdit() {
+  if (state.view !== "plan") { toast("Edits apply to plan sections — press 1"); return; }
+  closeInlineBox();
+  const i = state.head;
+  const b = PLAN_BLOCKS[i];
+  render();
+  const host = app.querySelector(`[data-blk="${i}"]`);
+  if (!host) return;
+  const box = document.createElement("div");
+  box.className = "inline-box";
+  const current = blockText(i);
+  box.innerHTML = `<textarea spellcheck="false"></textarea><div class="hint">⌘↵ save with tracked changes · esc cancel${b.items ? " · one item per line" : ""}</div>`;
+  host.insertAdjacentElement("afterend", box);
+  activeInlineBox = box;
+  const ta = box.querySelector("textarea");
+  ta.value = current;
+  ta.style.minHeight = Math.max(64, ta.scrollHeight) + "px";
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  ta.addEventListener("keydown", ev => {
+    ev.stopPropagation();
+    if (ev.key === "Escape") { closeInlineBox(); render(); }
+    else if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) {
+      ev.preventDefault();
+      applyEdit(i, ta.value);
+    }
+  });
+}
+
+function applyEdit(i, newText) {
+  closeInlineBox();
+  const b = PLAN_BLOCKS[i];
+  const origText = b.items ? b.items.join("\n") : b.text;
+  if (newText === origText) {
+    delete state.edited[i];
+    if (state.editedHtml) delete state.editedHtml[i];
+    render();
+    toast("No changes");
+    return;
+  }
+  const prev = {
+    edited: state.edited[i],
+    html: state.editedHtml ? state.editedHtml[i] : undefined,
+    pendingId: (state.pending.find(p => p.kind === "edit" && p.view === "plan" && p.target[0] === i) || {}).id
+  };
+  const d = wordDiff(origText, newText);
+  state.edited[i] = newText;
+  state.editedHtml = state.editedHtml || {};
+  state.editedHtml[i] = b.items ? true : d.html;   // lists diff per-line at render time
+  // one pending edit entry per block; replace if re-edited
+  const existing = state.pending.find(p => p.kind === "edit" && p.view === "plan" && p.target[0] === i);
+  const label = blockLabel(i);
+  if (existing) {
+    state.editsPlus -= existing.plus; state.editsMinus -= existing.minus;
+    existing.text = newText; existing.plus = d.plus; existing.minus = d.minus;
+  } else {
+    state.pending.push({ id: state.nextId++, kind: "edit", view: "plan", target: [i, i], label, text: newText, plus: d.plus, minus: d.minus });
+  }
+  state.editsPlus += d.plus; state.editsMinus += d.minus;
+  state.undo.push({ kind: "edit", block: i, prev });
+  render();
+  toast(`Pending edit in ${label} · +${d.plus} −${d.minus} words`);
+}
+
+function undoLast() {
+  const u = state.undo.pop();
+  if (!u) { toast("Nothing to undo"); return; }
+  if (u.kind === "comment") {
+    state.pending = state.pending.filter(p => p.id !== u.id);
+    toast("Comment removed");
+  } else if (u.kind === "edit") {
+    const i = u.block;
+    const cur = state.pending.find(p => p.kind === "edit" && p.view === "plan" && p.target[0] === i);
+    if (cur) { state.editsPlus -= cur.plus; state.editsMinus -= cur.minus; }
+    if (u.prev.edited === undefined) {
+      delete state.edited[i];
+      if (state.editedHtml) delete state.editedHtml[i];
+      state.pending = state.pending.filter(p => !(p.kind === "edit" && p.view === "plan" && p.target[0] === i));
+      toast("Edit reverted");
+    } else {
+      state.edited[i] = u.prev.edited;
+      state.editedHtml[i] = u.prev.html;
+      const b = PLAN_BLOCKS[i];
+      const origText = b.items ? b.items.join("\n") : b.text;
+      const d = wordDiff(origText, u.prev.edited);
+      if (cur) { cur.text = u.prev.edited; cur.plus = d.plus; cur.minus = d.minus; }
+      state.editsPlus += d.plus; state.editsMinus += d.minus;
+      toast("Edit reverted to previous version");
+    }
+  }
+  render();
+}
+
+function jumpPending(dir) {
+  if (!state.pending.length) { toast("No pending annotations yet — try c or e"); return; }
+  state.navIndex = (state.navIndex + dir + state.pending.length) % state.pending.length;
+  const p = state.pending[state.navIndex];
+  if (p.view !== state.view && state.view !== "done") state.view = p.view;
+  if (p.view === "plan") { state.anchor = p.target[0]; state.head = p.target[1]; }
+  else state.diffCursor = p.target;
+  render();
+  const el = p.view === "plan"
+    ? app.querySelector(`[data-blk="${p.target[1]}"]`)
+    : app.querySelector(`[data-dl="${p.target}"]`);
+  if (el) { el.scrollIntoView({ block: "center" }); el.classList.add("flash"); }
+  toast(`${state.navIndex + 1}/${state.pending.length} · ${p.kind} · ${p.label}${p.kind === "comment" ? " — “" + p.text.slice(0, 60) + "”" : ""}`);
+}
+
+function gotoSection(section) {
+  if (state.view === "done") return;
+  state.view = "plan";
+  const i = PLAN_BLOCKS.findIndex(b => b.section === section && b.tag === "h2");
+  if (i >= 0) { state.anchor = state.head = i; }
+  render();
+}
+
+/* ================= palette ================= */
+
+function commands() {
+  const sec = s => () => { gotoSection(s); };
+  return [
+    { label: "Comment on selection", key: ["c"], run: () => startComment() },
+    { label: "Edit this section", key: ["e"], run: () => startEdit() },
+    { label: "Go to Context", key: ["g", "0"], run: sec("Context") },
+    { label: "Go to Phase 1: Storage layer", key: ["g", "1"], run: sec("Phase 1") },
+    { label: "Go to Phase 2: Recovery on boot", key: ["g", "2"], run: sec("Phase 2") },
+    { label: "Go to Open questions", key: ["g", "3"], run: sec("Open questions") },
+    { label: "Jump to next annotation", key: ["n"], run: () => jumpPending(1) },
+    { label: "Jump to previous annotation", key: ["p"], run: () => jumpPending(-1) },
+    { label: "Switch to diff", key: ["2"], run: () => { state.view = "diff"; render(); } },
+    { label: "Switch to plan", key: ["1"], run: () => { state.view = "plan"; render(); } },
+    { label: "Show pending", key: ["s"], run: () => openPalette("pending") },
+    { label: "Undo last annotation", key: ["⌘", "Z"], run: () => undoLast() },
+    { label: "Keyboard cheat sheet", key: ["?"], run: () => toggleCheat(true) },
+    { label: "Submit review…", key: ["⌘", "⏎"], run: () => openPalette("verdict") }
+  ];
+}
+
+function openPalette(mode) {
+  palette.open = true;
+  palette.mode = mode || "commands";
+  palette.query = "";
+  palette.sel = 0;
+  if (palette.mode === "verdict") palette.flow = { verdict: null, note: "" };
+  veil.classList.add("open");
+  renderPalette();
+}
+function closePalette() {
+  palette.open = false;
+  veil.classList.remove("open");
+  pal.innerHTML = "";
+}
+
+function paletteRows() {
+  if (palette.mode === "commands") {
+    const q = palette.query;
+    return commands()
+      .map(c => ({ c, m: fuzzy(q, c.label) }))
+      .filter(x => x.m)
+      .sort((a, b) => b.m.score - a.m.score)
+      .map(x => ({
+        html: `<span class="label">${highlight(x.c.label, x.m.idx)}</span><span class="key">${x.c.key.map(k => "<kbd>" + esc(k) + "</kbd>").join("")}</span>`,
+        run: x.c.run
+      }));
+  }
+  if (palette.mode === "verdict") {
+    const opts = [
+      { v: "Comment", dot: "var(--pending)", sub: "send annotations only, no gate" },
+      { v: "Approve", dot: "var(--ins)", sub: "plan is good to execute" },
+      { v: "Request changes", dot: "var(--del)", sub: "agent must revise and resubmit" }
+    ];
+    return opts
+      .map(o => ({ o, m: fuzzy(palette.query, o.v) }))
+      .filter(x => x.m)
+      .map(x => ({
+        html: `<span class="dot" style="background:${x.o.dot}"></span><span class="label">${highlight(x.o.v, x.m.idx)}</span><span class="sub">${x.o.sub}</span>`,
+        run: () => { palette.flow.verdict = x.o.v; palette.mode = "note"; palette.query = ""; palette.sel = 0; renderPalette(); }
+      }));
+  }
+  if (palette.mode === "pending") {
+    if (!state.pending.length) return [];
+    return state.pending.map((p, i) => ({
+      html: `<span class="tag ${p.kind === "edit" ? "tag-edit" : "tag-comment"}" style="font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;padding:1px 6px;border-radius:4px;">${p.kind}</span><span class="label">${esc(p.label)}</span><span class="sub" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:250px;">${esc(p.kind === "edit" ? `+${p.plus} −${p.minus} words` : p.text)}</span>`,
+      run: () => { closePalette(); state.navIndex = i - 1; jumpPending(1); }
+    }));
+  }
+  return [];
+}
+
+function renderPalette() {
+  const mode = palette.mode;
+  let crumb = "", placeholder = "Type a command…", foot = `<span><kbd>↑↓</kbd> navigate</span><span><kbd>↵</kbd> run</span><span><kbd>esc</kbd> close</span><span style="margin-left:auto">shortcuts on the right work without the palette</span>`;
+  if (mode === "verdict") { crumb = "Submit review · 1/3 verdict"; placeholder = "Choose a verdict…"; }
+  if (mode === "note") { crumb = "Submit review · 2/3 overall note"; }
+  if (mode === "confirm") { crumb = "Submit review · 3/3 confirm"; }
+  if (mode === "pending") { crumb = "Pending annotations — the agent sees none of this yet"; placeholder = "Jump to…"; }
+
+  if (mode === "note") {
+    pal.innerHTML = `
+      ${crumb ? `<div class="pal-crumb">${crumb}</div>` : ""}
+      <input class="pal-input" id="palInput" placeholder="Optional note to the agent — ↵ to continue, or leave empty" value="${esc(palette.flow.note)}">
+      <div class="pal-foot"><span><kbd>↵</kbd> continue</span><span><kbd>esc</kbd> cancel submit</span></div>`;
+    const inp = $("#palInput");
+    inp.focus();
+    inp.addEventListener("input", () => { palette.flow.note = inp.value; });
+    return;
+  }
+
+  if (mode === "confirm") {
+    const comments = state.pending.filter(p => p.kind === "comment").length;
+    const edits = state.pending.filter(p => p.kind === "edit").length;
+    const lines = state.pending.map(p =>
+      `<div class="cline"><span class="tag ${p.kind === "edit" ? "tag-edit" : "tag-comment"}">${p.kind}</span><span class="where">${esc(p.label)}</span><span class="what">${esc(p.kind === "edit" ? `+${p.plus} −${p.minus} words` : p.text)}</span></div>`
+    ).join("") || `<div class="cline"><span class="what" style="color:var(--text-faint)">no annotations — verdict only</span></div>`;
+    pal.innerHTML = `
+      <div class="pal-crumb">${crumb}</div>
+      <div class="pal-note">Verdict <b style="color:var(--accent)">${esc(palette.flow.verdict)}</b>${palette.flow.note ? " · “" + esc(palette.flow.note) + "”" : ""} · ${comments} comment${comments === 1 ? "" : "s"}, ${edits} edit${edits === 1 ? "" : "s"} — sent atomically:</div>
+      <div class="pal-confirm">${lines}</div>
+      <div class="pal-foot"><span><kbd>↵</kbd> submit review</span><span><kbd>esc</kbd> cancel</span></div>`;
+    return;
+  }
+
+  const rows = paletteRows();
+  if (palette.sel >= rows.length) palette.sel = Math.max(0, rows.length - 1);
+  pal.innerHTML = `
+    ${crumb ? `<div class="pal-crumb">${crumb}</div>` : ""}
+    <input class="pal-input" id="palInput" placeholder="${placeholder}" value="${esc(palette.query)}">
+    <div class="pal-list" id="palList">${
+      rows.length
+        ? rows.map((r, i) => `<div class="pal-row${i === palette.sel ? " sel" : ""}" data-row="${i}">${r.html}</div>`).join("")
+        : `<div class="pal-empty">${mode === "pending" ? "Nothing pending yet. Close and press c to comment or e to edit." : "No matching command."}</div>`
+    }</div>
+    <div class="pal-foot">${foot}</div>`;
+  const inp = $("#palInput");
+  inp.focus();
+  inp.setSelectionRange(inp.value.length, inp.value.length);
+  inp.addEventListener("input", () => { palette.query = inp.value; palette.sel = 0; renderPalette(); });
+  pal.querySelectorAll(".pal-row").forEach(el => {
+    el.addEventListener("click", () => { const r = paletteRows()[+el.dataset.row]; if (r) { if (palette.mode === "commands") closePalette(); r.run(); } });
+  });
+  const selEl = pal.querySelector(".pal-row.sel");
+  if (selEl) selEl.scrollIntoView({ block: "nearest" });
+}
+
+function paletteKey(e) {
+  const mode = palette.mode;
+  if (e.key === "Escape") { e.preventDefault(); closePalette(); return; }
+  if (mode === "note") {
+    if (e.key === "Enter") { e.preventDefault(); palette.mode = "confirm"; renderPalette(); }
+    return;
+  }
+  if (mode === "confirm") {
+    if (e.key === "Enter") { e.preventDefault(); doSubmit(); }
+    if (e.key === "Backspace") { e.preventDefault(); palette.mode = "note"; renderPalette(); }
+    return;
+  }
+  const rows = paletteRows();
+  if (e.key === "ArrowDown" || (e.key === "n" && e.ctrlKey)) { e.preventDefault(); palette.sel = Math.min(rows.length - 1, palette.sel + 1); renderPalette(); }
+  else if (e.key === "ArrowUp" || (e.key === "p" && e.ctrlKey)) { e.preventDefault(); palette.sel = Math.max(0, palette.sel - 1); renderPalette(); }
+  else if (e.key === "Enter") {
+    e.preventDefault();
+    const r = rows[palette.sel];
+    if (!r) return;
+    if (mode === "commands") { closePalette(); r.run(); }
+    else r.run();
+  }
+}
+
+function doSubmit() {
+  const counts = {
+    comments: state.pending.filter(p => p.kind === "comment").length,
+    edits: state.pending.filter(p => p.kind === "edit").length,
+    plus: state.editsPlus, minus: state.editsMinus
+  };
+  state.submitted = { verdict: palette.flow.verdict, note: palette.flow.note.trim(), counts };
+  state.view = "done";
+  closePalette();
+  render();
+}
+
+function resetAll() {
+  state.view = "plan"; state.anchor = state.head = 0; state.diffCursor = 1;
+  state.pending = []; state.undo = []; state.editsPlus = 0; state.editsMinus = 0;
+  state.navIndex = -1; state.submitted = null; state.edited = {}; state.editedHtml = {};
+  render();
+  toast("Fresh pass — everything reset");
+}
+
+/* ================= cheat sheet ================= */
+
+function toggleCheat(open) {
+  cheatOpen = open === undefined ? !cheatOpen : open;
+  cheat.classList.toggle("open", cheatOpen);
+  if (!cheatOpen) { cheat.innerHTML = ""; return; }
+  cheat.innerHTML = `
+    <div class="cheat-card">
+      <h3>Summon</h3>
+      <div class="cheat-grid">
+        <div class="ck"><span>Command palette</span><kbd>⌘K or /</kbd></div>
+        <div class="ck"><span>This cheat sheet</span><kbd>?</kbd></div>
+      </div>
+      <h3>Move & select</h3>
+      <div class="cheat-grid">
+        <div class="ck"><span>Next / prev block</span><kbd>↓↑ · j k · tab</kbd></div>
+        <div class="ck"><span>Extend span</span><kbd>shift ↓↑</kbd></div>
+        <div class="ck"><span>Go to section</span><kbd>g then 0–3</kbd></div>
+        <div class="ck"><span>Plan / diff view</span><kbd>1 / 2</kbd></div>
+      </div>
+      <h3>Annotate (pending until submit)</h3>
+      <div class="cheat-grid">
+        <div class="ck"><span>Comment on selection / line</span><kbd>c</kbd></div>
+        <div class="ck"><span>Edit section (tracked)</span><kbd>e</kbd></div>
+        <div class="ck"><span>Next / prev annotation</span><kbd>n / p</kbd></div>
+        <div class="ck"><span>Show pending</span><kbd>s</kbd></div>
+        <div class="ck"><span>Undo last</span><kbd>⌘Z</kbd></div>
+        <div class="ck"><span>Submit review flow</span><kbd>⌘⏎</kbd></div>
+      </div>
+    </div>`;
+}
+
+/* ================= global keys ================= */
+
+document.addEventListener("keydown", e => {
+  const inField = /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+
+  // palette-open handling
+  if (palette.open) { paletteKey(e); return; }
+
+  if (cheatOpen) {
+    if (e.key === "Escape" || e.key === "?") { e.preventDefault(); toggleCheat(false); }
+    return;
+  }
+
+  // openers work everywhere except inside a field
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette("commands"); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && state.view !== "done") { e.preventDefault(); openPalette("verdict"); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undoLast(); return; }
+  if (inField) return;
+  if (e.key === "/") { e.preventDefault(); openPalette("commands"); return; }
+  if (e.key === "?") { e.preventDefault(); toggleCheat(true); return; }
+  if (e.key === "Escape") { closeInlineBox(); render(); return; }
+
+  if (state.view === "done") {
+    if (e.key === "r") resetAll();
+    return;
+  }
+
+  // g-prefix section jumps
+  if (pendingKey === "g") {
+    pendingKey = null; clearTimeout(pendingKeyTimer);
+    const map = { "0": "Context", "1": "Phase 1", "2": "Phase 2", "3": "Open questions" };
+    if (map[e.key]) { e.preventDefault(); gotoSection(map[e.key]); }
+    else if (e.key === "g") { state.anchor = state.head = 0; state.diffCursor = 1; render(); }
+    return;
+  }
+  if (e.key === "g") {
+    pendingKey = "g";
+    clearTimeout(pendingKeyTimer);
+    pendingKeyTimer = setTimeout(() => { pendingKey = null; }, 900);
+    toast("g → 0 context · 1 phase 1 · 2 phase 2 · 3 questions");
+    return;
+  }
+
+  const K = e.key;
+  if (K === "1") { state.view = "plan"; render(); return; }
+  if (K === "2") { state.view = "diff"; render(); return; }
+  if (K === "c") { e.preventDefault(); startComment(); return; }
+  if (K === "e") { e.preventDefault(); startEdit(); return; }
+  if (K === "n") { jumpPending(1); return; }
+  if (K === "p") { jumpPending(-1); return; }
+  if (K === "s") { openPalette("pending"); return; }
+
+  if (state.view === "plan") {
+    const last = PLAN_BLOCKS.length - 1;
+    const down = K === "ArrowDown" || K === "j" || (K === "Tab" && !e.shiftKey);
+    const up = K === "ArrowUp" || K === "k" || (K === "Tab" && e.shiftKey);
+    if (down || up) {
+      e.preventDefault();
+      const delta = down ? 1 : -1;
+      if (e.shiftKey && K !== "Tab") {
+        state.head = Math.max(0, Math.min(last, state.head + delta));
+      } else {
+        const next = Math.max(0, Math.min(last, state.head + delta));
+        state.anchor = state.head = next;
+      }
+      closeInlineBox();
+      render();
+    }
+  } else if (state.view === "diff") {
+    const flat = flatDiff();
+    const down = K === "ArrowDown" || K === "j";
+    const up = K === "ArrowUp" || K === "k";
+    if (down || up) {
+      e.preventDefault();
+      let i = state.diffCursor;
+      do { i += down ? 1 : -1; } while (i > 0 && i < flat.length - 1 && flat[i].k === "hunk");
+      state.diffCursor = Math.max(0, Math.min(flat.length - 1, i));
+      closeInlineBox();
+      render();
+    }
+  }
+});
+
+veil.addEventListener("mousedown", e => { if (e.target === veil) closePalette(); });
+cheat.addEventListener("mousedown", e => { if (e.target === cheat) toggleCheat(false); });
+
+state.editedHtml = {};
+render();
+setTimeout(() => toast("⌘K summons everything · ? for keys"), 400);
+
+})();
+</script>
+</body>
+</html>

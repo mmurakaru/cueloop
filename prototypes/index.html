@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cueloop · concept gallery</title>
+<style>
+  :root {
+    --bg: #0d1017; --panel: #141926; --line: #232b3d;
+    --text: #e6e9f0; --muted: #8b94a8; --accent: #7aa2ff; --accent-2: #58d5a2;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.6 -apple-system, "SF Pro Text", "Segoe UI", sans-serif;
+    min-height: 100vh; padding: 64px 24px;
+  }
+  main { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 28px; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  p.lede { color: var(--muted); margin: 12px 0 40px; max-width: 60ch; }
+  ol.gallery { list-style: none; padding: 0; display: grid; gap: 14px; }
+  ol.gallery a {
+    display: grid; grid-template-columns: 44px 1fr auto; gap: 18px; align-items: baseline;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 18px 22px; text-decoration: none; color: inherit;
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  ol.gallery a:hover, ol.gallery a:focus-visible { border-color: var(--accent); transform: translateY(-1px); outline: none; }
+  .num { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; }
+  .name { font-weight: 600; font-size: 17px; }
+  .stance { color: var(--muted); font-size: 14px; grid-column: 2; }
+  .key { color: var(--accent-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 13px; max-width: 66ch; }
+  kbd {
+    background: var(--line); border-radius: 4px; padding: 1px 6px;
+    font: 12px ui-monospace, "SF Mono", monospace;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1><span>cueloop</span> · review-surface concept gallery</h1>
+  <p class="lede">
+    Seven throwaway prototypes, one review loop: annotate a plan and a diff, then submit
+    Comment / Approve / Request changes. Same content everywhere; each concept takes a
+    different stance on layout and interaction. Judge them by keyboard feel —
+    press <kbd>?</kbd> inside any concept for its keybinding grammar.
+  </p>
+  <ol class="gallery">
+    <li><a href="manuscript.html"><span class="num">01</span><span class="name">Manuscript</span><span class="key">c · ⌘⏎</span>
+      <span class="stance">Zero chrome, document-first. UI appears only on demand; a floating pill carries the review.</span></a></li>
+    <li><a href="margin.html"><span class="num">02</span><span class="name">Margin</span><span class="key">a · n/p</span>
+      <span class="stance">Docs-style margin rail. Annotation cards live beside their spans; everything visible, spatial, calm.</span></a></li>
+    <li><a href="terminal.html"><span class="num">03</span><span class="name">Terminal</span><span class="key">v · : · u</span>
+      <span class="stance">A modal editor. NORMAL/VISUAL/EDIT modes, command line, status bar — vim grammar for review.</span></a></li>
+    <li><a href="guided.html"><span class="num">04</span><span class="name">Guided pass</span><span class="key">n/p · x</span>
+      <span class="stance">Review as a walkthrough. One unit spotlighted at a time; the pass ends at the verdict.</span></a></li>
+    <li><a href="splitstage.html"><span class="num">05</span><span class="name">Split stage</span><span class="key">e · s</span>
+      <span class="stance">Editing is the review. Base left, working copy right, tracked changes live — the diff is the feedback.</span></a></li>
+    <li><a href="deck.html"><span class="num">06</span><span class="name">Command deck</span><span class="key">⌘k</span>
+      <span class="stance">A command palette is the whole interface. Zero chrome until summoned; the palette teaches the fast path.</span></a></li>
+    <li><a href="board.html"><span class="num">07</span><span class="name">Board</span><span class="key">J/K · v</span>
+      <span class="stance">A review cockpit with a file tree. The plan is just another file; viewed-state tracks progress.</span></a></li>
+  </ol>
+  <footer>
+    Shared grammar across all concepts: <kbd>1</kbd>/<kbd>2</kbd> switch plan/diff ·
+    <kbd>c</kbd> comment · <kbd>e</kbd> edit (tracked changes) · <kbd>n</kbd>/<kbd>p</kbd> pending items ·
+    <kbd>⌘z</kbd> undo · <kbd>⌘⏎</kbd> finish review · <kbd>?</kbd> cheat sheet.
+    Pending feedback is invisible to the agent until one atomic submit.
+  </footer>
+</main>
+</body>
+</html>

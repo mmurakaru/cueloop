@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Margin — cueloop</title>
+<style>
+  :root {
+    --bg: #14120f;
+    --bg-raised: #1b1815;
+    --bg-card: #201c17;
+    --bg-card-focus: #262119;
+    --ink: #e8e1d3;
+    --ink-dim: #a89e8c;
+    --ink-faint: #6f6759;
+    --line: #2c2721;
+    --line-soft: #241f1a;
+    --amber: #d9a962;
+    --amber-dim: rgba(217, 169, 98, 0.13);
+    --amber-mid: rgba(217, 169, 98, 0.26);
+    --green: #8fbf8a;
+    --green-bg: rgba(143, 191, 138, 0.12);
+    --red: #d98a80;
+    --red-bg: rgba(217, 138, 128, 0.10);
+    --blue: #8aa8c7;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  ::selection { background: var(--amber-mid); }
+
+  /* ---------- header ---------- */
+  header {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    padding: 14px 28px 12px;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 12px;
+  }
+  header .brand a {
+    color: var(--ink-dim);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+  }
+  header .brand a:hover { color: var(--amber); }
+  header .brand .dot { color: var(--amber); }
+  header .stance { color: var(--ink-faint); font-style: italic; font-family: var(--serif); font-size: 13px; }
+  header .spacer { flex: 1; }
+  .view-tabs { display: flex; gap: 2px; }
+  .view-tabs button {
+    background: none; border: 1px solid transparent; border-radius: 4px;
+    color: var(--ink-faint); font: inherit; font-size: 11.5px;
+    padding: 3px 10px; cursor: pointer; letter-spacing: 0.03em;
+  }
+  .view-tabs button.active { color: var(--ink); border-color: var(--line); background: var(--bg-raised); }
+  .view-tabs button kbd { color: var(--amber); margin-right: 5px; }
+  #pending-pill {
+    font-size: 11px; letter-spacing: 0.06em; color: var(--amber);
+    border: 1px solid rgba(217,169,98,.35); border-radius: 20px; padding: 3px 11px;
+  }
+  #pending-pill.sent { color: var(--green); border-color: rgba(143,191,138,.35); }
+  header .submit-hint { color: var(--ink-faint); font-size: 11px; }
+  kbd {
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim);
+    background: var(--bg-raised); border: 1px solid var(--line);
+    border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px;
+  }
+
+  /* ---------- main scroller ---------- */
+  #scroller { flex: 1; overflow-y: auto; }
+  #canvas {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    min-height: 100%;
+  }
+  .doc-col { width: 700px; max-width: 60vw; padding: 52px 56px 40vh 40px; }
+  .rail-col {
+    width: 360px; flex: none; position: relative;
+    border-left: 1px solid var(--line-soft);
+    transition: width 0.18s ease;
+  }
+  body.rail-collapsed .rail-col { width: 34px; }
+  body.rail-collapsed .card, body.rail-collapsed .rail-note { display: none; }
+  .rail-marker {
+    display: none; position: absolute; left: 12px; width: 10px; height: 18px;
+    border-left: 3px solid var(--amber); cursor: pointer; opacity: 0.75;
+  }
+  .rail-marker:hover { opacity: 1; }
+  .rail-marker.edit-marker { border-left-color: var(--green); }
+  body.rail-collapsed .rail-marker { display: block; }
+
+  /* ---------- document ---------- */
+  article { font-family: var(--serif); font-size: 17px; line-height: 1.68; color: var(--ink); }
+  article h1 {
+    font-size: 27px; font-weight: 500; line-height: 1.3;
+    letter-spacing: 0.005em; margin-bottom: 8px;
+  }
+  article .doc-meta {
+    font-family: var(--sans); font-size: 11.5px; color: var(--ink-faint);
+    letter-spacing: 0.05em; margin-bottom: 34px;
+  }
+  article .doc-meta b { color: var(--ink-dim); font-weight: 500; }
+  article h2 {
+    font-size: 19px; font-weight: 600; margin: 34px 0 10px;
+    color: var(--ink);
+  }
+  article h2::before { content: "§ "; color: var(--amber); font-weight: 400; }
+  article p { margin-bottom: 14px; }
+  article ul, article ol { margin: 0 0 14px 26px; }
+  article li { margin-bottom: 7px; padding-left: 4px; }
+  article code {
+    font-family: var(--mono); font-size: 0.82em;
+    background: var(--bg-raised); border: 1px solid var(--line-soft);
+    border-radius: 4px; padding: 1px 5px; color: #d8c9a8;
+  }
+  article pre {
+    background: var(--bg-raised); border: 1px solid var(--line);
+    border-radius: 8px; padding: 16px 20px; margin: 6px 0 18px;
+    overflow-x: auto;
+  }
+  article pre code {
+    background: none; border: none; padding: 0;
+    font-size: 13px; line-height: 1.6; color: var(--ink); display: block;
+  }
+  .tok-kw { color: #c792b8; } .tok-ty { color: #8fc7c0; } .tok-pr { color: var(--ink-dim); }
+
+  /* block + unit selection */
+  .blk { position: relative; border-radius: 2px; }
+  .blk.blk-focus::before {
+    content: ""; position: absolute; left: -20px; top: 3px; bottom: 3px;
+    width: 2px; background: var(--amber); border-radius: 2px; opacity: 0.85;
+  }
+  pre.blk.blk-focus::before { left: -20px; }
+  .s { border-radius: 2px; transition: background 0.12s; }
+  .s.ksel { background: var(--amber-dim); box-shadow: 0 0 0 2px var(--amber-dim); }
+  .s.annotated {
+    background: var(--amber-dim);
+    border-bottom: 1px dotted rgba(217,169,98,.65);
+    cursor: pointer;
+  }
+  .s.anchor-focus, .edited.anchor-focus {
+    background: var(--amber-mid) !important;
+    border-bottom: 1px solid var(--amber) !important;
+  }
+  body.submitted .s.annotated { background: rgba(138,168,199,.09); border-bottom-color: rgba(138,168,199,.5); }
+  code.s.annotated, pre .s.annotated { display: block; }
+
+  /* tracked changes */
+  .edited { border-radius: 2px; }
+  .edited del { color: var(--red); background: var(--red-bg); text-decoration: line-through; text-decoration-color: rgba(217,138,128,.7); border-radius: 2px; padding: 0 1px; }
+  .edited ins { color: var(--green); background: var(--green-bg); text-decoration: none; border-bottom: 1px dotted rgba(143,191,138,.65); border-radius: 2px; padding: 0 1px; cursor: pointer; }
+
+  /* inline editor */
+  .inline-editor { display: block; margin: 4px 0; }
+  .inline-editor textarea {
+    width: 100%; background: var(--bg-raised); color: var(--ink);
+    border: 1px solid var(--amber); border-radius: 6px;
+    font-family: var(--serif); font-size: 16px; line-height: 1.55;
+    padding: 10px 12px; resize: none; outline: none;
+  }
+  .inline-editor .ed-hint { font-family: var(--sans); font-size: 10.5px; color: var(--ink-faint); margin-top: 3px; }
+
+  /* ---------- diff view ---------- */
+  #diff-view { font-family: var(--mono); font-size: 12.5px; }
+  #diff-view .doc-title { font-family: var(--serif); font-size: 27px; font-weight: 500; margin-bottom: 8px; }
+  .file-diff { border: 1px solid var(--line); border-radius: 8px; margin: 22px 0; overflow: hidden; }
+  .file-head {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg-raised); border-bottom: 1px solid var(--line);
+    padding: 9px 14px; font-size: 12px;
+  }
+  .file-head .path { color: var(--ink); }
+  .file-head .stat-add { color: var(--green); }
+  .file-head .stat-del { color: var(--red); }
+  .file-head .newfile { color: var(--blue); font-size: 10.5px; border: 1px solid rgba(138,168,199,.4); border-radius: 3px; padding: 1px 6px; letter-spacing: 0.05em; }
+  .dline { display: grid; grid-template-columns: 42px 42px 18px 1fr; line-height: 1.75; }
+  .dline .gut { text-align: right; padding-right: 8px; color: var(--ink-faint); font-size: 11px; user-select: none; }
+  .dline .sign { color: var(--ink-faint); user-select: none; }
+  .dline .txt { white-space: pre; padding-right: 14px; overflow-x: auto; }
+  .dline.add { background: var(--green-bg); } .dline.add .sign, .dline.add .txt { color: var(--green); }
+  .dline.del { background: var(--red-bg); } .dline.del .sign, .dline.del .txt { color: var(--red); }
+  .dline.hunk { background: var(--bg-raised); } .dline.hunk .txt { color: var(--blue); }
+  .dline.cursor { outline: 1px solid var(--amber); outline-offset: -1px; }
+  .dline.cursor .gut { color: var(--amber); }
+  .dline.line-annotated { box-shadow: inset 3px 0 0 var(--amber); }
+  body.submitted .dline.line-annotated { box-shadow: inset 3px 0 0 var(--blue); }
+  .dline.anchor-focus { background: var(--amber-dim); }
+
+  /* ---------- rail cards ---------- */
+  .card {
+    position: absolute; left: 22px; right: 22px;
+    background: var(--bg-card); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 13px 11px;
+    font-size: 12.5px; cursor: pointer;
+    transition: top 0.16s ease, border-color 0.12s, background 0.12s;
+  }
+  .card:hover { border-color: #3a342b; }
+  .card.focused {
+    background: var(--bg-card-focus); border-color: var(--amber);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+  }
+  .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .card-type { font-size: 9.5px; letter-spacing: 0.12em; color: var(--ink-faint); }
+  .card.is-edit .card-type { color: var(--green); }
+  .card-badge {
+    margin-left: auto; font-size: 9px; letter-spacing: 0.1em;
+    color: var(--amber); border: 1px solid rgba(217,169,98,.35);
+    border-radius: 3px; padding: 1px 5px;
+  }
+  .card-badge.sent { color: var(--blue); border-color: rgba(138,168,199,.4); }
+  .card-quote {
+    font-family: var(--serif); font-style: italic; color: var(--ink-dim);
+    font-size: 12.5px; line-height: 1.45;
+    border-left: 2px solid var(--amber); padding-left: 9px; margin-bottom: 7px;
+  }
+  .card-quote.mono { font-family: var(--mono); font-style: normal; font-size: 11px; }
+  .card-loc { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-bottom: 5px; }
+  .card-body { color: var(--ink); line-height: 1.5; white-space: pre-wrap; }
+  .card-body:empty::before { content: "(no note)"; color: var(--ink-faint); font-style: italic; }
+  .card-mini { font-family: var(--serif); font-size: 12.5px; line-height: 1.5; }
+  .card-mini .m-del { color: var(--red); text-decoration: line-through; display: block; }
+  .card-mini .m-ins { color: var(--green); display: block; }
+  .card textarea {
+    width: 100%; background: var(--bg); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 5px;
+    font: inherit; line-height: 1.5; padding: 6px 8px; resize: none; outline: none;
+  }
+  .card textarea:focus { border-color: var(--amber); }
+  .card .card-hint { font-size: 10px; color: var(--ink-faint); margin-top: 5px; }
+  .card.composer { border-color: var(--amber); z-index: 5; cursor: default; }
+  body.composing .card:not(.composer) { opacity: 0.45; }
+  .rail-note {
+    position: absolute; left: 22px; right: 22px;
+    font-size: 11px; color: var(--ink-faint); padding: 8px 2px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .rail-empty {
+    position: absolute; left: 22px; right: 22px; top: 60px;
+    font-size: 12px; color: var(--ink-faint); line-height: 1.7;
+    font-style: italic; font-family: var(--serif);
+  }
+
+  /* connector */
+  #connector { position: absolute; pointer-events: none; z-index: 2; display: none; }
+  #connector .wire { position: absolute; height: 1px; background: var(--amber); opacity: 0.6; top: 0; left: 0; right: 0; }
+  #connector .nub { position: absolute; left: -3px; top: -2.5px; width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+
+  /* ---------- review / summary column ---------- */
+  body.review .rail-col, body.submitted .rail-col { width: 400px; }
+  body.review .card, body.submitted .card { position: static; margin: 0 0 10px; left: auto; right: auto; }
+  body.review .rail-note, body.submitted .rail-note, body.review .rail-marker, body.submitted .rail-marker { display: none; }
+  #summary {
+    display: none; position: sticky; top: 0;
+    padding: 22px 22px 30px; max-height: calc(100vh - 46px); overflow-y: auto;
+  }
+  body.review #summary, body.submitted #summary { display: block; }
+  body.review #rail-cards, body.submitted #rail-cards { display: none; }
+  #summary h3 { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; margin-bottom: 12px; color: var(--ink); }
+  #summary .sum-sub { font-size: 11px; color: var(--ink-faint); margin-bottom: 14px; line-height: 1.5; }
+  #parent-comment {
+    width: 100%; min-height: 74px; background: var(--bg-card); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px;
+    font: inherit; font-size: 12.5px; line-height: 1.5; padding: 9px 11px;
+    resize: vertical; outline: none; margin-bottom: 14px;
+  }
+  #parent-comment:focus { border-color: var(--amber); }
+  .verdicts { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
+  .verdicts label {
+    display: flex; align-items: center; gap: 9px;
+    font-size: 12.5px; padding: 7px 10px; border-radius: 6px;
+    border: 1px solid transparent; cursor: pointer; color: var(--ink-dim);
+  }
+  .verdicts label:has(input:checked) { border-color: var(--line); background: var(--bg-card); color: var(--ink); }
+  .verdicts input { accent-color: var(--amber); }
+  .verdicts .v-desc { margin-left: auto; font-size: 10px; color: var(--ink-faint); }
+  #summary-cards { margin: 4px 0 16px; }
+  #summary-cards .card { cursor: default; }
+  #btn-submit {
+    width: 100%; background: var(--amber); color: #1a150d;
+    border: none; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 600;
+    padding: 10px; cursor: pointer; letter-spacing: 0.02em;
+  }
+  #btn-submit:hover { filter: brightness(1.08); }
+  #summary .esc-hint { text-align: center; font-size: 10.5px; color: var(--ink-faint); margin-top: 10px; }
+
+  #confirmation { display: none; text-align: left; }
+  body.submitted #confirmation { display: block; }
+  body.submitted #review-form { display: none; }
+  #confirmation .check { color: var(--green); font-size: 20px; margin-bottom: 10px; }
+  #confirmation .conf-line { font-family: var(--serif); font-size: 16px; line-height: 1.5; margin-bottom: 6px; }
+  #confirmation .conf-verdict { color: var(--amber); }
+  #confirmation .conf-sub { font-size: 11.5px; color: var(--ink-faint); margin-bottom: 20px; line-height: 1.6; }
+
+  /* ---------- footer ---------- */
+  footer {
+    flex: none; display: flex; align-items: center;
+    padding: 8px 28px; border-top: 1px solid var(--line-soft);
+    font-size: 11px; color: var(--ink-faint);
+  }
+  #status { transition: opacity 0.4s; opacity: 0; color: var(--amber); }
+  #status.show { opacity: 1; }
+  footer .keys { margin-left: auto; display: flex; gap: 14px; }
+
+  /* ---------- help overlay ---------- */
+  #help {
+    display: none; position: fixed; inset: 0; z-index: 50;
+    background: rgba(10, 9, 7, 0.72); backdrop-filter: blur(2px);
+    align-items: center; justify-content: center;
+  }
+  #help.open { display: flex; }
+  #help .panel {
+    background: var(--bg-raised); border: 1px solid var(--line);
+    border-radius: 12px; padding: 26px 34px 28px; width: 620px; max-width: 92vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  #help h3 { font-size: 13px; letter-spacing: 0.1em; color: var(--ink-dim); margin-bottom: 18px; }
+  #help .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 40px; }
+  #help .krow { display: flex; align-items: baseline; gap: 10px; font-size: 12px; padding: 4px 0; color: var(--ink-dim); }
+  #help .krow .kk { width: 90px; flex: none; text-align: right; }
+  #help .ksec { grid-column: 1 / -1; font-size: 10px; letter-spacing: 0.14em; color: var(--amber); margin-top: 12px; }
+  #help .close-hint { margin-top: 20px; font-size: 10.5px; color: var(--ink-faint); text-align: center; }
+</style>
+</head>
+<body class="view-plan">
+
+<header>
+  <span class="brand"><a href="index.html">cueloop <span class="dot">·</span> concept: Margin</a></span>
+  <span class="stance">Notes live beside the text, like a colleague’s pen in the margin.</span>
+  <span class="spacer"></span>
+  <nav class="view-tabs">
+    <button id="tab-plan" class="active"><kbd>1</kbd>Plan</button>
+    <button id="tab-diff"><kbd>2</kbd>Diff</button>
+  </nav>
+  <span id="pending-pill">0 pending</span>
+  <span class="submit-hint"><kbd>⌘⏎</kbd> review</span>
+</header>
+
+<div id="scroller">
+  <div id="canvas">
+    <div class="doc-col">
+
+      <article id="plan-view">
+        <h1 class="blk" id="b-title"><span class="s">Implementation Plan: Session Persistence</span></h1>
+        <div class="doc-meta">submitted by <b>agent/worker-3</b> · rev 1 · awaiting review</div>
+
+        <p class="blk" id="b-context"><span class="s">cueloop keeps every review session in daemon memory today.</span> <span class="s">If the daemon crashes or restarts mid-review, the artifact, its annotations, and any draft verdict are gone, and the agent is left waiting on a review that no longer exists.</span> <span class="s">This plan introduces a small storage layer that persists each session to disk as it changes, so a restarted daemon can pick up exactly where it left off.</span></p>
+
+        <h2 class="blk"><span class="s">Phase 1: Storage layer</span></h2>
+        <p class="blk" id="b-p1"><span class="s">All persistence lives in a new <code>server/storage/</code> module.</span> <span class="s">Sessions are written as one JSON document per session, keyed by session id.</span> <span class="s" id="s-atomic">Writes go through a temp file and an atomic rename, so a crash mid-write can never leave a corrupt record behind.</span></p>
+        <ul>
+          <li class="blk"><span class="s"><code>server/storage/schema.ts</code> — the <code>SessionRecord</code> shape and the current <code>SCHEMA_VERSION</code> constant.</span></li>
+          <li class="blk"><span class="s"><code>server/storage/store.ts</code> — read, write, and list operations, with atomic writes and corruption recovery.</span></li>
+          <li class="blk"><span class="s"><code>server/storage/index.ts</code> — the public surface the daemon imports; nothing else reaches into this directory.</span></li>
+        </ul>
+
+        <pre class="blk"><code class="s"><span class="tok-kw">interface</span> <span class="tok-ty">SessionRecord</span> {
+  <span class="tok-pr">id</span>: <span class="tok-ty">string</span>;
+  <span class="tok-pr">schemaVersion</span>: <span class="tok-ty">string</span>;
+  <span class="tok-pr">artifact</span>: <span class="tok-ty">Artifact</span>;
+  <span class="tok-pr">annotations</span>: <span class="tok-ty">Annotation</span>[];
+  <span class="tok-pr">verdict</span>: <span class="tok-ty">Verdict</span> | <span class="tok-kw">null</span>;
+}</code></pre>
+
+        <h2 class="blk"><span class="s">Phase 2: Recovery on boot</span></h2>
+        <p class="blk" id="b-p2"><span class="s">On boot, the daemon scans the storage directory before it accepts any connections.</span> <span class="s">Recovery is strictly read-only: nothing is deleted or rewritten until a client reattaches to the session.</span></p>
+        <ol>
+          <li class="blk"><span class="s">Scan <code>server/storage/data/</code> for <code>*.json</code> records and parse each one, skipping — and logging — any file that fails validation.</span></li>
+          <li class="blk"><span class="s">Rebuild the in-memory session table from the surviving records, marking each restored session as <code>recovered</code>.</span></li>
+          <li class="blk"><span class="s">Notify any reconnecting agent that its session survived, including the count of annotations already recorded against it.</span></li>
+        </ol>
+
+        <h2 class="blk"><span class="s">Open questions</span></h2>
+        <ul>
+          <li class="blk"><span class="s" id="s-ttl">Should recovered sessions expire after some TTL, or wait indefinitely for the reviewer to come back?</span></li>
+          <li class="blk"><span class="s">Is one JSON file per session enough, or do we want an append-only log for the annotation history?</span></li>
+        </ul>
+      </article>
+
+      <div id="diff-view" hidden>
+        <div class="doc-title">Diff: Session Persistence</div>
+        <div class="doc-meta" style="font-family:var(--sans);font-size:11.5px;color:var(--ink-faint);letter-spacing:.05em;margin-bottom:10px;">2 files changed · <span style="color:var(--green)">+22</span> <span style="color:var(--red)">−3</span> · <kbd>j</kbd>/<kbd>k</kbd> move · <kbd>c</kbd> comment on line</div>
+        <div id="diff-files"></div>
+      </div>
+
+    </div>
+
+    <div class="rail-col" id="rail">
+      <div id="rail-cards"></div>
+      <div id="summary">
+        <div id="review-form">
+          <h3>Submit review</h3>
+          <div class="sum-sub">Everything below is still invisible to the agent. Submitting sends the verdict and all annotations in one atomic reply.</div>
+          <textarea id="parent-comment" placeholder="Overall note to the agent (optional)…"></textarea>
+          <div class="verdicts" role="radiogroup" aria-label="Verdict">
+            <label><input type="radio" name="verdict" value="Comment" checked> Comment <span class="v-desc">feedback only</span></label>
+            <label><input type="radio" name="verdict" value="Approve"> Approve <span class="v-desc">proceed as planned</span></label>
+            <label><input type="radio" name="verdict" value="Request changes"> Request changes <span class="v-desc">revise and resubmit</span></label>
+          </div>
+          <div id="summary-cards"></div>
+          <button id="btn-submit">Submit review <span style="opacity:.7">⌘⏎</span></button>
+          <div class="esc-hint"><kbd>esc</kbd> back to annotating</div>
+        </div>
+        <div id="confirmation">
+          <div class="check">✓</div>
+          <div class="conf-line">Review sent — verdict: <span class="conf-verdict" id="conf-verdict"></span></div>
+          <div class="conf-sub" id="conf-sub"></div>
+          <div id="confirmation-cards"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="connector"><div class="wire"></div><div class="nub"></div></div>
+  </div>
+</div>
+
+<footer>
+  <span id="status"></span>
+  <span class="keys">
+    <span><kbd>↑↓</kbd> block</span>
+    <span><kbd>←→</kbd> sentence</span>
+    <span><kbd>c</kbd> comment</span>
+    <span><kbd>e</kbd> edit</span>
+    <span><kbd>a</kbd> rail</span>
+    <span><kbd>?</kbd> all keys</span>
+  </span>
+</footer>
+
+<div id="help">
+  <div class="panel">
+    <h3>KEYBOARD</h3>
+    <div class="cols">
+      <div class="ksec">NAVIGATE</div>
+      <div class="krow"><span class="kk"><kbd>1</kbd> / <kbd>2</kbd></span> plan view / diff view</div>
+      <div class="krow"><span class="kk"><kbd>↑</kbd><kbd>↓</kbd> <kbd>tab</kbd></span> move between blocks (plan)</div>
+      <div class="krow"><span class="kk"><kbd>←</kbd><kbd>→</kbd></span> move between sentences</div>
+      <div class="krow"><span class="kk"><kbd>⇧←</kbd><kbd>⇧→</kbd></span> extend selection</div>
+      <div class="krow"><span class="kk"><kbd>j</kbd> / <kbd>k</kbd></span> move line cursor (diff)</div>
+      <div class="krow"><span class="kk"><kbd>n</kbd> / <kbd>p</kbd></span> next / previous annotation</div>
+      <div class="ksec">ANNOTATE</div>
+      <div class="krow"><span class="kk"><kbd>c</kbd></span> comment on selection / line</div>
+      <div class="krow"><span class="kk"><kbd>e</kbd></span> edit selection in place (tracked)</div>
+      <div class="krow"><span class="kk"><kbd>⏎</kbd></span> edit the focused card’s note</div>
+      <div class="krow"><span class="kk"><kbd>⌘z</kbd></span> undo last annotation or edit</div>
+      <div class="ksec">REVIEW</div>
+      <div class="krow"><span class="kk"><kbd>⌘⏎</kbd></span> open summary, then submit</div>
+      <div class="krow"><span class="kk"><kbd>a</kbd></span> toggle margin rail</div>
+      <div class="krow"><span class="kk"><kbd>esc</kbd></span> close / cancel / back</div>
+      <div class="krow"><span class="kk"><kbd>?</kbd></span> this cheat-sheet</div>
+    </div>
+    <div class="close-hint"><kbd>esc</kbd> or <kbd>?</kbd> to close</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+(() => {
+
+/* ============================== state ============================== */
+
+const state = {
+  phase: "annotate",          // annotate | review | submitted
+  view: "plan",               // plan | diff
+  sel: null,                  // { b, a, z } block index + unit range (plan)
+  diffCursor: 0,              // index into diffRows
+  focusedId: null,            // focused annotation id
+  railCollapsed: false,
+  seq: 0,
+};
+const annotations = [];        // { id, kind: comment|edit, view, orderKey, ... }
+const undoStack = [];          // { kind, ann }
+
+const $ = (s) => document.querySelector(s);
+const scroller = $("#scroller");
+const canvas = $("#canvas");
+const railCol = $("#rail");
+const railCards = $("#rail-cards");
+const connector = $("#connector");
+
+/* ============================== plan blocks ============================== */
+
+const blocks = [...document.querySelectorAll("#plan-view .blk")].map((el) => ({
+  el,
+  units: [...el.querySelectorAll(".s")],
+}));
+
+function clampSel(sel) {
+  const n = blocks[sel.b].units.length;
+  sel.a = Math.max(0, Math.min(sel.a, n - 1));
+  sel.z = Math.max(sel.a, Math.min(sel.z, n - 1));
+  return sel;
+}
+
+function renderSel() {
+  document.querySelectorAll(".ksel").forEach((el) => el.classList.remove("ksel"));
+  document.querySelectorAll(".blk-focus").forEach((el) => el.classList.remove("blk-focus"));
+  if (!state.sel || state.view !== "plan") return;
+  const { b, a, z } = state.sel;
+  blocks[b].el.classList.add("blk-focus");
+  for (let i = a; i <= z; i++) blocks[b].units[i].classList.add("ksel");
+  blocks[b].units[a].scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function moveBlock(delta) {
+  const cur = state.sel ? state.sel.b : (delta > 0 ? -1 : blocks.length);
+  const next = Math.max(0, Math.min(blocks.length - 1, cur + delta));
+  state.sel = { b: next, a: 0, z: blocks[next].units.length - 1 };
+  setFocused(null);
+  renderSel();
+}
+
+function moveUnit(delta, extend) {
+  if (!state.sel) { moveBlock(1); return; }
+  const sel = state.sel;
+  const n = blocks[sel.b].units.length;
+  const whole = sel.a === 0 && sel.z === n - 1 && n > 1;
+  if (extend) {
+    if (delta > 0) sel.z = Math.min(n - 1, sel.z + 1);
+    else if (sel.z > sel.a) sel.z--;
+    else sel.a = Math.max(0, sel.a - 1);
+  } else if (whole) {
+    const i = delta > 0 ? 0 : n - 1;
+    sel.a = sel.z = i;
+  } else {
+    let i = (delta > 0 ? sel.z : sel.a) + delta;
+    if (i < 0 && sel.b > 0) { moveBlock(-1); const s = state.sel; s.a = s.z = blocks[s.b].units.length - 1; renderSel(); return; }
+    if (i >= n && sel.b < blocks.length - 1) { moveBlock(1); const s = state.sel; s.a = s.z = 0; renderSel(); return; }
+    i = Math.max(0, Math.min(n - 1, i));
+    sel.a = sel.z = i;
+  }
+  clampSel(sel);
+  renderSel();
+}
+
+/* mouse selection -> unit range */
+function selectionFromPointer() {
+  const ws = window.getSelection();
+  if (!ws || ws.isCollapsed || ws.rangeCount === 0) return null;
+  const toUnit = (node) => {
+    const el = node.nodeType === 1 ? node : node.parentElement;
+    return el ? el.closest("#plan-view .s") : null;
+  };
+  const u1 = toUnit(ws.anchorNode), u2 = toUnit(ws.focusNode);
+  if (!u1 || !u2) return null;
+  const b1 = blocks.findIndex((blk) => blk.units.includes(u1));
+  const b2 = blocks.findIndex((blk) => blk.units.includes(u2));
+  if (b1 < 0 || b1 !== b2) return null;
+  const i1 = blocks[b1].units.indexOf(u1), i2 = blocks[b1].units.indexOf(u2);
+  return { b: b1, a: Math.min(i1, i2), z: Math.max(i1, i2) };
+}
+
+document.getElementById("plan-view").addEventListener("mouseup", () => {
+  const sel = selectionFromPointer();
+  if (sel) { state.sel = sel; setFocused(null); renderSel(); }
+});
+
+/* ============================== diff data ============================== */
+
+const diffFiles = [
+  {
+    path: "server/storage/store.ts", added: 12, removed: 3, isNew: false,
+    lines: [
+      { t: "hunk", text: "@@ -16,10 +16,20 @@ export class SessionStore {" },
+      { t: "ctx", text: "  async load(id: string): Promise<SessionRecord | null> {" },
+      { t: "ctx", text: "    const path = this.pathFor(id);" },
+      { t: "del", text: "    const raw = await fs.readFile(path, \"utf8\");" },
+      { t: "del", text: "    return JSON.parse(raw) as SessionRecord;" },
+      { t: "add", text: "    let raw: string;" },
+      { t: "add", text: "    try {" },
+      { t: "add", text: "      raw = await fs.readFile(path, \"utf8\");" },
+      { t: "add", text: "    } catch (error) {" },
+      { t: "add", text: "      if (isNotFoundError(error)) return null;" },
+      { t: "add", text: "      throw error;" },
+      { t: "add", text: "    }" },
+      { t: "add", text: "    const record = JSON.parse(raw) as SessionRecord;" },
+      { t: "add", text: "    if (record.schemaVersion !== SCHEMA_VERSION) {" },
+      { t: "add", text: "      return migrateRecord(record);" },
+      { t: "add", text: "    }" },
+      { t: "add", text: "    return record;" },
+      { t: "ctx", text: "  }" },
+      { t: "ctx", text: "" },
+      { t: "del", text: "  // TODO: decide what happens on parse errors" },
+      { t: "ctx", text: "  private pathFor(id: string): string {" },
+      { t: "ctx", text: "    return join(this.directory, `${id}.json`);" },
+      { t: "ctx", text: "  }" },
+    ],
+    oldStart: 16, newStart: 16,
+  },
+  {
+    path: "server/storage/index.ts", added: 10, removed: 0, isNew: true,
+    lines: [
+      { t: "add", text: "import { SessionStore } from \"./store\";" },
+      { t: "add", text: "import { SCHEMA_VERSION } from \"./schema\";" },
+      { t: "add", text: "" },
+      { t: "add", text: "export type { SessionRecord } from \"./schema\";" },
+      { t: "add", text: "export { SCHEMA_VERSION };" },
+      { t: "add", text: "" },
+      { t: "add", text: "export const sessionStore = new SessionStore({" },
+      { t: "add", text: "  directory: process.env.CUELOOP_DATA_DIR ?? \".cueloop/sessions\"," },
+      { t: "add", text: "});" },
+      { t: "add", text: "" },
+    ],
+    oldStart: 0, newStart: 1,
+  },
+];
+
+const diffRows = []; // { el, file, oldNo, newNo, text, key }
+
+function buildDiff() {
+  const host = $("#diff-files");
+  for (const f of diffFiles) {
+    const box = document.createElement("div");
+    box.className = "file-diff";
+    const head = document.createElement("div");
+    head.className = "file-head";
+    head.innerHTML = `<span class="path"></span>` +
+      (f.isNew ? `<span class="newfile">NEW FILE</span>` : "") +
+      `<span style="margin-left:auto"><span class="stat-add">+${f.added}</span> <span class="stat-del">−${f.removed}</span></span>`;
+    head.querySelector(".path").textContent = f.path;
+    box.appendChild(head);
+    let oldNo = f.oldStart, newNo = f.newStart;
+    for (const line of f.lines) {
+      const row = document.createElement("div");
+      row.className = "dline " + line.t;
+      let og = "", ng = "";
+      if (line.t === "ctx") { og = oldNo++; ng = newNo++; }
+      else if (line.t === "del") { og = oldNo++; }
+      else if (line.t === "add") { ng = newNo++; }
+      row.innerHTML = `<span class="gut">${og}</span><span class="gut">${ng}</span><span class="sign">${
+        line.t === "add" ? "+" : line.t === "del" ? "−" : line.t === "hunk" ? "" : " "}</span><span class="txt"></span>`;
+      row.querySelector(".txt").textContent = line.text || " ";
+      box.appendChild(row);
+      if (line.t !== "hunk") {
+        const idx = diffRows.length;
+        diffRows.push({ el: row, file: f.path, oldNo: og, newNo: ng, text: line.text, key: idx });
+        row.addEventListener("click", () => { state.diffCursor = idx; renderDiffCursor(); });
+      }
+    }
+    host.appendChild(box);
+  }
+}
+
+function renderDiffCursor() {
+  diffRows.forEach((r, i) => r.el.classList.toggle("cursor", i === state.diffCursor && state.view === "diff"));
+  const cur = diffRows[state.diffCursor];
+  if (cur && state.view === "diff") cur.el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function moveDiffCursor(delta) {
+  state.diffCursor = Math.max(0, Math.min(diffRows.length - 1, state.diffCursor + delta));
+  setFocused(null);
+  renderDiffCursor();
+}
+
+/* ============================== views ============================== */
+
+function setView(view) {
+  if (state.view === view) return;
+  state.view = view;
+  $("#plan-view").hidden = view !== "plan";
+  $("#diff-view").hidden = view !== "diff";
+  $("#tab-plan").classList.toggle("active", view === "plan");
+  $("#tab-diff").classList.toggle("active", view === "diff");
+  cancelComposer();
+  renderSel();
+  renderDiffCursor();
+  renderRail();
+}
+$("#tab-plan").addEventListener("click", () => setView("plan"));
+$("#tab-diff").addEventListener("click", () => setView("diff"));
+
+/* ============================== annotations ============================== */
+
+function unitText(el) { return el.textContent.replace(/\s+/g, " ").trim(); }
+function quoteOf(els) {
+  const q = els.map(unitText).join(" ");
+  return q.length > 140 ? q.slice(0, 137).trimEnd() + "…" : q;
+}
+
+function addCommentAnnotation(target, note) {
+  const ann = {
+    id: "a" + (++state.seq), kind: "comment", note,
+    view: target.view, sent: false,
+  };
+  if (target.view === "plan") {
+    ann.unitEls = target.units;
+    ann.quote = quoteOf(target.units);
+    ann.orderKey = target.b * 1000 + target.a;
+    for (const u of target.units) u.classList.add("annotated");
+  } else {
+    ann.row = diffRows[target.row];
+    ann.quote = ann.row.text.trim() || "(blank line)";
+    ann.loc = `${ann.row.file}:${ann.row.newNo || ann.row.oldNo}`;
+    ann.orderKey = target.row;
+    ann.row.el.classList.add("line-annotated");
+  }
+  annotations.push(ann);
+  undoStack.push({ kind: "comment", ann });
+  refreshChrome();
+  return ann;
+}
+
+function removeAnnotation(ann) {
+  const i = annotations.indexOf(ann);
+  if (i >= 0) annotations.splice(i, 1);
+  if (ann.kind === "comment") {
+    if (ann.view === "plan") {
+      for (const u of ann.unitEls) {
+        const stillUsed = annotations.some((o) => o.unitEls && o.unitEls.includes(u));
+        if (!stillUsed) u.classList.remove("annotated");
+      }
+    } else {
+      const stillUsed = annotations.some((o) => o.row === ann.row);
+      if (!stillUsed) ann.row.el.classList.remove("line-annotated");
+    }
+  } else if (ann.kind === "edit") {
+    const blk = blocks[ann.blockIdx];
+    const idx = blk.units.indexOf(ann.wrapper);
+    for (const orig of ann.originalUnits) ann.wrapper.parentNode.insertBefore(orig, ann.wrapper);
+    ann.wrapper.remove();
+    if (idx >= 0) blk.units.splice(idx, 1, ...ann.originalUnits);
+  }
+  if (state.focusedId === ann.id) state.focusedId = null;
+  refreshChrome();
+}
+
+function addEditAnnotation(blockIdx, a, z, newText) {
+  const blk = blocks[blockIdx];
+  const units = blk.units.slice(a, z + 1);
+  const oldText = units.map(unitText).join(" ");
+  const wrapper = document.createElement("span");
+  wrapper.className = "s edited";
+  const del = document.createElement("del");
+  del.textContent = oldText;
+  const ins = document.createElement("ins");
+  ins.textContent = newText;
+  wrapper.append(del, document.createTextNode(" "), ins);
+  units[0].parentNode.insertBefore(wrapper, units[0]);
+  for (const u of units) u.remove();
+  blk.units.splice(a, units.length, wrapper);
+
+  const ann = {
+    id: "a" + (++state.seq), kind: "edit", view: "plan", sent: false,
+    blockIdx, wrapper, originalUnits: units,
+    oldText, newText, orderKey: blockIdx * 1000 + a,
+  };
+  annotations.push(ann);
+  undoStack.push({ kind: "edit", ann });
+  state.sel = null;
+  renderSel();
+  refreshChrome();
+  return ann;
+}
+
+function undo() {
+  if (state.phase !== "annotate") { flash("Finish or cancel the review first"); return; }
+  const entry = undoStack.pop();
+  if (!entry) { flash("Nothing to undo"); return; }
+  removeAnnotation(entry.ann);
+  flash(entry.kind === "edit" ? "Edit undone" : "Comment removed");
+}
+
+function orderedAnnotations() {
+  const plan = annotations.filter((a) => a.view === "plan").sort((x, y) => x.orderKey - y.orderKey);
+  const diff = annotations.filter((a) => a.view === "diff").sort((x, y) => x.orderKey - y.orderKey);
+  return [...plan, ...diff];
+}
+
+/* ============================== focus & connector ============================== */
+
+function anchorEls(ann) {
+  if (ann.kind === "edit") return [ann.wrapper];
+  if (ann.view === "plan") return ann.unitEls;
+  return [ann.row.el];
+}
+
+function setFocused(id) {
+  state.focusedId = id;
+  document.querySelectorAll(".anchor-focus").forEach((el) => el.classList.remove("anchor-focus"));
+  const ann = annotations.find((a) => a.id === id);
+  if (ann) {
+    for (const el of anchorEls(ann)) el.classList.add("anchor-focus");
+    anchorEls(ann)[0].scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+  renderRail();
+}
+
+function focusStep(delta) {
+  const list = orderedAnnotations();
+  if (!list.length) { flash("No annotations yet — select text and press c"); return; }
+  if (state.railCollapsed) toggleRail();
+  let i = list.findIndex((a) => a.id === state.focusedId);
+  i = i < 0 ? (delta > 0 ? 0 : list.length - 1) : (i + delta + list.length) % list.length;
+  const ann = list[i];
+  if (ann.view !== state.view) setView(ann.view);
+  setFocused(ann.id);
+}
+
+/* ============================== rail rendering ============================== */
+
+function topInCanvas(el) {
+  return el.getBoundingClientRect().top - canvas.getBoundingClientRect().top;
+}
+
+function buildCard(ann, compact) {
+  const card = document.createElement("div");
+  card.className = "card" + (ann.kind === "edit" ? " is-edit" : "");
+  card.dataset.id = ann.id;
+  const head = document.createElement("div");
+  head.className = "card-head";
+  head.innerHTML = `<span class="card-type">${ann.kind === "edit" ? "EDIT" : "COMMENT"}</span>` +
+    `<span class="card-badge${ann.sent ? " sent" : ""}">${ann.sent ? "SENT" : "PENDING"}</span>`;
+  card.appendChild(head);
+
+  if (ann.view === "diff") {
+    const loc = document.createElement("div");
+    loc.className = "card-loc";
+    loc.textContent = ann.loc;
+    card.appendChild(loc);
+  }
+  if (ann.kind === "edit") {
+    const mini = document.createElement("div");
+    mini.className = "card-mini";
+    const md = document.createElement("span"); md.className = "m-del"; md.textContent = truncate(ann.oldText);
+    const mi = document.createElement("span"); mi.className = "m-ins"; mi.textContent = truncate(ann.newText);
+    mini.append(md, mi);
+    card.appendChild(mini);
+  } else {
+    const q = document.createElement("div");
+    q.className = "card-quote" + (ann.view === "diff" ? " mono" : "");
+    q.textContent = ann.quote;
+    card.appendChild(q);
+    const body = document.createElement("div");
+    body.className = "card-body";
+    body.textContent = ann.note;
+    card.appendChild(body);
+  }
+
+  if (!compact) {
+    card.addEventListener("click", (e) => {
+      if (state.focusedId === ann.id && ann.kind === "comment" && e.target.closest(".card-body")) {
+        editCardNote(card, ann);
+      } else setFocused(ann.id);
+    });
+  }
+  return card;
+}
+
+function truncate(s) { return s.length > 90 ? s.slice(0, 87).trimEnd() + "…" : s; }
+
+function editCardNote(card, ann) {
+  const body = card.querySelector(".card-body");
+  if (!body || card.querySelector("textarea")) return;
+  const ta = document.createElement("textarea");
+  ta.value = ann.note;
+  ta.rows = Math.max(2, ann.note.split("\n").length);
+  body.replaceWith(ta);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  const save = () => { ann.note = ta.value.trim(); renderRail(); };
+  ta.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); save(); }
+    else if (e.key === "Escape") { e.preventDefault(); renderRail(); }
+  });
+  ta.addEventListener("blur", save);
+}
+
+function renderRail() {
+  railCards.innerHTML = "";
+  document.querySelectorAll(".rail-marker").forEach((m) => m.remove());
+  connector.style.display = "none";
+  if (state.phase !== "annotate") { renderSummaryCards(); refreshChrome(); return; }
+
+  const current = orderedAnnotations().filter((a) => a.view === state.view);
+  const otherCount = annotations.length - current.length;
+
+  if (!annotations.length) {
+    const empty = document.createElement("div");
+    empty.className = "rail-empty";
+    empty.textContent = state.view === "plan"
+      ? "The margin is empty. Move with ↑ ↓, narrow with ← →, then press c to leave a note or e to rewrite a sentence."
+      : "Move the line cursor with j / k, then press c to comment on a line.";
+    railCards.appendChild(empty);
+  }
+
+  // build + measure
+  const items = current.map((ann) => {
+    const card = buildCard(ann, false);
+    card.style.top = "0px";
+    railCards.appendChild(card);
+    return { ann, card, want: Math.max(4, topInCanvas(anchorEls(ann)[0]) - 4) };
+  });
+  items.sort((x, y) => x.want - y.want || x.ann.orderKey - y.ann.orderKey);
+
+  // layout: focused card pinned at its anchor, neighbours pushed away
+  const GAP = 10;
+  const fi = items.findIndex((it) => it.ann.id === state.focusedId);
+  const tops = new Array(items.length);
+  if (fi >= 0) {
+    tops[fi] = items[fi].want;
+    for (let i = fi - 1; i >= 0; i--)
+      tops[i] = Math.min(items[i].want, tops[i + 1] - items[i].card.offsetHeight - GAP);
+    for (let i = fi + 1; i < items.length; i++)
+      tops[i] = Math.max(items[i].want, tops[i - 1] + items[i - 1].card.offsetHeight + GAP);
+  } else {
+    let y = 0;
+    items.forEach((it, i) => { tops[i] = Math.max(it.want, y); y = tops[i] + it.card.offsetHeight + GAP; });
+  }
+  let maxBottom = 40;
+  items.forEach((it, i) => {
+    it.card.style.top = tops[i] + "px";
+    it.card.classList.toggle("focused", it.ann.id === state.focusedId);
+    maxBottom = Math.max(maxBottom, tops[i] + it.card.offsetHeight);
+    // collapsed markers
+    const mk = document.createElement("div");
+    mk.className = "rail-marker" + (it.ann.kind === "edit" ? " edit-marker" : "");
+    mk.style.top = it.want + "px";
+    mk.title = it.ann.kind === "edit" ? "Edit" : it.ann.note;
+    mk.addEventListener("click", () => { if (state.railCollapsed) toggleRail(); setFocused(it.ann.id); });
+    railCol.appendChild(mk);
+  });
+
+  if (otherCount > 0) {
+    const note = document.createElement("div");
+    note.className = "rail-note";
+    note.style.top = (maxBottom + 26) + "px";
+    note.textContent = `${otherCount} more on the ${state.view === "plan" ? "diff" : "plan"} view — press ${state.view === "plan" ? "2" : "1"}`;
+    railCards.appendChild(note);
+  }
+
+  // connector for focused card
+  const focused = items.find((it) => it.ann.id === state.focusedId);
+  if (focused && !state.railCollapsed) {
+    const anchor = anchorEls(focused.ann)[0];
+    const aRect = anchor.getBoundingClientRect();
+    const cRect = canvas.getBoundingClientRect();
+    const left = aRect.right - cRect.left + 6;
+    const right = focused.card.getBoundingClientRect().left - cRect.left - 2;
+    connector.style.display = "block";
+    connector.style.left = left + "px";
+    connector.style.width = Math.max(0, right - left) + "px";
+    connector.style.top = (aRect.top - cRect.top + aRect.height / 2) + "px";
+  }
+  refreshChrome();
+}
+
+function toggleRail() {
+  state.railCollapsed = !state.railCollapsed;
+  document.body.classList.toggle("rail-collapsed", state.railCollapsed);
+  renderRail();
+}
+
+/* ============================== composer (comment) ============================== */
+
+let composer = null; // { el, target }
+
+function openComposer(target) {
+  cancelComposer();
+  if (state.railCollapsed) toggleRail();
+  const card = document.createElement("div");
+  card.className = "card composer";
+  const head = document.createElement("div");
+  head.className = "card-head";
+  head.innerHTML = `<span class="card-type">COMMENT</span><span class="card-badge">DRAFT</span>`;
+  card.appendChild(head);
+  const q = document.createElement("div");
+  if (target.view === "plan") {
+    q.className = "card-quote";
+    q.textContent = quoteOf(target.units);
+  } else {
+    q.className = "card-quote mono";
+    const r = diffRows[target.row];
+    q.textContent = r.text.trim() || "(blank line)";
+  }
+  card.appendChild(q);
+  const ta = document.createElement("textarea");
+  ta.rows = 3;
+  ta.placeholder = "Note for the agent…";
+  card.appendChild(ta);
+  const hint = document.createElement("div");
+  hint.className = "card-hint";
+  hint.innerHTML = `<kbd>⏎</kbd> save · <kbd>esc</kbd> cancel`;
+  card.appendChild(hint);
+
+  const anchor = target.view === "plan" ? target.units[0] : diffRows[target.row].el;
+  card.style.top = Math.max(4, topInCanvas(anchor) - 4) + "px";
+  railCards.appendChild(card);
+  document.body.classList.add("composing");
+  composer = { el: card, target };
+  ta.focus();
+  ta.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveComposer(); }
+    else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveComposer(); }
+    else if (e.key === "Escape") { e.preventDefault(); cancelComposer(); }
+  });
+}
+
+function saveComposer() {
+  if (!composer) return;
+  const note = composer.el.querySelector("textarea").value.trim();
+  const target = composer.target;
+  cancelComposer();
+  if (!note) { flash("Empty note discarded"); return; }
+  const ann = addCommentAnnotation(target, note);
+  setFocused(ann.id);
+  flash("Comment added — pending until you submit");
+}
+
+function cancelComposer() {
+  if (!composer) return;
+  composer.el.remove();
+  composer = null;
+  document.body.classList.remove("composing");
+  renderRail();
+}
+
+function startComment() {
+  if (state.view === "diff") {
+    if (!diffRows[state.diffCursor]) return;
+    openComposer({ view: "diff", row: state.diffCursor });
+    return;
+  }
+  const sel = selectionFromPointer() || state.sel;
+  if (!sel) { flash("Select something first — ↑↓ picks a block, ←→ a sentence"); return; }
+  state.sel = sel;
+  renderSel();
+  const units = blocks[sel.b].units.slice(sel.a, sel.z + 1);
+  openComposer({ view: "plan", units, b: sel.b, a: sel.a });
+}
+
+/* ============================== inline edit (tracked changes) ============================== */
+
+let inlineEdit = null; // { host, hidden, blockIdx, a, z }
+
+function startEdit() {
+  if (state.view !== "plan") { flash("Edits apply to the plan — press 1"); return; }
+  const sel = selectionFromPointer() || state.sel;
+  if (!sel) { flash("Select a sentence or block first"); return; }
+  state.sel = sel; renderSel();
+  const blk = blocks[sel.b];
+  const units = blk.units.slice(sel.a, sel.z + 1);
+  if (units.some((u) => u.classList.contains("edited"))) { flash("Already edited — ⌘z to undo it first"); return; }
+  cancelComposer();
+
+  const host = document.createElement("span");
+  host.className = "inline-editor";
+  const ta = document.createElement("textarea");
+  ta.value = units.map(unitText).join(" ");
+  host.appendChild(ta);
+  const hint = document.createElement("span");
+  hint.className = "ed-hint";
+  hint.innerHTML = `rewrite, then <kbd>⏎</kbd> save as tracked change · <kbd>esc</kbd> cancel`;
+  host.appendChild(hint);
+  units[0].parentNode.insertBefore(host, units[0]);
+  for (const u of units) u.style.display = "none";
+  inlineEdit = { host, units, blockIdx: sel.b, a: sel.a, z: sel.z, original: ta.value };
+
+  const size = () => { ta.style.height = "auto"; ta.style.height = ta.scrollHeight + 2 + "px"; };
+  size();
+  ta.addEventListener("input", size);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+  ta.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); finishEdit(true); }
+    else if (e.key === "Escape") { e.preventDefault(); finishEdit(false); }
+  });
+}
+
+function finishEdit(save) {
+  if (!inlineEdit) return;
+  const { host, units, blockIdx, a, z, original } = inlineEdit;
+  const newText = host.querySelector("textarea").value.trim();
+  host.remove();
+  for (const u of units) u.style.display = "";
+  inlineEdit = null;
+  if (!save || !newText || newText === original.trim()) {
+    if (save) flash("No change — edit discarded");
+    return;
+  }
+  const ann = addEditAnnotation(blockIdx, a, z, newText);
+  setFocused(ann.id);
+  flash("Edit tracked — pending until you submit");
+}
+
+/* clicking tracked change or highlight focuses its card */
+document.getElementById("plan-view").addEventListener("click", (e) => {
+  const edited = e.target.closest(".edited");
+  if (edited) {
+    const ann = annotations.find((a) => a.wrapper === edited);
+    if (ann) { setFocused(ann.id); return; }
+  }
+  const unit = e.target.closest(".s.annotated");
+  if (unit) {
+    const ann = annotations.find((a) => a.unitEls && a.unitEls.includes(unit));
+    if (ann) setFocused(ann.id);
+  }
+});
+
+/* ============================== review & submit ============================== */
+
+function renderSummaryCards() {
+  const host = state.phase === "submitted" ? $("#confirmation-cards") : $("#summary-cards");
+  host.innerHTML = "";
+  for (const ann of orderedAnnotations()) host.appendChild(buildCard(ann, true));
+}
+
+function enterReview() {
+  if (composer) { saveComposer(); }
+  if (inlineEdit) { finishEdit(true); }
+  state.phase = "review";
+  document.body.classList.remove("composing");
+  document.body.classList.add("review");
+  state.sel = null;
+  renderSel();
+  setFocused(null);
+  renderSummaryCards();
+  refreshChrome();
+  $("#parent-comment").focus();
+}
+
+function exitReview() {
+  state.phase = "annotate";
+  document.body.classList.remove("review");
+  renderRail();
+}
+
+function submitReview() {
+  const verdict = document.querySelector("input[name=verdict]:checked").value;
+  const parent = $("#parent-comment").value.trim();
+  state.phase = "submitted";
+  document.body.classList.remove("review");
+  document.body.classList.add("submitted");
+  for (const ann of annotations) ann.sent = true;
+  const nc = annotations.filter((a) => a.kind === "comment").length;
+  const ne = annotations.filter((a) => a.kind === "edit").length;
+  $("#conf-verdict").textContent = verdict;
+  const parts = [];
+  if (nc) parts.push(`${nc} comment${nc === 1 ? "" : "s"}`);
+  if (ne) parts.push(`${ne} edit${ne === 1 ? "" : "s"}`);
+  $("#conf-sub").textContent =
+    (parts.length ? parts.join(" and ") : "No annotations") +
+    (parent ? ` · with an overall note` : "") +
+    ` — delivered to agent/worker-3 in one reply.`;
+  renderSummaryCards();
+  renderRail();
+  refreshChrome();
+  document.activeElement && document.activeElement.blur();
+}
+
+$("#btn-submit").addEventListener("click", submitReview);
+
+/* ============================== chrome ============================== */
+
+function refreshChrome() {
+  const pill = $("#pending-pill");
+  if (state.phase === "submitted") {
+    pill.textContent = "review sent";
+    pill.classList.add("sent");
+  } else {
+    pill.textContent = `${annotations.length} pending`;
+    pill.classList.remove("sent");
+  }
+}
+
+let statusTimer = null;
+function flash(msg) {
+  const el = $("#status");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+function toggleHelp() { $("#help").classList.toggle("open"); }
+$("#help").addEventListener("click", (e) => { if (e.target.id === "help") toggleHelp(); });
+
+/* ============================== keyboard ============================== */
+
+document.addEventListener("keydown", (e) => {
+  const typing = /^(TEXTAREA|INPUT)$/.test(e.target.tagName);
+
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    if (state.phase === "submitted") return;
+    if (state.phase === "review") submitReview();
+    else enterReview();
+    return;
+  }
+  if (e.key === "Escape") {
+    if ($("#help").classList.contains("open")) { toggleHelp(); return; }
+    if (typing) return; // composer / editors handle their own escape
+    if (state.phase === "review") { exitReview(); return; }
+    if (state.focusedId) { setFocused(null); return; }
+    if (state.sel) { state.sel = null; renderSel(); return; }
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && (e.key === "z" || e.key === "Z") && !typing) {
+    e.preventDefault();
+    undo();
+    return;
+  }
+  if (typing) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  if (e.key === "?") { toggleHelp(); return; }
+
+  if (state.phase === "submitted") {
+    if (e.key === "1") setView("plan");
+    else if (e.key === "2") setView("diff");
+    else if (e.key === "n") focusStep(1);
+    else if (e.key === "p") focusStep(-1);
+    else if (["c", "e", "a"].includes(e.key)) flash("Review already sent");
+    return;
+  }
+  if (state.phase === "review") return; // tab/arrows work natively in the form
+
+  switch (e.key) {
+    case "1": setView("plan"); break;
+    case "2": setView("diff"); break;
+    case "a": toggleRail(); flash(state.railCollapsed ? "Rail collapsed to markers" : "Rail expanded"); break;
+    case "c": startComment(); break;
+    case "e": startEdit(); break;
+    case "n": focusStep(1); break;
+    case "p": focusStep(-1); break;
+    case "Enter": {
+      const card = railCards.querySelector(`.card[data-id="${state.focusedId}"]`);
+      const ann = annotations.find((a) => a.id === state.focusedId);
+      if (card && ann && ann.kind === "comment") { e.preventDefault(); editCardNote(card, ann); }
+      break;
+    }
+    case "Tab":
+      if (state.view === "plan") { e.preventDefault(); moveBlock(e.shiftKey ? -1 : 1); }
+      break;
+    case "ArrowDown":
+      e.preventDefault();
+      if (state.view === "plan") moveBlock(1); else moveDiffCursor(1);
+      break;
+    case "ArrowUp":
+      e.preventDefault();
+      if (state.view === "plan") moveBlock(-1); else moveDiffCursor(-1);
+      break;
+    case "j": if (state.view === "diff") moveDiffCursor(1); else { moveBlock(1); } break;
+    case "k": if (state.view === "diff") moveDiffCursor(-1); else { moveBlock(-1); } break;
+    case "ArrowRight":
+      if (state.view === "plan") { e.preventDefault(); moveUnit(1, e.shiftKey); }
+      break;
+    case "ArrowLeft":
+      if (state.view === "plan") { e.preventDefault(); moveUnit(-1, e.shiftKey); }
+      break;
+  }
+});
+
+window.addEventListener("resize", () => renderRail());
+
+/* ============================== seed & init ============================== */
+
+buildDiff();
+
+// two pending notes so the margin reads as a margin immediately
+(function seed() {
+  const atomic = document.getElementById("s-atomic");
+  const ttl = document.getElementById("s-ttl");
+  const findTarget = (unit) => {
+    const b = blocks.findIndex((blk) => blk.units.includes(unit));
+    const a = blocks[b].units.indexOf(unit);
+    return { view: "plan", units: [unit], b, a };
+  };
+  addCommentAnnotation(findTarget(atomic),
+    "Do we fsync the directory after the rename? On ext4 the rename itself can still be lost on power failure.");
+  addCommentAnnotation(findTarget(ttl),
+    "Let’s default to a 24h TTL and revisit — indefinite waits will pile up on shared runners.");
+})();
+
+state.sel = { b: 1, a: 0, z: blocks[1].units.length - 1 };
+renderSel();
+renderRail();
+flash("↑↓ pick a block · ←→ a sentence · c to comment · ? for all keys");
+
+})();
+</script>
+</body>
+</html>

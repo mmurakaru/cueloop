@@ -1,0 +1,993 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manuscript — cueloop</title>
+<style>
+  :root {
+    --bg: #16140f;
+    --ink: #e7e1d3;
+    --ink-dim: #a29a87;
+    --ink-faint: #6f6857;
+    --hair: #2e2a20;
+    --card: #201d15;
+    --card-edge: #3a3527;
+    --amber: #d6a854;
+    --amber-soft: rgba(214, 168, 84, 0.14);
+    --amber-line: rgba(214, 168, 84, 0.55);
+    --green: #9ecf9a;
+    --green-bg: rgba(110, 180, 110, 0.13);
+    --red: #d99189;
+    --red-bg: rgba(200, 100, 90, 0.11);
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "SF Pro Text", "Segoe UI", Inter, sans-serif;
+    --serif: "Iowan Old Style", "Charter", "Palatino Linotype", Palatino, Georgia, serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.72;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: var(--amber-soft); }
+
+  /* ── brand ─────────────────────────────────────── */
+  .brand {
+    position: fixed; top: 22px; left: 26px; z-index: 40;
+    font-family: var(--sans); font-size: 11px; letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .brand a { color: var(--ink-faint); text-decoration: none; }
+  .brand a:hover { color: var(--amber); }
+  .brand .stance {
+    margin-top: 5px; letter-spacing: 0.02em; text-transform: none;
+    font-size: 11.5px; color: var(--ink-faint); opacity: 0.65; font-style: italic;
+    max-width: 220px; line-height: 1.5;
+  }
+
+  /* ── plan document ─────────────────────────────── */
+  main { max-width: 660px; margin: 0 auto; padding: 108px 32px 180px; }
+  article h1 {
+    font-size: 34px; font-weight: 600; line-height: 1.25;
+    letter-spacing: -0.01em; margin-bottom: 14px;
+  }
+  article .byline {
+    font-family: var(--sans); font-size: 12.5px; color: var(--ink-faint);
+    margin-bottom: 52px; letter-spacing: 0.03em;
+  }
+  article h2 {
+    font-family: var(--sans); font-size: 12.5px; font-weight: 600;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-dim);
+    margin: 52px 0 18px; padding-top: 26px; border-top: 1px solid var(--hair);
+  }
+  article p { margin-bottom: 20px; }
+  article ul, article ol { margin: 0 0 20px 26px; }
+  article li { margin-bottom: 10px; padding-left: 4px; }
+  article code {
+    font-family: var(--mono); font-size: 0.82em;
+    background: rgba(255, 255, 255, 0.05); padding: 1px 5px; border-radius: 4px;
+  }
+  article pre {
+    font-family: var(--mono); font-size: 13.5px; line-height: 1.65;
+    background: #1b1913; border: 1px solid var(--hair); border-radius: 8px;
+    padding: 18px 22px; margin: 6px 0 22px; overflow-x: auto; white-space: pre;
+  }
+  article pre .kw { color: #c9a06a; }
+  article pre .ty { color: #a3b8a0; }
+
+  /* keyboard selection + annotations */
+  .s { border-radius: 3px; transition: background 0.12s; }
+  .s.k-sel {
+    background: var(--amber-soft);
+    box-shadow: 0 0 0 3px var(--amber-soft);
+  }
+  code.s.k-sel { display: block; box-shadow: none; }
+  .s.noted { border-bottom: 1px dotted var(--amber-line); }
+  .s.flash { animation: flash 0.9s ease-out; }
+  @keyframes flash {
+    0% { background: var(--amber-soft); box-shadow: 0 0 0 4px var(--amber-soft); }
+    100% { background: transparent; box-shadow: none; }
+  }
+  ins { color: var(--green); background: var(--green-bg); text-decoration: none; border-radius: 3px; padding: 0 2px; }
+  del { color: var(--red); background: var(--red-bg); text-decoration: line-through; border-radius: 3px; padding: 0 2px; }
+
+  /* ── diff view ─────────────────────────────────── */
+  #diffView { max-width: 860px; }
+  #diffView h1 { font-size: 26px; margin-bottom: 46px; }
+  .file { border: 1px solid var(--hair); border-radius: 10px; margin-bottom: 34px; overflow: hidden; }
+  .file-head {
+    font-family: var(--mono); font-size: 12.5px; color: var(--ink-dim);
+    background: #1b1913; padding: 10px 16px; border-bottom: 1px solid var(--hair);
+    display: flex; gap: 14px; align-items: baseline;
+  }
+  .file-head .adds { color: var(--green); }
+  .file-head .dels { color: var(--red); }
+  .file-head .badge {
+    font-family: var(--sans); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint);
+    border: 1px solid var(--hair); border-radius: 99px; padding: 1px 8px;
+  }
+  .hunk-head {
+    font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
+    padding: 6px 16px; background: rgba(255, 255, 255, 0.02);
+  }
+  .dline {
+    font-family: var(--mono); font-size: 13px; line-height: 1.8;
+    display: grid; grid-template-columns: 44px 44px 22px 1fr;
+    white-space: pre; border-left: 2px solid transparent;
+  }
+  .dline .no { color: var(--ink-faint); text-align: right; padding-right: 12px; font-size: 11.5px; user-select: none; }
+  .dline .sign { user-select: none; }
+  .dline.add { background: var(--green-bg); }
+  .dline.add .sign, .dline.add .txt { color: var(--green); }
+  .dline.del { background: var(--red-bg); }
+  .dline.del .sign, .dline.del .txt { color: var(--red); }
+  .dline.cur { border-left-color: var(--amber); background: var(--amber-soft); }
+  .dline.noted .no:first-child { position: relative; }
+  .dline.noted .no:first-child::before {
+    content: ""; position: absolute; left: 6px; top: 50%; margin-top: -3px;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--amber);
+  }
+  .dline.flash { animation: flash 0.9s ease-out; }
+
+  /* ── floating pill ─────────────────────────────── */
+  #pill {
+    position: fixed; right: 28px; bottom: 26px; z-index: 40;
+    font-family: var(--sans); font-size: 12.5px;
+    background: var(--card); border: 1px solid var(--card-edge);
+    border-radius: 999px; padding: 9px 18px;
+    color: var(--ink-faint); cursor: default;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    transition: color 0.2s, border-color 0.2s;
+  }
+  #pill.live { color: var(--amber); border-color: var(--amber-line); cursor: pointer; }
+  #pill.live:hover { background: #262215; }
+  #pill .edits { color: var(--ink-dim); font-size: 11.5px; }
+  #pill .edits b.plus { color: var(--green); font-weight: 500; }
+  #pill .edits b.minus { color: var(--red); font-weight: 500; }
+  #pill kbd { font-family: var(--sans); font-size: 11px; opacity: 0.75; }
+
+  /* ── composer ──────────────────────────────────── */
+  #composer {
+    position: absolute; z-index: 50; width: 480px; max-width: calc(100vw - 40px);
+    background: var(--card); border: 1px solid var(--card-edge);
+    border-radius: 10px; padding: 12px;
+    box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+    font-family: var(--sans);
+  }
+  #composer .quote {
+    font-family: var(--serif); font-style: italic; font-size: 13.5px;
+    color: var(--ink-dim); border-left: 2px solid var(--amber-line);
+    padding: 2px 0 2px 10px; margin-bottom: 10px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #composer textarea, #modal textarea {
+    width: 100%; background: #16140e; color: var(--ink);
+    border: 1px solid var(--hair); border-radius: 6px;
+    font-family: var(--sans); font-size: 13.5px; line-height: 1.55;
+    padding: 9px 11px; resize: vertical; outline: none;
+  }
+  #composer textarea:focus, #modal textarea:focus { border-color: var(--amber-line); }
+  #composer textarea.code { font-family: var(--mono); font-size: 12.5px; }
+  .hint { font-size: 11px; color: var(--ink-faint); margin-top: 8px; }
+  .hint kbd, #cheat kbd {
+    font-family: var(--sans); font-size: 10.5px; color: var(--ink-dim);
+    border: 1px solid var(--card-edge); border-bottom-width: 2px;
+    border-radius: 4px; padding: 1px 5px; background: #191712;
+  }
+
+  /* ── overlays ──────────────────────────────────── */
+  .scrim {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(10, 9, 6, 0.6); backdrop-filter: blur(2px);
+    display: flex; align-items: center; justify-content: center;
+  }
+  #modal .box {
+    width: 580px; max-width: calc(100vw - 48px); max-height: 82vh; overflow-y: auto;
+    background: var(--card); border: 1px solid var(--card-edge); border-radius: 12px;
+    padding: 26px 28px; font-family: var(--sans);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  }
+  #modal h3 { font-family: var(--serif); font-size: 21px; font-weight: 600; margin-bottom: 18px; }
+  #modal .verdicts { display: flex; flex-direction: column; gap: 2px; margin: 18px 0 20px; }
+  #modal .verdicts label {
+    display: flex; gap: 10px; align-items: baseline; font-size: 13.5px;
+    padding: 8px 10px; border-radius: 7px; cursor: pointer;
+  }
+  #modal .verdicts label:hover { background: rgba(255, 255, 255, 0.03); }
+  #modal .verdicts input { accent-color: var(--amber); }
+  #modal .verdicts .sub { color: var(--ink-faint); font-size: 12px; }
+  #modal .pending-head {
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint); margin: 4px 0 10px;
+  }
+  #modal .ann {
+    border-left: 2px solid var(--card-edge); padding: 2px 0 2px 12px; margin-bottom: 14px;
+  }
+  #modal .ann .where { font-size: 11px; color: var(--ink-faint); font-family: var(--mono); margin-bottom: 3px; }
+  #modal .ann .q {
+    font-family: var(--serif); font-style: italic; font-size: 13.5px; color: var(--ink-dim);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #modal .ann .body { font-size: 13.5px; margin-top: 4px; }
+  #modal .ann .delta { font-family: var(--mono); font-size: 12px; }
+  #modal .ann .delta .plus { color: var(--green); }
+  #modal .ann .delta .minus { color: var(--red); }
+  #modal .none { font-size: 13px; color: var(--ink-faint); font-style: italic; margin-bottom: 14px; }
+  #modal .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  #modal button {
+    font-family: var(--sans); font-size: 13px; border-radius: 7px; cursor: pointer;
+    padding: 8px 16px; border: 1px solid var(--card-edge); background: none; color: var(--ink-dim);
+  }
+  #modal button.primary { background: var(--amber); border-color: var(--amber); color: #1a1610; font-weight: 600; }
+  #modal button.primary:hover { filter: brightness(1.08); }
+
+  #cheat .box {
+    width: 460px; max-width: calc(100vw - 48px);
+    background: var(--card); border: 1px solid var(--card-edge); border-radius: 12px;
+    padding: 24px 28px; font-family: var(--sans);
+  }
+  #cheat h3 {
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 16px;
+  }
+  #cheat table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  #cheat td { padding: 5px 0; color: var(--ink-dim); }
+  #cheat td:first-child { width: 150px; color: var(--ink); }
+
+  /* ── done state ────────────────────────────────── */
+  #done {
+    position: fixed; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; z-index: 70;
+    background: var(--bg);
+  }
+  #done .verdict { font-family: var(--serif); font-size: 26px; }
+  #done .detail { font-family: var(--sans); font-size: 13px; color: var(--ink-faint); }
+
+  #firstHint {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    font-family: var(--sans); font-size: 12px; color: var(--ink-faint);
+    transition: opacity 0.6s; pointer-events: none;
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <a href="index.html">cueloop · concept: Manuscript</a>
+  <div class="stance">The document is sacred. UI appears only when summoned.</div>
+</div>
+
+<main id="planView">
+  <article>
+    <h1>Implementation Plan: Session Persistence</h1>
+    <div class="byline">submitted by agent <code>builder-7</code> · awaiting your review</div>
+
+    <h2>Context</h2>
+    <p>
+      <span class="s">cueloop currently keeps every review session in memory.</span>
+      <span class="s">If the daemon crashes or the machine reboots mid-review, the human&rsquo;s annotations and the agent&rsquo;s pending plan are simply gone, and the agent is left waiting on a verdict that will never arrive.</span>
+      <span class="s">This plan introduces a small write-ahead storage layer so that any in-flight session can be recovered exactly as it was.</span>
+    </p>
+
+    <h2>Phase 1: Storage layer</h2>
+    <p>
+      <span class="s">All persistence lives in a new <code>server/storage/</code> directory.</span>
+      <span class="s">Sessions are serialized to JSON, one file per session, written atomically via a temp-file rename so a partial write can never corrupt an existing record.</span>
+      <span class="s">No database, no migrations &mdash; the filesystem is the store.</span>
+    </p>
+    <ul>
+      <li><span class="s"><code>server/storage/store.ts</code> &mdash; read, write, and list operations for session records, with an in-process write queue so concurrent flushes never interleave.</span></li>
+      <li><span class="s"><code>server/storage/schema.ts</code> &mdash; the <code>SessionRecord</code> type and a <code>SCHEMA_VERSION</code> constant, bumped on any breaking shape change.</span></li>
+      <li><span class="s"><code>server/storage/index.ts</code> &mdash; the public API surface; nothing outside this directory imports store internals.</span></li>
+    </ul>
+    <pre><code class="s"><span class="kw">interface</span> <span class="ty">SessionRecord</span> {
+  id: <span class="ty">string</span>;
+  schemaVersion: <span class="ty">string</span>;
+  artifact: <span class="ty">Artifact</span>;
+  annotations: <span class="ty">Annotation</span>[];
+  verdict: <span class="ty">Verdict</span> | <span class="kw">null</span>;
+}</code></pre>
+
+    <h2>Phase 2: Recovery on boot</h2>
+    <p>
+      <span class="s">On startup the daemon scans the storage directory before accepting any new connections.</span>
+      <span class="s">Recovery is strictly read-only until the scan completes, and a session that fails to parse is quarantined rather than deleted.</span>
+    </p>
+    <ol>
+      <li><span class="s">Enumerate <code>*.session.json</code> files and parse each one, validating <code>schemaVersion</code> against the current constant.</span></li>
+      <li><span class="s">Rehydrate valid records into the in-memory session table and mark them as recovered so the UI can surface a banner.</span></li>
+      <li><span class="s">Notify any reconnecting agent whose session survived, replaying the last known state so it can resume waiting for a verdict.</span></li>
+    </ol>
+
+    <h2>Open questions</h2>
+    <ul>
+      <li><span class="s">Should recovered sessions expire after a TTL, or wait indefinitely for the human to return?</span></li>
+      <li><span class="s">Is one file per session durable enough, or do we need an append-only journal so individual annotations survive a crash too?</span></li>
+    </ul>
+  </article>
+</main>
+
+<main id="diffView" hidden>
+  <article>
+    <h1>Diff: Session Persistence <span style="font-family: var(--sans); font-size: 12px; color: var(--ink-faint); font-weight: 400;">&nbsp;&nbsp;2 files · +21 −3</span></h1>
+    <div id="diffFiles"></div>
+  </article>
+</main>
+
+<div id="pill"></div>
+
+<div id="composer" hidden>
+  <div class="quote" id="composerQuote"></div>
+  <textarea id="composerText" rows="3"></textarea>
+  <div class="hint" id="composerHint"></div>
+</div>
+
+<div id="modal" class="scrim" hidden>
+  <div class="box">
+    <h3>Finish your review</h3>
+    <textarea id="summaryText" rows="3" placeholder="Leave an overall comment (optional)&hellip;"></textarea>
+    <div class="verdicts">
+      <label><input type="radio" name="verdict" value="Comment" checked>
+        <span>Comment <span class="sub">&mdash; feedback without an explicit verdict</span></span></label>
+      <label><input type="radio" name="verdict" value="Approve">
+        <span>Approve <span class="sub">&mdash; the agent may proceed with this plan</span></span></label>
+      <label><input type="radio" name="verdict" value="Request changes">
+        <span>Request changes <span class="sub">&mdash; the agent must revise and resubmit</span></span></label>
+    </div>
+    <div class="pending-head" id="pendingHead"></div>
+    <div id="pendingList"></div>
+    <div class="actions">
+      <button id="cancelBtn">Cancel</button>
+      <button class="primary" id="submitBtn">Submit review&ensp;⌘⏎</button>
+    </div>
+  </div>
+</div>
+
+<div id="cheat" class="scrim" hidden>
+  <div class="box">
+    <h3>Keys</h3>
+    <table>
+      <tr><td><kbd>↓</kbd> <kbd>↑</kbd> / <kbd>j</kbd> <kbd>k</kbd></td><td>move between sentences · diff lines</td></tr>
+      <tr><td><kbd>⇧↓</kbd> <kbd>⇧↑</kbd></td><td>extend the selection</td></tr>
+      <tr><td><kbd>tab</kbd> / <kbd>⇧tab</kbd></td><td>jump by block</td></tr>
+      <tr><td><kbd>c</kbd></td><td>comment on selection · line</td></tr>
+      <tr><td><kbd>e</kbd></td><td>edit selection in place (tracked changes)</td></tr>
+      <tr><td><kbd>n</kbd> / <kbd>p</kbd></td><td>next · previous pending annotation</td></tr>
+      <tr><td><kbd>1</kbd> / <kbd>2</kbd></td><td>plan · diff view</td></tr>
+      <tr><td><kbd>⌘z</kbd></td><td>undo last annotation or edit</td></tr>
+      <tr><td><kbd>⌘⏎</kbd></td><td>finish review</td></tr>
+      <tr><td><kbd>esc</kbd></td><td>close · clear selection</td></tr>
+    </table>
+  </div>
+</div>
+
+<div id="done" hidden>
+  <div class="verdict" id="doneVerdict"></div>
+  <div class="detail" id="doneDetail"></div>
+</div>
+
+<div id="firstHint">move with <b>j</b>/<b>k</b> · press <b>?</b> for all keys</div>
+
+<script>
+"use strict";
+
+/* ───────────────────────── state ───────────────────────── */
+
+const $ = (id) => document.getElementById(id);
+
+let units = [];            // plan sentence spans, document order
+let cursor = -1;           // focused unit index
+let anchor = -1;           // selection anchor unit index
+let diffCursor = -1;       // focused diff line index
+let diffLines = [];        // diff line elements
+let view = "plan";
+let annotations = [];      // { kind: comment|edit|diffc, ... }
+let undoStack = [];
+let annCursor = -1;        // n/p position
+let composerMode = null;   // comment | edit | diffc
+let composerRange = null;
+let submitted = false;
+let annSeq = 0;
+
+const planView = $("planView"), diffView = $("diffView");
+const pill = $("pill"), composer = $("composer");
+const composerText = $("composerText"), composerQuote = $("composerQuote"), composerHint = $("composerHint");
+const modal = $("modal"), cheat = $("cheat");
+
+/* ───────────────────────── diff data + render ───────────────────────── */
+
+const diffData = [
+  {
+    file: "server/storage/store.ts", badge: "modified", adds: 12, dels: 3,
+    hunks: [{
+      header: "@@ -18,6 +18,15 @@ export class SessionStore {",
+      start: [18, 18],
+      lines: [
+        [" ", "  private readonly dir: string;"],
+        [" ", ""],
+        [" ", "  async put(record: SessionRecord): Promise<void> {"],
+        ["-", "    const path = this.pathFor(record.id);"],
+        ["-", "    await writeFile(path, JSON.stringify(record));"],
+        ["-", "  }"],
+        ["+", "    const path = this.pathFor(record.id);"],
+        ["+", "    const tmp = path + '.tmp';"],
+        ["+", "    await this.queue.add(async () => {"],
+        ["+", "      await writeFile(tmp, JSON.stringify(record));"],
+        ["+", "      await rename(tmp, path);"],
+        ["+", "    });"],
+        ["+", "  }"],
+        ["+", ""],
+        ["+", "  async list(): Promise<SessionRecord[]> {"],
+        ["+", "    const files = await readdir(this.dir);"],
+        ["+", "    return Promise.all(files.filter(isSessionFile).map(f => this.read(f)));"],
+        ["+", "  }"],
+        [" ", ""],
+        [" ", "  private pathFor(id: string): string {"],
+      ],
+    }],
+  },
+  {
+    file: "server/storage/index.ts", badge: "new file", adds: 9, dels: 0,
+    hunks: [{
+      header: "@@ -0,0 +1,9 @@",
+      start: [0, 1],
+      lines: [
+        ["+", "export { SessionStore } from './store';"],
+        ["+", "export type { SessionRecord } from './schema';"],
+        ["+", "export { SCHEMA_VERSION } from './schema';"],
+        ["+", ""],
+        ["+", "import { SessionStore } from './store';"],
+        ["+", ""],
+        ["+", "export function createStore(dir: string): SessionStore {"],
+        ["+", "  return new SessionStore(dir);"],
+        ["+", "}"],
+      ],
+    }],
+  },
+];
+
+function renderDiff() {
+  const root = $("diffFiles");
+  for (const f of diffData) {
+    const box = document.createElement("div");
+    box.className = "file";
+    const head = document.createElement("div");
+    head.className = "file-head";
+    head.innerHTML = `<span>${f.file}</span><span class="badge">${f.badge}</span>` +
+      `<span class="adds">+${f.adds}</span>` + (f.dels ? `<span class="dels">−${f.dels}</span>` : "");
+    box.appendChild(head);
+    for (const h of f.hunks) {
+      const hh = document.createElement("div");
+      hh.className = "hunk-head";
+      hh.textContent = h.header;
+      box.appendChild(hh);
+      let oldN = h.start[0], newN = h.start[1];
+      for (const [sign, text] of h.lines) {
+        const row = document.createElement("div");
+        row.className = "dline " + (sign === "+" ? "add" : sign === "-" ? "del" : "ctx");
+        const o = sign === "+" ? "" : oldN++;
+        const n = sign === "-" ? "" : newN++;
+        row.dataset.file = f.file;
+        row.dataset.line = n || o;
+        row.innerHTML = `<span class="no">${o}</span><span class="no">${n}</span>` +
+          `<span class="sign">${sign === " " ? "" : sign}</span><span class="txt"></span>`;
+        row.querySelector(".txt").textContent = text;
+        box.appendChild(row);
+        diffLines.push(row);
+      }
+    }
+    root.appendChild(box);
+  }
+}
+
+/* ───────────────────────── selection (plan) ───────────────────────── */
+
+function selRange() {
+  if (cursor < 0) return null;
+  const a = anchor < 0 ? cursor : anchor;
+  return [Math.min(a, cursor), Math.max(a, cursor)];
+}
+
+function paintSelection() {
+  units.forEach((u) => u.classList.remove("k-sel"));
+  const r = selRange();
+  if (r) for (let i = r[0]; i <= r[1]; i++) units[i].classList.add("k-sel");
+}
+
+function clearSelection() {
+  cursor = -1; anchor = -1;
+  paintSelection();
+  window.getSelection().removeAllRanges();
+}
+
+function moveCursor(delta, extend) {
+  if (cursor < 0) { cursor = delta > 0 ? 0 : units.length - 1; anchor = -1; }
+  else {
+    if (extend && anchor < 0) anchor = cursor;
+    if (!extend) anchor = -1;
+    cursor = Math.max(0, Math.min(units.length - 1, cursor + delta));
+  }
+  paintSelection();
+  units[cursor].scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function blockOf(u) { return u.closest("p, li, pre, h1, h2"); }
+
+function moveBlock(dir) {
+  if (cursor < 0) { moveCursor(dir, false); return; }
+  const cur = blockOf(units[cursor]);
+  let i = cursor;
+  while (i + dir >= 0 && i + dir < units.length) {
+    i += dir;
+    if (blockOf(units[i]) !== cur) break;
+  }
+  if (dir < 0) { // land on first unit of that block
+    const b = blockOf(units[i]);
+    while (i > 0 && blockOf(units[i - 1]) === b) i--;
+  }
+  anchor = -1; cursor = i;
+  paintSelection();
+  units[cursor].scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+/* map a mouse selection onto units */
+function adoptMouseSelection() {
+  const sel = window.getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return false;
+  const range = sel.getRangeAt(0);
+  let first = -1, last = -1;
+  units.forEach((u, i) => {
+    if (range.intersectsNode(u)) { if (first < 0) first = i; last = i; }
+  });
+  if (first < 0) return false;
+  anchor = first; cursor = last;
+  paintSelection();
+  return true;
+}
+
+planView.addEventListener("mouseup", () => {
+  if (submitted) return;
+  if (!adoptMouseSelection()) {
+    const el = document.activeElement;
+    if (el && (el.tagName === "TEXTAREA")) return;
+  }
+});
+
+planView.addEventListener("click", (e) => {
+  if (submitted || composerMode) return;
+  const u = e.target.closest(".s");
+  if (u && window.getSelection().isCollapsed) {
+    anchor = -1; cursor = units.indexOf(u);
+    paintSelection();
+  }
+});
+
+/* ───────────────────────── quoting + word diff ───────────────────────── */
+
+function quoteOf(el) {
+  const clone = el.cloneNode(true);
+  clone.querySelectorAll("del").forEach((d) => d.remove());
+  return clone.textContent.replace(/\s+/g, " ").trim();
+}
+
+function quoteOfRange(r) {
+  return units.slice(r[0], r[1] + 1).map(quoteOf).join(" ");
+}
+
+function truncate(s, n) { return s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s; }
+
+function diffTokens(A, B) {
+  const m = A.length, n = B.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--)
+    for (let j = n - 1; j >= 0; j--)
+      dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const ops = [];
+  const push = (t, w) => {
+    if (ops.length && ops[ops.length - 1].t === t) ops[ops.length - 1].w.push(w);
+    else ops.push({ t, w: [w] });
+  };
+  let i = 0, j = 0;
+  while (i < m && j < n) {
+    if (A[i] === B[j]) { push("eq", A[i]); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { push("del", A[i]); i++; }
+    else { push("ins", B[j]); j++; }
+  }
+  while (i < m) push("del", A[i++]);
+  while (j < n) push("ins", B[j++]);
+  return ops;
+}
+
+/* ───────────────────────── composer ───────────────────────── */
+
+function openComposer(mode, anchorEl) {
+  composerMode = mode;
+  composer.hidden = false;
+  composerText.classList.toggle("code", mode === "edit" && anchorEl.closest("pre") !== null);
+  const rect = anchorEl.getBoundingClientRect();
+  const left = Math.max(16, Math.min(rect.left + window.scrollX, window.scrollX + window.innerWidth - 500));
+  composer.style.left = left + "px";
+  composer.style.top = rect.bottom + window.scrollY + 10 + "px";
+  composerText.value = "";
+  if (mode === "comment") {
+    composerQuote.hidden = false;
+    composerQuote.textContent = truncate(quoteOfRange(composerRange), 110);
+    composerText.rows = 3;
+    composerText.placeholder = "Leave a comment on this passage…";
+    composerHint.innerHTML = "<kbd>⏎</kbd> save comment &nbsp;·&nbsp; <kbd>⇧⏎</kbd> newline &nbsp;·&nbsp; <kbd>esc</kbd> cancel";
+  } else if (mode === "edit") {
+    composerQuote.hidden = true;
+    const original = units.slice(composerRange[0], composerRange[1] + 1)
+      .map((u) => u.textContent).join(" ").replace(/[ \t]+\n/g, "\n");
+    composerText.value = original;
+    composerText.rows = Math.min(10, Math.max(3, original.split("\n").length + 1));
+    composerHint.innerHTML = "editing in place — <kbd>⏎</kbd> apply as tracked change &nbsp;·&nbsp; <kbd>⇧⏎</kbd> newline &nbsp;·&nbsp; <kbd>esc</kbd> cancel";
+  } else { // diffc
+    composerQuote.hidden = false;
+    const row = diffLines[diffCursor];
+    composerQuote.textContent = truncate(row.querySelector(".txt").textContent.trim() || "(blank line)", 110);
+    composerText.rows = 3;
+    composerText.placeholder = `Comment on ${row.dataset.file}:${row.dataset.line}…`;
+    composerHint.innerHTML = "<kbd>⏎</kbd> save comment &nbsp;·&nbsp; <kbd>esc</kbd> cancel";
+  }
+  composerText.focus();
+  if (mode === "edit") composerText.setSelectionRange(0, 0);
+  composer.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+
+function closeComposer() {
+  composer.hidden = true;
+  composerMode = null;
+  composerRange = null;
+}
+
+function commitComposer() {
+  const text = composerText.value.trim();
+  if (composerMode === "comment") {
+    if (!text) return;
+    const els = units.slice(composerRange[0], composerRange[1] + 1);
+    const ann = { kind: "comment", id: ++annSeq, quote: quoteOfRange(composerRange), body: text, els };
+    els.forEach((u) => u.classList.add("noted"));
+    annotations.push(ann);
+    undoStack.push({ type: "ann", ann });
+  } else if (composerMode === "edit") {
+    applyEdit(text);
+  } else if (composerMode === "diffc") {
+    if (!text) return;
+    const row = diffLines[diffCursor];
+    const ann = {
+      kind: "diffc", id: ++annSeq, body: text, els: [row],
+      file: row.dataset.file, line: row.dataset.line,
+      quote: row.querySelector(".txt").textContent.trim(),
+    };
+    row.classList.add("noted");
+    annotations.push(ann);
+    undoStack.push({ type: "ann", ann });
+  }
+  closeComposer();
+  clearSelection();
+  updatePill();
+}
+
+/* ───────────────────────── edits (tracked changes) ───────────────────────── */
+
+function applyEdit(newText) {
+  const [a, b] = composerRange;
+  const targets = units.slice(a, b + 1);
+  if (targets.some((u) => u.classList.contains("edit"))) return; // no re-editing an edit
+  const inCode = targets[0].closest("pre") !== null;
+  const oldText = targets.map((u) => u.textContent).join(" ").replace(/[ \t]+\n/g, "\n");
+  if (newText === oldText) { closeComposer(); return; }
+
+  const sep = inCode ? "\n" : " ";
+  const tok = (s) => (inCode ? s.split("\n") : s.split(/\s+/).filter(Boolean));
+  const ops = diffTokens(tok(oldText), tok(newText));
+  let plus = 0, minus = 0;
+
+  const wrapper = document.createElement("span");
+  wrapper.className = "s edit";
+  ops.forEach((op, idx) => {
+    if (idx > 0) wrapper.appendChild(document.createTextNode(sep));
+    const joined = op.w.join(sep);
+    if (op.t === "eq") wrapper.appendChild(document.createTextNode(joined));
+    else {
+      const el = document.createElement(op.t === "ins" ? "ins" : "del");
+      el.textContent = joined;
+      wrapper.appendChild(el);
+      if (op.t === "ins") plus += op.w.length; else minus += op.w.length;
+    }
+  });
+
+  const originals = targets.slice();
+  const spacers = []; // whitespace nodes between the replaced units
+  for (let i = 0; i < targets.length - 1; i++) {
+    let n = targets[i].nextSibling;
+    while (n && n !== targets[i + 1]) { spacers.push(n); n = n.nextSibling; }
+  }
+  targets[0].before(wrapper);
+  spacers.forEach((n) => n.remove());
+  targets.forEach((u) => u.remove());
+
+  const ann = { kind: "edit", id: ++annSeq, plus, minus, els: [wrapper], wrapper, originals,
+    quote: truncate(quoteOf(wrapper), 110) };
+  annotations.push(ann);
+  undoStack.push({ type: "edit", ann });
+
+  rebuildUnits();
+  cursor = units.indexOf(wrapper);
+  anchor = -1;
+  paintSelection();
+}
+
+function rebuildUnits() {
+  units = Array.from(planView.querySelectorAll(".s"));
+}
+
+/* ───────────────────────── undo ───────────────────────── */
+
+function undo() {
+  const entry = undoStack.pop();
+  if (!entry) return;
+  const ann = entry.ann;
+  annotations = annotations.filter((x) => x !== ann);
+  if (entry.type === "ann") {
+    ann.els.forEach((el) => {
+      if (!annotations.some((x) => x.els.includes(el))) el.classList.remove("noted");
+    });
+  } else { // edit
+    const w = ann.wrapper;
+    ann.originals.forEach((o, i) => {
+      w.before(o);
+      if (i < ann.originals.length - 1) w.before(document.createTextNode(" "));
+    });
+    w.remove();
+    rebuildUnits();
+    clearSelection();
+  }
+  annCursor = Math.min(annCursor, annotations.length - 1);
+  updatePill();
+  flashElements(ann.kind === "edit" ? ann.originals : ann.els);
+}
+
+function flashElements(els) {
+  els.forEach((el) => {
+    if (!el.classList) return;
+    el.classList.remove("flash");
+    void el.offsetWidth;
+    el.classList.add("flash");
+  });
+}
+
+/* ───────────────────────── n / p annotation nav ───────────────────────── */
+
+function jumpAnnotation(dir) {
+  const pool = annotations.filter((a) => (view === "plan" ? a.kind !== "diffc" : a.kind === "diffc"));
+  if (!pool.length) return;
+  annCursor = ((annCursor + dir) % pool.length + pool.length) % pool.length;
+  const ann = pool[annCursor];
+  ann.els[0].scrollIntoView({ block: "center", behavior: "smooth" });
+  flashElements(ann.els);
+}
+
+/* ───────────────────────── pill ───────────────────────── */
+
+function updatePill() {
+  const comments = annotations.filter((a) => a.kind !== "edit").length;
+  const edits = annotations.filter((a) => a.kind === "edit");
+  const plus = edits.reduce((s, e) => s + e.plus, 0);
+  const minus = edits.reduce((s, e) => s + e.minus, 0);
+  const total = annotations.length;
+  if (total === 0) {
+    pill.className = "";
+    pill.innerHTML = `<span>0 pending</span><kbd>⌘⏎ to finish</kbd>`;
+  } else {
+    pill.className = "live";
+    const editBits = edits.length
+      ? `<span class="edits">Edits <b class="plus">+${plus}</b>/<b class="minus">−${minus}</b></span>` : "";
+    pill.innerHTML = `<span>Finish review (${total})</span>${editBits}<kbd>⌘⏎</kbd>`;
+  }
+}
+
+pill.addEventListener("click", () => { if (!submitted) openModal(); });
+
+/* ───────────────────────── views ───────────────────────── */
+
+function switchView(v) {
+  view = v;
+  planView.hidden = v !== "plan";
+  diffView.hidden = v !== "diff";
+  annCursor = -1;
+  closeComposer();
+  window.scrollTo({ top: 0 });
+  if (v === "diff") paintDiffCursor();
+}
+
+function paintDiffCursor() {
+  diffLines.forEach((l) => l.classList.remove("cur"));
+  if (diffCursor >= 0) {
+    diffLines[diffCursor].classList.add("cur");
+    diffLines[diffCursor].scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+}
+
+function moveDiffCursor(delta) {
+  diffCursor = diffCursor < 0 ? (delta > 0 ? 0 : diffLines.length - 1)
+    : Math.max(0, Math.min(diffLines.length - 1, diffCursor + delta));
+  paintDiffCursor();
+}
+
+/* ───────────────────────── modal ───────────────────────── */
+
+function openModal() {
+  closeComposer();
+  cheat.hidden = true;
+  renderPending();
+  modal.hidden = false;
+  $("summaryText").focus();
+}
+
+function closeModal() { modal.hidden = true; }
+
+function renderPending() {
+  const list = $("pendingList");
+  const head = $("pendingHead");
+  list.innerHTML = "";
+  if (!annotations.length) {
+    head.textContent = "Pending annotations";
+    list.innerHTML = `<div class="none">None — you can still submit an overall comment and verdict.</div>`;
+    return;
+  }
+  head.textContent = `Pending annotations · ${annotations.length}`;
+  for (const ann of annotations) {
+    const d = document.createElement("div");
+    d.className = "ann";
+    if (ann.kind === "comment") {
+      d.innerHTML = `<div class="q"></div><div class="body"></div>`;
+      d.querySelector(".q").textContent = "“" + truncate(ann.quote, 90) + "”";
+      d.querySelector(".body").textContent = ann.body;
+    } else if (ann.kind === "edit") {
+      d.innerHTML = `<div class="where">edit · <span class="delta"><span class="plus">+${ann.plus}</span>/<span class="minus">−${ann.minus}</span></span></div><div class="q"></div>`;
+      d.querySelector(".q").textContent = "“" + truncate(ann.quote, 90) + "”";
+    } else {
+      d.innerHTML = `<div class="where"></div><div class="q"></div><div class="body"></div>`;
+      d.querySelector(".where").textContent = `${ann.file}:${ann.line}`;
+      d.querySelector(".q").textContent = truncate(ann.quote || "(blank line)", 90);
+      d.querySelector(".body").textContent = ann.body;
+    }
+    list.appendChild(d);
+  }
+}
+
+function submitReview() {
+  const verdict = document.querySelector('input[name="verdict"]:checked').value;
+  const comments = annotations.filter((a) => a.kind !== "edit").length;
+  const edits = annotations.filter((a) => a.kind === "edit");
+  const plus = edits.reduce((s, e) => s + e.plus, 0);
+  const minus = edits.reduce((s, e) => s + e.minus, 0);
+  const summary = $("summaryText").value.trim();
+  submitted = true;
+  closeModal();
+  closeComposer();
+  planView.hidden = true;
+  diffView.hidden = true;
+  pill.hidden = true;
+  $("firstHint").hidden = true;
+  $("doneVerdict").textContent = `Review sent — verdict: ${verdict}`;
+  const bits = [];
+  bits.push(`${comments} comment${comments === 1 ? "" : "s"}`);
+  if (edits.length) bits.push(`edits +${plus}/−${minus}`);
+  if (summary) bits.push("overall note attached");
+  bits.push("the agent sees everything at once, only now");
+  $("doneDetail").textContent = bits.join(" · ");
+  $("done").hidden = false;
+}
+
+$("submitBtn").addEventListener("click", submitReview);
+$("cancelBtn").addEventListener("click", closeModal);
+modal.addEventListener("mousedown", (e) => { if (e.target === modal) closeModal(); });
+cheat.addEventListener("mousedown", (e) => { if (e.target === cheat) cheat.hidden = true; });
+
+/* ───────────────────────── keyboard ───────────────────────── */
+
+let firstKey = false;
+function dismissFirstHint() {
+  if (firstKey) return;
+  firstKey = true;
+  $("firstHint").style.opacity = "0";
+}
+
+document.addEventListener("keydown", (e) => {
+  if (submitted) return;
+  const meta = e.metaKey || e.ctrlKey;
+  const inField = e.target.tagName === "TEXTAREA" || e.target.tagName === "INPUT";
+  dismissFirstHint();
+
+  /* escape closes topmost thing */
+  if (e.key === "Escape") {
+    e.preventDefault();
+    if (composerMode) closeComposer();
+    else if (!modal.hidden) closeModal();
+    else if (!cheat.hidden) cheat.hidden = true;
+    else clearSelection();
+    return;
+  }
+
+  /* composer captures typing */
+  if (composerMode) {
+    if (e.key === "Enter" && (meta || !e.shiftKey)) {
+      e.preventDefault();
+      commitComposer();
+    }
+    return;
+  }
+
+  /* modal captures typing */
+  if (!modal.hidden) {
+    if (e.key === "Enter" && meta) { e.preventDefault(); submitReview(); }
+    return;
+  }
+
+  if (inField) return;
+
+  if (!cheat.hidden) {
+    if (e.key === "?") { e.preventDefault(); cheat.hidden = true; }
+    return;
+  }
+
+  /* global keys */
+  if (e.key === "Enter" && meta) { e.preventDefault(); openModal(); return; }
+  if (e.key.toLowerCase() === "z" && meta && !e.shiftKey) { e.preventDefault(); undo(); return; }
+  if (e.key === "?") { e.preventDefault(); cheat.hidden = false; return; }
+  if (e.key === "1" && !meta) { switchView("plan"); return; }
+  if (e.key === "2" && !meta) { switchView("diff"); return; }
+  if (e.key === "n" && !meta) { jumpAnnotation(1); return; }
+  if (e.key === "p" && !meta) { jumpAnnotation(-1); return; }
+  if (meta) return;
+
+  if (view === "plan") {
+    switch (e.key) {
+      case "ArrowDown": case "j": case "J":
+        e.preventDefault(); moveCursor(1, e.shiftKey); break;
+      case "ArrowUp": case "k": case "K":
+        e.preventDefault(); moveCursor(-1, e.shiftKey); break;
+      case "ArrowRight": e.preventDefault(); moveCursor(1, e.shiftKey); break;
+      case "ArrowLeft": e.preventDefault(); moveCursor(-1, e.shiftKey); break;
+      case "Tab": e.preventDefault(); moveBlock(e.shiftKey ? -1 : 1); break;
+      case "c": {
+        const r = selRange();
+        if (r) { e.preventDefault(); composerRange = r; openComposer("comment", units[r[1]]); }
+        break;
+      }
+      case "e": {
+        const r = selRange();
+        if (r) { e.preventDefault(); composerRange = r; openComposer("edit", units[r[1]]); }
+        break;
+      }
+    }
+  } else { /* diff */
+    switch (e.key) {
+      case "ArrowDown": case "j": e.preventDefault(); moveDiffCursor(1); break;
+      case "ArrowUp": case "k": e.preventDefault(); moveDiffCursor(-1); break;
+      case "c":
+        if (diffCursor >= 0) { e.preventDefault(); openComposer("diffc", diffLines[diffCursor]); }
+        break;
+    }
+  }
+});
+
+/* ───────────────────────── boot ───────────────────────── */
+
+renderDiff();
+rebuildUnits();
+updatePill();
+setTimeout(dismissFirstHint, 9000);
+</script>
+</body>
+</html>

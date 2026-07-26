@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cueloop · Terminal</title>
+<style>
+  :root {
+    --bg:        #16161d;
+    --bg-dim:    #1a1a22;
+    --bg-panel:  #1c1c26;
+    --bg-raise:  #23232e;
+    --border:    #3b3b4d;
+    --border-hi: #565672;
+    --fg:        #dcd7ba;
+    --fg-dim:    #8b8878;
+    --fg-faint:  #5c5a4e;
+    --blue:      #7e9cd8;
+    --green:     #98bb6c;
+    --red:       #e46876;
+    --yellow:    #e6c384;
+    --orange:    #ffa066;
+    --purple:    #957fb8;
+    --teal:      #7aa89f;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.55;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,.014) 0 1px, transparent 1px 3px);
+  }
+
+  /* ── tabline ─────────────────────────────────────────── */
+  #tabline {
+    display: flex; align-items: stretch;
+    background: var(--bg-dim);
+    border-bottom: 1px solid var(--border);
+    user-select: none;
+    flex: 0 0 auto;
+  }
+  #tabline .tab {
+    padding: 5px 16px;
+    color: var(--fg-faint);
+    border-right: 1px solid var(--border);
+    cursor: pointer;
+  }
+  #tabline .tab .key { color: var(--fg-dim); }
+  #tabline .tab.active {
+    background: var(--bg);
+    color: var(--yellow);
+    box-shadow: inset 0 2px 0 var(--yellow);
+  }
+  #tabline .tab.active .key { color: var(--orange); }
+  #tabline .spacer { flex: 1; }
+  #tabline .session {
+    padding: 5px 16px;
+    color: var(--fg-faint);
+  }
+  #tabline .session b { color: var(--teal); font-weight: normal; }
+
+  /* ── main scroll area ────────────────────────────────── */
+  #main {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 26px 24px 40vh;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .panel {
+    position: relative;
+    max-width: 96ch;
+    margin: 0 auto 26px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 26px 34px 30px 44px;
+    border-radius: 2px;
+  }
+  .panel > .ptitle {
+    position: absolute;
+    top: -0.8em; left: 18px;
+    background: var(--bg-panel);
+    padding: 0 10px;
+    color: var(--teal);
+    letter-spacing: .04em;
+  }
+  .panel > .ptitle .deco { color: var(--fg-faint); }
+  .panel > .pmeta {
+    position: absolute;
+    top: -0.8em; right: 18px;
+    background: var(--bg-panel);
+    padding: 0 10px;
+    color: var(--fg-faint);
+  }
+
+  /* ── plan blocks ─────────────────────────────────────── */
+  .blk { position: relative; padding: 3px 10px; border-radius: 2px; }
+  .blk + .blk { margin-top: 9px; }
+  h1.blk { font-size: 17px; color: var(--yellow); font-weight: 600; letter-spacing: .01em; }
+  h1.blk::before { content: "# "; color: var(--fg-faint); font-weight: normal; }
+  h2.blk { font-size: 14.5px; color: var(--blue); font-weight: 600; margin-top: 22px !important; }
+  h2.blk::before { content: "## "; color: var(--fg-faint); font-weight: normal; }
+  p.blk { color: var(--fg); }
+  ul.plain, ol.plain { list-style: none; }
+  li.blk { padding-left: 34px; }
+  li.blk > .marker { position: absolute; left: 10px; color: var(--orange); }
+  li.blk code, p.blk code { color: var(--teal); }
+  pre.blk {
+    margin-top: 14px !important;
+    padding: 12px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--purple);
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  pre.blk .kw { color: var(--purple); }
+  pre.blk .ty { color: var(--teal); }
+
+  /* block cursor */
+  .blk.cur { background: rgba(126,156,216,.09); }
+  .blk.cur::after {
+    content: "▌";
+    position: absolute;
+    left: -22px; top: 2px;
+    color: var(--blue);
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: .15; } }
+
+  /* words + visual selection */
+  .w { border-radius: 1px; }
+  .w.sel { background: rgba(255,160,102,.28); color: #fff; }
+
+  /* tracked changes */
+  ins { text-decoration: none; color: var(--green); background: rgba(152,187,108,.13); }
+  del { color: var(--red); text-decoration: line-through; opacity: .85; }
+  .blk.edited { border-left: 2px solid var(--green); }
+
+  /* edit textarea */
+  textarea.editbox {
+    width: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--green);
+    font: inherit;
+    padding: 8px 10px;
+    resize: vertical;
+    outline: none;
+    line-height: inherit;
+  }
+
+  /* ── annotation chips ────────────────────────────────── */
+  .chip {
+    margin: 8px 10px 4px 34px;
+    padding: 6px 12px;
+    border-left: 2px solid var(--yellow);
+    background: rgba(230,195,132,.06);
+    color: var(--fg-dim);
+    font-size: 12.5px;
+    white-space: pre-wrap;
+  }
+  .chip .tag { color: var(--yellow); }
+  .chip .quote { color: var(--fg-faint); font-style: italic; }
+  .chip .body { color: var(--fg); }
+  .chip.flash { animation: chipflash .6s ease-out; }
+  @keyframes chipflash { 0% { background: rgba(230,195,132,.35); } }
+
+  /* ── diff view ───────────────────────────────────────── */
+  #diff { display: none; }
+  .dfile { margin-bottom: 26px; }
+  .dhead {
+    color: var(--fg-dim);
+    padding: 2px 10px 10px;
+  }
+  .dhead .fname { color: var(--yellow); }
+  .dhead .plus { color: var(--green); }
+  .dhead .minus { color: var(--red); }
+  .dhead .newf { color: var(--teal); }
+  .dhunk { color: var(--purple); padding: 2px 10px; }
+  .dl {
+    position: relative;
+    display: flex;
+    padding: 0 10px;
+    white-space: pre;
+  }
+  .dl .no {
+    flex: 0 0 4ch;
+    text-align: right;
+    padding-right: 1ch;
+    color: var(--fg-faint);
+    user-select: none;
+  }
+  .dl .sign { flex: 0 0 2ch; user-select: none; }
+  .dl .txt { flex: 1; overflow-x: auto; }
+  .dl.add { background: rgba(152,187,108,.09); }
+  .dl.add .sign, .dl.add .txt { color: var(--green); }
+  .dl.del { background: rgba(228,104,118,.09); }
+  .dl.del .sign, .dl.del .txt { color: var(--red); }
+  .dl.ctx .txt { color: var(--fg-dim); }
+  .dl.cur { background: rgba(126,156,216,.13); }
+  .dl.cur::after {
+    content: "▌";
+    position: absolute; left: -22px; top: 0;
+    color: var(--blue);
+    animation: blink 1.1s steps(1) infinite;
+  }
+  .dl.vsel { background: rgba(255,160,102,.20); }
+  .dl .cmark { position: absolute; right: 8px; color: var(--yellow); }
+
+  /* ── bottom: cmdline + statusbar ─────────────────────── */
+  #bottom { flex: 0 0 auto; user-select: none; }
+  #cmdrow {
+    display: none;
+    background: var(--bg-dim);
+    border-top: 1px solid var(--border);
+    padding: 6px 14px;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  #cmdrow.open { display: flex; }
+  #cmdrow .prompt { color: var(--orange); white-space: nowrap; padding-top: 1px; }
+  #cmdrow .quoteline { color: var(--fg-faint); font-style: italic; }
+  #cmdrow textarea, #cmdrow input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--fg);
+    font: inherit;
+    resize: none;
+    line-height: 1.5;
+  }
+  #cmdrow .hint { color: var(--fg-faint); white-space: nowrap; padding-top: 1px; }
+  #cmdcol { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+
+  #status {
+    display: flex;
+    align-items: center;
+    background: var(--bg-dim);
+    border-top: 1px solid var(--border);
+    height: 30px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  #status .seg { padding: 0 12px; height: 100%; display: flex; align-items: center; gap: 6px; }
+  #mode-seg { font-weight: 700; letter-spacing: .08em; color: #16161d; }
+  #mode-seg.NORMAL  { background: var(--blue); }
+  #mode-seg.VISUAL  { background: var(--orange); }
+  #mode-seg.EDIT    { background: var(--green); }
+  #mode-seg.COMMENT { background: var(--yellow); }
+  #mode-seg.COMMAND { background: var(--purple); color: #eee; }
+  #file-seg { color: var(--fg-dim); border-right: 1px solid var(--border); }
+  #pend-seg { color: var(--yellow); border-right: 1px solid var(--border); }
+  #pend-seg.zero { color: var(--fg-faint); }
+  #edit-seg { border-right: 1px solid var(--border); }
+  #edit-seg .plus { color: var(--green); }
+  #edit-seg .minus { color: var(--red); }
+  #msg-seg { color: var(--fg-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  #msg-seg.err { color: var(--red); }
+  #brand-seg { color: var(--fg-faint); border-left: 1px solid var(--border); }
+  #brand-seg a { color: var(--teal); text-decoration: none; }
+  #brand-seg a:hover { text-decoration: underline; }
+
+  /* ── overlays ────────────────────────────────────────── */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(13,13,18,.72);
+    z-index: 40;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+  }
+  .overlay.open { display: flex; }
+  .obox {
+    position: relative;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-hi);
+    padding: 26px 32px;
+    max-width: 100ch;
+    width: 100%;
+    max-height: 86vh;
+    overflow-y: auto;
+    box-shadow: 0 18px 60px rgba(0,0,0,.5);
+  }
+  .obox > .ptitle {
+    position: absolute; top: -0.8em; left: 18px;
+    background: var(--bg-panel); padding: 0 10px;
+    color: var(--yellow);
+  }
+  .obox > .pmeta {
+    position: absolute; top: -0.8em; right: 18px;
+    background: var(--bg-panel); padding: 0 10px;
+    color: var(--fg-faint);
+  }
+
+  /* help */
+  #help table { border-collapse: collapse; width: 100%; }
+  #help td { padding: 3px 14px 3px 0; vertical-align: top; }
+  #help td.k { color: var(--orange); white-space: nowrap; width: 14ch; }
+  #help td.d { color: var(--fg-dim); }
+  #help th { text-align: left; color: var(--blue); padding: 14px 0 4px; font-weight: 600; }
+  #help .cols { display: flex; gap: 44px; flex-wrap: wrap; }
+  #help .cols > div { flex: 1; min-width: 34ch; }
+
+  /* summary */
+  #summary .item {
+    display: flex; gap: 12px;
+    padding: 7px 10px;
+    border-bottom: 1px dotted var(--border);
+  }
+  #summary .item .no { color: var(--fg-faint); flex: 0 0 3ch; }
+  #summary .item .kind { flex: 0 0 9ch; }
+  #summary .item .kind.c { color: var(--yellow); }
+  #summary .item .kind.e { color: var(--green); }
+  #summary .item .loc { flex: 0 0 16ch; color: var(--teal); }
+  #summary .item .txt { flex: 1; color: var(--fg-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #summary .empty { color: var(--fg-faint); padding: 14px 10px; font-style: italic; }
+  #summary .vhead { color: var(--blue); margin: 22px 0 8px; font-weight: 600; }
+  .vopt {
+    padding: 7px 14px;
+    color: var(--fg-dim);
+    display: flex; gap: 12px; align-items: baseline;
+  }
+  .vopt .glyph { width: 2ch; }
+  .vopt.cur { background: rgba(126,156,216,.14); color: var(--fg); outline: 1px solid var(--border-hi); }
+  .vopt.cur .glyph { color: var(--orange); }
+  .vopt .vname.ok { color: var(--green); font-weight: 600; }
+  .vopt .vname.ch { color: var(--orange); font-weight: 600; }
+  .vopt .vdesc { color: var(--fg-faint); }
+  #summary .foot { margin-top: 22px; color: var(--fg-faint); }
+  #summary .foot .k { color: var(--orange); }
+
+  /* done */
+  #done .obox { max-width: 68ch; text-align: left; }
+  #done pre.art { color: var(--green); line-height: 1.25; margin-bottom: 18px; }
+  #done .vline { margin: 6px 0; color: var(--fg-dim); }
+  #done .vline b { font-weight: 600; }
+  #done .verdict-ok { color: var(--green); }
+  #done .verdict-ch { color: var(--orange); }
+  #done .foot { margin-top: 20px; color: var(--fg-faint); }
+  #done .foot .k { color: var(--orange); }
+</style>
+</head>
+<body>
+
+<div id="tabline">
+  <div class="tab active" id="tab-plan" data-view="plan"><span class="key">1:</span>plan.md</div>
+  <div class="tab" id="tab-diff" data-view="diff"><span class="key">2:</span>diff</div>
+  <div class="spacer"></div>
+  <div class="session">session <b>rev-4f2a</b> · agent <b>builder-1</b> · awaiting verdict</div>
+</div>
+
+<div id="main">
+
+  <!-- ═══ view 1: plan ═══ -->
+  <section id="plan" class="panel">
+    <div class="ptitle"><span class="deco">┤</span> plan.md <span class="deco">├</span></div>
+    <div class="pmeta">submitted 2m ago</div>
+
+    <h1 class="blk">Implementation Plan: Session Persistence</h1>
+
+    <p class="blk">cueloop keeps every review session in daemon memory today. If the daemon crashes mid-review — or the machine reboots — the human's pending annotations and the agent's submitted plan are gone, and the agent is left waiting on a verdict that will never arrive. This plan persists sessions to disk so a restarted daemon can pick up exactly where the review left off.</p>
+
+    <h2 class="blk">Phase 1: Storage layer</h2>
+
+    <p class="blk">Introduce a small storage layer that owns serialization and atomic writes. Nothing above this layer should know about the filesystem. Three new files, all under <code>server/storage/</code>:</p>
+
+    <ul class="plain">
+      <li class="blk"><span class="marker">-</span><code>server/storage/store.ts</code> — persistSession / loadSession with atomic temp-file-then-rename writes</li>
+      <li class="blk"><span class="marker">-</span><code>server/storage/recover.ts</code> — boot-time scan that rebuilds in-memory sessions from disk</li>
+      <li class="blk"><span class="marker">-</span><code>server/storage/types.ts</code> — the persisted record schema, versioned from day one</li>
+    </ul>
+
+    <p class="blk">Every session serializes to a single versioned record. Anything the review loop needs to resume lives here:</p>
+
+<pre class="blk"><span class="kw">interface</span> <span class="ty">SessionRecord</span> {
+  id: <span class="ty">string</span>;
+  schemaVersion: <span class="ty">string</span>;
+  artifact: <span class="ty">Artifact</span>;
+  annotations: <span class="ty">Annotation</span>[];
+  verdict: <span class="ty">Verdict</span> | <span class="kw">null</span>;
+}</pre>
+
+    <h2 class="blk">Phase 2: Recovery on boot</h2>
+
+    <p class="blk">On startup the daemon replays whatever survived. Recovery has to be safe to run against a half-written directory — a crash can happen mid-persist, so partial files are expected, not exceptional.</p>
+
+    <ol class="plain">
+      <li class="blk"><span class="marker">1.</span>Scan <code>.cueloop/sessions/</code> and parse every <code>*.json</code> record, skipping any whose schemaVersion is unknown.</li>
+      <li class="blk"><span class="marker">2.</span>Rehydrate every record with a null verdict into the active review queue, then notify the connected agent that its session is live again.</li>
+      <li class="blk"><span class="marker">3.</span>Move records that fail to parse into <code>sessions/quarantine/</code> instead of deleting them, and log one warning per file.</li>
+    </ol>
+
+    <h2 class="blk">Open questions</h2>
+
+    <ul class="plain">
+      <li class="blk"><span class="marker">-</span>Should completed sessions be pruned after a retention window, or kept indefinitely as an audit log?</li>
+      <li class="blk"><span class="marker">-</span>Is one JSON file per session enough, or do we need an append-only log once annotation volume grows?</li>
+    </ul>
+  </section>
+
+  <!-- ═══ view 2: diff ═══ -->
+  <section id="diff" class="panel">
+    <div class="ptitle"><span class="deco">┤</span> diff <span class="deco">├</span></div>
+    <div class="pmeta">2 files</div>
+    <div id="diff-body"></div>
+  </section>
+
+</div>
+
+<div id="bottom">
+  <div id="cmdrow">
+    <span class="prompt" id="cmdprompt">:</span>
+    <div id="cmdcol">
+      <div class="quoteline" id="cmdquote" style="display:none"></div>
+      <textarea id="cmdinput" rows="1" spellcheck="false" autocomplete="off"></textarea>
+    </div>
+    <span class="hint" id="cmdhint"></span>
+  </div>
+  <div id="status">
+    <div class="seg NORMAL" id="mode-seg">NORMAL</div>
+    <div class="seg" id="file-seg">plan.md</div>
+    <div class="seg zero" id="pend-seg">● 0 pending</div>
+    <div class="seg" id="edit-seg"><span class="plus">+0</span>/<span class="minus">−0</span></div>
+    <div class="seg" id="msg-seg">j/k move · v visual · c comment · e edit · : command · ? help</div>
+    <div class="seg" id="brand-seg">cueloop · concept: Terminal · <a href="index.html">gallery</a></div>
+  </div>
+</div>
+
+<!-- ═══ overlays ═══ -->
+<div class="overlay" id="help">
+  <div class="obox">
+    <div class="ptitle">┤ keys ├</div>
+    <div class="pmeta">? or esc to close</div>
+    <div class="cols">
+      <div>
+        <table>
+          <tr><th colspan="2">NORMAL</th></tr>
+          <tr><td class="k">j / k</td><td class="d">move cursor down / up (block or line)</td></tr>
+          <tr><td class="k">gg / G</td><td class="d">jump to top / bottom</td></tr>
+          <tr><td class="k">1 / 2</td><td class="d">switch view: plan / diff</td></tr>
+          <tr><td class="k">v</td><td class="d">VISUAL — select current block or line</td></tr>
+          <tr><td class="k">c</td><td class="d">comment on current block or line</td></tr>
+          <tr><td class="k">e</td><td class="d">EDIT block as tracked change (plan only)</td></tr>
+          <tr><td class="k">n / p</td><td class="d">jump to next / previous pending item</td></tr>
+          <tr><td class="k">u &nbsp;or ⌘z</td><td class="d">undo last annotation or edit</td></tr>
+          <tr><td class="k">:</td><td class="d">command line</td></tr>
+        </table>
+      </div>
+      <div>
+        <table>
+          <tr><th colspan="2">VISUAL</th></tr>
+          <tr><td class="k">w / l &nbsp;· b / h</td><td class="d">extend selection right / left by word</td></tr>
+          <tr><td class="k">j / k</td><td class="d">extend selection by line</td></tr>
+          <tr><td class="k">c</td><td class="d">comment on selection</td></tr>
+          <tr><td class="k">esc</td><td class="d">back to NORMAL</td></tr>
+          <tr><th colspan="2">COMMAND</th></tr>
+          <tr><td class="k">:submit</td><td class="d">review pending items, pick verdict</td></tr>
+          <tr><td class="k">:approve</td><td class="d">submit verdict — approve</td></tr>
+          <tr><td class="k">:changes</td><td class="d">submit verdict — request changes</td></tr>
+          <tr><td class="k">:comment &lt;txt&gt;</td><td class="d">comment on current block</td></tr>
+          <tr><td class="k">:undo · :help</td><td class="d">undo last · this panel</td></tr>
+          <tr><td class="k">:1 · :2</td><td class="d">plan · diff</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="summary">
+  <div class="obox">
+    <div class="ptitle">┤ submit review ├</div>
+    <div class="pmeta">esc to keep editing</div>
+    <div id="summary-items"></div>
+    <div class="vhead">verdict</div>
+    <div id="summary-verdicts"></div>
+    <div class="foot"><span class="k">j/k</span> choose verdict · <span class="k">enter</span> submit atomically · nothing reaches the agent until then</div>
+  </div>
+</div>
+
+<div class="overlay" id="done">
+  <div class="obox">
+    <div class="ptitle">┤ review submitted ├</div>
+<pre class="art">
+  ┌─────────────────────────────┐
+  │  ✓ delivered to builder-1   │
+  └─────────────────────────────┘</pre>
+    <div id="done-body"></div>
+    <div class="foot"><span class="k">r</span> start a fresh session</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+(() => {
+
+/* ════════ diff data ════════ */
+const DIFF_FILES = [
+  {
+    name: "server/storage/store.ts",
+    label: "modified",
+    adds: 12, dels: 3,
+    hunk: "@@ -1,9 +1,18 @@",
+    oldStart: 1, newStart: 1,
+    lines: [
+      ["ctx", 'import { mkdir, readFile, writeFile, rename } from "node:fs/promises";'],
+      ["ctx", 'import { join } from "node:path";'],
+      ["ctx", ''],
+      ["del", 'export function persistSession(record) {'],
+      ["del", '  return writeFile(pathFor(record.id), JSON.stringify(record));'],
+      ["del", '}'],
+      ["add", 'const SCHEMA_VERSION = "1";'],
+      ["add", ''],
+      ["add", 'export const SESSIONS_DIR = join(process.cwd(), ".cueloop", "sessions");'],
+      ["add", ''],
+      ["add", 'export async function persistSession(record: SessionRecord): Promise<void> {'],
+      ["add", '  const payload = JSON.stringify({ ...record, schemaVersion: SCHEMA_VERSION });'],
+      ["add", '  const target = pathFor(record.id);'],
+      ["add", '  const scratch = `${target}.tmp`;'],
+      ["add", '  await mkdir(SESSIONS_DIR, { recursive: true });'],
+      ["add", '  await writeFile(scratch, payload, "utf8");'],
+      ["add", '  await rename(scratch, target); // atomic on POSIX'],
+      ["add", '}'],
+      ["ctx", ''],
+      ["ctx", 'function pathFor(id: string): string {'],
+      ["ctx", '  return join(SESSIONS_DIR, `${id}.json`);'],
+      ["ctx", '}'],
+    ],
+  },
+  {
+    name: "server/storage/index.ts",
+    label: "new file",
+    adds: 8, dels: 0,
+    hunk: "@@ -0,0 +1,8 @@",
+    oldStart: 0, newStart: 1,
+    lines: [
+      ["add", 'export { persistSession, SESSIONS_DIR } from "./store";'],
+      ["add", 'export { recoverSessions } from "./recover";'],
+      ["add", 'export type { SessionRecord } from "./types";'],
+      ["add", ''],
+      ["add", 'export async function initStorage(): Promise<void> {'],
+      ["add", '  const { mkdir } = await import("node:fs/promises");'],
+      ["add", '  await mkdir(SESSIONS_DIR, { recursive: true });'],
+      ["add", '}'],
+    ],
+  },
+];
+
+/* ════════ state ════════ */
+const state = {
+  view: "plan",            // plan | diff
+  mode: "NORMAL",          // NORMAL | VISUAL | EDIT | COMMENT | COMMAND
+  overlay: null,           // help | summary | done
+  planCur: 0,
+  diffCur: 0,
+  visual: null,            // plan: {anchor, head} word indices — diff: {anchor, head} line indices
+  pendingG: false,
+  annotations: [],         // {id, kind:'comment'|'edit', ...}
+  undoStack: [],
+  annSeq: 0,
+  summaryVerdict: 0,
+  commentTarget: null,
+  editBlock: -1,
+};
+
+const $ = (s) => document.querySelector(s);
+const main = $("#main");
+
+/* ════════ plan blocks + word index ════════ */
+const blocks = Array.from(document.querySelectorAll("#plan .blk"));
+const blockData = new Map(); // idx -> {original, current}
+blocks.forEach((el, i) => {
+  el.dataset.b = i;
+  blockData.set(i, { original: el.textContent, current: el.textContent });
+});
+
+let words = [];        // [{el, b}]
+let blockWords = [];   // b -> [first, last] word indices (or null)
+
+function unwrapWords() {
+  document.querySelectorAll("#plan .w").forEach((w) => {
+    w.replaceWith(document.createTextNode(w.textContent));
+  });
+  blocks.forEach((el) => el.normalize());
+}
+
+function indexWords() {
+  unwrapWords();
+  words = [];
+  blockWords = blocks.map(() => null);
+  blocks.forEach((el, b) => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) =>
+        n.parentElement.closest(".chip") || n.parentElement.closest(".marker")
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT,
+    });
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+    textNodes.forEach((node) => {
+      const parts = node.textContent.split(/(\s+)/).filter((p) => p !== "");
+      if (parts.length === 1 && /^\s*$/.test(parts[0])) return;
+      const frag = document.createDocumentFragment();
+      parts.forEach((part) => {
+        if (/^\s+$/.test(part)) {
+          frag.appendChild(document.createTextNode(part));
+        } else {
+          const span = document.createElement("span");
+          span.className = "w";
+          span.textContent = part;
+          span.dataset.g = words.length;
+          frag.appendChild(span);
+          if (!blockWords[b]) blockWords[b] = [words.length, words.length];
+          blockWords[b][1] = words.length;
+          words.push({ el: span, b });
+        }
+      });
+      node.replaceWith(frag);
+    });
+  });
+}
+
+/* ════════ diff render ════════ */
+let diffRows = []; // [{el, file, oldNo, newNo, type, text}]
+
+function renderDiff() {
+  const body = $("#diff-body");
+  body.innerHTML = "";
+  diffRows = [];
+  DIFF_FILES.forEach((f) => {
+    const fileEl = document.createElement("div");
+    fileEl.className = "dfile";
+    const head = document.createElement("div");
+    head.className = "dhead";
+    head.innerHTML =
+      `<span class="fname">${f.name}</span> · ` +
+      (f.label === "new file" ? `<span class="newf">new file</span> · ` : `${f.label} · `) +
+      `<span class="plus">+${f.adds}</span>/<span class="minus">−${f.dels}</span>`;
+    fileEl.appendChild(head);
+    const hunk = document.createElement("div");
+    hunk.className = "dhunk";
+    hunk.textContent = f.hunk;
+    fileEl.appendChild(hunk);
+    let o = f.oldStart, n = f.newStart;
+    f.lines.forEach(([type, text]) => {
+      const row = document.createElement("div");
+      row.className = "dl " + type;
+      let oldNo = "", newNo = "";
+      if (type === "ctx") { oldNo = o++; newNo = n++; }
+      else if (type === "del") { oldNo = o++; }
+      else { newNo = n++; }
+      const sign = type === "add" ? "+" : type === "del" ? "−" : " ";
+      row.innerHTML =
+        `<span class="no">${newNo || oldNo}</span>` +
+        `<span class="sign">${sign}</span>` +
+        `<span class="txt">${escapeHtml(text) || " "}</span>`;
+      row.dataset.i = diffRows.length;
+      fileEl.appendChild(row);
+      diffRows.push({ el: row, file: f.name, no: newNo || oldNo, type, text });
+    });
+    body.appendChild(fileEl);
+  });
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/* ════════ word diff (tracked changes) ════════ */
+function tokenize(s) {
+  return s.split(/(\s+)/).filter((t) => t !== "");
+}
+
+function wordDiff(a, b) {
+  const A = tokenize(a), B = tokenize(b);
+  const m = A.length, n = B.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--)
+    for (let j = n - 1; j >= 0; j--)
+      dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const ops = [];
+  let i = 0, j = 0;
+  const push = (t, tok) => {
+    if (ops.length && ops[ops.length - 1].t === t) ops[ops.length - 1].toks.push(tok);
+    else ops.push({ t, toks: [tok] });
+  };
+  while (i < m && j < n) {
+    if (A[i] === B[j]) { push("eq", A[i]); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { push("del", A[i]); i++; }
+    else { push("ins", B[j]); j++; }
+  }
+  while (i < m) { push("del", A[i]); i++; }
+  while (j < n) { push("ins", B[j]); j++; }
+  return ops;
+}
+
+function countOps(ops) {
+  let ins = 0, del = 0;
+  ops.forEach((op) => {
+    const real = op.toks.filter((t) => !/^\s+$/.test(t)).length;
+    if (op.t === "ins") ins += real;
+    if (op.t === "del") del += real;
+  });
+  return { ins, del };
+}
+
+function renderOps(el, ops) {
+  el.innerHTML = "";
+  ops.forEach((op) => {
+    const text = op.toks.join("");
+    if (op.t === "eq") el.appendChild(document.createTextNode(text));
+    else {
+      const node = document.createElement(op.t === "ins" ? "ins" : "del");
+      node.textContent = text;
+      el.appendChild(node);
+    }
+  });
+}
+
+/* ════════ annotations ════════ */
+function addAnnotation(ann) {
+  ann.id = ++state.annSeq;
+  state.annotations.push(ann);
+  return ann;
+}
+
+function annLabel(ann) {
+  if (ann.view === "plan") {
+    const el = blocks[ann.b2 !== undefined ? ann.b1 : ann.b];
+    const tag = el.tagName === "H1" || el.tagName === "H2" ? "§" : "¶";
+    return `plan ${tag}${(ann.b ?? ann.b1) + 1}`;
+  }
+  const row = diffRows[ann.l1];
+  const short = row.file.split("/").pop();
+  return `${short}:${row.no}`;
+}
+
+function renderAnnotations() {
+  document.querySelectorAll(".chip").forEach((c) => c.remove());
+  document.querySelectorAll(".dl .cmark").forEach((c) => c.remove());
+  blocks.forEach((el) => el.classList.remove("edited"));
+  state.annotations.forEach((ann, idx) => {
+    if (ann.kind === "edit") {
+      blocks[ann.b].classList.add("edited");
+      return;
+    }
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    chip.dataset.ann = ann.id;
+    const quote = ann.quote ? `  <span class="quote">❝${escapeHtml(truncate(ann.quote, 56))}❞</span>` : "";
+    chip.innerHTML =
+      `<span class="tag">● PENDING C${idx + 1}</span>${quote}\n` +
+      `<span class="body">${escapeHtml(ann.text)}</span>`;
+    if (ann.view === "plan") {
+      blocks[ann.b2 ?? ann.b].after(chip);
+    } else {
+      diffRows[ann.l2].el.after(chip);
+      for (let l = ann.l1; l <= ann.l2; l++) {
+        const mark = document.createElement("span");
+        mark.className = "cmark";
+        mark.textContent = "●";
+        diffRows[l].el.appendChild(mark);
+      }
+    }
+  });
+  indexWords();
+  paint();
+}
+
+function truncate(s, len) {
+  s = s.replace(/\s+/g, " ").trim();
+  return s.length > len ? s.slice(0, len - 1) + "…" : s;
+}
+
+function editTotals() {
+  let ins = 0, del = 0;
+  state.annotations.forEach((a) => {
+    if (a.kind === "edit") { ins += a.ins; del += a.del; }
+  });
+  return { ins, del };
+}
+
+/* ════════ undo ════════ */
+function pushUndo(label, fn) {
+  state.undoStack.push({ label, fn });
+}
+
+function undo() {
+  const entry = state.undoStack.pop();
+  if (!entry) { flash("already at oldest change", true); return; }
+  entry.fn();
+  renderAnnotations();
+  flash(`undone: ${entry.label}`);
+}
+
+/* ════════ painting ════════ */
+function paint() {
+  // views
+  $("#plan").style.display = state.view === "plan" ? "" : "none";
+  $("#diff").style.display = state.view === "diff" ? "" : "none";
+  $("#tab-plan").classList.toggle("active", state.view === "plan");
+  $("#tab-diff").classList.toggle("active", state.view === "diff");
+
+  // cursors
+  blocks.forEach((el, i) =>
+    el.classList.toggle("cur", state.view === "plan" && i === state.planCur && state.mode !== "VISUAL"));
+  diffRows.forEach((r, i) => {
+    r.el.classList.toggle("cur", state.view === "diff" && i === state.diffCur);
+    r.el.classList.remove("vsel");
+  });
+
+  // visual selection
+  words.forEach((w) => w.el.classList.remove("sel"));
+  if (state.mode === "VISUAL" && state.visual) {
+    if (state.view === "plan") {
+      const lo = Math.min(state.visual.anchor, state.visual.head);
+      const hi = Math.max(state.visual.anchor, state.visual.head);
+      for (let g = lo; g <= hi; g++) if (words[g]) words[g].el.classList.add("sel");
+    } else {
+      const lo = Math.min(state.visual.anchor, state.visual.head);
+      const hi = Math.max(state.visual.anchor, state.visual.head);
+      for (let l = lo; l <= hi; l++) diffRows[l].el.classList.add("vsel");
+    }
+  }
+
+  // status bar
+  const modeSeg = $("#mode-seg");
+  modeSeg.textContent = state.mode;
+  modeSeg.className = "seg " + state.mode;
+  $("#file-seg").textContent = state.view === "plan" ? "plan.md" : "diff · 2 files";
+  const pend = state.annotations.length;
+  const pendSeg = $("#pend-seg");
+  pendSeg.textContent = `● ${pend} pending`;
+  pendSeg.classList.toggle("zero", pend === 0);
+  const t = editTotals();
+  $("#edit-seg").innerHTML = `<span class="plus">+${t.ins}</span>/<span class="minus">−${t.del}</span>`;
+}
+
+let flashTimer = null;
+function flash(msg, err = false) {
+  const seg = $("#msg-seg");
+  seg.textContent = msg;
+  seg.classList.toggle("err", err);
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => {
+    seg.classList.remove("err");
+    seg.textContent = hintFor();
+  }, 2600);
+}
+
+function hintFor() {
+  if (state.mode === "VISUAL") return "w/b extend by word · j/k by line · c comment · esc cancel";
+  if (state.view === "diff") return "j/k move · v select lines · c comment · 1 plan · :submit when done";
+  return "j/k move · v visual · c comment · e edit · : command · ? help";
+}
+
+function setMode(m) {
+  state.mode = m;
+  if (m !== "VISUAL") state.visual = null;
+  $("#msg-seg").textContent = hintFor();
+  paint();
+}
+
+/* ════════ movement ════════ */
+function scrollToCursor() {
+  const el = state.view === "plan" ? blocks[state.planCur] : diffRows[state.diffCur]?.el;
+  if (el) el.scrollIntoView({ block: "nearest", behavior: "auto" });
+}
+
+function moveCursor(d) {
+  if (state.view === "plan") {
+    state.planCur = Math.max(0, Math.min(blocks.length - 1, state.planCur + d));
+  } else {
+    state.diffCur = Math.max(0, Math.min(diffRows.length - 1, state.diffCur + d));
+  }
+  paint();
+  scrollToCursor();
+}
+
+function gotoEdge(top) {
+  if (state.view === "plan") state.planCur = top ? 0 : blocks.length - 1;
+  else state.diffCur = top ? 0 : diffRows.length - 1;
+  paint();
+  scrollToCursor();
+}
+
+function switchView(v) {
+  state.view = v;
+  setMode("NORMAL");
+  paint();
+  scrollToCursor();
+}
+
+/* ════════ visual mode ════════ */
+function enterVisual() {
+  if (state.view === "plan") {
+    const bw = blockWords[state.planCur];
+    if (!bw) { flash("nothing selectable here", true); return; }
+    state.visual = { anchor: bw[0], head: bw[1] };
+  } else {
+    state.visual = { anchor: state.diffCur, head: state.diffCur };
+  }
+  state.mode = "VISUAL";
+  $("#msg-seg").textContent = hintFor();
+  paint();
+}
+
+function visualMove(key) {
+  const v = state.visual;
+  if (!v) return;
+  if (state.view === "diff") {
+    if (key === "j") v.head = Math.min(diffRows.length - 1, v.head + 1);
+    if (key === "k") v.head = Math.max(0, v.head - 1);
+    state.diffCur = v.head;
+    paint(); scrollToCursor();
+    return;
+  }
+  if (key === "l" || key === "w") v.head = Math.min(words.length - 1, v.head + 1);
+  else if (key === "h" || key === "b") v.head = Math.max(0, v.head - 1);
+  else if (key === "j" || key === "k") {
+    const curB = words[v.head].b;
+    let target = curB + (key === "j" ? 1 : -1);
+    while (target >= 0 && target < blocks.length && !blockWords[target])
+      target += key === "j" ? 1 : -1;
+    if (target >= 0 && target < blocks.length)
+      v.head = key === "j" ? blockWords[target][1] : blockWords[target][0];
+  }
+  state.planCur = words[v.head].b;
+  paint();
+  words[v.head].el.scrollIntoView({ block: "nearest" });
+}
+
+function visualQuote() {
+  const v = state.visual;
+  if (state.view === "diff") {
+    const lo = Math.min(v.anchor, v.head), hi = Math.max(v.anchor, v.head);
+    return { l1: lo, l2: hi, quote: diffRows[lo].text.trim() || "(blank line)" };
+  }
+  const lo = Math.min(v.anchor, v.head), hi = Math.max(v.anchor, v.head);
+  let text = "";
+  for (let g = lo; g <= hi; g++) text += (text ? " " : "") + words[g].el.textContent;
+  return { b1: words[lo].b, b2: words[hi].b, quote: text };
+}
+
+/* ════════ comment mode ════════ */
+const cmdrow = $("#cmdrow");
+const cmdinput = $("#cmdinput");
+
+function openComment(target) {
+  state.commentTarget = target;
+  state.mode = "COMMENT";
+  $("#cmdprompt").textContent = "comment ❯";
+  $("#cmdhint").textContent = "enter save · shift+enter newline · esc cancel";
+  const q = $("#cmdquote");
+  q.style.display = "";
+  q.textContent = "❝" + truncate(target.quote, 90) + "❞";
+  cmdrow.classList.add("open");
+  cmdinput.value = "";
+  cmdinput.rows = 1;
+  cmdinput.focus();
+  paint();
+}
+
+function submitComment() {
+  const text = cmdinput.value.trim();
+  closeCmdRow();
+  if (!text) { setMode("NORMAL"); flash("empty comment discarded"); return; }
+  const t = state.commentTarget;
+  const ann = addAnnotation({ kind: "comment", view: t.view, text, quote: t.quote,
+    b: t.b1, b1: t.b1, b2: t.b2, l1: t.l1, l2: t.l2 });
+  pushUndo(`comment on ${annLabel(ann)}`, () => {
+    state.annotations = state.annotations.filter((a) => a.id !== ann.id);
+  });
+  setMode("NORMAL");
+  renderAnnotations();
+  flash(`pending comment added — ${state.annotations.length} queued (agent sees nothing until :submit)`);
+}
+
+function closeCmdRow() {
+  cmdrow.classList.remove("open");
+  $("#cmdquote").style.display = "none";
+  cmdinput.value = "";
+  cmdinput.rows = 1;
+  cmdinput.blur();
+}
+
+function commentAtCursor() {
+  if (state.view === "plan") {
+    const el = blocks[state.planCur];
+    openComment({ view: "plan", b1: state.planCur, b2: state.planCur,
+      quote: el.textContent });
+  } else {
+    const row = diffRows[state.diffCur];
+    openComment({ view: "diff", l1: state.diffCur, l2: state.diffCur,
+      quote: row.text.trim() || "(blank line)" });
+  }
+}
+
+/* ════════ command line ════════ */
+function openCmd() {
+  state.mode = "COMMAND";
+  $("#cmdprompt").textContent = ":";
+  $("#cmdhint").textContent = "submit · approve · changes · comment · undo · help · 1 · 2";
+  cmdrow.classList.add("open");
+  cmdinput.value = "";
+  cmdinput.rows = 1;
+  cmdinput.focus();
+  paint();
+}
+
+function runCommand(raw) {
+  const input = raw.trim();
+  if (!input) return;
+  const [cmd, ...rest] = input.split(/\s+/);
+  const arg = rest.join(" ");
+  switch (cmd) {
+    case "submit": case "s": openSummary(); break;
+    case "approve": case "a": doSubmit("approve"); break;
+    case "changes": case "c": doSubmit("changes"); break;
+    case "comment":
+      if (arg) {
+        const el = state.view === "plan" ? blocks[state.planCur] : null;
+        const quote = el ? el.textContent
+          : (diffRows[state.diffCur].text.trim() || "(blank line)");
+        const t = state.view === "plan"
+          ? { view: "plan", b1: state.planCur, b2: state.planCur, quote }
+          : { view: "diff", l1: state.diffCur, l2: state.diffCur, quote };
+        const ann = addAnnotation({ kind: "comment", view: t.view, text: arg, quote: t.quote,
+          b: t.b1, b1: t.b1, b2: t.b2, l1: t.l1, l2: t.l2 });
+        pushUndo(`comment on ${annLabel(ann)}`, () => {
+          state.annotations = state.annotations.filter((a) => a.id !== ann.id);
+        });
+        renderAnnotations();
+        flash("pending comment added");
+      } else {
+        commentAtCursor();
+        return; // stay in COMMENT mode
+      }
+      break;
+    case "undo": case "u": undo(); break;
+    case "help": case "h": toggleHelp(); break;
+    case "1": switchView("plan"); break;
+    case "2": switchView("diff"); break;
+    case "q": case "quit": flash("this is the whole program — :submit to finish"); break;
+    default:
+      flash(`E492: not an editor command: ${cmd}`, true);
+  }
+}
+
+/* ════════ edit mode (tracked changes) ════════ */
+function startEdit() {
+  if (state.view !== "plan") { flash("edit works on the plan — press 1", true); return; }
+  const b = state.planCur;
+  const el = blocks[b];
+  const data = blockData.get(b);
+  state.editBlock = b;
+  state.mode = "EDIT";
+  const box = document.createElement("textarea");
+  box.className = "editbox";
+  box.spellcheck = false;
+  box.value = data.current;
+  box.rows = Math.max(2, data.current.split("\n").length + 1);
+  el.style.display = "none";
+  el.after(box);
+  box.focus();
+  box.setSelectionRange(box.value.length, box.value.length);
+  $("#msg-seg").textContent = "editing block — esc commits as tracked change";
+  box.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Escape") { e.preventDefault(); commitEdit(box); }
+  });
+  paint();
+}
+
+function commitEdit(box) {
+  const b = state.editBlock;
+  const el = blocks[b];
+  const data = blockData.get(b);
+  const newText = box.value;
+  box.remove();
+  el.style.display = "";
+  state.editBlock = -1;
+
+  const prevHTML = el.innerHTML;
+  const prevCurrent = data.current;
+  const prevAnn = state.annotations.find((a) => a.kind === "edit" && a.b === b) || null;
+
+  const ops = wordDiff(data.original, newText);
+  const { ins, del } = countOps(ops);
+
+  if (ins === 0 && del === 0) {
+    if (prevAnn) {
+      state.annotations = state.annotations.filter((a) => a !== prevAnn);
+      renderOps(el, wordDiff(data.original, data.original));
+      el.textContent = data.original;
+      data.current = data.original;
+      pushUndo(`edit on plan block ${b + 1} reverted`, () => {
+        el.innerHTML = prevHTML;
+        data.current = prevCurrent;
+        state.annotations.push(prevAnn);
+      });
+      setMode("NORMAL");
+      renderAnnotations();
+      flash("block matches original — tracked change removed");
+    } else {
+      setMode("NORMAL");
+      renderAnnotations();
+      flash("no changes");
+    }
+    return;
+  }
+
+  data.current = newText;
+  renderOps(el, ops);
+  let ann = prevAnn;
+  if (ann) { ann.ins = ins; ann.del = del; }
+  else ann = addAnnotation({ kind: "edit", view: "plan", b, ins, del });
+
+  pushUndo(`edit on plan block ${b + 1}`, () => {
+    el.innerHTML = prevHTML;
+    data.current = prevCurrent;
+    state.annotations = state.annotations.filter((a) => a !== ann);
+    if (prevAnn) state.annotations.push(prevAnn);
+  });
+
+  setMode("NORMAL");
+  renderAnnotations();
+  flash(`tracked change staged: +${ins}/−${del} (pending until :submit)`);
+}
+
+/* ════════ n / p jump ════════ */
+let annPtr = -1;
+function jumpAnnotation(dir) {
+  if (!state.annotations.length) { flash("no pending items — c to comment, e to edit", true); return; }
+  annPtr = (annPtr + dir + state.annotations.length) % state.annotations.length;
+  const ann = state.annotations[annPtr];
+  if (ann.view !== state.view) { state.view = ann.view; }
+  if (ann.view === "plan") state.planCur = ann.b ?? ann.b1;
+  else state.diffCur = ann.l1;
+  setMode("NORMAL");
+  paint();
+  scrollToCursor();
+  const chip = document.querySelector(`.chip[data-ann="${ann.id}"]`);
+  if (chip) {
+    chip.classList.remove("flash");
+    void chip.offsetWidth;
+    chip.classList.add("flash");
+    chip.scrollIntoView({ block: "nearest" });
+  }
+  flash(`pending ${annPtr + 1}/${state.annotations.length} — ${annLabel(ann)}`);
+}
+
+/* ════════ overlays ════════ */
+function toggleHelp() {
+  const open = state.overlay === "help";
+  state.overlay = open ? null : "help";
+  $("#help").classList.toggle("open", !open);
+}
+
+const VERDICTS = [
+  { key: "approve", cls: "ok", name: "APPROVE", desc: "plan is good — agent proceeds as written (plus your notes)" },
+  { key: "changes", cls: "ch", name: "REQUEST CHANGES", desc: "agent must revise the plan and resubmit for review" },
+];
+
+function openSummary() {
+  state.overlay = "summary";
+  state.summaryVerdict = state.annotations.length ? 1 : 0;
+  const items = $("#summary-items");
+  items.innerHTML = "";
+  if (!state.annotations.length) {
+    items.innerHTML = `<div class="empty">no pending annotations — verdict goes back alone</div>`;
+  }
+  state.annotations.forEach((ann, i) => {
+    const row = document.createElement("div");
+    row.className = "item";
+    const kind = ann.kind === "edit"
+      ? `<span class="kind e">✎ edit</span>`
+      : `<span class="kind c">● comment</span>`;
+    const txt = ann.kind === "edit"
+      ? `+${ann.ins}/−${ann.del} tracked change`
+      : escapeHtml(truncate(ann.text, 80));
+    row.innerHTML =
+      `<span class="no">${i + 1}</span>${kind}` +
+      `<span class="loc">${escapeHtml(annLabel(ann))}</span>` +
+      `<span class="txt">${txt}</span>`;
+    items.appendChild(row);
+  });
+  renderVerdicts();
+  $("#summary").classList.add("open");
+}
+
+function renderVerdicts() {
+  const box = $("#summary-verdicts");
+  box.innerHTML = "";
+  VERDICTS.forEach((v, i) => {
+    const row = document.createElement("div");
+    row.className = "vopt" + (i === state.summaryVerdict ? " cur" : "");
+    row.innerHTML =
+      `<span class="glyph">${i === state.summaryVerdict ? "❯" : " "}</span>` +
+      `<span class="vname ${v.cls}">${v.name}</span>` +
+      `<span class="vdesc">— ${v.desc}</span>`;
+    box.appendChild(row);
+  });
+}
+
+function closeSummary() {
+  state.overlay = null;
+  $("#summary").classList.remove("open");
+}
+
+function doSubmit(verdictKey) {
+  closeSummary();
+  const v = VERDICTS.find((x) => x.key === verdictKey);
+  const comments = state.annotations.filter((a) => a.kind === "comment").length;
+  const edits = state.annotations.filter((a) => a.kind === "edit").length;
+  const t = editTotals();
+  state.overlay = "done";
+  $("#done-body").innerHTML =
+    `<div class="vline">verdict &nbsp;&nbsp;&nbsp;<b class="verdict-${v.cls}">${v.name}</b></div>` +
+    `<div class="vline">comments &nbsp;&nbsp;<b>${comments}</b></div>` +
+    `<div class="vline">edits &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>${edits}</b> tracked change${edits === 1 ? "" : "s"} ` +
+    `(<span class="verdict-ok">+${t.ins}</span>/<span style="color:var(--red)">−${t.del}</span>)</div>` +
+    `<div class="vline" style="margin-top:14px">everything landed in one atomic payload — ` +
+    `builder-1 is ${verdictKey === "approve" ? "implementing" : "revising the plan"} now.</div>`;
+  $("#done").classList.add("open");
+  flash("review submitted");
+  paint();
+}
+
+/* ════════ keyboard ════════ */
+document.addEventListener("keydown", (e) => {
+  const k = e.key;
+
+  // global undo
+  if ((e.metaKey || e.ctrlKey) && k.toLowerCase() === "z") {
+    if (state.mode === "COMMENT" || state.mode === "COMMAND" || state.mode === "EDIT") return;
+    e.preventDefault();
+    undo();
+    return;
+  }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  // overlays first
+  if (state.overlay === "done") {
+    if (k === "r") location.reload();
+    e.preventDefault();
+    return;
+  }
+  if (state.overlay === "help") {
+    if (k === "?" || k === "Escape" || k === "q") { e.preventDefault(); toggleHelp(); }
+    return;
+  }
+  if (state.overlay === "summary") {
+    e.preventDefault();
+    if (k === "j" || k === "ArrowDown") { state.summaryVerdict = Math.min(VERDICTS.length - 1, state.summaryVerdict + 1); renderVerdicts(); }
+    else if (k === "k" || k === "ArrowUp") { state.summaryVerdict = Math.max(0, state.summaryVerdict - 1); renderVerdicts(); }
+    else if (k === "Enter") doSubmit(VERDICTS[state.summaryVerdict].key);
+    else if (k === "Escape" || k === "q") closeSummary();
+    return;
+  }
+
+  // inputs own their keys
+  if (state.mode === "COMMENT" || state.mode === "COMMAND" || state.mode === "EDIT") return;
+
+  // gg chord
+  if (state.pendingG) {
+    state.pendingG = false;
+    if (k === "g") { e.preventDefault(); gotoEdge(true); return; }
+  }
+
+  if (state.mode === "VISUAL") {
+    switch (k) {
+      case "Escape": e.preventDefault(); setMode("NORMAL"); return;
+      case "j": case "k": case "h": case "l": case "w": case "b":
+        e.preventDefault(); visualMove(k); return;
+      case "o": {
+        e.preventDefault();
+        const v = state.visual;
+        [v.anchor, v.head] = [v.head, v.anchor];
+        paint(); return;
+      }
+      case "c": {
+        e.preventDefault();
+        const q = visualQuote();
+        openComment({ view: state.view, ...q });
+        return;
+      }
+      case "v": e.preventDefault(); setMode("NORMAL"); return;
+    }
+    return;
+  }
+
+  // NORMAL
+  switch (k) {
+    case "j": case "ArrowDown": e.preventDefault(); moveCursor(1); break;
+    case "k": case "ArrowUp": e.preventDefault(); moveCursor(-1); break;
+    case "g": e.preventDefault(); state.pendingG = true;
+      setTimeout(() => { state.pendingG = false; }, 700); break;
+    case "G": e.preventDefault(); gotoEdge(false); break;
+    case "1": e.preventDefault(); switchView("plan"); break;
+    case "2": e.preventDefault(); switchView("diff"); break;
+    case "v": case "V": e.preventDefault(); enterVisual(); break;
+    case "c": e.preventDefault(); commentAtCursor(); break;
+    case "e": case "i": e.preventDefault(); startEdit(); break;
+    case "n": e.preventDefault(); jumpAnnotation(1); break;
+    case "p": case "N": e.preventDefault(); jumpAnnotation(-1); break;
+    case "u": e.preventDefault(); undo(); break;
+    case ":": e.preventDefault(); openCmd(); break;
+    case "?": e.preventDefault(); toggleHelp(); break;
+    case "Escape": e.preventDefault(); flash("already in NORMAL — ? for help"); break;
+  }
+});
+
+// comment / command input keys
+cmdinput.addEventListener("keydown", (e) => {
+  e.stopPropagation();
+  if (e.key === "Escape") {
+    e.preventDefault();
+    closeCmdRow();
+    setMode("NORMAL");
+    flash(state.mode === "COMMENT" ? "comment cancelled" : "");
+    return;
+  }
+  if (e.key === "Enter") {
+    if (state.mode === "COMMENT" && e.shiftKey) {
+      // allow newline; grow the box
+      setTimeout(() => { cmdinput.rows = Math.min(6, cmdinput.value.split("\n").length + 1); });
+      return;
+    }
+    e.preventDefault();
+    if (state.mode === "COMMENT") submitComment();
+    else {
+      const raw = cmdinput.value;
+      closeCmdRow();
+      setMode("NORMAL");
+      runCommand(raw);
+    }
+  }
+});
+cmdinput.addEventListener("input", () => {
+  cmdinput.rows = Math.min(6, cmdinput.value.split("\n").length);
+});
+
+// pointer niceties (optional — everything works without them)
+document.addEventListener("click", (e) => {
+  const tab = e.target.closest("#tabline .tab");
+  if (tab) { switchView(tab.dataset.view); return; }
+  const blk = e.target.closest("#plan .blk");
+  if (blk && state.mode === "NORMAL") { state.planCur = +blk.dataset.b; paint(); }
+  const dl = e.target.closest("#diff .dl");
+  if (dl && state.mode === "NORMAL") { state.diffCur = +dl.dataset.i; paint(); }
+});
+
+/* ════════ boot ════════ */
+renderDiff();
+indexWords();
+paint();
+flash("welcome — j/k to move, v to select, c to comment, ? for the full map");
+
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cueloop · Board</title>
+<style>
+  :root {
+    --bg: #0a0d12;
+    --rail: #0d1119;
+    --panel: #10151f;
+    --line: #1b2230;
+    --line-soft: #151b27;
+    --text: #ccd6e4;
+    --text-dim: #7d8aa0;
+    --text-faint: #4d5a70;
+    --amber: #f0b429;
+    --amber-dim: rgba(240, 180, 41, 0.14);
+    --green: #4cc38a;
+    --green-bg: rgba(46, 160, 87, 0.13);
+    --red: #ef6a6a;
+    --red-bg: rgba(229, 83, 75, 0.12);
+    --blue: #6ca7f5;
+    --cursor-bg: rgba(108, 167, 245, 0.10);
+    --sel-bg: rgba(108, 167, 245, 0.16);
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    overflow: hidden;
+  }
+  ::selection { background: rgba(240, 180, 41, 0.25); }
+
+  #app { display: grid; grid-template-columns: 272px 1fr; height: 100vh; }
+
+  /* ── Rail ─────────────────────────────────── */
+  #rail {
+    background: var(--rail);
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    min-height: 0;
+  }
+  #rail-brand {
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  #rail-brand a {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    color: var(--text-faint);
+    text-decoration: none;
+  }
+  #rail-brand a:hover { color: var(--amber); }
+  #rail-brand .stance {
+    margin-top: 5px;
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: var(--text-dim);
+  }
+  #tree { flex: 1; overflow-y: auto; padding: 10px 8px; }
+  .tree-group {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    color: var(--text-faint);
+    padding: 12px 10px 5px;
+  }
+  .tree-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    user-select: none;
+  }
+  .tree-item + .tree-item { margin-top: 1px; }
+  .tree-item:hover { background: var(--line-soft); }
+  .tree-item.tcur { border-color: var(--line); background: var(--line-soft); }
+  .tree-item.open { background: var(--cursor-bg); border-color: rgba(108, 167, 245, 0.25); }
+  .tree-item.open .tname { color: var(--text); }
+  .vbox {
+    width: 14px; height: 14px; flex: none;
+    border: 1.5px solid var(--text-faint);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: transparent;
+    transition: all 0.12s ease;
+  }
+  .tree-item.viewed .vbox {
+    background: var(--green); border-color: var(--green); color: #08110c;
+  }
+  .tname {
+    flex: 1; min-width: 0;
+    font-family: var(--mono); font-size: 12px;
+    color: var(--text-dim);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tree-item.viewed .tname { color: var(--text-faint); }
+  .tstat { font-family: var(--mono); font-size: 10.5px; flex: none; }
+  .tstat .plus { color: var(--green); }
+  .tstat .minus { color: var(--red); }
+  .tstat .newf { color: var(--blue); }
+  .abadge {
+    flex: none; min-width: 17px; height: 17px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: var(--amber-dim); color: var(--amber);
+    border: 1px solid rgba(240, 180, 41, 0.35);
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #rail-progress {
+    border-top: 1px solid var(--line-soft);
+    padding: 12px 16px 14px;
+  }
+  #rail-progress .plabel {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.08em; color: var(--text-faint);
+    margin-bottom: 7px;
+  }
+  #pbar { height: 3px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  #pbar-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.25s ease; width: 0; }
+
+  /* ── Main ─────────────────────────────────── */
+  #main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  #topbar {
+    height: 50px; flex: none;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  #crumb { font-family: var(--mono); font-size: 12px; color: var(--text-dim); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #crumb b { color: var(--text); font-weight: 500; }
+  #status {
+    font-family: var(--mono); font-size: 11px; color: var(--amber);
+    opacity: 0; transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+  #status.show { opacity: 1; }
+  #kbd-hint { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
+  #kbd-hint kbd, .cheat kbd, .composer-hint kbd {
+    font-family: var(--mono); font-size: 10px;
+    background: var(--line-soft); border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px; padding: 1px 5px;
+    color: var(--text-dim);
+  }
+  #finish-btn {
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    background: var(--amber); color: #17110280;
+    color: #201703;
+    border: none; border-radius: 7px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  #finish-btn:hover { filter: brightness(1.08); }
+  #finish-btn.empty { background: var(--line-soft); color: var(--text-dim); border: 1px solid var(--line); }
+
+  #content { flex: 1; overflow-y: auto; min-height: 0; }
+  #content-inner { max-width: 860px; margin: 0 auto; padding: 30px 34px 45vh; }
+
+  /* rows: shared cursor/selection grammar */
+  .row { position: relative; border-radius: 4px; }
+  .row.cur { background: var(--cursor-bg); }
+  .row.sel { background: var(--sel-bg); }
+  .row.cur::before, .row.sel::before {
+    content: ""; position: absolute; left: -14px; top: 0; bottom: 0;
+    width: 3px; border-radius: 2px; background: var(--blue);
+  }
+  .row.sel:not(.cur)::before { opacity: 0.45; }
+  .row.flash { animation: flash 0.8s ease; }
+  @keyframes flash {
+    0%, 40% { background: var(--amber-dim); }
+    100% { background: transparent; }
+  }
+  .row.has-note::after {
+    content: ""; position: absolute; right: -14px; top: 6px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--amber);
+  }
+
+  /* ── Plan typography ──────────────────────── */
+  .plan .row { padding: 3px 10px; margin: 0 -10px; }
+  .plan h1 {
+    font-size: 25px; font-weight: 650; letter-spacing: -0.02em;
+    color: #e8eef7; line-height: 1.3; margin-bottom: 4px;
+  }
+  .plan h2 {
+    font-size: 12px; font-family: var(--mono); font-weight: 600;
+    letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--amber);
+    margin: 26px 0 2px;
+    padding-top: 14px;
+  }
+  .plan .row:has(h2):not(:first-child) { border-top: 1px solid var(--line-soft); margin-top: 12px; }
+  .plan p { line-height: 1.65; color: var(--text); margin: 6px 0; font-size: 14.5px; }
+  .plan .bullet, .plan .numbered {
+    display: flex; gap: 11px; line-height: 1.6; font-size: 14.5px; margin: 2px 0;
+  }
+  .plan .marker { color: var(--text-faint); font-family: var(--mono); flex: none; padding-top: 1px; }
+  .plan .bullet .fname, .fname { font-family: var(--mono); font-size: 0.93em; color: var(--blue); }
+  .codewrap {
+    background: #0c1017; border: 1px solid var(--line);
+    border-radius: 8px; margin: 12px 0; padding: 10px 0;
+    overflow-x: auto;
+  }
+  .codewrap .row { padding: 1px 16px; margin: 0; border-radius: 0; }
+  .codewrap code {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+    color: #b9c6d8; white-space: pre;
+  }
+  .plan ins { background: var(--green-bg); color: var(--green); text-decoration: none; border-radius: 3px; padding: 0 2px; }
+  .plan del { background: var(--red-bg); color: var(--red); text-decoration: line-through; border-radius: 3px; padding: 0 2px; }
+
+  /* ── Diff ─────────────────────────────────── */
+  .diff { font-family: var(--mono); font-size: 12.5px; }
+  .diff-file-head {
+    display: flex; align-items: baseline; gap: 12px;
+    padding-bottom: 14px; margin-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .diff-file-head .fpath { font-size: 14px; color: #e8eef7; font-weight: 600; }
+  .dline { display: flex; line-height: 1.7; }
+  .dline .ln {
+    flex: none; width: 42px; text-align: right; padding-right: 10px;
+    color: var(--text-faint); font-size: 11px; user-select: none;
+    padding-top: 2px;
+  }
+  .dline .sign { flex: none; width: 18px; text-align: center; user-select: none; color: var(--text-faint); }
+  .dline .code { white-space: pre; flex: 1; }
+  .dline.add { background: var(--green-bg); }
+  .dline.add .sign, .dline.add .code { color: var(--green); }
+  .dline.add .code { color: #a8dfc2; }
+  .dline.del { background: var(--red-bg); }
+  .dline.del .sign { color: var(--red); }
+  .dline.del .code { color: #e8a9a5; }
+  .dline.hunk {
+    color: var(--blue); background: rgba(108, 167, 245, 0.06);
+    padding: 3px 0; margin: 10px 0 4px; font-size: 11.5px;
+  }
+  .dline.hunk .code { color: var(--blue); opacity: 0.8; }
+  .diff .row.cur, .diff .row.sel { border-radius: 0; }
+
+  /* ── Annotations inline ───────────────────── */
+  .note-card {
+    margin: 6px 0 10px 28px;
+    border: 1px solid rgba(240, 180, 41, 0.3);
+    border-left: 3px solid var(--amber);
+    background: rgba(240, 180, 41, 0.05);
+    border-radius: 0 8px 8px 0;
+    padding: 9px 13px;
+    font-family: var(--sans);
+  }
+  .note-card .note-tag {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em;
+    color: var(--amber); margin-bottom: 4px;
+  }
+  .note-card .note-body { font-size: 13.5px; line-height: 1.55; color: var(--text); white-space: pre-wrap; }
+  .note-card.active-note { box-shadow: 0 0 0 1px var(--amber); }
+
+  /* ── Composer / editor ────────────────────── */
+  .composer {
+    margin: 6px 0 10px 28px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--blue);
+    background: var(--panel);
+    border-radius: 0 8px 8px 0;
+    padding: 10px 13px;
+  }
+  .composer textarea, #parent-comment {
+    width: 100%;
+    background: #0c1017;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--sans); font-size: 13.5px; line-height: 1.5;
+    padding: 8px 10px;
+    resize: vertical;
+    min-height: 60px;
+    outline: none;
+  }
+  .composer textarea:focus, #parent-comment:focus { border-color: rgba(108, 167, 245, 0.5); }
+  .composer.editor textarea { font-family: var(--mono); font-size: 12.5px; }
+  .composer-hint {
+    margin-top: 7px;
+    font-family: var(--mono); font-size: 10.5px; color: var(--text-faint);
+    display: flex; gap: 14px;
+  }
+  .composer .ctag { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em; color: var(--blue); margin-bottom: 6px; }
+  .composer.editor .ctag { color: var(--green); }
+
+  /* ── Finish panel ─────────────────────────── */
+  #scrim {
+    position: fixed; inset: 0; background: rgba(4, 6, 10, 0.5);
+    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    z-index: 40;
+  }
+  #scrim.show { opacity: 1; pointer-events: auto; }
+  #finish-panel {
+    position: fixed; top: 0; right: 0; bottom: 0;
+    width: 420px; max-width: 92vw;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    box-shadow: -24px 0 60px rgba(0, 0, 0, 0.45);
+    transform: translateX(105%);
+    transition: transform 0.24s cubic-bezier(0.3, 0.9, 0.3, 1);
+    z-index: 50;
+    display: flex; flex-direction: column;
+  }
+  #finish-panel.show { transform: translateX(0); }
+  #finish-head {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  #finish-head h3 { font-size: 15px; font-weight: 600; color: #e8eef7; }
+  #finish-head .sub { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  #finish-body { flex: 1; overflow-y: auto; padding: 18px 22px; }
+  .fsection-label {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em;
+    color: var(--text-faint); margin: 18px 0 8px;
+  }
+  .fsection-label:first-child { margin-top: 0; }
+  .verdicts { display: flex; flex-direction: column; gap: 6px; }
+  .verdict {
+    display: flex; align-items: center; gap: 10px;
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 12px; cursor: pointer;
+    transition: all 0.12s;
+  }
+  .verdict:hover { background: var(--line-soft); }
+  .verdict .dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 1.5px solid var(--text-faint); flex: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .verdict .dot::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+  .verdict.on { border-color: rgba(240, 180, 41, 0.5); background: var(--amber-dim); }
+  .verdict.on .dot { border-color: var(--amber); }
+  .verdict.on .dot::after { background: var(--amber); }
+  .verdict .vname { font-size: 13px; font-weight: 550; color: var(--text); }
+  .verdict .vdesc { font-size: 11.5px; color: var(--text-dim); margin-top: 1px; }
+  .verdict .vkey { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text-faint); }
+  .fgroup { margin-bottom: 14px; }
+  .fgroup-head {
+    font-family: var(--mono); font-size: 11.5px; color: var(--text-dim);
+    display: flex; gap: 8px; align-items: center;
+    padding: 4px 0;
+  }
+  .fgroup-head .cnt { color: var(--amber); }
+  .fitem {
+    border-left: 2px solid var(--line);
+    margin: 5px 0 5px 5px; padding: 4px 0 4px 12px;
+  }
+  .fitem .fexcerpt {
+    font-family: var(--mono); font-size: 10.5px; color: var(--text-faint);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .fitem .fbody { font-size: 12.5px; color: var(--text); margin-top: 2px; line-height: 1.45; }
+  .fitem .fedit-stat { font-family: var(--mono); font-size: 11px; }
+  .fitem .fedit-stat .plus { color: var(--green); }
+  .fitem .fedit-stat .minus { color: var(--red); }
+  .fempty { font-size: 12.5px; color: var(--text-faint); font-style: italic; }
+  #unviewed-warn {
+    display: flex; align-items: center; gap: 9px;
+    border: 1px solid rgba(240, 180, 41, 0.35);
+    background: var(--amber-dim);
+    border-radius: 8px; padding: 9px 12px; margin-bottom: 16px;
+    font-size: 12.5px; color: var(--amber);
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+  #finish-foot {
+    padding: 16px 22px;
+    border-top: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px;
+  }
+  #submit-btn {
+    flex: 1;
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    background: var(--amber); color: #201703;
+    border: none; border-radius: 8px;
+    padding: 11px; cursor: pointer;
+  }
+  #submit-btn:hover { filter: brightness(1.08); }
+  #finish-foot .foot-hint { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+
+  /* ── Cheat sheet ──────────────────────────── */
+  #cheat {
+    position: fixed; inset: 0; z-index: 80;
+    background: rgba(4, 6, 10, 0.6);
+    display: none; align-items: center; justify-content: center;
+  }
+  #cheat.show { display: flex; }
+  .cheat {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 24px 28px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+    width: 620px; max-width: 92vw;
+  }
+  .cheat h3 { font-size: 14px; font-weight: 600; margin-bottom: 16px; color: #e8eef7; }
+  .cheat-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 36px; }
+  .cheat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 12.5px; color: var(--text-dim); }
+  .cheat-row .keys { display: flex; gap: 4px; }
+  .cheat .cheat-group { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; color: var(--amber); margin: 10px 0 4px; grid-column: span 1; }
+
+  /* ── Submitted state ──────────────────────── */
+  #done {
+    position: fixed; inset: 0; z-index: 100;
+    background: var(--bg);
+    display: none; align-items: center; justify-content: center;
+  }
+  #done.show { display: flex; }
+  .done-card { text-align: center; max-width: 420px; padding: 20px; }
+  .done-card .done-mark {
+    width: 52px; height: 52px; margin: 0 auto 20px;
+    border-radius: 50%;
+    border: 1.5px solid var(--green);
+    color: var(--green); font-size: 22px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .done-card h2 { font-size: 19px; font-weight: 600; color: #e8eef7; margin-bottom: 8px; }
+  .done-card .done-sub { font-size: 13.5px; color: var(--text-dim); line-height: 1.6; }
+  .done-card .done-verdict {
+    display: inline-block; margin-top: 18px;
+    font-family: var(--mono); font-size: 11.5px;
+    border: 1px solid var(--line); border-radius: 20px;
+    padding: 6px 14px; color: var(--text-dim);
+  }
+  .done-card .done-verdict b { color: var(--amber); font-weight: 600; }
+
+  #content::-webkit-scrollbar, #tree::-webkit-scrollbar, #finish-body::-webkit-scrollbar { width: 10px; }
+  #content::-webkit-scrollbar-thumb, #tree::-webkit-scrollbar-thumb, #finish-body::-webkit-scrollbar-thumb {
+    background: var(--line); border-radius: 5px; border: 2px solid transparent; background-clip: content-box;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="rail">
+    <div id="rail-brand">
+      <a href="index.html">cueloop · concept: Board</a>
+      <div class="stance">The review is a workspace. Plan and diff are files in one tree, one grammar.</div>
+    </div>
+    <div id="tree"></div>
+    <div id="rail-progress">
+      <div class="plabel"><span>VIEWED</span><span id="pcount">0 / 3</span></div>
+      <div id="pbar"><div id="pbar-fill"></div></div>
+    </div>
+  </div>
+  <div id="main">
+    <div id="topbar">
+      <div id="crumb"></div>
+      <div id="status"></div>
+      <div id="kbd-hint"><kbd>?</kbd> keys</div>
+      <button id="finish-btn"></button>
+    </div>
+    <div id="content"><div id="content-inner"></div></div>
+  </div>
+</div>
+
+<div id="scrim"></div>
+<div id="finish-panel">
+  <div id="finish-head">
+    <h3>Finish review</h3>
+    <div class="sub" id="finish-sub"></div>
+  </div>
+  <div id="finish-body"></div>
+  <div id="finish-foot">
+    <button id="submit-btn">Submit review</button>
+    <span class="foot-hint">⌘⏎</span>
+  </div>
+</div>
+
+<div id="cheat">
+  <div class="cheat">
+    <h3>Keyboard reference</h3>
+    <div class="cheat-cols">
+      <div>
+        <div class="cheat-group">TREE</div>
+        <div class="cheat-row"><span>Move between items</span><span class="keys"><kbd>⌃j</kbd><kbd>⌃k</kbd></span></div>
+        <div class="cheat-row"><span>Open item</span><span class="keys"><kbd>⏎</kbd></span></div>
+        <div class="cheat-row"><span>Toggle viewed</span><span class="keys"><kbd>v</kbd></span></div>
+        <div class="cheat-group">CURSOR</div>
+        <div class="cheat-row"><span>Line / block down · up</span><span class="keys"><kbd>j</kbd><kbd>k</kbd><kbd>↓</kbd><kbd>↑</kbd></span></div>
+        <div class="cheat-row"><span>Next / prev block</span><span class="keys"><kbd>⇥</kbd><kbd>⇧⇥</kbd></span></div>
+        <div class="cheat-row"><span>Extend selection</span><span class="keys"><kbd>⇧j</kbd><kbd>⇧↓</kbd><kbd>⇧↑</kbd></span></div>
+      </div>
+      <div>
+        <div class="cheat-group">ANNOTATE</div>
+        <div class="cheat-row"><span>Comment on line / selection</span><span class="keys"><kbd>c</kbd></span></div>
+        <div class="cheat-row"><span>Edit plan text (tracked)</span><span class="keys"><kbd>e</kbd></span></div>
+        <div class="cheat-row"><span>Next / prev pending note</span><span class="keys"><kbd>n</kbd><kbd>p</kbd></span></div>
+        <div class="cheat-row"><span>Undo last annotation</span><span class="keys"><kbd>⌘z</kbd></span></div>
+        <div class="cheat-group">REVIEW</div>
+        <div class="cheat-row"><span>Finish review panel</span><span class="keys"><kbd>⌘⏎</kbd></span></div>
+        <div class="cheat-row"><span>Close / cancel</span><span class="keys"><kbd>esc</kbd></span></div>
+        <div class="cheat-row"><span>This sheet</span><span class="keys"><kbd>?</kbd></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="done">
+  <div class="done-card">
+    <div class="done-mark">✓</div>
+    <h2>Review submitted</h2>
+    <div class="done-sub" id="done-sub"></div>
+    <div class="done-verdict" id="done-verdict"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ═══════════ Data ═══════════ */
+
+const planBlocks = [
+  { id: "b0",  kind: "h1", text: "Implementation Plan: Session Persistence" },
+  { id: "b1",  kind: "h2", text: "Context" },
+  { id: "b2",  kind: "p",  text: "Review sessions currently live only in daemon memory. If the daemon crashes or is restarted mid-review, every pending annotation and the verdict draft are lost, and the submitting agent is left waiting on a session that no longer exists. This plan persists each session to disk as it changes, so a restarted daemon can recover in-flight reviews exactly where they stopped." },
+  { id: "b3",  kind: "h2", text: "Phase 1: Storage layer" },
+  { id: "b4",  kind: "p",  text: "Introduce a small storage module that owns serialization and file layout. Sessions are written as one JSON document per session under the daemon state directory, with writes journaled so a partial write can never corrupt a recoverable session. Three new files:" },
+  { id: "b5",  kind: "li", text: "server/storage/store.ts — the SessionStore class, in-memory map plus write-through persistence" },
+  { id: "b6",  kind: "li", text: "server/storage/schema.ts — the on-disk record types and schema version constant" },
+  { id: "b7",  kind: "li", text: "server/storage/index.ts — public entry point re-exporting the store and recovery helpers" },
+  { id: "c0",  kind: "code", text: "interface SessionRecord {" },
+  { id: "c1",  kind: "code", text: "  id: string;" },
+  { id: "c2",  kind: "code", text: "  schemaVersion: string;" },
+  { id: "c3",  kind: "code", text: "  artifact: Artifact;" },
+  { id: "c4",  kind: "code", text: "  annotations: Annotation[];" },
+  { id: "c5",  kind: "code", text: "  verdict: Verdict | null;" },
+  { id: "c6",  kind: "code", text: "}" },
+  { id: "b8",  kind: "h2", text: "Phase 2: Recovery on boot" },
+  { id: "b9",  kind: "p",  text: "On startup the daemon scans the state directory before accepting new submissions. Any session that was mid-review is rehydrated and re-announced to its client, so from the reviewer's perspective a crash looks like a brief disconnect, not a lost review." },
+  { id: "b10", kind: "oli", text: "Replay the journal and load every session file whose schemaVersion we can migrate forward" },
+  { id: "b11", kind: "oli", text: "Rebuild the in-memory session index and re-bind each open session to its review URL" },
+  { id: "b12", kind: "oli", text: "Emit a recovery summary to the log and delete session files older than the retention window" },
+  { id: "b13", kind: "h2", text: "Open questions" },
+  { id: "b14", kind: "li", text: "Should submitted (terminal) sessions be retained on disk for audit, or deleted immediately after the verdict is delivered?" },
+  { id: "b15", kind: "li", text: "Is fsync-per-write acceptable for our latency budget, or do we batch journal flushes on a short timer?" },
+];
+
+const storeDiff = [
+  { t: "hunk", text: "@@ -1,5 +1,8 @@" },
+  { t: "ctx", text: 'import { SessionRecord } from "./schema";' },
+  { t: "add", text: 'import { appendToJournal } from "./journal";' },
+  { t: "add", text: 'import { mkdirSync } from "node:fs";' },
+  { t: "ctx", text: "" },
+  { t: "ctx", text: "export class SessionStore {" },
+  { t: "ctx", text: "  private sessions = new Map<string, SessionRecord>();" },
+  { t: "add", text: "  private journalReady = false;" },
+  { t: "ctx", text: "" },
+  { t: "hunk", text: "@@ -14,7 +17,12 @@" },
+  { t: "ctx", text: "  upsert(record: SessionRecord): void {" },
+  { t: "del", text: "    this.sessions.set(record.id, record);" },
+  { t: "add", text: "    const previous = this.sessions.get(record.id);" },
+  { t: "add", text: "    this.sessions.set(record.id, { ...record, revision: (previous?.revision ?? 0) + 1 });" },
+  { t: "add", text: "    this.ensureJournal();" },
+  { t: "add", text: '    appendToJournal({ kind: "upsert", record });' },
+  { t: "ctx", text: "  }" },
+  { t: "ctx", text: "" },
+  { t: "ctx", text: "  delete(id: string): void {" },
+  { t: "del", text: "    this.sessions.delete(id);" },
+  { t: "add", text: "    if (!this.sessions.delete(id)) return;" },
+  { t: "add", text: "    this.ensureJournal();" },
+  { t: "add", text: '    appendToJournal({ kind: "delete", id });' },
+  { t: "ctx", text: "  }" },
+  { t: "hunk", text: "@@ -30,4 +38,5 @@" },
+  { t: "ctx", text: "  snapshot(): SessionRecord[] {" },
+  { t: "del", text: "    return [...this.sessions.values()];" },
+  { t: "add", text: "    const records = [...this.sessions.values()];" },
+  { t: "add", text: "    return records.sort((a, b) => a.id.localeCompare(b.id));" },
+  { t: "ctx", text: "  }" },
+  { t: "ctx", text: "}" },
+];
+
+const indexDiff = [
+  { t: "hunk", text: "@@ -0,0 +1,9 @@" },
+  { t: "add", text: 'export { SessionStore } from "./store";' },
+  { t: "add", text: 'export { replayJournal } from "./journal";' },
+  { t: "add", text: 'export type { SessionRecord } from "./schema";' },
+  { t: "add", text: "" },
+  { t: "add", text: 'export const STORAGE_SCHEMA_VERSION = "3";' },
+  { t: "add", text: "" },
+  { t: "add", text: "export function createStorage(stateDirectory: string): SessionStore {" },
+  { t: "add", text: "  return new SessionStore(stateDirectory);" },
+  { t: "add", text: "}" },
+];
+
+const items = [
+  { id: "plan",  type: "plan", name: "PLAN.md", label: "Implementation plan" },
+  { id: "store", type: "diff", name: "server/storage/store.ts", short: "store.ts", status: "modified", add: 12, del: 3, lines: storeDiff },
+  { id: "index", type: "diff", name: "server/storage/index.ts", short: "index.ts", status: "new", add: 9, del: 0, lines: indexDiff },
+];
+
+/* ═══════════ State ═══════════ */
+
+const state = {
+  active: "plan",
+  treeCursor: 0,
+  cursors: { plan: 0, store: 0, index: 0 },
+  selAnchor: null,             // row index where selection started, or null
+  viewed: { plan: false, store: false, index: false },
+  annotations: [],             // { id, item, start, end, text, excerpt }
+  edits: [],                   // { id, blockId, oldText, newText }
+  undoStack: [],               // { kind: "comment"|"edit", id, prev? }
+  composer: null,              // { item, start, end }
+  editing: null,               // blockId
+  panelOpen: false,
+  verdict: "comment",
+  submitted: false,
+  activeNoteId: null,
+  nextId: 1,
+};
+
+/* Rows per item: the selectable units. Plan rows = blocks; diff rows = non-hunk lines. */
+function rowsFor(itemId) {
+  const item = items.find(i => i.id === itemId);
+  if (item.type === "plan") return planBlocks.map((b, i) => ({ idx: i, block: b }));
+  return item.lines
+    .map((l, raw) => ({ raw, line: l }))
+    .filter(r => r.line.t !== "hunk")
+    .map((r, i) => ({ idx: i, raw: r.raw, line: r.line }));
+}
+
+function excerptFor(itemId, start, end) {
+  const rows = rowsFor(itemId);
+  const first = rows[start];
+  const text = first.block ? first.block.text : (first.line.text || "(blank line)");
+  const range = end > start ? ` … +${end - start} more` : "";
+  return text.trim().slice(0, 72) + range;
+}
+
+/* ═══════════ Word diff (for tracked plan edits) ═══════════ */
+
+function wordDiff(oldText, newText) {
+  const a = oldText.split(/\s+/).filter(Boolean);
+  const b = newText.split(/\s+/).filter(Boolean);
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--)
+    for (let j = n - 1; j >= 0; j--)
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const ops = [];
+  let i = 0, j = 0;
+  while (i < m && j < n) {
+    if (a[i] === b[j]) { ops.push({ t: "eq", w: a[i] }); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { ops.push({ t: "del", w: a[i] }); i++; }
+    else { ops.push({ t: "ins", w: b[j] }); j++; }
+  }
+  while (i < m) ops.push({ t: "del", w: a[i++] });
+  while (j < n) ops.push({ t: "ins", w: b[j++] });
+  return ops;
+}
+
+function editStats(edit) {
+  const ops = wordDiff(edit.oldText, edit.newText);
+  return {
+    ins: ops.filter(o => o.t === "ins").length,
+    del: ops.filter(o => o.t === "del").length,
+  };
+}
+
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function trackedHTML(oldText, newText) {
+  return wordDiff(oldText, newText).map(op => {
+    const w = esc(op.w);
+    if (op.t === "eq") return w;
+    if (op.t === "ins") return `<ins>${w}</ins>`;
+    return `<del>${w}</del>`;
+  }).join(" ");
+}
+
+/* ═══════════ Rendering ═══════════ */
+
+const $ = sel => document.querySelector(sel);
+
+function pendingCount() { return state.annotations.length + state.edits.length; }
+
+function renderTree() {
+  const tree = $("#tree");
+  let html = "";
+  items.forEach((item, i) => {
+    if (i === 0) html += '<div class="tree-group">PLAN</div>';
+    if (i === 1) html += '<div class="tree-group">CHANGES · 2 FILES</div>';
+    const notes = state.annotations.filter(a => a.item === item.id).length
+      + (item.id === "plan" ? state.edits.length : 0);
+    const cls = [
+      "tree-item",
+      i === state.treeCursor ? "tcur" : "",
+      item.id === state.active ? "open" : "",
+      state.viewed[item.id] ? "viewed" : "",
+    ].join(" ");
+    let stat = "";
+    if (item.type === "diff") {
+      stat = item.status === "new"
+        ? `<span class="tstat"><span class="newf">new</span> <span class="plus">+${item.add}</span></span>`
+        : `<span class="tstat"><span class="plus">+${item.add}</span> <span class="minus">−${item.del}</span></span>`;
+    }
+    const name = item.type === "plan" ? item.name : item.short;
+    html += `<div class="${cls}" data-tree="${i}">
+      <span class="vbox" data-vbox="${i}">✓</span>
+      <span class="tname" title="${esc(item.name)}">${esc(name)}</span>
+      ${stat}
+      ${notes ? `<span class="abadge">${notes}</span>` : ""}
+    </div>`;
+  });
+  tree.innerHTML = html;
+
+  const viewedCount = items.filter(it => state.viewed[it.id]).length;
+  $("#pcount").textContent = `${viewedCount} / ${items.length}`;
+  $("#pbar-fill").style.width = (viewedCount / items.length * 100) + "%";
+
+  tree.querySelectorAll("[data-tree]").forEach(el => {
+    el.addEventListener("click", e => {
+      const i = +el.dataset.tree;
+      if (e.target.closest("[data-vbox]")) { toggleViewed(items[i].id); return; }
+      state.treeCursor = i;
+      openItem(items[i].id);
+    });
+  });
+}
+
+function selRange() {
+  const cur = state.cursors[state.active];
+  if (state.selAnchor === null) return [cur, cur];
+  return [Math.min(state.selAnchor, cur), Math.max(state.selAnchor, cur)];
+}
+
+function noteCardsHTML(itemId, rowIdx) {
+  let html = "";
+  for (const a of state.annotations) {
+    if (a.item !== itemId || a.end !== rowIdx) continue;
+    const active = a.id === state.activeNoteId ? " active-note" : "";
+    const span = a.end > a.start ? `LINES ${a.start + 1}–${a.end + 1}` : "PENDING COMMENT";
+    html += `<div class="note-card${active}" data-note="${a.id}">
+      <div class="note-tag">${span === "PENDING COMMENT" ? span : "PENDING · " + span}</div>
+      <div class="note-body">${esc(a.text)}</div>
+    </div>`;
+  }
+  return html;
+}
+
+function composerHTML(kind, prefill) {
+  const tag = kind === "edit" ? "EDIT PLAN TEXT · TRACKED" : "NEW COMMENT · PENDING UNTIL SUBMIT";
+  return `<div class="composer${kind === "edit" ? " editor" : ""}">
+    <div class="ctag">${tag}</div>
+    <textarea id="composer-input">${esc(prefill || "")}</textarea>
+    <div class="composer-hint"><span><kbd>⌘⏎</kbd> save</span><span><kbd>esc</kbd> cancel</span></div>
+  </div>`;
+}
+
+function renderContent() {
+  const item = items.find(i => i.id === state.active);
+  const inner = $("#content-inner");
+  const [s0, s1] = selRange();
+  const cur = state.cursors[state.active];
+  const rows = rowsFor(state.active);
+
+  const rowCls = i => {
+    const has = state.annotations.some(a => a.item === state.active && i >= a.start && i <= a.end);
+    return ["row", i === cur ? "cur" : "", i >= s0 && i <= s1 && state.selAnchor !== null ? "sel" : "", has ? "has-note" : ""]
+      .filter(Boolean).join(" ");
+  };
+  const after = i => {
+    let html = noteCardsHTML(state.active, i);
+    if (state.composer && state.composer.item === state.active && state.composer.end === i && !state.editing)
+      html += composerHTML("comment");
+    return html;
+  };
+
+  if (item.type === "plan") {
+    let html = '<div class="plan">';
+    let listBuf = "", codeBuf = "", listKind = null;
+    const flushList = () => { if (listBuf) { html += listBuf; listBuf = ""; listKind = null; } };
+    const flushCode = () => { if (codeBuf) { html += `<div class="codewrap">${codeBuf}</div>`; codeBuf = ""; } };
+
+    planBlocks.forEach((b, i) => {
+      const edit = state.edits.find(e => e.blockId === b.id);
+      const isEditing = state.editing === b.id;
+      let body;
+      if (isEditing) {
+        body = composerHTML("edit", edit ? edit.newText : b.text);
+      } else if (edit) {
+        body = trackedHTML(edit.oldText, edit.newText);
+      } else {
+        body = esc(b.text);
+      }
+      const wrap = inner2 => `<div class="${rowCls(i)}" data-row="${i}">${inner2}</div>` + after(i);
+
+      if (b.kind === "code") {
+        flushList();
+        let codeInner;
+        if (isEditing) codeInner = body;
+        else if (edit) codeInner = `<code>${trackedHTML(edit.oldText, edit.newText)}</code>`;
+        else codeInner = `<code>${esc(b.text)}</code>`;
+        codeBuf += wrap(codeInner);
+        return;
+      }
+      flushCode();
+      if (b.kind === "li" || b.kind === "oli") {
+        const marker = b.kind === "li" ? "▪" : (planBlocks.slice(0, i).filter(x => x.kind === "oli").length % 3 + 1) + ".";
+        listBuf += wrap(`<div class="${b.kind === "li" ? "bullet" : "numbered"}"><span class="marker">${marker}</span><span>${isEditing ? body : linkFiles(body)}</span></div>`);
+        listKind = b.kind;
+        return;
+      }
+      flushList();
+      if (b.kind === "h1") html += wrap(`<h1>${body}</h1>`);
+      else if (b.kind === "h2") html += wrap(`<h2>${body}</h2>`);
+      else html += wrap(`<p>${body}</p>`);
+    });
+    flushList(); flushCode();
+    html += "</div>";
+    inner.innerHTML = html;
+  } else {
+    let oldN = 0, newN = 0;
+    let html = `<div class="diff">
+      <div class="diff-file-head">
+        <span class="fpath">${esc(item.name)}</span>
+        <span class="tstat">${item.status === "new"
+          ? '<span class="newf">new file</span> <span class="plus">+' + item.add + "</span>"
+          : '<span class="plus">+' + item.add + '</span> <span class="minus">−' + item.del + "</span>"}</span>
+      </div>`;
+    let rowIdx = -1;
+    item.lines.forEach(l => {
+      if (l.t === "hunk") {
+        const m = l.text.match(/@@ -(\d+),?\d* \+(\d+)/);
+        oldN = +m[1]; newN = +m[2];
+        html += `<div class="dline hunk"><span class="ln"></span><span class="ln"></span><span class="sign"></span><span class="code">${esc(l.text)}</span></div>`;
+        return;
+      }
+      rowIdx++;
+      let lo = "", ln = "", sign = " ";
+      if (l.t === "ctx") { lo = oldN++; ln = newN++; }
+      else if (l.t === "add") { ln = newN++; sign = "+"; }
+      else { lo = oldN++; sign = "−"; }
+      html += `<div class="${rowCls(rowIdx)}" data-row="${rowIdx}">
+        <div class="dline ${l.t}"><span class="ln">${lo}</span><span class="ln">${ln}</span><span class="sign">${sign}</span><span class="code">${esc(l.text) || " "}</span></div>
+      </div>` + after(rowIdx);
+    });
+    html += "</div>";
+    inner.innerHTML = html;
+  }
+
+  // crumb
+  const pos = `${cur + 1}/${rows.length}`;
+  $("#crumb").innerHTML = `review <span style="color:var(--text-faint)">/</span> <b>${esc(item.name)}</b> <span style="color:var(--text-faint)">· ${item.type === "plan" ? "block" : "line"} ${pos}</span>`;
+
+  // row click -> move cursor
+  inner.querySelectorAll("[data-row]").forEach(el => {
+    el.addEventListener("click", () => {
+      state.cursors[state.active] = +el.dataset.row;
+      state.selAnchor = null;
+      render();
+    });
+  });
+
+  const ta = $("#composer-input");
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+
+  const curEl = inner.querySelector(".row.cur");
+  if (curEl) curEl.scrollIntoView({ block: "nearest" });
+  const activeNote = inner.querySelector(".active-note");
+  if (activeNote) activeNote.scrollIntoView({ block: "center" });
+}
+
+function linkFiles(html) {
+  return html.replace(/(server\/storage\/[\w.]+)/g, '<span class="fname">$1</span>');
+}
+
+function renderFinishButton() {
+  const n = pendingCount();
+  const btn = $("#finish-btn");
+  btn.textContent = n ? `Finish review (${n})` : "Finish review";
+  btn.classList.toggle("empty", n === 0);
+}
+
+function renderFinishPanel() {
+  const body = $("#finish-body");
+  const unviewed = items.filter(it => !state.viewed[it.id]);
+  let html = "";
+
+  if (unviewed.length) {
+    html += `<div id="unviewed-warn">◌&nbsp; ${unviewed.length} item${unviewed.length > 1 ? "s" : ""} not viewed · ${unviewed.map(u => esc(u.type === "plan" ? u.name : u.short)).join(", ")}</div>`;
+  }
+
+  html += `<div class="fsection-label">SUMMARY COMMENT</div>
+    <textarea id="parent-comment" placeholder="Overall feedback for the agent (optional)…">${esc($("#parent-comment") ? $("#parent-comment").value : "")}</textarea>`;
+
+  const verdicts = [
+    { id: "comment", name: "Comment", desc: "Send feedback without a decision", key: "1" },
+    { id: "approve", name: "Approve", desc: "Plan and changes are good to proceed", key: "2" },
+    { id: "request", name: "Request changes", desc: "Agent must revise before proceeding", key: "3" },
+  ];
+  html += `<div class="fsection-label">VERDICT</div><div class="verdicts">`;
+  verdicts.forEach(v => {
+    html += `<div class="verdict${state.verdict === v.id ? " on" : ""}" data-verdict="${v.id}">
+      <span class="dot"></span>
+      <span><div class="vname">${v.name}</div><div class="vdesc">${v.desc}</div></span>
+      <span class="vkey">${v.key}</span>
+    </div>`;
+  });
+  html += "</div>";
+
+  html += `<div class="fsection-label">PENDING · ${pendingCount()}</div>`;
+  if (!pendingCount()) html += '<div class="fempty">No annotations yet. Press c on any line, or e on plan text.</div>';
+
+  items.forEach(item => {
+    const notes = state.annotations.filter(a => a.item === item.id);
+    const hasEdits = item.id === "plan" && state.edits.length;
+    if (!notes.length && !hasEdits) return;
+    html += `<div class="fgroup"><div class="fgroup-head"><span class="cnt">●</span> ${esc(item.name)}</div>`;
+    if (hasEdits) {
+      const totals = state.edits.reduce((t, e) => {
+        const s = editStats(e); return { i: t.i + s.ins, d: t.d + s.del };
+      }, { i: 0, d: 0 });
+      html += `<div class="fitem">
+        <div class="fexcerpt">plan edits · ${state.edits.length} block${state.edits.length > 1 ? "s" : ""}</div>
+        <div class="fedit-stat"><span class="plus">+${totals.i}</span> <span class="minus">−${totals.d}</span> words, tracked</div>
+      </div>`;
+    }
+    notes.forEach(a => {
+      html += `<div class="fitem">
+        <div class="fexcerpt">${esc(a.excerpt)}</div>
+        <div class="fbody">${esc(a.text)}</div>
+      </div>`;
+    });
+    html += "</div>";
+  });
+
+  body.innerHTML = html;
+  $("#finish-sub").textContent = `${pendingCount()} pending annotation${pendingCount() === 1 ? "" : "s"} · delivered atomically on submit`;
+
+  body.querySelectorAll("[data-verdict]").forEach(el => {
+    el.addEventListener("click", () => { state.verdict = el.dataset.verdict; renderFinishPanel(); });
+  });
+}
+
+function render() {
+  renderTree();
+  renderContent();
+  renderFinishButton();
+  if (state.panelOpen) renderFinishPanel();
+}
+
+/* ═══════════ Status toast ═══════════ */
+
+let statusTimer = null;
+function flashStatus(msg) {
+  const el = $("#status");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => el.classList.remove("show"), 1600);
+}
+
+/* ═══════════ Actions ═══════════ */
+
+function openItem(id) {
+  state.active = id;
+  state.treeCursor = items.findIndex(i => i.id === id);
+  state.selAnchor = null;
+  state.composer = null;
+  state.editing = null;
+  render();
+}
+
+function toggleViewed(id) {
+  state.viewed[id] = !state.viewed[id];
+  render();
+  flashStatus(state.viewed[id] ? "marked viewed" : "marked not viewed");
+}
+
+function moveTree(delta) {
+  state.treeCursor = Math.max(0, Math.min(items.length - 1, state.treeCursor + delta));
+  renderTree();
+}
+
+function moveCursor(delta, extend) {
+  const rows = rowsFor(state.active);
+  const cur = state.cursors[state.active];
+  if (extend && state.selAnchor === null) state.selAnchor = cur;
+  if (!extend) state.selAnchor = null;
+  state.cursors[state.active] = Math.max(0, Math.min(rows.length - 1, cur + delta));
+  renderContent();
+  renderTree();
+}
+
+function startComment() {
+  const [s0, s1] = selRange();
+  state.composer = { item: state.active, start: s0, end: s1 };
+  state.editing = null;
+  renderContent();
+}
+
+function startEdit() {
+  const item = items.find(i => i.id === state.active);
+  if (item.type !== "plan") { flashStatus("e edits plan text only — use c on diffs"); return; }
+  const block = planBlocks[state.cursors.plan];
+  state.editing = block.id;
+  state.composer = null;
+  state.selAnchor = null;
+  renderContent();
+}
+
+function saveComposer() {
+  const ta = $("#composer-input");
+  if (!ta) return;
+  const text = ta.value.trim();
+
+  if (state.editing) {
+    const block = planBlocks.find(b => b.id === state.editing);
+    const existing = state.edits.find(e => e.blockId === block.id);
+    if (!text || text === block.text) {
+      if (existing) state.edits = state.edits.filter(e => e !== existing);
+      state.editing = null;
+      render();
+      return;
+    }
+    if (existing) {
+      state.undoStack.push({ kind: "edit-update", id: existing.id, prev: existing.newText });
+      existing.newText = text;
+    } else {
+      const edit = { id: state.nextId++, blockId: block.id, oldText: block.text, newText: text };
+      state.edits.push(edit);
+      state.undoStack.push({ kind: "edit", id: edit.id });
+    }
+    state.editing = null;
+    flashStatus("edit tracked · pending");
+    render();
+    return;
+  }
+
+  if (state.composer) {
+    if (!text) { state.composer = null; render(); return; }
+    const { item, start, end } = state.composer;
+    const a = { id: state.nextId++, item, start, end, text, excerpt: excerptFor(item, start, end) };
+    state.annotations.push(a);
+    state.undoStack.push({ kind: "comment", id: a.id });
+    state.composer = null;
+    state.selAnchor = null;
+    flashStatus("comment pending");
+    render();
+  }
+}
+
+function undo() {
+  const op = state.undoStack.pop();
+  if (!op) { flashStatus("nothing to undo"); return; }
+  if (op.kind === "comment") {
+    state.annotations = state.annotations.filter(a => a.id !== op.id);
+    flashStatus("comment removed");
+  } else if (op.kind === "edit") {
+    state.edits = state.edits.filter(e => e.id !== op.id);
+    flashStatus("edit reverted");
+  } else if (op.kind === "edit-update") {
+    const e = state.edits.find(x => x.id === op.id);
+    if (e) e.newText = op.prev;
+    flashStatus("edit reverted");
+  }
+  render();
+}
+
+function pendingList() {
+  const order = items.map(i => i.id);
+  const entries = [
+    ...state.annotations.map(a => ({ item: a.item, at: a.start, id: a.id, note: true })),
+    ...state.edits.map(e => ({ item: "plan", at: planBlocks.findIndex(b => b.id === e.blockId), id: "e" + e.id, note: false })),
+  ];
+  return entries.sort((a, b) =>
+    order.indexOf(a.item) - order.indexOf(b.item) || a.at - b.at);
+}
+
+function jumpPending(dir) {
+  const list = pendingList();
+  if (!list.length) { flashStatus("no pending annotations"); return; }
+  const curKey = state.activeNoteId;
+  let idx = list.findIndex(e => e.id === curKey);
+  if (idx === -1) idx = dir > 0 ? -1 : 0;
+  idx = (idx + dir + list.length) % list.length;
+  const target = list[idx];
+  state.activeNoteId = target.id;
+  state.active = target.item;
+  state.treeCursor = items.findIndex(i => i.id === target.item);
+  state.cursors[target.item] = target.at;
+  state.selAnchor = null;
+  render();
+  const rowEl = document.querySelector(`[data-row="${target.at}"]`);
+  if (rowEl) { rowEl.classList.add("flash"); rowEl.scrollIntoView({ block: "center" }); }
+  flashStatus(`pending ${idx + 1}/${list.length}`);
+}
+
+function openPanel() {
+  state.panelOpen = true;
+  renderFinishPanel();
+  $("#scrim").classList.add("show");
+  $("#finish-panel").classList.add("show");
+  setTimeout(() => { const pc = $("#parent-comment"); if (pc) pc.focus(); }, 240);
+}
+
+function closePanel() {
+  state.panelOpen = false;
+  $("#scrim").classList.remove("show");
+  $("#finish-panel").classList.remove("show");
+}
+
+function submitReview() {
+  const verdictNames = { comment: "Comment", approve: "Approve", request: "Request changes" };
+  const notes = state.annotations.length;
+  const edits = state.edits.length;
+  const pc = $("#parent-comment");
+  const summary = pc && pc.value.trim() ? "with summary comment, " : "";
+  state.submitted = true;
+  closePanel();
+  $("#done-sub").innerHTML =
+    `${summary}${notes} comment${notes === 1 ? "" : "s"} and ${edits} tracked plan edit${edits === 1 ? "" : "s"} delivered to the agent as one atomic verdict. The session is closed; nothing was visible until now.`;
+  $("#done-verdict").innerHTML = `verdict · <b>${verdictNames[state.verdict]}</b>`;
+  $("#done").classList.add("show");
+}
+
+/* ═══════════ Keyboard ═══════════ */
+
+document.addEventListener("keydown", e => {
+  const meta = e.metaKey || e.ctrlKey;
+  const inText = e.target.matches("textarea, input");
+
+  if (state.submitted) return;
+
+  // composer / textarea scope
+  if (inText) {
+    if (e.key === "Enter" && meta) {
+      e.preventDefault();
+      if (state.panelOpen && e.target.id === "parent-comment") { submitReview(); return; }
+      saveComposer();
+      return;
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (state.composer || state.editing) { state.composer = null; state.editing = null; render(); }
+      else if (state.panelOpen) closePanel();
+      return;
+    }
+    return; // let typing through
+  }
+
+  // panel scope
+  if (state.panelOpen) {
+    if (e.key === "Escape") { closePanel(); return; }
+    if (e.key === "Enter" && meta) { e.preventDefault(); submitReview(); return; }
+    if (e.key === "1") { state.verdict = "comment"; renderFinishPanel(); return; }
+    if (e.key === "2") { state.verdict = "approve"; renderFinishPanel(); return; }
+    if (e.key === "3") { state.verdict = "request"; renderFinishPanel(); return; }
+    return;
+  }
+
+  if (e.key === "?") {
+    e.preventDefault();
+    $("#cheat").classList.toggle("show");
+    return;
+  }
+  if (document.getElementById("cheat").classList.contains("show")) {
+    if (e.key === "Escape" || e.key === "?") $("#cheat").classList.remove("show");
+    return;
+  }
+
+  if (e.key === "Escape") {
+    if (state.composer || state.editing) { state.composer = null; state.editing = null; render(); }
+    else if (state.selAnchor !== null) { state.selAnchor = null; renderContent(); }
+    return;
+  }
+
+  if (e.key === "z" && meta) { e.preventDefault(); undo(); return; }
+  if (e.key === "Enter" && meta) { e.preventDefault(); openPanel(); return; }
+
+  // tree navigation
+  if (meta === false && e.ctrlKey === false) { /* noop guard, ctrl handled via meta above */ }
+  if (e.ctrlKey && (e.key === "j" || e.key === "n")) { e.preventDefault(); moveTree(1); return; }
+  if (e.ctrlKey && (e.key === "k" || e.key === "p")) { e.preventDefault(); moveTree(-1); return; }
+  if (e.key === "Enter") { e.preventDefault(); openItem(items[state.treeCursor].id); return; }
+  if (e.key === "v") { toggleViewed(items[state.treeCursor].id); return; }
+
+  // content cursor
+  if (e.key === "j" || e.key === "ArrowDown" || (e.key === "J" && e.shiftKey)) {
+    e.preventDefault(); moveCursor(1, e.shiftKey); return;
+  }
+  if (e.key === "k" || e.key === "ArrowUp" || (e.key === "K" && e.shiftKey)) {
+    e.preventDefault(); moveCursor(-1, e.shiftKey); return;
+  }
+  if (e.key === "Tab") { e.preventDefault(); moveCursor(e.shiftKey ? -1 : 1, false); return; }
+
+  if (e.key === "c") { e.preventDefault(); startComment(); return; }
+  if (e.key === "e") { e.preventDefault(); startEdit(); return; }
+  if (e.key === "n") { e.preventDefault(); jumpPending(1); return; }
+  if (e.key === "p") { e.preventDefault(); jumpPending(-1); return; }
+});
+
+$("#finish-btn").addEventListener("click", openPanel);
+$("#scrim").addEventListener("click", closePanel);
+$("#submit-btn").addEventListener("click", submitReview);
+$("#cheat").addEventListener("click", e => { if (e.target.id === "cheat") $("#cheat").classList.remove("show"); });
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,1303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cueloop · Split stage</title>
+<style>
+  :root{
+    --bg:#12100c;
+    --bg-raise:#17140f;
+    --seam:#0d0b08;
+    --hair:rgba(255,255,255,.07);
+    --ink-dim:#a39b8b;
+    --ink:#ece6d8;
+    --ink-faint:#7d7565;
+    --amber:#dfae57;
+    --amber-dim:rgba(223,174,87,.55);
+    --ins-fg:#a9dca1;
+    --ins-bg:rgba(110,196,116,.13);
+    --ins-line:rgba(140,214,144,.5);
+    --del-fg:#d99a90;
+    --del-bg:rgba(224,92,80,.10);
+    --mono:"SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    --ui:-apple-system,"SF Pro Text","Segoe UI",Inter,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    background-image:radial-gradient(1100px 420px at 50% -120px, rgba(223,174,87,.075), transparent 70%);
+    color:var(--ink);
+    font-family:var(--ui);
+    font-size:15px;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  a{color:var(--amber);text-decoration:none}
+  a:hover{text-decoration:underline}
+  kbd{
+    font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);
+    border:1px solid var(--hair);border-bottom-color:rgba(255,255,255,.12);
+    border-radius:4px;padding:1px 5px;background:rgba(255,255,255,.03);
+    white-space:nowrap;
+  }
+
+  /* ---------- top bar ---------- */
+  #topbar{
+    flex:none;display:flex;align-items:baseline;gap:22px;
+    padding:12px 22px 11px;border-bottom:1px solid var(--hair);
+    background:rgba(18,16,12,.85);
+  }
+  #topbar .brand a{
+    font-family:var(--mono);font-size:11px;letter-spacing:.06em;
+    color:var(--ink-faint);
+  }
+  #topbar .brand a:hover{color:var(--amber)}
+  #topbar .stance{
+    display:block;margin-top:3px;font-family:var(--serif);font-style:italic;
+    font-size:13px;color:var(--ink-dim);
+  }
+  #topbar nav{display:flex;gap:4px;margin-left:auto}
+  #topbar nav button{
+    font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+    color:var(--ink-faint);background:none;border:1px solid transparent;
+    border-radius:5px;padding:4px 10px;cursor:pointer;
+  }
+  #topbar nav button.on{color:var(--amber);border-color:rgba(223,174,87,.35);background:rgba(223,174,87,.06)}
+  #topbar .status{display:flex;gap:16px;align-items:baseline;font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+  #topbar .status .live{color:var(--amber)}
+  #topbar .status .hintkeys{color:var(--ink-faint)}
+
+  /* ---------- stage layout ---------- */
+  main{flex:1;overflow-y:auto;overscroll-behavior:contain;scroll-padding:80px}
+  .stage{max-width:1360px;margin:0 auto;padding:0 26px 45vh}
+  .row{
+    display:grid;grid-template-columns:1fr 58px 1fr;
+    position:relative;
+  }
+  .gutter{
+    position:relative;background:var(--seam);
+    border-left:1px solid var(--hair);border-right:1px solid var(--hair);
+    display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:6px;
+  }
+  .cell{
+    padding:5px 26px;position:relative;min-height:1.4em;
+    font-family:var(--serif);font-size:16.5px;line-height:1.62;
+    white-space:pre-wrap;word-break:break-word;
+  }
+  .cell.base{color:var(--ink-dim)}
+  .cell.work{color:var(--ink);caret-color:var(--amber)}
+  .cell.work:focus{outline:none}
+
+  /* pane headers */
+  .pane-heads{
+    position:sticky;top:0;z-index:6;
+    background:linear-gradient(var(--bg) 82%, transparent);
+  }
+  .pane-heads .cell{
+    font-family:var(--ui);font-size:10px;font-weight:600;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--ink-faint);
+    padding-top:16px;padding-bottom:10px;white-space:normal;
+  }
+  .pane-heads .cell b{color:var(--amber);font-weight:600}
+  .pane-heads .gutter{background:transparent;border-color:transparent}
+
+  /* block typography */
+  .t-h1 .cell{font-size:27px;line-height:1.25;font-weight:600;letter-spacing:-.01em;padding-top:26px;padding-bottom:8px}
+  .t-h2 .cell{font-size:19.5px;font-weight:600;letter-spacing:-.005em;padding-top:26px;padding-bottom:4px}
+  .t-h2 .cell::after{content:"";display:block;width:34px;height:1px;background:var(--amber-dim);margin-top:7px;opacity:.6}
+  .t-li .cell,.t-oli .cell{padding-left:48px}
+  .t-li .cell::before{
+    content:"–";position:absolute;left:27px;color:var(--amber-dim);
+  }
+  .stage{counter-reset:ob 0 ow 0}
+  .t-oli .cell.base{counter-increment:ob}
+  .t-oli .cell.base::before{content:counter(ob) ".";}
+  .t-oli .cell.work{counter-increment:ow}
+  .t-oli .cell.work::before{content:counter(ow) ".";}
+  .t-oli .cell::before{position:absolute;left:27px;font-family:var(--mono);font-size:13px;color:var(--amber-dim);top:9px}
+  .t-code .cell{
+    font-family:var(--mono);font-size:13px;line-height:1.65;
+    background:rgba(255,255,255,.025);border:1px solid var(--hair);border-radius:8px;
+    margin:10px 22px;padding:14px 18px;
+  }
+
+  /* tracked changes */
+  ins{
+    text-decoration:none;color:var(--ins-fg);background:var(--ins-bg);
+    border-bottom:1px solid var(--ins-line);border-radius:2px;padding:0 1px;
+  }
+  del{
+    color:var(--del-fg);background:var(--del-bg);border-radius:2px;padding:0 1px;
+    text-decoration:line-through;text-decoration-color:rgba(224,110,98,.6);
+  }
+
+  /* row states */
+  .row.changed{background:rgba(223,174,87,.028)}
+  .row.changed .gutter::before{
+    content:"";position:absolute;left:-1px;right:-1px;top:17px;height:1px;
+    background:rgba(223,174,87,.32);
+  }
+  .row.changed .gutter::after{
+    content:"";position:absolute;top:14.5px;left:50%;margin-left:-3px;
+    width:6px;height:6px;transform:rotate(45deg);
+    background:var(--bg);border:1px solid var(--amber-dim);
+  }
+  .row.cursor::before{
+    content:"";position:absolute;left:-14px;top:6px;bottom:6px;width:2px;
+    background:var(--amber);border-radius:2px;
+  }
+  .row.sel{background:rgba(223,174,87,.06)}
+  .row.editing .cell.work{
+    background:rgba(255,255,255,.028);
+    box-shadow:inset 0 0 0 1px rgba(223,174,87,.4);border-radius:6px;
+  }
+  .row.ins-block .cell.base::before{
+    content:"· block added in working copy ·";
+    font-family:var(--ui);font-size:10.5px;font-style:normal;letter-spacing:.08em;
+    color:var(--ink-faint);position:static;
+  }
+  .row.ins-block .cell.base{border-left:2px dashed rgba(140,214,144,.25);align-self:stretch;display:flex;align-items:center}
+  .row.del-block .cell.work:empty::before{
+    content:"removed — struck from the plan (type to restore)";
+    font-family:var(--ui);font-size:10.5px;letter-spacing:.06em;color:var(--del-fg);opacity:.6;
+  }
+  .row.flash{animation:flash 1s ease-out}
+  @keyframes flash{0%{background:rgba(223,174,87,.22)}100%{background:transparent}}
+
+  /* comment chips */
+  .chip{
+    z-index:3;font-family:var(--mono);font-size:10px;line-height:1;
+    color:#131009;background:var(--amber);border:none;border-radius:9px;
+    min-width:18px;padding:4px 5px;cursor:pointer;
+    box-shadow:0 1px 4px rgba(0,0,0,.5);
+  }
+  .chip:hover{background:#eec06a}
+
+  /* ---------- diff view ---------- */
+  #diffView .stage{max-width:1360px}
+  .dfile{margin-top:30px;border:1px solid var(--hair);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.012)}
+  .dfile-head{
+    display:flex;gap:14px;align-items:baseline;padding:10px 18px;
+    background:rgba(255,255,255,.03);border-bottom:1px solid var(--hair);
+    font-family:var(--mono);font-size:12px;
+  }
+  .dfile-head .path{color:var(--ink)}
+  .dfile-head .stat{color:var(--ink-faint);font-size:11px}
+  .dfile-head .plus{color:var(--ins-fg)} .dfile-head .minus{color:var(--del-fg)}
+  .drow{
+    display:grid;grid-template-columns:3.2rem 1fr 58px 3.2rem 1fr;
+    font-family:var(--mono);font-size:12.5px;line-height:1.75;position:relative;
+  }
+  .drow .ln{
+    color:var(--ink-faint);text-align:right;padding-right:10px;user-select:none;
+    font-size:10.5px;padding-top:2px;
+  }
+  .drow .code{white-space:pre;overflow-x:auto;padding-left:12px;color:var(--ink-dim)}
+  .drow .gutter{padding-top:2px}
+  .drow.k-del .old-side{background:var(--del-bg)} .drow.k-del .code.old{color:var(--del-fg)}
+  .drow.k-add .new-side{background:var(--ins-bg)} .drow.k-add .code.new{color:var(--ins-fg)}
+  .drow.k-pair .old-side{background:var(--del-bg)} .drow.k-pair .code.old{color:var(--del-fg)}
+  .drow.k-pair .new-side{background:var(--ins-bg)} .drow.k-pair .code.new{color:var(--ins-fg)}
+  .drow.cursor::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--amber);
+  }
+  .drow.cursor{background:rgba(223,174,87,.05)}
+  .drow.flash{animation:flash 1s ease-out}
+
+  /* ---------- drawer ---------- */
+  #drawer{
+    position:fixed;left:0;right:0;bottom:0;z-index:20;
+    background:var(--bg-raise);border-top:1px solid rgba(223,174,87,.3);
+    box-shadow:0 -18px 50px rgba(0,0,0,.55);
+    transform:translateY(102%);transition:transform .22s cubic-bezier(.3,.9,.3,1);
+    max-height:46vh;display:flex;flex-direction:column;
+  }
+  #drawer.open{transform:translateY(0)}
+  .d-head{
+    flex:none;display:flex;align-items:baseline;gap:14px;
+    padding:10px 26px;border-bottom:1px solid var(--hair);
+    font-family:var(--ui);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .d-head .tally{margin-left:auto;font-family:var(--mono);text-transform:none;letter-spacing:0;font-size:11px}
+  .d-body{
+    flex:1;overflow:hidden;display:grid;grid-template-columns:1.25fr 1fr .8fr;
+    gap:0;
+  }
+  .d-body section{overflow-y:auto;padding:14px 22px 20px;border-right:1px solid var(--hair)}
+  .d-body section:last-child{border-right:none}
+  .d-body h3{
+    font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink-faint);margin-bottom:10px;
+  }
+  .md-hunk{margin-bottom:12px}
+  .md-label{font-family:var(--mono);font-size:10.5px;color:var(--amber-dim);margin-bottom:3px}
+  .md-line{
+    font-family:var(--mono);font-size:11.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;
+    padding:2px 8px;border-radius:4px;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .md-line.old{color:var(--ink-faint)}
+  .md-line.new{color:var(--ink-dim)}
+  .md-empty,.d-empty{font-family:var(--serif);font-style:italic;font-size:13px;color:var(--ink-faint)}
+  #dComments{list-style:none}
+  #dComments li{margin-bottom:11px;font-size:13px;line-height:1.45}
+  #dComments .anchor{font-family:var(--mono);font-size:10.5px;color:var(--amber-dim);display:block}
+  #dComments .quote{color:var(--ink-faint);font-style:italic;font-family:var(--serif)}
+  #parentComment{
+    width:100%;min-height:52px;resize:vertical;margin-bottom:12px;
+    background:rgba(255,255,255,.03);border:1px solid var(--hair);border-radius:6px;
+    color:var(--ink);font-family:var(--ui);font-size:13px;padding:8px 10px;
+  }
+  #parentComment:focus{outline:none;border-color:rgba(223,174,87,.45)}
+  .verdicts{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+  .verdicts label{
+    display:flex;align-items:center;gap:9px;font-size:13px;cursor:pointer;
+    padding:5px 9px;border-radius:6px;border:1px solid transparent;color:var(--ink-dim);
+  }
+  .verdicts label:has(input:checked){border-color:rgba(223,174,87,.4);background:rgba(223,174,87,.07);color:var(--ink)}
+  .verdicts input{accent-color:var(--amber)}
+  .verdicts kbd{margin-left:auto}
+  #submitBtn{
+    width:100%;padding:9px 0;border-radius:7px;border:1px solid rgba(223,174,87,.5);
+    background:rgba(223,174,87,.13);color:var(--amber);font-family:var(--ui);
+    font-size:13px;font-weight:600;letter-spacing:.02em;cursor:pointer;
+  }
+  #submitBtn:hover{background:rgba(223,174,87,.22)}
+
+  /* ---------- popover ---------- */
+  #popover{
+    position:fixed;z-index:30;width:320px;
+    background:var(--bg-raise);border:1px solid rgba(223,174,87,.35);border-radius:9px;
+    box-shadow:0 12px 40px rgba(0,0,0,.6);padding:12px 14px;
+  }
+  #popover .p-anchor{font-family:var(--mono);font-size:10px;color:var(--amber-dim);margin-bottom:6px;letter-spacing:.04em}
+  #popover .p-quote{
+    font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--ink-faint);
+    border-left:2px solid var(--amber-dim);padding-left:9px;margin-bottom:9px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  #popover textarea{
+    width:100%;min-height:56px;resize:vertical;background:rgba(255,255,255,.04);
+    border:1px solid var(--hair);border-radius:6px;color:var(--ink);
+    font-family:var(--ui);font-size:13px;padding:7px 9px;
+  }
+  #popover textarea:focus{outline:none;border-color:rgba(223,174,87,.45)}
+  #popover .p-text{font-size:13px;line-height:1.5;color:var(--ink)}
+  #popover .p-hint{margin-top:8px;font-size:10.5px;color:var(--ink-faint)}
+
+  /* ---------- cheat sheet ---------- */
+  #cheat{
+    position:fixed;inset:0;z-index:40;background:rgba(10,9,6,.8);
+    display:flex;align-items:center;justify-content:center;
+  }
+  #cheat .card{
+    background:var(--bg-raise);border:1px solid var(--hair);border-radius:12px;
+    padding:26px 34px;width:640px;box-shadow:0 24px 80px rgba(0,0,0,.6);
+  }
+  #cheat h2{font-family:var(--serif);font-size:19px;font-weight:600;margin-bottom:16px}
+  #cheat .grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 36px;font-size:12.5px;color:var(--ink-dim)}
+  #cheat .grid div{display:flex;justify-content:space-between;gap:12px;padding:3px 0}
+  #cheat .grid span{color:var(--ink-dim)}
+
+  /* ---------- confirmation ---------- */
+  #confirm{
+    position:fixed;inset:0;z-index:50;background:var(--bg);
+    background-image:radial-gradient(900px 400px at 50% 20%, rgba(223,174,87,.06), transparent 70%);
+    display:flex;align-items:center;justify-content:center;
+  }
+  #confirm .card{text-align:center;max-width:520px}
+  #confirm h1{font-family:var(--serif);font-size:26px;font-weight:600;margin-bottom:14px}
+  #confirm .line{font-family:var(--mono);font-size:12.5px;color:var(--ink-dim);margin-bottom:22px}
+  #confirm .line b{color:var(--amber);font-weight:500}
+  #confirm p{font-family:var(--serif);font-style:italic;font-size:14px;color:var(--ink-faint);line-height:1.6}
+  #confirm .reset{margin-top:26px;font-size:11.5px;color:var(--ink-faint)}
+
+  [hidden]{display:none !important}
+  ::selection{background:rgba(223,174,87,.32)}
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand">
+    <a href="index.html">cueloop · concept: Split stage</a>
+    <span class="stance">You don't tell the agent what to change — you show it. The diff is the feedback.</span>
+  </div>
+  <nav>
+    <button data-view="plan" class="on">1 · Plan</button>
+    <button data-view="diff">2 · Diff</button>
+  </nav>
+  <div class="status">
+    <span class="live" id="editBadge">+0 −0</span>
+    <span class="live" id="commentBadge">0 comments</span>
+    <span class="hintkeys"><kbd>?</kbd> keys &nbsp; <kbd>s</kbd> summary</span>
+  </div>
+</header>
+
+<main id="planView">
+  <div class="stage">
+    <div class="row pane-heads">
+      <div class="cell">Agent's plan — <b>read-only</b></div>
+      <div class="gutter"></div>
+      <div class="cell">Your working copy — <b>type to revise</b></div>
+    </div>
+    <div id="rows"></div>
+  </div>
+</main>
+
+<main id="diffView" hidden>
+  <div class="stage" id="diffStage"></div>
+</main>
+
+<div id="drawer">
+  <div class="d-head">
+    <span>Pending review — invisible to the agent until you submit</span>
+    <span class="tally" id="drawerTally"></span>
+  </div>
+  <div class="d-body">
+    <section>
+      <h3>Edits · unified</h3>
+      <div id="miniDiff"></div>
+    </section>
+    <section>
+      <h3>Comments</h3>
+      <ul id="dComments"></ul>
+    </section>
+    <section>
+      <h3>Verdict</h3>
+      <textarea id="parentComment" placeholder="Overall note to the agent (optional)…"></textarea>
+      <div class="verdicts">
+        <label><input type="radio" name="verdict" value="Comment" checked> Comment <kbd>m</kbd></label>
+        <label><input type="radio" name="verdict" value="Approve"> Approve <kbd>a</kbd></label>
+        <label><input type="radio" name="verdict" value="Request changes"> Request changes <kbd>r</kbd></label>
+      </div>
+      <button id="submitBtn">Submit review &nbsp;<kbd>⌘⏎</kbd></button>
+    </section>
+  </div>
+</div>
+
+<div id="popover" hidden></div>
+
+<div id="cheat" hidden>
+  <div class="card">
+    <h2>Split stage — keys</h2>
+    <div class="grid">
+      <div><span>Move block cursor</span><span><kbd>↑</kbd><kbd>↓</kbd> / <kbd>j</kbd><kbd>k</kbd> / <kbd>tab</kbd></span></div>
+      <div><span>Extend selection</span><span><kbd>shift</kbd>+<kbd>↑</kbd><kbd>↓</kbd></span></div>
+      <div><span>Edit working copy at cursor</span><span><kbd>e</kbd></span></div>
+      <div><span>Leave editing / close things</span><span><kbd>esc</kbd></span></div>
+      <div><span>Edit next / previous block</span><span><kbd>tab</kbd> / <kbd>shift</kbd>+<kbd>tab</kbd> while editing</span></div>
+      <div><span>Split block (new block below)</span><span><kbd>⏎</kbd> while editing</span></div>
+      <div><span>Strike / restore whole block</span><span><kbd>x</kbd></span></div>
+      <div><span>Comment on selection or line</span><span><kbd>c</kbd></span></div>
+      <div><span>Next / previous pending item</span><span><kbd>n</kbd> / <kbd>p</kbd></span></div>
+      <div><span>Plan view / diff view</span><span><kbd>1</kbd> / <kbd>2</kbd></span></div>
+      <div><span>Diff: move line cursor</span><span><kbd>j</kbd> / <kbd>k</kbd></span></div>
+      <div><span>Summary drawer</span><span><kbd>s</kbd></span></div>
+      <div><span>Verdict (drawer open)</span><span><kbd>m</kbd> / <kbd>a</kbd> / <kbd>r</kbd></span></div>
+      <div><span>Open drawer → submit</span><span><kbd>⌘⏎</kbd> · <kbd>⌘⏎</kbd></span></div>
+      <div><span>Undo last edit / annotation</span><span><kbd>⌘z</kbd></span></div>
+      <div><span>This sheet</span><span><kbd>?</kbd></span></div>
+    </div>
+  </div>
+</div>
+
+<div id="confirm" hidden>
+  <div class="card">
+    <h1>Review sent</h1>
+    <div class="line" id="confirmLine"></div>
+    <p>The agent receives your working copy as the proposed revision, with every
+       insertion, strike-through, and comment attached in place. Nothing was
+       visible to it until this moment.</p>
+    <div class="reset">press <kbd>r</kbd> to reset the prototype</div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ============================== data ============================== */
+
+let uidCounter = 0;
+const uid = () => 'b' + (++uidCounter);
+
+const makeBlock = (type, text) => ({ id: uid(), type, baseText: text, workText: text });
+
+let blocks = [
+  makeBlock('h1', 'Implementation Plan: Session Persistence'),
+  makeBlock('h2', 'Context'),
+  makeBlock('p',
+    'The review daemon currently holds every in-flight review session in process memory. ' +
+    'If the daemon crashes or the host reboots mid-review, the submitted artifact, all pending ' +
+    'annotations, and the reviewer’s draft verdict are lost, and the submitting agent hangs ' +
+    'on a channel that will never resolve. This plan introduces a disk-backed session store so ' +
+    'that a restarted daemon can recover exactly where the reviewer left off.'),
+  makeBlock('h2', 'Phase 1: Storage layer'),
+  makeBlock('p',
+    'All persistence code lives in a new server/storage/ module behind a narrow SessionStore ' +
+    'interface, so the rest of the daemon never touches the filesystem directly. Each session is ' +
+    'written as a single JSON document with atomic rename semantics.'),
+  makeBlock('li', 'server/storage/store.ts — the SessionStore interface and a JsonFileStore implementation (write-ahead temp file, flush, rename).'),
+  makeBlock('li', 'server/storage/codec.ts — (de)serialization plus schema-version stamping and forward-migration hooks.'),
+  makeBlock('li', 'server/storage/index.ts — public exports and resolution of the storage root path.'),
+  makeBlock('code',
+'interface SessionRecord {\n' +
+'  id: string\n' +
+'  schemaVersion: string\n' +
+'  artifact: Artifact\n' +
+'  annotations: Annotation[]\n' +
+'  verdict: Verdict | null\n' +
+'}'),
+  makeBlock('h2', 'Phase 2: Recovery on boot'),
+  makeBlock('p',
+    'On boot the daemon scans the storage root before accepting any new submissions. Recovery is ' +
+    'read-only until the session index is fully rebuilt, so a partially written file can never ' +
+    'corrupt live state.'),
+  makeBlock('oli', 'Enumerate *.session.json under the storage root and parse each file through the codec, quarantining any that fail schema validation.'),
+  makeBlock('oli', 'Rebuild the in-memory session index and re-arm the notification channel for every session still awaiting a verdict.'),
+  makeBlock('oli', 'Emit a recovery report — sessions restored, quarantined, expired — to the structured log and expose it on /healthz.'),
+  makeBlock('h2', 'Open questions'),
+  makeBlock('li', 'Should expired sessions be garbage-collected on boot, or by a background sweep with a configurable TTL?'),
+  makeBlock('li', 'Is one JSON file per session sufficient at expected volume, or do we need an append-only log with compaction?'),
+];
+
+let comments = [];        // {id, kind:'plan', blockId, quote, text} | {kind:'diff', ref, quote, text}
+let commentCounter = 0;
+
+/* diff view sample data — plain strings, hand-authored */
+const dl = (on, ot, nn, nt, k) => ({ o: on == null ? null : { n: on, t: ot }, n: nn == null ? null : { n: nn, t: nt }, k });
+const C = (on, nn, t) => dl(on, t, nn, t, 'ctx');
+
+const diffFiles = [
+  {
+    path: 'server/storage/store.ts', status: 'modified', adds: 12, dels: 3,
+    rows: [
+      C(1, 1, 'import { mkdir, rename, writeFile } from "node:fs/promises";'),
+      C(2, 2, 'import { join } from "node:path";'),
+      C(3, 3, 'import type { SessionRecord } from "./codec";'),
+      C(4, 4, ''),
+      C(5, 5, 'export class JsonFileStore {'),
+      C(6, 6, '  constructor(private readonly root: string) {}'),
+      C(7, 7, ''),
+      C(8, 8, '  async save(record: SessionRecord): Promise<void> {'),
+      dl(9,  '    const path = join(this.root, `${record.id}.session.json`);', 9,  '    const finalPath = this.pathFor(record.id);', 'pair'),
+      dl(10, '    await writeFile(path, JSON.stringify(record));',             10, '    const tempPath = `${finalPath}.tmp`;', 'pair'),
+      dl(11, '  }',                                                            11, '    await mkdir(this.root, { recursive: true });', 'pair'),
+      dl(null, null, 12, '    const payload = JSON.stringify(record, null, 2);', 'add'),
+      dl(null, null, 13, '    await writeFile(tempPath, payload, { flush: true });', 'add'),
+      dl(null, null, 14, '    await rename(tempPath, finalPath);', 'add'),
+      dl(null, null, 15, '  }', 'add'),
+      dl(null, null, 16, '', 'add'),
+      dl(null, null, 17, '  pathFor(id: string): string {', 'add'),
+      dl(null, null, 18, '    return join(this.root, `${id}.session.json`);', 'add'),
+      dl(null, null, 19, '  }', 'add'),
+      dl(null, null, 20, '', 'add'),
+      dl(null, null, 21, '  // directory fsync after rename is handled by the codec layer', 'add'),
+      C(12, 22, '}'),
+    ],
+  },
+  {
+    path: 'server/storage/index.ts', status: 'new file', adds: 8, dels: 0,
+    rows: [
+      dl(null, null, 1, 'export { JsonFileStore } from "./store";', 'add'),
+      dl(null, null, 2, 'export { decodeSession, encodeSession } from "./codec";', 'add'),
+      dl(null, null, 3, 'export type { SessionRecord } from "./codec";', 'add'),
+      dl(null, null, 4, '', 'add'),
+      dl(null, null, 5, 'import { join } from "node:path";', 'add'),
+      dl(null, null, 6, '', 'add'),
+      dl(null, null, 7, 'export const storageRoot = (base: string) =>', 'add'),
+      dl(null, null, 8, '  join(base, ".cueloop", "sessions");', 'add'),
+    ],
+  },
+];
+
+/* ============================== diff engine ============================== */
+
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const tokenize = s => s.match(/\S+|\s+/g) || [];
+
+function diffTokens(a, b) {
+  const n = a.length, m = b.length;
+  const dp = [];
+  for (let i = 0; i <= n; i++) dp.push(new Uint16Array(m + 1));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--)
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0;
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { out.push([0, a[i]]); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push([-1, a[i]]); i++; }
+    else { out.push([1, b[j]]); j++; }
+  }
+  while (i < n) out.push([-1, a[i++]]);
+  while (j < m) out.push([1, b[j++]]);
+  return out;
+}
+
+function renderOps(ops, keep, tag) {
+  // keep: which non-zero op to render wrapped; ops with the other sign are omitted
+  let html = '', run = '', runOp = null;
+  const flush = () => {
+    if (runOp === null || run === '') { run = ''; runOp = null; return; }
+    html += runOp === 0 ? esc(run) : '<' + tag + '>' + esc(run) + '</' + tag + '>';
+    run = ''; runOp = null;
+  };
+  for (const [op, tok] of ops) {
+    if (op !== 0 && op !== keep) continue;
+    const bucket = op === 0 ? 0 : 1;
+    if (runOp !== null && bucket !== runOp) flush();
+    runOp = bucket; run += tok;
+  }
+  flush();
+  return html;
+}
+
+const isChanged = b => (b.baseText === null ? b.workText !== '' || true : b.baseText !== b.workText);
+const words = s => (s.match(/\S+/g) || []).length;
+
+function blockDiff(b) {
+  if (b.baseText === null) {
+    return { leftHTML: '', rightHTML: b.workText === '' ? '' : '<ins>' + esc(b.workText) + '</ins>',
+             adds: words(b.workText), dels: 0 };
+  }
+  if (b.baseText === b.workText) {
+    return { leftHTML: esc(b.baseText), rightHTML: esc(b.workText), adds: 0, dels: 0 };
+  }
+  const ops = diffTokens(tokenize(b.baseText), tokenize(b.workText));
+  let adds = 0, dels = 0;
+  for (const [op, tok] of ops) {
+    if (/\S/.test(tok)) { if (op === 1) adds++; else if (op === -1) dels++; }
+  }
+  return {
+    leftHTML: renderOps(ops, -1, 'del'),
+    rightHTML: renderOps(ops, 1, 'ins'),
+    adds, dels,
+  };
+}
+
+/* ============================== state ============================== */
+
+let view = 'plan';
+let cursor = 0;            // block index
+let selAnchor = null;      // block selection anchor (null = single)
+let editingIndex = null;
+let editDirty = false;
+let preEditSnapshot = null;
+let diffCursor = 0;
+let submitted = false;
+let pendingPointer = -1;
+
+const history = [];
+function snapshot() {
+  return {
+    blocks: blocks.map(b => ({ ...b })),
+    comments: comments.map(c => ({ ...c })),
+  };
+}
+function pushHistory(snap) {
+  history.push(snap || snapshot());
+  if (history.length > 120) history.shift();
+}
+function undo() {
+  if (!history.length) return;
+  const snap = history.pop();
+  blocks = snap.blocks.map(b => ({ ...b }));
+  comments = snap.comments.map(c => ({ ...c }));
+  editingIndex = null; editDirty = false;
+  if (cursor >= blocks.length) cursor = blocks.length - 1;
+  if (document.activeElement && document.activeElement.isContentEditable) document.activeElement.blur();
+  rebuildRows();
+  refreshAll();
+}
+
+/* ============================== plan view DOM ============================== */
+
+const rowsEl = document.getElementById('rows');
+const planView = document.getElementById('planView');
+const diffView = document.getElementById('diffView');
+
+function rowEl(i) { return rowsEl.children[i]; }
+
+function buildRow(b) {
+  const row = document.createElement('div');
+  row.className = 'row t-' + b.type;
+  row.dataset.blockId = b.id;
+  const base = document.createElement('div');
+  base.className = 'cell base';
+  const gutter = document.createElement('div');
+  gutter.className = 'gutter';
+  const work = document.createElement('div');
+  work.className = 'cell work';
+  work.setAttribute('contenteditable', 'plaintext-only');
+  if (work.contentEditable !== 'plaintext-only') work.setAttribute('contenteditable', 'true');
+  work.setAttribute('spellcheck', 'false');
+  row.append(base, gutter, work);
+  return row;
+}
+
+function renderRow(i) {
+  const b = blocks[i];
+  const row = rowEl(i);
+  const d = blockDiff(b);
+  row.querySelector('.cell.base').innerHTML = d.leftHTML;
+  const work = row.querySelector('.cell.work');
+  if (work.innerHTML !== d.rightHTML) work.innerHTML = d.rightHTML;
+  row.classList.toggle('changed', b.baseText === null || b.baseText !== b.workText);
+  row.classList.toggle('ins-block', b.baseText === null);
+  row.classList.toggle('del-block', b.baseText !== null && b.baseText !== '' && b.workText === '');
+  return d;
+}
+
+function rebuildRows() {
+  rowsEl.textContent = '';
+  blocks.forEach(b => rowsEl.appendChild(buildRow(b)));
+  blocks.forEach((_, i) => renderRow(i));
+  renderCursor();
+  renderChips();
+}
+
+function renderCursor() {
+  const [lo, hi] = selRange();
+  for (let i = 0; i < rowsEl.children.length; i++) {
+    const r = rowsEl.children[i];
+    r.classList.toggle('cursor', i === cursor && view === 'plan');
+    r.classList.toggle('sel', selAnchor !== null && i >= lo && i <= hi);
+    r.classList.toggle('editing', i === editingIndex);
+  }
+}
+
+function selRange() {
+  if (selAnchor === null) return [cursor, cursor];
+  return [Math.min(selAnchor, cursor), Math.max(selAnchor, cursor)];
+}
+
+function moveCursor(delta, extend) {
+  if (view === 'diff') { moveDiffCursor(delta); return; }
+  if (extend && selAnchor === null) selAnchor = cursor;
+  if (!extend) selAnchor = null;
+  cursor = Math.max(0, Math.min(blocks.length - 1, cursor + delta));
+  renderCursor();
+  rowEl(cursor).scrollIntoView({ block: 'nearest' });
+}
+
+/* -------- editing -------- */
+
+function editAt(i, caret) {
+  if (i < 0 || i >= blocks.length) return;
+  cursor = i; selAnchor = null;
+  const work = rowEl(i).querySelector('.cell.work');
+  work.focus();
+  const len = work.textContent.length;
+  setCaretOffset(work, caret === undefined ? len : Math.min(caret, len));
+  renderCursor();
+  rowEl(i).scrollIntoView({ block: 'nearest' });
+}
+
+function getSelOffsets(el) {
+  const sel = getSelection();
+  if (!sel.rangeCount) return [0, 0];
+  const r = sel.getRangeAt(0);
+  const pre = r.cloneRange();
+  pre.selectNodeContents(el);
+  pre.setEnd(r.startContainer, r.startOffset);
+  const start = pre.toString().length;
+  pre.setEnd(r.endContainer, r.endOffset);
+  return [start, pre.toString().length];
+}
+
+function setCaretOffset(el, off) {
+  const sel = getSelection();
+  const range = document.createRange();
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let node, remaining = off;
+  while ((node = walker.nextNode())) {
+    if (remaining <= node.length) {
+      range.setStart(node, remaining);
+      range.collapse(true);
+      sel.removeAllRanges(); sel.addRange(range);
+      return;
+    }
+    remaining -= node.length;
+  }
+  range.selectNodeContents(el);
+  range.collapse(false);
+  sel.removeAllRanges(); sel.addRange(range);
+}
+
+rowsEl.addEventListener('focusin', e => {
+  const work = e.target.closest('.cell.work');
+  if (!work) return;
+  const i = indexOfRow(work.closest('.row'));
+  if (i === -1) return;
+  editingIndex = i; cursor = i; selAnchor = null;
+  editDirty = false;
+  preEditSnapshot = snapshot();
+  renderCursor();
+});
+
+rowsEl.addEventListener('focusout', e => {
+  const work = e.target.closest('.cell.work');
+  if (!work) return;
+  const i = indexOfRow(work.closest('.row'));
+  if (i !== -1 && i === editingIndex) commitEdit(i);
+});
+
+function commitEdit(i) {
+  editingIndex = null;
+  const b = blocks[i];
+  if (b && b.baseText === null && b.workText === '') {
+    // abandoned inserted block: drop it
+    blocks.splice(i, 1);
+    if (cursor >= blocks.length) cursor = blocks.length - 1;
+    rebuildRows();
+  }
+  renderCursor();
+  refreshAll();
+}
+
+rowsEl.addEventListener('input', e => {
+  const work = e.target.closest('.cell.work');
+  if (!work) return;
+  const i = indexOfRow(work.closest('.row'));
+  if (i === -1) return;
+  if (!editDirty) { pushHistory(preEditSnapshot); editDirty = true; }
+  const b = blocks[i];
+  b.workText = work.textContent;
+  const caret = getSelOffsets(work)[0];
+  renderRow(i);
+  setCaretOffset(work, caret);
+  refreshAll();
+});
+
+rowsEl.addEventListener('paste', e => {
+  const work = e.target.closest('.cell.work');
+  if (!work) return;
+  e.preventDefault();
+  const i = indexOfRow(work.closest('.row'));
+  if (i === -1) return;
+  const pasted = (e.clipboardData || window.clipboardData).getData('text/plain');
+  if (!editDirty) { pushHistory(preEditSnapshot); editDirty = true; }
+  const [s, epos] = getSelOffsets(work);
+  const b = blocks[i];
+  b.workText = b.workText.slice(0, s) + pasted + b.workText.slice(epos);
+  renderRow(i);
+  setCaretOffset(work, s + pasted.length);
+  refreshAll();
+});
+
+function indexOfRow(row) {
+  return Array.prototype.indexOf.call(rowsEl.children, row);
+}
+
+function handleEnterInEdit(work) {
+  const i = indexOfRow(work.closest('.row'));
+  if (i === -1) return;
+  const b = blocks[i];
+  const [s, epos] = getSelOffsets(work);
+  if (b.type === 'code') {
+    if (!editDirty) { pushHistory(preEditSnapshot); editDirty = true; }
+    b.workText = b.workText.slice(0, s) + '\n' + b.workText.slice(epos);
+    renderRow(i);
+    setCaretOffset(work, s + 1);
+    refreshAll();
+    return;
+  }
+  pushHistory();
+  const before = b.workText.slice(0, s);
+  const after = b.workText.slice(epos);
+  b.workText = before;
+  const newType = (b.type === 'h1' || b.type === 'h2') ? 'p' : b.type;
+  blocks.splice(i + 1, 0, { id: uid(), type: newType, baseText: null, workText: after });
+  rebuildRows();
+  refreshAll();
+  editAt(i + 1, 0);
+}
+
+function toggleStrikeSelection() {
+  if (view !== 'plan') return;
+  const [lo, hi] = selRange();
+  pushHistory();
+  for (let i = hi; i >= lo; i--) {
+    const b = blocks[i];
+    if (b.baseText === null) { blocks.splice(i, 1); continue; }
+    b.workText = b.workText === '' ? b.baseText : '';
+  }
+  selAnchor = null;
+  if (cursor >= blocks.length) cursor = blocks.length - 1;
+  rebuildRows();
+  refreshAll();
+}
+
+/* click on a row (outside the editable cell) moves the cursor */
+rowsEl.addEventListener('mousedown', e => {
+  const row = e.target.closest('.row');
+  if (!row) return;
+  const i = indexOfRow(row);
+  if (i !== -1) { cursor = i; selAnchor = null; renderCursor(); }
+});
+
+/* ============================== comment chips + popover ============================== */
+
+function renderChips() {
+  document.querySelectorAll('.gutter .chip').forEach(el => el.remove());
+  comments.forEach((c, idx) => {
+    let gutter = null;
+    if (c.kind === 'plan') {
+      const row = rowsEl.querySelector('.row[data-block-id="' + c.blockId + '"]');
+      if (row) gutter = row.querySelector('.gutter');
+    } else {
+      const row = diffRowByKey(c.rowKey);
+      if (row) gutter = row.querySelector('.gutter');
+    }
+    if (!gutter) return;
+    const chip = document.createElement('button');
+    chip.className = 'chip';
+    chip.textContent = String(idx + 1);
+    chip.title = c.text;
+    chip.dataset.commentId = c.id;
+    chip.addEventListener('click', ev => { ev.stopPropagation(); openViewPopover(c); });
+    gutter.appendChild(chip);
+  });
+}
+
+const popover = document.getElementById('popover');
+let popMode = null;      // 'create' | 'view'
+let popDraft = null;     // pending anchor for create
+let popComment = null;   // comment shown in view mode
+
+function positionPopoverNear(el) {
+  const r = el.getBoundingClientRect();
+  const left = Math.max(12, Math.min(r.left + r.width / 2 - 160, innerWidth - 336));
+  let top = r.top - 4;
+  popover.style.left = left + 'px';
+  popover.style.top = '0px';
+  popover.hidden = false;
+  const h = popover.offsetHeight;
+  if (top + h > innerHeight - 12) top = Math.max(12, innerHeight - h - 12);
+  popover.style.top = top + 'px';
+}
+
+function anchorLabel(a) {
+  if (a.kind === 'plan') {
+    const i = blocks.findIndex(b => b.id === a.blockId);
+    return 'plan · ' + nearestHeading(i);
+  }
+  return 'diff · ' + a.ref;
+}
+
+function nearestHeading(i) {
+  for (let k = i; k >= 0; k--) {
+    if (blocks[k].type === 'h2') return blocks[k].workText || blocks[k].baseText || '';
+    if (blocks[k].type === 'h1') return 'Title';
+  }
+  return 'Title';
+}
+
+function openCreatePopover(anchor, nearEl) {
+  popMode = 'create'; popDraft = anchor; popComment = null;
+  popover.innerHTML =
+    '<div class="p-anchor">' + esc(anchorLabel(anchor)) + '</div>' +
+    (anchor.quote ? '<div class="p-quote">“' + esc(anchor.quote) + '”</div>' : '') +
+    '<textarea placeholder="Comment…"></textarea>' +
+    '<div class="p-hint"><kbd>⏎</kbd> save &nbsp; <kbd>esc</kbd> cancel</div>';
+  positionPopoverNear(nearEl);
+  popover.querySelector('textarea').focus();
+}
+
+function openViewPopover(c) {
+  popMode = 'view'; popComment = c; popDraft = null;
+  popover.innerHTML =
+    '<div class="p-anchor">' + esc(anchorLabel(c)) + '</div>' +
+    (c.quote ? '<div class="p-quote">“' + esc(c.quote) + '”</div>' : '') +
+    '<div class="p-text">' + esc(c.text) + '</div>' +
+    '<div class="p-hint"><kbd>⌫</kbd> delete &nbsp; <kbd>esc</kbd> close</div>';
+  const chip = document.querySelector('.chip[data-comment-id="' + c.id + '"]');
+  positionPopoverNear(chip || document.body);
+  popover.tabIndex = -1;
+  popover.focus();
+}
+
+function closePopover() {
+  popover.hidden = true;
+  popMode = null; popDraft = null; popComment = null;
+  if (document.activeElement) document.activeElement.blur();
+}
+
+function saveCreatePopover() {
+  const ta = popover.querySelector('textarea');
+  const text = ta.value.trim();
+  if (!text) { closePopover(); return; }
+  pushHistory();
+  comments.push({ id: 'c' + (++commentCounter), ...popDraft, text });
+  closePopover();
+  renderChips();
+  refreshAll();
+}
+
+function deleteViewedComment() {
+  if (!popComment) return;
+  pushHistory();
+  comments = comments.filter(c => c.id !== popComment.id);
+  closePopover();
+  renderChips();
+  refreshAll();
+}
+
+function startComment() {
+  if (view === 'diff') {
+    const row = diffRowRefs[diffCursor];
+    if (!row) return;
+    openCreatePopover(
+      { kind: 'diff', ref: row.ref, rowKey: row.key, quote: row.quote },
+      row.el.querySelector('.gutter'));
+    return;
+  }
+  const sel = getSelection();
+  const selText = sel && !sel.isCollapsed ? sel.toString().trim() : '';
+  let blockId, quote;
+  if (selText && sel.anchorNode && rowsEl.contains(sel.anchorNode)) {
+    const row = (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement).closest('.row');
+    blockId = row ? row.dataset.blockId : blocks[cursor].id;
+    quote = selText.length > 140 ? selText.slice(0, 140) + '…' : selText;
+  } else {
+    const [lo, hi] = selRange();
+    blockId = blocks[lo].id;
+    const src = blocks[lo].workText || blocks[lo].baseText || '';
+    quote = src.slice(0, 90) + (src.length > 90 ? '…' : '');
+    if (hi > lo) quote = '(' + (hi - lo + 1) + ' blocks) ' + quote;
+  }
+  const row = rowsEl.querySelector('.row[data-block-id="' + blockId + '"]');
+  openCreatePopover({ kind: 'plan', blockId, quote }, row.querySelector('.gutter'));
+}
+
+/* ============================== diff view ============================== */
+
+const diffStage = document.getElementById('diffStage');
+const diffRowRefs = [];   // {el, ref, key, quote}
+
+function buildDiffView() {
+  diffStage.textContent = '';
+  diffFiles.forEach((f, fi) => {
+    const sec = document.createElement('section');
+    sec.className = 'dfile';
+    const head = document.createElement('div');
+    head.className = 'dfile-head';
+    head.innerHTML =
+      '<span class="path">' + esc(f.path) + '</span>' +
+      '<span class="stat">' + esc(f.status) + '</span>' +
+      '<span class="stat"><span class="plus">+' + f.adds + '</span> <span class="minus">−' + f.dels + '</span></span>';
+    sec.appendChild(head);
+    f.rows.forEach((r, ri) => {
+      const el = document.createElement('div');
+      el.className = 'drow k-' + r.k;
+      const oldNum = document.createElement('div');
+      oldNum.className = 'ln old-side';
+      oldNum.textContent = r.o ? String(r.o.n) : '';
+      const oldCode = document.createElement('div');
+      oldCode.className = 'code old old-side';
+      oldCode.textContent = r.o ? (r.o.t || ' ') : '';
+      const gutter = document.createElement('div');
+      gutter.className = 'gutter';
+      const newNum = document.createElement('div');
+      newNum.className = 'ln new-side';
+      newNum.textContent = r.n ? String(r.n.n) : '';
+      const newCode = document.createElement('div');
+      newCode.className = 'code new new-side';
+      newCode.textContent = r.n ? (r.n.t || ' ') : '';
+      el.append(oldNum, oldCode, gutter, newNum, newCode);
+      const ref = f.path.split('/').pop() + ':' + (r.n ? r.n.n : 'old ' + r.o.n);
+      const idx = diffRowRefs.length;
+      diffRowRefs.push({ el, ref, key: fi + ':' + ri, quote: (r.n ? r.n.t : r.o.t).trim() });
+      el.addEventListener('mousedown', () => { diffCursor = idx; renderDiffCursor(); });
+      sec.appendChild(el);
+    });
+    diffStage.appendChild(sec);
+  });
+}
+
+function diffRowByKey(key) {
+  const found = diffRowRefs.find(r => r.key === key);
+  return found ? found.el : null;
+}
+
+function renderDiffCursor() {
+  diffRowRefs.forEach((r, i) => r.el.classList.toggle('cursor', i === diffCursor && view === 'diff'));
+}
+
+function moveDiffCursor(delta) {
+  diffCursor = Math.max(0, Math.min(diffRowRefs.length - 1, diffCursor + delta));
+  renderDiffCursor();
+  diffRowRefs[diffCursor].el.scrollIntoView({ block: 'nearest' });
+}
+
+/* ============================== views ============================== */
+
+function showView(v) {
+  view = v;
+  planView.hidden = v !== 'plan';
+  diffView.hidden = v !== 'diff';
+  document.querySelectorAll('#topbar nav button').forEach(b =>
+    b.classList.toggle('on', b.dataset.view === v));
+  renderCursor();
+  renderDiffCursor();
+  renderChips();
+}
+
+/* ============================== tallies, drawer, pending ============================== */
+
+function totals() {
+  let adds = 0, dels = 0;
+  for (const b of blocks) {
+    const d = blockDiff(b);
+    adds += d.adds; dels += d.dels;
+  }
+  return { adds, dels };
+}
+
+function refreshAll() {
+  const t = totals();
+  document.getElementById('editBadge').textContent = '+' + t.adds + ' −' + t.dels;
+  document.getElementById('commentBadge').textContent =
+    comments.length + ' comment' + (comments.length === 1 ? '' : 's');
+  if (drawerOpen()) renderDrawer();
+}
+
+const drawer = document.getElementById('drawer');
+const drawerOpen = () => drawer.classList.contains('open');
+
+function toggleDrawer(force) {
+  const open = force === undefined ? !drawerOpen() : force;
+  drawer.classList.toggle('open', open);
+  if (open) renderDrawer();
+  else if (document.activeElement && drawer.contains(document.activeElement)) document.activeElement.blur();
+}
+
+function renderDrawer() {
+  const t = totals();
+  document.getElementById('drawerTally').textContent =
+    '+' + t.adds + ' −' + t.dels + ' · ' + comments.length + ' comment' + (comments.length === 1 ? '' : 's');
+
+  const mini = document.getElementById('miniDiff');
+  mini.textContent = '';
+  let any = false;
+  blocks.forEach((b, i) => {
+    if (b.baseText !== null && b.baseText === b.workText) return;
+    any = true;
+    const hunk = document.createElement('div');
+    hunk.className = 'md-hunk';
+    const label = document.createElement('div');
+    label.className = 'md-label';
+    label.textContent = '@@ ' + nearestHeading(i) + ' · ' + typeName(b.type) + ' @@';
+    hunk.appendChild(label);
+    if (b.baseText === null) {
+      hunk.appendChild(mdLine('new', '+ ', '<ins>' + esc(b.workText) + '</ins>'));
+    } else if (b.workText === '') {
+      hunk.appendChild(mdLine('old', '− ', '<del>' + esc(b.baseText) + '</del>'));
+    } else {
+      const ops = diffTokens(tokenize(b.baseText), tokenize(b.workText));
+      hunk.appendChild(mdLine('old', '− ', renderOps(ops, -1, 'del')));
+      hunk.appendChild(mdLine('new', '+ ', renderOps(ops, 1, 'ins')));
+    }
+    mini.appendChild(hunk);
+  });
+  if (!any) mini.innerHTML = '<div class="md-empty">No edits yet — press <kbd>e</kbd> on any block and just type.</div>';
+
+  const list = document.getElementById('dComments');
+  list.textContent = '';
+  if (!comments.length) {
+    list.innerHTML = '<li class="d-empty">No comments yet — select something and press <kbd>c</kbd>.</li>';
+  } else {
+    comments.forEach((c, idx) => {
+      const li = document.createElement('li');
+      li.innerHTML =
+        '<span class="anchor">' + (idx + 1) + ' · ' + esc(anchorLabel(c)) + '</span>' +
+        (c.quote ? '<span class="quote">“' + esc(c.quote.slice(0, 70)) + (c.quote.length > 70 ? '…' : '') + '”</span> ' : '') +
+        esc(c.text);
+      list.appendChild(li);
+    });
+  }
+}
+
+function mdLine(cls, prefix, html) {
+  const div = document.createElement('div');
+  div.className = 'md-line ' + cls;
+  div.innerHTML = esc(prefix) + html;
+  return div;
+}
+
+function typeName(t) {
+  return { h1: 'title', h2: 'heading', p: 'paragraph', li: 'list item', oli: 'step', code: 'code block' }[t] || t;
+}
+
+function setVerdict(v) {
+  const input = document.querySelector('input[name="verdict"][value="' + v + '"]');
+  if (input) input.checked = true;
+}
+
+function submitReview() {
+  if (submitted) return;
+  const t = totals();
+  const verdict = document.querySelector('input[name="verdict"]:checked').value;
+  submitted = true;
+  toggleDrawer(false);
+  document.getElementById('confirmLine').innerHTML =
+    'verdict: <b>' + esc(verdict) + '</b> &nbsp;·&nbsp; edits <b>+' + t.adds +
+    ' −' + t.dels + '</b> &nbsp;·&nbsp; <b>' + comments.length +
+    '</b> comment' + (comments.length === 1 ? '' : 's');
+  document.getElementById('confirm').hidden = false;
+}
+
+document.getElementById('submitBtn').addEventListener('click', submitReview);
+document.querySelectorAll('#topbar nav button').forEach(b =>
+  b.addEventListener('click', () => showView(b.dataset.view)));
+
+/* ============================== pending navigation ============================== */
+
+function pendingItems() {
+  const items = [];
+  blocks.forEach((b, i) => {
+    if (b.baseText === null || b.baseText !== b.workText) items.push({ t: 'edit', i });
+    comments.forEach(c => { if (c.kind === 'plan' && c.blockId === b.id) items.push({ t: 'comment', i, c }); });
+  });
+  comments.forEach(c => { if (c.kind === 'diff') items.push({ t: 'comment', diff: true, c }); });
+  return items;
+}
+
+function navPending(dir) {
+  const items = pendingItems();
+  if (!items.length) return;
+  pendingPointer = ((pendingPointer + dir) % items.length + items.length) % items.length;
+  const it = items[pendingPointer];
+  closePopover();
+  if (it.diff) {
+    showView('diff');
+    const idx = diffRowRefs.findIndex(r => r.key === it.c.rowKey);
+    if (idx !== -1) { diffCursor = idx; renderDiffCursor(); flash(diffRowRefs[idx].el); }
+    openViewPopover(it.c);
+  } else {
+    showView('plan');
+    cursor = it.i; selAnchor = null;
+    renderCursor();
+    const el = rowEl(it.i);
+    el.scrollIntoView({ block: 'center' });
+    flash(el);
+    if (it.t === 'comment') openViewPopover(it.c);
+  }
+}
+
+function flash(el) {
+  el.classList.remove('flash');
+  void el.offsetWidth;
+  el.classList.add('flash');
+}
+
+/* ============================== cheat sheet ============================== */
+
+const cheat = document.getElementById('cheat');
+function toggleCheat(force) {
+  cheat.hidden = force === undefined ? !cheat.hidden : !force;
+}
+cheat.addEventListener('mousedown', () => toggleCheat(false));
+
+/* ============================== keyboard ============================== */
+
+document.addEventListener('keydown', e => {
+  if (submitted) {
+    if (e.key === 'r' || e.key === 'R') location.reload();
+    return;
+  }
+  const mod = e.metaKey || e.ctrlKey;
+
+  if (!cheat.hidden) {
+    if (e.key === 'Escape' || e.key === '?') { toggleCheat(false); e.preventDefault(); }
+    return;
+  }
+
+  if (!popover.hidden) {
+    if (e.key === 'Escape') { closePopover(); e.preventDefault(); }
+    else if (popMode === 'create' && e.key === 'Enter' && !e.shiftKey) { saveCreatePopover(); e.preventDefault(); }
+    else if (popMode === 'view' && (e.key === 'Backspace' || e.key === 'Delete')) { deleteViewedComment(); e.preventDefault(); }
+    else if (popMode === 'view' && (e.key === 'n' || e.key === 'p')) { navPending(e.key === 'n' ? 1 : -1); e.preventDefault(); }
+    return;
+  }
+
+  const t = e.target;
+  const inEditable = t && t.isContentEditable;
+  const inField = t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT');
+
+  if (inEditable) {
+    if (mod && e.key === 'Enter') { e.preventDefault(); t.blur(); drawerOpen() ? submitReview() : toggleDrawer(true); }
+    else if (mod && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); }
+    else if (e.key === 'Escape') {
+      e.preventDefault();
+      const row = t.closest('.row');
+      t.blur();
+      const i = indexOfRow(row);
+      if (i !== -1) { cursor = Math.min(i, blocks.length - 1); renderCursor(); }
+    }
+    else if (e.key === 'Tab') {
+      e.preventDefault();
+      const i = indexOfRow(t.closest('.row'));
+      t.blur();
+      const next = Math.max(0, Math.min(blocks.length - 1, i + (e.shiftKey ? -1 : 1)));
+      editAt(next);
+    }
+    else if (e.key === 'Enter') { e.preventDefault(); handleEnterInEdit(t); }
+    return;
+  }
+
+  if (inField) {
+    if (e.key === 'Escape') { e.preventDefault(); t.blur(); if (drawerOpen()) toggleDrawer(false); }
+    else if (mod && e.key === 'Enter') { e.preventDefault(); submitReview(); }
+    return;
+  }
+
+  if (mod && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); return; }
+  if (mod && e.key === 'Enter') {
+    e.preventDefault();
+    drawerOpen() ? submitReview() : toggleDrawer(true);
+    return;
+  }
+  if (mod || e.altKey) return;
+
+  switch (e.key) {
+    case '?': toggleCheat(true); e.preventDefault(); break;
+    case '1': showView('plan'); break;
+    case '2': showView('diff'); break;
+    case 's': toggleDrawer(); break;
+    case 'e': if (view === 'plan') { e.preventDefault(); editAt(cursor); } break;
+    case 'c': e.preventDefault(); startComment(); break;
+    case 'n': navPending(1); break;
+    case 'p': navPending(-1); break;
+    case 'x': toggleStrikeSelection(); break;
+    case 'm': if (drawerOpen()) setVerdict('Comment'); break;
+    case 'a': if (drawerOpen()) setVerdict('Approve'); break;
+    case 'r': if (drawerOpen()) setVerdict('Request changes'); break;
+    case 'j': moveCursor(1, e.shiftKey); e.preventDefault(); break;
+    case 'k': moveCursor(-1, e.shiftKey); e.preventDefault(); break;
+    case 'J': moveCursor(1, true); e.preventDefault(); break;
+    case 'K': moveCursor(-1, true); e.preventDefault(); break;
+    case 'ArrowDown': moveCursor(1, e.shiftKey); e.preventDefault(); break;
+    case 'ArrowUp': moveCursor(-1, e.shiftKey); e.preventDefault(); break;
+    case 'Tab': moveCursor(e.shiftKey ? -1 : 1, false); e.preventDefault(); break;
+    case 'Escape':
+      if (drawerOpen()) toggleDrawer(false);
+      else { selAnchor = null; renderCursor(); }
+      break;
+  }
+});
+
+/* ============================== boot ============================== */
+
+buildDiffView();
+rebuildRows();
+refreshAll();
+renderDiffCursor();
+</script>
+</body>
+</html>
