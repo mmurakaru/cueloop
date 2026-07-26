@@ -1,0 +1,3220 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cueloop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=JetBrains+Mono:wght@400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../round2/tokens.css">
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  :root { --diff-mono: var(--mono); }
+
+  /* high-contrast curated theme */
+  [data-theme="contrast"] {
+    --bg:#000000; --panel:#080808; --elevated:#141414; --overlay:#161616;
+    --border:rgba(255,255,255,0.30); --border-strong:rgba(255,255,255,0.55);
+    --text:#ffffff; --text-muted:#e6e6e6; --text-dim:#9aa0aa;
+    --accent:#ffb3b3; --accent-hover:#ffc9c9; --accent-tint:rgba(255,179,179,0.20); --accent-ink:#160000;
+    --green:#5cff7a; --green-tint:rgba(92,255,122,0.20); --red:#ff7a7a; --red-tint:rgba(255,122,122,0.20);
+    --blue:#9ec0ff; --dot:rgba(255,255,255,0.16); --shadow:0 8px 40px rgba(0,0,0,0.85);
+  }
+
+  /* ── App shell ─────────────────────────────── */
+  #app { display: grid; grid-template-rows: 50px 38px 1fr; height: 100%; }
+
+  #topbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 14px 0 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  #crumb { font-family: var(--mono); font-size: 12px; color: var(--text-muted); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #crumb b { color: var(--text); font-weight: 500; }
+  #crumb .sep { color: var(--text-dim); margin: 0 3px; }
+  #crumb .cbadge { font-family: var(--mono); font-size: 10px; color: var(--accent); border: 1px solid rgba(245,163,163,0.3); border-radius: var(--r-sm); padding: 1px 5px; margin-left: 6px; }
+
+  .segmented { display: flex; background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r); padding: 2px; gap: 2px; }
+  .segmented button {
+    font-family: var(--sans); font-size: 12px; color: var(--text-muted);
+    background: none; border: none; border-radius: var(--r-sm);
+    padding: 4px 11px; cursor: pointer; white-space: nowrap;
+    transition: background .12s var(--ease), color .12s var(--ease);
+  }
+  .segmented button:hover { color: var(--text); }
+  .segmented button.on { background: var(--accent-tint); color: var(--accent); }
+
+  .hbtn, #finish-btn {
+    font-family: var(--mono); font-size: 12px;
+    border-radius: var(--r); padding: 6px 11px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--elevated); color: var(--text-muted);
+    white-space: nowrap; transition: all .14s var(--ease);
+  }
+  .hbtn:hover { color: var(--text); border-color: var(--border-strong); }
+  #textured-btn.on, #settings-btn.on { color: var(--accent); border-color: var(--accent); background: var(--accent-tint); }
+  #settings-btn, #palette-btn { padding: 6px 9px; }
+  #palette-btn { color: var(--text-dim); }
+  #finish-btn { font-weight: 600; }
+  #finish-btn.has-pending { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  #finish-btn.has-pending:hover { background: var(--accent-hover); }
+  #finish-btn.sent { background: var(--green-tint); color: var(--green); border-color: transparent; }
+
+  #status {
+    font-family: var(--mono); font-size: 11px; color: var(--accent);
+    opacity: 0; transition: opacity .3s var(--ease); white-space: nowrap;
+    max-width: 280px; overflow: hidden; text-overflow: ellipsis;
+  }
+  #status.show { opacity: 1; }
+
+  /* ── Mode bar (input tools) ────────────────── */
+  #modebar { display: flex; align-items: center; gap: 14px; padding: 0 16px 0 18px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  .input-seg { display: flex; background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r); padding: 2px; gap: 2px; flex: none; }
+  .input-seg button { font-family: var(--sans); font-size: 12px; color: var(--text-muted); background: none; border: none; border-radius: var(--r-sm); padding: 4px 11px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background .12s var(--ease), color .12s var(--ease); }
+  .input-seg button .ig { font-family: var(--mono); font-size: 11px; opacity: .6; }
+  .input-seg button:hover { color: var(--text); }
+  .input-seg button.on { background: var(--accent-tint); color: var(--accent); }
+  .input-seg button.on .ig { opacity: 1; }
+  .verb-legend { display: flex; gap: 10px; flex: none; }
+  .verb-legend .vl { display: flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+  .verb-legend .vl kbd { font-size: 9px; padding: 0 4px; }
+  .mb-hint { font-family: var(--mono); font-size: 11px; color: var(--text-dim); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mb-hint b { color: var(--text-muted); font-weight: 500; }
+  .mb-hint kbd { margin: 0 1px; }
+  .mb-right { display: flex; align-items: center; gap: 12px; flex: none; }
+  .tag-legend { display: flex; gap: 9px; }
+  .tag-legend .tl { display: flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+  .tag-legend .tl .tld { width: 7px; height: 7px; border-radius: 2px; flex: none; }
+  .tag-legend .tl kbd { font-size: 9px; padding: 0 3px; }
+
+  /* ── Lower: sidebar + stage ───────────────── */
+  #lower { display: grid; grid-template-columns: 284px 1fr; min-height: 0; }
+  #app[data-mode="focus"] #lower { grid-template-columns: 1fr; }
+  #app[data-mode="focus"] #sidebar { display: none; }
+
+  /* ── Sidebar ──────────────────────────────── */
+  #sidebar {
+    background: var(--panel); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0;
+    transition: box-shadow .15s var(--ease);
+  }
+  #app[data-focus="sidebar"] #sidebar { box-shadow: inset 2px 0 0 var(--accent); }
+  #side-brand { padding: 12px 16px 10px; }
+  #side-brand a {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.05em;
+    color: var(--text-dim); text-decoration: none;
+  }
+  #side-brand a:hover { color: var(--accent); }
+  #side-brand .b-strong { color: var(--text-muted); }
+
+  .tabs { display: flex; gap: 3px; padding: 0 12px 10px; border-bottom: 1px solid var(--border); }
+  .tabs button {
+    flex: 1; font-family: var(--sans); font-size: 11.5px; color: var(--text-muted);
+    background: none; border: 1px solid transparent; border-radius: var(--r);
+    padding: 5px 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .tabs button:hover { color: var(--text); }
+  .tabs button.on { background: var(--elevated); border-color: var(--border); color: var(--text); }
+  .tabs button .tb { font-family: var(--mono); font-size: 8.5px; color: var(--accent); border: 1px solid rgba(245,163,163,0.3); border-radius: 7px; padding: 0 4px; }
+
+  #side-list { flex: 1; overflow-y: auto; padding: 8px 8px 12px; }
+  .side-group {
+    font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em;
+    color: var(--text-dim); padding: 12px 8px 5px; display: flex; justify-content: space-between;
+  }
+  .side-group .g-cnt { color: var(--text-dim); }
+
+  .side-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px; border-radius: var(--r);
+    border: 1px solid transparent; cursor: pointer; user-select: none;
+  }
+  .side-item.indent { margin-left: 14px; }
+  .side-item + .side-item { margin-top: 1px; }
+  .side-item:hover { background: var(--elevated); }
+  .side-item.cursor { border-color: var(--border-strong); background: var(--elevated); }
+  #app[data-focus="sidebar"] .side-item.cursor { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-tint); }
+  .side-item.open { background: var(--accent-tint); }
+  .side-item.open .s-name { color: var(--text); }
+
+  .s-check {
+    width: 15px; height: 15px; flex: none; border-radius: 4px;
+    border: 1.5px solid var(--text-dim);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: transparent; transition: all .12s var(--ease);
+  }
+  .side-item.viewed .s-check { background: var(--green); border-color: var(--green); color: var(--accent-ink); }
+
+  .s-name { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .side-item.viewed .s-name { color: var(--text-dim); }
+  .side-item.ro .s-name { color: var(--text-dim); font-style: italic; }
+  .s-stat { font-family: var(--mono); font-size: 10px; flex: none; }
+  .s-stat .plus { color: var(--green); } .s-stat .minus { color: var(--red); } .s-stat .newf { color: var(--blue); } .s-stat .roflag { color: var(--text-dim); }
+  .s-badge {
+    flex: none; min-width: 17px; height: 17px; padding: 0 5px;
+    border-radius: 9px; background: var(--accent-tint); color: var(--accent);
+    border: 1px solid rgba(245,163,163,0.3);
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .s-badge.ver { background: var(--green-tint); color: var(--green); border-color: rgba(67,191,77,0.3); }
+
+  /* "All changed files" entry */
+  .side-all {
+    display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin: 2px 0 4px;
+    border: 1px solid var(--border); border-radius: var(--r-lg); cursor: pointer; user-select: none;
+  }
+  .side-all:hover { border-color: var(--border-strong); }
+  .side-all.open { border-color: var(--accent); background: var(--accent-tint); }
+  .side-all.cursor { border-color: var(--border-strong); }
+  #app[data-focus="sidebar"] .side-all.cursor { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-tint); }
+  .side-all .sa-glyph { font-family: var(--mono); color: var(--accent); font-size: 14px; line-height: 1; }
+  .side-all .sa-main { flex: 1; }
+  .side-all .sa-title { font-family: var(--sans); font-size: 12.5px; color: var(--text); }
+  .side-all .sa-sub { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-top: 2px; }
+
+  /* Tree */
+  .tree-controls { display: flex; justify-content: space-between; align-items: center; padding: 8px 6px 4px; }
+  .tree-controls .tc-label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; color: var(--text-dim); }
+  .tree-toggle { font-family: var(--mono); font-size: 10px; color: var(--text-muted); background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px 7px; cursor: pointer; }
+  .tree-toggle:hover { color: var(--text); border-color: var(--border-strong); }
+  .tree-toggle.on { color: var(--accent); border-color: var(--accent); }
+  .tree-row {
+    display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: var(--r);
+    border: 1px solid transparent; cursor: pointer; user-select: none;
+  }
+  .tree-row:hover { background: var(--elevated); }
+  .tree-row.cursor { border-color: var(--border-strong); background: var(--elevated); }
+  #app[data-focus="sidebar"] .tree-row.cursor { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-tint); }
+  .tree-row.open { background: var(--accent-tint); }
+  .tree-caret { width: 11px; flex: none; color: var(--text-dim); font-size: 9px; text-align: center; transition: transform .12s var(--ease); }
+  .tree-caret.collapsed { transform: rotate(-90deg); }
+  .tree-caret.leaf { visibility: hidden; }
+  .tree-ic { flex: none; font-size: 10px; width: 12px; text-align: center; color: var(--text-dim); }
+  .tree-ic.folder { color: var(--accent); }
+  .tree-name { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tree-row.dir .tree-name { color: var(--text); }
+  .tree-row.viewed .tree-name { color: var(--text-dim); }
+  .tree-row.ro .tree-name { color: var(--text-dim); }
+  .tree-check { width: 13px; height: 13px; flex: none; border-radius: 3px; border: 1.5px solid var(--text-dim); display: flex; align-items: center; justify-content: center; font-size: 9px; color: transparent; }
+  .tree-row.viewed .tree-check { background: var(--green); border-color: var(--green); color: var(--accent-ink); }
+
+  /* Versions tab */
+  .ver-lead { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; color: var(--text-dim); padding: 6px 6px 8px; }
+  .ver-summary { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 9px 11px; margin: 0 4px 10px; line-height: 1.6; }
+  .ver-summary .plus { color: var(--green); } .ver-summary .minus { color: var(--red); } .ver-summary .amber { color: var(--accent); }
+  .ver-summary .vs-row { display: flex; gap: 7px; align-items: baseline; }
+  .ver-summary .vs-tag { flex: none; width: 54px; color: var(--text-dim); }
+  .ver-seg { display: flex; background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r); padding: 2px; gap: 2px; margin: 0 4px 8px; }
+  .ver-seg button { flex: 1; font-family: var(--mono); font-size: 11px; color: var(--text-muted); background: none; border: none; border-radius: var(--r-sm); padding: 5px; cursor: pointer; }
+  .ver-seg button.on { background: var(--accent-tint); color: var(--accent); }
+  .ver-item {
+    display: flex; align-items: center; gap: 9px; padding: 9px 10px; margin: 3px 4px;
+    border: 1px solid var(--border); border-radius: var(--r-lg); cursor: pointer; user-select: none;
+  }
+  .ver-item:hover { border-color: var(--border-strong); }
+  .ver-item.cursor { border-color: var(--border-strong); }
+  #app[data-focus="sidebar"] .ver-item.cursor { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-tint); }
+  .ver-item.on { border-color: var(--accent); background: var(--accent-tint); }
+  .ver-item .vi-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; border: 1.5px solid var(--text-dim); }
+  .ver-item.on .vi-dot { background: var(--accent); border-color: var(--accent); }
+  .ver-item .vi-main { flex: 1; }
+  .ver-item .vi-name { font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .ver-item .vi-sub { font-family: var(--mono); font-size: 9.5px; color: var(--text-dim); margin-top: 2px; }
+
+  #side-progress { border-top: 1px solid var(--border); padding: 12px 16px 14px; }
+  #side-progress .p-label { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--text-dim); margin-bottom: 7px; }
+  #pbar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  #pbar-fill { height: 100%; width: 0; background: var(--green); border-radius: 2px; transition: width .28s var(--ease); }
+
+  /* ── Stage ─────────────────────────────────── */
+  #scroller { overflow-y: auto; min-height: 0; }
+  #canvas { position: relative; display: flex; justify-content: center; min-height: 100%; }
+  .center-col { width: 760px; max-width: min(760px, 100%); padding: 32px 44px 45vh; }
+  #app[data-width="compact"] .center-col { width: 660px; }
+  #app[data-width="default"] .center-col { width: 760px; }
+  #app[data-width="wide"] .center-col { width: 900px; }
+  #app[data-mode="focus"] .center-col { width: 860px; }
+  .rail-col { width: 336px; flex: none; position: relative; border-left: 1px solid var(--border); }
+  #app:not([data-mode="workspace"]) .rail-col { display: none; }
+  #app[data-view="all"] .rail-col, #app[data-view="versions"] .rail-col { display: none; }
+
+  /* guided progress strip */
+  #guided-strip { display: none; margin-bottom: 26px; }
+  #app[data-mode="guided"] #guided-strip {
+    display: block; position: sticky; top: 0; z-index: 4;
+    margin: -32px -44px 26px; padding: 18px 44px 16px;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+  }
+  #guided-strip .g-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  #guided-strip .g-title { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--accent); }
+  #guided-strip .g-count { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  #gbar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  #gbar-fill { height: 100%; width: 0; background: var(--accent); border-radius: 2px; transition: width .3s var(--ease); }
+  #guided-strip .g-hint { font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); margin-top: 8px; }
+  #guided-strip .g-hint kbd { margin: 0 1px; }
+
+  /* ── Plan typography ──────────────────────── */
+  .plan .doc-meta { font-family: var(--mono); font-size: 11px; letter-spacing: 0.03em; color: var(--text-dim); margin: -4px 0 24px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .plan .doc-meta b { color: var(--text-muted); font-weight: 500; }
+  .plan .doc-meta .rev-badge { font-family: var(--mono); font-size: 10px; color: var(--green); border: 1px solid rgba(67,191,77,0.3); border-radius: var(--r-sm); padding: 1px 6px; cursor: pointer; }
+  .plan .doc-meta .rev-badge:hover { background: var(--green-tint); }
+  .orphan-banner { display: flex; align-items: center; gap: 9px; border: 1px solid rgba(245,163,163,0.35); background: var(--accent-tint); border-radius: var(--r-lg); padding: 8px 12px; margin-bottom: 20px; font-size: 12px; color: var(--accent); }
+  .orphan-banner .ob-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+  .orphan-banner a { color: var(--accent); text-decoration: underline; cursor: pointer; margin-left: auto; }
+
+  .row { position: relative; border-radius: var(--r-sm); }
+  .plan .row { padding: 3px 12px; margin: 0 -12px; }
+  .row.cursor { background: var(--accent-tint); }
+  #app[data-focus="content"] .row.cursor::before,
+  .row.sel::before {
+    content: ""; position: absolute; left: -2px; top: 3px; bottom: 3px;
+    width: 2px; border-radius: 2px; background: var(--accent);
+  }
+  .row.sel { background: var(--accent-tint); }
+  .row.has-note::after { content: ""; position: absolute; right: 2px; top: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .row.liked::after { background: var(--green); }
+  .row.anchor-focus { background: var(--accent-tint); box-shadow: inset 2px 0 0 var(--accent); }
+  .row.guided-dim { opacity: 0.4; }
+  .row.flash { animation: rowflash .9s var(--ease); }
+  @keyframes rowflash { 0%,35% { background: var(--accent-tint); } 100% { background: transparent; } }
+
+  .plan h1 { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; margin: 0; }
+  .plan h2 { font-family: var(--mono); font-size: 11.5px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin: 0; }
+  .plan .row:has(h2) { margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .plan p { margin: 0; line-height: 1.65; color: var(--text); }
+  .plan .li, .plan .oli { display: flex; gap: 10px; line-height: 1.6; }
+  .plan .marker { color: var(--text-dim); font-family: var(--mono); flex: none; }
+  .fname { font-family: var(--mono); font-size: 0.9em; color: var(--blue); }
+  .codewrap { background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r-lg); margin: 4px 0; overflow-x: auto; }
+  .codewrap .row { padding: 2px 16px; margin: 0; border-radius: 0; }
+  .codewrap pre { margin: 0; }
+  .codewrap code { font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--text-muted); white-space: pre; }
+  .tok-kw { color: var(--accent); } .tok-ty { color: var(--green); } .tok-pr { color: var(--text-muted); }
+
+  /* inline redline */
+  .plan .row.redlined p, .plan .row.redlined h1,
+  .plan .row.redlined .li > span:last-child, .plan .row.redlined .oli > span:last-child {
+    text-decoration: line-through; text-decoration-color: var(--red); color: var(--red);
+  }
+  .diff .row.redlined .txt { text-decoration: line-through; opacity: .78; }
+
+  /* inline suggestion (proposed replacement) */
+  .suggestion-block { margin: 3px 0 8px; border: 1px solid rgba(98,217,107,0.5); border-radius: var(--r); overflow: hidden; background: var(--green-tint); }
+  .suggestion-block.focused { box-shadow: 0 0 0 1px var(--green); }
+  .suggestion-block .sb-head { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: var(--green); padding: 3px 12px; border-bottom: 1px solid rgba(98,217,107,0.3); }
+  .suggestion-block pre { margin: 0; padding: 3px 12px; overflow-x: auto; }
+  .suggestion-block .sb-old code { font-family: var(--mono); font-size: 12px; color: var(--red); text-decoration: line-through; white-space: pre; }
+  .suggestion-block .sb-new code { font-family: var(--mono); font-size: 12px; color: var(--green); white-space: pre; }
+  .suggest-editor { margin: 3px 0 8px; border: 1px solid var(--green); border-radius: var(--r); overflow: hidden; }
+  .suggest-editor .se-head { font-family: var(--mono); font-size: 9px; letter-spacing: .12em; color: var(--green); padding: 3px 12px; background: var(--green-tint); }
+  .suggest-editor textarea { width: 100%; background: var(--bg); color: var(--text); border: none; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 12.5px; line-height: 1.6; padding: 8px 12px; resize: none; outline: none; }
+  .suggest-editor .ed-hint { font-family: var(--mono); font-size: 10px; color: var(--text-dim); padding: 4px 12px; }
+  .suggest-editor .ed-hint kbd { margin: 0 1px; }
+
+  /* ── Diff ─────────────────────────────────── */
+  .diff { font-family: var(--diff-mono, var(--mono)); font-size: 12.5px; --add-bg: var(--green-tint); --del-bg: var(--red-tint); }
+  .diff[data-intensity="subtle"] { --add-bg: color-mix(in srgb, var(--green) 7%, transparent); --del-bg: color-mix(in srgb, var(--red) 7%, transparent); }
+  .diff[data-intensity="strong"] { --add-bg: color-mix(in srgb, var(--green) 26%, transparent); --del-bg: color-mix(in srgb, var(--red) 26%, transparent); }
+  .diff-head { display: flex; align-items: baseline; gap: 12px; padding-bottom: 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .diff-head .fpath { font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .diff-head .fstat { font-size: 11px; font-family: var(--mono); }
+  .diff-head .plus { color: var(--green); } .diff-head .minus { color: var(--red); } .diff-head .newf { color: var(--blue); }
+  .diff-head .fc-btn { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--text-dim); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 2px 7px; cursor: pointer; }
+  .diff-head .fc-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  .dline { display: grid; grid-template-columns: 40px 40px 16px 1fr; line-height: 1.75; }
+  .diff .row { border-radius: 0; margin: 0; }
+  .dline .gut { text-align: right; padding-right: 8px; color: var(--text-dim); font-size: 11px; user-select: none; }
+  .dline .sign { color: var(--text-dim); user-select: none; text-align: center; }
+  .dline .txt { white-space: pre; padding-right: 12px; tab-size: var(--tab-size, 2); -moz-tab-size: var(--tab-size, 2); overflow-x: hidden; }
+  .dline.add { background: var(--add-bg); } .dline.add .sign, .dline.add .txt { color: var(--green); }
+  .dline.del { background: var(--del-bg); } .dline.del .sign, .dline.del .txt { color: var(--red); }
+  .dline.hunk { color: var(--blue); background: rgba(132,166,232,0.07); margin: 8px 0 2px; grid-template-columns: 1fr; }
+  .dline.hunk .txt { color: var(--blue); padding-left: 12px; }
+  .diff .row.cursor .dline { background: var(--accent-tint); }
+  .diff .row.sel .dline { background: var(--accent-tint); }
+  .diff .row.anchor-focus .dline { background: var(--accent-tint); }
+  .dline .ws { color: var(--text-dim); opacity: 0.55; }
+  .ic-del { background: rgba(255,107,107,0.30); border-radius: 2px; }
+  .ic-add { background: rgba(67,191,77,0.32); border-radius: 2px; }
+
+  /* line numbers off */
+  .diff[data-style="unified"][data-linenums="off"] .dline:not(.hunk) { grid-template-columns: 16px 1fr; }
+  .diff[data-style="unified"][data-linenums="off"] .dline .gut { display: none; }
+
+  /* split style */
+  .diff[data-style="split"] .dline:not(.hunk) { grid-template-columns: 40px 1fr 40px 1fr; }
+  .diff[data-style="split"][data-linenums="off"] .dline:not(.hunk) { grid-template-columns: 1fr 1fr; }
+  .diff[data-style="split"] .txt.c-add { background: var(--add-bg); color: var(--green); }
+  .diff[data-style="split"] .txt.c-del { background: var(--del-bg); color: var(--red); }
+  .diff[data-style="split"] .gut.mid, .diff[data-style="split"] .txt.mid { border-left: 1px solid var(--border); }
+
+  /* expand-context gap */
+  .dgap { display: grid; grid-template-columns: 96px 1fr; align-items: center; color: var(--text-dim); background: rgba(132,166,232,0.04); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .dgap .gut { text-align: center; color: var(--text-dim); }
+  .dgap .gap-btn { font-family: var(--mono); font-size: 11px; color: var(--blue); cursor: pointer; padding: 3px 0; user-select: none; }
+  .dgap .gap-btn:hover { color: var(--text); text-decoration: underline; }
+
+  /* read-only preview */
+  .ro-banner { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 8px 12px; margin-bottom: 14px; }
+  .ro-banner .ro-lock { color: var(--text-muted); }
+  .ro-code { font-family: var(--mono); font-size: 12.5px; line-height: 1.75; }
+  .ro-code .rl { display: grid; grid-template-columns: 40px 1fr; }
+  .ro-code .rl .gut { text-align: right; padding-right: 12px; color: var(--text-dim); font-size: 11px; user-select: none; }
+  .ro-code .rl .txt { white-space: pre; color: var(--text-muted); }
+
+  /* ── All-files continuous ─────────────────── */
+  .all-head { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--border); margin: -32px -44px 20px; padding: 18px 44px 14px; }
+  .all-title { font-size: 16px; font-weight: 600; }
+  .all-prog { display: flex; align-items: center; gap: 12px; margin-top: 9px; font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .all-bar { flex: 1; max-width: 260px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .all-bar-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width .28s var(--ease); }
+  .all-hint { font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); margin-top: 9px; }
+  .afile { border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 16px; overflow: hidden; scroll-margin-top: 96px; }
+  .afile.cur { border-color: var(--border-strong); }
+  #app[data-focus="content"] .afile.cur { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-tint); }
+  .afile.viewed { opacity: 0.72; }
+  .afile-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--panel); cursor: pointer; user-select: none; border-bottom: 1px solid var(--border); }
+  .afile.collapsed .afile-head { border-bottom: none; }
+  .afile-caret { color: var(--text-dim); font-size: 10px; transition: transform .12s var(--ease); }
+  .afile.collapsed .afile-caret { transform: rotate(-90deg); }
+  .afile-check { width: 15px; height: 15px; flex: none; border-radius: 4px; border: 1.5px solid var(--text-dim); display: flex; align-items: center; justify-content: center; font-size: 10px; color: transparent; }
+  .afile.viewed .afile-check { background: var(--green); border-color: var(--green); color: var(--accent-ink); }
+  .afile-name { flex: 1; font-family: var(--mono); font-size: 12.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .afile.viewed .afile-name { color: var(--text-muted); }
+  .afile-stat { font-family: var(--mono); font-size: 10.5px; }
+  .afile-stat .plus { color: var(--green); } .afile-stat .minus { color: var(--red); } .afile-stat .newf { color: var(--blue); }
+  .afile-x { font-family: var(--mono); font-size: 10px; color: var(--text-dim); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 1px 6px; }
+  .afile-body { padding: 12px 16px; }
+  .afile.collapsed .afile-body { display: none; }
+
+  /* ── Version diff (content) ───────────────── */
+  .ver-view .vv-head { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .ver-view .vv-title { font-size: 15px; font-weight: 600; }
+  .ver-view .vv-sub { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  .ver-view .vv-tools { margin-left: auto; }
+  .mini-seg { display: flex; background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r); padding: 1px; }
+  .mini-seg button { font-family: var(--mono); font-size: 10px; color: var(--text-muted); background: none; border: none; border-radius: var(--r-sm); padding: 3px 7px; cursor: pointer; }
+  .mini-seg button:hover { color: var(--text); }
+  .mini-seg button.on { background: var(--accent-tint); color: var(--accent); }
+  .vblock { position: relative; padding: 5px 12px 5px 14px; margin: 3px 0; border-radius: var(--r-sm); border-left: 2px solid transparent; }
+  .vblock .vv-tag { font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; padding: 0 5px; border-radius: var(--r-sm); margin-left: 8px; vertical-align: middle; }
+  .vblock.same { color: var(--text-muted); }
+  .vblock.changed { background: var(--accent-tint); border-left-color: var(--accent); }
+  .vblock.changed .vv-tag { color: var(--accent); border: 1px solid rgba(245,163,163,0.35); }
+  .vblock.added { background: var(--green-tint); border-left-color: var(--green); }
+  .vblock.added .vv-tag { color: var(--green); border: 1px solid rgba(67,191,77,0.35); }
+  .vblock.removed { background: var(--red-tint); border-left-color: var(--red); }
+  .vblock.removed .vv-tag { color: var(--red); border: 1px solid rgba(255,107,107,0.35); }
+  .vblock.removed .vb-text { text-decoration: line-through; color: var(--red); opacity: 0.8; }
+  .vb-h1 { font-size: 20px; font-weight: 600; }
+  .vb-h2 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .vb-text { line-height: 1.6; }
+  .vb-code { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; line-height: 1.7; display: block; }
+  .vb-code .ln-del { color: var(--red); text-decoration: line-through; }
+  .vb-code .ln-add { color: var(--green); }
+  .ver-raw { font-family: var(--mono); font-size: 12.5px; }
+  .ver-raw .rl { display: grid; grid-template-columns: 16px 1fr; line-height: 1.7; }
+  .ver-raw .rl .sign { text-align: center; color: var(--text-dim); }
+  .ver-raw .rl.add { background: var(--green-tint); } .ver-raw .rl.add .sign, .ver-raw .rl.add .txt { color: var(--green); }
+  .ver-raw .rl.del { background: var(--red-tint); } .ver-raw .rl.del .sign, .ver-raw .rl.del .txt { color: var(--red); }
+  .ver-raw .rl .txt { white-space: pre-wrap; }
+
+  /* ── Inline edit editor ───────────────────── */
+  .editor-inline { display: block; margin: 4px 0; }
+  .editor-inline textarea {
+    width: 100%; background: var(--bg); color: var(--text);
+    border: 1px solid var(--accent); border-radius: var(--r);
+    font-family: var(--sans); font-size: 14px; line-height: 1.55; padding: 8px 10px;
+    resize: none; outline: none;
+  }
+  .editor-inline.code textarea { font-family: var(--mono); font-size: 12.5px; }
+  .editor-inline .ed-hint { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-top: 4px; }
+  .editor-inline .ed-hint kbd { margin: 0 1px; }
+
+  /* ── Split (top mode) ─────────────────────── */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .split .split-pane { min-width: 0; padding: 0 20px; }
+  .split .split-pane:first-child { border-right: 1px solid var(--border); padding-left: 0; }
+  .split .split-pane:last-child { padding-right: 0; }
+  .split .split-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); margin-bottom: 14px; }
+  .split .split-label.working { color: var(--accent); }
+
+  /* ── Rail cards ───────────────────────────── */
+  #rail-cards { position: relative; }
+  .card {
+    position: absolute; left: 20px; right: 20px;
+    background: var(--elevated); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: 10px 12px;
+    font-size: 12.5px; cursor: pointer;
+    transition: top .16s var(--ease), border-color .12s var(--ease), box-shadow .12s var(--ease);
+  }
+  .card.inline-composer { position: static; left: auto; right: auto; margin: 6px 0 4px; }
+  .card:hover { border-color: var(--border-strong); }
+  .card.focused { border-color: var(--accent); box-shadow: var(--shadow); }
+  .card.composer { border-color: var(--accent); z-index: 6; cursor: default; }
+  .card.orphan { border-color: rgba(245,163,163,0.5); border-style: dashed; }
+  .card-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+  .card-type { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; color: var(--text-dim); }
+  .card.is-edit .card-type { color: var(--green); }
+  .card-badge { margin-left: auto; font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.1em; color: var(--accent); border: 1px solid rgba(245,163,163,0.3); border-radius: var(--r-sm); padding: 1px 5px; }
+  .card-badge.sent { color: var(--blue); border-color: rgba(132,166,232,0.4); }
+  .card-badge.orphan { color: var(--red); border-color: rgba(255,107,107,0.4); }
+  .card-loc { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-bottom: 5px; }
+  .card-quote { color: var(--text-muted); font-size: 12px; line-height: 1.45; border-left: 2px solid var(--accent); padding-left: 9px; margin-bottom: 7px; }
+  .card-quote.mono { font-family: var(--mono); font-size: 11px; }
+  .card-body { color: var(--text); line-height: 1.5; white-space: pre-wrap; }
+  .card-body:empty::before { content: "(click to add a note)"; color: var(--text-dim); font-style: italic; }
+  .card-mini { font-size: 12px; line-height: 1.5; }
+  .card-mini .m-del { color: var(--red); text-decoration: line-through; display: block; font-family: var(--mono); font-size: 11px; }
+  .card-mini .m-ins { color: var(--green); display: block; font-family: var(--mono); font-size: 11px; }
+  .card-reattach { font-family: var(--mono); font-size: 10px; color: var(--accent); cursor: pointer; margin-top: 6px; text-decoration: underline; }
+  .card textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--r); font: inherit; line-height: 1.5; padding: 6px 8px; resize: none; outline: none; }
+  .card textarea:focus { border-color: var(--accent); }
+  .card-hint { font-family: var(--mono); font-size: 10px; color: var(--text-dim); margin-top: 6px; }
+  .card-hint kbd { margin: 0 1px; }
+  body.composing .card:not(.composer) { opacity: 0.4; }
+
+  /* rich card type variants */
+  .conv-chip { font-family: var(--mono); font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--blue); border: 1px solid rgba(132,166,232,0.4); border-radius: var(--r-sm); padding: 1px 5px; }
+  .blocking-chip { font-family: var(--mono); font-size: 8.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--red); border: 1px solid var(--red); border-radius: var(--r-sm); padding: 1px 5px; }
+  .card.is-redline .card-type { color: var(--red); }
+  .card.is-redline .card-quote { border-left-color: var(--red); color: var(--red); text-decoration: line-through; }
+  .card.is-praise { border-color: rgba(98,217,107,0.4); }
+  .card.is-praise .card-type { color: var(--green); }
+  .card.is-praise .card-quote.green { border-left-color: var(--green); color: var(--text-muted); text-decoration: none; }
+  .card.is-suggestion .card-type { color: var(--green); }
+  .card.is-label .tag-dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+
+  .rail-empty { position: absolute; left: 22px; right: 22px; top: 40px; font-size: 12px; color: var(--text-dim); line-height: 1.7; }
+  .rail-note { position: absolute; left: 20px; right: 20px; font-size: 11px; color: var(--text-dim); padding: 8px 2px; border-top: 1px solid var(--border); }
+
+  /* composer conventions */
+  .conv-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 2px 0 8px; }
+  .conv-opt { font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 3px 7px; cursor: pointer; }
+  .conv-opt.on { background: var(--accent-tint); color: var(--accent); border-color: var(--accent); }
+  .conv-opt.none { color: var(--text-dim); }
+  .blk-opt { font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); background: var(--bg); border: 1px dashed var(--border-strong); border-radius: var(--r-sm); padding: 3px 7px; cursor: pointer; margin-left: auto; }
+  .blk-opt.on { color: var(--red); border-color: var(--red); border-style: solid; background: var(--red-tint); }
+
+  #connector { position: absolute; pointer-events: none; z-index: 3; display: none; }
+  #connector .wire { position: absolute; height: 1px; background: var(--accent); opacity: 0.55; top: 0; left: 0; right: 0; }
+  #connector .nub { position: absolute; left: -3px; top: -2.5px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  /* ── Finish panel ─────────────────────────── */
+  #scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.45); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 40; }
+  #scrim.show { opacity: 1; pointer-events: auto; }
+  #finish-panel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 440px; max-width: 94vw;
+    background: var(--panel); border-left: 1px solid var(--border);
+    box-shadow: var(--shadow); transform: translateX(105%);
+    transition: transform .26s var(--ease); z-index: 50;
+    display: flex; flex-direction: column;
+  }
+  #finish-panel.show { transform: translateX(0); }
+  #finish-head { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); }
+  #finish-head h3 { font-size: 15px; font-weight: 600; margin: 0; }
+  #finish-head .sub { font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  #finish-body { flex: 1; overflow-y: auto; padding: 16px 22px; }
+  .f-label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; color: var(--text-dim); margin: 18px 0 8px; }
+  .f-label:first-child { margin-top: 0; }
+  #parent-comment { width: 100%; min-height: 66px; background: var(--elevated); color: var(--text); border: 1px solid var(--border); border-radius: var(--r-lg); font: inherit; font-size: 13px; line-height: 1.5; padding: 9px 11px; resize: vertical; outline: none; }
+  #parent-comment:focus { border-color: var(--accent); }
+  .verdicts { display: flex; flex-direction: column; gap: 6px; }
+  .verdict { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: var(--r-lg); padding: 9px 12px; cursor: pointer; transition: all .12s var(--ease); }
+  .verdict:hover { background: var(--elevated); }
+  .verdict .vdot { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--text-dim); flex: none; display: flex; align-items: center; justify-content: center; }
+  .verdict .vdot::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+  .verdict.on { background: var(--accent-tint); border-color: var(--accent); }
+  .verdict.on.v-approve { background: var(--green-tint); border-color: var(--green); }
+  .verdict.on.v-changes { background: var(--red-tint); border-color: var(--red); }
+  .verdict.on .vdot { border-color: var(--accent); }
+  .verdict.on.v-approve .vdot { border-color: var(--green); }
+  .verdict.on.v-changes .vdot { border-color: var(--red); }
+  .verdict.on .vdot::after { background: var(--accent); }
+  .verdict.on.v-approve .vdot::after { background: var(--green); }
+  .verdict.on.v-changes .vdot::after { background: var(--red); }
+  .verdict .vname { font-size: 13px; font-weight: 500; }
+  .verdict .vdesc { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+  .verdict .vkey { margin-left: auto; }
+  .fgroup { margin-bottom: 12px; }
+  .fgroup-head { font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; padding: 4px 0; }
+  .fgroup-head .cnt { color: var(--accent); }
+  .fgroup-head.orphan .cnt { color: var(--red); }
+  .fitem { border-left: 2px solid var(--border); margin: 5px 0 5px 5px; padding: 3px 0 3px 12px; }
+  .fitem.orphan { border-left-color: var(--red); }
+  .fitem .fexcerpt { font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+  .fitem .fexcerpt .fex-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fitem .fbody { font-size: 12.5px; color: var(--text); margin-top: 2px; line-height: 1.45; }
+  .fitem .fbody .plus { color: var(--green); } .fitem .fbody .minus { color: var(--red); }
+  .fitem .fedit .plus { color: var(--green); } .fitem .fedit .minus { color: var(--red); }
+  .fi-tag { font-family: var(--mono); font-size: 9px; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 0 4px; color: var(--text-muted); flex: none; }
+  .fi-tag.red { color: var(--red); border-color: var(--red); }
+  .fi-tag.green { color: var(--green); border-color: rgba(98,217,107,0.5); }
+  .fempty { font-size: 12.5px; color: var(--text-dim); font-style: italic; }
+  #blocking-warn { display: flex; align-items: center; gap: 9px; border: 1px solid var(--red); background: var(--red-tint); border-radius: var(--r-lg); padding: 9px 12px; margin-bottom: 12px; font-size: 12.5px; color: var(--red); }
+  #unviewed-warn { display: flex; align-items: center; gap: 9px; border: 1px solid rgba(245,163,163,0.35); background: var(--accent-tint); border-radius: var(--r-lg); padding: 9px 12px; margin-bottom: 14px; font-size: 12.5px; color: var(--accent); }
+  #unviewed-warn .uv-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; animation: pulse 2s var(--ease) infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  #finish-foot { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
+  #submit-btn { flex: 1; font-family: var(--mono); font-size: 13px; font-weight: 600; background: var(--accent); color: var(--accent-ink); border: none; border-radius: var(--r-lg); padding: 11px; cursor: pointer; }
+  #submit-btn:hover { background: var(--accent-hover); }
+  #submit-btn.approve { background: var(--green); } #submit-btn.approve:hover { filter: brightness(1.05); }
+  #finish-foot .foot-hint { font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); }
+
+  /* quiet confirmation */
+  #confirm { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); }
+  #confirm.show { display: flex; }
+  .confirm-card { background: var(--overlay); border: 1px solid var(--border); border-radius: var(--r-xl); box-shadow: var(--shadow); padding: 24px 28px; width: 420px; max-width: 92vw; text-align: center; }
+  .confirm-card .cc-mark { width: 40px; height: 40px; margin: 0 auto 14px; border-radius: 50%; border: 1.5px solid var(--green); color: var(--green); font-size: 18px; display: flex; align-items: center; justify-content: center; }
+  .confirm-card h3 { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
+  .confirm-card .cc-sub { font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+  .confirm-card .cc-verdict { display: inline-block; margin-top: 16px; font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; color: var(--text-muted); }
+  .confirm-card .cc-verdict b { color: var(--accent); font-weight: 600; }
+  .confirm-card .cc-esc { margin-top: 16px; font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); }
+
+  /* ── Command palette ──────────────────────── */
+  #palette-wrap { position: fixed; inset: 0; z-index: 90; display: none; align-items: flex-start; justify-content: center; background: rgba(0,0,0,0.4); }
+  #palette-wrap.show { display: flex; }
+  #palette { margin-top: 11vh; width: 560px; max-width: 92vw; background: var(--overlay); border: 1px solid var(--border-strong); border-radius: var(--r-xl); box-shadow: var(--shadow); overflow: hidden; }
+  #palette-input { width: 100%; background: none; border: none; outline: none; color: var(--text); font-family: var(--sans); font-size: 15px; padding: 15px 18px; border-bottom: 1px solid var(--border); }
+  #palette-input::placeholder { color: var(--text-dim); }
+  #palette-list { max-height: 344px; overflow-y: auto; padding: 6px; }
+  .pal-group { font-family: var(--mono); font-size: 9px; letter-spacing: 0.13em; color: var(--text-dim); padding: 10px 12px 4px; }
+  .pal-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: var(--r); cursor: pointer; }
+  .pal-row .pal-ico { width: 18px; text-align: center; color: var(--text-dim); font-size: 13px; flex: none; }
+  .pal-row .pal-name { flex: 1; font-size: 13px; color: var(--text); }
+  .pal-row .pal-name b { color: var(--accent); font-weight: 600; }
+  .pal-row .pal-desc { font-size: 11px; color: var(--text-dim); margin-right: 4px; }
+  .pal-row .pal-key { display: flex; gap: 3px; }
+  .pal-row.sel { background: var(--accent-tint); }
+  .pal-row.sel .pal-ico { color: var(--accent); }
+  .pal-empty { padding: 26px; text-align: center; color: var(--text-dim); font-size: 12.5px; }
+  #palette-foot { border-top: 1px solid var(--border); padding: 8px 14px; display: flex; gap: 16px; font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+  #palette-foot span { display: flex; align-items: center; gap: 5px; }
+
+  /* ── Settings dialog ──────────────────────── */
+  #settings-wrap { position: fixed; inset: 0; z-index: 85; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); }
+  #settings-wrap.show { display: flex; }
+  #settings { width: 736px; max-width: 94vw; height: 566px; max-height: 88vh; background: var(--panel); border: 1px solid var(--border-strong); border-radius: var(--r-xl); box-shadow: var(--shadow); display: grid; grid-template-columns: 188px 1fr; overflow: hidden; }
+  #settings-nav { border-right: 1px solid var(--border); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; }
+  #settings-nav .sn-title { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); padding: 2px 10px 12px; }
+  .sn-item { font-size: 13px; color: var(--text-muted); padding: 8px 12px; border-radius: var(--r); cursor: pointer; display: flex; align-items: center; gap: 9px; }
+  .sn-item:hover { background: var(--elevated); color: var(--text); }
+  .sn-item.on { background: var(--accent-tint); color: var(--accent); }
+  .sn-item .sn-ico { width: 15px; text-align: center; opacity: 0.85; }
+  #settings-main { display: flex; flex-direction: column; min-height: 0; }
+  #settings-head { padding: 17px 24px 13px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 10px; }
+  #settings-head h3 { font-size: 15px; font-weight: 600; margin: 0; }
+  #settings-head .sh-sub { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+  #settings-head .sh-close { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); }
+  #settings-body { flex: 1; overflow-y: auto; padding: 20px 24px 28px; }
+  .set-field { margin-bottom: 22px; }
+  .set-field .sf-label { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 3px; }
+  .set-field .sf-help { font-size: 11.5px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.5; }
+  .seg-control { display: inline-flex; background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r); padding: 2px; gap: 2px; flex-wrap: wrap; }
+  .seg-control button { font-family: var(--sans); font-size: 12px; color: var(--text-muted); background: none; border: none; border-radius: var(--r-sm); padding: 5px 12px; cursor: pointer; }
+  .seg-control button:hover { color: var(--text); }
+  .seg-control button.on { background: var(--accent-tint); color: var(--accent); }
+  .set-input { background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r); color: var(--text); font-family: var(--sans); font-size: 13px; padding: 8px 11px; outline: none; width: 264px; }
+  .set-input:focus { border-color: var(--accent); }
+  .set-toggle { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; font-size: 13px; color: var(--text); }
+  .set-switch { width: 38px; height: 22px; border-radius: 11px; background: var(--border-strong); position: relative; transition: background .15s var(--ease); flex: none; }
+  .set-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: var(--panel); transition: transform .16s var(--ease); }
+  .set-toggle.on .set-switch { background: var(--accent); }
+  .set-toggle.on .set-switch::after { transform: translateX(16px); background: var(--accent-ink); }
+  .set-row { display: flex; align-items: center; gap: 14px; }
+  .set-slider { width: 220px; accent-color: var(--accent); }
+  .slider-val { font-family: var(--mono); font-size: 12px; color: var(--text-muted); min-width: 34px; }
+  .theme-swatches { display: flex; gap: 10px; flex-wrap: wrap; }
+  .theme-card { width: 118px; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; cursor: pointer; }
+  .theme-card:hover { border-color: var(--border-strong); }
+  .theme-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .theme-prev { height: 56px; padding: 8px; display: flex; flex-direction: column; gap: 5px; justify-content: center; }
+  .theme-prev .tp-bar { height: 6px; border-radius: 3px; }
+  .theme-name { font-size: 11.5px; padding: 7px 9px; color: var(--text); border-top: 1px solid var(--border); }
+  .kb-table { width: 100%; border-collapse: collapse; }
+  .kb-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); font-size: 12.5px; color: var(--text-muted); }
+  .kb-table td.k { text-align: right; width: 170px; }
+  .kb-table td.k kbd { margin-left: 3px; }
+  .kb-table tr.kb-group td { color: var(--accent); font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; padding-top: 16px; border: none; }
+
+  /* ── Cheat sheet ──────────────────────────── */
+  #cheat { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; }
+  #cheat.show { display: flex; }
+  .cheat { background: var(--overlay); border: 1px solid var(--border); border-radius: var(--r-xl); padding: 24px 30px; box-shadow: var(--shadow); width: 760px; max-width: 92vw; }
+  .cheat h3 { font-family: var(--mono); font-size: 12px; letter-spacing: 0.1em; color: var(--text-muted); margin: 0 0 18px; }
+  .cheat-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 32px; }
+  .cheat-group { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; color: var(--accent); margin: 12px 0 4px; }
+  .cheat-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 12px; color: var(--text-muted); gap: 12px; }
+  .cheat-row span:first-child { min-width: 0; }
+  .cheat-row .keys { display: flex; gap: 4px; flex: none; }
+  .cheat .close-hint { text-align: center; margin-top: 18px; font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+</style>
+</head>
+<body>
+<div id="app" data-mode="workspace" data-focus="sidebar" data-view="file" data-input="select" data-width="default">
+
+  <div id="topbar">
+    <div id="crumb"></div>
+    <div id="status"></div>
+    <div class="segmented" id="mode-seg">
+      <button data-mode="workspace" class="on">Workspace</button>
+      <button data-mode="focus">Focus</button>
+      <button data-mode="guided">Guided</button>
+      <button data-mode="split">Split</button>
+    </div>
+    <button id="palette-btn" class="hbtn" title="Command palette (⌘K)">⌘K</button>
+    <button id="theme-btn" class="hbtn"></button>
+    <button id="textured-btn" class="hbtn" title="Textured canvas"></button>
+    <button id="settings-btn" class="hbtn" title="Settings (⌘,)">⚙</button>
+    <button id="finish-btn"></button>
+  </div>
+
+  <div id="modebar">
+    <div class="input-seg" id="input-seg">
+      <button data-input="select" class="on"><span class="ig">⌖</span> Select</button>
+      <button data-input="comment"><span class="ig">▤</span> Comment</button>
+      <button data-input="redline"><span class="ig">╌</span> Redline</button>
+    </div>
+    <div class="verb-legend" id="verb-legend">
+      <span class="vl"><kbd>c</kbd> comment</span>
+      <span class="vl"><kbd>⇧c</kbd> file</span>
+      <span class="vl"><kbd>r</kbd> redline</span>
+      <span class="vl"><kbd>g</kbd> looks good</span>
+      <span class="vl"><kbd>s</kbd> suggest</span>
+      <span class="vl"><kbd>e</kbd> edit</span>
+    </div>
+    <div class="mb-hint" id="mb-hint"></div>
+    <div class="mb-right">
+      <div class="tag-legend" id="tag-legend"></div>
+    </div>
+  </div>
+
+  <div id="lower">
+    <div id="sidebar">
+      <div id="side-brand"><a href="../index.html">cueloop · <span class="b-strong">review</span></a></div>
+      <div class="tabs">
+        <button data-tab="status" class="on">Status</button>
+        <button data-tab="tree">Tree</button>
+        <button data-tab="versions">Versions <span class="tb" id="tab-ver-badge"></span></button>
+      </div>
+      <div id="side-list"></div>
+      <div id="side-progress">
+        <div class="p-label"><span id="p-tabname">CHANGED FILES</span><span id="p-count">0 / 6</span></div>
+        <div id="pbar"><div id="pbar-fill"></div></div>
+      </div>
+    </div>
+
+    <div id="scroller">
+      <div id="canvas">
+        <div class="center-col">
+          <div id="guided-strip">
+            <div class="g-head"><span class="g-title" id="g-title"></span><span class="g-count" id="g-count"></span></div>
+            <div id="gbar"><div id="gbar-fill"></div></div>
+            <div class="g-hint"><kbd>n</kbd> next · <kbd>p</kbd> back · <kbd>v</kbd> viewed · <kbd>c</kbd> comment</div>
+          </div>
+          <div id="content"></div>
+        </div>
+        <div class="rail-col" id="rail-col">
+          <div id="rail-cards"></div>
+          <div id="connector"><div class="wire"></div><div class="nub"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="scrim"></div>
+<div id="finish-panel">
+  <div id="finish-head">
+    <h3>Finish review</h3>
+    <div class="sub" id="finish-sub"></div>
+  </div>
+  <div id="finish-body"></div>
+  <div id="finish-foot">
+    <button id="submit-btn">Submit review</button>
+    <span class="foot-hint"><kbd>⌘⏎</kbd></span>
+  </div>
+</div>
+
+<div id="confirm">
+  <div class="confirm-card">
+    <div class="cc-mark">✓</div>
+    <h3>Review delivered</h3>
+    <div class="cc-sub" id="cc-sub"></div>
+    <div class="cc-verdict" id="cc-verdict"></div>
+    <div class="cc-esc"><kbd>esc</kbd> to close</div>
+  </div>
+</div>
+
+<div id="palette-wrap">
+  <div id="palette">
+    <input id="palette-input" type="text" placeholder="Type a command or search…" autocomplete="off" spellcheck="false">
+    <div id="palette-list"></div>
+    <div id="palette-foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
+      <span><kbd>⏎</kbd> run</span>
+      <span><kbd>esc</kbd> close</span>
+    </div>
+  </div>
+</div>
+
+<div id="settings-wrap">
+  <div id="settings">
+    <div id="settings-nav">
+      <div class="sn-title">SETTINGS</div>
+    </div>
+    <div id="settings-main">
+      <div id="settings-head">
+        <h3 id="settings-title">General</h3>
+        <span class="sh-sub" id="settings-sub"></span>
+        <span class="sh-close"><kbd>esc</kbd> close · <kbd>⌘,</kbd> toggle</span>
+      </div>
+      <div id="settings-body"></div>
+    </div>
+  </div>
+</div>
+
+<div id="cheat">
+  <div class="cheat">
+    <h3>KEYBOARD</h3>
+    <div class="cheat-cols" id="cheat-cols"></div>
+    <div class="close-hint"><kbd>esc</kbd> or <kbd>?</kbd> to close</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+(() => {
+/* ═══════════════════════════════════════════════════════
+   Plan versions — the agent resubmitted a revised plan (v2).
+   Blocks keep stable ids so annotations re-anchor across
+   versions; ids present in only one version drive add/remove.
+   ═══════════════════════════════════════════════════════ */
+
+const codeV1 =
+  "interface SessionRecord {\n" +
+  "  id: string;\n" +
+  "  schemaVersion: string;\n" +
+  "  artifact: Artifact;\n" +
+  "  annotations: Annotation[];\n" +
+  "  verdict: Verdict | null;\n" +
+  "}";
+const codeV2 =
+  "interface SessionRecord {\n" +
+  "  id: string;\n" +
+  "  schemaVersion: string;\n" +
+  "  revision: number;\n" +
+  "  artifact: Artifact;\n" +
+  "  annotations: Annotation[];\n" +
+  "  verdict: Verdict | null;\n" +
+  "}";
+
+const planV1 = [
+  { id: "t",     kind: "h1",  text: "Implementation Plan: Session Persistence" },
+  { id: "h-ctx", kind: "h2",  text: "Context" },
+  { id: "p-ctx", kind: "p",   text: "Review sessions currently live only in daemon memory. If the daemon crashes or is restarted mid-review, every pending annotation and the draft verdict are lost, and the submitting agent is left waiting on a session that no longer exists. This plan persists each session to disk as it changes, so a restarted daemon can recover in-flight reviews exactly where they stopped." },
+  { id: "h-p1",  kind: "h2",  text: "Phase 1: Storage layer" },
+  { id: "p-p1",  kind: "p",   text: "All persistence lives in a new server/storage/ module that owns serialization and file layout. Sessions are written as one JSON document per session under the daemon state directory, and every write goes through a temp file and an atomic rename so a crash mid-write can never leave a corrupt record behind. Three new files:" },
+  { id: "li-1",  kind: "li",  text: "server/storage/store.ts — the SessionStore class: an in-memory map with write-through persistence and corruption recovery." },
+  { id: "li-2",  kind: "li",  text: "server/storage/schema.ts — the on-disk SessionRecord shape and the current SCHEMA_VERSION constant." },
+  { id: "li-3",  kind: "li",  text: "server/storage/index.ts — the public entry point the daemon imports; nothing else reaches into this directory." },
+  { id: "code",  kind: "code", text: codeV1 },
+  { id: "h-p2",  kind: "h2",  text: "Phase 2: Recovery on boot" },
+  { id: "p-p2",  kind: "p",   text: "On startup the daemon scans the state directory before it accepts any new submissions. Recovery is strictly read-only: nothing is deleted or rewritten until a client reattaches, so from the reviewer's perspective a crash looks like a brief disconnect rather than a lost review." },
+  { id: "ol-1",  kind: "oli", text: "Scan server/storage/data/ for *.json records and parse each one, skipping — and logging — any file that fails validation." },
+  { id: "ol-2",  kind: "oli", text: "Rebuild the in-memory session table from the surviving records, marking each restored session as recovered." },
+  { id: "ol-3",  kind: "oli", text: "Notify every reconnecting agent that its session survived, including the count of annotations already recorded against it." },
+  { id: "h-oq",  kind: "h2",  text: "Open questions" },
+  { id: "oq-1",  kind: "li",  text: "Should recovered sessions expire after a TTL, or wait indefinitely for the reviewer to return?" },
+  { id: "oq-2",  kind: "li",  text: "Is one JSON file per session enough, or do we want an append-only log for the annotation history?" },
+];
+
+const planV2 = [
+  { id: "t",     kind: "h1",  text: "Implementation Plan: Session Persistence" },
+  { id: "h-ctx", kind: "h2",  text: "Context" },
+  { id: "p-ctx", kind: "p",   text: "Review sessions currently live only in daemon memory, so they do not survive a restart. If the daemon crashes mid-review, every pending annotation and the draft verdict are lost, and the submitting agent is left waiting on a session that no longer exists. This plan persists each session to disk as it changes, so a restarted daemon recovers in-flight reviews exactly where they stopped." },
+  { id: "h-p1",  kind: "h2",  text: "Phase 1: Storage layer" },
+  { id: "p-p1",  kind: "p",   text: "All persistence lives in a new server/storage/ module that owns serialization and file layout. Sessions are written as one JSON document per session under the daemon state directory, and every mutation is also appended to a single write-ahead journal so the annotation history is never lost between snapshots. Every write goes through a temp file and an atomic rename so a crash mid-write can never leave a corrupt record behind. Four new files:" },
+  { id: "li-1",  kind: "li",  text: "server/storage/store.ts — the SessionStore class: an in-memory map with write-through persistence and corruption recovery." },
+  { id: "li-2",  kind: "li",  text: "server/storage/schema.ts — the on-disk SessionRecord shape and the current SCHEMA_VERSION constant." },
+  { id: "li-3",  kind: "li",  text: "server/storage/index.ts — the public entry point the daemon imports; nothing else reaches into this directory." },
+  { id: "li-4",  kind: "li",  text: "server/storage/journal.ts — the append-only write-ahead log and the replayJournal helper that folds it back into the store on recovery." },
+  { id: "code",  kind: "code", text: codeV2 },
+  { id: "h-p2",  kind: "h2",  text: "Phase 2: Recovery on boot" },
+  { id: "p-p2",  kind: "p",   text: "On startup the daemon scans the state directory before it accepts any new submissions. Recovery is strictly read-only: nothing is deleted or rewritten until a client reattaches, so from the reviewer's perspective a crash looks like a brief disconnect rather than a lost review." },
+  { id: "ol-1",  kind: "oli", text: "Scan server/storage/data/ for *.json records and parse each one, skipping — and logging — any file that fails validation." },
+  { id: "ol-2",  kind: "oli", text: "Rebuild the in-memory session table from the surviving records, marking each restored session as recovered." },
+  { id: "ol-3",  kind: "oli", text: "Notify every reconnecting agent that its session survived, including the count of annotations already recorded against it." },
+  { id: "h-oq",  kind: "h2",  text: "Open questions" },
+  { id: "oq-1",  kind: "li",  text: "Should recovered sessions expire after a TTL, or wait indefinitely for the reviewer to return?" },
+  { id: "oq-3",  kind: "li",  text: "After a crash, should we fsync the state directory after each atomic rename, or accept that the last few milliseconds of annotations may be lost on power failure?" },
+];
+
+/* Diffs — hidden ctx lines carry a gapId so hunks can expand context in place. */
+
+const storeLines = [
+  { t: "ctx", hidden: true, gapId: "s0", text: 'import { readFileSync } from "node:fs";' },
+  { t: "ctx", hidden: true, gapId: "s0", text: 'import { join } from "node:path";' },
+  { t: "ctx", hidden: true, gapId: "s0", text: "" },
+  { t: "hunk", text: "@@ -1,5 +1,8 @@" },
+  { t: "ctx", text: 'import { SessionRecord } from "./schema";' },
+  { t: "add", text: 'import { appendToJournal, replayJournal } from "./journal";' },
+  { t: "add", text: 'import { renameSync } from "node:fs";' },
+  { t: "ctx", text: "" },
+  { t: "ctx", text: "export class SessionStore {" },
+  { t: "ctx", text: "  private sessions = new Map<string, SessionRecord>();" },
+  { t: "add", text: "  private journalReady = false;" },
+  { t: "add", text: '  private readonly journalPath = join(this.dir, "journal.log");' },
+  { t: "ctx", text: "" },
+  { t: "ctx", hidden: true, gapId: "s1", text: "  constructor(private dir: string) {}" },
+  { t: "ctx", hidden: true, gapId: "s1", text: "" },
+  { t: "ctx", hidden: true, gapId: "s1", text: "  get(id: string): SessionRecord | undefined {" },
+  { t: "ctx", hidden: true, gapId: "s1", text: "    return this.sessions.get(id);" },
+  { t: "ctx", hidden: true, gapId: "s1", text: "  }" },
+  { t: "ctx", hidden: true, gapId: "s1", text: "" },
+  { t: "hunk", text: "@@ -13,10 +16,16 @@" },
+  { t: "ctx", text: "  upsert(record: SessionRecord): void {" },
+  { t: "del", text: "    this.sessions.set(record.id, record);" },
+  { t: "add", text: "    this.sessions.set(record.id, { ...record, revision: record.revision + 1 });" },
+  { t: "add", text: "    this.ensureJournal();" },
+  { t: "add", text: '    appendToJournal({ kind: "upsert", record });' },
+  { t: "ctx", text: "  }" },
+  { t: "ctx", text: "" },
+  { t: "ctx", text: "  delete(id: string): void {" },
+  { t: "del", text: "    this.sessions.delete(id);" },
+  { t: "add", text: "    if (!this.sessions.delete(id)) return;" },
+  { t: "add", text: "    this.ensureJournal();" },
+  { t: "add", text: '    appendToJournal({ kind: "delete", id });' },
+  { t: "ctx", text: "  }" },
+  { t: "ctx", hidden: true, gapId: "s2", text: "" },
+  { t: "ctx", hidden: true, gapId: "s2", text: "  has(id: string): boolean {" },
+  { t: "ctx", hidden: true, gapId: "s2", text: "    return this.sessions.has(id);" },
+  { t: "ctx", hidden: true, gapId: "s2", text: "  }" },
+  { t: "hunk", text: "@@ -30,4 +39,6 @@" },
+  { t: "ctx", text: "  snapshot(): SessionRecord[] {" },
+  { t: "del", text: "    return [...this.sessions.values()];" },
+  { t: "add", text: "    const records = [...this.sessions.values()];" },
+  { t: "add", text: "    return records.sort((a, b) => a.id.localeCompare(b.id));" },
+  { t: "ctx", text: "  }" },
+  { t: "ctx", text: "}" },
+];
+
+const daemonLines = [
+  { t: "ctx", hidden: true, gapId: "d0", text: 'import { Config } from "./config";' },
+  { t: "ctx", hidden: true, gapId: "d0", text: 'import { Daemon } from "./daemon-core";' },
+  { t: "ctx", hidden: true, gapId: "d0", text: 'import { log } from "./log";' },
+  { t: "hunk", text: "@@ -4,3 +4,3 @@" },
+  { t: "ctx", text: "" },
+  { t: "del", text: 'import { SessionStore } from "./storage/store";' },
+  { t: "add", text: 'import { createStorage } from "./storage";' },
+  { t: "ctx", text: "" },
+  { t: "hunk", text: "@@ -20,5 +20,8 @@" },
+  { t: "ctx", text: "export function boot(config: Config): Daemon {" },
+  { t: "del", text: "  const store = new SessionStore();" },
+  { t: "add", text: "  const store = createStorage(config.stateDir);" },
+  { t: "add", text: "  const recovered = store.recover();" },
+  { t: "add", text: "  for (const s of recovered) log.info(`recovered ${s.id}`);" },
+  { t: "add", text: "  log.info(`recovery complete: ${recovered.length} sessions`);" },
+  { t: "ctx", text: "  const daemon = new Daemon(store);" },
+  { t: "ctx", text: "  return daemon;" },
+  { t: "ctx", text: "}" },
+];
+
+const indexLines = [
+  { t: "hunk", text: "@@ -0,0 +1,10 @@" },
+  { t: "add", text: 'export { SessionStore } from "./store";' },
+  { t: "add", text: 'export { replayJournal } from "./journal";' },
+  { t: "add", text: 'export type { SessionRecord } from "./schema";' },
+  { t: "add", text: 'export { SCHEMA_VERSION } from "./schema";' },
+  { t: "add", text: "" },
+  { t: "add", text: "export function createStorage(dir: string): SessionStore {" },
+  { t: "add", text: "  const store = new SessionStore(dir);" },
+  { t: "add", text: "  store.recover();" },
+  { t: "add", text: "  return store;" },
+  { t: "add", text: "}" },
+];
+
+const schemaLines = [
+  { t: "hunk", text: "@@ -0,0 +1,11 @@" },
+  { t: "add", text: 'export const SCHEMA_VERSION = "3";' },
+  { t: "add", text: "" },
+  { t: "add", text: "export interface SessionRecord {" },
+  { t: "add", text: "  id: string;" },
+  { t: "add", text: "  schemaVersion: string;" },
+  { t: "add", text: "  revision: number;" },
+  { t: "add", text: "  artifact: Artifact;" },
+  { t: "add", text: "  annotations: Annotation[];" },
+  { t: "add", text: "  verdict: Verdict | null;" },
+  { t: "add", text: "}" },
+];
+
+const journalLines = [
+  { t: "hunk", text: "@@ -0,0 +1,14 @@" },
+  { t: "add", text: 'import { appendFileSync } from "node:fs";' },
+  { t: "add", text: "" },
+  { t: "add", text: "export interface JournalEntry {" },
+  { t: "add", text: '  kind: "upsert" | "delete";' },
+  { t: "add", text: "  record?: SessionRecord;" },
+  { t: "add", text: "  id?: string;" },
+  { t: "add", text: "}" },
+  { t: "add", text: "" },
+  { t: "add", text: "export function appendToJournal(entry: JournalEntry): void {" },
+  { t: "add", text: '  appendFileSync(journalPath, JSON.stringify(entry) + "\\n");' },
+  { t: "add", text: "}" },
+  { t: "add", text: "" },
+  { t: "add", text: "export function replayJournal(store: SessionStore): void {" },
+  { t: "add", text: "  for (const e of readJournal()) applyEntry(store, e);" },
+  { t: "add", text: "}" },
+];
+
+const roIndex =
+  'import { boot } from "./daemon";\n' +
+  'import { loadConfig } from "./config";\n' +
+  "\n" +
+  "const config = loadConfig();\n" +
+  "const daemon = boot(config);\n" +
+  "\n" +
+  "daemon.listen(() => {\n" +
+  '  console.log("cueloop daemon ready");\n' +
+  "});";
+const roTypes =
+  "export interface Artifact {\n" +
+  '  kind: "plan" | "diff";\n' +
+  "  path: string;\n" +
+  "  body: string;\n" +
+  "}\n" +
+  "\n" +
+  'export type Verdict = "comment" | "approve" | "request_changes";\n' +
+  "\n" +
+  "export interface Annotation {\n" +
+  "  id: string;\n" +
+  "  anchor: string;\n" +
+  "  body: string;\n" +
+  "}";
+const roPkg =
+  "{\n" +
+  '  "name": "cueloop",\n' +
+  '  "version": "0.4.0",\n' +
+  '  "type": "module",\n' +
+  '  "scripts": {\n' +
+  '    "dev": "node --watch server/index.ts",\n' +
+  '    "test": "vitest"\n' +
+  "  }\n" +
+  "}";
+const roReadme =
+  "# cueloop\n" +
+  "\n" +
+  "A keyboard-first review surface for coding agents.\n" +
+  "\n" +
+  "Sessions are persisted to disk so a restarted daemon\n" +
+  "can recover in-flight reviews. See plan.md for the\n" +
+  "current storage design.";
+const roTsconfig =
+  "{\n" +
+  '  "compilerOptions": {\n' +
+  '    "target": "ES2022",\n' +
+  '    "module": "NodeNext",\n' +
+  '    "strict": true\n' +
+  "  }\n" +
+  "}";
+
+const FILES = {
+  plan:    { id: "plan",    kind: "plan", name: "plan.md",    path: "plan.md",                    status: "mod", changed: true },
+  store:   { id: "store",   kind: "diff", name: "store.ts",   path: "server/storage/store.ts",    status: "mod", changed: true, lines: storeLines },
+  index:   { id: "index",   kind: "diff", name: "index.ts",   path: "server/storage/index.ts",    status: "new", changed: true, lines: indexLines },
+  schema:  { id: "schema",  kind: "diff", name: "schema.ts",  path: "server/storage/schema.ts",   status: "new", changed: true, lines: schemaLines },
+  journal: { id: "journal", kind: "diff", name: "journal.ts", path: "server/storage/journal.ts",  status: "new", changed: true, lines: journalLines },
+  daemon:  { id: "daemon",  kind: "diff", name: "daemon.ts",  path: "server/daemon.ts",           status: "mod", changed: true, lines: daemonLines },
+  "srv-index": { id: "srv-index", kind: "ro", name: "index.ts",     path: "server/index.ts",   content: roIndex },
+  types:       { id: "types",     kind: "ro", name: "types.ts",     path: "server/types.ts",   content: roTypes },
+  pkg:         { id: "pkg",       kind: "ro", name: "package.json", path: "package.json",       content: roPkg },
+  readme:      { id: "readme",    kind: "ro", name: "README.md",    path: "README.md",          content: roReadme },
+  tsconfig:    { id: "tsconfig",  kind: "ro", name: "tsconfig.json", path: "tsconfig.json",     content: roTsconfig },
+};
+
+const changedFileIds = ["plan", "store", "index", "schema", "journal", "daemon"];
+const statusChanged = ["plan", "store", "daemon"];
+const statusUntracked = ["index", "schema", "journal"];
+const allTreeIds = ["plan", "store", "index", "schema", "journal", "daemon", "srv-index", "types", "pkg", "readme", "tsconfig"];
+
+/* preset tags (Alt+1..5) and conventional-comment labels */
+const TAGS = [
+  { key: "1", id: "nit",      label: "nit",      color: "var(--blue)" },
+  { key: "2", id: "question", label: "question", color: "var(--accent)" },
+  { key: "3", id: "issue",    label: "issue",    color: "var(--red)" },
+  { key: "4", id: "praise",   label: "praise",   color: "var(--green)" },
+  { key: "5", id: "todo",     label: "todo",     color: "var(--text-muted)" },
+];
+const CONVENTIONS = ["suggestion", "nit", "question", "issue", "praise"];
+function tagById(id) { return TAGS.find(t => t.id === id) || TAGS[0]; }
+
+/* keybinding reference (cheat sheet + settings Keybindings tab) */
+const KEYS = [
+  ["NAVIGATE", [
+    ["Move cursor (sidebar / lines)", ["j", "k"]],
+    ["Switch Status / Tree / Versions", ["t"]],
+    ["Open item · into center", ["⏎"]],
+    ["Next / prev changed file", ["]", "["]],
+    ["Extend line selection", ["⇧j", "⇧k"]],
+    ["Back to sidebar", ["esc"]],
+  ]],
+  ["ANNOTATE", [
+    ["Comment on line / span", ["c"]],
+    ["File-scoped comment", ["⇧c"]],
+    ["Redline (mark deletion)", ["r"]],
+    ["Looks good (positive)", ["g"]],
+    ["Code suggestion", ["s"]],
+    ["Edit plan text (tracked)", ["e"]],
+    ["Apply preset label", ["⌥1", "⌥5"]],
+  ]],
+  ["FILES & REVIEW", [
+    ["Mark viewed", ["v"]],
+    ["Collapse file (all-files)", ["x"]],
+    ["Next / prev pending", ["n", "p"]],
+    ["Approve / send feedback", ["⌘⏎"]],
+    ["Undo last · toggle rail", ["⌘z", "a"]],
+    ["Verdict in panel", ["1", "2", "3"]],
+  ]],
+  ["SURFACES", [
+    ["Command palette", ["⌘K", "/"]],
+    ["Settings", ["⌘,"]],
+    ["Keyboard cheat sheet", ["?"]],
+    ["Cycle theme", ["via header"]],
+  ]],
+];
+
+/* ═══════════ Settings (in-memory, applied immediately) ═══════════ */
+
+const ADJ = ["calm", "swift", "quiet", "amber", "lucid", "brisk", "keen", "slate", "fern", "dawn"];
+const NOUN = ["heron", "cedar", "comet", "harbor", "quartz", "willow", "falcon", "meadow", "ember", "cove"];
+function autoName() { return ADJ[Math.floor(Math.random() * ADJ.length)] + "-" + NOUN[Math.floor(Math.random() * NOUN.length)]; }
+
+const settings = {
+  displayName: autoName(),
+  autoClose: "off",
+  theme: "dark",
+  textured: false,
+  grain: 0.05,
+  planWidth: "default",
+  railDefault: "shown",
+  diffStyle: "unified",
+  diffGranularity: "word",
+  showLineNumbers: true,
+  lineIntensity: "normal",
+  expandUnchanged: false,
+  hideWhitespace: true,
+  tabSize: 2,
+  monoFont: "theme",
+  conventions: {
+    enabled: true,
+    default: "",
+    blocking: { suggestion: false, nit: false, question: false, issue: true, praise: false },
+  },
+};
+
+/* ═══════════ State ═══════════ */
+
+const state = {
+  mode: "workspace",
+  inputMode: "select",
+  tab: "status",
+  view: "file",
+  focusZone: "sidebar",
+  sidebarCursor: 0,
+  treeShowAll: false,
+  treeCollapsed: {},
+  active: "plan",
+  cursors: {},
+  allCursor: 0,
+  allSel: null,
+  collapsed: {},
+  selAnchor: null,
+  viewed: {},
+  railHidden: false,
+  planVersion: "v2",
+  versionDiffView: "rendered",
+  expandedGaps: {},
+  annotations: [],
+  edits: [],
+  undoStack: [],
+  focusedId: null,
+  editing: null,
+  suggesting: null,
+  panelOpen: false,
+  verdict: "comment",
+  submitted: false,
+  nextId: 1,
+  guidedIndex: 0,
+};
+
+const themes = ["system", "light", "dark"];
+let themeIndex = 2;
+
+const $ = s => document.querySelector(s);
+const canvas = $("#canvas");
+const railCol = $("#rail-col");
+const railCards = $("#rail-cards");
+const connector = $("#connector");
+
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function linkFiles(html) { return html.replace(/(server\/storage\/[\w.]+|server\/[\w.]+|plan\.md)/g, '<span class="fname">$1</span>'); }
+function hlCode(src) {
+  return esc(src)
+    .replace(/\b(interface|export|const|function|return|import|from|class|void|new|type|for|of)\b/g, '<span class="tok-kw">$1</span>')
+    .replace(/\b(string|number|null|boolean)\b/g, '<span class="tok-kw">$1</span>')
+    .replace(/\b(SessionRecord|Artifact|Annotation|Verdict|SessionStore|JournalEntry|Map|Config|Daemon)\b/g, '<span class="tok-ty">$1</span>');
+}
+function trunc(s) { return s.length > 84 ? s.slice(0, 81).trimEnd() + "…" : s; }
+
+/* ═══════════ Plan version helpers ═══════════ */
+
+function planRows() { return state.planVersion === "v1" ? planV1 : planV2; }
+function planIndexOfBlock(id) { return planRows().findIndex(b => b.id === id); }
+function planBlock(id, version) { const arr = version === "v1" ? planV1 : (version === "v2" ? planV2 : planRows()); return arr.find(b => b.id === id); }
+
+function annOrphaned(a) { return a.item === "plan" && !a.fileScope && planIndexOfBlock(a.blockId) < 0; }
+function orphanCount() { return state.annotations.filter(a => a.item === "plan" && annOrphaned(a)).length; }
+
+function planBlockDiff() {
+  const result = [];
+  let bi = 0;
+  planV1.forEach(a => {
+    const target = planV2.findIndex(b => b.id === a.id);
+    if (target >= 0) {
+      while (bi < target) { result.push({ status: "added", b: planV2[bi] }); bi++; }
+      const bb = planV2[bi];
+      result.push(bb.text === a.text ? { status: "same", b: bb } : { status: "changed", a: a, b: bb });
+      bi++;
+    } else {
+      result.push({ status: "removed", a: a });
+    }
+  });
+  while (bi < planV2.length) { result.push({ status: "added", b: planV2[bi] }); bi++; }
+  return result;
+}
+function versionStats() {
+  const d = planBlockDiff();
+  return {
+    added: d.filter(x => x.status === "added").length,
+    changed: d.filter(x => x.status === "changed").length,
+    removed: d.filter(x => x.status === "removed").length,
+  };
+}
+function versionBadgeText() {
+  const s = versionStats();
+  return '<span class="plus">+' + (s.added + s.changed) + "</span> <span class=\"minus\">−" + s.removed + "</span>";
+}
+
+/* ═══════════ Diff model (gaps gated by the Diff settings) ═══════════ */
+
+function buildDiffModel(f) {
+  const model = [];
+  let oldN = 0, newN = 0, idx = -1, i = 0;
+  while (i < f.lines.length) {
+    const l = f.lines[i];
+    if (l.t === "hunk") {
+      const m = l.text.match(/@@ -(\d+),?\d* \+(\d+)/);
+      oldN = +m[1]; newN = +m[2];
+      model.push({ type: "hunk", text: l.text });
+      i++; continue;
+    }
+    if (l.hidden) {
+      const gid = l.gapId; const run = [];
+      while (i < f.lines.length && f.lines[i].hidden && f.lines[i].gapId === gid) { run.push({ l: f.lines[i], li: i }); i++; }
+      const expanded = settings.expandUnchanged || !!state.expandedGaps[f.id + ":" + gid];
+      if (!expanded) {
+        model.push({ type: "gap", gapId: gid, count: run.length });
+        oldN += run.length; newN += run.length;
+      } else {
+        run.forEach(r => { idx++; model.push({ type: "line", idx: idx, li: r.li, line: r.l, lo: oldN, ln: newN, sign: " " }); oldN++; newN++; });
+      }
+      continue;
+    }
+    idx++;
+    let lo = "", ln = "", sign = " ";
+    if (l.t === "ctx") { lo = oldN++; ln = newN++; }
+    else if (l.t === "add") { ln = newN++; sign = "+"; }
+    else { lo = oldN++; sign = "−"; }
+    model.push({ type: "line", idx: idx, li: i, line: l, lo: lo, ln: ln, sign: sign });
+    i++;
+  }
+  // intra-line pairing over consecutive del/add runs
+  let k = 0;
+  while (k < model.length) {
+    if (model[k].type === "line" && (model[k].line.t === "del" || model[k].line.t === "add")) {
+      let j = k;
+      const run = [];
+      while (j < model.length && model[j].type === "line" && (model[j].line.t === "del" || model[j].line.t === "add")) { run.push(model[j]); j++; }
+      const dels = run.filter(x => x.line.t === "del");
+      const adds = run.filter(x => x.line.t === "add");
+      const pairs = Math.min(dels.length, adds.length);
+      for (let p = 0; p < pairs; p++) {
+        dels[p].partner = adds[p].line.text;
+        adds[p].partner = dels[p].line.text;
+      }
+      k = j;
+    } else k++;
+  }
+  return model;
+}
+
+function rowsFor(fileId) {
+  const f = FILES[fileId];
+  if (f.kind === "plan") return planRows().map((b, i) => ({ idx: i, block: b, li: i }));
+  if (f.kind === "diff") return buildDiffModel(f).filter(m => m.type === "line").map(m => ({ idx: m.idx, li: m.li, line: m.line, lo: m.lo, ln: m.ln }));
+  return [];
+}
+function rowsText(item, s0, s1) {
+  const rows = rowsFor(item); const arr = [];
+  for (let i = s0; i <= s1; i++) { const r = rows[i]; if (r) arr.push(r.block ? r.block.text : (r.line.text || "")); }
+  return arr.join("\n");
+}
+
+/* ═══════════ Intra-line diff ═══════════ */
+
+function lcsOps(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--)
+    for (let j = n - 1; j >= 0; j--)
+      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const ops = []; let i = 0, j = 0;
+  while (i < m && j < n) {
+    if (a[i] === b[j]) { ops.push({ t: "eq", v: a[i] }); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { ops.push({ t: "del", v: a[i++] }); }
+    else { ops.push({ t: "ins", v: b[j++] }); }
+  }
+  while (i < m) ops.push({ t: "del", v: a[i++] });
+  while (j < n) ops.push({ t: "ins", v: b[j++] });
+  return ops;
+}
+function tokenizeIntra(s, mode) { return mode === "char" ? s.split("") : s.split(/(\s+)/).filter(x => x !== ""); }
+function intraSide(oldT, newT, mode, side) {
+  const ops = lcsOps(tokenizeIntra(oldT, mode), tokenizeIntra(newT, mode));
+  let out = "";
+  ops.forEach(o => {
+    if (o.t === "eq") out += esc(o.v);
+    else if (o.t === "del" && side === "old") out += '<span class="ic-del">' + esc(o.v) + "</span>";
+    else if (o.t === "ins" && side === "new") out += '<span class="ic-add">' + esc(o.v) + "</span>";
+  });
+  return out;
+}
+
+/* whitespace + mono helpers for the settings-driven diff */
+function monoStack(k) {
+  if (k === "plex") return "'IBM Plex Mono',ui-monospace,monospace";
+  if (k === "jetbrains") return "'JetBrains Mono',ui-monospace,monospace";
+  if (k === "fira") return "'Fira Code',ui-monospace,monospace";
+  return "var(--mono)";
+}
+function showWhitespace(t) {
+  let o = "";
+  for (const ch of t) {
+    if (ch === " ") o += '<span class="ws">·</span>';
+    else if (ch === "\t") o += '<span class="ws">→</span>';
+    else o += esc(ch);
+  }
+  return o;
+}
+function txtHtml(text) {
+  if (!settings.hideWhitespace) return showWhitespace(text) || " ";
+  const m = text.match(/^ +/);
+  if (m) {
+    const n = m[0].length;
+    const lead = "\t".repeat(Math.floor(n / 2)) + " ".repeat(n % 2);
+    return esc(lead + text.slice(n)) || " ";
+  }
+  return esc(text) || " ";
+}
+
+/* word diff for tracked plan edits & version prose diff */
+function wordDiff(oldText, newText) {
+  const ops = lcsOps(oldText.split(/\s+/).filter(Boolean), newText.split(/\s+/).filter(Boolean));
+  return ops;
+}
+function editStats(e) { const o = wordDiff(e.oldText, e.newText); return { ins: o.filter(x => x.t === "ins").length, del: o.filter(x => x.t === "del").length }; }
+function trackedHTML(oldText, newText) {
+  return wordDiff(oldText, newText).map(op => {
+    const w = esc(op.v);
+    if (op.t === "eq") return w;
+    if (op.t === "ins") return '<span class="ins">' + w + "</span>";
+    return '<span class="del">' + w + "</span>";
+  }).join(" ");
+}
+
+/* ═══════════ Annotation anchoring (stable across versions / gaps) ═══════════ */
+
+function annStartRow(a) {
+  if (a.fileScope) return -1;
+  if (a.item === "plan") return planIndexOfBlock(a.blockId);
+  const rows = rowsFor(a.item);
+  return rows.findIndex(x => x.li === a.startLi);
+}
+function annEndRow(a) {
+  if (a.fileScope) return -1;
+  if (a.item === "plan") return planIndexOfBlock(a.blockIdEnd != null ? a.blockIdEnd : a.blockId);
+  const rows = rowsFor(a.item);
+  return rows.findIndex(x => x.li === a.endLi);
+}
+function typeCoversRow(type, item, rowIdx) {
+  return state.annotations.some(a => {
+    if ((a.type || "comment") !== type || a.item !== item || a.fileScope) return false;
+    const s = annStartRow(a), e = annEndRow(a);
+    return s >= 0 && rowIdx >= Math.min(s, e) && rowIdx <= Math.max(s, e);
+  });
+}
+function likedRow(item, rowIdx) { return typeCoversRow("looksgood", item, rowIdx); }
+function redlinedRow(item, rowIdx) { return typeCoversRow("redline", item, rowIdx); }
+
+function annCoversLi(fileId, li) { return state.annotations.some(a => a.item === fileId && !a.fileScope && li >= a.startLi && li <= a.endLi); }
+function planHasNote(rowIdx) {
+  const c = state.annotations.some(a => {
+    if (a.item !== "plan" || a.fileScope) return false;
+    const s = planIndexOfBlock(a.blockId), e = planIndexOfBlock(a.blockIdEnd != null ? a.blockIdEnd : a.blockId);
+    return s >= 0 && rowIdx >= Math.min(s, e) && rowIdx <= Math.max(s, e);
+  });
+  const ed = state.edits.some(x => planIndexOfBlock(x.blockId) === rowIdx);
+  return c || ed;
+}
+function anchorFromRange(item, s0, s1) {
+  if (item === "plan") {
+    const rows = planRows();
+    const e2 = Math.min(s1, rows.length - 1);
+    return { blockId: rows[s0].id, blockIdEnd: rows[e2].id };
+  }
+  const rows = rowsFor(item);
+  const e2 = Math.min(s1, rows.length - 1);
+  const sLi = rows[s0].li, eLi = rows[e2].li;
+  return { startLi: Math.min(sLi, eLi), endLi: Math.max(sLi, eLi) };
+}
+
+/* ═══════════ Sidebar render ═══════════ */
+
+function statLabel(f) {
+  if (f.kind === "ro") return '<span class="s-stat"><span class="roflag">ro</span></span>';
+  if (f.kind === "plan") return '<span class="s-stat">' + versionBadgeText() + "</span>";
+  if (f.status === "new") return '<span class="s-stat"><span class="newf">NEW</span></span>';
+  const c = countDiff(f.lines);
+  return '<span class="s-stat"><span class="plus">+' + c.add + '</span> <span class="minus">−' + c.del + "</span></span>";
+}
+function countDiff(lines) { let a = 0, d = 0; lines.forEach(l => { if (l.t === "add") a++; else if (l.t === "del") d++; }); return { add: a, del: d }; }
+
+function activeItems() {
+  if (state.tab === "status") {
+    const items = [{ kind: "all", key: "__all__" }];
+    statusChanged.forEach(id => items.push({ kind: "file", fileId: id, key: "file:" + id, group: "changed" }));
+    statusUntracked.forEach(id => items.push({ kind: "file", fileId: id, key: "file:" + id, group: "untracked" }));
+    return items;
+  }
+  if (state.tab === "tree") return visibleTreeNodes();
+  if (state.tab === "versions") return [
+    { kind: "version", v: "v2", key: "ver:v2" },
+    { kind: "version", v: "v1", key: "ver:v1" },
+  ];
+  return [];
+}
+
+function renderSidebar() {
+  const items = activeItems();
+  if (state.sidebarCursor >= items.length) state.sidebarCursor = items.length - 1;
+  if (state.sidebarCursor < 0) state.sidebarCursor = 0;
+  const list = $("#side-list");
+  let html = "";
+
+  if (state.tab === "status") {
+    items.forEach((it, i) => {
+      const cur = i === state.sidebarCursor ? " cursor" : "";
+      if (it.kind === "all") {
+        const viewed = changedFileIds.filter(id => state.viewed["file:" + id]).length;
+        html += '<div class="side-all' + (state.view === "all" ? " open" : "") + cur + '" data-idx="' + i + '">'
+          + '<span class="sa-glyph">≡</span><div class="sa-main"><div class="sa-title">All changed files</div>'
+          + '<div class="sa-sub">continuous scroll · ' + viewed + " / " + changedFileIds.length + " viewed</div></div></div>";
+        return;
+      }
+      if (it.group === "changed" && (i === 0 || items[i - 1].group !== "changed")) html += '<div class="side-group"><span>CHANGED</span><span class="g-cnt">' + statusChanged.length + "</span></div>";
+      if (it.group === "untracked" && items[i - 1].group !== "untracked") html += '<div class="side-group"><span>UNTRACKED</span><span class="g-cnt">' + statusUntracked.length + "</span></div>";
+      const f = FILES[it.fileId];
+      const badge = fileBadge(it.fileId);
+      const open = (state.view === "file" && state.active === it.fileId) ? " open" : "";
+      const viewedCls = state.viewed["file:" + it.fileId] ? " viewed" : "";
+      html += '<div class="side-item indent' + cur + open + viewedCls + '" data-idx="' + i + '">'
+        + '<span class="s-check" data-mark="' + i + '">✓</span>'
+        + '<span class="s-name" title="' + esc(f.path) + '">' + esc(f.name) + "</span>"
+        + statLabel(f)
+        + (badge ? '<span class="s-badge">' + badge + "</span>" : "")
+        + "</div>";
+    });
+  } else if (state.tab === "tree") {
+    html += '<div class="tree-controls"><span class="tc-label">' + (state.treeShowAll ? "REPOSITORY" : "CHANGED FIRST") + "</span>"
+      + '<span class="tree-toggle' + (state.treeShowAll ? " on" : "") + '" id="tree-showall">' + (state.treeShowAll ? "Changed only" : "Show all files") + "</span></div>";
+    items.forEach((it, i) => {
+      const cur = i === state.sidebarCursor ? " cursor" : "";
+      const pad = 6 + it.depth * 15;
+      if (it.kind === "folder") {
+        const collapsed = !!state.treeCollapsed[it.path];
+        html += '<div class="tree-row dir' + cur + '" data-idx="' + i + '" style="padding-left:' + pad + 'px">'
+          + '<span class="tree-caret' + (collapsed ? " collapsed" : "") + '">▾</span>'
+          + '<span class="tree-ic folder">▸</span>'
+          + '<span class="tree-name">' + esc(it.name) + "</span></div>";
+      } else {
+        const f = FILES[it.fileId];
+        const open = (state.view === "file" && state.active === it.fileId) ? " open" : "";
+        const roCls = f.kind === "ro" ? " ro" : "";
+        const viewedCls = state.viewed["file:" + it.fileId] ? " viewed" : "";
+        html += '<div class="tree-row' + roCls + open + viewedCls + cur + '" data-idx="' + i + '" style="padding-left:' + pad + 'px">'
+          + '<span class="tree-caret leaf">·</span>'
+          + (f.changed ? '<span class="tree-check" data-mark="' + i + '">✓</span>' : '<span class="tree-ic">·</span>')
+          + '<span class="tree-name" title="' + esc(f.path) + '">' + esc(f.name) + "</span>"
+          + statLabel(f) + "</div>";
+      }
+    });
+  } else if (state.tab === "versions") {
+    const s = versionStats();
+    html += '<div class="ver-lead">PLAN REVISIONS</div>';
+    html += '<div class="ver-summary">'
+      + '<div class="vs-row"><span class="vs-tag">v1 → v2</span><span>agent/worker-3 resubmitted the plan</span></div>'
+      + '<div class="vs-row"><span class="vs-tag">passages</span><span><span class="amber">' + s.changed + " changed</span> · <span class=\"plus\">" + s.added + " added</span> · <span class=\"minus\">" + s.removed + " removed</span></span></div>"
+      + "</div>";
+    html += '<div class="ver-seg" id="ver-seg">'
+      + '<button data-vdv="rendered" class="' + (state.versionDiffView === "rendered" ? "on" : "") + '">Rendered</button>'
+      + '<button data-vdv="raw" class="' + (state.versionDiffView === "raw" ? "on" : "") + '">Raw diff</button></div>';
+    items.forEach((it, i) => {
+      const cur = i === state.sidebarCursor ? " cursor" : "";
+      const on = state.planVersion === it.v ? " on" : "";
+      const meta = it.v === "v2" ? "current · resubmitted 4m ago" : "initial submission";
+      html += '<div class="ver-item' + on + cur + '" data-idx="' + i + '">'
+        + '<span class="vi-dot"></span><div class="vi-main"><div class="vi-name">' + it.v + " · " + (it.v === "v2" ? "revised" : "initial") + "</div>"
+        + '<div class="vi-sub">' + meta + "</div></div></div>";
+    });
+  }
+  list.innerHTML = html;
+
+  const viewedCount = changedFileIds.filter(id => state.viewed["file:" + id]).length;
+  $("#p-tabname").textContent = "CHANGED FILES VIEWED";
+  $("#p-count").textContent = viewedCount + " / " + changedFileIds.length;
+  $("#pbar-fill").style.width = (viewedCount / changedFileIds.length * 100) + "%";
+
+  list.querySelectorAll("[data-idx]").forEach(el => {
+    el.addEventListener("click", e => {
+      const i = +el.dataset.idx;
+      state.sidebarCursor = i;
+      if (e.target.closest("[data-mark]")) { toggleViewedItem(items[i]); return; }
+      openItem(items[i]);
+    });
+  });
+  const sa = $("#tree-showall");
+  if (sa) sa.addEventListener("click", e => { e.stopPropagation(); state.treeShowAll = !state.treeShowAll; state.sidebarCursor = 0; renderSidebar(); });
+  const vs = $("#ver-seg");
+  if (vs) vs.querySelectorAll("[data-vdv]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); state.versionDiffView = b.dataset.vdv; renderAll(); }));
+
+  const curEl = list.querySelector(".cursor");
+  if (curEl) curEl.scrollIntoView({ block: "nearest" });
+}
+
+function fileBadge(fileId) {
+  if (fileId === "plan") return state.annotations.filter(a => a.item === "plan").length + state.edits.length;
+  return state.annotations.filter(a => a.item === fileId).length;
+}
+
+/* ═══════════ Tree builder ═══════════ */
+
+function visibleTreeNodes() {
+  const ids = state.treeShowAll ? allTreeIds : changedFileIds;
+  const root = { name: "", path: "", dirs: {}, files: [] };
+  ids.forEach(id => {
+    const f = FILES[id];
+    const parts = f.path.split("/");
+    let node = root;
+    for (let p = 0; p < parts.length - 1; p++) {
+      const seg = parts[p];
+      const dpath = node.path ? node.path + "/" + seg : seg;
+      if (!node.dirs[seg]) node.dirs[seg] = { name: seg, path: dpath, dirs: {}, files: [] };
+      node = node.dirs[seg];
+    }
+    node.files.push(id);
+  });
+  const out = [];
+  const walk = (node, depth) => {
+    const dirNames = Object.keys(node.dirs).sort();
+    dirNames.forEach(dn => {
+      const d = node.dirs[dn];
+      out.push({ kind: "folder", name: dn, path: d.path, depth: depth, key: "dir:" + d.path });
+      if (!state.treeCollapsed[d.path]) walk(d, depth + 1);
+    });
+    const files = node.files.slice().sort((a, b) => {
+      const ca = FILES[a].changed ? 0 : 1, cb = FILES[b].changed ? 0 : 1;
+      if (ca !== cb) return ca - cb;
+      return FILES[a].name.localeCompare(FILES[b].name);
+    });
+    files.forEach(id => out.push({ kind: "tree-file", fileId: id, name: FILES[id].name, depth: depth, key: "file:" + id }));
+  };
+  walk(root, 0);
+  return out;
+}
+
+/* ═══════════ Open / toggle ═══════════ */
+
+function openItem(it) {
+  state.focusZone = "content";
+  if (it.kind === "all") { state.view = "all"; state.active = "__all__"; state.allCursor = 0; }
+  else if (it.kind === "file" || it.kind === "tree-file") { openFile(it.fileId); }
+  else if (it.kind === "folder") { state.treeCollapsed[it.path] = !state.treeCollapsed[it.path]; renderSidebar(); return; }
+  else if (it.kind === "version") { state.planVersion = it.v; state.view = "versions"; state.active = "plan"; }
+  syncView(); renderAll();
+  scrollActiveIntoView(it);
+}
+function openFile(id) {
+  state.view = "file";
+  state.active = id;
+  if (state.cursors[id] == null) state.cursors[id] = 0;
+  state.selAnchor = null; setFocused(null);
+  if (state.mode === "guided") state.guidedIndex = Math.max(0, changedFileIds.indexOf(id));
+}
+function scrollActiveIntoView(it) {
+  if (state.view !== "file") return;
+  const el = $("#content").querySelector('[data-row="0"]');
+  if (el) el.scrollIntoView({ block: "start" });
+}
+
+function toggleViewedItem(it) {
+  let id = null;
+  if (it.kind === "all") { toggleViewedAllFiles(); return; }
+  if (it.kind === "file" || it.kind === "tree-file") id = it.fileId;
+  if (!id || !FILES[id].changed) { flash("Only changed files track a viewed state"); return; }
+  const key = "file:" + id;
+  state.viewed[key] = !state.viewed[key];
+  flash(state.viewed[key] ? "marked viewed" : "marked not viewed");
+  renderAll();
+}
+function toggleViewedAllFiles() {
+  const allSeen = changedFileIds.every(id => state.viewed["file:" + id]);
+  changedFileIds.forEach(id => state.viewed["file:" + id] = !allSeen);
+  flash(allSeen ? "cleared all viewed" : "marked all viewed");
+  renderAll();
+}
+
+function syncView() { $("#app").dataset.view = state.view; }
+
+/* ═══════════ Center render dispatch ═══════════ */
+
+function renderContent() {
+  const inner = $("#content");
+  if (state.mode === "split") { inner.innerHTML = splitBodyHTML(); updateCrumb(); return; }
+  if (state.view === "versions") { inner.innerHTML = versionsBodyHTML(); wireVersions(); updateCrumb(); return; }
+  if (state.view === "all") { inner.innerHTML = allFilesHTML(); wireAllFiles(); updateCrumb(); return; }
+  const f = FILES[state.active];
+  if (f.kind === "plan") inner.innerHTML = planBodyHTML(state.active, false);
+  else if (f.kind === "ro") inner.innerHTML = roBodyHTML(f);
+  else inner.innerHTML = diffBodyHTML(state.active, { cursor: true });
+  wireRows(inner);
+
+  const fc = $("#fc-btn");
+  if (fc) fc.addEventListener("click", startFileComment);
+  inner.querySelectorAll("[data-gap]").forEach(b => b.addEventListener("click", () => { state.expandedGaps[b.dataset.gap] = true; renderContent(); renderRail(); }));
+
+  injectInlineSuggestions(inner);
+
+  const ta = $("#edit-input");
+  if (ta) { ta.focus(); ta.style.height = "auto"; ta.style.height = (ta.scrollHeight + 2) + "px"; ta.setSelectionRange(ta.value.length, ta.value.length); }
+  const curEl = inner.querySelector(".row.cursor");
+  if (curEl && !ta && !$("#suggest-input")) curEl.scrollIntoView({ block: "nearest" });
+  updateCrumb();
+  applyAnchorFocus();
+}
+
+function wireRows(scope) {
+  scope.querySelectorAll("#content > * [data-row], #content [data-row]").forEach(el => {
+    if (el.dataset.wired) return; el.dataset.wired = "1";
+    el.addEventListener("click", () => {
+      state.focusZone = "content"; syncFocus();
+      state.cursors[state.active] = +el.dataset.row;
+      state.selAnchor = null;
+      const note = firstNoteOnRow(state.active, +el.dataset.row);
+      setFocused(note ? note.id : null);
+      renderContent(); renderRail();
+    });
+  });
+}
+
+/* ═══════════ Plan body ═══════════ */
+
+function planBodyHTML(fileId, scoped) {
+  const rows = planRows();
+  const cur = state.cursors.plan != null ? state.cursors.plan : 0;
+  const [s0, s1] = selRange();
+  let html = '<div class="plan">';
+  if (!scoped) {
+    const rev = state.planVersion === "v2" ? "revision 2" : "revision 1";
+    html += '<div class="doc-meta">submitted by <b>agent/worker-3</b> · ' + rev
+      + ' · <span class="rev-badge" id="open-versions">v1→v2 ' + versionBadgeText() + "</span></div>";
+    const orph = orphanCount();
+    if (orph > 0) {
+      html += '<div class="orphan-banner"><span class="ob-dot"></span>'
+        + orph + " annotation" + (orph > 1 ? "s" : "") + " no longer match version " + (state.planVersion === "v2" ? "v2" : "v1")
+        + ' — the passage was removed. <a id="orphan-jump">reattach in Versions →</a></div>';
+    }
+  }
+  let codeOpen = false;
+  const closeCode = () => { if (codeOpen) { html += "</div>"; codeOpen = false; } };
+
+  rows.forEach((b, i) => {
+    const liked = !scoped && likedRow("plan", i), red = !scoped && redlinedRow("plan", i);
+    const rowCls = ["row",
+      (!scoped && i === cur) ? "cursor" : "",
+      (!scoped && state.selAnchor !== null && i >= s0 && i <= s1) ? "sel" : "",
+      planHasNote(i) ? "has-note" : "",
+      (liked && !red) ? "liked" : "",
+      red ? "redlined" : "",
+    ].filter(Boolean).join(" ");
+    const edit = state.edits.find(e => planIndexOfBlock(e.blockId) === i);
+    const editing = !scoped && state.editing === b.id;
+
+    if (b.kind === "code") {
+      if (!codeOpen) { html += '<div class="codewrap">'; codeOpen = true; }
+      let codeInner;
+      if (editing) codeInner = '<span class="editor-inline code"><textarea id="edit-input">' + esc(edit ? edit.newText : b.text) + "</textarea><span class=\"ed-hint\"><kbd>⏎</kbd> save · <kbd>esc</kbd> cancel</span></span>";
+      else if (edit) codeInner = "<pre><code>" + trackedHTML(edit.oldText, edit.newText) + "</code></pre>";
+      else codeInner = "<pre><code>" + hlCode(b.text) + "</code></pre>";
+      html += '<div class="' + rowCls + '" data-row="' + i + '">' + codeInner + "</div>";
+      return;
+    }
+    closeCode();
+
+    let inner;
+    if (editing) inner = '<span class="editor-inline"><textarea id="edit-input">' + esc(edit ? edit.newText : b.text) + "</textarea><span class=\"ed-hint\"><kbd>⏎</kbd> save tracked change · <kbd>esc</kbd> cancel</span></span>";
+    else if (edit) inner = trackedHTML(edit.oldText, edit.newText);
+    else inner = linkFiles(esc(b.text));
+
+    let body;
+    if (b.kind === "h1") body = "<h1>" + (editing ? inner : esc(b.text)) + "</h1>";
+    else if (b.kind === "h2") body = "<h2>" + (editing ? inner : esc(b.text)) + "</h2>";
+    else if (b.kind === "li") body = '<div class="li"><span class="marker">▪</span><span>' + inner + "</span></div>";
+    else if (b.kind === "oli") { const n = rows.slice(0, i).filter(x => x.kind === "oli").length + 1; body = '<div class="oli"><span class="marker">' + n + '.</span><span>' + inner + "</span></div>"; }
+    else body = "<p>" + inner + "</p>";
+    html += '<div class="' + rowCls + '" data-row="' + i + '">' + body + "</div>";
+  });
+  closeCode();
+  html += "</div>";
+  return html;
+}
+
+/* ═══════════ Diff body (settings-driven) ═══════════ */
+
+function diffHeadHTML(f, opts) {
+  let html = '<div class="diff-head"><span class="fpath">' + esc(f.path) + "</span>";
+  const c = countDiff(f.lines);
+  html += f.status === "new"
+    ? '<span class="fstat"><span class="newf">new file</span> <span class="plus">+' + c.add + "</span></span>"
+    : '<span class="fstat"><span class="plus">+' + c.add + '</span> <span class="minus">−' + c.del + "</span></span>";
+  html += '<span class="fstat" style="color:var(--text-dim)">' + settings.diffStyle + (settings.showLineNumbers ? "" : " · no nums") + "</span>";
+  if (!opts.scoped) {
+    const fileNote = state.annotations.some(a => a.item === f.id && a.fileScope);
+    html += '<span class="fc-btn" id="fc-btn">' + (fileNote ? "＋ another file note" : "＋ comment on file  ⇧C") + "</span>";
+  }
+  html += "</div>";
+  return html;
+}
+
+function diffTxt(m, side) {
+  const l = m.line;
+  if (settings.diffGranularity !== "none" && m.partner) {
+    if (l.t === "del" && (side === undefined || side === "del")) return intraSide(l.text, m.partner, settings.diffGranularity, "old");
+    if (l.t === "add" && (side === undefined || side === "add")) return intraSide(m.partner, l.text, settings.diffGranularity, "new");
+  }
+  return txtHtml(l.text);
+}
+
+function diffBodyHTML(fileId, opts) {
+  const f = FILES[fileId];
+  const model = buildDiffModel(f);
+  const cursorOn = opts.cursor;
+  const cur = cursorOn ? (state.cursors[fileId] != null ? state.cursors[fileId] : 0) : -1;
+  const [s0, s1] = cursorOn ? selRange() : [-1, -1];
+  const style = settings.diffStyle;
+  let html = '<div class="diff" data-style="' + style + '" data-linenums="' + (settings.showLineNumbers ? "on" : "off")
+    + '" data-intensity="' + settings.lineIntensity + '" style="--tab-size:' + settings.tabSize + ";--diff-mono:" + monoStack(settings.monoFont) + '">';
+  html += diffHeadHTML(f, opts);
+
+  model.forEach(m => {
+    if (m.type === "hunk") { html += '<div class="dline hunk"><span class="txt">' + esc(m.text) + "</span></div>"; return; }
+    if (m.type === "gap") { html += '<div class="dgap"><span class="gut">⋯</span><span class="gap-btn" data-gap="' + fileId + ":" + m.gapId + '">Expand ' + m.count + " unchanged " + (m.count === 1 ? "line" : "lines") + "</span></div>"; return; }
+    const l = m.line;
+    const red = cursorOn && redlinedRow(fileId, m.idx);
+    const rowCls = ["row",
+      (cursorOn && m.idx === cur) ? "cursor" : "",
+      (cursorOn && state.selAnchor !== null && m.idx >= s0 && m.idx <= s1) ? "sel" : "",
+      annCoversLi(fileId, m.li) ? "has-note" : "",
+      red ? "redlined" : "",
+    ].filter(Boolean).join(" ");
+    const inner = style === "split" ? splitLineHTML(m) : unifiedLineHTML(m);
+    html += '<div class="' + rowCls + '" data-row="' + m.idx + '" data-li="' + m.li + '">' + inner + "</div>";
+  });
+  html += "</div>";
+  return html;
+}
+
+function unifiedLineHTML(m) {
+  const nums = settings.showLineNumbers
+    ? '<span class="gut">' + m.lo + '</span><span class="gut">' + m.ln + "</span>"
+    : "";
+  return '<div class="dline ' + m.line.t + '">' + nums + '<span class="sign">' + m.sign + '</span><span class="txt">' + diffTxt(m) + "</span></div>";
+}
+function splitLineHTML(m) {
+  const showN = settings.showLineNumbers, t = m.line.t;
+  let leftTxt = " ", rightTxt = " ", leftCls = "", rightCls = "";
+  if (t === "ctx") { leftTxt = diffTxt(m); rightTxt = diffTxt(m); }
+  else if (t === "del") { leftTxt = diffTxt(m, "del"); leftCls = " c-del"; }
+  else { rightTxt = diffTxt(m, "add"); rightCls = " c-add"; }
+  let h = '<div class="dline">';
+  if (showN) {
+    h += '<span class="gut">' + (m.lo !== "" ? m.lo : "") + "</span>";
+    h += '<span class="txt' + leftCls + '">' + leftTxt + "</span>";
+    h += '<span class="gut mid">' + (m.ln !== "" ? m.ln : "") + "</span>";
+    h += '<span class="txt' + rightCls + '">' + rightTxt + "</span>";
+  } else {
+    h += '<span class="txt' + leftCls + '">' + leftTxt + "</span>";
+    h += '<span class="txt mid' + rightCls + '">' + rightTxt + "</span>";
+  }
+  h += "</div>";
+  return h;
+}
+
+/* saved suggestions render as proposed-replacement blocks; open editor renders in place */
+function injectInlineSuggestions(inner) {
+  if (state.view !== "file") return;
+  cardsForActive().filter(c => c.kind === "suggestion" && !c.orphan).forEach(c => {
+    if (state.suggesting && state.suggesting.item === state.active && state.suggesting.start === c.anchor) return;
+    const anchor = inner.querySelector('[data-row="' + c.anchor + '"]');
+    if (!anchor) return;
+    const block = document.createElement("div");
+    block.className = "suggestion-block" + (c.id === state.focusedId ? " focused" : "");
+    block.innerHTML = '<div class="sb-head">SUGGESTED CHANGE</div>'
+      + '<pre class="sb-old"><code>' + esc(c.ann.oldCode) + "</code></pre>"
+      + '<pre class="sb-new"><code>' + esc(c.ann.suggestion) + "</code></pre>";
+    anchor.after(block);
+  });
+  if (state.suggesting && state.suggesting.item === state.active) {
+    const anchor = inner.querySelector('[data-row="' + state.suggesting.start + '"]');
+    if (anchor) {
+      const box = document.createElement("div");
+      box.className = "suggest-editor";
+      box.innerHTML = '<div class="se-head">SUGGEST A REPLACEMENT</div>'
+        + '<textarea id="suggest-input"></textarea>'
+        + '<div class="ed-hint"><kbd>⌘⏎</kbd> save suggestion · <kbd>esc</kbd> cancel</div>';
+      anchor.after(box);
+      const ta = box.querySelector("textarea");
+      ta.value = rowsText(state.active, state.suggesting.start, state.suggesting.end);
+      ta.style.height = "auto"; ta.style.height = (ta.scrollHeight + 2) + "px";
+      ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+    }
+  }
+}
+
+/* ═══════════ Read-only body ═══════════ */
+
+function roBodyHTML(f) {
+  const lines = f.content.split("\n");
+  let html = '<div class="ro-banner"><span class="ro-lock">◆</span> ' + esc(f.path) + " · unchanged · read-only context</div>";
+  html += '<div class="ro-code">';
+  lines.forEach((ln, i) => { html += '<div class="rl"><span class="gut">' + (i + 1) + '</span><span class="txt">' + (hlCode(ln) || " ") + "</span></div>"; });
+  html += "</div>";
+  return html;
+}
+
+/* ═══════════ All-files continuous ═══════════ */
+
+function allFilesHTML() {
+  const ids = changedFileIds;
+  const viewed = ids.filter(id => state.viewed["file:" + id]).length;
+  let html = '<div class="all-head"><div class="all-title">All changed files</div>'
+    + '<div class="all-prog"><span>' + viewed + " / " + ids.length + " viewed</span>"
+    + '<div class="all-bar"><div class="all-bar-fill" style="width:' + (viewed / ids.length * 100) + '%"></div></div></div>'
+    + '<div class="all-hint"><kbd>]</kbd> / <kbd>[</kbd> next / prev file · <kbd>x</kbd> collapse · <kbd>v</kbd> mark viewed (auto-collapses)</div></div>';
+  ids.forEach((id, fi) => {
+    const f = FILES[id];
+    const collapsed = !!state.collapsed[id];
+    const isViewed = !!state.viewed["file:" + id];
+    const cur = fi === state.allCursor ? " cur" : "";
+    const st = f.kind === "plan" ? versionBadgeText() : (f.status === "new" ? '<span class="newf">NEW</span>' : (function () { const c = countDiff(f.lines); return '<span class="plus">+' + c.add + '</span> <span class="minus">−' + c.del + "</span>"; })());
+    html += '<section class="afile' + cur + (collapsed ? " collapsed" : "") + (isViewed ? " viewed" : "") + '" data-file="' + id + '" id="afile-' + id + '">';
+    html += '<div class="afile-head" data-fhead="' + id + '">'
+      + '<span class="afile-caret">▾</span>'
+      + '<span class="afile-check" data-fcheck="' + id + '">✓</span>'
+      + '<span class="afile-name">' + esc(f.path) + "</span>"
+      + '<span class="afile-stat">' + st + "</span>"
+      + '<span class="afile-x">x</span></div>';
+    let body;
+    if (f.kind === "plan") body = planBodyHTML(id, true);
+    else body = diffBodyHTML(id, { cursor: false, scoped: true });
+    html += '<div class="afile-body">' + body + "</div></section>";
+  });
+  return html;
+}
+
+function wireAllFiles() {
+  const inner = $("#content");
+  inner.querySelectorAll("[data-fhead]").forEach(el => {
+    el.addEventListener("click", e => {
+      const id = el.dataset.fhead;
+      if (e.target.closest("[data-fcheck]")) { setViewedFile(id, !state.viewed["file:" + id], true); return; }
+      state.allCursor = changedFileIds.indexOf(id);
+      state.collapsed[id] = !state.collapsed[id];
+      renderContent();
+    });
+  });
+  inner.querySelectorAll("section.afile [data-row]").forEach(el => {
+    el.addEventListener("click", () => {
+      const sec = el.closest("section.afile");
+      const id = sec.dataset.file;
+      state.allCursor = changedFileIds.indexOf(id);
+      state.allSel = { file: id, row: +el.dataset.row };
+      state.focusZone = "content"; syncFocus();
+      renderContent();
+      flash("line selected — press c to comment");
+    });
+  });
+  const cur = inner.querySelector(".afile.cur");
+  if (cur) cur.scrollIntoView({ block: "nearest" });
+}
+
+function setViewedFile(id, val, autocollapse) {
+  state.viewed["file:" + id] = val;
+  if (val && autocollapse) state.collapsed[id] = true;
+  flash(val ? "viewed — file collapsed" : "marked not viewed");
+  renderAll();
+}
+function allFilesStep(dir) {
+  const n = changedFileIds.length;
+  state.allCursor = Math.max(0, Math.min(n - 1, state.allCursor + dir));
+  const id = changedFileIds[state.allCursor];
+  renderContent();
+  const sec = $("#afile-" + id);
+  if (sec) sec.scrollIntoView({ block: "start" });
+  flash(FILES[id].path);
+}
+
+/* ═══════════ Version diff body ═══════════ */
+
+function serializeBlock(b) {
+  if (b.kind === "h1") return ["# " + b.text];
+  if (b.kind === "h2") return ["## " + b.text];
+  if (b.kind === "li") return ["- " + b.text];
+  if (b.kind === "oli") return ["1. " + b.text];
+  if (b.kind === "code") return b.text.split("\n");
+  return [b.text];
+}
+
+function versionsBodyHTML() {
+  const diff = planBlockDiff();
+  let html = '<div class="ver-view"><div class="vv-head"><div><div class="vv-title">plan.md — revision diff</div>'
+    + '<div class="vv-sub">v1 (initial) → v2 (current) · showing ' + (state.versionDiffView === "rendered" ? "rendered passages" : "raw markdown diff") + "</div></div>"
+    + '<div class="vv-tools"><div class="mini-seg" data-verseg><button data-vdv="rendered" class="' + (state.versionDiffView === "rendered" ? "on" : "") + '">Rendered</button><button data-vdv="raw" class="' + (state.versionDiffView === "raw" ? "on" : "") + '">Raw</button></div></div></div>';
+
+  if (state.versionDiffView === "raw") {
+    html += '<div class="ver-raw">';
+    diff.forEach(d => {
+      if (d.status === "same") serializeBlock(d.b).forEach(ln => { html += rawLine(" ", ln); });
+      else if (d.status === "added") serializeBlock(d.b).forEach(ln => { html += rawLine("+", ln); });
+      else if (d.status === "removed") serializeBlock(d.a).forEach(ln => { html += rawLine("-", ln); });
+      else { serializeBlock(d.a).forEach(ln => { html += rawLine("-", ln); }); serializeBlock(d.b).forEach(ln => { html += rawLine("+", ln); }); }
+    });
+    html += "</div>";
+  } else {
+    diff.forEach(d => {
+      const b = d.b || d.a;
+      const tagMap = { same: "", changed: "REVISED", added: "ADDED IN v2", removed: "REMOVED IN v2" };
+      const tag = tagMap[d.status] ? '<span class="vv-tag">' + tagMap[d.status] + "</span>" : "";
+      let inner;
+      if (b.kind === "code") {
+        if (d.status === "changed") inner = '<span class="vb-code">' + codeLineDiff(d.a.text, d.b.text) + "</span>";
+        else inner = '<span class="vb-code">' + hlCode(b.text) + "</span>";
+      } else {
+        const cls = b.kind === "h1" ? "vb-h1" : b.kind === "h2" ? "vb-h2" : "vb-text";
+        let t;
+        if (d.status === "changed") t = trackedHTML(d.a.text, d.b.text);
+        else t = linkFiles(esc(b.text));
+        const prefix = b.kind === "li" ? "▪ " : b.kind === "oli" ? "• " : "";
+        inner = '<span class="' + cls + ' vb-text">' + prefix + t + "</span>";
+      }
+      html += '<div class="vblock ' + d.status + '">' + inner + tag + "</div>";
+    });
+  }
+  html += "</div>";
+  return html;
+}
+function rawLine(sign, text) {
+  const cls = sign === "+" ? "add" : sign === "-" ? "del" : "";
+  return '<div class="rl ' + cls + '"><span class="sign">' + sign + '</span><span class="txt">' + (esc(text) || " ") + "</span></div>";
+}
+function codeLineDiff(oldSrc, newSrc) {
+  const ops = lcsOps(oldSrc.split("\n"), newSrc.split("\n"));
+  return ops.map(o => {
+    if (o.t === "eq") return hlCode(o.v);
+    if (o.t === "ins") return '<span class="ln-add">' + hlCode(o.v) + "</span>";
+    return '<span class="ln-del">' + hlCode(o.v) + "</span>";
+  }).join("\n");
+}
+function wireVersions() {
+  $("#content").querySelectorAll("[data-verseg] [data-vdv]").forEach(b => b.addEventListener("click", () => { state.versionDiffView = b.dataset.vdv; renderAll(); }));
+}
+
+/* ═══════════ Split top-mode ═══════════ */
+
+function splitBodyHTML() {
+  const f = FILES[state.active];
+  if (state.view === "all") { state.view = "file"; state.active = "plan"; }
+  if (!f || f.kind === "ro") {
+    return '<div class="split"><div class="split-pane"><div class="split-label">BASE</div><div class="ro-banner">Read-only file — nothing to compare.</div></div><div class="split-pane"><div class="split-label working">WORKING COPY</div></div></div>';
+  }
+  if (f.kind === "plan") {
+    const rows = planRows();
+    const base = '<div class="split-pane"><div class="split-label">BASE · as submitted</div><div class="plan">' + rows.map(b => staticBlock(b, null)).join("") + "</div></div>";
+    const work = '<div class="split-pane"><div class="split-label working">WORKING COPY · your edits</div><div class="plan">' + rows.map((b, i) => { const e = state.edits.find(x => planIndexOfBlock(x.blockId) === i); return staticBlock(b, e); }).join("") + "</div></div>";
+    return '<div class="split">' + base + work + "</div>";
+  }
+  const model = buildDiffModel(f);
+  const oldSide = [], newSide = [];
+  model.forEach(m => {
+    if (m.type !== "line") return;
+    const l = m.line;
+    if (l.t === "ctx") { oldSide.push({ n: m.lo, t: "ctx", text: l.text }); newSide.push({ n: m.ln, t: "ctx", text: l.text }); }
+    else if (l.t === "del") oldSide.push({ n: m.lo, t: "del", text: l.text });
+    else newSide.push({ n: m.ln, t: "add", text: l.text });
+  });
+  const side = arr => arr.map(r => '<div class="dline ' + r.t + '"><span class="gut">' + r.n + '</span><span class="sign">' + (r.t === "add" ? "+" : r.t === "del" ? "−" : " ") + '</span><span class="txt">' + (esc(r.text) || " ") + "</span></div>").join("");
+  return '<div class="split"><div class="split-pane"><div class="split-label">BASE · ' + esc(f.path) + '</div><div class="diff" data-style="unified" data-linenums="on" style="--tab-size:' + settings.tabSize + '">' + side(oldSide)
+    + '</div></div><div class="split-pane"><div class="split-label working">WORKING COPY</div><div class="diff" data-style="unified" data-linenums="on" style="--tab-size:' + settings.tabSize + '">' + side(newSide) + "</div></div>";
+}
+function staticBlock(b, edit) {
+  if (b.kind === "code") return '<div class="codewrap"><pre><code>' + (edit ? trackedHTML(edit.oldText, edit.newText) : hlCode(b.text)) + "</code></pre></div>";
+  const inner = edit ? trackedHTML(edit.oldText, edit.newText) : linkFiles(esc(b.text));
+  if (b.kind === "h1") return "<h1 style='padding:3px 0'>" + inner + "</h1>";
+  if (b.kind === "h2") return "<h2 style='padding:12px 0 4px'>" + inner + "</h2>";
+  if (b.kind === "li") return '<div class="li" style="padding:3px 0"><span class="marker">▪</span><span>' + inner + "</span></div>";
+  if (b.kind === "oli") return '<div class="oli" style="padding:3px 0"><span class="marker">•</span><span>' + inner + "</span></div>";
+  return "<p style='padding:3px 0'>" + inner + "</p>";
+}
+
+/* ═══════════ Guided ═══════════ */
+
+function renderGuided() {
+  const ids = changedFileIds;
+  if (state.guidedIndex >= ids.length) state.guidedIndex = ids.length - 1;
+  const id = ids[state.guidedIndex];
+  state.view = "file"; state.active = id;
+  if (state.cursors[id] == null) state.cursors[id] = 0;
+  const viewed = ids.filter(x => state.viewed["file:" + x]).length;
+  $("#g-title").textContent = FILES[id].path;
+  $("#g-count").textContent = "file " + (state.guidedIndex + 1) + " of " + ids.length + " · " + viewed + " viewed";
+  $("#gbar-fill").style.width = (viewed / ids.length * 100) + "%";
+  renderContent();
+  const target = $("#content").querySelector('[data-row="0"]');
+  if (target) target.scrollIntoView({ block: "start" });
+}
+function guidedStep(dir) {
+  const ids = changedFileIds;
+  if (dir > 0) state.viewed["file:" + ids[state.guidedIndex]] = true;
+  const next = state.guidedIndex + dir;
+  if (next < 0) { flash("At the first file"); return; }
+  if (next >= ids.length) { state.viewed["file:" + ids[state.guidedIndex]] = true; flash("End of walk — ⌘⏎ to finish"); renderAll(); return; }
+  state.guidedIndex = next;
+  renderAll();
+}
+
+/* ═══════════ Crumb ═══════════ */
+
+function updateCrumb() {
+  const c = $("#crumb");
+  if (state.view === "all") { c.innerHTML = "review <span class='sep'>/</span> <b>all changed files</b> <span class='cbadge'>" + changedFileIds.length + " files</span>"; return; }
+  if (state.view === "versions") { c.innerHTML = "review <span class='sep'>/</span> <b>plan.md</b> <span class='sep'>·</span> revision diff <span class='cbadge'>v1 → v2</span>"; return; }
+  const f = FILES[state.active];
+  if (!f) { c.innerHTML = "review"; return; }
+  if (f.kind === "plan") {
+    const rows = planRows();
+    const cur = state.cursors.plan != null ? state.cursors.plan : 0;
+    c.innerHTML = "review <span class='sep'>/</span> <b>plan.md</b> <span class='sep'>·</span> " + (state.planVersion) + " <span class='sep'>·</span> block " + (cur + 1) + "/" + rows.length + " <span class='sep'>·</span> " + esc(settings.displayName);
+    return;
+  }
+  const rows = rowsFor(state.active);
+  const cur = state.cursors[state.active] != null ? state.cursors[state.active] : 0;
+  const kindLabel = f.kind === "ro" ? "read-only" : "diff";
+  c.innerHTML = "review <span class='sep'>/</span> <b>" + esc(f.path) + "</b> <span class='sep'>·</span> " + kindLabel + (f.kind === "diff" ? " <span class='sep'>·</span> line " + (cur + 1) + "/" + rows.length : "") + " <span class='sep'>·</span> " + esc(settings.displayName);
+}
+
+/* ═══════════ Rail ═══════════ */
+
+function topInCanvas(el) { return el.getBoundingClientRect().top - canvas.getBoundingClientRect().top; }
+function firstNoteOnRow(item, rowIdx) {
+  if (item === "plan") {
+    const a = state.annotations.find(a => {
+      if (a.item !== "plan" || a.fileScope) return false;
+      const s = planIndexOfBlock(a.blockId), e = planIndexOfBlock(a.blockIdEnd != null ? a.blockIdEnd : a.blockId);
+      return s >= 0 && rowIdx >= Math.min(s, e) && rowIdx <= Math.max(s, e);
+    });
+    if (a) return { id: a.id };
+    const e = state.edits.find(x => planIndexOfBlock(x.blockId) === rowIdx);
+    if (e) return { id: "e" + e.id };
+    return null;
+  }
+  const rows = rowsFor(item);
+  const r = rows[rowIdx];
+  if (!r) return null;
+  const a = state.annotations.find(a => a.item === item && !a.fileScope && r.li >= a.startLi && r.li <= a.endLi);
+  return a ? { id: a.id } : null;
+}
+
+function cardsForActive() {
+  const list = [];
+  const item = state.active;
+  state.annotations.filter(a => a.item === item).forEach(a => {
+    const idx = a.fileScope ? -1 : annStartRow(a);
+    list.push({ id: a.id, kind: a.type || "comment", ann: a, anchor: a.fileScope ? -1 : idx, orphan: !a.fileScope && idx < 0 });
+  });
+  if (item === "plan") state.edits.forEach(e => { const idx = planIndexOfBlock(e.blockId); if (idx >= 0) list.push({ id: "e" + e.id, kind: "edit", edit: e, anchor: idx }); });
+  list.sort((x, y) => (x.orphan ? 1e6 : (x.anchor < 0 ? -1 : x.anchor)) - (y.orphan ? 1e6 : (y.anchor < 0 ? -1 : y.anchor)));
+  return list;
+}
+function anchorRow(card) { if (card.orphan || card.anchor < 0) return null; return $("#content").querySelector('[data-row="' + card.anchor + '"]'); }
+
+function diffLineNum(a) {
+  const rows = rowsFor(a.item);
+  const r = rows.find(x => x.li === a.startLi);
+  return r ? (r.ln || r.lo) : "?";
+}
+function quoteOf(a) {
+  if (a.fileScope) return "Whole file — file-level note";
+  if (a.item === "plan") {
+    const b = planBlock(a.blockId);
+    if (!b) { const bv = planBlock(a.blockId, "v1") || planBlock(a.blockId, "v2"); return "(passage removed) " + (bv ? trunc(bv.text) : ""); }
+    return trunc(b.text.trim());
+  }
+  const rows = rowsFor(a.item);
+  const r = rows.find(x => x.li === a.startLi);
+  const text = r ? (r.line.text || "(blank line)") : "(line hidden)";
+  const more = a.endLi > a.startLi ? " … +" + (a.endLi - a.startLi) : "";
+  return trunc(text.trim()) + more;
+}
+
+function convChip(a) { return a.convention ? '<span class="conv-chip">' + esc(a.convention) + "</span>" : ""; }
+function blkChip(a) { return a.blocking ? '<span class="blocking-chip">blocking</span>' : ""; }
+
+function buildCard(card) {
+  const el = document.createElement("div");
+  el.dataset.id = card.id;
+  const sent = state.submitted;
+  const badge = card.orphan ? '<span class="card-badge orphan">ORPHANED</span>' : '<span class="card-badge' + (sent ? " sent" : "") + '">' + (sent ? "SENT" : "PENDING") + "</span>";
+  const f = FILES[state.active];
+  const a = card.ann;
+  const loc = (a && !a.fileScope && f.kind === "diff" && card.anchor >= 0) ? '<div class="card-loc">' + esc(f.path) + ":" + diffLineNum(a) + "</div>" : "";
+
+  if (card.kind === "edit") {
+    el.className = "card is-edit";
+    el.innerHTML = '<div class="card-head"><span class="card-type">EDIT</span>' + badge + "</div>"
+      + '<div class="card-mini"><span class="m-del">' + esc(trunc(card.edit.oldText)) + '</span><span class="m-ins">' + esc(trunc(card.edit.newText)) + "</span></div>";
+  } else if (card.kind === "suggestion") {
+    el.className = "card is-suggestion" + (card.orphan ? " orphan" : "");
+    el.innerHTML = '<div class="card-head"><span class="card-type">SUGGESTION</span>' + badge + "</div>" + loc
+      + '<div class="card-mini"><span class="m-del">' + esc(trunc(a.oldCode.replace(/\n/g, " "))) + '</span><span class="m-ins">' + esc(trunc(a.suggestion.replace(/\n/g, " "))) + "</span></div>"
+      + '<div class="card-body">' + esc(a.text) + "</div>";
+  } else if (card.kind === "redline") {
+    el.className = "card is-redline" + (card.orphan ? " orphan" : "");
+    el.innerHTML = '<div class="card-head"><span class="card-type">REDLINE · DELETE</span>' + badge + "</div>" + loc
+      + '<div class="card-quote' + (f.kind === "diff" ? " mono" : "") + '">' + esc(quoteOf(a)) + "</div>"
+      + '<div class="card-body">' + esc(a.text) + "</div>";
+  } else if (card.kind === "looksgood") {
+    el.className = "card is-praise" + (card.orphan ? " orphan" : "");
+    el.innerHTML = '<div class="card-head"><span class="card-type">✓ LOOKS GOOD</span>' + badge + "</div>" + loc
+      + '<div class="card-quote green">' + esc(quoteOf(a)) + "</div>"
+      + '<div class="card-body">' + esc(a.text) + "</div>";
+  } else if (card.kind === "label") {
+    const t = tagById(a.tag);
+    el.className = "card is-label" + (card.orphan ? " orphan" : "");
+    el.innerHTML = '<div class="card-head"><span class="tag-dot" style="background:' + t.color + '"></span><span class="card-type" style="color:' + t.color + '">' + t.label.toUpperCase() + "</span>" + badge + "</div>" + loc
+      + '<div class="card-quote' + (f.kind === "diff" ? " mono" : "") + '">' + esc(quoteOf(a)) + "</div>"
+      + '<div class="card-body">' + esc(a.text) + "</div>";
+  } else {
+    el.className = "card" + (card.orphan ? " orphan" : "");
+    const head = a.fileScope ? "FILE NOTE" : "COMMENT";
+    el.innerHTML = '<div class="card-head"><span class="card-type">' + head + "</span>" + convChip(a) + blkChip(a) + badge + "</div>" + loc
+      + (a.fileScope ? "" : '<div class="card-quote' + (f.kind === "diff" && card.anchor >= 0 ? " mono" : "") + '">' + esc(quoteOf(a)) + "</div>")
+      + '<div class="card-body">' + esc(a.text) + "</div>";
+    if (card.orphan) el.innerHTML += '<div class="card-reattach" data-reattach="v1">was anchored in v1 — switch to v1 to reattach →</div>';
+  }
+
+  el.addEventListener("click", e => {
+    if (e.target.closest("[data-reattach]")) { state.planVersion = "v1"; flash("switched to v1 — annotation reattached"); renderAll(); return; }
+    const editable = a && card.kind !== "edit" && card.kind !== "suggestion";
+    if (state.focusedId === card.id && editable && e.target.closest(".card-body")) editCardNote(el, a);
+    else { setFocused(card.id); renderRail(); applyAnchorFocus(); }
+  });
+  return el;
+}
+
+function applyAnchorFocus() {
+  document.querySelectorAll(".anchor-focus").forEach(el => el.classList.remove("anchor-focus"));
+  if (!state.focusedId) return;
+  const card = cardsForActive().find(c => c.id === state.focusedId);
+  if (!card) return;
+  const row = anchorRow(card);
+  if (row) row.classList.add("anchor-focus");
+}
+
+function railVisible() {
+  return state.mode === "workspace" && state.view === "file" && FILES[state.active] && FILES[state.active].kind !== "ro" && !state.railHidden;
+}
+
+function renderRail() {
+  railCards.innerHTML = "";
+  connector.style.display = "none";
+  if (!railVisible()) { railCol.style.display = "none"; return; }
+  railCol.style.display = "block";
+
+  const cards = cardsForActive();
+  const otherCount = state.annotations.length + state.edits.length - cards.length;
+
+  if (!cards.length) {
+    const empty = document.createElement("div");
+    empty.className = "rail-empty";
+    empty.textContent = FILES[state.active].kind === "plan"
+      ? "No notes on this file yet. Move with j / k, extend with ⇧j, then c to comment, r to redline, g for looks-good, or e to rewrite a block."
+      : "Move the line cursor with j / k, then c to comment, r to redline, s to suggest code, or ⇧C for a file-scoped note.";
+    railCards.appendChild(empty);
+    if (otherCount > 0) railNote(otherCount, 110);
+    return;
+  }
+
+  const items = cards.map(c => {
+    const el = buildCard(c);
+    el.style.top = "0px";
+    railCards.appendChild(el);
+    const row = anchorRow(c);
+    return { card: c, el: el, want: row ? Math.max(4, topInCanvas(row) - 2) : 4 };
+  });
+  items.sort((x, y) => x.want - y.want);
+
+  const GAP = 10;
+  const fi = items.findIndex(it => it.card.id === state.focusedId);
+  const tops = new Array(items.length);
+  if (fi >= 0) {
+    tops[fi] = items[fi].want;
+    for (let i = fi - 1; i >= 0; i--) tops[i] = Math.min(items[i].want, tops[i + 1] - items[i].el.offsetHeight - GAP);
+    for (let i = fi + 1; i < items.length; i++) tops[i] = Math.max(items[i].want, tops[i - 1] + items[i - 1].el.offsetHeight + GAP);
+  } else {
+    let y = 0;
+    items.forEach((it, i) => { tops[i] = Math.max(it.want, y); y = tops[i] + it.el.offsetHeight + GAP; });
+  }
+  let maxBottom = 40;
+  items.forEach((it, i) => {
+    it.el.style.top = Math.max(4, tops[i]) + "px";
+    it.el.classList.toggle("focused", it.card.id === state.focusedId);
+    maxBottom = Math.max(maxBottom, tops[i] + it.el.offsetHeight);
+  });
+  if (otherCount > 0) railNote(otherCount, maxBottom + 24);
+
+  const focused = items.find(it => it.card.id === state.focusedId);
+  if (focused) {
+    const row = anchorRow(focused.card);
+    if (row) {
+      const aRect = row.getBoundingClientRect();
+      const cRect = canvas.getBoundingClientRect();
+      const left = aRect.right - cRect.left + 4;
+      const right = focused.el.getBoundingClientRect().left - cRect.left - 2;
+      connector.style.display = "block";
+      connector.style.left = left + "px";
+      connector.style.width = Math.max(0, right - left) + "px";
+      connector.style.top = (aRect.top - cRect.top + aRect.height / 2) + "px";
+    }
+  }
+}
+function railNote(n, top) {
+  const note = document.createElement("div");
+  note.className = "rail-note";
+  note.style.top = top + "px";
+  note.textContent = n + " more pending on other files — press n to walk them.";
+  railCards.appendChild(note);
+}
+
+function editCardNote(el, ann) {
+  const body = el.querySelector(".card-body");
+  if (!body || el.querySelector("textarea")) return;
+  const ta = document.createElement("textarea");
+  ta.value = ann.text; ta.rows = Math.max(2, ann.text.split("\n").length);
+  body.replaceWith(ta); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+  const save = () => { ann.text = ta.value.trim(); renderAll(); };
+  ta.addEventListener("keydown", e => {
+    e.stopPropagation();
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); save(); }
+    else if (e.key === "Escape") { e.preventDefault(); renderRail(); }
+  });
+  ta.addEventListener("blur", save);
+}
+
+/* ═══════════ Selection / focus ═══════════ */
+
+function selRange() {
+  const cur = state.cursors[state.active] != null ? state.cursors[state.active] : 0;
+  if (state.selAnchor === null) return [cur, cur];
+  return [Math.min(state.selAnchor, cur), Math.max(state.selAnchor, cur)];
+}
+function setFocused(id) { state.focusedId = id; }
+function syncFocus() { $("#app").dataset.focus = state.focusZone; }
+function canAnnotate() { return state.view === "file" && FILES[state.active] && (FILES[state.active].kind === "plan" || FILES[state.active].kind === "diff"); }
+function ensureWorkspace() { if (state.mode !== "workspace") setMode("workspace"); if (state.railHidden) state.railHidden = false; }
+
+/* ═══════════ Actions ═══════════ */
+
+function setTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  state.sidebarCursor = 0;
+  if (tab === "versions") { state.view = "versions"; state.active = "plan"; }
+  else if (state.view === "versions") { state.view = "file"; state.active = "plan"; }
+  syncView(); renderAll();
+}
+function cycleTab() { const order = ["status", "tree", "versions"]; setTab(order[(order.indexOf(state.tab) + 1) % order.length]); }
+
+function setMode(mode) {
+  state.mode = mode;
+  $("#app").dataset.mode = mode;
+  document.querySelectorAll("#mode-seg button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  if (mode === "guided") state.guidedIndex = Math.max(0, changedFileIds.indexOf(state.active === "__all__" ? "plan" : state.active));
+  syncView(); renderAll();
+}
+
+function moveSidebar(delta) {
+  const n = activeItems().length;
+  state.sidebarCursor = Math.max(0, Math.min(n - 1, state.sidebarCursor + delta));
+  renderSidebar();
+}
+function moveContent(delta, extend) {
+  if (state.view !== "file" || FILES[state.active].kind === "ro") return;
+  const rows = rowsFor(state.active);
+  const cur = state.cursors[state.active] != null ? state.cursors[state.active] : 0;
+  if (extend && state.selAnchor === null) state.selAnchor = cur;
+  if (!extend) state.selAnchor = null;
+  state.cursors[state.active] = Math.max(0, Math.min(rows.length - 1, cur + delta));
+  setFocused(null);
+  renderContent(); renderRail(); renderSidebar();
+}
+
+function jumpFile(dir) {
+  if (state.view === "all") { allFilesStep(dir); return; }
+  const cur = changedFileIds.indexOf(state.active);
+  const idx = Math.max(0, Math.min(changedFileIds.length - 1, (cur < 0 ? 0 : cur) + dir));
+  state.focusZone = "content";
+  openFile(changedFileIds[idx]);
+  if (state.tab === "status") state.sidebarCursor = statusItemIndex(changedFileIds[idx]);
+  renderAll();
+  const el = $("#content").querySelector('[data-row="0"]');
+  if (el) el.scrollIntoView({ block: "start" });
+  flash(FILES[changedFileIds[idx]].path);
+}
+function statusItemIndex(fileId) { return activeItems().findIndex(it => it.fileId === fileId); }
+
+function markViewedCurrent() {
+  if (state.view === "all") { const id = changedFileIds[state.allCursor]; setViewedFile(id, !state.viewed["file:" + id], true); return; }
+  if (state.view === "file" && FILES[state.active] && FILES[state.active].changed) {
+    const key = "file:" + state.active;
+    state.viewed[key] = !state.viewed[key];
+    flash(state.viewed[key] ? "marked viewed" : "marked not viewed");
+    renderAll();
+    return;
+  }
+  flash("Nothing to mark viewed here");
+}
+
+/* ═══════════ Annotation creators ═══════════ */
+
+function addAnnotation(a) {
+  a.id = state.nextId++;
+  a.type = a.type || "comment";
+  a.text = a.text || "";
+  a.convention = a.convention || "";
+  a.blocking = !!a.blocking;
+  state.annotations.push(a);
+  state.undoStack.push({ kind: "annotation", id: a.id });
+  return a;
+}
+function markRedline() {
+  if (!canAnnotate() || state.editing != null || state.suggesting) { flash("Open a changed file to redline"); return; }
+  ensureWorkspace();
+  const [s0, s1] = selRange();
+  const a = addAnnotation(Object.assign({ item: state.active, type: "redline" }, anchorFromRange(state.active, s0, s1)));
+  state.selAnchor = null; setFocused(a.id);
+  flash("Redline marked — deletion proposed (add a reason in the card)");
+  renderAll();
+}
+function markLooksGood() {
+  if (!canAnnotate() || state.editing != null || state.suggesting) { flash("Open a changed file to mark looks-good"); return; }
+  ensureWorkspace();
+  const [s0, s1] = selRange();
+  const a = addAnnotation(Object.assign({ item: state.active, type: "looksgood" }, anchorFromRange(state.active, s0, s1)));
+  state.selAnchor = null; setFocused(a.id);
+  flash("Marked looks good");
+  renderAll();
+}
+function applyTag(i) {
+  const tag = TAGS[i];
+  if (!tag) { flash("No preset label on that key"); return; }
+  if (!canAnnotate() || state.editing != null || state.suggesting) { flash("Open a changed file to label"); return; }
+  ensureWorkspace();
+  const [s0, s1] = selRange();
+  const a = addAnnotation(Object.assign({ item: state.active, type: "label", tag: tag.id }, anchorFromRange(state.active, s0, s1)));
+  state.selAnchor = null; setFocused(a.id);
+  flash("Labelled “" + tag.label + "” — pending until submit");
+  renderAll();
+}
+
+/* ═══════════ Composer (rail or inline) ═══════════ */
+
+let composer = null;
+function startComment() {
+  if (state.editing != null || state.suggesting) return;
+  if (state.view === "all") {
+    if (!state.allSel) { flash("Click a line first, then c to comment"); return; }
+    openComposer(state.allSel.file, state.allSel.row, state.allSel.row, {});
+    return;
+  }
+  if (!canAnnotate()) { flash("Open a changed file to comment"); return; }
+  const [s0, s1] = selRange();
+  openComposer(state.active, s0, s1, {});
+}
+function startFileComment() {
+  if (state.editing != null || state.suggesting) return;
+  if (!canAnnotate()) { flash("Open a changed file for a file note"); return; }
+  openComposer(state.active, 0, 0, { fileScope: true });
+}
+function openComposer(item, start, end, opts) {
+  cancelComposer();
+  const f = FILES[item];
+  const rows = item === "plan" ? planRows().map((b) => ({ block: b })) : rowsFor(item);
+  let quote;
+  if (opts.fileScope) quote = "Whole file — " + f.path;
+  else { const first = rows[start]; quote = item === "plan" ? first.block.text : (first.line.text || "(blank line)"); }
+  const span = !opts.fileScope && end > start ? " · +" + (end - start) + " more" : "";
+  const inRail = railVisible();
+  const conv = settings.conventions;
+  let convRow = "";
+  if (conv.enabled) {
+    convRow = '<div class="conv-row">'
+      + '<button class="conv-opt none' + (conv.default === "" ? " on" : "") + '" data-conv="">none</button>'
+      + CONVENTIONS.map(c => '<button class="conv-opt' + (c === conv.default ? " on" : "") + '" data-conv="' + c + '">' + c + "</button>").join("")
+      + '<button class="blk-opt" data-blk>blocking</button></div>';
+  }
+
+  const el = document.createElement("div");
+  el.className = "card composer" + (inRail ? "" : " inline-composer");
+  el.innerHTML = '<div class="card-head"><span class="card-type">' + (opts.fileScope ? "FILE NOTE" : "COMMENT") + '</span><span class="card-badge">DRAFT</span></div>'
+    + '<div class="card-quote' + (f.kind === "diff" && !opts.fileScope ? " mono" : "") + '">' + esc(trunc(quote)) + span + "</div>"
+    + convRow
+    + '<textarea id="composer-input" rows="3" placeholder="Note for the agent…"></textarea>'
+    + '<div class="card-hint"><kbd>⏎</kbd> save · <kbd>esc</kbd> cancel</div>';
+
+  if (inRail) {
+    renderRail();
+    const anchor = opts.fileScope ? null : $("#content").querySelector('[data-row="' + start + '"]');
+    el.style.top = (anchor ? Math.max(4, topInCanvas(anchor) - 2) : 4) + "px";
+    railCards.appendChild(el);
+    document.body.classList.add("composing");
+  } else {
+    let anchor;
+    if (state.view === "all") anchor = $("#content").querySelector('section.afile[data-file="' + item + '"] [data-row="' + start + '"]');
+    else anchor = $("#content").querySelector('[data-row="' + start + '"]');
+    if (anchor) anchor.insertAdjacentElement("afterend", el);
+    else $("#content").appendChild(el);
+  }
+  composer = { el: el, item: item, start: start, end: end, fileScope: !!opts.fileScope, convention: conv.default, blocking: conv.default ? !!conv.blocking[conv.default] : false };
+
+  const syncBlk = () => { const b = el.querySelector("[data-blk]"); if (b) b.classList.toggle("on", composer.blocking); };
+  el.querySelectorAll("[data-conv]").forEach(b => b.addEventListener("mousedown", ev => {
+    ev.preventDefault();
+    composer.convention = b.dataset.conv;
+    composer.blocking = composer.convention ? !!conv.blocking[composer.convention] : false;
+    el.querySelectorAll("[data-conv]").forEach(x => x.classList.toggle("on", x === b));
+    syncBlk();
+  }));
+  const blkBtn = el.querySelector("[data-blk]");
+  if (blkBtn) { syncBlk(); blkBtn.addEventListener("mousedown", ev => { ev.preventDefault(); composer.blocking = !composer.blocking; syncBlk(); }); }
+
+  const ta = el.querySelector("textarea"); ta.focus();
+  ta.addEventListener("keydown", e => {
+    e.stopPropagation();
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveComposer(); }
+    else if (e.key === "Escape") { e.preventDefault(); cancelComposer(); renderContent(); renderRail(); }
+  });
+}
+function saveComposer() {
+  if (state.editing != null) { saveEdit(); return; }
+  if (!composer) return;
+  const text = composer.el.querySelector("textarea").value.trim();
+  const { item, start, end, fileScope, convention, blocking } = composer;
+  cancelComposer();
+  if (!text) { flash("Empty note discarded"); renderContent(); renderRail(); return; }
+  let a;
+  if (fileScope) a = { item: item, fileScope: true, type: "comment", text: text, convention: convention || "", blocking: !!blocking };
+  else a = Object.assign({ item: item, type: "comment", text: text, convention: convention || "", blocking: !!blocking }, anchorFromRange(item, start, end));
+  addAnnotation(a);
+  state.selAnchor = null; state.allSel = null;
+  setFocused(a.id);
+  flash(fileScope ? "File note added — pending until submit" : "Comment added — pending until submit");
+  renderAll();
+}
+function cancelComposer() {
+  if (!composer) return;
+  composer.el.remove(); composer = null;
+  document.body.classList.remove("composing");
+}
+
+/* ═══════════ Code suggestion ═══════════ */
+
+function startSuggestion() {
+  if (!canAnnotate() || state.editing != null) { flash("Open a changed file to suggest code"); return; }
+  cancelComposer();
+  ensureWorkspace();
+  const [s0, s1] = selRange();
+  state.suggesting = { item: state.active, start: s0, end: s1 };
+  renderContent();
+  flash("Editing a suggested replacement — ⌘⏎ to save");
+}
+function saveSuggestion() {
+  const ta = $("#suggest-input");
+  if (!ta || !state.suggesting) return;
+  const { item, start, end } = state.suggesting;
+  const oldCode = rowsText(item, start, end);
+  const newCode = ta.value;
+  state.suggesting = null;
+  if (newCode.trim() === oldCode.trim() || !newCode.trim()) { flash("No change — suggestion discarded"); renderAll(); return; }
+  const a = addAnnotation(Object.assign({ item: item, type: "suggestion", oldCode: oldCode, suggestion: newCode }, anchorFromRange(item, start, end)));
+  setFocused(a.id);
+  flash("Code suggestion added — pending until submit");
+  renderAll();
+}
+function cancelSuggestion() { state.suggesting = null; renderContent(); renderRail(); }
+
+/* ═══════════ Plan edits (tracked) ═══════════ */
+
+function startEdit() {
+  if (state.view !== "file" || FILES[state.active].kind !== "plan") { flash("e edits plan text — open plan.md"); return; }
+  cancelComposer();
+  const cur = state.cursors.plan != null ? state.cursors.plan : 0;
+  state.editing = planRows()[cur].id;
+  renderContent();
+}
+function saveEdit() {
+  const ta = $("#edit-input");
+  if (ta == null || state.editing == null) return;
+  const blockId = state.editing;
+  const block = planBlock(blockId);
+  const text = ta.value.trim();
+  const existing = state.edits.find(e => e.blockId === blockId);
+  state.editing = null;
+  if (!block || !text || text === block.text) {
+    if (existing) state.edits = state.edits.filter(e => e !== existing);
+    flash("No change — edit discarded"); renderAll(); return;
+  }
+  if (existing) { state.undoStack.push({ kind: "edit-update", id: existing.id, prev: existing.newText }); existing.newText = text; }
+  else { const e = { id: state.nextId++, blockId: blockId, oldText: block.text, newText: text }; state.edits.push(e); state.undoStack.push({ kind: "edit", id: e.id }); setFocused("e" + e.id); }
+  flash("Edit tracked — pending until submit");
+  renderAll();
+}
+function cancelEdit() { state.editing = null; renderContent(); }
+
+function undo() {
+  const op = state.undoStack.pop();
+  if (!op) { flash("Nothing to undo"); return; }
+  if (op.kind === "annotation") { state.annotations = state.annotations.filter(a => a.id !== op.id); flash("Annotation removed"); }
+  else if (op.kind === "edit") { state.edits = state.edits.filter(e => e.id !== op.id); flash("Edit reverted"); }
+  else if (op.kind === "edit-update") { const e = state.edits.find(x => x.id === op.id); if (e) e.newText = op.prev; flash("Edit reverted"); }
+  setFocused(null);
+  renderAll();
+}
+
+/* ═══════════ Pending navigation ═══════════ */
+
+function pendingEntries() {
+  const order = changedFileIds;
+  const es = [];
+  state.annotations.forEach(a => {
+    if (a.item === "plan") { const idx = a.fileScope ? -1 : planIndexOfBlock(a.blockId); es.push({ item: "plan", id: a.id, sortFile: 0, at: a.fileScope ? -1 : (idx < 0 ? 1e5 : idx), orphan: annOrphaned(a) }); }
+    else es.push({ item: a.item, id: a.id, sortFile: order.indexOf(a.item), at: a.fileScope ? -1 : a.startLi });
+  });
+  state.edits.forEach(e => { const idx = planIndexOfBlock(e.blockId); if (idx >= 0) es.push({ item: "plan", id: "e" + e.id, sortFile: 0, at: idx }); });
+  es.sort((x, y) => x.sortFile - y.sortFile || x.at - y.at);
+  return es;
+}
+function jumpPending(dir) {
+  const list = pendingEntries();
+  if (!list.length) { flash("No pending annotations yet"); return; }
+  if (state.mode !== "workspace") setMode("workspace");
+  let idx = list.findIndex(e => e.id === state.focusedId);
+  idx = idx < 0 ? (dir > 0 ? 0 : list.length - 1) : (idx + dir + list.length) % list.length;
+  const target = list[idx];
+  state.view = "file"; state.focusZone = "content";
+  openFile(target.item);
+  setFocused(target.id);
+  if (target.orphan) flash("orphaned annotation — reattach in Versions");
+  if (state.tab === "status") state.sidebarCursor = Math.max(0, statusItemIndex(target.item));
+  syncView(); renderAll();
+  if (target.item !== "plan" && target.at >= 0) {
+    const rows = rowsFor(target.item); const r = rows.findIndex(x => x.li === target.at); const row = r >= 0 ? r : 0;
+    const rowEl = $("#content").querySelector('[data-row="' + row + '"]');
+    if (rowEl) { rowEl.classList.add("flash"); rowEl.scrollIntoView({ block: "center" }); }
+  } else if (target.at >= 0) {
+    const rowEl = $("#content").querySelector('[data-row="' + target.at + '"]');
+    if (rowEl) { rowEl.classList.add("flash"); rowEl.scrollIntoView({ block: "center" }); }
+  }
+  if (!target.orphan) flash("pending " + (idx + 1) + "/" + list.length);
+}
+
+/* ═══════════ Finish panel ═══════════ */
+
+function pendingCount() { return state.annotations.length + state.edits.length; }
+function blockingCount() { return state.annotations.filter(a => (a.type || "comment") === "comment" && a.blocking).length; }
+
+function renderFinishButton() {
+  const n = pendingCount();
+  const btn = $("#finish-btn");
+  $("#tab-ver-badge").textContent = "v2";
+  if (state.submitted) { btn.textContent = "Review sent ✓"; btn.className = "sent"; return; }
+  if (n) { btn.textContent = "Send feedback (" + n + ")"; btn.className = "has-pending"; }
+  else { btn.textContent = "Approve"; btn.className = ""; }
+}
+
+function finishItemHTML(a) {
+  let tag = "", body = "";
+  const type = a.type || "comment";
+  if (type === "redline") { tag = '<span class="fi-tag red">redline</span>'; body = '<span class="del">' + esc(quoteOf(a)) + "</span>"; }
+  else if (type === "looksgood") { tag = '<span class="fi-tag green">looks good</span>'; body = a.text ? esc(a.text) : esc(quoteOf(a)); }
+  else if (type === "label") { const t = tagById(a.tag); tag = '<span class="fi-tag" style="color:' + t.color + ';border-color:' + t.color + '">' + t.label + "</span>"; body = a.text ? esc(a.text) : esc(quoteOf(a)); }
+  else if (type === "suggestion") { tag = '<span class="fi-tag green">suggestion</span>'; body = '<span class="minus">' + esc(trunc(a.oldCode.replace(/\n/g, " "))) + '</span> → <span class="plus">' + esc(trunc(a.suggestion.replace(/\n/g, " "))) + "</span>"; }
+  else { tag = (a.convention ? '<span class="fi-tag">' + esc(a.convention) + "</span>" : "") + (a.blocking ? '<span class="fi-tag red">blocking</span>' : ""); body = esc(a.text); }
+  const ex = a.fileScope ? "whole file" : quoteOf(a);
+  return '<div class="fitem"><div class="fexcerpt"><span class="fex-t">' + esc(ex) + "</span>" + tag + '</div><div class="fbody">' + body + "</div></div>";
+}
+
+function renderFinishPanel() {
+  const body = $("#finish-body");
+  const unviewed = changedFileIds.filter(id => !state.viewed["file:" + id]);
+  const orph = state.annotations.filter(a => a.item === "plan" && annOrphaned(a));
+  const nBlock = blockingCount();
+  let html = "";
+  if (nBlock) html += '<div id="blocking-warn"><span>⛔</span>' + nBlock + " blocking comment" + (nBlock > 1 ? "s" : "") + " — the agent must resolve " + (nBlock > 1 ? "these" : "this") + " before proceeding.</div>";
+  if (unviewed.length) html += '<div id="unviewed-warn"><span class="uv-dot"></span>' + unviewed.length + " changed file" + (unviewed.length > 1 ? "s" : "") + " not viewed · " + unviewed.map(id => esc(FILES[id].name)).join(", ") + "</div>";
+
+  html += '<div class="f-label">SUMMARY COMMENT</div><textarea id="parent-comment" placeholder="Overall note to the agent (optional)…">' + (($("#parent-comment") && !state.submitted) ? esc($("#parent-comment").value) : "") + "</textarea>";
+  const verdicts = [
+    { id: "comment", cls: "", name: "Comment", desc: "Feedback only, no decision", key: "1" },
+    { id: "approve", cls: "v-approve", name: "Approve", desc: "Proceed as planned", key: "2" },
+    { id: "request", cls: "v-changes", name: "Request changes", desc: "Revise and resubmit", key: "3" },
+  ];
+  html += '<div class="f-label">VERDICT</div><div class="verdicts">';
+  verdicts.forEach(v => {
+    html += '<div class="verdict ' + v.cls + (state.verdict === v.id ? " on" : "") + '" data-verdict="' + v.id + '">'
+      + '<span class="vdot"></span><span><div class="vname">' + v.name + '</div><div class="vdesc">' + v.desc + "</div></span>"
+      + '<span class="vkey"><kbd>' + v.key + "</kbd></span></div>";
+  });
+  html += "</div>";
+
+  if (orph.length) {
+    html += '<div class="f-label">ORPHANED · ' + orph.length + "</div>";
+    html += '<div class="fgroup"><div class="fgroup-head orphan"><span class="cnt">●</span> anchors removed in v2</div>';
+    orph.forEach(a => { html += finishItemHTML(a).replace('class="fitem"', 'class="fitem orphan"'); });
+    html += "</div>";
+  }
+
+  html += '<div class="f-label">PENDING · ' + pendingCount() + "</div>";
+  if (!pendingCount()) html += '<div class="fempty">No annotations — ⌘⏎ approves cleanly. Or add notes with c, r, g, s, or e.</div>';
+  changedFileIds.forEach(id => {
+    const notes = state.annotations.filter(a => a.item === id && !(a.item === "plan" && annOrphaned(a)));
+    const hasEdits = id === "plan" && state.edits.length;
+    if (!notes.length && !hasEdits) return;
+    html += '<div class="fgroup"><div class="fgroup-head"><span class="cnt">●</span> ' + esc(FILES[id].name) + "</div>";
+    if (hasEdits) {
+      const tot = state.edits.reduce((t, e) => { const s = editStats(e); return { i: t.i + s.ins, d: t.d + s.del }; }, { i: 0, d: 0 });
+      html += '<div class="fitem"><div class="fexcerpt"><span class="fex-t">plan text · ' + state.edits.length + " block" + (state.edits.length > 1 ? "s" : "") + ' edited</span><span class="fi-tag green">tracked</span></div>'
+        + '<div class="fbody"><span class="plus">+' + tot.i + '</span> <span class="minus">−' + tot.d + "</span> words</div></div>";
+    }
+    notes.forEach(a => { html += finishItemHTML(a); });
+    html += "</div>";
+  });
+  body.innerHTML = html;
+
+  $("#finish-sub").textContent = pendingCount() + " pending annotation" + (pendingCount() === 1 ? "" : "s") + (nBlock ? " · " + nBlock + " blocking" : "") + " · delivered atomically as " + settings.displayName;
+  const sub = $("#submit-btn");
+  sub.className = state.verdict === "approve" ? "approve" : "";
+  sub.textContent = state.verdict === "approve" ? "Approve & finish" : state.verdict === "request" ? "Request changes" : (pendingCount() ? "Send " + pendingCount() + " annotation" + (pendingCount() === 1 ? "" : "s") : "Submit review");
+  body.querySelectorAll("[data-verdict]").forEach(el => el.addEventListener("click", () => { state.verdict = el.dataset.verdict; renderFinishPanel(); }));
+}
+
+function openPanel(contextual) {
+  if (state.submitted) return;
+  cancelComposer(); if (state.editing != null) saveEdit();
+  if (contextual) state.verdict = pendingCount() === 0 ? "approve" : (state.verdict === "approve" ? "comment" : state.verdict);
+  state.panelOpen = true;
+  renderFinishPanel();
+  $("#scrim").classList.add("show");
+  $("#finish-panel").classList.add("show");
+  setTimeout(() => { const pc = $("#parent-comment"); if (pc) pc.focus(); }, 200);
+}
+function closePanel() { state.panelOpen = false; $("#scrim").classList.remove("show"); $("#finish-panel").classList.remove("show"); }
+
+let autoCloseTimer = null;
+function submitReview() {
+  const names = { comment: "Comment", approve: "Approve", request: "Request changes" };
+  const pc = $("#parent-comment");
+  const parent = pc ? pc.value.trim() : "";
+  const nc = state.annotations.length, ne = state.edits.length, nb = blockingCount();
+  state.submitted = true;
+  closePanel();
+  const parts = [];
+  if (nc) parts.push(nc + " annotation" + (nc === 1 ? "" : "s"));
+  if (ne) parts.push(ne + " tracked edit" + (ne === 1 ? "" : "s"));
+  $("#cc-sub").textContent = (parts.length ? parts.join(" and ") : "No annotations")
+    + (nb ? " (" + nb + " blocking)" : "")
+    + (parent ? ", with an overall note," : "") + " delivered to agent/worker-3 as " + settings.displayName + " in one atomic reply. Nothing was visible until now.";
+  $("#cc-verdict").innerHTML = "verdict · <b>" + names[state.verdict] + "</b>";
+  $("#confirm").classList.add("show");
+  renderFinishButton();
+  clearTimeout(autoCloseTimer);
+  if (settings.autoClose !== "off") autoCloseTimer = setTimeout(dismissConfirm, (+settings.autoClose) * 1000);
+}
+function dismissConfirm() { $("#confirm").classList.remove("show"); }
+
+/* ═══════════ Theme / texture / settings application ═══════════ */
+
+function applyTheme() {
+  const t = settings.theme;
+  if (t === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+  $("#theme-btn").textContent = { system: "◐ System", light: "☀ Light", dark: "☾ Dark", contrast: "◈ Contrast" }[t];
+}
+function cycleTheme() {
+  const order = ["system", "light", "dark"];
+  const i = order.indexOf(settings.theme);
+  settings.theme = order[(i + 1) % order.length];
+  applyTheme();
+  if (settingsOpen) renderSettingsBody();
+  flash("theme · " + settings.theme);
+}
+function updateTextureBtn() {
+  const b = $("#textured-btn");
+  b.textContent = settings.textured ? "▦ Texture" : "▢ Texture";
+  b.classList.toggle("on", settings.textured);
+}
+function toggleTextured() { settings.textured = !settings.textured; refreshFromSettings(); if (settingsOpen) renderSettingsBody(); flash(settings.textured ? "textured canvas on" : "textured canvas off"); }
+
+function refreshFromSettings() {
+  applyTheme();
+  document.documentElement.style.setProperty("--grain", settings.grain);
+  document.documentElement.style.setProperty("--diff-mono", monoStack(settings.monoFont));
+  canvas.classList.toggle("textured", settings.textured);
+  $("#app").dataset.width = settings.planWidth;
+  updateTextureBtn();
+  if (state.mode === "guided") renderGuided(); else renderContent();
+  renderRail();
+}
+
+/* ═══════════ Command palette ═══════════ */
+
+let paletteOpen = false, paletteResults = [], paletteSel = 0;
+
+const commands = [
+  { id: "comment", group: "Annotate", ico: "✎", name: "Comment on selection", desc: "Note the current line or span", keys: ["c"], run: () => { closePalette(); startComment(); } },
+  { id: "filecomment", group: "Annotate", ico: "❐", name: "File-scoped comment", desc: "A note about the whole file", keys: ["⇧c"], run: () => { closePalette(); startFileComment(); } },
+  { id: "redline", group: "Annotate", ico: "╌", name: "Redline selection", desc: "Propose deleting the selection", keys: ["r"], run: () => { closePalette(); markRedline(); } },
+  { id: "looksgood", group: "Annotate", ico: "✓", name: "Mark looks good", desc: "Positive marker on the selection", keys: ["g"], run: () => { closePalette(); markLooksGood(); } },
+  { id: "suggest", group: "Annotate", ico: "±", name: "Suggest a code change", desc: "Propose a replacement", keys: ["s"], run: () => { closePalette(); startSuggestion(); } },
+  { id: "edit", group: "Annotate", ico: "✐", name: "Edit plan text", desc: "Rewrite the current block, tracked", keys: ["e"], run: () => { closePalette(); state.focusZone = "content"; syncFocus(); startEdit(); } },
+  { id: "next", group: "Navigate", ico: "↓", name: "Next annotation", desc: "Walk pending annotations", keys: ["n"], run: () => { closePalette(); jumpPending(1); } },
+  { id: "prev", group: "Navigate", ico: "↑", name: "Previous annotation", desc: "Walk pending annotations", keys: ["p"], run: () => { closePalette(); jumpPending(-1); } },
+  { id: "status", group: "Navigate", ico: "≡", name: "All changed files", desc: "Continuous scroll of every change", keys: [], run: () => { closePalette(); setTab("status"); state.sidebarCursor = 0; openItem(activeItems()[0]); } },
+  { id: "versions", group: "Navigate", ico: "⟲", name: "Plan revisions", desc: "v1 → v2 diff and reattach", keys: [], run: () => { closePalette(); setTab("versions"); } },
+  { id: "focus", group: "Layout", ico: "◱", name: "Focus mode", desc: "Hide sidebar and rail", keys: [], run: () => { closePalette(); setMode("focus"); } },
+  { id: "guided", group: "Layout", ico: "◧", name: "Guided walk", desc: "Step through files in order", keys: [], run: () => { closePalette(); setMode("guided"); } },
+  { id: "workspace", group: "Layout", ico: "▣", name: "Workspace mode", desc: "Full three-pane review", keys: [], run: () => { closePalette(); setMode("workspace"); } },
+  { id: "split", group: "Layout", ico: "◫", name: "Split mode", desc: "Base beside working copy", keys: [], run: () => { closePalette(); setMode("split"); } },
+  { id: "textured", group: "Appearance", ico: "▦", name: "Toggle textured canvas", desc: "Film-grain surface on / off", keys: [], run: () => { closePalette(); toggleTextured(); } },
+  { id: "theme", group: "Appearance", ico: "◐", name: "Cycle theme", desc: "System / Light / Dark", keys: [], run: () => { closePalette(); cycleTheme(); } },
+  { id: "settings", group: "Surfaces", ico: "⚙", name: "Open settings", desc: "Preferences and keybindings", keys: ["⌘,"], run: () => { closePalette(); openSettings(); } },
+  { id: "cheat", group: "Surfaces", ico: "⌨", name: "Keyboard cheat sheet", desc: "All shortcuts", keys: ["?"], run: () => { closePalette(); toggleCheat(); } },
+  { id: "submit", group: "Review", ico: "⏎", name: "Finish review", desc: "Deliver all annotations atomically", keys: ["⌘⏎"], run: () => { closePalette(); openPanel(true); } },
+];
+
+function fuzzy(q, text) {
+  q = q.toLowerCase(); const s = text.toLowerCase();
+  let ti = 0, qi = 0; const idxs = []; let score = 0, streak = 0;
+  while (qi < q.length && ti < s.length) {
+    if (q[qi] === s[ti]) { idxs.push(ti); qi++; streak++; score += 1 + streak; }
+    else streak = 0;
+    ti++;
+  }
+  if (qi < q.length) return null;
+  return { idxs, score: score - s.length * 0.02 };
+}
+function highlightName(name, idxs) {
+  if (!idxs || !idxs.length) return esc(name);
+  const set = new Set(idxs);
+  let out = "";
+  for (let i = 0; i < name.length; i++) out += set.has(i) ? "<b>" + esc(name[i]) + "</b>" : esc(name[i]);
+  return out;
+}
+function keysHTML(keys) { return keys.map(k => "<kbd>" + esc(k) + "</kbd>").join(""); }
+
+function renderPalette(query) {
+  const q = (query || "").trim();
+  if (!q) {
+    paletteResults = commands.map(c => ({ c, idxs: [] }));
+  } else {
+    paletteResults = commands.map(c => { const mn = fuzzy(q, c.name); const md = fuzzy(q, c.desc || ""); const m = mn || md; return m ? { c, idxs: mn ? mn.idxs : [], score: m.score } : null; })
+      .filter(Boolean).sort((a, b) => b.score - a.score);
+  }
+  if (paletteSel >= paletteResults.length) paletteSel = 0;
+  const list = $("#palette-list");
+  if (!paletteResults.length) { list.innerHTML = '<div class="pal-empty">No commands match “' + esc(q) + "”</div>"; return; }
+  let html = "", lastGroup = null;
+  paletteResults.forEach((r, i) => {
+    if (!q && r.c.group !== lastGroup) { html += '<div class="pal-group">' + esc(r.c.group) + "</div>"; lastGroup = r.c.group; }
+    html += '<div class="pal-row' + (i === paletteSel ? " sel" : "") + '" data-i="' + i + '">'
+      + '<span class="pal-ico">' + r.c.ico + "</span>"
+      + '<span class="pal-name">' + highlightName(r.c.name, r.idxs) + "</span>"
+      + (r.c.desc ? '<span class="pal-desc">' + esc(r.c.desc) + "</span>" : "")
+      + '<span class="pal-key">' + keysHTML(r.c.keys) + "</span></div>";
+  });
+  list.innerHTML = html;
+  list.querySelectorAll("[data-i]").forEach(el => {
+    el.addEventListener("mousemove", () => { paletteSel = +el.dataset.i; markPaletteSel(); });
+    el.addEventListener("click", () => { paletteSel = +el.dataset.i; runPaletteSel(); });
+  });
+}
+function markPaletteSel() {
+  const list = $("#palette-list");
+  list.querySelectorAll(".pal-row").forEach((el, i) => el.classList.toggle("sel", i === paletteSel));
+  const sel = list.querySelector(".pal-row.sel");
+  if (sel) sel.scrollIntoView({ block: "nearest" });
+}
+function movePaletteSel(d) {
+  if (!paletteResults.length) return;
+  paletteSel = (paletteSel + d + paletteResults.length) % paletteResults.length;
+  markPaletteSel();
+}
+function runPaletteSel() { const r = paletteResults[paletteSel]; if (r) r.c.run(); }
+function openPalette() {
+  if (paletteOpen) return;
+  paletteOpen = true; paletteSel = 0;
+  $("#palette-wrap").classList.add("show");
+  const input = $("#palette-input"); input.value = "";
+  renderPalette("");
+  setTimeout(() => input.focus(), 20);
+}
+function closePalette() { paletteOpen = false; $("#palette-wrap").classList.remove("show"); }
+
+/* ═══════════ Settings dialog ═══════════ */
+
+let settingsOpen = false, settingsTab = "general";
+const SETTINGS_TABS = [
+  { id: "general", ico: "⦿", name: "General" },
+  { id: "theme", ico: "◑", name: "Theme" },
+  { id: "display", ico: "▤", name: "Display" },
+  { id: "diff", ico: "⇆", name: "Diff" },
+  { id: "comments", ico: "❝", name: "Comments" },
+  { id: "keys", ico: "⌨", name: "Keybindings" },
+];
+const TAB_SUBS = {
+  general: "identity and submission",
+  theme: "palette, texture, grain",
+  display: "plan width and chrome",
+  diff: "how changes render",
+  comments: "conventional comments",
+  keys: "all shortcuts (read-only)",
+};
+
+function segHTML(key, opts, current) {
+  return '<div class="seg-control" data-key="' + key + '">' + opts.map(o => '<button data-val="' + o[0] + '" class="' + (String(o[0]) === String(current) ? "on" : "") + '">' + o[1] + "</button>").join("") + "</div>";
+}
+function toggleHTML(key, on, label) {
+  return '<label class="set-toggle' + (on ? " on" : "") + '" data-key="' + key + '"><span class="set-switch"></span><span>' + label + "</span></label>";
+}
+function field(label, help, control) {
+  return '<div class="set-field"><div class="sf-label">' + label + "</div>" + (help ? '<div class="sf-help">' + help + "</div>" : "") + control + "</div>";
+}
+function renderSettingsNav() {
+  const nav = $("#settings-nav");
+  nav.innerHTML = '<div class="sn-title">SETTINGS</div>' + SETTINGS_TABS.map(t =>
+    '<div class="sn-item' + (t.id === settingsTab ? " on" : "") + '" data-tab="' + t.id + '"><span class="sn-ico">' + t.ico + "</span>" + t.name + "</div>").join("");
+  nav.querySelectorAll("[data-tab]").forEach(el => el.addEventListener("click", () => { settingsTab = el.dataset.tab; renderSettingsNav(); renderSettingsBody(); }));
+}
+function themeSwatch(id, name) {
+  const previews = {
+    dark: ["#1f1f29", "#f5a3a3", "#62d96b"],
+    light: ["#f6f6f8", "#d16670", "#1a9e4b"],
+    contrast: ["#000000", "#ffb3b3", "#5cff7a"],
+    system: ["#1f1f29", "#f5a3a3", "#84a6e8"],
+  };
+  const p = previews[id];
+  return '<div class="theme-card' + (settings.theme === id ? " on" : "") + '" data-theme-pick="' + id + '">'
+    + '<div class="theme-prev" style="background:' + p[0] + '"><div class="tp-bar" style="background:' + p[1] + ';width:70%"></div><div class="tp-bar" style="background:' + p[2] + ';width:45%"></div></div>'
+    + '<div class="theme-name">' + name + "</div></div>";
+}
+
+function renderSettingsBody() {
+  renderSettingsNav();
+  $("#settings-title").textContent = SETTINGS_TABS.find(t => t.id === settingsTab).name;
+  $("#settings-sub").textContent = TAB_SUBS[settingsTab];
+  const body = $("#settings-body");
+  let html = "";
+
+  if (settingsTab === "general") {
+    html += field("Display name", "How you appear to the agent on submit. Auto-generated as an adjective-noun handle.",
+      '<div class="set-row"><input class="set-input" id="set-name" value="' + esc(settings.displayName) + '"><button class="seg-control" style="padding:6px 12px;cursor:pointer" id="set-name-regen">↻ New</button></div>');
+    html += field("Auto-close after submit", "Dismiss the confirmation automatically once a review is delivered.",
+      segHTML("autoClose", [["off", "Off"], ["3", "3s"], ["5", "5s"]], settings.autoClose));
+  } else if (settingsTab === "theme") {
+    html += field("Theme", "Live preview — switches the whole surface instantly.",
+      '<div class="theme-swatches">' + themeSwatch("dark", "cueloop-dark") + themeSwatch("light", "cueloop-light") + themeSwatch("contrast", "high-contrast") + themeSwatch("system", "system") + "</div>");
+    html += field("Textured canvas", "Film-grain noise over the stage (grain only — no grid).",
+      toggleHTML("textured", settings.textured, settings.textured ? "On" : "Off"));
+    html += field("Grain", "Intensity of the film-grain overlay (drives --grain).",
+      '<div class="set-row"><input class="set-slider" type="range" min="0" max="1" step="0.01" id="set-grain" value="' + settings.grain + '"><span class="slider-val" id="set-grain-val">' + settings.grain.toFixed(2) + "</span></div>");
+  } else if (settingsTab === "display") {
+    html += field("Plan width", "Column width for the plan and diff — live preview.",
+      segHTML("planWidth", [["compact", "Compact"], ["default", "Default"], ["wide", "Wide"]], settings.planWidth));
+    html += field("Margin rail", "Show the annotation rail by default in Workspace mode.",
+      segHTML("railDefault", [["shown", "Shown"], ["hidden", "Hidden"]], settings.railDefault));
+  } else if (settingsTab === "diff") {
+    html += field("Diff style", "Unified stacks changes; split shows old beside new.",
+      segHTML("diffStyle", [["unified", "Unified"], ["split", "Split"]], settings.diffStyle));
+    html += field("Line-diff granularity", "Sub-line highlighting between a removed and added line.",
+      segHTML("diffGranularity", [["word", "Word"], ["char", "Char"], ["none", "None"]], settings.diffGranularity));
+    html += field("Line numbers", "Show the old / new gutters.",
+      toggleHTML("showLineNumbers", settings.showLineNumbers, settings.showLineNumbers ? "Shown" : "Hidden"));
+    html += field("Line-background intensity", "Tint strength behind added / removed lines.",
+      segHTML("lineIntensity", [["subtle", "Subtle"], ["normal", "Normal"], ["strong", "Strong"]], settings.lineIntensity));
+    html += field("Expand unchanged", "Show every context line, or collapse long unchanged runs.",
+      toggleHTML("expandUnchanged", settings.expandUnchanged, settings.expandUnchanged ? "Expanded" : "Collapsed"));
+    html += field("Hide whitespace", "Normalise indentation, or reveal spaces and tabs as glyphs.",
+      toggleHTML("hideWhitespace", settings.hideWhitespace, settings.hideWhitespace ? "Hidden" : "Shown"));
+    html += field("Tab size", "Visual width of one indent level.",
+      segHTML("tabSize", [[1, "1"], [2, "2"], [4, "4"], [8, "8"]], settings.tabSize));
+    html += field("Mono font", "Typeface for diff code.",
+      segHTML("monoFont", [["theme", "Theme default"], ["plex", "IBM Plex Mono"], ["jetbrains", "JetBrains Mono"], ["fira", "Fira Code"]], settings.monoFont));
+  } else if (settingsTab === "comments") {
+    html += field("Conventional labels", "Offer a semantic label + blocking flag in the comment composer.",
+      toggleHTML("conv-enabled", settings.conventions.enabled, settings.conventions.enabled ? "On" : "Off"));
+    html += field("Default label", "Pre-selected label for a new comment.",
+      segHTML("conv-default", [["", "none"]].concat(CONVENTIONS.map(c => [c, c])), settings.conventions.default));
+    let blk = '<div class="set-field"><div class="sf-label">Blocking labels</div><div class="sf-help">A blocking label must be resolved by the agent before it can proceed.</div>';
+    CONVENTIONS.forEach(c => { blk += '<div class="set-row" style="margin-bottom:6px">' + toggleHTML("conv-blk-" + c, settings.conventions.blocking[c], c) + "</div>"; });
+    blk += "</div>";
+    html += blk;
+  } else if (settingsTab === "keys") {
+    html += '<table class="kb-table">';
+    KEYS.forEach(([group, rows]) => {
+      html += '<tr class="kb-group"><td colspan="2">' + group + "</td></tr>";
+      rows.forEach(([label, keys]) => {
+        html += "<tr><td>" + esc(label) + '</td><td class="k">' + keys.map(k => "<kbd>" + esc(k) + "</kbd>").join(" ") + "</td></tr>";
+      });
+    });
+    html += "</table>";
+  }
+
+  body.innerHTML = html;
+  wireSettingsBody();
+}
+
+function onSetting(key, val) {
+  if (key === "tabSize") val = +val;
+  if (key === "conv-enabled") { settings.conventions.enabled = !settings.conventions.enabled; renderSettingsBody(); return; }
+  if (key === "conv-default") { settings.conventions.default = val; renderSettingsBody(); return; }
+  if (key.indexOf("conv-blk-") === 0) { const c = key.slice(9); settings.conventions.blocking[c] = !settings.conventions.blocking[c]; renderSettingsBody(); return; }
+  if (key === "railDefault") { settings.railDefault = val; state.railHidden = val === "hidden"; refreshFromSettings(); renderSettingsBody(); return; }
+  settings[key] = val;
+  refreshFromSettings();
+  renderSettingsBody();
+}
+function wireSettingsBody() {
+  const body = $("#settings-body");
+  body.querySelectorAll(".seg-control[data-key]").forEach(seg => {
+    seg.querySelectorAll("button").forEach(b => b.addEventListener("click", () => onSetting(seg.dataset.key, b.dataset.val)));
+  });
+  body.querySelectorAll(".set-toggle[data-key]").forEach(t => {
+    t.addEventListener("click", () => { const k = t.dataset.key; onSetting(k, typeof settings[k] === "boolean" ? !settings[k] : true); });
+  });
+  body.querySelectorAll("[data-theme-pick]").forEach(el => el.addEventListener("click", () => { settings.theme = el.dataset.themePick; refreshFromSettings(); renderSettingsBody(); }));
+  const name = $("#set-name");
+  if (name) name.addEventListener("input", () => { settings.displayName = name.value || autoName(); updateCrumb(); });
+  const regen = $("#set-name-regen");
+  if (regen) regen.addEventListener("click", () => { settings.displayName = autoName(); renderSettingsBody(); updateCrumb(); });
+  const grain = $("#set-grain");
+  if (grain) grain.addEventListener("input", () => {
+    settings.grain = +grain.value;
+    $("#set-grain-val").textContent = settings.grain.toFixed(2);
+    document.documentElement.style.setProperty("--grain", settings.grain);
+    if (!settings.textured) { settings.textured = true; canvas.classList.add("textured"); updateTextureBtn(); }
+  });
+}
+function openSettings() {
+  if (settingsOpen) { closeSettings(); return; }
+  settingsOpen = true;
+  $("#settings-wrap").classList.add("show");
+  $("#settings-btn").classList.add("on");
+  renderSettingsBody();
+}
+function closeSettings() {
+  settingsOpen = false;
+  $("#settings-wrap").classList.remove("show");
+  $("#settings-btn").classList.remove("on");
+}
+
+/* ═══════════ Input mode / mode bar ═══════════ */
+
+function renderTagLegend() {
+  $("#tag-legend").innerHTML = TAGS.map(t => '<span class="tl"><span class="tld" style="background:' + t.color + '"></span><kbd>⌥' + t.key + "</kbd>" + t.label + "</span>").join("");
+}
+function updateModeHint() {
+  const hints = {
+    select: "Select · <b>j/k</b> move · <b>⇧j</b> extend · then <b>c</b> comment · <b>r</b> redline · <b>g</b> looks good · <b>s</b> suggest",
+    comment: "Comment · <b>⏎</b> comments on the current line or selection",
+    redline: "Redline · <b>⏎</b> marks the selection for deletion",
+  };
+  $("#mb-hint").innerHTML = hints[state.inputMode];
+}
+function setInput(mode) {
+  state.inputMode = mode;
+  $("#app").dataset.input = mode;
+  document.querySelectorAll("#input-seg button").forEach(b => b.classList.toggle("on", b.dataset.input === mode));
+  updateModeHint();
+}
+function contentPrimary() {
+  if (state.inputMode === "comment") { startComment(); return; }
+  if (state.inputMode === "redline") { markRedline(); return; }
+  const note = firstNoteOnRow(state.active, state.cursors[state.active] || 0);
+  if (note) { setFocused(note.id); renderRail(); applyAnchorFocus(); }
+}
+
+/* ═══════════ Status / cheat ═══════════ */
+let statusTimer = null;
+function flash(msg) {
+  const el = $("#status"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(statusTimer); statusTimer = setTimeout(() => el.classList.remove("show"), 2400);
+}
+function renderCheat() {
+  const cols = $("#cheat-cols");
+  const colHTML = groups => groups.map(([group, rows]) =>
+    '<div class="cheat-group">' + group + "</div>" + rows.map(([label, keys]) =>
+      '<div class="cheat-row"><span>' + esc(label) + '</span><span class="keys">' + keys.map(k => "<kbd>" + esc(k) + "</kbd>").join("") + "</span></div>").join("")).join("");
+  cols.innerHTML = "<div>" + colHTML([KEYS[0]]) + "</div><div>" + colHTML([KEYS[1]]) + "</div><div>" + colHTML([KEYS[2], KEYS[3]]) + "</div>";
+}
+function toggleCheat() { $("#cheat").classList.toggle("show"); }
+
+/* ═══════════ Render all ═══════════ */
+
+function renderAll() {
+  syncFocus(); syncView();
+  renderSidebar();
+  if (state.mode === "guided") renderGuided(); else renderContent();
+  renderRail();
+  renderFinishButton();
+  if (state.panelOpen) renderFinishPanel();
+  applyAnchorFocus();
+}
+
+/* ═══════════ Keyboard ═══════════ */
+
+document.addEventListener("keydown", e => {
+  const meta = e.metaKey || e.ctrlKey;
+  const typing = /^(TEXTAREA|INPUT)$/.test(e.target.tagName);
+
+  // command palette scope
+  if (paletteOpen) {
+    if (e.key === "Escape") { e.preventDefault(); closePalette(); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); movePaletteSel(1); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); movePaletteSel(-1); return; }
+    if (e.key === "Enter") { e.preventDefault(); runPaletteSel(); return; }
+    return;
+  }
+  // settings scope
+  if (settingsOpen) {
+    if (e.key === "Escape" || (meta && e.key === ",")) { e.preventDefault(); closeSettings(); return; }
+    return;
+  }
+  // global surface openers
+  if (meta && (e.key === "k" || e.key === "K")) { e.preventDefault(); openPalette(); return; }
+  if (meta && e.key === ",") { e.preventDefault(); openSettings(); return; }
+
+  if (state.submitted) { if (e.key === "Escape") dismissConfirm(); return; }
+
+  if (!typing && e.key === "/") { e.preventDefault(); openPalette(); return; }
+
+  if (typing) {
+    if (e.key === "Enter" && meta) {
+      e.preventDefault();
+      if (state.panelOpen && e.target.id === "parent-comment") { submitReview(); return; }
+      if (e.target.id === "suggest-input") { saveSuggestion(); return; }
+      if (e.target.id === "edit-input") { saveEdit(); return; }
+      if (e.target.id === "composer-input") { saveComposer(); return; }
+      return;
+    }
+    if (e.target.id === "suggest-input") { if (e.key === "Escape") { e.preventDefault(); cancelSuggestion(); return; } return; }
+    if (e.target.id === "edit-input") {
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveEdit(); return; }
+      if (e.key === "Escape") { e.preventDefault(); cancelEdit(); return; }
+    }
+    return;
+  }
+
+  if ($("#cheat").classList.contains("show")) { if (e.key === "?" || e.key === "Escape") toggleCheat(); return; }
+  if (e.key === "?") { e.preventDefault(); toggleCheat(); return; }
+
+  // context-aware finish
+  if (e.key === "Enter" && meta) { e.preventDefault(); if (state.panelOpen) submitReview(); else openPanel(true); return; }
+
+  if (state.panelOpen) {
+    if (e.key === "Escape") { closePanel(); return; }
+    if (e.key === "1") { state.verdict = "comment"; renderFinishPanel(); return; }
+    if (e.key === "2") { state.verdict = "approve"; renderFinishPanel(); return; }
+    if (e.key === "3") { state.verdict = "request"; renderFinishPanel(); return; }
+    return;
+  }
+
+  if (e.key === "z" && meta) { e.preventDefault(); undo(); return; }
+
+  // preset labels: Alt+1..5
+  if (e.altKey && /^[1-5]$/.test(e.key)) { e.preventDefault(); applyTag(+e.key - 1); return; }
+
+  if (e.key === "t") { cycleTab(); return; }
+  if (e.key === "a") { if (state.mode === "workspace" && state.view === "file") { state.railHidden = !state.railHidden; flash(state.railHidden ? "Rail hidden" : "Rail shown"); renderRail(); } else flash("Rail shows on a single changed file"); return; }
+  if (e.key === "]") { e.preventDefault(); jumpFile(1); return; }
+  if (e.key === "[") { e.preventDefault(); jumpFile(-1); return; }
+  if (e.key === "v") { markViewedCurrent(); return; }
+  if (e.key === "c") { e.preventDefault(); startComment(); return; }
+  if (e.key === "C") { e.preventDefault(); startFileComment(); return; }
+  if (e.key === "g") { e.preventDefault(); markLooksGood(); return; }
+  if (e.key === "s") { e.preventDefault(); startSuggestion(); return; }
+  if (e.key === "e") { e.preventDefault(); startEdit(); return; }
+  if (e.key === "r") { e.preventDefault(); if (state.view === "versions") { state.versionDiffView = state.versionDiffView === "rendered" ? "raw" : "rendered"; renderAll(); } else markRedline(); return; }
+  if (e.key === "n") { e.preventDefault(); if (state.mode === "guided") guidedStep(1); else jumpPending(1); return; }
+  if (e.key === "p") { e.preventDefault(); if (state.mode === "guided") guidedStep(-1); else jumpPending(-1); return; }
+  if (e.key === "x") {
+    if (state.view === "all") { const id = changedFileIds[state.allCursor]; state.collapsed[id] = !state.collapsed[id]; flash(state.collapsed[id] ? "collapsed" : "expanded"); renderContent(); }
+    else flash("x collapses files in the all-files view");
+    return;
+  }
+
+  if (e.key === "Escape") {
+    if (state.suggesting) { cancelSuggestion(); return; }
+    if (composer) { cancelComposer(); renderContent(); renderRail(); return; }
+    if (state.selAnchor !== null) { state.selAnchor = null; renderContent(); renderRail(); return; }
+    if (state.focusedId) { setFocused(null); renderRail(); applyAnchorFocus(); return; }
+    if (state.focusZone === "content") { state.focusZone = "sidebar"; syncFocus(); renderContent(); return; }
+    return;
+  }
+
+  if (state.mode === "guided") {
+    if (e.key === "Enter") { e.preventDefault(); guidedStep(1); return; }
+    if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); moveContent(1, e.shiftKey); return; }
+    if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); moveContent(-1, e.shiftKey); return; }
+    return;
+  }
+
+  if (state.view === "all" && state.focusZone === "content") {
+    if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); allFilesStep(1); return; }
+    if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); allFilesStep(-1); return; }
+    if (e.key === "Enter") { e.preventDefault(); openFile(changedFileIds[state.allCursor]); syncView(); renderAll(); return; }
+    return;
+  }
+
+  if (state.focusZone === "sidebar") {
+    if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); moveSidebar(1); return; }
+    if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); moveSidebar(-1); return; }
+    if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); openItem(activeItems()[state.sidebarCursor]); return; }
+    return;
+  }
+
+  // content-focused
+  if (state.view === "versions") { return; }
+  if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); moveContent(1, false); return; }
+  if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); moveContent(-1, false); return; }
+  if (e.key === "J" || (e.shiftKey && e.key === "j")) { e.preventDefault(); moveContent(1, true); return; }
+  if (e.key === "K" || (e.shiftKey && e.key === "k")) { e.preventDefault(); moveContent(-1, true); return; }
+  if (e.key === "Tab") { e.preventDefault(); moveContent(e.shiftKey ? -1 : 1, false); return; }
+  if (e.key === "Enter") { e.preventDefault(); contentPrimary(); return; }
+});
+
+/* ═══════════ Wire up ═══════════ */
+
+$("#palette-btn").addEventListener("click", openPalette);
+$("#theme-btn").addEventListener("click", cycleTheme);
+$("#textured-btn").addEventListener("click", toggleTextured);
+$("#settings-btn").addEventListener("click", openSettings);
+$("#finish-btn").addEventListener("click", () => { if (!state.submitted) openPanel(true); });
+$("#submit-btn").addEventListener("click", submitReview);
+$("#scrim").addEventListener("click", closePanel);
+$("#confirm").addEventListener("click", e => { if (e.target.id === "confirm") dismissConfirm(); });
+$("#cheat").addEventListener("click", e => { if (e.target.id === "cheat") toggleCheat(); });
+$("#palette-wrap").addEventListener("click", e => { if (e.target.id === "palette-wrap") closePalette(); });
+$("#settings-wrap").addEventListener("click", e => { if (e.target.id === "settings-wrap") closeSettings(); });
+$("#palette-input").addEventListener("input", e => { paletteSel = 0; renderPalette(e.target.value); });
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+document.querySelectorAll("#mode-seg button").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
+document.querySelectorAll("#input-seg button").forEach(b => b.addEventListener("click", () => { setInput(b.dataset.input); flash(b.dataset.input + " mode"); }));
+$("#sidebar").addEventListener("mousedown", () => { if (state.focusZone !== "sidebar") { state.focusZone = "sidebar"; syncFocus(); } });
+$("#scroller").addEventListener("mousedown", () => { if (state.focusZone !== "content") { state.focusZone = "content"; syncFocus(); } });
+$("#content").addEventListener("click", e => {
+  if (e.target.id === "open-versions") { setTab("versions"); return; }
+  if (e.target.id === "orphan-jump") { setTab("versions"); return; }
+});
+window.addEventListener("resize", () => { if (railVisible()) renderRail(); });
+
+/* ═══════════ Seed & init ═══════════ */
+
+(function seed() {
+  // a comment on a plan passage revised in v2 — re-anchors, stays attached (conventional label)
+  addAnnotation({ item: "plan", blockId: "p-p1", blockIdEnd: "p-p1", type: "comment", convention: "question",
+    text: "Do we fsync the directory after the rename? On ext4 the rename itself can still be lost on power failure." });
+  // a looks-good marker on the recovery heading
+  addAnnotation({ item: "plan", blockId: "h-p2", blockIdEnd: "h-p2", type: "looksgood", text: "Read-only recovery is the right call." });
+  // a preset label on a plan bullet
+  addAnnotation({ item: "plan", blockId: "li-2", blockIdEnd: "li-2", type: "label", tag: "nit",
+    text: "SCHEMA_VERSION as a string — any reason not to use a number?" });
+  // a blocking file-scoped comment
+  addAnnotation({ item: "plan", fileScope: true, type: "comment", convention: "issue", blocking: true,
+    text: "One blocking concern: durability of the atomic rename (see the fsync question). Please confirm before proceeding." });
+  // a comment on a v1 open question the agent RESOLVED in v2 — orphaned in v2, reattachable in v1
+  addAnnotation({ item: "plan", blockId: "oq-2", blockIdEnd: "oq-2", type: "comment",
+    text: "Agreed — an append-only journal is cleaner. One file per session loses the ordering of annotations across a crash." });
+  // a diff comment anchored by stable line index (the revision line in store.ts)
+  const revLi = FILES.store.lines.findIndex(l => l.text && l.text.indexOf("revision:") >= 0);
+  addAnnotation({ item: "store", startLi: revLi, endLi: revLi, type: "comment", convention: "suggestion",
+    text: "Bumping revision here is nice, but nothing reads it yet — wire it into the Phase 2 recovery summary." });
+  // a code suggestion on the renameSync import in store.ts
+  const impLi = FILES.store.lines.findIndex(l => l.text && l.text.indexOf('import { renameSync } from "node:fs";') >= 0);
+  addAnnotation({ item: "store", startLi: impLi, endLi: impLi, type: "suggestion",
+    oldCode: 'import { renameSync } from "node:fs";',
+    suggestion: 'import { renameSync, openSync, fsyncSync, closeSync } from "node:fs";',
+    text: "Need fsync on the directory to make the rename durable." });
+  state.undoStack = [];
+})();
+
+renderTagLegend();
+applyTheme();
+document.documentElement.style.setProperty("--grain", settings.grain);
+document.documentElement.style.setProperty("--diff-mono", monoStack(settings.monoFont));
+updateTextureBtn();
+renderCheat();
+setInput("select");
+setMode("workspace");
+renderAll();
+flash("Status / Tree / Versions in the sidebar · Select/Comment/Redline below · ⌘K commands · ? for all keys");
+})();
+</script>
+</body>
+</html>

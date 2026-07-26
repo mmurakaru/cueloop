@@ -94,13 +94,14 @@ kbd {
   background-size: 22px 22px;
 }
 
-/* textured canvas: fine film-grain noise + faint guide lines over the base — our take on
-   the grainy near-black surface. Add class="textured" to a full-bleed surface; the noise
-   rides in a pseudo-element so content stays crisp. Tune with --grain and --grid-line. */
+/* textured canvas: fine film-grain noise over the base — our take on the grainy near-black
+   surface. Add class="textured" to a full-bleed surface; the grain rides in a pseudo-element
+   so content stays crisp. Tune with --grain. The faint architectural grid is a SEPARATE,
+   opt-in layer (class="gridlines") so texture can be used without it. */
 :root { --grain: 0.05; --grid-line: rgba(177,182,196,0.05); }
 [data-theme="light"] { --grain: 0.6; --grid-line: rgba(20,20,28,0.04); }
-.textured { position: relative; isolation: isolate; }
-.textured::before {          /* faint architectural grid */
+.textured, .gridlines { position: relative; isolation: isolate; }
+.gridlines::before {          /* faint architectural grid — opt-in, compose with .textured */
   content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
   background-image:
     linear-gradient(var(--grid-line) 1px, transparent 1px),
