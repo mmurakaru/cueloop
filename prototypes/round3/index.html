@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cueloop · round 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../round2/tokens.css">
+<style>
+  body { padding: 64px 24px; }
+  main { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; font-weight: 600; }
+  h1 span { color: var(--accent); }
+  .lede { color: var(--text-muted); margin: 12px 0 6px; max-width: 66ch; }
+  .prov { color: var(--text-dim); font-size: 12.5px; font-family: var(--mono); margin: 0 0 34px; max-width: 70ch; }
+  ol { list-style: none; padding: 0; display: grid; gap: 14px; }
+  a.card {
+    display: grid; grid-template-columns: 40px 1fr; gap: 16px; align-items: baseline;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: 20px 22px; color: inherit; transition: border-color .15s var(--ease), transform .15s var(--ease);
+  }
+  a.card:hover, a.card:focus-visible { border-color: var(--accent); transform: translateY(-1px); outline: none; }
+  .num { color: var(--text-dim); font-family: var(--mono); font-size: 13px; }
+  .name { font-weight: 600; font-size: 16px; }
+  .name .k { color: var(--green); font-family: var(--mono); font-size: 12px; margin-left: 8px; font-weight: 400; }
+  .stance { color: var(--text-muted); font-size: 13.5px; margin-top: 4px; }
+  footer { margin-top: 40px; color: var(--text-dim); font-size: 12.5px; max-width: 72ch; line-height: 1.8; }
+</style>
+</head>
+<body class="textured">
+<main>
+  <h1><span>cueloop</span> · round 3 — feature-rich Ledger</h1>
+  <p class="lede">
+    Three variants building on the chosen Ledger layout, each going deeper on one feature cluster.
+    All share Workspace / Focus / Guided / Split modes, System / Light / Dark, an optional textured
+    canvas, and the keyboard grammar (<kbd>⌘⏎</kbd> = approve-or-send, <kbd>J</kbd>/<kbd>K</kbd> nav,
+    <kbd>v</kbd> viewed). Press <kbd>?</kbd> inside any concept.
+  </p>
+  <p class="prov">design system: hex.tech · cloudflare.com · e2b.dev — feature set distilled from prior-art review tooling, made cueloop's own</p>
+  <ol>
+    <li><a class="card" href="ledger-markup.html">
+      <span class="num">01</span>
+      <span><span class="name">Ledger — Markup<span class="k">select · comment · redline</span></span>
+      <div class="stance">The annotation toolset in depth: Select/Comment/Redline input modes, label tags (Alt+1..5), "looks good", conventional-comment labels with blocking flags, and code suggestions in diffs.</div></span></a></li>
+    <li><a class="card" href="ledger-console.html">
+      <span class="num">02</span>
+      <span><span class="name">Ledger — Console<span class="k">⌘K · ⌘,</span></span>
+      <div class="stance">Settings + command surface: a working Settings dialog whose Diff tab genuinely restyles the live diff (split/unified, word/char, intensity, fonts), plus a fuzzy command palette.</div></span></a></li>
+    <li><a class="card" href="ledger-context.html">
+      <span class="num">03</span>
+      <span><span class="name">Ledger — Context<span class="k">Status/Tree · versions</span></span>
+      <div class="stance">Navigation & revisions: Status-vs-Tree sidebar, changed-first tree expandable to the full repo, all-files continuous scroll with mark-viewed, word/char diff depth, and a plan version browser for agent resubmits.</div></span></a></li>
+  </ol>
+  <footer>
+    These are intermediate, feature-rich Ledger variants. Next: atomic-feature deep-dives (sidebar,
+    edit mode, diffs, settings) prototyped in isolation toward the final product. Round 1 is in
+    <kbd>../index.html</kbd>; round 2 in <kbd>../round2/index.html</kbd>.
+  </footer>
+</main>
+</body>
+</html>

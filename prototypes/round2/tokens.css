@@ -94,6 +94,26 @@ kbd {
   background-size: 22px 22px;
 }
 
+/* textured canvas: fine film-grain noise + faint guide lines over the base — our take on
+   the grainy near-black surface. Add class="textured" to a full-bleed surface; the noise
+   rides in a pseudo-element so content stays crisp. Tune with --grain and --grid-line. */
+:root { --grain: 0.05; --grid-line: rgba(177,182,196,0.05); }
+[data-theme="light"] { --grain: 0.6; --grid-line: rgba(20,20,28,0.04); }
+.textured { position: relative; isolation: isolate; }
+.textured::before {          /* faint architectural grid */
+  content: ""; position: absolute; inset: 0; z-index: -2; pointer-events: none;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 128px 128px;
+}
+.textured::after {           /* film-grain noise */
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  opacity: var(--grain); mix-blend-mode: overlay;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px;
+}
+
 /* shared verdict color mapping: comment=blue, approve=green, request_changes=red */
 .v-comment { color: var(--blue); } .v-approve { color: var(--green); } .v-changes { color: var(--red); }
 
