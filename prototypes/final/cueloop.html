@@ -23,7 +23,7 @@
   }
 
   /* ── App shell ─────────────────────────────── */
-  #app { display: grid; grid-template-rows: 50px 38px 1fr; height: 100%; }
+  #app { display: grid; grid-template-rows: 50px 38px 1fr; grid-template-columns: minmax(0, 1fr); height: 100%; }
 
   #topbar {
     display: flex; align-items: center; gap: 10px;
@@ -67,9 +67,28 @@
 
   /* ── Mode bar (input tools) ────────────────── */
   #modebar { display: flex; align-items: center; gap: 14px; padding: 0 16px 0 18px; border-bottom: 1px solid var(--border); background: var(--panel); }
-  .input-tools { display: flex; align-items: center; gap: 6px; flex: none; }
-  .input-tools .tool-btn { padding: 6px 8px; font-size: 12px; }
-  .input-tools .tool-btn .ig { font-family: var(--mono); font-size: 12px; line-height: 1; }
+  /* input-mode controls: a connected segmented group where the ACTIVE mode is
+     expanded (icon + accent-outlined label) and the rest are icon-only. Switching
+     modes animates the label/width open on the new mode and closed on the old one,
+     so exactly one segment is ever expanded — no layout jump. */
+  #input-seg {
+    display: inline-flex; align-items: center; gap: 3px; flex: none;
+    background: var(--elevated); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: 3px;
+  }
+  #input-seg .tool-btn {
+    font-size: 12px; gap: 0; padding: 5px 8px;
+    background: transparent; border-color: transparent; border-radius: var(--r);
+    transition: background-color .18s var(--ease-standard), color .18s var(--ease-standard),
+                border-color .18s var(--ease-standard), padding .18s var(--ease-out);
+  }
+  #input-seg .tool-btn .ig { font-family: var(--mono); font-size: 12px; line-height: 1; }
+  #input-seg .tool-btn:hover { background: var(--overlay); color: var(--text); border-color: transparent; }
+  #input-seg .tool-btn.active { padding: 6px 11px; color: var(--accent); background: var(--accent-tint); border-color: var(--accent); }
+  /* label rides on .active only (icon-only otherwise): width via --ease-out, fade via --ease-standard */
+  #input-seg .tool-btn .label { margin-left: 0; transition: max-width .18s var(--ease-out), opacity .15s var(--ease-standard), margin-left .18s var(--ease-out); }
+  #input-seg .tool-btn:hover .label, #input-seg .tool-btn:focus-visible .label { max-width: 0; opacity: 0; }
+  #input-seg .tool-btn.active .label { max-width: 140px; opacity: 1; margin-left: 6px; }
   .verb-legend { display: flex; gap: 10px; flex: none; }
   .verb-legend .vl { display: flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
   .verb-legend .vl kbd { font-size: 9px; padding: 0 4px; }
@@ -89,7 +108,7 @@
   #app[data-mode="focus"] #rightpane { display: none; }
 
   /* header brand */
-  #brand { font-family: var(--mono); font-size: 12px; color: var(--text-muted); text-decoration: none; letter-spacing: 0.02em; flex: none; }
+  #brand { font-family: var(--mono); font-size: 12.5px; font-weight: 500; color: var(--text); text-decoration: none; letter-spacing: 0.02em; flex: none; padding-right: 12px; margin-right: 2px; border-right: 1px solid var(--border); }
   #brand:hover { color: var(--accent); }
 
   /* ── Spaces panel (Workspaces → Sessions) ──── */
@@ -778,7 +797,7 @@
     <div class="input-tools" id="input-seg">
       <button class="tool-btn active" data-input="select" aria-pressed="true" title="Select (select mode)"><span class="ig" aria-hidden="true">⌖</span><span class="label">Select</span></button>
       <button class="tool-btn" data-input="comment" aria-pressed="false" title="Comment (comment mode)"><span class="ig" aria-hidden="true">▤</span><span class="label">Comment</span></button>
-      <button class="tool-btn" data-input="redline" aria-pressed="false" title="Redline (redline mode)"><span class="ig" aria-hidden="true">╌</span><span class="label">Redline</span></button>
+      <button class="tool-btn" data-input="redline" aria-pressed="false" title="Cut (cut mode)"><span class="ig" aria-hidden="true">╌</span><span class="label">Cut</span></button>
     </div>
   </div>
 
@@ -820,7 +839,7 @@
 
     <div id="rightpane">
       <div id="rp-tabs">
-        <button data-rtab="feedback">Feedback <span class="rp-badge" id="rp-fb-count"></span></button>
+        <button data-rtab="feedback">Review <span class="rp-badge" id="rp-fb-count"></span></button>
         <button data-rtab="agent">Agent <span class="rp-preview">preview</span></button>
       </div>
       <div id="rp-body">
@@ -1159,7 +1178,7 @@ const KEYS = [
     ["Move cursor (sidebar / lines)", ["j", "k"]],
     ["Spaces panel (workspaces / sessions)", ["w"]],
     ["Switch Status / Tree / Versions", ["t"]],
-    ["Feedback ⇄ Agent panel", ["f"]],
+    ["Review ⇄ Agent panel", ["f"]],
     ["Open Agent panel", ["a"]],
     ["Open item · into center", ["⏎"]],
     ["Next / prev changed file", ["]", "["]],
@@ -1169,7 +1188,7 @@ const KEYS = [
   ["ANNOTATE", [
     ["Comment on line / span", ["c"]],
     ["File-scoped comment", ["⇧c"]],
-    ["Redline (mark deletion)", ["r"]],
+    ["Cut (mark deletion)", ["r"]],
     ["Looks good (positive)", ["g"]],
     ["Code suggestion", ["s"]],
     ["Edit plan text (tracked)", ["e"]],
@@ -1181,7 +1200,7 @@ const KEYS = [
     ["Next / prev pending", ["n", "p"]],
     ["Focus summary · submit review", ["⌘⏎"]],
     ["Undo last", ["⌘z"]],
-    ["Verdict (Feedback pane)", ["1", "2", "3"]],
+    ["Verdict (Review pane)", ["1", "2", "3"]],
   ]],
   ["SURFACES", [
     ["Command palette", ["⌘K", "/"]],
@@ -2377,7 +2396,7 @@ function guidedStep(dir) {
 
 function updateCrumb() {
   const c = $("#crumb");
-  const lead = esc(workspaceById(state.activeWorkspace).name) + " <span class='sep'>/</span> " + esc(state.sessionTitle);
+  const lead = esc(state.sessionTitle);
   if (state.view === "all") { c.innerHTML = lead + " <span class='sep'>/</span> <b>all changed files</b> <span class='cbadge'>" + changedFileIds.length + " files</span>"; return; }
   if (state.view === "versions") { c.innerHTML = lead + " <span class='sep'>/</span> <b>plan.md</b> <span class='sep'>·</span> revision diff <span class='cbadge'>v1 → v2</span>"; return; }
   const f = FILES[state.active];
@@ -2471,7 +2490,7 @@ function buildCard(card) {
       + '<div class="card-body">' + esc(a.text) + "</div>";
   } else if (card.kind === "redline") {
     el.className = "card is-redline" + (card.orphan ? " orphan" : "");
-    el.innerHTML = '<div class="card-head"><span class="card-type">REDLINE · DELETE</span>' + badge + "</div>" + loc
+    el.innerHTML = '<div class="card-head"><span class="card-type">CUT · DELETE</span>' + badge + "</div>" + loc
       + '<div class="card-quote' + (f.kind === "diff" ? " mono" : "") + '">' + esc(quoteOf(a)) + "</div>"
       + '<div class="card-body">' + esc(a.text) + "</div>";
   } else if (card.kind === "looksgood") {
@@ -2540,8 +2559,8 @@ function renderRail() {
     const empty = document.createElement("div");
     empty.className = "rail-empty static";
     empty.textContent = FILES[state.active].kind === "plan"
-      ? "No notes on this file yet. Move with j / k, extend with ⇧j, then c to comment, r to redline, g for looks-good, or e to rewrite a block."
-      : "Move the line cursor with j / k, then c to comment, r to redline, s to suggest code, or ⇧C for a file-scoped note.";
+      ? "No notes on this file yet. Move with j / k, extend with ⇧j, then c to comment, r to cut, g for looks-good, or e to rewrite a block."
+      : "Move the line cursor with j / k, then c to comment, r to cut, s to suggest code, or ⇧C for a file-scoped note.";
     railCards.appendChild(empty);
     if (otherCount > 0) railNote(otherCount);
     return;
@@ -2663,12 +2682,12 @@ function addAnnotation(a) {
   return a;
 }
 function markRedline() {
-  if (!canAnnotate() || state.editing != null || state.suggesting) { flash("Open a changed file to redline"); return; }
+  if (!canAnnotate() || state.editing != null || state.suggesting) { flash("Open a changed file to cut"); return; }
   ensureWorkspace();
   const [s0, s1] = selRange();
   const a = addAnnotation(Object.assign({ item: state.active, type: "redline" }, anchorFromRange(state.active, s0, s1)));
   state.selAnchor = null; setFocused(a.id);
-  flash("Redline marked — deletion proposed (add a reason in the card)");
+  flash("Cut marked — deletion proposed (add a reason in the card)");
   renderAll();
 }
 function markLooksGood() {
@@ -2901,7 +2920,7 @@ function renderRightMeta() {
 function finishItemHTML(a) {
   let tag = "", body = "";
   const type = a.type || "comment";
-  if (type === "redline") { tag = '<span class="fi-tag red">redline</span>'; body = '<span class="del">' + esc(quoteOf(a)) + "</span>"; }
+  if (type === "redline") { tag = '<span class="fi-tag red">cut</span>'; body = '<span class="del">' + esc(quoteOf(a)) + "</span>"; }
   else if (type === "looksgood") { tag = '<span class="fi-tag green">looks good</span>'; body = a.text ? esc(a.text) : esc(quoteOf(a)); }
   else if (type === "label") { const t = tagById(a.tag); tag = '<span class="fi-tag" style="color:' + t.color + ';border-color:' + t.color + '">' + t.label + "</span>"; body = a.text ? esc(a.text) : esc(quoteOf(a)); }
   else if (type === "suggestion") { tag = '<span class="fi-tag green">suggestion</span>'; body = '<span class="minus">' + esc(trunc(a.oldCode.replace(/\n/g, " "))) + '</span> → <span class="plus">' + esc(trunc(a.suggestion.replace(/\n/g, " "))) + "</span>"; }
@@ -2921,7 +2940,7 @@ function renderFinishPanel() {
 
   html += '<div class="f-label">SUMMARY COMMENT</div><textarea id="parent-comment" placeholder="Overall note to the agent (optional)…">' + (($("#parent-comment") && !state.submitted) ? esc($("#parent-comment").value) : "") + "</textarea>";
   const verdicts = [
-    { id: "comment", cls: "", name: "Comment", desc: "Feedback only, no decision", key: "1" },
+    { id: "comment", cls: "", name: "Comment", desc: "Comments only, no decision", key: "1" },
     { id: "approve", cls: "v-approve", name: "Approve", desc: "Proceed as planned", key: "2" },
     { id: "request", cls: "v-changes", name: "Request changes", desc: "Revise and resubmit", key: "3" },
   ];
@@ -2966,7 +2985,7 @@ function renderFinishPanel() {
     if (state.submitted) { sub.className = "approve"; sub.textContent = "Review sent ✓"; }
     else {
       sub.className = state.verdict === "approve" ? "approve" : "";
-      sub.textContent = state.verdict === "approve" ? "Approve & finish" : state.verdict === "request" ? "Request changes" : (pendingCount() ? "Send " + pendingCount() + " annotation" + (pendingCount() === 1 ? "" : "s") : "Submit review");
+      sub.textContent = "Submit review" + (pendingCount() ? " (" + pendingCount() + ")" : "");
     }
   }
   body.querySelectorAll("[data-verdict]").forEach(el => el.addEventListener("click", () => { state.verdict = el.dataset.verdict; renderFinishPanel(); renderRightMeta(); }));
@@ -3054,7 +3073,7 @@ let paletteOpen = false, paletteResults = [], paletteSel = 0;
 const commands = [
   { id: "comment", group: "Annotate", ico: "✎", name: "Comment on selection", desc: "Note the current line or span", keys: ["c"], run: () => { closePalette(); startComment(); } },
   { id: "filecomment", group: "Annotate", ico: "❐", name: "File-scoped comment", desc: "A note about the whole file", keys: ["⇧c"], run: () => { closePalette(); startFileComment(); } },
-  { id: "redline", group: "Annotate", ico: "╌", name: "Redline selection", desc: "Propose deleting the selection", keys: ["r"], run: () => { closePalette(); markRedline(); } },
+  { id: "redline", group: "Annotate", ico: "╌", name: "Cut selection", desc: "Propose deleting the selection", keys: ["r"], run: () => { closePalette(); markRedline(); } },
   { id: "looksgood", group: "Annotate", ico: "✓", name: "Mark looks good", desc: "Positive marker on the selection", keys: ["g"], run: () => { closePalette(); markLooksGood(); } },
   { id: "suggest", group: "Annotate", ico: "±", name: "Suggest a code change", desc: "Propose a replacement", keys: ["s"], run: () => { closePalette(); startSuggestion(); } },
   { id: "edit", group: "Annotate", ico: "✐", name: "Edit plan text", desc: "Rewrite the current block, tracked", keys: ["e"], run: () => { closePalette(); state.focusZone = "content"; syncFocus(); startEdit(); } },
@@ -3067,7 +3086,7 @@ const commands = [
   { id: "workspace", group: "Layout", ico: "▣", name: "Workspace mode", desc: "Full four-column review", keys: [], run: () => { closePalette(); setMode("workspace"); } },
   { id: "split", group: "Layout", ico: "◫", name: "Split mode", desc: "Base beside working copy", keys: [], run: () => { closePalette(); setMode("split"); } },
   { id: "spaces", group: "Layout", ico: "❏", name: "Focus Spaces panel", desc: "Workspaces and sessions", keys: ["w"], run: () => { closePalette(); if (state.mode === "focus") setMode("workspace"); state.focusZone = "nav"; syncFocus(); renderSpaces(); } },
-  { id: "feedback", group: "Panels", ico: "❝", name: "Feedback panel", desc: "Pending annotations · verdict · submit", keys: ["f"], run: () => { closePalette(); if (state.mode === "focus") setMode("workspace"); switchRightTab("feedback"); } },
+  { id: "feedback", group: "Panels", ico: "❝", name: "Review panel", desc: "Pending annotations · verdict · submit", keys: ["f"], run: () => { closePalette(); if (state.mode === "focus") setMode("workspace"); switchRightTab("feedback"); } },
   { id: "agent", group: "Panels", ico: "✦", name: "Agent panel (preview)", desc: "Chat with the review agent", keys: ["a"], run: () => { closePalette(); if (state.mode === "focus") setMode("workspace"); switchRightTab("agent"); const ai = $("#ag-input"); if (ai) ai.focus(); } },
   { id: "textured", group: "Appearance", ico: "▦", name: "Toggle textured canvas", desc: "Film-grain surface on / off", keys: [], run: () => { closePalette(); toggleTextured(); } },
   { id: "theme", group: "Appearance", ico: "◐", name: "Cycle theme", desc: "System / Light / Dark", keys: [], run: () => { closePalette(); cycleTheme(); } },
@@ -3373,9 +3392,9 @@ function renderTagLegend() {
 }
 function updateModeHint() {
   const hints = {
-    select: "Select · <b>j/k</b> move · <b>⇧j</b> extend · then <b>c</b> comment · <b>r</b> redline · <b>g</b> looks good · <b>s</b> suggest",
+    select: "Select · <b>j/k</b> move · <b>⇧j</b> extend · then <b>c</b> comment · <b>r</b> cut · <b>g</b> looks good · <b>s</b> suggest",
     comment: "Comment · <b>⏎</b> comments on the current line or selection",
-    redline: "Redline · <b>⏎</b> marks the selection for deletion",
+    redline: "Cut · <b>⏎</b> marks the selection for deletion",
   };
   const el = $("#mb-hint");
   if (el) el.innerHTML = hints[state.inputMode];
@@ -3506,7 +3525,7 @@ document.addEventListener("keydown", e => {
   }
   if (e.key === "f") {
     if (state.mode === "focus") { flash("Side panels are hidden in Focus mode"); return; }
-    toggleRightTab(); flash(state.rightTab === "agent" ? "Agent panel" : "Feedback panel");
+    toggleRightTab(); flash(state.rightTab === "agent" ? "Agent panel" : "Review panel");
     return;
   }
   if (e.key === "a") {
@@ -3596,7 +3615,7 @@ $("#settings-wrap").addEventListener("click", e => { if (e.target.id === "settin
 $("#palette-input").addEventListener("input", e => { paletteSel = 0; renderPalette(e.target.value); });
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
 document.querySelectorAll("#mode-seg button").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
-document.querySelectorAll("#input-seg button").forEach(b => b.addEventListener("click", () => { setInput(b.dataset.input); flash(b.dataset.input + " mode"); }));
+document.querySelectorAll("#input-seg button").forEach(b => b.addEventListener("click", () => { setInput(b.dataset.input); flash(b.querySelector(".label").textContent.toLowerCase() + " mode"); }));
 $("#spaces").addEventListener("mousedown", () => { if (state.focusZone !== "nav") { state.focusZone = "nav"; syncFocus(); } });
 $("#sidebar").addEventListener("mousedown", () => { if (state.focusZone !== "sidebar") { state.focusZone = "sidebar"; syncFocus(); renderSpaces(); } });
 $("#scroller").addEventListener("mousedown", () => { if (state.focusZone !== "content") { state.focusZone = "content"; syncFocus(); renderSpaces(); } });
@@ -3647,7 +3666,7 @@ switchRightTab(state.rightTab);
 setInput("select");
 setMode("workspace");
 renderAll();
-flash("Spaces (w) · Status/Tree/Versions · Feedback/Agent (f) · ⌘K commands · ? for all keys");
+flash("Spaces (w) · Status/Tree/Versions · Review/Agent (f) · ⌘K commands · ? for all keys");
 })();
 </script>
 </body>
