@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cueloop · Canvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* ── canvas shell ─────────────────────────────────────────────── */
+  html, body { height: 100%; }
+  #canvas {
+    position: fixed; inset: 0;
+    overflow: auto;
+    padding: 84px 24px 72px;
+    display: flex; justify-content: center;
+    background: var(--bg);
+    scroll-behavior: smooth;
+  }
+
+  /* top-left brand, top-right theme — floating over the dotted field */
+  .chrome {
+    position: fixed; z-index: 40;
+    top: 20px;
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 12px;
+    -webkit-user-select: none; user-select: none;
+  }
+  .chrome.left  { left: 24px; }
+  .chrome.right { right: 24px; }
+  .brand { color: var(--text-dim); letter-spacing: .02em; }
+  .brand a { color: var(--text-muted); }
+  .brand a:hover { color: var(--accent); }
+  .brand .dot-sep { color: var(--accent); margin: 0 2px; }
+
+  .theme-btn, .hint-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 28px; padding: 0 10px;
+    background: var(--elevated); color: var(--text-muted);
+    border: 1px solid var(--border); border-radius: var(--r);
+    font-family: var(--mono); font-size: 11px; cursor: pointer;
+    transition: border-color .15s var(--ease), color .15s var(--ease);
+  }
+  .theme-btn:hover, .hint-btn:hover { border-color: var(--border-strong); color: var(--text); }
+  .theme-btn .glyph { font-size: 12px; line-height: 1; }
+
+  /* ── the sheet ────────────────────────────────────────────────── */
+  #sheetWrap { width: 100%; max-width: 760px; }
+  .sheet {
+    background: var(--elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--r-xl);
+    box-shadow: var(--shadow);
+    padding: 52px 60px 60px;
+    position: relative;
+  }
+  .sheet.hidden { display: none; }
+
+  .doc-kicker {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 18px;
+  }
+
+  /* selectable units */
+  .unit {
+    position: relative;
+    border-radius: var(--r);
+    padding: 3px 10px;
+    margin: 0 -10px;
+    transition: background .12s var(--ease), box-shadow .12s var(--ease);
+    outline: none;
+  }
+  .unit.selected { background: var(--accent-tint); }
+  .unit.cursor::after {
+    content: ""; position: absolute; inset: 0;
+    border: 1px solid var(--accent); border-radius: var(--r);
+    pointer-events: none;
+  }
+  .unit.flash { animation: flash .9s var(--ease); }
+  @keyframes flash {
+    0%,100% { background: transparent; }
+    25% { background: var(--accent-tint); }
+  }
+
+  h1.unit { font-size: 25px; font-weight: 600; line-height: 1.25; margin: 0 -10px 6px; letter-spacing: -.01em; }
+  h2.unit { font-size: 16px; font-weight: 600; margin: 30px -10px 8px; letter-spacing: .01em; }
+  p.unit  { margin: 12px -10px; color: var(--text-muted); }
+  .unit.bullet, .unit.numbered {
+    margin: 5px -10px 5px 8px; color: var(--text-muted);
+    padding-left: 30px;
+  }
+  .unit.bullet::before {
+    content: "–"; position: absolute; left: 12px; color: var(--accent);
+    font-family: var(--mono);
+  }
+  .unit.numbered::before {
+    content: attr(data-n) "."; position: absolute; left: 8px; width: 18px;
+    text-align: right; color: var(--accent); font-family: var(--mono); font-size: 12px;
+  }
+  code.path { font-family: var(--mono); font-size: 12.5px; color: var(--text); background: var(--bg); padding: 1px 5px; border-radius: var(--r-sm); border: 1px solid var(--border); }
+
+  pre.unit {
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.7;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--r-lg); padding: 16px 18px; margin: 16px -10px;
+    overflow-x: auto; color: var(--text);
+  }
+  pre.unit .kw  { color: var(--accent); }
+  pre.unit .ty  { color: var(--blue); }
+  pre.unit .st  { color: var(--green); }
+
+  /* note markers on units */
+  .unit .note-pin {
+    position: absolute; right: -46px; top: 50%; transform: translateY(-50%);
+    display: none; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 999px;
+    background: var(--accent-tint); border: 1px solid var(--accent);
+    color: var(--accent); font-family: var(--mono); font-size: 11px; font-weight: 500;
+  }
+  .unit.has-note { box-shadow: inset 2px 0 0 var(--accent); }
+  .unit.has-note .note-pin { display: inline-flex; }
+
+  /* editable state */
+  .unit.editing {
+    background: var(--bg); box-shadow: inset 0 0 0 1px var(--accent);
+    caret-color: var(--accent);
+  }
+
+  /* ── diff view ────────────────────────────────────────────────── */
+  #diff { max-width: 860px; width: 100%; margin: 0 auto; }
+  #diff.hidden { display: none; }
+  .diff-file {
+    background: var(--elevated); border: 1px solid var(--border);
+    border-radius: var(--r-lg); box-shadow: var(--shadow);
+    margin-bottom: 20px; overflow: hidden;
+  }
+  .diff-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 12.5px; color: var(--text);
+    background: var(--panel);
+  }
+  .diff-head .badge { font-size: 10px; padding: 1px 7px; border-radius: 999px; letter-spacing: .04em; }
+  .badge.new { background: var(--green-tint); color: var(--green); }
+  .badge.mod { background: var(--accent-tint); color: var(--accent); }
+  .diff-head .stat { margin-left: auto; font-size: 11px; }
+  .diff-head .stat .add { color: var(--green); }
+  .diff-head .stat .del { color: var(--red); }
+  .diff-body { font-family: var(--mono); font-size: 12.5px; line-height: 1.7; }
+  .dl { display: flex; position: relative; white-space: pre; }
+  .dl .ln { width: 44px; flex: none; text-align: right; padding-right: 10px; color: var(--text-dim); -webkit-user-select: none; user-select: none; }
+  .dl .code { flex: 1; padding-right: 16px; }
+  .dl.add { background: var(--green-tint); }
+  .dl.add .code::before { content: "+"; color: var(--green); }
+  .dl.del { background: var(--red-tint); }
+  .dl.del .code::before { content: "-"; color: var(--red); }
+  .dl.ctx .code::before { content: " "; }
+  .dl.hunk { color: var(--text-dim); background: var(--panel); }
+  .dl.hunk .code::before { content: ""; }
+  .dl.cursor { box-shadow: inset 2px 0 0 var(--accent); background: var(--accent-tint); }
+  .dl.has-note::after {
+    content: "●"; position: absolute; right: 8px; color: var(--accent); font-size: 9px;
+  }
+
+  /* ── status strip ─────────────────────────────────────────────── */
+  #status {
+    position: fixed; z-index: 40; left: 0; right: 0; bottom: 0;
+    height: 34px; display: flex; align-items: center; gap: 0;
+    padding: 0 18px; font-family: var(--mono); font-size: 11.5px;
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border); color: var(--text-muted);
+  }
+  #status .seg { display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; }
+  #status .seg + .seg { border-left: 1px solid var(--border); }
+  #status .k { color: var(--text-dim); }
+  #status .pending-n { color: var(--accent); }
+  #status .add { color: var(--green); } #status .del { color: var(--red); }
+  #status .spacer { flex: 1; }
+  #status .mode-pill { color: var(--text); }
+  #status .cmd-hint { color: var(--text-dim); }
+  #status .cmd-hint kbd { margin: 0 1px; }
+
+  /* ── guided progress bar ──────────────────────────────────────── */
+  #progress {
+    position: fixed; z-index: 40; left: 0; right: 0; top: 0; height: 3px;
+    background: transparent; display: none;
+  }
+  #progress.on { display: block; }
+  #progress .fill { height: 100%; background: var(--accent); width: 0; transition: width .2s var(--ease); }
+  #progress .label {
+    position: fixed; top: 58px; left: 50%; transform: translateX(-50%);
+    font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+    background: var(--elevated); border: 1px solid var(--border);
+    padding: 4px 12px; border-radius: 999px;
+  }
+
+  /* ── command palette ──────────────────────────────────────────── */
+  .scrim {
+    position: fixed; inset: 0; z-index: 90;
+    background: rgba(0,0,0,.32);
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    display: none; align-items: flex-start; justify-content: center;
+    padding-top: 14vh;
+  }
+  .scrim.on { display: flex; }
+  .palette {
+    width: min(600px, 92vw);
+    background: var(--overlay); border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg); box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .palette .pinput {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+  }
+  .palette .pinput .lead { color: var(--accent); font-family: var(--mono); font-size: 13px; }
+  .palette input {
+    flex: 1; background: transparent; border: 0; outline: none;
+    color: var(--text); font-family: var(--sans); font-size: 15px;
+  }
+  .palette input::placeholder { color: var(--text-dim); }
+  .palette .ctx-chip {
+    font-family: var(--mono); font-size: 10.5px; color: var(--text-muted);
+    background: var(--elevated); border: 1px solid var(--border);
+    padding: 2px 8px; border-radius: 999px;
+  }
+  .plist { max-height: 46vh; overflow-y: auto; padding: 6px; }
+  .prow {
+    display: flex; align-items: center; gap: 12px;
+    padding: 9px 12px; border-radius: var(--r); cursor: pointer;
+  }
+  .prow .picon { width: 18px; text-align: center; color: var(--text-dim); font-family: var(--mono); font-size: 13px; }
+  .prow .ptext { flex: 1; }
+  .prow .ptitle { color: var(--text); font-size: 13.5px; }
+  .prow .ptitle .mt { color: var(--accent); }
+  .prow .psub { color: var(--text-dim); font-size: 11.5px; margin-top: 1px; }
+  .prow .pkey { display: flex; gap: 3px; }
+  .prow[aria-selected="true"] { background: var(--accent-tint); }
+  .prow[aria-selected="true"] .picon { color: var(--accent); }
+  .pempty { padding: 22px 16px; color: var(--text-dim); font-family: var(--mono); font-size: 12px; text-align: center; }
+  .pfoot {
+    display: flex; align-items: center; gap: 16px;
+    padding: 9px 14px; border-top: 1px solid var(--border);
+    font-family: var(--mono); font-size: 10.5px; color: var(--text-dim);
+  }
+  .pfoot .sp { flex: 1; }
+
+  /* palette flow: verdict rows + inline comment step */
+  .verdict-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+  .flowbar {
+    display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+  }
+  .flowbar .step { color: var(--text-dim); }
+  .flowbar .step.on { color: var(--accent); }
+  .flowbar .arr { color: var(--text-dim); opacity: .5; }
+  .flow-body { padding: 16px; }
+  .flow-body textarea {
+    width: 100%; min-height: 84px; resize: vertical;
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--r);
+    color: var(--text); font-family: var(--sans); font-size: 14px; padding: 10px 12px; outline: none;
+  }
+  .flow-body textarea:focus { border-color: var(--border-strong); }
+  .flow-summary { font-size: 13px; color: var(--text-muted); }
+  .flow-summary .row { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .flow-summary .row:last-child { border-bottom: 0; }
+  .flow-summary .snip { color: var(--text-dim); font-family: var(--mono); font-size: 11.5px; }
+
+  /* ── comment composer ─────────────────────────────────────────── */
+  #composer {
+    position: fixed; z-index: 80; left: 50%; bottom: 62px; transform: translateX(-50%) translateY(8px);
+    width: min(520px, 92vw); opacity: 0; pointer-events: none;
+    background: var(--overlay); border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg); box-shadow: var(--shadow);
+    transition: opacity .16s var(--ease), transform .16s var(--ease);
+  }
+  #composer.on { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+  #composer .chead {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11px; color: var(--text-muted);
+  }
+  #composer .chead .tgt { color: var(--accent); }
+  #composer textarea {
+    width: 100%; min-height: 70px; resize: none; border: 0; outline: none;
+    background: transparent; color: var(--text); font-family: var(--sans);
+    font-size: 14px; padding: 12px 14px;
+  }
+  #composer .cfoot {
+    display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+    border-top: 1px solid var(--border); font-family: var(--mono); font-size: 10.5px; color: var(--text-dim);
+  }
+  #composer .cfoot .sp { flex: 1; }
+
+  /* ── overview panel (transient / pinned) ──────────────────────── */
+  #overview {
+    position: fixed; z-index: 60; top: 0; right: 0; bottom: 34px;
+    width: 340px; transform: translateX(calc(100% + 12px));
+    display: flex; flex-direction: column;
+    background: var(--panel); border-left: 1px solid var(--border-strong);
+    box-shadow: -8px 0 40px rgba(0,0,0,.28);
+    transition: transform .24s var(--ease);
+  }
+  #overview.on { transform: translateX(0); }
+  #overview .ohead {
+    display: flex; align-items: center; gap: 8px; padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  #overview .ohead .otitle { font-size: 13px; font-weight: 600; }
+  #overview .ohead .ocount { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+  #overview .ohead .ohint { margin-left: auto; font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); }
+  #olist { flex: 1; overflow-y: auto; padding: 10px; }
+  .ocard {
+    border: 1px solid var(--border); border-radius: var(--r);
+    padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+    background: var(--elevated); transition: border-color .12s var(--ease);
+  }
+  .ocard:hover { border-color: var(--border-strong); }
+  .ocard.active { border-color: var(--accent); box-shadow: inset 2px 0 0 var(--accent); }
+  .ocard .otop { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+  .ocard .kind { font-family: var(--mono); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+  .ocard .kind.comment { color: var(--blue); }
+  .ocard .kind.edit { color: var(--accent); }
+  .ocard .osnip { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-left: auto; }
+  .ocard .obody { font-size: 13px; color: var(--text-muted); }
+  .ocard .odiff .ins { padding: 0 2px; } .ocard .odiff .del { padding: 0 2px; }
+  #overview .oempty { padding: 30px 18px; text-align: center; color: var(--text-dim); font-family: var(--mono); font-size: 12px; }
+  #overview .ofoot { padding: 12px; border-top: 1px solid var(--border); }
+  #overview .submit-cta {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; height: 36px; border-radius: var(--r); cursor: pointer;
+    background: var(--accent-tint); border: 1px solid var(--accent); color: var(--accent);
+    font-family: var(--mono); font-size: 12px;
+  }
+  #overview .submit-cta:hover { background: var(--accent); color: var(--accent-ink); }
+
+  /* split mode */
+  #canvas.split-mode { align-items: flex-start; }
+  .split { display: none; gap: 18px; width: 100%; max-width: 1080px; }
+  .split.on { display: grid; grid-template-columns: 1fr 1fr; }
+  .split .col { background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow); padding: 28px 30px 36px; }
+  .split .col h4 { margin: 0 0 14px; font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); font-weight: 500; }
+  .split .col .su { margin: 10px 0; color: var(--text-muted); font-size: 13.5px; line-height: 1.6; }
+  .split .col .su.h { color: var(--text); font-weight: 600; }
+
+  /* cheat sheet */
+  #cheat { }
+  .cheat-card {
+    width: min(560px, 92vw); background: var(--overlay);
+    border: 1px solid var(--border-strong); border-radius: var(--r-lg);
+    box-shadow: var(--shadow); padding: 22px 26px;
+  }
+  .cheat-card h3 { margin: 0 0 16px; font-size: 14px; font-weight: 600; }
+  .cheat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 28px; }
+  .cheat-grid .row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-muted); }
+  .cheat-grid .row kbd { flex: none; }
+  .cheat-grid .row .d { color: var(--text-muted); }
+
+  /* toast */
+  #toast {
+    position: fixed; z-index: 100; left: 50%; bottom: 56px; transform: translateX(-50%) translateY(10px);
+    opacity: 0; pointer-events: none;
+    background: var(--overlay); border: 1px solid var(--border-strong);
+    border-radius: var(--r); box-shadow: var(--shadow);
+    padding: 12px 16px; display: flex; align-items: center; gap: 12px;
+    font-size: 13px; transition: opacity .2s var(--ease), transform .2s var(--ease);
+  }
+  #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast .check { width: 20px; height: 20px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: var(--green-tint); color: var(--green); font-size: 12px; }
+  #toast .tsub { color: var(--text-dim); font-family: var(--mono); font-size: 11px; }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+</style>
+</head>
+<body>
+
+<div id="progress"><div class="fill"></div><div class="label"></div></div>
+
+<div class="chrome left">
+  <span class="brand"><a href="index.html">cueloop</a><span class="dot-sep">·</span>Canvas</span>
+</div>
+<div class="chrome right">
+  <button class="hint-btn" id="cheatBtn" title="Keyboard cheat sheet (?)">?</button>
+  <button class="theme-btn" id="themeBtn"><span class="glyph" id="themeGlyph">◐</span><span id="themeLabel">System</span></button>
+</div>
+
+<!-- dotted canvas -->
+<main id="canvas" class="dotted">
+  <div id="sheetWrap">
+    <section class="sheet" id="sheet"></section>
+  </div>
+  <div id="diff" class="hidden"></div>
+  <div class="split" id="split"></div>
+</main>
+
+<!-- status strip -->
+<div id="status">
+  <span class="seg cmd-hint"><kbd>⌘K</kbd> commands</span>
+  <span class="seg"><span class="pending-n" id="stPending">0 pending</span></span>
+  <span class="seg" id="stEditsSeg"><span class="k">edits</span> <span id="stEdits"><span class="add">+0</span> <span class="del">−0</span></span></span>
+  <span class="spacer"></span>
+  <span class="seg mode-pill" id="stMode">Focus</span>
+  <span class="seg" id="stArtifact">Plan</span>
+</div>
+
+<!-- overview panel -->
+<aside id="overview">
+  <div class="ohead">
+    <span class="otitle">Pending review</span>
+    <span class="ocount" id="oCount">0</span>
+    <span class="ohint"><kbd>n</kbd>/<kbd>p</kbd> · <kbd>esc</kbd></span>
+  </div>
+  <div id="olist"></div>
+  <div class="ofoot">
+    <button class="submit-cta" id="oSubmit">Submit review <kbd>⌘⏎</kbd></button>
+  </div>
+</aside>
+
+<!-- comment composer -->
+<div id="composer">
+  <div class="chead"><span>Comment on</span><span class="tgt" id="cTgt">selection</span></div>
+  <textarea id="cText" placeholder="Leave a note for the agent…"></textarea>
+  <div class="cfoot"><kbd>⏎</kbd> save<span class="sp"></span><kbd>esc</kbd> cancel · stays pending until submit</div>
+</div>
+
+<!-- palette / flow / cheat scrims -->
+<div class="scrim" id="palScrim">
+  <div class="palette" id="palette"></div>
+</div>
+<div class="scrim" id="cheatScrim">
+  <div class="cheat-card" id="cheat"></div>
+</div>
+
+<!-- toast -->
+<div id="toast"><span class="check">✓</span><span><span id="toastMain"></span> <span class="tsub" id="toastSub"></span></span></div>
+
+<script>
+"use strict";
+/* ══════════════════════════════════════════════════════════════════
+   cueloop · Canvas — minimal, palette-driven review surface
+   All state in-memory. Keyboard-first. No backend.
+   ══════════════════════════════════════════════════════════════════ */
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+
+/* ── content model ────────────────────────────────────────────── */
+// Each unit is a selectable block. `phase` tags heading units for "go to Phase N".
+const UNITS = [
+  { t:'h1', text:'Implementation Plan: Session Persistence' },
+  { t:'p',  text:'Persist review sessions to disk so a crashed daemon can recover in-flight work without losing annotations or verdicts. The store is append-friendly and each write survives an abrupt process restart.' },
+  { t:'h2', phase:1, text:'Phase 1: Storage layer' },
+  { t:'p',  text:'Introduce a durable store that serialises each session to a single JSON record. Writes are atomic — we write a temp file and rename it into place — so a crash mid-write never corrupts the canonical file.' },
+  { t:'bullet', html:'<code class="path">server/storage/store.ts</code> — atomic read / write / rename of records' },
+  { t:'bullet', html:'<code class="path">server/storage/schema.ts</code> — <code class="path">SessionRecord</code> type and version guards' },
+  { t:'bullet', html:'<code class="path">server/storage/index.ts</code> — the public surface the daemon imports' },
+  { t:'code', html:'<span class="kw">interface</span> <span class="ty">SessionRecord</span> {\n  id: <span class="ty">string</span>\n  schemaVersion: <span class="ty">string</span>\n  artifact: <span class="ty">Artifact</span>\n  annotations: <span class="ty">Annotation</span>[]\n  verdict: <span class="ty">Verdict</span> | <span class="kw">null</span>\n}', plain:'interface SessionRecord { id: string; schemaVersion: string; artifact: Artifact; annotations: Annotation[]; verdict: Verdict | null }' },
+  { t:'h2', phase:2, text:'Phase 2: Recovery on boot' },
+  { t:'p',  text:'On startup the daemon scans the storage directory, validates each record against the current schema version, and re-hydrates any session whose verdict is still null so review can resume exactly where it stopped.' },
+  { t:'numbered', text:'Enumerate every *.json record and read its declared schemaVersion.' },
+  { t:'numbered', text:'Migrate records older than the current version, discarding any that fail validation.' },
+  { t:'numbered', text:'Re-open recovered sessions and resume the review loop at the last unsaved step.' },
+  { t:'h2', text:'Open questions' },
+  { t:'bullet', text:'Do we compact superseded records on boot, or keep an append log for audit history?' },
+  { t:'bullet', text:'How do two daemons fence a race for the same session file — lockfile, or advisory flock?' },
+];
+
+// Diff artifact
+const DIFF = [
+  { file:'server/storage/store.ts', kind:'mod', add:12, del:3, lines:[
+    { t:'hunk', text:'@@ -1,9 +1,18 @@' },
+    { t:'ctx', o:1, n:1,  text:"import { readFile, writeFile, rename } from 'node:fs/promises'" },
+    { t:'ctx', o:2, n:2,  text:"import { join } from 'node:path'" },
+    { t:'del', o:3,        text:"import type { SessionRecord } from './types'" },
+    { t:'add', n:3,        text:"import type { SessionRecord } from './schema'" },
+    { t:'add', n:4,        text:"" },
+    { t:'add', n:5,        text:"const TMP = '.tmp'" },
+    { t:'ctx', o:4, n:6,  text:"" },
+    { t:'ctx', o:5, n:7,  text:"export async function readSession(dir: string, id: string) {" },
+    { t:'ctx', o:6, n:8,  text:"  const raw = await readFile(join(dir, `${id}.json`), 'utf8')" },
+    { t:'del', o:7,        text:"  return JSON.parse(raw)" },
+    { t:'add', n:9,        text:"  return JSON.parse(raw) as SessionRecord" },
+    { t:'ctx', o:8, n:10, text:"}" },
+    { t:'add', n:11,       text:"" },
+    { t:'add', n:12,       text:"export async function writeSession(dir: string, rec: SessionRecord) {" },
+    { t:'add', n:13,       text:"  const path = join(dir, `${rec.id}.json`)" },
+    { t:'add', n:14,       text:"  const tmp = path + TMP" },
+    { t:'add', n:15,       text:"  await writeFile(tmp, JSON.stringify(rec, null, 2))" },
+    { t:'add', n:16,       text:"  await rename(tmp, path)" },
+    { t:'add', n:17,       text:"}" },
+  ]},
+  { file:'server/storage/index.ts', kind:'new', add:3, del:0, lines:[
+    { t:'hunk', text:'@@ -0,0 +1,3 @@' },
+    { t:'add', n:1, text:"export { readSession, writeSession } from './store'" },
+    { t:'add', n:2, text:"export type { SessionRecord } from './schema'" },
+    { t:'add', n:3, text:"export { recoverSessions } from './recover'" },
+  ]},
+];
+
+/* ── state ────────────────────────────────────────────────────── */
+const S = {
+  artifact: 'plan',          // 'plan' | 'diff'
+  view: 'focus',             // focus | normal | guided | split
+  sel: { anchor: 1, focus: 1 },   // unit indices for plan
+  diffCursor: 2,             // diff line flat index
+  annotations: [],           // {id, kind:'comment'|'edit', artifact, unitStart, unitEnd, line, snippet, text, diff}
+  edits: {},                 // unitIndex -> {original, next, diff}
+  overviewOpen: false,
+  guideIdx: 0,
+  overviewActive: 0,
+  undo: [],
+  seq: 1,
+};
+
+/* flat diff line list (with file boundaries) for cursor nav */
+let DIFF_FLAT = [];
+DIFF.forEach((f, fi) => f.lines.forEach((l, li) => DIFF_FLAT.push({ fi, li, ref: l })));
+
+/* ── rendering: plan sheet ───────────────────────────────────── */
+function renderSheet() {
+  const sheet = $('#sheet');
+  sheet.innerHTML = '<div class="doc-kicker">plan · markdown · from agent “orchestrator”</div>';
+  let numCounter = 0;
+  UNITS.forEach((u, i) => {
+    let el;
+    const edited = S.edits[i];
+    if (u.t === 'code') {
+      el = document.createElement('pre');
+      el.className = 'unit'; el.dataset.i = i;
+      el.innerHTML = edited ? edited.diff : u.html;
+    } else {
+      const tag = u.t === 'h1' ? 'h1' : u.t === 'h2' ? 'h2' : 'p';
+      el = document.createElement(tag);
+      el.className = 'unit ' + (u.t === 'bullet' ? 'bullet' : u.t === 'numbered' ? 'numbered' : '');
+      el.dataset.i = i;
+      if (u.t === 'numbered') { numCounter++; el.dataset.n = numCounter; }
+      else if (u.t !== 'bullet') numCounter = 0;
+      el.innerHTML = edited ? edited.diff : (u.html || u.text);
+    }
+    // note pin
+    const anno = S.annotations.find(a => a.artifact === 'plan' && a.kind === 'comment' && i >= a.unitStart && i <= a.unitEnd);
+    const noteCount = S.annotations.filter(a => a.artifact === 'plan' && a.kind === 'comment' && i >= a.unitStart && i <= a.unitEnd).length;
+    if (anno) {
+      el.classList.add('has-note');
+      const pin = document.createElement('span');
+      pin.className = 'note-pin'; pin.textContent = noteCount;
+      el.appendChild(pin);
+    }
+    if (edited) el.classList.add('has-note');
+    sheet.appendChild(el);
+  });
+  paintSelection();
+}
+
+function paintSelection() {
+  const lo = Math.min(S.sel.anchor, S.sel.focus), hi = Math.max(S.sel.anchor, S.sel.focus);
+  $$('.unit', $('#sheet')).forEach(el => {
+    const i = +el.dataset.i;
+    el.classList.toggle('selected', i >= lo && i <= hi);
+    el.classList.toggle('cursor', i === S.sel.focus);
+  });
+}
+
+/* ── rendering: diff ─────────────────────────────────────────── */
+function renderDiff() {
+  const root = $('#diff');
+  root.innerHTML = '';
+  let flat = 0;
+  DIFF.forEach((f, fi) => {
+    const box = document.createElement('div'); box.className = 'diff-file';
+    const badge = f.kind === 'new' ? '<span class="badge new">new</span>' : '<span class="badge mod">modified</span>';
+    box.innerHTML =
+      '<div class="diff-head">' + badge +
+      '<span>' + f.file + '</span>' +
+      '<span class="stat"><span class="add">+' + f.add + '</span> <span class="del">−' + f.del + '</span></span></div>';
+    const body = document.createElement('div'); body.className = 'diff-body';
+    f.lines.forEach((l, li) => {
+      const myFlat = flat++;
+      const row = document.createElement('div');
+      row.className = 'dl ' + l.t;
+      row.dataset.flat = myFlat;
+      const oNo = l.o != null ? l.o : '';
+      const nNo = l.n != null ? l.n : '';
+      const lnTxt = l.t === 'hunk' ? '' : (oNo || '·') ;
+      row.innerHTML = '<span class="ln">' + (l.t==='hunk'?'':(l.n!=null?l.n:l.o!=null?l.o:'')) + '</span>' +
+                      '<span class="code">' + escapeHtml(l.text || ' ') + '</span>';
+      if (S.annotations.find(a => a.artifact==='diff' && a.line===myFlat)) row.classList.add('has-note');
+      if (myFlat === S.diffCursor) row.classList.add('cursor');
+      body.appendChild(row);
+    });
+    box.appendChild(body);
+    root.appendChild(box);
+  });
+}
+
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ── split view ──────────────────────────────────────────────── */
+function renderSplit() {
+  const root = $('#split');
+  const colBase = ['<h4>Base · as submitted</h4>'];
+  const colWork = ['<h4>Working copy · your edits</h4>'];
+  UNITS.forEach((u, i) => {
+    const cls = (u.t==='h1'||u.t==='h2') ? 'su h' : 'su';
+    const base = u.plain || u.text || stripTags(u.html || '');
+    colBase.push('<div class="'+cls+'">'+escapeHtml(base)+'</div>');
+    const ed = S.edits[i];
+    colWork.push('<div class="'+cls+'">'+(ed ? ed.diff : escapeHtml(base))+'</div>');
+  });
+  root.innerHTML = '<div class="col">'+colBase.join('')+'</div><div class="col">'+colWork.join('')+'</div>';
+}
+function stripTags(h){ const d=document.createElement('div'); d.innerHTML=h; return d.textContent; }
+
+/* ── view switching ──────────────────────────────────────────── */
+function setArtifact(a) {
+  S.artifact = a;
+  $('#sheetWrap').classList.toggle('hidden', a !== 'plan');
+  $('#diff').classList.toggle('hidden', a !== 'diff');
+  if (a === 'diff') renderDiff();
+  updateStatus();
+}
+
+function setView(v) {
+  S.view = v;
+  const canvas = $('#canvas');
+  const split = $('#split');
+  canvas.classList.toggle('split-mode', v === 'split');
+  // split shows its own columns, hides sheet/diff
+  const inSplit = v === 'split';
+  split.classList.toggle('on', inSplit);
+  $('#sheetWrap').classList.toggle('hidden', inSplit || S.artifact !== 'plan');
+  $('#diff').classList.toggle('hidden', inSplit || S.artifact !== 'diff');
+  if (inSplit) renderSplit();
+  // overview pinned in normal
+  if (v === 'normal') { S.overviewOpen = true; }
+  else if (v !== 'normal' && !inSplit) { /* keep manual toggles */ }
+  applyOverview();
+  // guided progress
+  const on = v === 'guided';
+  $('#progress').classList.toggle('on', on);
+  if (on) { S.guideIdx = Math.max(1, S.sel.focus); jumpUnit(S.guideIdx); updateProgress(); }
+  updateStatus();
+}
+
+function updateProgress() {
+  const total = UNITS.length;
+  const pct = Math.round(((S.guideIdx + 1) / total) * 100);
+  $('#progress .fill').style.width = pct + '%';
+  $('#progress .label').textContent = 'Unit ' + (S.guideIdx + 1) + ' of ' + total + ' · ' + pct + '%';
+}
+
+/* ── overview ────────────────────────────────────────────────── */
+function applyOverview() {
+  const pinned = S.view === 'normal';
+  const open = pinned || S.overviewOpen;
+  $('#overview').classList.toggle('on', open);
+  if (open) renderOverview();
+}
+
+function renderOverview() {
+  const list = $('#olist');
+  const items = allPending();
+  $('#oCount').textContent = items.length;
+  if (!items.length) {
+    list.innerHTML = '<div class="oempty">No pending annotations yet.<br>Press <kbd>c</kbd> to comment on the selection, or <kbd>e</kbd> to edit.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  items.forEach((a, idx) => {
+    const card = document.createElement('div');
+    card.className = 'ocard' + (idx === S.overviewActive ? ' active' : '');
+    card.dataset.idx = idx;
+    const kindCls = a.kind === 'edit' ? 'edit' : 'comment';
+    const kindLbl = a.kind === 'edit' ? 'edit' : 'comment';
+    let body;
+    if (a.kind === 'edit') body = '<div class="obody odiff">' + a.diff + '</div>';
+    else body = '<div class="obody">' + escapeHtml(a.text) + '</div>';
+    card.innerHTML =
+      '<div class="otop"><span class="kind '+kindCls+'">'+kindLbl+'</span>' +
+      '<span class="osnip">'+escapeHtml(a.snippet)+'</span></div>' + body;
+    card.addEventListener('click', () => { S.overviewActive = idx; focusAnnotation(idx); });
+    list.appendChild(card);
+  });
+}
+
+function allPending() {
+  // comments + edits, in document order
+  const out = [];
+  S.annotations.forEach(a => out.push(a));
+  return out.sort((a,b) => (a.sortKey||0) - (b.sortKey||0));
+}
+
+/* ── status strip ────────────────────────────────────────────── */
+function updateStatus() {
+  const pend = S.annotations.length;
+  $('#stPending').textContent = pend + (pend === 1 ? ' pending' : ' pending');
+  let ins = 0, del = 0;
+  Object.values(S.edits).forEach(e => { ins += e.ins; del += e.del; });
+  $('#stEdits').innerHTML = '<span class="add">+'+ins+'</span> <span class="del">−'+del+'</span>';
+  $('#stMode').textContent = S.view.charAt(0).toUpperCase() + S.view.slice(1);
+  $('#stArtifact').textContent = S.artifact === 'plan' ? 'Plan' : 'Diff';
+}
+
+/* ── selection nav (plan) ────────────────────────────────────── */
+function moveSel(dir, extend) {
+  let f = S.sel.focus + dir;
+  f = Math.max(0, Math.min(UNITS.length - 1, f));
+  S.sel.focus = f;
+  if (!extend) S.sel.anchor = f;
+  paintSelection();
+  ensureVisible($('.unit[data-i="'+f+'"]', $('#sheet')));
+  if (S.view === 'guided') { S.guideIdx = f; updateProgress(); }
+}
+function jumpUnit(i) {
+  S.sel.anchor = S.sel.focus = i;
+  paintSelection();
+  ensureVisible($('.unit[data-i="'+i+'"]', $('#sheet')));
+}
+function gotoPhase(n) {
+  const idx = UNITS.findIndex(u => u.phase === n);
+  if (idx >= 0) { setArtifact('plan'); jumpUnit(idx); flashUnit(idx); }
+}
+function flashUnit(i){ const el=$('.unit[data-i="'+i+'"]',$('#sheet')); if(el){ el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } }
+function ensureVisible(el){ if(el) el.scrollIntoView({ block:'center', behavior:'smooth' }); }
+
+/* ── diff nav ────────────────────────────────────────────────── */
+function moveDiff(dir) {
+  let c = S.diffCursor;
+  do { c += dir; } while (c >= 0 && c < DIFF_FLAT.length && DIFF_FLAT[c].ref.t === 'hunk');
+  if (c < 0 || c >= DIFF_FLAT.length) return;
+  S.diffCursor = c;
+  $$('.dl', $('#diff')).forEach(r => r.classList.toggle('cursor', +r.dataset.flat === c));
+  ensureVisible($('.dl[data-flat="'+c+'"]', $('#diff')));
+}
+
+/* ── comment composer ────────────────────────────────────────── */
+let composerTarget = null;
+function openComposer() {
+  if (S.artifact === 'plan') {
+    const lo = Math.min(S.sel.anchor, S.sel.focus), hi = Math.max(S.sel.anchor, S.sel.focus);
+    const snip = snippetOf(lo, hi);
+    composerTarget = { kind:'plan', lo, hi, snip };
+    $('#cTgt').textContent = lo === hi ? '“' + snip + '”' : (hi - lo + 1) + ' blocks';
+  } else {
+    const line = S.diffCursor, ref = DIFF_FLAT[line].ref;
+    composerTarget = { kind:'diff', line, snip:(ref.text||'').trim().slice(0,40) };
+    $('#cTgt').textContent = DIFF[DIFF_FLAT[line].fi].file + ':' + (ref.n || ref.o);
+  }
+  $('#cText').value = '';
+  $('#composer').classList.add('on');
+  setTimeout(() => $('#cText').focus(), 20);
+}
+function saveComment() {
+  const text = $('#cText').value.trim();
+  if (!text) { closeComposer(); return; }
+  const id = 'a' + (S.seq++);
+  if (composerTarget.kind === 'plan') {
+    S.annotations.push({ id, kind:'comment', artifact:'plan', unitStart:composerTarget.lo, unitEnd:composerTarget.hi, snippet:composerTarget.snip, text, sortKey:composerTarget.lo });
+    renderSheet();
+  } else {
+    S.annotations.push({ id, kind:'comment', artifact:'diff', line:composerTarget.line, snippet:composerTarget.snip, text, sortKey:1000+composerTarget.line });
+    renderDiff();
+  }
+  S.undo.push({ type:'anno', id });
+  closeComposer();
+  updateStatus();
+  if ($('#overview').classList.contains('on')) renderOverview();
+  toast('Comment added', 'pending · invisible to agent');
+}
+function closeComposer(){ $('#composer').classList.remove('on'); $('#cText').blur(); }
+function snippetOf(lo, hi){
+  const u = UNITS[lo];
+  const t = u.plain || u.text || stripTags(u.html||'');
+  return t.slice(0, 38) + (t.length > 38 ? '…' : '');
+}
+
+/* ── edit mode (tracked changes) ─────────────────────────────── */
+let editingIndex = null;
+function enterEdit() {
+  if (S.artifact !== 'plan') { toast('Edit is for the plan', 'press 1 for plan'); return; }
+  const i = S.sel.focus;
+  const u = UNITS[i];
+  if (u.t === 'code') { toast('Code edits not in this demo', ''); return; }
+  const el = $('.unit[data-i="'+i+'"]', $('#sheet'));
+  editingIndex = i;
+  const original = (S.edits[i] && S.edits[i].original) || u.plain || u.text || stripTags(u.html||'');
+  el.textContent = original;
+  el.classList.add('editing');
+  el.setAttribute('contenteditable', 'true');
+  el.focus();
+  // place caret at end
+  const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  toast('Editing block', '⏎ commit · esc cancel');
+}
+function commitEdit(cancel) {
+  if (editingIndex == null) return;
+  const i = editingIndex; editingIndex = null;
+  const el = $('.unit[data-i="'+i+'"]', $('#sheet'));
+  const u = UNITS[i];
+  const original = (S.edits[i] && S.edits[i].original) || u.plain || u.text || stripTags(u.html||'');
+  el.removeAttribute('contenteditable');
+  el.classList.remove('editing');
+  if (cancel) { renderSheet(); return; }
+  const next = el.textContent.trim();
+  if (next === original || !next) { delete S.edits[i]; renderSheet(); updateStatus(); return; }
+  const { html, ins, del } = wordDiff(original, next);
+  S.edits[i] = { original, next, diff: html, ins, del,
+    snippet: (next.slice(0,34) + (next.length>34?'…':'')) };
+  // represent edit as a pending annotation too
+  const existing = S.annotations.find(a => a.kind==='edit' && a.unitIndex===i);
+  const rec = { id:'e'+i, kind:'edit', artifact:'plan', unitIndex:i, snippet:S.edits[i].snippet, diff:html, text:next, sortKey:i };
+  if (existing) Object.assign(existing, rec);
+  else { S.annotations.push(rec); S.undo.push({ type:'edit', i }); }
+  renderSheet();
+  updateStatus();
+  if ($('#overview').classList.contains('on')) renderOverview();
+  toast('Edit tracked', '+'+ins+' −'+del+' words · pending');
+}
+
+/* word-level LCS diff → .ins/.del markup */
+function wordDiff(a, b) {
+  const A = a.split(/(\s+)/), B = b.split(/(\s+)/);
+  const n = A.length, m = B.length;
+  const dp = Array.from({length:n+1}, () => new Int32Array(m+1));
+  for (let x=n-1; x>=0; x--) for (let y=m-1; y>=0; y--)
+    dp[x][y] = A[x]===B[y] ? dp[x+1][y+1]+1 : Math.max(dp[x+1][y], dp[x][y+1]);
+  let x=0, y=0, ins=0, del=0, out='';
+  const wrap = (cls, s) => s.trim() ? '<span class="'+cls+'">'+escapeHtml(s)+'</span>' : escapeHtml(s);
+  while (x<n && y<m) {
+    if (A[x]===B[y]) { out+=escapeHtml(A[x]); x++; y++; }
+    else if (dp[x+1][y] >= dp[x][y+1]) { out+=wrap('del',A[x]); if(A[x].trim())del++; x++; }
+    else { out+=wrap('ins',B[y]); if(B[y].trim())ins++; y++; }
+  }
+  while (x<n) { out+=wrap('del',A[x]); if(A[x].trim())del++; x++; }
+  while (y<m) { out+=wrap('ins',B[y]); if(B[y].trim())ins++; y++; }
+  return { html: out, ins, del };
+}
+
+/* ── undo ────────────────────────────────────────────────────── */
+function undo() {
+  const act = S.undo.pop();
+  if (!act) { toast('Nothing to undo', ''); return; }
+  if (act.type === 'anno') {
+    S.annotations = S.annotations.filter(a => a.id !== act.id);
+    S.artifact === 'diff' ? renderDiff() : renderSheet();
+    toast('Comment removed', 'undo');
+  } else if (act.type === 'edit') {
+    delete S.edits[act.i];
+    S.annotations = S.annotations.filter(a => !(a.kind==='edit' && a.unitIndex===act.i));
+    renderSheet();
+    toast('Edit reverted', 'undo');
+  }
+  updateStatus();
+  if ($('#overview').classList.contains('on')) renderOverview();
+}
+
+/* ── annotation nav (n/p) ────────────────────────────────────── */
+function stepAnnotation(dir) {
+  const items = allPending();
+  if (!items.length) { toast('No annotations yet', 'press c to comment'); return; }
+  S.overviewActive = (S.overviewActive + dir + items.length) % items.length;
+  focusAnnotation(S.overviewActive);
+}
+function focusAnnotation(idx) {
+  const items = allPending();
+  const a = items[idx];
+  if (!a) return;
+  S.overviewActive = idx;
+  if (a.artifact === 'plan') {
+    setArtifact('plan');
+    const target = a.kind === 'edit' ? a.unitIndex : a.unitStart;
+    jumpUnit(target); flashUnit(target);
+  } else {
+    setArtifact('diff');
+    S.diffCursor = a.line; renderDiff();
+    ensureVisible($('.dl[data-flat="'+a.line+'"]', $('#diff')));
+  }
+  if ($('#overview').classList.contains('on')) renderOverview();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   COMMAND PALETTE
+   ══════════════════════════════════════════════════════════════ */
+const COMMANDS = [
+  { id:'comment', icon:'“', title:'Comment on selection', sub:'attach a note to the current block', keys:['c'], run:()=>{ closePalette(); openComposer(); } },
+  { id:'edit',    icon:'✎', title:'Edit section', sub:'edit block text in place, tracked', keys:['e'], run:()=>{ closePalette(); enterEdit(); } },
+  { id:'goto2',   icon:'→', title:'Go to Phase 2', sub:'Recovery on boot', keys:['g','2'], run:()=>{ closePalette(); gotoPhase(2); } },
+  { id:'goto1',   icon:'→', title:'Go to Phase 1', sub:'Storage layer', keys:['g','1'], run:()=>{ closePalette(); gotoPhase(1); } },
+  { id:'next',    icon:'↓', title:'Next annotation', sub:'jump to the next pending item', keys:['n'], run:()=>{ closePalette(); stepAnnotation(1); } },
+  { id:'prev',    icon:'↑', title:'Previous annotation', sub:'jump to the previous pending item', keys:['p'], run:()=>{ closePalette(); stepAnnotation(-1); } },
+  { id:'diff',    icon:'±', title:'Switch to diff', sub:'server/storage · +15 −3', keys:['2'], run:()=>{ closePalette(); setArtifact('diff'); } },
+  { id:'plan',    icon:'¶', title:'Switch to plan', sub:'the markdown plan', keys:['1'], run:()=>{ closePalette(); setArtifact('plan'); } },
+  { id:'overview',icon:'▤', title:'Toggle comments overview', sub:'summon the pending list, then dismiss', keys:['o'], run:()=>{ closePalette(); toggleOverview(); } },
+  { id:'vnormal', icon:'▦', title:'View · Normal', sub:'overview panel pinned open', keys:[], run:()=>{ closePalette(); setView('normal'); } },
+  { id:'vfocus',  icon:'◻', title:'View · Focus', sub:'just the sheet — the default', keys:[], run:()=>{ closePalette(); S.overviewOpen=false; setView('focus'); } },
+  { id:'vguided', icon:'◔', title:'View · Guided', sub:'walk units with a progress bar', keys:[], run:()=>{ closePalette(); setView('guided'); } },
+  { id:'vsplit',  icon:'◫', title:'View · Split', sub:'base vs working copy for edits', keys:[], run:()=>{ closePalette(); setView('split'); } },
+  { id:'submit',  icon:'✓', title:'Submit review…', sub:'verdict + parent comment, one atomic send', keys:['⌘','⏎'], run:()=>{ startSubmit(); } },
+  { id:'cheat',   icon:'?', title:'Keyboard cheat sheet', sub:'all shortcuts', keys:['?'], run:()=>{ closePalette(); openCheat(); } },
+];
+
+let pal = { open:false, q:'', idx:0, results:[], mode:'commands' };
+let flow = { step:0, verdict:null, parent:'' };
+
+function fuzzy(q, s) {
+  q = q.toLowerCase(); s = s.toLowerCase();
+  if (!q) return { hit:true, score:0, marks:[] };
+  let qi=0, score=0, streak=0, marks=[];
+  for (let i=0; i<s.length && qi<q.length; i++) {
+    if (s[i] === q[qi]) { marks.push(i); streak++; score += 1 + streak; if(i===0)score+=3; qi++; }
+    else streak = 0;
+  }
+  return qi === q.length ? { hit:true, score, marks } : { hit:false };
+}
+function highlight(title, marks) {
+  if (!marks || !marks.length) return escapeHtml(title);
+  let out='', set=new Set(marks);
+  for (let i=0;i<title.length;i++) out += set.has(i) ? '<span class="mt">'+escapeHtml(title[i])+'</span>' : escapeHtml(title[i]);
+  return out;
+}
+
+function openPalette() {
+  pal.open = true; pal.q=''; pal.idx=0; pal.mode='commands';
+  $('#palScrim').classList.add('on');
+  renderPalette();
+  setTimeout(()=> { const inp=$('#palette input'); if(inp) inp.focus(); }, 20);
+}
+function closePalette() { pal.open=false; $('#palScrim').classList.remove('on'); }
+
+function renderPalette() {
+  if (pal.mode === 'commands') return renderCommandPalette();
+  return renderFlow();
+}
+
+function renderCommandPalette() {
+  const scored = COMMANDS.map(c => {
+    const f = fuzzy(pal.q, c.title + ' ' + c.sub + ' ' + c.id);
+    const ft = fuzzy(pal.q, c.title);
+    return { c, hit:f.hit, score:(ft.hit?ft.score*2:0)+ (f.hit?f.score:0), marks:ft.marks };
+  }).filter(r => r.hit).sort((a,b)=> b.score - a.score);
+  pal.results = scored;
+  if (pal.idx >= scored.length) pal.idx = Math.max(0, scored.length-1);
+
+  const rows = scored.map((r, i) => {
+    const c = r.c;
+    const keyHtml = c.keys.map(k => '<kbd>'+k+'</kbd>').join('');
+    return '<div class="prow" role="option" aria-selected="'+(i===pal.idx)+'" data-i="'+i+'">' +
+      '<span class="picon">'+c.icon+'</span>' +
+      '<span class="ptext"><div class="ptitle">'+highlight(c.title, r.marks)+'</div><div class="psub">'+escapeHtml(c.sub)+'</div></span>' +
+      '<span class="pkey">'+keyHtml+'</span></div>';
+  }).join('');
+
+  $('#palette').innerHTML =
+    '<div class="pinput"><span class="lead">⌘</span>' +
+    '<input id="palQ" placeholder="Type a command…" value="'+escapeAttr(pal.q)+'">' +
+    '<span class="ctx-chip">'+ (S.artifact==='plan'?'plan':'diff') +' · '+ S.view +'</span></div>' +
+    '<div class="plist">'+ (rows || '<div class="pempty">No commands match “'+escapeHtml(pal.q)+'”</div>') +'</div>' +
+    '<div class="pfoot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>⏎</kbd> run</span><span class="sp"></span><span>direct keys work outside the palette too</span></div>';
+
+  const inp = $('#palQ');
+  inp.oninput = () => { pal.q = inp.value; pal.idx = 0; renderCommandPalette(); };
+  inp.focus();
+  // keep caret at end
+  inp.setSelectionRange(inp.value.length, inp.value.length);
+  $$('.prow', $('#palette')).forEach(row => {
+    row.addEventListener('mouseenter', () => { pal.idx = +row.dataset.i; syncSel(); });
+    row.addEventListener('click', () => runPalette());
+  });
+}
+function syncSel(){ $$('.prow', $('#palette')).forEach(r => r.setAttribute('aria-selected', +r.dataset.i === pal.idx)); }
+function escapeAttr(s){ return s.replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function movePal(d) {
+  if (!pal.results.length) return;
+  pal.idx = (pal.idx + d + pal.results.length) % pal.results.length;
+  syncSel();
+  const row = $('.prow[data-i="'+pal.idx+'"]', $('#palette'));
+  if (row) row.scrollIntoView({ block:'nearest' });
+}
+function runPalette() {
+  const r = pal.results[pal.idx];
+  if (r) r.c.run();
+}
+
+/* ── submit flow ─────────────────────────────────────────────── */
+function startSubmit() {
+  pal.open = true; pal.mode='flow'; flow = { step:0, verdict:null, parent:'' };
+  $('#palScrim').classList.add('on');
+  renderFlow();
+}
+const VERDICTS = [
+  { id:'comment', label:'Comment', sub:'leave notes without a decision', cls:'v-comment', color:'var(--blue)', keys:['c'] },
+  { id:'approve', label:'Approve', sub:'agent may proceed as planned', cls:'v-approve', color:'var(--green)', keys:['a'] },
+  { id:'changes', label:'Request changes', sub:'agent must revise before acting', cls:'v-changes', color:'var(--red)', keys:['r'] },
+];
+function renderFlow() {
+  const steps = ['Verdict', 'Comment', 'Confirm'];
+  const bar = '<div class="flowbar">' + steps.map((s,i)=>
+    '<span class="step'+(i===flow.step?' on':'')+'">'+(i+1)+'. '+s+'</span>' + (i<2?'<span class="arr">→</span>':'')
+  ).join('') + '</div>';
+
+  let body = '';
+  if (flow.step === 0) {
+    const rows = VERDICTS.map((v,i)=>
+      '<div class="prow" role="option" aria-selected="'+(i===pal.idx)+'" data-v="'+i+'">' +
+      '<span class="picon"><span class="verdict-dot" style="background:'+v.color+'"></span></span>' +
+      '<span class="ptext"><div class="ptitle '+v.cls+'">'+v.label+'</div><div class="psub">'+v.sub+'</div></span>' +
+      '<span class="pkey"><kbd>'+v.keys[0]+'</kbd></span></div>'
+    ).join('');
+    body = '<div class="plist">'+rows+'</div>';
+  } else if (flow.step === 1) {
+    body = '<div class="flow-body"><textarea id="flowParent" placeholder="Optional — a summary comment for the agent…">'+escapeHtml(flow.parent)+'</textarea></div>';
+  } else {
+    const v = VERDICTS.find(x=>x.id===flow.verdict);
+    const items = allPending();
+    const rows = items.length ? items.map(a =>
+      '<div class="row"><span class="'+(a.kind==='edit'?'v-comment':'')+'">'+ (a.kind==='edit'?'edit':'comment') +'</span>' +
+      '<span class="snip">'+escapeHtml(a.snippet)+'</span></div>'
+    ).join('') : '<div class="row"><span class="snip">No annotations — verdict only.</span></div>';
+    body = '<div class="flow-body"><div class="flow-summary">' +
+      '<div class="row"><span class="ptitle '+v.cls+'">'+v.label+'</span><span class="sp"></span></div>' +
+      (flow.parent ? '<div class="row"><span class="snip">“'+escapeHtml(flow.parent)+'”</span></div>' : '') +
+      rows + '</div><div style="margin-top:12px;color:var(--text-dim);font-family:var(--mono);font-size:11px">'+items.length+' annotation'+(items.length===1?'':'s')+' will be sent atomically.</div></div>';
+  }
+
+  const foot = flow.step === 0
+    ? '<div class="pfoot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>⏎</kbd> pick</span><span class="sp"></span><span><kbd>esc</kbd> cancel</span></div>'
+    : flow.step === 1
+    ? '<div class="pfoot"><span><kbd>⌘⏎</kbd> next</span><span class="sp"></span><span><kbd>esc</kbd> back</span></div>'
+    : '<div class="pfoot"><span><kbd>⏎</kbd> submit</span><span class="sp"></span><span><kbd>esc</kbd> back</span></div>';
+
+  $('#palette').innerHTML = bar + body + foot;
+
+  if (flow.step === 0) {
+    $$('.prow', $('#palette')).forEach(row => {
+      row.addEventListener('mouseenter', ()=>{ pal.idx=+row.dataset.v; $$('.prow',$('#palette')).forEach(r=>r.setAttribute('aria-selected',+r.dataset.v===pal.idx)); });
+      row.addEventListener('click', ()=> pickVerdict(+row.dataset.v));
+    });
+  }
+  if (flow.step === 1) setTimeout(()=>{ const t=$('#flowParent'); if(t){ t.focus(); t.setSelectionRange(t.value.length,t.value.length);} },20);
+}
+function pickVerdict(i) { flow.verdict = VERDICTS[i].id; flow.step = 1; pal.idx = 0; renderFlow(); }
+function flowNext() {
+  if (flow.step === 1) { const t=$('#flowParent'); if(t) flow.parent = t.value; flow.step = 2; renderFlow(); }
+  else if (flow.step === 2) finishSubmit();
+}
+function flowBack() {
+  if (flow.step === 0) { closePalette(); pal.mode='commands'; }
+  else { if (flow.step===1){ const t=$('#flowParent'); if(t) flow.parent=t.value; } flow.step--; pal.idx=0; renderFlow(); }
+}
+function finishSubmit() {
+  const v = VERDICTS.find(x=>x.id===flow.verdict);
+  const count = S.annotations.length;
+  closePalette(); pal.mode='commands';
+  // clear pending (submitted atomically)
+  S.annotations = []; S.edits = {}; S.undo = [];
+  renderSheet(); if (S.artifact==='diff') renderDiff();
+  updateStatus();
+  if ($('#overview').classList.contains('on')) renderOverview();
+  toast('Review submitted · ' + v.label, count + ' item' + (count===1?'':'s') + ' sent to agent');
+}
+
+/* ── cheat sheet ─────────────────────────────────────────────── */
+function openCheat() {
+  const rows = [
+    ['⌘K / /', 'Command palette'], ['c', 'Comment on selection'],
+    ['e', 'Edit block (tracked)'], ['↑ ↓', 'Move selection'],
+    ['⇧↑ ⇧↓', 'Extend selection'], ['1 / 2', 'Plan / Diff'],
+    ['j / k', 'Diff line cursor'], ['o', 'Toggle overview'],
+    ['n / p', 'Next / prev annotation'], ['g 2', 'Go to Phase 2'],
+    ['⌘⏎', 'Submit review'], ['⌘Z', 'Undo'],
+    ['?', 'This cheat sheet'], ['esc', 'Close / cancel'],
+  ];
+  $('#cheat').innerHTML = '<h3>Keyboard — the whole loop, pointer-free</h3><div class="cheat-grid">' +
+    rows.map(r => '<div class="row"><kbd>'+r[0]+'</kbd><span class="d">'+r[1]+'</span></div>').join('') + '</div>';
+  $('#cheatScrim').classList.add('on');
+}
+function closeCheat(){ $('#cheatScrim').classList.remove('on'); }
+
+/* ── overview toggle ─────────────────────────────────────────── */
+function toggleOverview() {
+  if (S.view === 'normal') { toast('Overview is pinned in Normal', 'switch to Focus to hide'); return; }
+  S.overviewOpen = !S.overviewOpen;
+  applyOverview();
+}
+
+/* ── toast ───────────────────────────────────────────────────── */
+let toastT;
+function toast(main, sub) {
+  $('#toastMain').textContent = main;
+  $('#toastSub').textContent = sub || '';
+  $('#toast').classList.add('on');
+  clearTimeout(toastT);
+  toastT = setTimeout(()=> $('#toast').classList.remove('on'), 2600);
+}
+
+/* ── theme cycle ─────────────────────────────────────────────── */
+const THEMES = [
+  { v:'system', glyph:'◐', label:'System' },
+  { v:'light',  glyph:'○', label:'Light' },
+  { v:'dark',   glyph:'●', label:'Dark' },
+];
+let themeI = 0;
+function cycleTheme() {
+  themeI = (themeI + 1) % THEMES.length;
+  const t = THEMES[themeI];
+  if (t.v === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', t.v);
+  $('#themeGlyph').textContent = t.glyph;
+  $('#themeLabel').textContent = t.label;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   GLOBAL KEYBOARD
+   ══════════════════════════════════════════════════════════════ */
+let gotoArmed = false;
+
+function inField(e) {
+  const el = document.activeElement;
+  return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+}
+
+document.addEventListener('keydown', (e) => {
+  const meta = e.metaKey || e.ctrlKey;
+
+  /* palette open */
+  if (pal.open) {
+    if (pal.mode === 'commands') {
+      if (e.key === 'Escape') { e.preventDefault(); closePalette(); return; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); movePal(1); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); movePal(-1); return; }
+      if (e.key === 'Enter') { e.preventDefault(); runPalette(); return; }
+      return; // let input handle text
+    } else {
+      // flow
+      if (e.key === 'Escape') { e.preventDefault(); flowBack(); return; }
+      if (flow.step === 0) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); pal.idx=(pal.idx+1)%VERDICTS.length; $$('.prow',$('#palette')).forEach(r=>r.setAttribute('aria-selected',+r.dataset.v===pal.idx)); return; }
+        if (e.key === 'ArrowUp') { e.preventDefault(); pal.idx=(pal.idx-1+VERDICTS.length)%VERDICTS.length; $$('.prow',$('#palette')).forEach(r=>r.setAttribute('aria-selected',+r.dataset.v===pal.idx)); return; }
+        if (e.key === 'Enter') { e.preventDefault(); pickVerdict(pal.idx); return; }
+        if (e.key === 'c') { e.preventDefault(); pickVerdict(0); return; }
+        if (e.key === 'a') { e.preventDefault(); pickVerdict(1); return; }
+        if (e.key === 'r') { e.preventDefault(); pickVerdict(2); return; }
+      } else if (flow.step === 1) {
+        if (e.key === 'Enter' && meta) { e.preventDefault(); flowNext(); return; }
+      } else if (flow.step === 2) {
+        if (e.key === 'Enter') { e.preventDefault(); finishSubmit(); return; }
+      }
+      return;
+    }
+  }
+
+  /* cheat sheet open */
+  if ($('#cheatScrim').classList.contains('on')) {
+    if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); closeCheat(); }
+    return;
+  }
+
+  /* composer open */
+  if ($('#composer').classList.contains('on')) {
+    if (e.key === 'Escape') { e.preventDefault(); closeComposer(); }
+    else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveComment(); }
+    return;
+  }
+
+  /* editing a block */
+  if (editingIndex != null) {
+    if (e.key === 'Escape') { e.preventDefault(); commitEdit(true); }
+    else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(false); }
+    return;
+  }
+
+  if (inField(e)) return;
+
+  /* open palette */
+  if ((meta && e.key.toLowerCase() === 'k') || (e.key === '/' && !meta)) { e.preventDefault(); openPalette(); return; }
+
+  /* submit */
+  if (meta && e.key === 'Enter') { e.preventDefault(); startSubmit(); return; }
+  /* undo */
+  if (meta && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+
+  /* goto prefix */
+  if (gotoArmed) {
+    gotoArmed = false;
+    if (e.key === '1') { e.preventDefault(); gotoPhase(1); return; }
+    if (e.key === '2') { e.preventDefault(); gotoPhase(2); return; }
+  }
+
+  switch (e.key) {
+    case 'Escape':
+      if ($('#overview').classList.contains('on') && S.view !== 'normal') { S.overviewOpen=false; applyOverview(); }
+      break;
+    case 'g': gotoArmed = true; break;
+    case 'c': e.preventDefault(); openComposer(); break;
+    case 'e': e.preventDefault(); enterEdit(); break;
+    case 'o': e.preventDefault(); toggleOverview(); break;
+    case 'n': e.preventDefault(); stepAnnotation(1); break;
+    case 'p': e.preventDefault(); stepAnnotation(-1); break;
+    case '?': e.preventDefault(); openCheat(); break;
+    case '1': e.preventDefault(); setArtifact('plan'); break;
+    case '2': e.preventDefault(); setArtifact('diff'); break;
+    case 'ArrowUp':
+      e.preventDefault();
+      if (S.artifact === 'diff') moveDiff(-1); else moveSel(-1, e.shiftKey);
+      break;
+    case 'ArrowDown':
+      e.preventDefault();
+      if (S.artifact === 'diff') moveDiff(1); else moveSel(1, e.shiftKey);
+      break;
+    case 'k': if (S.artifact === 'diff') { e.preventDefault(); moveDiff(-1); } break;
+    case 'j': if (S.artifact === 'diff') { e.preventDefault(); moveDiff(1); } break;
+  }
+});
+
+/* clicking a plan unit selects it (pointer optional, keyboard is primary) */
+$('#sheet').addEventListener('click', (e) => {
+  const u = e.target.closest('.unit');
+  if (u && editingIndex == null) { jumpUnit(+u.dataset.i); }
+});
+$('#diff').addEventListener('click', (e) => {
+  const r = e.target.closest('.dl');
+  if (r && r.dataset.flat) { S.diffCursor = +r.dataset.flat; $$('.dl',$('#diff')).forEach(x=>x.classList.toggle('cursor',x===r)); }
+});
+
+/* wire chrome buttons */
+$('#themeBtn').addEventListener('click', cycleTheme);
+$('#cheatBtn').addEventListener('click', openCheat);
+$('#cheatScrim').addEventListener('click', (e)=>{ if(e.target===$('#cheatScrim')) closeCheat(); });
+$('#palScrim').addEventListener('click', (e)=>{ if(e.target===$('#palScrim')) closePalette(); });
+$('#oSubmit').addEventListener('click', startSubmit);
+
+/* ── boot ────────────────────────────────────────────────────── */
+renderSheet();
+updateStatus();
+applyOverview();
+</script>
+</body>
+</html>

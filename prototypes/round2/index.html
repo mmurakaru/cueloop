@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>cueloop · round 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { padding: 64px 24px; }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: -0.02em; font-weight: 600; }
+  h1 span { color: var(--accent); }
+  .lede { color: var(--text-muted); margin: 12px 0 8px; max-width: 64ch; }
+  .prov { color: var(--text-dim); font-size: 12.5px; margin: 0 0 36px; max-width: 68ch; font-family: var(--mono); }
+  ol { list-style: none; padding: 0; display: grid; gap: 14px; }
+  a.card {
+    display: grid; grid-template-columns: 40px 1fr; gap: 16px; align-items: baseline;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-lg);
+    padding: 20px 22px; color: inherit; transition: border-color .15s var(--ease), transform .15s var(--ease);
+  }
+  a.card:hover, a.card:focus-visible { border-color: var(--accent); transform: translateY(-1px); outline: none; }
+  .num { color: var(--text-dim); font-family: var(--mono); font-size: 13px; }
+  .name { font-weight: 600; font-size: 16px; }
+  .name .k { color: var(--green); font-family: var(--mono); font-size: 12px; margin-left: 8px; font-weight: 400; }
+  .stance { color: var(--text-muted); font-size: 13.5px; margin-top: 4px; }
+  footer { margin-top: 40px; color: var(--text-dim); font-size: 12.5px; max-width: 70ch; line-height: 1.8; }
+</style>
+</head>
+<body class="dotted">
+<main>
+  <h1><span>cueloop</span> · round 2 — refined concepts</h1>
+  <p class="lede">
+    Three concepts, all built on the Margin backbone (annotation cards stay at document
+    level until final review). Each takes a different stance on chrome and navigation.
+    Theme toggle (top-right of each) does System / Light / Dark. Press <kbd>?</kbd> inside any concept.
+  </p>
+  <p class="prov">
+    design system distilled from hex.tech · cloudflare.com · e2b.dev — IBM Plex, near-black canvas,
+    salmon accent, green-for-code, dotted grid, tight 3px radii
+  </p>
+  <ol>
+    <li><a class="card" href="studio.html">
+      <span class="num">01</span>
+      <span><span class="name">Studio<span class="k">outline · rail</span></span>
+      <div class="stance">Hex-notebook forward. Left outline (tabbable to a file tree) + center doc + right margin rail — everything visible, calm, three columns. View modes: Normal / Focus / Guided (% bar) / Split.</div></span></a></li>
+    <li><a class="card" href="canvas.html">
+      <span class="num">02</span>
+      <span><span class="name">Canvas<span class="k">⌘K · o</span></span>
+      <div class="stance">The anti-sidebar. Plan floats on a dotted canvas, no chrome; a command palette drives everything and a summon-and-dismiss overview answers "minimal vs. comment overview" by offering both. e2b/Cloudflare minimalism.</div></span></a></li>
+    <li><a class="card" href="ledger.html">
+      <span class="num">03</span>
+      <span><span class="name">Ledger<span class="k">J/K · v · ⌘⏎</span></span>
+      <div class="stance">Structured cockpit. Persistent left sidebar tabbing between content outline and a Pierre-trees file tree of the repo; center doc/diff, right margin rail, viewed-state progress. The multi-artifact review at scale.</div></span></a></li>
+  </ol>
+  <footer>
+    Shared grammar: <kbd>1</kbd>/<kbd>2</kbd> plan/diff · <kbd>c</kbd> comment · <kbd>e</kbd> edit (tracked changes) ·
+    <kbd>n</kbd>/<kbd>p</kbd> pending items · <kbd>⌘z</kbd> undo · <kbd>⌘⏎</kbd> finish review · <kbd>?</kbd> cheat sheet.
+    Feedback is invisible to the agent until one atomic submit — verdicts Comment / Approve / Request changes.
+    Round-1 gallery is one level up in <kbd>../index.html</kbd>.
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,102 @@
+/* cueloop design system — round 2
+   Provenance (scraped 2026-07-26 via browser-harness):
+   - Hex app  (app.hex.tech): canvas #1f1f29, panel #1a1a23, text #e4e6ec/#b1b6c4,
+     salmon accent #f5c0c0, code-green #62d96b, link-blue #84a6e8, 3px radii, IBM Plex Sans/Mono.
+   - Cloudflare (cloudflare.com): warm near-black #151414, warm off-white text, orange #ff5e1f, tight radii.
+   - e2b (e2b.dev): pure-black canvas, IBM Plex Mono-forward, dotted grid, coral #ff7b72.
+   cueloop distills these into one calm, technical, keyboard-first surface with its own salmon accent. */
+
+:root, [data-theme="dark"] {
+  --bg:            #1f1f29;   /* main canvas */
+  --panel:         #1a1a23;   /* sidebar, rails, panels */
+  --elevated:      #23232f;   /* cards, composers */
+  --overlay:       #2a2a38;   /* modals, palette */
+  --border:        rgba(177,182,196,0.14);
+  --border-strong: rgba(177,182,196,0.28);
+  --text:          #e4e6ec;
+  --text-muted:    #b1b6c4;
+  --text-dim:      #6b7280;
+  --accent:        #f5a3a3;   /* cueloop salmon */
+  --accent-hover:  #f7b7b7;
+  --accent-tint:   rgba(245,163,163,0.12);
+  --accent-ink:    #2a1416;   /* text on accent fills */
+  --green:         #62d96b;   /* insertions, approve, code */
+  --green-tint:    rgba(67,191,77,0.14);
+  --red:           #ff6b6b;   /* deletions, request-changes */
+  --red-tint:      rgba(255,107,107,0.12);
+  --blue:          #84a6e8;   /* links */
+  --dot:           rgba(177,182,196,0.10);   /* dotted canvas */
+  --shadow:        0 8px 40px rgba(0,0,0,0.45);
+}
+
+[data-theme="light"] {
+  --bg:            #f6f6f8;
+  --panel:         #ffffff;
+  --elevated:      #ffffff;
+  --overlay:       #ffffff;
+  --border:        rgba(20,20,28,0.10);
+  --border-strong: rgba(20,20,28,0.20);
+  --text:          #17171f;
+  --text-muted:    #55606f;
+  --text-dim:      #8a93a3;
+  --accent:        #d16670;
+  --accent-hover:  #c1525d;
+  --accent-tint:   rgba(209,102,112,0.10);
+  --accent-ink:    #ffffff;
+  --green:         #1a9e4b;
+  --green-tint:    rgba(26,158,75,0.10);
+  --red:           #d1495b;
+  --red-tint:      rgba(209,73,91,0.10);
+  --blue:          #3b6fd4;
+  --dot:           rgba(20,20,28,0.07);
+  --shadow:        0 8px 32px rgba(20,20,28,0.12);
+}
+
+/* system: follow OS when no explicit override is set */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not([data-theme="light"]) {
+    --bg:#f6f6f8; --panel:#fff; --elevated:#fff; --overlay:#fff;
+    --border:rgba(20,20,28,0.10); --border-strong:rgba(20,20,28,0.20);
+    --text:#17171f; --text-muted:#55606f; --text-dim:#8a93a3;
+    --accent:#d16670; --accent-hover:#c1525d; --accent-tint:rgba(209,102,112,0.10); --accent-ink:#fff;
+    --green:#1a9e4b; --green-tint:rgba(26,158,75,0.10); --red:#d1495b; --red-tint:rgba(209,73,91,0.10);
+    --blue:#3b6fd4; --dot:rgba(20,20,28,0.07); --shadow:0 8px 32px rgba(20,20,28,0.12);
+  }
+}
+
+:root {
+  --sans: "IBM Plex Sans", ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Monaco, "Cascadia Code", monospace;
+  --r-sm: 3px; --r: 4px; --r-lg: 8px; --r-xl: 12px;
+  --sp: 8px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: var(--sans); font-size: 14px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+::selection { background: var(--accent-tint); }
+a { color: var(--blue); text-decoration: none; }
+code, pre, kbd { font-family: var(--mono); }
+kbd {
+  font-size: 11px; padding: 1px 5px; border-radius: var(--r-sm);
+  background: var(--elevated); border: 1px solid var(--border);
+  color: var(--text-muted); font-variant-numeric: tabular-nums;
+}
+
+/* dotted-canvas motif (opt-in: add class="dotted" to a surface) */
+.dotted {
+  background-image: radial-gradient(var(--dot) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* shared verdict color mapping: comment=blue, approve=green, request_changes=red */
+.v-comment { color: var(--blue); } .v-approve { color: var(--green); } .v-changes { color: var(--red); }
+
+/* tracked-changes rendering */
+.ins { color: var(--green); background: var(--green-tint); text-decoration: none; border-radius: 2px; }
+.del { color: var(--red); background: var(--red-tint); text-decoration: line-through; border-radius: 2px; }
