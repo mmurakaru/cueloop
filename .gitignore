@@ -1,0 +1,8 @@
+# Claude Code session artifacts (worktrees, local state)
+.claude/
+
+# Dependencies / build (for when implementation starts)
+node_modules/
+dist/
+*.log
+.DS_Store
