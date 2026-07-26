@@ -46,7 +46,7 @@
   .segmented button:hover { color: var(--text); }
   .segmented button.on { background: var(--accent-tint); color: var(--accent); }
 
-  .hbtn, #finish-btn {
+  .hbtn {
     font-family: var(--mono); font-size: 12px;
     border-radius: var(--r); padding: 6px 11px; cursor: pointer;
     border: 1px solid var(--border); background: var(--elevated); color: var(--text-muted);
@@ -57,10 +57,6 @@
   #settings-btn, #palette-btn, #theme-btn { padding: 6px 9px; }
   #theme-btn { font-size: 13px; line-height: 1; }
   #palette-btn { color: var(--text-dim); }
-  #finish-btn { font-weight: 600; }
-  #finish-btn.has-pending { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  #finish-btn.has-pending:hover { background: var(--accent-hover); }
-  #finish-btn.sent { background: var(--green-tint); color: var(--green); border-color: transparent; }
 
   #status {
     font-family: var(--mono); font-size: 11px; color: var(--accent);
@@ -86,27 +82,143 @@
   .tag-legend .tl .tld { width: 7px; height: 7px; border-radius: 2px; flex: none; }
   .tag-legend .tl kbd { font-size: 9px; padding: 0 3px; }
 
-  /* ── Lower: sidebar + stage ───────────────── */
-  #lower { display: grid; grid-template-columns: 284px 1fr; min-height: 0; }
-  #app[data-mode="focus"] #lower { grid-template-columns: 1fr; }
-  #app[data-mode="focus"] #sidebar { display: none; }
+  /* ── Lower: spaces · sidebar · stage · right pane ─ */
+  #lower { display: flex; min-height: 0; }
+  #app[data-mode="focus"] #spaces,
+  #app[data-mode="focus"] #sidebar,
+  #app[data-mode="focus"] #rightpane { display: none; }
+
+  /* header brand */
+  #brand { font-family: var(--mono); font-size: 12px; color: var(--text-muted); text-decoration: none; letter-spacing: 0.02em; flex: none; }
+  #brand:hover { color: var(--accent); }
+
+  /* ── Spaces panel (Workspaces → Sessions) ──── */
+  #spaces {
+    width: 224px; flex: none; background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+    transition: width .22s var(--ease-standard), box-shadow .15s var(--ease);
+  }
+  #app[data-spaces="collapsed"] #spaces { width: 52px; }
+  #app[data-focus="nav"] #spaces { box-shadow: inset -2px 0 0 var(--accent); }
+  #spaces-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 8px; }
+  #spaces-top .sp-title { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; color: var(--text-dim); }
+  #app[data-spaces="collapsed"] #spaces-top { justify-content: center; }
+  #app[data-spaces="collapsed"] #spaces-top .sp-title { display: none; }
+  #spaces-collapse { font-family: var(--mono); font-size: 12px; line-height: 1; color: var(--text-dim); background: none; border: 1px solid transparent; border-radius: var(--r-sm); padding: 2px 6px; cursor: pointer; transition: color .12s var(--ease), border-color .12s var(--ease); }
+  #spaces-collapse:hover { color: var(--accent); border-color: var(--border); }
+  #spaces-body { flex: 1; overflow-y: auto; padding: 2px 8px 12px; }
+  .sp-group { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; color: var(--text-dim); padding: 12px 8px 5px; }
+  #app[data-spaces="collapsed"] .sp-group { text-align: center; padding: 12px 0 5px; }
+  #app[data-spaces="collapsed"] .sp-group .sp-g-full { display: none; }
+
+  .ws-item, .ss-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 8px; border-radius: var(--r);
+    border: 1px solid transparent; cursor: pointer; user-select: none;
+  }
+  .ws-item + .ws-item, .ss-item + .ss-item { margin-top: 2px; }
+  .ws-item:hover, .ss-item:hover { background: var(--elevated); }
+  .ws-item.cursor, .ss-item.cursor { border-color: var(--border-strong); background: var(--elevated); }
+  #app[data-focus="nav"] .ws-item.cursor, #app[data-focus="nav"] .ss-item.cursor { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-tint); }
+  .ws-item.on { background: var(--accent-tint); }
+  .ws-item.on .ws-name { color: var(--text); }
+  .ws-init {
+    width: 24px; height: 24px; flex: none; border-radius: var(--r-sm);
+    background: var(--elevated); border: 1px solid var(--border);
+    color: var(--text-muted); font-family: var(--mono); font-size: 12px;
+    display: flex; align-items: center; justify-content: center; text-transform: lowercase;
+  }
+  .ws-item.on .ws-init { background: var(--accent-tint); border-color: var(--accent); color: var(--accent); }
+  .ws-text { flex: 1; min-width: 0; }
+  .ws-name { font-family: var(--mono); font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ws-branch { font-family: var(--mono); font-size: 9.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .ss-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; margin: 0 3px; }
+  .ss-dot.working { background: #d9a441; }
+  .ss-dot.pending { background: var(--blue); }
+  .ss-dot.done { background: var(--green); }
+  .ss-item.on { background: var(--accent-tint); }
+  .ss-name { flex: 1; min-width: 0; font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ss-item.on .ss-name { color: var(--text); }
+  #app[data-spaces="collapsed"] .ws-text, #app[data-spaces="collapsed"] .ss-name { display: none; }
+  #app[data-spaces="collapsed"] .ws-item, #app[data-spaces="collapsed"] .ss-item { justify-content: center; padding: 7px 0; gap: 0; }
+  #app[data-spaces="collapsed"] .ss-dot { width: 11px; height: 11px; margin: 4px 0; }
+
+  /* ── Right pane (Feedback · Agent) ─────────── */
+  #rightpane {
+    width: 360px; flex: none; background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  #rp-tabs { display: flex; gap: 2px; padding: 9px 10px; border-bottom: 1px solid var(--border); flex: none; }
+  #rp-tabs button {
+    flex: 1; font-family: var(--sans); font-size: 12px; color: var(--text-muted);
+    background: none; border: 1px solid transparent; border-radius: var(--r);
+    padding: 6px 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background-color .15s var(--ease-standard), color .15s var(--ease-standard), border-color .15s var(--ease-standard);
+  }
+  #rp-tabs button:hover { color: var(--text); }
+  #app[data-rtab="feedback"] #rp-tabs button[data-rtab="feedback"],
+  #app[data-rtab="agent"] #rp-tabs button[data-rtab="agent"] { background: var(--elevated); border-color: var(--border); color: var(--text); }
+  .rp-badge { min-width: 16px; height: 16px; padding: 0 5px; border-radius: 8px; background: var(--accent-tint); color: var(--accent); border: 1px solid rgba(245,163,163,0.3); font-family: var(--mono); font-size: 9.5px; font-weight: 600; display: none; align-items: center; justify-content: center; }
+  .rp-preview { font-family: var(--mono); font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--blue); border: 1px solid rgba(132,166,232,0.4); border-radius: var(--r-sm); padding: 1px 4px; }
+  #rp-body { position: relative; flex: 1; min-height: 0; }
+  #rp-feedback, #rp-agent {
+    position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0;
+    opacity: 0; visibility: hidden; transition: opacity .18s var(--ease-standard);
+  }
+  #app[data-rtab="feedback"] #rp-feedback { opacity: 1; visibility: visible; }
+  #app[data-rtab="agent"] #rp-agent { opacity: 1; visibility: visible; }
+
+  /* feedback: pending cards then inline finish */
+  #rp-feedback-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+  #rail-cards { padding: 12px 14px 4px; position: static; }
+  #rail-cards .card { position: static; left: auto; right: auto; margin: 0 0 8px; }
+  .rail-empty.static, .rail-note.static { position: static; left: auto; right: auto; top: auto; }
+  .rail-empty.static { padding: 4px 4px 8px; line-height: 1.65; }
+  .rail-note.static { margin-top: 6px; padding: 8px 2px; }
+  .fb-sub { font-family: var(--mono); font-size: 10px; color: var(--text-dim); padding: 10px 14px 2px; border-top: 1px solid var(--border); line-height: 1.5; }
+  #finish-body { padding: 4px 14px 18px; }
+  #rp-feedback-foot { flex: none; border-top: 1px solid var(--border); padding: 12px 14px; display: flex; align-items: center; gap: 10px; background: var(--panel); }
+  #rp-feedback-foot .foot-hint { font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); white-space: nowrap; }
+
+  /* agent (preview) */
+  .ag-head { display: flex; align-items: center; gap: 8px; padding: 12px 14px 11px; border-bottom: 1px solid var(--border); flex: none; }
+  .ag-title { font-size: 13px; font-weight: 600; }
+  .ag-connect { padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+  .ag-connect-lead { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
+  .ag-provider { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ag-prov { font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r); padding: 6px 11px; cursor: pointer; transition: color .12s var(--ease), border-color .12s var(--ease); }
+  .ag-prov:hover { color: var(--text); border-color: var(--border-strong); }
+  .ag-prov.on { background: var(--accent-tint); color: var(--accent); border-color: var(--accent); }
+  .ag-connect-btn { align-self: flex-start; font-family: var(--mono); font-size: 12.5px; color: var(--accent-ink); background: var(--accent); border: none; border-radius: var(--r-lg); padding: 10px 16px; cursor: pointer; font-weight: 600; }
+  .ag-connect-btn:hover { background: var(--accent-hover); }
+  .ag-scroll { flex: 1; overflow-y: auto; padding: 14px 14px 6px; min-height: 0; }
+  .ag-ctx { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.05em; color: var(--text-dim); border: 1px dashed var(--border-strong); border-radius: var(--r); padding: 6px 9px; margin-bottom: 14px; line-height: 1.5; }
+  .ag-msg { margin-bottom: 14px; }
+  .ag-who { font-family: var(--mono); font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px; }
+  .ag-msg.user .ag-who { color: var(--accent); }
+  .ag-bubble { font-size: 12.5px; line-height: 1.55; color: var(--text); background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 9px 11px; }
+  .ag-msg.user .ag-bubble { background: var(--accent-tint); border-color: rgba(245,163,163,0.3); }
+  .ag-bubble .fname { color: var(--blue); }
+  .ag-input-dock { flex: none; border-top: 1px solid var(--border); padding: 10px 12px; }
+  #ag-input { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: var(--r); font: inherit; font-size: 12.5px; line-height: 1.5; padding: 8px 10px; resize: none; outline: none; }
+  #ag-input:focus { border-color: var(--accent); }
+  .ag-input-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .ag-via { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+  .ag-send { font-family: var(--mono); font-size: 12px; color: var(--text); background: var(--elevated); border: 1px solid var(--border-strong); border-radius: var(--r); padding: 6px 14px; cursor: pointer; transition: color .12s var(--ease), border-color .12s var(--ease); }
+  .ag-send:hover { border-color: var(--accent); color: var(--accent); }
 
   /* ── Sidebar ──────────────────────────────── */
   #sidebar {
+    width: 284px; flex: none;
     background: var(--panel); border-right: 1px solid var(--border);
     display: flex; flex-direction: column; min-height: 0;
     transition: box-shadow .15s var(--ease);
   }
   #app[data-focus="sidebar"] #sidebar { box-shadow: inset 2px 0 0 var(--accent); }
-  #side-brand { padding: 12px 16px 10px; }
-  #side-brand a {
-    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.05em;
-    color: var(--text-dim); text-decoration: none;
-  }
-  #side-brand a:hover { color: var(--accent); }
-  #side-brand .b-strong { color: var(--text-muted); }
 
-  .tabs { display: flex; gap: 3px; padding: 0 12px 10px; border-bottom: 1px solid var(--border); }
+  .tabs { display: flex; gap: 3px; padding: 13px 12px 10px; border-bottom: 1px solid var(--border); }
   .tabs button {
     flex: 1; font-family: var(--sans); font-size: 11.5px; color: var(--text-muted);
     background: none; border: 1px solid transparent; border-radius: var(--r);
@@ -227,16 +339,13 @@
   #pbar-fill { height: 100%; width: 0; background: var(--green); border-radius: 2px; transition: width .28s var(--ease); }
 
   /* ── Stage ─────────────────────────────────── */
-  #scroller { overflow-y: auto; min-height: 0; }
+  #scroller { flex: 1; min-width: 0; overflow-y: auto; min-height: 0; }
   #canvas { position: relative; display: flex; justify-content: center; min-height: 100%; }
   .center-col { width: 760px; max-width: min(760px, 100%); padding: 32px 44px 45vh; }
   #app[data-width="compact"] .center-col { width: 660px; }
   #app[data-width="default"] .center-col { width: 760px; }
   #app[data-width="wide"] .center-col { width: 900px; }
   #app[data-mode="focus"] .center-col { width: 860px; }
-  .rail-col { width: 336px; flex: none; position: relative; border-left: 1px solid var(--border); }
-  #app:not([data-mode="workspace"]) .rail-col { display: none; }
-  #app[data-view="all"] .rail-col, #app[data-view="versions"] .rail-col { display: none; }
 
   /* guided progress strip */
   #guided-strip { display: none; margin-bottom: 26px; }
@@ -506,21 +615,7 @@
   #connector .wire { position: absolute; height: 1px; background: var(--accent); opacity: 0.55; top: 0; left: 0; right: 0; }
   #connector .nub { position: absolute; left: -3px; top: -2.5px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
 
-  /* ── Finish panel ─────────────────────────── */
-  #scrim { position: fixed; inset: 0; background: rgba(0,0,0,0.45); opacity: 0; pointer-events: none; transition: opacity .2s var(--ease); z-index: 40; }
-  #scrim.show { opacity: 1; pointer-events: auto; }
-  #finish-panel {
-    position: fixed; top: 0; right: 0; bottom: 0; width: 440px; max-width: 94vw;
-    background: var(--panel); border-left: 1px solid var(--border);
-    box-shadow: var(--shadow); transform: translateX(105%);
-    transition: transform .26s var(--ease); z-index: 50;
-    display: flex; flex-direction: column;
-  }
-  #finish-panel.show { transform: translateX(0); }
-  #finish-head { padding: 18px 22px 14px; border-bottom: 1px solid var(--border); }
-  #finish-head h3 { font-size: 15px; font-weight: 600; margin: 0; }
-  #finish-head .sub { font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 4px; }
-  #finish-body { flex: 1; overflow-y: auto; padding: 16px 22px; }
+  /* ── Finish / review content (lives in the Feedback pane) ─ */
   .f-label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; color: var(--text-dim); margin: 18px 0 8px; }
   .f-label:first-child { margin-top: 0; }
   #parent-comment { width: 100%; min-height: 66px; background: var(--elevated); color: var(--text); border: 1px solid var(--border); border-radius: var(--r-lg); font: inherit; font-size: 13px; line-height: 1.5; padding: 9px 11px; resize: vertical; outline: none; }
@@ -561,11 +656,9 @@
   #unviewed-warn { display: flex; align-items: center; gap: 9px; border: 1px solid rgba(245,163,163,0.35); background: var(--accent-tint); border-radius: var(--r-lg); padding: 9px 12px; margin-bottom: 14px; font-size: 12.5px; color: var(--accent); }
   #unviewed-warn .uv-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; animation: pulse 2s var(--ease) infinite; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-  #finish-foot { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; }
   #submit-btn { flex: 1; font-family: var(--mono); font-size: 13px; font-weight: 600; background: var(--accent); color: var(--accent-ink); border: none; border-radius: var(--r-lg); padding: 11px; cursor: pointer; }
   #submit-btn:hover { background: var(--accent-hover); }
   #submit-btn.approve { background: var(--green); } #submit-btn.approve:hover { filter: brightness(1.05); }
-  #finish-foot .foot-hint { font-family: var(--mono); font-size: 10.5px; color: var(--text-dim); }
 
   /* quiet confirmation */
   #confirm { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); }
@@ -668,6 +761,7 @@
 <div id="app" data-mode="workspace" data-focus="sidebar" data-view="file" data-input="select" data-width="default">
 
   <div id="topbar">
+    <a id="brand" href="../index.html">cueloop</a>
     <div id="crumb"></div>
     <div id="status"></div>
     <div class="segmented" id="mode-seg">
@@ -678,7 +772,6 @@
     </div>
     <button id="theme-btn" class="hbtn" aria-label="Cycle theme"></button>
     <button id="settings-btn" class="hbtn" title="Settings (⌘,)">⚙</button>
-    <button id="finish-btn"></button>
   </div>
 
   <div id="modebar">
@@ -690,8 +783,15 @@
   </div>
 
   <div id="lower">
+    <div id="spaces">
+      <div id="spaces-top">
+        <span class="sp-title">SPACES</span>
+        <button id="spaces-collapse" title="Collapse spaces (w to focus)">«</button>
+      </div>
+      <div id="spaces-body"></div>
+    </div>
+
     <div id="sidebar">
-      <div id="side-brand"><a href="../index.html">cueloop · <span class="b-strong">review</span></a></div>
       <div class="tabs">
         <button data-tab="status" class="on">Status</button>
         <button data-tab="tree">Tree</button>
@@ -714,25 +814,30 @@
           </div>
           <div id="content"></div>
         </div>
-        <div class="rail-col" id="rail-col">
-          <div id="rail-cards"></div>
-          <div id="connector"><div class="wire"></div><div class="nub"></div></div>
-        </div>
+        <div id="connector"><div class="wire"></div><div class="nub"></div></div>
       </div>
     </div>
-  </div>
-</div>
 
-<div id="scrim"></div>
-<div id="finish-panel">
-  <div id="finish-head">
-    <h3>Finish review</h3>
-    <div class="sub" id="finish-sub"></div>
-  </div>
-  <div id="finish-body"></div>
-  <div id="finish-foot">
-    <button id="submit-btn">Submit review</button>
-    <span class="foot-hint"><kbd>⌘⏎</kbd></span>
+    <div id="rightpane">
+      <div id="rp-tabs">
+        <button data-rtab="feedback">Feedback <span class="rp-badge" id="rp-fb-count"></span></button>
+        <button data-rtab="agent">Agent <span class="rp-preview">preview</span></button>
+      </div>
+      <div id="rp-body">
+        <div id="rp-feedback">
+          <div id="rp-feedback-scroll">
+            <div id="rail-cards"></div>
+            <div id="finish-sub" class="fb-sub"></div>
+            <div id="finish-body"></div>
+          </div>
+          <div id="rp-feedback-foot">
+            <button id="submit-btn">Submit review</button>
+            <span class="foot-hint"><kbd>⌘⏎</kbd></span>
+          </div>
+        </div>
+        <div id="rp-agent"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1052,11 +1157,14 @@ function tagById(id) { return TAGS.find(t => t.id === id) || TAGS[0]; }
 const KEYS = [
   ["NAVIGATE", [
     ["Move cursor (sidebar / lines)", ["j", "k"]],
+    ["Spaces panel (workspaces / sessions)", ["w"]],
     ["Switch Status / Tree / Versions", ["t"]],
+    ["Feedback ⇄ Agent panel", ["f"]],
+    ["Open Agent panel", ["a"]],
     ["Open item · into center", ["⏎"]],
     ["Next / prev changed file", ["]", "["]],
     ["Extend line selection", ["⇧j", "⇧k"]],
-    ["Back to sidebar", ["esc"]],
+    ["Back a zone", ["esc"]],
   ]],
   ["ANNOTATE", [
     ["Comment on line / span", ["c"]],
@@ -1071,9 +1179,9 @@ const KEYS = [
     ["Mark viewed", ["v"]],
     ["Collapse file (all-files)", ["x"]],
     ["Next / prev pending", ["n", "p"]],
-    ["Approve / submit review", ["⌘⏎"]],
-    ["Undo last · toggle rail", ["⌘z", "a"]],
-    ["Verdict in panel", ["1", "2", "3"]],
+    ["Focus summary · submit review", ["⌘⏎"]],
+    ["Undo last", ["⌘z"]],
+    ["Verdict (Feedback pane)", ["1", "2", "3"]],
   ]],
   ["SURFACES", [
     ["Command palette", ["⌘K", "/"]],
@@ -1103,8 +1211,8 @@ const settings = {
   theme: "dark",
   textured: false,
   grain: 0.05,
+  spacesCollapsed: false,
   planWidth: "default",
-  railDefault: "shown",
   diffStyle: "unified",
   diffGranularity: "word",
   showLineNumbers: true,
@@ -1137,6 +1245,11 @@ const state = {
   tab: "status",
   view: "file",
   focusZone: "sidebar",
+  rightTab: "feedback",
+  activeWorkspace: "cueloop",
+  activeSession: "s1",
+  sessionTitle: "Session persistence · v2",
+  navCursor: 0,
   sidebarCursor: 0,
   treeShowAll: false,
   treeCollapsed: {},
@@ -1147,7 +1260,6 @@ const state = {
   collapsed: {},
   selAnchor: null,
   viewed: {},
-  railHidden: false,
   planVersion: "v2",
   versionDiffView: "rendered",
   expandedGaps: {},
@@ -1157,7 +1269,6 @@ const state = {
   focusedId: null,
   editing: null,
   suggesting: null,
-  panelOpen: false,
   verdict: "comment",
   submitted: false,
   nextId: 1,
@@ -1169,9 +1280,56 @@ let themeIndex = 2;
 
 const $ = s => document.querySelector(s);
 const canvas = $("#canvas");
-const railCol = $("#rail-col");
 const railCards = $("#rail-cards");
 const connector = $("#connector");
+
+/* ═══════════ Spaces: Workspace → Session → Version ═══════════
+   The far-left panel establishes the Workspace → Session hierarchy;
+   versions live in the sidebar Versions tab. Bodies are mocked —
+   switching a session updates the header title over the same sample. */
+const WORKSPACES = [
+  { id: "cueloop", name: "cueloop", branch: "prototype/review-surface", sessions: [
+    { id: "s1", name: "Session persistence · v2", status: "working" },
+    { id: "s2", name: "PR #482 · error taxonomy",  status: "pending" },
+    { id: "s3", name: "worktree · uncommitted",     status: "done" },
+  ]},
+  { id: "autopilot", name: "autopilot", branch: "main", sessions: [
+    { id: "a1", name: "Retry budget · v1",       status: "working" },
+    { id: "a2", name: "PR #91 · flake triage",   status: "pending" },
+    { id: "a3", name: "nightly · run 4471",      status: "done" },
+  ]},
+  { id: "spectre", name: "spectre", branch: "main", sessions: [
+    { id: "p1", name: "Trace sampling · draft",  status: "working" },
+    { id: "p2", name: "PR #12 · span export",    status: "pending" },
+    { id: "p3", name: "hotfix · dropped spans",  status: "done" },
+  ]},
+];
+function workspaceById(id) { return WORKSPACES.find(w => w.id === id) || WORKSPACES[0]; }
+function sessionById(wid, sid) { return workspaceById(wid).sessions.find(s => s.id === sid); }
+
+/* ═══════════ Agent panel (mocked preview) ═══════════ */
+const PROVIDERS = [
+  { id: "claude", name: "Claude" },
+  { id: "codex", name: "Codex" },
+  { id: "pi", name: "pi" },
+  { id: "opencode", name: "opencode" },
+];
+function providerName(id) { const p = PROVIDERS.find(x => x.id === id); return p ? p.name : id; }
+const agent = {
+  connected: false,
+  provider: "claude",
+  messages: [
+    { who: "user", text: "why did you drop the append-only log?" },
+    { who: "agent", text: "It wasn't dropped — revision 2 added it. See server/storage/journal.ts: an append-only write-ahead journal that folds back into the store on recovery. That resolves the v1 open question about whether one JSON file per session preserved annotation ordering across a crash." },
+  ],
+};
+const AGENT_REPLIES = [
+  "In revision 2 the annotation history is preserved by server/storage/journal.ts, so a restarted daemon replays the journal instead of losing pending notes.",
+  "Recovery stays read-only until a client reattaches (Phase 2 in the plan), so from the reviewer's side a crash looks like a brief disconnect. See server/daemon.ts.",
+  "SCHEMA_VERSION lives in server/storage/schema.ts; the revision field on SessionRecord is what lets your annotations re-anchor across a resubmitted plan.",
+];
+let agentReplyIdx = 0;
+function cannedReply() { const r = AGENT_REPLIES[agentReplyIdx % AGENT_REPLIES.length]; agentReplyIdx++; return r; }
 
 function esc(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -1450,6 +1608,134 @@ function anchorFromRange(item, s0, s1) {
   const e2 = Math.min(s1, rows.length - 1);
   const sLi = rows[s0].li, eLi = rows[e2].li;
   return { startLi: Math.min(sLi, eLi), endLi: Math.max(sLi, eLi) };
+}
+
+/* ═══════════ Spaces panel (Workspaces → Sessions) ═══════════ */
+
+function navItemsList() {
+  const items = [];
+  WORKSPACES.forEach(w => items.push({ kind: "ws", id: w.id }));
+  workspaceById(state.activeWorkspace).sessions.forEach(s => items.push({ kind: "ss", id: s.id }));
+  return items;
+}
+
+function renderSpaces() {
+  const body = $("#spaces-body");
+  if (!body) return;
+  const items = navItemsList();
+  if (state.navCursor >= items.length) state.navCursor = items.length - 1;
+  if (state.navCursor < 0) state.navCursor = 0;
+  const navFocus = state.focusZone === "nav";
+  let flat = 0;
+  let html = '<div class="sp-group"><span class="sp-g-full">Workspaces</span></div>';
+  WORKSPACES.forEach(w => {
+    const cur = (navFocus && items[state.navCursor] && items[state.navCursor].kind === "ws" && items[state.navCursor].id === w.id) ? " cursor" : "";
+    const on = w.id === state.activeWorkspace ? " on" : "";
+    html += '<div class="ws-item' + on + cur + '" data-ws="' + w.id + '" title="' + esc(w.name + " · " + w.branch) + '">'
+      + '<span class="ws-init">' + esc(w.name[0]) + "</span>"
+      + '<div class="ws-text"><div class="ws-name">' + esc(w.name) + '</div><div class="ws-branch">' + esc(w.branch) + "</div></div></div>";
+    flat++;
+  });
+  html += '<div class="sp-group"><span class="sp-g-full">Sessions</span></div>';
+  workspaceById(state.activeWorkspace).sessions.forEach(s => {
+    const cur = (navFocus && items[state.navCursor] && items[state.navCursor].kind === "ss" && items[state.navCursor].id === s.id) ? " cursor" : "";
+    const on = s.id === state.activeSession ? " on" : "";
+    html += '<div class="ss-item' + on + cur + '" data-ss="' + s.id + '" title="' + esc(s.name) + '">'
+      + '<span class="ss-dot ' + s.status + '"></span>'
+      + '<span class="ss-name">' + esc(s.name) + "</span></div>";
+  });
+  body.innerHTML = html;
+
+  body.querySelectorAll("[data-ws]").forEach(el => el.addEventListener("click", () => { state.focusZone = "nav"; selectWorkspace(el.dataset.ws); }));
+  body.querySelectorAll("[data-ss]").forEach(el => el.addEventListener("click", () => { state.focusZone = "nav"; selectSession(el.dataset.ss); }));
+  syncFocus();
+}
+
+function selectWorkspace(id) {
+  const w = workspaceById(id);
+  const changed = state.activeWorkspace !== id;
+  state.activeWorkspace = id;
+  if (changed) { state.activeSession = w.sessions[0].id; state.sessionTitle = w.sessions[0].name; }
+  state.navCursor = WORKSPACES.findIndex(x => x.id === id);
+  flash("workspace · " + w.name + " · " + w.branch);
+  renderSpaces(); updateCrumb();
+}
+function selectSession(id) {
+  const w = workspaceById(state.activeWorkspace);
+  const s = w.sessions.find(x => x.id === id);
+  if (!s) return;
+  state.activeSession = id;
+  state.sessionTitle = s.name;
+  const idx = navItemsList().findIndex(it => it.kind === "ss" && it.id === id);
+  if (idx >= 0) state.navCursor = idx;
+  flash("session · " + s.name);
+  renderSpaces(); updateCrumb();
+}
+function openNavItem(it) {
+  if (!it) return;
+  if (it.kind === "ws") selectWorkspace(it.id); else selectSession(it.id);
+}
+function toggleSpaces() {
+  settings.spacesCollapsed = !settings.spacesCollapsed;
+  $("#app").dataset.spaces = settings.spacesCollapsed ? "collapsed" : "expanded";
+  const b = $("#spaces-collapse");
+  if (b) { b.textContent = settings.spacesCollapsed ? "»" : "«"; b.title = (settings.spacesCollapsed ? "Expand" : "Collapse") + " spaces (w to focus)"; }
+  flash(settings.spacesCollapsed ? "spaces collapsed" : "spaces expanded");
+}
+
+/* ═══════════ Right pane (Feedback · Agent) ═══════════ */
+
+function switchRightTab(tab) {
+  state.rightTab = tab;
+  $("#app").dataset.rtab = tab;
+  document.querySelectorAll("#rp-tabs button").forEach(b => b.classList.toggle("on", b.dataset.rtab === tab));
+  if (tab === "agent") renderAgent();
+}
+function toggleRightTab() { switchRightTab(state.rightTab === "agent" ? "feedback" : "agent"); }
+function feedbackActive() { return state.mode !== "focus" && state.rightTab === "feedback" && !state.submitted; }
+
+function agentBubble(text) { return linkFiles(esc(text)); }
+
+function renderAgent() {
+  const host = $("#rp-agent");
+  if (!host) return;
+  let html = '<div class="ag-head"><span class="ag-title">Review agent</span><span class="rp-preview">preview</span></div>';
+  if (!agent.connected) {
+    html += '<div class="ag-connect">'
+      + '<div class="ag-connect-lead">Connect a coding agent to inherit its session context — the review agent picks up where the coding agent left off.</div>'
+      + '<div class="ag-provider">' + PROVIDERS.map(p => '<button class="ag-prov' + (p.id === agent.provider ? " on" : "") + '" data-prov="' + p.id + '">' + esc(p.name) + "</button>").join("") + "</div>"
+      + '<button class="ag-connect-btn" id="ag-connect">Connect ' + esc(providerName(agent.provider)) + "</button>"
+      + "</div>";
+    host.innerHTML = html;
+    host.querySelectorAll("[data-prov]").forEach(b => b.addEventListener("click", () => { agent.provider = b.dataset.prov; renderAgent(); }));
+    const cb = $("#ag-connect");
+    if (cb) cb.addEventListener("click", () => { agent.connected = true; flash("agent connected · " + providerName(agent.provider)); renderAgent(); });
+    return;
+  }
+  html += '<div class="ag-scroll" id="ag-scroll">';
+  html += '<div class="ag-ctx">◆ inherited session context · ' + esc(providerName(agent.provider)) + ' · plan.md rev 2</div>';
+  agent.messages.forEach(m => {
+    html += '<div class="ag-msg ' + m.who + '"><div class="ag-who">' + (m.who === "user" ? "you" : "review agent") + '</div><div class="ag-bubble">' + agentBubble(m.text) + "</div></div>";
+  });
+  html += "</div>";
+  html += '<div class="ag-input-dock"><textarea id="ag-input" rows="1" placeholder="Ask the review agent…"></textarea>'
+    + '<div class="ag-input-foot"><span class="ag-via">via ' + esc(providerName(agent.provider)) + '</span><button class="ag-send" id="ag-send">Send</button></div></div>';
+  host.innerHTML = html;
+  const scroll = $("#ag-scroll");
+  if (scroll) scroll.scrollTop = scroll.scrollHeight;
+  const send = () => {
+    const ta = $("#ag-input");
+    if (!ta) return;
+    const t = ta.value.trim();
+    if (!t) return;
+    agent.messages.push({ who: "user", text: t });
+    agent.messages.push({ who: "agent", text: cannedReply() });
+    renderAgent();
+  };
+  const sb = $("#ag-send");
+  if (sb) sb.addEventListener("click", send);
+  const ta = $("#ag-input");
+  if (ta) ta.addEventListener("keydown", e => { e.stopPropagation(); if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } });
 }
 
 /* ═══════════ Sidebar render ═══════════ */
@@ -2091,20 +2377,21 @@ function guidedStep(dir) {
 
 function updateCrumb() {
   const c = $("#crumb");
-  if (state.view === "all") { c.innerHTML = "review <span class='sep'>/</span> <b>all changed files</b> <span class='cbadge'>" + changedFileIds.length + " files</span>"; return; }
-  if (state.view === "versions") { c.innerHTML = "review <span class='sep'>/</span> <b>plan.md</b> <span class='sep'>·</span> revision diff <span class='cbadge'>v1 → v2</span>"; return; }
+  const lead = esc(workspaceById(state.activeWorkspace).name) + " <span class='sep'>/</span> " + esc(state.sessionTitle);
+  if (state.view === "all") { c.innerHTML = lead + " <span class='sep'>/</span> <b>all changed files</b> <span class='cbadge'>" + changedFileIds.length + " files</span>"; return; }
+  if (state.view === "versions") { c.innerHTML = lead + " <span class='sep'>/</span> <b>plan.md</b> <span class='sep'>·</span> revision diff <span class='cbadge'>v1 → v2</span>"; return; }
   const f = FILES[state.active];
-  if (!f) { c.innerHTML = "review"; return; }
+  if (!f) { c.innerHTML = lead; return; }
   if (f.kind === "plan") {
     const rows = planRows();
     const cur = state.cursors.plan != null ? state.cursors.plan : 0;
-    c.innerHTML = "review <span class='sep'>/</span> <b>plan.md</b> <span class='sep'>·</span> " + (state.planVersion) + " <span class='sep'>·</span> block " + (cur + 1) + "/" + rows.length + " <span class='sep'>·</span> " + esc(settings.displayName);
+    c.innerHTML = lead + " <span class='sep'>/</span> <b>plan.md</b> <span class='sep'>·</span> " + (state.planVersion) + " <span class='sep'>·</span> block " + (cur + 1) + "/" + rows.length;
     return;
   }
   const rows = rowsFor(state.active);
   const cur = state.cursors[state.active] != null ? state.cursors[state.active] : 0;
   const kindLabel = f.kind === "ro" ? "read-only" : "diff";
-  c.innerHTML = "review <span class='sep'>/</span> <b>" + esc(f.path) + "</b> <span class='sep'>·</span> " + kindLabel + (f.kind === "diff" ? " <span class='sep'>·</span> line " + (cur + 1) + "/" + rows.length : "") + " <span class='sep'>·</span> " + esc(settings.displayName);
+  c.innerHTML = lead + " <span class='sep'>/</span> <b>" + esc(f.path) + "</b> <span class='sep'>·</span> " + kindLabel + (f.kind === "diff" ? " <span class='sep'>·</span> line " + (cur + 1) + "/" + rows.length : "");
 }
 
 /* ═══════════ Rail ═══════════ */
@@ -2226,76 +2513,50 @@ function applyAnchorFocus() {
 }
 
 function railVisible() {
-  return state.mode === "workspace" && state.view === "file" && FILES[state.active] && FILES[state.active].kind !== "ro" && !state.railHidden;
+  return state.mode !== "focus" && state.view === "file" && FILES[state.active] && FILES[state.active].kind !== "ro";
 }
 
 function renderRail() {
+  if (connector) connector.style.display = "none";
   railCards.innerHTML = "";
-  connector.style.display = "none";
-  if (!railVisible()) { railCol.style.display = "none"; return; }
-  railCol.style.display = "block";
+
+  const onFile = state.view === "file" && FILES[state.active] && FILES[state.active].kind !== "ro";
+  if (!onFile) {
+    const note = document.createElement("div");
+    note.className = "rail-empty static";
+    note.textContent = state.view === "all"
+      ? "Open a single file to see its pending notes here — the review still submits everything at once."
+      : state.view === "versions"
+        ? "Plan revision diff open. Open a file to annotate; pending notes show here."
+        : "Read-only context file — nothing to annotate.";
+    railCards.appendChild(note);
+    return;
+  }
 
   const cards = cardsForActive();
   const otherCount = state.annotations.length + state.edits.length - cards.length;
 
   if (!cards.length) {
     const empty = document.createElement("div");
-    empty.className = "rail-empty";
+    empty.className = "rail-empty static";
     empty.textContent = FILES[state.active].kind === "plan"
       ? "No notes on this file yet. Move with j / k, extend with ⇧j, then c to comment, r to redline, g for looks-good, or e to rewrite a block."
       : "Move the line cursor with j / k, then c to comment, r to redline, s to suggest code, or ⇧C for a file-scoped note.";
     railCards.appendChild(empty);
-    if (otherCount > 0) railNote(otherCount, 110);
+    if (otherCount > 0) railNote(otherCount);
     return;
   }
 
-  const items = cards.map(c => {
+  cards.forEach(c => {
     const el = buildCard(c);
-    el.style.top = "0px";
+    el.classList.toggle("focused", c.id === state.focusedId);
     railCards.appendChild(el);
-    const row = anchorRow(c);
-    return { card: c, el: el, want: row ? Math.max(4, topInCanvas(row) - 2) : 4 };
   });
-  items.sort((x, y) => x.want - y.want);
-
-  const GAP = 10;
-  const fi = items.findIndex(it => it.card.id === state.focusedId);
-  const tops = new Array(items.length);
-  if (fi >= 0) {
-    tops[fi] = items[fi].want;
-    for (let i = fi - 1; i >= 0; i--) tops[i] = Math.min(items[i].want, tops[i + 1] - items[i].el.offsetHeight - GAP);
-    for (let i = fi + 1; i < items.length; i++) tops[i] = Math.max(items[i].want, tops[i - 1] + items[i - 1].el.offsetHeight + GAP);
-  } else {
-    let y = 0;
-    items.forEach((it, i) => { tops[i] = Math.max(it.want, y); y = tops[i] + it.el.offsetHeight + GAP; });
-  }
-  let maxBottom = 40;
-  items.forEach((it, i) => {
-    it.el.style.top = Math.max(4, tops[i]) + "px";
-    it.el.classList.toggle("focused", it.card.id === state.focusedId);
-    maxBottom = Math.max(maxBottom, tops[i] + it.el.offsetHeight);
-  });
-  if (otherCount > 0) railNote(otherCount, maxBottom + 24);
-
-  const focused = items.find(it => it.card.id === state.focusedId);
-  if (focused) {
-    const row = anchorRow(focused.card);
-    if (row) {
-      const aRect = row.getBoundingClientRect();
-      const cRect = canvas.getBoundingClientRect();
-      const left = aRect.right - cRect.left + 4;
-      const right = focused.el.getBoundingClientRect().left - cRect.left - 2;
-      connector.style.display = "block";
-      connector.style.left = left + "px";
-      connector.style.width = Math.max(0, right - left) + "px";
-      connector.style.top = (aRect.top - cRect.top + aRect.height / 2) + "px";
-    }
-  }
+  if (otherCount > 0) railNote(otherCount);
 }
-function railNote(n, top) {
+function railNote(n) {
   const note = document.createElement("div");
-  note.className = "rail-note";
-  note.style.top = top + "px";
+  note.className = "rail-note static";
   note.textContent = n + " more pending on other files — press n to walk them.";
   railCards.appendChild(note);
 }
@@ -2325,7 +2586,7 @@ function selRange() {
 function setFocused(id) { state.focusedId = id; }
 function syncFocus() { $("#app").dataset.focus = state.focusZone; }
 function canAnnotate() { return state.view === "file" && FILES[state.active] && (FILES[state.active].kind === "plan" || FILES[state.active].kind === "diff"); }
-function ensureWorkspace() { if (state.mode !== "workspace") setMode("workspace"); if (state.railHidden) state.railHidden = false; }
+function ensureWorkspace() { if (state.mode === "focus") setMode("workspace"); if (state.rightTab !== "feedback") switchRightTab("feedback"); }
 
 /* ═══════════ Actions ═══════════ */
 
@@ -2458,7 +2719,6 @@ function openComposer(item, start, end, opts) {
   if (opts.fileScope) quote = "Whole file — " + f.path;
   else { const first = rows[start]; quote = item === "plan" ? first.block.text : (first.line.text || "(blank line)"); }
   const span = !opts.fileScope && end > start ? " · +" + (end - start) + " more" : "";
-  const inRail = railVisible();
   const conv = settings.conventions;
   let convRow = "";
   if (conv.enabled) {
@@ -2469,26 +2729,19 @@ function openComposer(item, start, end, opts) {
   }
 
   const el = document.createElement("div");
-  el.className = "card composer" + (inRail ? "" : " inline-composer");
+  el.className = "card composer inline-composer";
   el.innerHTML = '<div class="card-head"><span class="card-type">' + (opts.fileScope ? "FILE NOTE" : "COMMENT") + '</span><span class="card-badge">DRAFT</span></div>'
     + '<div class="card-quote' + (f.kind === "diff" && !opts.fileScope ? " mono" : "") + '">' + esc(trunc(quote)) + span + "</div>"
     + convRow
     + '<textarea id="composer-input" rows="3" placeholder="Note for the agent…"></textarea>'
     + '<div class="card-hint"><kbd>⏎</kbd> save · <kbd>esc</kbd> cancel</div>';
 
-  if (inRail) {
-    renderRail();
-    const anchor = opts.fileScope ? null : $("#content").querySelector('[data-row="' + start + '"]');
-    el.style.top = (anchor ? Math.max(4, topInCanvas(anchor) - 2) : 4) + "px";
-    railCards.appendChild(el);
-    document.body.classList.add("composing");
-  } else {
-    let anchor;
-    if (state.view === "all") anchor = $("#content").querySelector('section.afile[data-file="' + item + '"] [data-row="' + start + '"]');
-    else anchor = $("#content").querySelector('[data-row="' + start + '"]');
-    if (anchor) anchor.insertAdjacentElement("afterend", el);
-    else $("#content").appendChild(el);
-  }
+  // inline in the center, anchored after the selected row (or at the top for file-scoped notes)
+  let anchor;
+  if (state.view === "all") anchor = $("#content").querySelector('section.afile[data-file="' + item + '"] [data-row="' + start + '"]');
+  else anchor = $("#content").querySelector('[data-row="' + start + '"]');
+  if (anchor) anchor.insertAdjacentElement("afterend", el);
+  else $("#content").appendChild(el);
   composer = { el: el, item: item, start: start, end: end, fileScope: !!opts.fileScope, convention: conv.default, blocking: conv.default ? !!conv.blocking[conv.default] : false };
 
   const syncBlk = () => { const b = el.querySelector("[data-blk]"); if (b) b.classList.toggle("on", composer.blocking); };
@@ -2637,13 +2890,12 @@ function jumpPending(dir) {
 function pendingCount() { return state.annotations.length + state.edits.length; }
 function blockingCount() { return state.annotations.filter(a => (a.type || "comment") === "comment" && a.blocking).length; }
 
-function renderFinishButton() {
+function renderRightMeta() {
+  const verBadge = $("#tab-ver-badge");
+  if (verBadge) verBadge.textContent = "v2";
   const n = pendingCount();
-  const btn = $("#finish-btn");
-  $("#tab-ver-badge").textContent = "v2";
-  if (state.submitted) { btn.textContent = "Review sent ✓"; btn.className = "sent"; return; }
-  if (n) { btn.textContent = "Submit review (" + n + ")"; btn.className = "has-pending"; }
-  else { btn.textContent = "Approve"; btn.className = ""; }
+  const fb = $("#rp-fb-count");
+  if (fb) { fb.textContent = n ? String(n) : ""; fb.style.display = n ? "inline-flex" : "none"; }
 }
 
 function finishItemHTML(a) {
@@ -2705,27 +2957,37 @@ function renderFinishPanel() {
   });
   body.innerHTML = html;
 
-  $("#finish-sub").textContent = pendingCount() + " pending annotation" + (pendingCount() === 1 ? "" : "s") + (nBlock ? " · " + nBlock + " blocking" : "") + " · delivered atomically as " + settings.displayName;
+  const fsub = $("#finish-sub");
+  if (fsub) fsub.textContent = state.submitted
+    ? "Review delivered to agent/worker-3 as " + settings.displayName + " in one atomic reply."
+    : pendingCount() + " pending annotation" + (pendingCount() === 1 ? "" : "s") + (nBlock ? " · " + nBlock + " blocking" : "") + " · delivered atomically as " + settings.displayName;
   const sub = $("#submit-btn");
-  sub.className = state.verdict === "approve" ? "approve" : "";
-  sub.textContent = state.verdict === "approve" ? "Approve & finish" : state.verdict === "request" ? "Request changes" : (pendingCount() ? "Send " + pendingCount() + " annotation" + (pendingCount() === 1 ? "" : "s") : "Submit review");
-  body.querySelectorAll("[data-verdict]").forEach(el => el.addEventListener("click", () => { state.verdict = el.dataset.verdict; renderFinishPanel(); }));
+  if (sub) {
+    if (state.submitted) { sub.className = "approve"; sub.textContent = "Review sent ✓"; }
+    else {
+      sub.className = state.verdict === "approve" ? "approve" : "";
+      sub.textContent = state.verdict === "approve" ? "Approve & finish" : state.verdict === "request" ? "Request changes" : (pendingCount() ? "Send " + pendingCount() + " annotation" + (pendingCount() === 1 ? "" : "s") : "Submit review");
+    }
+  }
+  body.querySelectorAll("[data-verdict]").forEach(el => el.addEventListener("click", () => { state.verdict = el.dataset.verdict; renderFinishPanel(); renderRightMeta(); }));
 }
 
+/* ⌘⏎ (first press): reveal the Feedback pane and focus the summary. */
 function openPanel(contextual) {
   if (state.submitted) return;
   cancelComposer(); if (state.editing != null) saveEdit();
+  if (state.mode === "focus") setMode("workspace");
   if (contextual) state.verdict = pendingCount() === 0 ? "approve" : (state.verdict === "approve" ? "comment" : state.verdict);
-  state.panelOpen = true;
-  renderFinishPanel();
-  $("#scrim").classList.add("show");
-  $("#finish-panel").classList.add("show");
-  setTimeout(() => { const pc = $("#parent-comment"); if (pc) pc.focus(); }, 200);
+  switchRightTab("feedback");
+  renderFinishPanel(); renderRightMeta();
+  const pc = $("#parent-comment");
+  if (pc) { pc.focus(); pc.setSelectionRange(pc.value.length, pc.value.length); pc.scrollIntoView({ block: "nearest" }); }
 }
-function closePanel() { state.panelOpen = false; $("#scrim").classList.remove("show"); $("#finish-panel").classList.remove("show"); }
+function closePanel() { const pc = $("#parent-comment"); if (pc) pc.blur(); }
 
 let autoCloseTimer = null;
 function submitReview() {
+  if (state.submitted) return;
   const names = { comment: "Comment", approve: "Approve", request: "Request changes" };
   const pc = $("#parent-comment");
   const parent = pc ? pc.value.trim() : "";
@@ -2740,7 +3002,7 @@ function submitReview() {
     + (parent ? ", with an overall note," : "") + " delivered to agent/worker-3 as " + settings.displayName + " in one atomic reply. Nothing was visible until now.";
   $("#cc-verdict").innerHTML = "verdict · <b>" + names[state.verdict] + "</b>";
   $("#confirm").classList.add("show");
-  renderFinishButton();
+  renderRail(); renderFinishPanel(); renderRightMeta();
   clearTimeout(autoCloseTimer);
   if (settings.autoClose !== "off") autoCloseTimer = setTimeout(dismissConfirm, (+settings.autoClose) * 1000);
 }
@@ -2800,10 +3062,13 @@ const commands = [
   { id: "prev", group: "Navigate", ico: "↑", name: "Previous annotation", desc: "Walk pending annotations", keys: ["p"], run: () => { closePalette(); jumpPending(-1); } },
   { id: "status", group: "Navigate", ico: "≡", name: "All changed files", desc: "Continuous scroll of every change", keys: [], run: () => { closePalette(); setTab("status"); state.sidebarCursor = 0; openItem(activeItems()[0]); } },
   { id: "versions", group: "Navigate", ico: "⟲", name: "Plan revisions", desc: "v1 → v2 diff and reattach", keys: [], run: () => { closePalette(); setTab("versions"); } },
-  { id: "focus", group: "Layout", ico: "◱", name: "Focus mode", desc: "Hide sidebar and rail", keys: [], run: () => { closePalette(); setMode("focus"); } },
+  { id: "focus", group: "Layout", ico: "◱", name: "Focus mode", desc: "Hide the side columns", keys: [], run: () => { closePalette(); setMode("focus"); } },
   { id: "guided", group: "Layout", ico: "◧", name: "Guided walk", desc: "Step through files in order", keys: [], run: () => { closePalette(); setMode("guided"); } },
-  { id: "workspace", group: "Layout", ico: "▣", name: "Workspace mode", desc: "Full three-pane review", keys: [], run: () => { closePalette(); setMode("workspace"); } },
+  { id: "workspace", group: "Layout", ico: "▣", name: "Workspace mode", desc: "Full four-column review", keys: [], run: () => { closePalette(); setMode("workspace"); } },
   { id: "split", group: "Layout", ico: "◫", name: "Split mode", desc: "Base beside working copy", keys: [], run: () => { closePalette(); setMode("split"); } },
+  { id: "spaces", group: "Layout", ico: "❏", name: "Focus Spaces panel", desc: "Workspaces and sessions", keys: ["w"], run: () => { closePalette(); if (state.mode === "focus") setMode("workspace"); state.focusZone = "nav"; syncFocus(); renderSpaces(); } },
+  { id: "feedback", group: "Panels", ico: "❝", name: "Feedback panel", desc: "Pending annotations · verdict · submit", keys: ["f"], run: () => { closePalette(); if (state.mode === "focus") setMode("workspace"); switchRightTab("feedback"); } },
+  { id: "agent", group: "Panels", ico: "✦", name: "Agent panel (preview)", desc: "Chat with the review agent", keys: ["a"], run: () => { closePalette(); if (state.mode === "focus") setMode("workspace"); switchRightTab("agent"); const ai = $("#ag-input"); if (ai) ai.focus(); } },
   { id: "textured", group: "Appearance", ico: "▦", name: "Toggle textured canvas", desc: "Film-grain surface on / off", keys: [], run: () => { closePalette(); toggleTextured(); } },
   { id: "theme", group: "Appearance", ico: "◐", name: "Cycle theme", desc: "System / Light / Dark", keys: [], run: () => { closePalette(); cycleTheme(); } },
   { id: "settings", group: "Surfaces", ico: "⚙", name: "Open settings", desc: "Preferences and keybindings", keys: ["⌘,"], run: () => { closePalette(); openSettings(); } },
@@ -2951,8 +3216,8 @@ function renderSettingsBody() {
   } else if (settingsTab === "display") {
     html += field("Plan width", "Column width for the plan and diff — live preview.",
       segHTML("planWidth", [["compact", "Compact"], ["default", "Default"], ["wide", "Wide"]], settings.planWidth));
-    html += field("Margin rail", "Show the annotation rail by default in Workspace mode.",
-      segHTML("railDefault", [["shown", "Shown"], ["hidden", "Hidden"]], settings.railDefault));
+    html += field("Spaces panel", "Show the far-left Workspaces / Sessions panel full-width, or as a compact initials strip.",
+      segHTML("spacesCollapsed", [["expanded", "Expanded"], ["collapsed", "Collapsed"]], settings.spacesCollapsed ? "collapsed" : "expanded"));
   } else if (settingsTab === "diff") {
     html += field("Diff style", "Unified stacks changes; split shows old beside new.",
       segHTML("diffStyle", [["unified", "Unified"], ["split", "Split"]], settings.diffStyle));
@@ -3020,7 +3285,7 @@ function onSetting(key, val) {
   if (key === "conv-default") { settings.conventions.default = val; renderSettingsBody(); return; }
   if (key.indexOf("conv-blk-") === 0) { const c = key.slice(9); settings.conventions.blocking[c] = !settings.conventions.blocking[c]; renderSettingsBody(); return; }
   if (key === "obsidian-enabled") { settings.obsidian.enabled = !settings.obsidian.enabled; renderSettingsBody(); return; }
-  if (key === "railDefault") { settings.railDefault = val; state.railHidden = val === "hidden"; refreshFromSettings(); renderSettingsBody(); return; }
+  if (key === "spacesCollapsed") { settings.spacesCollapsed = val === "collapsed"; $("#app").dataset.spaces = settings.spacesCollapsed ? "collapsed" : "expanded"; const b = $("#spaces-collapse"); if (b) { b.textContent = settings.spacesCollapsed ? "»" : "«"; b.title = (settings.spacesCollapsed ? "Expand" : "Collapse") + " spaces (w to focus)"; } renderSettingsBody(); return; }
   settings[key] = val;
   refreshFromSettings();
   renderSettingsBody();
@@ -3151,11 +3416,13 @@ function toggleCheat() { $("#cheat").classList.toggle("show"); }
 
 function renderAll() {
   syncFocus(); syncView();
+  renderSpaces();
   renderSidebar();
   if (state.mode === "guided") renderGuided(); else renderContent();
   renderRail();
-  renderFinishButton();
-  if (state.panelOpen) renderFinishPanel();
+  renderFinishPanel();
+  if (state.rightTab === "agent") renderAgent();
+  renderRightMeta();
   applyAnchorFocus();
 }
 
@@ -3194,7 +3461,7 @@ document.addEventListener("keydown", e => {
   if (typing) {
     if (e.key === "Enter" && meta) {
       e.preventDefault();
-      if (state.panelOpen && e.target.id === "parent-comment") { submitReview(); return; }
+      if (e.target.id === "parent-comment") { submitReview(); return; }
       if (e.target.id === "suggest-input") { saveSuggestion(); return; }
       if (e.target.id === "edit-input") { saveEdit(); return; }
       if (e.target.id === "composer-input") { saveComposer(); return; }
@@ -3211,14 +3478,15 @@ document.addEventListener("keydown", e => {
   if ($("#cheat").classList.contains("show")) { if (e.key === "?" || e.key === "Escape") toggleCheat(); return; }
   if (e.key === "?") { e.preventDefault(); toggleCheat(); return; }
 
-  // context-aware finish
-  if (e.key === "Enter" && meta) { e.preventDefault(); if (state.panelOpen) submitReview(); else openPanel(true); return; }
+  // ⌘⏎ reveals the Feedback pane + focuses the summary; a second ⌘⏎ (in the summary) submits atomically
+  if (e.key === "Enter" && meta) { e.preventDefault(); openPanel(true); return; }
 
-  if (state.panelOpen) {
-    if (e.key === "Escape") { closePanel(); return; }
-    if (e.key === "1") { state.verdict = "comment"; renderFinishPanel(); return; }
-    if (e.key === "2") { state.verdict = "approve"; renderFinishPanel(); return; }
-    if (e.key === "3") { state.verdict = "request"; renderFinishPanel(); return; }
+  // verdict selector in the Feedback pane
+  if (!e.altKey && (e.key === "1" || e.key === "2" || e.key === "3") && feedbackActive()) {
+    e.preventDefault();
+    state.verdict = { "1": "comment", "2": "approve", "3": "request" }[e.key];
+    renderFinishPanel(); renderRightMeta();
+    flash("verdict · " + { comment: "Comment", approve: "Approve", request: "Request changes" }[state.verdict]);
     return;
   }
 
@@ -3228,7 +3496,26 @@ document.addEventListener("keydown", e => {
   if (e.altKey && /^[1-5]$/.test(e.key)) { e.preventDefault(); applyTag(+e.key - 1); return; }
 
   if (e.key === "t") { cycleTab(); return; }
-  if (e.key === "a") { if (state.mode === "workspace" && state.view === "file") { state.railHidden = !state.railHidden; flash(state.railHidden ? "Rail hidden" : "Rail shown"); renderRail(); } else flash("Rail shows on a single changed file"); return; }
+  if (e.key === "w") {
+    if (state.mode === "focus") { flash("Spaces panel is hidden in Focus mode"); return; }
+    state.focusZone = "nav"; state.navCursor = navItemsList().findIndex(it => it.kind === "ss" && it.id === state.activeSession);
+    if (state.navCursor < 0) state.navCursor = 0;
+    syncFocus(); renderSpaces();
+    flash("Spaces · j / k move · ⏎ open · esc back");
+    return;
+  }
+  if (e.key === "f") {
+    if (state.mode === "focus") { flash("Side panels are hidden in Focus mode"); return; }
+    toggleRightTab(); flash(state.rightTab === "agent" ? "Agent panel" : "Feedback panel");
+    return;
+  }
+  if (e.key === "a") {
+    if (state.mode === "focus") { flash("Side panels are hidden in Focus mode"); return; }
+    switchRightTab("agent");
+    const ai = $("#ag-input"); if (ai) ai.focus();
+    flash("Agent panel · preview");
+    return;
+  }
   if (e.key === "]") { e.preventDefault(); jumpFile(1); return; }
   if (e.key === "[") { e.preventDefault(); jumpFile(-1); return; }
   if (e.key === "v") { markViewedCurrent(); return; }
@@ -3251,6 +3538,7 @@ document.addEventListener("keydown", e => {
     if (composer) { cancelComposer(); renderContent(); renderRail(); return; }
     if (state.selAnchor !== null) { state.selAnchor = null; renderContent(); renderRail(); return; }
     if (state.focusedId) { setFocused(null); renderRail(); applyAnchorFocus(); return; }
+    if (state.focusZone === "nav") { state.focusZone = "sidebar"; syncFocus(); renderSpaces(); return; }
     if (state.focusZone === "content") { state.focusZone = "sidebar"; syncFocus(); renderContent(); return; }
     return;
   }
@@ -3266,6 +3554,14 @@ document.addEventListener("keydown", e => {
     if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); allFilesStep(1); return; }
     if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); allFilesStep(-1); return; }
     if (e.key === "Enter") { e.preventDefault(); openFile(changedFileIds[state.allCursor]); syncView(); renderAll(); return; }
+    return;
+  }
+
+  if (state.focusZone === "nav") {
+    const items = navItemsList();
+    if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); state.navCursor = Math.min(items.length - 1, state.navCursor + 1); renderSpaces(); return; }
+    if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); state.navCursor = Math.max(0, state.navCursor - 1); renderSpaces(); return; }
+    if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); openNavItem(items[state.navCursor]); return; }
     return;
   }
 
@@ -3290,9 +3586,9 @@ document.addEventListener("keydown", e => {
 
 $("#theme-btn").addEventListener("click", cycleTheme);
 $("#settings-btn").addEventListener("click", openSettings);
-$("#finish-btn").addEventListener("click", () => { if (!state.submitted) openPanel(true); });
 $("#submit-btn").addEventListener("click", submitReview);
-$("#scrim").addEventListener("click", closePanel);
+$("#spaces-collapse").addEventListener("click", toggleSpaces);
+document.querySelectorAll("#rp-tabs [data-rtab]").forEach(b => b.addEventListener("click", () => switchRightTab(b.dataset.rtab)));
 $("#confirm").addEventListener("click", e => { if (e.target.id === "confirm") dismissConfirm(); });
 $("#cheat").addEventListener("click", e => { if (e.target.id === "cheat") toggleCheat(); });
 $("#palette-wrap").addEventListener("click", e => { if (e.target.id === "palette-wrap") closePalette(); });
@@ -3301,13 +3597,13 @@ $("#palette-input").addEventListener("input", e => { paletteSel = 0; renderPalet
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
 document.querySelectorAll("#mode-seg button").forEach(b => b.addEventListener("click", () => setMode(b.dataset.mode)));
 document.querySelectorAll("#input-seg button").forEach(b => b.addEventListener("click", () => { setInput(b.dataset.input); flash(b.dataset.input + " mode"); }));
-$("#sidebar").addEventListener("mousedown", () => { if (state.focusZone !== "sidebar") { state.focusZone = "sidebar"; syncFocus(); } });
-$("#scroller").addEventListener("mousedown", () => { if (state.focusZone !== "content") { state.focusZone = "content"; syncFocus(); } });
+$("#spaces").addEventListener("mousedown", () => { if (state.focusZone !== "nav") { state.focusZone = "nav"; syncFocus(); } });
+$("#sidebar").addEventListener("mousedown", () => { if (state.focusZone !== "sidebar") { state.focusZone = "sidebar"; syncFocus(); renderSpaces(); } });
+$("#scroller").addEventListener("mousedown", () => { if (state.focusZone !== "content") { state.focusZone = "content"; syncFocus(); renderSpaces(); } });
 $("#content").addEventListener("click", e => {
   if (e.target.id === "open-versions") { setTab("versions"); return; }
   if (e.target.id === "orphan-jump") { setTab("versions"); return; }
 });
-window.addEventListener("resize", () => { if (railVisible()) renderRail(); });
 
 /* ═══════════ Seed & init ═══════════ */
 
@@ -3345,10 +3641,13 @@ document.documentElement.style.setProperty("--grain", settings.grain);
 document.documentElement.style.setProperty("--diff-mono", monoStack(settings.monoFont));
 updateTextureBtn();
 renderCheat();
+$("#app").dataset.spaces = settings.spacesCollapsed ? "collapsed" : "expanded";
+$("#spaces-collapse").textContent = settings.spacesCollapsed ? "»" : "«";
+switchRightTab(state.rightTab);
 setInput("select");
 setMode("workspace");
 renderAll();
-flash("Status / Tree / Versions in the sidebar · Select/Comment/Redline below · ⌘K commands · ? for all keys");
+flash("Spaces (w) · Status/Tree/Versions · Feedback/Agent (f) · ⌘K commands · ? for all keys");
 })();
 </script>
 </body>
