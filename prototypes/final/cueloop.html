@@ -640,6 +640,8 @@
   .kb-table td.k { text-align: right; width: 170px; }
   .kb-table td.k kbd { margin-left: 3px; }
   .kb-table tr.kb-group td { color: var(--accent); font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.13em; padding-top: 16px; border: none; }
+  .obs-preview { font-family: var(--mono); font-size: 11.5px; line-height: 1.65; color: var(--text-muted); background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r); padding: 11px 13px; margin: 0; white-space: pre-wrap; width: 340px; max-width: 100%; }
+  .set-field code { font-family: var(--mono); font-size: 0.92em; color: var(--accent); }
 
   /* ── Cheat sheet ──────────────────────────── */
   #cheat { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; }
@@ -669,9 +671,7 @@
       <button data-mode="guided">Guided</button>
       <button data-mode="split">Split</button>
     </div>
-    <button id="palette-btn" class="hbtn" title="Command palette (⌘K)">⌘K</button>
     <button id="theme-btn" class="hbtn"></button>
-    <button id="textured-btn" class="hbtn" title="Textured canvas"></button>
     <button id="settings-btn" class="hbtn" title="Settings (⌘,)">⚙</button>
     <button id="finish-btn"></button>
   </div>
@@ -681,18 +681,6 @@
       <button data-input="select" class="on"><span class="ig">⌖</span> Select</button>
       <button data-input="comment"><span class="ig">▤</span> Comment</button>
       <button data-input="redline"><span class="ig">╌</span> Redline</button>
-    </div>
-    <div class="verb-legend" id="verb-legend">
-      <span class="vl"><kbd>c</kbd> comment</span>
-      <span class="vl"><kbd>⇧c</kbd> file</span>
-      <span class="vl"><kbd>r</kbd> redline</span>
-      <span class="vl"><kbd>g</kbd> looks good</span>
-      <span class="vl"><kbd>s</kbd> suggest</span>
-      <span class="vl"><kbd>e</kbd> edit</span>
-    </div>
-    <div class="mb-hint" id="mb-hint"></div>
-    <div class="mb-right">
-      <div class="tag-legend" id="tag-legend"></div>
     </div>
   </div>
 
@@ -1078,15 +1066,23 @@ const KEYS = [
     ["Mark viewed", ["v"]],
     ["Collapse file (all-files)", ["x"]],
     ["Next / prev pending", ["n", "p"]],
-    ["Approve / send feedback", ["⌘⏎"]],
+    ["Approve / submit review", ["⌘⏎"]],
     ["Undo last · toggle rail", ["⌘z", "a"]],
     ["Verdict in panel", ["1", "2", "3"]],
   ]],
   ["SURFACES", [
     ["Command palette", ["⌘K", "/"]],
     ["Settings", ["⌘,"]],
+    ["Save to Obsidian", ["⌘S"]],
     ["Keyboard cheat sheet", ["?"]],
     ["Cycle theme", ["via header"]],
+  ]],
+  ["LABELS (⌥)", [
+    ["nit", ["⌥1"]],
+    ["question", ["⌥2"]],
+    ["issue", ["⌥3"]],
+    ["praise", ["⌥4"]],
+    ["todo", ["⌥5"]],
   ]],
 ];
 
@@ -1116,6 +1112,12 @@ const settings = {
     enabled: true,
     default: "",
     blocking: { suggestion: false, nit: false, question: false, issue: true, praise: false },
+  },
+  obsidian: {
+    enabled: false,
+    vaultPath: "~/vaults/notes",
+    folder: "cueloop",
+    filenameFormat: "{date}-session-persistence-review",
   },
 };
 
@@ -2585,7 +2587,7 @@ function renderFinishButton() {
   const btn = $("#finish-btn");
   $("#tab-ver-badge").textContent = "v2";
   if (state.submitted) { btn.textContent = "Review sent ✓"; btn.className = "sent"; return; }
-  if (n) { btn.textContent = "Send feedback (" + n + ")"; btn.className = "has-pending"; }
+  if (n) { btn.textContent = "Submit review (" + n + ")"; btn.className = "has-pending"; }
   else { btn.textContent = "Approve"; btn.className = ""; }
 }
 
@@ -2707,6 +2709,7 @@ function cycleTheme() {
 }
 function updateTextureBtn() {
   const b = $("#textured-btn");
+  if (!b) return;
   b.textContent = settings.textured ? "▦ Texture" : "▢ Texture";
   b.classList.toggle("on", settings.textured);
 }
@@ -2826,6 +2829,7 @@ const SETTINGS_TABS = [
   { id: "display", ico: "▤", name: "Display" },
   { id: "diff", ico: "⇆", name: "Diff" },
   { id: "comments", ico: "❝", name: "Comments" },
+  { id: "saving", ico: "⇩", name: "Saving" },
   { id: "keys", ico: "⌨", name: "Keybindings" },
 ];
 const TAB_SUBS = {
@@ -2834,6 +2838,7 @@ const TAB_SUBS = {
   display: "plan width and chrome",
   diff: "how changes render",
   comments: "conventional comments",
+  saving: "export to Obsidian",
   keys: "all shortcuts (read-only)",
 };
 
@@ -2915,6 +2920,18 @@ function renderSettingsBody() {
     CONVENTIONS.forEach(c => { blk += '<div class="set-row" style="margin-bottom:6px">' + toggleHTML("conv-blk-" + c, settings.conventions.blocking[c], c) + "</div>"; });
     blk += "</div>";
     html += blk;
+  } else if (settingsTab === "saving") {
+    html += field("Obsidian integration", "Save the finished review as a Markdown note in your Obsidian vault. ⌘S saves at any time.",
+      toggleHTML("obsidian-enabled", settings.obsidian.enabled, settings.obsidian.enabled ? "On" : "Off"));
+    html += field("Vault path", "Absolute path to your Obsidian vault on disk.",
+      '<input class="set-input" id="set-obs-vault" style="width:340px" value="' + esc(settings.obsidian.vaultPath) + '">');
+    html += field("Folder", "Subfolder inside the vault where review notes are written.",
+      '<input class="set-input" id="set-obs-folder" value="' + esc(settings.obsidian.folder) + '">');
+    html += field("Filename format", "Tokens: <code>{date}</code>, <code>{plan}</code>, <code>{verdict}</code>.",
+      '<input class="set-input" id="set-obs-filename" style="width:340px" value="' + esc(settings.obsidian.filenameFormat) + '">');
+    html += field("Frontmatter &amp; tags preview", "Written to the top of the saved note.",
+      '<pre class="obs-preview">' + esc(obsidianFrontmatter()) + "</pre>");
+    html += '<div class="set-field"><button class="seg-control" style="padding:8px 14px;cursor:pointer" id="set-obs-save">⇩ Save to Obsidian</button></div>';
   } else if (settingsTab === "keys") {
     html += '<table class="kb-table">';
     KEYS.forEach(([group, rows]) => {
@@ -2935,6 +2952,7 @@ function onSetting(key, val) {
   if (key === "conv-enabled") { settings.conventions.enabled = !settings.conventions.enabled; renderSettingsBody(); return; }
   if (key === "conv-default") { settings.conventions.default = val; renderSettingsBody(); return; }
   if (key.indexOf("conv-blk-") === 0) { const c = key.slice(9); settings.conventions.blocking[c] = !settings.conventions.blocking[c]; renderSettingsBody(); return; }
+  if (key === "obsidian-enabled") { settings.obsidian.enabled = !settings.obsidian.enabled; renderSettingsBody(); return; }
   if (key === "railDefault") { settings.railDefault = val; state.railHidden = val === "hidden"; refreshFromSettings(); renderSettingsBody(); return; }
   settings[key] = val;
   refreshFromSettings();
@@ -2953,6 +2971,14 @@ function wireSettingsBody() {
   if (name) name.addEventListener("input", () => { settings.displayName = name.value || autoName(); updateCrumb(); });
   const regen = $("#set-name-regen");
   if (regen) regen.addEventListener("click", () => { settings.displayName = autoName(); renderSettingsBody(); updateCrumb(); });
+  const obsVault = $("#set-obs-vault");
+  if (obsVault) obsVault.addEventListener("input", () => { settings.obsidian.vaultPath = obsVault.value; });
+  const obsFolder = $("#set-obs-folder");
+  if (obsFolder) obsFolder.addEventListener("input", () => { settings.obsidian.folder = obsFolder.value; });
+  const obsFilename = $("#set-obs-filename");
+  if (obsFilename) obsFilename.addEventListener("input", () => { settings.obsidian.filenameFormat = obsFilename.value; });
+  const obsSave = $("#set-obs-save");
+  if (obsSave) obsSave.addEventListener("click", saveToObsidian);
   const grain = $("#set-grain");
   if (grain) grain.addEventListener("input", () => {
     settings.grain = +grain.value;
@@ -2974,10 +3000,32 @@ function closeSettings() {
   $("#settings-btn").classList.remove("on");
 }
 
+/* ═══════════ Obsidian save (front-end only) ═══════════ */
+
+function obsidianFrontmatter() {
+  const verdictName = { comment: "comment", approve: "approve", request: "request_changes" }[state.verdict] || "comment";
+  const fname = settings.obsidian.filenameFormat
+    .replace("{date}", new Date().toISOString().slice(0, 10))
+    .replace("{plan}", "session-persistence")
+    .replace("{verdict}", verdictName);
+  return "---\n"
+    + "title: Plan review — Session Persistence\n"
+    + "file: " + settings.obsidian.folder + "/" + fname + ".md\n"
+    + "reviewer: " + settings.displayName + "\n"
+    + "verdict: " + verdictName + "\n"
+    + "annotations: " + pendingCount() + "\n"
+    + "tags: [cueloop, review, plan]\n"
+    + "---";
+}
+function saveToObsidian() {
+  flash("Saved to Obsidian vault → " + settings.obsidian.folder);
+}
+
 /* ═══════════ Input mode / mode bar ═══════════ */
 
 function renderTagLegend() {
-  $("#tag-legend").innerHTML = TAGS.map(t => '<span class="tl"><span class="tld" style="background:' + t.color + '"></span><kbd>⌥' + t.key + "</kbd>" + t.label + "</span>").join("");
+  const el = $("#tag-legend");
+  if (el) el.innerHTML = TAGS.map(t => '<span class="tl"><span class="tld" style="background:' + t.color + '"></span><kbd>⌥' + t.key + "</kbd>" + t.label + "</span>").join("");
 }
 function updateModeHint() {
   const hints = {
@@ -2985,7 +3033,8 @@ function updateModeHint() {
     comment: "Comment · <b>⏎</b> comments on the current line or selection",
     redline: "Redline · <b>⏎</b> marks the selection for deletion",
   };
-  $("#mb-hint").innerHTML = hints[state.inputMode];
+  const el = $("#mb-hint");
+  if (el) el.innerHTML = hints[state.inputMode];
 }
 function setInput(mode) {
   state.inputMode = mode;
@@ -3011,7 +3060,7 @@ function renderCheat() {
   const colHTML = groups => groups.map(([group, rows]) =>
     '<div class="cheat-group">' + group + "</div>" + rows.map(([label, keys]) =>
       '<div class="cheat-row"><span>' + esc(label) + '</span><span class="keys">' + keys.map(k => "<kbd>" + esc(k) + "</kbd>").join("") + "</span></div>").join("")).join("");
-  cols.innerHTML = "<div>" + colHTML([KEYS[0]]) + "</div><div>" + colHTML([KEYS[1]]) + "</div><div>" + colHTML([KEYS[2], KEYS[3]]) + "</div>";
+  cols.innerHTML = "<div>" + colHTML([KEYS[0], KEYS[4]]) + "</div><div>" + colHTML([KEYS[1]]) + "</div><div>" + colHTML([KEYS[2], KEYS[3]]) + "</div>";
 }
 function toggleCheat() { $("#cheat").classList.toggle("show"); }
 
@@ -3049,6 +3098,12 @@ document.addEventListener("keydown", e => {
   // global surface openers
   if (meta && (e.key === "k" || e.key === "K")) { e.preventDefault(); openPalette(); return; }
   if (meta && e.key === ",") { e.preventDefault(); openSettings(); return; }
+  if (meta && (e.key === "s" || e.key === "S")) {
+    e.preventDefault();
+    if (settings.obsidian.enabled) saveToObsidian();
+    else flash("Enable Obsidian saving in Settings → Saving");
+    return;
+  }
 
   if (state.submitted) { if (e.key === "Escape") dismissConfirm(); return; }
 
@@ -3151,9 +3206,7 @@ document.addEventListener("keydown", e => {
 
 /* ═══════════ Wire up ═══════════ */
 
-$("#palette-btn").addEventListener("click", openPalette);
 $("#theme-btn").addEventListener("click", cycleTheme);
-$("#textured-btn").addEventListener("click", toggleTextured);
 $("#settings-btn").addEventListener("click", openSettings);
 $("#finish-btn").addEventListener("click", () => { if (!state.submitted) openPanel(true); });
 $("#submit-btn").addEventListener("click", submitReview);
