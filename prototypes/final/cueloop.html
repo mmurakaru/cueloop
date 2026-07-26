@@ -54,7 +54,8 @@
   }
   .hbtn:hover { color: var(--text); border-color: var(--border-strong); }
   #textured-btn.on, #settings-btn.on { color: var(--accent); border-color: var(--accent); background: var(--accent-tint); }
-  #settings-btn, #palette-btn { padding: 6px 9px; }
+  #settings-btn, #palette-btn, #theme-btn { padding: 6px 9px; }
+  #theme-btn { font-size: 13px; line-height: 1; }
   #palette-btn { color: var(--text-dim); }
   #finish-btn { font-weight: 600; }
   #finish-btn.has-pending { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
@@ -70,12 +71,9 @@
 
   /* ── Mode bar (input tools) ────────────────── */
   #modebar { display: flex; align-items: center; gap: 14px; padding: 0 16px 0 18px; border-bottom: 1px solid var(--border); background: var(--panel); }
-  .input-seg { display: flex; background: var(--elevated); border: 1px solid var(--border); border-radius: var(--r); padding: 2px; gap: 2px; flex: none; }
-  .input-seg button { font-family: var(--sans); font-size: 12px; color: var(--text-muted); background: none; border: none; border-radius: var(--r-sm); padding: 4px 11px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background .12s var(--ease), color .12s var(--ease); }
-  .input-seg button .ig { font-family: var(--mono); font-size: 11px; opacity: .6; }
-  .input-seg button:hover { color: var(--text); }
-  .input-seg button.on { background: var(--accent-tint); color: var(--accent); }
-  .input-seg button.on .ig { opacity: 1; }
+  .input-tools { display: flex; align-items: center; gap: 6px; flex: none; }
+  .input-tools .tool-btn { padding: 6px 8px; font-size: 12px; }
+  .input-tools .tool-btn .ig { font-family: var(--mono); font-size: 12px; line-height: 1; }
   .verb-legend { display: flex; gap: 10px; flex: none; }
   .verb-legend .vl { display: flex; align-items: center; gap: 4px; font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
   .verb-legend .vl kbd { font-size: 9px; padding: 0 4px; }
@@ -292,6 +290,11 @@
   .codewrap pre { margin: 0; }
   .codewrap code { font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--text-muted); white-space: pre; }
   .tok-kw { color: var(--accent); } .tok-ty { color: var(--green); } .tok-pr { color: var(--text-muted); }
+  /* keep the existing code-block frame when the plan container also carries .prose */
+  .plan.prose .codewrap pre { margin: 0; padding: 0; background: none; border: 0; border-radius: 0; }
+  /* config table lives in the plan flow; give its toolbar room above the header row */
+  .plan.prose .table-wrap { margin: 4px 0 16px; }
+  .plan.prose .table-tools { top: -30px; }
 
   /* inline redline */
   .plan .row.redlined p, .plan .row.redlined h1,
@@ -671,16 +674,16 @@
       <button data-mode="guided">Guided</button>
       <button data-mode="split">Split</button>
     </div>
-    <button id="theme-btn" class="hbtn"></button>
+    <button id="theme-btn" class="hbtn" aria-label="Cycle theme"></button>
     <button id="settings-btn" class="hbtn" title="Settings (⌘,)">⚙</button>
     <button id="finish-btn"></button>
   </div>
 
   <div id="modebar">
-    <div class="input-seg" id="input-seg">
-      <button data-input="select" class="on"><span class="ig">⌖</span> Select</button>
-      <button data-input="comment"><span class="ig">▤</span> Comment</button>
-      <button data-input="redline"><span class="ig">╌</span> Redline</button>
+    <div class="input-tools" id="input-seg">
+      <button class="tool-btn active" data-input="select" aria-pressed="true" title="Select (select mode)"><span class="ig" aria-hidden="true">⌖</span><span class="label">Select</span></button>
+      <button class="tool-btn" data-input="comment" aria-pressed="false" title="Comment (comment mode)"><span class="ig" aria-hidden="true">▤</span><span class="label">Comment</span></button>
+      <button class="tool-btn" data-input="redline" aria-pressed="false" title="Redline (redline mode)"><span class="ig" aria-hidden="true">╌</span><span class="label">Redline</span></button>
     </div>
   </div>
 
@@ -1169,6 +1172,51 @@ function esc(s) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 function linkFiles(html) { return html.replace(/(server\/storage\/[\w.]+|server\/[\w.]+|plan\.md)/g, '<span class="fname">$1</span>'); }
+/* prose variant: code-file references render as file links with a </> affordance */
+function linkFilesProse(html) { return html.replace(/(server\/storage\/[\w.]+|server\/[\w.]+|plan\.md)/g, '<a class="fname file-link">$1</a>'); }
+/* wrap known identifiers so .prose renders them as inline-code chips */
+function codeIdents(html) { return html.replace(/\b(SessionStore|SessionRecord|SCHEMA_VERSION)\b/g, "<code>$1</code>"); }
+
+/* ═══════════ Session-persistence config table (demo of .prose tables) ═══════════ */
+const CONFIG_COLS = ["Parameter", "Value", "Description"];
+const CONFIG_ROWS = [
+  ["dataDir",         "~/.cueloop", "where sessions are written"],
+  ["flushIntervalMs", "500",        "debounce before writing a session to disk"],
+  ["retentionDays",   "30",         "auto-prune resolved sessions after N days"],
+  ["schemaVersion",   "1.0",        "on-disk record version"],
+];
+function configTableHTML() {
+  const head = "<tr>" + CONFIG_COLS.map(c => "<th>" + esc(c) + "</th>").join("") + "</tr>";
+  const body = CONFIG_ROWS.map(r => {
+    const value = r[0] === "dataDir" ? '<span class="chip">' + esc(r[1]) + "</span>" : esc(r[1]);
+    return '<tr><td><span class="chip">' + esc(r[0]) + "</span></td><td>" + value + "</td><td>" + esc(r[2]) + "</td></tr>";
+  }).join("");
+  return '<div class="row"><h2>Configuration</h2></div>'
+    + '<div class="table-wrap">'
+    + '<div class="table-tools">'
+    +   '<button class="btn-ghost" data-tbl="copy" title="Copy table as TSV">Copy</button>'
+    +   '<button class="btn-ghost" data-tbl="csv" title="Copy table as CSV">CSV</button>'
+    +   '<button class="btn-ghost" data-tbl="expand" title="Expand table">Expand</button>'
+    + "</div>"
+    + "<table><thead>" + head + "</thead><tbody>" + body + "</tbody></table>"
+    + "</div>";
+}
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).catch(() => {}); return; }
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  document.body.removeChild(ta);
+}
+function handleTableTool(kind) {
+  if (kind === "expand") { flash("Expand table · demo"); return; }
+  const sep = kind === "csv" ? "," : "\t";
+  const cell = v => (kind === "csv" && /[",\n]/.test(v)) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  const text = [CONFIG_COLS, ...CONFIG_ROWS].map(r => r.map(cell).join(sep)).join("\n");
+  copyText(text);
+  flash(kind === "csv" ? "Config table copied as CSV" : "Config table copied as TSV");
+}
 function hlCode(src) {
   return esc(src)
     .replace(/\b(interface|export|const|function|return|import|from|class|void|new|type|for|of)\b/g, '<span class="tok-kw">$1</span>')
@@ -1622,6 +1670,7 @@ function renderContent() {
   const fc = $("#fc-btn");
   if (fc) fc.addEventListener("click", startFileComment);
   inner.querySelectorAll("[data-gap]").forEach(b => b.addEventListener("click", () => { state.expandedGaps[b.dataset.gap] = true; renderContent(); renderRail(); }));
+  inner.querySelectorAll("[data-tbl]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); handleTableTool(b.dataset.tbl); }));
 
   injectInlineSuggestions(inner);
 
@@ -1653,7 +1702,7 @@ function planBodyHTML(fileId, scoped) {
   const rows = planRows();
   const cur = state.cursors.plan != null ? state.cursors.plan : 0;
   const [s0, s1] = selRange();
-  let html = '<div class="plan">';
+  let html = '<div class="plan prose">';
   if (!scoped) {
     const rev = state.planVersion === "v2" ? "revision 2" : "revision 1";
     html += '<div class="doc-meta">submitted by <b>agent/worker-3</b> · ' + rev
@@ -1669,6 +1718,7 @@ function planBodyHTML(fileId, scoped) {
   const closeCode = () => { if (codeOpen) { html += "</div>"; codeOpen = false; } };
 
   rows.forEach((b, i) => {
+    if (!scoped && b.id === "h-p2") { closeCode(); html += configTableHTML(); }
     const liked = !scoped && likedRow("plan", i), red = !scoped && redlinedRow("plan", i);
     const rowCls = ["row",
       (!scoped && i === cur) ? "cursor" : "",
@@ -1694,7 +1744,7 @@ function planBodyHTML(fileId, scoped) {
     let inner;
     if (editing) inner = '<span class="editor-inline"><textarea id="edit-input">' + esc(edit ? edit.newText : b.text) + "</textarea><span class=\"ed-hint\"><kbd>⏎</kbd> save tracked change · <kbd>esc</kbd> cancel</span></span>";
     else if (edit) inner = trackedHTML(edit.oldText, edit.newText);
-    else inner = linkFiles(esc(b.text));
+    else inner = codeIdents(linkFilesProse(esc(b.text)));
 
     let body;
     if (b.kind === "h1") body = "<h1>" + (editing ? inner : esc(b.text)) + "</h1>";
@@ -2697,7 +2747,11 @@ function applyTheme() {
   const t = settings.theme;
   if (t === "system") delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = t;
-  $("#theme-btn").textContent = { system: "◐ System", light: "☀ Light", dark: "☾ Dark", contrast: "◈ Contrast" }[t];
+  const btn = $("#theme-btn");
+  btn.textContent = { system: "◐", light: "☀", dark: "☾", contrast: "◈" }[t];
+  const label = { system: "Theme: system", light: "Theme: light", dark: "Theme: dark", contrast: "Theme: high-contrast" }[t];
+  btn.title = label + " · click to cycle";
+  btn.setAttribute("aria-label", label + ", click to cycle");
 }
 function cycleTheme() {
   const order = ["system", "light", "dark"];
@@ -3039,7 +3093,11 @@ function updateModeHint() {
 function setInput(mode) {
   state.inputMode = mode;
   $("#app").dataset.input = mode;
-  document.querySelectorAll("#input-seg button").forEach(b => b.classList.toggle("on", b.dataset.input === mode));
+  document.querySelectorAll("#input-seg button").forEach(b => {
+    const on = b.dataset.input === mode;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
   updateModeHint();
 }
 function contentPrimary() {

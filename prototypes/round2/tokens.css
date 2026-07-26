@@ -121,3 +121,72 @@ kbd {
 /* tracked-changes rendering */
 .ins { color: var(--green); background: var(--green-tint); text-decoration: none; border-radius: 2px; }
 .del { color: var(--red); background: var(--red-tint); text-decoration: line-through; border-radius: 2px; }
+
+/* ---- interaction easings ---- */
+:root { --ease-standard: cubic-bezier(0.4, 0, 0.2, 1); --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+/* ---- button feel ---- */
+/* ghost button: brightens bg + text on hover */
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--elevated); color: var(--text-muted);
+  border: 1px solid transparent; border-radius: var(--r-lg);
+  padding: 6px 10px; font: 500 12px/1 var(--sans); cursor: pointer;
+  transition: background-color .15s var(--ease-standard), color .15s var(--ease-standard), border-color .15s var(--ease-standard);
+}
+.btn-ghost:hover { background: var(--overlay); color: var(--text); }
+.btn-ghost:active { transform: translateY(0.5px); }
+/* tool button: icon that expands to icon+label on hover/active (width animation) */
+.tool-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--elevated); color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 7px 9px; cursor: pointer;
+  transition: background-color .18s var(--ease-out), color .18s var(--ease-out), border-color .18s var(--ease-out);
+}
+.tool-btn:hover { background: var(--overlay); color: var(--text); border-color: var(--border-strong); }
+.tool-btn[aria-pressed="true"], .tool-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-tint); }
+.tool-btn .label {
+  max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0;
+  transition: max-width .18s var(--ease-out), opacity .15s var(--ease-out);
+}
+.tool-btn:hover .label, .tool-btn.active .label, .tool-btn:focus-visible .label { max-width: 140px; opacity: 1; }
+
+/* ---- prose / markdown renderer ---- */
+.prose { color: var(--text); font-size: 15px; line-height: 1.7; }
+.prose h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 12px; }
+.prose h2 { font-size: 19px; font-weight: 600; margin: 32px 0 10px; }
+.prose h3 { font-size: 15.5px; font-weight: 600; color: var(--text-muted); margin: 22px 0 8px; }
+.prose p { margin: 0 0 14px; }
+.prose ul, .prose ol { margin: 0 0 14px; padding-left: 22px; }
+.prose li { margin: 4px 0; }
+.prose a { color: var(--blue); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--blue) 35%, transparent); transition: color .15s var(--ease-standard), border-color .15s var(--ease-standard); }
+.prose a:hover { border-bottom-color: var(--blue); }
+.prose a.file-link::after { content: "</>"; font-family: var(--mono); font-size: 0.72em; color: var(--text-dim); margin-left: 4px; vertical-align: 0.5px; }
+/* inline code chip */
+.prose :not(pre) > code {
+  font-family: var(--mono); font-size: 0.88em; background: var(--elevated);
+  color: var(--text); border-radius: var(--r); padding: 2px 6px;
+}
+/* code block: softer radius + hairline border */
+.prose pre {
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-xl);
+  padding: 14px 16px; overflow: auto; font-size: 13px; line-height: 1.6; margin: 0 0 16px;
+}
+.prose pre code { font-family: var(--mono); background: none; padding: 0; }
+.prose blockquote { margin: 0 0 14px; padding: 4px 14px; border-left: 2px solid var(--border-strong); color: var(--text-muted); }
+/* tables */
+.prose table { width: 100%; border-collapse: collapse; margin: 0 0 16px; font-size: 14px; }
+.prose thead th {
+  text-align: left; font-weight: 600; color: var(--text); padding: 8px 12px;
+  background: var(--elevated); border-bottom: 1px solid var(--border-strong);
+}
+.prose tbody td { padding: 9px 12px; color: var(--text-muted); border-bottom: 1px solid var(--border); vertical-align: top; }
+.prose tbody tr { transition: background-color .12s var(--ease-standard); }
+.prose tbody tr:hover { background: var(--accent-tint); }
+/* monospace pill chip for identifiers / file paths inside cells (or anywhere) */
+.chip { font-family: var(--mono); font-size: 0.86em; background: var(--elevated); color: var(--text); border-radius: var(--r); padding: 2px 6px; white-space: nowrap; }
+/* per-table toolbar (copy / csv / expand), revealed on hover of a .table-wrap */
+.table-wrap { position: relative; }
+.table-tools { position: absolute; top: -2px; right: 0; display: flex; gap: 4px; opacity: 0; transition: opacity .15s var(--ease-standard); }
+.table-wrap:hover .table-tools, .table-wrap:focus-within .table-tools { opacity: 1; }
