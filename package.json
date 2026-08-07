@@ -16,7 +16,8 @@
     "ci:publish": "bun run check:publish && changeset publish",
     "check:release": "bun run scripts/check-release-integrity.ts",
     "check:publish": "bun run scripts/check-publish-integrity.ts",
-    "verify:published": "bun run scripts/verify-published.ts"
+    "verify:published": "bun run scripts/verify-published.ts",
+    "sync:dist-tags": "bun run scripts/sync-dist-tags.ts"
   },
   "devDependencies": {
     "@cueloop/client": "workspace:*",

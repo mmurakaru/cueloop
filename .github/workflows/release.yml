@@ -79,6 +79,14 @@ jobs:
           # remove this secret; npm then authenticates via OIDC.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
+      # changesets publishes a prerelease to `latest` when a package has had no
+      # normal release, so the prerelease tag must be pointed at this version
+      # explicitly - otherwise `npm i cueloop@alpha` serves an older build.
+      - name: Sync prerelease dist-tags
+        if: steps.changesets.outputs.published == 'true'
+        run: bun run scripts/sync-dist-tags.ts
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       # Success is what a stranger can install. A publish tool reporting success
       # for a package that never reached the registry must fail the run.
       - name: Verify the published release
