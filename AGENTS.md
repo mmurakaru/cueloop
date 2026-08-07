@@ -84,3 +84,6 @@ Verification recipes:
 - Never edit CHANGELOG.md or package versions by hand - the Release PR does it.
 - The Claude Code plugin manifest version syncs automatically during
   `bun run version` (scripts/sync-plugin-version.ts).
+- npm auth is bootstrapped with a short-lived NPM_TOKEN for the first publish,
+  then cut over to trusted publishing (OIDC, no stored secret, with provenance).
+  Full checklist: docs/releasing.md. Open items live there, not in code.
