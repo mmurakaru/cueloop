@@ -43,19 +43,37 @@ try {
       }
     }
 
-    // 2. the tarball must contain whatever the manifest points at
-    const packed = Bun.spawnSync(["npm", "pack", "--json", "--pack-destination", work], { cwd: dir });
+    // 2. the tarball must contain whatever the manifest points at.
+    // Read the tarball itself rather than `npm pack --json`: that JSON shape
+    // has changed between npm majors, and the archive is the ground truth.
+    const packed = Bun.spawnSync(["npm", "pack", "--pack-destination", work, "--silent"], { cwd: dir });
     if (packed.exitCode !== 0) {
       problems.push(`${pkg.name}: npm pack failed - ${packed.stderr.toString().trim().split("\n").pop()}`);
       continue;
     }
-    const meta = JSON.parse(packed.stdout.toString()) as { filename: string; files: { path: string }[] }[];
-    const entry = meta[0];
-    if (!entry) {
-      problems.push(`${pkg.name}: npm pack produced no tarball metadata`);
+    const tarball = packed.stdout
+      .toString()
+      .trim()
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.endsWith(".tgz"))
+      .pop();
+    if (!tarball) {
+      problems.push(`${pkg.name}: npm pack named no tarball (stdout: ${packed.stdout.toString().trim().slice(0, 120)})`);
       continue;
     }
-    const shipped = new Set(entry.files.map((f) => f.path));
+    const listed = Bun.spawnSync(["tar", "-tzf", join(work, tarball)]);
+    if (listed.exitCode !== 0) {
+      problems.push(`${pkg.name}: could not read ${tarball}`);
+      continue;
+    }
+    const shipped = new Set(
+      listed.stdout
+        .toString()
+        .split("\n")
+        .map((l) => l.trim().replace(/^package\//, ""))
+        .filter(Boolean),
+    );
     const targets: string[] = [];
     if (typeof pkg.exports === "string") targets.push(pkg.exports);
     else if (pkg.exports) {
