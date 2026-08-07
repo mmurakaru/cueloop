@@ -7,7 +7,22 @@
     "@cueloop/client": "0.0.1",
     "@cueloop/daemon": "0.0.1",
     "@cueloop/extension-api": "0.0.1",
-    "@cueloop/schema": "0.0.1"
+    "@cueloop/schema": "0.0.1",
+    "@cueloop/integration-obsidian": "0.0.1"
   },
-  "changesets": []
+  "changesets": [
+    "daemon-single-instance",
+    "e2e-stability",
+    "herdr-tier1",
+    "hook-resilience",
+    "obsidian-export",
+    "pi-adapter",
+    "pr-review",
+    "pty-tier",
+    "release-integrity",
+    "release-node-version",
+    "seed-alpha",
+    "ssh-serve",
+    "valibot-wire-validation"
+  ]
 }
