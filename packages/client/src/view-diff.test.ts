@@ -1,0 +1,55 @@
+import { describe, expect, test } from "bun:test";
+import { diffRowAnchor, diffRows } from "./view-diff";
+
+const PATCH = `diff --git a/src/store.ts b/src/store.ts
+index 111..222 100644
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -1,5 +1,6 @@
+ import { join } from "node:path";
+ export class Store {
+-  private items = [];
++  private items = new Map();
++  private ready = false;
+   constructor() {}
+@@ -20,3 +21,3 @@
+ export function helper() {
+-  return 1;
++  return 2;
+ }
+`;
+
+describe("diffRows", () => {
+  test("flattens files, hunks, and signed lines with line numbers", () => {
+    const rows = diffRows(PATCH);
+    expect(rows[0]).toMatchObject({ t: "file", file: "src/store.ts" });
+    expect(rows[1]!.t).toBe("hunk");
+    const del = rows.find((r) => r.t === "del")!;
+    expect(del.text).toContain("private items = [];");
+    expect(del.oldLine).toBe(3);
+    const adds = rows.filter((r) => r.t === "add");
+    expect(adds[0]!.text).toContain("new Map()");
+    expect(adds[0]!.newLine).toBe(3);
+    expect(adds[1]!.newLine).toBe(4);
+    // two hunks
+    expect(rows.filter((r) => r.t === "hunk").length).toBe(2);
+  });
+
+  test("context lines carry both line numbers", () => {
+    const rows = diffRows(PATCH);
+    const ctx = rows.find((r) => r.t === "ctx")!;
+    expect(ctx.oldLine).toBe(1);
+    expect(ctx.newLine).toBe(1);
+  });
+});
+
+describe("diffRowAnchor", () => {
+  test("quote is the line, neighbors are the context selectors", () => {
+    const rows = diffRows(PATCH);
+    const idx = rows.findIndex((r) => r.text.includes("new Map()"));
+    const anchor = diffRowAnchor(rows, idx);
+    expect(anchor.quote).toContain("new Map()");
+    expect(anchor.prefix.length).toBeGreaterThan(0);
+    expect(anchor.suffix.length).toBeGreaterThan(0);
+  });
+});
