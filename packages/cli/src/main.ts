@@ -21,6 +21,10 @@ async function main(): Promise<number> {
       const { DaemonServer } = await import("@cueloop/daemon");
       const server = new DaemonServer({ idleExitMs: 0 });
       const path = server.start();
+      if (path === null) {
+        console.error("a cueloop daemon already owns this home - nothing to do");
+        return 1;
+      }
       console.log(`cueloop daemon (foreground) on ${path}`);
       await new Promise(() => {}); // run until signalled
       return 0;
