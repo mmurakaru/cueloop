@@ -21,6 +21,8 @@ export interface ArtifactMeta {
   agentSessionId?: string;
   /** Path to the plan file on disk, so feedback can reference it. */
   planPath?: string;
+  /** Pull request reference the diff came from, so the verdict can be posted back. */
+  pr?: string;
   title?: string;
 }
 

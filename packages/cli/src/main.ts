@@ -46,8 +46,12 @@ async function main(): Promise<number> {
       return runTui(session.id);
     }
     case "review": {
-      console.error("cueloop review <pr>: not implemented yet (map #18, post-slice-3)");
-      return 2;
+      const { reviewCommand } = await import("./pr");
+      return reviewCommand(argv.slice(1));
+    }
+    case "review-post": {
+      const { reviewPostCommand } = await import("./pr");
+      return reviewPostCommand(argv.slice(1));
     }
     case "--help":
     case "help":
@@ -78,7 +82,8 @@ function printHelp(): void {
       "  cueloop                          open the inbox",
       "  cueloop <session-id>             open one session",
       "  cueloop diff                     review the working tree",
-      "  cueloop review <pr>              review a pull request",
+      "  cueloop review <pr>              review a pull request (--no-tui prints the session)",
+      "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
       "  cueloop session <verb> [flags]   script the daemon (create|get|list|wait|annotate|resolve|submit-revision)",
       "  cueloop daemon                   run the daemon in the foreground",
     ].join("\n"),
