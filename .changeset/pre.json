@@ -19,10 +19,12 @@
     "pi-adapter",
     "pr-review",
     "pty-tier",
+    "publishable-tarballs",
     "release-integrity",
     "release-node-version",
     "seed-alpha",
     "ssh-serve",
-    "valibot-wire-validation"
+    "valibot-wire-validation",
+    "verify-published"
   ]
 }

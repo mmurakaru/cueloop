@@ -1,6 +1,6 @@
 {
   "name": "cueloop",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
@@ -10,9 +10,9 @@
     ".": "./src/main.ts"
   },
   "dependencies": {
-    "@cueloop/schema": "workspace:*",
-    "@cueloop/daemon": "workspace:*",
-    "@cueloop/client": "workspace:*"
+    "@cueloop/schema": "0.1.0-alpha.1",
+    "@cueloop/daemon": "0.1.0-alpha.1",
+    "@cueloop/client": "0.1.0-alpha.1"
   },
   "publishConfig": {
     "access": "public"

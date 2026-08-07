@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/adapters",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -8,8 +8,8 @@
     "./pi": "./pi/index.ts"
   },
   "dependencies": {
-    "@cueloop/schema": "workspace:*",
-    "@cueloop/daemon": "workspace:*"
+    "@cueloop/schema": "0.1.0-alpha.1",
+    "@cueloop/daemon": "0.1.0-alpha.1"
   },
   "publishConfig": {
     "access": "public"
