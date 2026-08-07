@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.2
+
+### Patch Changes
+
+- [#53](https://github.com/mmurakaru/cueloop/pull/53) [`98ff685`](https://github.com/mmurakaru/cueloop/commit/98ff6850c7042cd369174140382939e2a9ab1e76) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Read tarball contents from the archive itself during the publish check, instead of trusting `npm pack --json` whose output shape differs between npm majors.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.2
+  - @cueloop/daemon@0.1.0-alpha.2
+  - @cueloop/schema@0.1.0-alpha.2
+
 ## 0.1.0-alpha.1
 
 ### Patch Changes
