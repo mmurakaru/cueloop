@@ -1,4 +1,6 @@
 export * from "./api";
+export * from "./errors";
+export * from "./validate";
 export * from "./store";
 export * from "./server";
 export * from "./protocol";

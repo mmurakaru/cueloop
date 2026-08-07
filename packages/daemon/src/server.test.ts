@@ -66,6 +66,33 @@ describe("socket round-trip", () => {
     observer.close();
   });
 
+  test("malformed requests get structured errors and never wedge the daemon", async () => {
+    // missing required params
+    try {
+      await client.request("session.create", { artifact: { type: "plan", content: "x" } });
+      throw new Error("should have thrown");
+    } catch (e) {
+      expect((e as DaemonClientError).code).toBe("invalid_params");
+    }
+    // wrong types
+    try {
+      await client.request("session.wait", { id: 42 });
+      throw new Error("should have thrown");
+    } catch (e) {
+      expect((e as DaemonClientError).code).toBe("invalid_params");
+    }
+    // unknown method
+    try {
+      await client.request("session.nuke", {});
+      throw new Error("should have thrown");
+    } catch (e) {
+      expect((e as DaemonClientError).code).toBe("unknown_method");
+    }
+    // the daemon is still fully alive afterwards
+    const s = await client.sessionCreate(WS, PLAN);
+    expect((await client.sessionGet(s.id)).id).toBe(s.id);
+  });
+
   test("two clients see the same state (thin-renderer model)", async () => {
     const second = await DaemonClient.connect({ home });
     const s = await client.sessionCreate(WS, PLAN);

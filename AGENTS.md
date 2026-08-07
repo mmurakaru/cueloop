@@ -87,3 +87,7 @@ Verification recipes:
 - npm auth is bootstrapped with a short-lived NPM_TOKEN for the first publish,
   then cut over to trusted publishing (OIDC, no stored secret, with provenance).
   Full checklist: docs/releasing.md. Open items live there, not in code.
+
+- Runtime validation uses **valibot** (not zod): modular and tree-shakeable,
+  which matters for CLI startup latency. Validate at trust boundaries - the
+  socket protocol and persisted records - not between internal modules.

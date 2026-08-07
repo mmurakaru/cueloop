@@ -37,7 +37,9 @@ export class DaemonClient {
     // Socket dead or absent: clean a stale file and spawn the daemon detached.
     if (existsSync(path)) rmSync(path, { force: true });
     spawnDaemon(home);
-    const deadline = Date.now() + 10_000;
+    // Generous: a cold or loaded machine pays for a runtime start before the
+    // socket exists, and giving up early looks to callers like a broken daemon.
+    const deadline = Date.now() + Number(process.env.CUELOOP_START_TIMEOUT_MS ?? 30_000);
     let lastErr: unknown;
     while (Date.now() < deadline) {
       try {
