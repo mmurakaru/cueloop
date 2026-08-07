@@ -103,7 +103,17 @@ if (import.meta.main) {
     console.log(JSON.stringify(hookOutput({}, { allow: true, reason: "unparseable hook payload" })));
     process.exit(0);
   }
-  const decision = await runHook(event);
+  // An adapter failure must never wedge the agent: emit a valid hook response
+  // carrying the reason instead of dying silently (a crash gives the agent no
+  // stdout at all, which reads as a broken gate rather than a skipped review).
+  let decision: HookDecision;
+  try {
+    decision = await runHook(event);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    decision = { allow: true, reason: `cueloop unavailable, review skipped: ${reason}` };
+    console.error(`cueloop hook error: ${reason}`);
+  }
   console.log(JSON.stringify(hookOutput(event, decision)));
   process.exit(0);
 }

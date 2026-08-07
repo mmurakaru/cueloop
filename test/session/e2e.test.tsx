@@ -50,6 +50,9 @@ afterAll(async () => {
 interface HookRun {
   proc: ReturnType<typeof Bun.spawn>;
   result: Promise<{ decision: string; reason: string }>;
+  /** Diagnostics: a hook that dies early must not surface as a bare timeout. */
+  stderr: Promise<string>;
+  exited: Promise<number>;
 }
 
 function spawnHook(plan: string, waitMs: number): HookRun {
@@ -66,8 +69,13 @@ function spawnHook(plan: string, waitMs: number): HookRun {
     stdout: "pipe",
     stderr: "pipe",
   });
+  const stderr = new Response(proc.stderr).text();
+  const exited = proc.exited;
   const result = (async () => {
     const out = await new Response(proc.stdout).text();
+    if (!out.trim()) {
+      throw new Error(`hook produced no output (exit ${await exited}); stderr:\n${await stderr}`);
+    }
     const parsed = JSON.parse(out.trim()) as {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
     };
@@ -76,7 +84,7 @@ function spawnHook(plan: string, waitMs: number): HookRun {
       reason: parsed.hookSpecificOutput.permissionDecisionReason,
     };
   })();
-  return { proc, result };
+  return { proc, result, stderr, exited };
 }
 
 /**
@@ -85,17 +93,30 @@ function spawnHook(plan: string, waitMs: number): HookRun {
  * spawn before the first session appears, which a tight loop mistakes for a
  * failure.
  */
-async function waitForPendingSession(predicate?: (s: ReviewSession) => boolean): Promise<string> {
+async function waitForPendingSession(
+  hook?: HookRun,
+  predicate?: (s: ReviewSession) => boolean,
+): Promise<string> {
   const client = await DaemonClient.connect({ home, autostart: true });
   const deadline = Date.now() + POLL_TIMEOUT_MS;
+  let hookDied: string | null = null;
+  if (hook) {
+    void hook.exited.then(async (code) => {
+      if (code !== 0) hookDied = `hook exited ${code}; stderr:\n${await hook.stderr}`;
+    });
+  }
   try {
     while (Date.now() < deadline) {
       const pending = await client.sessionList({ status: "pending" });
       const match = predicate ? pending.find(predicate) : pending[0];
       if (match) return match.id;
+      if (hookDied) throw new Error(hookDied);
       await Bun.sleep(50);
     }
-    throw new Error(`no pending session appeared within ${POLL_TIMEOUT_MS}ms`);
+    throw new Error(
+      `no pending session appeared within ${POLL_TIMEOUT_MS}ms` +
+        (hook ? `; hook stderr so far:\n${await Promise.race([hook.stderr, Promise.resolve("(still running)")])}` : ""),
+    );
   } finally {
     client.close();
   }
@@ -104,7 +125,7 @@ async function waitForPendingSession(predicate?: (s: ReviewSession) => boolean):
 describe("slice 1: Claude Code plan round-trip", () => {
   test("deny path: reviewer annotates and requests changes; hook relays feedback.md", async () => {
     const hook = spawnHook(PLAN, 30_000);
-    const sessionId = await waitForPendingSession();
+    const sessionId = await waitForPendingSession(hook);
 
     // the reviewer opens the session in the real TUI
     const setup = await testRender(<App home={home} sessionId={sessionId} />, { width: 120, height: 30 });
@@ -151,7 +172,7 @@ describe("slice 1: Claude Code plan round-trip", () => {
     const hook = spawnHook(revised, 30_000);
 
     // wait for the revision to land (same session reopens as pending)
-    const sessionId = await waitForPendingSession((s) => s.revisions.length >= 2);
+    const sessionId = await waitForPendingSession(hook, (s) => s.revisions.length >= 2);
     const client = await DaemonClient.connect({ home });
     const session = await client.sessionGet(sessionId);
     expect(session.revisions.length).toBe(2);
