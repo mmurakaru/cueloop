@@ -9,14 +9,9 @@
     "dev": "bun run packages/cli/src/main.ts",
     "test": "bun test ./packages",
     "test:pty": "CUELOOP_RUN_PTY=1 bun test ./test/pty",
-    "typecheck": "bunx tsc --noEmit",
-    "changeset": "changeset",
-    "version": "changeset version && bun run scripts/sync-plugin-version.ts",
-    "ci:publish": "changeset publish"
+    "typecheck": "bunx tsc --noEmit"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^0.7.0",
-    "@changesets/cli": "^2.31.1",
     "@cueloop/client": "workspace:*",
     "@cueloop/daemon": "workspace:*",
     "@cueloop/schema": "workspace:*",
@@ -24,6 +19,7 @@
     "@opentui/react": "^0.4.3",
     "@types/bun": "^1.3.14",
     "@types/react": "^19.2.0",
+    "bun-pty": "^0.4.10",
     "cueloop": "workspace:*",
     "react": "^19.2.0",
     "typescript": "^5.9.3"
