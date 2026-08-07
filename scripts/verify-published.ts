@@ -1,0 +1,68 @@
+/**
+ * Post-publish verification: prove that what the registry now serves is
+ * actually installable and runnable. The first alpha taught the lesson - the
+ * publish tool reported success for packages that never reached the registry,
+ * and the CLI it did publish could not install. Success is what a stranger
+ * can install, not what a tool logged.
+ *
+ * Runs at the end of the release lane. A failure here fails the release run so
+ * the breakage is loud instead of discovered by the first user.
+ */
+
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+const version = (await Bun.file("packages/cli/package.json").json()).version as string;
+const tag = version.includes("-") ? (version.split("-")[1] ?? "").split(".")[0] : "latest";
+
+const names: string[] = [];
+for (const glob of ["packages/*/package.json", "packages/integrations/*/package.json"]) {
+  for await (const p of new Bun.Glob(glob).scan(".")) {
+    const pkg = (await Bun.file(p).json()) as { name: string; private?: boolean };
+    if (!pkg.private) names.push(pkg.name);
+  }
+}
+
+const problems: string[] = [];
+
+// 1. every package must be visible on the registry at this exact version
+for (const name of new Set(names)) {
+  const res = await fetch(`https://registry.npmjs.org/${name.replace("/", "%2F")}`);
+  if (!res.ok) {
+    problems.push(`${name}: not on the registry (HTTP ${res.status}) - the publish did not land`);
+    continue;
+  }
+  const doc = (await res.json()) as { versions?: Record<string, unknown>; "dist-tags"?: Record<string, string> };
+  if (!doc.versions?.[version]) {
+    problems.push(`${name}: registry has no ${version} (tags: ${JSON.stringify(doc["dist-tags"] ?? {})})`);
+  }
+}
+
+// 2. the CLI must install from the registry and run
+if (problems.length === 0) {
+  const work = mkdtempSync(join(tmpdir(), "cueloop-verify-"));
+  try {
+    Bun.spawnSync(["npm", "init", "-y"], { cwd: work });
+    const install = Bun.spawnSync(["npm", "install", `cueloop@${version}`, "--no-audit", "--no-fund"], { cwd: work });
+    if (install.exitCode !== 0) {
+      problems.push(`cueloop@${version} does not install: ${install.stderr.toString().trim().split("\n").slice(-3).join(" ")}`);
+    } else {
+      const entry = join(work, "node_modules", "cueloop", "src", "main.ts");
+      const run = Bun.spawnSync([process.execPath, "run", entry, "help"], { cwd: work });
+      const out = run.stdout.toString();
+      if (run.exitCode !== 0 || !out.includes("cueloop session")) {
+        problems.push(`the installed CLI does not run: exit ${run.exitCode}, stderr ${run.stderr.toString().trim().slice(0, 200)}`);
+      }
+    }
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+if (problems.length) {
+  console.error(`published release ${version} (tag ${tag}) is NOT usable:`);
+  for (const p of problems) console.error(`  - ${p}`);
+  process.exit(1);
+}
+console.log(`verified: ${version} (tag ${tag}) is on the registry and the CLI installs and runs`);

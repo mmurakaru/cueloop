@@ -66,6 +66,7 @@ jobs:
       - run: bun run typecheck
       - run: bun test ./packages ./test
       - name: Create Release PR or publish
+        id: changesets
         uses: changesets/action@v1
         with:
           version: bun run version
@@ -78,3 +79,8 @@ jobs:
           # remove this secret; npm then authenticates via OIDC.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
+      # Success is what a stranger can install. A publish tool reporting success
+      # for a package that never reached the registry must fail the run.
+      - name: Verify the published release
+        if: steps.changesets.outputs.published == 'true'
+        run: bun run verify:published
