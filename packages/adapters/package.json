@@ -1,0 +1,13 @@
+{
+  "name": "@cueloop/adapters",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./claude-code/hook": "./claude-code/hook.ts"
+  },
+  "dependencies": {
+    "@cueloop/schema": "workspace:*",
+    "@cueloop/daemon": "workspace:*"
+  }
+}

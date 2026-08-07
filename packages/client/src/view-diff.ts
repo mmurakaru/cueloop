@@ -1,0 +1,86 @@
+/**
+ * Diff artifact projection (#18 slice 3): flatten @pierre/diffs' parsed
+ * patch model into render rows. Line-anchored annotations use the same
+ * quote-primary anchors as plans: quote = the line content, prefix/suffix =
+ * the neighbor lines - so the whole anchor/feedback pipeline is shared.
+ */
+
+import { parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
+
+export type DiffRowType = "file" | "hunk" | "ctx" | "add" | "del";
+
+export interface DiffRow {
+  t: DiffRowType;
+  text: string;
+  file: string;
+  oldLine?: number;
+  newLine?: number;
+}
+
+export function diffRows(patchText: string): DiffRow[] {
+  const rows: DiffRow[] = [];
+  const patches = parsePatchFiles(patchText);
+  for (const patch of patches) {
+    for (const file of patch.files) {
+      rows.push({ t: "file", text: fileLabel(file), file: file.name });
+      for (const hunk of file.hunks) {
+        rows.push({ t: "hunk", text: hunk.hunkSpecs ?? "@@", file: file.name });
+        let oldLine = hunk.deletionStart;
+        let newLine = hunk.additionStart;
+        for (const seg of hunk.hunkContent) {
+          if (seg.type === "context") {
+            for (let i = 0; i < seg.lines; i++) {
+              rows.push({
+                t: "ctx",
+                text: file.additionLines[seg.additionLineIndex + i] ?? "",
+                file: file.name,
+                oldLine: oldLine++,
+                newLine: newLine++,
+              });
+            }
+          } else {
+            for (let i = 0; i < seg.deletions; i++) {
+              rows.push({
+                t: "del",
+                text: file.deletionLines[seg.deletionLineIndex + i] ?? "",
+                file: file.name,
+                oldLine: oldLine++,
+              });
+            }
+            for (let i = 0; i < seg.additions; i++) {
+              rows.push({
+                t: "add",
+                text: file.additionLines[seg.additionLineIndex + i] ?? "",
+                file: file.name,
+                newLine: newLine++,
+              });
+            }
+          }
+        }
+      }
+    }
+  }
+  return rows;
+}
+
+function fileLabel(file: FileDiffMetadata): string {
+  return file.prevName && file.prevName !== file.name ? `${file.prevName} → ${file.name}` : file.name;
+}
+
+/** Quote-primary anchor for a diff row: neighbors as context selectors. */
+export function diffRowAnchor(rows: DiffRow[], idx: number): { quote: string; prefix: string; suffix: string } {
+  const row = rows[idx]!;
+  const prev = rows[idx - 1];
+  const next = rows[idx + 1];
+  return {
+    quote: row.text,
+    prefix: prev && (prev.t === "ctx" || prev.t === "add" || prev.t === "del") ? prev.text.slice(-24) : "",
+    suffix: next && (next.t === "ctx" || next.t === "add" || next.t === "del") ? next.text.slice(0, 24) : "",
+  };
+}
+
+/** Location label for the rail and feedback: file:newLine (or old for del). */
+export function diffRowLocation(row: DiffRow): string {
+  const line = row.newLine ?? row.oldLine;
+  return line !== undefined ? `${row.file}:${line}` : row.file;
+}
