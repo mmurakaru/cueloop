@@ -19,5 +19,10 @@
       "@cueloop/extension-api": ["./packages/extension-api/src/index.ts"]
     }
   },
-  "include": ["packages/*/src/**/*.ts", "packages/*/src/**/*.tsx", "test/**/*.ts"]
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/src/**/*.tsx",
+    "packages/adapters/**/*.ts",
+    "test/**/*.ts"
+  ]
 }
