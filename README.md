@@ -1,5 +1,9 @@
 # cueloop
 
+[![npm](https://img.shields.io/npm/v/cueloop/alpha?label=npm%40alpha)](https://www.npmjs.com/package/cueloop)
+[![ci](https://github.com/mmurakaru/cueloop/actions/workflows/ci.yml/badge.svg)](https://github.com/mmurakaru/cueloop/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
+
 A terminal-first review surface for coding agents. The product is the
 primitive: a **ReviewSession** anyone can render, annotate, and extend.
 
@@ -24,7 +28,9 @@ npm i -g cueloop@alpha      # the CLI
 cueloop --help
 ```
 
-Alpha: expect rough edges and breaking changes between versions.
+Alpha: expect rough edges and breaking changes between versions. Releases are
+published under the `alpha` dist-tag - see [releases](https://github.com/mmurakaru/cueloop/releases)
+and [packages/cli/CHANGELOG.md](./packages/cli/CHANGELOG.md).
 
 ## Develop
 
@@ -72,4 +78,18 @@ The daemon is the only stateful part; every client is a thin renderer over one
 0600 unix socket. Verdicts outlive waits: an agent-side timeout never loses a
 review. See `AGENTS.md` for dev-loop conventions and the test pyramid.
 
-Apache-2.0. Decisions live in the [map issue](https://github.com/mmurakaru/cueloop/issues/1).
+## Packages
+
+| package | what it is |
+| --- | --- |
+| [`cueloop`](https://www.npmjs.com/package/cueloop) | the CLI and TUI |
+| [`@cueloop/schema`](https://www.npmjs.com/package/@cueloop/schema) | the ReviewSession primitive, anchors, feedback serialization |
+| [`@cueloop/daemon`](https://www.npmjs.com/package/@cueloop/daemon) | the session daemon and its client |
+| [`@cueloop/client`](https://www.npmjs.com/package/@cueloop/client) | the review UI |
+| [`@cueloop/extension-api`](https://www.npmjs.com/package/@cueloop/extension-api) | the typed extension contract |
+| [`@cueloop/adapters`](https://www.npmjs.com/package/@cueloop/adapters) | Claude Code, Codex, and pi adapters |
+
+Apache-2.0. Contributions: every PR ships a changeset (`bunx changeset`) - see
+[docs/releasing.md](./docs/releasing.md) and [AGENTS.md](./AGENTS.md). The design
+decisions behind cueloop are recorded in the
+[closed decision tickets](https://github.com/mmurakaru/cueloop/issues?q=is%3Aissue+is%3Aclosed+label%3Awayfinder%3Agrilling).
