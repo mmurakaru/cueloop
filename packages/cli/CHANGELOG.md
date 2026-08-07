@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.4
+
+### Patch Changes
+
+- [#57](https://github.com/mmurakaru/cueloop/pull/57) [`c6d1146`](https://github.com/mmurakaru/cueloop/commit/c6d114654c3b1cde2a943db49c6d54874b4ccfc2) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Document the npm install path (`npm i -g cueloop@alpha`) and stop the release verifier from failing on registry propagation lag: registry assertions now poll until they hold, so a CDN serving a stale document moments after a publish no longer looks like a broken release.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.4
+  - @cueloop/daemon@0.1.0-alpha.4
+  - @cueloop/schema@0.1.0-alpha.4
+
 ## 0.1.0-alpha.3
 
 ### Patch Changes
