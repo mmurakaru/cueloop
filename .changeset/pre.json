@@ -1,0 +1,13 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "@cueloop/adapters": "0.0.1",
+    "cueloop": "0.0.1",
+    "@cueloop/client": "0.0.1",
+    "@cueloop/daemon": "0.0.1",
+    "@cueloop/extension-api": "0.0.1",
+    "@cueloop/schema": "0.0.1"
+  },
+  "changesets": []
+}
