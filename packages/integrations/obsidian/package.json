@@ -1,14 +1,14 @@
 {
   "name": "@cueloop/integration-obsidian",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@cueloop/extension-api": "workspace:*",
-    "@cueloop/schema": "workspace:*"
+    "@cueloop/extension-api": "0.1.0-alpha.1",
+    "@cueloop/schema": "0.1.0-alpha.1"
   },
   "publishConfig": {
     "access": "public"
