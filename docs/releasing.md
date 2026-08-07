@@ -9,6 +9,24 @@ All packages version **in lockstep** (one fixed group), so a bump to any of them
 bumps them all. That keeps the alpha honest: the CLI, daemon, client, schema,
 extension API, and adapters are developed as one unit.
 
+## What guards a release
+
+Two checks run in CI so release breakage cannot reach npm silently:
+
+- `check:release` - the machinery itself: required scripts and devDependencies,
+  the test script covering `./test`, the changeset config, and publish metadata
+  on every publishable package.
+- `check:publish` - packs every package exactly as npm would and inspects the
+  tarballs: no package-manager-only dependency protocol (`workspace:` and
+  friends cannot be resolved by an npm client), and every manifest entry point
+  is actually shipped. PRs run it in `--dev` mode (protocols are legitimate in
+  the repo); the release lane runs it strictly, after the version step, as the
+  last gate before `changeset publish`.
+
+Internal dependency ranges are rewritten from `workspace:*` to the concrete
+lockstep version during `bun run version`, so tarballs carry resolvable ranges
+while local development still links workspace members.
+
 ## Every PR
 
 Ship a changeset:
