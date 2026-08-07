@@ -1,0 +1,11 @@
+{
+  "name": "@cueloop/integration-obsidian",
+  "version": "0.0.1",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@cueloop/extension-api": "workspace:*",
+    "@cueloop/schema": "workspace:*"
+  }
+}
