@@ -14,6 +14,7 @@
  */
 
 import { DaemonClient } from "@cueloop/daemon/client";
+import { reportLabel, reportState } from "../herdr";
 import { resolveWorkspaceForHook } from "./workspace";
 
 interface HookEvent {
@@ -55,9 +56,15 @@ export async function runHook(event: HookEvent, home?: string): Promise<HookDeci
             },
           });
 
+    // herdr tier 1 (#23): the pane shows blocked + "plan ready for review"
+    // while the reviewer works; no-ops outside herdr.
+    reportState("blocked");
+    reportLabel(`plan ready for review: ${session.artifact.meta.title ?? session.id}`);
+
     const timeoutMs = Number(process.env.CUELOOP_WAIT_MS ?? 9 * 60 * 1000);
     const resolved = await client.sessionWait(session.id, timeoutMs);
     if (resolved === null) {
+      // still pending: the pane stays blocked - the review is not done.
       return {
         allow: false,
         reason:
@@ -65,6 +72,10 @@ export async function runHook(event: HookEvent, home?: string): Promise<HookDeci
           `Do not proceed; present the plan again (or wait) to collect the verdict.`,
       };
     }
+    // verdict in hand: the agent goes back to work; replace the label so the
+    // sidebar reflects the outcome instead of a stale "ready for review".
+    reportState("working");
+    reportLabel(`review done: ${resolved.verdict!.kind}`);
     return { allow: resolved.verdict!.kind === "approve", reason: resolved.verdict!.feedback };
   } finally {
     client.close();
