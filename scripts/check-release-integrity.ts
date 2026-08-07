@@ -36,6 +36,11 @@ for (const path of paths) {
   if (pkg.private) continue;
   if (pkg.publishConfig?.access !== "public") problems.push(`${path}: publishConfig.access must be "public"`);
   if (!Array.isArray(pkg.files) || pkg.files.length === 0) problems.push(`${path}: files[] must list what ships`);
+  // npm renders these on the package page; without them a reader cannot get
+  // back to the source or file an issue
+  for (const field of ["description", "homepage", "bugs", "repository"]) {
+    if (!pkg[field]) problems.push(`${path}: ${field} is missing (npm shows it on the package page)`);
+  }
 }
 
 if (problems.length) {

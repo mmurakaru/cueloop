@@ -20,5 +20,10 @@
     "type": "git",
     "url": "git+https://github.com/mmurakaru/cueloop.git",
     "directory": "packages/schema"
-  }
+  },
+  "homepage": "https://github.com/mmurakaru/cueloop#readme",
+  "bugs": {
+    "url": "https://github.com/mmurakaru/cueloop/issues"
+  },
+  "description": "The ReviewSession primitive: types, markdown block model, quote-primary anchors, feedback serialization"
 }

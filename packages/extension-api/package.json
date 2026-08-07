@@ -23,5 +23,10 @@
     "type": "git",
     "url": "git+https://github.com/mmurakaru/cueloop.git",
     "directory": "packages/extension-api"
-  }
+  },
+  "homepage": "https://github.com/mmurakaru/cueloop#readme",
+  "bugs": {
+    "url": "https://github.com/mmurakaru/cueloop/issues"
+  },
+  "description": "The typed contract for extending cueloop: renderers, commands, keybindings, exporters"
 }
