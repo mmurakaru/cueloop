@@ -14,6 +14,10 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { App } from "../../packages/client/src/App";
 
+/** Generous on purpose: these spawn real subprocesses on shared CI runners. */
+const POLL_TIMEOUT_MS = 60_000;
+const TEST_TIMEOUT_MS = 120_000;
+
 const HOOK = join(import.meta.dir, "..", "..", "packages", "adapters", "claude-code", "hook.ts");
 
 const PLAN = `# Rollout Plan
@@ -75,15 +79,23 @@ function spawnHook(plan: string, waitMs: number): HookRun {
   return { proc, result };
 }
 
-async function waitForPendingSession(): Promise<string> {
+/**
+ * Poll until the hook subprocess has created its session. Wall-clock deadline,
+ * not an iteration count: a cold CI runner pays for a bun start plus a daemon
+ * spawn before the first session appears, which a tight loop mistakes for a
+ * failure.
+ */
+async function waitForPendingSession(predicate?: (s: ReviewSession) => boolean): Promise<string> {
   const client = await DaemonClient.connect({ home, autostart: true });
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
   try {
-    for (let i = 0; i < 100; i++) {
+    while (Date.now() < deadline) {
       const pending = await client.sessionList({ status: "pending" });
-      if (pending.length) return pending[0]!.id;
+      const match = predicate ? pending.find(predicate) : pending[0];
+      if (match) return match.id;
       await Bun.sleep(50);
     }
-    throw new Error("hook never created a session");
+    throw new Error(`no pending session appeared within ${POLL_TIMEOUT_MS}ms`);
   } finally {
     client.close();
   }
@@ -96,7 +108,8 @@ describe("slice 1: Claude Code plan round-trip", () => {
 
     // the reviewer opens the session in the real TUI
     const setup = await testRender(<App home={home} sessionId={sessionId} />, { width: 120, height: 30 });
-    for (let i = 0; i < 40 && !setup.captureCharFrame().includes("Rollout Plan"); i++) {
+    const uiDeadline = Date.now() + POLL_TIMEOUT_MS;
+    while (Date.now() < uiDeadline && !setup.captureCharFrame().includes("Rollout Plan")) {
       await Bun.sleep(25);
       await setup.renderOnce();
     }
@@ -114,7 +127,8 @@ describe("slice 1: Claude Code plan round-trip", () => {
     await setup.mockInput.typeText("Stage the rollout: 5% then 50% then 100%.");
     await key("enter");
     // wait until the annotate round-trip lands in the rail before submitting
-    for (let i = 0; i < 40 && !setup.captureCharFrame().includes("REVIEW (1)"); i++) {
+    const railDeadline = Date.now() + POLL_TIMEOUT_MS;
+    while (railDeadline > Date.now() && !setup.captureCharFrame().includes("REVIEW (1)")) {
       await Bun.sleep(25);
       await setup.renderOnce();
     }
@@ -130,23 +144,15 @@ describe("slice 1: Claude Code plan round-trip", () => {
     expect(out.reason).toContain("Too aggressive.");
     expect(out.reason).toContain("Stage the rollout: 5% then 50% then 100%.");
     expect(out.reason).toContain("> Enable it for everyone immediately.");
-  }, 30_000);
+  }, TEST_TIMEOUT_MS);
 
   test("revision path: resubmit becomes revision 2 of the same session; approve allows", async () => {
     const revised = PLAN.replace("Enable it for everyone immediately.", "Enable it at 5%, then 50%, then 100%.");
     const hook = spawnHook(revised, 30_000);
 
     // wait for the revision to land (same session reopens as pending)
+    const sessionId = await waitForPendingSession((s) => s.revisions.length >= 2);
     const client = await DaemonClient.connect({ home });
-    let sessionId = "";
-    for (let i = 0; i < 100; i++) {
-      const pending = await client.sessionList({ status: "pending" });
-      if (pending.length) {
-        sessionId = pending[0]!.id;
-        break;
-      }
-      await Bun.sleep(50);
-    }
     const session = await client.sessionGet(sessionId);
     expect(session.revisions.length).toBe(2);
     expect(session.artifact.content).toContain("at 5%, then 50%");
@@ -157,7 +163,7 @@ describe("slice 1: Claude Code plan round-trip", () => {
     const out = await hook.result;
     expect(out.decision).toBe("allow");
     expect(out.reason).toContain("# Review: approve");
-  }, 30_000);
+  }, TEST_TIMEOUT_MS);
 
   test("timeout path: the verdict outlives the hook window", async () => {
     const hook = spawnHook("# Late Plan\n\nSomething slow.\n", 300);
@@ -173,5 +179,5 @@ describe("slice 1: Claude Code plan round-trip", () => {
     const collected = await client.sessionWait(late.id, 1000);
     expect(collected!.verdict!.kind).toBe("approve");
     client.close();
-  }, 30_000);
+  }, TEST_TIMEOUT_MS);
 });
