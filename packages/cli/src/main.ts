@@ -3,9 +3,11 @@
  * cueloop entry points (#18): `cueloop` opens the TUI on the inbox,
  * `cueloop diff` reviews the working tree, `cueloop review <pr>` a PR,
  * `cueloop session *` mirrors the daemon API for agents and scripts,
+ * `cueloop serve` shares a session over ssh (read-only observers),
  * `cueloop daemon` runs the daemon in the foreground.
  */
 
+import { parseArgs, flagStr } from "./args";
 import { sessionCommand } from "./session-cmds";
 import { resolveWorkspace, workingTreeDiff } from "./workspace";
 import { DaemonClient } from "@cueloop/daemon/client";
@@ -41,6 +43,32 @@ async function main(): Promise<number> {
       client.close();
       return runTui(session.id);
     }
+    case "serve": {
+      const { positional, flags } = parseArgs(argv.slice(1));
+      const port = flagStr(flags, "port");
+      const { serveClient } = await import("@cueloop/client");
+      const handle = await serveClient({
+        port: port !== undefined ? Number(port) : undefined,
+        host: flagStr(flags, "host"),
+        sessionId: positional[0],
+      });
+      console.log(
+        [
+          "",
+          `observers join with:  ssh -p ${handle.port} ${handle.host === "0.0.0.0" || handle.host === "::" ? "<this-host>" : handle.host}`,
+          "",
+          "no passwords, no keys: anyone who can reach this address can watch.",
+          "share the address deliberately (SSH tunnel, tailnet). observers are",
+          "read-only; you stay the one writable controller via `cueloop` locally.",
+          "ctrl-c stops serving.",
+        ].join("\n"),
+      );
+      const stop = () => void handle.close().finally(() => process.exit(0));
+      process.on("SIGINT", stop);
+      process.on("SIGTERM", stop);
+      await new Promise(() => {}); // serve until signalled
+      return 0;
+    }
     case "review": {
       console.error("cueloop review <pr>: not implemented yet (map #18, post-slice-3)");
       return 2;
@@ -75,6 +103,9 @@ function printHelp(): void {
       "  cueloop <session-id>             open one session",
       "  cueloop diff                     review the working tree",
       "  cueloop review <pr>              review a pull request",
+      "  cueloop serve [session-id]       share over ssh: observers are read-only,",
+      "                                   you stay the controller (--port 2222, --host 127.0.0.1;",
+      "                                   password-less - share the address deliberately)",
       "  cueloop session <verb> [flags]   script the daemon (create|get|list|wait|annotate|resolve|submit-revision)",
       "  cueloop daemon                   run the daemon in the foreground",
     ].join("\n"),
