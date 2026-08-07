@@ -1,11 +1,28 @@
-/** TUI launcher. The App lands with the client slice; this wires it to a real terminal. */
+/** Real-terminal entry: render the App and resolve when the user quits. */
+
+import React from "react";
+import { createCliRenderer } from "@opentui/core";
+import { createRoot } from "@opentui/react";
+import { App } from "./App";
 
 export interface RunClientOptions {
   sessionId?: string;
   home?: string;
 }
 
-export async function runClient(_opts: RunClientOptions): Promise<number> {
-  console.error("cueloop TUI: client slice not wired yet");
-  return 1;
+export async function runClient(opts: RunClientOptions): Promise<number> {
+  const renderer = await createCliRenderer();
+  return new Promise<number>((resolve) => {
+    createRoot(renderer).render(
+      React.createElement(App, {
+        home: opts.home,
+        sessionId: opts.sessionId,
+        onExit: (code: number) => {
+          renderer.destroy();
+          resolve(code);
+          process.exit(code);
+        },
+      }),
+    );
+  });
 }
