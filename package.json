@@ -13,6 +13,10 @@
     "typescript": "^5.9.3",
     "@types/bun": "^1.3.14",
     "@cueloop/schema": "workspace:*",
-    "@cueloop/daemon": "workspace:*"
+    "@cueloop/daemon": "workspace:*",
+    "@opentui/core": "^0.4.3",
+    "@opentui/react": "^0.4.3",
+    "react": "^19.2.0",
+    "@types/react": "^19.2.0"
   }
 }
