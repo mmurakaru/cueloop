@@ -9,12 +9,21 @@
         "typescript": "^5.9.3",
       },
     },
+    "packages/daemon": {
+      "name": "@cueloop/daemon",
+      "version": "0.0.1",
+      "dependencies": {
+        "@cueloop/schema": "workspace:*",
+      },
+    },
     "packages/schema": {
       "name": "@cueloop/schema",
       "version": "0.0.1",
     },
   },
   "packages": {
+    "@cueloop/daemon": ["@cueloop/daemon@workspace:packages/daemon"],
+
     "@cueloop/schema": ["@cueloop/schema@workspace:packages/schema"],
 
     "@types/bun": ["@types/bun@1.3.14", "", { "dependencies": { "bun-types": "1.3.14" } }, "sha512-h1hFqFVcvAvD9j9K7ZW7vd82aSA+rTdznZa+5bwvCwqSB1jmmfLcbIWhOLx1/+boy/xmjgCs/OMUL8hRJSmnPw=="],
