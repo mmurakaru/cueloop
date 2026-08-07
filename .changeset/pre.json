@@ -27,6 +27,7 @@
     "seed-alpha",
     "ssh-serve",
     "valibot-wire-validation",
+    "verify-propagation",
     "verify-published"
   ]
 }
