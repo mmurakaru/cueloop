@@ -54,9 +54,11 @@ jobs:
           bun-version: 1.3.14
       # changeset publish shells out to the npm CLI, and trusted publishing
       # requires npm >= 11.5.1 on Node >= 22.14 - neither is the runner default.
+      # Node 24: current npm releases require ^22.22 || ^24.15 || >=26, so the
+      # bare 22.14 floor cannot install them.
       - uses: actions/setup-node@v4
         with:
-          node-version: "22.14"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
       - run: npm install -g npm@latest
       # fresh install in the publish lane - tarball contents never come from a cache
