@@ -1,0 +1,16 @@
+{
+  "name": "cueloop-monorepo",
+  "private": true,
+  "license": "Apache-2.0",
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "dev": "bun run packages/cli/src/main.ts",
+    "test": "bun test ./packages",
+    "test:pty": "CUELOOP_RUN_PTY=1 bun test ./test/pty",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/bun": "^1.3.14"
+  }
+}
