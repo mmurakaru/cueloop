@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.5
+
+### Patch Changes
+
+- [#60](https://github.com/mmurakaru/cueloop/pull/60) [`ef88050`](https://github.com/mmurakaru/cueloop/commit/ef8805035a61606d33426f5eb92c4fbbbbc3f0a1) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Every published package now carries a description, homepage, and issues link, so its npm page explains what it is and links back to the source. The release-integrity check enforces them.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.5
+  - @cueloop/daemon@0.1.0-alpha.5
+  - @cueloop/schema@0.1.0-alpha.5
+
 ## 0.1.0-alpha.4
 
 ### Patch Changes
