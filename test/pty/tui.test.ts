@@ -1,0 +1,149 @@
+/**
+ * PTY tests (tier 4, map #22): the real `cueloop` TUI binary in a
+ * pseudo-terminal, asserting behavior the virtual-terminal tier cannot
+ * prove - a real alternate-screen render, key routing through a raw tty,
+ * SIGWINCH resize, and the process exit code.
+ *
+ * PTY backend: bun-pty. node-pty loads under Bun on macOS arm64 but its
+ * native `spawn` silently kills the Bun process (no error, no output), so
+ * it is unusable here; bun-pty is a Bun-native PTY with the same IPty
+ * surface (write/resize/kill/onData/onExit) and works reliably.
+ *
+ * Env-gated: skipped unless CUELOOP_RUN_PTY is set, so `bun test ./test`
+ * stays green everywhere. Run with `bun run test:pty`.
+ *
+ * The tests share one PTY session (spawning the TUI is expensive) and run
+ * in file order: render → move cursor → resize → quit. OpenTUI repaints
+ * only changed cells, so after a keypress the stripped output delta
+ * contains the cursor glyph followed by the newly highlighted block text.
+ */
+
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { spawn, type IPty } from "bun-pty";
+import { DaemonServer } from "@cueloop/daemon";
+
+const RUN = !!process.env.CUELOOP_RUN_PTY;
+const ptyTest = RUN ? test : test.skip;
+
+const ROOT = join(import.meta.dir, "..", "..");
+const CLI = join(ROOT, "packages", "cli", "src", "main.ts");
+
+const PLAN = `# Rollout Plan
+
+## Phase 1
+
+Ship the daemon behind a flag.
+
+## Phase 2
+
+Enable it for everyone immediately.
+`;
+
+/** CSI (incl. private params), OSC, DCS/APC-style strings, and bare ESC finals. */
+const ANSI =
+  // eslint-disable-next-line no-control-regex
+  /\[[0-9;?>=<]*[ -/]*[@-~]|\][^]*(?:|\\)|P[^]*\\|[@-Z\\-_]/g;
+
+function stripAnsi(s: string): string {
+  return s.replace(ANSI, "");
+}
+
+let home: string;
+let server: DaemonServer;
+let sessionId: string;
+let pty: IPty;
+let buf = "";
+let exit: { exitCode: number } | null = null;
+
+/** PTY output arrives in chunks; poll a predicate against the buffer with a deadline. */
+async function waitFor(pred: () => boolean, ms: number, what: string): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    if (pred()) return;
+    await Bun.sleep(50);
+  }
+  if (!pred()) throw new Error(`timed out waiting for ${what}; buffer: ${JSON.stringify(stripAnsi(buf).slice(-500))}`);
+}
+
+beforeAll(async () => {
+  if (!RUN) return;
+  home = mkdtempSync(join(tmpdir(), "cueloop-pty-"));
+  server = new DaemonServer({ home, idleExitMs: 0 });
+  server.start();
+  const session = server.core.sessionCreate({
+    workspace: { repoRoot: "/repo", branch: "main" },
+    artifact: { type: "plan", content: PLAN, meta: { title: "Rollout Plan", planPath: "plan.md" } },
+  });
+  sessionId = session.id;
+  pty = spawn(process.execPath, ["run", CLI, sessionId], {
+    name: "xterm-256color",
+    cols: 120,
+    rows: 30,
+    cwd: ROOT,
+    env: { ...process.env, CUELOOP_HOME: home } as Record<string, string>,
+  });
+  pty.onData((d) => {
+    buf += d;
+  });
+  pty.onExit((e) => {
+    exit = e;
+  });
+});
+
+afterAll(() => {
+  if (!RUN) return;
+  if (exit === null) {
+    try {
+      pty.kill();
+    } catch {
+      // already gone
+    }
+  }
+  server.stop();
+  rmSync(home, { recursive: true, force: true });
+});
+
+describe("PTY tier: the real TUI in a pseudo-terminal", () => {
+  ptyTest("initial render paints the plan in a real terminal", async () => {
+    await waitFor(() => stripAnsi(buf).includes("Rollout Plan"), 20_000, "the plan title");
+    await waitFor(() => stripAnsi(buf).includes("Enable it for everyone immediately."), 20_000, "the plan body");
+    const frame = stripAnsi(buf);
+    expect(frame).toContain("Rollout Plan");
+    expect(frame).toContain("Ship the daemon behind a flag.");
+    // the cursor glyph starts on the title block
+    expect(frame).toMatch(/▎ +Rollout Plan/);
+  }, 30_000);
+
+  ptyTest("j routes through the raw tty: the cursor glyph moves block by block", async () => {
+    buf = "";
+    pty.write("j");
+    // the cell-diff repaint after j redraws the newly highlighted block behind the glyph
+    await waitFor(() => /▎ +Phase 1/.test(stripAnsi(buf)), 10_000, "cursor on Phase 1");
+    buf = "";
+    pty.write("j");
+    await waitFor(() => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(buf)), 10_000, "cursor on the paragraph");
+  }, 30_000);
+
+  ptyTest("resize does not crash and forces a repaint", async () => {
+    buf = "";
+    pty.resize(100, 24);
+    await waitFor(() => buf.length > 0, 10_000, "a repaint after resize");
+    expect(exit).toBeNull();
+    // grow back; the TUI keeps repainting rather than dying on SIGWINCH
+    buf = "";
+    pty.resize(120, 30);
+    await waitFor(() => buf.length > 0, 10_000, "a repaint after growing back");
+    expect(exit).toBeNull();
+    // the cursor position survives both resizes
+    await waitFor(() => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(buf)), 10_000, "cursor after resize");
+  }, 30_000);
+
+  ptyTest("q exits cleanly with code 0", async () => {
+    pty.write("q");
+    await waitFor(() => exit !== null, 10_000, "process exit");
+    expect(exit!.exitCode).toBe(0);
+  }, 30_000);
+});
