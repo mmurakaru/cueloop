@@ -24,5 +24,10 @@
     "type": "git",
     "url": "git+https://github.com/mmurakaru/cueloop.git",
     "directory": "packages/integrations/obsidian"
-  }
+  },
+  "homepage": "https://github.com/mmurakaru/cueloop#readme",
+  "bugs": {
+    "url": "https://github.com/mmurakaru/cueloop/issues"
+  },
+  "description": "Export reviewed cueloop plans into an Obsidian vault"
 }

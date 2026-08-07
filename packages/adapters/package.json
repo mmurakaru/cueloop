@@ -27,5 +27,10 @@
     "type": "git",
     "url": "git+https://github.com/mmurakaru/cueloop.git",
     "directory": "packages/adapters"
-  }
+  },
+  "homepage": "https://github.com/mmurakaru/cueloop#readme",
+  "bugs": {
+    "url": "https://github.com/mmurakaru/cueloop/issues"
+  },
+  "description": "cueloop adapters for coding agents: Claude Code, Codex, and pi"
 }

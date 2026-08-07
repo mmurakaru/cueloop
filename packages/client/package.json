@@ -36,5 +36,10 @@
     "type": "git",
     "url": "git+https://github.com/mmurakaru/cueloop.git",
     "directory": "packages/client"
-  }
+  },
+  "homepage": "https://github.com/mmurakaru/cueloop#readme",
+  "bugs": {
+    "url": "https://github.com/mmurakaru/cueloop/issues"
+  },
+  "description": "The cueloop review UI: projection renderer, keyboard grammar, review rail"
 }
