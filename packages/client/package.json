@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "@cueloop/daemon": "workspace:*",
+    "@cueloop/extension-api": "workspace:*",
+    "@cueloop/integration-obsidian": "workspace:*",
     "@cueloop/schema": "workspace:*",
     "@opentui/core": "^0.4.3",
     "@opentui/react": "^0.4.3",
