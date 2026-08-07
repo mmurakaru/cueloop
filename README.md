@@ -17,7 +17,16 @@ agent → daemon → your terminal → verdict → agent
 - **diff** - `cueloop diff` reviews your working tree, untracked files included.
 - **review** - pull-request review (coming: `cueloop review <pr>`).
 
-## Try it
+## Install
+
+```bash
+npm i -g cueloop@alpha      # the CLI
+cueloop --help
+```
+
+Alpha: expect rough edges and breaking changes between versions.
+
+## Develop
 
 ```bash
 bun install

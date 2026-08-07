@@ -24,31 +24,56 @@ for (const glob of ["packages/*/package.json", "packages/integrations/*/package.
   }
 }
 
+/**
+ * The registry is served through a CDN, so a read moments after a publish or a
+ * retag can still return the previous document - that is how the alpha.3 run
+ * reported a stale tag one second after retagging it. Every registry assertion
+ * polls until it holds or the deadline passes: a stale read must not look like
+ * a broken release, and a genuinely broken one must still fail.
+ */
+const PROPAGATION_TIMEOUT_MS = 180_000;
+const POLL_INTERVAL_MS = 5_000;
+
+async function settle(check: () => Promise<string | null>): Promise<string | null> {
+  const deadline = Date.now() + PROPAGATION_TIMEOUT_MS;
+  for (;;) {
+    const problem = await check();
+    if (problem === null) return null;
+    if (Date.now() >= deadline) return problem;
+    await Bun.sleep(POLL_INTERVAL_MS);
+  }
+}
+
+const fresh = (url: string) => fetch(url, { headers: { "cache-control": "no-cache", pragma: "no-cache" } });
+
 const problems: string[] = [];
 
 // 1. every package must be visible on the registry at this exact version
 for (const name of new Set(names)) {
-  const res = await fetch(`https://registry.npmjs.org/${name.replace("/", "%2F")}`);
-  if (!res.ok) {
-    problems.push(`${name}: not on the registry (HTTP ${res.status}) - the publish did not land`);
-    continue;
-  }
-  const doc = (await res.json()) as { versions?: Record<string, unknown>; "dist-tags"?: Record<string, string> };
-  if (!doc.versions?.[version]) {
-    problems.push(`${name}: registry has no ${version} (tags: ${JSON.stringify(doc["dist-tags"] ?? {})})`);
-  }
+  const problem = await settle(async () => {
+    const res = await fresh(`https://registry.npmjs.org/${name.replace("/", "%2F")}`);
+    if (!res.ok) return `${name}: not on the registry (HTTP ${res.status}) - the publish did not land`;
+    const doc = (await res.json()) as { versions?: Record<string, unknown>; "dist-tags"?: Record<string, string> };
+    if (!doc.versions?.[version]) {
+      return `${name}: registry has no ${version} (tags: ${JSON.stringify(doc["dist-tags"] ?? {})})`;
+    }
+    return null;
+  });
+  if (problem) problems.push(problem);
 }
 
 // 2. the dist-tag users are told to install must resolve to this release
 if (problems.length === 0) {
-  const res = await fetch("https://registry.npmjs.org/cueloop");
-  const doc = (await res.json()) as { "dist-tags"?: Record<string, string> };
-  const tagged = doc["dist-tags"]?.[tag];
-  if (tagged !== version) {
-    problems.push(
-      `the "${tag}" dist-tag points at ${tagged ?? "nothing"}, not ${version} - "npm i cueloop@${tag}" would serve the wrong build`,
-    );
-  }
+  const problem = await settle(async () => {
+    // the dedicated dist-tags endpoint reflects a retag sooner than the full doc
+    const res = await fresh("https://registry.npmjs.org/-/package/cueloop/dist-tags");
+    const tags = res.ok ? ((await res.json()) as Record<string, string>) : {};
+    const tagged = tags[tag];
+    return tagged === version
+      ? null
+      : `the "${tag}" dist-tag points at ${tagged ?? "nothing"}, not ${version} - "npm i cueloop@${tag}" would serve the wrong build`;
+  });
+  if (problem) problems.push(problem);
 }
 
 // 3. the CLI must install from the registry, by tag, and run
@@ -57,7 +82,7 @@ if (problems.length === 0) {
   try {
     Bun.spawnSync(["npm", "init", "-y"], { cwd: work });
     // install by TAG: that is the command the docs give a stranger
-    const install = Bun.spawnSync(["npm", "install", `cueloop@${tag}`, "--no-audit", "--no-fund"], { cwd: work });
+    const install = Bun.spawnSync(["npm", "install", `cueloop@${tag}`, "--no-audit", "--no-fund", "--prefer-online"], { cwd: work });
     if (install.exitCode !== 0) {
       problems.push(`cueloop@${tag} does not install: ${install.stderr.toString().trim().split("\n").slice(-3).join(" ")}`);
     } else {

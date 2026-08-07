@@ -9,6 +9,11 @@ All packages version **in lockstep** (one fixed group), so a bump to any of them
 bumps them all. That keeps the alpha honest: the CLI, daemon, client, schema,
 extension API, and adapters are developed as one unit.
 
+## What a release produces
+
+`npm i -g cueloop@alpha` installs the CLI; `@cueloop/*` packages publish
+alongside it at the same version for extension and adapter authors.
+
 ## What guards a release
 
 Two checks run in CI so release breakage cannot reach npm silently:
@@ -16,6 +21,10 @@ Two checks run in CI so release breakage cannot reach npm silently:
 - `check:release` - the machinery itself: required scripts and devDependencies,
   the test script covering `./test`, the changeset config, and publish metadata
   on every publishable package.
+- `verify:published` - runs after publishing: every package must be on the
+  registry at the released version, the prerelease dist-tag must resolve to it,
+  and the CLI must install from npm by tag and run. Registry reads poll (the CDN
+  can serve a stale document for a minute after a publish or retag).
 - `check:publish` - packs every package exactly as npm would and inspects the
   tarballs: no package-manager-only dependency protocol (`workspace:` and
   friends cannot be resolved by an npm client), and every manifest entry point
