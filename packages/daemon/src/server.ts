@@ -4,12 +4,12 @@
  * permissions are the local auth: the socket and state dir are 0700/0600.
  */
 
-import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { DaemonCore, type DaemonEvent } from "./api";
 import { DaemonError } from "./errors";
 import { isKnownMethod, parseParams } from "./validate";
 import { LineBuffer, type Request } from "./protocol";
-import { cueloopHome, pidPath, socketPath } from "./paths";
+import { cueloopHome, lockPath, pidPath, socketPath } from "./paths";
 
 interface Conn {
   write(data: string): void;
@@ -23,12 +23,20 @@ export interface DaemonOptions {
   onIdleExit?: () => void;
 }
 
+/**
+ * Homes locked by a DaemonServer in THIS process. The on-disk lock's pid check
+ * cannot distinguish two instances inside one process (tests do exactly that),
+ * so in-process ownership is tracked separately.
+ */
+const HELD_HOMES = new Set<string>();
+
 export class DaemonServer {
   readonly core: DaemonCore;
   readonly home: string;
   private conns = new Set<Conn>();
   private server: ReturnType<typeof Bun.listen> | null = null;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
+  private lockFd: number | null = null;
   private readonly idleExitMs: number;
   private readonly onIdleExit: () => void;
 
@@ -41,9 +49,75 @@ export class DaemonServer {
     this.core.onEvent((e) => this.broadcast(e));
   }
 
-  start(): string {
+  /**
+   * Exclusive single-instance lock over a cueloop home. Without it, two
+   * concurrent autostarts both bind: the second unlinks the first's socket and
+   * binds a fresh inode, leaving two daemons with divergent in-memory state
+   * over the same session files - clients then see whichever half won the race.
+   * Returns false when a live daemon already owns this home.
+   */
+  private acquireLock(): boolean {
+    if (HELD_HOMES.has(this.home)) return false; // another instance here owns it
+    const path = lockPath(this.home);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        // "wx" fails when the file exists - the atomic part of the handshake
+        const fd = openSync(path, "wx");
+        writeFileSync(fd, String(process.pid));
+        this.lockFd = fd;
+        HELD_HOMES.add(this.home);
+        return true;
+      } catch {
+        let ownerPid = 0;
+        try {
+          ownerPid = Number(readFileSync(path, "utf8").trim());
+        } catch {
+          // the owner vanished between open and read; retry
+          continue;
+        }
+        if (ownerPid && ownerPid !== process.pid) {
+          try {
+            process.kill(ownerPid, 0); // throws when the pid is gone
+            return false; // a live daemon owns this home
+          } catch {
+            // stale lock from a crashed daemon
+          }
+        }
+        // ownerPid === our pid but HELD_HOMES says we do not own it: a stale
+        // file from an earlier instance in this process - reclaim it.
+        try {
+          rmSync(path, { force: true });
+        } catch {
+          return false;
+        }
+      }
+    }
+    return false;
+  }
+
+  private releaseLock(): void {
+    HELD_HOMES.delete(this.home);
+    if (this.lockFd !== null) {
+      try {
+        closeSync(this.lockFd);
+      } catch {
+        // already closed
+      }
+      this.lockFd = null;
+    }
+    rmSync(lockPath(this.home), { force: true });
+  }
+
+  /**
+   * Bind the socket and serve. Returns null when another live daemon already
+   * owns this home - the caller should attach to it instead of competing.
+   */
+  start(): string | null {
+    if (!this.acquireLock()) return null;
     const path = socketPath(this.home);
-    if (existsSync(path)) rmSync(path); // liveness is checked by the launcher before start
+    // safe now: holding the lock means no live daemon owns this home, so any
+    // socket file left behind is stale
+    if (existsSync(path)) rmSync(path, { force: true });
     const self = this;
     this.server = Bun.listen<{ buffer: LineBuffer; conn: Conn }>({
       unix: path,
@@ -74,9 +148,11 @@ export class DaemonServer {
 
   stop(): void {
     this.server?.stop(true);
+    this.server = null;
     rmSync(socketPath(this.home), { force: true });
     rmSync(pidPath(this.home), { force: true });
     if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.releaseLock();
   }
 
   private broadcast(e: DaemonEvent): void {

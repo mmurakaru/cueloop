@@ -21,3 +21,7 @@ export function sessionsDir(home = cueloopHome()): string {
 export function pidPath(home = cueloopHome()): string {
   return join(home, "cueloop.pid");
 }
+
+export function lockPath(home = cueloopHome()): string {
+  return join(home, "cueloop.lock");
+}
