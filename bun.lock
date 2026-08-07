@@ -43,6 +43,8 @@
       "version": "0.0.1",
       "dependencies": {
         "@cueloop/daemon": "workspace:*",
+        "@cueloop/extension-api": "workspace:*",
+        "@cueloop/integration-obsidian": "workspace:*",
         "@cueloop/schema": "workspace:*",
         "@opentui/core": "^0.4.3",
         "@opentui/react": "^0.4.3",
@@ -68,6 +70,14 @@
         "@cueloop/schema": "workspace:*",
       },
     },
+    "packages/integrations/obsidian": {
+      "name": "@cueloop/integration-obsidian",
+      "version": "0.0.1",
+      "dependencies": {
+        "@cueloop/extension-api": "workspace:*",
+        "@cueloop/schema": "workspace:*",
+      },
+    },
     "packages/schema": {
       "name": "@cueloop/schema",
       "version": "0.0.1",
@@ -81,6 +91,8 @@
     "@cueloop/daemon": ["@cueloop/daemon@workspace:packages/daemon"],
 
     "@cueloop/extension-api": ["@cueloop/extension-api@workspace:packages/extension-api"],
+
+    "@cueloop/integration-obsidian": ["@cueloop/integration-obsidian@workspace:packages/integrations/obsidian"],
 
     "@cueloop/schema": ["@cueloop/schema@workspace:packages/schema"],
 
