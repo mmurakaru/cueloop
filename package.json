@@ -15,7 +15,8 @@
     "version": "changeset version && bun run scripts/rewrite-internal-deps.ts && bun run scripts/sync-plugin-version.ts",
     "ci:publish": "bun run check:publish && changeset publish",
     "check:release": "bun run scripts/check-release-integrity.ts",
-    "check:publish": "bun run scripts/check-publish-integrity.ts"
+    "check:publish": "bun run scripts/check-publish-integrity.ts",
+    "verify:published": "bun run scripts/verify-published.ts"
   },
   "devDependencies": {
     "@cueloop/client": "workspace:*",
