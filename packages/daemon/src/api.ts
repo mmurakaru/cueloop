@@ -17,6 +17,7 @@ import {
   type WorkspaceKey,
 } from "@cueloop/schema";
 import { SessionStore } from "./store";
+import { DaemonError } from "./errors";
 
 export type EventName =
   | "session.created"
@@ -190,14 +191,7 @@ export class DaemonCore {
   }
 }
 
-export class DaemonError extends Error {
-  constructor(
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-  }
-}
+export { DaemonError };
 
 /** Convenience for adapters: map a resolved session to the agent contract. */
 export function verdictResponse(session: ReviewSession): { allow: boolean; feedback: string } {

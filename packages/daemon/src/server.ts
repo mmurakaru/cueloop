@@ -5,7 +5,9 @@
  */
 
 import { chmodSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { DaemonCore, DaemonError, type DaemonEvent } from "./api";
+import { DaemonCore, type DaemonEvent } from "./api";
+import { DaemonError } from "./errors";
+import { isKnownMethod, parseParams } from "./validate";
 import { LineBuffer, type Request } from "./protocol";
 import { cueloopHome, pidPath, socketPath } from "./paths";
 
@@ -116,10 +118,10 @@ export class DaemonServer {
   }
 
   private async dispatch(conn: Conn, req: Request): Promise<unknown> {
-    // The wire boundary is untyped JSON by nature; DaemonCore's methods do
-    // the runtime validation (unknown ids, resolved-session guards, etc.).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const p = (req.params ?? {}) as Record<string, any>;
+    // The wire is untrusted JSON: validate before DaemonCore sees anything.
+    if (typeof req.method !== "string" || !isKnownMethod(req.method)) {
+      throw new DaemonError("unknown_method", `unknown method ${String(req.method)}`);
+    }
     const core = this.core;
     switch (req.method) {
       case "daemon.ping":
@@ -133,24 +135,38 @@ export class DaemonServer {
       case "events.subscribe":
         conn.subscribed = true;
         return {};
-      case "session.create":
-        return core.sessionCreate({ workspace: p["workspace"], artifact: p["artifact"] });
+      case "session.create": {
+        const p = parseParams("session.create", req.params);
+        return core.sessionCreate({ workspace: p.workspace, artifact: p.artifact });
+      }
       case "session.get":
-        return core.sessionGet(p["id"]);
+        return core.sessionGet(parseParams("session.get", req.params).id);
       case "session.list":
-        return core.sessionList(p["filter"]);
-      case "session.wait":
-        return core.sessionWait(p["id"], p["timeoutMs"] ?? 60_000);
-      case "session.annotate":
-        return core.sessionAnnotate(p["id"], p["annotation"]);
-      case "session.removeAnnotation":
-        return core.sessionRemoveAnnotation(p["id"], p["annotationId"]);
-      case "session.setWorkingCopy":
-        return core.sessionSetWorkingCopy(p["id"], p["workingCopy"]);
-      case "session.resolve":
-        return core.sessionResolve(p["id"], p["verdictKind"], p["summary"] ?? "");
-      case "session.submitRevision":
-        return core.sessionSubmitRevision(p["id"], p["content"]);
+        return core.sessionList(parseParams("session.list", req.params).filter);
+      case "session.wait": {
+        const p = parseParams("session.wait", req.params);
+        return core.sessionWait(p.id, p.timeoutMs);
+      }
+      case "session.annotate": {
+        const p = parseParams("session.annotate", req.params);
+        return core.sessionAnnotate(p.id, p.annotation);
+      }
+      case "session.removeAnnotation": {
+        const p = parseParams("session.removeAnnotation", req.params);
+        return core.sessionRemoveAnnotation(p.id, p.annotationId);
+      }
+      case "session.setWorkingCopy": {
+        const p = parseParams("session.setWorkingCopy", req.params);
+        return core.sessionSetWorkingCopy(p.id, p.workingCopy);
+      }
+      case "session.resolve": {
+        const p = parseParams("session.resolve", req.params);
+        return core.sessionResolve(p.id, p.verdictKind, p.summary);
+      }
+      case "session.submitRevision": {
+        const p = parseParams("session.submitRevision", req.params);
+        return core.sessionSubmitRevision(p.id, p.content);
+      }
       default:
         throw new DaemonError("unknown_method", `unknown method ${req.method}`);
     }

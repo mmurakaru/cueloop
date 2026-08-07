@@ -7,7 +7,8 @@
 
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { SCHEMA_VERSION, type ReviewSession } from "@cueloop/schema";
+import type { ReviewSession } from "@cueloop/schema";
+import { validateSessionRecord } from "./validate";
 import { sessionsDir } from "./paths";
 
 export interface RecoveryReport {
@@ -31,10 +32,9 @@ export class SessionStore {
       if (!file.endsWith(".json")) continue;
       try {
         const raw = readFileSync(join(this.dir, file), "utf8");
-        const session = JSON.parse(raw) as ReviewSession;
-        if (typeof session.id !== "string" || session.schemaVersion !== SCHEMA_VERSION) {
-          throw new Error(`invalid record (schemaVersion=${String(session.schemaVersion)})`);
-        }
+        const parsed = validateSessionRecord(JSON.parse(raw));
+        if (!parsed.ok) throw new Error(`invalid record - ${parsed.error}`);
+        const session = parsed.value as ReviewSession;
         this.sessions.set(session.id, session);
         report.recovered.push(session.id);
       } catch (err) {
