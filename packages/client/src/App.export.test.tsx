@@ -60,12 +60,20 @@ describe("obsidian export on resolve", () => {
     await setup.renderOnce();
     expect(setup.captureCharFrame()).toContain("verdict");
     setup.mockInput.pressKey("RETURN");
+    // wall-clock deadlines: the export is an async round-trip after resolve,
+    // and an iteration count times out on a loaded runner
     const dir = join(vault, "cueloop");
-    for (let i = 0; i < 40 && !existsSync(dir); i++) {
+    const fileDeadline = Date.now() + 30_000;
+    while (Date.now() < fileDeadline && !existsSync(dir)) {
       await Bun.sleep(25);
       await setup.renderOnce();
     }
-    await setup.renderOnce();
+    // the status line lands on a later render than the file write
+    const statusDeadline = Date.now() + 30_000;
+    while (Date.now() < statusDeadline && !setup.captureCharFrame().includes("exported to")) {
+      await Bun.sleep(25);
+      await setup.renderOnce();
+    }
 
     const notes = readdirSync(dir);
     expect(notes.length).toBe(1);
