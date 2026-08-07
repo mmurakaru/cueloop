@@ -39,14 +39,27 @@ for (const name of new Set(names)) {
   }
 }
 
-// 2. the CLI must install from the registry and run
+// 2. the dist-tag users are told to install must resolve to this release
+if (problems.length === 0) {
+  const res = await fetch("https://registry.npmjs.org/cueloop");
+  const doc = (await res.json()) as { "dist-tags"?: Record<string, string> };
+  const tagged = doc["dist-tags"]?.[tag];
+  if (tagged !== version) {
+    problems.push(
+      `the "${tag}" dist-tag points at ${tagged ?? "nothing"}, not ${version} - "npm i cueloop@${tag}" would serve the wrong build`,
+    );
+  }
+}
+
+// 3. the CLI must install from the registry, by tag, and run
 if (problems.length === 0) {
   const work = mkdtempSync(join(tmpdir(), "cueloop-verify-"));
   try {
     Bun.spawnSync(["npm", "init", "-y"], { cwd: work });
-    const install = Bun.spawnSync(["npm", "install", `cueloop@${version}`, "--no-audit", "--no-fund"], { cwd: work });
+    // install by TAG: that is the command the docs give a stranger
+    const install = Bun.spawnSync(["npm", "install", `cueloop@${tag}`, "--no-audit", "--no-fund"], { cwd: work });
     if (install.exitCode !== 0) {
-      problems.push(`cueloop@${version} does not install: ${install.stderr.toString().trim().split("\n").slice(-3).join(" ")}`);
+      problems.push(`cueloop@${tag} does not install: ${install.stderr.toString().trim().split("\n").slice(-3).join(" ")}`);
     } else {
       const entry = join(work, "node_modules", "cueloop", "src", "main.ts");
       const run = Bun.spawnSync([process.execPath, "run", entry, "help"], { cwd: work });
