@@ -16,3 +16,19 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun test ./packages ./test
+
+  changeset:
+    # Every PR ships a changeset (empty is fine for docs/CI-only changes:
+    # `bunx changeset --empty`). Release PRs are exempt.
+    name: Changeset present
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/')
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bunx changeset status --since=origin/${{ github.base_ref }}

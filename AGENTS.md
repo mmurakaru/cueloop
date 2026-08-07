@@ -73,3 +73,17 @@ Verification recipes:
   integration targets (OpenTUI, @pierre/diffs, herdr, pi, Claude Code, Codex, Obsidian) is fine.
 - Comments state intent and invariants, not narration.
 - Keybindings/labels locked: deletion = Cut, submit = "Submit review (n)".
+
+## releases
+
+- Changesets drive versioning (alpha prerelease mode: versions like
+  0.1.0-alpha.N under the `alpha` dist-tag). All packages version in lockstep.
+- **Every PR ships a changeset**: `bunx changeset` (patch for fixes, minor for
+  features; `bunx changeset --empty` for docs/CI-only changes). CI blocks PRs
+  without one.
+- Never edit CHANGELOG.md or package versions by hand - the Release PR does it.
+- The Claude Code plugin manifest version syncs automatically during
+  `bun run version` (scripts/sync-plugin-version.ts).
+- npm auth is bootstrapped with a short-lived NPM_TOKEN for the first publish,
+  then cut over to trusted publishing (OIDC, no stored secret, with provenance).
+  Full checklist: docs/releasing.md. Open items live there, not in code.

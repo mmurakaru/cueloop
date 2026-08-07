@@ -1,0 +1,78 @@
+name: release
+
+# Changesets-driven release (alpha prerelease mode). On every push to main this
+# either opens/updates the "Release Packages" PR (collecting pending changesets
+# into version bumps + changelogs + the plugin.json sync) or, when that PR
+# merges, publishes the workspace to npm under the `alpha` dist-tag.
+#
+# AUTH: trusted publishing (OIDC) is the target - no long-lived npm secret, and
+# every tarball gets a provenance attestation. It cannot be used for a package's
+# FIRST publish (a trusted publisher is configured on an already-existing
+# package), so the flow bootstraps once with NPM_TOKEN and then drops it:
+#
+#   1. bootstrap: set NPM_TOKEN (short-lived granular token, 2FA bypass on) and
+#      let this workflow publish the first alpha.
+#   2. cutover: for each published package on npmjs.com → Settings →
+#      Publishing access → Trusted publisher: repo mmurakaru/cueloop, workflow
+#      release.yml. Then delete the token on npm AND remove the NPM_TOKEN repo
+#      secret. Nothing here needs to change: the `id-token: write` permission
+#      and the npm/Node versions below are already in place, and npm uses OIDC
+#      automatically when no token is present.
+#
+# See docs/releasing.md for the full checklist.
+#
+# RELEASE_TOKEN (optional PAT): merges made with the default GITHUB_TOKEN do not
+# trigger workflows (GitHub's anti-recursion rule), so without it the publish
+# run after merging the Release PR must be started via workflow_dispatch.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release:
+    name: Version / publish
+    runs-on: macos-latest
+    permissions:
+      contents: write # create the Release PR + push tags
+      pull-requests: write # open/update the Release PR
+      id-token: write # npm trusted publishing (OIDC) + provenance
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # changesets/action needs push credentials for the Release PR branch.
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      # changeset publish shells out to the npm CLI, and trusted publishing
+      # requires npm >= 11.5.1 on Node >= 22.14 - neither is the runner default.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.14"
+          registry-url: "https://registry.npmjs.org"
+      - run: npm install -g npm@latest
+      # fresh install in the publish lane - tarball contents never come from a cache
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test ./packages ./test
+      - name: Create Release PR or publish
+        uses: changesets/action@v1
+        with:
+          version: bun run version
+          publish: bun run ci:publish
+          commit: "Release: version packages"
+          title: "Release: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          # Bootstrap only. Once trusted publishing is configured per package,
+          # remove this secret; npm then authenticates via OIDC.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
