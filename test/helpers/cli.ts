@@ -10,9 +10,14 @@ export interface CliResult {
   stderr: string;
 }
 
-export async function runCli(home: string, args: string[], stdin?: string): Promise<CliResult> {
+export async function runCli(
+  home: string,
+  args: string[],
+  stdin?: string,
+  env?: Record<string, string>,
+): Promise<CliResult> {
   const proc = Bun.spawn([process.execPath, "run", CLI_ENTRY, ...args], {
-    env: { ...process.env, CUELOOP_HOME: home, CUELOOP_IDLE_EXIT_MS: "0" },
+    env: { ...process.env, CUELOOP_HOME: home, CUELOOP_IDLE_EXIT_MS: "0", ...env },
     stdin: stdin !== undefined ? new TextEncoder().encode(stdin) : "ignore",
     stdout: "pipe",
     stderr: "pipe",
