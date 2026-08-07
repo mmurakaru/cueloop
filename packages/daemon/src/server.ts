@@ -116,7 +116,10 @@ export class DaemonServer {
   }
 
   private async dispatch(conn: Conn, req: Request): Promise<unknown> {
-    const p = (req.params ?? {}) as Record<string, never>;
+    // The wire boundary is untyped JSON by nature; DaemonCore's methods do
+    // the runtime validation (unknown ids, resolved-session guards, etc.).
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const p = (req.params ?? {}) as Record<string, any>;
     const core = this.core;
     switch (req.method) {
       case "daemon.ping":
@@ -131,7 +134,7 @@ export class DaemonServer {
         conn.subscribed = true;
         return {};
       case "session.create":
-        return core.sessionCreate(p);
+        return core.sessionCreate({ workspace: p["workspace"], artifact: p["artifact"] });
       case "session.get":
         return core.sessionGet(p["id"]);
       case "session.list":
