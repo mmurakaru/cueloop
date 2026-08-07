@@ -12,6 +12,7 @@
   },
   "changesets": [
     "daemon-single-instance",
+    "dist-tags",
     "e2e-stability",
     "herdr-tier1",
     "hook-resilience",

@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.3
+
+### Patch Changes
+
+- [#55](https://github.com/mmurakaru/cueloop/pull/55) [`e793005`](https://github.com/mmurakaru/cueloop/commit/e7930051a8f18de016a2d628bf9b232c449ce8fe) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Point the alpha dist-tag at the published release. Prereleases were landing on `latest` while `alpha` kept pointing at the first (broken) publish, so `npm i cueloop@alpha` served the wrong build; the release lane now retags every package and the verification step checks the tag a stranger would install, not just the exact version.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.3
+  - @cueloop/daemon@0.1.0-alpha.3
+  - @cueloop/schema@0.1.0-alpha.3
+
 ## 0.1.0-alpha.2
 
 ### Patch Changes
