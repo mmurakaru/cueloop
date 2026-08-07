@@ -2,7 +2,9 @@
   "name": "cueloop-monorepo",
   "private": true,
   "license": "Apache-2.0",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "bun run packages/cli/src/main.ts",
     "test": "bun test ./packages",
@@ -17,6 +19,8 @@
     "@opentui/core": "^0.4.3",
     "@opentui/react": "^0.4.3",
     "react": "^19.2.0",
-    "@types/react": "^19.2.0"
+    "@types/react": "^19.2.0",
+    "@cueloop/client": "workspace:*",
+    "cueloop": "workspace:*"
   }
 }
