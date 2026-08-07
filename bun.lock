@@ -57,6 +57,13 @@
         "@cueloop/schema": "workspace:*",
       },
     },
+    "packages/extension-api": {
+      "name": "@cueloop/extension-api",
+      "version": "0.0.1",
+      "dependencies": {
+        "@cueloop/schema": "workspace:*",
+      },
+    },
     "packages/schema": {
       "name": "@cueloop/schema",
       "version": "0.0.1",
@@ -68,6 +75,8 @@
     "@cueloop/client": ["@cueloop/client@workspace:packages/client"],
 
     "@cueloop/daemon": ["@cueloop/daemon@workspace:packages/daemon"],
+
+    "@cueloop/extension-api": ["@cueloop/extension-api@workspace:packages/extension-api"],
 
     "@cueloop/schema": ["@cueloop/schema@workspace:packages/schema"],
 
