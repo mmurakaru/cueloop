@@ -21,8 +21,15 @@ export async function workingTreeDiff(cwd = process.cwd()): Promise<string> {
   const untrackedList = (await git(["ls-files", "--others", "--exclude-standard"], cwd)) ?? "";
   let untracked = "";
   for (const file of untrackedList.split("\n").filter(Boolean)) {
-    const diff = await git(["diff", "--no-index", "--", "/dev/null", file], cwd);
-    if (diff) untracked += diff + "\n";
+    // `git diff --no-index` exits 1 when the files differ - that is success here
+    const proc = Bun.spawn(["git", "diff", "--no-index", "--", "/dev/null", file], {
+      cwd,
+      stdout: "pipe",
+      stderr: "ignore",
+    });
+    const out = await new Response(proc.stdout).text();
+    const code = await proc.exited;
+    if ((code === 0 || code === 1) && out.trim()) untracked += out.trim() + "\n";
   }
   return [tracked, untracked].filter(Boolean).join("\n");
 }
