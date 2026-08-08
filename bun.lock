@@ -22,7 +22,7 @@
     },
     "packages/adapters": {
       "name": "@cueloop/adapters",
-      "version": "0.0.1",
+      "version": "0.1.0-alpha.5",
       "dependencies": {
         "@cueloop/daemon": "workspace:*",
         "@cueloop/schema": "workspace:*",
@@ -30,7 +30,7 @@
     },
     "packages/cli": {
       "name": "cueloop",
-      "version": "0.0.1",
+      "version": "0.1.0-alpha.5",
       "bin": {
         "cueloop": "./src/main.ts",
       },
@@ -42,17 +42,18 @@
     },
     "packages/client": {
       "name": "@cueloop/client",
-      "version": "0.0.1",
+      "version": "0.1.0-alpha.5",
       "dependencies": {
-        "@cueloop/daemon": "workspace:*",
-        "@cueloop/extension-api": "workspace:*",
-        "@cueloop/integration-obsidian": "workspace:*",
-        "@cueloop/schema": "workspace:*",
+        "@cueloop/daemon": "0.1.0-alpha.5",
+        "@cueloop/extension-api": "0.1.0-alpha.5",
+        "@cueloop/integration-obsidian": "0.1.0-alpha.5",
+        "@cueloop/schema": "0.1.0-alpha.5",
         "@opentui/core": "^0.4.3",
         "@opentui/react": "^0.4.3",
         "@opentui/ssh": "0.4.5",
         "@pierre/diffs": "^1.3.5",
         "react": "^19.2.0",
+        "shiki": "^4.4.2",
       },
       "devDependencies": {
         "@types/react": "^19.2.0",
@@ -62,30 +63,30 @@
     },
     "packages/daemon": {
       "name": "@cueloop/daemon",
-      "version": "0.0.1",
+      "version": "0.1.0-alpha.5",
       "dependencies": {
-        "@cueloop/schema": "workspace:*",
+        "@cueloop/schema": "0.1.0-alpha.5",
         "valibot": "^1.4.2",
       },
     },
     "packages/extension-api": {
       "name": "@cueloop/extension-api",
-      "version": "0.0.1",
+      "version": "0.1.0-alpha.5",
       "dependencies": {
-        "@cueloop/schema": "workspace:*",
+        "@cueloop/schema": "0.1.0-alpha.5",
       },
     },
     "packages/integrations/obsidian": {
       "name": "@cueloop/integration-obsidian",
-      "version": "0.0.1",
+      "version": "0.1.0-alpha.5",
       "dependencies": {
-        "@cueloop/extension-api": "workspace:*",
-        "@cueloop/schema": "workspace:*",
+        "@cueloop/extension-api": "0.1.0-alpha.5",
+        "@cueloop/schema": "0.1.0-alpha.5",
       },
     },
     "packages/schema": {
       "name": "@cueloop/schema",
-      "version": "0.0.1",
+      "version": "0.1.0-alpha.5",
     },
   },
   "packages": {
