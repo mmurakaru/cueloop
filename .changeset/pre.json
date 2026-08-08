@@ -33,6 +33,7 @@
     "release-integrity",
     "release-node-version",
     "seed-alpha",
+    "session-controller-key-reducer",
     "shared-review-core",
     "shiki-highlighting",
     "ssh-serve",
