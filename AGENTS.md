@@ -24,7 +24,7 @@ packages/
   daemon/         Socket server (NDJSON + events), session store, wait broker.
   client/         The TUI (OpenTUI React): shell, projection renderer, selection.
   extension-api/  The single typed ExtensionAPI contract + loader.
-  adapters/       claude-code hook, codex hook, pi package, skills.
+  adapters/       claude-code hook, pi package, skills (codex planned).
   cli/            Entry points; `cueloop session *` mirrors the socket API 1:1.
 ```
 

@@ -16,7 +16,7 @@ agent → daemon → your terminal → verdict → agent
 
 ## The trio
 
-- **plan** - an agent (Claude Code today; Codex and pi next) submits its plan
+- **plan** - an agent (Claude Code and pi today; Codex planned) submits its plan
   and blocks on your verdict through a hook.
 - **diff** - `cueloop diff` reviews your working tree, untracked files included.
 - **review** - pull-request review (coming: `cueloop review <pr>`).
@@ -77,7 +77,7 @@ packages/
   daemon/         unix-socket daemon: atomic store, resumable waits, events
   client/         the TUI (OpenTUI React): projection renderer, grammar, rail
   extension-api/  typed ExtensionAPI + zero-build TS loader with repo trust
-  adapters/       claude-code hook (codex, pi next)
+  adapters/       claude-code hook and pi extension (codex planned)
   cli/            cueloop · cueloop diff · cueloop session * (the script surface)
 ```
 
@@ -94,7 +94,7 @@ review. See `AGENTS.md` for dev-loop conventions and the test pyramid.
 | [`@cueloop/daemon`](https://www.npmjs.com/package/@cueloop/daemon) | the session daemon and its client |
 | [`@cueloop/client`](https://www.npmjs.com/package/@cueloop/client) | the review UI |
 | [`@cueloop/extension-api`](https://www.npmjs.com/package/@cueloop/extension-api) | the typed extension contract |
-| [`@cueloop/adapters`](https://www.npmjs.com/package/@cueloop/adapters) | Claude Code, Codex, and pi adapters |
+| [`@cueloop/adapters`](https://www.npmjs.com/package/@cueloop/adapters) | Claude Code and pi adapters (Codex planned) |
 
 Apache-2.0. Contributions: every PR ships a changeset (`bunx changeset`) - see
 [docs/releasing.md](./docs/releasing.md) and [AGENTS.md](./AGENTS.md). The design

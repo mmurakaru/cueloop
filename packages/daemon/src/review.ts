@@ -1,0 +1,174 @@
+/**
+ * The shared review core: one open/wait/verdict path for every consumer -
+ * CLI commands and agent adapters. openReview resolves the workspace, shapes
+ * the artifact, and opens-or-revises by agentSessionId; awaitVerdict maps the
+ * wait contract (#14) onto the agent contract through verdictResponse. An
+ * adapter keeps only two bespoke parts: parsing its host's event shape and
+ * serializing the decision in its host's contract.
+ */
+
+import type { ArtifactType, ReviewSession, WorkspaceKey } from "@cueloop/schema";
+import { verdictResponse } from "./api";
+import type { DaemonClient } from "./client";
+
+// Adapters and CLI verbs reach the verdict mapping through this module too,
+// so a session obtained outside a ReviewHandle maps the same way.
+export { verdictResponse };
+
+async function git(args: string[], cwd: string): Promise<string | null> {
+  try {
+    const proc = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "ignore" });
+    const out = await new Response(proc.stdout).text();
+    if ((await proc.exited) !== 0) return null;
+    return out.trim();
+  } catch {
+    return null;
+  }
+}
+
+/** Workspace key resolution (#9): repo root + branch from the cwd. */
+export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKey> {
+  const repoRoot = (await git(["rev-parse", "--show-toplevel"], cwd)) ?? cwd;
+  const branch = (await git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)) ?? "detached";
+  return { repoRoot, branch };
+}
+
+function firstHeading(md: string): string | undefined {
+  const m = md.match(/^#\s+(.+)$/m);
+  return m?.[1]?.trim();
+}
+
+export interface OpenReviewOptions {
+  type: ArtifactType;
+  content: string;
+  /** Workspace resolution root and meta.cwd; defaults to process.cwd(). */
+  cwd?: string;
+  /** Pre-resolved workspace key; skips git resolution when the caller already has it. */
+  workspace?: WorkspaceKey;
+  agent?: string;
+  /** When set, a resubmit from the same agent session becomes a revision, not a new session. */
+  agentSessionId?: string;
+  planPath?: string;
+  pr?: string;
+  herdrPane?: string;
+  /** Defaults to the plan's first markdown heading; diffs get no derived title. */
+  title?: string;
+}
+
+export interface AwaitVerdictOptions {
+  /** Total wait budget; Infinity keeps polling until resolved or aborted. */
+  timeoutMs: number;
+  /** Chunk length for the poll loop; between chunks the session is re-read for progress. */
+  pollMs?: number;
+  /** Called with the fresh session after each chunk that is still pending. */
+  onProgress?: (session: ReviewSession) => void;
+  signal?: AbortSignal;
+}
+
+/** A resolved review mapped onto the agent contract, plus the full session. */
+export interface VerdictOutcome {
+  allow: boolean;
+  feedback: string;
+  session: ReviewSession;
+}
+
+/** Sentinel distinguishing an abort from any daemon response. */
+const ABORTED = Symbol("aborted");
+
+function raceAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T | typeof ABORTED> {
+  if (!signal) return promise;
+  if (signal.aborted) {
+    promise.catch(() => {});
+    return Promise.resolve(ABORTED);
+  }
+  return new Promise<T | typeof ABORTED>((resolve, reject) => {
+    const onAbort = () => {
+      // The daemon request keeps running until the client closes; swallow its
+      // eventual rejection so the abort path never leaks an unhandled error.
+      promise.catch(() => {});
+      resolve(ABORTED);
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (v) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(v);
+      },
+      (e) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(e);
+      },
+    );
+  });
+}
+
+export class ReviewHandle {
+  constructor(
+    private readonly client: DaemonClient,
+    readonly session: ReviewSession,
+  ) {}
+
+  get id(): string {
+    return this.session.id;
+  }
+
+  /**
+   * Block on the verdict. "pending" means the budget ran out or the signal
+   * aborted - the session stays open and the verdict is collectable later
+   * (verdicts outlive waits, #14). With only timeoutMs this is one long-poll;
+   * pollMs/onProgress/signal switch to the chunked loop.
+   */
+  async awaitVerdict(opts: AwaitVerdictOptions): Promise<VerdictOutcome | "pending"> {
+    const { timeoutMs, pollMs, onProgress, signal } = opts;
+    if (pollMs === undefined && onProgress === undefined && signal === undefined) {
+      const resolved = await this.client.sessionWait(this.session.id, timeoutMs);
+      return resolved === null ? "pending" : outcome(resolved);
+    }
+    const chunkMs = pollMs ?? 10_000;
+    const deadline = Number.isFinite(timeoutMs) ? Date.now() + timeoutMs : undefined;
+    for (;;) {
+      const budget = deadline === undefined ? chunkMs : Math.min(chunkMs, deadline - Date.now());
+      if (budget <= 0 || signal?.aborted) return "pending";
+      const resolved = await raceAbort(this.client.sessionWait(this.session.id, budget), signal);
+      if (resolved === ABORTED) return "pending";
+      if (resolved !== null) return outcome(resolved);
+      // Still pending after this chunk: re-read to surface reviewer progress.
+      const current = await raceAbort(this.client.sessionGet(this.session.id), signal);
+      if (current === ABORTED) return "pending";
+      onProgress?.(current);
+    }
+  }
+}
+
+function outcome(session: ReviewSession): VerdictOutcome {
+  return { ...verdictResponse(session), session };
+}
+
+/** Open a review session (or revise the agent session's existing one) and hand back the wait surface. */
+export async function openReview(client: DaemonClient, opts: OpenReviewOptions): Promise<ReviewHandle> {
+  const cwd = opts.cwd ?? process.cwd();
+  const workspace = opts.workspace ?? (await resolveWorkspace(cwd));
+  // Resubmits from the same agent session become revisions, not new sessions.
+  if (opts.agentSessionId !== undefined) {
+    const existing = (await client.sessionList()).find(
+      (s) => s.artifact.meta.agentSessionId === opts.agentSessionId,
+    );
+    if (existing !== undefined) {
+      return new ReviewHandle(client, await client.sessionSubmitRevision(existing.id, opts.content));
+    }
+  }
+  const session = await client.sessionCreate(workspace, {
+    type: opts.type,
+    content: opts.content,
+    meta: {
+      agent: opts.agent,
+      agentSessionId: opts.agentSessionId,
+      planPath: opts.planPath,
+      pr: opts.pr,
+      herdrPane: opts.herdrPane,
+      title: opts.title ?? (opts.type === "plan" ? firstHeading(opts.content) : undefined),
+      cwd,
+    },
+  });
+  return new ReviewHandle(client, session);
+}

@@ -106,3 +106,11 @@ export interface ReviewSession {
 export function verdictAllows(kind: VerdictKind): boolean {
   return kind === "approve";
 }
+
+/**
+ * Annotation ids are minted client-side: a time component plus a random
+ * suffix, so concurrent annotators never collide on the same millisecond.
+ */
+export function newAnnotationId(): string {
+  return `a_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+}

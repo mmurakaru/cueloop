@@ -6,8 +6,8 @@
  */
 
 import { DaemonClient } from "@cueloop/daemon/client";
-import { verdictAllows, type ReviewSession } from "@cueloop/schema";
-import { resolveWorkspaceForHook } from "../claude-code/workspace";
+import { openReview } from "@cueloop/daemon/review";
+import type { ReviewSession } from "@cueloop/schema";
 import type {
   PiContext,
   PiExtensionAPI,
@@ -43,36 +43,6 @@ export interface CueloopExtensionOptions {
   pollMs?: number;
 }
 
-/** Sentinel distinguishing an abort from any daemon response. */
-const ABORTED = Symbol("aborted");
-
-function raceAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T | typeof ABORTED> {
-  if (!signal) return promise;
-  if (signal.aborted) {
-    promise.catch(() => {});
-    return Promise.resolve(ABORTED);
-  }
-  return new Promise<T | typeof ABORTED>((resolve, reject) => {
-    const onAbort = () => {
-      // The daemon request keeps running until the client closes; swallow its
-      // eventual rejection so the abort path never leaks an unhandled error.
-      promise.catch(() => {});
-      resolve(ABORTED);
-    };
-    signal.addEventListener("abort", onAbort, { once: true });
-    promise.then(
-      (v) => {
-        signal.removeEventListener("abort", onAbort);
-        resolve(v);
-      },
-      (e) => {
-        signal.removeEventListener("abort", onAbort);
-        reject(e);
-      },
-    );
-  });
-}
-
 const text = (t: string): PiToolResult<ReviewDetails>["content"] => [{ type: "text", text: t }];
 
 function cancelledResult(sessionId: string | undefined, annotationCount: number): PiToolResult<ReviewDetails> {
@@ -82,11 +52,6 @@ function cancelledResult(sessionId: string | undefined, annotationCount: number)
     details: { sessionId, status: "cancelled", annotationCount },
     isError: true,
   };
-}
-
-function firstHeading(md: string): string | undefined {
-  const m = md.match(/^#\s+(.+)$/m);
-  return m?.[1]?.trim();
 }
 
 export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
@@ -116,15 +81,16 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       const client = await DaemonClient.connect({ home: options.home, autostart: true });
       let sessionId: string | undefined;
       try {
-        const workspace = await resolveWorkspaceForHook(ctx.cwd);
-        const session = await client.sessionCreate(workspace, {
+        const review = await openReview(client, {
           type: "plan",
           content: params.plan,
-          meta: { agent: "pi", title: params.title ?? firstHeading(params.plan), cwd: ctx.cwd },
+          cwd: ctx.cwd,
+          agent: "pi",
+          title: params.title,
         });
-        sessionId = session.id;
-        lastSessionId = session.id;
-        pendingSessions.add(session.id);
+        sessionId = review.id;
+        lastSessionId = review.id;
+        pendingSessions.add(review.id);
 
         let reportedCount = -1;
         const report = (s: ReviewSession) => {
@@ -135,27 +101,25 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
             details: { sessionId: s.id, status: "pending", annotationCount: s.annotations.length },
           });
         };
-        report(session);
+        report(review.session);
 
-        for (;;) {
-          const resolved = await raceAbort(client.sessionWait(session.id, pollMs), signal);
-          if (resolved === ABORTED) return cancelledResult(sessionId, Math.max(reportedCount, 0));
-          if (resolved !== null) {
-            const verdict = resolved.verdict!;
-            const details: ReviewDetails = {
-              sessionId: session.id,
-              status: "resolved",
-              annotationCount: resolved.annotations.length,
-              verdictKind: verdict.kind,
-            };
-            if (verdictAllows(verdict.kind)) return { content: text(verdict.feedback), details };
-            return { content: text(verdict.feedback), details, isError: true };
-          }
-          // Still pending after this chunk: re-read to surface reviewer progress.
-          const current = await raceAbort(client.sessionGet(session.id), signal);
-          if (current === ABORTED) return cancelledResult(sessionId, Math.max(reportedCount, 0));
-          report(current);
-        }
+        // No total budget: the loop runs until the verdict lands or the host
+        // aborts, and only an abort surfaces as "pending" here.
+        const verdict = await review.awaitVerdict({
+          timeoutMs: Infinity,
+          pollMs,
+          onProgress: report,
+          signal,
+        });
+        if (verdict === "pending") return cancelledResult(sessionId, Math.max(reportedCount, 0));
+        const details: ReviewDetails = {
+          sessionId: review.id,
+          status: "resolved",
+          annotationCount: verdict.session.annotations.length,
+          verdictKind: verdict.session.verdict!.kind,
+        };
+        if (verdict.allow) return { content: text(verdict.feedback), details };
+        return { content: text(verdict.feedback), details, isError: true };
       } finally {
         if (sessionId !== undefined) pendingSessions.delete(sessionId);
         client.close();
