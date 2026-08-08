@@ -1,28 +1,18 @@
 /**
  * The cueloop TUI (#22): Ledger IA reduced to its terminal shape - header,
  * center artifact pane (projection renderer), right review rail, footer hint
- * bar. Thin renderer over daemon state: every mutation round-trips through
- * DaemonClient; local state is view state only (cursor, span, overlays).
+ * bar. Thin renderer over the review-session controller: daemon IO and the
+ * mutation verbs live in session-controller.ts, the keyboard grammar in
+ * keymap.ts; local state is view state only (cursor, span, overlays).
  */
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useKeyboard } from "@opentui/react";
-import { DaemonClient } from "@cueloop/daemon/client";
-import {
-  cutBlock,
-  makeAnchor,
-  restoreBlock,
-  restoreLine,
-  type Annotation,
-  type ReviewSession,
-  type VerdictKind,
-} from "@cueloop/schema";
+import { type Annotation, type ReviewSession, type VerdictKind } from "@cueloop/schema";
 import {
   blockRuns,
-  buildDisplay,
   displayText,
   marksByDisplay,
-  nextWorkBlock,
   overlayMarks,
   spanKey,
   startSpan,
@@ -31,14 +21,13 @@ import {
   type SpanState,
   type StyleRun,
 } from "./view";
-import { diffRows, diffRowAnchor, diffRowLocation, type DiffRow } from "./view-diff";
-import { editInEditor } from "./editor";
+import { type DiffRow } from "./view-diff";
 import { DARK as T } from "./theme";
 import { highlightCode, type CodeToken } from "./syntax";
-import { DEFAULT_KEYS, actionFor, loadConfig, persistAutoClose, type AutoClose } from "./config";
-import { focusHerdrPane, returnPaneFor } from "./herdr";
-import { Registry, type Exporter } from "@cueloop/extension-api";
-import { createObsidianExtension, shouldExport, type ObsidianConfig } from "@cueloop/integration-obsidian";
+import { DEFAULT_KEYS, loadConfig } from "./config";
+import { returnPaneFor } from "./herdr";
+import { createReviewController } from "./session-controller";
+import { reduceKey, type Intent, type KeyState } from "./keymap";
 
 export interface AppProps {
   home?: string;
@@ -57,9 +46,6 @@ type Mode =
   | { m: "compose"; kind: "comment" | "suggestion"; dispIdx: number; start: number; end: number; text: string }
   | { m: "submit"; verdict: VerdictKind; summary: string };
 
-/** Verbs that write session state; an observer never reaches their handlers. */
-const MUTATING_ACTIONS = new Set(["comment", "suggest", "cut", "edit", "delete_annotation", "submit"]);
-
 const VERDICTS: VerdictKind[] = ["comment", "approve", "request_changes"];
 const VERDICT_LABEL: Record<VerdictKind, string> = {
   comment: "Comment",
@@ -68,352 +54,177 @@ const VERDICT_LABEL: Record<VerdictKind, string> = {
 };
 
 export function App({ home, sessionId, readOnly = false, onExit }: AppProps): React.ReactNode {
-  const clientRef = useRef<DaemonClient | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [inbox, setInbox] = useState<ReviewSession[] | null>(null);
-  const [session, setSession] = useState<ReviewSession | null>(null);
+  const controller = useMemo(
+    () => createReviewController({ home, sessionId, readOnly, onExit }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [home, sessionId],
+  );
+  useEffect(() => {
+    controller.connect();
+    return () => controller.close();
+  }, [controller]);
+  const { session, inbox, status, error, completion } = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
+    controller.getSnapshot,
+  );
+
+  // ── view state ──────────────────────────────
   const [cursor, setCursor] = useState(0);
   const [inboxCursor, setInboxCursor] = useState(0);
   const [mode, setMode] = useState<Mode>({ m: "normal" });
   const [focusedAnn, setFocusedAnn] = useState<string | undefined>(undefined);
-  const [status, setStatus] = useState("");
-  /**
-   * Post-submit lifecycle (a review pane should hand you back to the agent,
-   * not linger): idle → prompt (auto-close off: offer the choice) or
-   * counting (configured delay) → exit. esc dismisses to the resolved view.
-   */
-  const [completion, setCompletion] = useState<
-    { phase: "idle" } | { phase: "prompt" } | { phase: "counting"; remaining: number } | { phase: "dismissed" }
-  >({ phase: "idle" });
-  const autoCloseRef = useRef<AutoClose>("off");
-  /** Close the review and, inside herdr, bounce focus back to the agent. */
-  const finishReview = useCallback(() => {
-    const pane = returnPaneFor(session?.artifact.meta.herdrPane);
-    if (pane) focusHerdrPane(pane);
-    onExit?.(0);
-  }, [session, onExit]);
   // live mirror of overlay input text: refs commit synchronously, so the
   // RETURN handler never reads a stale value mid-typing
   const liveInput = useRef("");
   // keymap from layered config; theme overrides land on the shared tokens
   const keysRef = useRef(DEFAULT_KEYS);
-  const obsidianRef = useRef<ObsidianConfig | null>(null);
-  const exportersRef = useRef<Map<string, Exporter>>(new Map());
   useEffect(() => {
     const cfg = loadConfig({ repoRoot: session?.workspace.repoRoot });
     keysRef.current = cfg.keys;
-    autoCloseRef.current = cfg.ui.autoClose;
     Object.assign(T, cfg.theme);
-    obsidianRef.current = cfg.integrations.obsidian;
-    // bundled integrations register through the public extension API
-    const registry = new Registry();
-    void registry.load("obsidian", createObsidianExtension(cfg.integrations.obsidian)).then((rec) => {
-      exportersRef.current = rec.exporters;
-    });
-  }, [session?.workspace.repoRoot]);
-
-  // ── daemon wiring ───────────────────────────
-  useEffect(() => {
-    let closed = false;
-    void (async () => {
-      try {
-        const client = await DaemonClient.connect({ home, autostart: true });
-        if (closed) return void client.close();
-        clientRef.current = client;
-        client.onEvent((e) => {
-          // another controller/observer changed state: re-fetch
-          if (session && e.sessionId === session.id) void refreshSession(e.sessionId);
-          if (!sessionId) void refreshInbox();
-        });
-        await client.subscribe();
-        if (sessionId) {
-          setSession(await client.sessionGet(sessionId));
-        } else {
-          setInbox(await client.sessionList({ status: "pending" }));
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      }
-    })();
-    return () => {
-      closed = true;
-      clientRef.current?.close();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [home, sessionId]);
-
-  const refreshSession = useCallback(async (id: string) => {
-    const c = clientRef.current;
-    if (c) setSession(await c.sessionGet(id));
-  }, []);
-  const refreshInbox = useCallback(async () => {
-    const c = clientRef.current;
-    if (c) setInbox(await c.sessionList({ status: "pending" }));
-  }, []);
+    controller.applyConfig(cfg);
+  }, [session?.workspace.repoRoot, controller]);
 
   // ── derived view model ──────────────────────
-  const working = session ? (session.workingCopy ?? session.artifact.content) : "";
-  const display = useMemo(
-    () => (session ? buildDisplay(session.artifact.content, session.workingCopy) : []),
-    [session],
-  );
+  const display = controller.display();
+  const rows = controller.rows();
   const marks = useMemo(
     () => (session ? marksByDisplay(session.annotations, display, focusedAnn) : new Map()),
     [session, display, focusedAnn],
   );
   const resolved = session?.status === "resolved";
   const isDiff = session?.artifact.type === "diff";
-  const rows = useMemo(() => (session && isDiff ? diffRows(session.artifact.content) : []), [session, isDiff]);
 
-  const apply = useCallback((p: Promise<ReviewSession>) => {
-    p.then(setSession).catch((e: unknown) => setStatus(String(e instanceof Error ? e.message : e)));
-  }, []);
-
-  // ── verbs ───────────────────────────────────
-  const verbCut = useCallback(() => {
-    if (!session || resolved) return;
-    const d = display[cursor];
-    if (!d) return;
-    const c = clientRef.current!;
-    if (d.type === "del") {
-      const line = restoreLine(nextWorkBlock(display, cursor), working.split("\n").length);
-      // restoreBlock returns undefined when the block structure round-trips
-      // to the submitted revision - the working copy is gone
-      const restored = restoreBlock(session.artifact.content, working, d.base!, line);
-      apply(c.sessionSetWorkingCopy(session.id, restored));
-      setStatus("cut restored");
-    } else if (d.work) {
-      apply(c.sessionSetWorkingCopy(session.id, cutBlock(working, d.work)));
-      setStatus("block cut - it serializes into the diff");
-    }
-  }, [session, resolved, display, cursor, working, apply]);
-
-  const verbEdit = useCallback(() => {
-    if (!session || resolved) return;
-    try {
-      const result = editInEditor(working, "plan.md");
-      if (result.changed) {
-        apply(clientRef.current!.sessionSetWorkingCopy(session.id, result.content));
-        setStatus("edits tracked - one diff");
-      } else setStatus("no changes");
-    } catch (err) {
-      setStatus(err instanceof Error ? err.message : String(err));
-    }
-  }, [session, resolved, working, apply]);
-
-  const saveCompose = useCallback(
-    (m: Extract<Mode, { m: "compose" }>, liveText: string) => {
-      if (!session || !liveText.trim()) return setMode({ m: "normal" });
-      let anchor;
-      if (session.artifact.type === "diff") {
-        anchor = { ...diffRowAnchor(rows, m.dispIdx), blockIndex: m.dispIdx };
-      } else {
-        const workBlocks = display.filter((d) => d.work).map((d) => d.work!);
-        const workIdx = display.slice(0, m.dispIdx + 1).filter((d) => d.work).length - 1;
-        anchor = makeAnchor(workBlocks, workIdx, m.start, m.end);
+  // ── keyboard grammar: build state, reduce, dispatch ──
+  const dispatch = (intent: Intent): void => {
+    switch (intent.t) {
+      case "exit":
+        return void onExit?.(0);
+      case "status":
+        return controller.setStatus(intent.msg);
+      case "move": {
+        const len = isDiff ? rows.length : display.length;
+        if (intent.to === "down") setCursor((c) => Math.min(len - 1, c + 1));
+        else if (intent.to === "up") setCursor((c) => Math.max(0, c - 1));
+        else if (intent.to === "top") setCursor(0);
+        else setCursor(len - 1);
+        return;
       }
-      apply(
-        clientRef.current!.sessionAnnotate(session.id, {
-          id: `a_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
-          kind: m.kind,
-          anchor,
-          body: liveText.trim(),
-        }),
-      );
-      setMode({ m: "normal" });
-      setStatus(m.kind === "suggestion" ? "suggestion added - the agent applies it" : "comment added");
-    },
-    [session, display, rows, apply],
-  );
-
-  const submit = useCallback(
-    (verdict: VerdictKind, summary: string) => {
-      if (!session) return;
-      clientRef.current!
-        .sessionResolve(session.id, verdict, summary)
-        .then((resolved) => {
-          setSession(resolved);
-          setStatus(`review submitted - ${verdict.replace("_", " ")}`);
-          // notes-vault export: guarded by config, default is manual (no-op)
-          const obsidian = obsidianRef.current;
-          const exporter = exportersRef.current.get("obsidian");
-          if (obsidian && exporter && shouldExport(obsidian.exportOn, verdict)) {
-            void exporter(resolved).then((r) => {
-              setStatus(r.success && r.path ? `exported to ${r.path}` : `export failed: ${r.error ?? "unknown"}`);
-            });
-          }
-          // hand the reviewer back to the agent: prompt or count down per config;
-          // inside herdr with a known return pane, closing is the default
-          const delay = autoCloseRef.current;
-          const returns = returnPaneFor(resolved.artifact.meta.herdrPane) !== undefined;
-          if (delay === 0) finishReview();
-          else if (typeof delay === "number") setCompletion({ phase: "counting", remaining: delay });
-          else if (returns) setCompletion({ phase: "counting", remaining: 3 });
-          else setCompletion({ phase: "prompt" });
-        })
-        .catch((e: unknown) => setStatus(String(e instanceof Error ? e.message : e)));
-      setMode({ m: "normal" });
-    },
-    [session, finishReview],
-  );
-
-  useEffect(() => {
-    if (completion.phase !== "counting") return;
-    if (completion.remaining <= 0) return void finishReview();
-    const timer = setTimeout(
-      () => setCompletion((c) => (c.phase === "counting" ? { phase: "counting", remaining: c.remaining - 1 } : c)),
-      1000,
-    );
-    return () => clearTimeout(timer);
-  }, [completion, finishReview]);
-
-  // ── keyboard grammar ────────────────────────
-  useKeyboard((key) => {
-    const name = key.name;
-    // compose/submit overlays own the keys via focused inputs; only escape here
-    if (mode.m === "compose" || mode.m === "submit") {
-      if (name === "escape") setMode({ m: "normal" });
-      else if (name === "return" || name === "enter") {
-        if (mode.m === "compose") saveCompose(mode, liveInput.current);
-        else submit(mode.verdict, liveInput.current);
-      } else if (mode.m === "submit" && (name === "left" || name === "right")) {
-        const dir = name === "left" ? -1 : 1;
-        const idx = (VERDICTS.indexOf(mode.verdict) + dir + VERDICTS.length) % VERDICTS.length;
-        setMode({ ...mode, verdict: VERDICTS[idx]! });
+      case "inboxMove": {
+        const len = inbox?.length ?? 0;
+        setInboxCursor((c) => (intent.to === "down" ? Math.min(len - 1, c + 1) : Math.max(0, c - 1)));
+        return;
       }
-      return;
-    }
-    if (completion.phase === "prompt" || completion.phase === "counting") {
-      if (name === "return" || name === "enter" || name === "q") return finishReview();
-      if (name === "a" && completion.phase === "prompt") {
-        // opt in: close in 3s from now on, persisted to the user config
-        try {
-          persistAutoClose(3);
-        } catch {
-          // a read-only config dir must not block closing the review
-        }
-        autoCloseRef.current = 3;
-        return setCompletion({ phase: "counting", remaining: 3 });
+      case "openSession": {
+        const s = inbox?.[inboxCursor];
+        if (s) controller.open(s.id);
+        return;
       }
-      if (name === "escape") return setCompletion({ phase: "dismissed" });
-      return;
-    }
-    const action = actionFor(keysRef.current, name, !!key.shift);
-    if (action === "quit") return onExit?.(0);
-    if (readOnly && action && MUTATING_ACTIONS.has(action)) return setStatus("observer - read-only");
-
-    // inbox mode
-    if (!session) {
-      if (!inbox?.length) return;
-      if (name === "j" || name === "down") setInboxCursor((c) => Math.min(inbox.length - 1, c + 1));
-      else if (name === "k" || name === "up") setInboxCursor((c) => Math.max(0, c - 1));
-      else if (name === "return" || name === "enter") {
-        const s = inbox[inboxCursor];
-        if (s) setSession(s);
-      }
-      return;
-    }
-
-    if (session.artifact.type === "diff") {
-      if (action === "down") setCursor((c) => Math.min(rows.length - 1, c + 1));
-      else if (action === "up") setCursor((c) => Math.max(0, c - 1));
-      else if (action === "top") setCursor(0);
-      else if (action === "bottom") setCursor(rows.length - 1);
-      else if (action === "comment") {
-        if (resolved) return setStatus("review submitted - read-only");
-        const row = rows[cursor];
-        if (!row || row.t === "file" || row.t === "hunk") return setStatus("move to a code line to comment");
-        liveInput.current = "";
-        setMode({ m: "compose", kind: "comment", dispIdx: cursor, start: 0, end: row.text.length, text: "" });
-      } else if (action === "next_annotation" || action === "prev_annotation") {
-        const anns = session.annotations;
-        if (!anns.length) return setStatus("no annotations");
-        const idx = anns.findIndex((a) => a.id === focusedAnn);
-        const next = idx === -1 ? 0 : (idx + (action === "next_annotation" ? 1 : -1) + anns.length) % anns.length;
-        setFocusedAnn(anns[next]!.id);
-      } else if (action === "delete_annotation") {
-        if (resolved || !focusedAnn) return;
-        apply(clientRef.current!.sessionRemoveAnnotation(session.id, focusedAnn));
-        setFocusedAnn(undefined);
-      } else if (action === "submit") {
-        if (!resolved) {
-          liveInput.current = "";
-          setMode({ m: "submit", verdict: defaultVerdict(session), summary: "" });
-        }
-      } else if (action === "span" || action === "cut" || action === "edit" || action === "suggest") {
-        setStatus("plan-only verb - diff review uses c on a line");
-      }
-      return;
-    }
-
-    const vis = display;
-    if (mode.m === "span") {
-      if (name === "escape") return setMode({ m: "normal" });
-      if (["l", "h", "w", "b", "$", "0"].includes(name)) {
-        return setMode({ m: "span", span: spanKey(mode.span, name, displayText(vis[mode.span.dispIdx]!)) });
-      }
-      if (name === "c" || name === "s") {
-        if (readOnly) return setStatus("observer - read-only");
-        liveInput.current = "";
-        return setMode({
-          m: "compose",
-          kind: name === "s" ? "suggestion" : "comment",
-          dispIdx: mode.span.dispIdx,
-          start: mode.span.start,
-          end: mode.span.end,
-          text: "",
-        });
-      }
-      return;
-    }
-
-    // normal mode
-    if (action === "down") setCursor((c) => Math.min(vis.length - 1, c + 1));
-    else if (action === "up") setCursor((c) => Math.max(0, c - 1));
-    else if (action === "top") setCursor(0);
-    else if (action === "bottom") setCursor(vis.length - 1);
-    else if (action === "span") {
-      const d = vis[cursor];
-      if (d?.work) {
+      case "startSpan": {
+        const d = display[cursor];
+        if (!d?.work) return;
         const span = startSpan(cursor, displayText(d));
         if (span) setMode({ m: "span", span });
+        return;
       }
-    } else if (action === "comment" || action === "suggest") {
-      if (resolved) return setStatus("review submitted - read-only");
-      const d = vis[cursor];
-      if (!d?.work) return setStatus("text is cut - restore it first");
-      liveInput.current = "";
-      setMode({
-        m: "compose",
-        kind: action === "suggest" ? "suggestion" : "comment",
-        dispIdx: cursor,
-        start: 0,
-        end: displayText(d).length,
-        text: "",
-      });
-    } else if (action === "cut") {
-      if (resolved) return setStatus("review submitted - read-only");
-      verbCut();
-    } else if (action === "edit") {
-      if (resolved) return setStatus("review submitted - read-only");
-      verbEdit();
-    } else if (action === "next_annotation" || action === "prev_annotation") {
-      const anns = session.annotations;
-      if (!anns.length) return setStatus("no annotations");
-      const idx = anns.findIndex((a) => a.id === focusedAnn);
-      const next = idx === -1 ? 0 : (idx + (action === "next_annotation" ? 1 : -1) + anns.length) % anns.length;
-      setFocusedAnn(anns[next]!.id);
-    } else if (action === "delete_annotation") {
-      if (resolved || !focusedAnn) return;
-      apply(clientRef.current!.sessionRemoveAnnotation(session.id, focusedAnn));
-      setFocusedAnn(undefined);
-      setStatus("annotation deleted");
-    } else if (action === "submit") {
-      if (!resolved) {
+      case "spanKey":
+        if (mode.m === "span") {
+          setMode({ m: "span", span: spanKey(mode.span, intent.name, displayText(display[mode.span.dispIdx]!)) });
+        }
+        return;
+      case "openCompose": {
         liveInput.current = "";
-        setMode({ m: "submit", verdict: defaultVerdict(session), summary: "" });
+        if (intent.from === "span" && mode.m === "span") {
+          setMode({
+            m: "compose",
+            kind: intent.kind,
+            dispIdx: mode.span.dispIdx,
+            start: mode.span.start,
+            end: mode.span.end,
+            text: "",
+          });
+        } else if (isDiff) {
+          const row = rows[cursor];
+          if (row) setMode({ m: "compose", kind: intent.kind, dispIdx: cursor, start: 0, end: row.text.length, text: "" });
+        } else {
+          const d = display[cursor];
+          if (d) setMode({ m: "compose", kind: intent.kind, dispIdx: cursor, start: 0, end: displayText(d).length, text: "" });
+        }
+        return;
       }
+      case "openSubmit":
+        if (!session) return;
+        liveInput.current = "";
+        return void setMode({ m: "submit", verdict: defaultVerdict(session), summary: "" });
+      case "cut":
+        return controller.cut(cursor);
+      case "edit":
+        return controller.edit();
+      case "nextAnn":
+      case "prevAnn": {
+        const anns = session?.annotations ?? [];
+        if (!anns.length) return;
+        const idx = anns.findIndex((a) => a.id === focusedAnn);
+        const next = idx === -1 ? 0 : (idx + (intent.t === "nextAnn" ? 1 : -1) + anns.length) % anns.length;
+        return void setFocusedAnn(anns[next]!.id);
+      }
+      case "removeAnnotation":
+        if (focusedAnn) {
+          controller.removeAnnotation(focusedAnn);
+          setFocusedAnn(undefined);
+        }
+        return;
+      case "closeOverlay":
+        return void setMode({ m: "normal" });
+      case "saveCompose": {
+        if (mode.m !== "compose") return;
+        const body = liveInput.current.trim();
+        if (session && body) controller.annotate(mode.kind, mode.dispIdx, mode.start, mode.end, body);
+        return void setMode({ m: "normal" });
+      }
+      case "submitVerdict":
+        if (mode.m === "submit") controller.submit(mode.verdict, liveInput.current);
+        return void setMode({ m: "normal" });
+      case "cycleVerdict": {
+        if (mode.m !== "submit") return;
+        const idx = (VERDICTS.indexOf(mode.verdict) + intent.dir + VERDICTS.length) % VERDICTS.length;
+        return void setMode({ ...mode, verdict: VERDICTS[idx]! });
+      }
+      case "finishReview":
+        return controller.finishReview();
+      case "optInAutoClose":
+        return controller.optInAutoClose();
+      case "dismissCompletion":
+        return controller.dismissCompletion();
     }
+  };
+
+  useKeyboard((key) => {
+    const state: KeyState = {
+      keys: keysRef.current,
+      readOnly,
+      overlay:
+        mode.m === "compose"
+          ? "compose"
+          : mode.m === "submit"
+            ? "submit"
+            : completion.phase === "prompt"
+              ? "completion-prompt"
+              : completion.phase === "counting"
+                ? "completion-counting"
+                : "none",
+      view: !session ? "inbox" : isDiff ? "diff" : "plan",
+      spanMode: mode.m === "span",
+      resolved: !!resolved,
+      hasInboxItems: !!inbox?.length,
+      annotationCount: session?.annotations.length ?? 0,
+      hasFocusedAnnotation: focusedAnn !== undefined,
+      cursorAnnotatable: isDiff
+        ? rows[cursor] !== undefined && rows[cursor]!.t !== "file" && rows[cursor]!.t !== "hunk"
+        : !!display[cursor]?.work,
+    };
+    for (const intent of reduceKey(state, { name: key.name, shift: !!key.shift })) dispatch(intent);
   });
 
   // ── render ──────────────────────────────────
