@@ -23,6 +23,8 @@ export interface ArtifactMeta {
   planPath?: string;
   /** Pull request reference the diff came from, so the verdict can be posted back. */
   pr?: string;
+  /** herdr pane the submitting agent runs in - the review returns focus there. */
+  herdrPane?: string;
   title?: string;
 }
 
