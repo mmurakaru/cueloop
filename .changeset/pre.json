@@ -11,6 +11,7 @@
     "@cueloop/integration-obsidian": "0.0.1"
   },
   "changesets": [
+    "annotation-id-uniqueness",
     "auto-close",
     "daemon-single-instance",
     "dist-tags",
@@ -32,10 +33,13 @@
     "release-integrity",
     "release-node-version",
     "seed-alpha",
+    "shared-review-core",
     "shiki-highlighting",
     "ssh-serve",
     "valibot-wire-validation",
     "verify-propagation",
-    "verify-published"
+    "verify-published",
+    "wire-schema-drift-guard",
+    "working-copy-module"
   ]
 }
