@@ -2,17 +2,15 @@ import { describe, expect, test } from "bun:test";
 import {
   blockRuns,
   buildDisplay,
-  cutBlock,
   displayText,
   marksByDisplay,
+  nextWorkBlock,
   overlayMarks,
-  restoreBlock,
-  restoreLine,
   spanKey,
   startSpan,
   wrapRuns,
 } from "./view";
-import { parseBlocks, type Annotation } from "@cueloop/schema";
+import { cutBlock, parseBlocks, restoreBlock, restoreLine, type Annotation } from "@cueloop/schema";
 
 const BASE = `# Plan
 
@@ -150,8 +148,10 @@ describe("cut / restore round-trip", () => {
     expect(cut).not.toContain("second item");
     const display = buildDisplay(BASE, cut);
     const delIdx = display.findIndex((d) => d.type === "del");
-    const line = restoreLine(display, delIdx, cut.split("\n").length);
-    const restored = restoreBlock(cut, "- second item", line);
+    const line = restoreLine(nextWorkBlock(display, delIdx), cut.split("\n").length);
+    // undefined = the working copy round-tripped back to the submitted revision
+    const restored = restoreBlock(BASE, cut, li, line);
+    expect(restored).toBeUndefined();
     expect(buildDisplay(BASE, restored).every((d) => d.type === "same")).toBe(true);
   });
 });
