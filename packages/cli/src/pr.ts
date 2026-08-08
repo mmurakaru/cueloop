@@ -8,8 +8,8 @@
 
 import type { ReviewSession, VerdictKind } from "@cueloop/schema";
 import { DaemonClient } from "@cueloop/daemon/client";
+import { openReview } from "@cueloop/daemon/review";
 import { parseArgs } from "./args";
-import { resolveWorkspace } from "./workspace";
 
 /** The gh binary is injectable so tests can stub it. */
 function ghBin(): string {
@@ -55,13 +55,14 @@ export async function reviewCommand(argv: string[]): Promise<number> {
     console.error(`PR ${pr} has an empty diff - nothing to review`);
     return 1;
   }
-  const workspace = await resolveWorkspace();
   const client = await DaemonClient.connect({ autostart: true });
-  const session = await client.sessionCreate(workspace, {
+  const review = await openReview(client, {
     type: "diff",
     content: diff.stdout,
-    meta: { title: `PR ${pr}`, pr, cwd: process.cwd() },
+    title: `PR ${pr}`,
+    pr,
   });
+  const session = review.session;
   client.close();
 
   if (flags["no-tui"]) {

@@ -9,8 +9,9 @@
 
 import { parseArgs, flagStr } from "./args";
 import { sessionCommand } from "./session-cmds";
-import { resolveWorkspace, workingTreeDiff } from "./workspace";
+import { workingTreeDiff } from "./working-tree";
 import { DaemonClient } from "@cueloop/daemon/client";
+import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -39,13 +40,14 @@ async function main(): Promise<number> {
         return 1;
       }
       const client = await DaemonClient.connect({ autostart: true });
-      const session = await client.sessionCreate(workspace, {
+      const review = await openReview(client, {
         type: "diff",
         content: diff,
-        meta: { title: `working tree @ ${workspace.branch}`, cwd: process.cwd() },
+        workspace,
+        title: `working tree @ ${workspace.branch}`,
       });
       client.close();
-      return runTui(session.id);
+      return runTui(review.id);
     }
     case "serve": {
       const { positional, flags } = parseArgs(argv.slice(1));

@@ -4,7 +4,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resolveWorkspace, workingTreeDiff } from "../../packages/cli/src/workspace";
+import { resolveWorkspace } from "@cueloop/daemon/review";
+import { workingTreeDiff } from "../../packages/cli/src/working-tree";
 
 function sh(args: string[], cwd: string): void {
   const p = Bun.spawnSync(args, { cwd, stdout: "ignore", stderr: "ignore" });

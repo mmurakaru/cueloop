@@ -4,10 +4,10 @@
  * JSON on stdout; exit code 0 unless the daemon returned an error.
  */
 
-import type { ArtifactType, VerdictKind } from "@cueloop/schema";
+import { newAnnotationId, type ArtifactType, type VerdictKind } from "@cueloop/schema";
 import { DaemonClient } from "@cueloop/daemon/client";
+import { openReview, verdictResponse } from "@cueloop/daemon/review";
 import { parseArgs, flagStr } from "./args";
-import { resolveWorkspace } from "./workspace";
 
 async function readStdin(): Promise<string> {
   return await new Response(Bun.stdin.stream()).text();
@@ -24,21 +24,18 @@ export async function sessionCommand(argv: string[]): Promise<number> {
   try {
     switch (verb) {
       case "create": {
-        const workspace = await resolveWorkspace(flagStr(flags, "cwd"));
         const contentFile = flagStr(flags, "content-file");
         const content = contentFile ? await Bun.file(contentFile).text() : await readStdin();
-        const session = await client.sessionCreate(workspace, {
+        const review = await openReview(client, {
           type: (flagStr(flags, "type") ?? "plan") as ArtifactType,
           content,
-          meta: {
-            agent: flagStr(flags, "agent"),
-            agentSessionId: flagStr(flags, "agent-session-id"),
-            planPath: flagStr(flags, "plan-path"),
-            title: flagStr(flags, "title"),
-            cwd: flagStr(flags, "cwd") ?? process.cwd(),
-          },
+          cwd: flagStr(flags, "cwd"),
+          agent: flagStr(flags, "agent"),
+          agentSessionId: flagStr(flags, "agent-session-id"),
+          planPath: flagStr(flags, "plan-path"),
+          title: flagStr(flags, "title"),
         });
-        out(session);
+        out(review.session);
         return 0;
       }
       case "get": {
@@ -58,12 +55,8 @@ export async function sessionCommand(argv: string[]): Promise<number> {
           out({ status: "pending" });
           return 0;
         }
-        out({
-          status: "resolved",
-          allow: session.verdict!.kind === "approve",
-          verdict: session.verdict!.kind,
-          feedback: session.verdict!.feedback,
-        });
+        const { allow, feedback } = verdictResponse(session);
+        out({ status: "resolved", allow, verdict: session.verdict!.kind, feedback });
         return 0;
       }
       case "annotate": {
@@ -72,7 +65,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
         const quote = required(flagStr(flags, "quote"), "--quote");
         out(
           await client.sessionAnnotate(id, {
-            id: flagStr(flags, "annotation-id") ?? `a_${Date.now().toString(36)}`,
+            id: flagStr(flags, "annotation-id") ?? newAnnotationId(),
             kind: flagStr(flags, "kind") ?? "comment",
             anchor: {
               quote,
