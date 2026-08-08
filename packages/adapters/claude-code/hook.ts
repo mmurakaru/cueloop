@@ -53,6 +53,8 @@ export async function runHook(event: HookEvent, home?: string): Promise<HookDeci
               agentSessionId: event.session_id,
               title: firstHeading(plan),
               cwd: event.cwd,
+              // first-class herdr: the review knows which pane to return to
+              herdrPane: process.env.HERDR_ENV === "1" ? process.env.HERDR_PANE_ID : undefined,
             },
           });
 
