@@ -7,9 +7,14 @@
   "plugins": [
     {
       "name": "cueloop",
-      "source": "./",
+      "source": {
+        "source": "github",
+        "repo": "mmurakaru/cueloop"
+      },
       "description": "Review surface for coding agents: the plan gate hook plus /cueloop:plan, /cueloop:diff, /cueloop:review skills",
-      "author": { "name": "mmurakaru" }
+      "author": {
+        "name": "mmurakaru"
+      }
     }
   ]
 }
