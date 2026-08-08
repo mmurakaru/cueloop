@@ -1,7 +1,33 @@
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DaemonCore } from "./api";
 import { DaemonError } from "./errors";
-import { isKnownMethod, parseParams, validateSessionRecord } from "./validate";
-import { SCHEMA_VERSION } from "@cueloop/schema";
+import {
+  AnchorSchema,
+  AnnotationSchema,
+  ArtifactMetaSchema,
+  ArtifactSchema,
+  RevisionSchema,
+  SessionRecordSchema,
+  VerdictSchema,
+  WorkspaceSchema,
+  isKnownMethod,
+  parseParams,
+  validateSessionRecord,
+} from "./validate";
+import {
+  SCHEMA_VERSION,
+  type Anchor,
+  type Annotation,
+  type Artifact,
+  type ArtifactMeta,
+  type ReviewSession,
+  type Revision,
+  type Verdict,
+  type WorkspaceKey,
+} from "@cueloop/schema";
 
 describe("method allowlist", () => {
   test("known and unknown methods", () => {
@@ -94,5 +120,82 @@ describe("validateSessionRecord", () => {
   test("rejects a structurally broken record", () => {
     const r = validateSessionRecord({ ...record, revisions: "nope" });
     expect(r.ok).toBe(false);
+  });
+});
+
+/**
+ * Wire pins (#70): every schema's entries must cover exactly the keys of the
+ * schema type it mirrors. Runtime complement to the compile-time EntriesOf
+ * check - the samples are fully populated and typed, so a new field in
+ * @cueloop/schema shows up here too.
+ */
+describe("wire pins", () => {
+  const keys = (o: object) => Object.keys(o).sort();
+  const entryKeys = (schema: { entries: object }) => Object.keys(schema.entries).sort();
+
+  const fullMeta: Required<ArtifactMeta> = {
+    cwd: "/repo",
+    agent: "claude-code",
+    agentSessionId: "sess-1",
+    planPath: "/repo/plan.md",
+    pr: "org/repo#1",
+    herdrPane: "%7",
+    title: "Plan",
+  };
+  const fullAnchor: Required<Anchor> = { quote: "q", prefix: "p", suffix: "s", blockIndex: 0, start: 0, end: 1 };
+  const fullAnnotation: Required<Annotation> = {
+    id: "a1",
+    kind: "comment",
+    anchor: fullAnchor,
+    body: "b",
+    orphan: false,
+    createdAt: "now",
+  };
+  const fullArtifact: Required<Artifact> = { type: "plan", content: "# P", meta: fullMeta };
+  const fullVerdict: Required<Verdict> = { kind: "approve", summary: "", feedback: "", resolvedAt: "now" };
+  const fullRevision: Required<Revision> = { revision: 1, content: "# P", submittedAt: "now" };
+  const fullWorkspace: Required<WorkspaceKey> = { repoRoot: "/repo", branch: "main" };
+  const fullSession: Required<ReviewSession> = {
+    schemaVersion: SCHEMA_VERSION,
+    id: "ses_1",
+    workspace: fullWorkspace,
+    artifact: fullArtifact,
+    revisions: [fullRevision],
+    annotations: [fullAnnotation],
+    workingCopy: "# P edited",
+    verdict: fullVerdict,
+    status: "pending",
+    createdAt: "now",
+  };
+
+  test("schema key sets match the schema types", () => {
+    expect(entryKeys(WorkspaceSchema)).toEqual(keys(fullWorkspace));
+    expect(entryKeys(ArtifactMetaSchema)).toEqual(keys(fullMeta));
+    expect(entryKeys(ArtifactSchema)).toEqual(keys(fullArtifact));
+    expect(entryKeys(AnchorSchema)).toEqual(keys(fullAnchor));
+    // wire annotations arrive without createdAt; the daemon stamps it
+    const { createdAt: _stamped, ...wireAnnotation } = fullAnnotation;
+    expect(entryKeys(AnnotationSchema)).toEqual(keys(wireAnnotation));
+    expect(entryKeys(RevisionSchema)).toEqual(keys(fullRevision));
+    expect(entryKeys(VerdictSchema)).toEqual(keys(fullVerdict));
+    expect(entryKeys(SessionRecordSchema)).toEqual(keys(fullSession));
+    // persisted annotations carry the stamped createdAt
+    const stored = SessionRecordSchema.entries.annotations.item;
+    expect(entryKeys(stored)).toEqual(keys(fullAnnotation));
+  });
+
+  test("a fully-populated meta survives validation and DaemonCore unchanged", () => {
+    const home = mkdtempSync(join(tmpdir(), "cueloop-val-"));
+    try {
+      const params = parseParams("session.create", {
+        workspace: fullWorkspace,
+        artifact: { type: "plan", content: "# P", meta: fullMeta },
+      });
+      const core = new DaemonCore(home);
+      const created = core.sessionCreate(params);
+      expect(core.sessionGet(created.id).artifact.meta).toEqual(fullMeta);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 });
