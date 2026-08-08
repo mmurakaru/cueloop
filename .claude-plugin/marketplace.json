@@ -14,7 +14,8 @@
       "description": "Review surface for coding agents: the plan gate hook plus /cueloop:plan, /cueloop:diff, /cueloop:review skills",
       "author": {
         "name": "mmurakaru"
-      }
+      },
+      "version": "0.1.0-alpha.6"
     }
   ]
 }
