@@ -8,6 +8,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { OBSIDIAN_DEFAULTS, type ObsidianConfig } from "@cueloop/integration-obsidian";
+import { writeFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { DARK, type Theme } from "./theme";
 
 export interface KeymapConfig {
@@ -18,9 +20,13 @@ export interface IntegrationsConfig {
   obsidian: ObsidianConfig;
 }
 
+/** Post-submit behavior: "off" prompts, 0 closes instantly, N counts down. */
+export type AutoClose = "off" | number;
+
 export interface CueloopConfig {
   keys: Record<string, string[]>;
   theme: Theme;
+  ui: { autoClose: AutoClose };
   integrations: IntegrationsConfig;
 }
 
@@ -51,6 +57,7 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
   const out: CueloopConfig = {
     keys: { ...base.keys },
     theme: { ...base.theme },
+    ui: { ...base.ui },
     integrations: { obsidian: { ...base.integrations.obsidian } },
   };
   const keys = raw["keys"] as KeymapConfig | undefined;
@@ -58,6 +65,11 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
     for (const [action, combo] of Object.entries(keys)) {
       out.keys[action] = Array.isArray(combo) ? combo : [combo];
     }
+  }
+  const ui = raw["ui"] as { auto_close?: unknown } | undefined;
+  if (ui && ui.auto_close !== undefined) {
+    if (ui.auto_close === "off") out.ui.autoClose = "off";
+    else if (typeof ui.auto_close === "number" && ui.auto_close >= 0) out.ui.autoClose = ui.auto_close;
   }
   const theme = raw["theme"] as Partial<Record<keyof Theme, string>> | undefined;
   if (theme) {
@@ -86,6 +98,7 @@ export function loadConfig(opts: { repoRoot?: string; userConfigPath?: string } 
   let config: CueloopConfig = {
     keys: { ...DEFAULT_KEYS },
     theme: { ...DARK },
+    ui: { autoClose: "off" },
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
   };
   const userPath =
@@ -110,4 +123,28 @@ export function actionFor(keys: Record<string, string[]>, name: string, shift: b
     if (combos.includes(wanted)) return action;
   }
   return undefined;
+}
+
+/**
+ * Persist the auto-close choice into the user config file. Line-level TOML
+ * surgery on the one key we own: replace an existing `auto_close`, or append
+ * an `[ui]` section - a full TOML writer is not worth its weight here.
+ */
+export function persistAutoClose(value: AutoClose, userConfigPath?: string): void {
+  const path =
+    userConfigPath ??
+    process.env.CUELOOP_CONFIG ??
+    join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "cueloop", "config.toml");
+  const rendered = value === "off" ? '"off"' : String(value);
+  let text = "";
+  if (existsSync(path)) text = readFileSync(path, "utf8");
+  if (/^\s*auto_close\s*=/m.test(text)) {
+    text = text.replace(/^(\s*)auto_close\s*=.*$/m, `$1auto_close = ${rendered}`);
+  } else if (/^\[ui\]/m.test(text)) {
+    text = text.replace(/^\[ui\]\s*$/m, `[ui]\nauto_close = ${rendered}`);
+  } else {
+    text = text.trimEnd() + (text.trim() ? "\n\n" : "") + `[ui]\nauto_close = ${rendered}\n`;
+  }
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, text);
 }

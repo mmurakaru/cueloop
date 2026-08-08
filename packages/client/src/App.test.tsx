@@ -186,7 +186,8 @@ describe("submit", () => {
     expect(stored.status).toBe("resolved");
     expect(stored.verdict!.kind).toBe("request_changes");
     expect(stored.verdict!.feedback).toContain("Needs a phase list.");
-    expect(setup.captureCharFrame()).toContain("resolved: request changes");
+    // submit hands the reviewer back to the agent via the completion overlay
+    expect(setup.captureCharFrame()).toContain("✎ feedback sent");
   });
 
   test("approve via ←/→ verdict cycling", async () => {
