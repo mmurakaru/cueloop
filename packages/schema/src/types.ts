@@ -108,9 +108,11 @@ export function verdictAllows(kind: VerdictKind): boolean {
 }
 
 /**
- * Annotation ids are minted client-side: a time component plus a random
- * suffix, so concurrent annotators never collide on the same millisecond.
+ * Annotation ids are minted client-side. The counter makes ids unique within
+ * a process by construction; the random suffix separates concurrent
+ * annotators in different processes on the same millisecond.
  */
+let annotationSeq = 0;
 export function newAnnotationId(): string {
-  return `a_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+  return `a_${Date.now().toString(36)}${(annotationSeq++).toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }
