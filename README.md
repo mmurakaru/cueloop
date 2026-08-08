@@ -40,7 +40,14 @@ bun test ./packages ./test            # the whole pyramid
 bun run examples/1-hello-plan/run.ts  # seeded plan session in the TUI
 ```
 
-Wire the Claude Code hook (blocks the plan gate on your review):
+As a Claude Code plugin (the plan-gate hook plus `/cueloop:plan`, `/cueloop:diff`, `/cueloop:review`):
+
+```
+/plugin marketplace add mmurakaru/cueloop
+/plugin install cueloop@cueloop
+```
+
+Or wire the hook by hand (blocks the plan gate on your review):
 
 ```jsonc
 // ~/.claude/settings.json
