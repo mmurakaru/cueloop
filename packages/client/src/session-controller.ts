@@ -1,0 +1,345 @@
+/**
+ * The review-session controller (#70): every daemon round-trip and mutation
+ * verb behind one React-free object. It owns connect/autostart/subscribe,
+ * the session/inbox/status/error snapshot, optimistic apply, the mutation
+ * verbs (cut/edit/annotate/submit/...), and the post-submit completion
+ * lifecycle including the notes-vault export and the herdr return-focus.
+ * App subscribes to snapshots and keeps only view state.
+ */
+
+import { DaemonClient } from "@cueloop/daemon/client";
+import {
+  cutBlock,
+  makeAnchor,
+  newAnnotationId,
+  restoreBlock,
+  restoreLine,
+  type ReviewSession,
+  type VerdictKind,
+} from "@cueloop/schema";
+import { Registry, type Exporter } from "@cueloop/extension-api";
+import { createObsidianExtension, shouldExport, type ObsidianConfig } from "@cueloop/integration-obsidian";
+import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view";
+import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
+import { editInEditor } from "./editor";
+import { focusHerdrPane, returnPaneFor } from "./herdr";
+import { persistAutoClose, type AutoClose, type CueloopConfig } from "./config";
+
+/**
+ * Post-submit lifecycle (a review pane should hand you back to the agent,
+ * not linger): idle → prompt (auto-close off: offer the choice) or
+ * counting (configured delay) → exit. esc dismisses to the resolved view.
+ */
+export type Completion =
+  | { phase: "idle" }
+  | { phase: "prompt" }
+  | { phase: "counting"; remaining: number }
+  | { phase: "dismissed" };
+
+export interface ControllerSnapshot {
+  session: ReviewSession | null;
+  inbox: ReviewSession[] | null;
+  status: string;
+  error: string | null;
+  completion: Completion;
+}
+
+export interface ReviewControllerOptions {
+  home?: string;
+  sessionId?: string;
+  /** Observer mode: stored for the key reducer's read-only gate. */
+  readOnly?: boolean;
+  onExit?: (code: number) => void;
+}
+
+export interface ReviewController {
+  readonly readOnly: boolean;
+  /** Snapshot listeners (stable identity - safe for useSyncExternalStore). */
+  subscribe(listener: () => void): () => void;
+  getSnapshot(): ControllerSnapshot;
+  /** Dial the daemon (autostart), subscribe to events, fetch session or inbox. */
+  connect(): void;
+  close(): void;
+  /** Loaded config parts the controller acts on: auto-close and exporters. */
+  applyConfig(cfg: CueloopConfig): void;
+  setStatus(msg: string): void;
+  /** Derived projections, cached per session identity. */
+  display(): DisplayBlock[];
+  rows(): DiffRow[];
+  working(): string;
+  /** Open a session from the inbox. */
+  open(id: string): void;
+  /** Cut the block under the cursor, or restore a cut one. */
+  cut(dispIdx: number): void;
+  /** The $EDITOR hand-off on the working copy. */
+  edit(): void;
+  /** Anchor and store an annotation; both plan and diff anchor constructions. */
+  annotate(kind: "comment" | "suggestion", dispIdx: number, start: number, end: number, body: string): void;
+  removeAnnotation(id: string): void;
+  setWorkingCopy(content: string | undefined): void;
+  /** Resolve the review, run the export, start the completion hand-back. */
+  submit(verdict: VerdictKind, summary: string): void;
+  /** Close the review and, inside herdr, bounce focus back to the agent. */
+  finishReview(): void;
+  dismissCompletion(): void;
+  /** From the completion prompt: persist auto-close and start the countdown. */
+  optInAutoClose(): void;
+}
+
+export function createReviewController(opts: ReviewControllerOptions): ReviewController {
+  return new Controller(opts);
+}
+
+class Controller implements ReviewController {
+  readonly readOnly: boolean;
+  private client: DaemonClient | null = null;
+  private closed = false;
+  private snap: ControllerSnapshot = {
+    session: null,
+    inbox: null,
+    status: "",
+    error: null,
+    completion: { phase: "idle" },
+  };
+  private listeners = new Set<() => void>();
+  private autoClose: AutoClose = "off";
+  private obsidian: ObsidianConfig | null = null;
+  private exporters = new Map<string, Exporter>();
+  private countdown: ReturnType<typeof setTimeout> | undefined;
+  /** Projections keyed by session identity so renders reuse one computation. */
+  private derivedFor: ReviewSession | null = null;
+  private derived: { display: DisplayBlock[]; rows: DiffRow[] } = { display: [], rows: [] };
+
+  constructor(private readonly opts: ReviewControllerOptions) {
+    this.readOnly = opts.readOnly ?? false;
+  }
+
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  };
+
+  getSnapshot = (): ControllerSnapshot => this.snap;
+
+  private update(patch: Partial<ControllerSnapshot>): void {
+    this.snap = { ...this.snap, ...patch };
+    for (const l of this.listeners) l();
+  }
+
+  connect(): void {
+    void (async () => {
+      try {
+        const client = await DaemonClient.connect({ home: this.opts.home, autostart: true });
+        if (this.closed) return void client.close();
+        this.client = client;
+        client.onEvent((e) => {
+          // another controller/observer changed state: re-fetch
+          const s = this.snap.session;
+          if (s && e.sessionId === s.id) void this.refreshSession(s.id);
+          if (!this.opts.sessionId) void this.refreshInbox();
+        });
+        await client.subscribe();
+        if (this.opts.sessionId) {
+          this.update({ session: await client.sessionGet(this.opts.sessionId) });
+        } else {
+          this.update({ inbox: await client.sessionList({ status: "pending" }) });
+        }
+      } catch (err) {
+        this.update({ error: err instanceof Error ? err.message : String(err) });
+      }
+    })();
+  }
+
+  close(): void {
+    this.closed = true;
+    clearTimeout(this.countdown);
+    this.client?.close();
+  }
+
+  applyConfig(cfg: CueloopConfig): void {
+    this.autoClose = cfg.ui.autoClose;
+    this.obsidian = cfg.integrations.obsidian;
+    // bundled integrations register through the public extension API
+    const registry = new Registry();
+    void registry.load("obsidian", createObsidianExtension(cfg.integrations.obsidian)).then((rec) => {
+      this.exporters = rec.exporters;
+    });
+  }
+
+  setStatus(msg: string): void {
+    this.update({ status: msg });
+  }
+
+  // ── derived projections ─────────────────────
+  private ensureDerived(): void {
+    const s = this.snap.session;
+    if (this.derivedFor === s) return;
+    this.derivedFor = s;
+    this.derived = {
+      display: s ? buildDisplay(s.artifact.content, s.workingCopy) : [],
+      rows: s && s.artifact.type === "diff" ? diffRows(s.artifact.content) : [],
+    };
+  }
+
+  display(): DisplayBlock[] {
+    this.ensureDerived();
+    return this.derived.display;
+  }
+
+  rows(): DiffRow[] {
+    this.ensureDerived();
+    return this.derived.rows;
+  }
+
+  working(): string {
+    const s = this.snap.session;
+    return s ? (s.workingCopy ?? s.artifact.content) : "";
+  }
+
+  private async refreshSession(id: string): Promise<void> {
+    if (this.client) this.update({ session: await this.client.sessionGet(id) });
+  }
+
+  private async refreshInbox(): Promise<void> {
+    if (this.client) this.update({ inbox: await this.client.sessionList({ status: "pending" }) });
+  }
+
+  /** Optimistic apply: the daemon response is the next session snapshot. */
+  private apply(p: Promise<ReviewSession>): void {
+    p.then((session) => this.update({ session })).catch((e: unknown) =>
+      this.setStatus(String(e instanceof Error ? e.message : e)),
+    );
+  }
+
+  // ── verbs ───────────────────────────────────
+  open(id: string): void {
+    const cached = this.snap.inbox?.find((s) => s.id === id);
+    if (cached) this.update({ session: cached });
+    else void this.refreshSession(id);
+  }
+
+  cut(dispIdx: number): void {
+    const session = this.snap.session;
+    if (!session || session.status === "resolved") return;
+    const d = this.display()[dispIdx];
+    if (!d) return;
+    const working = this.working();
+    if (d.type === "del") {
+      const line = restoreLine(nextWorkBlock(this.display(), dispIdx), working.split("\n").length);
+      // restoreBlock returns undefined when the block structure round-trips
+      // to the submitted revision - the working copy is gone
+      const restored = restoreBlock(session.artifact.content, working, d.base!, line);
+      this.setWorkingCopy(restored);
+      this.setStatus("cut restored");
+    } else if (d.work) {
+      this.setWorkingCopy(cutBlock(working, d.work));
+      this.setStatus("block cut - it serializes into the diff");
+    }
+  }
+
+  edit(): void {
+    const session = this.snap.session;
+    if (!session || session.status === "resolved") return;
+    try {
+      const result = editInEditor(this.working(), "plan.md");
+      if (result.changed) {
+        this.setWorkingCopy(result.content);
+        this.setStatus("edits tracked - one diff");
+      } else this.setStatus("no changes");
+    } catch (err) {
+      this.setStatus(err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  annotate(kind: "comment" | "suggestion", dispIdx: number, start: number, end: number, body: string): void {
+    const session = this.snap.session;
+    if (!session) return;
+    let anchor;
+    if (session.artifact.type === "diff") {
+      anchor = { ...diffRowAnchor(this.rows(), dispIdx), blockIndex: dispIdx };
+    } else {
+      const display = this.display();
+      const workBlocks = display.filter((d) => d.work).map((d) => d.work!);
+      const workIdx = display.slice(0, dispIdx + 1).filter((d) => d.work).length - 1;
+      anchor = makeAnchor(workBlocks, workIdx, start, end);
+    }
+    this.apply(
+      this.client!.sessionAnnotate(session.id, {
+        id: newAnnotationId(),
+        kind,
+        anchor,
+        body,
+      }),
+    );
+    this.setStatus(kind === "suggestion" ? "suggestion added - the agent applies it" : "comment added");
+  }
+
+  removeAnnotation(id: string): void {
+    const session = this.snap.session;
+    if (!session) return;
+    this.apply(this.client!.sessionRemoveAnnotation(session.id, id));
+    this.setStatus("annotation deleted");
+  }
+
+  setWorkingCopy(content: string | undefined): void {
+    const session = this.snap.session;
+    if (!session) return;
+    this.apply(this.client!.sessionSetWorkingCopy(session.id, content));
+  }
+
+  submit(verdict: VerdictKind, summary: string): void {
+    const session = this.snap.session;
+    if (!session) return;
+    this.client!.sessionResolve(session.id, verdict, summary)
+      .then((resolved) => {
+        this.update({ session: resolved, status: `review submitted - ${verdict.replace("_", " ")}` });
+        // notes-vault export: guarded by config, default is manual (no-op)
+        const obsidian = this.obsidian;
+        const exporter = this.exporters.get("obsidian");
+        if (obsidian && exporter && shouldExport(obsidian.exportOn, verdict)) {
+          void exporter(resolved).then((r) => {
+            this.setStatus(r.success && r.path ? `exported to ${r.path}` : `export failed: ${r.error ?? "unknown"}`);
+          });
+        }
+        // hand the reviewer back to the agent: prompt or count down per config;
+        // inside herdr with a known return pane, closing is the default
+        const delay = this.autoClose;
+        const returns = returnPaneFor(resolved.artifact.meta.herdrPane) !== undefined;
+        if (delay === 0) this.finishReview();
+        else if (typeof delay === "number") this.startCounting(delay);
+        else if (returns) this.startCounting(3);
+        else this.update({ completion: { phase: "prompt" } });
+      })
+      .catch((e: unknown) => this.setStatus(String(e instanceof Error ? e.message : e)));
+  }
+
+  // ── completion hand-back ────────────────────
+  private startCounting(remaining: number): void {
+    if (remaining <= 0) return this.finishReview();
+    this.update({ completion: { phase: "counting", remaining } });
+    this.countdown = setTimeout(() => this.startCounting(remaining - 1), 1000);
+  }
+
+  finishReview(): void {
+    clearTimeout(this.countdown);
+    const pane = returnPaneFor(this.snap.session?.artifact.meta.herdrPane);
+    if (pane) focusHerdrPane(pane);
+    this.opts.onExit?.(0);
+  }
+
+  dismissCompletion(): void {
+    clearTimeout(this.countdown);
+    this.update({ completion: { phase: "dismissed" } });
+  }
+
+  optInAutoClose(): void {
+    // opt in: close in 3s from now on, persisted to the user config
+    try {
+      persistAutoClose(3);
+    } catch {
+      // a read-only config dir must not block closing the review
+    }
+    this.autoClose = 3;
+    this.startCounting(3);
+  }
+}
