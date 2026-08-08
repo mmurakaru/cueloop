@@ -13,9 +13,10 @@
     "@cueloop/schema": "0.1.0-alpha.5",
     "@opentui/core": "^0.4.3",
     "@opentui/react": "^0.4.3",
+    "@opentui/ssh": "0.4.5",
     "@pierre/diffs": "^1.3.5",
     "react": "^19.2.0",
-    "@opentui/ssh": "0.4.5"
+    "shiki": "^4.4.2"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",

@@ -1,53 +1,88 @@
-/** Syntax highlighting for code blocks: theme tokens mapped onto tree-sitter capture names. */
+/**
+ * Code-block syntax highlighting via Shiki (#67): TextMate-grammar tokens
+ * colored by a theme built from cueloop's tokens. The highlighter loads
+ * lazily on the first code block; unknown languages render unstyled.
+ */
 
-import { SyntaxStyle } from "@opentui/core";
 import { DARK as T } from "./theme";
 
-let cached: SyntaxStyle | null = null;
-
-export function syntaxStyle(): SyntaxStyle {
-  if (cached) return cached;
-  cached = SyntaxStyle.fromStyles({
-    default: { fg: T.textMuted },
-    keyword: { fg: T.accent },
-    "keyword.return": { fg: T.accent },
-    "keyword.function": { fg: T.accent },
-    string: { fg: T.green },
-    "string.special": { fg: T.green },
-    comment: { fg: T.textDim, italic: true },
-    number: { fg: T.blue },
-    constant: { fg: T.blue },
-    boolean: { fg: T.blue },
-    function: { fg: T.text },
-    "function.method": { fg: T.text },
-    type: { fg: T.blue },
-    "type.builtin": { fg: T.blue },
-    variable: { fg: T.textMuted },
-    property: { fg: T.textMuted },
-    operator: { fg: T.textDim },
-    punctuation: { fg: T.textDim },
-    "punctuation.bracket": { fg: T.textDim },
-    "punctuation.delimiter": { fg: T.textDim },
-    tag: { fg: T.accent },
-    attribute: { fg: T.blue },
-  });
-  return cached;
+export interface CodeToken {
+  content: string;
+  color?: string;
 }
 
-/** Markdown fence info → tree-sitter filetype. Unknown languages render unstyled. */
+type Highlighter = {
+  codeToTokensBase(code: string, opts: { lang: string; theme: string }): { content: string; color?: string }[][];
+  getLoadedLanguages(): string[];
+};
+
+const LANGS = ["typescript", "tsx", "javascript", "jsx", "json", "bash", "python", "rust", "go", "yaml", "diff", "markdown", "toml", "sql", "html", "css"];
+
+/** Markdown fence info → Shiki language id. */
 export function filetypeFor(lang?: string): string {
   const l = (lang ?? "").toLowerCase();
   const map: Record<string, string> = {
     ts: "typescript",
-    tsx: "tsx",
     js: "javascript",
-    jsx: "jsx",
     py: "python",
     rb: "ruby",
     rs: "rust",
     sh: "bash",
     shell: "bash",
+    zsh: "bash",
     yml: "yaml",
   };
   return map[l] ?? l;
+}
+
+function cueloopTheme() {
+  const scope = (scopes: string, foreground: string, fontStyle?: string) => ({
+    scope: scopes.split(", "),
+    settings: fontStyle ? { foreground, fontStyle } : { foreground },
+  });
+  return {
+    name: "cueloop",
+    type: "dark" as const,
+    colors: { "editor.background": T.elevated, "editor.foreground": T.textMuted },
+    settings: [
+      { settings: { foreground: T.textMuted } },
+      scope("comment, punctuation.definition.comment", T.textDim, "italic"),
+      scope("string, string.quoted, punctuation.definition.string", T.green),
+      scope("constant.numeric, constant.language, constant.character", T.blue),
+      scope("keyword, storage, storage.type, storage.modifier, keyword.control", T.accent),
+      scope("entity.name.function, support.function, meta.function-call", T.text),
+      scope("entity.name.type, entity.name.class, support.type, support.class", T.blue),
+      scope("variable, variable.other, variable.parameter", T.textMuted),
+      scope("entity.name.tag", T.accent),
+      scope("entity.other.attribute-name", T.blue),
+      scope("punctuation, meta.brace", T.textDim),
+      scope("keyword.operator", T.textDim),
+    ],
+  };
+}
+
+let highlighterPromise: Promise<Highlighter | null> | null = null;
+
+function getHighlighter(): Promise<Highlighter | null> {
+  highlighterPromise ??= import("shiki")
+    .then((shiki) => shiki.createHighlighter({ themes: [cueloopTheme()], langs: LANGS }) as Promise<Highlighter>)
+    .catch(() => null); // highlighting is an enhancement, never a blocker
+  return highlighterPromise;
+}
+
+/**
+ * Tokenize code into styled lines. Token text concatenates back to the exact
+ * source line, so verbatim rendering (indentation, no wrap) is preserved.
+ * Returns null when the language is unknown or the highlighter is unavailable.
+ */
+export async function highlightCode(content: string, lang?: string): Promise<CodeToken[][] | null> {
+  const language = filetypeFor(lang);
+  if (!language) return null;
+  const highlighter = await getHighlighter();
+  if (!highlighter || !highlighter.getLoadedLanguages().includes(language)) return null;
+  try {
+    return highlighter.codeToTokensBase(content, { lang: language, theme: "cueloop" });
+  } catch {
+    return null;
+  }
 }
