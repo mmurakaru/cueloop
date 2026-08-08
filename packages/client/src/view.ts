@@ -218,7 +218,11 @@ export function overlayMarks(runs: StyleRun[], marks: Mark[]): StyleRun[] {
   return out;
 }
 
-/** Wrap styled runs into lines of at most `width` display cells. */
+/**
+ * Wrap styled runs into lines of at most `width` display cells. Split pieces
+ * keep exact `start` offsets into the block text, so wrapped lines stay
+ * addressable for the native selection primitive.
+ */
 export function wrapRuns(runs: StyleRun[], width: number): StyleRun[][] {
   const lines: StyleRun[][] = [];
   let line: StyleRun[] = [];
@@ -231,25 +235,73 @@ export function wrapRuns(runs: StyleRun[], width: number): StyleRun[][] {
   for (const run of runs) {
     // split run into word/space tokens; newlines force breaks
     const tokens = run.text.split(/(\n|\s+)/).filter((t) => t !== "");
+    let consumed = 0;
+    const startAt = (offsetInRun: number): number | null => (run.start === null ? null : run.start + offsetInRun);
     for (const tok of tokens) {
       if (tok === "\n") {
+        consumed += 1;
         pushLine();
         continue;
       }
       if (used + tok.length > width && used > 0 && tok.trim() !== "") pushLine();
-      if (tok.trim() === "" && used === 0 && lines.length > 0) continue; // no leading spaces after wrap
+      if (tok.trim() === "" && used === 0 && lines.length > 0) {
+        consumed += tok.length;
+        continue; // no leading spaces after wrap
+      }
       let slice = tok;
       while (slice.length > width) {
-        line.push({ ...run, text: slice.slice(0, width - used) });
-        slice = slice.slice(width - used);
+        const piece = slice.slice(0, width - used);
+        line.push({ ...run, text: piece, start: startAt(consumed) });
+        consumed += piece.length;
+        slice = slice.slice(piece.length);
         pushLine();
       }
-      line.push({ ...run, text: slice });
+      line.push({ ...run, text: slice, start: startAt(consumed) });
+      consumed += slice.length;
       used += slice.length;
     }
   }
   if (line.length || !lines.length) lines.push(line);
   return lines;
+}
+
+/**
+ * Locate a block-text offset inside wrapped run lines: the wrapped line index
+ * and the column within the line's rendered run text. Drives the renderer's
+ * native selection from keyboard span offsets.
+ */
+export function locateOffset(lines: StyleRun[][], offset: number): { lineIndex: number; column: number } | null {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+    let column = 0;
+    for (const run of lines[lineIndex]!) {
+      if (run.start !== null && offset >= run.start && offset < run.start + run.text.length) {
+        return { lineIndex, column: column + (offset - run.start) };
+      }
+      column += run.text.length;
+    }
+  }
+  return null;
+}
+
+/**
+ * Inline compose box height, shared by layout and render so the row math and
+ * the mounted box never drift: top border (title), the single-row input, the
+ * Save/Cancel button row, bottom border.
+ */
+export function composeBoxHeight(): number {
+  return 4;
+}
+
+/** Line delta between two revision contents, for the sheet-header summary. */
+export function revisionDelta(previousContent: string, nextContent: string): { added: number; removed: number } {
+  const ops = lcsDiff(previousContent.split("\n"), nextContent.split("\n"), (a, b) => a === b);
+  let added = 0;
+  let removed = 0;
+  for (const op of ops) {
+    if (op.t === "add") added++;
+    else if (op.t === "del") removed++;
+  }
+  return { added, removed };
 }
 
 // ── keyboard span mode ────────────────────────

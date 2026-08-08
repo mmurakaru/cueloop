@@ -1,23 +1,33 @@
 /**
- * The cueloop TUI (#22): Ledger IA reduced to its terminal shape - header,
- * center artifact pane (projection renderer), right review rail, footer hint
+ * The cueloop TUI (#22, #71): header, plan sheet (sheet header + inline
+ * compose + selectable lines) or diff pane, right review rail, footer hint
  * bar. Thin renderer over the review-session controller: daemon IO and the
  * mutation verbs live in session-controller.ts, the keyboard grammar in
- * keymap.ts; local state is view state only (cursor, span, overlays).
+ * keymap.ts; local state is view state only (cursor, selection, overlays).
+ *
+ * The plan review grammar: selection is the entry primitive (mouse drag or
+ * keyboard span on one native renderer selection), compose happens inline
+ * under the anchor, annotation text lives in the rail while the document
+ * keeps only the kind-colored highlight, and the rail edits what the
+ * document selects - one selected id drives both sides.
  */
 
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { useKeyboard } from "@opentui/react";
+import { useKeyboard, useRenderer } from "@opentui/react";
+import type { ScrollBoxRenderable, TextRenderable } from "@opentui/core";
 import { type Annotation, type ReviewSession, type VerdictKind } from "@cueloop/schema";
 import {
   blockRuns,
+  composeBoxHeight,
   displayText,
   marksByDisplay,
   overlayMarks,
+  revisionDelta,
   spanKey,
   startSpan,
   wrapRuns,
   type DisplayBlock,
+  type Mark,
   type SpanState,
   type StyleRun,
 } from "./view";
@@ -44,7 +54,10 @@ type Mode =
   | { m: "normal" }
   | { m: "span"; span: SpanState }
   | { m: "compose"; kind: "comment" | "suggestion"; dispIdx: number; start: number; end: number; text: string }
+  | { m: "railEdit"; id: string; text: string }
   | { m: "submit"; verdict: VerdictKind; summary: string };
+
+type RailTab = "review" | "agent";
 
 const VERDICTS: VerdictKind[] = ["comment", "approve", "request_changes"];
 const VERDICT_LABEL: Record<VerdictKind, string> = {
@@ -52,6 +65,22 @@ const VERDICT_LABEL: Record<VerdictKind, string> = {
   approve: "Approve",
   request_changes: "Request changes",
 };
+
+/** One rendered plan line, registered for the native selection primitive. */
+interface PlanLineRef {
+  renderable: TextRenderable;
+  dispIdx: number;
+  lineIndex: number;
+  /** Block-text offset of the line's first positioned run; null for pure-del lines. */
+  lineStart: number | null;
+  /** Screen columns before the run text (cursor glyph + list marker). */
+  prefixColumns: number;
+  /** Length of the positioned run text in this line. */
+  textLength: number;
+}
+
+/** Rail card height (3 text rows + 1 margin), for reveal-scroll math. */
+const RAIL_CARD_HEIGHT = 4;
 
 export function App({ home, sessionId, readOnly = false, onExit }: AppProps): React.ReactNode {
   const controller = useMemo(
@@ -63,20 +92,29 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
     controller.connect();
     return () => controller.close();
   }, [controller]);
-  const { session, inbox, status, error, completion } = useSyncExternalStore(
+  const { session, inbox, status, error, completion, editOrphanCount } = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
   );
+  const renderer = useRenderer();
 
   // ── view state ──────────────────────────────
   const [cursor, setCursor] = useState(0);
   const [inboxCursor, setInboxCursor] = useState(0);
   const [mode, setMode] = useState<Mode>({ m: "normal" });
   const [focusedAnn, setFocusedAnn] = useState<string | undefined>(undefined);
+  const [railTab, setRailTab] = useState<RailTab>("review");
+  // ~2s focus pulse on the document highlight when a rail card is activated
+  const [pulseAnn, setPulseAnn] = useState<string | null>(null);
+  const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // live mirror of overlay input text: refs commit synchronously, so the
   // RETURN handler never reads a stale value mid-typing
   const liveInput = useRef("");
+  // rendered plan lines, for driving and reading the native selection
+  const lineRefs = useRef(new Map<string, PlanLineRef>());
+  const docScrollRef = useRef<ScrollBoxRenderable | null>(null);
+  const railScrollRef = useRef<ScrollBoxRenderable | null>(null);
   // keymap from layered config; theme overrides land on the shared tokens
   const keysRef = useRef(DEFAULT_KEYS);
   useEffect(() => {
@@ -85,16 +123,132 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
     Object.assign(T, cfg.theme);
     controller.applyConfig(cfg);
   }, [session?.workspace.repoRoot, controller]);
+  useEffect(
+    () => () => {
+      if (pulseTimer.current) clearTimeout(pulseTimer.current);
+    },
+    [],
+  );
 
   // ── derived view model ──────────────────────
   const display = controller.display();
   const rows = controller.rows();
   const marks = useMemo(
-    () => (session ? marksByDisplay(session.annotations, display, focusedAnn) : new Map()),
-    [session, display, focusedAnn],
+    () => (session ? marksByDisplay(session.annotations, display, pulseAnn ?? undefined) : new Map<number, Mark[]>()),
+    [session, display, pulseAnn],
   );
+  /** Annotation ids whose anchor resolved against the working copy. */
+  const resolvedIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const blockMarks of marks.values()) {
+      for (const mark of blockMarks) if (mark.annotationId) ids.add(mark.annotationId);
+    }
+    return ids;
+  }, [marks]);
   const resolved = session?.status === "resolved";
   const isDiff = session?.artifact.type === "diff";
+
+  // ── the native selection: keyboard driver ───
+  const lineRefFor = (dispIdx: number, offset: number): PlanLineRef | null => {
+    for (const meta of lineRefs.current.values()) {
+      if (meta.dispIdx !== dispIdx || meta.lineStart === null) continue;
+      if (offset >= meta.lineStart && offset < meta.lineStart + meta.textLength) return meta;
+    }
+    return null;
+  };
+
+  /** Anchor/extend the renderer's native selection from keyboard span offsets. */
+  const driveNativeSelection = (span: SpanState): void => {
+    if (!renderer) return;
+    const startMeta = lineRefFor(span.dispIdx, span.start);
+    const endMeta = lineRefFor(span.dispIdx, span.end - 1);
+    if (!startMeta || !endMeta) return;
+    const startColumn = startMeta.prefixColumns + (span.start - startMeta.lineStart!);
+    const endColumn = endMeta.prefixColumns + (span.end - 1 - endMeta.lineStart!);
+    renderer.startSelection(startMeta.renderable, startMeta.renderable.x + startColumn, startMeta.renderable.y);
+    renderer.updateSelection(endMeta.renderable, endMeta.renderable.x + endColumn + 1, endMeta.renderable.y);
+  };
+  // driving needs committed layout, so it runs after render; any transition
+  // out of span mode clears the renderer selection (compose paints its own
+  // mark, and a mouse drag never changes the mode, so it survives)
+  useEffect(() => {
+    if (mode.m === "span") driveNativeSelection(mode.span);
+    else renderer?.clearSelection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  /**
+   * Read the native selection (mouse drag) back as a block range. The quote
+   * anchors in the FIRST selected block - quote anchors resolve within one
+   * block. Columns map 1:1 onto text offsets except inside word-diffed mod
+   * blocks, where inline del runs shift the screen columns.
+   */
+  const readNativeSelection = (): { dispIdx: number; start: number; end: number } | null => {
+    if (!renderer?.hasSelection) return null;
+    const ordered = [...lineRefs.current.values()].sort(
+      (a, b) => a.dispIdx - b.dispIdx || a.lineIndex - b.lineIndex,
+    );
+    let found: { dispIdx: number; start: number; end: number } | null = null;
+    for (const meta of ordered) {
+      if (meta.lineStart === null) continue;
+      const selection = meta.renderable.getSelection();
+      if (!selection || selection.end <= selection.start) continue;
+      const startInText = Math.min(meta.textLength, Math.max(0, selection.start - meta.prefixColumns));
+      const endInText = Math.min(meta.textLength, Math.max(0, selection.end - meta.prefixColumns));
+      if (endInText <= startInText) continue;
+      const blockStart = meta.lineStart + startInText;
+      const blockEnd = meta.lineStart + endInText;
+      if (!found) found = { dispIdx: meta.dispIdx, start: blockStart, end: blockEnd };
+      else if (found.dispIdx === meta.dispIdx) found.end = Math.max(found.end, blockEnd);
+    }
+    return found;
+  };
+
+  // ── selection symmetry: one selected id, both sides ──
+  const pulse = (id: string): void => {
+    setPulseAnn(id);
+    if (pulseTimer.current) clearTimeout(pulseTimer.current);
+    pulseTimer.current = setTimeout(() => setPulseAnn(null), 2000);
+  };
+
+  const revealRailCard = (annotationId: string): void => {
+    const index = session?.annotations.findIndex((annotation) => annotation.id === annotationId) ?? -1;
+    if (index >= 0) railScrollRef.current?.scrollTo(Math.max(0, index * RAIL_CARD_HEIGHT - 1));
+  };
+
+  /** Card activation scrolls the document to the anchor and pulses it. */
+  const revealAnchor = (annotationId: string): void => {
+    for (const [dispIdx, blockMarks] of marks) {
+      if (!blockMarks.some((mark) => mark.annotationId === annotationId)) continue;
+      setCursor(dispIdx);
+      try {
+        docScrollRef.current?.scrollChildIntoView(`plan-block-${dispIdx}`);
+      } catch {
+        // reveal is best-effort; selection state is already correct
+      }
+      return;
+    }
+  };
+
+  const selectCardFromDocument = (annotationId: string): void => {
+    setFocusedAnn(annotationId);
+    revealRailCard(annotationId);
+  };
+
+  const selectCardFromRail = (annotationId: string): void => {
+    setFocusedAnn(annotationId);
+    pulse(annotationId);
+    revealAnchor(annotationId);
+  };
+
+  const openCardEdit = (annotationId: string): void => {
+    if (readOnly) return controller.setStatus("observer - read-only");
+    if (resolved) return controller.setStatus("review submitted - read-only");
+    const annotation = session?.annotations.find((candidate) => candidate.id === annotationId);
+    if (!annotation) return;
+    liveInput.current = annotation.body;
+    setMode({ m: "railEdit", id: annotation.id, text: annotation.body });
+  };
 
   // ── keyboard grammar: build state, reduce, dispatch ──
   const dispatch = (intent: Intent): void => {
@@ -130,7 +284,9 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
       }
       case "spanKey":
         if (mode.m === "span") {
-          setMode({ m: "span", span: spanKey(mode.span, intent.name, displayText(display[mode.span.dispIdx]!)) });
+          const span = spanKey(mode.span, intent.name, displayText(display[mode.span.dispIdx]!));
+          setMode({ m: "span", span });
+          driveNativeSelection(span);
         }
         return;
       case "openCompose": {
@@ -148,8 +304,14 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
           const row = rows[cursor];
           if (row) setMode({ m: "compose", kind: intent.kind, dispIdx: cursor, start: 0, end: row.text.length, text: "" });
         } else {
-          const d = display[cursor];
-          if (d) setMode({ m: "compose", kind: intent.kind, dispIdx: cursor, start: 0, end: displayText(d).length, text: "" });
+          // a mouse drag leaves a native selection; it wins over the cursor block
+          const native = readNativeSelection();
+          if (native) {
+            setMode({ m: "compose", kind: intent.kind, ...native, text: "" });
+          } else {
+            const d = display[cursor];
+            if (d) setMode({ m: "compose", kind: intent.kind, dispIdx: cursor, start: 0, end: displayText(d).length, text: "" });
+          }
         }
         return;
       }
@@ -161,13 +323,16 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
         return controller.cut(cursor);
       case "edit":
         return controller.edit();
+      case "editCard":
+        if (focusedAnn) openCardEdit(focusedAnn);
+        return;
       case "nextAnn":
       case "prevAnn": {
         const anns = session?.annotations ?? [];
         if (!anns.length) return;
         const idx = anns.findIndex((a) => a.id === focusedAnn);
         const next = idx === -1 ? 0 : (idx + (intent.t === "nextAnn" ? 1 : -1) + anns.length) % anns.length;
-        return void setFocusedAnn(anns[next]!.id);
+        return void selectCardFromDocument(anns[next]!.id);
       }
       case "removeAnnotation":
         if (focusedAnn) {
@@ -175,12 +340,24 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
           setFocusedAnn(undefined);
         }
         return;
+      case "deselect":
+        renderer?.clearSelection();
+        setFocusedAnn(undefined);
+        setPulseAnn(null);
+        return;
       case "closeOverlay":
         return void setMode({ m: "normal" });
       case "saveCompose": {
-        if (mode.m !== "compose") return;
         const body = liveInput.current.trim();
-        if (session && body) controller.annotate(mode.kind, mode.dispIdx, mode.start, mode.end, body);
+        if (mode.m === "railEdit") {
+          if (session && body) controller.updateAnnotation(mode.id, body);
+          return void setMode({ m: "normal" });
+        }
+        if (mode.m !== "compose") return;
+        if (session && body) {
+          const annotationId = controller.annotate(mode.kind, mode.dispIdx, mode.start, mode.end, body);
+          if (annotationId) setFocusedAnn(annotationId);
+        }
         return void setMode({ m: "normal" });
       }
       case "submitVerdict":
@@ -205,7 +382,7 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
       keys: keysRef.current,
       readOnly,
       overlay:
-        mode.m === "compose"
+        mode.m === "compose" || mode.m === "railEdit"
           ? "compose"
           : mode.m === "submit"
             ? "submit"
@@ -246,6 +423,41 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
     );
   }
 
+  const composeState =
+    mode.m === "compose" && !isDiff
+      ? {
+          kind: mode.kind,
+          dispIdx: mode.dispIdx,
+          quote: displayText(display[mode.dispIdx]!).slice(mode.start, mode.end),
+          text: mode.text,
+          onInput: (text: string) => {
+            liveInput.current = text;
+            setMode({ ...mode, text });
+          },
+          onSave: () => dispatch({ t: "saveCompose" }),
+          onCancel: () => dispatch({ t: "closeOverlay" }),
+        }
+      : null;
+
+  const registerLine = (key: string, renderable: TextRenderable | null, meta: Omit<PlanLineRef, "renderable">): void => {
+    if (renderable) lineRefs.current.set(key, { renderable, ...meta });
+    else lineRefs.current.delete(key);
+  };
+
+  const onLineActivate = (dispIdx: number): void => {
+    // releasing a drag-selection lands here too; a live selection is not a click
+    if (renderer?.hasSelection) return;
+    setCursor(dispIdx);
+    const annotationId = marks.get(dispIdx)?.[0]?.annotationId;
+    if (annotationId) selectCardFromDocument(annotationId);
+  };
+
+  const onEditRequest = (): void => {
+    if (readOnly) return controller.setStatus("observer - read-only");
+    if (resolved) return controller.setStatus("review submitted - read-only");
+    controller.edit();
+  };
+
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: T.bg }}>
       <box style={{ height: 1, backgroundColor: T.panel, paddingLeft: 1, flexDirection: "row" }}>
@@ -261,12 +473,48 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
         {isDiff ? (
           <DiffPane rows={rows} cursor={cursor} annotations={s.annotations} focusedAnn={focusedAnn} />
         ) : (
-          <PlanPane display={display} marks={marks} cursor={cursor} mode={mode} />
+          <PlanPane
+            display={display}
+            marks={marks}
+            cursor={cursor}
+            mode={mode}
+            session={s}
+            editOrphanCount={editOrphanCount}
+            compose={composeState}
+            registerLine={registerLine}
+            onLineActivate={onLineActivate}
+            onEditRequest={onEditRequest}
+            docScrollRef={docScrollRef}
+          />
         )}
-        <Rail session={s} focusedAnn={focusedAnn} pendingCount={pendingCount} />
+        <Rail
+          session={s}
+          selectedId={focusedAnn}
+          resolvedIds={isDiff ? null : resolvedIds}
+          railTab={railTab}
+          pendingCount={pendingCount}
+          cardEdit={
+            mode.m === "railEdit"
+              ? {
+                  id: mode.id,
+                  text: mode.text,
+                  onInput: (text: string) => {
+                    liveInput.current = text;
+                    setMode({ m: "railEdit", id: mode.id, text });
+                  },
+                  onSave: () => dispatch({ t: "saveCompose" }),
+                  onCancel: () => dispatch({ t: "closeOverlay" }),
+                }
+              : null
+          }
+          onTab={setRailTab}
+          onSelectCard={selectCardFromRail}
+          onActivateCard={openCardEdit}
+          railScrollRef={railScrollRef}
+        />
       </box>
-      {mode.m === "compose" ? (
-        <ComposeBar mode={mode} quote={isDiff ? (rows[mode.dispIdx]?.text ?? "") : displayText(display[mode.dispIdx]!).slice(mode.start, mode.end)} onChange={(text) => { liveInput.current = text; setMode({ ...mode, text }); }} />
+      {mode.m === "compose" && isDiff ? (
+        <ComposeBar mode={mode} quote={rows[mode.dispIdx]?.text ?? ""} onChange={(text) => { liveInput.current = text; setMode({ ...mode, text }); }} />
       ) : mode.m === "submit" ? (
         <SubmitBar mode={mode} pendingCount={pendingCount} onChange={(summary) => { liveInput.current = summary; setMode({ ...mode, summary }); }} />
       ) : (
@@ -276,7 +524,11 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
               ? "observer - read-only · j/k move · n/p annotations · q quit"
               : mode.m === "span"
                 ? "span · l/h grow/shrink · w/b slide · $ end · c comment · s suggest · esc"
-                : "j/k move · v span · c comment · s suggest · x cut · e edit · n/p annotations · ⏎ submit · q quit"}
+                : mode.m === "compose" || mode.m === "railEdit"
+                  ? "typing · ⏎ save · esc cancel"
+                  : focusedAnn !== undefined
+                    ? "card · e edit · x Cut · n/p cards · esc deselect · ⏎ submit"
+                    : "j/k move · v span · drag selects · c comment · s suggest · x cut · e edit · n/p annotations · ⏎ submit · q quit"}
           </text>
         </box>
       )}
@@ -286,44 +538,83 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
 
 // ── panes ─────────────────────────────────────
 
+interface ComposeState {
+  kind: "comment" | "suggestion";
+  dispIdx: number;
+  quote: string;
+  text: string;
+  onInput: (text: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
 function PlanPane({
   display,
   marks,
   cursor,
   mode,
+  session,
+  editOrphanCount,
+  compose,
+  registerLine,
+  onLineActivate,
+  onEditRequest,
+  docScrollRef,
 }: {
   display: DisplayBlock[];
-  marks: Map<number, { start: number; end: number; role: StyleRun["role"]; annotationId?: string }[]>;
+  marks: Map<number, Mark[]>;
   cursor: number;
   mode: Mode;
+  session: ReviewSession;
+  editOrphanCount: number;
+  compose: ComposeState | null;
+  registerLine: (key: string, renderable: TextRenderable | null, meta: Omit<PlanLineRef, "renderable">) => void;
+  onLineActivate: (dispIdx: number) => void;
+  onEditRequest: () => void;
+  docScrollRef: React.RefObject<ScrollBoxRenderable | null>;
 }): React.ReactNode {
   const width = 76;
-  return (
-    <scrollbox style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }} focused={false}>
-      {display.map((d, i) => {
-        const isCursor = i === cursor;
-        const gap = topGap(display[i - 1], d);
-        if (d.kind === "code") {
-          return (
-            <CodeBlock
-              key={i}
-              block={d}
-              isCursor={isCursor}
-              gap={gap}
-              annotated={(marks.get(i) ?? []).length > 0}
-            />
-          );
-        }
-        const blockMarks = [...(marks.get(i) ?? [])];
-        if (mode.m === "span" && mode.span.dispIdx === i) {
-          blockMarks.push({ start: mode.span.start, end: mode.span.end, role: "kspan" });
-        }
-        const runs = overlayMarks(blockRuns(d, true), blockMarks);
-        const lines = wrapRuns(runs, width - marker(d).length);
-        return (
-          <box key={i} style={{ flexDirection: "column", marginTop: gap }}>
-            {lines.map((line, li) => (
-              <text key={li} bg={isCursor ? T.cursorBg : undefined}>
+  const children: React.ReactNode[] = [];
+  for (let i = 0; i < display.length; i++) {
+    const d = display[i]!;
+    const isCursor = i === cursor;
+    const gap = topGap(display[i - 1], d);
+    if (d.kind === "code") {
+      children.push(
+        <CodeBlock key={i} id={`plan-block-${i}`} block={d} isCursor={isCursor} gap={gap} annotated={(marks.get(i) ?? []).length > 0} />,
+      );
+    } else {
+      const blockMarks = [...(marks.get(i) ?? [])];
+      if (mode.m === "span" && mode.span.dispIdx === i) {
+        blockMarks.push({ start: mode.span.start, end: mode.span.end, role: "kspan" });
+      }
+      // the compose anchor stays painted selection-style while the box is open
+      if (mode.m === "compose" && mode.dispIdx === i) {
+        blockMarks.push({ start: mode.start, end: mode.end, role: "kspan" });
+      }
+      const runs = overlayMarks(blockRuns(d, true), blockMarks);
+      const lines = wrapRuns(runs, width - marker(d).length);
+      const prefixColumns = 2 + marker(d).length;
+      children.push(
+        <box key={i} id={`plan-block-${i}`} style={{ flexDirection: "column", marginTop: gap }}>
+          {lines.map((line, li) => {
+            const positioned = line.filter((run) => run.start !== null);
+            const lineStart = positioned.length ? positioned[0]!.start : null;
+            const lastPositioned = positioned[positioned.length - 1];
+            const textLength =
+              lineStart !== null && lastPositioned ? lastPositioned.start! + lastPositioned.text.length - lineStart : 0;
+            return (
+              <text
+                key={li}
+                bg={isCursor ? T.cursorBg : undefined}
+                selectable
+                selectionBg={T.accent}
+                selectionFg={T.accentInk}
+                ref={(renderable: TextRenderable | null) =>
+                  registerLine(`${i}:${li}`, renderable, { dispIdx: i, lineIndex: li, lineStart, prefixColumns, textLength })
+                }
+                onMouseUp={() => onLineActivate(i)}
+              >
                 <span fg={isCursor ? T.accent : T.textDim}>{li === 0 ? cursorGlyph(isCursor) : "  "}</span>
                 <span fg={T.textDim}>{li === 0 ? marker(d) : " ".repeat(marker(d).length)}</span>
                 {line.map((r, ri) => (
@@ -333,20 +624,70 @@ function PlanPane({
                 ))}
                 {li === 0 && d.type !== "same" ? <span fg={tagColor(d)}> [{tagLabel(d)}]</span> : null}
               </text>
-            ))}
-          </box>
-        );
-      })}
-    </scrollbox>
+            );
+          })}
+        </box>,
+      );
+    }
+    if (compose && compose.dispIdx === i) {
+      children.push(
+        <AnnotationCard
+          key={`compose-${i}`}
+          kind={compose.kind}
+          quote={compose.quote}
+          draft={{ text: compose.text, onInput: compose.onInput, onSave: compose.onSave, onCancel: compose.onCancel }}
+        />,
+      );
+    }
+  }
+  return (
+    <box style={{ flexGrow: 1, flexDirection: "column" }}>
+      <SheetHeader session={session} onEditRequest={onEditRequest} />
+      {editOrphanCount > 0 ? (
+        <box style={{ height: 1, backgroundColor: T.markCommentBg, paddingLeft: 2 }}>
+          <text fg={T.red}>
+            {editOrphanCount} annotation{editOrphanCount === 1 ? "" : "s"} no longer match - the passage was removed.
+          </text>
+        </box>
+      ) : null}
+      <scrollbox ref={docScrollRef} style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }} focused={false}>
+        {children}
+      </scrollbox>
+    </box>
+  );
+}
+
+/** Sheet chrome: submitted-by + revision delta left, the Edit word-button right. */
+function SheetHeader({ session, onEditRequest }: { session: ReviewSession; onEditRequest: () => void }): React.ReactNode {
+  const revisionCount = session.revisions.length;
+  const previous = revisionCount > 1 ? session.revisions[revisionCount - 2] : undefined;
+  const delta = previous ? revisionDelta(previous.content, session.artifact.content) : null;
+  return (
+    <box style={{ height: 1, flexDirection: "row", paddingLeft: 2, paddingRight: 1 }}>
+      <text fg={T.textDim}>
+        submitted by <span fg={T.textMuted}>{session.artifact.meta.agent ?? "unknown"}</span> · revision {revisionCount}
+        {delta ? (
+          <span fg={T.green}>
+            {" "}· v{revisionCount - 1}→v{revisionCount} +{delta.added} -{delta.removed}
+          </span>
+        ) : null}
+      </text>
+      <box style={{ flexGrow: 1 }} />
+      <box onMouseUp={onEditRequest}>
+        <text fg={T.textDim}> Edit </text>
+      </box>
+    </box>
   );
 }
 
 function CodeBlock({
+  id,
   block,
   isCursor,
   gap,
   annotated,
 }: {
+  id: string;
   block: DisplayBlock;
   isCursor: boolean;
   gap: number;
@@ -367,7 +708,7 @@ function CodeBlock({
   }, [content, lang]);
   const lines: CodeToken[][] = tokens ?? content.split("\n").map((l) => [{ content: l }]);
   return (
-    <box style={{ flexDirection: "column", marginTop: gap }}>
+    <box id={id} style={{ flexDirection: "column", marginTop: gap }}>
       <text>
         <span fg={isCursor ? T.accent : T.textDim}>{cursorGlyph(isCursor)}</span>
         <span fg={T.textDim}>{lang ?? "code"}</span>
@@ -411,45 +752,191 @@ function topGap(prev: DisplayBlock | undefined, cur: DisplayBlock): number {
   return tightPair ? 0 : 1;
 }
 
+// ── the rail ──────────────────────────────────
+
+interface CardEditState {
+  id: string;
+  text: string;
+  onInput: (text: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
 function Rail({
   session,
-  focusedAnn,
+  selectedId,
+  resolvedIds,
+  railTab,
   pendingCount,
+  cardEdit,
+  onTab,
+  onSelectCard,
+  onActivateCard,
+  railScrollRef,
 }: {
   session: ReviewSession;
-  focusedAnn?: string;
+  selectedId?: string;
+  /** Ids whose anchor resolved; null = orphan display off (diff view). */
+  resolvedIds: Set<string> | null;
+  railTab: RailTab;
   pendingCount: number;
+  cardEdit: CardEditState | null;
+  onTab: (tab: RailTab) => void;
+  onSelectCard: (id: string) => void;
+  onActivateCard: (id: string) => void;
+  railScrollRef: React.RefObject<ScrollBoxRenderable | null>;
 }): React.ReactNode {
   return (
     <box style={{ width: 34, backgroundColor: T.panel, flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
-      <text fg={T.textDim}>REVIEW ({pendingCount})</text>
-      <text fg={T.textDim}>{session.workingCopy !== undefined ? "± plan edits → one diff" : "  no direct edits"}</text>
+      <box style={{ height: 1, flexDirection: "row" }}>
+        <box onMouseUp={() => onTab("review")}>
+          <text fg={railTab === "review" ? T.accent : T.textDim}>Review ({pendingCount})</text>
+        </box>
+        <text fg={T.textDim}>{"   "}</text>
+        <box onMouseUp={() => onTab("agent")}>
+          <text fg={railTab === "agent" ? T.accent : T.textDim}>Agent</text>
+        </box>
+      </box>
       <text> </text>
-      {session.annotations.length === 0 ? (
-        <text fg={T.textDim}>no annotations yet</text>
+      {railTab === "agent" ? (
+        <AgentTab session={session} />
       ) : (
-        session.annotations.map((a) => <AnnCard key={a.id} a={a} focused={a.id === focusedAnn} />)
+        <>
+          {session.workingCopy !== undefined ? <text fg={T.textDim}>± plan edits → one diff</text> : null}
+          {session.annotations.length === 0 ? (
+            <text fg={T.textDim}>no annotations yet</text>
+          ) : (
+            <scrollbox ref={railScrollRef} style={{ flexGrow: 1 }} focused={false}>
+              {session.annotations.map((annotation) => (
+                <AnnotationCard
+                  key={annotation.id}
+                  kind={annotation.kind}
+                  quote={annotation.anchor.quote}
+                  saved={{
+                    body: annotation.body,
+                    selected: annotation.id === selectedId,
+                    orphan: resolvedIds !== null && !resolvedIds.has(annotation.id),
+                    blocking: annotationBlocking(annotation),
+                    editing:
+                      cardEdit && cardEdit.id === annotation.id
+                        ? { text: cardEdit.text, onInput: cardEdit.onInput, onSave: cardEdit.onSave, onCancel: cardEdit.onCancel }
+                        : null,
+                    onMouseUp: () =>
+                      annotation.id === selectedId ? onActivateCard(annotation.id) : onSelectCard(annotation.id),
+                  }}
+                />
+              ))}
+            </scrollbox>
+          )}
+          <box style={{ flexGrow: 1 }} />
+          <text fg={session.status === "resolved" ? T.green : T.accent}>
+            {session.status === "resolved" ? `resolved: ${session.verdict!.kind.replace("_", " ")}` : `Submit review (${pendingCount}) ⏎`}
+          </text>
+        </>
       )}
-      <box style={{ flexGrow: 1 }} />
-      <text fg={session.status === "resolved" ? T.green : T.accent}>
-        {session.status === "resolved" ? `resolved: ${session.verdict!.kind.replace("_", " ")}` : `Submit review (${pendingCount}) ⏎`}
-      </text>
     </box>
   );
 }
 
-function AnnCard({ a, focused }: { a: Annotation; focused: boolean }): React.ReactNode {
-  const color = a.kind === "suggestion" ? T.green : T.accent;
+/** Agent tab: who submitted, where the session stands, which revision. */
+function AgentTab({ session }: { session: ReviewSession }): React.ReactNode {
   return (
-    <box style={{ flexDirection: "column", marginBottom: 1 }}>
-      <text fg={focused ? T.text : color}>
-        {focused ? "▸ " : "  "}
-        {a.kind.toUpperCase()}
-      </text>
-      <text fg={T.textDim}>  “{truncate(a.anchor.quote, 26)}”</text>
-      <text fg={T.textMuted}>  {truncate(a.body, 28)}</text>
+    <box style={{ flexDirection: "column", flexGrow: 1 }}>
+      <text fg={T.textMuted}>{session.artifact.meta.agent ?? "unknown"}</text>
+      <text fg={T.textDim}>status: {session.status}</text>
+      <text fg={T.textDim}>revision {session.revisions.length}</text>
     </box>
   );
+}
+
+/**
+ * The composer and the rail card are one component in two modes: draft props
+ * attached (bordered box inline in the document flow) or saved props attached
+ * (rail card, optionally editing its body in place). Compose, saved, and
+ * re-edit all share this rendering path.
+ */
+function AnnotationCard({
+  kind,
+  quote,
+  draft,
+  saved,
+}: {
+  kind: string;
+  quote: string;
+  draft?: { text: string; onInput: (text: string) => void; onSave: () => void; onCancel: () => void };
+  saved?: {
+    body: string;
+    selected: boolean;
+    orphan: boolean;
+    blocking: boolean;
+    editing: { text: string; onInput: (text: string) => void; onSave: () => void; onCancel: () => void } | null;
+    onMouseUp: () => void;
+  };
+}): React.ReactNode {
+  const color = kind === "suggestion" ? T.green : T.accent;
+  if (draft) {
+    const verb = kind === "suggestion" ? "suggest replacement for" : "comment on";
+    return (
+      <box
+        style={{
+          height: composeBoxHeight(),
+          marginLeft: 2,
+          marginRight: 2,
+          border: true,
+          borderStyle: "rounded",
+          borderColor: color,
+          backgroundColor: T.elevated,
+          flexDirection: "column",
+          paddingLeft: 1,
+        }}
+        title={` ${verb} "${truncate(quote, 40)}" `}
+      >
+        <input focused value={draft.text} onInput={draft.onInput} placeholder="write a note..." />
+        <SaveCancelRow onSave={draft.onSave} onCancel={draft.onCancel} />
+      </box>
+    );
+  }
+  const card = saved!;
+  return (
+    <box
+      style={{ flexDirection: "column", marginBottom: 1, backgroundColor: card.selected ? T.elevated : undefined }}
+      onMouseUp={card.onMouseUp}
+    >
+      <text fg={card.selected ? T.text : color}>
+        {card.selected ? "▸ " : "  "}
+        {kind.toUpperCase()}
+        {card.blocking ? <span fg={T.red}> · BLOCKING</span> : null}
+        <span fg={T.textDim}>{card.orphan ? " · ORPHANED" : " · pending"}</span>
+      </text>
+      <text fg={T.textDim}>  "{truncate(quote, 26)}"</text>
+      {card.editing ? (
+        <>
+          <input focused value={card.editing.text} onInput={card.editing.onInput} />
+          <SaveCancelRow onSave={card.editing.onSave} onCancel={card.editing.onCancel} />
+        </>
+      ) : (
+        <text fg={card.orphan ? T.textDim : T.textMuted}>  {truncate(card.body, 28)}</text>
+      )}
+    </box>
+  );
+}
+
+function SaveCancelRow({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }): React.ReactNode {
+  return (
+    <box style={{ flexDirection: "row", height: 1 }}>
+      <box style={{ backgroundColor: T.accent, marginRight: 2 }} onMouseUp={onSave}>
+        <text fg={T.accentInk}> Save ⏎ </text>
+      </box>
+      <box onMouseUp={onCancel}>
+        <text fg={T.textDim}> Cancel esc </text>
+      </box>
+    </box>
+  );
+}
+
+/** Forward-compatible: open annotation kinds may carry a blocking flag. */
+function annotationBlocking(annotation: Annotation): boolean {
+  return (annotation as Annotation & { blocking?: boolean }).blocking === true;
 }
 
 function Inbox({ inbox, cursor }: { inbox: ReviewSession[]; cursor: number }): React.ReactNode {
@@ -473,6 +960,7 @@ function Inbox({ inbox, cursor }: { inbox: ReviewSession[]; cursor: number }): R
   );
 }
 
+/** Bottom compose bar - the diff view still composes here. */
 function ComposeBar({
   mode,
   quote,

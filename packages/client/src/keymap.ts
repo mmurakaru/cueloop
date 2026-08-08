@@ -20,9 +20,11 @@ export type Intent =
   | { t: "openSubmit" }
   | { t: "cut" }
   | { t: "edit" }
+  | { t: "editCard" }
   | { t: "nextAnn" }
   | { t: "prevAnn" }
   | { t: "removeAnnotation" }
+  | { t: "deselect" }
   | { t: "closeOverlay" }
   | { t: "saveCompose" }
   | { t: "submitVerdict" }
@@ -92,7 +94,7 @@ export function reduceKey(state: KeyState, key: KeyInput): Intent[] {
   if (state.view === "inbox") return inboxGrammar(state, name);
   if (state.view === "diff") return diffGrammar(state, action);
   if (state.spanMode) return spanGrammar(name);
-  return planGrammar(state, action);
+  return planGrammar(state, action, name);
 }
 
 function inboxGrammar(state: KeyState, name: string): Intent[] {
@@ -128,9 +130,10 @@ function spanGrammar(name: string): Intent[] {
   return [];
 }
 
-function planGrammar(state: KeyState, action: string | undefined): Intent[] {
+function planGrammar(state: KeyState, action: string | undefined, name: string): Intent[] {
   const nav = navIntent(action);
   if (nav) return nav;
+  if (name === "escape") return [{ t: "deselect" }];
   if (action === "span") return state.cursorAnnotatable ? [{ t: "startSpan" }] : [];
   if (action === "comment" || action === "suggest") {
     if (state.resolved) return status("review submitted - read-only");
@@ -139,6 +142,9 @@ function planGrammar(state: KeyState, action: string | undefined): Intent[] {
   }
   if (action === "cut" || action === "edit") {
     if (state.resolved) return status("review submitted - read-only");
+    // the document selects, the rail edits: with a card selected, Cut deletes
+    // the annotation and edit rewrites the card body in place
+    if (state.hasFocusedAnnotation) return [action === "cut" ? { t: "removeAnnotation" } : { t: "editCard" }];
     return [{ t: action }];
   }
   return annotationCluster(state, action) ?? [];

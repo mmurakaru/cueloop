@@ -149,11 +149,11 @@ describe("slice 1: Claude Code plan round-trip", () => {
     await key("enter");
     // wait until the annotate round-trip lands in the rail before submitting
     const railDeadline = Date.now() + POLL_TIMEOUT_MS;
-    while (railDeadline > Date.now() && !setup.captureCharFrame().includes("REVIEW (1)")) {
+    while (railDeadline > Date.now() && !setup.captureCharFrame().includes("Review (1)")) {
       await Bun.sleep(25);
       await setup.renderOnce();
     }
-    expect(setup.captureCharFrame()).toContain("REVIEW (1)");
+    expect(setup.captureCharFrame()).toContain("Review (1)");
     await key("enter"); // open submit (request_changes default with pending item)
     expect(setup.captureCharFrame()).toContain("[Request changes]");
     await setup.mockInput.typeText("Too aggressive.");

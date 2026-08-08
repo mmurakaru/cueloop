@@ -12,6 +12,8 @@ import {
   cutBlock,
   makeAnchor,
   newAnnotationId,
+  parseBlocks,
+  resolveAnchor,
   restoreBlock,
   restoreLine,
   type ReviewSession,
@@ -42,6 +44,11 @@ export interface ControllerSnapshot {
   status: string;
   error: string | null;
   completion: Completion;
+  /**
+   * Annotations whose anchor stopped resolving after the last editor
+   * hand-off - the reconciliation banner count. 0 = no banner.
+   */
+  editOrphanCount: number;
 }
 
 export interface ReviewControllerOptions {
@@ -73,8 +80,13 @@ export interface ReviewController {
   cut(dispIdx: number): void;
   /** The $EDITOR hand-off on the working copy. */
   edit(): void;
-  /** Anchor and store an annotation; both plan and diff anchor constructions. */
-  annotate(kind: "comment" | "suggestion", dispIdx: number, start: number, end: number, body: string): void;
+  /**
+   * Anchor and store an annotation; both plan and diff anchor constructions.
+   * Returns the minted annotation id so the view can select the new card.
+   */
+  annotate(kind: "comment" | "suggestion", dispIdx: number, start: number, end: number, body: string): string | undefined;
+  /** Rewrite a stored annotation's body in place (the rail-card edit). */
+  updateAnnotation(id: string, body: string): void;
   removeAnnotation(id: string): void;
   setWorkingCopy(content: string | undefined): void;
   /** Resolve the review, run the export, start the completion hand-back. */
@@ -100,6 +112,7 @@ class Controller implements ReviewController {
     status: "",
     error: null,
     completion: { phase: "idle" },
+    editOrphanCount: 0,
   };
   private listeners = new Set<() => void>();
   private autoClose: AutoClose = "off";
@@ -244,6 +257,7 @@ class Controller implements ReviewController {
       const result = editInEditor(this.working(), "plan.md");
       if (result.changed) {
         this.setWorkingCopy(result.content);
+        this.reconcileAnnotations(session, result.content);
         this.setStatus("edits tracked - one diff");
       } else this.setStatus("no changes");
     } catch (err) {
@@ -251,9 +265,29 @@ class Controller implements ReviewController {
     }
   }
 
-  annotate(kind: "comment" | "suggestion", dispIdx: number, start: number, end: number, body: string): void {
+  /**
+   * Edit-exit reconciliation: re-resolve every annotation against the edited
+   * working copy with the quote-primary cascade. Annotations that stop
+   * resolving stay stored (the feedback serializer flags orphaned anchors);
+   * the count feeds the one-line banner above the sheet.
+   */
+  private reconcileAnnotations(session: ReviewSession, editedContent: string): void {
+    const editedBlocks = parseBlocks(editedContent);
+    const orphanCount = session.annotations.filter(
+      (annotation) => resolveAnchor(annotation.anchor, editedBlocks) === null,
+    ).length;
+    this.update({ editOrphanCount: orphanCount });
+  }
+
+  annotate(
+    kind: "comment" | "suggestion",
+    dispIdx: number,
+    start: number,
+    end: number,
+    body: string,
+  ): string | undefined {
     const session = this.snap.session;
-    if (!session) return;
+    if (!session) return undefined;
     let anchor;
     if (session.artifact.type === "diff") {
       anchor = { ...diffRowAnchor(this.rows(), dispIdx), blockIndex: dispIdx };
@@ -263,15 +297,34 @@ class Controller implements ReviewController {
       const workIdx = display.slice(0, dispIdx + 1).filter((d) => d.work).length - 1;
       anchor = makeAnchor(workBlocks, workIdx, start, end);
     }
+    const annotationId = newAnnotationId();
     this.apply(
       this.client!.sessionAnnotate(session.id, {
-        id: newAnnotationId(),
+        id: annotationId,
         kind,
         anchor,
         body,
       }),
     );
     this.setStatus(kind === "suggestion" ? "suggestion added - the agent applies it" : "comment added");
+    return annotationId;
+  }
+
+  updateAnnotation(id: string, body: string): void {
+    const session = this.snap.session;
+    if (!session) return;
+    const existing = session.annotations.find((annotation) => annotation.id === id);
+    if (!existing) return;
+    // the daemon's annotate verb upserts by id: same id + anchor, new body
+    this.apply(
+      this.client!.sessionAnnotate(session.id, {
+        id: existing.id,
+        kind: existing.kind,
+        anchor: existing.anchor,
+        body,
+      }),
+    );
+    this.setStatus("annotation updated");
   }
 
   removeAnnotation(id: string): void {

@@ -11,7 +11,9 @@ export interface RunClientOptions {
 }
 
 export async function runClient(opts: RunClientOptions): Promise<number> {
-  const renderer = await createCliRenderer();
+  // mouse movement reporting makes multiplexers forward drags to the app,
+  // so the renderer's native selection is the drag driver
+  const renderer = await createCliRenderer({ enableMouseMovement: true });
   return new Promise<number>((resolve) => {
     createRoot(renderer).render(
       React.createElement(App, {

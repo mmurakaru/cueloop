@@ -86,7 +86,7 @@ describe("plan rendering", () => {
     expect(frame).toContain("Context");
     expect(frame).toContain("persists sessions to disk atomically");
     expect(frame).toContain("- move the store");
-    expect(frame).toContain("REVIEW (0)");
+    expect(frame).toContain("Review (0)");
     expect(frame).toContain("Submit review (0)");
   });
 });
@@ -108,7 +108,7 @@ describe("keyboard grammar", () => {
     await press(setup, "j");
     await press(setup, "c");
     await setup.renderOnce();
-    expect(setup.captureCharFrame()).toContain("COMMENT ON");
+    expect(setup.captureCharFrame()).toContain('comment on "The daemon');
     await type(setup, "Define atomically.");
     await press(setup, "enter");
     await Bun.sleep(80);

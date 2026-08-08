@@ -126,14 +126,15 @@ describe("plan normal mode", () => {
     ["v", false, [{ t: "startSpan" }]],
     ["c", false, [{ t: "openCompose", kind: "comment", from: "cursor" }]],
     ["s", false, [{ t: "openCompose", kind: "suggestion", from: "cursor" }]],
-    ["x", false, [{ t: "cut" }]],
-    ["e", false, [{ t: "edit" }]],
+    // the default state has a selected card, so Cut and edit act on the card
+    ["x", false, [{ t: "removeAnnotation" }]],
+    ["e", false, [{ t: "editCard" }]],
     ["n", false, [{ t: "nextAnn" }]],
     ["p", false, [{ t: "prevAnn" }]],
     ["backspace", false, [{ t: "removeAnnotation" }]],
     ["return", false, [{ t: "openSubmit" }]],
     ["q", false, [{ t: "exit" }]],
-    ["escape", false, []],
+    ["escape", false, [{ t: "deselect" }]],
     ["z", false, []],
   ];
   for (const [name, shift, expected] of table) {
@@ -163,6 +164,12 @@ describe("plan normal mode", () => {
     expect(reduceKey(none, key("n"))).toEqual([{ t: "status", msg: "no annotations" }]);
     expect(reduceKey(none, key("p"))).toEqual([{ t: "status", msg: "no annotations" }]);
     expect(reduceKey(none, key("backspace"))).toEqual([]);
+  });
+
+  test("without a selected card x cuts the block and e opens the editor", () => {
+    const unfocused = state({ hasFocusedAnnotation: false });
+    expect(reduceKey(unfocused, key("x"))).toEqual([{ t: "cut" }]);
+    expect(reduceKey(unfocused, key("e"))).toEqual([{ t: "edit" }]);
   });
 });
 
