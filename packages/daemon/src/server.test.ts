@@ -93,6 +93,17 @@ describe("socket round-trip", () => {
     expect((await client.sessionGet(s.id)).id).toBe(s.id);
   });
 
+  test("meta fields survive the wire: herdrPane set on create comes back from get", async () => {
+    const s = await client.sessionCreate(WS, {
+      type: "plan",
+      content: "# P",
+      meta: { agent: "claude-code", herdrPane: "%7" },
+    });
+    const got = await client.sessionGet(s.id);
+    expect(got.artifact.meta.herdrPane).toBe("%7");
+    expect(got.artifact.meta.agent).toBe("claude-code");
+  });
+
   test("two clients see the same state (thin-renderer model)", async () => {
     const second = await DaemonClient.connect({ home });
     const s = await client.sessionCreate(WS, PLAN);

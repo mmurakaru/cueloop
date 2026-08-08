@@ -10,31 +10,50 @@
  */
 
 import * as v from "valibot";
-import { SCHEMA_VERSION } from "@cueloop/schema";
+import {
+  SCHEMA_VERSION,
+  type Anchor,
+  type Annotation,
+  type Artifact,
+  type ArtifactMeta,
+  type ReviewSession,
+  type Revision,
+  type Verdict,
+  type WorkspaceKey,
+} from "@cueloop/schema";
 import { DaemonError } from "./errors";
+
+/**
+ * Drift guard for every hand-mirrored shape below. v.object strips keys it
+ * does not know, so a schema missing a field silently drops that field on
+ * the way into DaemonCore. Each entries object is checked with
+ * `satisfies EntriesOf<T>`: adding a field to the schema types without
+ * mirroring it here (or mirroring a key that does not exist) fails typecheck.
+ */
+type EntriesOf<T> = { [K in keyof T]-?: v.GenericSchema<any, any> };
 
 const NonEmpty = v.pipe(v.string(), v.minLength(1));
 
 export const WorkspaceSchema = v.object({
   repoRoot: NonEmpty,
   branch: NonEmpty,
-});
+} satisfies EntriesOf<WorkspaceKey>);
+
+export const ArtifactMetaSchema = v.object({
+  cwd: v.optional(v.string()),
+  agent: v.optional(v.string()),
+  agentSessionId: v.optional(v.string()),
+  planPath: v.optional(v.string()),
+  pr: v.optional(v.string()),
+  herdrPane: v.optional(v.string()),
+  title: v.optional(v.string()),
+} satisfies EntriesOf<ArtifactMeta>);
 
 export const ArtifactSchema = v.object({
   type: v.picklist(["plan", "diff"]),
   content: v.string(),
-  meta: v.optional(
-    v.object({
-      cwd: v.optional(v.string()),
-      agent: v.optional(v.string()),
-      agentSessionId: v.optional(v.string()),
-      planPath: v.optional(v.string()),
-      title: v.optional(v.string()),
-      pr: v.optional(v.string()),
-    }),
-    {},
-  ),
-});
+  meta: v.optional(ArtifactMetaSchema, {}),
+} satisfies EntriesOf<Artifact>);
 
 export const AnchorSchema = v.object({
   quote: v.string(),
@@ -43,8 +62,9 @@ export const AnchorSchema = v.object({
   blockIndex: v.optional(v.number()),
   start: v.optional(v.number()),
   end: v.optional(v.number()),
-});
+} satisfies EntriesOf<Anchor>);
 
+/** Wire annotations arrive without createdAt - the daemon stamps it. */
 export const AnnotationSchema = v.object({
   id: NonEmpty,
   /** Open kind set (#2): built-ins are comment and suggestion. */
@@ -52,7 +72,7 @@ export const AnnotationSchema = v.object({
   anchor: AnchorSchema,
   body: v.string(),
   orphan: v.optional(v.boolean()),
-});
+} satisfies EntriesOf<Omit<Annotation, "createdAt">>);
 
 const SessionId = NonEmpty;
 
@@ -103,26 +123,32 @@ export function parseParams<M extends MethodName>(method: M, params: unknown): v
   return result.output;
 }
 
+export const RevisionSchema = v.object({
+  revision: v.number(),
+  content: v.string(),
+  submittedAt: v.string(),
+} satisfies EntriesOf<Revision>);
+
+export const VerdictSchema = v.object({
+  kind: v.picklist(["comment", "approve", "request_changes"]),
+  summary: v.string(),
+  feedback: v.string(),
+  resolvedAt: v.string(),
+} satisfies EntriesOf<Verdict>);
+
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
 export const SessionRecordSchema = v.object({
   schemaVersion: v.literal(SCHEMA_VERSION),
   id: NonEmpty,
   workspace: WorkspaceSchema,
   artifact: ArtifactSchema,
-  revisions: v.array(v.object({ revision: v.number(), content: v.string(), submittedAt: v.string() })),
-  annotations: v.array(v.object({ ...AnnotationSchema.entries, createdAt: v.string() })),
+  revisions: v.array(RevisionSchema),
+  annotations: v.array(v.object({ ...AnnotationSchema.entries, createdAt: v.string() } satisfies EntriesOf<Annotation>)),
   workingCopy: v.optional(v.string()),
-  verdict: v.nullable(
-    v.object({
-      kind: v.picklist(["comment", "approve", "request_changes"]),
-      summary: v.string(),
-      feedback: v.string(),
-      resolvedAt: v.string(),
-    }),
-  ),
+  verdict: v.nullable(VerdictSchema),
   status: v.picklist(["pending", "resolved"]),
   createdAt: v.string(),
-});
+} satisfies EntriesOf<ReviewSession>);
 
 export function validateSessionRecord(raw: unknown): { ok: true; value: v.InferOutput<typeof SessionRecordSchema> } | { ok: false; error: string } {
   const result = v.safeParse(SessionRecordSchema, raw);
