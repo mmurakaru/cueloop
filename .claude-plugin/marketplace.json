@@ -1,0 +1,15 @@
+{
+  "name": "cueloop",
+  "owner": {
+    "name": "mmurakaru",
+    "email": "hello@cueloop.dev"
+  },
+  "plugins": [
+    {
+      "name": "cueloop",
+      "source": "./",
+      "description": "Review surface for coding agents: the plan gate hook plus /cueloop:plan, /cueloop:diff, /cueloop:review skills",
+      "author": { "name": "mmurakaru" }
+    }
+  ]
+}
