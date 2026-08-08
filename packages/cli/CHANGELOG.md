@@ -1,5 +1,18 @@
 # cueloop
 
+## 0.1.0-alpha.9
+
+### Minor Changes
+
+- [#80](https://github.com/mmurakaru/cueloop/pull/80) [`40c2f7d`](https://github.com/mmurakaru/cueloop/commit/40c2f7ddb79cdc1e23a4202acce1a04a3fd1b8e0) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Plan review surface v2: selection is the entry primitive (mouse drag or keyboard span on one native renderer selection), the compose box opens inline under the anchor instead of the bottom bar, annotation text lives in the rail while the document keeps only the kind-colored highlight, rail cards edit in place, and exiting the editor hand-off re-anchors every annotation - orphaned ones are flagged in the rail with a one-line reconciliation banner above the sheet.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.9
+  - @cueloop/daemon@0.1.0-alpha.9
+  - @cueloop/schema@0.1.0-alpha.9
+
 ## 0.1.0-alpha.8
 
 ### Patch Changes
