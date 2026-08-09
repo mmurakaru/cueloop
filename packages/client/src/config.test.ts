@@ -57,6 +57,31 @@ describe("loadConfig", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("[ui] parses auto_close and the editor override", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg4-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(path, `[ui]\nauto_close = 3\neditor = "code --wait"\n`);
+    try {
+      const config = loadConfig({ userConfigPath: path });
+      expect(config.ui.autoClose).toBe(3);
+      expect(config.ui.editor).toBe("code --wait");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("[ui] editor defaults to undefined and ignores a blank value", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg5-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(path, `[ui]\neditor = "   "\n`);
+    try {
+      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.editor).toBeUndefined();
+      expect(loadConfig({ userConfigPath: path }).ui.editor).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("integrations.obsidian config", () => {

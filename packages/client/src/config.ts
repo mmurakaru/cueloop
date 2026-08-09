@@ -1,7 +1,8 @@
 /**
  * Layered TOML config: built-in defaults → user config → trusted repo
  * config → env. Sections: [keys] action = "combo" (every action rebindable),
- * [theme] per-token overrides, [integrations.obsidian] notes-vault export.
+ * [theme] per-token overrides, [ui] auto_close + editor, [integrations.obsidian]
+ * notes-vault export.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -26,7 +27,7 @@ export type AutoClose = "off" | number;
 export interface CueloopConfig {
   keys: Record<string, string[]>;
   theme: Theme;
-  ui: { autoClose: AutoClose };
+  ui: { autoClose: AutoClose; editor?: string };
   integrations: IntegrationsConfig;
 }
 
@@ -67,11 +68,12 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
       out.keys[action] = Array.isArray(combo) ? combo : [combo];
     }
   }
-  const ui = raw["ui"] as { auto_close?: unknown } | undefined;
+  const ui = raw["ui"] as { auto_close?: unknown; editor?: unknown } | undefined;
   if (ui && ui.auto_close !== undefined) {
     if (ui.auto_close === "off") out.ui.autoClose = "off";
     else if (typeof ui.auto_close === "number" && ui.auto_close >= 0) out.ui.autoClose = ui.auto_close;
   }
+  if (ui && typeof ui.editor === "string" && ui.editor.trim()) out.ui.editor = ui.editor.trim();
   const theme = raw["theme"] as Partial<Record<keyof Theme, string>> | undefined;
   if (theme) {
     for (const [token, value] of Object.entries(theme)) {
