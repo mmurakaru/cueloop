@@ -155,7 +155,7 @@ describe("slice 1: Claude Code plan round-trip", () => {
     }
     expect(setup.captureCharFrame()).toContain("Review (1)");
     await key("enter"); // open submit (request_changes default with pending item)
-    expect(setup.captureCharFrame()).toContain("[Request changes]");
+    expect(setup.captureCharFrame()).toContain("[Changes]");
     await setup.mockInput.typeText("Too aggressive.");
     await key("enter");
 

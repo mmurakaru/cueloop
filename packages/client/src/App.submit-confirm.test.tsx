@@ -1,0 +1,183 @@
+/**
+ * The rail submit confirm (tier 2): pressing submit expands the rail's
+ * Submit button into a bordered confirm card - counts, verdict selector,
+ * summary input, word-buttons. Char-frame assertions over the real App
+ * and an in-process daemon, like App.test.tsx.
+ */
+
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import React from "react";
+import { testRender } from "@opentui/react/test-utils";
+import { DaemonServer } from "@cueloop/daemon";
+import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
+import { App } from "./App";
+
+const PLAN = `# Migration Plan
+
+## Context
+
+The daemon persists sessions to disk atomically.
+
+## Steps
+
+- move the store
+- add recovery
+`;
+
+let home: string;
+let server: DaemonServer;
+let session: ReviewSession;
+
+beforeEach(() => {
+  home = mkdtempSync(join(tmpdir(), "cueloop-confirm-"));
+  server = new DaemonServer({ home, idleExitMs: 0 });
+  server.start();
+  session = server.core.sessionCreate({
+    workspace: { repoRoot: "/repo", branch: "main" },
+    artifact: { type: "plan", content: PLAN, meta: { title: "Migration Plan", planPath: "plan.md" } },
+  });
+});
+afterEach(() => {
+  server.stop();
+  rmSync(home, { recursive: true, force: true });
+});
+
+async function renderApp(options: { readOnly?: boolean } = {}) {
+  const setup = await testRender(<App home={home} sessionId={session.id} readOnly={options.readOnly ?? false} />, {
+    width: 120,
+    height: 32,
+  });
+  for (let i = 0; i < 40 && !setup.captureCharFrame().includes("cueloop"); i++) {
+    await Bun.sleep(25);
+    await setup.renderOnce();
+  }
+  await setup.renderOnce();
+  return setup;
+}
+
+type Setup = Awaited<ReturnType<typeof renderApp>>;
+
+async function press(setup: Setup, k: string): Promise<void> {
+  if (k === "enter") setup.mockInput.pressKey("RETURN");
+  else if (k === "escape") {
+    setup.mockInput.pressKey("ESCAPE");
+    // a bare ESC byte is an ambiguous sequence prefix; the parser settles late
+    await Bun.sleep(120);
+  } else if (k === "left") setup.mockInput.pressKey("ARROW_LEFT");
+  else if (k === "right") setup.mockInput.pressKey("ARROW_RIGHT");
+  else await setup.mockInput.typeText(k);
+  await Bun.sleep(15);
+  await setup.renderOnce();
+}
+
+/** Seed annotations directly through the daemon core (all on one block). */
+function seedAnnotations(count: number): void {
+  const blocks = parseBlocks(PLAN);
+  for (let index = 1; index <= count; index++) {
+    server.core.sessionAnnotate(session.id, {
+      id: `a_confirm_${index}`,
+      kind: "comment",
+      anchor: makeAnchor(blocks, 2, 0, 10),
+      body: `note ${String(index).padStart(2, "0")}`,
+    });
+  }
+}
+
+describe("rail submit confirm", () => {
+  test("submit expands the Submit button into the confirm card", async () => {
+    const setup = await renderApp();
+    expect(setup.captureCharFrame()).toContain("Submit review (0)");
+    await press(setup, "enter");
+    const frame = setup.captureCharFrame();
+    // the card: title, honest counts, verdict selector, word-buttons
+    expect(frame).toContain("submit review");
+    expect(frame).toContain("0 annotations · 0 blocking");
+    expect(frame).toContain("[Approve]"); // nothing pending: approve default
+    expect(frame).toContain(" Submit ");
+    expect(frame).toContain(" Cancel ");
+    // key hints live in the status line, not on the buttons
+    expect(frame).toContain("verdict ←/→ · ⏎ submit · esc cancel");
+    // the bottom bar stayed a one-line hint: no detached verdict bar
+    expect(frame).not.toContain("Submit review (0) on ⏎");
+  });
+
+  test("left/right cycles the verdict selector in the card", async () => {
+    const setup = await renderApp();
+    await press(setup, "enter");
+    expect(setup.captureCharFrame()).toContain("[Approve]");
+    await press(setup, "right");
+    expect(setup.captureCharFrame()).toContain("[Changes]");
+    await press(setup, "right");
+    expect(setup.captureCharFrame()).toContain("[Comment]");
+    await press(setup, "left");
+    expect(setup.captureCharFrame()).toContain("[Changes]");
+  });
+
+  test("esc cancels the card and restores the plain Submit button", async () => {
+    const setup = await renderApp();
+    await press(setup, "enter");
+    expect(setup.captureCharFrame()).toContain("[Approve]");
+    await press(setup, "escape");
+    const frame = setup.captureCharFrame();
+    expect(frame).not.toContain("[Approve]");
+    expect(frame).not.toContain("0 annotations");
+    expect(frame).toContain("Submit review (0)");
+  });
+
+  test("enter in the card resolves the session through the controller", async () => {
+    seedAnnotations(1);
+    const setup = await renderApp();
+    await press(setup, "enter");
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("1 annotations · 0 blocking");
+    expect(frame).toContain("[Changes]"); // pending items: request changes default
+    await setup.mockInput.typeText("Tighten the steps.");
+    await press(setup, "enter");
+    await Bun.sleep(120);
+    await setup.renderOnce();
+    const stored = server.core.sessionGet(session.id);
+    expect(stored.status).toBe("resolved");
+    expect(stored.verdict!.kind).toBe("request_changes");
+    // the completion flow after submit is unchanged
+    expect(setup.captureCharFrame()).toContain("✎ feedback sent");
+  });
+
+  test("the annotation stack stays scrollable while the card is open", async () => {
+    seedAnnotations(12);
+    const setup = await renderApp();
+    // walk annotation focus to the last card: the rail scrolls it into view
+    for (let index = 0; index < 12; index++) await press(setup, "n");
+    const scrolled = setup.captureCharFrame();
+    expect(scrolled).toContain("note 12");
+    expect(scrolled).not.toContain("note 01");
+    await press(setup, "enter");
+    const opened = setup.captureCharFrame();
+    // the card is pinned outside the scrollbox; the stack above stays
+    // scrolled away from the top when the card takes its space
+    expect(opened).toContain("12 annotations · 0 blocking");
+    expect(opened).not.toContain("note 01");
+    // the stack still scrolls with the card open: wheel over the rail
+    // brings the last card back into view while the confirm card stays put
+    for (let turn = 0; turn < 12; turn++) await setup.mockMouse.scroll(100, 10, "down");
+    await setup.renderOnce();
+    const scrolledWithCard = setup.captureCharFrame();
+    expect(scrolledWithCard).toContain("note 12");
+    expect(scrolledWithCard).toContain("12 annotations · 0 blocking");
+    expect(scrolledWithCard).not.toContain("note 01");
+  });
+
+  test("read-only observers never see the confirm card", async () => {
+    seedAnnotations(1);
+    const setup = await renderApp({ readOnly: true });
+    await press(setup, "enter");
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("observer - read-only");
+    expect(frame).not.toContain("1 annotations");
+    expect(frame).not.toContain("[Changes]");
+    expect(setup.captureCharFrame()).not.toContain("verdict ←/→");
+    expect(server.core.sessionGet(session.id).status).toBe("pending");
+  });
+});

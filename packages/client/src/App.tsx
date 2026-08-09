@@ -60,10 +60,11 @@ type Mode =
 type RailTab = "review" | "agent";
 
 const VERDICTS: VerdictKind[] = ["comment", "approve", "request_changes"];
+/** Selector words in the rail confirm card - one word per verdict. */
 const VERDICT_LABEL: Record<VerdictKind, string> = {
   comment: "Comment",
   approve: "Approve",
-  request_changes: "Request changes",
+  request_changes: "Changes",
 };
 
 /** One rendered plan line, registered for the native selection primitive. */
@@ -318,6 +319,8 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
       case "openSubmit":
         if (!session) return;
         liveInput.current = "";
+        // the confirm card lives in the review tab; opening submit reveals it
+        setRailTab("review");
         return void setMode({ m: "submit", verdict: defaultVerdict(session), summary: "" });
       case "cut":
         return controller.cut(cursor);
@@ -458,6 +461,30 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
     controller.edit();
   };
 
+  // clicking the rail Submit button: same read-only answer as the submit key
+  const onSubmitRequest = (): void => {
+    if (readOnly) return controller.setStatus("observer - read-only");
+    if (resolved) return;
+    dispatch({ t: "openSubmit" });
+  };
+
+  const submitConfirmState: SubmitConfirmState | null =
+    mode.m === "submit"
+      ? {
+          verdict: mode.verdict,
+          summary: mode.summary,
+          annotationCount: s.annotations.length,
+          blockingCount: s.annotations.filter(annotationBlocking).length,
+          onInput: (summary: string) => {
+            liveInput.current = summary;
+            setMode({ ...mode, summary });
+          },
+          onSelectVerdict: (verdict: VerdictKind) => setMode({ ...mode, verdict }),
+          onSubmit: () => dispatch({ t: "submitVerdict" }),
+          onCancel: () => dispatch({ t: "closeOverlay" }),
+        }
+      : null;
+
   return (
     <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: T.bg }}>
       <box style={{ height: 1, backgroundColor: T.panel, paddingLeft: 1, flexDirection: "row" }}>
@@ -507,28 +534,30 @@ export function App({ home, sessionId, readOnly = false, onExit }: AppProps): Re
                 }
               : null
           }
+          submitConfirm={submitConfirmState}
           onTab={setRailTab}
           onSelectCard={selectCardFromRail}
           onActivateCard={openCardEdit}
+          onSubmitRequest={onSubmitRequest}
           railScrollRef={railScrollRef}
         />
       </box>
       {mode.m === "compose" && isDiff ? (
         <ComposeBar mode={mode} quote={rows[mode.dispIdx]?.text ?? ""} onChange={(text) => { liveInput.current = text; setMode({ ...mode, text }); }} />
-      ) : mode.m === "submit" ? (
-        <SubmitBar mode={mode} pendingCount={pendingCount} onChange={(summary) => { liveInput.current = summary; setMode({ ...mode, summary }); }} />
       ) : (
         <box style={{ height: 1, backgroundColor: T.panel, paddingLeft: 1 }}>
           <text fg={T.textDim}>
             {readOnly
               ? "observer - read-only · j/k move · n/p annotations · q quit"
-              : mode.m === "span"
-                ? "span · l/h grow/shrink · w/b slide · $ end · c comment · s suggest · esc"
-                : mode.m === "compose" || mode.m === "railEdit"
-                  ? "typing · ⏎ save · esc cancel"
-                  : focusedAnn !== undefined
-                    ? "card · e edit · x Cut · n/p cards · esc deselect · ⏎ submit"
-                    : "j/k move · v span · drag selects · c comment · s suggest · x cut · e edit · n/p annotations · ⏎ submit · q quit"}
+              : mode.m === "submit"
+                ? "verdict ←/→ · ⏎ submit · esc cancel"
+                : mode.m === "span"
+                  ? "span · l/h grow/shrink · w/b slide · $ end · c comment · s suggest · esc"
+                  : mode.m === "compose" || mode.m === "railEdit"
+                    ? "typing · ⏎ save · esc cancel"
+                    : focusedAnn !== undefined
+                      ? "card · e edit · x Cut · n/p cards · esc deselect · ⏎ submit"
+                      : "j/k move · v span · drag selects · c comment · s suggest · x cut · e edit · n/p annotations · ⏎ submit · q quit"}
           </text>
         </box>
       )}
@@ -762,6 +791,18 @@ interface CardEditState {
   onCancel: () => void;
 }
 
+/** The open confirm card: verdict, summary draft, counts, and its actions. */
+interface SubmitConfirmState {
+  verdict: VerdictKind;
+  summary: string;
+  annotationCount: number;
+  blockingCount: number;
+  onInput: (summary: string) => void;
+  onSelectVerdict: (verdict: VerdictKind) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+}
+
 function Rail({
   session,
   selectedId,
@@ -769,9 +810,11 @@ function Rail({
   railTab,
   pendingCount,
   cardEdit,
+  submitConfirm,
   onTab,
   onSelectCard,
   onActivateCard,
+  onSubmitRequest,
   railScrollRef,
 }: {
   session: ReviewSession;
@@ -781,9 +824,11 @@ function Rail({
   railTab: RailTab;
   pendingCount: number;
   cardEdit: CardEditState | null;
+  submitConfirm: SubmitConfirmState | null;
   onTab: (tab: RailTab) => void;
   onSelectCard: (id: string) => void;
   onActivateCard: (id: string) => void;
+  onSubmitRequest: () => void;
   railScrollRef: React.RefObject<ScrollBoxRenderable | null>;
 }): React.ReactNode {
   return (
@@ -829,11 +874,77 @@ function Rail({
             </scrollbox>
           )}
           <box style={{ flexGrow: 1 }} />
-          <text fg={session.status === "resolved" ? T.green : T.accent}>
-            {session.status === "resolved" ? `resolved: ${session.verdict!.kind.replace("_", " ")}` : `Submit review (${pendingCount}) ⏎`}
-          </text>
+          {/* the confirm card sits OUTSIDE the scrollbox: the annotation stack
+              above scrolls while the card stays pinned to the rail bottom */}
+          {session.status === "resolved" ? (
+            <text fg={T.green}>resolved: {session.verdict!.kind.replace("_", " ")}</text>
+          ) : submitConfirm ? (
+            <SubmitConfirmCard confirm={submitConfirm} />
+          ) : (
+            <box onMouseUp={onSubmitRequest}>
+              <text fg={T.accent}>{`Submit review (${pendingCount}) ⏎`}</text>
+            </box>
+          )}
         </>
       )}
+    </box>
+  );
+}
+
+/**
+ * Confirm card content rows: counts, spacer, verdict selector, spacer,
+ * summary input, spacer, Submit/Cancel buttons. The bordered box height is
+ * this count plus the two border rows - a pure function of the content, so
+ * layout and render never drift.
+ */
+const SUBMIT_CONFIRM_CONTENT_ROWS = 7;
+
+function submitConfirmHeight(): number {
+  return SUBMIT_CONFIRM_CONTENT_ROWS + 2;
+}
+
+/**
+ * The Submit button expanded into a bordered confirm card at the rail bottom:
+ * honest counts, the verdict selector (arrow keys or click), the optional
+ * summary, and plain word-buttons - key hints live in the status line only.
+ */
+function SubmitConfirmCard({ confirm }: { confirm: SubmitConfirmState }): React.ReactNode {
+  return (
+    <box
+      style={{
+        height: submitConfirmHeight(),
+        marginRight: 1,
+        border: true,
+        borderStyle: "rounded",
+        borderColor: T.accent,
+        backgroundColor: T.elevated,
+        flexDirection: "column",
+        paddingLeft: 1,
+      }}
+      title=" submit review "
+    >
+      <text fg={T.textDim}>{`${confirm.annotationCount} annotations · ${confirm.blockingCount} blocking`}</text>
+      <box style={{ height: 1 }} />
+      <box style={{ flexDirection: "row", height: 1 }}>
+        {VERDICTS.map((candidate) => (
+          <box key={candidate} style={{ paddingRight: 1 }} onMouseUp={() => confirm.onSelectVerdict(candidate)}>
+            <text fg={candidate === confirm.verdict ? verdictColor(candidate) : T.textDim}>
+              {candidate === confirm.verdict ? `[${VERDICT_LABEL[candidate]}]` : ` ${VERDICT_LABEL[candidate]} `}
+            </text>
+          </box>
+        ))}
+      </box>
+      <box style={{ height: 1 }} />
+      <input focused value={confirm.summary} onInput={confirm.onInput} placeholder="summary for the agent (optional)" />
+      <box style={{ height: 1 }} />
+      <box style={{ flexDirection: "row", height: 1 }}>
+        <box style={{ backgroundColor: T.accent, marginRight: 2 }} onMouseUp={confirm.onSubmit}>
+          <text fg={T.accentInk}> Submit </text>
+        </box>
+        <box onMouseUp={confirm.onCancel}>
+          <text fg={T.textDim}> Cancel </text>
+        </box>
+      </box>
     </box>
   );
 }
@@ -976,32 +1087,6 @@ function ComposeBar({
         {mode.kind === "suggestion" ? "SUGGEST REPLACEMENT FOR" : "COMMENT ON"} “{truncate(quote, 60)}” · ⏎ save · esc cancel
       </text>
       <input focused value={mode.text} onInput={onChange} />
-    </box>
-  );
-}
-
-function SubmitBar({
-  mode,
-  pendingCount,
-  onChange,
-}: {
-  mode: Extract<Mode, { m: "submit" }>;
-  pendingCount: number;
-  onChange: (summary: string) => void;
-}): React.ReactNode {
-  return (
-    <box style={{ height: 2, backgroundColor: T.elevated, flexDirection: "column", paddingLeft: 1 }}>
-      <text>
-        <span fg={T.textDim}>verdict ←/→ : </span>
-        {VERDICTS.map((v, i) => (
-          <span key={v} fg={v === mode.verdict ? verdictColor(v) : T.textDim}>
-            {v === mode.verdict ? `[${VERDICT_LABEL[v]}]` : ` ${VERDICT_LABEL[v]} `}
-            {i < VERDICTS.length - 1 ? " " : ""}
-          </span>
-        ))}
-        <span fg={T.textDim}> · Submit review ({pendingCount}) on ⏎ · esc cancel</span>
-      </text>
-      <input focused value={mode.summary} onInput={onChange} placeholder="summary for the agent (optional)" />
     </box>
   );
 }
