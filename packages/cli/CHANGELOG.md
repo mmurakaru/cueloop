@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.17
+
+### Patch Changes
+
+- [#100](https://github.com/mmurakaru/cueloop/pull/100) [`a0f6012`](https://github.com/mmurakaru/cueloop/commit/a0f601238c775e38044c6c973a6adb845c31b299) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Rename internals so every identifier states what it does: diff op fields (kind/oldValue/newValue), diff row kinds, key intents, and abbreviated locals across all packages; remove dead code and stale comments. No behavior change.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.17
+  - @cueloop/daemon@0.1.0-alpha.17
+  - @cueloop/schema@0.1.0-alpha.17
+
 ## 0.1.0-alpha.16
 
 ### Minor Changes
