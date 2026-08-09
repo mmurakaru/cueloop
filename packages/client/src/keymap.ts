@@ -64,7 +64,13 @@ function status(msg: string): Intent[] {
   return [{ t: "status", msg }];
 }
 
-export function reduceKey(state: KeyState, key: KeyInput): Intent[] {
+/**
+ * Reduce one key event to intents. `resolvedAction` is the binding-layer
+ * resolution (key-bindings.ts over @opentui/keymap) when the caller has one;
+ * without it the reducer falls back to the plain reverse lookup, so the
+ * grammar stays testable as a pure function.
+ */
+export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: string): Intent[] {
   const name = key.name;
   // compose/submit overlays own the keys via focused inputs; only escape,
   // return, and verdict arrows route through the grammar
@@ -84,7 +90,7 @@ export function reduceKey(state: KeyState, key: KeyInput): Intent[] {
     if (name === "escape") return [{ t: "dismissCompletion" }];
     return [];
   }
-  const action = actionFor(state.keys, name, key.shift);
+  const action = resolvedAction ?? actionFor(state.keys, name, key.shift);
   if (action === "quit") return [{ t: "exit" }];
   // the ONE read-only rule: any mutating attempt answers instead of acting
   // (span-mode c/s are hardwired keys, so they gate by name as well)

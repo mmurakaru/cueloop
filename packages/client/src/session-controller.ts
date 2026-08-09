@@ -7,6 +7,7 @@
  * App subscribes to snapshots and keeps only view state.
  */
 
+import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
 import { DaemonClient } from "@cueloop/daemon/client";
 import {
   cutBlock,
@@ -57,6 +58,8 @@ export interface ReviewControllerOptions {
   /** Observer mode: stored for the key reducer's read-only gate. */
   readOnly?: boolean;
   onExit?: (code: number) => void;
+  /** Timer source for the auto-close countdown; tests inject a ManualClock. */
+  clock?: Clock;
 }
 
 export interface ReviewController {
@@ -118,13 +121,15 @@ class Controller implements ReviewController {
   private autoClose: AutoClose = "off";
   private obsidian: ObsidianConfig | null = null;
   private exporters = new Map<string, Exporter>();
-  private countdown: ReturnType<typeof setTimeout> | undefined;
+  private readonly clock: Clock;
+  private countdown: TimerHandle | undefined;
   /** Projections keyed by session identity so renders reuse one computation. */
   private derivedFor: ReviewSession | null = null;
   private derived: { display: DisplayBlock[]; rows: DiffRow[] } = { display: [], rows: [] };
 
   constructor(private readonly opts: ReviewControllerOptions) {
     this.readOnly = opts.readOnly ?? false;
+    this.clock = opts.clock ?? new SystemClock();
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -165,8 +170,13 @@ class Controller implements ReviewController {
 
   close(): void {
     this.closed = true;
-    clearTimeout(this.countdown);
+    this.clearCountdown();
     this.client?.close();
+  }
+
+  private clearCountdown(): void {
+    if (this.countdown !== undefined) this.clock.clearTimeout(this.countdown);
+    this.countdown = undefined;
   }
 
   applyConfig(cfg: CueloopConfig): void {
@@ -370,18 +380,18 @@ class Controller implements ReviewController {
   private startCounting(remaining: number): void {
     if (remaining <= 0) return this.finishReview();
     this.update({ completion: { phase: "counting", remaining } });
-    this.countdown = setTimeout(() => this.startCounting(remaining - 1), 1000);
+    this.countdown = this.clock.setTimeout(() => this.startCounting(remaining - 1), 1000);
   }
 
   finishReview(): void {
-    clearTimeout(this.countdown);
+    this.clearCountdown();
     const pane = returnPaneFor(this.snap.session?.artifact.meta.herdrPane);
     if (pane) focusHerdrPane(pane);
     this.opts.onExit?.(0);
   }
 
   dismissCompletion(): void {
-    clearTimeout(this.countdown);
+    this.clearCountdown();
     this.update({ completion: { phase: "dismissed" } });
   }
 

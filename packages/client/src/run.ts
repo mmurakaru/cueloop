@@ -22,7 +22,9 @@ export async function runClient(opts: RunClientOptions): Promise<number> {
         onExit: (code: number) => {
           renderer.destroy();
           resolve(code);
-          process.exit(code);
+          // one microtask between destroy and exit lets the renderer flush
+          // its terminal-restore sequences before the process dies
+          queueMicrotask(() => process.exit(code));
         },
       }),
     );

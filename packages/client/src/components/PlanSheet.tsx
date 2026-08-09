@@ -1,0 +1,309 @@
+/**
+ * The plan document sheet: header chrome, the reconciliation banner, and the
+ * scrollable block flow. Each prose block renders as one natively wrapped
+ * text (wrapMode "word") beside a marker gutter, so wrapping is the
+ * renderer's job; the sheet keeps the rendered/work offset mapping per block
+ * and exposes an imperative selection surface - the keyboard span drives the
+ * native selection, and a mouse drag reads back as an exact work-text range,
+ * which keeps quote anchors char-precise.
+ */
+
+import React, { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { useRenderer } from "@opentui/react";
+import type { ScrollBoxRenderable, TextRenderable } from "@opentui/core";
+import type { ReviewSession } from "@cueloop/schema";
+import {
+  blockRuns,
+  displayText,
+  overlayMarks,
+  renderedOffsetFor,
+  revisionDelta,
+  workRangeForRendered,
+  type DisplayBlock,
+  type Mark,
+  type SpanState,
+  type StyleRun,
+} from "../view";
+import type { Theme } from "../theme";
+import { useComponentTheme } from "./theme-context";
+import { CodeBlock } from "./CodeBlock";
+import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
+import { Button } from "./primitives/Button";
+import { Toolbar } from "./primitives/Toolbar";
+
+export interface PlanSelection {
+  dispIdx: number;
+  start: number;
+  end: number;
+}
+
+export interface PlanSheetHandle {
+  /** Work-text range of the current native (mouse) selection, if any. */
+  readSelection(): PlanSelection | null;
+  /** Anchor/extend the renderer's native selection from keyboard span offsets. */
+  driveSpanSelection(span: SpanState): void;
+  clearSelection(): void;
+  revealBlock(dispIdx: number): void;
+}
+
+export interface PlanComposeState {
+  kind: "comment" | "suggestion";
+  dispIdx: number;
+  quote: string;
+  draft: AnnotationDraft;
+}
+
+export interface PlanSheetProps {
+  session: ReviewSession;
+  display: DisplayBlock[];
+  marks: Map<number, Mark[]>;
+  cursor: number;
+  /** Extra selection-style paint on one block (keyboard span or compose anchor). */
+  activeSpan: { dispIdx: number; start: number; end: number } | null;
+  compose: PlanComposeState | null;
+  editOrphanCount: number;
+  onLineActivate: (dispIdx: number) => void;
+  onEditRequest: () => void;
+  theme?: Theme;
+}
+
+interface BlockRef {
+  renderable: TextRenderable;
+  runs: StyleRun[];
+}
+
+/** Screen position of a rendered-text offset inside a wrapped text. */
+function positionOfRenderedOffset(renderable: TextRenderable, renderedOffset: number): { x: number; y: number } {
+  const info = renderable.lineInfo;
+  let lineIndex = 0;
+  for (let index = 0; index < info.lineStartCols.length; index++) {
+    if (info.lineStartCols[index]! <= renderedOffset) lineIndex = index;
+    else break;
+  }
+  return {
+    x: renderable.x + renderedOffset - (info.lineStartCols[lineIndex] ?? 0),
+    y: renderable.y + lineIndex,
+  };
+}
+
+export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function PlanSheet(
+  {
+    session,
+    display,
+    marks,
+    cursor,
+    activeSpan,
+    compose,
+    editOrphanCount,
+    onLineActivate,
+    onEditRequest,
+    theme,
+  }: PlanSheetProps,
+  handleRef,
+): React.ReactNode {
+  const tokens = useComponentTheme(theme);
+  const renderer = useRenderer();
+  const blockRefs = useRef(new Map<number, BlockRef>());
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null);
+
+  useImperativeHandle(handleRef, () => ({
+    readSelection: (): PlanSelection | null => {
+      if (!renderer?.hasSelection) return null;
+      const ordered = [...blockRefs.current.entries()].sort(([a], [b]) => a - b);
+      for (const [dispIdx, blockRef] of ordered) {
+        const selection = blockRef.renderable.getSelection();
+        if (!selection || selection.end <= selection.start) continue;
+        const range = workRangeForRendered(blockRef.runs, selection.start, selection.end);
+        if (range) return { dispIdx, ...range };
+      }
+      return null;
+    },
+    driveSpanSelection: (span: SpanState): void => {
+      if (!renderer) return;
+      const blockRef = blockRefs.current.get(span.dispIdx);
+      if (!blockRef) return;
+      const renderedStart = renderedOffsetFor(blockRef.runs, span.start);
+      const renderedEnd = renderedOffsetFor(blockRef.runs, span.end - 1);
+      if (renderedStart === null || renderedEnd === null) return;
+      const startPosition = positionOfRenderedOffset(blockRef.renderable, renderedStart);
+      const endPosition = positionOfRenderedOffset(blockRef.renderable, renderedEnd);
+      renderer.startSelection(blockRef.renderable, startPosition.x, startPosition.y);
+      renderer.updateSelection(blockRef.renderable, endPosition.x + 1, endPosition.y);
+    },
+    clearSelection: (): void => {
+      renderer?.clearSelection();
+    },
+    revealBlock: (dispIdx: number): void => {
+      try {
+        scrollRef.current?.scrollChildIntoView(`plan-block-${dispIdx}`);
+      } catch {
+        // reveal is best-effort; selection state is already correct
+      }
+    },
+  }));
+
+  const registerBlock = (dispIdx: number, renderable: TextRenderable | null, runs: StyleRun[]): void => {
+    if (renderable) blockRefs.current.set(dispIdx, { renderable, runs });
+    else blockRefs.current.delete(dispIdx);
+  };
+  // stale refs must not survive a shrinking display list
+  useEffect(() => {
+    for (const dispIdx of blockRefs.current.keys()) {
+      if (dispIdx >= display.length) blockRefs.current.delete(dispIdx);
+    }
+  }, [display]);
+
+  const children: React.ReactNode[] = [];
+  for (let dispIdx = 0; dispIdx < display.length; dispIdx++) {
+    const block = display[dispIdx]!;
+    const isCursor = dispIdx === cursor;
+    const gap = topGap(display[dispIdx - 1], block);
+    if (block.kind === "code") {
+      children.push(
+        <CodeBlock
+          key={dispIdx}
+          id={`plan-block-${dispIdx}`}
+          language={(block.work ?? block.base)?.lang}
+          content={displayText(block)}
+          isCursor={isCursor}
+          marginTop={gap}
+          isAnnotated={(marks.get(dispIdx) ?? []).length > 0}
+          changeTag={block.type !== "same" ? tagLabel(block) : undefined}
+          theme={theme}
+        />,
+      );
+    } else {
+      const blockMarks = [...(marks.get(dispIdx) ?? [])];
+      if (activeSpan && activeSpan.dispIdx === dispIdx) {
+        blockMarks.push({ start: activeSpan.start, end: activeSpan.end, role: "kspan" });
+      }
+      const runs = overlayMarks(blockRuns(block, true), blockMarks);
+      // the change tag participates in the rendered text but carries no offsets
+      const mappedRuns: StyleRun[] =
+        block.type !== "same" ? [...runs, { text: ` [${tagLabel(block)}]`, role: "plain", start: null }] : runs;
+      children.push(
+        <box key={dispIdx} id={`plan-block-${dispIdx}`} style={{ flexDirection: "row", marginTop: gap }}>
+          <text selectable={false}>
+            <span fg={isCursor ? tokens.accent : tokens.textDim}>{isCursor ? "▎ " : "  "}</span>
+            <span fg={tokens.textDim}>{marker(block)}</span>
+          </text>
+          <text
+            bg={isCursor ? tokens.cursorBg : undefined}
+            selectable
+            selectionBg={tokens.accent}
+            selectionFg={tokens.accentInk}
+            style={{ wrapMode: "word", flexGrow: 1, flexShrink: 1 }}
+            ref={(renderable: TextRenderable | null) => registerBlock(dispIdx, renderable, mappedRuns)}
+            onMouseUp={() => onLineActivate(dispIdx)}
+          >
+            {runs.map((run, runIndex) => (
+              <span key={runIndex} {...runStyle(run, block, tokens)}>
+                {run.text}
+              </span>
+            ))}
+            {block.type !== "same" ? <span fg={tagColor(block, tokens)}> [{tagLabel(block)}]</span> : null}
+          </text>
+        </box>,
+      );
+    }
+    if (compose && compose.dispIdx === dispIdx) {
+      children.push(
+        <AnnotationCard key={`compose-${dispIdx}`} kind={compose.kind} quote={compose.quote} draft={compose.draft} theme={theme} />,
+      );
+    }
+  }
+
+  return (
+    <box style={{ flexGrow: 1, flexDirection: "column" }}>
+      <SheetHeader session={session} onEditRequest={onEditRequest} theme={theme} />
+      {editOrphanCount > 0 ? (
+        <box style={{ height: 1, backgroundColor: tokens.markCommentBg, paddingLeft: 2 }}>
+          <text fg={tokens.red}>
+            {editOrphanCount} annotation{editOrphanCount === 1 ? "" : "s"} no longer match - the passage was removed.
+          </text>
+        </box>
+      ) : null}
+      <scrollbox ref={scrollRef} style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }} focused={false}>
+        {children}
+      </scrollbox>
+    </box>
+  );
+});
+
+/** Sheet chrome: submitted-by + revision delta left, the Edit word-button right. */
+function SheetHeader({
+  session,
+  onEditRequest,
+  theme,
+}: {
+  session: ReviewSession;
+  onEditRequest: () => void;
+  theme?: Theme;
+}): React.ReactNode {
+  const tokens = useComponentTheme(theme);
+  const revisionCount = session.revisions.length;
+  const previous = revisionCount > 1 ? session.revisions[revisionCount - 2] : undefined;
+  const delta = previous ? revisionDelta(previous.content, session.artifact.content) : null;
+  return (
+    <box style={{ height: 1, flexDirection: "row", paddingLeft: 2, paddingRight: 1 }}>
+      <text fg={tokens.textDim}>
+        submitted by <span fg={tokens.textMuted}>{session.artifact.meta.agent ?? "unknown"}</span> · revision {revisionCount}
+        {delta ? (
+          <span fg={tokens.green}>
+            {" "}· v{revisionCount - 1}→v{revisionCount} +{delta.added} -{delta.removed}
+          </span>
+        ) : null}
+      </text>
+      <box style={{ flexGrow: 1 }} />
+      <Toolbar>
+        <Button onPress={onEditRequest} theme={theme}>
+          {" Edit "}
+        </Button>
+      </Toolbar>
+    </box>
+  );
+}
+
+/** Vertical rhythm: gaps live ABOVE blocks so boundaries never collapse. */
+function topGap(previous: DisplayBlock | undefined, current: DisplayBlock): number {
+  if (!previous) return 0;
+  const tightPair =
+    (current.kind === "li" && previous.kind === "li") || (current.kind === "oli" && previous.kind === "oli");
+  return tightPair ? 0 : 1;
+}
+
+function marker(block: DisplayBlock): string {
+  if (block.kind === "li") return "- ";
+  if (block.kind === "oli") return `${block.oliNum ?? 1}. `;
+  if (block.kind === "quote") return "▏ ";
+  return "";
+}
+
+function tagLabel(block: DisplayBlock): "cut" | "new" | "edited" {
+  return block.type === "del" ? "cut" : block.type === "add" ? "new" : "edited";
+}
+
+function tagColor(block: DisplayBlock, tokens: Theme): string {
+  return block.type === "del" ? tokens.red : block.type === "add" ? tokens.green : tokens.accent;
+}
+
+function runStyle(run: StyleRun, block: DisplayBlock, tokens: Theme): { fg?: string; bg?: string } {
+  const headingFg = block.kind === "h1" ? tokens.text : block.kind === "h2" || block.kind === "h3" ? tokens.accent : undefined;
+  const struck = block.type === "del";
+  switch (run.role) {
+    case "ins":
+      return { fg: tokens.insFg };
+    case "del":
+      return { fg: tokens.delFg };
+    case "mark-comment":
+      return { fg: tokens.text, bg: tokens.markCommentBg };
+    case "mark-suggestion":
+      return { fg: tokens.text, bg: tokens.markSuggestionBg };
+    case "mark-focus":
+      return { fg: tokens.accentInk, bg: tokens.accent };
+    case "kspan":
+      return { fg: tokens.accentInk, bg: tokens.accent };
+    default:
+      return { fg: struck ? tokens.red : (headingFg ?? tokens.text) };
+  }
+}

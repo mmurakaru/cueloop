@@ -6,9 +6,10 @@ import {
   marksByDisplay,
   nextWorkBlock,
   overlayMarks,
+  renderedOffsetFor,
   spanKey,
   startSpan,
-  wrapRuns,
+  workRangeForRendered,
 } from "./view";
 import { cutBlock, parseBlocks, restoreBlock, restoreLine, type Annotation } from "@cueloop/schema";
 
@@ -107,22 +108,43 @@ describe("marksByDisplay", () => {
   });
 });
 
-describe("wrapRuns", () => {
-  test("wraps at word boundaries within width", () => {
-    const lines = wrapRuns([{ text: "alpha beta gamma delta", role: "plain", start: 0 }], 11);
-    const rendered = lines.map((l) => l.map((r) => r.text).join(""));
-    expect(rendered.every((l) => l.length <= 11)).toBe(true);
-    expect(rendered.join(" ").replace(/\s+/g, " ").trim()).toBe("alpha beta gamma delta");
+describe("rendered/work offset mapping", () => {
+  test("plain blocks map 1:1 in both directions", () => {
+    const d = buildDisplay("alpha beta gamma\n")[0]!;
+    const runs = blockRuns(d, true);
+    expect(renderedOffsetFor(runs, 6)).toBe(6);
+    expect(workRangeForRendered(runs, 6, 10)).toEqual({ start: 6, end: 10 });
   });
 
-  test("hard-splits words longer than the width", () => {
-    const lines = wrapRuns([{ text: "abcdefghij", role: "plain", start: 0 }], 4);
-    expect(lines.length).toBeGreaterThan(1);
+  test("inline del runs shift rendered offsets in word-diffed blocks", () => {
+    // rendered: "old new words linger" - "old " is a del run without offsets
+    const d = buildDisplay("old words linger\n", "new words linger\n")[0]!;
+    const runs = blockRuns(d, true);
+    const workText = displayText(d);
+    const wordsAt = workText.indexOf("words");
+    const rendered = renderedOffsetFor(runs, wordsAt)!;
+    const renderedText = runs.map((r) => r.text).join("");
+    expect(renderedText.slice(rendered, rendered + "words".length)).toBe("words");
+    // reading a rendered selection over "words" recovers the work range
+    expect(workRangeForRendered(runs, rendered, rendered + "words".length)).toEqual({
+      start: wordsAt,
+      end: wordsAt + "words".length,
+    });
   });
 
-  test("newlines force line breaks (code blocks)", () => {
-    const lines = wrapRuns([{ text: "line1\nline2", role: "plain", start: 0 }], 80);
-    expect(lines.length).toBe(2);
+  test("a rendered selection spanning a del run keeps only positioned text", () => {
+    const d = buildDisplay("old words\n", "new words\n")[0]!;
+    const runs = blockRuns(d, true);
+    const renderedText = runs.map((r) => r.text).join("");
+    // select everything rendered: the work range is the whole work text
+    const range = workRangeForRendered(runs, 0, renderedText.length)!;
+    expect(displayText(d).slice(range.start, range.end)).toBe(displayText(d));
+  });
+
+  test("offsets outside any positioned run map to null", () => {
+    const runs = blockRuns(buildDisplay("short\n")[0]!, true);
+    expect(renderedOffsetFor(runs, 99)).toBeNull();
+    expect(workRangeForRendered(runs, 90, 99)).toBeNull();
   });
 });
 
