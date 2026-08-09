@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.15
+
+### Patch Changes
+
+- [#96](https://github.com/mmurakaru/cueloop/pull/96) [`09b3416`](https://github.com/mmurakaru/cueloop/commit/09b3416c0fa160b2e3d08d7b8a2a7ca923bff78a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The post-submit overlay is clearer: it counts down from 5 seconds by default (esc stays, a remembers the choice) instead of a static prompt, the action line reads as plain "label [key]" affordances with no glyphs (close [return] · closing in Ns · return to plan [esc] · always [a]), and the redundant verdict echo under the heading is gone.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.15
+  - @cueloop/daemon@0.1.0-alpha.15
+  - @cueloop/schema@0.1.0-alpha.15
+
 ## 0.1.0-alpha.14
 
 ### Patch Changes

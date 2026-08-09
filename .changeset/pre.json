@@ -13,6 +13,7 @@
   "changesets": [
     "annotation-id-uniqueness",
     "auto-close",
+    "completion-overlay-copy",
     "compose-paint-wait",
     "daemon-single-instance",
     "dist-tags",
