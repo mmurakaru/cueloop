@@ -140,7 +140,7 @@ describe("validateSessionRecord", () => {
  * @cueloop/schema shows up here too.
  */
 describe("wire pins", () => {
-  const keys = (o: object) => Object.keys(o).sort();
+  const keys = (subject: object) => Object.keys(subject).sort();
   const entryKeys = (schema: { entries: object }) => Object.keys(schema.entries).sort();
 
   const fullMeta: Required<ArtifactMeta> = {

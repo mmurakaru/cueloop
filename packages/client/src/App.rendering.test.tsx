@@ -71,11 +71,11 @@ describe("code blocks", () => {
 describe("block spacing", () => {
   test("a code block never glues to the list item above it", async () => {
     const lines = (await frame()).split("\n").map((line) => line.trimEnd());
-    const promptLineIndex = lines.findIndex((line) => line.includes("wire the duck over MQTT"));
+    const listItemLineIndex = lines.findIndex((line) => line.includes("wire the duck over MQTT"));
     const codeHeader = lines.findIndex((line) => line.trim().startsWith("tsx"));
-    expect(promptLineIndex).toBeGreaterThan(-1);
-    expect(codeHeader).toBeGreaterThan(promptLineIndex);
-    expect(lines.slice(promptLineIndex + 1, codeHeader).some((line) => line === "")).toBe(true);
+    expect(listItemLineIndex).toBeGreaterThan(-1);
+    expect(codeHeader).toBeGreaterThan(listItemLineIndex);
+    expect(lines.slice(listItemLineIndex + 1, codeHeader).some((line) => line === "")).toBe(true);
   });
 
   test("a heading never sits directly on the previous block", async () => {

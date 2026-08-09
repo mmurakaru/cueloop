@@ -96,7 +96,7 @@ function spawnHook(plan: string, waitMs: number): HookRun {
  */
 async function waitForPendingSession(
   hook?: HookRun,
-  predicate?: (s: ReviewSession) => boolean,
+  predicate?: (session: ReviewSession) => boolean,
 ): Promise<string> {
   const client = await DaemonClient.connect({ home, autostart: true });
   const deadline = Date.now() + POLL_TIMEOUT_MS;

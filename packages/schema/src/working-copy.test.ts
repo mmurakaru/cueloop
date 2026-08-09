@@ -58,7 +58,7 @@ describe("restoreBlock", () => {
     const listItem = block(BASE, "second item");
     const cut = cutBlock(BASE, listItem);
     // the cut block re-enters before the code fence, the next surviving block
-    const next = parseBlocks(cut).find((block) => block.kind === "code");
+    const next = parseBlocks(cut).find((candidate) => candidate.kind === "code");
     const restored = restoreBlock(BASE, cut, listItem, restoreLine(next, cut.split("\n").length));
     expect(restored).toBeUndefined();
   });
@@ -66,7 +66,7 @@ describe("restoreBlock", () => {
   test("restore after another edit returns the merged working copy", () => {
     const listItem = block(BASE, "second item");
     const edited = cutBlock(BASE, listItem).replace("first item", "first item reworded");
-    const next = parseBlocks(edited).find((block) => block.kind === "code");
+    const next = parseBlocks(edited).find((candidate) => candidate.kind === "code");
     const restored = restoreBlock(BASE, edited, listItem, restoreLine(next, edited.split("\n").length));
     expect(restored).toContain("- second item");
     expect(restored).toContain("first item reworded");
@@ -90,7 +90,7 @@ describe("restoreBlock", () => {
   test("signature rule ignores blank-line layout but not text changes", () => {
     const listItem = block(BASE, "second item");
     const cut = cutBlock(BASE, listItem);
-    const next = parseBlocks(cut).find((block) => block.kind === "code");
+    const next = parseBlocks(cut).find((candidate) => candidate.kind === "code");
     const line = restoreLine(next, cut.split("\n").length);
     // extra blank lines elsewhere do not block pristine detection
     expect(restoreBlock(BASE, cut.replace("## Context", "## Context\n"), listItem, line)).toBeUndefined();

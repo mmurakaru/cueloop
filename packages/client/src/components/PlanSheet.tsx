@@ -274,7 +274,7 @@ function topGap(previous: DisplayBlock | undefined, current: DisplayBlock): numb
 
 function marker(block: DisplayBlock): string {
   if (block.kind === "li") return "- ";
-  if (block.kind === "oli") return `${block.oliNum ?? 1}. `;
+  if (block.kind === "oli") return `${block.orderedItemNumber ?? 1}. `;
   if (block.kind === "quote") return "▏ ";
   return "";
 }

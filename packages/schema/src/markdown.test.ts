@@ -70,11 +70,11 @@ describe("parseBlocks", () => {
 
   test("round-trips through blockToMd", () => {
     const blocks = parseBlocks(SAMPLE);
-    let oli = 0;
+    let orderedItemCount = 0;
     const rebuilt = blocks
       .map((block) => {
-        oli = block.kind === "oli" ? oli + 1 : 0;
-        return blockToMd(block, oli || 1);
+        orderedItemCount = block.kind === "oli" ? orderedItemCount + 1 : 0;
+        return blockToMd(block, orderedItemCount || 1);
       })
       .join("\n\n");
     // re-parsing the rebuild yields the same kinds and texts
@@ -92,9 +92,9 @@ describe("parseBlocks", () => {
 describe("sectionOf", () => {
   test("returns the nearest preceding heading", () => {
     const blocks = parseBlocks(SAMPLE);
-    const oliIdx = blocks.findIndex((block) => block.kind === "oli");
-    expect(sectionOf(blocks, oliIdx)).toBe("Steps");
-    const pIdx = blocks.findIndex((block) => block.kind === "p");
-    expect(sectionOf(blocks, pIdx)).toBe("Context");
+    const orderedItemIndex = blocks.findIndex((block) => block.kind === "oli");
+    expect(sectionOf(blocks, orderedItemIndex)).toBe("Steps");
+    const paragraphIndex = blocks.findIndex((block) => block.kind === "p");
+    expect(sectionOf(blocks, paragraphIndex)).toBe("Context");
   });
 });

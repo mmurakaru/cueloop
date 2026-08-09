@@ -47,7 +47,7 @@ describe("buildDisplay reconciliation", () => {
 
   test("ordered list items get running numbers", () => {
     const display = buildDisplay("1. one\n2. two\n3. three\n");
-    expect(display.map((block) => block.oliNum)).toEqual([1, 2, 3]);
+    expect(display.map((block) => block.orderedItemNumber)).toEqual([1, 2, 3]);
   });
 });
 
@@ -151,14 +151,14 @@ describe("rendered/work offset mapping", () => {
 describe("span mode", () => {
   const text = "one two three four";
   test("v selects the first word; l grows; w slides; $ to end", () => {
-    let s = startSpan(0, text)!;
-    expect(text.slice(s.start, s.end)).toBe("one");
-    s = spanKey(s, "l", text);
-    expect(text.slice(s.start, s.end)).toBe("one two");
-    s = spanKey(s, "w", text);
-    expect(text.slice(s.start, s.end)).toBe("two three");
-    s = spanKey(s, "$", text);
-    expect(text.slice(s.start, s.end)).toBe("two three four");
+    let span = startSpan(0, text)!;
+    expect(text.slice(span.start, span.end)).toBe("one");
+    span = spanKey(span, "l", text);
+    expect(text.slice(span.start, span.end)).toBe("one two");
+    span = spanKey(span, "w", text);
+    expect(text.slice(span.start, span.end)).toBe("two three");
+    span = spanKey(span, "$", text);
+    expect(text.slice(span.start, span.end)).toBe("two three four");
   });
 });
 

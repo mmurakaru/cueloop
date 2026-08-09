@@ -37,8 +37,8 @@ const ANSI =
   // eslint-disable-next-line no-control-regex
   /\[[0-9;?>=<]*[ -/]*[@-~]|\][^]*(?:|\\)|P[^]*\\|[@-Z\\-_]/g;
 
-function stripAnsi(s: string): string {
-  return s.replace(ANSI, "");
+function stripAnsi(raw: string): string {
+  return raw.replace(ANSI, "");
 }
 
 let home: string;

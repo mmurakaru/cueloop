@@ -27,7 +27,7 @@ export interface DisplayBlock {
   work?: Block;
   /** Block in the submitted revision (absent for add). */
   base?: Block;
-  oliNum?: number;
+  orderedItemNumber?: number;
 }
 
 export function displayText(block: DisplayBlock): string {
@@ -113,7 +113,7 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
 function numberOrderedListItems(display: DisplayBlock[]): void {
   let runLength = 0;
   for (const block of display) {
-    if (block.kind === "oli") block.oliNum = ++runLength;
+    if (block.kind === "oli") block.orderedItemNumber = ++runLength;
     else runLength = 0;
   }
 }
