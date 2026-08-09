@@ -1,5 +1,18 @@
 # cueloop
 
+## 0.1.0-alpha.14
+
+### Patch Changes
+
+- [#94](https://github.com/mmurakaru/cueloop/pull/94) [`fe85a17`](https://github.com/mmurakaru/cueloop/commit/fe85a176f6a3620588bfddedfb681bb85347229e) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The verdict selector in the submit confirm card reads horizontally - Comment / Approve / Changes as one row of pressable words - instead of a stacked vertical list, and the card shrinks by two rows.
+
+- [#93](https://github.com/mmurakaru/cueloop/pull/93) [`65b024a`](https://github.com/mmurakaru/cueloop/commit/65b024abbb1d0350310dcf10616ae1fbf20c35c9) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Fix: frames larger than the kernel socket buffer no longer truncate mid-line. Both the daemon and the client now honor socket backpressure - a partial write keeps its unwritten tail and flushes it on drain, so sessions with several revisions stay readable instead of wedging every request after the first oversized response.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.14
+  - @cueloop/daemon@0.1.0-alpha.14
+  - @cueloop/schema@0.1.0-alpha.14
+
 ## 0.1.0-alpha.13
 
 ### Patch Changes
