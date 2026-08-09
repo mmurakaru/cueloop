@@ -122,9 +122,11 @@ describe("inline compose keeps the anchor painted", () => {
     await press(setup, "v");
     await press(setup, "l");
     await press(setup, "c");
-    // compose open: the anchor is painted selection-style
+    // compose open: the anchor is painted selection-style. The box can render
+    // a frame before the anchor repaint settles, so wait on the color itself.
     expect(setup.captureCharFrame()).toContain("Save ⏎");
     expect(setup.captureCharFrame()).toContain("Cancel esc");
+    await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(T.accent));
     expect(backgroundsOf(setup, "The daemon")).toContain(T.accent);
     // cancel un-paints (a bare ESC settles after the parser's escape window)
     await press(setup, "escape");
