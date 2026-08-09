@@ -8,27 +8,22 @@
  * tests point HERDR_BIN_PATH at a stub script.
  */
 
-import { type HerdrContext, detectHerdr } from "@cueloop/schema";
-
-export type { HerdrContext };
-export { detectHerdr };
+import { type HerdrEnv, detectHerdr } from "@cueloop/schema";
 
 export type HerdrAgentState = "blocked" | "working" | "done" | "idle";
 
 const SOURCE = "custom:cueloop";
 const LABEL_TTL_MS = 3_600_000;
 
-type Env = Record<string, string | undefined>;
-
 /** Report semantic agent state for this pane. No-op outside herdr. */
-export function reportState(state: HerdrAgentState, env: Env = process.env): void {
+export function reportState(state: HerdrAgentState, env: HerdrEnv = process.env): void {
   const herdr = detectHerdr(env);
   if (!herdr) return;
   spawnQuiet([herdr.binPath, "pane", "report-agent", herdr.paneId, "--source", SOURCE, "--state", state]);
 }
 
 /** Report a sidebar metadata label for this pane. No-op outside herdr. */
-export function reportLabel(text: string, env: Env = process.env): void {
+export function reportLabel(text: string, env: HerdrEnv = process.env): void {
   const herdr = detectHerdr(env);
   if (!herdr) return;
   spawnQuiet([

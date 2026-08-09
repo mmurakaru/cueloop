@@ -12,7 +12,7 @@ export interface HerdrContext {
   binPath: string;
 }
 
-type HerdrEnv = Record<string, string | undefined>;
+export type HerdrEnv = Record<string, string | undefined>;
 
 /**
  * The pane's full contract - pane id and binary path - or null outside a

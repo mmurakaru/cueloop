@@ -11,12 +11,14 @@ import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
 import { DaemonClient } from "@cueloop/daemon/client";
 import {
   cutBlock,
+  detectHerdr,
   makeAnchor,
   newAnnotationId,
   parseBlocks,
   resolveAnchor,
   restoreBlock,
   restoreLine,
+  returnPaneFor,
   type ReviewSession,
   type VerdictKind,
 } from "@cueloop/schema";
@@ -26,7 +28,7 @@ import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
 import { editInEditor } from "./editor";
-import { focusHerdrPane, returnPaneFor } from "./herdr";
+import { focusHerdrPane } from "./herdr";
 import { persistAutoClose, type AutoClose, type CueloopConfig } from "./config";
 
 /**
@@ -474,8 +476,9 @@ class Controller implements ReviewController {
 
   finishReview(): void {
     this.clearCountdown();
+    const herdr = detectHerdr();
     const pane = returnPaneFor(this.snapshot.session?.artifact.meta.herdrPane);
-    if (pane) focusHerdrPane(pane);
+    if (herdr && pane) focusHerdrPane(herdr.binPath, pane);
     this.options.onExit?.(0);
   }
 
