@@ -167,7 +167,7 @@ describe("keyboard grammar", () => {
 });
 
 describe("submit", () => {
-  test("⏎ opens the verdict bar; verdict + summary resolve the session", async () => {
+  test("⏎ opens the rail confirm card; verdict + summary resolve the session", async () => {
     const setup = await renderApp();
     await press(setup, "j");
     await press(setup, "j");
@@ -177,7 +177,7 @@ describe("submit", () => {
     await Bun.sleep(80);
     await press(setup, "enter"); // open submit
     await setup.renderOnce();
-    expect(setup.captureCharFrame()).toContain("[Request changes]");
+    expect(setup.captureCharFrame()).toContain("[Changes]");
     await type(setup, "Expand the steps.");
     await press(setup, "enter");
     await Bun.sleep(120);
