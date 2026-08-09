@@ -159,6 +159,9 @@ export class DaemonClient {
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession> {
     return this.request("session.setWorkingCopy", { id, workingCopy });
   }
+  sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession> {
+    return this.request("session.setViewed", { id, viewedPaths });
+  }
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession> {
     return this.request("session.resolve", { id, verdictKind, summary });
   }

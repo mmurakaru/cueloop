@@ -28,6 +28,11 @@ export interface ConfirmCardProps {
   summary: string;
   annotationCount: number;
   blockingCount: number;
+  /**
+   * The guided walk's honest coverage line for diff sessions, e.g.
+   * "2/3 files viewed". Undefined = no walk data, the row does not render.
+   */
+  viewedSummary?: string;
   onInput: (summary: string) => void;
   onSelectVerdict: (verdict: VerdictKind) => void;
   onSubmit: () => void;
@@ -76,6 +81,7 @@ export function ConfirmCard({
   summary,
   annotationCount,
   blockingCount,
+  viewedSummary,
   onInput,
   onSelectVerdict,
   onSubmit,
@@ -86,12 +92,13 @@ export function ConfirmCard({
   return (
     <Card
       title=" submit review "
-      contentRows={CONFIRM_CONTENT_ROWS}
+      contentRows={CONFIRM_CONTENT_ROWS + (viewedSummary !== undefined ? 1 : 0)}
       borderColor={tokens.accent}
       marginRight={1}
       theme={theme}
     >
       <text fg={tokens.textDim}>{`${annotationCount} annotations · ${blockingCount} blocking`}</text>
+      {viewedSummary !== undefined ? <text fg={tokens.textDim}>{viewedSummary}</text> : null}
       <box style={{ height: 1 }} />
       <VerdictSelector verdict={verdict} onSelectVerdict={onSelectVerdict} theme={theme} />
       <box style={{ height: 1 }} />

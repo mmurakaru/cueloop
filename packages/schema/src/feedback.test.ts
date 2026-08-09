@@ -98,6 +98,25 @@ describe("renderFeedback", () => {
     expect(out).toContain("_No edits or annotations._");
   });
 
+  test("agent notes never come back as feedback items", () => {
+    const note = ann({
+      kind: "note",
+      anchor: { quote: "src/a.ts", prefix: "", suffix: "" },
+      body: "The agent's own explanation of the change.",
+    });
+    const noteOnly = renderFeedback({ verdictKind: "approve", summary: "", artifactContent: PLAN, annotations: [note] });
+    expect(noteOnly).toContain("_No edits or annotations._");
+    expect(noteOnly).not.toContain("The agent's own explanation of the change.");
+    const mixed = renderFeedback({
+      verdictKind: "request_changes",
+      summary: "",
+      artifactContent: PLAN,
+      annotations: [note, ann({ anchor: { quote: "one JSON document", prefix: "written as ", suffix: " per session." } })],
+    });
+    expect(mixed).toContain("## Annotations (1)");
+    expect(mixed).not.toContain("The agent's own explanation of the change.");
+  });
+
   test("anchors resolve against the working copy when present", () => {
     // annotation made on text that only exists in the edited copy
     const working = PLAN.replace("## Storage", "## Persistence");

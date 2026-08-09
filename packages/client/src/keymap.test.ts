@@ -20,6 +20,7 @@ function state(patch: Partial<KeyState> = {}): KeyState {
     annotationCount: 1,
     hasFocusedAnnotation: true,
     cursorAnnotatable: true,
+    walkAtEnd: false,
     ...patch,
   };
 }
@@ -225,6 +226,42 @@ describe("diff mode", () => {
     expect(reduceKey(state({ view: "diff", cursorAnnotatable: false }), key("c"))).toEqual([
       { t: "status", msg: "move to a code line to comment" },
     ]);
+  });
+});
+
+describe("guided walk", () => {
+  test("w enters the walk in diff view; resolved and read-only sessions answer", () => {
+    expect(reduceKey(state({ view: "diff" }), key("w"))).toEqual([{ t: "walkStart" }]);
+    expect(reduceKey(state({ view: "diff", resolved: true }), key("w"))).toEqual([
+      { t: "status", msg: "review submitted - read-only" },
+    ]);
+    expect(reduceKey(state({ view: "diff", readOnly: true }), key("w"))).toEqual([
+      { t: "status", msg: "observer - read-only" },
+    ]);
+    expect(reduceKey(state(), key("w"))).toEqual([{ t: "status", msg: "the guided walk is a diff-review mode" }]);
+  });
+
+  const walking = state({ view: "diff", overlay: "walk" });
+  const table: [string, Intent[]][] = [
+    ["]", [{ t: "walkForward" }]],
+    ["[", [{ t: "walkBack" }]],
+    ["escape", [{ t: "walkLeave" }]],
+    ["q", [{ t: "exit" }]],
+    // mid-walk return does nothing: submit lives on the end card only
+    ["return", []],
+    ["j", []],
+    ["c", []],
+  ];
+  for (const [name, expected] of table) {
+    test(`walking ${name} -> ${JSON.stringify(expected)}`, () => {
+      expect(reduceKey(walking, key(name))).toEqual(expected);
+    });
+  }
+
+  test("the end card's return leaves the walk and opens the submit confirm", () => {
+    const atEnd = state({ view: "diff", overlay: "walk", walkAtEnd: true });
+    expect(reduceKey(atEnd, key("return"))).toEqual([{ t: "walkLeave" }, { t: "openSubmit" }]);
+    expect(reduceKey(atEnd, key("enter"))).toEqual([{ t: "walkLeave" }, { t: "openSubmit" }]);
   });
 });
 

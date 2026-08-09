@@ -6,7 +6,7 @@
 
 import { newAnnotationId, type ArtifactType, type VerdictKind } from "@cueloop/schema";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { openReview, verdictResponse } from "@cueloop/daemon/review";
+import { openReview, verdictResponse, type ReviewNote } from "@cueloop/daemon/review";
 import { parseArgs, flagStr } from "./args";
 
 async function readStdin(): Promise<string> {
@@ -26,6 +26,9 @@ export async function sessionCommand(argv: string[]): Promise<number> {
       case "create": {
         const contentFile = flagStr(flags, "content-file");
         const content = contentFile ? await Bun.file(contentFile).text() : await readStdin();
+        // per-file agent notes for diff sessions: a JSON array of { path, body }
+        const notesFile = flagStr(flags, "notes-file");
+        const notes = notesFile ? (JSON.parse(await Bun.file(notesFile).text()) as ReviewNote[]) : undefined;
         const review = await openReview(client, {
           type: (flagStr(flags, "type") ?? "plan") as ArtifactType,
           content,
@@ -34,6 +37,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
           agentSessionId: flagStr(flags, "agent-session-id"),
           planPath: flagStr(flags, "plan-path"),
           title: flagStr(flags, "title"),
+          notes,
         });
         out(review.session);
         return 0;

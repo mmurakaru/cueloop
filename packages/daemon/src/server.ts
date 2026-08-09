@@ -241,6 +241,10 @@ export class DaemonServer {
         const p = parseParams("session.setWorkingCopy", req.params);
         return core.sessionSetWorkingCopy(p.id, p.workingCopy);
       }
+      case "session.setViewed": {
+        const p = parseParams("session.setViewed", req.params);
+        return core.sessionSetViewed(p.id, p.viewedPaths);
+      }
       case "session.resolve": {
         const p = parseParams("session.resolve", req.params);
         return core.sessionResolve(p.id, p.verdictKind, p.summary);

@@ -7,7 +7,7 @@
  * serializing the decision in its host's contract.
  */
 
-import type { ArtifactType, ReviewSession, WorkspaceKey } from "@cueloop/schema";
+import { newAnnotationId, type ArtifactType, type ReviewSession, type WorkspaceKey } from "@cueloop/schema";
 import { verdictResponse } from "./api";
 import type { DaemonClient } from "./client";
 
@@ -53,6 +53,31 @@ export interface OpenReviewOptions {
   herdrPane?: string;
   /** Defaults to the plan's first markdown heading; diffs get no derived title. */
   title?: string;
+  /**
+   * Per-file agent notes for diff sessions: the submitting agent's own
+   * explanation of each file's change, in dead prose. Stored as annotations
+   * with kind "note" anchored at the file path, so they render as regular
+   * rail cards and feed the guided walk's agent-note block.
+   */
+  notes?: ReviewNote[];
+}
+
+/** The note contract: one note per changed file, anchored by the file path. */
+export interface ReviewNote {
+  path: string;
+  body: string;
+}
+
+/** Anchor a note at its file: quote = the path, no context selectors. */
+async function attachNotes(client: DaemonClient, sessionId: string, notes: ReviewNote[]): Promise<void> {
+  for (const note of notes) {
+    await client.sessionAnnotate(sessionId, {
+      id: newAnnotationId(),
+      kind: "note",
+      anchor: { quote: note.path, prefix: "", suffix: "" },
+      body: note.body,
+    });
+  }
 }
 
 export interface AwaitVerdictOptions {
@@ -154,10 +179,15 @@ export async function openReview(client: DaemonClient, opts: OpenReviewOptions):
       (s) => s.artifact.meta.agentSessionId === opts.agentSessionId,
     );
     if (existing !== undefined) {
-      return new ReviewHandle(client, await client.sessionSubmitRevision(existing.id, opts.content));
+      let revised = await client.sessionSubmitRevision(existing.id, opts.content);
+      if (opts.notes?.length) {
+        await attachNotes(client, revised.id, opts.notes);
+        revised = await client.sessionGet(revised.id);
+      }
+      return new ReviewHandle(client, revised);
     }
   }
-  const session = await client.sessionCreate(workspace, {
+  let session = await client.sessionCreate(workspace, {
     type: opts.type,
     content: opts.content,
     meta: {
@@ -170,5 +200,9 @@ export async function openReview(client: DaemonClient, opts: OpenReviewOptions):
       cwd,
     },
   });
+  if (opts.notes?.length) {
+    await attachNotes(client, session.id, opts.notes);
+    session = await client.sessionGet(session.id);
+  }
   return new ReviewHandle(client, session);
 }

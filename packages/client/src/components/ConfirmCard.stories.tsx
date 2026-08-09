@@ -20,3 +20,18 @@ export const RequestChanges: Story = {
   expectedColors: [DARK.red],
   size: { width: 40, height: 14 },
 };
+
+export const WithViewedSummary: Story = {
+  render: () => (
+    <ConfirmCard
+      verdict="approve"
+      summary=""
+      annotationCount={1}
+      blockingCount={0}
+      viewedSummary="2/3 files viewed"
+      {...callbacks}
+    />
+  ),
+  expectedColors: [DARK.green, DARK.textDim],
+  size: { width: 40, height: 14 },
+};

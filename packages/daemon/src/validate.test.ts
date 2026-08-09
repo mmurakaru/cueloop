@@ -89,6 +89,16 @@ describe("parseParams", () => {
     expect(p.annotation.anchor.prefix).toBe("");
   });
 
+  test("setViewed takes a full path list and rejects non-string entries", () => {
+    expect(parseParams("session.setViewed", { id: "s", viewedPaths: ["src/a.ts", "src/b.ts"] }).viewedPaths).toEqual([
+      "src/a.ts",
+      "src/b.ts",
+    ]);
+    expect(parseParams("session.setViewed", { id: "s", viewedPaths: [] }).viewedPaths).toEqual([]);
+    expect(() => parseParams("session.setViewed", { id: "s", viewedPaths: [1] })).toThrow(/viewedPaths/);
+    expect(() => parseParams("session.setViewed", { id: "s" })).toThrow(/viewedPaths/);
+  });
+
   test("null params are treated as empty", () => {
     expect(parseParams("daemon.ping", null)).toEqual({});
   });
@@ -163,6 +173,7 @@ describe("wire pins", () => {
     revisions: [fullRevision],
     annotations: [fullAnnotation],
     workingCopy: "# P edited",
+    viewedPaths: ["src/a.ts"],
     verdict: fullVerdict,
     status: "pending",
     createdAt: "now",

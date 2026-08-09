@@ -1187,3 +1187,133 @@ exports[`stories catalog theme-context/ProviderSwap renders, snapshots, and carr
                                                                                 
 "
 `;
+
+exports[`stories catalog ConfirmCard/WithViewedSummary renders, snapshots, and carries its colors: ConfirmCard/WithViewedSummary 1`] = `
+"╭─ submit review ─────────────────────╮ 
+│ 1 annotations · 0 blocking          │ 
+│ 2/3 files viewed                    │ 
+│                                     │ 
+│  Comment  [Approve]  Changes        │ 
+│                                     │ 
+│ summary for the agent (optional)    │ 
+│                                     │ 
+│  Submit    Cancel                   │ 
+╰─────────────────────────────────────╯ 
+                                        
+                                        
+                                        
+                                        
+"
+`;
+
+exports[`stories catalog WalkWizard/EndCard renders, snapshots, and carries its colors: WalkWizard/EndCard 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+    ╭─ walk complete ──────────────────────────────────────────────────────╮    
+    │ every file viewed (3/3)                                              │    
+    │                                                                      │    
+    │  Submit review    [ back                                             │    
+    ╰──────────────────────────────────────────────────────────────────────╯    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog WalkWizard/EndCardPartialPass renders, snapshots, and carries its colors: WalkWizard/EndCardPartialPass 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+    ╭─ walk complete ──────────────────────────────────────────────────────╮    
+    │ 1 of 3 files viewed                                                  │    
+    │                                                                      │    
+    │  Submit review    [ back                                             │    
+    ╰──────────────────────────────────────────────────────────────────────╯    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog WalkWizard/FirstFile renders, snapshots, and carries its colors: WalkWizard/FirstFile 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+    ╭─ file 1 of 3 · 0 viewed ─────────────────────────────────────────────╮    
+    │ packages/daemon/src/store.ts                                         │    
+    │ +12 -3                                                               │    
+    │                                                                      │    
+    │ +const viewed = new Set<string>();                                   │    
+    │ +record.viewedPaths = [...viewed];                                   │    
+    │ -// viewed tracking lives in the client only                         │    
+    ╰──────────────────────────────────────────────────────────────────────╯    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog WalkWizard/WithAgentNote renders, snapshots, and carries its colors: WalkWizard/WithAgentNote 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+    ╭─ file 2 of 3 · 1 viewed ─────────────────────────────────────────────╮    
+    │ packages/client/src/walk.ts                                          │    
+    │ +48 -0                                                               │    
+    │                                                                      │    
+    │ +export function firstUnviewedIndex(files, viewed) {                 │    
+    ╰──────────────────────────────────────────────────────────────────────╯    
+                                                                                
+    ╭─ agent note ─────────────────────────────────────────────────────────╮    
+    │ New module: pure helpers that pick the next unviewed file. No IO,    │    
+    │ unit tested.                                                         │    
+    ╰──────────────────────────────────────────────────────────────────────╯    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;

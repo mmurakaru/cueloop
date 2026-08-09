@@ -5,7 +5,7 @@
  * first, then every annotation is addressed, located by quoted text.
  */
 
-import type { Annotation, ReviewSession, VerdictKind } from "./types";
+import { isAgentNote, type Annotation, type ReviewSession, type VerdictKind } from "./types";
 import { parseBlocks, sectionOf } from "./markdown";
 import { resolveAnchor } from "./anchor";
 import { unifiedDiffText } from "./diff";
@@ -26,6 +26,8 @@ const quoteLines = (s: string) => "> " + s.replace(/\n/g, "\n> ");
 
 export function renderFeedback(input: FeedbackInput): string {
   const path = input.planPath ?? "plan.md";
+  // agent notes are the submitter's own context - never echoed back as feedback
+  const annotations = input.annotations.filter((annotation) => !isAgentNote(annotation));
   const blocks = parseBlocks(input.workingCopy ?? input.artifactContent);
   const lines: string[] = [];
   lines.push("# Review: " + input.verdictKind.replace("_", " "));
@@ -49,12 +51,12 @@ export function renderFeedback(input: FeedbackInput): string {
     lines.push("");
   }
 
-  if (input.annotations.length) {
-    lines.push(`## Annotations (${input.annotations.length})`);
+  if (annotations.length) {
+    lines.push(`## Annotations (${annotations.length})`);
     lines.push("");
     lines.push(`Address every item. Locate each one in ${path} by its quoted text.`);
     lines.push("");
-    input.annotations.forEach((a, i) => {
+    annotations.forEach((a, i) => {
       const res = resolveAnchor(a.anchor, blocks);
       const sec = res ? sectionOf(blocks, res.blockIndex) : "";
       const loc = sec ? ` (§ ${sec})` : "";
@@ -77,7 +79,7 @@ export function renderFeedback(input: FeedbackInput): string {
     });
   }
 
-  if (!diff && !input.annotations.length) {
+  if (!diff && !annotations.length) {
     lines.push("_No edits or annotations._");
     lines.push("");
   }

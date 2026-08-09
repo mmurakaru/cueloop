@@ -54,6 +54,16 @@ export interface Anchor {
 /** The annotation kind set is open (map #2); these are the built-ins. */
 export type AnnotationKind = "comment" | "suggestion" | (string & {});
 
+/**
+ * Agent-authored context, not reviewer feedback: the guided walk's per-file
+ * notes (kind "note", anchored by the file path). Excluded from the feedback
+ * document and the reviewer's pending counts - an agent must never receive
+ * its own notes back as items to address.
+ */
+export function isAgentNote(annotation: Pick<Annotation, "kind">): boolean {
+  return annotation.kind === "note";
+}
+
 export interface Annotation {
   id: string;
   kind: AnnotationKind;
@@ -97,6 +107,12 @@ export interface ReviewSession {
    * Undefined = no direct edits.
    */
   workingCopy?: string;
+  /**
+   * File paths the reviewer marked viewed during the guided walk (diff
+   * sessions). Persisting with the session means a resumed review keeps its
+   * progress. Undefined = the walk never started.
+   */
+  viewedPaths?: string[];
   verdict: Verdict | null;
   status: SessionStatus;
   createdAt: string;

@@ -23,6 +23,10 @@ export type Intent =
   | { t: "editCard" }
   | { t: "nextAnn" }
   | { t: "prevAnn" }
+  | { t: "walkStart" }
+  | { t: "walkForward" }
+  | { t: "walkBack" }
+  | { t: "walkLeave" }
   | { t: "removeAnnotation" }
   | { t: "deselect" }
   | { t: "closeOverlay" }
@@ -43,10 +47,12 @@ export interface KeyState {
   keys: Record<string, string[]>;
   readOnly: boolean;
   /** Layer that owns keys before the grammar runs. */
-  overlay: "none" | "compose" | "submit" | "completion-prompt" | "completion-counting";
+  overlay: "none" | "walk" | "compose" | "submit" | "completion-prompt" | "completion-counting";
   view: "inbox" | "plan" | "diff";
   /** Plan-only span selection sub-mode. */
   spanMode: boolean;
+  /** The walk cursor sits on the end card - return offers the submit action. */
+  walkAtEnd: boolean;
   resolved: boolean;
   hasInboxItems: boolean;
   annotationCount: number;
@@ -56,7 +62,7 @@ export interface KeyState {
 }
 
 /** Verbs that write session state; an observer never reaches their handlers. */
-const MUTATING_ACTIONS = new Set(["comment", "suggest", "cut", "edit", "delete_annotation", "submit"]);
+const MUTATING_ACTIONS = new Set(["comment", "suggest", "cut", "edit", "delete_annotation", "submit", "walk"]);
 
 const SPAN_KEYS = ["l", "h", "w", "b", "$", "0"];
 
@@ -90,6 +96,19 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
     if (name === "escape") return [{ t: "dismissCompletion" }];
     return [];
   }
+  // the walk wizard owns its keys while active: ] advances (marking the
+  // current file viewed), [ steps back, escape leaves keeping progress, and
+  // return on the end card hands over to the submit confirm
+  if (state.overlay === "walk") {
+    if (name === "]") return [{ t: "walkForward" }];
+    if (name === "[") return [{ t: "walkBack" }];
+    if (name === "escape") return [{ t: "walkLeave" }];
+    if ((name === "return" || name === "enter") && state.walkAtEnd) {
+      return [{ t: "walkLeave" }, { t: "openSubmit" }];
+    }
+    if (name === "q") return [{ t: "exit" }];
+    return [];
+  }
   const action = resolvedAction ?? actionFor(state.keys, name, key.shift);
   if (action === "quit") return [{ t: "exit" }];
   // the ONE read-only rule: any mutating attempt answers instead of acting
@@ -114,6 +133,11 @@ function inboxGrammar(state: KeyState, name: string): Intent[] {
 function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
   const nav = navIntent(action);
   if (nav) return nav;
+  if (action === "walk") {
+    // marking viewed writes the session record, so a resolved review answers
+    if (state.resolved) return status("review submitted - read-only");
+    return [{ t: "walkStart" }];
+  }
   if (action === "comment") {
     if (state.resolved) return status("review submitted - read-only");
     if (!state.cursorAnnotatable) return status("move to a code line to comment");
@@ -139,6 +163,7 @@ function spanGrammar(name: string): Intent[] {
 function planGrammar(state: KeyState, action: string | undefined, name: string): Intent[] {
   const nav = navIntent(action);
   if (nav) return nav;
+  if (action === "walk") return status("the guided walk is a diff-review mode");
   if (name === "escape") return [{ t: "deselect" }];
   if (action === "span") return state.cursorAnnotatable ? [{ t: "startSpan" }] : [];
   if (action === "comment" || action === "suggest") {

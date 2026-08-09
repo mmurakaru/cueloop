@@ -150,6 +150,22 @@ export class DaemonCore {
     return s;
   }
 
+  /**
+   * The guided walk's viewed marks. The full list replaces the stored one
+   * (last write wins - one reviewer walks at a time); an empty list clears
+   * the field so untouched records stay lean. Duplicates collapse here so
+   * the record never accumulates repeats from racing clients.
+   */
+  sessionSetViewed(id: string, viewedPaths: string[]): ReviewSession {
+    const s = this.mutable(id);
+    const unique = [...new Set(viewedPaths)];
+    if (unique.length === 0) delete s.viewedPaths;
+    else s.viewedPaths = unique;
+    this.store.upsert(s);
+    this.emit("session.updated", id);
+    return s;
+  }
+
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): ReviewSession {
     const s = this.mutable(id);
     const verdict: Verdict = {
