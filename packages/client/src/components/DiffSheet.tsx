@@ -27,6 +27,11 @@ type DiffSegment =
   | { kind: "header"; rowIndex: number; row: DiffRow }
   | { kind: "chunk"; firstRowIndex: number; rows: DiffRow[]; annotation: Annotation | null };
 
+/** Row text carries the patch's trailing newline; rendering strips it. */
+function rowLine(row: DiffRow): string {
+  return row.text.replace(/\n$/, "");
+}
+
 /** Chunks split after an annotated row so its card can sit directly below. */
 function segmentRows(rows: DiffRow[], annotatedByRow: Map<number, Annotation>): DiffSegment[] {
   const segments: DiffSegment[] = [];
@@ -92,8 +97,11 @@ function DiffChunk({
   }, [segment, cursorInChunk, tokens]);
 
   const lineColors = useMemo(() => {
-    const colors = new Map<number, { gutter?: string; content?: string }>();
-    if (segment.annotation) colors.set(segment.rows.length - 1, { content: tokens.markCommentBg });
+    // the renderable's config parser requires the gutter key to be present
+    const colors = new Map<number, { gutter: string | undefined; content: string }>();
+    if (segment.annotation) {
+      colors.set(segment.rows.length - 1, { gutter: undefined, content: tokens.markCommentBg });
+    }
     if (cursorInChunk >= 0 && cursorInChunk < segment.rows.length) {
       colors.set(cursorInChunk, { gutter: tokens.cursorBg, content: tokens.cursorBg });
     }
@@ -134,7 +142,7 @@ function DiffChunk({
                 fg={foreground}
                 bg={isCursorRow ? tokens.cursorBg : isAnnotatedRow ? tokens.markCommentBg : undefined}
               >
-                {(lineIndex > 0 ? "\n" : "") + sign + row.text}
+                {(lineIndex > 0 ? "\n" : "") + sign + rowLine(row)}
               </span>
             );
           })}
@@ -208,14 +216,14 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, them
             if (segment.row.t === "file") {
               return (
                 <text key={segmentIndex} fg={tokens.text} bg={isCursor ? tokens.cursorBg : tokens.panel}>
-                  {isCursor ? "▎" : " "}■ {segment.row.text}
+                  {isCursor ? "▎" : " "}■ {rowLine(segment.row)}
                 </text>
               );
             }
             return (
               <text key={segmentIndex} fg={tokens.blue} bg={isCursor ? tokens.cursorBg : undefined}>
                 {isCursor ? "▎" : " "}
-                {segment.row.text}
+                {rowLine(segment.row)}
               </text>
             );
           }
