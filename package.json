@@ -31,7 +31,7 @@
     "bun-pty": "^0.4.10",
     "cueloop": "workspace:*",
     "react": "^19.2.0",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "@changesets/cli": "^2.31.0",
     "@changesets/changelog-github": "^0.5.2"
   }
