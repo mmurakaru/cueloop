@@ -7,7 +7,6 @@
  */
 
 import React from "react";
-import type { MouseEvent, SelectRenderable } from "@opentui/core";
 import type { VerdictKind } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
@@ -36,17 +35,18 @@ export interface ConfirmCardProps {
   theme?: Theme;
 }
 
-/** Counts, spacer, 3-row verdict selector, spacer, summary input, spacer, buttons. */
-const CONFIRM_CONTENT_ROWS = 9;
+/** Counts, spacer, 1-row verdict selector, spacer, summary input, spacer, buttons. */
+const CONFIRM_CONTENT_ROWS = 7;
 
 export function verdictColor(verdict: VerdictKind, tokens: Theme): string {
   return verdict === "approve" ? tokens.green : verdict === "request_changes" ? tokens.red : tokens.blue;
 }
 
 /**
- * The verdict selector over the native select renderable. Selection stays
- * controlled by the grammar (←/→ cycle the verdict); clicks map through the
- * option row geometry. The selected verdict wears brackets and its color.
+ * The verdict selector: one row of pressable words, matching the reading
+ * direction of a choice between three peers. Selection stays controlled by
+ * the grammar (←/→ cycle the verdict); a click selects directly. The
+ * selected verdict wears brackets and its color.
  */
 function VerdictSelector({
   verdict,
@@ -58,36 +58,16 @@ function VerdictSelector({
   theme?: Theme;
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const selectedIndex = VERDICTS.indexOf(verdict);
-  const selectorRef = React.useRef<SelectRenderable | null>(null);
-  React.useEffect(() => {
-    selectorRef.current?.setSelectedIndex(selectedIndex);
-  }, [selectedIndex]);
-  const onMouseUp = (event: MouseEvent): void => {
-    const selector = selectorRef.current;
-    if (!selector) return;
-    const candidate = VERDICTS[event.y - selector.y];
-    if (candidate) onSelectVerdict(candidate);
-  };
   return (
-    <select
-      ref={selectorRef}
-      options={VERDICTS.map((candidate) => ({
-        name: candidate === verdict ? `[${VERDICT_LABEL[candidate]}]` : ` ${VERDICT_LABEL[candidate]} `,
-        description: "",
-        value: candidate,
-      }))}
-      selectedIndex={selectedIndex}
-      showDescription={false}
-      showSelectionIndicator={false}
-      showScrollIndicator={false}
-      textColor={tokens.textDim}
-      selectedTextColor={verdictColor(verdict, tokens)}
-      selectedBackgroundColor={tokens.elevated}
-      backgroundColor={tokens.elevated}
-      onMouseUp={onMouseUp}
-      style={{ height: VERDICTS.length }}
-    />
+    <box style={{ flexDirection: "row", height: 1 }}>
+      {VERDICTS.map((candidate) => (
+        <box key={candidate} style={{ paddingRight: 1 }} onMouseUp={() => onSelectVerdict(candidate)}>
+          <text fg={candidate === verdict ? verdictColor(candidate, tokens) : tokens.textDim}>
+            {candidate === verdict ? `[${VERDICT_LABEL[candidate]}]` : ` ${VERDICT_LABEL[candidate]} `}
+          </text>
+        </box>
+      ))}
+    </box>
   );
 }
 
