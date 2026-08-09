@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.20
+
+### Patch Changes
+
+- [#110](https://github.com/mmurakaru/cueloop/pull/110) [`c3616b9`](https://github.com/mmurakaru/cueloop/commit/c3616b9f66493a90b0feb93443e81894d3785035) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Edit mode now works for every reviewer, in any shell. The editor resolves through `[ui] editor` config, then `$CUELOOP_EDITOR`/`$VISUAL`/`$EDITOR`, then a `nano` fallback, so a clean environment can still edit a plan (it used to throw). Known GUI editors get their wait flag applied automatically (`code --wait`, `subl --new-window --wait`, `zed --wait`, ...), and any editor that returns instantly with the file untouched drops to a confirm gate on the released terminal ("save and close it, then press Enter") instead of silently discarding the edit. Terminal editors are trusted to hold the terminal and never see the gate.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.20
+  - @cueloop/daemon@0.1.0-alpha.20
+  - @cueloop/schema@0.1.0-alpha.20
+
 ## 0.1.0-alpha.19
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/daemon",
-  "version": "0.1.0-alpha.19",
+  "version": "0.1.0-alpha.20",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -9,7 +9,7 @@
     "./review": "./src/review.ts"
   },
   "dependencies": {
-    "@cueloop/schema": "0.1.0-alpha.19",
+    "@cueloop/schema": "0.1.0-alpha.20",
     "valibot": "^1.4.2"
   },
   "publishConfig": {
