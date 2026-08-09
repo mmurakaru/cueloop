@@ -47,8 +47,8 @@ describe("socket round-trip", () => {
     expect(client.sessionGet("nope")).rejects.toBeInstanceOf(DaemonClientError);
     try {
       await client.sessionGet("nope");
-    } catch (e) {
-      expect((e as DaemonClientError).code).toBe("not_found");
+    } catch (error) {
+      expect((error as DaemonClientError).code).toBe("not_found");
     }
   });
 
@@ -71,22 +71,22 @@ describe("socket round-trip", () => {
     try {
       await client.request("session.create", { artifact: { type: "plan", content: "x" } });
       throw new Error("should have thrown");
-    } catch (e) {
-      expect((e as DaemonClientError).code).toBe("invalid_params");
+    } catch (error) {
+      expect((error as DaemonClientError).code).toBe("invalid_params");
     }
     // wrong types
     try {
       await client.request("session.wait", { id: 42 });
       throw new Error("should have thrown");
-    } catch (e) {
-      expect((e as DaemonClientError).code).toBe("invalid_params");
+    } catch (error) {
+      expect((error as DaemonClientError).code).toBe("invalid_params");
     }
     // unknown method
     try {
       await client.request("session.nuke", {});
       throw new Error("should have thrown");
-    } catch (e) {
-      expect((e as DaemonClientError).code).toBe("unknown_method");
+    } catch (error) {
+      expect((error as DaemonClientError).code).toBe("unknown_method");
     }
     // the daemon is still fully alive afterwards
     const session = await client.sessionCreate(WS, PLAN);

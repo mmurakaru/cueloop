@@ -158,7 +158,7 @@ describe("slice 1: Claude Code plan round-trip", () => {
     const hook = spawnHook(revised, 30_000);
 
     // wait for the revision to land (same session reopens as pending)
-    const sessionId = await waitForPendingSession(hook, (s) => s.revisions.length >= 2);
+    const sessionId = await waitForPendingSession(hook, (candidate) => candidate.revisions.length >= 2);
     const client = await DaemonClient.connect({ home });
     const session = await client.sessionGet(sessionId);
     expect(session.revisions.length).toBe(2);
@@ -181,7 +181,7 @@ describe("slice 1: Claude Code plan round-trip", () => {
     // reviewer resolves after the hook gave up; the verdict is collectable
     const client = await DaemonClient.connect({ home });
     const pending = await client.sessionList({ status: "pending" });
-    const late = pending.find((s) => s.artifact.content.includes("Late Plan"))!;
+    const late = pending.find((candidate) => candidate.artifact.content.includes("Late Plan"))!;
     await client.sessionResolve(late.id, "approve", "");
     const collected = await client.sessionWait(late.id, 1000);
     expect(collected!.verdict!.kind).toBe("approve");
