@@ -1,0 +1,1189 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`stories catalog AnnotationCard/CommentDraft renders, snapshots, and carries its colors: AnnotationCard/CommentDraft 1`] = `
+"  ╭─ comment on "persists sessions" ─────────────────────────────────────────╮  
+  │ Which daemon?                                                            │  
+  │  Save ⏎    Cancel esc                                                    │  
+  ╰──────────────────────────────────────────────────────────────────────────╯  
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog AnnotationCard/SavedEditing renders, snapshots, and carries its colors: AnnotationCard/SavedEditing 1`] = `
+"▸ SUGGESTION · pending                                                          
+  "move the store"                                                              
+new body                                                                        
+ Save ⏎    Cancel esc                                                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog AnnotationCard/SavedOrphanBlocking renders, snapshots, and carries its colors: AnnotationCard/SavedOrphanBlocking 1`] = `
+"  COMMENT · BLOCKING · ORPHANED                                                 
+  "a removed passage"                                                           
+  The passage is gone.                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog AnnotationCard/SavedSelected renders, snapshots, and carries its colors: AnnotationCard/SavedSelected 1`] = `
+"▸ COMMENT · pending                                                             
+  "persists sessions"                                                           
+  Which daemon owns this?                                                       
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog AnnotationCard/SuggestionDraft renders, snapshots, and carries its colors: AnnotationCard/SuggestionDraft 1`] = `
+"  ╭─ suggest replacement for "move the store" ───────────────────────────────╮  
+  │ write a note...                                                          │  
+  │  Save ⏎    Cancel esc                                                    │  
+  ╰──────────────────────────────────────────────────────────────────────────╯  
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Breadcrumb/SessionHeader renders, snapshots, and carries its colors: Breadcrumb/SessionHeader 1`] = `
+" cueloop · Migration Plan · rev 2 · resolved: approve                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog CodeBlock/CursorAnnotatedEdited renders, snapshots, and carries its colors: CodeBlock/CursorAnnotatedEdited 1`] = `
+"                                                                                
+▎ ts ◆ [edited]                                                                 
+                                                                                
+    export function gate(full: number) {                                        
+      // threshold                                                              
+      return full < 0.6 ? "blocked" : "clear";                                  
+    }                                                                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog CodeBlock/Typescript renders, snapshots, and carries its colors: CodeBlock/Typescript 1`] = `
+"  ts                                                                            
+                                                                                
+    export function gate(full: number) {                                        
+      // threshold                                                              
+      return full < 0.6 ? "blocked" : "clear";                                  
+    }                                                                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog CodeBlock/UnknownLanguage renders, snapshots, and carries its colors: CodeBlock/UnknownLanguage 1`] = `
+"  brainfog                                                                      
+                                                                                
+    plain verbatim lines                                                        
+      with indentation                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog CompletionOverlay/ApprovedPrompt renders, snapshots, and carries its colors: CompletionOverlay/ApprovedPrompt 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                               ✓ review approved                                
+                                                                                
+                 The agent has your approval and is unblocked.                  
+                                                                                
+             ⏎ close · a always close after submit (3s) · esc stay              
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog CompletionOverlay/FeedbackCounting renders, snapshots, and carries its colors: CompletionOverlay/FeedbackCounting 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                ✎ feedback sent                                 
+                                                                                
+                 The agent has your feedback and is unblocked.                  
+                       exported to vault/cueloop/plan.md                        
+                                                                                
+         closing in 3s - returning to agent/worker-3 · ⏎ now · esc stay         
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog ComposeBar/CommentOnLine renders, snapshots, and carries its colors: ComposeBar/CommentOnLine 1`] = `
+" COMMENT ON “  private items = new Map();” · ⏎ save · esc cancel                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog ComposeBar/SuggestionOnLine renders, snapshots, and carries its colors: ComposeBar/SuggestionOnLine 1`] = `
+" SUGGEST REPLACEMENT FOR “export class Store {” · ⏎ save · esc cancel           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog ConfirmCard/ApproveDefault renders, snapshots, and carries its colors: ConfirmCard/ApproveDefault 1`] = `
+"╭─ submit review ─────────────────────╮ 
+│ 0 annotations · 0 blocking          │ 
+│                                     │ 
+│   Comment                           │ 
+│  [Approve]                          │ 
+│   Changes                           │ 
+│                                     │ 
+│ summary for the agent (optional)    │ 
+│                                     │ 
+│  Submit    Cancel                   │ 
+╰─────────────────────────────────────╯ 
+                                        
+                                        
+                                        
+"
+`;
+
+exports[`stories catalog ConfirmCard/RequestChanges renders, snapshots, and carries its colors: ConfirmCard/RequestChanges 1`] = `
+"╭─ submit review ─────────────────────╮ 
+│ 3 annotations · 1 blocking          │ 
+│                                     │ 
+│   Comment                           │ 
+│   Approve                           │ 
+│  [Changes]                          │ 
+│                                     │ 
+│ Tighten the steps.                  │ 
+│                                     │ 
+│  Submit    Cancel                   │ 
+╰─────────────────────────────────────╯ 
+                                        
+                                        
+                                        
+"
+`;
+
+exports[`stories catalog DiffSheet/AnnotatedLine renders, snapshots, and carries its colors: DiffSheet/AnnotatedLine 1`] = `
+"                                                                                          
+ ▎■ src/store.ts                                                                          
+  @@ -1,4 +1,4 @@                                                                         
+   1   export class Store {                                                               
+   2  -  private items = [];                                                              
+   2◆ +  private items = new Map();                                                       
+       ◆ Map needs an eviction story.                                                     
+   3  }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
+exports[`stories catalog DiffSheet/CursorOnAddedLine renders, snapshots, and carries its colors: DiffSheet/CursorOnAddedLine 1`] = `
+"                                                                                          
+  ■ src/store.ts                                                                          
+  @@ -1,4 +1,4 @@                                                                         
+    1  export class Store {                                                               
+    2 -  private items = [];                                                              
+ ▎  2 +  private items = new Map();                                                       
+    3  }                                                                                  
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
+exports[`stories catalog DiffSheet/SignedRows renders, snapshots, and carries its colors: DiffSheet/SignedRows 1`] = `
+"                                                                                          
+ ▎■ src/store.ts                                                                          
+  @@ -1,4 +1,4 @@                                                                         
+   1  export class Store {                                                                
+   2 -  private items = [];                                                               
+   2 +  private items = new Map();                                                        
+   3  }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
+exports[`stories catalog InboxList/Empty renders, snapshots, and carries its colors: InboxList/Empty 1`] = `
+"                                                                                
+ cueloop · inbox (0 pending)                                                    
+                                                                                
+ nothing waiting for review                                                     
+                                                                                
+                                                                                
+  j/k move · ⏎ open · q quit                                                    
+                                                                                
+"
+`;
+
+exports[`stories catalog InboxList/TwoPending renders, snapshots, and carries its colors: InboxList/TwoPending 1`] = `
+"                                                                                
+ cueloop · inbox (2 pending)                                                    
+                                                                                
+ ▸ Migration Plan · main · plan                                                 
+   working tree · main · diff                                                   
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+  j/k move · ⏎ open · q quit                                                    
+                                                                                
+"
+`;
+
+exports[`stories catalog PlanSheet/AnnotatedPlan renders, snapshots, and carries its colors: PlanSheet/AnnotatedPlan 1`] = `
+"  submitted by agent/worker-3 · revision 1                                          Edit  
+                                                                                          
+    Migration Plan                                                                        
+                                                                                          
+    Context                                                                               
+                                                                                          
+  ▎ The daemon persists sessions to disk atomically.                                      
+                                                                                          
+    Steps                                                                                 
+                                                                                          
+    - move the store                                                                      
+    - add recovery                                                                        
+                                                                                          
+    ts                                                                                    
+                                                                                          
+      export function persist(session: Session): void {                                   
+        // one JSON document per session                                                  
+        writeAtomically(pathFor(session.id), serialize(session));                         
+      }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
+exports[`stories catalog PlanSheet/InlineCompose renders, snapshots, and carries its colors: PlanSheet/InlineCompose 1`] = `
+"  submitted by agent/worker-3 · revision 1                                          Edit  
+                                                                                          
+    Migration Plan                                                                        
+                                                                                          
+    Context                                                                               
+                                                                                          
+  ▎ The daemon persists sessions to disk atomically.                                      
+    ╭─ comment on "The daemon" ────────────────────────────────────────────────────────╮  
+    │ Which daemon?                                                                    │  
+    │  Save ⏎    Cancel esc                                                            │  
+    ╰──────────────────────────────────────────────────────────────────────────────────╯  
+                                                                                          
+    Steps                                                                                 
+                                                                                          
+    - move the store                                                                      
+    - add recovery                                                                        
+                                                                                          
+    ts                                                                                    
+                                                                                          
+      export function persist(session: Session): void {                                   
+        // one JSON document per session                                                  
+        writeAtomically(pathFor(session.id), serialize(session));                         
+      }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
+exports[`stories catalog PlanSheet/OrphanBanner renders, snapshots, and carries its colors: PlanSheet/OrphanBanner 1`] = `
+"  submitted by agent/worker-3 · revision 1                                          Edit  
+  1 annotation no longer match - the passage was removed.                                 
+                                                                                          
+  ▎ Migration Plan                                                                        
+                                                                                          
+    Context                                                                               
+                                                                                          
+    The daemon persists sessions to disk atomically.                                      
+                                                                                          
+    Steps                                                                                 
+                                                                                          
+    - move the store                                                                      
+    - add recovery                                                                        
+                                                                                          
+    ts                                                                                    
+                                                                                          
+      export function persist(session: Session): void {                                   
+        // one JSON document per session                                                  
+        writeAtomically(pathFor(session.id), serialize(session));                         
+      }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
+exports[`stories catalog PlanSheet/SpanSelection renders, snapshots, and carries its colors: PlanSheet/SpanSelection 1`] = `
+"  submitted by agent/worker-3 · revision 1                                          Edit  
+                                                                                          
+    Migration Plan                                                                        
+                                                                                          
+    Context                                                                               
+                                                                                          
+  ▎ The daemon persists sessions to disk atomically.                                      
+                                                                                          
+    Steps                                                                                 
+                                                                                          
+    - move the store                                                                      
+    - add recovery                                                                        
+                                                                                          
+    ts                                                                                    
+                                                                                          
+      export function persist(session: Session): void {                                   
+        // one JSON document per session                                                  
+        writeAtomically(pathFor(session.id), serialize(session));                         
+      }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
+exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its colors: ReviewRail/AgentTab 1`] = `
+"                                        
+  Review (2)  Agent                     
+                                        
+ agent/worker-3                         
+ status: pending                        
+ revision 1                             
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+"
+`;
+
+exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carries its colors: ReviewRail/AnnotationStack 1`] = `
+"                                        
+  Review (2)  Agent                     
+                                        
+ ▸ COMMENT · pending                    
+   "persists sessions"                  
+   Which daemon owns this?              
+                                        
+   SUGGESTION · pending                 
+   "move the store"                     
+   move the store behind one i…         
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+ Submit review (2) ⏎                    
+"
+`;
+
+exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its colors: ReviewRail/Resolved 1`] = `
+"                                        
+  Review (0)  Agent                     
+                                        
+   COMMENT · ORPHANED                   
+   "persists sessions"                  
+   Which daemon owns this?              
+                                        
+   SUGGESTION · ORPHANED                
+   "move the store"                     
+   move the store behind one i…         
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+ resolved: approve                      
+"
+`;
+
+exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and carries its colors: ReviewRail/SubmitConfirmOpen 1`] = `
+"                                        
+  Review (2)  Agent                     
+                                        
+   COMMENT · ORPHANED                   
+   "persists sessions"                  
+   Which daemon owns this?              
+                                        
+   SUGGESTION · ORPHANED                
+   "move the store"                     
+   move the store behind one i…         
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+ ╭─ submit review ──────────────╮       
+ │ 2 annotations · 0 blocking   │       
+ │                              │       
+ │   Comment                    │       
+ │   Approve                    │       
+ │  [Changes]                   │       
+ │                              │       
+ │ summary for the agent (option│       
+ │                              │       
+ │  Submit    Cancel            │       
+ ╰──────────────────────────────╯       
+"
+`;
+
+exports[`stories catalog SettingsDialog/BodyZone renders, snapshots, and carries its colors: SettingsDialog/BodyZone 1`] = `
+"                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+            ╭─ Settings ───────────────────────────────────────────────────────────────╮            
+            │ SETTINGS            Display                                              │            
+            │   General           plan width and chrome                                │            
+            │ › Display                                                                │            
+            │                      Plan width               default                    │            
+            │                      Line numbers             on                         │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │ j/k row · l/space change · h back · esc close                            │            
+            ╰──────────────────────────────────────────────────────────────────────────╯            
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+"
+`;
+
+exports[`stories catalog SettingsDialog/NavZone renders, snapshots, and carries its colors: SettingsDialog/NavZone 1`] = `
+"                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+            ╭─ Settings ───────────────────────────────────────────────────────────────╮            
+            │ SETTINGS            General                                              │            
+            │ › General           identity and submission                              │            
+            │   Display                                                                │            
+            │                      Display name             amber-heron                │            
+            │                      Auto-close on submit     3s                         │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │ j/k category · l/⏎ into settings · esc close                             │            
+            ╰──────────────────────────────────────────────────────────────────────────╯            
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+"
+`;
+
+exports[`stories catalog SettingsRows/AllKinds renders, snapshots, and carries its colors: SettingsRows/AllKinds 1`] = `
+" Line numbers             on                                                    
+ Hide whitespace          off                                                   
+ Palette                  dark                                                  
+ Vault path               ~/vaults/notes                                        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog primitives/Button/Disabled renders, snapshots, and carries its colors: primitives/Button/Disabled 1`] = `
+" Edit                                                                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog primitives/Button/Variants renders, snapshots, and carries its colors: primitives/Button/Variants 1`] = `
+" Save ⏎    Cancel esc   Submit review (2) ⏎                                     
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog primitives/Card/AccentBorder renders, snapshots, and carries its colors: primitives/Card/AccentBorder 1`] = `
+"╭─ accented ───────────────────────────────────────────────────────────────────╮
+│ content                                                                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog primitives/Card/Titled renders, snapshots, and carries its colors: primitives/Card/Titled 1`] = `
+"╭─ a titled card ──────────────────────────────────────────────────────────────╮
+│ first content row                                                            │
+│ second content row                                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog primitives/Dialog/Closed renders, snapshots, and carries its colors: primitives/Dialog/Closed 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog primitives/Dialog/Open renders, snapshots, and carries its colors: primitives/Dialog/Open 1`] = `
+"                                                            
+                                                            
+                                                            
+                                                            
+          ╭─ a modal ────────────────────────────╮          
+          │dialog body content                   │          
+          │                                      │          
+          │                                      │          
+          │                                      │          
+          │                                      │          
+          │                                      │          
+          ╰──────────────────────────────────────╯          
+                                                            
+                                                            
+                                                            
+                                                            
+"
+`;
+
+exports[`stories catalog primitives/StatusBar/HintLine renders, snapshots, and carries its colors: primitives/StatusBar/HintLine 1`] = `
+" j/k move · v span · c comment · q quit                                         
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog primitives/Tabs/SecondSelected renders, snapshots, and carries its colors: primitives/Tabs/SecondSelected 1`] = `
+" Review (0)  Agent                                                              
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog primitives/Tabs/TwoTabs renders, snapshots, and carries its colors: primitives/Tabs/TwoTabs 1`] = `
+" Review (2)  Agent                                                              
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog primitives/Toolbar/ActionRow renders, snapshots, and carries its colors: primitives/Toolbar/ActionRow 1`] = `
+" Submit    Cancel                                                               
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog theme-context/ContextDefault renders, snapshots, and carries its colors: theme-context/ContextDefault 1`] = `
+"╭─ default dark theme ─────────────────────────────────────────────────────────╮
+│ no provider needed                                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog theme-context/PropOverride renders, snapshots, and carries its colors: theme-context/PropOverride 1`] = `
+"╭─ prop-overridden theme ──────────────────────────────────────────────────────╮
+│ the theme prop beats the context                                             │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog theme-context/ProviderSwap renders, snapshots, and carries its colors: theme-context/ProviderSwap 1`] = `
+"╭─ provider theme ─────────────────────────────────────────────────────────────╮
+│ tokens come from the provider                                                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;

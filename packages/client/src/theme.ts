@@ -23,6 +23,8 @@ export interface Theme {
   markSuggestionBg: string;
   insFg: string;
   delFg: string;
+  /** Dimmed layer painted behind centered dialogs. */
+  backdrop: string;
 }
 
 export const DARK: Theme = {
@@ -43,4 +45,5 @@ export const DARK: Theme = {
   markSuggestionBg: "#20351f",
   insFg: "#62d96b",
   delFg: "#ff6b6b",
+  backdrop: "#14141b",
 }

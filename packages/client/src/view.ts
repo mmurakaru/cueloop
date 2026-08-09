@@ -1,8 +1,10 @@
 /**
  * The projection pipeline (#22): parse → display blocks (base vs working
- * copy reconciled) → styled runs → wrapped lines. Pure functions - the TUI
- * renders the output, tests assert on it directly. One planning layer:
- * rendering, navigation, and selection all derive from this module.
+ * copy reconciled) → styled runs. Pure functions - the TUI renders the runs
+ * (the native text primitive wraps them), tests assert on them directly.
+ * One planning layer: rendering, navigation, and selection all derive from
+ * this module; the rendered/work offset mappings keep the native selection
+ * addressable over word-diffed blocks.
  */
 
 import {
@@ -219,77 +221,52 @@ export function overlayMarks(runs: StyleRun[], marks: Mark[]): StyleRun[] {
 }
 
 /**
- * Wrap styled runs into lines of at most `width` display cells. Split pieces
- * keep exact `start` offsets into the block text, so wrapped lines stay
- * addressable for the native selection primitive.
+ * Rendered-text offset of a work-text offset within a block's runs. The
+ * rendered text is every run's text in order (inline del runs included);
+ * only positioned runs carry work offsets. Drives the renderer's native
+ * selection from keyboard span offsets - the quote-anchor path depends on
+ * this mapping staying exact.
  */
-export function wrapRuns(runs: StyleRun[], width: number): StyleRun[][] {
-  const lines: StyleRun[][] = [];
-  let line: StyleRun[] = [];
-  let used = 0;
-  const pushLine = () => {
-    lines.push(line);
-    line = [];
-    used = 0;
-  };
+export function renderedOffsetFor(runs: StyleRun[], workOffset: number): number | null {
+  let rendered = 0;
   for (const run of runs) {
-    // split run into word/space tokens; newlines force breaks
-    const tokens = run.text.split(/(\n|\s+)/).filter((t) => t !== "");
-    let consumed = 0;
-    const startAt = (offsetInRun: number): number | null => (run.start === null ? null : run.start + offsetInRun);
-    for (const tok of tokens) {
-      if (tok === "\n") {
-        consumed += 1;
-        pushLine();
-        continue;
-      }
-      if (used + tok.length > width && used > 0 && tok.trim() !== "") pushLine();
-      if (tok.trim() === "" && used === 0 && lines.length > 0) {
-        consumed += tok.length;
-        continue; // no leading spaces after wrap
-      }
-      let slice = tok;
-      while (slice.length > width) {
-        const piece = slice.slice(0, width - used);
-        line.push({ ...run, text: piece, start: startAt(consumed) });
-        consumed += piece.length;
-        slice = slice.slice(piece.length);
-        pushLine();
-      }
-      line.push({ ...run, text: slice, start: startAt(consumed) });
-      consumed += slice.length;
-      used += slice.length;
+    if (run.start !== null && workOffset >= run.start && workOffset < run.start + run.text.length) {
+      return rendered + (workOffset - run.start);
     }
-  }
-  if (line.length || !lines.length) lines.push(line);
-  return lines;
-}
-
-/**
- * Locate a block-text offset inside wrapped run lines: the wrapped line index
- * and the column within the line's rendered run text. Drives the renderer's
- * native selection from keyboard span offsets.
- */
-export function locateOffset(lines: StyleRun[][], offset: number): { lineIndex: number; column: number } | null {
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
-    let column = 0;
-    for (const run of lines[lineIndex]!) {
-      if (run.start !== null && offset >= run.start && offset < run.start + run.text.length) {
-        return { lineIndex, column: column + (offset - run.start) };
-      }
-      column += run.text.length;
-    }
+    rendered += run.text.length;
   }
   return null;
 }
 
 /**
- * Inline compose box height, shared by layout and render so the row math and
- * the mounted box never drift: top border (title), the single-row input, the
- * Save/Cancel button row, bottom border.
+ * Work-text range covered by a rendered-text selection [start, end). Del runs
+ * and other unpositioned text inside the selection contribute nothing; the
+ * result is the tightest work range whose text the selection touched.
  */
-export function composeBoxHeight(): number {
-  return 4;
+export function workRangeForRendered(
+  runs: StyleRun[],
+  renderedStart: number,
+  renderedEnd: number,
+): { start: number; end: number } | null {
+  let rendered = 0;
+  let range: { start: number; end: number } | null = null;
+  for (const run of runs) {
+    const runRenderedStart = rendered;
+    const runRenderedEnd = rendered + run.text.length;
+    rendered = runRenderedEnd;
+    if (run.start === null) continue;
+    const overlapStart = Math.max(renderedStart, runRenderedStart);
+    const overlapEnd = Math.min(renderedEnd, runRenderedEnd);
+    if (overlapEnd <= overlapStart) continue;
+    const workStart = run.start + (overlapStart - runRenderedStart);
+    const workEnd = run.start + (overlapEnd - runRenderedStart);
+    if (!range) range = { start: workStart, end: workEnd };
+    else {
+      range.start = Math.min(range.start, workStart);
+      range.end = Math.max(range.end, workEnd);
+    }
+  }
+  return range;
 }
 
 /** Line delta between two revision contents, for the sheet-header summary. */

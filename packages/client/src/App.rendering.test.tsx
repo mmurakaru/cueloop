@@ -9,6 +9,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
+import { waitForText } from "./test-support";
 
 const PLAN = `# Render Plan
 
@@ -48,14 +49,9 @@ afterEach(() => {
 
 async function frame(): Promise<string> {
   const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 36 });
-  const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline && !setup.captureCharFrame().includes("Render Plan")) {
-    await Bun.sleep(25);
-    await setup.renderOnce();
-  }
-  // give the async highlighter a beat, then take the final frame
-  await Bun.sleep(150);
-  await setup.renderOnce();
+  await waitForText(setup, "Render Plan");
+  // async highlights settle within the visual-idle wait
+  await setup.waitForVisualIdle();
   return setup.captureCharFrame();
 }
 
@@ -96,11 +92,7 @@ describe("block spacing", () => {
       artifact: { type: "plan", content: listPlan, meta: {} },
     });
     const setup = await testRender(<App home={home} sessionId={s2.id} />, { width: 120, height: 30 });
-    const deadline = Date.now() + 10_000;
-    while (Date.now() < deadline && !setup.captureCharFrame().includes("one")) {
-      await Bun.sleep(25);
-      await setup.renderOnce();
-    }
+    await waitForText(setup, "one");
     const lines = setup.captureCharFrame().split("\n").map((l) => l.trimEnd());
     const one = lines.findIndex((l) => l.includes("- one"));
     expect(lines[one + 1]).toContain("- two");

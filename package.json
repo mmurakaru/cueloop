@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "bun run packages/cli/src/main.ts",
+    "stories": "bun run packages/client/src/components/stories-app.tsx",
     "test": "bun test ./packages ./test",
     "test:pty": "CUELOOP_RUN_PTY=1 bun test ./test/pty",
     "typecheck": "bunx tsc --noEmit",

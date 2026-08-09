@@ -9,6 +9,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
+import { press, waitForText } from "./test-support";
 
 const PATCH = `diff --git a/src/store.ts b/src/store.ts
 index 111..222 100644
@@ -41,20 +42,8 @@ afterEach(() => {
 
 async function renderApp() {
   const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 30 });
-  for (let i = 0; i < 40 && !setup.captureCharFrame().includes("cueloop"); i++) {
-    await Bun.sleep(25);
-    await setup.renderOnce();
-  }
-  await setup.renderOnce();
+  await waitForText(setup, "cueloop");
   return setup;
-}
-
-type Setup = Awaited<ReturnType<typeof renderApp>>;
-async function press(setup: Setup, k: string): Promise<void> {
-  if (k === "enter") setup.mockInput.pressKey("RETURN");
-  else await setup.mockInput.typeText(k);
-  await Bun.sleep(15);
-  await setup.renderOnce();
 }
 
 describe("diff review", () => {
@@ -75,17 +64,15 @@ describe("diff review", () => {
     expect(setup.captureCharFrame()).toContain("COMMENT ON");
     await setup.mockInput.typeText("Map needs an eviction story.");
     await press(setup, "enter");
-    await Bun.sleep(80);
-    await setup.renderOnce();
+    // inline annotation card rendered under the line
+    await waitForText(setup, "◆ Map needs an eviction story.");
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations.length).toBe(1);
     expect(stored.annotations[0]!.anchor.quote).toContain("new Map()");
-    // inline annotation card rendered under the line
-    expect(setup.captureCharFrame()).toContain("◆ Map needs an eviction story.");
 
     await press(setup, "enter"); // submit
     await press(setup, "enter"); // confirm request_changes
-    await Bun.sleep(100);
+    await waitForText(setup, "✎ feedback sent");
     const resolved = server.core.sessionGet(session.id);
     expect(resolved.verdict!.feedback).toContain("new Map()");
     expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
