@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.13
+
+### Patch Changes
+
+- [#91](https://github.com/mmurakaru/cueloop/pull/91) [`c632bb0`](https://github.com/mmurakaru/cueloop/commit/c632bb04b3a1ff5896e4fba833c891cca451ada6) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Test hardening: the inline-compose paint assertion waits on the span color instead of sampling the first frame after the keypress, which raced the anchor repaint on slow runners.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.13
+  - @cueloop/daemon@0.1.0-alpha.13
+  - @cueloop/schema@0.1.0-alpha.13
+
 ## 0.1.0-alpha.12
 
 ### Minor Changes
