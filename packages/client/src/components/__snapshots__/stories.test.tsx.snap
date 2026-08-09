@@ -262,11 +262,11 @@ exports[`stories catalog CompletionOverlay/ApprovedPrompt renders, snapshots, an
                                                                                 
                                                                                 
                                                                                 
-                               ✓ review approved                                
+                                review approved                                 
                                                                                 
                  The agent has your approval and is unblocked.                  
                                                                                 
-             ⏎ close · a always close after submit (3s) · esc stay              
+               close [return] · return to plan [esc] · always [a]               
                                                                                 
                                                                                 
                                                                                 
@@ -289,13 +289,13 @@ exports[`stories catalog CompletionOverlay/FeedbackCounting renders, snapshots, 
                                                                                 
                                                                                 
                                                                                 
-                                                                                
-                                ✎ feedback sent                                 
+                                 feedback sent                                  
                                                                                 
                  The agent has your feedback and is unblocked.                  
+                      returning to agent/worker-3 on close                      
                        exported to vault/cueloop/plan.md                        
                                                                                 
-         closing in 3s - returning to agent/worker-3 · ⏎ now · esc stay         
+       close [return] · closing in 3s · return to plan [esc] · always [a]       
                                                                                 
                                                                                 
                                                                                 

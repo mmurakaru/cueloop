@@ -148,13 +148,13 @@ describe("submit", () => {
     expect(setup.captureCharFrame()).toContain("[Changes]");
     await type(setup, "Expand the steps.");
     await press(setup, "enter");
-    await waitForText(setup, "✎ feedback sent");
+    await waitForText(setup, "feedback sent");
     const stored = server.core.sessionGet(session.id);
     expect(stored.status).toBe("resolved");
     expect(stored.verdict!.kind).toBe("request_changes");
     expect(stored.verdict!.feedback).toContain("Needs a phase list.");
     // submit hands the reviewer back to the agent via the completion overlay
-    expect(setup.captureCharFrame()).toContain("✎ feedback sent");
+    expect(setup.captureCharFrame()).toContain("feedback sent");
   });
 
   test("approve via ←/→ verdict cycling", async () => {

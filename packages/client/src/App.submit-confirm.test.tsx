@@ -121,7 +121,7 @@ describe("rail submit confirm", () => {
     await setup.mockInput.typeText("Tighten the steps.");
     await press(setup, "enter");
     // the completion flow after submit is unchanged
-    await waitForText(setup, "✎ feedback sent");
+    await waitForText(setup, "feedback sent");
     const stored = server.core.sessionGet(session.id);
     expect(stored.status).toBe("resolved");
     expect(stored.verdict!.kind).toBe("request_changes");

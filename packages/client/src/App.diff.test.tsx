@@ -72,7 +72,7 @@ describe("diff review", () => {
 
     await press(setup, "enter"); // submit
     await press(setup, "enter"); // confirm request_changes
-    await waitForText(setup, "✎ feedback sent");
+    await waitForText(setup, "feedback sent");
     const resolved = server.core.sessionGet(session.id);
     expect(resolved.verdict!.feedback).toContain("new Map()");
     expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
