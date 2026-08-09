@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.11
+
+### Patch Changes
+
+- [#87](https://github.com/mmurakaru/cueloop/pull/87) [`d445e3b`](https://github.com/mmurakaru/cueloop/commit/d445e3b88ca683d7f940c68ed2564a0bcc0b2fd5) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Upgrade OpenTUI to 0.5.1 (@opentui/core, @opentui/react, @opentui/ssh)
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.11
+  - @cueloop/daemon@0.1.0-alpha.11
+  - @cueloop/schema@0.1.0-alpha.11
+
 ## 0.1.0-alpha.10
 
 ### Minor Changes
