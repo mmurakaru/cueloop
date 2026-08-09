@@ -43,12 +43,10 @@ const TERMINAL_EDITORS = new Set([
   "vi", "vim", "nvim", "nano", "pico", "emacs", "emacsclient", "micro", "hx", "helix", "kak", "ed", "joe", "mcedit",
 ]);
 
-export type EditorClass = "gui" | "terminal" | "unknown";
-
 export interface ResolvedEditor {
   argv: string[];
-  klass: EditorClass;
-  /** True when this editor blocks until the file is closed. */
+  /** True when this editor blocks the hand-off until the file is closed - a
+   * terminal editor, or a known GUI editor with its wait flag applied. */
   waits: boolean;
 }
 
@@ -66,21 +64,21 @@ function editorBaseName(command: string): string {
 export function resolveEditorCommand(rawEditor: string): ResolvedEditor {
   const parts = rawEditor.trim().split(/\s+/);
   const base = editorBaseName(parts[0] ?? "");
-  if (TERMINAL_EDITORS.has(base)) return { argv: parts, klass: "terminal", waits: true };
+  if (TERMINAL_EDITORS.has(base)) return { argv: parts, waits: true };
   const waitFlags = GUI_WAIT_FLAGS[base];
   if (waitFlags) {
     const alreadyWaits = parts.some((part) => part === "--wait" || part === "-w" || part === "--block");
-    return { argv: alreadyWaits ? parts : [...parts, ...waitFlags], klass: "gui", waits: true };
+    return { argv: alreadyWaits ? parts : [...parts, ...waitFlags], waits: true };
   }
-  return { argv: parts, klass: "unknown", waits: false };
+  return { argv: parts, waits: false };
 }
 
 /** A fast return with an untouched file means the editor probably did not wait. */
 const NO_WAIT_THRESHOLD_MS = 1000;
 
 function suspectsNoWait(resolved: ResolvedEditor, elapsedMs: number, unchanged: boolean): boolean {
-  if (resolved.klass === "terminal") return false;
-  if (!unchanged) return false;
+  if (resolved.waits) return false; // holds the terminal or has a wait flag - trust the exit
+  if (!unchanged) return false; // edits landed, so it waited after all
   return elapsedMs < NO_WAIT_THRESHOLD_MS;
 }
 
@@ -94,9 +92,9 @@ export interface EditHandOff {
 }
 
 /** Prompt on the released terminal during the suspend window. */
-function promptSaved(editorLabel: string): boolean {
+function promptSaved(editorLabel: string, path: string): boolean {
   const answer = prompt(
-    `${editorLabel} returned immediately and the plan is unchanged - a GUI editor needs its wait flag. Save and close it, then press Enter to load your edits (or type n to skip):`,
+    `${editorLabel} returned immediately and the plan is unchanged - a GUI editor needs its wait flag. Save and close ${path}, then press Enter to load your edits (or type n to skip):`,
   );
   return answer !== null && answer.trim().toLowerCase() !== "n";
 }
@@ -110,8 +108,8 @@ export function editInEditor(content: string, filename = "plan.md", handOff: Edi
   writeFileSync(path, content);
   try {
     const startedAt = now();
-    const proc = Bun.spawnSync([...resolved.argv, path], { stdin: "inherit", stdout: "inherit", stderr: "inherit" });
-    if (proc.exitCode !== 0) throw new Error(`editor exited ${proc.exitCode}`);
+    const editorProcess = Bun.spawnSync([...resolved.argv, path], { stdin: "inherit", stdout: "inherit", stderr: "inherit" });
+    if (editorProcess.exitCode !== 0) throw new Error(`editor exited ${editorProcess.exitCode}`);
     let next = readFileSync(path, "utf8");
     if (suspectsNoWait(resolved, now() - startedAt, next === content)) {
       const confirm = handOff.confirmSaved ?? promptSaved;

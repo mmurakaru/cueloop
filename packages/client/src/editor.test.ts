@@ -21,21 +21,21 @@ describe("resolveEditor", () => {
 });
 
 describe("resolveEditorCommand", () => {
-  test("a known GUI editor gets its wait flag appended", () => {
-    expect(resolveEditorCommand("code")).toEqual({ argv: ["code", "--wait"], klass: "gui", waits: true });
-    expect(resolveEditorCommand("subl")).toEqual({ argv: ["subl", "--new-window", "--wait"], klass: "gui", waits: true });
+  test("a known GUI editor gets its wait flag appended and is trusted to wait", () => {
+    expect(resolveEditorCommand("code")).toEqual({ argv: ["code", "--wait"], waits: true });
+    expect(resolveEditorCommand("subl")).toEqual({ argv: ["subl", "--new-window", "--wait"], waits: true });
   });
 
   test("an existing wait flag is not duplicated", () => {
     expect(resolveEditorCommand("code --wait").argv).toEqual(["code", "--wait"]);
   });
 
-  test("a terminal editor is left alone and marked waiting", () => {
-    expect(resolveEditorCommand("vim")).toEqual({ argv: ["vim"], klass: "terminal", waits: true });
+  test("a terminal editor is left alone and trusted to hold the tty", () => {
+    expect(resolveEditorCommand("vim")).toEqual({ argv: ["vim"], waits: true });
   });
 
   test("an unknown editor is neither flagged nor trusted to wait", () => {
-    expect(resolveEditorCommand("my-editor")).toEqual({ argv: ["my-editor"], klass: "unknown", waits: false });
+    expect(resolveEditorCommand("my-editor")).toEqual({ argv: ["my-editor"], waits: false });
   });
 });
 
