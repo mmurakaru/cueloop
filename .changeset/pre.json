@@ -40,6 +40,7 @@
     "shared-review-core",
     "shiki-highlighting",
     "ssh-serve",
+    "ui-foundation",
     "valibot-wire-validation",
     "verify-propagation",
     "verify-published",
