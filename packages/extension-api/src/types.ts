@@ -32,14 +32,14 @@ export interface CommandContext {
 
 export interface CommandRegistration {
   description: string;
-  handler(ctx: CommandContext, args: string): void | Promise<void>;
+  handler(context: CommandContext, args: string): void | Promise<void>;
 }
 
 export interface KeybindingRegistration {
   /** Action name; binds through the same [keys] config as built-ins. */
   action: string;
   defaultKeys: string[];
-  handler(ctx: CommandContext): void | Promise<void>;
+  handler(context: CommandContext): void | Promise<void>;
 }
 
 /** Exporters ship resolved sessions somewhere (notes vaults, forges). */

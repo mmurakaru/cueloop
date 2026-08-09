@@ -131,8 +131,8 @@ function inboxGrammar(state: KeyState, name: string): Intent[] {
 }
 
 function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
-  const nav = navIntent(action);
-  if (nav) return nav;
+  const navigation = navigationIntent(action);
+  if (navigation) return navigation;
   if (action === "walk") {
     // marking viewed writes the session record, so a resolved review answers
     if (state.resolved) return status("review submitted - read-only");
@@ -161,8 +161,8 @@ function spanGrammar(name: string): Intent[] {
 }
 
 function planGrammar(state: KeyState, action: string | undefined, name: string): Intent[] {
-  const nav = navIntent(action);
-  if (nav) return nav;
+  const navigation = navigationIntent(action);
+  if (navigation) return navigation;
   if (action === "walk") return status("the guided walk is a diff-review mode");
   if (name === "escape") return [{ type: "deselect" }];
   if (action === "span") return state.cursorAnnotatable ? [{ type: "startSpan" }] : [];
@@ -182,7 +182,7 @@ function planGrammar(state: KeyState, action: string | undefined, name: string):
 }
 
 /** Cursor movement is the same intent everywhere; views clamp their own bounds. */
-function navIntent(action: string | undefined): Intent[] | null {
+function navigationIntent(action: string | undefined): Intent[] | null {
   if (action === "down" || action === "up" || action === "top" || action === "bottom") {
     return [{ type: "move", to: action }];
   }

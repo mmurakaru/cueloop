@@ -76,7 +76,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       },
       required: ["plan"],
     },
-    async execute(_toolCallId, params, signal, onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, onUpdate, context) {
       if (signal?.aborted) return cancelledResult(undefined, 0);
       const client = await DaemonClient.connect({ home: options.home, autostart: true });
       let sessionId: string | undefined;
@@ -84,7 +84,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
         const review = await openReview(client, {
           type: "plan",
           content: params.plan,
-          cwd: ctx.cwd,
+          cwd: context.cwd,
           agent: "pi",
           title: params.title,
         });
@@ -139,8 +139,8 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
 
     pi.registerCommand("review", {
       description: "Show the status of the current cueloop review session",
-      handler: async (_args, ctx) => {
-        const notify = (message: string) => ctx.ui?.notify?.(message, "info");
+      handler: async (_args, context) => {
+        const notify = (message: string) => context.ui?.notify?.(message, "info");
         let client: DaemonClient;
         try {
           client = await DaemonClient.connect({ home: options.home });

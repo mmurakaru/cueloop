@@ -1,21 +1,11 @@
 /**
- * PTY tests (tier 4): the real `cueloop` TUI binary in a
- * pseudo-terminal, asserting behavior the virtual-terminal tier cannot
- * prove - a real alternate-screen render, key routing through a raw tty,
- * SIGWINCH resize, and the process exit code.
- *
- * PTY backend: bun-pty. node-pty loads under Bun on macOS arm64 but its
- * native `spawn` silently kills the Bun process (no error, no output), so
- * it is unusable here; bun-pty is a Bun-native PTY with the same IPty
- * surface (write/resize/kill/onData/onExit) and works reliably.
- *
- * Env-gated: skipped unless CUELOOP_RUN_PTY is set, so `bun test ./test`
- * stays green everywhere. Run with `bun run test:pty`.
- *
- * The tests share one PTY session (spawning the TUI is expensive) and run
- * in file order: render → move cursor → resize → quit. OpenTUI repaints
- * only changed cells, so after a keypress the stripped output delta
- * contains the cursor glyph followed by the newly highlighted block text.
+ * PTY tests: the real `cueloop` TUI binary in a pseudo-terminal, asserting
+ * what the virtual-terminal tier cannot prove - alternate-screen render, key
+ * routing through a raw tty, SIGWINCH resize, and the process exit code.
+ * bun-pty is the backend because node-pty's native spawn silently kills the
+ * Bun process on macOS arm64. Env-gated behind CUELOOP_RUN_PTY (`bun run
+ * test:pty`). The tests share one PTY session and run in file order; OpenTUI
+ * repaints only changed cells, so assertions read the stripped output delta.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";

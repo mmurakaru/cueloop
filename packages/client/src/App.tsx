@@ -1,16 +1,12 @@
 /**
- * The cueloop TUI: state wiring, keymap dispatch, and layout
- * composition - nothing else. Rendering lives in components/ (PlanSheet,
- * DiffSheet, ReviewRail, ...), daemon IO and the mutation verbs live in
- * session-controller.ts, the keyboard grammar in keymap.ts with binding
- * resolution and status hints from key-bindings.ts, and theming flows
- * through the ThemeProvider - config themes swap the provider value.
- *
- * The plan review grammar: selection is the entry primitive (mouse drag or
- * keyboard span on one native renderer selection), compose happens inline
- * under the anchor, annotation text lives in the rail while the document
- * keeps only the kind-colored highlight, and the rail edits what the
- * document selects - one selected id drives both sides.
+ * The cueloop TUI: state wiring, keymap dispatch, and layout composition -
+ * nothing else. Rendering lives in components/, daemon IO and the mutation
+ * verbs in session-controller.ts, the keyboard grammar in keymap.ts with
+ * binding resolution and status hints from key-bindings.ts, and theming in
+ * the ThemeProvider. Selection is the entry primitive (mouse drag or keyboard
+ * span on one native renderer selection); annotation text lives in the rail
+ * while the document keeps only the highlight, and one selected id drives
+ * both sides.
  */
 
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";

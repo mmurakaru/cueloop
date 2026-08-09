@@ -61,7 +61,7 @@ function loadExtension(): FakePi {
   return fake;
 }
 
-function makeCtx(notes: string[] = []): PiContext {
+function makeContext(notes: string[] = []): PiContext {
   return { cwd: home, ui: { notify: (message) => notes.push(message) } };
 }
 
@@ -94,7 +94,7 @@ describe("pi adapter: request_review round-trip", () => {
     const fake = loadExtension();
     const tool = fake.tools.get("request_review")!;
     const plan = "# Approve Plan\n\nShip the daemon behind a flag.\n";
-    const resultP = tool.execute("t-approve", { plan }, undefined, undefined, makeCtx());
+    const resultP = tool.execute("t-approve", { plan }, undefined, undefined, makeContext());
 
     const sessionId = await waitForPendingSession("Approve Plan");
     const client = await DaemonClient.connect({ home });
@@ -117,7 +117,7 @@ describe("pi adapter: request_review round-trip", () => {
     const tool = fake.tools.get("request_review")!;
     const plan = "# Changes Plan\n\nEnable it for everyone immediately.\n";
     const updates: PiToolResult<ReviewDetails>[] = [];
-    const resultP = tool.execute("t-changes", { plan }, undefined, (update) => updates.push(update), makeCtx());
+    const resultP = tool.execute("t-changes", { plan }, undefined, (update) => updates.push(update), makeContext());
 
     const sessionId = await waitForPendingSession("Changes Plan");
     const client = await DaemonClient.connect({ home });
@@ -150,10 +150,10 @@ describe("pi adapter: request_review round-trip", () => {
     const handler = fake.toolCallHandlers[0]!;
     const controller = new AbortController();
     const plan = "# Abort Plan\n\nSomething slow.\n";
-    const resultP = tool.execute("t-abort", { plan }, controller.signal, undefined, makeCtx());
+    const resultP = tool.execute("t-abort", { plan }, controller.signal, undefined, makeContext());
 
     const sessionId = await waitForPendingSession("Abort Plan");
-    expect((await handler(toolCall("edit"), makeCtx()))?.block).toBe(true);
+    expect((await handler(toolCall("edit"), makeContext()))?.block).toBe(true);
     controller.abort();
 
     const result = (await resultP) as PiToolResult<ReviewDetails>;
@@ -161,7 +161,7 @@ describe("pi adapter: request_review round-trip", () => {
     expect(resultText(result)).toContain("cancelled");
     expect(result.details.status).toBe("cancelled");
     expect(result.details.sessionId).toBe(sessionId);
-    expect(await handler(toolCall("edit"), makeCtx())).toBeUndefined();
+    expect(await handler(toolCall("edit"), makeContext())).toBeUndefined();
 
     // the session outlives the cancelled call; tidy it so later tests see a clean home
     const client = await DaemonClient.connect({ home });
@@ -175,22 +175,22 @@ describe("pi adapter: tool_call gate", () => {
     const fake = loadExtension();
     const tool = fake.tools.get("request_review")!;
     const handler = fake.toolCallHandlers[0]!;
-    const ctx = makeCtx();
+    const context = makeContext();
 
     // no session yet: nothing is blocked
-    expect(await handler(toolCall("edit"), ctx)).toBeUndefined();
+    expect(await handler(toolCall("edit"), context)).toBeUndefined();
 
     const plan = "# Gate Plan\n\nRefactor everything.\n";
-    const resultP = tool.execute("t-gate", { plan }, undefined, undefined, ctx);
+    const resultP = tool.execute("t-gate", { plan }, undefined, undefined, context);
     const sessionId = await waitForPendingSession("Gate Plan");
 
     for (const name of ["edit", "write", "bash", "some_custom_tool"]) {
-      const decision = await handler(toolCall(name), ctx);
+      const decision = await handler(toolCall(name), context);
       expect(decision?.block).toBe(true);
       expect(decision?.reason).toContain("cueloop review pending");
     }
     for (const name of ["read", "grep", "find", "ls", "request_review"]) {
-      expect(await handler(toolCall(name), ctx)).toBeUndefined();
+      expect(await handler(toolCall(name), context)).toBeUndefined();
     }
 
     const client = await DaemonClient.connect({ home });
@@ -198,28 +198,28 @@ describe("pi adapter: tool_call gate", () => {
     client.close();
     await resultP;
 
-    expect(await handler(toolCall("edit"), ctx)).toBeUndefined();
-    expect(await handler(toolCall("bash"), ctx)).toBeUndefined();
+    expect(await handler(toolCall("edit"), context)).toBeUndefined();
+    expect(await handler(toolCall("bash"), context)).toBeUndefined();
   }, 15_000);
 });
 
 describe("pi adapter: review command", () => {
-  test("reports session status via ctx.ui", async () => {
+  test("reports session status via context.ui", async () => {
     const fake = loadExtension();
     const command = fake.commands.get("review")!;
     const notes: string[] = [];
-    const ctx = makeCtx(notes);
+    const context = makeContext(notes);
 
     // before any review from this extension instance
-    await command.handler("", ctx);
+    await command.handler("", context);
     expect(notes.length).toBe(1);
 
     const tool = fake.tools.get("request_review")!;
     const plan = "# Status Plan\n\nCheck status reporting.\n";
-    const resultP = tool.execute("t-status", { plan }, undefined, undefined, ctx);
+    const resultP = tool.execute("t-status", { plan }, undefined, undefined, context);
     const sessionId = await waitForPendingSession("Status Plan");
 
-    await command.handler("", ctx);
+    await command.handler("", context);
     expect(notes.at(-1)).toContain(sessionId);
     expect(notes.at(-1)).toContain("pending");
 
@@ -228,7 +228,7 @@ describe("pi adapter: review command", () => {
     client.close();
     await resultP;
 
-    await command.handler("", ctx);
+    await command.handler("", context);
     expect(notes.at(-1)).toContain("resolved: approve");
   }, 15_000);
 });

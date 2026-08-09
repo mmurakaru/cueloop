@@ -1,19 +1,11 @@
 /**
- * herdr tier-1 integration: the zero-install env contract.
- *
- * Any process inside a herdr pane sees HERDR_ENV=1 plus the pane id and the
- * herdr binary path. cueloop uses only that ambient contract here: report
- * semantic agent state (blocked while a review waits, working after the
- * verdict) and a sidebar metadata label. No plugin, no socket - tier 2 (the
- * herdr plugin) builds on top of this.
- *
- * Invariants:
- * - Fire-and-forget: reporting never blocks or throws; a broken herdr binary
- *   must never disturb the review flow it decorates.
- * - Fallback parity: outside herdr (HERDR_ENV unset) every call is a no-op,
- *   so behavior in a plain terminal is byte-identical.
- * - Tests point HERDR_BIN_PATH at a stub script; the binary path is the
- *   override, no extra knob.
+ * herdr agent-state reporting over the ambient env contract: a process inside
+ * a herdr pane sees HERDR_ENV=1 plus the pane id and binary path, and cueloop
+ * reports semantic agent state (blocked while a review waits, working after
+ * the verdict) plus a sidebar label through the herdr CLI.
+ * Invariants: fire-and-forget (reporting never blocks or throws); outside
+ * herdr every call is a no-op, so a plain terminal behaves byte-identically;
+ * tests point HERDR_BIN_PATH at a stub script.
  */
 
 export type HerdrAgentState = "blocked" | "working" | "done" | "idle";
