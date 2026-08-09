@@ -23,14 +23,14 @@ beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-lock-"));
 });
 afterEach(() => {
-  for (const s of servers.splice(0)) s.stop();
+  for (const runningServer of servers.splice(0)) runningServer.stop();
   rmSync(home, { recursive: true, force: true });
 });
 
 function server(): DaemonServer {
-  const s = new DaemonServer({ home, idleExitMs: 0 });
-  servers.push(s);
-  return s;
+  const daemonServer = new DaemonServer({ home, idleExitMs: 0 });
+  servers.push(daemonServer);
+  return daemonServer;
 }
 
 describe("one daemon per home", () => {
@@ -63,8 +63,8 @@ describe("one daemon per home", () => {
     // a pid that cannot be running (init is never a cueloop daemon, and this
     // simulates the record a crashed process leaves behind)
     writeFileSync(lockPath(home), "999999");
-    const s = server();
-    expect(s.start()).toBe(socketPath(home));
+    const daemonServer = server();
+    expect(daemonServer.start()).toBe(socketPath(home));
   });
 
   test("stopping releases the lock so a restart works", () => {
@@ -84,12 +84,12 @@ describe("one daemon per home", () => {
       DaemonClient.connect({ home, autostart: true }),
     ]);
     try {
-      const pids = await Promise.all(clients.map((c) => c.ping()));
-      const unique = new Set(pids.map((p) => p.pid));
+      const pids = await Promise.all(clients.map((client) => client.ping()));
+      const unique = new Set(pids.map((ping) => ping.pid));
       expect(unique.size).toBe(1);
       // and state is shared: one client's session is visible to the others
-      const s = await clients[0]!.sessionCreate(WS, PLAN);
-      expect((await clients[2]!.sessionGet(s.id)).id).toBe(s.id);
+      const session = await clients[0]!.sessionCreate(WS, PLAN);
+      expect((await clients[2]!.sessionGet(session.id)).id).toBe(session.id);
     } finally {
       for (const c of clients) c.close();
       // the autostarted daemon is not one of `servers` - shut it down

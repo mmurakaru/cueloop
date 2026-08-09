@@ -38,11 +38,11 @@ describe("method allowlist", () => {
 
 describe("parseParams", () => {
   test("accepts a well-formed create and defaults meta", () => {
-    const p = parseParams("session.create", {
+    const params = parseParams("session.create", {
       workspace: { repoRoot: "/repo", branch: "main" },
       artifact: { type: "plan", content: "# P" },
     });
-    expect(p.artifact.meta).toEqual({});
+    expect(params.artifact.meta).toEqual({});
   });
 
   test("rejects a missing workspace with a pathed message", () => {
@@ -81,12 +81,12 @@ describe("parseParams", () => {
   });
 
   test("annotation kinds stay open (extension kinds are allowed)", () => {
-    const p = parseParams("session.annotate", {
+    const params = parseParams("session.annotate", {
       id: "s",
       annotation: { id: "a1", kind: "praise", anchor: { quote: "x" }, body: "nice" },
     });
-    expect(p.annotation.kind).toBe("praise");
-    expect(p.annotation.anchor.prefix).toBe("");
+    expect(params.annotation.kind).toBe("praise");
+    expect(params.annotation.anchor.prefix).toBe("");
   });
 
   test("setViewed takes a full path list and rejects non-string entries", () => {
@@ -122,14 +122,14 @@ describe("validateSessionRecord", () => {
   });
 
   test("rejects a foreign schema version with a readable reason", () => {
-    const r = validateSessionRecord({ ...record, schemaVersion: "99" });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.error).toContain("schemaVersion");
+    const result = validateSessionRecord({ ...record, schemaVersion: "99" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("schemaVersion");
   });
 
   test("rejects a structurally broken record", () => {
-    const r = validateSessionRecord({ ...record, revisions: "nope" });
-    expect(r.ok).toBe(false);
+    const result = validateSessionRecord({ ...record, revisions: "nope" });
+    expect(result.ok).toBe(false);
   });
 });
 

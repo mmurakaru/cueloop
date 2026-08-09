@@ -123,7 +123,7 @@ async function resolvePending(marker: string, kind: "approve" | "request_changes
   try {
     for (let i = 0; i < 100; i++) {
       const pending = await client.sessionList({ status: "pending" });
-      const match = pending.find((s) => s.artifact.content.includes(marker));
+      const match = pending.find((candidate) => candidate.artifact.content.includes(marker));
       if (match) {
         await client.sessionResolve(match.id, kind, summary);
         return;

@@ -57,30 +57,30 @@ async function frame(): Promise<string> {
 
 describe("code blocks", () => {
   test("lines render verbatim: indentation preserved, no word-wrap", async () => {
-    const f = await frame();
-    expect(f).toContain("  const blocked = full < 0.6;");
-    expect(f).toContain('  return <text>{blocked ? "blocked" : "clear"}</text>;');
+    const rendered = await frame();
+    expect(rendered).toContain("  const blocked = full < 0.6;");
+    expect(rendered).toContain('  return <text>{blocked ? "blocked" : "clear"}</text>;');
   });
 
   test("the block carries its language tag", async () => {
-    const f = await frame();
-    expect(f).toContain("tsx");
+    const rendered = await frame();
+    expect(rendered).toContain("tsx");
   });
 });
 
 describe("block spacing", () => {
   test("a code block never glues to the list item above it", async () => {
-    const lines = (await frame()).split("\n").map((l) => l.trimEnd());
-    const li = lines.findIndex((l) => l.includes("wire the duck over MQTT"));
-    const codeHeader = lines.findIndex((l) => l.trim().startsWith("tsx"));
-    expect(li).toBeGreaterThan(-1);
-    expect(codeHeader).toBeGreaterThan(li);
-    expect(lines.slice(li + 1, codeHeader).some((l) => l === "")).toBe(true);
+    const lines = (await frame()).split("\n").map((line) => line.trimEnd());
+    const promptLineIndex = lines.findIndex((line) => line.includes("wire the duck over MQTT"));
+    const codeHeader = lines.findIndex((line) => line.trim().startsWith("tsx"));
+    expect(promptLineIndex).toBeGreaterThan(-1);
+    expect(codeHeader).toBeGreaterThan(promptLineIndex);
+    expect(lines.slice(promptLineIndex + 1, codeHeader).some((line) => line === "")).toBe(true);
   });
 
   test("a heading never sits directly on the previous block", async () => {
-    const lines = (await frame()).split("\n").map((l) => l.trimEnd());
-    const gate = lines.findIndex((l) => l.trim() === "Gate");
+    const lines = (await frame()).split("\n").map((line) => line.trimEnd());
+    const gate = lines.findIndex((line) => line.trim() === "Gate");
     expect(gate).toBeGreaterThan(0);
     expect(lines[gate - 1]).toBe("");
   });
@@ -93,8 +93,8 @@ describe("block spacing", () => {
     });
     const setup = await testRender(<App home={home} sessionId={s2.id} />, { width: 120, height: 30 });
     await waitForText(setup, "one");
-    const lines = setup.captureCharFrame().split("\n").map((l) => l.trimEnd());
-    const one = lines.findIndex((l) => l.includes("- one"));
+    const lines = setup.captureCharFrame().split("\n").map((line) => line.trimEnd());
+    const one = lines.findIndex((line) => line.includes("- one"));
     expect(lines[one + 1]).toContain("- two");
   });
 });

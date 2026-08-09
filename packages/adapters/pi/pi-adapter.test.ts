@@ -27,9 +27,9 @@ beforeAll(() => {
 });
 afterAll(async () => {
   try {
-    const c = await DaemonClient.connect({ home });
-    await c.shutdown();
-    c.close();
+    const daemonClient = await DaemonClient.connect({ home });
+    await daemonClient.shutdown();
+    daemonClient.close();
   } catch {
     // daemon already gone
   }
@@ -70,7 +70,7 @@ function toolCall(toolName: string): PiToolCallEvent {
 }
 
 function resultText(result: PiToolResult<ReviewDetails>): string {
-  return result.content.map((c) => c.text).join("\n");
+  return result.content.map((part) => part.text).join("\n");
 }
 
 /** Find the pending session created for a specific plan (tests share one home). */
@@ -79,7 +79,7 @@ async function waitForPendingSession(marker: string): Promise<string> {
   try {
     for (let i = 0; i < 100; i++) {
       const pending = await client.sessionList({ status: "pending" });
-      const hit = pending.find((s) => s.artifact.content.includes(marker));
+      const hit = pending.find((candidate) => candidate.artifact.content.includes(marker));
       if (hit) return hit.id;
       await Bun.sleep(50);
     }
@@ -117,7 +117,7 @@ describe("pi adapter: request_review round-trip", () => {
     const tool = fake.tools.get("request_review")!;
     const plan = "# Changes Plan\n\nEnable it for everyone immediately.\n";
     const updates: PiToolResult<ReviewDetails>[] = [];
-    const resultP = tool.execute("t-changes", { plan }, undefined, (u) => updates.push(u), makeCtx());
+    const resultP = tool.execute("t-changes", { plan }, undefined, (update) => updates.push(update), makeCtx());
 
     const sessionId = await waitForPendingSession("Changes Plan");
     const client = await DaemonClient.connect({ home });
@@ -128,10 +128,10 @@ describe("pi adapter: request_review round-trip", () => {
       body: "Stage the rollout instead.",
     });
     // the next poll chunk re-reads the session and streams the new count
-    for (let i = 0; i < 100 && !updates.some((u) => u.details.annotationCount === 1); i++) {
+    for (let i = 0; i < 100 && !updates.some((update) => update.details.annotationCount === 1); i++) {
       await Bun.sleep(50);
     }
-    expect(updates.some((u) => u.details.annotationCount === 1)).toBe(true);
+    expect(updates.some((update) => update.details.annotationCount === 1)).toBe(true);
     expect(updates.at(-1)!.details.status).toBe("pending");
     await client.sessionResolve(sessionId, "request_changes", "Too aggressive.");
     client.close();

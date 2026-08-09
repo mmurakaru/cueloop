@@ -68,10 +68,10 @@ function fileLabel(file: FileDiffMetadata): string {
 }
 
 /** Quote-primary anchor for a diff row: neighbors as context selectors. */
-export function diffRowAnchor(rows: DiffRow[], idx: number): { quote: string; prefix: string; suffix: string } {
-  const row = rows[idx]!;
-  const prev = rows[idx - 1];
-  const next = rows[idx + 1];
+export function diffRowAnchor(rows: DiffRow[], rowIndex: number): { quote: string; prefix: string; suffix: string } {
+  const row = rows[rowIndex]!;
+  const prev = rows[rowIndex - 1];
+  const next = rows[rowIndex + 1];
   return {
     quote: row.text,
     prefix: prev && (prev.kind === "ctx" || prev.kind === "add" || prev.kind === "del") ? prev.text.slice(-24) : "",

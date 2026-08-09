@@ -30,7 +30,7 @@ function key(name: string, shift = false): { name: string; shift: boolean } {
 }
 
 describe("compose overlay", () => {
-  const s = state({ overlay: "compose" });
+  const keyState = state({ overlay: "compose" });
   const table: [string, Intent[]][] = [
     ["escape", [{ type: "closeOverlay" }]],
     ["return", [{ type: "saveCompose" }]],
@@ -42,13 +42,13 @@ describe("compose overlay", () => {
   ];
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
-      expect(reduceKey(s, key(name))).toEqual(expected);
+      expect(reduceKey(keyState, key(name))).toEqual(expected);
     });
   }
 });
 
 describe("submit overlay", () => {
-  const s = state({ overlay: "submit" });
+  const keyState = state({ overlay: "submit" });
   const table: [string, Intent[]][] = [
     ["escape", [{ type: "closeOverlay" }]],
     ["return", [{ type: "submitVerdict" }]],
@@ -60,7 +60,7 @@ describe("submit overlay", () => {
   ];
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
-      expect(reduceKey(s, key(name))).toEqual(expected);
+      expect(reduceKey(keyState, key(name))).toEqual(expected);
     });
   }
 });
@@ -80,15 +80,15 @@ describe("completion overlay", () => {
     [counting, "a", [{ type: "optInAutoClose" }]],
     [counting, "escape", [{ type: "dismissCompletion" }]],
   ];
-  for (const [s, name, expected] of table) {
-    test(`${s.overlay} ${name} -> ${JSON.stringify(expected)}`, () => {
-      expect(reduceKey(s, key(name))).toEqual(expected);
+  for (const [overlayState, name, expected] of table) {
+    test(`${overlayState.overlay} ${name} -> ${JSON.stringify(expected)}`, () => {
+      expect(reduceKey(overlayState, key(name))).toEqual(expected);
     });
   }
 });
 
 describe("inbox mode", () => {
-  const s = state({ view: "inbox" });
+  const keyState = state({ view: "inbox" });
   const table: [string, Intent[]][] = [
     ["j", [{ type: "inboxMove", to: "down" }]],
     ["down", [{ type: "inboxMove", to: "down" }]],
@@ -102,7 +102,7 @@ describe("inbox mode", () => {
   ];
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
-      expect(reduceKey(s, key(name))).toEqual(expected);
+      expect(reduceKey(keyState, key(name))).toEqual(expected);
     });
   }
 
@@ -116,7 +116,7 @@ describe("inbox mode", () => {
 });
 
 describe("plan normal mode", () => {
-  const s = state();
+  const keyState = state();
   const table: [string, boolean, Intent[]][] = [
     ["j", false, [{ type: "move", to: "down" }]],
     ["down", false, [{ type: "move", to: "down" }]],
@@ -140,17 +140,17 @@ describe("plan normal mode", () => {
   ];
   for (const [name, shift, expected] of table) {
     test(`${shift ? "shift+" : ""}${name} -> ${JSON.stringify(expected)}`, () => {
-      expect(reduceKey(s, key(name, shift))).toEqual(expected);
+      expect(reduceKey(keyState, key(name, shift))).toEqual(expected);
     });
   }
 
   test("resolved sessions guard the mutating verbs", () => {
-    const r = state({ resolved: true });
+    const resolvedState = state({ resolved: true });
     for (const name of ["c", "s", "x", "e"]) {
-      expect(reduceKey(r, key(name))).toEqual([{ type: "status", message: "review submitted - read-only" }]);
+      expect(reduceKey(resolvedState, key(name))).toEqual([{ type: "status", message: "review submitted - read-only" }]);
     }
-    expect(reduceKey(r, key("return"))).toEqual([]);
-    expect(reduceKey(r, key("backspace"))).toEqual([]);
+    expect(reduceKey(resolvedState, key("return"))).toEqual([]);
+    expect(reduceKey(resolvedState, key("backspace"))).toEqual([]);
   });
 
   test("cut text cannot host a comment or a span", () => {
@@ -175,7 +175,7 @@ describe("plan normal mode", () => {
 });
 
 describe("span mode", () => {
-  const s = state({ spanMode: true });
+  const keyState = state({ spanMode: true });
   const table: [string, Intent[]][] = [
     ["l", [{ type: "spanKey", name: "l" }]],
     ["h", [{ type: "spanKey", name: "h" }]],
@@ -191,13 +191,13 @@ describe("span mode", () => {
   ];
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
-      expect(reduceKey(s, key(name))).toEqual(expected);
+      expect(reduceKey(keyState, key(name))).toEqual(expected);
     });
   }
 });
 
 describe("diff mode", () => {
-  const s = state({ view: "diff" });
+  const keyState = state({ view: "diff" });
   const table: [string, Intent[]][] = [
     ["j", [{ type: "move", to: "down" }]],
     ["k", [{ type: "move", to: "up" }]],
@@ -215,7 +215,7 @@ describe("diff mode", () => {
   ];
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
-      expect(reduceKey(s, key(name))).toEqual(expected);
+      expect(reduceKey(keyState, key(name))).toEqual(expected);
     });
   }
 
@@ -284,24 +284,24 @@ describe("duplicated-branch collapse", () => {
 describe("read-only filter", () => {
   test("every mutating key answers observer - read-only, in plan and diff", () => {
     for (const view of ["plan", "diff"] as const) {
-      const s = state({ view, readOnly: true });
+      const keyState = state({ view, readOnly: true });
       for (const name of ["c", "s", "x", "e", "backspace", "return", "enter"]) {
-        expect(reduceKey(s, key(name))).toEqual([{ type: "status", message: "observer - read-only" }]);
+        expect(reduceKey(keyState, key(name))).toEqual([{ type: "status", message: "observer - read-only" }]);
       }
     }
   });
 
   test("navigation and annotation focus still work for observers", () => {
-    const s = state({ readOnly: true });
-    expect(reduceKey(s, key("j"))).toEqual([{ type: "move", to: "down" }]);
-    expect(reduceKey(s, key("n"))).toEqual([{ type: "nextAnnotation" }]);
-    expect(reduceKey(s, key("q"))).toEqual([{ type: "exit" }]);
+    const keyState = state({ readOnly: true });
+    expect(reduceKey(keyState, key("j"))).toEqual([{ type: "move", to: "down" }]);
+    expect(reduceKey(keyState, key("n"))).toEqual([{ type: "nextAnnotation" }]);
+    expect(reduceKey(keyState, key("q"))).toEqual([{ type: "exit" }]);
   });
 
   test("span-mode c/s are gated by key name even under a rebound keymap", () => {
     const rebound = { ...DEFAULT_KEYS, comment: ["m"], suggest: ["t"] };
-    const s = state({ spanMode: true, readOnly: true, keys: rebound });
-    expect(reduceKey(s, key("c"))).toEqual([{ type: "status", message: "observer - read-only" }]);
-    expect(reduceKey(s, key("s"))).toEqual([{ type: "status", message: "observer - read-only" }]);
+    const keyState = state({ spanMode: true, readOnly: true, keys: rebound });
+    expect(reduceKey(keyState, key("c"))).toEqual([{ type: "status", message: "observer - read-only" }]);
+    expect(reduceKey(keyState, key("s"))).toEqual([{ type: "status", message: "observer - read-only" }]);
   });
 });

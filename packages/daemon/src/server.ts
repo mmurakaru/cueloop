@@ -46,7 +46,7 @@ export class DaemonServer {
     this.onIdleExit = options.onIdleExit ?? (() => process.exit(0));
     mkdirSync(this.home, { recursive: true, mode: 0o700 });
     this.core = new DaemonCore(this.home);
-    this.core.onEvent((e) => this.broadcast(e));
+    this.core.onEvent((event) => this.broadcast(event));
   }
 
   /**

@@ -52,9 +52,9 @@ describe("parseBlocks", () => {
 
   test("multi-line paragraph keeps its text and range", () => {
     const blocks = parseBlocks(SAMPLE);
-    const p = blocks.find((block) => block.kind === "p")!;
-    expect(p.text).toBe("A paragraph that\nspans two lines.");
-    expect(p.lineEnd - p.lineStart).toBe(1);
+    const paragraph = blocks.find((block) => block.kind === "p")!;
+    expect(paragraph.text).toBe("A paragraph that\nspans two lines.");
+    expect(paragraph.lineEnd - paragraph.lineStart).toBe(1);
   });
 
   test("line ranges index into the source", () => {

@@ -46,8 +46,8 @@ describe("diffRows", () => {
 describe("diffRowAnchor", () => {
   test("quote is the line, neighbors are the context selectors", () => {
     const rows = diffRows(PATCH);
-    const idx = rows.findIndex((r) => r.text.includes("new Map()"));
-    const anchor = diffRowAnchor(rows, idx);
+    const rowIndex = rows.findIndex((row) => row.text.includes("new Map()"));
+    const anchor = diffRowAnchor(rows, rowIndex);
     expect(anchor.quote).toContain("new Map()");
     expect(anchor.prefix.length).toBeGreaterThan(0);
     expect(anchor.suffix.length).toBeGreaterThan(0);

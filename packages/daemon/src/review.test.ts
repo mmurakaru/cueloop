@@ -33,8 +33,8 @@ afterEach(() => {
 });
 
 function sh(args: string[], cwd: string): void {
-  const p = Bun.spawnSync(args, { cwd, stdout: "ignore", stderr: "ignore" });
-  if (p.exitCode !== 0) throw new Error(`${args.join(" ")} failed`);
+  const gitResult = Bun.spawnSync(args, { cwd, stdout: "ignore", stderr: "ignore" });
+  if (gitResult.exitCode !== 0) throw new Error(`${args.join(" ")} failed`);
 }
 
 describe("resolveWorkspace", () => {
@@ -63,13 +63,13 @@ describe("resolveWorkspace", () => {
 describe("openReview", () => {
   test("shapes the artifact: agent, derived title, cwd", async () => {
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home, agent: "test-agent" });
-    const s = review.session;
-    expect(s.status).toBe("pending");
-    expect(s.artifact.type).toBe("plan");
-    expect(s.artifact.meta.agent).toBe("test-agent");
-    expect(s.artifact.meta.title).toBe("Rollout Plan");
-    expect(s.artifact.meta.cwd).toBe(home);
-    expect(s.workspace).toEqual({ repoRoot: home, branch: "detached" });
+    const session = review.session;
+    expect(session.status).toBe("pending");
+    expect(session.artifact.type).toBe("plan");
+    expect(session.artifact.meta.agent).toBe("test-agent");
+    expect(session.artifact.meta.title).toBe("Rollout Plan");
+    expect(session.artifact.meta.cwd).toBe(home);
+    expect(session.workspace).toEqual({ repoRoot: home, branch: "detached" });
   });
 
   test("an explicit title wins; diffs never derive one from content", async () => {
@@ -150,7 +150,7 @@ describe("awaitVerdict: chunked loop (the pi shape)", () => {
     const waiting = review.awaitVerdict({
       timeoutMs: Infinity,
       pollMs: 100,
-      onProgress: (s) => seen.push(s),
+      onProgress: (progress) => seen.push(progress),
     });
     await client.sessionAnnotate(review.id, {
       id: "a1",
@@ -159,8 +159,8 @@ describe("awaitVerdict: chunked loop (the pi shape)", () => {
       body: "Name them.",
     });
     // give the loop a chunk to observe the annotation before resolving
-    for (let i = 0; i < 100 && !seen.some((s) => s.annotations.length === 1); i++) await Bun.sleep(20);
-    expect(seen.some((s) => s.annotations.length === 1)).toBe(true);
+    for (let i = 0; i < 100 && !seen.some((snapshot) => snapshot.annotations.length === 1); i++) await Bun.sleep(20);
+    expect(seen.some((snapshot) => snapshot.annotations.length === 1)).toBe(true);
     await client.sessionResolve(review.id, "request_changes", "Too vague.");
     const verdict = await waiting;
     if (verdict === "pending") throw new Error("expected a verdict");

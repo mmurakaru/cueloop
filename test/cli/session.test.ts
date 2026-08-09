@@ -34,9 +34,9 @@ describe("cueloop session (black box)", () => {
   let sessionId: string;
 
   test("create autostarts the daemon and prints the session", async () => {
-    const r = await runCli(home, ["session", "create", "--type", "plan", "--title", "Migration", "--agent", "test"], PLAN);
-    expect(r.code).toBe(0);
-    const session = cliJson<ReviewSession>(r);
+    const created = await runCli(home, ["session", "create", "--type", "plan", "--title", "Migration", "--agent", "test"], PLAN);
+    expect(created.code).toBe(0);
+    const session = cliJson<ReviewSession>(created);
     expect(session.id.startsWith("ses_")).toBe(true);
     expect(session.artifact.content).toBe(PLAN);
     expect(session.status).toBe("pending");
@@ -45,18 +45,18 @@ describe("cueloop session (black box)", () => {
 
   test("list and get see the session from a fresh process", async () => {
     const list = cliJson<ReviewSession[]>(await runCli(home, ["session", "list", "--status", "pending"]));
-    expect(list.some((s) => s.id === sessionId)).toBe(true);
+    expect(list.some((candidate) => candidate.id === sessionId)).toBe(true);
     const got = cliJson<ReviewSession>(await runCli(home, ["session", "get", sessionId]));
     expect(got.artifact.meta.title).toBe("Migration");
   });
 
   test("wait times out to pending without losing the session", async () => {
-    const r = await runCli(home, ["session", "wait", sessionId, "--timeout-ms", "100"]);
-    expect(cliJson<{ status: string }>(r)).toEqual({ status: "pending" });
+    const waited = await runCli(home, ["session", "wait", sessionId, "--timeout-ms", "100"]);
+    expect(cliJson<{ status: string }>(waited)).toEqual({ status: "pending" });
   });
 
   test("annotate + resolve from separate processes; wait collects the verdict", async () => {
-    const a = await runCli(home, [
+    const annotated = await runCli(home, [
       "session",
       "annotate",
       sessionId,
@@ -69,24 +69,24 @@ describe("cueloop session (black box)", () => {
       "--body",
       "Name the phases.",
     ]);
-    expect(a.code).toBe(0);
-    const res = await runCli(home, ["session", "resolve", sessionId, "--verdict", "request_changes", "--summary", "Phase names please."]);
-    expect(res.code).toBe(0);
-    const w = cliJson<{ status: string; allow: boolean; feedback: string }>(
+    expect(annotated.code).toBe(0);
+    const resolved = await runCli(home, ["session", "resolve", sessionId, "--verdict", "request_changes", "--summary", "Phase names please."]);
+    expect(resolved.code).toBe(0);
+    const verdict = cliJson<{ status: string; allow: boolean; feedback: string }>(
       await runCli(home, ["session", "wait", sessionId, "--timeout-ms", "1000"]),
     );
-    expect(w.status).toBe("resolved");
-    expect(w.allow).toBe(false);
-    expect(w.feedback).toContain("Name the phases.");
-    expect(w.feedback).toContain("> two phases");
+    expect(verdict.status).toBe("resolved");
+    expect(verdict.allow).toBe(false);
+    expect(verdict.feedback).toContain("Name the phases.");
+    expect(verdict.feedback).toContain("> two phases");
   });
 
   test("revision reopens through the CLI", async () => {
-    const r = cliJson<ReviewSession>(
+    const revised = cliJson<ReviewSession>(
       await runCli(home, ["session", "submit-revision", sessionId], PLAN + "\n## Phase names\n\nAlpha, beta.\n"),
     );
-    expect(r.status).toBe("pending");
-    expect(r.revisions.length).toBe(2);
+    expect(revised.status).toBe("pending");
+    expect(revised.revisions.length).toBe(2);
   });
 
   test("help output and unknown verbs", async () => {

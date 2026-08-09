@@ -56,8 +56,8 @@ async function renderObserver() {
 
 /** Session state that any mutating verb would change. */
 function snapshot() {
-  const s = server.core.sessionGet(session.id);
-  return { annotations: s.annotations.length, workingCopy: s.workingCopy, status: s.status };
+  const stored = server.core.sessionGet(session.id);
+  return { annotations: stored.annotations.length, workingCopy: stored.workingCopy, status: stored.status };
 }
 
 describe("observer rendering", () => {
@@ -114,7 +114,7 @@ describe("observer navigation still works", () => {
     await press(setup, "j");
     await setup.renderOnce();
     const lines = setup.captureCharFrame().split("\n");
-    const cursorLine = lines.find((l) => l.includes("▎"))!;
+    const cursorLine = lines.find((line) => line.includes("▎"))!;
     expect(cursorLine).toContain("persists sessions");
   });
 

@@ -48,7 +48,7 @@ describe("Registry", () => {
       api.on("session.resolved", () => {
         throw new Error("observer bug");
       });
-      api.on("session.resolved", (s) => seen.push(s.id));
+      api.on("session.resolved", (session) => seen.push(session.id));
     });
     reg.emit("session.resolved", SESSION);
     expect(seen).toEqual(["ses_x"]);

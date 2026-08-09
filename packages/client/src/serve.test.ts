@@ -78,7 +78,7 @@ describe("cueloop serve", () => {
   });
 
   test("an anonymous ssh client gets the observer TUI for the session", async () => {
-    const bytes = await sshCapture(handle.port, (s) => s.includes("Rollout Plan") && s.includes("observer"));
+    const bytes = await sshCapture(handle.port, (frame) => frame.includes("Rollout Plan") && frame.includes("observer"));
     expect(bytes).toContain("cueloop");
     expect(bytes).toContain("Rollout Plan");
     // observer chrome, not the controller's mutating hint bar
@@ -87,8 +87,8 @@ describe("cueloop serve", () => {
 
   test("two observers can watch at once", async () => {
     const [a, b] = await Promise.all([
-      sshCapture(handle.port, (s) => s.includes("Rollout Plan")),
-      sshCapture(handle.port, (s) => s.includes("Rollout Plan")),
+      sshCapture(handle.port, (frame) => frame.includes("Rollout Plan")),
+      sshCapture(handle.port, (frame) => frame.includes("Rollout Plan")),
     ]);
     expect(a).toContain("Rollout Plan");
     expect(b).toContain("Rollout Plan");

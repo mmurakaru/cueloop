@@ -75,7 +75,7 @@ describe("keyboard grammar", () => {
     await press(setup, "j");
     await setup.renderOnce();
     const lines = setup.captureCharFrame().split("\n");
-    const cursorLine = lines.find((l) => l.includes("▎"))!;
+    const cursorLine = lines.find((line) => line.includes("▎"))!;
     expect(cursorLine).toContain("persists sessions");
   });
 

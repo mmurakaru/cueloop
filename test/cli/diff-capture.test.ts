@@ -8,8 +8,8 @@ import { resolveWorkspace } from "@cueloop/daemon/review";
 import { workingTreeDiff } from "../../packages/cli/src/working-tree";
 
 function sh(args: string[], cwd: string): void {
-  const p = Bun.spawnSync(args, { cwd, stdout: "ignore", stderr: "ignore" });
-  if (p.exitCode !== 0) throw new Error(`${args.join(" ")} failed`);
+  const gitResult = Bun.spawnSync(args, { cwd, stdout: "ignore", stderr: "ignore" });
+  if (gitResult.exitCode !== 0) throw new Error(`${args.join(" ")} failed`);
 }
 
 describe("workingTreeDiff", () => {
