@@ -23,7 +23,7 @@ packages/
                   Pure TS, zero deps. Imports nothing from other packages.
   daemon/         Socket server (NDJSON + events), session store, wait broker.
   client/         The TUI (OpenTUI React): shell, projection renderer, selection.
-  extension-api/  The single typed ExtensionAPI contract + loader.
+  extension-api/  The typed exporter contract for integrations.
   adapters/       claude-code hook, pi package, skills (codex planned).
   cli/            Entry points; `cueloop session *` mirrors the socket API 1:1.
 ```
@@ -32,7 +32,7 @@ Rules:
 - `schema` is the root of the dependency graph; everything imports it, it imports nothing.
 - `client` and `daemon` never import each other - they meet only at the socket protocol.
 - All session mutation goes through the daemon; the client never touches session files.
-- Built-in renderers/panels register through the public extension API (no privileged built-ins).
+- Renderers and panels are built-in components; the extension API exists for integrations to register exporters.
 - One planning layer per user-visible structure: blocks, layout map, and selection
   derive from the same parse - never re-derive ad hoc.
 - Anchors are quote-primary. Never silently bind an annotation to the wrong text;

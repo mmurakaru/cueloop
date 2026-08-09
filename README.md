@@ -76,7 +76,7 @@ packages/
   schema/         ReviewSession, block model, quote-primary anchors, feedback.md
   daemon/         unix-socket daemon: atomic store, resumable waits, events
   client/         the TUI (OpenTUI React): projection renderer, grammar, rail
-  extension-api/  typed ExtensionAPI + zero-build TS loader with repo trust
+  extension-api/  the typed exporter contract for integrations
   adapters/       claude-code hook and pi extension (codex planned)
   cli/            cueloop · cueloop diff · cueloop session * (the script surface)
 ```

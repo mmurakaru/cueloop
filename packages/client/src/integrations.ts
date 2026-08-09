@@ -1,8 +1,8 @@
 /**
- * Bundled integration wiring: the one place the client knows a concrete
- * integration by name. It composes the configured integrations into generic
- * exporters plus their run policy, so the session controller depends only on
- * the extension seam, never on an integration's own config type.
+ * Bundled integration wiring: composes the configured integrations into
+ * generic exporters plus their run policy, so the session controller depends
+ * only on the extension seam, never on an integration's own config type. This
+ * and config.ts are the only client modules that name a concrete integration.
  */
 
 import { Registry, type Exporter } from "@cueloop/extension-api";
