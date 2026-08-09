@@ -1,16 +1,16 @@
 {
   "name": "@cueloop/client",
-  "version": "0.1.0-alpha.9",
+  "version": "0.1.0-alpha.10",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@cueloop/daemon": "0.1.0-alpha.9",
-    "@cueloop/extension-api": "0.1.0-alpha.9",
-    "@cueloop/integration-obsidian": "0.1.0-alpha.9",
-    "@cueloop/schema": "0.1.0-alpha.9",
+    "@cueloop/daemon": "0.1.0-alpha.10",
+    "@cueloop/extension-api": "0.1.0-alpha.10",
+    "@cueloop/integration-obsidian": "0.1.0-alpha.10",
+    "@cueloop/schema": "0.1.0-alpha.10",
     "@opentui/core": "^0.4.3",
     "@opentui/react": "^0.4.3",
     "@opentui/ssh": "0.4.5",
