@@ -17,7 +17,7 @@ import { displayText, marksByDisplay, spanKey, startSpan, type Mark, type SpanSt
 import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
 import { DEFAULT_KEYS, loadConfig } from "./config";
-import { returnPaneFor } from "./herdr";
+import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import { reduceKey, type Intent, type KeyState } from "./keymap";
 import { KeyBindings, type HintMode } from "./key-bindings";

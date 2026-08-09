@@ -4,3 +4,4 @@ export * from "./working-copy";
 export * from "./diff";
 export * from "./anchor";
 export * from "./feedback";
+export * from "./herdr";
