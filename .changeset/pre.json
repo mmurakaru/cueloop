@@ -47,6 +47,7 @@
     "socket-backpressure",
     "ssh-serve",
     "ui-foundation",
+    "unify-herdr-narrow-barrel",
     "valibot-wire-validation",
     "verify-propagation",
     "verify-published",
