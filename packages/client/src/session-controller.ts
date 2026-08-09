@@ -140,6 +140,7 @@ class Controller implements ReviewController {
   };
   private listeners = new Set<() => void>();
   private autoClose: AutoClose = "off";
+  private editor: string | undefined;
   private exporters: BundledExporter[] = [];
   private readonly clock: Clock;
   private countdown: TimerHandle | undefined;
@@ -205,6 +206,7 @@ class Controller implements ReviewController {
 
   applyConfig(config: CueloopConfig): void {
     this.autoClose = config.ui.autoClose;
+    this.editor = config.ui.editor;
     void loadBundledExporters(config.integrations).then((exporters) => {
       this.exporters = exporters;
     });
@@ -304,7 +306,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
     if (!session || session.status === "resolved") return;
     try {
-      const result = editInEditor(this.working(), "plan.md");
+      const result = editInEditor(this.working(), "plan.md", { editor: this.editor });
       if (result.changed) {
         this.setWorkingCopy(result.content);
         this.reconcileAnnotations(session, result.content);

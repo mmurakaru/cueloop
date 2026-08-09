@@ -9,7 +9,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, type IPty } from "bun-pty";
@@ -68,12 +68,17 @@ beforeAll(async () => {
     artifact: { type: "plan", content: PLAN, meta: { title: "Rollout Plan", planPath: "plan.md" } },
   });
   sessionId = session.id;
+  // A non-interactive editor that appends a marker, so the e hand-off proves
+  // the renderer suspends, spawns on the real tty, and resumes.
+  const editorScript = join(home, "pty-editor.sh");
+  writeFileSync(editorScript, `#!/bin/sh\nprintf '\\n\\nEdited via PTY hand-off.\\n' >> "$1"\n`);
+  chmodSync(editorScript, 0o755);
   pty = spawn(process.execPath, ["run", CLI, sessionId], {
     name: "xterm-256color",
     cols: 120,
     rows: 30,
     cwd: ROOT,
-    env: { ...process.env, CUELOOP_HOME: home } as Record<string, string>,
+    env: { ...process.env, CUELOOP_HOME: home, CUELOOP_EDITOR: editorScript } as Record<string, string>,
   });
   pty.onData((chunk) => {
     ptyOutput += chunk;
@@ -129,6 +134,20 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
     expect(exit).toBeNull();
     // the cursor position survives both resizes
     await waitFor(() => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(ptyOutput)), 10_000, "cursor after resize");
+  }, 30_000);
+
+  ptyTest("e suspends the renderer, runs the editor on the real tty, and resumes with the edit", async () => {
+    ptyOutput = "";
+    pty.write("e");
+    // resume repaints the plan with the appended line - proof the full
+    // suspend -> spawn -> resume cycle ran without crashing the tty
+    await waitFor(() => stripAnsi(ptyOutput).includes("Edited via PTY hand-off."), 15_000, "the edited plan after resume");
+    expect(exit).toBeNull();
+    // the TUI is live again: j still routes through the raw tty
+    ptyOutput = "";
+    pty.write("j");
+    await waitFor(() => ptyOutput.length > 0, 10_000, "a repaint after resume");
+    expect(exit).toBeNull();
   }, 30_000);
 
   ptyTest("q exits cleanly with code 0", async () => {
