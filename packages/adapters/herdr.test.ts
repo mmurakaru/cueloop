@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { runHook } from "./claude-code/hook";
-import { detectHerdr, reportLabel, reportState } from "./herdr";
+import { reportLabel, reportState } from "./herdr";
 
 let dir: string;
 let home: string;
@@ -71,17 +71,6 @@ afterEach(() => {
     else process.env[key] = value;
   }
   saved.clear();
-});
-
-describe("detectHerdr", () => {
-  test("null outside herdr, context inside", () => {
-    expect(detectHerdr({})).toBeNull();
-    expect(detectHerdr({ HERDR_ENV: "1", HERDR_PANE_ID: "p1" })).toBeNull();
-    expect(detectHerdr({ HERDR_ENV: "1", HERDR_PANE_ID: "p1", HERDR_BIN_PATH: "/x/herdr" })).toEqual({
-      paneId: "p1",
-      binPath: "/x/herdr",
-    });
-  });
 });
 
 describe("report helpers", () => {
