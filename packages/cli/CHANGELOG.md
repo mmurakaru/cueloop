@@ -1,5 +1,26 @@
 # cueloop
 
+## 0.1.0-alpha.16
+
+### Minor Changes
+
+- [#98](https://github.com/mmurakaru/cueloop/pull/98) [`5454e5f`](https://github.com/mmurakaru/cueloop/commit/5454e5f8e613dd08c3f175fcfbab275599482e16) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Guided walk for diff reviews: press w in a diff session to step through every
+  changed file as a focused card wizard with a plain step count. ] advances and
+  marks the file viewed (persisted with the session, so a resumed review keeps
+  its progress), [ steps back, esc leaves keeping progress, and the end card
+  offers Submit review directly. Submitting agents can attach per-file notes
+  (annotations with kind "note" anchored by the file path) that render in the
+  wizard's agent-note block and as rail cards; notes are agent context and never
+  come back as reviewer feedback. The submit confirm shows the honest viewed
+  count for walked diff sessions.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.16
+  - @cueloop/daemon@0.1.0-alpha.16
+  - @cueloop/schema@0.1.0-alpha.16
+
 ## 0.1.0-alpha.15
 
 ### Patch Changes
