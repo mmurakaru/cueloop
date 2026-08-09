@@ -219,12 +219,23 @@ class Controller implements ReviewController {
     return s ? (s.workingCopy ?? s.artifact.content) : "";
   }
 
+  // Refreshes race the connection teardown: an event can arrive while close()
+  // is rejecting in-flight requests, and a fire-and-forget refresh must never
+  // surface that as an unhandled rejection.
   private async refreshSession(id: string): Promise<void> {
-    if (this.client) this.update({ session: await this.client.sessionGet(id) });
+    try {
+      if (this.client) this.update({ session: await this.client.sessionGet(id) });
+    } catch (error) {
+      if (!this.closed) this.setStatus(error instanceof Error ? error.message : String(error));
+    }
   }
 
   private async refreshInbox(): Promise<void> {
-    if (this.client) this.update({ inbox: await this.client.sessionList({ status: "pending" }) });
+    try {
+      if (this.client) this.update({ inbox: await this.client.sessionList({ status: "pending" }) });
+    } catch (error) {
+      if (!this.closed) this.setStatus(error instanceof Error ? error.message : String(error));
+    }
   }
 
   /** Optimistic apply: the daemon response is the next session snapshot. */
