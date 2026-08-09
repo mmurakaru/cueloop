@@ -1,0 +1,39 @@
+version: 2
+updates:
+  # GitHub Actions: keep checkout/setup-node and friends off deprecated runtimes.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # Bun workspace: one entry covers every package.json via the root bun.lock.
+  # Workspace (workspace:*) deps are ignored by Dependabot automatically.
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 20
+    # Wait after publish so a poisoned or broken release can be yanked before
+    # a PR is ever opened. Patches flow soonest; majors soak longest.
+    cooldown:
+      semver-major-days: 14
+      semver-minor-days: 7
+      semver-patch-days: 3
+    # Manual rebase only, so a PR is not re-based on every push to main.
+    rebase-strategy: "disabled"
+    groups:
+      # @opentui/* are pinned in lockstep; a partial bump would break the TUI.
+      opentui:
+        patterns: ["@opentui/*"]
+      react:
+        patterns: ["react", "react-dom"]
+      typescript:
+        patterns: ["typescript", "@types/*"]
+      changesets:
+        patterns: ["@changesets/*"]
