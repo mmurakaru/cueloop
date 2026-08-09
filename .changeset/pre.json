@@ -16,6 +16,7 @@
     "completion-overlay-copy",
     "compose-paint-wait",
     "daemon-single-instance",
+    "discoverable-code",
     "dist-tags",
     "e2e-stability",
     "guided-walk",
