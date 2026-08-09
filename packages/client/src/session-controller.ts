@@ -22,8 +22,7 @@ import {
   type ReviewSession,
   type VerdictKind,
 } from "@cueloop/schema";
-import { Registry, type Exporter } from "@cueloop/extension-api";
-import { createObsidianExtension, shouldExport, type ObsidianConfig } from "@cueloop/integration-obsidian";
+import { loadBundledExporters, type BundledExporter } from "./integrations";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
@@ -141,8 +140,7 @@ class Controller implements ReviewController {
   };
   private listeners = new Set<() => void>();
   private autoClose: AutoClose = "off";
-  private obsidian: ObsidianConfig | null = null;
-  private exporters = new Map<string, Exporter>();
+  private exporters: BundledExporter[] = [];
   private readonly clock: Clock;
   private countdown: TimerHandle | undefined;
   /** Projections keyed by session identity so renders reuse one computation. */
@@ -207,11 +205,8 @@ class Controller implements ReviewController {
 
   applyConfig(config: CueloopConfig): void {
     this.autoClose = config.ui.autoClose;
-    this.obsidian = config.integrations.obsidian;
-    // bundled integrations register through the public extension API
-    const registry = new Registry();
-    void registry.load("obsidian", createObsidianExtension(config.integrations.obsidian)).then((record) => {
-      this.exporters = record.exporters;
+    void loadBundledExporters(config.integrations).then((exporters) => {
+      this.exporters = exporters;
     });
   }
 
@@ -448,11 +443,10 @@ class Controller implements ReviewController {
         // The completion overlay heading already states the verdict, so the
         // status line stays empty here - only export/error messages fill it.
         this.update({ session: resolved, status: "" });
-        // notes-vault export: guarded by config, default is manual (no-op)
-        const obsidian = this.obsidian;
-        const exporter = this.exporters.get("obsidian");
-        if (obsidian && exporter && shouldExport(obsidian.exportOn, verdict)) {
-          void exporter(resolved).then((exportResult) => {
+        // notes-vault export: guarded by each exporter's policy (default manual = no-op)
+        for (const exporter of this.exporters) {
+          if (!exporter.runsOn(verdict)) continue;
+          void exporter.run(resolved).then((exportResult) => {
             this.setStatus(exportResult.success && exportResult.path ? `exported to ${exportResult.path}` : `export failed: ${exportResult.error ?? "unknown"}`);
           });
         }
