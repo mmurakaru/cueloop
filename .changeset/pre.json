@@ -44,6 +44,7 @@
     "session-controller-key-reducer",
     "shared-review-core",
     "shiki-highlighting",
+    "shrink-extension-api",
     "socket-backpressure",
     "ssh-serve",
     "ui-foundation",
