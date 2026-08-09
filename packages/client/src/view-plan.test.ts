@@ -10,7 +10,7 @@ import {
   spanKey,
   startSpan,
   workRangeForRendered,
-} from "./view";
+} from "./view-plan";
 import { cutBlock, parseBlocks, restoreBlock, restoreLine, type Annotation } from "@cueloop/schema";
 
 const BASE = `# Plan
@@ -90,8 +90,8 @@ describe("marksByDisplay", () => {
       createdAt: "",
     };
     const map = marksByDisplay([ann], display);
-    const [dispIdx, marks] = [...map.entries()][0]!;
-    expect(displayText(display[dispIdx]!)).toContain("atomically");
+    const [displayIndex, marks] = [...map.entries()][0]!;
+    expect(displayText(display[displayIndex]!)).toContain("atomically");
     expect(marks[0]!.annotationId).toBe("a1");
   });
 

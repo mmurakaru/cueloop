@@ -1,6 +1,6 @@
 /**
- * Markdown block model (map #22): parse source into addressable blocks that
- * record their source line ranges. Rendered→source mapping is block+line
+ * Markdown block model: parse source into addressable blocks that record
+ * their source line ranges. Rendered-to-source mapping is block+line
  * granular; the quote carries sub-block precision. Round-trip safe for the
  * subset cueloop plans use; unknown constructs fall back to paragraph blocks
  * so no content is ever lost.
@@ -19,113 +19,113 @@ export interface Block {
   lineEnd: number;
 }
 
-function isMarkerLine(l: string): boolean {
+function isMarkerLine(line: string): boolean {
   return (
-    l.startsWith("```") ||
-    l.startsWith("# ") ||
-    l.startsWith("## ") ||
-    l.startsWith("### ") ||
-    l.startsWith("> ") ||
-    /^- /.test(l) ||
-    /^\d+\. /.test(l) ||
-    /^(---|\*\*\*|___)\s*$/.test(l)
+    line.startsWith("```") ||
+    line.startsWith("# ") ||
+    line.startsWith("## ") ||
+    line.startsWith("### ") ||
+    line.startsWith("> ") ||
+    /^- /.test(line) ||
+    /^\d+\. /.test(line) ||
+    /^(---|\*\*\*|___)\s*$/.test(line)
   );
 }
 
-export function parseBlocks(md: string): Block[] {
-  const lines = md.split("\n");
+export function parseBlocks(markdown: string): Block[] {
+  const lines = markdown.split("\n");
   const blocks: Block[] = [];
-  let i = 0;
-  while (i < lines.length) {
-    const l = lines[i]!;
-    if (l.trim() === "") {
-      i++;
+  let lineIndex = 0;
+  while (lineIndex < lines.length) {
+    const line = lines[lineIndex]!;
+    if (line.trim() === "") {
+      lineIndex++;
       continue;
     }
-    if (l.startsWith("```")) {
-      const start = i;
-      const lang = l.slice(3).trim() || undefined;
-      i++;
+    if (line.startsWith("```")) {
+      const start = lineIndex;
+      const lang = line.slice(3).trim() || undefined;
+      lineIndex++;
       const body: string[] = [];
-      while (i < lines.length && !lines[i]!.startsWith("```")) {
-        body.push(lines[i]!);
-        i++;
+      while (lineIndex < lines.length && !lines[lineIndex]!.startsWith("```")) {
+        body.push(lines[lineIndex]!);
+        lineIndex++;
       }
-      const end = Math.min(i, lines.length - 1);
-      i++;
+      const end = Math.min(lineIndex, lines.length - 1);
+      lineIndex++;
       blocks.push({ kind: "code", text: body.join("\n"), lang, lineStart: start, lineEnd: end });
-    } else if (l.startsWith("### ")) {
-      blocks.push({ kind: "h3", text: l.slice(4), lineStart: i, lineEnd: i });
-      i++;
-    } else if (l.startsWith("## ")) {
-      blocks.push({ kind: "h2", text: l.slice(3), lineStart: i, lineEnd: i });
-      i++;
-    } else if (l.startsWith("# ")) {
-      blocks.push({ kind: "h1", text: l.slice(2), lineStart: i, lineEnd: i });
-      i++;
-    } else if (/^(---|\*\*\*|___)\s*$/.test(l)) {
-      blocks.push({ kind: "hr", text: "", lineStart: i, lineEnd: i });
-      i++;
-    } else if (l.startsWith("> ")) {
-      const start = i;
+    } else if (line.startsWith("### ")) {
+      blocks.push({ kind: "h3", text: line.slice(4), lineStart: lineIndex, lineEnd: lineIndex });
+      lineIndex++;
+    } else if (line.startsWith("## ")) {
+      blocks.push({ kind: "h2", text: line.slice(3), lineStart: lineIndex, lineEnd: lineIndex });
+      lineIndex++;
+    } else if (line.startsWith("# ")) {
+      blocks.push({ kind: "h1", text: line.slice(2), lineStart: lineIndex, lineEnd: lineIndex });
+      lineIndex++;
+    } else if (/^(---|\*\*\*|___)\s*$/.test(line)) {
+      blocks.push({ kind: "hr", text: "", lineStart: lineIndex, lineEnd: lineIndex });
+      lineIndex++;
+    } else if (line.startsWith("> ")) {
+      const start = lineIndex;
       const body: string[] = [];
-      while (i < lines.length && lines[i]!.startsWith("> ")) {
-        body.push(lines[i]!.slice(2));
-        i++;
+      while (lineIndex < lines.length && lines[lineIndex]!.startsWith("> ")) {
+        body.push(lines[lineIndex]!.slice(2));
+        lineIndex++;
       }
-      blocks.push({ kind: "quote", text: body.join("\n"), lineStart: start, lineEnd: i - 1 });
-    } else if (/^- /.test(l)) {
-      blocks.push({ kind: "li", text: l.slice(2), lineStart: i, lineEnd: i });
-      i++;
-    } else if (/^\d+\. /.test(l)) {
-      blocks.push({ kind: "oli", text: l.replace(/^\d+\. /, ""), lineStart: i, lineEnd: i });
-      i++;
+      blocks.push({ kind: "quote", text: body.join("\n"), lineStart: start, lineEnd: lineIndex - 1 });
+    } else if (/^- /.test(line)) {
+      blocks.push({ kind: "li", text: line.slice(2), lineStart: lineIndex, lineEnd: lineIndex });
+      lineIndex++;
+    } else if (/^\d+\. /.test(line)) {
+      blocks.push({ kind: "oli", text: line.replace(/^\d+\. /, ""), lineStart: lineIndex, lineEnd: lineIndex });
+      lineIndex++;
     } else {
-      const start = i;
+      const start = lineIndex;
       const body: string[] = [];
-      while (i < lines.length && lines[i]!.trim() !== "" && !isMarkerLine(lines[i]!)) {
-        body.push(lines[i]!);
-        i++;
+      while (lineIndex < lines.length && lines[lineIndex]!.trim() !== "" && !isMarkerLine(lines[lineIndex]!)) {
+        body.push(lines[lineIndex]!);
+        lineIndex++;
       }
-      blocks.push({ kind: "p", text: body.join("\n"), lineStart: start, lineEnd: i - 1 });
+      blocks.push({ kind: "p", text: body.join("\n"), lineStart: start, lineEnd: lineIndex - 1 });
     }
   }
   return blocks;
 }
 
 /** Serialize one block back to its markdown chunk. */
-export function blockToMd(b: Block, ordinal = 1): string {
-  switch (b.kind) {
+export function blockToMd(block: Block, ordinal = 1): string {
+  switch (block.kind) {
     case "h1":
-      return "# " + b.text;
+      return "# " + block.text;
     case "h2":
-      return "## " + b.text;
+      return "## " + block.text;
     case "h3":
-      return "### " + b.text;
+      return "### " + block.text;
     case "li":
-      return "- " + b.text;
+      return "- " + block.text;
     case "oli":
-      return `${ordinal}. ` + b.text;
+      return `${ordinal}. ` + block.text;
     case "quote":
-      return b.text
+      return block.text
         .split("\n")
-        .map((l) => "> " + l)
+        .map((line) => "> " + line)
         .join("\n");
     case "code":
-      return "```" + (b.lang ?? "") + "\n" + b.text + "\n```";
+      return "```" + (block.lang ?? "") + "\n" + block.text + "\n```";
     case "hr":
       return "---";
     default:
-      return b.text;
+      return block.text;
   }
 }
 
 /** The section (nearest preceding heading) a block belongs to. */
 export function sectionOf(blocks: Block[], index: number): string {
-  let sec = "";
-  for (let i = 0; i <= index && i < blocks.length; i++) {
-    const b = blocks[i]!;
-    if (b.kind === "h1" || b.kind === "h2" || b.kind === "h3") sec = b.text;
+  let sectionTitle = "";
+  for (let blockIndex = 0; blockIndex <= index && blockIndex < blocks.length; blockIndex++) {
+    const block = blocks[blockIndex]!;
+    if (block.kind === "h1" || block.kind === "h2" || block.kind === "h3") sectionTitle = block.text;
   }
-  return sec;
+  return sectionTitle;
 }

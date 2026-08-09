@@ -22,7 +22,7 @@ import {
 } from "@cueloop/schema";
 import { Registry, type Exporter } from "@cueloop/extension-api";
 import { createObsidianExtension, shouldExport, type ObsidianConfig } from "@cueloop/integration-obsidian";
-import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view";
+import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
 import { editInEditor } from "./editor";
@@ -92,14 +92,14 @@ export interface ReviewController {
   /** Open a session from the inbox. */
   open(id: string): void;
   /** Cut the block under the cursor, or restore a cut one. */
-  cut(dispIdx: number): void;
+  cut(displayIndex: number): void;
   /** The $EDITOR hand-off on the working copy. */
   edit(): void;
   /**
    * Anchor and store an annotation; both plan and diff anchor constructions.
    * Returns the minted annotation id so the view can select the new card.
    */
-  annotate(kind: "comment" | "suggestion", dispIdx: number, start: number, end: number, body: string): string | undefined;
+  annotate(kind: "comment" | "suggestion", displayIndex: number, start: number, end: number, body: string): string | undefined;
   /** Rewrite a stored annotation's body in place (the rail-card edit). */
   updateAnnotation(id: string, body: string): void;
   removeAnnotation(id: string): void;
@@ -284,14 +284,14 @@ class Controller implements ReviewController {
     else void this.refreshSession(id);
   }
 
-  cut(dispIdx: number): void {
+  cut(displayIndex: number): void {
     const session = this.snap.session;
     if (!session || session.status === "resolved") return;
-    const d = this.display()[dispIdx];
+    const d = this.display()[displayIndex];
     if (!d) return;
     const working = this.working();
     if (d.type === "del") {
-      const line = restoreLine(nextWorkBlock(this.display(), dispIdx), working.split("\n").length);
+      const line = restoreLine(nextWorkBlock(this.display(), displayIndex), working.split("\n").length);
       // restoreBlock returns undefined when the block structure round-trips
       // to the submitted revision - the working copy is gone
       const restored = restoreBlock(session.artifact.content, working, d.base!, line);
@@ -334,7 +334,7 @@ class Controller implements ReviewController {
 
   annotate(
     kind: "comment" | "suggestion",
-    dispIdx: number,
+    displayIndex: number,
     start: number,
     end: number,
     body: string,
@@ -343,11 +343,11 @@ class Controller implements ReviewController {
     if (!session) return undefined;
     let anchor;
     if (session.artifact.type === "diff") {
-      anchor = { ...diffRowAnchor(this.rows(), dispIdx), blockIndex: dispIdx };
+      anchor = { ...diffRowAnchor(this.rows(), displayIndex), blockIndex: displayIndex };
     } else {
       const display = this.display();
       const workBlocks = display.filter((d) => d.work).map((d) => d.work!);
-      const workIdx = display.slice(0, dispIdx + 1).filter((d) => d.work).length - 1;
+      const workIdx = display.slice(0, displayIndex + 1).filter((d) => d.work).length - 1;
       anchor = makeAnchor(workBlocks, workIdx, start, end);
     }
     const annotationId = newAnnotationId();

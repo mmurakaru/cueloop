@@ -1,6 +1,6 @@
 /**
- * Anchor resolution: the quote-primary cascade (map #2, #22, verified in the
- * edit-mode deep-dive). Anchors resolve against the current block list:
+ * Anchor resolution: the quote-primary cascade. Anchors resolve against the
+ * current block list:
  *   1. exact quote in a block (prefix/suffix selectors break ties,
  *      position hint breaks remaining ties)
  *   2. trimmed quote
@@ -11,7 +11,8 @@
 import type { Anchor } from "./types";
 import type { Block } from "./markdown";
 
-const CONTEXT = 24;
+/** Characters of surrounding text captured as prefix/suffix selectors. */
+const ANCHOR_CONTEXT_CHARS = 24;
 
 export interface ResolvedAnchor {
   blockIndex: number;
@@ -22,11 +23,11 @@ export interface ResolvedAnchor {
 }
 
 export function makeAnchor(blocks: Block[], blockIndex: number, start: number, end: number): Anchor {
-  const t = blocks[blockIndex]?.text ?? "";
+  const blockText = blocks[blockIndex]?.text ?? "";
   return {
-    quote: t.slice(start, end),
-    prefix: t.slice(Math.max(0, start - CONTEXT), start),
-    suffix: t.slice(end, end + CONTEXT),
+    quote: blockText.slice(start, end),
+    prefix: blockText.slice(Math.max(0, start - ANCHOR_CONTEXT_CHARS), start),
+    suffix: blockText.slice(end, end + ANCHOR_CONTEXT_CHARS),
     blockIndex,
     start,
     end,
@@ -38,21 +39,21 @@ interface Candidate extends ResolvedAnchor {
 }
 
 function findCandidates(anchor: Anchor, blocks: Block[], quote: string): Candidate[] {
-  const out: Candidate[] = [];
-  blocks.forEach((b, blockIndex) => {
-    const text = b.text;
-    for (let i = text.indexOf(quote); i !== -1; i = text.indexOf(quote, i + 1)) {
-      const pre = text.slice(Math.max(0, i - CONTEXT), i);
-      const suf = text.slice(i + quote.length, i + quote.length + CONTEXT);
+  const candidates: Candidate[] = [];
+  blocks.forEach((block, blockIndex) => {
+    const text = block.text;
+    for (let matchStart = text.indexOf(quote); matchStart !== -1; matchStart = text.indexOf(quote, matchStart + 1)) {
+      const prefix = text.slice(Math.max(0, matchStart - ANCHOR_CONTEXT_CHARS), matchStart);
+      const suffix = text.slice(matchStart + quote.length, matchStart + quote.length + ANCHOR_CONTEXT_CHARS);
       let score = 0;
-      if (pre === anchor.prefix) score += 2;
-      if (suf === anchor.suffix) score += 2;
+      if (prefix === anchor.prefix) score += 2;
+      if (suffix === anchor.suffix) score += 2;
       if (anchor.blockIndex === blockIndex) score += 1;
-      if (anchor.blockIndex === blockIndex && anchor.start === i) score += 1;
-      out.push({ blockIndex, start: i, end: i + quote.length, approximate: false, score });
+      if (anchor.blockIndex === blockIndex && anchor.start === matchStart) score += 1;
+      candidates.push({ blockIndex, start: matchStart, end: matchStart + quote.length, approximate: false, score });
     }
   });
-  return out;
+  return candidates;
 }
 
 /** Resolve an anchor against the current blocks, or null when orphaned. */
@@ -68,7 +69,7 @@ export function resolveAnchor(anchor: Anchor, blocks: Block[]): ResolvedAnchor |
     }
   }
   if (candidates.length === 0) return null;
-  candidates.sort((a, b) => b.score - a.score);
+  candidates.sort((left, right) => right.score - left.score);
   const best = candidates[0]!;
   return { ...best, approximate };
 }

@@ -1,8 +1,8 @@
 /**
  * feedback.md: the ONE structured markdown document the agent receives on
- * resolve (map #2, verified in the edit-mode deep-dive). Directive framing -
- * soft phrasing gets ignored by models: the plan diff is applied verbatim
- * first, then every annotation is addressed, located by quoted text.
+ * resolve. Directive framing - soft phrasing gets ignored by models: the plan
+ * diff is applied verbatim first, then every annotation is addressed, located
+ * by quoted text.
  */
 
 import { isAgentNote, type Annotation, type ReviewSession, type VerdictKind } from "./types";
@@ -22,7 +22,7 @@ export interface FeedbackInput {
   planPath?: string;
 }
 
-const quoteLines = (s: string) => "> " + s.replace(/\n/g, "\n> ");
+const quoteLines = (text: string) => "> " + text.replace(/\n/g, "\n> ");
 
 export function renderFeedback(input: FeedbackInput): string {
   const path = input.planPath ?? "plan.md";
@@ -56,24 +56,24 @@ export function renderFeedback(input: FeedbackInput): string {
     lines.push("");
     lines.push(`Address every item. Locate each one in ${path} by its quoted text.`);
     lines.push("");
-    annotations.forEach((a, i) => {
-      const res = resolveAnchor(a.anchor, blocks);
-      const sec = res ? sectionOf(blocks, res.blockIndex) : "";
-      const loc = sec ? ` (§ ${sec})` : "";
-      const flag = res === null ? " [orphaned anchor: the quoted text is no longer present]" : "";
-      if (a.kind === "suggestion") {
-        lines.push(`### ${i + 1}. Suggested change${loc}${flag}`);
+    annotations.forEach((annotation, annotationIndex) => {
+      const resolved = resolveAnchor(annotation.anchor, blocks);
+      const sectionTitle = resolved ? sectionOf(blocks, resolved.blockIndex) : "";
+      const location = sectionTitle ? ` (§ ${sectionTitle})` : "";
+      const orphanFlag = resolved === null ? " [orphaned anchor: the quoted text is no longer present]" : "";
+      if (annotation.kind === "suggestion") {
+        lines.push(`### ${annotationIndex + 1}. Suggested change${location}${orphanFlag}`);
         lines.push("");
         lines.push("Replace:");
-        lines.push(quoteLines(a.anchor.quote));
+        lines.push(quoteLines(annotation.anchor.quote));
         lines.push("With:");
-        lines.push(quoteLines(a.body));
+        lines.push(quoteLines(annotation.body));
       } else {
-        lines.push(`### ${i + 1}. ${capitalize(a.kind)}${loc}${flag}`);
+        lines.push(`### ${annotationIndex + 1}. ${capitalize(annotation.kind)}${location}${orphanFlag}`);
         lines.push("");
-        lines.push(quoteLines(a.anchor.quote));
+        lines.push(quoteLines(annotation.anchor.quote));
         lines.push("");
-        lines.push(a.body);
+        lines.push(annotation.body);
       }
       lines.push("");
     });
@@ -97,6 +97,6 @@ export function feedbackForSession(session: ReviewSession, verdictKind: VerdictK
   });
 }
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
+function capitalize(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
 }

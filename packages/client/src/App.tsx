@@ -17,7 +17,7 @@ import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } fro
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock } from "@opentui/core";
 import { isAgentNote, type ReviewSession, type VerdictKind } from "@cueloop/schema";
-import { displayText, marksByDisplay, spanKey, startSpan, type Mark, type SpanState } from "./view";
+import { displayText, marksByDisplay, spanKey, startSpan, type Mark, type SpanState } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
 import { DEFAULT_KEYS, loadConfig } from "./config";
@@ -53,7 +53,7 @@ export interface AppProps {
 type Mode =
   | { m: "normal" }
   | { m: "span"; span: SpanState }
-  | { m: "compose"; kind: "comment" | "suggestion"; dispIdx: number; start: number; end: number; text: string }
+  | { m: "compose"; kind: "comment" | "suggestion"; displayIndex: number; start: number; end: number; text: string }
   | { m: "railEdit"; id: string; text: string }
   | { m: "submit"; verdict: VerdictKind; summary: string };
 
@@ -156,10 +156,10 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
 
   /** Card activation scrolls the document to the anchor and pulses it. */
   const revealAnchor = (annotationId: string): void => {
-    for (const [dispIdx, blockMarks] of marks) {
+    for (const [displayIndex, blockMarks] of marks) {
       if (!blockMarks.some((mark) => mark.annotationId === annotationId)) continue;
-      setCursor(dispIdx);
-      planSheetRef.current?.revealBlock(dispIdx);
+      setCursor(displayIndex);
+      planSheetRef.current?.revealBlock(displayIndex);
       return;
     }
   };
@@ -228,7 +228,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
       }
       case "spanKey":
         if (mode.m === "span") {
-          const span = spanKey(mode.span, intent.name, displayText(display[mode.span.dispIdx]!));
+          const span = spanKey(mode.span, intent.name, displayText(display[mode.span.displayIndex]!));
           setMode({ m: "span", span });
         }
         return;
@@ -238,14 +238,14 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
           setMode({
             m: "compose",
             kind: intent.kind,
-            dispIdx: mode.span.dispIdx,
+            displayIndex: mode.span.displayIndex,
             start: mode.span.start,
             end: mode.span.end,
             text: "",
           });
         } else if (isDiff) {
           const row = rows[cursor];
-          if (row) setMode({ m: "compose", kind: intent.kind, dispIdx: cursor, start: 0, end: row.text.length, text: "" });
+          if (row) setMode({ m: "compose", kind: intent.kind, displayIndex: cursor, start: 0, end: row.text.length, text: "" });
         } else {
           // a mouse drag leaves a native selection; it wins over the cursor block
           const native = planSheetRef.current?.readSelection() ?? null;
@@ -253,7 +253,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
             setMode({ m: "compose", kind: intent.kind, ...native, text: "" });
           } else {
             const d = display[cursor];
-            if (d) setMode({ m: "compose", kind: intent.kind, dispIdx: cursor, start: 0, end: displayText(d).length, text: "" });
+            if (d) setMode({ m: "compose", kind: intent.kind, displayIndex: cursor, start: 0, end: displayText(d).length, text: "" });
           }
         }
         return;
@@ -308,7 +308,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
         }
         if (mode.m !== "compose") return;
         if (session && body) {
-          const annotationId = controller.annotate(mode.kind, mode.dispIdx, mode.start, mode.end, body);
+          const annotationId = controller.annotate(mode.kind, mode.displayIndex, mode.start, mode.end, body);
           if (annotationId) setFocusedAnn(annotationId);
         }
         return void setMode({ m: "normal" });
@@ -407,8 +407,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
     mode.m === "compose" && !isDiff
       ? {
           kind: mode.kind,
-          dispIdx: mode.dispIdx,
-          quote: displayText(display[mode.dispIdx]!).slice(mode.start, mode.end),
+          displayIndex: mode.displayIndex,
+          quote: displayText(display[mode.displayIndex]!).slice(mode.start, mode.end),
           draft: {
             text: mode.text,
             onInput: (text: string) => {
@@ -423,17 +423,17 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
 
   const activeSpan =
     mode.m === "span"
-      ? { dispIdx: mode.span.dispIdx, start: mode.span.start, end: mode.span.end }
+      ? { displayIndex: mode.span.displayIndex, start: mode.span.start, end: mode.span.end }
       : mode.m === "compose" && !isDiff
         ? // the compose anchor stays painted selection-style while the box is open
-          { dispIdx: mode.dispIdx, start: mode.start, end: mode.end }
+          { displayIndex: mode.displayIndex, start: mode.start, end: mode.end }
         : null;
 
-  const onLineActivate = (dispIdx: number): void => {
+  const onLineActivate = (displayIndex: number): void => {
     // releasing a drag-selection lands here too; a live selection is not a click
     if (renderer?.hasSelection) return;
-    setCursor(dispIdx);
-    const annotationId = marks.get(dispIdx)?.[0]?.annotationId;
+    setCursor(displayIndex);
+    const annotationId = marks.get(displayIndex)?.[0]?.annotationId;
     if (annotationId) selectCardFromDocument(annotationId);
   };
 
@@ -557,7 +557,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
         {mode.m === "compose" && isDiff ? (
           <ComposeBar
             kind={mode.kind}
-            quote={rows[mode.dispIdx]?.text ?? ""}
+            quote={rows[mode.displayIndex]?.text ?? ""}
             text={mode.text}
             onInput={(text) => {
               liveInput.current = text;

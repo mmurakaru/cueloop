@@ -18,8 +18,8 @@ const y = 2;
 \`\`\`
 `;
 
-function block(md: string, text: string): Block {
-  return parseBlocks(md).find((b) => b.text.includes(text))!;
+function block(markdown: string, text: string): Block {
+  return parseBlocks(markdown).find((block) => block.text.includes(text))!;
 }
 
 describe("sourceChunk", () => {
@@ -55,19 +55,19 @@ describe("cutBlock", () => {
 
 describe("restoreBlock", () => {
   test("restoring the only cut returns undefined - back to pristine", () => {
-    const li = block(BASE, "second item");
-    const cut = cutBlock(BASE, li);
+    const listItem = block(BASE, "second item");
+    const cut = cutBlock(BASE, listItem);
     // the cut block re-enters before the code fence, the next surviving block
-    const next = parseBlocks(cut).find((b) => b.kind === "code");
-    const restored = restoreBlock(BASE, cut, li, restoreLine(next, cut.split("\n").length));
+    const next = parseBlocks(cut).find((block) => block.kind === "code");
+    const restored = restoreBlock(BASE, cut, listItem, restoreLine(next, cut.split("\n").length));
     expect(restored).toBeUndefined();
   });
 
   test("restore after another edit returns the merged working copy", () => {
-    const li = block(BASE, "second item");
-    const edited = cutBlock(BASE, li).replace("first item", "first item reworded");
-    const next = parseBlocks(edited).find((b) => b.kind === "code");
-    const restored = restoreBlock(BASE, edited, li, restoreLine(next, edited.split("\n").length));
+    const listItem = block(BASE, "second item");
+    const edited = cutBlock(BASE, listItem).replace("first item", "first item reworded");
+    const next = parseBlocks(edited).find((block) => block.kind === "code");
+    const restored = restoreBlock(BASE, edited, listItem, restoreLine(next, edited.split("\n").length));
     expect(restored).toContain("- second item");
     expect(restored).toContain("first item reworded");
   });
@@ -80,30 +80,30 @@ describe("restoreBlock", () => {
   });
 
   test("restore a multi-line block round-trips to pristine", () => {
-    const p = block(BASE, "spans two lines");
-    const cut = cutBlock(BASE, p);
-    const next = parseBlocks(cut).find((b) => b.text === "first item");
-    const restored = restoreBlock(BASE, cut, p, restoreLine(next, cut.split("\n").length));
+    const paragraph = block(BASE, "spans two lines");
+    const cut = cutBlock(BASE, paragraph);
+    const next = parseBlocks(cut).find((block) => block.text === "first item");
+    const restored = restoreBlock(BASE, cut, paragraph, restoreLine(next, cut.split("\n").length));
     expect(restored).toBeUndefined();
   });
 
   test("signature rule ignores blank-line layout but not text changes", () => {
-    const li = block(BASE, "second item");
-    const cut = cutBlock(BASE, li);
-    const next = parseBlocks(cut).find((b) => b.kind === "code");
+    const listItem = block(BASE, "second item");
+    const cut = cutBlock(BASE, listItem);
+    const next = parseBlocks(cut).find((block) => block.kind === "code");
     const line = restoreLine(next, cut.split("\n").length);
     // extra blank lines elsewhere do not block pristine detection
-    expect(restoreBlock(BASE, cut.replace("## Context", "## Context\n"), li, line)).toBeUndefined();
+    expect(restoreBlock(BASE, cut.replace("## Context", "## Context\n"), listItem, line)).toBeUndefined();
     // a real text change keeps the working copy alive
-    const changed = restoreBlock(BASE, cut.replace("first", "1st"), li, line);
+    const changed = restoreBlock(BASE, cut.replace("first", "1st"), listItem, line);
     expect(changed).toContain("1st item");
   });
 });
 
 describe("restoreLine", () => {
   test("next surviving block's start, or the line count at the end", () => {
-    const li = block(BASE, "first item");
-    expect(restoreLine(li, 99)).toBe(li.lineStart);
+    const listItem = block(BASE, "first item");
+    expect(restoreLine(listItem, 99)).toBe(listItem.lineStart);
     expect(restoreLine(undefined, 99)).toBe(99);
   });
 });

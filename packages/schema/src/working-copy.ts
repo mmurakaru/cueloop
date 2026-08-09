@@ -34,7 +34,7 @@ export function restoreLine(next: Block | undefined, workingLineCount: number): 
  */
 function signature(text: string): string {
   return parseBlocks(text)
-    .map((b) => b.kind + " " + b.text)
+    .map((block) => block.kind + " " + block.text)
     .join("\0");
 }
 
@@ -53,9 +53,9 @@ export function restoreBlock(
   const lines = working.split("\n");
   const before = lines.slice(0, beforeLine);
   const after = lines.slice(beforeLine);
-  const ins = sourceChunk(base, block).split("\n");
-  if (before.length && before[before.length - 1]!.trim() !== "") ins.unshift("");
-  if (after.length && after[0]!.trim() !== "") ins.push("");
-  const restored = [...before, ...ins, ...after].join("\n");
+  const insertedLines = sourceChunk(base, block).split("\n");
+  if (before.length && before[before.length - 1]!.trim() !== "") insertedLines.unshift("");
+  if (after.length && after[0]!.trim() !== "") insertedLines.push("");
+  const restored = [...before, ...insertedLines, ...after].join("\n");
   return signature(restored) === signature(base) ? undefined : restored;
 }

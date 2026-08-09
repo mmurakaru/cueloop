@@ -32,7 +32,7 @@ export const SpanSelection: Story = {
       display={fixtureDisplay()}
       marks={new Map()}
       cursor={2}
-      activeSpan={{ dispIdx: 2, start: 0, end: 10 }}
+      activeSpan={{ displayIndex: 2, start: 0, end: 10 }}
       compose={null}
       editOrphanCount={0}
       {...callbacks}
@@ -49,10 +49,10 @@ export const InlineCompose: Story = {
       display={fixtureDisplay()}
       marks={new Map()}
       cursor={2}
-      activeSpan={{ dispIdx: 2, start: 0, end: 10 }}
+      activeSpan={{ displayIndex: 2, start: 0, end: 10 }}
       compose={{
         kind: "comment",
-        dispIdx: 2,
+        displayIndex: 2,
         quote: "The daemon",
         draft: { text: "Which daemon?", onInput: () => {}, onSave: () => {}, onCancel: () => {} },
       }}
