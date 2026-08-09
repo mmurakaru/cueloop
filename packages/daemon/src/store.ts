@@ -1,5 +1,5 @@
 /**
- * Session persistence (#14): one JSON document per session, every write
+ * Session persistence: one JSON document per session, every write
  * through a temp file + atomic rename so a crash mid-write can never leave
  * a corrupt record. Recovery is a read-only scan; records that fail to
  * parse are skipped and reported, never deleted.
@@ -49,15 +49,15 @@ export class SessionStore {
   }
 
   list(): ReviewSession[] {
-    return [...this.sessions.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return [...this.sessions.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
 
   upsert(session: ReviewSession): void {
     this.sessions.set(session.id, session);
     const path = join(this.dir, `${session.id}.json`);
-    const tmp = path + ".tmp";
-    writeFileSync(tmp, JSON.stringify(session, null, 2));
-    renameSync(tmp, path);
+    const tempPath = path + ".tmp";
+    writeFileSync(tempPath, JSON.stringify(session, null, 2));
+    renameSync(tempPath, path);
   }
 
   delete(id: string): boolean {

@@ -2,7 +2,7 @@
  * The shared review core: one open/wait/verdict path for every consumer -
  * CLI commands and agent adapters. openReview resolves the workspace, shapes
  * the artifact, and opens-or-revises by agentSessionId; awaitVerdict maps the
- * wait contract (#14) onto the agent contract through verdictResponse. An
+ * wait contract onto the agent contract through verdictResponse. An
  * adapter keeps only two bespoke parts: parsing its host's event shape and
  * serializing the decision in its host's contract.
  */
@@ -26,16 +26,16 @@ async function git(args: string[], cwd: string): Promise<string | null> {
   }
 }
 
-/** Workspace key resolution (#9): repo root + branch from the cwd. */
+/** Workspace key resolution: repo root + branch from the cwd. */
 export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKey> {
   const repoRoot = (await git(["rev-parse", "--show-toplevel"], cwd)) ?? cwd;
   const branch = (await git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)) ?? "detached";
   return { repoRoot, branch };
 }
 
-function firstHeading(md: string): string | undefined {
-  const m = md.match(/^#\s+(.+)$/m);
-  return m?.[1]?.trim();
+function firstHeading(markdown: string): string | undefined {
+  const headingMatch = markdown.match(/^#\s+(.+)$/m);
+  return headingMatch?.[1]?.trim();
 }
 
 export interface OpenReviewOptions {
@@ -115,13 +115,13 @@ function raceAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined): Pro
     };
     signal.addEventListener("abort", onAbort, { once: true });
     promise.then(
-      (v) => {
+      (value) => {
         signal.removeEventListener("abort", onAbort);
-        resolve(v);
+        resolve(value);
       },
-      (e) => {
+      (error) => {
         signal.removeEventListener("abort", onAbort);
-        reject(e);
+        reject(error);
       },
     );
   });
@@ -140,11 +140,11 @@ export class ReviewHandle {
   /**
    * Block on the verdict. "pending" means the budget ran out or the signal
    * aborted - the session stays open and the verdict is collectable later
-   * (verdicts outlive waits, #14). With only timeoutMs this is one long-poll;
+   * (verdicts outlive waits). With only timeoutMs this is one long-poll;
    * pollMs/onProgress/signal switch to the chunked loop.
    */
-  async awaitVerdict(opts: AwaitVerdictOptions): Promise<VerdictOutcome | "pending"> {
-    const { timeoutMs, pollMs, onProgress, signal } = opts;
+  async awaitVerdict(options: AwaitVerdictOptions): Promise<VerdictOutcome | "pending"> {
+    const { timeoutMs, pollMs, onProgress, signal } = options;
     if (pollMs === undefined && onProgress === undefined && signal === undefined) {
       const resolved = await this.client.sessionWait(this.session.id, timeoutMs);
       return resolved === null ? "pending" : outcome(resolved);
@@ -170,38 +170,38 @@ function outcome(session: ReviewSession): VerdictOutcome {
 }
 
 /** Open a review session (or revise the agent session's existing one) and hand back the wait surface. */
-export async function openReview(client: DaemonClient, opts: OpenReviewOptions): Promise<ReviewHandle> {
-  const cwd = opts.cwd ?? process.cwd();
-  const workspace = opts.workspace ?? (await resolveWorkspace(cwd));
+export async function openReview(client: DaemonClient, options: OpenReviewOptions): Promise<ReviewHandle> {
+  const cwd = options.cwd ?? process.cwd();
+  const workspace = options.workspace ?? (await resolveWorkspace(cwd));
   // Resubmits from the same agent session become revisions, not new sessions.
-  if (opts.agentSessionId !== undefined) {
+  if (options.agentSessionId !== undefined) {
     const existing = (await client.sessionList()).find(
-      (s) => s.artifact.meta.agentSessionId === opts.agentSessionId,
+      (candidate) => candidate.artifact.meta.agentSessionId === options.agentSessionId,
     );
     if (existing !== undefined) {
-      let revised = await client.sessionSubmitRevision(existing.id, opts.content);
-      if (opts.notes?.length) {
-        await attachNotes(client, revised.id, opts.notes);
+      let revised = await client.sessionSubmitRevision(existing.id, options.content);
+      if (options.notes?.length) {
+        await attachNotes(client, revised.id, options.notes);
         revised = await client.sessionGet(revised.id);
       }
       return new ReviewHandle(client, revised);
     }
   }
   let session = await client.sessionCreate(workspace, {
-    type: opts.type,
-    content: opts.content,
+    type: options.type,
+    content: options.content,
     meta: {
-      agent: opts.agent,
-      agentSessionId: opts.agentSessionId,
-      planPath: opts.planPath,
-      pr: opts.pr,
-      herdrPane: opts.herdrPane,
-      title: opts.title ?? (opts.type === "plan" ? firstHeading(opts.content) : undefined),
+      agent: options.agent,
+      agentSessionId: options.agentSessionId,
+      planPath: options.planPath,
+      pr: options.pr,
+      herdrPane: options.herdrPane,
+      title: options.title ?? (options.type === "plan" ? firstHeading(options.content) : undefined),
       cwd,
     },
   });
-  if (opts.notes?.length) {
-    await attachNotes(client, session.id, opts.notes);
+  if (options.notes?.length) {
+    await attachNotes(client, session.id, options.notes);
     session = await client.sessionGet(session.id);
   }
   return new ReviewHandle(client, session);

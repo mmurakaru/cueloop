@@ -1,5 +1,5 @@
 /**
- * Wire protocol (#14): newline-delimited JSON over the unix socket.
+ * Wire protocol: newline-delimited JSON over the unix socket.
  * Requests: { id, method, params }  Responses: { id, result } | { id, error }
  * Events (push, after events.subscribe): { event, sessionId }
  */
@@ -25,15 +25,15 @@ export type Frame = Response | EventFrame;
 
 /** Incremental NDJSON splitter; tolerates partial writes. */
 export class LineBuffer {
-  private buf = "";
+  private buffered = "";
 
   push(chunk: string, onLine: (line: string) => void): void {
-    this.buf += chunk;
+    this.buffered += chunk;
     for (;;) {
-      const nl = this.buf.indexOf("\n");
-      if (nl === -1) return;
-      const line = this.buf.slice(0, nl).trim();
-      this.buf = this.buf.slice(nl + 1);
+      const newlineIndex = this.buffered.indexOf("\n");
+      if (newlineIndex === -1) return;
+      const line = this.buffered.slice(0, newlineIndex).trim();
+      this.buffered = this.buffered.slice(newlineIndex + 1);
       if (line) onLine(line);
     }
   }

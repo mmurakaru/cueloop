@@ -134,7 +134,7 @@ describe("validateSessionRecord", () => {
 });
 
 /**
- * Wire pins (#70): every schema's entries must cover exactly the keys of the
+ * Wire pins: every schema's entries must cover exactly the keys of the
  * schema type it mirrors. Runtime complement to the compile-time EntriesOf
  * check - the samples are fully populated and typed, so a new field in
  * @cueloop/schema shows up here too.

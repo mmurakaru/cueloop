@@ -1,5 +1,5 @@
 /**
- * The daemon's method surface (#14). Transport-independent: the socket
+ * The daemon's method surface. Transport-independent: the socket
  * server and the in-process test harness both call these handlers.
  * The wait contract: verdicts outlive waits - session.wait long-polls,
  * and a verdict resolved while nobody waited is delivered on next contact.
@@ -31,7 +31,7 @@ export interface DaemonEvent {
   sessionId: string;
 }
 
-type EventListener = (e: DaemonEvent) => void;
+type EventListener = (event: DaemonEvent) => void;
 
 export class DaemonCore {
   readonly store: SessionStore;
@@ -50,12 +50,12 @@ export class DaemonCore {
   }
 
   private emit(event: EventName, sessionId: string): void {
-    for (const l of this.listeners) l({ event, sessionId });
+    for (const listener of this.listeners) listener({ event, sessionId });
   }
 
   /** True when nothing awaits a verdict - drives idle-exit. */
   hasPendingSessions(): boolean {
-    return this.store.list().some((s) => s.status === "pending");
+    return this.store.list().some((session) => session.status === "pending");
   }
 
   sessionCreate(params: { workspace: WorkspaceKey; artifact: Artifact }): ReviewSession {
@@ -78,16 +78,16 @@ export class DaemonCore {
   }
 
   sessionGet(id: string): ReviewSession {
-    const s = this.store.get(id);
-    if (!s) throw new DaemonError("not_found", `no session ${id}`);
-    return s;
+    const session = this.store.get(id);
+    if (!session) throw new DaemonError("not_found", `no session ${id}`);
+    return session;
   }
 
   sessionList(filter?: { status?: "pending" | "resolved"; workspace?: Partial<WorkspaceKey> }): ReviewSession[] {
-    return this.store.list().filter((s) => {
-      if (filter?.status && s.status !== filter.status) return false;
-      if (filter?.workspace?.repoRoot && s.workspace.repoRoot !== filter.workspace.repoRoot) return false;
-      if (filter?.workspace?.branch && s.workspace.branch !== filter.workspace.branch) return false;
+    return this.store.list().filter((session) => {
+      if (filter?.status && session.status !== filter.status) return false;
+      if (filter?.workspace?.repoRoot && session.workspace.repoRoot !== filter.workspace.repoRoot) return false;
+      if (filter?.workspace?.branch && session.workspace.branch !== filter.workspace.branch) return false;
       return true;
     });
   }
@@ -98,16 +98,16 @@ export class DaemonCore {
    * still pending - the caller re-polls later; the verdict is never lost).
    */
   sessionWait(id: string, timeoutMs: number): Promise<ReviewSession | null> {
-    const s = this.sessionGet(id);
-    if (s.status === "resolved") return Promise.resolve(s);
+    const current = this.sessionGet(id);
+    if (current.status === "resolved") return Promise.resolve(current);
     return new Promise((resolve) => {
       const list = this.waiters.get(id) ?? [];
       let done = false;
       const timer = setTimeout(() => {
         if (done) return;
         done = true;
-        const idx = list.indexOf(waiter);
-        if (idx !== -1) list.splice(idx, 1);
+        const waiterIndex = list.indexOf(waiter);
+        if (waiterIndex !== -1) list.splice(waiterIndex, 1);
         resolve(null);
       }, timeoutMs);
       const waiter = (session: ReviewSession) => {
@@ -122,92 +122,86 @@ export class DaemonCore {
   }
 
   sessionAnnotate(id: string, annotation: Omit<Annotation, "createdAt">): ReviewSession {
-    const s = this.mutable(id);
-    const existing = s.annotations.findIndex((a) => a.id === annotation.id);
+    const session = this.mutable(id);
+    const existing = session.annotations.findIndex((candidate) => candidate.id === annotation.id);
     const full: Annotation = { ...annotation, createdAt: new Date().toISOString() };
-    if (existing === -1) s.annotations.push(full);
-    else s.annotations[existing] = { ...full, createdAt: s.annotations[existing]!.createdAt };
-    this.store.upsert(s);
+    if (existing === -1) session.annotations.push(full);
+    else session.annotations[existing] = { ...full, createdAt: session.annotations[existing]!.createdAt };
+    this.store.upsert(session);
     this.emit("session.updated", id);
-    return s;
+    return session;
   }
 
   sessionRemoveAnnotation(id: string, annotationId: string): ReviewSession {
-    const s = this.mutable(id);
-    s.annotations = s.annotations.filter((a) => a.id !== annotationId);
-    this.store.upsert(s);
+    const session = this.mutable(id);
+    session.annotations = session.annotations.filter((candidate) => candidate.id !== annotationId);
+    this.store.upsert(session);
     this.emit("session.updated", id);
-    return s;
+    return session;
   }
 
   /** The reviewer's working copy; undefined clears it (revert all edits). */
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): ReviewSession {
-    const s = this.mutable(id);
-    if (workingCopy === undefined || workingCopy === s.artifact.content) delete s.workingCopy;
-    else s.workingCopy = workingCopy;
-    this.store.upsert(s);
+    const session = this.mutable(id);
+    if (workingCopy === undefined || workingCopy === session.artifact.content) delete session.workingCopy;
+    else session.workingCopy = workingCopy;
+    this.store.upsert(session);
     this.emit("session.updated", id);
-    return s;
+    return session;
   }
 
   /**
-   * The guided walk's viewed marks. The full list replaces the stored one
-   * (last write wins - one reviewer walks at a time); an empty list clears
-   * the field so untouched records stay lean. Duplicates collapse here so
-   * the record never accumulates repeats from racing clients.
-   */
-  /**
-   * Merge-additive: walking only ever adds marks, so concurrent or stale
-   * clients converge instead of overwriting each other. An empty array is the
-   * explicit reset.
+   * The guided walk's viewed marks. Merge-additive: walking only ever adds
+   * marks, so concurrent or stale clients converge instead of overwriting
+   * each other. An empty array is the explicit reset.
    */
   sessionSetViewed(id: string, viewedPaths: string[]): ReviewSession {
-    const s = this.mutable(id);
-    if (viewedPaths.length === 0) delete s.viewedPaths;
-    else s.viewedPaths = [...new Set([...(s.viewedPaths ?? []), ...viewedPaths])];
-    this.store.upsert(s);
+    const session = this.mutable(id);
+    if (viewedPaths.length === 0) delete session.viewedPaths;
+    else session.viewedPaths = [...new Set([...(session.viewedPaths ?? []), ...viewedPaths])];
+    this.store.upsert(session);
     this.emit("session.updated", id);
-    return s;
+    return session;
   }
 
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): ReviewSession {
-    const s = this.mutable(id);
+    const session = this.mutable(id);
     const verdict: Verdict = {
       kind: verdictKind,
       summary,
-      feedback: feedbackForSession(s, verdictKind, summary),
+      feedback: feedbackForSession(session, verdictKind, summary),
       resolvedAt: new Date().toISOString(),
     };
-    s.verdict = verdict;
-    s.status = "resolved";
-    this.store.upsert(s);
+    session.verdict = verdict;
+    session.status = "resolved";
+    this.store.upsert(session);
     const parked = this.waiters.get(id) ?? [];
     this.waiters.delete(id);
-    for (const w of parked) w(s);
+    for (const parkedWaiter of parked) parkedWaiter(session);
     this.emit("session.resolved", id);
     this.emit("inbox.changed", id);
-    return s;
+    return session;
   }
 
   /** Agent resubmits: new revision becomes the artifact, session reopens. */
   sessionSubmitRevision(id: string, content: string): ReviewSession {
-    const s = this.sessionGet(id);
+    const session = this.sessionGet(id);
     const now = new Date().toISOString();
-    s.revisions.push({ revision: s.revisions.length + 1, content, submittedAt: now });
-    s.artifact = { ...s.artifact, content };
-    delete s.workingCopy;
-    s.verdict = null;
-    s.status = "pending";
-    this.store.upsert(s);
+    session.revisions.push({ revision: session.revisions.length + 1, content, submittedAt: now });
+    session.artifact = { ...session.artifact, content };
+    delete session.workingCopy;
+    session.verdict = null;
+    session.status = "pending";
+    this.store.upsert(session);
     this.emit("session.revised", id);
     this.emit("inbox.changed", id);
-    return s;
+    return session;
   }
 
   private mutable(id: string): ReviewSession {
-    const s = this.sessionGet(id);
-    if (s.status === "resolved") throw new DaemonError("resolved", `session ${id} is already resolved`);
-    return s;
+    const session = this.sessionGet(id);
+    if (session.status === "resolved") throw new DaemonError("resolved", `session ${id} is already resolved`);
+    return session;
   }
 }
 

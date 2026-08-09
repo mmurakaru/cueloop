@@ -1,5 +1,5 @@
 /**
- * Single-instance guarantee (#14): one daemon per home. Two daemons over one
+ * Single-instance guarantee: one daemon per home. Two daemons over one
  * state directory means divergent in-memory sessions and clients seeing
  * whichever half they connect to.
  */
