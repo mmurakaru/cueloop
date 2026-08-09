@@ -13,6 +13,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
+import { press, waitForText } from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -49,21 +50,8 @@ async function renderObserver() {
     width: 120,
     height: 32,
   });
-  for (let i = 0; i < 40 && !setup.captureCharFrame().includes("cueloop"); i++) {
-    await Bun.sleep(25);
-    await setup.renderOnce();
-  }
-  await setup.renderOnce();
+  await waitForText(setup, "cueloop");
   return setup;
-}
-
-type Setup = Awaited<ReturnType<typeof renderObserver>>;
-
-async function press(setup: Setup, k: string): Promise<void> {
-  if (k === "enter") setup.mockInput.pressKey("RETURN");
-  else await setup.mockInput.typeText(k);
-  await Bun.sleep(15);
-  await setup.renderOnce();
 }
 
 /** Session state that any mutating verb would change. */
@@ -96,10 +84,7 @@ describe("observer verbs are blocked", () => {
       await press(setup, "j");
       await press(setup, "j");
       await press(setup, key);
-      await Bun.sleep(60);
-      await setup.renderOnce();
-      const frame = setup.captureCharFrame();
-      expect(frame).toContain("observer - read-only");
+      const frame = await waitForText(setup, "observer - read-only");
       // no overlay opened: compose/submit bars never appear
       expect(frame).not.toContain("COMMENT ON");
       expect(frame).not.toContain("SUGGEST REPLACEMENT");

@@ -13,6 +13,7 @@ import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { App } from "../../packages/client/src/App";
+import { press, typeText, waitForText } from "../../packages/client/src/test-support";
 
 /** Generous on purpose: these spawn real subprocesses on shared CI runners. */
 const POLL_TIMEOUT_MS = 60_000;
@@ -129,35 +130,20 @@ describe("slice 1: Claude Code plan round-trip", () => {
 
     // the reviewer opens the session in the real TUI
     const setup = await testRender(<App home={home} sessionId={sessionId} />, { width: 120, height: 30 });
-    const uiDeadline = Date.now() + POLL_TIMEOUT_MS;
-    while (Date.now() < uiDeadline && !setup.captureCharFrame().includes("Rollout Plan")) {
-      await Bun.sleep(25);
-      await setup.renderOnce();
-    }
+    await waitForText(setup, "Rollout Plan");
     expect(setup.captureCharFrame()).toContain("Enable it for everyone immediately.");
 
     // annotate the risky paragraph, then submit request_changes
-    const key = async (k: string) => {
-      if (k === "enter") setup.mockInput.pressKey("RETURN");
-      else await setup.mockInput.typeText(k);
-      await Bun.sleep(15);
-      await setup.renderOnce();
-    };
-    for (let i = 0; i < 6; i++) await key("j"); // to the Phase 2 paragraph
-    await key("c");
-    await setup.mockInput.typeText("Stage the rollout: 5% then 50% then 100%.");
-    await key("enter");
+    for (let i = 0; i < 6; i++) await press(setup, "j"); // to the Phase 2 paragraph
+    await press(setup, "c");
+    await typeText(setup, "Stage the rollout: 5% then 50% then 100%.");
+    await press(setup, "enter");
     // wait until the annotate round-trip lands in the rail before submitting
-    const railDeadline = Date.now() + POLL_TIMEOUT_MS;
-    while (railDeadline > Date.now() && !setup.captureCharFrame().includes("Review (1)")) {
-      await Bun.sleep(25);
-      await setup.renderOnce();
-    }
-    expect(setup.captureCharFrame()).toContain("Review (1)");
-    await key("enter"); // open submit (request_changes default with pending item)
+    await waitForText(setup, "Review (1)");
+    await press(setup, "enter"); // open submit (request_changes default with pending item)
     expect(setup.captureCharFrame()).toContain("[Changes]");
-    await setup.mockInput.typeText("Too aggressive.");
-    await key("enter");
+    await typeText(setup, "Too aggressive.");
+    await press(setup, "enter");
 
     const out = await hook.result;
     expect(out.decision).toBe("deny");

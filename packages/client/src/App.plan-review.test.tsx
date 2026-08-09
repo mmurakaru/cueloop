@@ -16,6 +16,7 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { DARK as T } from "./theme";
+import { press, settle, typeText as type, waitForState, waitForText, waitForTextGone } from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -52,32 +53,11 @@ async function renderApp() {
     width: 120,
     height: 32,
   });
-  for (let attempt = 0; attempt < 40 && !setup.captureCharFrame().includes("cueloop"); attempt++) {
-    await Bun.sleep(25);
-    await setup.renderOnce();
-  }
-  await setup.renderOnce();
+  await waitForText(setup, "cueloop");
   return setup;
 }
 
 type Setup = Awaited<ReturnType<typeof renderApp>>;
-
-async function press(setup: Setup, k: string): Promise<void> {
-  if (k === "enter") setup.mockInput.pressKey("RETURN");
-  else if (k === "escape") {
-    setup.mockInput.pressKey("ESCAPE");
-    // a bare ESC byte is an ambiguous sequence prefix; the parser settles late
-    await Bun.sleep(120);
-  } else await type(setup, k);
-  await Bun.sleep(15);
-  await setup.renderOnce();
-}
-
-async function type(setup: Setup, text: string): Promise<void> {
-  await setup.mockInput.typeText(text);
-  await Bun.sleep(15);
-  await setup.renderOnce();
-}
 
 /**
  * Background colors (hex) of every styled span containing the needle - the
@@ -111,10 +91,8 @@ describe("selection feeds the annotation quote", () => {
     expect(setup.captureCharFrame()).toContain('comment on "The daemon"');
     await type(setup, "Which daemon?");
     await press(setup, "enter");
-    await Bun.sleep(80);
-    await setup.renderOnce();
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
-    expect(stored.annotations.length).toBe(1);
     expect(stored.annotations[0]!.anchor.quote).toBe("The daemon");
   });
 
@@ -126,12 +104,12 @@ describe("selection feeds the annotation quote", () => {
     expect(row).toBeGreaterThan(-1);
     // the drag's end cell is exclusive: release one past the last character
     await setup.mockMouse.drag(startColumn, row, startColumn + "persists sessions".length, row);
-    await setup.renderOnce();
+    await settle(setup);
     await press(setup, "c");
     expect(setup.captureCharFrame()).toContain('comment on "persists sessions"');
     await type(setup, "sessions plural?");
     await press(setup, "enter");
-    await Bun.sleep(80);
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations[0]!.anchor.quote).toBe("persists sessions");
   });
@@ -148,16 +126,16 @@ describe("inline compose keeps the anchor painted", () => {
     expect(setup.captureCharFrame()).toContain("Save ⏎");
     expect(setup.captureCharFrame()).toContain("Cancel esc");
     expect(backgroundsOf(setup, "The daemon")).toContain(T.accent);
-    // cancel un-paints
+    // cancel un-paints (a bare ESC settles after the parser's escape window)
     await press(setup, "escape");
-    expect(setup.captureCharFrame()).not.toContain('comment on "');
+    await waitForTextGone(setup, 'comment on "');
     expect(backgroundsOf(setup, "The daemon")).not.toContain(T.accent);
     // save converts the paint to the kind-colored annotation highlight
     await press(setup, "c");
     await type(setup, "Which daemon?");
     await press(setup, "enter");
-    await Bun.sleep(80);
-    await setup.renderOnce();
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    await settle(setup);
     // the whole cursor block is the anchor here; check the highlight landed
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations.length).toBe(1);
@@ -172,18 +150,15 @@ describe("the document selects, the rail edits", () => {
     await press(setup, "c");
     await type(setup, "Needs a citation.");
     await press(setup, "enter");
-    await Bun.sleep(80);
-    await setup.renderOnce();
-    expect(setup.captureCharFrame()).toContain("COMMENT · pending");
+    await waitForText(setup, "COMMENT · pending");
     // the saved card is selected; e turns its body into an input in place
     await press(setup, "e");
     await type(setup, " And a link.");
     await press(setup, "enter");
-    await Bun.sleep(80);
-    await setup.renderOnce();
-    const stored = server.core.sessionGet(session.id);
-    expect(stored.annotations.length).toBe(1);
-    expect(stored.annotations[0]!.body).toBe("Needs a citation. And a link.");
+    await waitForState(
+      setup,
+      () => server.core.sessionGet(session.id).annotations[0]!.body === "Needs a citation. And a link.",
+    );
   });
 
   test("x deletes the selected card and un-paints the document highlight", async () => {
@@ -192,15 +167,12 @@ describe("the document selects, the rail edits", () => {
     await press(setup, "c");
     await type(setup, "Delete me.");
     await press(setup, "enter");
-    await Bun.sleep(80);
-    await setup.renderOnce();
+    await waitForText(setup, "COMMENT · pending");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
     expect(backgroundsOf(setup, "persists sessions")).toContain(T.markCommentBg);
     await press(setup, "x");
-    await Bun.sleep(80);
-    await setup.renderOnce();
+    await waitForTextGone(setup, "COMMENT · pending");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
-    expect(setup.captureCharFrame()).not.toContain("COMMENT · pending");
     expect(backgroundsOf(setup, "persists sessions")).not.toContain(T.markCommentBg);
   });
 });
@@ -239,17 +211,14 @@ describe("edit-exit reconciliation", () => {
       await press(setup, "c");
       await type(setup, "Anchor me to the doomed passage.");
       await press(setup, "enter");
-      await Bun.sleep(80);
-      await setup.renderOnce();
-      expect(setup.captureCharFrame()).toContain("· pending");
+      await waitForText(setup, "· pending");
       // deselect the card so e reaches the editor hand-off, then edit
       await press(setup, "escape");
+      await waitForTextGone(setup, "▸ COMMENT");
       await press(setup, "e");
-      await Bun.sleep(150);
-      await setup.renderOnce();
-      const frame = setup.captureCharFrame();
-      expect(frame).toContain("1 annotation no longer match - the passage was removed.");
-      expect(frame).toContain("· ORPHANED");
+      await waitForText(setup, "1 annotation no longer match - the passage was removed.");
+      // the rail card flips to ORPHANED once the working-copy refresh lands
+      await waitForText(setup, "· ORPHANED");
       // the annotation is NOT deleted: the feedback serializer handles orphans
       expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
     } finally {

@@ -1,4 +1,8 @@
-/** Post-submit completion overlay: prompt, opt-in persistence, countdown, dismissal. */
+/**
+ * Post-submit completion overlay: prompt, opt-in persistence, countdown,
+ * dismissal. Countdown seconds tick on an injected ManualClock, so the
+ * tests advance time instead of waiting it out.
+ */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -6,9 +10,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
+import { ManualClock } from "@opentui/core/testing";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
+import { press, settle, waitForText } from "./test-support";
 
 const PLAN = "# Plan\n\nShip the thing.\n";
 
@@ -16,6 +22,7 @@ let home: string;
 let server: DaemonServer;
 let session: ReviewSession;
 let configPath: string;
+let clock: ManualClock;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-close-"));
@@ -27,6 +34,7 @@ beforeEach(() => {
     workspace: { repoRoot: "/repo", branch: "main" },
     artifact: { type: "plan", content: PLAN, meta: { title: "Plan" } },
   });
+  clock = new ManualClock();
 });
 afterEach(() => {
   delete process.env.CUELOOP_CONFIG;
@@ -35,34 +43,20 @@ afterEach(() => {
 });
 
 async function renderApp(onExit?: (code: number) => void) {
-  const setup = await testRender(<App home={home} sessionId={session.id} onExit={onExit} />, {
+  const setup = await testRender(<App home={home} sessionId={session.id} onExit={onExit} clock={clock} />, {
     width: 120,
     height: 30,
   });
-  for (let i = 0; i < 40 && !setup.captureCharFrame().includes("cueloop"); i++) {
-    await Bun.sleep(25);
-    await setup.renderOnce();
-  }
+  await waitForText(setup, "cueloop");
   return setup;
 }
 
 type Setup = Awaited<ReturnType<typeof renderApp>>;
-async function press(setup: Setup, k: string): Promise<void> {
-  if (k === "enter") setup.mockInput.pressKey("RETURN");
-  else if (k === "escape") setup.mockInput.pressKey("ESCAPE");
-  else await setup.mockInput.typeText(k);
-  await Bun.sleep(15);
-  await setup.renderOnce();
-}
 
 async function submitApprove(setup: Setup): Promise<void> {
   await press(setup, "enter"); // open submit (approve default: no pending items)
   await press(setup, "enter"); // confirm
-  const deadline = Date.now() + 10_000;
-  while (Date.now() < deadline && !setup.captureCharFrame().includes("review approved")) {
-    await Bun.sleep(25);
-    await setup.renderOnce();
-  }
+  await waitForText(setup, "review approved");
 }
 
 describe("completion overlay", () => {
@@ -81,24 +75,21 @@ describe("completion overlay", () => {
     const setup = await renderApp();
     await submitApprove(setup);
     await press(setup, "a");
-    expect(setup.captureCharFrame()).toContain("closing in 3s");
+    await waitForText(setup, "closing in 3s");
     expect(existsSync(configPath)).toBe(true);
     expect(readFileSync(configPath, "utf8")).toContain("auto_close = 3");
+    // each countdown second is one manual-clock tick, not wall time
+    clock.advance(1000);
+    await waitForText(setup, "closing in 2s");
   });
 
   test("esc dismisses to the resolved read-only view", async () => {
     const setup = await renderApp();
     await submitApprove(setup);
-    await press(setup, "escape");
     // a bare ESC sits in the input parser's escape-sequence disambiguation
-    // window before it is delivered - poll for the dismissal
-    const deadline = Date.now() + 5_000;
-    while (Date.now() < deadline && !setup.captureCharFrame().includes("resolved: approve")) {
-      await Bun.sleep(50);
-      await setup.renderOnce();
-    }
-    const frame = setup.captureCharFrame();
-    expect(frame).toContain("resolved: approve");
+    // window before it is delivered - the frame wait absorbs it
+    await press(setup, "escape");
+    const frame = await waitForText(setup, "resolved: approve");
     expect(frame).not.toContain("always close after submit");
   });
 
@@ -107,12 +98,10 @@ describe("completion overlay", () => {
     let exited = -1;
     const setup = await renderApp((code) => (exited = code));
     await submitApprove(setup);
-    expect(setup.captureCharFrame()).toContain("closing in 1s");
-    const deadline = Date.now() + 10_000;
-    while (Date.now() < deadline && exited === -1) {
-      await Bun.sleep(100);
-      await setup.renderOnce();
-    }
+    await waitForText(setup, "closing in 1s");
+    expect(exited).toBe(-1);
+    clock.advance(1000);
+    await settle(setup);
     expect(exited).toBe(0);
-  }, 20_000);
+  });
 });

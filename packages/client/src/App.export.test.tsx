@@ -13,6 +13,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
+import { press, waitForState, waitForText } from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -50,30 +51,16 @@ afterEach(() => {
 describe("obsidian export on resolve", () => {
   test("submitting a review writes the plan into the vault and shows the path", async () => {
     const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 32 });
-    for (let i = 0; i < 40 && !setup.captureCharFrame().includes("cueloop"); i++) {
-      await Bun.sleep(25);
-      await setup.renderOnce();
-    }
+    await waitForText(setup, "cueloop");
     // open the submit overlay, keep the default verdict (approve), submit
-    setup.mockInput.pressKey("RETURN");
-    await Bun.sleep(15);
-    await setup.renderOnce();
+    await press(setup, "enter");
     expect(setup.captureCharFrame()).toContain("verdict");
-    setup.mockInput.pressKey("RETURN");
-    // wall-clock deadlines: the export is an async round-trip after resolve,
-    // and an iteration count times out on a loaded runner
+    await press(setup, "enter");
+    // the export is an async round-trip after resolve; the status line lands
+    // on a later render than the file write
     const dir = join(vault, "cueloop");
-    const fileDeadline = Date.now() + 30_000;
-    while (Date.now() < fileDeadline && !existsSync(dir)) {
-      await Bun.sleep(25);
-      await setup.renderOnce();
-    }
-    // the status line lands on a later render than the file write
-    const statusDeadline = Date.now() + 30_000;
-    while (Date.now() < statusDeadline && !setup.captureCharFrame().includes("exported to")) {
-      await Bun.sleep(25);
-      await setup.renderOnce();
-    }
+    await waitForState(setup, () => existsSync(dir));
+    await waitForText(setup, "exported to");
 
     const notes = readdirSync(dir);
     expect(notes.length).toBe(1);

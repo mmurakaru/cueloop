@@ -14,6 +14,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
+import { press, settle, waitForText, waitForTextGone } from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -50,28 +51,11 @@ async function renderApp(options: { readOnly?: boolean } = {}) {
     width: 120,
     height: 32,
   });
-  for (let i = 0; i < 40 && !setup.captureCharFrame().includes("cueloop"); i++) {
-    await Bun.sleep(25);
-    await setup.renderOnce();
-  }
-  await setup.renderOnce();
+  await waitForText(setup, "cueloop");
   return setup;
 }
 
 type Setup = Awaited<ReturnType<typeof renderApp>>;
-
-async function press(setup: Setup, k: string): Promise<void> {
-  if (k === "enter") setup.mockInput.pressKey("RETURN");
-  else if (k === "escape") {
-    setup.mockInput.pressKey("ESCAPE");
-    // a bare ESC byte is an ambiguous sequence prefix; the parser settles late
-    await Bun.sleep(120);
-  } else if (k === "left") setup.mockInput.pressKey("ARROW_LEFT");
-  else if (k === "right") setup.mockInput.pressKey("ARROW_RIGHT");
-  else await setup.mockInput.typeText(k);
-  await Bun.sleep(15);
-  await setup.renderOnce();
-}
 
 /** Seed annotations directly through the daemon core (all on one block). */
 function seedAnnotations(count: number): void {
@@ -121,8 +105,8 @@ describe("rail submit confirm", () => {
     await press(setup, "enter");
     expect(setup.captureCharFrame()).toContain("[Approve]");
     await press(setup, "escape");
-    const frame = setup.captureCharFrame();
-    expect(frame).not.toContain("[Approve]");
+    // a bare ESC settles after the parser's escape-sequence window
+    const frame = await waitForTextGone(setup, "[Approve]");
     expect(frame).not.toContain("0 annotations");
     expect(frame).toContain("Submit review (0)");
   });
@@ -136,13 +120,11 @@ describe("rail submit confirm", () => {
     expect(frame).toContain("[Changes]"); // pending items: request changes default
     await setup.mockInput.typeText("Tighten the steps.");
     await press(setup, "enter");
-    await Bun.sleep(120);
-    await setup.renderOnce();
+    // the completion flow after submit is unchanged
+    await waitForText(setup, "✎ feedback sent");
     const stored = server.core.sessionGet(session.id);
     expect(stored.status).toBe("resolved");
     expect(stored.verdict!.kind).toBe("request_changes");
-    // the completion flow after submit is unchanged
-    expect(setup.captureCharFrame()).toContain("✎ feedback sent");
   });
 
   test("the annotation stack stays scrollable while the card is open", async () => {
@@ -162,7 +144,7 @@ describe("rail submit confirm", () => {
     // the stack still scrolls with the card open: wheel over the rail
     // brings the last card back into view while the confirm card stays put
     for (let turn = 0; turn < 12; turn++) await setup.mockMouse.scroll(100, 10, "down");
-    await setup.renderOnce();
+    await settle(setup);
     const scrolledWithCard = setup.captureCharFrame();
     expect(scrolledWithCard).toContain("note 12");
     expect(scrolledWithCard).toContain("12 annotations · 0 blocking");

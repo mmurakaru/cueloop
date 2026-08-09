@@ -1,0 +1,87 @@
+/**
+ * Shared driving helpers for the virtual-terminal App suites: key presses
+ * settle through a macrotask yield (input parser + React scheduler), one
+ * render pass, and the renderer's visual-idle wait - no fixed-duration
+ * sleeps. Waits on daemon round-trips go through waitForFrame/waitFor with
+ * generous pass budgets.
+ */
+
+import type { TestRendererSetup } from "@opentui/core/testing";
+
+/** Pass budget for waits that include daemon or subprocess round-trips. */
+export const WAIT_PASSES = { maxPasses: 400 };
+
+/**
+ * One macrotask yield lets the input parser and the React scheduler run,
+ * then a render pass commits the result before the visual-idle wait.
+ */
+export async function settle(setup: TestRendererSetup): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  await setup.renderOnce();
+  await setup.waitForVisualIdle();
+}
+
+/** Drive one key press: letters type as text; named keys use KeyCodes ids. */
+export async function press(setup: TestRendererSetup, key: string): Promise<void> {
+  if (key === "enter") setup.mockInput.pressKey("RETURN");
+  else if (key === "escape") setup.mockInput.pressKey("ESCAPE");
+  else if (key === "backspace") setup.mockInput.pressKey("BACKSPACE");
+  else if (key === "left") setup.mockInput.pressKey("ARROW_LEFT");
+  else if (key === "right") setup.mockInput.pressKey("ARROW_RIGHT");
+  else return typeText(setup, key);
+  await settle(setup);
+}
+
+export async function typeText(setup: TestRendererSetup, text: string): Promise<void> {
+  await setup.mockInput.typeText(text);
+  await settle(setup);
+}
+
+const WAIT_DEADLINE_MS = 30_000;
+
+/**
+ * waitForFrame gives up as soon as the renderer is idle, but external timers
+ * (the parser's bare-ESC window, daemon IO, spawned editors) settle on the
+ * event loop while nothing is scheduled. Between attempts, one real
+ * event-loop turn plus a render pass lets those land; the deadline bounds
+ * the whole wait.
+ */
+async function waitForFramePredicate(
+  setup: TestRendererSetup,
+  predicate: (frame: string) => boolean,
+): Promise<string> {
+  const deadline = Date.now() + WAIT_DEADLINE_MS;
+  for (;;) {
+    try {
+      return await setup.waitForFrame(predicate, { maxPasses: 50 });
+    } catch (error) {
+      if (Date.now() > deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      await setup.renderOnce();
+    }
+  }
+}
+
+/** Wait until a state predicate holds (daemon round-trips included). */
+export async function waitForState(setup: TestRendererSetup, predicate: () => boolean): Promise<void> {
+  const deadline = Date.now() + WAIT_DEADLINE_MS;
+  for (;;) {
+    try {
+      return await setup.waitFor(predicate, { maxPasses: 50 });
+    } catch (error) {
+      if (Date.now() > deadline) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      await setup.renderOnce();
+    }
+  }
+}
+
+/** Wait until the frame contains the needle (daemon round-trips included). */
+export async function waitForText(setup: TestRendererSetup, needle: string): Promise<string> {
+  return waitForFramePredicate(setup, (frame) => frame.includes(needle));
+}
+
+/** Wait until the frame no longer contains the needle. */
+export async function waitForTextGone(setup: TestRendererSetup, needle: string): Promise<string> {
+  return waitForFramePredicate(setup, (frame) => !frame.includes(needle));
+}

@@ -13,6 +13,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
+import { press, typeText as type, waitForState, waitForText } from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -49,33 +50,9 @@ async function renderApp(sessionId?: string) {
     width: 120,
     height: 32,
   });
-  // let the async daemon connect + first fetch land
-  for (let i = 0; i < 40 && !setup.captureCharFrame().includes("cueloop"); i++) {
-    await Bun.sleep(25);
-    await setup.renderOnce();
-  }
-  await setup.renderOnce();
+  // the async daemon connect + first fetch land within the frame wait
+  await waitForText(setup, "cueloop");
   return setup;
-}
-
-type Setup = Awaited<ReturnType<typeof renderApp>>;
-
-/** Drive one key press: letters type as text; named keys use KeyCodes ids. */
-async function press(setup: Setup, k: string): Promise<void> {
-  if (k === "enter") setup.mockInput.pressKey("RETURN");
-  else if (k === "escape") setup.mockInput.pressKey("ESCAPE");
-  else if (k === "backspace") setup.mockInput.pressKey("BACKSPACE");
-  else if (k === "left") setup.mockInput.pressKey("ARROW_LEFT");
-  else if (k === "right") setup.mockInput.pressKey("ARROW_RIGHT");
-  else await type(setup, k);
-  await Bun.sleep(15);
-  await setup.renderOnce();
-}
-
-async function type(setup: Setup, text: string): Promise<void> {
-  await setup.mockInput.typeText(text);
-  await Bun.sleep(15);
-  await setup.renderOnce();
 }
 
 describe("plan rendering", () => {
@@ -111,12 +88,10 @@ describe("keyboard grammar", () => {
     expect(setup.captureCharFrame()).toContain('comment on "The daemon');
     await type(setup, "Define atomically.");
     await press(setup, "enter");
-    await Bun.sleep(80);
-    await setup.renderOnce();
+    await waitForText(setup, "COMMENT");
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations.length).toBe(1);
     expect(stored.annotations[0]!.body).toBe("Define atomically.");
-    expect(setup.captureCharFrame()).toContain("COMMENT");
   });
 
   test("span mode: v + l selects words, c anchors the exact span", async () => {
@@ -128,7 +103,7 @@ describe("keyboard grammar", () => {
     await press(setup, "c");
     await type(setup, "Which daemon?");
     await press(setup, "enter");
-    await Bun.sleep(80);
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations[0]!.anchor.quote).toBe("The daemon");
   });
@@ -138,14 +113,10 @@ describe("keyboard grammar", () => {
     // move to "- move the store" (h1, h2, p, h2 = 4 steps in)
     for (let i = 0; i < 4; i++) await press(setup, "j");
     await press(setup, "x");
-    await Bun.sleep(80);
-    await setup.renderOnce();
+    await waitForText(setup, "[cut]");
     expect(server.core.sessionGet(session.id).workingCopy).not.toContain("move the store");
-    expect(setup.captureCharFrame()).toContain("[cut]");
     await press(setup, "x");
-    await Bun.sleep(80);
-    await setup.renderOnce();
-    expect(server.core.sessionGet(session.id).workingCopy).toBeUndefined();
+    await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
   });
 
   test("e runs $EDITOR on the working copy and tracks the diff", async () => {
@@ -156,10 +127,8 @@ describe("keyboard grammar", () => {
     try {
       const setup = await renderApp();
       await press(setup, "e");
-      await Bun.sleep(150);
-      await setup.renderOnce();
+      await waitForText(setup, "[edited]");
       expect(server.core.sessionGet(session.id).workingCopy).toContain("very atomically");
-      expect(setup.captureCharFrame()).toContain("[edited]");
     } finally {
       delete process.env.CUELOOP_EDITOR;
     }
@@ -174,14 +143,12 @@ describe("submit", () => {
     await press(setup, "c");
     await type(setup, "Needs a phase list.");
     await press(setup, "enter");
-    await Bun.sleep(80);
+    await waitForText(setup, "Review (1)");
     await press(setup, "enter"); // open submit
-    await setup.renderOnce();
     expect(setup.captureCharFrame()).toContain("[Changes]");
     await type(setup, "Expand the steps.");
     await press(setup, "enter");
-    await Bun.sleep(120);
-    await setup.renderOnce();
+    await waitForText(setup, "✎ feedback sent");
     const stored = server.core.sessionGet(session.id);
     expect(stored.status).toBe("resolved");
     expect(stored.verdict!.kind).toBe("request_changes");
@@ -193,10 +160,9 @@ describe("submit", () => {
   test("approve via ←/→ verdict cycling", async () => {
     const setup = await renderApp();
     await press(setup, "enter");
-    await setup.renderOnce();
     expect(setup.captureCharFrame()).toContain("[Approve]"); // no pending items → approve default
     await press(setup, "enter");
-    await Bun.sleep(120);
+    await waitForState(setup, () => server.core.sessionGet(session.id).verdict !== undefined);
     expect(server.core.sessionGet(session.id).verdict!.kind).toBe("approve");
   });
 });
@@ -204,15 +170,10 @@ describe("submit", () => {
 describe("inbox", () => {
   test("inbox mode renders and opens a session", async () => {
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
-    for (let i = 0; i < 40 && !setup.captureCharFrame().includes("inbox"); i++) {
-      await Bun.sleep(25);
-      await setup.renderOnce();
-    }
+    await waitForText(setup, "inbox");
     expect(setup.captureCharFrame()).toContain("inbox (1 pending)");
     expect(setup.captureCharFrame()).toContain("Migration Plan");
     await press(setup, "enter");
-    await Bun.sleep(80);
-    await setup.renderOnce();
-    expect(setup.captureCharFrame()).toContain("Submit review (0)");
+    await waitForText(setup, "Submit review (0)");
   });
 });
