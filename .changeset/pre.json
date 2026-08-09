@@ -13,6 +13,7 @@
   "changesets": [
     "annotation-id-uniqueness",
     "auto-close",
+    "compose-paint-wait",
     "daemon-single-instance",
     "dist-tags",
     "e2e-stability",
