@@ -135,7 +135,9 @@ export class DaemonServer {
           });
         },
         drain(socket) {
-          socket.data.writer.drain();
+          // drain can fire before open has attached data on some platforms;
+          // a throw here would take the whole daemon down with the socket
+          socket.data?.writer.drain();
         },
         close(socket) {
           self.conns.delete(socket.data.conn);
