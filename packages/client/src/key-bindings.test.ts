@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { DEFAULT_KEYS } from "./config";
 import { KeyBindings } from "./key-bindings";
 
-function bindings(context: { overlay?: "none" | "compose" | "submit"; spanMode?: boolean } = {}): KeyBindings {
+function bindings(context: { overlay?: "none" | "walk" | "compose" | "submit"; spanMode?: boolean } = {}): KeyBindings {
   const resolver = new KeyBindings(DEFAULT_KEYS);
   resolver.setContext({ overlay: context.overlay ?? "none", spanMode: context.spanMode ?? false });
   return resolver;
@@ -62,6 +62,17 @@ describe("mode layers own their keys", () => {
     expect(resolver.resolveAction({ name: "right", shift: false })).toBe("cycle_verdict_right");
     expect(resolver.resolveAction({ name: "return", shift: false })).toBe("submit_verdict");
   });
+
+  test("the walk overlay owns the bracket stepping and leaves the grammar keys dead", () => {
+    const resolver = bindings({ overlay: "walk" });
+    expect(resolver.resolveAction({ name: "]", shift: false })).toBe("walk_next");
+    expect(resolver.resolveAction({ name: "[", shift: false })).toBe("walk_prev");
+    expect(resolver.resolveAction({ name: "escape", shift: false })).toBe("walk_leave");
+    expect(resolver.resolveAction({ name: "return", shift: false })).toBe("walk_submit");
+    expect(resolver.resolveAction({ name: "q", shift: false })).toBe("quit");
+    expect(resolver.resolveAction({ name: "j", shift: false })).toBeUndefined();
+    expect(resolver.resolveAction({ name: "c", shift: false })).toBeUndefined();
+  });
 });
 
 describe("getActiveKeys-generated status hints", () => {
@@ -87,6 +98,12 @@ describe("getActiveKeys-generated status hints", () => {
 
   test("submit hint", () => {
     expect(bindings({ overlay: "submit" }).statusHint("submit")).toBe("verdict ←/→ · ⏎ submit · esc cancel");
+  });
+
+  test("walk hint", () => {
+    expect(bindings({ overlay: "walk" }).statusHint("walk")).toBe(
+      "walk · ] next (marks viewed) · [ back · esc leave walk · q quit",
+    );
   });
 
   test("read-only hint", () => {

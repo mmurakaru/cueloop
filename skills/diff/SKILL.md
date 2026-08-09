@@ -22,6 +22,17 @@ actual changes line by line.
      --content-file /tmp/cueloop-diff.patch
    ```
 
+   To explain your changes file by file, add `--notes-file notes.json` with
+   one note per changed file, in plain prose:
+
+   ```json
+   [{ "path": "src/store.ts", "body": "Persists the viewed set with the session record." }]
+   ```
+
+   Notes render in the reviewer's guided walk (an "agent note" block under
+   each file card) and as cards in the review rail. They are your context,
+   never reviewer feedback - they do not come back in the verdict.
+
 2. Tell the user to review: `cueloop <id>` (they can also just run
    `cueloop diff` themselves to capture and open in one step).
 3. Wait for the verdict exactly as in the plan skill

@@ -27,6 +27,25 @@ export interface Theme {
   backdrop: string;
 }
 
+/**
+ * The dimmed variant behind the walk wizard: every reading color drops to
+ * the dim token so the file list stays legible context, not competition.
+ * Layout tokens (backgrounds, cursor) keep their values.
+ */
+export function dimmedTheme(theme: Theme): Theme {
+  return {
+    ...theme,
+    text: theme.textDim,
+    textMuted: theme.textDim,
+    accent: theme.textDim,
+    green: theme.textDim,
+    red: theme.textDim,
+    blue: theme.textDim,
+    insFg: theme.textDim,
+    delFg: theme.textDim,
+  };
+}
+
 export const DARK: Theme = {
   bg: "#1f1f29",
   panel: "#1a1a23",

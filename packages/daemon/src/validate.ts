@@ -95,6 +95,7 @@ export const Params = {
   "session.annotate": v.object({ id: SessionId, annotation: AnnotationSchema }),
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
   "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
+  "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
   "session.resolve": v.object({
     id: SessionId,
     verdictKind: v.picklist(["comment", "approve", "request_changes"]),
@@ -145,6 +146,7 @@ export const SessionRecordSchema = v.object({
   revisions: v.array(RevisionSchema),
   annotations: v.array(v.object({ ...AnnotationSchema.entries, createdAt: v.string() } satisfies EntriesOf<Annotation>)),
   workingCopy: v.optional(v.string()),
+  viewedPaths: v.optional(v.array(v.string())),
   verdict: v.nullable(VerdictSchema),
   status: v.picklist(["pending", "resolved"]),
   createdAt: v.string(),

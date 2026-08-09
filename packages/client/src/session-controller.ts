@@ -24,6 +24,7 @@ import { Registry, type Exporter } from "@cueloop/extension-api";
 import { createObsidianExtension, shouldExport, type ObsidianConfig } from "@cueloop/integration-obsidian";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
+import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
 import { editInEditor } from "./editor";
 import { focusHerdrPane, returnPaneFor } from "./herdr";
 import { persistAutoClose, type AutoClose, type CueloopConfig } from "./config";
@@ -53,6 +54,12 @@ export interface ControllerSnapshot {
    * hand-off - the reconciliation banner count. 0 = no banner.
    */
   editOrphanCount: number;
+  /**
+   * The guided walk's cursor (diff sessions): which wizard step is on
+   * screen. index === file count is the end card. null = not walking; the
+   * viewed set itself rides the session record, so leaving loses nothing.
+   */
+  walk: { index: number } | null;
 }
 
 export interface ReviewControllerOptions {
@@ -79,6 +86,8 @@ export interface ReviewController {
   /** Derived projections, cached per session identity. */
   display(): DisplayBlock[];
   rows(): DiffRow[];
+  /** The walk's step list, derived from the diff rows. */
+  files(): WalkFile[];
   working(): string;
   /** Open a session from the inbox. */
   open(id: string): void;
@@ -95,6 +104,13 @@ export interface ReviewController {
   updateAnnotation(id: string, body: string): void;
   removeAnnotation(id: string): void;
   setWorkingCopy(content: string | undefined): void;
+  /** Enter the guided walk at the first unviewed file (diff sessions). */
+  walkStart(): void;
+  /** Mark the current file viewed (persists with the session) and advance. */
+  walkForward(): void;
+  walkBack(): void;
+  /** Leave the walk; the viewed set stays on the session record. */
+  walkLeave(): void;
   /** Resolve the review, run the export, start the completion hand-back. */
   submit(verdict: VerdictKind, summary: string): void;
   /** Close the review and, inside herdr, bounce focus back to the agent. */
@@ -119,6 +135,7 @@ class Controller implements ReviewController {
     error: null,
     completion: { phase: "idle" },
     editOrphanCount: 0,
+    walk: null,
   };
   private listeners = new Set<() => void>();
   private autoClose: AutoClose = "off";
@@ -128,7 +145,11 @@ class Controller implements ReviewController {
   private countdown: TimerHandle | undefined;
   /** Projections keyed by session identity so renders reuse one computation. */
   private derivedFor: ReviewSession | null = null;
-  private derived: { display: DisplayBlock[]; rows: DiffRow[] } = { display: [], rows: [] };
+  private derived: { display: DisplayBlock[]; rows: DiffRow[]; files: WalkFile[] } = {
+    display: [],
+    rows: [],
+    files: [],
+  };
 
   constructor(private readonly opts: ReviewControllerOptions) {
     this.readOnly = opts.readOnly ?? false;
@@ -201,9 +222,11 @@ class Controller implements ReviewController {
     const s = this.snap.session;
     if (this.derivedFor === s) return;
     this.derivedFor = s;
+    const rows = s && s.artifact.type === "diff" ? diffRows(s.artifact.content) : [];
     this.derived = {
       display: s ? buildDisplay(s.artifact.content, s.workingCopy) : [],
-      rows: s && s.artifact.type === "diff" ? diffRows(s.artifact.content) : [],
+      rows,
+      files: walkFiles(rows),
     };
   }
 
@@ -215,6 +238,11 @@ class Controller implements ReviewController {
   rows(): DiffRow[] {
     this.ensureDerived();
     return this.derived.rows;
+  }
+
+  files(): WalkFile[] {
+    this.ensureDerived();
+    return this.derived.files;
   }
 
   working(): string {
@@ -250,6 +278,7 @@ class Controller implements ReviewController {
 
   // ── verbs ───────────────────────────────────
   open(id: string): void {
+    this.locallyViewed.clear();
     const cached = this.snap.inbox?.find((s) => s.id === id);
     if (cached) this.update({ session: cached });
     else void this.refreshSession(id);
@@ -364,9 +393,54 @@ class Controller implements ReviewController {
     this.apply(this.client!.sessionSetWorkingCopy(session.id, content));
   }
 
+  // ── the guided walk ─────────────────────────
+  // Marks sent but possibly not yet reflected in the session snapshot; the
+  // union keeps the walk title truthful and rapid advances from losing marks.
+  private locallyViewed = new Set<string>();
+
+  private viewedSet(): Set<string> {
+    return new Set([...(this.snap.session?.viewedPaths ?? []), ...this.locallyViewed]);
+  }
+
+  walkStart(): void {
+    const session = this.snap.session;
+    if (!session || session.artifact.type !== "diff") return;
+    const files = this.files();
+    if (files.length === 0) return this.setStatus("nothing to walk - the diff is empty");
+    // resume at the first unviewed file; a finished walk reopens on the end card
+    this.update({ walk: { index: firstUnviewedIndex(files, this.viewedSet()) } });
+  }
+
+  walkForward(): void {
+    const walk = this.snap.walk;
+    const session = this.snap.session;
+    if (!walk || !session) return;
+    const files = this.files();
+    const current = files[walk.index];
+    if (!current) return; // already on the end card
+    // advancing IS the viewed mark: the step is complete once you move past
+    // it; the daemon verb merges, so only the new path travels
+    if (!this.viewedSet().has(current.path)) {
+      this.locallyViewed.add(current.path);
+      this.apply(this.client!.sessionSetViewed(session.id, [current.path]));
+    }
+    this.update({ walk: { index: walk.index + 1 } });
+  }
+
+  walkBack(): void {
+    const walk = this.snap.walk;
+    if (!walk) return;
+    this.update({ walk: { index: Math.max(0, walk.index - 1) } });
+  }
+
+  walkLeave(): void {
+    if (this.snap.walk) this.update({ walk: null });
+  }
+
   submit(verdict: VerdictKind, summary: string): void {
     const session = this.snap.session;
     if (!session) return;
+    this.walkLeave();
     this.client!.sessionResolve(session.id, verdict, summary)
       .then((resolved) => {
         // The completion overlay heading already states the verdict, so the

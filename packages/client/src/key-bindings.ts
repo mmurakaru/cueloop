@@ -24,7 +24,7 @@ export interface KeyLayerContext {
 }
 
 /** Hint templates keyed by the same view states the status line shows. */
-export type HintMode = "normal" | "card" | "span" | "compose" | "submit" | "read-only";
+export type HintMode = "normal" | "card" | "span" | "compose" | "submit" | "walk" | "read-only";
 
 type HintEntry =
   | { text: string }
@@ -69,6 +69,13 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
     { commands: ["cycle_verdict_left", "cycle_verdict_right"], label: "verdict", labelFirst: true },
     { commands: ["submit_verdict"], label: "submit" },
     { commands: ["cancel_submit"], label: "cancel" },
+  ],
+  walk: [
+    { text: "walk" },
+    { commands: ["walk_next"], label: "next (marks viewed)" },
+    { commands: ["walk_prev"], label: "back" },
+    { commands: ["walk_leave"], label: "leave walk" },
+    { commands: ["quit"], label: "quit" },
   ],
   "read-only": [
     { text: "observer - read-only" },
@@ -242,6 +249,20 @@ export class KeyBindings {
       when: () => this.context.overlay === "none" && this.context.spanMode,
       bindings: SPAN_COMMANDS.map(([key, command]) => ({ key, cmd: command })),
       commands: SPAN_COMMANDS.map(([, command]) => record(command)),
+    });
+    // the walk wizard: prev/next stepping, leave, and submit from the end card
+    this.keymap.registerLayer({
+      priority: 20,
+      when: () => this.context.overlay === "walk",
+      bindings: [
+        { key: "]", cmd: "walk_next" },
+        { key: "[", cmd: "walk_prev" },
+        { key: "escape", cmd: "walk_leave" },
+        { key: "return", cmd: "walk_submit" },
+        { key: "enter", cmd: "walk_submit" },
+        { key: "q", cmd: "quit" },
+      ],
+      commands: [record("walk_next"), record("walk_prev"), record("walk_leave"), record("walk_submit"), record("quit")],
     });
     this.keymap.registerLayer({
       priority: 20,

@@ -16,9 +16,10 @@
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock } from "@opentui/core";
-import { type ReviewSession, type VerdictKind } from "@cueloop/schema";
+import { isAgentNote, type ReviewSession, type VerdictKind } from "@cueloop/schema";
 import { displayText, marksByDisplay, spanKey, startSpan, type Mark, type SpanState } from "./view";
-import { DARK } from "./theme";
+import { noteForFile, viewedCount } from "./walk";
+import { DARK, dimmedTheme } from "./theme";
 import { DEFAULT_KEYS, loadConfig } from "./config";
 import { returnPaneFor } from "./herdr";
 import { createReviewController } from "./session-controller";
@@ -34,6 +35,7 @@ import { VERDICTS } from "./components/ConfirmCard";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
 import { ComposeBar } from "./components/ComposeBar";
+import { WalkWizard } from "./components/WalkWizard";
 
 export interface AppProps {
   home?: string;
@@ -55,8 +57,13 @@ type Mode =
   | { m: "railEdit"; id: string; text: string }
   | { m: "submit"; verdict: VerdictKind; summary: string };
 
+/** Reviewer-authored annotations only: agent notes never count as feedback. */
+function reviewerAnnotations(session: ReviewSession) {
+  return session.annotations.filter((annotation) => !isAgentNote(annotation));
+}
+
 function defaultVerdict(session: ReviewSession): VerdictKind {
-  return session.annotations.length || session.workingCopy !== undefined ? "request_changes" : "approve";
+  return reviewerAnnotations(session).length || session.workingCopy !== undefined ? "request_changes" : "approve";
 }
 
 export function App({ home, sessionId, readOnly = false, onExit, clock }: AppProps): React.ReactNode {
@@ -69,7 +76,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
     controller.connect();
     return () => controller.close();
   }, [controller]);
-  const { session, inbox, status, error, completion, editOrphanCount } = useSyncExternalStore(
+  const { session, inbox, status, error, completion, editOrphanCount, walk } = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
@@ -126,6 +133,11 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
   }, [marks]);
   const resolved = session?.status === "resolved";
   const isDiff = session?.artifact.type === "diff";
+
+  // ── the guided walk's view model ────────────
+  const walkFileList = controller.files();
+  const walking = isDiff && walk !== null;
+  const viewedPaths = useMemo(() => new Set(session?.viewedPaths ?? []), [session]);
 
   // driving needs committed layout, so it runs after render; any transition
   // out of span mode clears the renderer selection (compose paints its own
@@ -267,6 +279,14 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
         const next = idx === -1 ? 0 : (idx + (intent.t === "nextAnn" ? 1 : -1) + anns.length) % anns.length;
         return void selectCardFromDocument(anns[next]!.id);
       }
+      case "walkStart":
+        return controller.walkStart();
+      case "walkForward":
+        return controller.walkForward();
+      case "walkBack":
+        return controller.walkBack();
+      case "walkLeave":
+        return controller.walkLeave();
       case "removeAnnotation":
         if (focusedAnn) {
           controller.removeAnnotation(focusedAnn);
@@ -319,7 +339,9 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
           ? "completion-prompt"
           : completion.phase === "counting"
             ? "completion-counting"
-            : "none";
+            : walking
+              ? "walk"
+              : "none";
 
   useKeyboard((key) => {
     const state: KeyState = {
@@ -332,6 +354,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
       hasInboxItems: !!inbox?.length,
       annotationCount: session?.annotations.length ?? 0,
       hasFocusedAnnotation: focusedAnn !== undefined,
+      walkAtEnd: walk !== null && walk.index >= walkFileList.length,
       cursorAnnotatable: isDiff
         ? rows[cursor] !== undefined && rows[cursor]!.t !== "file" && rows[cursor]!.t !== "hunk"
         : !!display[cursor]?.work,
@@ -365,7 +388,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
   }
 
   const s = session!;
-  const pendingCount = s.annotations.length + (s.workingCopy !== undefined ? 1 : 0);
+  const pendingCount = reviewerAnnotations(s).length + (s.workingCopy !== undefined ? 1 : 0);
 
   if ((completion.phase === "prompt" || completion.phase === "counting") && s.verdict) {
     return (
@@ -432,8 +455,13 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
       ? {
           verdict: mode.verdict,
           summary: mode.summary,
-          annotationCount: s.annotations.length,
-          blockingCount: s.annotations.filter(annotationBlocking).length,
+          annotationCount: reviewerAnnotations(s).length,
+          blockingCount: reviewerAnnotations(s).filter(annotationBlocking).length,
+          // walk coverage keeps partial passes honest at the verdict
+          viewedSummary:
+            isDiff && s.viewedPaths !== undefined
+              ? `${viewedCount(walkFileList, viewedPaths)}/${walkFileList.length} files viewed`
+              : undefined,
           onInput: (summary: string) => {
             liveInput.current = summary;
             setMode({ ...mode, summary });
@@ -475,9 +503,11 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
         ? "span"
         : mode.m === "compose" || mode.m === "railEdit"
           ? "compose"
-          : focusedAnn !== undefined
-            ? "card"
-            : "normal";
+          : walking
+            ? "walk"
+            : focusedAnn !== undefined
+              ? "card"
+              : "normal";
   const railWidth = terminalWidth >= 100 ? 34 : 28;
 
   return (
@@ -486,7 +516,14 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
         <Breadcrumb items={headerItems} />
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
           {isDiff ? (
-            <DiffSheet rows={rows} cursor={cursor} annotations={s.annotations} focusedAnnotationId={focusedAnn} />
+            // the sheet dims to reading-quiet colors while the wizard has focus
+            <DiffSheet
+              rows={rows}
+              cursor={cursor}
+              annotations={s.annotations}
+              focusedAnnotationId={focusedAnn}
+              theme={walking ? dimmedTheme(theme) : undefined}
+            />
           ) : (
             <PlanSheet
               ref={planSheetRef}
@@ -530,6 +567,24 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
         ) : (
           <StatusBar>{keyBindings.statusHint(hintMode)}</StatusBar>
         )}
+        {walking && walk !== null ? (
+          <WalkWizard
+            files={walkFileList}
+            index={walk.index}
+            viewedPaths={viewedPaths}
+            note={
+              walkFileList[walk.index] !== undefined
+                ? noteForFile(s.annotations, walkFileList[walk.index]!.path)
+                : undefined
+            }
+            terminalWidth={terminalWidth}
+            onSubmitRequest={() => {
+              dispatch({ t: "walkLeave" });
+              dispatch({ t: "openSubmit" });
+            }}
+            onBack={() => dispatch({ t: "walkBack" })}
+          />
+        ) : null}
       </box>
     </ThemeProvider>
   );

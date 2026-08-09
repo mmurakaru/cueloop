@@ -46,6 +46,7 @@ export const DEFAULT_KEYS: Record<string, string[]> = {
   delete_annotation: ["backspace"],
   submit: ["return", "enter"],
   quit: ["q"],
+  walk: ["w"],
 };
 
 function parseToml(text: string): Record<string, unknown> {

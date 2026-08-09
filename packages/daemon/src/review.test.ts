@@ -99,6 +99,23 @@ describe("openReview", () => {
     const other = await openReview(client, { type: "plan", content: PLAN, cwd: home, agentSessionId: "agent-2" });
     expect(other.id).not.toBe(first.id);
   });
+
+  test("per-file notes land as note annotations anchored at the file path", async () => {
+    const review = await openReview(client, {
+      type: "diff",
+      content: "d",
+      cwd: home,
+      notes: [
+        { path: "src/a.ts", body: "Renames b and adds c." },
+        { path: "src/b.ts", body: "Swaps the line." },
+      ],
+    });
+    const notes = review.session.annotations;
+    expect(notes.length).toBe(2);
+    expect(notes.every((annotation) => annotation.kind === "note")).toBe(true);
+    expect(notes.map((annotation) => annotation.anchor.quote)).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(notes[0]!.body).toBe("Renames b and adds c.");
+  });
 });
 
 describe("awaitVerdict: one long-poll (the hook shape)", () => {
