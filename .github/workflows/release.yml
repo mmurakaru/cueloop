@@ -45,7 +45,7 @@ jobs:
       pull-requests: write # open/update the Release PR
       id-token: write # npm trusted publishing (OIDC) + provenance
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # changesets/action needs push credentials for the Release PR branch.
           token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
@@ -56,7 +56,7 @@ jobs:
       # requires npm >= 11.5.1 on Node >= 22.14 - neither is the runner default.
       # Node 24: current npm releases require ^22.22 || ^24.15 || >=26, so the
       # bare 22.14 floor cannot install them.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
