@@ -13,7 +13,7 @@ import type { Annotation } from "@cueloop/schema";
 import type { DiffRow } from "../view-diff";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
-import { truncate } from "./format";
+import { truncateToSingleLine } from "./truncate-text";
 
 export interface DiffSheetProps {
   rows: DiffRow[];
@@ -152,7 +152,7 @@ function DiffChunk({
         <text>
           <span fg={tokens.textDim}>{"      "}</span>
           <span fg={segment.annotation.id === focusedAnnotationId ? tokens.text : tokens.accent}>
-            ◆ {truncate(segment.annotation.body, 70)}
+            ◆ {truncateToSingleLine(segment.annotation.body, 70)}
           </span>
         </text>
       ) : null}

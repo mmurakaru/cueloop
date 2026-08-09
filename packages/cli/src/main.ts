@@ -7,8 +7,8 @@
  * `cueloop daemon` runs the daemon in the foreground.
  */
 
-import { parseArgs, flagStr } from "./args";
-import { sessionCommand } from "./session-cmds";
+import { parseArgs, stringFlag } from "./args";
+import { sessionCommand } from "./session-commands";
 import { workingTreeDiff } from "./working-tree";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
@@ -51,11 +51,11 @@ async function main(): Promise<number> {
     }
     case "serve": {
       const { positional, flags } = parseArgs(argv.slice(1));
-      const port = flagStr(flags, "port");
+      const port = stringFlag(flags, "port");
       const { serveClient } = await import("@cueloop/client");
       const handle = await serveClient({
         port: port !== undefined ? Number(port) : undefined,
-        host: flagStr(flags, "host"),
+        host: stringFlag(flags, "host"),
         sessionId: positional[0],
       });
       console.log(

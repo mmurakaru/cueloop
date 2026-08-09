@@ -39,20 +39,20 @@ export function detectHerdr(env: Env = process.env): HerdrContext | null {
 
 /** Report semantic agent state for this pane. No-op outside herdr. */
 export function reportState(state: HerdrAgentState, env: Env = process.env): void {
-  const ctx = detectHerdr(env);
-  if (!ctx) return;
-  spawnQuiet([ctx.binPath, "pane", "report-agent", ctx.paneId, "--source", SOURCE, "--state", state]);
+  const herdr = detectHerdr(env);
+  if (!herdr) return;
+  spawnQuiet([herdr.binPath, "pane", "report-agent", herdr.paneId, "--source", SOURCE, "--state", state]);
 }
 
 /** Report a sidebar metadata label for this pane. No-op outside herdr. */
 export function reportLabel(text: string, env: Env = process.env): void {
-  const ctx = detectHerdr(env);
-  if (!ctx) return;
+  const herdr = detectHerdr(env);
+  if (!herdr) return;
   spawnQuiet([
-    ctx.binPath,
+    herdr.binPath,
     "pane",
     "report-metadata",
-    ctx.paneId,
+    herdr.paneId,
     "--source",
     SOURCE,
     "--token",
@@ -62,9 +62,9 @@ export function reportLabel(text: string, env: Env = process.env): void {
   ]);
 }
 
-function spawnQuiet(cmd: string[]): void {
+function spawnQuiet(command: string[]): void {
   try {
-    Bun.spawn(cmd, { stdio: ["ignore", "ignore", "ignore"] }).unref();
+    Bun.spawn(command, { stdio: ["ignore", "ignore", "ignore"] }).unref();
   } catch {
     // best-effort reporting: a missing or broken binary is not our failure
   }

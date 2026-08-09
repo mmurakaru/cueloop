@@ -9,16 +9,16 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];
   const flags: Record<string, string | boolean> = {};
   for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]!;
-    if (!a.startsWith("--")) {
-      positional.push(a);
+    const argument = argv[i]!;
+    if (!argument.startsWith("--")) {
+      positional.push(argument);
       continue;
     }
-    const eq = a.indexOf("=");
-    if (eq !== -1) {
-      flags[a.slice(2, eq)] = a.slice(eq + 1);
+    const equalsIndex = argument.indexOf("=");
+    if (equalsIndex !== -1) {
+      flags[argument.slice(2, equalsIndex)] = argument.slice(equalsIndex + 1);
     } else {
-      const key = a.slice(2);
+      const key = argument.slice(2);
       const next = argv[i + 1];
       if (next !== undefined && !next.startsWith("--")) {
         flags[key] = next;
@@ -31,7 +31,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return { positional, flags };
 }
 
-export function flagStr(flags: Record<string, string | boolean>, key: string): string | undefined {
-  const v = flags[key];
-  return typeof v === "string" ? v : undefined;
+export function stringFlag(flags: Record<string, string | boolean>, key: string): string | undefined {
+  const value = flags[key];
+  return typeof value === "string" ? value : undefined;
 }

@@ -7,7 +7,7 @@
 import { newAnnotationId, type ArtifactType, type VerdictKind } from "@cueloop/schema";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openReview, verdictResponse, type ReviewNote } from "@cueloop/daemon/review";
-import { parseArgs, flagStr } from "./args";
+import { parseArgs, stringFlag } from "./args";
 
 async function readStdin(): Promise<string> {
   return await new Response(Bun.stdin.stream()).text();
@@ -24,19 +24,19 @@ export async function sessionCommand(argv: string[]): Promise<number> {
   try {
     switch (verb) {
       case "create": {
-        const contentFile = flagStr(flags, "content-file");
+        const contentFile = stringFlag(flags, "content-file");
         const content = contentFile ? await Bun.file(contentFile).text() : await readStdin();
         // per-file agent notes for diff sessions: a JSON array of { path, body }
-        const notesFile = flagStr(flags, "notes-file");
+        const notesFile = stringFlag(flags, "notes-file");
         const notes = notesFile ? (JSON.parse(await Bun.file(notesFile).text()) as ReviewNote[]) : undefined;
         const review = await openReview(client, {
-          type: (flagStr(flags, "type") ?? "plan") as ArtifactType,
+          type: (stringFlag(flags, "type") ?? "plan") as ArtifactType,
           content,
-          cwd: flagStr(flags, "cwd"),
-          agent: flagStr(flags, "agent"),
-          agentSessionId: flagStr(flags, "agent-session-id"),
-          planPath: flagStr(flags, "plan-path"),
-          title: flagStr(flags, "title"),
+          cwd: stringFlag(flags, "cwd"),
+          agent: stringFlag(flags, "agent"),
+          agentSessionId: stringFlag(flags, "agent-session-id"),
+          planPath: stringFlag(flags, "plan-path"),
+          title: stringFlag(flags, "title"),
           notes,
         });
         out(review.session);
@@ -47,13 +47,13 @@ export async function sessionCommand(argv: string[]): Promise<number> {
         return 0;
       }
       case "list": {
-        const status = flagStr(flags, "status") as "pending" | "resolved" | undefined;
+        const status = stringFlag(flags, "status") as "pending" | "resolved" | undefined;
         out(await client.sessionList(status ? { status } : undefined));
         return 0;
       }
       case "wait": {
         const id = required(positional[1], "session id");
-        const timeoutMs = Number(flagStr(flags, "timeout-ms") ?? "60000");
+        const timeoutMs = Number(stringFlag(flags, "timeout-ms") ?? "60000");
         const session = await client.sessionWait(id, timeoutMs);
         if (session === null) {
           out({ status: "pending" });
@@ -65,16 +65,16 @@ export async function sessionCommand(argv: string[]): Promise<number> {
       }
       case "annotate": {
         const id = required(positional[1], "session id");
-        const body = flagStr(flags, "body") ?? "";
-        const quote = required(flagStr(flags, "quote"), "--quote");
+        const body = stringFlag(flags, "body") ?? "";
+        const quote = required(stringFlag(flags, "quote"), "--quote");
         out(
           await client.sessionAnnotate(id, {
-            id: flagStr(flags, "annotation-id") ?? newAnnotationId(),
-            kind: flagStr(flags, "kind") ?? "comment",
+            id: stringFlag(flags, "annotation-id") ?? newAnnotationId(),
+            kind: stringFlag(flags, "kind") ?? "comment",
             anchor: {
               quote,
-              prefix: flagStr(flags, "prefix") ?? "",
-              suffix: flagStr(flags, "suffix") ?? "",
+              prefix: stringFlag(flags, "prefix") ?? "",
+              suffix: stringFlag(flags, "suffix") ?? "",
             },
             body,
           }),
@@ -83,13 +83,13 @@ export async function sessionCommand(argv: string[]): Promise<number> {
       }
       case "resolve": {
         const id = required(positional[1], "session id");
-        const kind = required(flagStr(flags, "verdict"), "--verdict") as VerdictKind;
-        out(await client.sessionResolve(id, kind, flagStr(flags, "summary") ?? ""));
+        const kind = required(stringFlag(flags, "verdict"), "--verdict") as VerdictKind;
+        out(await client.sessionResolve(id, kind, stringFlag(flags, "summary") ?? ""));
         return 0;
       }
       case "submit-revision": {
         const id = required(positional[1], "session id");
-        const contentFile = flagStr(flags, "content-file");
+        const contentFile = stringFlag(flags, "content-file");
         const content = contentFile ? await Bun.file(contentFile).text() : await readStdin();
         out(await client.sessionSubmitRevision(id, content));
         return 0;
@@ -105,7 +105,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
   }
 }
 
-function required<T>(v: T | undefined, what: string): T {
-  if (v === undefined) throw new Error(`missing ${what}`);
-  return v;
+function required<T>(value: T | undefined, description: string): T {
+  if (value === undefined) throw new Error(`missing ${description}`);
+  return value;
 }

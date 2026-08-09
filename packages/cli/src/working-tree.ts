@@ -9,7 +9,7 @@ async function git(args: string[], cwd: string): Promise<string | null> {
 
 export async function workingTreeDiff(cwd = process.cwd()): Promise<string> {
   const tracked = (await git(["diff", "HEAD"], cwd)) ?? "";
-  // untracked files included by default (map note: changed-first)
+  // untracked files included by default
   const untrackedList = (await git(["ls-files", "--others", "--exclude-standard"], cwd)) ?? "";
   let untracked = "";
   for (const file of untrackedList.split("\n").filter(Boolean)) {

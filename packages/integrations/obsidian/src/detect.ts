@@ -26,8 +26,8 @@ export function detectVaults(configPath: string = obsidianConfigPath()): string[
       vaults?: Record<string, { path?: string }>;
     };
     return Object.values(raw.vaults ?? {})
-      .map((v) => v.path)
-      .filter((p): p is string => typeof p === "string" && existsSync(p));
+      .map((vault) => vault.path)
+      .filter((path): path is string => typeof path === "string" && existsSync(path));
   } catch {
     // no Obsidian install, or an unreadable registry: no vaults
     return [];

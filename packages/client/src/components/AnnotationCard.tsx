@@ -15,7 +15,7 @@ import { useComponentTheme } from "./theme-context";
 import { Card } from "./primitives/Card";
 import { Button } from "./primitives/Button";
 import { Toolbar } from "./primitives/Toolbar";
-import { truncate } from "./format";
+import { truncateToSingleLine } from "./truncate-text";
 
 export interface AnnotationDraft {
   text: string;
@@ -101,7 +101,7 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
     const verb = kind === "suggestion" ? "suggest replacement for" : "comment on";
     return (
       <Card
-        title={` ${verb} "${truncate(quote, 40)}" `}
+        title={` ${verb} "${truncateToSingleLine(quote, 40)}" `}
         contentRows={editorRows(draft.text) + 1}
         borderColor={kindColor}
         marginLeft={2}
@@ -125,11 +125,11 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
         {card.isBlocking ? <span fg={tokens.red}> · BLOCKING</span> : null}
         <span fg={tokens.textDim}>{card.isOrphan ? " · ORPHANED" : " · pending"}</span>
       </text>
-      <text fg={tokens.textDim}>  "{truncate(quote, 26)}"</text>
+      <text fg={tokens.textDim}>  "{truncateToSingleLine(quote, 26)}"</text>
       {card.editing ? (
         <DraftEditor draft={card.editing} theme={theme} />
       ) : (
-        <text fg={card.isOrphan ? tokens.textDim : tokens.textMuted}>  {truncate(card.body, 28)}</text>
+        <text fg={card.isOrphan ? tokens.textDim : tokens.textMuted}>  {truncateToSingleLine(card.body, 28)}</text>
       )}
     </box>
   );

@@ -18,18 +18,18 @@ if (!preTag) {
 
 const names: string[] = [];
 for (const glob of ["packages/*/package.json", "packages/integrations/*/package.json"]) {
-  for await (const p of new Bun.Glob(glob).scan(".")) {
-    const pkg = (await Bun.file(p).json()) as { name: string; private?: boolean };
+  for await (const path of new Bun.Glob(glob).scan(".")) {
+    const pkg = (await Bun.file(path).json()) as { name: string; private?: boolean };
     if (!pkg.private) names.push(pkg.name);
   }
 }
 
 let failures = 0;
 for (const name of new Set(names)) {
-  const res = Bun.spawnSync(["npm", "dist-tag", "add", `${name}@${version}`, preTag]);
-  const ok = res.exitCode === 0;
-  console.log(`${ok ? "retagged" : "FAILED"} ${name}@${version} as ${preTag}${ok ? "" : ": " + res.stderr.toString().trim().split("\n").pop()}`);
-  if (!ok) failures++;
+  const result = Bun.spawnSync(["npm", "dist-tag", "add", `${name}@${version}`, preTag]);
+  const succeeded = result.exitCode === 0;
+  console.log(`${succeeded ? "retagged" : "FAILED"} ${name}@${version} as ${preTag}${succeeded ? "" : ": " + result.stderr.toString().trim().split("\n").pop()}`);
+  if (!succeeded) failures++;
 }
 
 /** Versions that shipped broken; nobody should resolve to them. */
@@ -37,9 +37,9 @@ const DEPRECATED: [string, string][] = [
   ["cueloop@0.1.0-alpha.0", "unusable: internal dependencies shipped as an unresolvable workspace protocol - install cueloop@alpha instead"],
 ];
 for (const [spec, message] of DEPRECATED) {
-  const res = Bun.spawnSync(["npm", "deprecate", spec, message]);
+  const result = Bun.spawnSync(["npm", "deprecate", spec, message]);
   // a version that does not exist is not a failure - the list is historical
-  if (res.exitCode === 0) console.log(`deprecated ${spec}`);
+  if (result.exitCode === 0) console.log(`deprecated ${spec}`);
 }
 
 process.exit(failures > 0 ? 1 : 0);

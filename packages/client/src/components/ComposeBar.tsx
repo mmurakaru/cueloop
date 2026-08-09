@@ -8,7 +8,7 @@ import React, { useRef } from "react";
 import type { KeyBinding, TextareaRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
-import { truncate } from "./format";
+import { truncateToSingleLine } from "./truncate-text";
 
 export interface ComposeBarProps {
   kind: "comment" | "suggestion";
@@ -30,7 +30,7 @@ export function ComposeBar({ kind, quote, text, onInput, theme }: ComposeBarProp
   return (
     <box style={{ height: 1 + editorRows, backgroundColor: tokens.elevated, flexDirection: "column", paddingLeft: 1 }}>
       <text fg={kind === "suggestion" ? tokens.green : tokens.accent}>
-        {kind === "suggestion" ? "SUGGEST REPLACEMENT FOR" : "COMMENT ON"} “{truncate(quote, 60)}” · ⏎ save · esc cancel
+        {kind === "suggestion" ? "SUGGEST REPLACEMENT FOR" : "COMMENT ON"} “{truncateToSingleLine(quote, 60)}” · ⏎ save · esc cancel
       </text>
       <textarea
         ref={editorRef}
