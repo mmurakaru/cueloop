@@ -278,6 +278,7 @@ class Controller implements ReviewController {
 
   // ── verbs ───────────────────────────────────
   open(id: string): void {
+    this.locallyViewed.clear();
     const cached = this.snap.inbox?.find((s) => s.id === id);
     if (cached) this.update({ session: cached });
     else void this.refreshSession(id);
@@ -393,8 +394,12 @@ class Controller implements ReviewController {
   }
 
   // ── the guided walk ─────────────────────────
+  // Marks sent but possibly not yet reflected in the session snapshot; the
+  // union keeps the walk title truthful and rapid advances from losing marks.
+  private locallyViewed = new Set<string>();
+
   private viewedSet(): Set<string> {
-    return new Set(this.snap.session?.viewedPaths ?? []);
+    return new Set([...(this.snap.session?.viewedPaths ?? []), ...this.locallyViewed]);
   }
 
   walkStart(): void {
@@ -413,11 +418,11 @@ class Controller implements ReviewController {
     const files = this.files();
     const current = files[walk.index];
     if (!current) return; // already on the end card
-    // advancing IS the viewed mark: the step is complete once you move past it
-    const viewed = this.viewedSet();
-    if (!viewed.has(current.path)) {
-      viewed.add(current.path);
-      this.apply(this.client!.sessionSetViewed(session.id, [...viewed]));
+    // advancing IS the viewed mark: the step is complete once you move past
+    // it; the daemon verb merges, so only the new path travels
+    if (!this.viewedSet().has(current.path)) {
+      this.locallyViewed.add(current.path);
+      this.apply(this.client!.sessionSetViewed(session.id, [current.path]));
     }
     this.update({ walk: { index: walk.index + 1 } });
   }

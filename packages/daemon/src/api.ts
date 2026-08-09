@@ -156,11 +156,15 @@ export class DaemonCore {
    * the field so untouched records stay lean. Duplicates collapse here so
    * the record never accumulates repeats from racing clients.
    */
+  /**
+   * Merge-additive: walking only ever adds marks, so concurrent or stale
+   * clients converge instead of overwriting each other. An empty array is the
+   * explicit reset.
+   */
   sessionSetViewed(id: string, viewedPaths: string[]): ReviewSession {
     const s = this.mutable(id);
-    const unique = [...new Set(viewedPaths)];
-    if (unique.length === 0) delete s.viewedPaths;
-    else s.viewedPaths = unique;
+    if (viewedPaths.length === 0) delete s.viewedPaths;
+    else s.viewedPaths = [...new Set([...(s.viewedPaths ?? []), ...viewedPaths])];
     this.store.upsert(s);
     this.emit("session.updated", id);
     return s;

@@ -64,7 +64,9 @@ afterEach(() => {
 
 async function renderApp() {
   const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 34 });
-  await waitForText(setup, "cueloop");
+  // Wait for session content, not just the chrome: pressing w before the diff
+  // loads drops the walk intent (no session, no diff view) and hangs the test.
+  await waitForText(setup, "src/a.ts");
   return setup;
 }
 
@@ -149,7 +151,8 @@ describe("the guided walk", () => {
     await press(second, "w");
     await waitForText(second, "file 3 of 3 · 2 viewed");
     expect(second.captureCharFrame()).toContain("src/c.ts");
-  });
+    // two full App boots with daemon round-trips need more than the default budget
+  }, 15_000);
 
   test("the agent-note block renders only for files carrying a note", async () => {
     server.core.sessionAnnotate(session.id, {

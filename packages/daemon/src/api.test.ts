@@ -84,13 +84,16 @@ describe("session lifecycle", () => {
     expect(core.sessionGet(s.id).workingCopy).toBeUndefined();
   });
 
-  test("viewed paths dedupe, clear on empty, and survive a daemon restart", () => {
+  test("viewed paths merge, dedupe, clear on empty, and survive a daemon restart", () => {
     const s = core.sessionCreate({ workspace: WS, artifact: PLAN });
     core.sessionSetViewed(s.id, ["src/a.ts", "src/b.ts", "src/a.ts"]);
     expect(core.sessionGet(s.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts"]);
+    // merge-additive: a stale client sending only its own new mark loses nothing
+    core.sessionSetViewed(s.id, ["src/c.ts"]);
+    expect(core.sessionGet(s.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts", "src/c.ts"]);
     // a resumed review reads its progress back after a daemon restart
     const reborn = new DaemonCore(home);
-    expect(reborn.sessionGet(s.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(reborn.sessionGet(s.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts", "src/c.ts"]);
     core.sessionSetViewed(s.id, []);
     expect(core.sessionGet(s.id).viewedPaths).toBeUndefined();
   });
