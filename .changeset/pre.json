@@ -18,6 +18,7 @@
     "daemon-single-instance",
     "dist-tags",
     "e2e-stability",
+    "guided-walk",
     "herdr-return",
     "herdr-tier1",
     "hook-resilience",
