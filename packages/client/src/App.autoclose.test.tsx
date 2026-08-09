@@ -60,37 +60,39 @@ async function submitApprove(setup: Setup): Promise<void> {
 }
 
 describe("completion overlay", () => {
-  test("submit with auto-close off shows the prompt; ⏎ exits", async () => {
+  test("submit with auto-close off counts down from 5; ⏎ exits now", async () => {
     let exited = -1;
     const setup = await renderApp((code) => (exited = code));
     await submitApprove(setup);
-    const frame = setup.captureCharFrame();
-    expect(frame).toContain("✓ review approved");
-    expect(frame).toContain("a always close after submit");
+    const frame = await waitForText(setup, "closing in 5s");
+    expect(frame).toContain("review approved");
+    expect(frame).toContain("close [return]");
+    expect(frame).toContain("return to plan [esc]");
     await press(setup, "enter");
     expect(exited).toBe(0);
   });
 
-  test("a opts in: persists the config and starts the countdown", async () => {
+  test("a remembers the countdown as the persisted default", async () => {
     const setup = await renderApp();
     await submitApprove(setup);
+    await waitForText(setup, "closing in 5s");
     await press(setup, "a");
-    await waitForText(setup, "closing in 3s");
     expect(existsSync(configPath)).toBe(true);
-    expect(readFileSync(configPath, "utf8")).toContain("auto_close = 3");
-    // each countdown second is one manual-clock tick, not wall time
+    expect(readFileSync(configPath, "utf8")).toContain("auto_close = 5");
+    // the countdown keeps running; each second is one manual-clock tick
     clock.advance(1000);
-    await waitForText(setup, "closing in 2s");
+    await waitForText(setup, "closing in 4s");
   });
 
   test("esc dismisses to the resolved read-only view", async () => {
     const setup = await renderApp();
     await submitApprove(setup);
+    await waitForText(setup, "closing in 5s");
     // a bare ESC sits in the input parser's escape-sequence disambiguation
     // window before it is delivered - the frame wait absorbs it
     await press(setup, "escape");
     const frame = await waitForText(setup, "resolved: approve");
-    expect(frame).not.toContain("always close after submit");
+    expect(frame).not.toContain("closing in");
   });
 
   test("configured auto_close counts down and exits without interaction", async () => {

@@ -33,18 +33,17 @@ export function CompletionOverlay({ verdict, completion, status, returnsTo, them
         alignItems: "center",
       }}
     >
-      <text fg={approved ? tokens.green : tokens.accent}>{approved ? "✓ review approved" : "✎ feedback sent"}</text>
+      <text fg={approved ? tokens.green : tokens.accent}>{approved ? "review approved" : "feedback sent"}</text>
       <text> </text>
       <text fg={tokens.text}>The agent has your {approved ? "approval" : "feedback"} and is unblocked.</text>
+      {returnsTo ? <text fg={tokens.textDim}>returning to {returnsTo} on close</text> : null}
       {status ? <text fg={tokens.textDim}>{status}</text> : null}
       <text> </text>
-      {completion.phase === "counting" ? (
-        <text fg={tokens.textDim}>
-          closing in {completion.remaining}s{returnsTo ? ` - returning to ${returnsTo}` : ""} · ⏎ now · esc stay
-        </text>
-      ) : (
-        <text fg={tokens.textDim}>⏎ close · a always close after submit (3s) · esc stay</text>
-      )}
+      <text fg={tokens.textDim}>
+        close [return]
+        {completion.phase === "counting" ? ` · closing in ${completion.remaining}s` : ""}
+        {" · return to plan [esc] · always [a]"}
+      </text>
     </box>
   );
 }

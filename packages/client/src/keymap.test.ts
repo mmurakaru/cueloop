@@ -76,7 +76,7 @@ describe("completion overlay", () => {
     [prompt, "j", []],
     [counting, "return", [{ t: "finishReview" }]],
     [counting, "q", [{ t: "finishReview" }]],
-    [counting, "a", []],
+    [counting, "a", [{ t: "optInAutoClose" }]],
     [counting, "escape", [{ t: "dismissCompletion" }]],
   ];
   for (const [s, name, expected] of table) {

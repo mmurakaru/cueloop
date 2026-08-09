@@ -30,14 +30,17 @@ import { persistAutoClose, type AutoClose, type CueloopConfig } from "./config";
 
 /**
  * Post-submit lifecycle (a review pane should hand you back to the agent,
- * not linger): idle → prompt (auto-close off: offer the choice) or
- * counting (configured delay) → exit. esc dismisses to the resolved view.
+ * not linger): idle → counting (a visible countdown, the default) → exit.
+ * esc dismisses to the resolved view; a remembers the countdown as default.
  */
 export type Completion =
   | { phase: "idle" }
   | { phase: "prompt" }
   | { phase: "counting"; remaining: number }
   | { phase: "dismissed" };
+
+/** Seconds the completion overlay counts down before it hands back. */
+export const DEFAULT_AUTO_CLOSE = 5;
 
 export interface ControllerSnapshot {
   session: ReviewSession | null;
@@ -366,7 +369,9 @@ class Controller implements ReviewController {
     if (!session) return;
     this.client!.sessionResolve(session.id, verdict, summary)
       .then((resolved) => {
-        this.update({ session: resolved, status: `review submitted - ${verdict.replace("_", " ")}` });
+        // The completion overlay heading already states the verdict, so the
+        // status line stays empty here - only export/error messages fill it.
+        this.update({ session: resolved, status: "" });
         // notes-vault export: guarded by config, default is manual (no-op)
         const obsidian = this.obsidian;
         const exporter = this.exporters.get("obsidian");
@@ -375,14 +380,13 @@ class Controller implements ReviewController {
             this.setStatus(r.success && r.path ? `exported to ${r.path}` : `export failed: ${r.error ?? "unknown"}`);
           });
         }
-        // hand the reviewer back to the agent: prompt or count down per config;
-        // inside herdr with a known return pane, closing is the default
+        // Hand the reviewer back to the agent. The default is a visible
+        // countdown from DEFAULT_AUTO_CLOSE that closes on its own; esc stays,
+        // a remembers the choice. A configured delay overrides; 0 closes now.
         const delay = this.autoClose;
-        const returns = returnPaneFor(resolved.artifact.meta.herdrPane) !== undefined;
         if (delay === 0) this.finishReview();
         else if (typeof delay === "number") this.startCounting(delay);
-        else if (returns) this.startCounting(3);
-        else this.update({ completion: { phase: "prompt" } });
+        else this.startCounting(DEFAULT_AUTO_CLOSE);
       })
       .catch((e: unknown) => this.setStatus(String(e instanceof Error ? e.message : e)));
   }
@@ -407,13 +411,13 @@ class Controller implements ReviewController {
   }
 
   optInAutoClose(): void {
-    // opt in: close in 3s from now on, persisted to the user config
+    // Remember the default countdown for future submits, persisted to the user
+    // config. The countdown is already running; this only makes it the default.
     try {
-      persistAutoClose(3);
+      persistAutoClose(DEFAULT_AUTO_CLOSE);
     } catch {
       // a read-only config dir must not block closing the review
     }
-    this.autoClose = 3;
-    this.startCounting(3);
+    this.autoClose = DEFAULT_AUTO_CLOSE;
   }
 }

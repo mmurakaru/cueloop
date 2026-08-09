@@ -86,7 +86,7 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   }
   if (state.overlay === "completion-prompt" || state.overlay === "completion-counting") {
     if (name === "return" || name === "enter" || name === "q") return [{ t: "finishReview" }];
-    if (name === "a" && state.overlay === "completion-prompt") return [{ t: "optInAutoClose" }];
+    if (name === "a") return [{ t: "optInAutoClose" }];
     if (name === "escape") return [{ t: "dismissCompletion" }];
     return [];
   }
