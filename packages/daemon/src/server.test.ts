@@ -112,3 +112,21 @@ describe("socket round-trip", () => {
     second.close();
   });
 });
+
+describe("large payloads survive socket backpressure", () => {
+  test("a session bigger than the kernel socket buffer round-trips", async () => {
+    // Regression: responses larger than one socket write used to truncate
+    // mid-line because the write return value was ignored, so the client
+    // never saw the frame's newline and every later request wedged too.
+    const bigContent = "# Big plan\n" + "lorem ipsum dolor sit amet, consectetur adipiscing elit\n".repeat(4000);
+    const created = await client.sessionCreate(
+      { repoRoot: "/repo", branch: "main" },
+      { type: "plan", content: bigContent, meta: { title: "big" } },
+    );
+    const fetched = await client.sessionGet(created.id);
+    expect(fetched.artifact.content).toBe(bigContent);
+    // the connection must still be usable for the next frame
+    const listed = await client.sessionList();
+    expect(listed.some((session) => session.id === created.id)).toBe(true);
+  }, 15_000);
+});

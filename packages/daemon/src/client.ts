@@ -6,7 +6,7 @@
 
 import { existsSync, rmSync } from "node:fs";
 import type { Annotation, Artifact, ReviewSession, VerdictKind, WorkspaceKey } from "@cueloop/schema";
-import { LineBuffer, type EventFrame, type Response } from "./protocol";
+import { BackpressureWriter, LineBuffer, type EventFrame, type Response } from "./protocol";
 import { cueloopHome, socketPath } from "./paths";
 
 export interface ConnectOptions {
@@ -19,6 +19,7 @@ type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void };
 
 export class DaemonClient {
   private socket: Awaited<ReturnType<typeof Bun.connect>> | null = null;
+  private writer: BackpressureWriter | null = null;
   private pending = new Map<number, Pending>();
   private nextId = 1;
   private eventListeners = new Set<(e: EventFrame) => void>();
@@ -62,6 +63,9 @@ export class DaemonClient {
         data(_socket, data) {
           buffer.push(data.toString(), (line) => self.handleFrame(line));
         },
+        drain() {
+          self.writer?.drain();
+        },
         close() {
           self.closed = true;
           for (const p of self.pending.values()) p.reject(new Error("daemon connection closed"));
@@ -70,6 +74,7 @@ export class DaemonClient {
         error() {},
       },
     });
+    this.writer = new BackpressureWriter(this.socket);
     // Verify liveness: a dead socket file accepts connects on some platforms
     // only to fail later, so a ping is the actual handshake.
     await this.request("daemon.ping", {}, 2_000);
@@ -116,7 +121,7 @@ export class DaemonClient {
           reject(e);
         },
       });
-      this.socket!.write(JSON.stringify({ id, method, params }) + "\n");
+      this.writer!.write(JSON.stringify({ id, method, params }) + "\n");
     });
   }
 

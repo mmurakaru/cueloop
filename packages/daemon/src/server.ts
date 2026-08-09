@@ -8,7 +8,7 @@ import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, rm
 import { DaemonCore, type DaemonEvent } from "./api";
 import { DaemonError } from "./errors";
 import { isKnownMethod, parseParams } from "./validate";
-import { LineBuffer, type Request } from "./protocol";
+import { BackpressureWriter, LineBuffer, type Request } from "./protocol";
 import { cueloopHome, lockPath, pidPath, socketPath } from "./paths";
 
 interface Conn {
@@ -119,12 +119,13 @@ export class DaemonServer {
     // socket file left behind is stale
     if (existsSync(path)) rmSync(path, { force: true });
     const self = this;
-    this.server = Bun.listen<{ buffer: LineBuffer; conn: Conn }>({
+    this.server = Bun.listen<{ buffer: LineBuffer; conn: Conn; writer: BackpressureWriter }>({
       unix: path,
       socket: {
         open(socket) {
-          const conn: Conn = { write: (d) => socket.write(d), subscribed: false };
-          socket.data = { buffer: new LineBuffer(), conn };
+          const writer = new BackpressureWriter(socket);
+          const conn: Conn = { write: (data) => writer.write(data), subscribed: false };
+          socket.data = { buffer: new LineBuffer(), conn, writer };
           self.conns.add(conn);
           self.scheduleIdleCheck();
         },
@@ -132,6 +133,9 @@ export class DaemonServer {
           socket.data.buffer.push(data.toString(), (line) => {
             void self.handleLine(socket.data.conn, line);
           });
+        },
+        drain(socket) {
+          socket.data.writer.drain();
         },
         close(socket) {
           self.conns.delete(socket.data.conn);
