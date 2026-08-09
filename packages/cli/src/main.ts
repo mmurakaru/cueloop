@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * cueloop entry points (#18): `cueloop` opens the TUI on the inbox,
+ * cueloop entry points: `cueloop` opens the TUI on the inbox,
  * `cueloop diff` reviews the working tree, `cueloop review <pr>` a PR,
  * `cueloop session *` mirrors the daemon API for agents and scripts,
  * `cueloop serve` shares a session over ssh (read-only observers),

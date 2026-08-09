@@ -1,5 +1,5 @@
 /**
- * pi adapter integration (#13): the extension factory run against a fake pi
+ * pi adapter integration: the extension factory run against a fake pi
  * API that captures registrations, with the request_review tool driven end
  * to end against a real daemon in a temp CUELOOP_HOME.
  */

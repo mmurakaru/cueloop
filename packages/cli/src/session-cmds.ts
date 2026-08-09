@@ -1,5 +1,5 @@
 /**
- * `cueloop session *` - mirrors the daemon socket API 1:1 (#14). One surface,
+ * `cueloop session *` - mirrors the daemon socket API 1:1. One surface,
  * three consumers: agent adapters, the dev loop, and integrations. Output is
  * JSON on stdout; exit code 0 unless the daemon returned an error.
  */

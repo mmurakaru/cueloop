@@ -1,5 +1,5 @@
 /**
- * The story contract (#86). Every component file in components/ ships a
+ * The story contract. Every component file in components/ ships a
  * colocated *.stories.tsx that exports `meta` plus named Story objects.
  * The catalog IS the regression suite: stories.test.tsx walks every story,
  * snapshots its char frame, and asserts declared colors against the styled

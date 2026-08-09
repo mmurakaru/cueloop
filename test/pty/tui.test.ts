@@ -1,5 +1,5 @@
 /**
- * PTY tests (tier 4, map #22): the real `cueloop` TUI binary in a
+ * PTY tests (tier 4): the real `cueloop` TUI binary in a
  * pseudo-terminal, asserting behavior the virtual-terminal tier cannot
  * prove - a real alternate-screen render, key routing through a raw tty,
  * SIGWINCH resize, and the process exit code.

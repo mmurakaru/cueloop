@@ -1,5 +1,5 @@
 /**
- * The guided walk's focused card wizard (#83): one card per changed file
+ * The guided walk's focused card wizard: one card per changed file
  * floating over the dimmed diff, with a plain step count in the title - no
  * progress bar. Below the main card a separate gray-bordered block carries
  * the submitting agent's note for the file, when one exists. Past the last

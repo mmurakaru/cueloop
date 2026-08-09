@@ -1,5 +1,5 @@
 /**
- * The contribution registry (#10): registrations are plain data, attributed
+ * The contribution registry: registrations are plain data, attributed
  * per extension. Reserved app keybindings are rejected at registration so a
  * broken extension cannot shadow core grammar.
  */
@@ -44,19 +44,19 @@ export class Registry {
       registerRenderer(type, renderer) {
         record.renderers.set(type, renderer);
       },
-      registerCommand(cmdName, registration) {
-        record.commands.set(cmdName, registration);
+      registerCommand(commandName, registration) {
+        record.commands.set(commandName, registration);
       },
       registerKeybinding(registration) {
-        const clash = registration.defaultKeys.find((k) => RESERVED_KEYS.has(k));
+        const clash = registration.defaultKeys.find((key) => RESERVED_KEYS.has(key));
         if (clash) {
           record.errors.push(`keybinding "${registration.action}" rejected: "${clash}" is reserved`);
           return;
         }
         record.keybindings.push(registration);
       },
-      registerExporter(expName, exporter) {
-        record.exporters.set(expName, exporter);
+      registerExporter(exporterName, exporter) {
+        record.exporters.set(exporterName, exporter);
       },
       on(event, handler) {
         const list = record.listeners.get(event) ?? [];
@@ -76,24 +76,24 @@ export class Registry {
 
   /** First-registered wins for renderers/commands; built-ins load first. */
   rendererFor(artifactType: string): ArtifactRenderer | undefined {
-    for (const ext of this.extensions) {
-      const r = ext.renderers.get(artifactType);
-      if (r) return r;
+    for (const extension of this.extensions) {
+      const renderer = extension.renderers.get(artifactType);
+      if (renderer) return renderer;
     }
     return undefined;
   }
 
   commandFor(name: string): { extension: string; registration: CommandRegistration } | undefined {
-    for (const ext of this.extensions) {
-      const c = ext.commands.get(name);
-      if (c) return { extension: ext.name, registration: c };
+    for (const extension of this.extensions) {
+      const command = extension.commands.get(name);
+      if (command) return { extension: extension.name, registration: command };
     }
     return undefined;
   }
 
   emit(event: string, session: ReviewSession): void {
-    for (const ext of this.extensions) {
-      for (const handler of ext.listeners.get(event) ?? []) {
+    for (const extension of this.extensions) {
+      for (const handler of extension.listeners.get(event) ?? []) {
         try {
           handler(session);
         } catch {

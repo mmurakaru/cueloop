@@ -43,7 +43,7 @@ function segmentRows(rows: DiffRow[], annotatedByRow: Map<number, Annotation>): 
   };
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex]!;
-    if (row.t === "file" || row.t === "hunk") {
+    if (row.kind === "file" || row.kind === "hunk") {
       closeChunk(null);
       segments.push({ kind: "header", rowIndex, row });
       chunkStart = rowIndex + 1;
@@ -79,7 +79,7 @@ function DiffChunk({
   const lineNumbers = useMemo(() => {
     const numbers = new Map<number, number>();
     segment.rows.forEach((row, lineIndex) => {
-      const gutterNumber = row.t === "del" ? row.oldLine : row.newLine;
+      const gutterNumber = row.kind === "del" ? row.oldLine : row.newLine;
       if (gutterNumber !== undefined) numbers.set(lineIndex, gutterNumber);
     });
     return numbers;
@@ -132,8 +132,8 @@ function DiffChunk({
       >
         <text style={{ wrapMode: "none" }} selectable={false}>
           {segment.rows.map((row, lineIndex) => {
-            const sign = row.t === "add" ? "+" : row.t === "del" ? "-" : " ";
-            const foreground = row.t === "add" ? tokens.insFg : row.t === "del" ? tokens.delFg : tokens.textMuted;
+            const sign = row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ";
+            const foreground = row.kind === "add" ? tokens.insFg : row.kind === "del" ? tokens.delFg : tokens.textMuted;
             const isCursorRow = lineIndex === cursorInChunk;
             const isAnnotatedRow = segment.annotation !== null && lineIndex === segment.rows.length - 1;
             return (
@@ -168,7 +168,7 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, them
     const byRow = new Map<number, Annotation>();
     for (const annotation of annotations) {
       const rowIndex = rows.findIndex(
-        (row) => row.text === annotation.anchor.quote && (row.t === "ctx" || row.t === "add" || row.t === "del"),
+        (row) => row.text === annotation.anchor.quote && (row.kind === "ctx" || row.kind === "add" || row.kind === "del"),
       );
       if (rowIndex !== -1) byRow.set(rowIndex, annotation);
     }
@@ -213,7 +213,7 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, them
         {segments.map((segment, segmentIndex) => {
           if (segment.kind === "header") {
             const isCursor = segment.rowIndex === cursor;
-            if (segment.row.t === "file") {
+            if (segment.row.kind === "file") {
               return (
                 <text key={segmentIndex} fg={tokens.text} bg={isCursor ? tokens.cursorBg : tokens.panel}>
                   {isCursor ? "▎" : " "}■ {rowLine(segment.row)}

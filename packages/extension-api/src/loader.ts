@@ -1,5 +1,5 @@
 /**
- * Extension discovery and loading (#10): zero-build TypeScript executed
+ * Extension discovery and loading: zero-build TypeScript executed
  * directly. Global user extensions always load; repo-local `.cueloop/
  * extensions/` loads only when the repo is trusted (persisted decisions
  * under the cueloop home).
@@ -51,29 +51,29 @@ export function grantTrust(home: string, repoRoot: string): void {
 function extensionFiles(dir: string): string[] {
   if (!existsSync(dir)) return [];
   return readdirSync(dir)
-    .filter((f) => f.endsWith(".ts") || f.endsWith(".js"))
-    .map((f) => join(dir, f))
+    .filter((fileName) => fileName.endsWith(".ts") || fileName.endsWith(".js"))
+    .map((fileName) => join(dir, fileName))
     .sort();
 }
 
-export async function loadExtensions(opts: LoadOptions): Promise<{ loaded: string[]; skipped: string[] }> {
+export async function loadExtensions(options: LoadOptions): Promise<{ loaded: string[]; skipped: string[] }> {
   const loaded: string[] = [];
   const skipped: string[] = [];
   const files: { path: string; source: string }[] = [];
 
-  for (const path of extensionFiles(opts.userDir ?? userExtensionsDir())) {
+  for (const path of extensionFiles(options.userDir ?? userExtensionsDir())) {
     files.push({ path, source: "user" });
   }
-  if (opts.repoRoot) {
-    const repoDir = join(opts.repoRoot, ".cueloop", "extensions");
+  if (options.repoRoot) {
+    const repoDir = join(options.repoRoot, ".cueloop", "extensions");
     const repoFiles = extensionFiles(repoDir);
     if (repoFiles.length) {
-      const home = opts.home ?? join(homedir(), ".cueloop");
+      const home = options.home ?? join(homedir(), ".cueloop");
       const trusted =
-        readTrust(home).trusted.includes(opts.repoRoot) ||
-        (opts.confirmTrust ? await opts.confirmTrust(opts.repoRoot) : false);
+        readTrust(home).trusted.includes(options.repoRoot) ||
+        (options.confirmTrust ? await options.confirmTrust(options.repoRoot) : false);
       if (trusted) {
-        grantTrust(home, opts.repoRoot);
+        grantTrust(home, options.repoRoot);
         for (const path of repoFiles) files.push({ path, source: "repo" });
       } else {
         skipped.push(...repoFiles);
@@ -83,12 +83,12 @@ export async function loadExtensions(opts: LoadOptions): Promise<{ loaded: strin
 
   for (const file of files) {
     try {
-      const mod = (await import(file.path)) as { default?: ExtensionFactory };
-      if (typeof mod.default !== "function") {
+      const extensionModule = (await import(file.path)) as { default?: ExtensionFactory };
+      if (typeof extensionModule.default !== "function") {
         skipped.push(file.path);
         continue;
       }
-      await opts.registry.load(file.path, mod.default);
+      await options.registry.load(file.path, extensionModule.default);
       loaded.push(file.path);
     } catch {
       skipped.push(file.path);

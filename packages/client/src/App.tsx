@@ -1,5 +1,5 @@
 /**
- * The cueloop TUI (#22, #71, #86): state wiring, keymap dispatch, and layout
+ * The cueloop TUI: state wiring, keymap dispatch, and layout
  * composition - nothing else. Rendering lives in components/ (PlanSheet,
  * DiffSheet, ReviewRail, ...), daemon IO and the mutation verbs live in
  * session-controller.ts, the keyboard grammar in keymap.ts with binding
@@ -51,11 +51,11 @@ export interface AppProps {
 }
 
 type Mode =
-  | { m: "normal" }
-  | { m: "span"; span: SpanState }
-  | { m: "compose"; kind: "comment" | "suggestion"; displayIndex: number; start: number; end: number; text: string }
-  | { m: "railEdit"; id: string; text: string }
-  | { m: "submit"; verdict: VerdictKind; summary: string };
+  | { type: "normal" }
+  | { type: "span"; span: SpanState }
+  | { type: "compose"; kind: "comment" | "suggestion"; displayIndex: number; start: number; end: number; text: string }
+  | { type: "railEdit"; id: string; text: string }
+  | { type: "submit"; verdict: VerdictKind; summary: string };
 
 /** Reviewer-authored annotations only: agent notes never count as feedback. */
 function reviewerAnnotations(session: ReviewSession) {
@@ -87,11 +87,11 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
   // ── view state ──────────────────────────────
   const [cursor, setCursor] = useState(0);
   const [inboxCursor, setInboxCursor] = useState(0);
-  const [mode, setMode] = useState<Mode>({ m: "normal" });
-  const [focusedAnn, setFocusedAnn] = useState<string | undefined>(undefined);
+  const [mode, setMode] = useState<Mode>({ type: "normal" });
+  const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<"review" | "agent">("review");
   // ~2s focus pulse on the document highlight when a rail card is activated
-  const [pulseAnn, setPulseAnn] = useState<string | null>(null);
+  const [pulsedAnnotationId, setPulsedAnnotationId] = useState<string | null>(null);
   const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // live mirror of overlay input text: refs commit synchronously, so the
   // RETURN handler never reads a stale value mid-typing
@@ -103,11 +103,11 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
   const keyBindings = useMemo(() => new KeyBindings(DEFAULT_KEYS), []);
   const [theme, setTheme] = useState(DARK);
   useEffect(() => {
-    const cfg = loadConfig({ repoRoot: session?.workspace.repoRoot });
-    keysRef.current = cfg.keys;
-    keyBindings.setKeys(cfg.keys);
-    setTheme(cfg.theme);
-    controller.applyConfig(cfg);
+    const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
+    keysRef.current = config.keys;
+    keyBindings.setKeys(config.keys);
+    setTheme(config.theme);
+    controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings]);
   useEffect(
     () => () => {
@@ -120,8 +120,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
   const display = controller.display();
   const rows = controller.rows();
   const marks = useMemo(
-    () => (session ? marksByDisplay(session.annotations, display, pulseAnn ?? undefined) : new Map<number, Mark[]>()),
-    [session, display, pulseAnn],
+    () => (session ? marksByDisplay(session.annotations, display, pulsedAnnotationId ?? undefined) : new Map<number, Mark[]>()),
+    [session, display, pulsedAnnotationId],
   );
   /** Annotation ids whose anchor resolved against the working copy. */
   const resolvedIds = useMemo(() => {
@@ -143,15 +143,15 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
   // out of span mode clears the renderer selection (compose paints its own
   // mark, and a mouse drag never changes the mode, so it survives)
   useEffect(() => {
-    if (mode.m === "span") planSheetRef.current?.driveSpanSelection(mode.span);
+    if (mode.type === "span") planSheetRef.current?.driveSpanSelection(mode.span);
     else planSheetRef.current?.clearSelection();
   }, [mode]);
 
   // ── selection symmetry: one selected id, both sides ──
   const pulse = (id: string): void => {
-    setPulseAnn(id);
+    setPulsedAnnotationId(id);
     if (pulseTimer.current) clearTimeout(pulseTimer.current);
-    pulseTimer.current = setTimeout(() => setPulseAnn(null), 2000);
+    pulseTimer.current = setTimeout(() => setPulsedAnnotationId(null), 2000);
   };
 
   /** Card activation scrolls the document to the anchor and pulses it. */
@@ -165,12 +165,12 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
   };
 
   const selectCardFromDocument = (annotationId: string): void => {
-    setFocusedAnn(annotationId);
+    setFocusedAnnotationId(annotationId);
     railRef.current?.revealCard(annotationId);
   };
 
   const selectCardFromRail = (annotationId: string): void => {
-    setFocusedAnn(annotationId);
+    setFocusedAnnotationId(annotationId);
     pulse(annotationId);
     revealAnchor(annotationId);
   };
@@ -181,7 +181,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
     const annotation = session?.annotations.find((candidate) => candidate.id === annotationId);
     if (!annotation) return;
     liveInput.current = annotation.body;
-    setMode({ m: "railEdit", id: annotation.id, text: annotation.body });
+    setMode({ type: "railEdit", id: annotation.id, text: annotation.body });
   };
 
   /** The $EDITOR hand-off releases the terminal: suspend, edit, resume. */
@@ -196,47 +196,47 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
 
   // ── keyboard grammar: build state, reduce, dispatch ──
   const dispatch = (intent: Intent): void => {
-    switch (intent.t) {
+    switch (intent.type) {
       case "exit":
         return void onExit?.(0);
       case "status":
-        return controller.setStatus(intent.msg);
+        return controller.setStatus(intent.message);
       case "move": {
-        const len = isDiff ? rows.length : display.length;
-        if (intent.to === "down") setCursor((c) => Math.min(len - 1, c + 1));
-        else if (intent.to === "up") setCursor((c) => Math.max(0, c - 1));
+        const navigableCount = isDiff ? rows.length : display.length;
+        if (intent.to === "down") setCursor((current) => Math.min(navigableCount - 1, current + 1));
+        else if (intent.to === "up") setCursor((current) => Math.max(0, current - 1));
         else if (intent.to === "top") setCursor(0);
-        else setCursor(len - 1);
+        else setCursor(navigableCount - 1);
         return;
       }
       case "inboxMove": {
-        const len = inbox?.length ?? 0;
-        setInboxCursor((c) => (intent.to === "down" ? Math.min(len - 1, c + 1) : Math.max(0, c - 1)));
+        const navigableCount = inbox?.length ?? 0;
+        setInboxCursor((current) => (intent.to === "down" ? Math.min(navigableCount - 1, current + 1) : Math.max(0, current - 1)));
         return;
       }
       case "openSession": {
-        const s = inbox?.[inboxCursor];
-        if (s) controller.open(s.id);
+        const selected = inbox?.[inboxCursor];
+        if (selected) controller.open(selected.id);
         return;
       }
       case "startSpan": {
-        const d = display[cursor];
-        if (!d?.work) return;
-        const span = startSpan(cursor, displayText(d));
-        if (span) setMode({ m: "span", span });
+        const block = display[cursor];
+        if (!block?.work) return;
+        const span = startSpan(cursor, displayText(block));
+        if (span) setMode({ type: "span", span });
         return;
       }
       case "spanKey":
-        if (mode.m === "span") {
+        if (mode.type === "span") {
           const span = spanKey(mode.span, intent.name, displayText(display[mode.span.displayIndex]!));
-          setMode({ m: "span", span });
+          setMode({ type: "span", span });
         }
         return;
       case "openCompose": {
         liveInput.current = "";
-        if (intent.from === "span" && mode.m === "span") {
+        if (intent.from === "span" && mode.type === "span") {
           setMode({
-            m: "compose",
+            type: "compose",
             kind: intent.kind,
             displayIndex: mode.span.displayIndex,
             start: mode.span.start,
@@ -245,15 +245,15 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
           });
         } else if (isDiff) {
           const row = rows[cursor];
-          if (row) setMode({ m: "compose", kind: intent.kind, displayIndex: cursor, start: 0, end: row.text.length, text: "" });
+          if (row) setMode({ type: "compose", kind: intent.kind, displayIndex: cursor, start: 0, end: row.text.length, text: "" });
         } else {
           // a mouse drag leaves a native selection; it wins over the cursor block
           const native = planSheetRef.current?.readSelection() ?? null;
           if (native) {
-            setMode({ m: "compose", kind: intent.kind, ...native, text: "" });
+            setMode({ type: "compose", kind: intent.kind, ...native, text: "" });
           } else {
-            const d = display[cursor];
-            if (d) setMode({ m: "compose", kind: intent.kind, displayIndex: cursor, start: 0, end: displayText(d).length, text: "" });
+            const block = display[cursor];
+            if (block) setMode({ type: "compose", kind: intent.kind, displayIndex: cursor, start: 0, end: displayText(block).length, text: "" });
           }
         }
         return;
@@ -263,21 +263,24 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
         liveInput.current = "";
         // the confirm card lives in the review tab; opening submit reveals it
         setRailTab("review");
-        return void setMode({ m: "submit", verdict: defaultVerdict(session), summary: "" });
+        return void setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
       case "cut":
         return controller.cut(cursor);
       case "edit":
         return runEditorHandOff();
       case "editCard":
-        if (focusedAnn) openCardEdit(focusedAnn);
+        if (focusedAnnotationId) openCardEdit(focusedAnnotationId);
         return;
-      case "nextAnn":
-      case "prevAnn": {
-        const anns = session?.annotations ?? [];
-        if (!anns.length) return;
-        const idx = anns.findIndex((a) => a.id === focusedAnn);
-        const next = idx === -1 ? 0 : (idx + (intent.t === "nextAnn" ? 1 : -1) + anns.length) % anns.length;
-        return void selectCardFromDocument(anns[next]!.id);
+      case "nextAnnotation":
+      case "prevAnnotation": {
+        const annotations = session?.annotations ?? [];
+        if (!annotations.length) return;
+        const focusedIndex = annotations.findIndex((annotation) => annotation.id === focusedAnnotationId);
+        const nextIndex =
+          focusedIndex === -1
+            ? 0
+            : (focusedIndex + (intent.type === "nextAnnotation" ? 1 : -1) + annotations.length) % annotations.length;
+        return void selectCardFromDocument(annotations[nextIndex]!.id);
       }
       case "walkStart":
         return controller.walkStart();
@@ -288,38 +291,38 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
       case "walkLeave":
         return controller.walkLeave();
       case "removeAnnotation":
-        if (focusedAnn) {
-          controller.removeAnnotation(focusedAnn);
-          setFocusedAnn(undefined);
+        if (focusedAnnotationId) {
+          controller.removeAnnotation(focusedAnnotationId);
+          setFocusedAnnotationId(undefined);
         }
         return;
       case "deselect":
         planSheetRef.current?.clearSelection();
-        setFocusedAnn(undefined);
-        setPulseAnn(null);
+        setFocusedAnnotationId(undefined);
+        setPulsedAnnotationId(null);
         return;
       case "closeOverlay":
-        return void setMode({ m: "normal" });
+        return void setMode({ type: "normal" });
       case "saveCompose": {
         const body = liveInput.current.trim();
-        if (mode.m === "railEdit") {
+        if (mode.type === "railEdit") {
           if (session && body) controller.updateAnnotation(mode.id, body);
-          return void setMode({ m: "normal" });
+          return void setMode({ type: "normal" });
         }
-        if (mode.m !== "compose") return;
+        if (mode.type !== "compose") return;
         if (session && body) {
           const annotationId = controller.annotate(mode.kind, mode.displayIndex, mode.start, mode.end, body);
-          if (annotationId) setFocusedAnn(annotationId);
+          if (annotationId) setFocusedAnnotationId(annotationId);
         }
-        return void setMode({ m: "normal" });
+        return void setMode({ type: "normal" });
       }
       case "submitVerdict":
-        if (mode.m === "submit") controller.submit(mode.verdict, liveInput.current);
-        return void setMode({ m: "normal" });
+        if (mode.type === "submit") controller.submit(mode.verdict, liveInput.current);
+        return void setMode({ type: "normal" });
       case "cycleVerdict": {
-        if (mode.m !== "submit") return;
-        const idx = (VERDICTS.indexOf(mode.verdict) + intent.dir + VERDICTS.length) % VERDICTS.length;
-        return void setMode({ ...mode, verdict: VERDICTS[idx]! });
+        if (mode.type !== "submit") return;
+        const verdictIndex = (VERDICTS.indexOf(mode.verdict) + intent.dir + VERDICTS.length) % VERDICTS.length;
+        return void setMode({ ...mode, verdict: VERDICTS[verdictIndex]! });
       }
       case "finishReview":
         return controller.finishReview();
@@ -331,9 +334,9 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
   };
 
   const overlay: KeyState["overlay"] =
-    mode.m === "compose" || mode.m === "railEdit"
+    mode.type === "compose" || mode.type === "railEdit"
       ? "compose"
-      : mode.m === "submit"
+      : mode.type === "submit"
         ? "submit"
         : completion.phase === "prompt"
           ? "completion-prompt"
@@ -349,14 +352,14 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
       readOnly,
       overlay,
       view: !session ? "inbox" : isDiff ? "diff" : "plan",
-      spanMode: mode.m === "span",
+      spanMode: mode.type === "span",
       resolved: !!resolved,
       hasInboxItems: !!inbox?.length,
       annotationCount: session?.annotations.length ?? 0,
-      hasFocusedAnnotation: focusedAnn !== undefined,
+      hasFocusedAnnotation: focusedAnnotationId !== undefined,
       walkAtEnd: walk !== null && walk.index >= walkFileList.length,
       cursorAnnotatable: isDiff
-        ? rows[cursor] !== undefined && rows[cursor]!.t !== "file" && rows[cursor]!.t !== "hunk"
+        ? rows[cursor] !== undefined && rows[cursor]!.kind !== "file" && rows[cursor]!.kind !== "hunk"
         : !!display[cursor]?.work,
     };
     keyBindings.setContext({ overlay: state.overlay, spanMode: state.spanMode });
@@ -387,24 +390,24 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
     );
   }
 
-  const s = session!;
-  const pendingCount = reviewerAnnotations(s).length + (s.workingCopy !== undefined ? 1 : 0);
+  const activeSession = session!;
+  const pendingCount = reviewerAnnotations(activeSession).length + (activeSession.workingCopy !== undefined ? 1 : 0);
 
-  if ((completion.phase === "prompt" || completion.phase === "counting") && s.verdict) {
+  if ((completion.phase === "prompt" || completion.phase === "counting") && activeSession.verdict) {
     return (
       <ThemeProvider theme={theme}>
         <CompletionOverlay
-          verdict={s.verdict.kind}
+          verdict={activeSession.verdict.kind}
           completion={completion}
           status={status}
-          returnsTo={returnPaneFor(s.artifact.meta.herdrPane) ? (s.artifact.meta.agent ?? "the agent") : undefined}
+          returnsTo={returnPaneFor(activeSession.artifact.meta.herdrPane) ? (activeSession.artifact.meta.agent ?? "the agent") : undefined}
         />
       </ThemeProvider>
     );
   }
 
   const composeState =
-    mode.m === "compose" && !isDiff
+    mode.type === "compose" && !isDiff
       ? {
           kind: mode.kind,
           displayIndex: mode.displayIndex,
@@ -415,16 +418,16 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
               liveInput.current = text;
               setMode({ ...mode, text });
             },
-            onSave: () => dispatch({ t: "saveCompose" }),
-            onCancel: () => dispatch({ t: "closeOverlay" }),
+            onSave: () => dispatch({ type: "saveCompose" }),
+            onCancel: () => dispatch({ type: "closeOverlay" }),
           },
         }
       : null;
 
   const activeSpan =
-    mode.m === "span"
+    mode.type === "span"
       ? { displayIndex: mode.span.displayIndex, start: mode.span.start, end: mode.span.end }
-      : mode.m === "compose" && !isDiff
+      : mode.type === "compose" && !isDiff
         ? // the compose anchor stays painted selection-style while the box is open
           { displayIndex: mode.displayIndex, start: mode.start, end: mode.end }
         : null;
@@ -447,19 +450,19 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
   const onSubmitRequest = (): void => {
     if (readOnly) return controller.setStatus("observer - read-only");
     if (resolved) return;
-    dispatch({ t: "openSubmit" });
+    dispatch({ type: "openSubmit" });
   };
 
   const submitConfirmState =
-    mode.m === "submit"
+    mode.type === "submit"
       ? {
           verdict: mode.verdict,
           summary: mode.summary,
-          annotationCount: reviewerAnnotations(s).length,
-          blockingCount: reviewerAnnotations(s).filter(annotationBlocking).length,
+          annotationCount: reviewerAnnotations(activeSession).length,
+          blockingCount: reviewerAnnotations(activeSession).filter(annotationBlocking).length,
           // walk coverage keeps partial passes honest at the verdict
           viewedSummary:
-            isDiff && s.viewedPaths !== undefined
+            isDiff && activeSession.viewedPaths !== undefined
               ? `${viewedCount(walkFileList, viewedPaths)}/${walkFileList.length} files viewed`
               : undefined,
           onInput: (summary: string) => {
@@ -467,45 +470,45 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
             setMode({ ...mode, summary });
           },
           onSelectVerdict: (verdict: VerdictKind) => setMode({ ...mode, verdict }),
-          onSubmit: () => dispatch({ t: "submitVerdict" }),
-          onCancel: () => dispatch({ t: "closeOverlay" }),
+          onSubmit: () => dispatch({ type: "submitVerdict" }),
+          onCancel: () => dispatch({ type: "closeOverlay" }),
         }
       : null;
 
   const cardEditState =
-    mode.m === "railEdit"
+    mode.type === "railEdit"
       ? {
           id: mode.id,
           text: mode.text,
           onInput: (text: string) => {
             liveInput.current = text;
-            setMode({ m: "railEdit", id: mode.id, text });
+            setMode({ type: "railEdit", id: mode.id, text });
           },
-          onSave: () => dispatch({ t: "saveCompose" }),
-          onCancel: () => dispatch({ t: "closeOverlay" }),
+          onSave: () => dispatch({ type: "saveCompose" }),
+          onCancel: () => dispatch({ type: "closeOverlay" }),
         }
       : null;
 
   const headerItems: BreadcrumbItem[] = [
     { label: "cueloop", tone: "accent" },
-    { label: `${s.artifact.meta.title ?? s.artifact.meta.planPath ?? s.id} · rev ${s.revisions.length}`, tone: "dim" },
-    ...(resolved ? [{ label: `resolved: ${s.verdict!.kind.replace("_", " ")}`, tone: "green" as const }] : []),
+    { label: `${activeSession.artifact.meta.title ?? activeSession.artifact.meta.planPath ?? activeSession.id} · rev ${activeSession.revisions.length}`, tone: "dim" },
+    ...(resolved ? [{ label: `resolved: ${activeSession.verdict!.kind.replace("_", " ")}`, tone: "green" as const }] : []),
     ...(readOnly ? [{ label: "observer", tone: "dim" as const }] : []),
     ...(status ? [{ label: status, tone: "accent" as const }] : []),
   ];
 
-  keyBindings.setContext({ overlay, spanMode: mode.m === "span" });
+  keyBindings.setContext({ overlay, spanMode: mode.type === "span" });
   const hintMode: HintMode = readOnly
     ? "read-only"
-    : mode.m === "submit"
+    : mode.type === "submit"
       ? "submit"
-      : mode.m === "span"
+      : mode.type === "span"
         ? "span"
-        : mode.m === "compose" || mode.m === "railEdit"
+        : mode.type === "compose" || mode.type === "railEdit"
           ? "compose"
           : walking
             ? "walk"
-            : focusedAnn !== undefined
+            : focusedAnnotationId !== undefined
               ? "card"
               : "normal";
   const railWidth = terminalWidth >= 100 ? 34 : 28;
@@ -520,14 +523,14 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
             <DiffSheet
               rows={rows}
               cursor={cursor}
-              annotations={s.annotations}
-              focusedAnnotationId={focusedAnn}
+              annotations={activeSession.annotations}
+              focusedAnnotationId={focusedAnnotationId}
               theme={walking ? dimmedTheme(theme) : undefined}
             />
           ) : (
             <PlanSheet
               ref={planSheetRef}
-              session={s}
+              session={activeSession}
               display={display}
               marks={marks}
               cursor={cursor}
@@ -540,8 +543,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
           )}
           <ReviewRail
             ref={railRef}
-            session={s}
-            selectedId={focusedAnn}
+            session={activeSession}
+            selectedId={focusedAnnotationId}
             resolvedIds={isDiff ? null : resolvedIds}
             railTab={railTab}
             pendingCount={pendingCount}
@@ -554,7 +557,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
             width={railWidth}
           />
         </box>
-        {mode.m === "compose" && isDiff ? (
+        {mode.type === "compose" && isDiff ? (
           <ComposeBar
             kind={mode.kind}
             quote={rows[mode.displayIndex]?.text ?? ""}
@@ -574,15 +577,15 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
             viewedPaths={viewedPaths}
             note={
               walkFileList[walk.index] !== undefined
-                ? noteForFile(s.annotations, walkFileList[walk.index]!.path)
+                ? noteForFile(activeSession.annotations, walkFileList[walk.index]!.path)
                 : undefined
             }
             terminalWidth={terminalWidth}
             onSubmitRequest={() => {
-              dispatch({ t: "walkLeave" });
-              dispatch({ t: "openSubmit" });
+              dispatch({ type: "walkLeave" });
+              dispatch({ type: "openSubmit" });
             }}
-            onBack={() => dispatch({ t: "walkBack" })}
+            onBack={() => dispatch({ type: "walkBack" })}
           />
         ) : null}
       </box>

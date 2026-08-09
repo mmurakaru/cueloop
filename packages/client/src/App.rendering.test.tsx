@@ -1,4 +1,4 @@
-/** Plan rendering (#67): code blocks verbatim + contained, spacing never collapses. */
+/** Plan rendering: code blocks verbatim + contained, spacing never collapses. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";

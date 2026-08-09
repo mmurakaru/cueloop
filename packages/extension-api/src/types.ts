@@ -1,5 +1,5 @@
 /**
- * The single typed extension contract (#10). This module is import-free
+ * The single typed extension contract. This module is import-free
  * beyond the schema: whatever a declaration file can reach gets published,
  * so the contract stays self-contained.
  *

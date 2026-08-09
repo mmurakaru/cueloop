@@ -10,15 +10,15 @@ export interface RunClientOptions {
   home?: string;
 }
 
-export async function runClient(opts: RunClientOptions): Promise<number> {
+export async function runClient(options: RunClientOptions): Promise<number> {
   // mouse movement reporting makes multiplexers forward drags to the app,
   // so the renderer's native selection is the drag driver
   const renderer = await createCliRenderer({ enableMouseMovement: true });
   return new Promise<number>((resolve) => {
     createRoot(renderer).render(
       React.createElement(App, {
-        home: opts.home,
-        sessionId: opts.sessionId,
+        home: options.home,
+        sessionId: options.sessionId,
         onExit: (code: number) => {
           renderer.destroy();
           resolve(code);

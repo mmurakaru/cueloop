@@ -1,5 +1,5 @@
 /**
- * Layered TOML config (#20): built-in defaults → user config → trusted repo
+ * Layered TOML config: built-in defaults → user config → trusted repo
  * config → env. Sections: [keys] action = "combo" (every action rebindable),
  * [theme] per-token overrides, [integrations.obsidian] notes-vault export.
  */
@@ -83,19 +83,19 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
   const integrations = raw["integrations"] as Record<string, unknown> | undefined;
   const obsidian = integrations?.["obsidian"] as Record<string, unknown> | undefined;
   if (obsidian) {
-    const o = out.integrations.obsidian;
-    if (typeof obsidian["vault"] === "string") o.vault = obsidian["vault"];
-    if (typeof obsidian["folder"] === "string") o.folder = obsidian["folder"];
-    if (typeof obsidian["filenameFormat"] === "string") o.filenameFormat = obsidian["filenameFormat"];
-    const sep = obsidian["separator"];
-    if (sep === "space" || sep === "dash" || sep === "underscore") o.separator = sep;
-    const on = obsidian["exportOn"];
-    if (on === "approve" || on === "resolve" || on === "manual") o.exportOn = on;
+    const obsidianConfig = out.integrations.obsidian;
+    if (typeof obsidian["vault"] === "string") obsidianConfig.vault = obsidian["vault"];
+    if (typeof obsidian["folder"] === "string") obsidianConfig.folder = obsidian["folder"];
+    if (typeof obsidian["filenameFormat"] === "string") obsidianConfig.filenameFormat = obsidian["filenameFormat"];
+    const separator = obsidian["separator"];
+    if (separator === "space" || separator === "dash" || separator === "underscore") obsidianConfig.separator = separator;
+    const exportOn = obsidian["exportOn"];
+    if (exportOn === "approve" || exportOn === "resolve" || exportOn === "manual") obsidianConfig.exportOn = exportOn;
   }
   return out;
 }
 
-export function loadConfig(opts: { repoRoot?: string; userConfigPath?: string } = {}): CueloopConfig {
+export function loadConfig(options: { repoRoot?: string; userConfigPath?: string } = {}): CueloopConfig {
   let config: CueloopConfig = {
     keys: { ...DEFAULT_KEYS },
     theme: { ...DARK },
@@ -103,10 +103,10 @@ export function loadConfig(opts: { repoRoot?: string; userConfigPath?: string } 
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
   };
   const userPath =
-    opts.userConfigPath ??
+    options.userConfigPath ??
     process.env.CUELOOP_CONFIG ??
     join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "cueloop", "config.toml");
-  for (const path of [userPath, opts.repoRoot ? join(opts.repoRoot, ".cueloop", "config.toml") : undefined]) {
+  for (const path of [userPath, options.repoRoot ? join(options.repoRoot, ".cueloop", "config.toml") : undefined]) {
     if (!path || !existsSync(path)) continue;
     try {
       config = layer(config, parseToml(readFileSync(path, "utf8")));

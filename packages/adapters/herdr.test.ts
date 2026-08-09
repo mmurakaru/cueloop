@@ -1,5 +1,5 @@
 /**
- * herdr tier-1 tests (#23). The herdr binary is stubbed by pointing
+ * herdr tier-1 tests. The herdr binary is stubbed by pointing
  * HERDR_BIN_PATH at a script that appends its argv to a log file - the
  * env contract itself is the test seam. The hook flow drives runHook
  * against an in-process DaemonServer in a temp CUELOOP_HOME and resolves

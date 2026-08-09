@@ -1,5 +1,5 @@
 /**
- * The keyboard grammar as a pure reducer (#70): view state in, intents out.
+ * The keyboard grammar as a pure reducer: view state in, intents out.
  * App builds a KeyState per key event, calls reduceKey, and dispatches the
  * intents to controller verbs and view-state setters - no branch bodies live
  * in the key handler. Diff and plan reviews share one path for annotation
@@ -9,33 +9,33 @@
 import { actionFor } from "./config";
 
 export type Intent =
-  | { t: "exit" }
-  | { t: "status"; msg: string }
-  | { t: "move"; to: "down" | "up" | "top" | "bottom" }
-  | { t: "inboxMove"; to: "down" | "up" }
-  | { t: "openSession" }
-  | { t: "startSpan" }
-  | { t: "spanKey"; name: string }
-  | { t: "openCompose"; kind: "comment" | "suggestion"; from: "cursor" | "span" }
-  | { t: "openSubmit" }
-  | { t: "cut" }
-  | { t: "edit" }
-  | { t: "editCard" }
-  | { t: "nextAnn" }
-  | { t: "prevAnn" }
-  | { t: "walkStart" }
-  | { t: "walkForward" }
-  | { t: "walkBack" }
-  | { t: "walkLeave" }
-  | { t: "removeAnnotation" }
-  | { t: "deselect" }
-  | { t: "closeOverlay" }
-  | { t: "saveCompose" }
-  | { t: "submitVerdict" }
-  | { t: "cycleVerdict"; dir: -1 | 1 }
-  | { t: "finishReview" }
-  | { t: "optInAutoClose" }
-  | { t: "dismissCompletion" };
+  | { type: "exit" }
+  | { type: "status"; message: string }
+  | { type: "move"; to: "down" | "up" | "top" | "bottom" }
+  | { type: "inboxMove"; to: "down" | "up" }
+  | { type: "openSession" }
+  | { type: "startSpan" }
+  | { type: "spanKey"; name: string }
+  | { type: "openCompose"; kind: "comment" | "suggestion"; from: "cursor" | "span" }
+  | { type: "openSubmit" }
+  | { type: "cut" }
+  | { type: "edit" }
+  | { type: "editCard" }
+  | { type: "nextAnnotation" }
+  | { type: "prevAnnotation" }
+  | { type: "walkStart" }
+  | { type: "walkForward" }
+  | { type: "walkBack" }
+  | { type: "walkLeave" }
+  | { type: "removeAnnotation" }
+  | { type: "deselect" }
+  | { type: "closeOverlay" }
+  | { type: "saveCompose" }
+  | { type: "submitVerdict" }
+  | { type: "cycleVerdict"; dir: -1 | 1 }
+  | { type: "finishReview" }
+  | { type: "optInAutoClose" }
+  | { type: "dismissCompletion" };
 
 export interface KeyInput {
   name: string;
@@ -66,8 +66,8 @@ const MUTATING_ACTIONS = new Set(["comment", "suggest", "cut", "edit", "delete_a
 
 const SPAN_KEYS = ["l", "h", "w", "b", "$", "0"];
 
-function status(msg: string): Intent[] {
-  return [{ t: "status", msg }];
+function status(message: string): Intent[] {
+  return [{ type: "status", message }];
 }
 
 /**
@@ -81,36 +81,36 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   // compose/submit overlays own the keys via focused inputs; only escape,
   // return, and verdict arrows route through the grammar
   if (state.overlay === "compose" || state.overlay === "submit") {
-    if (name === "escape") return [{ t: "closeOverlay" }];
+    if (name === "escape") return [{ type: "closeOverlay" }];
     if (name === "return" || name === "enter") {
-      return [state.overlay === "compose" ? { t: "saveCompose" } : { t: "submitVerdict" }];
+      return [state.overlay === "compose" ? { type: "saveCompose" } : { type: "submitVerdict" }];
     }
     if (state.overlay === "submit" && (name === "left" || name === "right")) {
-      return [{ t: "cycleVerdict", dir: name === "left" ? -1 : 1 }];
+      return [{ type: "cycleVerdict", dir: name === "left" ? -1 : 1 }];
     }
     return [];
   }
   if (state.overlay === "completion-prompt" || state.overlay === "completion-counting") {
-    if (name === "return" || name === "enter" || name === "q") return [{ t: "finishReview" }];
-    if (name === "a") return [{ t: "optInAutoClose" }];
-    if (name === "escape") return [{ t: "dismissCompletion" }];
+    if (name === "return" || name === "enter" || name === "q") return [{ type: "finishReview" }];
+    if (name === "a") return [{ type: "optInAutoClose" }];
+    if (name === "escape") return [{ type: "dismissCompletion" }];
     return [];
   }
   // the walk wizard owns its keys while active: ] advances (marking the
   // current file viewed), [ steps back, escape leaves keeping progress, and
   // return on the end card hands over to the submit confirm
   if (state.overlay === "walk") {
-    if (name === "]") return [{ t: "walkForward" }];
-    if (name === "[") return [{ t: "walkBack" }];
-    if (name === "escape") return [{ t: "walkLeave" }];
+    if (name === "]") return [{ type: "walkForward" }];
+    if (name === "[") return [{ type: "walkBack" }];
+    if (name === "escape") return [{ type: "walkLeave" }];
     if ((name === "return" || name === "enter") && state.walkAtEnd) {
-      return [{ t: "walkLeave" }, { t: "openSubmit" }];
+      return [{ type: "walkLeave" }, { type: "openSubmit" }];
     }
-    if (name === "q") return [{ t: "exit" }];
+    if (name === "q") return [{ type: "exit" }];
     return [];
   }
   const action = resolvedAction ?? actionFor(state.keys, name, key.shift);
-  if (action === "quit") return [{ t: "exit" }];
+  if (action === "quit") return [{ type: "exit" }];
   // the ONE read-only rule: any mutating attempt answers instead of acting
   // (span-mode c/s are hardwired keys, so they gate by name as well)
   const mutating = MUTATING_ACTIONS.has(action ?? "") || (state.spanMode && (name === "c" || name === "s"));
@@ -124,9 +124,9 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
 
 function inboxGrammar(state: KeyState, name: string): Intent[] {
   if (!state.hasInboxItems) return [];
-  if (name === "j" || name === "down") return [{ t: "inboxMove", to: "down" }];
-  if (name === "k" || name === "up") return [{ t: "inboxMove", to: "up" }];
-  if (name === "return" || name === "enter") return [{ t: "openSession" }];
+  if (name === "j" || name === "down") return [{ type: "inboxMove", to: "down" }];
+  if (name === "k" || name === "up") return [{ type: "inboxMove", to: "up" }];
+  if (name === "return" || name === "enter") return [{ type: "openSession" }];
   return [];
 }
 
@@ -136,12 +136,12 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
   if (action === "walk") {
     // marking viewed writes the session record, so a resolved review answers
     if (state.resolved) return status("review submitted - read-only");
-    return [{ t: "walkStart" }];
+    return [{ type: "walkStart" }];
   }
   if (action === "comment") {
     if (state.resolved) return status("review submitted - read-only");
     if (!state.cursorAnnotatable) return status("move to a code line to comment");
-    return [{ t: "openCompose", kind: "comment", from: "cursor" }];
+    return [{ type: "openCompose", kind: "comment", from: "cursor" }];
   }
   const shared = annotationCluster(state, action);
   if (shared) return shared;
@@ -152,10 +152,10 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 }
 
 function spanGrammar(name: string): Intent[] {
-  if (name === "escape") return [{ t: "closeOverlay" }];
-  if (SPAN_KEYS.includes(name)) return [{ t: "spanKey", name }];
+  if (name === "escape") return [{ type: "closeOverlay" }];
+  if (SPAN_KEYS.includes(name)) return [{ type: "spanKey", name }];
   if (name === "c" || name === "s") {
-    return [{ t: "openCompose", kind: name === "s" ? "suggestion" : "comment", from: "span" }];
+    return [{ type: "openCompose", kind: name === "s" ? "suggestion" : "comment", from: "span" }];
   }
   return [];
 }
@@ -164,19 +164,19 @@ function planGrammar(state: KeyState, action: string | undefined, name: string):
   const nav = navIntent(action);
   if (nav) return nav;
   if (action === "walk") return status("the guided walk is a diff-review mode");
-  if (name === "escape") return [{ t: "deselect" }];
-  if (action === "span") return state.cursorAnnotatable ? [{ t: "startSpan" }] : [];
+  if (name === "escape") return [{ type: "deselect" }];
+  if (action === "span") return state.cursorAnnotatable ? [{ type: "startSpan" }] : [];
   if (action === "comment" || action === "suggest") {
     if (state.resolved) return status("review submitted - read-only");
     if (!state.cursorAnnotatable) return status("text is cut - restore it first");
-    return [{ t: "openCompose", kind: action === "suggest" ? "suggestion" : "comment", from: "cursor" }];
+    return [{ type: "openCompose", kind: action === "suggest" ? "suggestion" : "comment", from: "cursor" }];
   }
   if (action === "cut" || action === "edit") {
     if (state.resolved) return status("review submitted - read-only");
     // the document selects, the rail edits: with a card selected, Cut deletes
     // the annotation and edit rewrites the card body in place
-    if (state.hasFocusedAnnotation) return [action === "cut" ? { t: "removeAnnotation" } : { t: "editCard" }];
-    return [{ t: action }];
+    if (state.hasFocusedAnnotation) return [action === "cut" ? { type: "removeAnnotation" } : { type: "editCard" }];
+    return [{ type: action }];
   }
   return annotationCluster(state, action) ?? [];
 }
@@ -184,7 +184,7 @@ function planGrammar(state: KeyState, action: string | undefined, name: string):
 /** Cursor movement is the same intent everywhere; views clamp their own bounds. */
 function navIntent(action: string | undefined): Intent[] | null {
   if (action === "down" || action === "up" || action === "top" || action === "bottom") {
-    return [{ t: "move", to: action }];
+    return [{ type: "move", to: action }];
   }
   return null;
 }
@@ -193,12 +193,12 @@ function navIntent(action: string | undefined): Intent[] | null {
 function annotationCluster(state: KeyState, action: string | undefined): Intent[] | null {
   if (action === "next_annotation" || action === "prev_annotation") {
     if (!state.annotationCount) return status("no annotations");
-    return [{ t: action === "next_annotation" ? "nextAnn" : "prevAnn" }];
+    return [{ type: action === "next_annotation" ? "nextAnnotation" : "prevAnnotation" }];
   }
   if (action === "delete_annotation") {
     if (state.resolved || !state.hasFocusedAnnotation) return [];
-    return [{ t: "removeAnnotation" }];
+    return [{ type: "removeAnnotation" }];
   }
-  if (action === "submit") return state.resolved ? [] : [{ t: "openSubmit" }];
+  if (action === "submit") return state.resolved ? [] : [{ type: "openSubmit" }];
   return null;
 }

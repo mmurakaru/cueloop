@@ -1,5 +1,5 @@
 /**
- * pi adapter (#13): a pi extension factory. Registers the request_review
+ * pi adapter: a pi extension factory. Registers the request_review
  * tool (submit a plan, block on the cueloop verdict), a tool_call gate that
  * holds write-capable tools while a review this extension opened is still
  * pending, and a /review command that reports session status.

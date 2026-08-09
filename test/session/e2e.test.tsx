@@ -1,5 +1,5 @@
 /**
- * The slice-1 e2e (#17): agent → daemon → TUI → verdict → agent, with
+ * The end-to-end review loop: agent → daemon → TUI → verdict → agent, with
  * every party real - the hook runs as a subprocess reading stdin like
  * Claude Code spawns it, the daemon autostarts from the hook, and the
  * reviewer drives the actual App in a virtual terminal.

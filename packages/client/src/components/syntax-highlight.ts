@@ -1,5 +1,5 @@
 /**
- * Code highlighting tokens (#86): the theme's named tokens projected onto
+ * Code highlighting tokens: the theme's named tokens projected onto
  * tree-sitter capture names for the native code renderable. One SyntaxStyle
  * per theme object, cached, so every code block on screen shares a handle.
  * Unknown languages simply render unstyled - highlighting is an enhancement,

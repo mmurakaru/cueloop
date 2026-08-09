@@ -1,5 +1,5 @@
 /**
- * herdr tier-1 integration (#23): the zero-install env contract.
+ * herdr tier-1 integration: the zero-install env contract.
  *
  * Any process inside a herdr pane sees HERDR_ENV=1 plus the pane id and the
  * herdr binary path. cueloop uses only that ambient contract here: report

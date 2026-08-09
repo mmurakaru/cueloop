@@ -1,5 +1,5 @@
 /**
- * The guided walk in the virtual terminal (#83): the wizard steps every
+ * The guided walk in the virtual terminal: the wizard steps every
  * changed file with a plain progress title, ] marks viewed and persists with
  * the session, esc keeps progress, w resumes at the first unviewed file
  * (across App instances - the daemon round-trip), the agent-note block

@@ -1,5 +1,5 @@
 /**
- * File-level edit mode = the $EDITOR hand-off (#22, #11): write the working
+ * File-level edit mode = the $EDITOR hand-off: write the working
  * copy to a temp file, run the user's editor on it, read the result back.
  * Tests point CUELOOP_EDITOR at a non-interactive command.
  */
