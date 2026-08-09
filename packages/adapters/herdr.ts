@@ -1,19 +1,12 @@
 /**
- * herdr tier-1 integration (#23): the zero-install env contract.
- *
- * Any process inside a herdr pane sees HERDR_ENV=1 plus the pane id and the
- * herdr binary path. cueloop uses only that ambient contract here: report
- * semantic agent state (blocked while a review waits, working after the
- * verdict) and a sidebar metadata label. No plugin, no socket - tier 2 (the
- * herdr plugin) builds on top of this.
- *
- * Invariants:
- * - Fire-and-forget: reporting never blocks or throws; a broken herdr binary
- *   must never disturb the review flow it decorates.
- * - Fallback parity: outside herdr (HERDR_ENV unset) every call is a no-op,
- *   so behavior in a plain terminal is byte-identical.
- * - Tests point HERDR_BIN_PATH at a stub script; the binary path is the
- *   override, no extra knob.
+ * herdr agent-state reporting over the ambient env contract: a process inside
+ * a herdr pane sees HERDR_ENV=1 plus the pane id and binary path, and cueloop
+ * reports semantic agent state (blocked while a review waits, working after
+ * the verdict) plus a sidebar label through the herdr CLI.
+ * This is tier 1 (no plugin, no socket); the herdr plugin tier builds on it.
+ * Invariants: fire-and-forget (reporting never blocks or throws); outside
+ * herdr every call is a no-op, so a plain terminal behaves byte-identically;
+ * tests point HERDR_BIN_PATH at a stub script.
  */
 
 export type HerdrAgentState = "blocked" | "working" | "done" | "idle";
@@ -39,20 +32,20 @@ export function detectHerdr(env: Env = process.env): HerdrContext | null {
 
 /** Report semantic agent state for this pane. No-op outside herdr. */
 export function reportState(state: HerdrAgentState, env: Env = process.env): void {
-  const ctx = detectHerdr(env);
-  if (!ctx) return;
-  spawnQuiet([ctx.binPath, "pane", "report-agent", ctx.paneId, "--source", SOURCE, "--state", state]);
+  const herdr = detectHerdr(env);
+  if (!herdr) return;
+  spawnQuiet([herdr.binPath, "pane", "report-agent", herdr.paneId, "--source", SOURCE, "--state", state]);
 }
 
 /** Report a sidebar metadata label for this pane. No-op outside herdr. */
 export function reportLabel(text: string, env: Env = process.env): void {
-  const ctx = detectHerdr(env);
-  if (!ctx) return;
+  const herdr = detectHerdr(env);
+  if (!herdr) return;
   spawnQuiet([
-    ctx.binPath,
+    herdr.binPath,
     "pane",
     "report-metadata",
-    ctx.paneId,
+    herdr.paneId,
     "--source",
     SOURCE,
     "--token",
@@ -62,9 +55,9 @@ export function reportLabel(text: string, env: Env = process.env): void {
   ]);
 }
 
-function spawnQuiet(cmd: string[]): void {
+function spawnQuiet(command: string[]): void {
   try {
-    Bun.spawn(cmd, { stdio: ["ignore", "ignore", "ignore"] }).unref();
+    Bun.spawn(command, { stdio: ["ignore", "ignore", "ignore"] }).unref();
   } catch {
     // best-effort reporting: a missing or broken binary is not our failure
   }

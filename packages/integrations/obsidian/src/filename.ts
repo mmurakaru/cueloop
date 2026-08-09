@@ -32,7 +32,7 @@ export function titleFrom(content: string, fallback?: string): string {
  * run in the result becomes the configured separator.
  */
 export function formatFilename(format: string, title: string, date: Date, separator: Separator = "space"): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
+  const pad = (value: number) => String(value).padStart(2, "0");
   const name = format
     .replaceAll("{YYYY}", String(date.getFullYear()))
     .replaceAll("{MM}", pad(date.getMonth() + 1))

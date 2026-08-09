@@ -1,5 +1,5 @@
 /**
- * Provider theming for the component system (#86). The context default is the
+ * Provider theming for the component system. The context default is the
  * built-in dark theme, so embedding a component (or rendering a story) needs
  * no provider at all. One ThemeProvider swap switches the live theme; every
  * component also accepts an optional `theme` prop that overrides the context

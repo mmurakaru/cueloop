@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Claude Code adapter (#3, #9): intercept the plan gate, block on the
+ * Claude Code adapter: intercept the plan gate, block on the
  * cueloop verdict, answer in the hook's native contract.
  *
  * Wire into ~/.claude/settings.json:
@@ -8,7 +8,7 @@
  *       "hooks": [{ "type": "command", "command": "bun run .../hook.ts", "timeout": 600 }] } ] } }
  * (PreToolUse works identically for headless runs.)
  *
- * The wait contract (#14): if the hook's window closes before the reviewer
+ * The wait contract: if the hook's window closes before the reviewer
  * finishes, the answer is a denial-shaped "review pending" and the stored
  * verdict is delivered when the agent retries - a review is never lost.
  */
@@ -47,7 +47,7 @@ export async function runHook(event: HookEvent, home?: string): Promise<HookDeci
       herdrPane: process.env.HERDR_ENV === "1" ? process.env.HERDR_PANE_ID : undefined,
     });
 
-    // herdr tier 1 (#23): the pane shows blocked + "plan ready for review"
+    // herdr tier 1: the pane shows blocked + "plan ready for review"
     // while the reviewer works; no-ops outside herdr.
     reportState("blocked");
     reportLabel(`plan ready for review: ${review.session.artifact.meta.title ?? review.id}`);

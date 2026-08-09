@@ -1,5 +1,5 @@
 /**
- * The plan review surface v2 (#71): native selection feeds the annotation
+ * The plan review surface v2: native selection feeds the annotation
  * quote, the inline compose box keeps its anchor painted, the rail edits what
  * the document selects, and edit-exit reconciliation orphans annotations
  * whose passage was removed. Char-frame + styled-span assertions over the

@@ -1,21 +1,11 @@
 /**
- * PTY tests (tier 4, map #22): the real `cueloop` TUI binary in a
- * pseudo-terminal, asserting behavior the virtual-terminal tier cannot
- * prove - a real alternate-screen render, key routing through a raw tty,
- * SIGWINCH resize, and the process exit code.
- *
- * PTY backend: bun-pty. node-pty loads under Bun on macOS arm64 but its
- * native `spawn` silently kills the Bun process (no error, no output), so
- * it is unusable here; bun-pty is a Bun-native PTY with the same IPty
- * surface (write/resize/kill/onData/onExit) and works reliably.
- *
- * Env-gated: skipped unless CUELOOP_RUN_PTY is set, so `bun test ./test`
- * stays green everywhere. Run with `bun run test:pty`.
- *
- * The tests share one PTY session (spawning the TUI is expensive) and run
- * in file order: render → move cursor → resize → quit. OpenTUI repaints
- * only changed cells, so after a keypress the stripped output delta
- * contains the cursor glyph followed by the newly highlighted block text.
+ * PTY tests: the real `cueloop` TUI binary in a pseudo-terminal, asserting
+ * what the virtual-terminal tier cannot prove - alternate-screen render, key
+ * routing through a raw tty, SIGWINCH resize, and the process exit code.
+ * bun-pty is the backend because node-pty's native spawn silently kills the
+ * Bun process on macOS arm64. Env-gated behind CUELOOP_RUN_PTY (`bun run
+ * test:pty`). The tests share one PTY session and run in file order; OpenTUI
+ * repaints only changed cells, so assertions read the stripped output delta.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -47,25 +37,25 @@ const ANSI =
   // eslint-disable-next-line no-control-regex
   /\[[0-9;?>=<]*[ -/]*[@-~]|\][^]*(?:|\\)|P[^]*\\|[@-Z\\-_]/g;
 
-function stripAnsi(s: string): string {
-  return s.replace(ANSI, "");
+function stripAnsi(raw: string): string {
+  return raw.replace(ANSI, "");
 }
 
 let home: string;
 let server: DaemonServer;
 let sessionId: string;
 let pty: IPty;
-let buf = "";
+let ptyOutput = "";
 let exit: { exitCode: number } | null = null;
 
 /** PTY output arrives in chunks; poll a predicate against the buffer with a deadline. */
-async function waitFor(pred: () => boolean, ms: number, what: string): Promise<void> {
+async function waitFor(predicate: () => boolean, ms: number, what: string): Promise<void> {
   const deadline = Date.now() + ms;
   while (Date.now() < deadline) {
-    if (pred()) return;
+    if (predicate()) return;
     await Bun.sleep(50);
   }
-  if (!pred()) throw new Error(`timed out waiting for ${what}; buffer: ${JSON.stringify(stripAnsi(buf).slice(-500))}`);
+  if (!predicate()) throw new Error(`timed out waiting for ${what}; buffer: ${JSON.stringify(stripAnsi(ptyOutput).slice(-500))}`);
 }
 
 beforeAll(async () => {
@@ -85,11 +75,11 @@ beforeAll(async () => {
     cwd: ROOT,
     env: { ...process.env, CUELOOP_HOME: home } as Record<string, string>,
   });
-  pty.onData((d) => {
-    buf += d;
+  pty.onData((chunk) => {
+    ptyOutput += chunk;
   });
-  pty.onExit((e) => {
-    exit = e;
+  pty.onExit((exitEvent) => {
+    exit = exitEvent;
   });
 });
 
@@ -108,9 +98,9 @@ afterAll(() => {
 
 describe("PTY tier: the real TUI in a pseudo-terminal", () => {
   ptyTest("initial render paints the plan in a real terminal", async () => {
-    await waitFor(() => stripAnsi(buf).includes("Rollout Plan"), 20_000, "the plan title");
-    await waitFor(() => stripAnsi(buf).includes("Enable it for everyone immediately."), 20_000, "the plan body");
-    const frame = stripAnsi(buf);
+    await waitFor(() => stripAnsi(ptyOutput).includes("Rollout Plan"), 20_000, "the plan title");
+    await waitFor(() => stripAnsi(ptyOutput).includes("Enable it for everyone immediately."), 20_000, "the plan body");
+    const frame = stripAnsi(ptyOutput);
     expect(frame).toContain("Rollout Plan");
     expect(frame).toContain("Ship the daemon behind a flag.");
     // the cursor glyph starts on the title block
@@ -118,27 +108,27 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
   }, 30_000);
 
   ptyTest("j routes through the raw tty: the cursor glyph moves block by block", async () => {
-    buf = "";
+    ptyOutput = "";
     pty.write("j");
     // the cell-diff repaint after j redraws the newly highlighted block behind the glyph
-    await waitFor(() => /▎ +Phase 1/.test(stripAnsi(buf)), 10_000, "cursor on Phase 1");
-    buf = "";
+    await waitFor(() => /▎ +Phase 1/.test(stripAnsi(ptyOutput)), 10_000, "cursor on Phase 1");
+    ptyOutput = "";
     pty.write("j");
-    await waitFor(() => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(buf)), 10_000, "cursor on the paragraph");
+    await waitFor(() => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(ptyOutput)), 10_000, "cursor on the paragraph");
   }, 30_000);
 
   ptyTest("resize does not crash and forces a repaint", async () => {
-    buf = "";
+    ptyOutput = "";
     pty.resize(100, 24);
-    await waitFor(() => buf.length > 0, 10_000, "a repaint after resize");
+    await waitFor(() => ptyOutput.length > 0, 10_000, "a repaint after resize");
     expect(exit).toBeNull();
     // grow back; the TUI keeps repainting rather than dying on SIGWINCH
-    buf = "";
+    ptyOutput = "";
     pty.resize(120, 30);
-    await waitFor(() => buf.length > 0, 10_000, "a repaint after growing back");
+    await waitFor(() => ptyOutput.length > 0, 10_000, "a repaint after growing back");
     expect(exit).toBeNull();
     // the cursor position survives both resizes
-    await waitFor(() => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(buf)), 10_000, "cursor after resize");
+    await waitFor(() => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(ptyOutput)), 10_000, "cursor after resize");
   }, 30_000);
 
   ptyTest("q exits cleanly with code 0", async () => {

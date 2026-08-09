@@ -1,5 +1,5 @@
 /**
- * The hook's hard guarantee (#3, #9): whatever goes wrong inside cueloop, the
+ * The hook's hard guarantee: whatever goes wrong inside cueloop, the
  * agent gets a valid hook response. A silent crash would read to the agent as
  * a broken permission gate.
  */

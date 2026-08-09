@@ -22,22 +22,22 @@ index 111..222 100644
 describe("diffRows", () => {
   test("flattens files, hunks, and signed lines with line numbers", () => {
     const rows = diffRows(PATCH);
-    expect(rows[0]).toMatchObject({ t: "file", file: "src/store.ts" });
-    expect(rows[1]!.t).toBe("hunk");
-    const del = rows.find((r) => r.t === "del")!;
+    expect(rows[0]).toMatchObject({ kind: "file", file: "src/store.ts" });
+    expect(rows[1]!.kind).toBe("hunk");
+    const del = rows.find((row) => row.kind === "del")!;
     expect(del.text).toContain("private items = [];");
     expect(del.oldLine).toBe(3);
-    const adds = rows.filter((r) => r.t === "add");
+    const adds = rows.filter((row) => row.kind === "add");
     expect(adds[0]!.text).toContain("new Map()");
     expect(adds[0]!.newLine).toBe(3);
     expect(adds[1]!.newLine).toBe(4);
     // two hunks
-    expect(rows.filter((r) => r.t === "hunk").length).toBe(2);
+    expect(rows.filter((row) => row.kind === "hunk").length).toBe(2);
   });
 
   test("context lines carry both line numbers", () => {
     const rows = diffRows(PATCH);
-    const ctx = rows.find((r) => r.t === "ctx")!;
+    const ctx = rows.find((row) => row.kind === "ctx")!;
     expect(ctx.oldLine).toBe(1);
     expect(ctx.newLine).toBe(1);
   });
@@ -46,8 +46,8 @@ describe("diffRows", () => {
 describe("diffRowAnchor", () => {
   test("quote is the line, neighbors are the context selectors", () => {
     const rows = diffRows(PATCH);
-    const idx = rows.findIndex((r) => r.text.includes("new Map()"));
-    const anchor = diffRowAnchor(rows, idx);
+    const rowIndex = rows.findIndex((row) => row.text.includes("new Map()"));
+    const anchor = diffRowAnchor(rows, rowIndex);
     expect(anchor.quote).toContain("new Map()");
     expect(anchor.prefix.length).toBeGreaterThan(0);
     expect(anchor.suffix.length).toBeGreaterThan(0);

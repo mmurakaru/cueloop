@@ -1,5 +1,5 @@
 /**
- * Runtime validation of the wire boundary (#14). Everything arriving over the
+ * Runtime validation of the wire boundary. Everything arriving over the
  * socket is untrusted JSON: adapters, the CLI, extensions, and any script a
  * user writes all speak this protocol. Validating here means DaemonCore only
  * ever sees well-formed input, and a malformed request gets a precise error
@@ -67,7 +67,7 @@ export const AnchorSchema = v.object({
 /** Wire annotations arrive without createdAt - the daemon stamps it. */
 export const AnnotationSchema = v.object({
   id: NonEmpty,
-  /** Open kind set (#2): built-ins are comment and suggestion. */
+  /** Open kind set: built-ins are comment and suggestion. */
   kind: NonEmpty,
   anchor: AnchorSchema,
   body: v.string(),
@@ -118,7 +118,7 @@ export function parseParams<M extends MethodName>(method: M, params: unknown): v
   const result = v.safeParse(Params[method], params ?? {});
   if (!result.success) {
     const issue = result.issues[0]!;
-    const path = issue.path?.map((p) => String(p.key)).join(".") ?? "";
+    const path = issue.path?.map((pathSegment) => String(pathSegment.key)).join(".") ?? "";
     throw new DaemonError("invalid_params", `${method}: ${path ? path + " - " : ""}${issue.message}`);
   }
   return result.output;
@@ -156,6 +156,6 @@ export function validateSessionRecord(raw: unknown): { ok: true; value: v.InferO
   const result = v.safeParse(SessionRecordSchema, raw);
   if (result.success) return { ok: true, value: result.output };
   const issue = result.issues[0]!;
-  const path = issue.path?.map((p) => String(p.key)).join(".") ?? "";
+  const path = issue.path?.map((pathSegment) => String(pathSegment.key)).join(".") ?? "";
   return { ok: false, error: `${path ? path + ": " : ""}${issue.message}` };
 }

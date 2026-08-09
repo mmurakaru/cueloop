@@ -1,5 +1,5 @@
 /**
- * Semantic theme tokens (#22). Values carry over from the design-system
+ * Semantic theme tokens. Values carry over from the design-system
  * prototypes (tokens.css). One built-in dark theme for now; the theme
  * registry (palette-derived themes, terminal theme, user overrides) layers
  * on top of these slots without touching consumers.

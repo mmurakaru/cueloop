@@ -28,16 +28,16 @@ afterEach(() => {
 describe("socket round-trip", () => {
   test("ping and full session flow over the wire", async () => {
     expect((await client.ping()).pid).toBe(process.pid);
-    const s = await client.sessionCreate(WS, PLAN);
-    expect(s.status).toBe("pending");
-    await client.sessionAnnotate(s.id, {
+    const session = await client.sessionCreate(WS, PLAN);
+    expect(session.status).toBe("pending");
+    await client.sessionAnnotate(session.id, {
       id: "a1",
       kind: "comment",
       anchor: { quote: "Body text", prefix: "", suffix: "." },
       body: "More detail please.",
     });
-    const wait = client.sessionWait(s.id, 5_000);
-    await client.sessionResolve(s.id, "request_changes", "Expand it.");
+    const wait = client.sessionWait(session.id, 5_000);
+    await client.sessionResolve(session.id, "request_changes", "Expand it.");
     const resolved = (await wait)!;
     expect(resolved.verdict!.kind).toBe("request_changes");
     expect(resolved.verdict!.feedback).toContain("More detail please.");
@@ -47,18 +47,18 @@ describe("socket round-trip", () => {
     expect(client.sessionGet("nope")).rejects.toBeInstanceOf(DaemonClientError);
     try {
       await client.sessionGet("nope");
-    } catch (e) {
-      expect((e as DaemonClientError).code).toBe("not_found");
+    } catch (error) {
+      expect((error as DaemonClientError).code).toBe("not_found");
     }
   });
 
   test("events push to subscribed connections only", async () => {
     const observer = await DaemonClient.connect({ home });
     const seen: string[] = [];
-    observer.onEvent((e) => seen.push(e.event));
+    observer.onEvent((event) => seen.push(event.event));
     await observer.subscribe();
-    const s = await client.sessionCreate(WS, PLAN);
-    await client.sessionResolve(s.id, "approve", "");
+    const session = await client.sessionCreate(WS, PLAN);
+    await client.sessionResolve(session.id, "approve", "");
     // events are pushed async over the socket; give the loop a beat
     await Bun.sleep(50);
     expect(seen).toContain("session.created");
@@ -71,43 +71,43 @@ describe("socket round-trip", () => {
     try {
       await client.request("session.create", { artifact: { type: "plan", content: "x" } });
       throw new Error("should have thrown");
-    } catch (e) {
-      expect((e as DaemonClientError).code).toBe("invalid_params");
+    } catch (error) {
+      expect((error as DaemonClientError).code).toBe("invalid_params");
     }
     // wrong types
     try {
       await client.request("session.wait", { id: 42 });
       throw new Error("should have thrown");
-    } catch (e) {
-      expect((e as DaemonClientError).code).toBe("invalid_params");
+    } catch (error) {
+      expect((error as DaemonClientError).code).toBe("invalid_params");
     }
     // unknown method
     try {
       await client.request("session.nuke", {});
       throw new Error("should have thrown");
-    } catch (e) {
-      expect((e as DaemonClientError).code).toBe("unknown_method");
+    } catch (error) {
+      expect((error as DaemonClientError).code).toBe("unknown_method");
     }
     // the daemon is still fully alive afterwards
-    const s = await client.sessionCreate(WS, PLAN);
-    expect((await client.sessionGet(s.id)).id).toBe(s.id);
+    const session = await client.sessionCreate(WS, PLAN);
+    expect((await client.sessionGet(session.id)).id).toBe(session.id);
   });
 
   test("meta fields survive the wire: herdrPane set on create comes back from get", async () => {
-    const s = await client.sessionCreate(WS, {
+    const session = await client.sessionCreate(WS, {
       type: "plan",
       content: "# P",
       meta: { agent: "claude-code", herdrPane: "%7" },
     });
-    const got = await client.sessionGet(s.id);
+    const got = await client.sessionGet(session.id);
     expect(got.artifact.meta.herdrPane).toBe("%7");
     expect(got.artifact.meta.agent).toBe("claude-code");
   });
 
   test("two clients see the same state (thin-renderer model)", async () => {
     const second = await DaemonClient.connect({ home });
-    const s = await client.sessionCreate(WS, PLAN);
-    const fromSecond = await second.sessionGet(s.id);
+    const session = await client.sessionCreate(WS, PLAN);
+    const fromSecond = await second.sessionGet(session.id);
     expect(fromSecond.artifact.content).toBe(PLAN.content);
     second.close();
   });

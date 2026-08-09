@@ -3,7 +3,7 @@
  * pi is an integration target, not a dependency: the real API object arrives
  * at the factory when pi loads the extension, so these shapes only need to be
  * structurally compatible with pi's - registerTool, registerCommand,
- * on("tool_call"), and ctx.ui.notify.
+ * on("tool_call"), and context.ui.notify.
  */
 
 export interface TextContent {
@@ -48,7 +48,7 @@ export interface PiToolDefinition<TParams = Record<string, unknown>, TDetails = 
     params: TParams,
     signal: AbortSignal | undefined,
     onUpdate: PiToolUpdateCallback<TDetails> | undefined,
-    ctx: PiContext,
+    context: PiContext,
   ): Promise<PiToolResult<TDetails>>;
 }
 
@@ -67,12 +67,12 @@ export interface PiToolCallResult {
 
 export type PiToolCallHandler = (
   event: PiToolCallEvent,
-  ctx: PiContext,
+  context: PiContext,
 ) => PiToolCallResult | undefined | Promise<PiToolCallResult | undefined>;
 
 export interface PiCommandOptions {
   description?: string;
-  handler(args: string, ctx: PiContext): Promise<void> | void;
+  handler(args: string, context: PiContext): Promise<void> | void;
 }
 
 export interface PiExtensionAPI {

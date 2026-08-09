@@ -1,5 +1,5 @@
 /**
- * PR review entry (#18): `cueloop review <pr>` fetches the PR diff through the
+ * PR review entry: `cueloop review <pr>` fetches the PR diff through the
  * user's `gh` CLI (auth fully delegated), opens a diff session, and posts the
  * verdict back to the PR as a real review when the session resolves.
  * `cueloop review-post <session-id> <pr>` is the non-interactive post-back

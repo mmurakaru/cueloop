@@ -18,8 +18,8 @@ const tag = version.includes("-") ? (version.split("-")[1] ?? "").split(".")[0] 
 
 const names: string[] = [];
 for (const glob of ["packages/*/package.json", "packages/integrations/*/package.json"]) {
-  for await (const p of new Bun.Glob(glob).scan(".")) {
-    const pkg = (await Bun.file(p).json()) as { name: string; private?: boolean };
+  for await (const path of new Bun.Glob(glob).scan(".")) {
+    const pkg = (await Bun.file(path).json()) as { name: string; private?: boolean };
     if (!pkg.private) names.push(pkg.name);
   }
 }
@@ -51,9 +51,9 @@ const problems: string[] = [];
 // 1. every package must be visible on the registry at this exact version
 for (const name of new Set(names)) {
   const problem = await settle(async () => {
-    const res = await fresh(`https://registry.npmjs.org/${name.replace("/", "%2F")}`);
-    if (!res.ok) return `${name}: not on the registry (HTTP ${res.status}) - the publish did not land`;
-    const doc = (await res.json()) as { versions?: Record<string, unknown>; "dist-tags"?: Record<string, string> };
+    const response = await fresh(`https://registry.npmjs.org/${name.replace("/", "%2F")}`);
+    if (!response.ok) return `${name}: not on the registry (HTTP ${response.status}) - the publish did not land`;
+    const doc = (await response.json()) as { versions?: Record<string, unknown>; "dist-tags"?: Record<string, string> };
     if (!doc.versions?.[version]) {
       return `${name}: registry has no ${version} (tags: ${JSON.stringify(doc["dist-tags"] ?? {})})`;
     }
@@ -66,8 +66,8 @@ for (const name of new Set(names)) {
 if (problems.length === 0) {
   const problem = await settle(async () => {
     // the dedicated dist-tags endpoint reflects a retag sooner than the full doc
-    const res = await fresh("https://registry.npmjs.org/-/package/cueloop/dist-tags");
-    const tags = res.ok ? ((await res.json()) as Record<string, string>) : {};
+    const response = await fresh("https://registry.npmjs.org/-/package/cueloop/dist-tags");
+    const tags = response.ok ? ((await response.json()) as Record<string, string>) : {};
     const tagged = tags[tag];
     return tagged === version
       ? null
@@ -100,7 +100,7 @@ if (problems.length === 0) {
 
 if (problems.length) {
   console.error(`published release ${version} (tag ${tag}) is NOT usable:`);
-  for (const p of problems) console.error(`  - ${p}`);
+  for (const problem of problems) console.error(`  - ${problem}`);
   process.exit(1);
 }
 console.log(`verified: ${version} (tag ${tag}) is on the registry and the CLI installs and runs`);

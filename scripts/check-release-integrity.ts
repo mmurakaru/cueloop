@@ -25,12 +25,9 @@ if (!(await Bun.file("scripts/sync-plugin-version.ts").exists())) {
 }
 
 // every publishable workspace package needs publish metadata
-const globbed = new Bun.Glob("packages/*/package.json");
-const nested = new Bun.Glob("packages/integrations/*/package.json");
-for await (const path of [globbed.scan("."), nested.scan(".")][Symbol.iterator]()) void path;
 const paths: string[] = [];
-for await (const p of globbed.scan(".")) paths.push(p);
-for await (const p of nested.scan(".")) paths.push(p);
+for await (const path of new Bun.Glob("packages/*/package.json").scan(".")) paths.push(path);
+for await (const path of new Bun.Glob("packages/integrations/*/package.json").scan(".")) paths.push(path);
 for (const path of paths) {
   const pkg = await Bun.file(path).json();
   if (pkg.private) continue;
@@ -45,7 +42,7 @@ for (const path of paths) {
 
 if (problems.length) {
   console.error("release integrity check failed:");
-  for (const p of problems) console.error(`  - ${p}`);
+  for (const problem of problems) console.error(`  - ${problem}`);
   process.exit(1);
 }
 console.log(`release integrity ok (${paths.length} workspace packages checked)`);

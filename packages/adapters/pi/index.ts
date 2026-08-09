@@ -1,5 +1,5 @@
 /**
- * pi adapter (#13): a pi extension factory. Registers the request_review
+ * pi adapter: a pi extension factory. Registers the request_review
  * tool (submit a plan, block on the cueloop verdict), a tool_call gate that
  * holds write-capable tools while a review this extension opened is still
  * pending, and a /review command that reports session status.
@@ -43,7 +43,7 @@ export interface CueloopExtensionOptions {
   pollMs?: number;
 }
 
-const text = (t: string): PiToolResult<ReviewDetails>["content"] => [{ type: "text", text: t }];
+const text = (message: string): PiToolResult<ReviewDetails>["content"] => [{ type: "text", text: message }];
 
 function cancelledResult(sessionId: string | undefined, annotationCount: number): PiToolResult<ReviewDetails> {
   const suffix = sessionId ? ` Session ${sessionId} stays pending; the verdict is collectable later.` : "";
@@ -76,7 +76,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       },
       required: ["plan"],
     },
-    async execute(_toolCallId, params, signal, onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, onUpdate, context) {
       if (signal?.aborted) return cancelledResult(undefined, 0);
       const client = await DaemonClient.connect({ home: options.home, autostart: true });
       let sessionId: string | undefined;
@@ -84,7 +84,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
         const review = await openReview(client, {
           type: "plan",
           content: params.plan,
-          cwd: ctx.cwd,
+          cwd: context.cwd,
           agent: "pi",
           title: params.title,
         });
@@ -93,12 +93,12 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
         pendingSessions.add(review.id);
 
         let reportedCount = -1;
-        const report = (s: ReviewSession) => {
-          if (s.annotations.length === reportedCount) return;
-          reportedCount = s.annotations.length;
+        const report = (progress: ReviewSession) => {
+          if (progress.annotations.length === reportedCount) return;
+          reportedCount = progress.annotations.length;
           onUpdate?.({
-            content: text(`cueloop review ${s.id} pending - ${s.annotations.length} annotation(s) so far`),
-            details: { sessionId: s.id, status: "pending", annotationCount: s.annotations.length },
+            content: text(`cueloop review ${progress.id} pending - ${progress.annotations.length} annotation(s) so far`),
+            details: { sessionId: progress.id, status: "pending", annotationCount: progress.annotations.length },
           });
         };
         report(review.session);
@@ -139,8 +139,8 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
 
     pi.registerCommand("review", {
       description: "Show the status of the current cueloop review session",
-      handler: async (_args, ctx) => {
-        const notify = (message: string) => ctx.ui?.notify?.(message, "info");
+      handler: async (_args, context) => {
+        const notify = (message: string) => context.ui?.notify?.(message, "info");
         let client: DaemonClient;
         try {
           client = await DaemonClient.connect({ home: options.home });
@@ -158,11 +158,11 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
             );
             return;
           }
-          const s = await client.sessionGet(lastSessionId);
+          const session = await client.sessionGet(lastSessionId);
           notify(
-            s.status === "pending"
-              ? `cueloop review ${s.id} pending - ${s.annotations.length} annotation(s)`
-              : `cueloop review ${s.id} resolved: ${s.verdict?.kind ?? "unknown"}`,
+            session.status === "pending"
+              ? `cueloop review ${session.id} pending - ${session.annotations.length} annotation(s)`
+              : `cueloop review ${session.id} resolved: ${session.verdict?.kind ?? "unknown"}`,
           );
         } finally {
           client.close();

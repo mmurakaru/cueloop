@@ -1,5 +1,5 @@
 /**
- * First-class herdr return (#23): a review opened beside an agent should hand
+ * First-class herdr return: a review opened beside an agent should hand
  * focus back to the agent's pane when it closes, not leave the reviewer on a
  * dead tab. Detection is the ambient env contract; the return target comes
  * from CUELOOP_RETURN_PANE (set by whoever opened this pane) or the session's

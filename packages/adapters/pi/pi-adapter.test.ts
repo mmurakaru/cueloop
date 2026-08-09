@@ -1,5 +1,5 @@
 /**
- * pi adapter integration (#13): the extension factory run against a fake pi
+ * pi adapter integration: the extension factory run against a fake pi
  * API that captures registrations, with the request_review tool driven end
  * to end against a real daemon in a temp CUELOOP_HOME.
  */
@@ -27,9 +27,9 @@ beforeAll(() => {
 });
 afterAll(async () => {
   try {
-    const c = await DaemonClient.connect({ home });
-    await c.shutdown();
-    c.close();
+    const daemonClient = await DaemonClient.connect({ home });
+    await daemonClient.shutdown();
+    daemonClient.close();
   } catch {
     // daemon already gone
   }
@@ -61,7 +61,7 @@ function loadExtension(): FakePi {
   return fake;
 }
 
-function makeCtx(notes: string[] = []): PiContext {
+function makeContext(notes: string[] = []): PiContext {
   return { cwd: home, ui: { notify: (message) => notes.push(message) } };
 }
 
@@ -70,7 +70,7 @@ function toolCall(toolName: string): PiToolCallEvent {
 }
 
 function resultText(result: PiToolResult<ReviewDetails>): string {
-  return result.content.map((c) => c.text).join("\n");
+  return result.content.map((part) => part.text).join("\n");
 }
 
 /** Find the pending session created for a specific plan (tests share one home). */
@@ -79,7 +79,7 @@ async function waitForPendingSession(marker: string): Promise<string> {
   try {
     for (let i = 0; i < 100; i++) {
       const pending = await client.sessionList({ status: "pending" });
-      const hit = pending.find((s) => s.artifact.content.includes(marker));
+      const hit = pending.find((candidate) => candidate.artifact.content.includes(marker));
       if (hit) return hit.id;
       await Bun.sleep(50);
     }
@@ -94,7 +94,7 @@ describe("pi adapter: request_review round-trip", () => {
     const fake = loadExtension();
     const tool = fake.tools.get("request_review")!;
     const plan = "# Approve Plan\n\nShip the daemon behind a flag.\n";
-    const resultP = tool.execute("t-approve", { plan }, undefined, undefined, makeCtx());
+    const pendingResult = tool.execute("t-approve", { plan }, undefined, undefined, makeContext());
 
     const sessionId = await waitForPendingSession("Approve Plan");
     const client = await DaemonClient.connect({ home });
@@ -104,7 +104,7 @@ describe("pi adapter: request_review round-trip", () => {
     await client.sessionResolve(sessionId, "approve", "Looks good.");
     client.close();
 
-    const result = (await resultP) as PiToolResult<ReviewDetails>;
+    const result = (await pendingResult) as PiToolResult<ReviewDetails>;
     expect(result.isError).toBeFalsy();
     expect(resultText(result)).toContain("# Review: approve");
     expect(resultText(result)).toContain("Looks good.");
@@ -117,7 +117,7 @@ describe("pi adapter: request_review round-trip", () => {
     const tool = fake.tools.get("request_review")!;
     const plan = "# Changes Plan\n\nEnable it for everyone immediately.\n";
     const updates: PiToolResult<ReviewDetails>[] = [];
-    const resultP = tool.execute("t-changes", { plan }, undefined, (u) => updates.push(u), makeCtx());
+    const pendingResult = tool.execute("t-changes", { plan }, undefined, (update) => updates.push(update), makeContext());
 
     const sessionId = await waitForPendingSession("Changes Plan");
     const client = await DaemonClient.connect({ home });
@@ -128,15 +128,15 @@ describe("pi adapter: request_review round-trip", () => {
       body: "Stage the rollout instead.",
     });
     // the next poll chunk re-reads the session and streams the new count
-    for (let i = 0; i < 100 && !updates.some((u) => u.details.annotationCount === 1); i++) {
+    for (let i = 0; i < 100 && !updates.some((update) => update.details.annotationCount === 1); i++) {
       await Bun.sleep(50);
     }
-    expect(updates.some((u) => u.details.annotationCount === 1)).toBe(true);
+    expect(updates.some((update) => update.details.annotationCount === 1)).toBe(true);
     expect(updates.at(-1)!.details.status).toBe("pending");
     await client.sessionResolve(sessionId, "request_changes", "Too aggressive.");
     client.close();
 
-    const result = (await resultP) as PiToolResult<ReviewDetails>;
+    const result = (await pendingResult) as PiToolResult<ReviewDetails>;
     expect(result.isError).toBe(true);
     expect(resultText(result)).toContain("# Review: request changes");
     expect(resultText(result)).toContain("Too aggressive.");
@@ -150,18 +150,18 @@ describe("pi adapter: request_review round-trip", () => {
     const handler = fake.toolCallHandlers[0]!;
     const controller = new AbortController();
     const plan = "# Abort Plan\n\nSomething slow.\n";
-    const resultP = tool.execute("t-abort", { plan }, controller.signal, undefined, makeCtx());
+    const pendingResult = tool.execute("t-abort", { plan }, controller.signal, undefined, makeContext());
 
     const sessionId = await waitForPendingSession("Abort Plan");
-    expect((await handler(toolCall("edit"), makeCtx()))?.block).toBe(true);
+    expect((await handler(toolCall("edit"), makeContext()))?.block).toBe(true);
     controller.abort();
 
-    const result = (await resultP) as PiToolResult<ReviewDetails>;
+    const result = (await pendingResult) as PiToolResult<ReviewDetails>;
     expect(result.isError).toBe(true);
     expect(resultText(result)).toContain("cancelled");
     expect(result.details.status).toBe("cancelled");
     expect(result.details.sessionId).toBe(sessionId);
-    expect(await handler(toolCall("edit"), makeCtx())).toBeUndefined();
+    expect(await handler(toolCall("edit"), makeContext())).toBeUndefined();
 
     // the session outlives the cancelled call; tidy it so later tests see a clean home
     const client = await DaemonClient.connect({ home });
@@ -175,60 +175,60 @@ describe("pi adapter: tool_call gate", () => {
     const fake = loadExtension();
     const tool = fake.tools.get("request_review")!;
     const handler = fake.toolCallHandlers[0]!;
-    const ctx = makeCtx();
+    const context = makeContext();
 
     // no session yet: nothing is blocked
-    expect(await handler(toolCall("edit"), ctx)).toBeUndefined();
+    expect(await handler(toolCall("edit"), context)).toBeUndefined();
 
     const plan = "# Gate Plan\n\nRefactor everything.\n";
-    const resultP = tool.execute("t-gate", { plan }, undefined, undefined, ctx);
+    const pendingResult = tool.execute("t-gate", { plan }, undefined, undefined, context);
     const sessionId = await waitForPendingSession("Gate Plan");
 
     for (const name of ["edit", "write", "bash", "some_custom_tool"]) {
-      const decision = await handler(toolCall(name), ctx);
+      const decision = await handler(toolCall(name), context);
       expect(decision?.block).toBe(true);
       expect(decision?.reason).toContain("cueloop review pending");
     }
     for (const name of ["read", "grep", "find", "ls", "request_review"]) {
-      expect(await handler(toolCall(name), ctx)).toBeUndefined();
+      expect(await handler(toolCall(name), context)).toBeUndefined();
     }
 
     const client = await DaemonClient.connect({ home });
     await client.sessionResolve(sessionId, "approve", "Fine.");
     client.close();
-    await resultP;
+    await pendingResult;
 
-    expect(await handler(toolCall("edit"), ctx)).toBeUndefined();
-    expect(await handler(toolCall("bash"), ctx)).toBeUndefined();
+    expect(await handler(toolCall("edit"), context)).toBeUndefined();
+    expect(await handler(toolCall("bash"), context)).toBeUndefined();
   }, 15_000);
 });
 
 describe("pi adapter: review command", () => {
-  test("reports session status via ctx.ui", async () => {
+  test("reports session status via context.ui", async () => {
     const fake = loadExtension();
     const command = fake.commands.get("review")!;
     const notes: string[] = [];
-    const ctx = makeCtx(notes);
+    const context = makeContext(notes);
 
     // before any review from this extension instance
-    await command.handler("", ctx);
+    await command.handler("", context);
     expect(notes.length).toBe(1);
 
     const tool = fake.tools.get("request_review")!;
     const plan = "# Status Plan\n\nCheck status reporting.\n";
-    const resultP = tool.execute("t-status", { plan }, undefined, undefined, ctx);
+    const pendingResult = tool.execute("t-status", { plan }, undefined, undefined, context);
     const sessionId = await waitForPendingSession("Status Plan");
 
-    await command.handler("", ctx);
+    await command.handler("", context);
     expect(notes.at(-1)).toContain(sessionId);
     expect(notes.at(-1)).toContain("pending");
 
     const client = await DaemonClient.connect({ home });
     await client.sessionResolve(sessionId, "approve", "OK.");
     client.close();
-    await resultP;
+    await pendingResult;
 
-    await command.handler("", ctx);
+    await command.handler("", context);
     expect(notes.at(-1)).toContain("resolved: approve");
   }, 15_000);
 });

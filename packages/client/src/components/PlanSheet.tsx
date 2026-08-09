@@ -23,7 +23,7 @@ import {
   type Mark,
   type SpanState,
   type StyleRun,
-} from "../view";
+} from "../view-plan";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { CodeBlock } from "./CodeBlock";
@@ -32,7 +32,7 @@ import { Button } from "./primitives/Button";
 import { Toolbar } from "./primitives/Toolbar";
 
 export interface PlanSelection {
-  dispIdx: number;
+  displayIndex: number;
   start: number;
   end: number;
 }
@@ -43,12 +43,12 @@ export interface PlanSheetHandle {
   /** Anchor/extend the renderer's native selection from keyboard span offsets. */
   driveSpanSelection(span: SpanState): void;
   clearSelection(): void;
-  revealBlock(dispIdx: number): void;
+  revealBlock(displayIndex: number): void;
 }
 
 export interface PlanComposeState {
   kind: "comment" | "suggestion";
-  dispIdx: number;
+  displayIndex: number;
   quote: string;
   draft: AnnotationDraft;
 }
@@ -59,10 +59,10 @@ export interface PlanSheetProps {
   marks: Map<number, Mark[]>;
   cursor: number;
   /** Extra selection-style paint on one block (keyboard span or compose anchor). */
-  activeSpan: { dispIdx: number; start: number; end: number } | null;
+  activeSpan: { displayIndex: number; start: number; end: number } | null;
   compose: PlanComposeState | null;
   editOrphanCount: number;
-  onLineActivate: (dispIdx: number) => void;
+  onLineActivate: (displayIndex: number) => void;
   onEditRequest: () => void;
   theme?: Theme;
 }
@@ -110,17 +110,17 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     readSelection: (): PlanSelection | null => {
       if (!renderer?.hasSelection) return null;
       const ordered = [...blockRefs.current.entries()].sort(([a], [b]) => a - b);
-      for (const [dispIdx, blockRef] of ordered) {
+      for (const [displayIndex, blockRef] of ordered) {
         const selection = blockRef.renderable.getSelection();
         if (!selection || selection.end <= selection.start) continue;
         const range = workRangeForRendered(blockRef.runs, selection.start, selection.end);
-        if (range) return { dispIdx, ...range };
+        if (range) return { displayIndex, ...range };
       }
       return null;
     },
     driveSpanSelection: (span: SpanState): void => {
       if (!renderer) return;
-      const blockRef = blockRefs.current.get(span.dispIdx);
+      const blockRef = blockRefs.current.get(span.displayIndex);
       if (!blockRef) return;
       const renderedStart = renderedOffsetFor(blockRef.runs, span.start);
       const renderedEnd = renderedOffsetFor(blockRef.runs, span.end - 1);
@@ -133,48 +133,48 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     clearSelection: (): void => {
       renderer?.clearSelection();
     },
-    revealBlock: (dispIdx: number): void => {
+    revealBlock: (displayIndex: number): void => {
       try {
-        scrollRef.current?.scrollChildIntoView(`plan-block-${dispIdx}`);
+        scrollRef.current?.scrollChildIntoView(`plan-block-${displayIndex}`);
       } catch {
         // reveal is best-effort; selection state is already correct
       }
     },
   }));
 
-  const registerBlock = (dispIdx: number, renderable: TextRenderable | null, runs: StyleRun[]): void => {
-    if (renderable) blockRefs.current.set(dispIdx, { renderable, runs });
-    else blockRefs.current.delete(dispIdx);
+  const registerBlock = (displayIndex: number, renderable: TextRenderable | null, runs: StyleRun[]): void => {
+    if (renderable) blockRefs.current.set(displayIndex, { renderable, runs });
+    else blockRefs.current.delete(displayIndex);
   };
   // stale refs must not survive a shrinking display list
   useEffect(() => {
-    for (const dispIdx of blockRefs.current.keys()) {
-      if (dispIdx >= display.length) blockRefs.current.delete(dispIdx);
+    for (const displayIndex of blockRefs.current.keys()) {
+      if (displayIndex >= display.length) blockRefs.current.delete(displayIndex);
     }
   }, [display]);
 
   const children: React.ReactNode[] = [];
-  for (let dispIdx = 0; dispIdx < display.length; dispIdx++) {
-    const block = display[dispIdx]!;
-    const isCursor = dispIdx === cursor;
-    const gap = topGap(display[dispIdx - 1], block);
+  for (let displayIndex = 0; displayIndex < display.length; displayIndex++) {
+    const block = display[displayIndex]!;
+    const isCursor = displayIndex === cursor;
+    const gap = topGap(display[displayIndex - 1], block);
     if (block.kind === "code") {
       children.push(
         <CodeBlock
-          key={dispIdx}
-          id={`plan-block-${dispIdx}`}
+          key={displayIndex}
+          id={`plan-block-${displayIndex}`}
           language={(block.work ?? block.base)?.lang}
           content={displayText(block)}
           isCursor={isCursor}
           marginTop={gap}
-          isAnnotated={(marks.get(dispIdx) ?? []).length > 0}
+          isAnnotated={(marks.get(displayIndex) ?? []).length > 0}
           changeTag={block.type !== "same" ? tagLabel(block) : undefined}
           theme={theme}
         />,
       );
     } else {
-      const blockMarks = [...(marks.get(dispIdx) ?? [])];
-      if (activeSpan && activeSpan.dispIdx === dispIdx) {
+      const blockMarks = [...(marks.get(displayIndex) ?? [])];
+      if (activeSpan && activeSpan.displayIndex === displayIndex) {
         blockMarks.push({ start: activeSpan.start, end: activeSpan.end, role: "kspan" });
       }
       const runs = overlayMarks(blockRuns(block, true), blockMarks);
@@ -182,7 +182,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
       const mappedRuns: StyleRun[] =
         block.type !== "same" ? [...runs, { text: ` [${tagLabel(block)}]`, role: "plain", start: null }] : runs;
       children.push(
-        <box key={dispIdx} id={`plan-block-${dispIdx}`} style={{ flexDirection: "row", marginTop: gap }}>
+        <box key={displayIndex} id={`plan-block-${displayIndex}`} style={{ flexDirection: "row", marginTop: gap }}>
           <text selectable={false}>
             <span fg={isCursor ? tokens.accent : tokens.textDim}>{isCursor ? "▎ " : "  "}</span>
             <span fg={tokens.textDim}>{marker(block)}</span>
@@ -193,8 +193,8 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
             selectionBg={tokens.accent}
             selectionFg={tokens.accentInk}
             style={{ wrapMode: "word", flexGrow: 1, flexShrink: 1 }}
-            ref={(renderable: TextRenderable | null) => registerBlock(dispIdx, renderable, mappedRuns)}
-            onMouseUp={() => onLineActivate(dispIdx)}
+            ref={(renderable: TextRenderable | null) => registerBlock(displayIndex, renderable, mappedRuns)}
+            onMouseUp={() => onLineActivate(displayIndex)}
           >
             {runs.map((run, runIndex) => (
               <span key={runIndex} {...runStyle(run, block, tokens)}>
@@ -206,9 +206,9 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
         </box>,
       );
     }
-    if (compose && compose.dispIdx === dispIdx) {
+    if (compose && compose.displayIndex === displayIndex) {
       children.push(
-        <AnnotationCard key={`compose-${dispIdx}`} kind={compose.kind} quote={compose.quote} draft={compose.draft} theme={theme} />,
+        <AnnotationCard key={`compose-${displayIndex}`} kind={compose.kind} quote={compose.quote} draft={compose.draft} theme={theme} />,
       );
     }
   }
@@ -274,7 +274,7 @@ function topGap(previous: DisplayBlock | undefined, current: DisplayBlock): numb
 
 function marker(block: DisplayBlock): string {
   if (block.kind === "li") return "- ";
-  if (block.kind === "oli") return `${block.oliNum ?? 1}. `;
+  if (block.kind === "oli") return `${block.orderedItemNumber ?? 1}. `;
   if (block.kind === "quote") return "▏ ";
   return "";
 }

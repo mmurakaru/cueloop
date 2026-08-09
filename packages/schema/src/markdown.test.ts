@@ -30,7 +30,7 @@ const y = 2;
 describe("parseBlocks", () => {
   test("parses every block kind with source line ranges", () => {
     const blocks = parseBlocks(SAMPLE);
-    expect(blocks.map((b) => b.kind)).toEqual([
+    expect(blocks.map((block) => block.kind)).toEqual([
       "h1",
       "h2",
       "p",
@@ -43,7 +43,7 @@ describe("parseBlocks", () => {
       "quote",
       "hr",
     ]);
-    const code = blocks.find((b) => b.kind === "code")!;
+    const code = blocks.find((block) => block.kind === "code")!;
     expect(code.lang).toBe("ts");
     expect(code.text).toBe("const x = 1;\nconst y = 2;");
     // fence lines included in the source range
@@ -52,49 +52,49 @@ describe("parseBlocks", () => {
 
   test("multi-line paragraph keeps its text and range", () => {
     const blocks = parseBlocks(SAMPLE);
-    const p = blocks.find((b) => b.kind === "p")!;
-    expect(p.text).toBe("A paragraph that\nspans two lines.");
-    expect(p.lineEnd - p.lineStart).toBe(1);
+    const paragraph = blocks.find((block) => block.kind === "p")!;
+    expect(paragraph.text).toBe("A paragraph that\nspans two lines.");
+    expect(paragraph.lineEnd - paragraph.lineStart).toBe(1);
   });
 
   test("line ranges index into the source", () => {
     const lines = SAMPLE.split("\n");
-    for (const b of parseBlocks(SAMPLE)) {
-      if (b.kind === "code") {
-        expect(lines[b.lineStart]!.startsWith("```")).toBe(true);
-      } else if (b.kind === "h2") {
-        expect(lines[b.lineStart]!.startsWith("## ")).toBe(true);
+    for (const block of parseBlocks(SAMPLE)) {
+      if (block.kind === "code") {
+        expect(lines[block.lineStart]!.startsWith("```")).toBe(true);
+      } else if (block.kind === "h2") {
+        expect(lines[block.lineStart]!.startsWith("## ")).toBe(true);
       }
     }
   });
 
   test("round-trips through blockToMd", () => {
     const blocks = parseBlocks(SAMPLE);
-    let oli = 0;
+    let orderedItemCount = 0;
     const rebuilt = blocks
-      .map((b) => {
-        oli = b.kind === "oli" ? oli + 1 : 0;
-        return blockToMd(b, oli || 1);
+      .map((block) => {
+        orderedItemCount = block.kind === "oli" ? orderedItemCount + 1 : 0;
+        return blockToMd(block, orderedItemCount || 1);
       })
       .join("\n\n");
     // re-parsing the rebuild yields the same kinds and texts
     const again = parseBlocks(rebuilt);
-    expect(again.map((b) => [b.kind, b.text])).toEqual(blocks.map((b) => [b.kind, b.text]));
+    expect(again.map((block) => [block.kind, block.text])).toEqual(blocks.map((block) => [block.kind, block.text]));
   });
 
   test("unknown constructs degrade to paragraphs, no content lost", () => {
     const md = "| a | b |\n|---|---|\n| 1 | 2 |";
     const blocks = parseBlocks(md);
-    expect(blocks.map((b) => b.text).join("\n")).toContain("| a | b |");
+    expect(blocks.map((block) => block.text).join("\n")).toContain("| a | b |");
   });
 });
 
 describe("sectionOf", () => {
   test("returns the nearest preceding heading", () => {
     const blocks = parseBlocks(SAMPLE);
-    const oliIdx = blocks.findIndex((b) => b.kind === "oli");
-    expect(sectionOf(blocks, oliIdx)).toBe("Steps");
-    const pIdx = blocks.findIndex((b) => b.kind === "p");
-    expect(sectionOf(blocks, pIdx)).toBe("Context");
+    const orderedItemIndex = blocks.findIndex((block) => block.kind === "oli");
+    expect(sectionOf(blocks, orderedItemIndex)).toBe("Steps");
+    const paragraphIndex = blocks.findIndex((block) => block.kind === "p");
+    expect(sectionOf(blocks, paragraphIndex)).toBe("Context");
   });
 });

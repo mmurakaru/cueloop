@@ -1,5 +1,5 @@
 /**
- * SSH-served TUI (#22 share path): `cueloop serve` lets teammates join a
+ * SSH-served TUI: `cueloop serve` lets teammates join a
  * review session over plain ssh. Every SSH connection renders <App> in
  * observer mode (readOnly) against the same local daemon; the one writable
  * controller stays the local owner's own `cueloop` TUI.
@@ -44,8 +44,8 @@ export interface ServeHandle {
   close(): Promise<void>;
 }
 
-export async function serveClient(opts: ServeOptions = {}): Promise<ServeHandle> {
-  const home = opts.home ?? cueloopHome();
+export async function serveClient(options: ServeOptions = {}): Promise<ServeHandle> {
+  const home = options.home ?? cueloopHome();
   const sshDir = join(home, "ssh");
   mkdirSync(sshDir, { recursive: true, mode: 0o700 });
 
@@ -53,15 +53,15 @@ export async function serveClient(opts: ServeOptions = {}): Promise<ServeHandle>
     // password-less by design; see the trust model in the module comment
     auth: "open",
     hostKey: { path: join(sshDir, "host_key") },
-    startupBanner: opts.banner ?? true,
+    startupBanner: options.banner ?? true,
     idleTimeout: "2h",
-    onError: opts.onError,
+    onError: options.onError,
   }).serve((session) => {
     const root = createRoot(session.renderer);
     root.render(
       React.createElement(App, {
         home,
-        sessionId: opts.sessionId,
+        sessionId: options.sessionId,
         readOnly: true,
         // q disconnects only this observer, never the server
         onExit: () => session.end(),
@@ -70,6 +70,6 @@ export async function serveClient(opts: ServeOptions = {}): Promise<ServeHandle>
     session.onClose(() => root.unmount());
   });
 
-  const info = await server.listen(opts.port ?? 2222, opts.host ?? "127.0.0.1");
+  const info = await server.listen(options.port ?? 2222, options.host ?? "127.0.0.1");
   return { ...info, close: () => server.close() };
 }

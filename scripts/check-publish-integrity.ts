@@ -19,8 +19,8 @@ const devMode = process.argv.includes("--dev");
 
 const problems: string[] = [];
 const paths: string[] = [];
-for await (const p of new Bun.Glob("packages/*/package.json").scan(".")) paths.push(p);
-for await (const p of new Bun.Glob("packages/integrations/*/package.json").scan(".")) paths.push(p);
+for await (const path of new Bun.Glob("packages/*/package.json").scan(".")) paths.push(path);
+for await (const path of new Bun.Glob("packages/integrations/*/package.json").scan(".")) paths.push(path);
 
 const work = mkdtempSync(join(tmpdir(), "cueloop-pack-"));
 try {
@@ -55,8 +55,8 @@ try {
       .toString()
       .trim()
       .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.endsWith(".tgz"))
+      .map((line) => line.trim())
+      .filter((line) => line.endsWith(".tgz"))
       .pop();
     if (!tarball) {
       problems.push(`${pkg.name}: npm pack named no tarball (stdout: ${packed.stdout.toString().trim().slice(0, 120)})`);
@@ -71,7 +71,7 @@ try {
       listed.stdout
         .toString()
         .split("\n")
-        .map((l) => l.trim().replace(/^package\//, ""))
+        .map((line) => line.trim().replace(/^package\//, ""))
         .filter(Boolean),
     );
     const targets: string[] = [];
@@ -95,7 +95,7 @@ try {
 
 if (problems.length) {
   console.error("publish integrity check failed:");
-  for (const p of problems) console.error(`  - ${p}`);
+  for (const problem of problems) console.error(`  - ${problem}`);
   process.exit(1);
 }
 console.log(

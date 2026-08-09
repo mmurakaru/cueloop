@@ -1,5 +1,5 @@
 /**
- * The review-session controller (#70): every daemon round-trip and mutation
+ * The review-session controller: every daemon round-trip and mutation
  * verb behind one React-free object. It owns connect/autostart/subscribe,
  * the session/inbox/status/error snapshot, optimistic apply, the mutation
  * verbs (cut/edit/annotate/submit/...), and the post-submit completion
@@ -22,7 +22,7 @@ import {
 } from "@cueloop/schema";
 import { Registry, type Exporter } from "@cueloop/extension-api";
 import { createObsidianExtension, shouldExport, type ObsidianConfig } from "@cueloop/integration-obsidian";
-import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view";
+import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
 import { editInEditor } from "./editor";
@@ -81,8 +81,8 @@ export interface ReviewController {
   connect(): void;
   close(): void;
   /** Loaded config parts the controller acts on: auto-close and exporters. */
-  applyConfig(cfg: CueloopConfig): void;
-  setStatus(msg: string): void;
+  applyConfig(config: CueloopConfig): void;
+  setStatus(message: string): void;
   /** Derived projections, cached per session identity. */
   display(): DisplayBlock[];
   rows(): DiffRow[];
@@ -92,14 +92,14 @@ export interface ReviewController {
   /** Open a session from the inbox. */
   open(id: string): void;
   /** Cut the block under the cursor, or restore a cut one. */
-  cut(dispIdx: number): void;
+  cut(displayIndex: number): void;
   /** The $EDITOR hand-off on the working copy. */
   edit(): void;
   /**
    * Anchor and store an annotation; both plan and diff anchor constructions.
    * Returns the minted annotation id so the view can select the new card.
    */
-  annotate(kind: "comment" | "suggestion", dispIdx: number, start: number, end: number, body: string): string | undefined;
+  annotate(kind: "comment" | "suggestion", displayIndex: number, start: number, end: number, body: string): string | undefined;
   /** Rewrite a stored annotation's body in place (the rail-card edit). */
   updateAnnotation(id: string, body: string): void;
   removeAnnotation(id: string): void;
@@ -120,15 +120,15 @@ export interface ReviewController {
   optInAutoClose(): void;
 }
 
-export function createReviewController(opts: ReviewControllerOptions): ReviewController {
-  return new Controller(opts);
+export function createReviewController(options: ReviewControllerOptions): ReviewController {
+  return new Controller(options);
 }
 
 class Controller implements ReviewController {
   readonly readOnly: boolean;
   private client: DaemonClient | null = null;
   private closed = false;
-  private snap: ControllerSnapshot = {
+  private snapshot: ControllerSnapshot = {
     session: null,
     inbox: null,
     status: "",
@@ -151,9 +151,9 @@ class Controller implements ReviewController {
     files: [],
   };
 
-  constructor(private readonly opts: ReviewControllerOptions) {
-    this.readOnly = opts.readOnly ?? false;
-    this.clock = opts.clock ?? new SystemClock();
+  constructor(private readonly options: ReviewControllerOptions) {
+    this.readOnly = options.readOnly ?? false;
+    this.clock = options.clock ?? new SystemClock();
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -161,28 +161,28 @@ class Controller implements ReviewController {
     return () => this.listeners.delete(listener);
   };
 
-  getSnapshot = (): ControllerSnapshot => this.snap;
+  getSnapshot = (): ControllerSnapshot => this.snapshot;
 
   private update(patch: Partial<ControllerSnapshot>): void {
-    this.snap = { ...this.snap, ...patch };
-    for (const l of this.listeners) l();
+    this.snapshot = { ...this.snapshot, ...patch };
+    for (const listener of this.listeners) listener();
   }
 
   connect(): void {
     void (async () => {
       try {
-        const client = await DaemonClient.connect({ home: this.opts.home, autostart: true });
+        const client = await DaemonClient.connect({ home: this.options.home, autostart: true });
         if (this.closed) return void client.close();
         this.client = client;
-        client.onEvent((e) => {
+        client.onEvent((event) => {
           // another controller/observer changed state: re-fetch
-          const s = this.snap.session;
-          if (s && e.sessionId === s.id) void this.refreshSession(s.id);
-          if (!this.opts.sessionId) void this.refreshInbox();
+          const session = this.snapshot.session;
+          if (session && event.sessionId === session.id) void this.refreshSession(session.id);
+          if (!this.options.sessionId) void this.refreshInbox();
         });
         await client.subscribe();
-        if (this.opts.sessionId) {
-          this.update({ session: await client.sessionGet(this.opts.sessionId) });
+        if (this.options.sessionId) {
+          this.update({ session: await client.sessionGet(this.options.sessionId) });
         } else {
           this.update({ inbox: await client.sessionList({ status: "pending" }) });
         }
@@ -203,28 +203,28 @@ class Controller implements ReviewController {
     this.countdown = undefined;
   }
 
-  applyConfig(cfg: CueloopConfig): void {
-    this.autoClose = cfg.ui.autoClose;
-    this.obsidian = cfg.integrations.obsidian;
+  applyConfig(config: CueloopConfig): void {
+    this.autoClose = config.ui.autoClose;
+    this.obsidian = config.integrations.obsidian;
     // bundled integrations register through the public extension API
     const registry = new Registry();
-    void registry.load("obsidian", createObsidianExtension(cfg.integrations.obsidian)).then((rec) => {
-      this.exporters = rec.exporters;
+    void registry.load("obsidian", createObsidianExtension(config.integrations.obsidian)).then((record) => {
+      this.exporters = record.exporters;
     });
   }
 
-  setStatus(msg: string): void {
-    this.update({ status: msg });
+  setStatus(message: string): void {
+    this.update({ status: message });
   }
 
   // ── derived projections ─────────────────────
   private ensureDerived(): void {
-    const s = this.snap.session;
-    if (this.derivedFor === s) return;
-    this.derivedFor = s;
-    const rows = s && s.artifact.type === "diff" ? diffRows(s.artifact.content) : [];
+    const session = this.snapshot.session;
+    if (this.derivedFor === session) return;
+    this.derivedFor = session;
+    const rows = session && session.artifact.type === "diff" ? diffRows(session.artifact.content) : [];
     this.derived = {
-      display: s ? buildDisplay(s.artifact.content, s.workingCopy) : [],
+      display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
       rows,
       files: walkFiles(rows),
     };
@@ -246,8 +246,8 @@ class Controller implements ReviewController {
   }
 
   working(): string {
-    const s = this.snap.session;
-    return s ? (s.workingCopy ?? s.artifact.content) : "";
+    const session = this.snapshot.session;
+    return session ? (session.workingCopy ?? session.artifact.content) : "";
   }
 
   // Refreshes race the connection teardown: an event can arrive while close()
@@ -270,41 +270,41 @@ class Controller implements ReviewController {
   }
 
   /** Optimistic apply: the daemon response is the next session snapshot. */
-  private apply(p: Promise<ReviewSession>): void {
-    p.then((session) => this.update({ session })).catch((e: unknown) =>
-      this.setStatus(String(e instanceof Error ? e.message : e)),
+  private apply(mutation: Promise<ReviewSession>): void {
+    mutation.then((session) => this.update({ session })).catch((error: unknown) =>
+      this.setStatus(String(error instanceof Error ? error.message : error)),
     );
   }
 
   // ── verbs ───────────────────────────────────
   open(id: string): void {
     this.locallyViewed.clear();
-    const cached = this.snap.inbox?.find((s) => s.id === id);
+    const cached = this.snapshot.inbox?.find((candidate) => candidate.id === id);
     if (cached) this.update({ session: cached });
     else void this.refreshSession(id);
   }
 
-  cut(dispIdx: number): void {
-    const session = this.snap.session;
+  cut(displayIndex: number): void {
+    const session = this.snapshot.session;
     if (!session || session.status === "resolved") return;
-    const d = this.display()[dispIdx];
-    if (!d) return;
+    const block = this.display()[displayIndex];
+    if (!block) return;
     const working = this.working();
-    if (d.type === "del") {
-      const line = restoreLine(nextWorkBlock(this.display(), dispIdx), working.split("\n").length);
+    if (block.type === "del") {
+      const line = restoreLine(nextWorkBlock(this.display(), displayIndex), working.split("\n").length);
       // restoreBlock returns undefined when the block structure round-trips
       // to the submitted revision - the working copy is gone
-      const restored = restoreBlock(session.artifact.content, working, d.base!, line);
+      const restored = restoreBlock(session.artifact.content, working, block.base!, line);
       this.setWorkingCopy(restored);
       this.setStatus("cut restored");
-    } else if (d.work) {
-      this.setWorkingCopy(cutBlock(working, d.work));
+    } else if (block.work) {
+      this.setWorkingCopy(cutBlock(working, block.work));
       this.setStatus("block cut - it serializes into the diff");
     }
   }
 
   edit(): void {
-    const session = this.snap.session;
+    const session = this.snapshot.session;
     if (!session || session.status === "resolved") return;
     try {
       const result = editInEditor(this.working(), "plan.md");
@@ -334,21 +334,21 @@ class Controller implements ReviewController {
 
   annotate(
     kind: "comment" | "suggestion",
-    dispIdx: number,
+    displayIndex: number,
     start: number,
     end: number,
     body: string,
   ): string | undefined {
-    const session = this.snap.session;
+    const session = this.snapshot.session;
     if (!session) return undefined;
     let anchor;
     if (session.artifact.type === "diff") {
-      anchor = { ...diffRowAnchor(this.rows(), dispIdx), blockIndex: dispIdx };
+      anchor = { ...diffRowAnchor(this.rows(), displayIndex), blockIndex: displayIndex };
     } else {
       const display = this.display();
-      const workBlocks = display.filter((d) => d.work).map((d) => d.work!);
-      const workIdx = display.slice(0, dispIdx + 1).filter((d) => d.work).length - 1;
-      anchor = makeAnchor(workBlocks, workIdx, start, end);
+      const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);
+      const workBlockIndex = display.slice(0, displayIndex + 1).filter((entry) => entry.work).length - 1;
+      anchor = makeAnchor(workBlocks, workBlockIndex, start, end);
     }
     const annotationId = newAnnotationId();
     this.apply(
@@ -364,7 +364,7 @@ class Controller implements ReviewController {
   }
 
   updateAnnotation(id: string, body: string): void {
-    const session = this.snap.session;
+    const session = this.snapshot.session;
     if (!session) return;
     const existing = session.annotations.find((annotation) => annotation.id === id);
     if (!existing) return;
@@ -381,14 +381,14 @@ class Controller implements ReviewController {
   }
 
   removeAnnotation(id: string): void {
-    const session = this.snap.session;
+    const session = this.snapshot.session;
     if (!session) return;
     this.apply(this.client!.sessionRemoveAnnotation(session.id, id));
     this.setStatus("annotation deleted");
   }
 
   setWorkingCopy(content: string | undefined): void {
-    const session = this.snap.session;
+    const session = this.snapshot.session;
     if (!session) return;
     this.apply(this.client!.sessionSetWorkingCopy(session.id, content));
   }
@@ -399,11 +399,11 @@ class Controller implements ReviewController {
   private locallyViewed = new Set<string>();
 
   private viewedSet(): Set<string> {
-    return new Set([...(this.snap.session?.viewedPaths ?? []), ...this.locallyViewed]);
+    return new Set([...(this.snapshot.session?.viewedPaths ?? []), ...this.locallyViewed]);
   }
 
   walkStart(): void {
-    const session = this.snap.session;
+    const session = this.snapshot.session;
     if (!session || session.artifact.type !== "diff") return;
     const files = this.files();
     if (files.length === 0) return this.setStatus("nothing to walk - the diff is empty");
@@ -412,8 +412,8 @@ class Controller implements ReviewController {
   }
 
   walkForward(): void {
-    const walk = this.snap.walk;
-    const session = this.snap.session;
+    const walk = this.snapshot.walk;
+    const session = this.snapshot.session;
     if (!walk || !session) return;
     const files = this.files();
     const current = files[walk.index];
@@ -428,17 +428,17 @@ class Controller implements ReviewController {
   }
 
   walkBack(): void {
-    const walk = this.snap.walk;
+    const walk = this.snapshot.walk;
     if (!walk) return;
     this.update({ walk: { index: Math.max(0, walk.index - 1) } });
   }
 
   walkLeave(): void {
-    if (this.snap.walk) this.update({ walk: null });
+    if (this.snapshot.walk) this.update({ walk: null });
   }
 
   submit(verdict: VerdictKind, summary: string): void {
-    const session = this.snap.session;
+    const session = this.snapshot.session;
     if (!session) return;
     this.walkLeave();
     this.client!.sessionResolve(session.id, verdict, summary)
@@ -450,8 +450,8 @@ class Controller implements ReviewController {
         const obsidian = this.obsidian;
         const exporter = this.exporters.get("obsidian");
         if (obsidian && exporter && shouldExport(obsidian.exportOn, verdict)) {
-          void exporter(resolved).then((r) => {
-            this.setStatus(r.success && r.path ? `exported to ${r.path}` : `export failed: ${r.error ?? "unknown"}`);
+          void exporter(resolved).then((exportResult) => {
+            this.setStatus(exportResult.success && exportResult.path ? `exported to ${exportResult.path}` : `export failed: ${exportResult.error ?? "unknown"}`);
           });
         }
         // Hand the reviewer back to the agent. The default is a visible
@@ -462,7 +462,7 @@ class Controller implements ReviewController {
         else if (typeof delay === "number") this.startCounting(delay);
         else this.startCounting(DEFAULT_AUTO_CLOSE);
       })
-      .catch((e: unknown) => this.setStatus(String(e instanceof Error ? e.message : e)));
+      .catch((error: unknown) => this.setStatus(String(error instanceof Error ? error.message : error)));
   }
 
   // ── completion hand-back ────────────────────
@@ -474,9 +474,9 @@ class Controller implements ReviewController {
 
   finishReview(): void {
     this.clearCountdown();
-    const pane = returnPaneFor(this.snap.session?.artifact.meta.herdrPane);
+    const pane = returnPaneFor(this.snapshot.session?.artifact.meta.herdrPane);
     if (pane) focusHerdrPane(pane);
-    this.opts.onExit?.(0);
+    this.options.onExit?.(0);
   }
 
   dismissCompletion(): void {

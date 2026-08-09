@@ -38,7 +38,7 @@ afterEach(async () => {
 });
 
 /** Connect, open a PTY shell, resolve with the bytes seen until `until` matches. */
-function sshCapture(port: number, until: (s: string) => boolean, timeoutMs = 8000): Promise<string> {
+function sshCapture(port: number, until: (frame: string) => boolean, timeoutMs = 8000): Promise<string> {
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let out = "";
@@ -55,8 +55,8 @@ function sshCapture(port: number, until: (s: string) => boolean, timeoutMs = 800
       .on("ready", () => {
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, (err, stream) => {
           if (err) return finish(err);
-          stream.on("data", (d: Buffer) => {
-            out += d.toString("utf8");
+          stream.on("data", (chunk: Buffer) => {
+            out += chunk.toString("utf8");
             if (until(out)) finish();
           });
           stream.on("close", () => finish(new Error(`stream closed early; captured:\n${out}`)));
@@ -78,7 +78,7 @@ describe("cueloop serve", () => {
   });
 
   test("an anonymous ssh client gets the observer TUI for the session", async () => {
-    const bytes = await sshCapture(handle.port, (s) => s.includes("Rollout Plan") && s.includes("observer"));
+    const bytes = await sshCapture(handle.port, (frame) => frame.includes("Rollout Plan") && frame.includes("observer"));
     expect(bytes).toContain("cueloop");
     expect(bytes).toContain("Rollout Plan");
     // observer chrome, not the controller's mutating hint bar
@@ -87,8 +87,8 @@ describe("cueloop serve", () => {
 
   test("two observers can watch at once", async () => {
     const [a, b] = await Promise.all([
-      sshCapture(handle.port, (s) => s.includes("Rollout Plan")),
-      sshCapture(handle.port, (s) => s.includes("Rollout Plan")),
+      sshCapture(handle.port, (frame) => frame.includes("Rollout Plan")),
+      sshCapture(handle.port, (frame) => frame.includes("Rollout Plan")),
     ]);
     expect(a).toContain("Rollout Plan");
     expect(b).toContain("Rollout Plan");

@@ -88,16 +88,16 @@ afterAll(async () => {
 /** Create a PR diff session non-interactively and resolve it with one verdict. */
 async function createResolvedSession(pr: string, verdict: string, summary: string): Promise<ReviewSession> {
   const created = cliJson<ReviewSession>(await runCli(home, ["review", pr, "--no-tui"], undefined, ghEnv()));
-  const r = await runCli(home, ["session", "resolve", created.id, "--verdict", verdict, "--summary", summary]);
-  expect(r.code).toBe(0);
-  return cliJson<ReviewSession>(r);
+  const runResult = await runCli(home, ["session", "resolve", created.id, "--verdict", verdict, "--summary", summary]);
+  expect(runResult.code).toBe(0);
+  return cliJson<ReviewSession>(runResult);
 }
 
 describe("cueloop review (black box)", () => {
   test("--no-tui fetches the PR diff into a session and prints it", async () => {
-    const r = await runCli(home, ["review", "42", "--no-tui"], undefined, ghEnv());
-    expect(r.code).toBe(0);
-    const session = cliJson<ReviewSession>(r);
+    const runResult = await runCli(home, ["review", "42", "--no-tui"], undefined, ghEnv());
+    expect(runResult.code).toBe(0);
+    const session = cliJson<ReviewSession>(runResult);
     expect(session.id.startsWith("ses_")).toBe(true);
     expect(session.status).toBe("pending");
     expect(session.artifact.type).toBe("diff");
@@ -109,25 +109,25 @@ describe("cueloop review (black box)", () => {
 
   test("missing pr argument exits 2 without calling gh", async () => {
     const before = ghCalls().length;
-    const r = await runCli(home, ["review"], undefined, ghEnv());
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("usage: cueloop review <pr>");
+    const runResult = await runCli(home, ["review"], undefined, ghEnv());
+    expect(runResult.code).toBe(2);
+    expect(runResult.stderr).toContain("usage: cueloop review <pr>");
     expect(ghCalls().length).toBe(before);
   });
 
   test("gh diff failure surfaces gh's stderr and exits 1", async () => {
-    const r = await runCli(home, ["review", "GH_FAIL", "--no-tui"], undefined, ghEnv());
-    expect(r.code).toBe(1);
-    expect(r.stderr).toContain("Could not resolve to a PullRequest");
+    const runResult = await runCli(home, ["review", "GH_FAIL", "--no-tui"], undefined, ghEnv());
+    expect(runResult.code).toBe(1);
+    expect(runResult.stderr).toContain("Could not resolve to a PullRequest");
   });
 });
 
 describe("cueloop review-post (black box)", () => {
   test("approve maps to gh pr review --approve with feedback.md as body", async () => {
     const session = await createResolvedSession("42", "approve", "Ship it.");
-    const r = await runCli(home, ["review-post", session.id, "42"], undefined, ghEnv());
-    expect(r.code).toBe(0);
-    expect(r.stdout).toContain("posted approve review to PR 42");
+    const runResult = await runCli(home, ["review-post", session.id, "42"], undefined, ghEnv());
+    expect(runResult.code).toBe(0);
+    expect(runResult.stdout).toContain("posted approve review to PR 42");
     const call = ghCalls().at(-1)!;
     expect(call.slice(0, 4)).toEqual(["pr", "review", "42", "--approve"]);
     expect(call[4]).toBe("--body");
@@ -137,8 +137,8 @@ describe("cueloop review-post (black box)", () => {
 
   test("request_changes maps to --request-changes", async () => {
     const session = await createResolvedSession("43", "request_changes", "Rename the constant.");
-    const r = await runCli(home, ["review-post", session.id, "43"], undefined, ghEnv());
-    expect(r.code).toBe(0);
+    const runResult = await runCli(home, ["review-post", session.id, "43"], undefined, ghEnv());
+    expect(runResult.code).toBe(0);
     const call = ghCalls().at(-1)!;
     expect(call.slice(0, 4)).toEqual(["pr", "review", "43", "--request-changes"]);
     expect(call[5]).toContain("Rename the constant.");
@@ -146,8 +146,8 @@ describe("cueloop review-post (black box)", () => {
 
   test("comment maps to --comment", async () => {
     const session = await createResolvedSession("44", "comment", "Looks reasonable overall.");
-    const r = await runCli(home, ["review-post", session.id, "44"], undefined, ghEnv());
-    expect(r.code).toBe(0);
+    const runResult = await runCli(home, ["review-post", session.id, "44"], undefined, ghEnv());
+    expect(runResult.code).toBe(0);
     const call = ghCalls().at(-1)!;
     expect(call.slice(0, 4)).toEqual(["pr", "review", "44", "--comment"]);
     expect(call[5]).toContain("Looks reasonable overall.");
@@ -165,10 +165,10 @@ describe("cueloop review-post (black box)", () => {
       "Why bump to 2?",
     ]);
     expect(a.code).toBe(0);
-    const res = await runCli(home, ["session", "resolve", created.id, "--verdict", "request_changes", "--summary", "Explain the bump."]);
-    expect(res.code).toBe(0);
-    const r = await runCli(home, ["review-post", created.id, "45"], undefined, ghEnv());
-    expect(r.code).toBe(0);
+    const parsed = await runCli(home, ["session", "resolve", created.id, "--verdict", "request_changes", "--summary", "Explain the bump."]);
+    expect(parsed.code).toBe(0);
+    const runResult = await runCli(home, ["review-post", created.id, "45"], undefined, ghEnv());
+    expect(runResult.code).toBe(0);
     const body = ghCalls().at(-1)![5]!;
     expect(body).toContain("Why bump to 2?");
     expect(body).toContain("Explain the bump.");
@@ -177,22 +177,22 @@ describe("cueloop review-post (black box)", () => {
   test("unresolved session posts nothing and exits 1", async () => {
     const created = cliJson<ReviewSession>(await runCli(home, ["review", "46", "--no-tui"], undefined, ghEnv()));
     const before = ghCalls().length;
-    const r = await runCli(home, ["review-post", created.id, "46"], undefined, ghEnv());
-    expect(r.code).toBe(1);
-    expect(r.stderr).toContain("nothing was posted to PR 46");
+    const runResult = await runCli(home, ["review-post", created.id, "46"], undefined, ghEnv());
+    expect(runResult.code).toBe(1);
+    expect(runResult.stderr).toContain("nothing was posted to PR 46");
     expect(ghCalls().length).toBe(before);
   });
 
   test("gh review failure exits 1", async () => {
     const session = await createResolvedSession("47", "approve", "Fine.");
-    const r = await runCli(home, ["review-post", session.id, "GH_FAIL"], undefined, ghEnv());
-    expect(r.code).toBe(1);
-    expect(r.stderr).toContain("Could not resolve to a PullRequest");
+    const runResult = await runCli(home, ["review-post", session.id, "GH_FAIL"], undefined, ghEnv());
+    expect(runResult.code).toBe(1);
+    expect(runResult.stderr).toContain("Could not resolve to a PullRequest");
   });
 
   test("missing arguments exit 2", async () => {
-    const r = await runCli(home, ["review-post"], undefined, ghEnv());
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("usage: cueloop review-post <session-id> <pr>");
+    const runResult = await runCli(home, ["review-post"], undefined, ghEnv());
+    expect(runResult.code).toBe(2);
+    expect(runResult.stderr).toContain("usage: cueloop review-post <session-id> <pr>");
   });
 });

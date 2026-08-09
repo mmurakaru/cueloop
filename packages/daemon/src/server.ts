@@ -1,6 +1,6 @@
 /**
  * The socket server: binds DaemonCore's methods to the unix socket, owns the
- * pidfile, stale-socket cleanup, and the idle-exit timer (#14). File
+ * pidfile, stale-socket cleanup, and the idle-exit timer. File
  * permissions are the local auth: the socket and state dir are 0700/0600.
  */
 
@@ -11,7 +11,7 @@ import { isKnownMethod, parseParams } from "./validate";
 import { BackpressureWriter, LineBuffer, type Request } from "./protocol";
 import { cueloopHome, lockPath, pidPath, socketPath } from "./paths";
 
-interface Conn {
+interface Connection {
   write(data: string): void;
   subscribed: boolean;
 }
@@ -33,20 +33,20 @@ const HELD_HOMES = new Set<string>();
 export class DaemonServer {
   readonly core: DaemonCore;
   readonly home: string;
-  private conns = new Set<Conn>();
+  private connections = new Set<Connection>();
   private server: ReturnType<typeof Bun.listen> | null = null;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private lockFd: number | null = null;
   private readonly idleExitMs: number;
   private readonly onIdleExit: () => void;
 
-  constructor(opts: DaemonOptions = {}) {
-    this.home = opts.home ?? cueloopHome();
-    this.idleExitMs = opts.idleExitMs ?? 15 * 60 * 1000;
-    this.onIdleExit = opts.onIdleExit ?? (() => process.exit(0));
+  constructor(options: DaemonOptions = {}) {
+    this.home = options.home ?? cueloopHome();
+    this.idleExitMs = options.idleExitMs ?? 15 * 60 * 1000;
+    this.onIdleExit = options.onIdleExit ?? (() => process.exit(0));
     mkdirSync(this.home, { recursive: true, mode: 0o700 });
     this.core = new DaemonCore(this.home);
-    this.core.onEvent((e) => this.broadcast(e));
+    this.core.onEvent((event) => this.broadcast(event));
   }
 
   /**
@@ -119,19 +119,19 @@ export class DaemonServer {
     // socket file left behind is stale
     if (existsSync(path)) rmSync(path, { force: true });
     const self = this;
-    this.server = Bun.listen<{ buffer: LineBuffer; conn: Conn; writer: BackpressureWriter }>({
+    this.server = Bun.listen<{ buffer: LineBuffer; connection: Connection; writer: BackpressureWriter }>({
       unix: path,
       socket: {
         open(socket) {
           const writer = new BackpressureWriter(socket);
-          const conn: Conn = { write: (data) => writer.write(data), subscribed: false };
-          socket.data = { buffer: new LineBuffer(), conn, writer };
-          self.conns.add(conn);
+          const connection: Connection = { write: (data) => writer.write(data), subscribed: false };
+          socket.data = { buffer: new LineBuffer(), connection, writer };
+          self.connections.add(connection);
           self.scheduleIdleCheck();
         },
         data(socket, data) {
           socket.data.buffer.push(data.toString(), (line) => {
-            void self.handleLine(socket.data.conn, line);
+            void self.respondToRequestLine(socket.data.connection, line);
           });
         },
         drain(socket) {
@@ -140,7 +140,7 @@ export class DaemonServer {
           socket.data?.writer.drain();
         },
         close(socket) {
-          self.conns.delete(socket.data.conn);
+          self.connections.delete(socket.data.connection);
           self.scheduleIdleCheck();
         },
         error() {},
@@ -161,9 +161,9 @@ export class DaemonServer {
     this.releaseLock();
   }
 
-  private broadcast(e: DaemonEvent): void {
-    const frame = JSON.stringify(e) + "\n";
-    for (const c of this.conns) if (c.subscribed) c.write(frame);
+  private broadcast(event: DaemonEvent): void {
+    const frame = JSON.stringify(event) + "\n";
+    for (const connection of this.connections) if (connection.subscribed) connection.write(frame);
     this.scheduleIdleCheck();
   }
 
@@ -172,7 +172,7 @@ export class DaemonServer {
     if (this.idleExitMs <= 0) return;
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = setTimeout(() => {
-      if (this.conns.size === 0 && !this.core.hasPendingSessions()) {
+      if (this.connections.size === 0 && !this.core.hasPendingSessions()) {
         this.stop();
         this.onIdleExit();
       } else {
@@ -181,31 +181,31 @@ export class DaemonServer {
     }, this.idleExitMs);
   }
 
-  private async handleLine(conn: Conn, line: string): Promise<void> {
-    let req: Request;
+  private async respondToRequestLine(connection: Connection, line: string): Promise<void> {
+    let request: Request;
     try {
-      req = JSON.parse(line) as Request;
+      request = JSON.parse(line) as Request;
     } catch {
-      conn.write(JSON.stringify({ id: -1, error: { code: "bad_json", message: "unparseable request" } }) + "\n");
+      connection.write(JSON.stringify({ id: -1, error: { code: "bad_json", message: "unparseable request" } }) + "\n");
       return;
     }
     try {
-      const result = await this.dispatch(conn, req);
-      conn.write(JSON.stringify({ id: req.id, result }) + "\n");
+      const result = await this.dispatch(connection, request);
+      connection.write(JSON.stringify({ id: request.id, result }) + "\n");
     } catch (err) {
       const code = err instanceof DaemonError ? err.code : "internal";
       const message = err instanceof Error ? err.message : String(err);
-      conn.write(JSON.stringify({ id: req.id, error: { code, message } }) + "\n");
+      connection.write(JSON.stringify({ id: request.id, error: { code, message } }) + "\n");
     }
   }
 
-  private async dispatch(conn: Conn, req: Request): Promise<unknown> {
+  private async dispatch(connection: Connection, request: Request): Promise<unknown> {
     // The wire is untrusted JSON: validate before DaemonCore sees anything.
-    if (typeof req.method !== "string" || !isKnownMethod(req.method)) {
-      throw new DaemonError("unknown_method", `unknown method ${String(req.method)}`);
+    if (typeof request.method !== "string" || !isKnownMethod(request.method)) {
+      throw new DaemonError("unknown_method", `unknown method ${String(request.method)}`);
     }
     const core = this.core;
-    switch (req.method) {
+    switch (request.method) {
       case "daemon.ping":
         return { pid: process.pid };
       case "daemon.shutdown":
@@ -215,46 +215,46 @@ export class DaemonServer {
         }, 10);
         return {};
       case "events.subscribe":
-        conn.subscribed = true;
+        connection.subscribed = true;
         return {};
       case "session.create": {
-        const p = parseParams("session.create", req.params);
-        return core.sessionCreate({ workspace: p.workspace, artifact: p.artifact });
+        const params = parseParams("session.create", request.params);
+        return core.sessionCreate({ workspace: params.workspace, artifact: params.artifact });
       }
       case "session.get":
-        return core.sessionGet(parseParams("session.get", req.params).id);
+        return core.sessionGet(parseParams("session.get", request.params).id);
       case "session.list":
-        return core.sessionList(parseParams("session.list", req.params).filter);
+        return core.sessionList(parseParams("session.list", request.params).filter);
       case "session.wait": {
-        const p = parseParams("session.wait", req.params);
-        return core.sessionWait(p.id, p.timeoutMs);
+        const params = parseParams("session.wait", request.params);
+        return core.sessionWait(params.id, params.timeoutMs);
       }
       case "session.annotate": {
-        const p = parseParams("session.annotate", req.params);
-        return core.sessionAnnotate(p.id, p.annotation);
+        const params = parseParams("session.annotate", request.params);
+        return core.sessionAnnotate(params.id, params.annotation);
       }
       case "session.removeAnnotation": {
-        const p = parseParams("session.removeAnnotation", req.params);
-        return core.sessionRemoveAnnotation(p.id, p.annotationId);
+        const params = parseParams("session.removeAnnotation", request.params);
+        return core.sessionRemoveAnnotation(params.id, params.annotationId);
       }
       case "session.setWorkingCopy": {
-        const p = parseParams("session.setWorkingCopy", req.params);
-        return core.sessionSetWorkingCopy(p.id, p.workingCopy);
+        const params = parseParams("session.setWorkingCopy", request.params);
+        return core.sessionSetWorkingCopy(params.id, params.workingCopy);
       }
       case "session.setViewed": {
-        const p = parseParams("session.setViewed", req.params);
-        return core.sessionSetViewed(p.id, p.viewedPaths);
+        const params = parseParams("session.setViewed", request.params);
+        return core.sessionSetViewed(params.id, params.viewedPaths);
       }
       case "session.resolve": {
-        const p = parseParams("session.resolve", req.params);
-        return core.sessionResolve(p.id, p.verdictKind, p.summary);
+        const params = parseParams("session.resolve", request.params);
+        return core.sessionResolve(params.id, params.verdictKind, params.summary);
       }
       case "session.submitRevision": {
-        const p = parseParams("session.submitRevision", req.params);
-        return core.sessionSubmitRevision(p.id, p.content);
+        const params = parseParams("session.submitRevision", request.params);
+        return core.sessionSubmitRevision(params.id, params.content);
       }
       default:
-        throw new DaemonError("unknown_method", `unknown method ${req.method}`);
+        throw new DaemonError("unknown_method", `unknown method ${request.method}`);
     }
   }
 }

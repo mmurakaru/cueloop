@@ -1,5 +1,5 @@
 /**
- * Guided-walk projections (#83): pure helpers over the diff row model - no
+ * Guided-walk projections: pure helpers over the diff row model - no
  * IO, no React. The walk steps through the changed files in patch order;
  * which files were seen lives on the session record (viewedPaths), which
  * file is on screen is view state in the session controller.
@@ -31,11 +31,11 @@ export function walkFiles(rows: DiffRow[]): WalkFile[] {
       byPath.set(row.file, file);
       files.push(file);
     }
-    if (row.t !== "add" && row.t !== "del") continue;
-    if (row.t === "add") file.added += 1;
+    if (row.kind !== "add" && row.kind !== "del") continue;
+    if (row.kind === "add") file.added += 1;
     else file.removed += 1;
     if (file.preview.length < WALK_PREVIEW_ROWS) {
-      file.preview.push({ sign: row.t === "add" ? "+" : "-", text: row.text.replace(/\n$/, "") });
+      file.preview.push({ sign: row.kind === "add" ? "+" : "-", text: row.text.replace(/\n$/, "") });
     }
   }
   return files;

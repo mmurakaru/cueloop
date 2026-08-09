@@ -1,7 +1,7 @@
 /**
- * The ReviewSession primitive (map #2, #9). Everything in cueloop renders,
- * annotates, or resolves this one noun. This module is pure data shapes -
- * no IO, no dependencies.
+ * The ReviewSession primitive. Everything in cueloop renders, annotates, or
+ * resolves this one noun. This module is pure data shapes - no IO, no
+ * dependencies.
  */
 
 export const SCHEMA_VERSION = "1";
@@ -51,7 +51,7 @@ export interface Anchor {
   end?: number;
 }
 
-/** The annotation kind set is open (map #2); these are the built-ins. */
+/** The annotation kind set is open; these are the built-ins. */
 export type AnnotationKind = "comment" | "suggestion" | (string & {});
 
 /**

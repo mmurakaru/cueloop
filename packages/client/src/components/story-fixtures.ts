@@ -1,7 +1,7 @@
 /** Shared fixture data for the stories catalog: one plan session, one diff. */
 
 import type { Annotation, ReviewSession } from "@cueloop/schema";
-import { buildDisplay, marksByDisplay } from "../view";
+import { buildDisplay, marksByDisplay } from "../view-plan";
 import { diffRows } from "../view-diff";
 
 export const FIXTURE_PLAN = `# Migration Plan

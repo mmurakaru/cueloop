@@ -1,5 +1,5 @@
 /**
- * Binding resolution over @opentui/keymap (#86): the loaded config keymap
+ * Binding resolution over @opentui/keymap: the loaded config keymap
  * registers as layers (grammar, span, compose, submit, completion) on one
  * Keymap instance, key events resolve to action names through its dispatch,
  * and the status-line hints generate from getActiveKeys() - a rebound key

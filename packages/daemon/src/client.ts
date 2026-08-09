@@ -1,6 +1,6 @@
 /**
  * Daemon client: the one library every consumer shares - CLI verbs, the TUI,
- * adapters, and tests. Also owns the lazy-launch story (#14): connect() with
+ * adapters, and tests. Also owns the lazy-launch story: connect() with
  * autostart spawns a detached daemon when the socket is dead, then attaches.
  */
 
@@ -15,25 +15,25 @@ export interface ConnectOptions {
   autostart?: boolean;
 }
 
-type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void };
+type PendingRequest = { resolve: (value: unknown) => void; reject: (error: Error) => void };
 
 export class DaemonClient {
   private socket: Awaited<ReturnType<typeof Bun.connect>> | null = null;
   private writer: BackpressureWriter | null = null;
-  private pending = new Map<number, Pending>();
+  private pending = new Map<number, PendingRequest>();
   private nextId = 1;
-  private eventListeners = new Set<(e: EventFrame) => void>();
+  private eventListeners = new Set<(event: EventFrame) => void>();
   private closed = false;
 
-  static async connect(opts: ConnectOptions = {}): Promise<DaemonClient> {
-    const home = opts.home ?? cueloopHome();
+  static async connect(options: ConnectOptions = {}): Promise<DaemonClient> {
+    const home = options.home ?? cueloopHome();
     const path = socketPath(home);
     const client = new DaemonClient();
     try {
       await client.dial(path);
       return client;
     } catch (err) {
-      if (!opts.autostart) throw err;
+      if (!options.autostart) throw err;
     }
     // Socket dead or absent: clean a stale file and spawn the daemon detached.
     if (existsSync(path)) rmSync(path, { force: true });
@@ -41,17 +41,17 @@ export class DaemonClient {
     // Generous: a cold or loaded machine pays for a runtime start before the
     // socket exists, and giving up early looks to callers like a broken daemon.
     const deadline = Date.now() + Number(process.env.CUELOOP_START_TIMEOUT_MS ?? 30_000);
-    let lastErr: unknown;
+    let lastError: unknown;
     while (Date.now() < deadline) {
       try {
         await client.dial(path);
         return client;
       } catch (err) {
-        lastErr = err;
+        lastError = err;
         await Bun.sleep(50);
       }
     }
-    throw new Error(`daemon did not come up at ${path}: ${String(lastErr)}`);
+    throw new Error(`daemon did not come up at ${path}: ${String(lastError)}`);
   }
 
   private async dial(path: string): Promise<void> {
@@ -61,14 +61,14 @@ export class DaemonClient {
       unix: path,
       socket: {
         data(_socket, data) {
-          buffer.push(data.toString(), (line) => self.handleFrame(line));
+          buffer.push(data.toString(), (line) => self.routeInboundFrame(line));
         },
         drain() {
           self.writer?.drain();
         },
         close() {
           self.closed = true;
-          for (const p of self.pending.values()) p.reject(new Error("daemon connection closed"));
+          for (const pendingRequest of self.pending.values()) pendingRequest.reject(new Error("daemon connection closed"));
           self.pending.clear();
         },
         error() {},
@@ -80,12 +80,12 @@ export class DaemonClient {
     await this.request("daemon.ping", {}, 2_000);
   }
 
-  onEvent(listener: (e: EventFrame) => void): () => void {
+  onEvent(listener: (event: EventFrame) => void): () => void {
     this.eventListeners.add(listener);
     return () => this.eventListeners.delete(listener);
   }
 
-  private handleFrame(line: string): void {
+  private routeInboundFrame(line: string): void {
     let frame: Response | EventFrame;
     try {
       frame = JSON.parse(line) as Response | EventFrame;
@@ -93,14 +93,14 @@ export class DaemonClient {
       return;
     }
     if ("event" in frame) {
-      for (const l of this.eventListeners) l(frame);
+      for (const listener of this.eventListeners) listener(frame);
       return;
     }
-    const p = this.pending.get(frame.id);
-    if (!p) return;
+    const pendingRequest = this.pending.get(frame.id);
+    if (!pendingRequest) return;
     this.pending.delete(frame.id);
-    if (frame.error) p.reject(new DaemonClientError(frame.error.code, frame.error.message));
-    else p.resolve(frame.result);
+    if (frame.error) pendingRequest.reject(new DaemonClientError(frame.error.code, frame.error.message));
+    else pendingRequest.resolve(frame.result);
   }
 
   request<T = unknown>(method: string, params: unknown, timeoutMs = 30_000): Promise<T> {
@@ -112,13 +112,13 @@ export class DaemonClient {
         reject(new Error(`request ${method} timed out`));
       }, timeoutMs);
       this.pending.set(id, {
-        resolve: (v) => {
+        resolve: (value) => {
           clearTimeout(timer);
-          resolve(v as T);
+          resolve(value as T);
         },
-        reject: (e) => {
+        reject: (error) => {
           clearTimeout(timer);
-          reject(e);
+          reject(error);
         },
       });
       this.writer!.write(JSON.stringify({ id, method, params }) + "\n");

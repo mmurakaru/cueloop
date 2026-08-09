@@ -1,5 +1,5 @@
 /**
- * The catalog IS the regression suite (#86): every exported story renders in
+ * The catalog IS the regression suite: every exported story renders in
  * a virtual terminal, its char frame snapshots, and its declared colors must
  * appear among the styled spans. A component file without a colocated
  * stories file fails the harness, so the safety net cannot silently thin.
