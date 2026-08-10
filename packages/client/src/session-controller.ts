@@ -28,7 +28,8 @@ import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
 import { editInEditor } from "./editor";
 import { focusHerdrPane } from "./herdr";
-import { persistAutoClose, type AutoClose, type CueloopConfig } from "./config";
+import { persistAutoClose, persistReviewState, persistReviewWidth, type AutoClose, type CueloopConfig } from "./config";
+import type { ReviewPanelMode } from "./review-panel";
 
 /**
  * Post-submit lifecycle (a review pane should hand you back to the agent,
@@ -119,6 +120,12 @@ export interface ReviewController {
   dismissCompletion(): void;
   /** From the completion prompt: persist auto-close and start the countdown. */
   optInAutoClose(): void;
+  /**
+   * Persist the review-panel layout (client view state) to the user config so
+   * the collapse mode and rail width survive a restart. A read-only config dir
+   * never blocks the review.
+   */
+  saveReviewPanel(layout: { mode?: ReviewPanelMode; width?: number }): void;
 }
 
 export function createReviewController(options: ReviewControllerOptions): ReviewController {
@@ -492,5 +499,14 @@ class Controller implements ReviewController {
       // a read-only config dir must not block closing the review
     }
     this.autoClose = DEFAULT_AUTO_CLOSE;
+  }
+
+  saveReviewPanel(layout: { mode?: ReviewPanelMode; width?: number }): void {
+    try {
+      if (layout.mode !== undefined) persistReviewState(layout.mode);
+      if (layout.width !== undefined) persistReviewWidth(layout.width);
+    } catch {
+      // a read-only config dir must never block collapsing or resizing the rail
+    }
   }
 }

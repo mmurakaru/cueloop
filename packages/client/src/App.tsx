@@ -11,7 +11,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
-import type { Clock } from "@opentui/core";
+import type { Clock, MouseEvent } from "@opentui/core";
 import { isAgentNote, type ReviewSession, type VerdictKind } from "@cueloop/schema";
 import { displayText, marksByDisplay, spanKey, startSpan, type Mark, type SpanState } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
@@ -26,7 +26,17 @@ import { StatusBar } from "./components/primitives/StatusBar";
 import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { DiffSheet } from "./components/DiffSheet";
-import { ReviewRail, annotationBlocking, type ReviewRailHandle } from "./components/ReviewRail";
+import { annotationBlocking, type ReviewRailHandle } from "./components/ReviewRail";
+import { ReviewPanel } from "./components/ReviewPanel";
+import {
+  REVIEW_DEFAULT_WIDTH,
+  REVIEW_RESIZE_STEP,
+  clampWidth,
+  cycleReviewPanelMode,
+  toggleReviewPanelMode,
+  widthFromMouseColumn,
+  type ReviewPanelMode,
+} from "./review-panel";
 import { VERDICTS } from "./components/ConfirmCard";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
@@ -78,7 +88,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
     controller.getSnapshot,
   );
   const renderer = useRenderer();
-  const { width: terminalWidth } = useTerminalDimensions();
+  const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
 
   // ── view state ──────────────────────────────
   const [cursor, setCursor] = useState(0);
@@ -86,6 +96,13 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<"review" | "agent">("review");
+  // review panel layout: mode + expanded width are client view state, loaded
+  // from and persisted to the user config so they survive a restart. The ref
+  // mirrors the width so the drag-end persist reads the latest value.
+  const [reviewMode, setReviewMode] = useState<ReviewPanelMode>("expanded");
+  const [reviewWidth, setReviewWidth] = useState(REVIEW_DEFAULT_WIDTH);
+  const [dividerDragging, setDividerDragging] = useState(false);
+  const reviewWidthRef = useRef(REVIEW_DEFAULT_WIDTH);
   // ~2s focus pulse on the document highlight when a rail card is activated
   const [pulsedAnnotationId, setPulsedAnnotationId] = useState<string | null>(null);
   const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,6 +120,9 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
     keysRef.current = config.keys;
     keyBindings.setKeys(config.keys);
     setTheme(config.theme);
+    setReviewMode(config.ui.reviewState);
+    setReviewWidth(config.ui.reviewWidth);
+    reviewWidthRef.current = config.ui.reviewWidth;
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings]);
   useEffect(
@@ -326,6 +346,18 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
         return controller.optInAutoClose();
       case "dismissCompletion":
         return controller.dismissCompletion();
+      case "cycleReviewPanel": {
+        const next = cycleReviewPanelMode(reviewMode);
+        setReviewMode(next);
+        return controller.saveReviewPanel({ mode: next });
+      }
+      case "resizeReviewPanel": {
+        if (reviewMode !== "expanded") return;
+        const next = clampWidth(reviewWidth + intent.dir * REVIEW_RESIZE_STEP);
+        reviewWidthRef.current = next;
+        setReviewWidth(next);
+        return controller.saveReviewPanel({ width: next });
+      }
     }
   };
 
@@ -449,6 +481,18 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
     dispatch({ type: "openSubmit" });
   };
 
+  // the clickable chevron toggles expanded <-> compact; the keybinding (b)
+  // cycles all three including hidden
+  const onToggleReviewPanel = (): void => {
+    const next = toggleReviewPanelMode(reviewMode);
+    setReviewMode(next);
+    controller.saveReviewPanel({ mode: next });
+  };
+  // grabbing the divider only arms a drag when there is a width to drag
+  const onDividerGrab = (): void => {
+    if (reviewMode === "expanded") setDividerDragging(true);
+  };
+
   const submitConfirmState =
     mode.type === "submit"
       ? {
@@ -507,11 +551,25 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
             : focusedAnnotationId !== undefined
               ? "card"
               : "normal";
-  const railWidth = terminalWidth >= 100 ? 34 : 28;
+  // NOTE (follow-up, not implemented): auto-collapse to compact below a narrow
+  // terminal-width threshold. For now the width is user-controlled and clamped.
 
   return (
     <ThemeProvider theme={theme}>
-      <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: theme.bg }}>
+      <box
+        style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: theme.bg }}
+        onMouseDrag={(event: MouseEvent) => {
+          if (!dividerDragging || reviewMode !== "expanded") return;
+          const next = widthFromMouseColumn(event.x, terminalWidth);
+          reviewWidthRef.current = next;
+          setReviewWidth(next);
+        }}
+        onMouseUp={() => {
+          if (!dividerDragging) return;
+          setDividerDragging(false);
+          controller.saveReviewPanel({ width: reviewWidthRef.current });
+        }}
+      >
         <Breadcrumb items={headerItems} />
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
           {isDiff ? (
@@ -537,20 +595,27 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
               onEditRequest={onEditRequest}
             />
           )}
-          <ReviewRail
-            ref={railRef}
-            session={activeSession}
-            selectedId={focusedAnnotationId}
-            resolvedIds={isDiff ? null : resolvedIds}
-            railTab={railTab}
-            pendingCount={pendingCount}
-            cardEdit={cardEditState}
-            submitConfirm={submitConfirmState}
-            onTabChange={setRailTab}
-            onSelectCard={selectCardFromRail}
-            onActivateCard={openCardEdit}
-            onSubmitRequest={onSubmitRequest}
-            width={railWidth}
+          <ReviewPanel
+            mode={reviewMode}
+            width={reviewWidth}
+            height={terminalHeight - 2}
+            dragging={dividerDragging}
+            onDividerGrab={onDividerGrab}
+            onToggle={onToggleReviewPanel}
+            railRef={railRef}
+            rail={{
+              session: activeSession,
+              selectedId: focusedAnnotationId,
+              resolvedIds: isDiff ? null : resolvedIds,
+              railTab,
+              pendingCount,
+              cardEdit: cardEditState,
+              submitConfirm: submitConfirmState,
+              onTabChange: setRailTab,
+              onSelectCard: selectCardFromRail,
+              onActivateCard: openCardEdit,
+              onSubmitRequest,
+            }}
           />
         </box>
         {mode.type === "compose" && isDiff ? (

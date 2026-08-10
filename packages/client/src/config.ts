@@ -1,8 +1,9 @@
 /**
  * Layered TOML config: built-in defaults → user config → trusted repo
  * config → env. Sections: [keys] action = "combo" (every action rebindable),
- * [theme] per-token overrides, [ui] auto_close + editor, [integrations.obsidian]
- * notes-vault export.
+ * [theme] per-token overrides, [ui] auto_close + editor + the review-panel
+ * layout (review_width + review_state), [integrations.obsidian] notes-vault
+ * export.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -12,6 +13,7 @@ import { OBSIDIAN_DEFAULTS, type ObsidianConfig } from "@cueloop/integration-obs
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DARK, type Theme } from "./theme";
+import { REVIEW_DEFAULT_WIDTH, clampWidth, type ReviewPanelMode } from "./review-panel";
 
 export interface KeymapConfig {
   [action: string]: string | string[];
@@ -27,7 +29,11 @@ export type AutoClose = "off" | number;
 export interface CueloopConfig {
   keys: Record<string, string[]>;
   theme: Theme;
-  ui: { autoClose: AutoClose; editor?: string };
+  /**
+   * ui.reviewState / ui.reviewWidth are CLIENT VIEW STATE: the review panel's
+   * collapse mode and expanded-rail width, persisted so they survive restarts.
+   */
+  ui: { autoClose: AutoClose; editor?: string; reviewState: ReviewPanelMode; reviewWidth: number };
   integrations: IntegrationsConfig;
 }
 
@@ -48,6 +54,9 @@ export const DEFAULT_KEYS: Record<string, string[]> = {
   submit: ["return", "enter"],
   quit: ["q"],
   walk: ["w"],
+  review_cycle: ["b"],
+  review_wider: ["]"],
+  review_narrower: ["["],
 };
 
 function parseToml(text: string): Record<string, unknown> {
@@ -68,12 +77,20 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
       out.keys[action] = Array.isArray(combo) ? combo : [combo];
     }
   }
-  const ui = raw["ui"] as { auto_close?: unknown; editor?: unknown } | undefined;
+  const ui = raw["ui"] as
+    | { auto_close?: unknown; editor?: unknown; review_width?: unknown; review_state?: unknown }
+    | undefined;
   if (ui && ui.auto_close !== undefined) {
     if (ui.auto_close === "off") out.ui.autoClose = "off";
     else if (typeof ui.auto_close === "number" && ui.auto_close >= 0) out.ui.autoClose = ui.auto_close;
   }
   if (ui && typeof ui.editor === "string" && ui.editor.trim()) out.ui.editor = ui.editor.trim();
+  if (ui && typeof ui.review_width === "number" && Number.isFinite(ui.review_width)) {
+    out.ui.reviewWidth = clampWidth(ui.review_width);
+  }
+  if (ui && (ui.review_state === "expanded" || ui.review_state === "compact" || ui.review_state === "hidden")) {
+    out.ui.reviewState = ui.review_state;
+  }
   const theme = raw["theme"] as Partial<Record<keyof Theme, string>> | undefined;
   if (theme) {
     for (const [token, value] of Object.entries(theme)) {
@@ -101,13 +118,10 @@ export function loadConfig(options: { repoRoot?: string; userConfigPath?: string
   let config: CueloopConfig = {
     keys: { ...DEFAULT_KEYS },
     theme: { ...DARK },
-    ui: { autoClose: "off" },
+    ui: { autoClose: "off", reviewState: "expanded", reviewWidth: REVIEW_DEFAULT_WIDTH },
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
   };
-  const userPath =
-    options.userConfigPath ??
-    process.env.CUELOOP_CONFIG ??
-    join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "cueloop", "config.toml");
+  const userPath = userConfigPathFrom(options.userConfigPath);
   for (const path of [userPath, options.repoRoot ? join(options.repoRoot, ".cueloop", "config.toml") : undefined]) {
     if (!path || !existsSync(path)) continue;
     try {
@@ -128,26 +142,47 @@ export function actionFor(keys: Record<string, string[]>, name: string, shift: b
   return undefined;
 }
 
-/**
- * Persist the auto-close choice into the user config file. Line-level TOML
- * surgery on the one key we own: replace an existing `auto_close`, or append
- * an `[ui]` section - a full TOML writer is not worth its weight here.
- */
-export function persistAutoClose(value: AutoClose, userConfigPath?: string): void {
-  const path =
+function userConfigPathFrom(userConfigPath?: string): string {
+  return (
     userConfigPath ??
     process.env.CUELOOP_CONFIG ??
-    join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "cueloop", "config.toml");
-  const rendered = value === "off" ? '"off"' : String(value);
+    join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "cueloop", "config.toml")
+  );
+}
+
+/**
+ * Persist one `[ui]` key into the user config file. Line-level TOML surgery on
+ * the keys we own: replace the existing assignment, or drop it under an `[ui]`
+ * section (appending the section when absent) - a full TOML writer is not worth
+ * its weight here.
+ */
+function persistUiSetting(key: string, rendered: string, userConfigPath?: string): void {
+  const path = userConfigPathFrom(userConfigPath);
   let text = "";
   if (existsSync(path)) text = readFileSync(path, "utf8");
-  if (/^\s*auto_close\s*=/m.test(text)) {
-    text = text.replace(/^(\s*)auto_close\s*=.*$/m, `$1auto_close = ${rendered}`);
+  const assignment = new RegExp(`^(\\s*)${key}\\s*=.*$`, "m");
+  if (assignment.test(text)) {
+    text = text.replace(assignment, `$1${key} = ${rendered}`);
   } else if (/^\[ui\]/m.test(text)) {
-    text = text.replace(/^\[ui\]\s*$/m, `[ui]\nauto_close = ${rendered}`);
+    text = text.replace(/^\[ui\]\s*$/m, `[ui]\n${key} = ${rendered}`);
   } else {
-    text = text.trimEnd() + (text.trim() ? "\n\n" : "") + `[ui]\nauto_close = ${rendered}\n`;
+    text = text.trimEnd() + (text.trim() ? "\n\n" : "") + `[ui]\n${key} = ${rendered}\n`;
   }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, text);
+}
+
+/** Persist the auto-close choice (`[ui] auto_close`) into the user config. */
+export function persistAutoClose(value: AutoClose, userConfigPath?: string): void {
+  persistUiSetting("auto_close", value === "off" ? '"off"' : String(value), userConfigPath);
+}
+
+/** Persist the expanded-rail width (`[ui] review_width`) into the user config. */
+export function persistReviewWidth(width: number, userConfigPath?: string): void {
+  persistUiSetting("review_width", String(clampWidth(width)), userConfigPath);
+}
+
+/** Persist the review-panel collapse mode (`[ui] review_state`) into the config. */
+export function persistReviewState(state: ReviewPanelMode, userConfigPath?: string): void {
+  persistUiSetting("review_state", `"${state}"`, userConfigPath);
 }

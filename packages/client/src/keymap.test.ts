@@ -265,6 +265,37 @@ describe("guided walk", () => {
   });
 });
 
+describe("review panel controls", () => {
+  const table: [string, Intent[]][] = [
+    ["b", [{ type: "cycleReviewPanel" }]],
+    ["]", [{ type: "resizeReviewPanel", dir: 1 }]],
+    ["[", [{ type: "resizeReviewPanel", dir: -1 }]],
+  ];
+  for (const view of ["plan", "diff"] as const) {
+    for (const [name, expected] of table) {
+      test(`${view} ${name} -> ${JSON.stringify(expected)}`, () => {
+        expect(reduceKey(state({ view }), key(name))).toEqual(expected);
+      });
+    }
+  }
+
+  test("observers may still collapse and resize the panel (it is view state, not a mutation)", () => {
+    const observer = state({ readOnly: true });
+    expect(reduceKey(observer, key("b"))).toEqual([{ type: "cycleReviewPanel" }]);
+    expect(reduceKey(observer, key("]"))).toEqual([{ type: "resizeReviewPanel", dir: 1 }]);
+  });
+
+  test("span mode still owns b as a span verb, not a panel cycle", () => {
+    expect(reduceKey(state({ spanMode: true }), key("b"))).toEqual([{ type: "spanKey", name: "b" }]);
+  });
+
+  test("the walk overlay keeps the brackets for stepping", () => {
+    const walking = state({ view: "diff", overlay: "walk" });
+    expect(reduceKey(walking, key("]"))).toEqual([{ type: "walkForward" }]);
+    expect(reduceKey(walking, key("["))).toEqual([{ type: "walkBack" }]);
+  });
+});
+
 describe("duplicated-branch collapse", () => {
   test("plan and diff produce the same intents for annotation nav, delete, and submit", () => {
     for (const patch of [
