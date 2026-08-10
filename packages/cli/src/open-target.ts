@@ -18,6 +18,28 @@
 
 import type { ReviewSession } from "@cueloop/schema";
 
+/**
+ * The verb scopes, kept disjoint on purpose so a single session never resolves
+ * under two verbs. A PR review is a diff artifact that carries a `pr`
+ * reference (openReview maps a top-level `pr` into `meta.pr`), so the plain
+ * diff scope must exclude those - otherwise `cueloop diff` and `cueloop
+ * review` would both open the same pending PR review.
+ */
+export function isPlanReview(session: ReviewSession): boolean {
+  return session.artifact.type === "plan";
+}
+export function isDiffReview(session: ReviewSession): boolean {
+  return session.artifact.type === "diff" && session.artifact.meta.pr === undefined;
+}
+export function isPrReview(session: ReviewSession): boolean {
+  return session.artifact.type === "diff" && session.artifact.meta.pr !== undefined;
+}
+
+/** Session ids are minted with this prefix; the id-vs-title split lives here. */
+export function isSessionId(value: string): boolean {
+  return value.startsWith("ses_");
+}
+
 export interface OpenTargetQuery {
   /** Only sessions this predicate accepts are eligible - the verb's artifact scope. */
   match: (session: ReviewSession) => boolean;

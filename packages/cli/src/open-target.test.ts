@@ -6,7 +6,14 @@
 
 import { describe, expect, test } from "bun:test";
 import type { ArtifactType, ReviewSession } from "@cueloop/schema";
-import { openTargetMessage, resolveOpenTarget } from "./open-target";
+import {
+  isDiffReview,
+  isPlanReview,
+  isPrReview,
+  isSessionId,
+  openTargetMessage,
+  resolveOpenTarget,
+} from "./open-target";
 
 function session(overrides: {
   id: string;
@@ -33,7 +40,40 @@ function session(overrides: {
   };
 }
 
-const isPlan = (candidate: ReviewSession) => candidate.artifact.type === "plan";
+const isPlan = isPlanReview;
+
+describe("verb scope predicates are disjoint", () => {
+  test("isPlanReview matches only plan artifacts", () => {
+    expect(isPlanReview(session({ id: "ses_p", type: "plan" }))).toBe(true);
+    expect(isPlanReview(session({ id: "ses_d", type: "diff" }))).toBe(false);
+  });
+
+  test("isDiffReview matches a plain diff but NOT a diff carrying meta.pr", () => {
+    expect(isDiffReview(session({ id: "ses_d", type: "diff" }))).toBe(true);
+    expect(isDiffReview(session({ id: "ses_pr", type: "diff", pr: "42" }))).toBe(false);
+    expect(isDiffReview(session({ id: "ses_p", type: "plan" }))).toBe(false);
+  });
+
+  test("isPrReview matches a diff carrying meta.pr, and only that", () => {
+    expect(isPrReview(session({ id: "ses_pr", type: "diff", pr: "42" }))).toBe(true);
+    expect(isPrReview(session({ id: "ses_d", type: "diff" }))).toBe(false);
+    expect(isPrReview(session({ id: "ses_p", type: "plan" }))).toBe(false);
+  });
+
+  test("a PR review resolves under exactly one scope - never both diff and review", () => {
+    const prReview = session({ id: "ses_pr", type: "diff", pr: "42" });
+    expect(isDiffReview(prReview)).toBe(false);
+    expect(isPrReview(prReview)).toBe(true);
+  });
+});
+
+describe("isSessionId", () => {
+  test("only the ses_ prefix reads as an id", () => {
+    expect(isSessionId("ses_abc")).toBe(true);
+    expect(isSessionId("some title")).toBe(false);
+    expect(isSessionId("42")).toBe(false);
+  });
+});
 
 describe("resolveOpenTarget: latest pending default", () => {
   test("picks the most recent pending session in scope", () => {

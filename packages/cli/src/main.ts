@@ -9,7 +9,14 @@
  */
 
 import { parseArgs, stringFlag, type ParsedArgs } from "./args";
-import { openTargetMessage, resolveOpenTarget, type OpenTargetQuery } from "./open-target";
+import {
+  isDiffReview,
+  isPlanReview,
+  isPrReview,
+  isSessionId,
+  openTargetMessage,
+  resolveOpenTarget,
+} from "./open-target";
 import { sessionCommand } from "./session-commands";
 import { workingTreeDiff } from "./working-tree";
 import { DaemonClient } from "@cueloop/daemon/client";
@@ -102,7 +109,7 @@ function openSelector(parsed: ParsedArgs): string | undefined {
  * one caller that needs a scope-specific hint (a clean working tree).
  */
 async function openReviewOfKind(
-  match: OpenTargetQuery["match"],
+  match: (session: ReviewSession) => boolean,
   label: string,
   selector: string | undefined,
   emptyMessage?: string,
@@ -124,14 +131,9 @@ async function openReviewOfKind(
   return 1;
 }
 
-const isPlan = (session: ReviewSession): boolean => session.artifact.type === "plan";
-const isDiff = (session: ReviewSession): boolean => session.artifact.type === "diff";
-const isPrReview = (session: ReviewSession): boolean =>
-  session.artifact.type === "diff" && session.artifact.meta.pr !== undefined;
-
 /** `cueloop plan [id|title]` - open the latest pending plan, or address one. */
 async function planCommand(argv: string[]): Promise<number> {
-  return openReviewOfKind(isPlan, "plan", openSelector(parseArgs(argv)));
+  return openReviewOfKind(isPlanReview, "plan", openSelector(parseArgs(argv)));
 }
 
 /**
@@ -146,13 +148,13 @@ async function diffCommand(argv: string[]): Promise<number> {
   const parsed = parseArgs(argv);
   const selector = openSelector(parsed);
   const wantsOpen = selector !== undefined || "open" in parsed.flags || "latest" in parsed.flags;
-  if (wantsOpen) return openReviewOfKind(isDiff, "diff", selector);
+  if (wantsOpen) return openReviewOfKind(isDiffReview, "diff", selector);
 
   const workspace = await resolveWorkspace();
   const diff = await workingTreeDiff();
   if (!diff.trim()) {
     return openReviewOfKind(
-      isDiff,
+      isDiffReview,
       "diff",
       undefined,
       "working tree is clean and no pending diff review - nothing to open",
@@ -179,7 +181,7 @@ async function reviewEntry(argv: string[]): Promise<number> {
   const parsed = parseArgs(argv);
   const explicitOpen = "open" in parsed.flags || "latest" in parsed.flags;
   const selector = openSelector(parsed);
-  const looksLikeSessionId = selector?.startsWith("ses_") ?? false;
+  const looksLikeSessionId = selector !== undefined && isSessionId(selector);
   const wantsCreate = !explicitOpen && !looksLikeSessionId && selector !== undefined;
   if (wantsCreate) {
     const { reviewCommand } = await import("./pr");
