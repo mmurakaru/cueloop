@@ -146,7 +146,9 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
   // or the toolbar. Seeded from hard newlines, then corrected once the mounted
   // textarea reports its measured width.
   const [editorRowCount, setEditorRowCount] = useState(() =>
-    composeRowCount(activeDraft?.text ?? "", Number.MAX_SAFE_INTEGER),
+    // Width 0 is the "layout not known yet" contract: count hard newlines only,
+    // until the mounted textarea reports its measured width below.
+    composeRowCount(activeDraft?.text ?? "", 0),
   );
   if (draft) {
     const verb = kind === "suggestion" ? "suggest replacement for" : "comment on";
