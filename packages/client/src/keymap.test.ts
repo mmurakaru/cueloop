@@ -53,8 +53,8 @@ describe("submit overlay", () => {
     ["escape", [{ type: "closeOverlay" }]],
     ["return", [{ type: "submitVerdict" }]],
     ["enter", [{ type: "submitVerdict" }]],
-    ["left", [{ type: "cycleVerdict", dir: -1 }]],
-    ["right", [{ type: "cycleVerdict", dir: 1 }]],
+    ["left", [{ type: "cycleVerdict", direction: -1 }]],
+    ["right", [{ type: "cycleVerdict", direction: 1 }]],
     ["j", []],
     ["q", []],
   ];
@@ -268,8 +268,8 @@ describe("guided walk", () => {
 describe("review panel controls", () => {
   const table: [string, Intent[]][] = [
     ["b", [{ type: "cycleReviewPanel" }]],
-    ["]", [{ type: "resizeReviewPanel", dir: 1 }]],
-    ["[", [{ type: "resizeReviewPanel", dir: -1 }]],
+    ["]", [{ type: "resizeReviewPanel", direction: 1 }]],
+    ["[", [{ type: "resizeReviewPanel", direction: -1 }]],
   ];
   for (const view of ["plan", "diff"] as const) {
     for (const [name, expected] of table) {
@@ -282,7 +282,7 @@ describe("review panel controls", () => {
   test("observers may still collapse and resize the panel (it is view state, not a mutation)", () => {
     const observer = state({ readOnly: true });
     expect(reduceKey(observer, key("b"))).toEqual([{ type: "cycleReviewPanel" }]);
-    expect(reduceKey(observer, key("]"))).toEqual([{ type: "resizeReviewPanel", dir: 1 }]);
+    expect(reduceKey(observer, key("]"))).toEqual([{ type: "resizeReviewPanel", direction: 1 }]);
   });
 
   test("span mode still owns b as a span verb, not a panel cycle", () => {

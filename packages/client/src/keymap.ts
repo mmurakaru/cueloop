@@ -32,12 +32,12 @@ export type Intent =
   | { type: "closeOverlay" }
   | { type: "saveCompose" }
   | { type: "submitVerdict" }
-  | { type: "cycleVerdict"; dir: -1 | 1 }
+  | { type: "cycleVerdict"; direction: -1 | 1 }
   | { type: "finishReview" }
   | { type: "optInAutoClose" }
   | { type: "dismissCompletion" }
   | { type: "cycleReviewPanel" }
-  | { type: "resizeReviewPanel"; dir: -1 | 1 };
+  | { type: "resizeReviewPanel"; direction: -1 | 1 };
 
 export interface KeyInput {
   name: string;
@@ -88,7 +88,7 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
       return [state.overlay === "compose" ? { type: "saveCompose" } : { type: "submitVerdict" }];
     }
     if (state.overlay === "submit" && (name === "left" || name === "right")) {
-      return [{ type: "cycleVerdict", dir: name === "left" ? -1 : 1 }];
+      return [{ type: "cycleVerdict", direction: name === "left" ? -1 : 1 }];
     }
     return [];
   }
@@ -133,8 +133,8 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
 /** The review-panel controls: cycle the mode, widen and narrow the rail. */
 function reviewPanelGrammar(action: string | undefined): Intent[] | null {
   if (action === "review_cycle") return [{ type: "cycleReviewPanel" }];
-  if (action === "review_wider") return [{ type: "resizeReviewPanel", dir: 1 }];
-  if (action === "review_narrower") return [{ type: "resizeReviewPanel", dir: -1 }];
+  if (action === "review_wider") return [{ type: "resizeReviewPanel", direction: 1 }];
+  if (action === "review_narrower") return [{ type: "resizeReviewPanel", direction: -1 }];
   return null;
 }
 

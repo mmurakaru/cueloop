@@ -43,6 +43,12 @@ import { InboxList } from "./components/InboxList";
 import { ComposeBar } from "./components/ComposeBar";
 import { WalkWizard } from "./components/WalkWizard";
 
+/**
+ * The breadcrumb header and the status bar each occupy one terminal row; the
+ * review layout (plan column, divider, rail) gets the rows that remain.
+ */
+const CHROME_ROWS = 2;
+
 export interface AppProps {
   home?: string;
   sessionId?: string;
@@ -337,7 +343,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
         return void setMode({ type: "normal" });
       case "cycleVerdict": {
         if (mode.type !== "submit") return;
-        const verdictIndex = (VERDICTS.indexOf(mode.verdict) + intent.dir + VERDICTS.length) % VERDICTS.length;
+        const verdictIndex = (VERDICTS.indexOf(mode.verdict) + intent.direction + VERDICTS.length) % VERDICTS.length;
         return void setMode({ ...mode, verdict: VERDICTS[verdictIndex]! });
       }
       case "finishReview":
@@ -353,7 +359,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
       }
       case "resizeReviewPanel": {
         if (reviewMode !== "expanded") return;
-        const next = clampWidth(reviewWidth + intent.dir * REVIEW_RESIZE_STEP);
+        const next = clampWidth(reviewWidth + intent.direction * REVIEW_RESIZE_STEP);
         reviewWidthRef.current = next;
         setReviewWidth(next);
         return controller.saveReviewPanel({ width: next });
@@ -551,8 +557,6 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
             : focusedAnnotationId !== undefined
               ? "card"
               : "normal";
-  // NOTE (follow-up, not implemented): auto-collapse to compact below a narrow
-  // terminal-width threshold. For now the width is user-controlled and clamped.
 
   return (
     <ThemeProvider theme={theme}>
@@ -598,7 +602,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
           <ReviewPanel
             mode={reviewMode}
             width={reviewWidth}
-            height={terminalHeight - 2}
+            height={terminalHeight - CHROME_ROWS}
             dragging={dividerDragging}
             onDividerGrab={onDividerGrab}
             onToggle={onToggleReviewPanel}
