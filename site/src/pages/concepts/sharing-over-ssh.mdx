@@ -1,0 +1,39 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: Sharing over SSH
+kicker: design direction
+description: The intended way to share a review is over SSH - terminal only, no browser. This is the design direction, not a shipped feature.
+---
+import Placeholder from "../../components/Placeholder.astro";
+
+cueloop is terminal-first by conviction, and sharing follows the same rule. The intended way
+to hand a review to another person is over **SSH**: they open a terminal, connect, and land
+in the same review surface you use locally. No browser, no web app.
+
+> This page describes a **design direction**, not a shipped feature. It is here so the
+> concept is clear and the terminal-only stance is on record. Do not read it as an
+> available command.
+
+## Why terminal only
+
+The ReviewSession renders anywhere a terminal runs. Keeping sharing inside the terminal
+means one surface, one grammar, and no second rendering path to keep honest. A reviewer
+never leaves the tool they already trust, and the review looks the same whether it is local
+or shared.
+
+## The shape
+
+The direction is a gateway addressed like `ssh <id>@cueloop.dev`, where `<id>` names a
+session to join. It coexists with the plan for the marketing and docs site: the `www`
+hostname serves these pages, while the apex hostname is reserved for the future SSH gateway.
+Nothing here is live yet.
+
+## What already supports it
+
+The primitive is built for this. A ReviewSession is renderer-agnostic, all state lives in
+one daemon behind a local socket, and verdicts outlive waits. A shared review is another
+thin client over the same session - not a new product.
+
+<Placeholder label="Coming soon">
+  An asciinema cast of joining a shared review with `ssh <id>@cueloop.dev`.
+</Placeholder>

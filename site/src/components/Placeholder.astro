@@ -1,0 +1,13 @@
+---
+// A clearly marked slot for art that comes later: diagrams, TUI
+// screenshots or gifs, and an asciinema cast. Usable from .astro and .mdx.
+interface Props {
+  label?: string;
+}
+const { label = "Placeholder" } = Astro.props;
+---
+
+<div class="placeholder">
+  <strong>{label}</strong>
+  <slot />
+</div>

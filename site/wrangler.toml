@@ -1,0 +1,16 @@
+# Cloudflare Pages config STUB for the cueloop site.
+#
+# NOT YET DEPLOYED. This file documents the intended Pages build so the
+# settings are discoverable and version-controlled. It is not wired to a
+# Cloudflare account, and no deploy has run. Do not run `wrangler pages deploy`
+# from this repository until the Cloudflare account and the www.cueloop.dev
+# hostname are set up. See site/README.md for the deploy plan.
+#
+# Intended hostname: www.cueloop.dev (orange-cloud, proxied).
+# The apex cueloop.dev stays grey-cloud, reserved for the future SSH gateway.
+
+name = "cueloop-site"
+compatibility_date = "2025-08-10"
+
+# Astro's static build output. `bun run build` writes the site here.
+pages_build_output_dir = "./dist"

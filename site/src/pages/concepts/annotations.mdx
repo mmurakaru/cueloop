@@ -1,0 +1,53 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: Annotations
+kicker: quote-anchored feedback
+description: Annotations are quote-anchored notes with stable, client-minted ids that never bind to the wrong text.
+---
+import Placeholder from "../../components/Placeholder.astro";
+
+An annotation is a note on a piece of the artifact. It is **quote-anchored**: it remembers
+the exact text you selected, not a line number. When the artifact changes, cueloop re-finds
+the quote instead of trusting a position that may have moved.
+
+## Quote-primary anchors
+
+Each anchor stores the selected **quote** plus a short **prefix** and **suffix** of
+surrounding text. Position hints (a block index, character offsets) are kept too, but only
+as tie-breakers. Resolution runs a cascade against the current text:
+
+1. an exact match of the quote in a block; prefix and suffix break ties, then the position
+   hint breaks any remaining tie.
+2. a trimmed match, if the exact quote is gone.
+3. **orphan** - keep the quote for display, but drop the highlight.
+
+The rule is strict: cueloop never silently binds an annotation to the wrong text. If the
+quote is gone, the annotation orphans and says so, in the UI and in the feedback document.
+
+## Stable, client-minted ids
+
+Every annotation carries an id minted on the client the moment you create it. A per-process
+counter makes ids unique by construction; a small random suffix separates annotators
+working in different processes on the same millisecond. Ids are stable, so an annotation
+keeps its identity across revisions and resolves.
+
+## Kinds
+
+The kind set is open, with two built-ins:
+
+- **comment** - a note in your own words.
+- **suggestion** - a concrete replacement for the quoted text.
+
+There is also a `note` kind reserved for the submitting agent's own per-file context. Agent
+notes render like any card but are excluded from the feedback document and from your pending
+counts - an agent must never receive its own notes back as work to do.
+
+## Into feedback
+
+On resolve, every annotation that is not an agent note is written into the one feedback
+document, located by its quoted text and grouped by kind, so the agent can find each item in
+the artifact and address it.
+
+<Placeholder label="Coming soon">
+  A TUI screenshot of an annotated plan with the rail of cards.
+</Placeholder>

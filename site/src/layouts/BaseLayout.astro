@@ -1,0 +1,70 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "A terminal-first review surface for coding-agent plans and diffs." } =
+  Astro.props;
+
+const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
+
+const navigationLinks = [
+  { href: "/", label: "home" },
+  { href: "/concepts/review-session", label: "concepts" },
+  { href: "/install", label: "install" },
+];
+
+function isCurrent(href: string): boolean {
+  if (href === "/") return currentPath === "/";
+  if (href.startsWith("/concepts")) return currentPath.startsWith("/concepts");
+  return currentPath === href;
+}
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container">
+        <a class="brand" href="/"><span class="prompt">$</span> cueloop</a>
+        <nav class="site-nav" aria-label="Primary">
+          {
+            navigationLinks.map((link) => (
+              <a href={link.href} aria-current={isCurrent(link.href) ? "page" : undefined}>
+                {link.label}
+              </a>
+            ))
+          }
+          <a href="https://github.com/mmurakaru/cueloop">github</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <div class="container">
+        <slot />
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <span>cueloop - Apache-2.0. Alpha: expect rough edges.</span>
+        <span
+          ><a href="https://github.com/mmurakaru/cueloop">source</a> ·
+          <a href="https://www.npmjs.com/package/cueloop">npm</a></span
+        >
+      </div>
+    </footer>
+  </body>
+</html>
