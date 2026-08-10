@@ -5,7 +5,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
@@ -87,6 +87,45 @@ describe("cueloop session (black box)", () => {
     );
     expect(revised.status).toBe("pending");
     expect(revised.revisions.length).toBe(2);
+  });
+
+  test("create inside herdr opens a tab that launches the review", async () => {
+    const logPath = join(home, "herdr-cli.log");
+    const binPath = join(home, "herdr-cli.sh");
+    writeFileSync(
+      binPath,
+      `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "tab" ] && [ "$2" = "create" ]; then\n  printf '{"result":{"pane":{"id":"w1:p2"}}}'\nfi\n`,
+    );
+    chmodSync(binPath, 0o755);
+    const created = await runCli(
+      home,
+      ["session", "create", "--type", "plan", "--title", "Auto Open", "--cwd", home],
+      PLAN,
+      { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: binPath },
+    );
+    expect(created.code).toBe(0);
+    const session = cliJson<ReviewSession>(created);
+    const lines = readFileSync(logPath, "utf8").split("\n").filter(Boolean);
+    expect(lines).toEqual([
+      `tab create --cwd ${home} --label Auto Open --focus`,
+      `pane send-text w1:p2 cueloop ${session.id}`,
+      "pane send-keys w1:p2 enter",
+    ]);
+  });
+
+  test("create outside herdr opens no tab", async () => {
+    const logPath = join(home, "herdr-none.log");
+    const binPath = join(home, "herdr-none.sh");
+    writeFileSync(binPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\n`);
+    chmodSync(binPath, 0o755);
+    // HERDR_ENV off: the bin path alone must not open a pane
+    const created = await runCli(home, ["session", "create", "--type", "plan", "--title", "No Pane"], PLAN, {
+      HERDR_ENV: "0",
+      HERDR_PANE_ID: "w1:p1",
+      HERDR_BIN_PATH: binPath,
+    });
+    expect(created.code).toBe(0);
+    expect(existsSync(logPath)).toBe(false);
   });
 
   test("help output and unknown verbs", async () => {

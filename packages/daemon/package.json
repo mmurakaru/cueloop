@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
-    "./review": "./src/review.ts"
+    "./review": "./src/review.ts",
+    "./herdr-pane": "./src/herdr-pane.ts"
   },
   "dependencies": {
     "@cueloop/schema": "0.1.0-alpha.20",

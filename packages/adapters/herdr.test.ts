@@ -32,11 +32,18 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-/** A stub herdr binary that appends its argv (space-joined) to logPath. */
+/**
+ * A stub herdr binary that appends its argv (space-joined) to logPath and, for
+ * `tab create`, prints the JSON pane id the auto-open helper reads so the full
+ * open-and-launch sequence runs.
+ */
 function makeStub(name: string): { binPath: string; logPath: string } {
   const logPath = join(dir, `${name}.log`);
   const binPath = join(dir, `${name}.sh`);
-  writeFileSync(binPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\n`);
+  writeFileSync(
+    binPath,
+    `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "tab" ] && [ "$2" = "create" ]; then\n  printf '{"result":{"pane":{"id":"w1:p2"}}}'\nfi\n`,
+  );
   chmodSync(binPath, 0o755);
   return { binPath, logPath };
 }
@@ -131,9 +138,15 @@ describe("hook flow inside herdr", () => {
     setHookEnv({ HERDR_ENV: "1", HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath, CUELOOP_WAIT_MS: "10000" });
 
     const run = runHook(hookEvent("herdr-hook-1", "# Rollout Plan\n\nShip it slowly.\n"), home);
-    // the pane reports blocked + label before the verdict lands
-    const before = await waitForLines(stub.logPath, 2);
-    expect(before.sort()).toEqual([
+    // creating a new review inside herdr opens a tab that launches the review,
+    // then the pane reports blocked + label before the verdict lands
+    const before = await waitForLines(stub.logPath, 5);
+    const paneLines = before.filter((line) => line.startsWith("tab ") || line.startsWith("pane send-"));
+    expect(paneLines[0]).toBe(`tab create --cwd ${home} --label Rollout Plan --focus`);
+    expect(paneLines[1]).toMatch(/^pane send-text w1:p2 cueloop ses_[a-z0-9_]+$/i);
+    expect(paneLines[2]).toBe("pane send-keys w1:p2 enter");
+    const reportLines = before.filter((line) => line.startsWith("pane report-"));
+    expect(reportLines.sort()).toEqual([
       "pane report-agent pane-7 --source custom:cueloop --state blocked",
       "pane report-metadata pane-7 --source custom:cueloop --token summary=plan ready for review: Rollout Plan --ttl-ms 3600000",
     ]);
@@ -142,8 +155,11 @@ describe("hook flow inside herdr", () => {
     const decision = await run;
     expect(decision.allow).toBeTrue();
 
-    const after = await waitForLines(stub.logPath, 4);
-    expect(after.slice(2).sort()).toEqual([
+    const after = await waitForLines(stub.logPath, 7);
+    const outcomeLines = after.filter(
+      (line) => line.includes("--state working") || line.includes("summary=review done"),
+    );
+    expect(outcomeLines.sort()).toEqual([
       "pane report-agent pane-7 --source custom:cueloop --state working",
       "pane report-metadata pane-7 --source custom:cueloop --token summary=review done: approve --ttl-ms 3600000",
     ]);
@@ -158,8 +174,9 @@ describe("hook flow inside herdr", () => {
     expect(decision.reason).toContain("still pending");
 
     await Bun.sleep(150); // give any stray report time to land
-    const lines = await waitForLines(stub.logPath, 2);
-    expect(lines.length).toBe(2);
+    // pane auto-open (3 lines) + blocked report + label = 5; never a working report
+    const lines = await waitForLines(stub.logPath, 5);
+    expect(lines.some((line) => line === `tab create --cwd ${home} --label Late Plan --focus`)).toBeTrue();
     expect(lines.join("\n")).not.toContain("--state working");
     expect(lines.join("\n")).toContain("--state blocked");
   }, 15_000);
