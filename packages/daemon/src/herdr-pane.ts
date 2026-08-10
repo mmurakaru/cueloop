@@ -15,10 +15,15 @@
  *
  * Best-effort like the rest of the herdr tier: a missing or broken binary, an
  * unexpected JSON shape, or any spawn failure is swallowed and never blocks
- * review creation.
+ * review creation. Each spawn is bounded by HERDR_SPAWN_TIMEOUT_MS so a hung
+ * herdr binary cannot stall the review-creation path - a timeout kills the
+ * child and reads as a non-zero exit, i.e. a best-effort bail-out.
  */
 
 import { detectHerdr, type HerdrEnv, type ReviewSession } from "@cueloop/schema";
+
+/** Upper bound per herdr spawn, so a stuck binary can never block creation. */
+const HERDR_SPAWN_TIMEOUT_MS = 2000;
 
 export interface OpenHerdrPaneOptions {
   /** The review session id; `cueloop <sessionId>` opens it in the new pane. */
@@ -44,6 +49,7 @@ export function openHerdrPane(options: OpenHerdrPaneOptions): boolean {
     const created = Bun.spawnSync([binPath, "tab", "create", "--cwd", cwd, "--label", label, "--focus"], {
       stdout: "pipe",
       stderr: "ignore",
+      timeout: HERDR_SPAWN_TIMEOUT_MS,
     });
     if (created.exitCode !== 0) return false;
     const parsed = JSON.parse(created.stdout.toString()) as { result?: { pane?: { id?: string } } };
@@ -53,11 +59,15 @@ export function openHerdrPane(options: OpenHerdrPaneOptions): boolean {
     const typed = Bun.spawnSync([binPath, "pane", "send-text", paneId, `cueloop ${sessionId}`], {
       stdout: "ignore",
       stderr: "ignore",
+      timeout: HERDR_SPAWN_TIMEOUT_MS,
     });
     if (typed.exitCode !== 0) return false;
     return (
-      Bun.spawnSync([binPath, "pane", "send-keys", paneId, "enter"], { stdout: "ignore", stderr: "ignore" })
-        .exitCode === 0
+      Bun.spawnSync([binPath, "pane", "send-keys", paneId, "enter"], {
+        stdout: "ignore",
+        stderr: "ignore",
+        timeout: HERDR_SPAWN_TIMEOUT_MS,
+      }).exitCode === 0
     );
   } catch {
     return false;
