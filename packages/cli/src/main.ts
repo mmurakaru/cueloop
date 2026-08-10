@@ -1,16 +1,19 @@
 #!/usr/bin/env bun
 /**
- * cueloop entry points: `cueloop` opens the TUI on the inbox,
- * `cueloop diff` reviews the working tree, `cueloop review <pr>` a PR,
- * `cueloop session *` mirrors the daemon API for agents and scripts,
- * `cueloop serve` shares a session over ssh (read-only observers),
- * `cueloop daemon` runs the daemon in the foreground.
+ * cueloop entry points: `cueloop` opens the TUI on the inbox, the verb-first
+ * openers `cueloop plan|diff|review` open the latest pending review of that
+ * type (or address one by id/title), `cueloop diff`/`cueloop review <pr>` also
+ * keep their create paths, `cueloop session *` mirrors the daemon API for
+ * agents and scripts, `cueloop serve` shares a session over ssh (read-only
+ * observers), `cueloop daemon` runs the daemon in the foreground.
  */
 
-import { parseArgs, stringFlag } from "./args";
+import { parseArgs, stringFlag, type ParsedArgs } from "./args";
+import { openTargetMessage, resolveOpenTarget, type OpenTargetQuery } from "./open-target";
 import { sessionCommand } from "./session-commands";
 import { workingTreeDiff } from "./working-tree";
 import { DaemonClient } from "@cueloop/daemon/client";
+import type { ReviewSession } from "@cueloop/schema";
 import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
 
 const argv = process.argv.slice(2);
@@ -32,23 +35,10 @@ async function main(): Promise<number> {
       await new Promise(() => {}); // run until signalled
       return 0;
     }
-    case "diff": {
-      const workspace = await resolveWorkspace();
-      const diff = await workingTreeDiff();
-      if (!diff.trim()) {
-        console.error("working tree is clean - nothing to review");
-        return 1;
-      }
-      const client = await DaemonClient.connect({ autostart: true });
-      const review = await openReview(client, {
-        type: "diff",
-        content: diff,
-        workspace,
-        title: `working tree @ ${workspace.branch}`,
-      });
-      client.close();
-      return runTui(review.id);
-    }
+    case "plan":
+      return planCommand(argv.slice(1));
+    case "diff":
+      return diffCommand(argv.slice(1));
     case "serve": {
       const { positional, flags } = parseArgs(argv.slice(1));
       const port = stringFlag(flags, "port");
@@ -75,10 +65,8 @@ async function main(): Promise<number> {
       await new Promise(() => {}); // serve until signalled
       return 0;
     }
-    case "review": {
-      const { reviewCommand } = await import("./pr");
-      return reviewCommand(argv.slice(1));
-    }
+    case "review":
+      return reviewEntry(argv.slice(1));
     case "review-post": {
       const { reviewPostCommand } = await import("./pr");
       return reviewPostCommand(argv.slice(1));
@@ -98,6 +86,108 @@ async function main(): Promise<number> {
   }
 }
 
+/**
+ * The id-or-title selector for a verb-first opener: the bare positional, or a
+ * value handed to `--open`/`--latest`. A bare `--latest`/`--open` flag carries
+ * no value, so the selector stays undefined and the opener defaults to the
+ * latest pending review.
+ */
+function openSelector(parsed: ParsedArgs): string | undefined {
+  return parsed.positional[0] ?? stringFlag(parsed.flags, "open") ?? stringFlag(parsed.flags, "latest");
+}
+
+/**
+ * Resolve one review of the verb's scope and open it in the TUI, or print the
+ * miss and fail. `emptyMessage` overrides the default no-pending line for the
+ * one caller that needs a scope-specific hint (a clean working tree).
+ */
+async function openReviewOfKind(
+  match: OpenTargetQuery["match"],
+  label: string,
+  selector: string | undefined,
+  emptyMessage?: string,
+): Promise<number> {
+  const client = await DaemonClient.connect({ autostart: true });
+  let sessions: ReviewSession[];
+  try {
+    sessions = await client.sessionList();
+  } finally {
+    client.close();
+  }
+  const target = resolveOpenTarget(sessions, { match, selector });
+  if (target.kind === "session") return runTui(target.sessionId);
+  if (target.kind === "no-pending" && emptyMessage !== undefined) {
+    console.error(emptyMessage);
+    return 1;
+  }
+  console.error(openTargetMessage(label, target));
+  return 1;
+}
+
+const isPlan = (session: ReviewSession): boolean => session.artifact.type === "plan";
+const isDiff = (session: ReviewSession): boolean => session.artifact.type === "diff";
+const isPrReview = (session: ReviewSession): boolean =>
+  session.artifact.type === "diff" && session.artifact.meta.pr !== undefined;
+
+/** `cueloop plan [id|title]` - open the latest pending plan, or address one. */
+async function planCommand(argv: string[]): Promise<number> {
+  return openReviewOfKind(isPlan, "plan", openSelector(parseArgs(argv)));
+}
+
+/**
+ * `cueloop diff` disambiguates create from open by intent:
+ *   - a selector (`cueloop diff <id|title>`) or an explicit `--open`/`--latest`
+ *     opens a pending diff review;
+ *   - otherwise a dirty working tree still creates a review as before;
+ *   - a clean working tree carries no create input, so it opens the latest
+ *     pending diff review instead of erroring.
+ */
+async function diffCommand(argv: string[]): Promise<number> {
+  const parsed = parseArgs(argv);
+  const selector = openSelector(parsed);
+  const wantsOpen = selector !== undefined || "open" in parsed.flags || "latest" in parsed.flags;
+  if (wantsOpen) return openReviewOfKind(isDiff, "diff", selector);
+
+  const workspace = await resolveWorkspace();
+  const diff = await workingTreeDiff();
+  if (!diff.trim()) {
+    return openReviewOfKind(
+      isDiff,
+      "diff",
+      undefined,
+      "working tree is clean and no pending diff review - nothing to open",
+    );
+  }
+  const client = await DaemonClient.connect({ autostart: true });
+  const review = await openReview(client, {
+    type: "diff",
+    content: diff,
+    workspace,
+    title: `working tree @ ${workspace.branch}`,
+  });
+  client.close();
+  return runTui(review.id);
+}
+
+/**
+ * `cueloop review` disambiguates create from open by intent:
+ *   - bare `cueloop review`, `--open`/`--latest`, or a `ses_*` selector opens a
+ *     pending PR review (a diff carrying a `pr` reference);
+ *   - any other positional is a PR reference and takes the create path in pr.ts.
+ */
+async function reviewEntry(argv: string[]): Promise<number> {
+  const parsed = parseArgs(argv);
+  const explicitOpen = "open" in parsed.flags || "latest" in parsed.flags;
+  const selector = openSelector(parsed);
+  const looksLikeSessionId = selector?.startsWith("ses_") ?? false;
+  const wantsCreate = !explicitOpen && !looksLikeSessionId && selector !== undefined;
+  if (wantsCreate) {
+    const { reviewCommand } = await import("./pr");
+    return reviewCommand(argv);
+  }
+  return openReviewOfKind(isPrReview, "PR", explicitOpen || looksLikeSessionId ? selector : undefined);
+}
+
 async function runTui(sessionId?: string): Promise<number> {
   const { runClient } = await import("@cueloop/client");
   return runClient({ sessionId });
@@ -111,8 +201,12 @@ function printHelp(): void {
       "usage:",
       "  cueloop                          open the inbox",
       "  cueloop <session-id>             open one session",
-      "  cueloop diff                     review the working tree",
+      "  cueloop plan [id|title]          open the latest pending plan review (or one by id/title)",
+      "  cueloop diff [id|title]          open the latest pending diff review (or one by id/title);",
+      "                                   with a dirty working tree and no argument, create one instead",
+      "  cueloop review [id|title]        open the latest pending PR review (or one by id/title)",
       "  cueloop review <pr>              review a pull request (--no-tui prints the session)",
+      "  cueloop <plan|diff|review> --latest  open the latest pending review of that type",
       "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
       "  cueloop serve [session-id]       share over ssh: observers are read-only,",
       "                                   you stay the controller (--port 2222, --host 127.0.0.1;",

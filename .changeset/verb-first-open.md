@@ -1,0 +1,5 @@
+---
+"cueloop": minor
+---
+
+Opening a review is now verb-first: one verb per artifact type, each defaulting to the latest pending review of that type. `cueloop plan` opens the latest pending plan, `cueloop diff` opens the latest pending diff, and `cueloop review` opens the latest pending PR review. Each verb also addresses a specific session directly - `cueloop plan <session-id>` by id, or `cueloop plan <title>` by a case-insensitive title match (an exact title wins, a unique substring wins, and several matches list the candidates so you can name one). An explicit `--latest` (alias `--open`) always selects the default. The create paths stay: `cueloop diff` with a dirty working tree still creates a working-tree review, a clean tree opens the latest pending diff instead of erroring, and `cueloop review <pr>` still opens a pull request. Bare `cueloop` still opens the inbox and `cueloop <session-id>` still opens that session. A miss prints a plain "nothing to open" line instead of failing silently.

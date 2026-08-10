@@ -107,12 +107,26 @@ describe("cueloop review (black box)", () => {
     expect(ghCalls()).toContainEqual(["pr", "diff", "42"]);
   });
 
-  test("missing pr argument exits 2 without calling gh", async () => {
-    const before = ghCalls().length;
-    const runResult = await runCli(home, ["review"], undefined, ghEnv());
-    expect(runResult.code).toBe(2);
-    expect(runResult.stderr).toContain("usage: cueloop review <pr>");
-    expect(ghCalls().length).toBe(before);
+  test("bare `review` opens the latest pending PR review, never creates - with none it reports nothing to open", async () => {
+    // A fresh home has no pending PR reviews, so the open path has nothing to
+    // launch and must fall through to a plain message without ever calling gh.
+    const emptyHome = mkdtempSync(join(tmpdir(), "cueloop-review-empty-"));
+    try {
+      const before = ghCalls().length;
+      const runResult = await runCli(emptyHome, ["review"], undefined, ghEnv());
+      expect(runResult.code).toBe(1);
+      expect(runResult.stderr).toContain("no pending PR review - nothing to open");
+      expect(ghCalls().length).toBe(before);
+    } finally {
+      try {
+        const client = await DaemonClient.connect({ home: emptyHome });
+        await client.shutdown();
+        client.close();
+      } catch {
+        // daemon already gone
+      }
+      rmSync(emptyHome, { recursive: true, force: true });
+    }
   });
 
   test("gh diff failure surfaces gh's stderr and exits 1", async () => {
