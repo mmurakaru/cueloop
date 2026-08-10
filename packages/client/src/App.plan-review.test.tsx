@@ -147,6 +147,67 @@ describe("inline compose keeps the anchor painted", () => {
   }, 15_000);
 });
 
+describe("compose newline convention", () => {
+  // Option/Alt and Shift reach the App as `meta`/`shift` on the return key.
+  // modifyOtherKeys encoding preserves those modifiers so the grammar and the
+  // focused textarea can tell a bare submit from a newline.
+  async function renderModifierAwareApp() {
+    const setup = await testRender(<App home={home} sessionId={session.id} />, {
+      width: 120,
+      height: 32,
+      otherModifiersMode: true,
+    });
+    await waitForText(setup, "cueloop");
+    return setup;
+  }
+
+  async function pressReturnWith(setup: Setup, modifiers: { shift?: boolean; meta?: boolean }): Promise<void> {
+    setup.mockInput.pressKey("RETURN", modifiers);
+    await settle(setup);
+  }
+
+  test("option+return inserts a newline; a bare return submits the multiline body", async () => {
+    const setup = await renderModifierAwareApp();
+    await toContextParagraph(setup);
+    await press(setup, "v");
+    await press(setup, "l");
+    await press(setup, "c");
+    await waitForText(setup, 'comment on "The daemon"');
+    await type(setup, "first line");
+    await pressReturnWith(setup, { meta: true }); // option/alt+return -> newline
+    await type(setup, "second line");
+    // still composing: the newline did not submit
+    expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
+    await press(setup, "enter"); // bare return -> save
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    expect(server.core.sessionGet(session.id).annotations[0]!.body).toBe("first line\nsecond line");
+  });
+
+  test("shift+return still inserts a newline (existing muscle memory)", async () => {
+    const setup = await renderModifierAwareApp();
+    await toContextParagraph(setup);
+    await press(setup, "c");
+    await type(setup, "alpha");
+    await pressReturnWith(setup, { shift: true }); // shift+return -> newline
+    await type(setup, "beta");
+    expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
+    await press(setup, "enter");
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    expect(server.core.sessionGet(session.id).annotations[0]!.body).toBe("alpha\nbeta");
+  });
+
+  test("escape cancels the composer without saving", async () => {
+    const setup = await renderModifierAwareApp();
+    await toContextParagraph(setup);
+    await press(setup, "c");
+    await waitForText(setup, 'comment on "');
+    await type(setup, "never saved");
+    await press(setup, "escape");
+    await waitForTextGone(setup, 'comment on "');
+    expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
+  });
+});
+
 describe("the document selects, the rail edits", () => {
   test("e edits the selected card in place; enter saves through the controller", async () => {
     const setup = await renderApp();

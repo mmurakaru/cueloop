@@ -360,7 +360,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
     };
     keyBindings.setContext({ overlay: state.overlay, spanMode: state.spanMode });
     const action = keyBindings.resolveAction({ name: key.name, shift: !!key.shift });
-    for (const intent of reduceKey(state, { name: key.name, shift: !!key.shift }, action)) dispatch(intent);
+    for (const intent of reduceKey(state, { name: key.name, shift: !!key.shift, meta: !!key.meta }, action))
+      dispatch(intent);
   });
 
   // ── render ──────────────────────────────────
