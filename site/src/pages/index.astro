@@ -1,0 +1,69 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Placeholder from "../components/Placeholder.astro";
+import { conceptPages } from "../concepts.ts";
+---
+
+<BaseLayout title="cueloop - a terminal-first review surface for coding agents">
+  <p class="kicker">terminal-first review</p>
+  <h1>Review your coding agent, in the terminal.</h1>
+  <p class="lead">
+    cueloop is a review surface for the plans and diffs a coding agent produces. The agent
+    submits an artifact and blocks. You read it in the terminal, annotate it, and return a
+    verdict. Your annotations become structured feedback the agent acts on.
+  </p>
+
+  <div class="cta-row">
+    <a class="button primary" href="/install">Install and quickstart</a>
+    <a class="button" href="/concepts/review-session">Read the concepts</a>
+  </div>
+
+  <h2>The core loop</h2>
+  <p>
+    One loop, four hops. The agent submits; you review; the verdict flows back; the agent
+    acts on it.
+  </p>
+  <code class="loop">agent &rarr; daemon &rarr; your terminal &rarr; verdict &rarr; agent</code>
+  <p>
+    The daemon is the only stateful part. Every client is a thin renderer over one local
+    unix socket, so a verdict is never lost, even if the agent-side wait times out.
+  </p>
+
+  <Placeholder label="Coming soon">
+    A short asciinema cast of a plan review, plus a diagram of the loop above.
+  </Placeholder>
+
+  <h2>Concepts</h2>
+  <p>Four short pages that explain how cueloop thinks about a review.</p>
+  <ul class="card-grid">
+    {
+      conceptPages.map((page) => (
+        <li class="card">
+          <a href={page.href}>{page.title}</a>
+          <p>{page.summary}</p>
+        </li>
+      ))
+    }
+  </ul>
+
+  <h2>The three verbs</h2>
+  <p>Each verb opens a ReviewSession over a different artifact.</p>
+  <ul>
+    <li>
+      <strong>plan</strong> - an agent (Claude Code and pi today; Codex planned) submits its
+      plan and blocks on your verdict through a hook.
+    </li>
+    <li>
+      <strong>diff</strong> - <code>cueloop diff</code> reviews your working tree, untracked
+      files included.
+    </li>
+    <li>
+      <strong>review</strong> - pull-request review is planned (<code>cueloop review &lt;pr&gt;</code>).
+    </li>
+  </ul>
+
+  <p>
+    This is alpha software. Expect rough edges and breaking changes between versions. The
+    <a href="/concepts/sharing-over-ssh">SSH gateway</a> is a design direction, not a shipped feature.
+  </p>
+</BaseLayout>

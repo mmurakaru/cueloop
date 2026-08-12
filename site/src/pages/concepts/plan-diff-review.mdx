@@ -1,0 +1,43 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: Plan, diff, review
+kicker: the three verbs
+description: Three verbs open a ReviewSession over a different artifact - a plan, a working-tree diff, or a pull request.
+---
+import Placeholder from "../../components/Placeholder.astro";
+
+cueloop has one primitive and a small set of verbs that open it. Each verb produces a
+ReviewSession over a different artifact. Same review surface, same grammar, different input.
+
+## plan
+
+An agent submits the plan it wrote before it starts work, then blocks on your verdict. With
+Claude Code and pi today (Codex planned), a hook catches the moment the agent leaves plan
+mode and hands the plan to cueloop. You annotate it and return a verdict; `approve` lets the
+agent proceed, anything else sends it back with your feedback.
+
+Because the verdict outlives the wait, an agent-side timeout never drops your review. When
+you resolve, the decision is waiting.
+
+## diff
+
+`cueloop diff` opens a review over your working tree, untracked files included. It is the
+quickest way to see the surface: no agent, no hook, just your own changes. The diff artifact
+is unified-diff text, and a **guided walk** steps you file by file, tracking which paths you
+have viewed so a resumed review keeps its progress.
+
+## review
+
+Pull-request review is planned: `cueloop review <pr>` will pull a pull request into a
+ReviewSession and post the verdict back to the pull request. The artifact metadata already
+carries a pull-request reference for exactly this return path.
+
+## One grammar
+
+Because all three are the same primitive, the grammar does not change between them. You
+move, select a span, comment or suggest, step through annotations, and submit. What differs
+is only the artifact underneath and where the verdict returns.
+
+<Placeholder label="Coming soon">
+  A short gif of each verb opening a session.
+</Placeholder>

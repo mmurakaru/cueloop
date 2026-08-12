@@ -1,0 +1,13 @@
+# Astro build output and cache
+dist/
+.astro/
+
+# dependencies
+node_modules/
+
+# Cloudflare / wrangler local state
+.wrangler/
+
+# logs and OS cruft
+*.log
+.DS_Store
