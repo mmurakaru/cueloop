@@ -1,70 +1,165 @@
 ---
+/*
+ * The shared shell: head (fonts, meta, no-flash theme init), sticky header with
+ * the wordmark, nav, and theme toggle, then the page slot and footer.
+ */
 import "../styles/global.css";
+import ThemeToggle from "../components/ThemeToggle.tsx";
+import MobileMenu from "../components/MobileMenu.tsx";
+import DocsSearch from "../components/DocsSearch.tsx";
 
 interface Props {
-  title: string;
+  title?: string;
   description?: string;
 }
 
-const { title, description = "A terminal-first review surface for coding-agent plans and diffs." } =
-  Astro.props;
+const {
+  title = "cueloop - a terminal-first review surface for coding agents",
+  description = "cueloop is where you review what your coding agent is about to do. Read the plan or the diff in your terminal, annotate it, and send a verdict back - then share it over SSH.",
+} = Astro.props;
 
-const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
-
-const navigationLinks = [
-  { href: "/", label: "home" },
-  { href: "/concepts/review-session", label: "concepts" },
-  { href: "/install", label: "install" },
-];
-
-function isCurrent(href: string): boolean {
-  if (href === "/") return currentPath === "/";
-  if (href.startsWith("/concepts")) return currentPath.startsWith("/concepts");
-  return currentPath === href;
-}
+const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script is:inline>
+      // Resolve the stored preference (system | light | dark) to a concrete
+      // theme before first paint so there is no flash. "system" (the default)
+      // follows the OS. Also flag that JS is on for the entrance animations.
+      (function () {
+        document.documentElement.classList.add("js");
+        try {
+          const pref = localStorage.getItem("cueloop-theme") || "system";
+          const resolved =
+            pref === "light" || pref === "dark"
+              ? pref
+              : matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          document.documentElement.dataset.theme = resolved;
+        } catch (_) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
   </head>
   <body>
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker__track">
+        <span><b>»</b> ssh &lt;id&gt;@cueloop.dev - share a plan in a teammate's terminal</span>
+        <span><b>»</b> cueloop plan - open the latest plan your agent proposed</span>
+        <span><b>»</b> cueloop diff - review the working tree</span>
+        <span><b>»</b> cueloop review - pull a pull request into the terminal</span>
+        <span><b>»</b> ssh &lt;id&gt;@cueloop.dev - share a plan in a teammate's terminal</span>
+        <span><b>»</b> cueloop plan - open the latest plan your agent proposed</span>
+        <span><b>»</b> cueloop diff - review the working tree</span>
+        <span><b>»</b> cueloop review - pull a pull request into the terminal</span>
+      </div>
+    </div>
     <header class="site-header">
-      <div class="container">
-        <a class="brand" href="/"><span class="prompt">$</span> cueloop</a>
-        <nav class="site-nav" aria-label="Primary">
-          {
-            navigationLinks.map((link) => (
-              <a href={link.href} aria-current={isCurrent(link.href) ? "page" : undefined}>
-                {link.label}
-              </a>
-            ))
-          }
-          <a href="https://github.com/mmurakaru/cueloop">github</a>
+      <div class="container site-header__inner">
+        <nav class="nav nav--left" aria-label="Primary">
+          <a href="/docs/">Docs</a>
+          <a href="/docs/sharing/">Sharing</a>
+          <a class="nav__hide-sm" href="/docs/install/">Install</a>
         </nav>
+        <a href="/" class="wordmark">
+          <span class="wordmark__mark">&raquo;</span>cueloop
+        </a>
+        <div class="site-header__right">
+          <div class="site-header__search">
+            <DocsSearch client:load />
+          </div>
+          <nav class="nav nav--right" aria-label="Secondary">
+            <a href="https://github.com/mmurakaru/cueloop">GitHub</a>
+            <span class="nav__sep" aria-hidden="true"></span>
+            <ThemeToggle client:load />
+          </nav>
+          <div class="site-header__mobile">
+            <MobileMenu client:load />
+          </div>
+        </div>
       </div>
     </header>
 
-    <main>
-      <div class="container">
-        <slot />
-      </div>
+    <main id="main">
+      <slot />
     </main>
 
     <footer class="site-footer">
-      <div class="container">
-        <span>cueloop - Apache-2.0. Alpha: expect rough edges.</span>
-        <span
-          ><a href="https://github.com/mmurakaru/cueloop">source</a> ·
-          <a href="https://www.npmjs.com/package/cueloop">npm</a></span
-        >
+      <div class="container site-footer__grid">
+        <div>
+          <a href="/" class="wordmark">
+            <span class="wordmark__mark">&raquo;</span>cueloop
+          </a>
+          <p class="site-footer__tag">
+            A terminal-first review surface for coding agents. Read the plan,
+            annotate it, send the verdict back.
+          </p>
+        </div>
+        <div class="site-footer__cols">
+          <div class="footer-col">
+            <h3>Docs</h3>
+            <a href="/docs/">Overview</a>
+            <a href="/docs/install/">Install</a>
+            <a href="/docs/concepts/review-session/">Concepts</a>
+            <a href="/docs/sharing/">Sharing over SSH</a>
+          </div>
+          <div class="footer-col">
+            <h3>Project</h3>
+            <a href="https://github.com/mmurakaru/cueloop">GitHub</a>
+            <a href="https://github.com/mmurakaru/cueloop/issues">Issues</a>
+          </div>
+        </div>
       </div>
     </footer>
+
+    <script>
+      import gsap from "gsap";
+      import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const heroChildren = gsap.utils.toArray<HTMLElement>(".hero .container > *");
+      const revealBlocks = gsap.utils.toArray<HTMLElement>(".reveal");
+
+      if (reduceMotion) {
+        // Honour the preference: reveal everything, no motion.
+        gsap.set([...heroChildren, ...revealBlocks], { opacity: 1, y: 0 });
+      } else {
+        // Hero entrance: a soft, staggered rise once the page paints.
+        gsap.to(heroChildren, {
+          opacity: 1,
+          y: 0,
+          duration: 0.7,
+          ease: "power3.out",
+          stagger: 0.07,
+          delay: 0.05,
+        });
+        // Section blocks rise in as they enter the viewport.
+        revealBlocks.forEach((block) => {
+          gsap.to(block, {
+            opacity: 1,
+            y: 0,
+            duration: 0.7,
+            ease: "power3.out",
+            scrollTrigger: { trigger: block, start: "top 84%" },
+          });
+        });
+      }
+    </script>
   </body>
 </html>

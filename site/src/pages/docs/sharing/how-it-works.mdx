@@ -1,0 +1,68 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: How the loop works
+eyebrow: Docs · Sharing over SSH
+lede: The four steps in depth - share, render, annotate, merge back. Each step is small on its own; together they let a teammate review a plan with no install and hand their notes back without ever overwriting yours.
+prev: { title: "Share a plan", href: "/docs/sharing/quickstart/" }
+next: { title: "Identity & attribution", href: "/docs/sharing/identity/" }
+---
+
+Sharing is four steps. This page explains what each one does.
+
+## 1. Share
+
+When you press Share, cueloop serialises the review session - the plan and every
+annotation on it - into one blob. It compresses the blob, then encrypts it with
+AES-256-GCM. It PUTs the ciphertext to a hosted object store under a fresh short
+id, and copies the connection line to your clipboard:
+
+```bash
+ssh p_7f3k9x2q@cueloop.dev
+```
+
+The store holds only ciphertext. The id in the username is the only handle to
+the plan.
+
+## 2. Render
+
+Your collaborator pastes the line. The SSH gateway reads the username
+`p_7f3k9x2q` as the share id, loads the matching blob from the store, and
+decrypts it. It then renders cueloop's real terminal UI over the SSH connection,
+reusing the same serving path cueloop uses locally. The collaborator sees the
+plan with every existing annotation already in place - not a copy, the live
+shared review.
+
+## 3. Annotate
+
+Inside the rendered UI, the collaborator navigates and annotates exactly as in
+the local UI. Anchors, keys, and panes behave the same way. Each new annotation
+carries a stable id and the author's identity, captured from their SSH key.
+
+## 4. Merge back
+
+On submit, the collaborator's annotations are unioned into the stored review by
+stable id. Union by id is what makes merge-back safe:
+
+- A new annotation has an id that is not in the store yet, so it is added.
+- An annotation the collaborator edited keeps its id, so it updates in place.
+- Every annotation already in the store and not part of this submit is left
+  exactly as it was.
+
+Your own annotations are never touched, because the merge only ever adds or
+updates by the ids in the incoming submit - it never removes. Two collaborators
+working at once cannot clobber each other either: their ids differ, so both sets
+land. You then pull the merged annotations into your local session, each
+attributed to its author.
+
+## Why nothing is ever lost
+
+The store is the single source of truth for a shared plan, and every write is an
+id-keyed union. There is no "last write wins" and no full-document overwrite. An
+annotation can be added or updated by its own id, and nothing else moves. That
+is why a merge-back can only ever grow the set of notes, never shrink it.
+
+<div class="callout">
+  <div class="callout__label">Union, not overwrite</div>
+  Every merge-back is an id-keyed union into the stored review. Notes are added
+  or updated by their own id - never overwritten in bulk, never dropped.
+</div>

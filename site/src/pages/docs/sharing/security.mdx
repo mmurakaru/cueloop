@@ -1,0 +1,58 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Security & privacy
+eyebrow: Docs · Sharing over SSH
+lede: The share id is short and unguessable. Blobs are AES-256-GCM encrypted at rest, so the store holds only ciphertext. They expire, they are size-capped, and the anonymous write path is bounded to one plan. Terminal only, no browser, ever.
+prev: { title: "Identity & attribution", href: "/docs/sharing/identity/" }
+next: { title: "Agent integration", href: "/docs/agents/" }
+---
+
+Sharing is open by design - a collaborator needs no account - so the security
+work is in making that openness narrow and safe.
+
+<div class="callout">
+  <div class="callout__label">The guarantee</div>
+  The store holds only ciphertext, the id is unguessable, and the anonymous
+  write path can do exactly one thing: annotate a plan whose id you already hold.
+</div>
+
+## An unguessable id
+
+The share id is short but not sequential. It carries about 47 bits of entropy,
+is url-safe, and wears a `p_` prefix so it reads as a plan share. There is no way
+to count up from one id to the next, and no index to walk. If you do not have the
+id, you cannot find the plan.
+
+## Encrypted at rest
+
+Every blob is encrypted with AES-256-GCM before it is stored. The object store
+holds ciphertext and nothing else - it never sees the plan text or the
+annotations in the clear. The blobs live in Cloudflare R2.
+
+## Bounded lifetime and size
+
+A shared blob expires after 30 days by default, so a share does not linger
+forever. Blobs are also size-capped, which keeps a single share from growing
+without limit.
+
+## A minimal front door
+
+`cueloop.dev` DNS is on Cloudflare, and the SSH record is DNS-only, so port 22
+reaches the gateway directly. The gateway is a small always-on service on an
+Oracle Cloud Always-Free VM that renders the UI per connection, reusing
+cueloop's existing SSH serving path. The only thing exposed to the world is an
+SSH port.
+
+## A bounded write path
+
+Anonymous write is deliberately narrow. A collaborator can annotate a plan they
+already hold the id for - nothing more. There is no listing, no enumeration, and
+no way to reach one plan from another. The id is both the address and the extent
+of what an anonymous collaborator can touch.
+
+## Terminal only
+
+Nothing in this loop opens a browser. The planner shares from a terminal, the
+collaborator reviews over SSH, and the annotations travel back through the same
+connection. There is no web surface to attack, because there is no web surface at
+all.

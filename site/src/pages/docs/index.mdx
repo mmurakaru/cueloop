@@ -1,0 +1,37 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Overview
+eyebrow: Docs · Start here
+lede: cueloop is a terminal-first review surface for coding agents. When your agent has a plan or a diff, you review it in the terminal, annotate the exact lines, and send a verdict back - then share it over SSH.
+next: { title: "Install & quickstart", href: "/docs/install/" }
+---
+
+Coding agents move fast. cueloop puts a deliberate human gate between what the
+agent *proposes* and what it *does*. Instead of skimming a wall of text and
+hitting "yes", you open the plan or the diff in a real terminal UI, mark up the
+parts that matter, and hand back a structured verdict the agent can act on.
+
+## The shape of it
+
+- **One primitive - the review session.** A review session pairs an *artifact*
+  (a plan, a working-tree diff, or a pull request) with *annotations* anchored
+  to the exact text they discuss. Everything else is built on it.
+- **Two directions of feedback.** You review your agent's work and send a
+  verdict back to the agent. Separately, you can *share* a plan with a teammate
+  over SSH and merge their annotations back into yours.
+- **No browser, no account.** A local daemon speaks over a unix socket; the UI
+  is an [OpenTUI](https://github.com/sst/opentui) React app. Sharing runs over
+  plain SSH.
+
+## Where to go next
+
+- New here? Start with [Install & quickstart](/docs/install/).
+- Want the model? Read [The review session](/docs/concepts/review-session/) and
+  [Annotations](/docs/concepts/annotations/).
+- Ready to collaborate? [Sharing over SSH](/docs/sharing/) walks the whole loop.
+
+<div class="callout">
+  <div class="callout__label">Terminal-first</div>
+  cueloop never opens a browser. If it happens in cueloop, it happens in a
+  terminal - locally, or over SSH on someone else's.
+</div>

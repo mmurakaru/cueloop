@@ -1,0 +1,57 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Plan, diff, review
+eyebrow: Docs · Concepts
+lede: One verb per artifact type. plan for plans, diff for the working tree, review for pull requests - and bare cueloop for the inbox across all three.
+prev: { title: "Annotations", href: "/docs/concepts/annotations/" }
+next: { title: "Sharing over SSH", href: "/docs/sharing/" }
+---
+
+cueloop maps one verb onto each artifact type. The verb tells cueloop what kind
+of thing you want to review; it then picks the latest pending one of that type,
+or the specific one you name.
+
+```bash
+cueloop            # open the inbox across all types
+cueloop plan       # latest pending plan review
+cueloop diff       # latest pending diff review
+cueloop review     # latest pending pull-request review
+cueloop review 42  # pull PR 42 in and post the verdict back to it
+```
+
+## plan
+
+`cueloop plan` opens the latest pending plan review. You can also address a
+specific plan by its id or by its title, which is handy when several plans are in
+flight at once.
+
+## diff
+
+`cueloop diff` opens the latest pending diff review. With a dirty working tree and
+no argument, it does one extra thing: it creates a review from the current
+working tree instead of waiting for one to exist. So on a repo with uncommitted
+changes, `cueloop diff` is the fastest way to put your own work in front of
+yourself.
+
+## review
+
+`cueloop review` opens the latest pending pull-request review. Give it a PR and
+`cueloop review <pr>` pulls that specific pull request in, lets you annotate it,
+and posts the verdict back to the pull request itself.
+
+## The inbox and --latest
+
+Bare `cueloop` opens the inbox across all types, so you do not have to know which
+verb you want before you look. And on any verb, `--latest` - alias `--open` -
+always selects the latest review of that type.
+
+```bash
+cueloop plan --latest
+cueloop diff --open
+```
+
+<div class="callout">
+  <div class="callout__label">One verb per type</div>
+  plan, diff, review. Each verb owns one artifact type, defaults to the latest
+  pending one, and takes an id or title when you need a specific one.
+</div>
