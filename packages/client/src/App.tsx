@@ -31,8 +31,8 @@ import { ReviewPanel } from "./components/ReviewPanel";
 import {
   REVIEW_DEFAULT_WIDTH,
   REVIEW_RESIZE_STEP,
-  clampWidth,
   cycleReviewPanelMode,
+  resolveReviewWidth,
   toggleReviewPanelMode,
   widthFromMouseColumn,
   type ReviewPanelMode,
@@ -283,7 +283,10 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
       case "openSubmit":
         if (!session) return;
         liveInput.current = "";
-        // the confirm card lives in the review tab; opening submit reveals it
+        // the confirm card lives in the expanded review rail; a compact or hidden
+        // panel would swallow the whole submit flow, so force the rail open (live
+        // only - the saved panel preference is left untouched)
+        setReviewMode("expanded");
         setRailTab("review");
         return void setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
       case "cut":
@@ -359,7 +362,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
       }
       case "resizeReviewPanel": {
         if (reviewMode !== "expanded") return;
-        const next = clampWidth(reviewWidth + intent.direction * REVIEW_RESIZE_STEP);
+        const next = resolveReviewWidth(reviewWidth + intent.direction * REVIEW_RESIZE_STEP, terminalWidth);
         reviewWidthRef.current = next;
         setReviewWidth(next);
         return controller.saveReviewPanel({ width: next });
@@ -602,7 +605,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
           )}
           <ReviewPanel
             mode={reviewMode}
-            width={reviewWidth}
+            width={resolveReviewWidth(reviewWidth, terminalWidth)}
             height={terminalHeight - CHROME_ROWS}
             dragging={dividerDragging}
             onDividerGrab={onDividerGrab}

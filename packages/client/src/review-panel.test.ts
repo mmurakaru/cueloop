@@ -3,9 +3,12 @@ import {
   REVIEW_DEFAULT_WIDTH,
   REVIEW_MAX_WIDTH,
   REVIEW_MIN_WIDTH,
+  REVIEW_PLAN_MIN_WIDTH,
   REVIEW_RESIZE_STEP,
   clampWidth,
   cycleReviewPanelMode,
+  maxWidthForTerminal,
+  resolveReviewWidth,
   reviewRowsToDivider,
   toggleReviewPanelMode,
   widthFromMouseColumn,
@@ -59,9 +62,40 @@ describe("widthFromMouseColumn", () => {
     expect(widthFromMouseColumn(119, 120)).toBe(REVIEW_MIN_WIDTH);
   });
 
+  test("cannot drag the rail wide enough to starve the plan on a narrow terminal", () => {
+    // dragging to the far left edge of a 60-col terminal still leaves the plan its minimum
+    expect(widthFromMouseColumn(0, 60)).toBe(60 - REVIEW_PLAN_MIN_WIDTH - 1);
+  });
+
   test("the resize step widens and narrows within the clamp", () => {
     expect(clampWidth(REVIEW_DEFAULT_WIDTH + REVIEW_RESIZE_STEP)).toBe(REVIEW_DEFAULT_WIDTH + REVIEW_RESIZE_STEP);
     expect(clampWidth(REVIEW_MIN_WIDTH - REVIEW_RESIZE_STEP)).toBe(REVIEW_MIN_WIDTH);
+  });
+});
+
+describe("maxWidthForTerminal", () => {
+  test("allows the full rail on a wide terminal", () => {
+    expect(maxWidthForTerminal(120)).toBe(REVIEW_MAX_WIDTH);
+  });
+
+  test("reserves the plan its minimum on a narrow terminal", () => {
+    // 60-col terminal: 30 for the plan and 1 for the divider leaves 29 for the rail
+    expect(maxWidthForTerminal(60)).toBe(60 - REVIEW_PLAN_MIN_WIDTH - 1);
+  });
+
+  test("never drops below the rail minimum, however narrow the terminal", () => {
+    expect(maxWidthForTerminal(40)).toBe(REVIEW_MIN_WIDTH);
+  });
+});
+
+describe("resolveReviewWidth", () => {
+  test("leaves a width that already fits untouched", () => {
+    expect(resolveReviewWidth(REVIEW_DEFAULT_WIDTH, 120)).toBe(REVIEW_DEFAULT_WIDTH);
+  });
+
+  test("shrinks a wide persisted width so the plan keeps its room", () => {
+    // a saved 50-col rail on a 60-col terminal would leave the plan 9 cols; clamp it back
+    expect(resolveReviewWidth(REVIEW_MAX_WIDTH, 60)).toBe(60 - REVIEW_PLAN_MIN_WIDTH - 1);
   });
 });
 

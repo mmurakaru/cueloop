@@ -79,4 +79,19 @@ describe("review panel", () => {
     const widened = loadConfig({ userConfigPath: configPath }).ui.reviewWidth;
     expect(widened).toBeGreaterThan(startWidth);
   });
+
+  test("submitting from a hidden panel force-opens the rail so the confirm card is reachable", async () => {
+    const setup = await renderApp();
+    await press(setup, "b"); // -> compact
+    await press(setup, "b"); // -> hidden
+    expect(setup.captureCharFrame()).not.toContain("Submit review"); // rail is gone
+
+    await press(setup, "enter"); // submit while hidden must not trap in an invisible modal
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("submit review"); // the confirm card is visible again
+    expect(frame).toContain("[Approve]");
+
+    // the reveal is live-only: the saved panel preference stays as the user left it
+    expect(loadConfig({ userConfigPath: configPath }).ui.reviewState).toBe("hidden");
+  });
 });
