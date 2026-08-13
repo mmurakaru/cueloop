@@ -1,10 +1,10 @@
 /*
  * cueloop site design system - "editorial terminal".
- * Warm paper canvas, sumi ink, a single vermilion accent, and terminal-window
- * motifs that echo the OpenTUI rounded borders. Three type roles: Newsreader
- * serif for display, Hanken Grotesk sans for body, Geist Mono for terminal
- * chrome, eyebrows, and code. Tokens drive both the light (paper) and dark
- * (sumi) themes; components never hard-code a colour.
+ * A cool paper canvas, near-black ink, a single violet accent, and
+ * terminal-window motifs that echo the OpenTUI rounded borders. Three type
+ * roles: Newsreader serif for display, Hanken Grotesk sans for body, Geist
+ * Mono for terminal chrome, eyebrows, and code. Tokens drive both the light
+ * (paper) and dark themes; components never hard-code a colour.
  */
 
 @import "@fontsource-variable/newsreader";
@@ -47,7 +47,7 @@
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Light theme - a cool, clean off-white in the hex.tech register (default). */
+/* Light theme - a cool, clean off-white (default). */
 :root,
 [data-theme="light"] {
   --paper: #f3f3f1;
@@ -59,8 +59,7 @@
   --hairline: rgba(26, 26, 28, 0.12);
   --hairline-strong: rgba(26, 26, 28, 0.3);
   --dot-grid: rgba(26, 26, 28, 0.05);
-  /* hex.tech's brand accent is a deep violet (~#472d7b); use a slightly
-   * brighter, readable member of that family. */
+  /* a deep, readable violet */
   --accent: #5b3ea6;
   --accent-ink: #fbfbfa;
   --accent-soft: rgba(91, 62, 166, 0.11);
@@ -79,31 +78,31 @@
   --term-blue: #7fa8d8;
 }
 
-/* Dark theme - Rosé Pine Moon (rosepinetheme.com). */
+/* Dark theme - a cool greyscale near-black with a soft lavender accent. */
 [data-theme="dark"] {
-  --paper: #232136; /* base */
-  --paper-raised: #2a273f; /* surface */
-  --paper-recessed: #1f1d2e; /* darker than base */
-  --ink: #e0def4; /* text */
-  --ink-soft: #908caa; /* subtle */
-  --ink-faint: #6e6a86; /* muted */
-  --hairline: rgba(110, 106, 134, 0.32); /* muted */
-  --hairline-strong: rgba(144, 140, 170, 0.5); /* subtle */
-  --dot-grid: rgba(224, 222, 244, 0.05);
-  --accent: #eb6f92; /* love */
-  --accent-ink: #232136;
-  --accent-soft: rgba(235, 111, 146, 0.16);
-  --green: #9ccfd8; /* foam */
-  --green-soft: rgba(156, 207, 216, 0.16);
+  --paper: #17171a;
+  --paper-raised: #1f1f23;
+  --paper-recessed: #121215;
+  --ink: #eae8ee;
+  --ink-soft: #a9a8b3;
+  --ink-faint: #6f6e7a;
+  --hairline: rgba(234, 232, 238, 0.12);
+  --hairline-strong: rgba(234, 232, 238, 0.26);
+  --dot-grid: rgba(234, 232, 238, 0.05);
+  --accent: #cba6f7;
+  --accent-ink: #17171a;
+  --accent-soft: rgba(203, 166, 247, 0.15);
+  --green: #a6e3a1;
+  --green-soft: rgba(166, 227, 161, 0.15);
 
-  --term-bg: #1f1d2e;
-  --term-bar: #2a273f;
-  --term-ink: #e0def4;
-  --term-dim: #6e6a86;
-  --term-line: rgba(224, 222, 244, 0.09);
-  --term-accent: #eb6f92; /* love */
-  --term-green: #9ccfd8; /* foam */
-  --term-blue: #c4a7e7; /* iris */
+  --term-bg: #121215;
+  --term-bar: #1f1f23;
+  --term-ink: #eae8ee;
+  --term-dim: #6f6e7a;
+  --term-line: rgba(234, 232, 238, 0.08);
+  --term-accent: #cba6f7;
+  --term-green: #a6e3a1;
+  --term-blue: #89b4fa;
 }
 
 * {
@@ -136,7 +135,7 @@ body {
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  /* Whisper-faint dot grid, the hex.tech technical-canvas motif. */
+  /* Whisper-faint dot grid, a technical-canvas texture. */
   background-image: radial-gradient(var(--dot-grid) 1px, transparent 1px);
   background-size: 22px 22px;
   background-position: -1px -1px;
@@ -216,7 +215,7 @@ pre {
   border-top: 1px solid var(--hairline);
 }
 
-/* ---- Corner crop-marks (hex.tech registration-mark motif) ----
+/* ---- Corner crop-marks (registration-mark motif) ----
  * Draw four L-shaped corner ticks on any element's background layer. Only use
  * on elements without their own background-image. --m sizes the tick, --mc its
  * colour. */
@@ -235,7 +234,7 @@ pre {
     bottom left, bottom right, bottom right;
 }
 
-/* ---- Mono eyebrow, framed by crop-marks (hex.tech motif) ---- */
+/* ---- Mono eyebrow, framed by crop-marks ---- */
 .eyebrow {
   --m: 6px;
   --mc: var(--hairline-strong);
@@ -268,7 +267,7 @@ pre {
   color: var(--accent);
 }
 
-/* ---- Buttons (hex.tech: rectangular, tinted, crop-marked) ---- */
+/* ---- Buttons (rectangular, tinted, crop-marked) ---- */
 .btn {
   --btn-bg: var(--ink);
   --btn-fg: var(--paper);
@@ -449,7 +448,7 @@ pre {
  * Site chrome + components (also styles the React Aria islands)
  * ============================================================ */
 
-/* ---- Ticker (hex.tech top marquee) ---- */
+/* ---- Ticker (top marquee) ---- */
 .ticker {
   overflow: hidden;
   border-bottom: 1px solid var(--hairline);
@@ -522,7 +521,7 @@ pre {
   display: none;
 }
 
-/* Mobile header: wordmark left, hamburger menu right (delta.dev pattern).
+/* Mobile header: wordmark left, hamburger menu right.
  * Higher-specificity selectors so the base .nav display:flex cannot win. */
 @media (max-width: 760px) {
   .site-header__inner {
@@ -557,7 +556,7 @@ pre {
 .menu-btn[data-pressed] {
   background: var(--paper-recessed);
 }
-/* Bottom drawer (delta.dev): a full-screen overlay that anchors the sheet to
+/* Bottom drawer: a full-screen overlay that anchors the sheet to
  * the bottom and slides it up via React Aria's data-entering/exiting hooks. */
 .drawer-overlay {
   position: fixed;
@@ -785,7 +784,7 @@ pre {
   margin: 1.6rem auto 0;
 }
 
-/* hex.tech headline mix: an italic serif line above a bold grotesque line. */
+/* Headline mix: an italic serif line above a bold grotesque line. */
 .ht-serif {
   display: block;
   font-family: var(--font-serif);
@@ -864,7 +863,7 @@ pre {
   --m: 12px;
 }
 
-/* Mobile hero: left-aligned with full-width stacked buttons (delta.dev). */
+/* Mobile hero: left-aligned with full-width stacked buttons. */
 @media (max-width: 640px) {
   .hero {
     text-align: left;
@@ -1096,7 +1095,7 @@ pre {
   }
 }
 
-/* ---- Docs layout (Hex docs: sidebar | content | on-this-page) ---- */
+/* ---- Docs layout (sidebar | content | on-this-page) ---- */
 .docs-shell {
   display: grid;
   grid-template-columns: 15rem minmax(0, 1fr) 13rem;
@@ -1190,7 +1189,7 @@ pre {
   color: var(--ink-soft);
 }
 
-/* ---- Docs sidebar (Hex-style grouped sections) ---- */
+/* ---- Docs sidebar (grouped sections) ---- */
 .docs-sidebar {
   display: grid;
   gap: 1.4rem;

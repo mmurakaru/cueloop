@@ -1,5 +1,5 @@
 /*
- * The docs sidebar: grouped links in the Hex docs style - a section label per
+ * The docs sidebar: grouped links - a section label per
  * group, items below, the current page highlighted. Static (no client JS); the
  * current path drives the active state at build time.
  */
