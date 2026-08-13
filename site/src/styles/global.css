@@ -1136,18 +1136,28 @@ pre {
   min-width: 0;
 }
 .docs-content h1 {
-  font-size: var(--step-3);
-  margin-top: 0.4rem;
+  font-size: clamp(1.8rem, 1.55rem + 1vw, 2.3rem);
+  margin-top: 0.5rem;
 }
 .docs-content .lede {
-  margin-top: 0.9rem;
-  font-size: var(--step-1);
-  line-height: 1.45;
+  margin-top: 0.7rem;
+  font-size: clamp(1.02rem, 0.98rem + 0.2vw, 1.18rem);
+  line-height: 1.55;
   color: var(--ink-soft);
   max-width: var(--measure);
 }
 .docs-content .prose {
   margin-top: 2rem;
+  font-size: var(--step-0);
+}
+/* Subtler heading scale inside docs prose (landing stays bold). */
+.docs-content .prose h2 {
+  font-size: clamp(1.35rem, 1.2rem + 0.5vw, 1.6rem);
+  margin-top: 2.2em;
+}
+.docs-content .prose h3 {
+  font-size: clamp(1.1rem, 1.02rem + 0.25vw, 1.25rem);
+  margin-top: 1.7em;
 }
 
 /* Breadcrumb */
