@@ -40,8 +40,13 @@ export interface ReviewRailProps {
   onSelectCard: (id: string) => void;
   onActivateCard: (id: string) => void;
   onSubmitRequest: () => void;
-  /** Rail column width; the app derives it from the terminal dimensions. */
+  /** Rail column width; the app derives it from the persisted review layout. */
   width?: number;
+  /**
+   * When set, renders the muted `»` chevron pinned at the rail's bottom-left,
+   * one column from the divider. Clicking it collapses the panel to compact.
+   */
+  onCollapse?: () => void;
   theme?: Theme;
 }
 
@@ -64,6 +69,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
     onActivateCard,
     onSubmitRequest,
     width = 34,
+    onCollapse,
     theme,
   }: ReviewRailProps,
   handleRef,
@@ -141,6 +147,13 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
           )}
         </>
       )}
+      {/* the collapse chevron: muted, left-bound, one column from the divider.
+          » points right - it hands the width back toward the plan */}
+      {onCollapse ? (
+        <box style={{ flexDirection: "row" }} onMouseUp={onCollapse}>
+          <text fg={tokens.textDim}>»</text>
+        </box>
+      ) : null}
     </box>
   );
 });

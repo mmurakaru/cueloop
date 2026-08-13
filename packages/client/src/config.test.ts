@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_KEYS, actionFor, loadConfig } from "./config";
+import { DEFAULT_KEYS, actionFor, loadConfig, persistReviewState, persistReviewWidth } from "./config";
+import { REVIEW_DEFAULT_WIDTH, REVIEW_MAX_WIDTH } from "./review-panel";
 import { DARK } from "./theme";
 
 describe("loadConfig", () => {
@@ -78,6 +79,55 @@ describe("loadConfig", () => {
     try {
       expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.editor).toBeUndefined();
       expect(loadConfig({ userConfigPath: path }).ui.editor).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("[ui] review panel defaults to an expanded rail at the default width", () => {
+    const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
+    expect(config.ui.reviewState).toBe("expanded");
+    expect(config.ui.reviewWidth).toBe(REVIEW_DEFAULT_WIDTH);
+  });
+
+  test("[ui] parses review_width (clamped) and review_state", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg6-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(path, `[ui]\nreview_width = 999\nreview_state = "compact"\n`);
+    try {
+      const config = loadConfig({ userConfigPath: path });
+      expect(config.ui.reviewWidth).toBe(REVIEW_MAX_WIDTH); // out-of-range width clamps
+      expect(config.ui.reviewState).toBe("compact");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("[ui] ignores an unknown review_state and a non-numeric width", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg7-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(path, `[ui]\nreview_width = "wide"\nreview_state = "sideways"\n`);
+    try {
+      const config = loadConfig({ userConfigPath: path });
+      expect(config.ui.reviewWidth).toBe(REVIEW_DEFAULT_WIDTH);
+      expect(config.ui.reviewState).toBe("expanded");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("persistReviewWidth and persistReviewState round-trip through the config file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg8-"));
+    const path = join(dir, "config.toml");
+    try {
+      persistReviewWidth(42, path);
+      persistReviewState("hidden", path);
+      const config = loadConfig({ userConfigPath: path });
+      expect(config.ui.reviewWidth).toBe(42);
+      expect(config.ui.reviewState).toBe("hidden");
+      // a second write replaces the key in place rather than appending a duplicate
+      persistReviewWidth(30, path);
+      expect(loadConfig({ userConfigPath: path }).ui.reviewWidth).toBe(30);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

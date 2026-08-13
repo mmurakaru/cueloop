@@ -69,8 +69,12 @@ describe("code blocks", () => {
 });
 
 describe("block spacing", () => {
+  // the review panel's full-height divider paints a `│` on every row, so read
+  // the plan column (everything left of the divider) before asserting spacing
+  const planColumn = (line: string): string => line.split("│")[0]!.trimEnd();
+
   test("a code block never glues to the list item above it", async () => {
-    const lines = (await frame()).split("\n").map((line) => line.trimEnd());
+    const lines = (await frame()).split("\n").map(planColumn);
     const listItemLineIndex = lines.findIndex((line) => line.includes("wire the duck over MQTT"));
     const codeHeader = lines.findIndex((line) => line.trim().startsWith("tsx"));
     expect(listItemLineIndex).toBeGreaterThan(-1);
@@ -79,7 +83,7 @@ describe("block spacing", () => {
   });
 
   test("a heading never sits directly on the previous block", async () => {
-    const lines = (await frame()).split("\n").map((line) => line.trimEnd());
+    const lines = (await frame()).split("\n").map(planColumn);
     const gate = lines.findIndex((line) => line.trim() === "Gate");
     expect(gate).toBeGreaterThan(0);
     expect(lines[gate - 1]).toBe("");

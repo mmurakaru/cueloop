@@ -32,10 +32,12 @@ export type Intent =
   | { type: "closeOverlay" }
   | { type: "saveCompose" }
   | { type: "submitVerdict" }
-  | { type: "cycleVerdict"; dir: -1 | 1 }
+  | { type: "cycleVerdict"; direction: -1 | 1 }
   | { type: "finishReview" }
   | { type: "optInAutoClose" }
-  | { type: "dismissCompletion" };
+  | { type: "dismissCompletion" }
+  | { type: "cycleReviewPanel" }
+  | { type: "resizeReviewPanel"; direction: -1 | 1 };
 
 export interface KeyInput {
   name: string;
@@ -95,7 +97,7 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
       return [{ type: "submitVerdict" }];
     }
     if (state.overlay === "submit" && (name === "left" || name === "right")) {
-      return [{ type: "cycleVerdict", dir: name === "left" ? -1 : 1 }];
+      return [{ type: "cycleVerdict", direction: name === "left" ? -1 : 1 }];
     }
     return [];
   }
@@ -126,9 +128,23 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   if (state.readOnly && mutating) return status("observer - read-only");
 
   if (state.view === "inbox") return inboxGrammar(state, name);
-  if (state.view === "diff") return diffGrammar(state, action);
+  // span mode owns its single-letter keys (b slides the span back) before the
+  // review-panel controls claim them
   if (state.spanMode) return spanGrammar(name);
+  // the review panel rides both plan and diff reviews; collapsing and resizing
+  // are view state, so the read-only gate above lets them through
+  const reviewPanel = reviewPanelGrammar(action);
+  if (reviewPanel) return reviewPanel;
+  if (state.view === "diff") return diffGrammar(state, action);
   return planGrammar(state, action, name);
+}
+
+/** The review-panel controls: cycle the mode, widen and narrow the rail. */
+function reviewPanelGrammar(action: string | undefined): Intent[] | null {
+  if (action === "review_cycle") return [{ type: "cycleReviewPanel" }];
+  if (action === "review_wider") return [{ type: "resizeReviewPanel", direction: 1 }];
+  if (action === "review_narrower") return [{ type: "resizeReviewPanel", direction: -1 }];
+  return null;
 }
 
 function inboxGrammar(state: KeyState, name: string): Intent[] {

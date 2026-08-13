@@ -62,8 +62,8 @@ describe("submit overlay", () => {
     ["escape", [{ type: "closeOverlay" }]],
     ["return", [{ type: "submitVerdict" }]],
     ["enter", [{ type: "submitVerdict" }]],
-    ["left", [{ type: "cycleVerdict", dir: -1 }]],
-    ["right", [{ type: "cycleVerdict", dir: 1 }]],
+    ["left", [{ type: "cycleVerdict", direction: -1 }]],
+    ["right", [{ type: "cycleVerdict", direction: 1 }]],
     ["j", []],
     ["q", []],
   ];
@@ -271,6 +271,37 @@ describe("guided walk", () => {
     const atEnd = state({ view: "diff", overlay: "walk", walkAtEnd: true });
     expect(reduceKey(atEnd, key("return"))).toEqual([{ type: "walkLeave" }, { type: "openSubmit" }]);
     expect(reduceKey(atEnd, key("enter"))).toEqual([{ type: "walkLeave" }, { type: "openSubmit" }]);
+  });
+});
+
+describe("review panel controls", () => {
+  const table: [string, Intent[]][] = [
+    ["b", [{ type: "cycleReviewPanel" }]],
+    ["]", [{ type: "resizeReviewPanel", direction: 1 }]],
+    ["[", [{ type: "resizeReviewPanel", direction: -1 }]],
+  ];
+  for (const view of ["plan", "diff"] as const) {
+    for (const [name, expected] of table) {
+      test(`${view} ${name} -> ${JSON.stringify(expected)}`, () => {
+        expect(reduceKey(state({ view }), key(name))).toEqual(expected);
+      });
+    }
+  }
+
+  test("observers may still collapse and resize the panel (it is view state, not a mutation)", () => {
+    const observer = state({ readOnly: true });
+    expect(reduceKey(observer, key("b"))).toEqual([{ type: "cycleReviewPanel" }]);
+    expect(reduceKey(observer, key("]"))).toEqual([{ type: "resizeReviewPanel", direction: 1 }]);
+  });
+
+  test("span mode still owns b as a span verb, not a panel cycle", () => {
+    expect(reduceKey(state({ spanMode: true }), key("b"))).toEqual([{ type: "spanKey", name: "b" }]);
+  });
+
+  test("the walk overlay keeps the brackets for stepping", () => {
+    const walking = state({ view: "diff", overlay: "walk" });
+    expect(reduceKey(walking, key("]"))).toEqual([{ type: "walkForward" }]);
+    expect(reduceKey(walking, key("["))).toEqual([{ type: "walkBack" }]);
   });
 });
 
