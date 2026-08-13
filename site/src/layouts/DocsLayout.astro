@@ -1,43 +1,59 @@
 ---
 /*
- * Docs shell: the collapsible React Aria sidebar on the left, prose content on
- * the right, and a prev/next pager. Works for both .astro pages (direct props)
- * and .mdx pages (props arrive under `frontmatter`).
+ * Docs shell in the Hex docs layout: a grouped left sidebar, the content column
+ * with a breadcrumb + title + lede, and a right "On this page" TOC. Works for
+ * .mdx pages (props arrive under `frontmatter`, headings under `headings`).
  */
 import BaseLayout from "./BaseLayout.astro";
 import DocsSidebar from "../components/DocsSidebar.tsx";
+import DocsToc from "../components/DocsToc.tsx";
+import { docsNav, normalizePath } from "../nav";
 
-const fm = (Astro.props as any).frontmatter ?? Astro.props;
+const props = Astro.props as any;
+const fm = props.frontmatter ?? props;
 const {
   title,
   description,
-  eyebrow = "Docs",
   lede,
   prev,
   next,
 } = fm as {
   title: string;
   description?: string;
-  eyebrow?: string;
   lede?: string;
   prev?: { title: string; href: string };
   next?: { title: string; href: string };
 };
 
-const pageTitle = `${title} - cueloop docs`;
+const headings = ((props.headings ?? []) as Array<{ depth: number; slug: string; text: string }>).filter(
+  (heading) => heading.depth >= 2 && heading.depth <= 3,
+);
+
 const path = Astro.url.pathname;
+const current = normalizePath(path);
+const group = docsNav.find((candidate) =>
+  candidate.items.some((item) => normalizePath(item.href) === current),
+);
+const groupTitle = group?.title ?? "Docs";
+const pageTitle = `${title} - cueloop docs`;
 ---
 
 <BaseLayout title={pageTitle} description={description ?? lede}>
   <div class="container docs-shell">
     <aside class="docs-aside">
-      <DocsSidebar client:load path={path} />
+      <DocsSidebar path={path} />
     </aside>
+
     <article class="docs-content">
-      <span class="eyebrow">{eyebrow}</span>
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/docs/">Docs</a>
+        <span class="breadcrumb__sep" aria-hidden="true">/</span>
+        <span>{groupTitle}</span>
+        <span class="breadcrumb__sep" aria-hidden="true">/</span>
+        <span class="breadcrumb__current">{title}</span>
+      </nav>
       <h1>{title}</h1>
       {lede && <p class="lede">{lede}</p>}
-      <hr class="hairline" />
       <div class="prose">
         <slot />
       </div>
@@ -50,5 +66,9 @@ const path = Astro.url.pathname;
         )
       }
     </article>
+
+    <aside class="docs-toc-rail">
+      {headings.length > 0 && <DocsToc client:load headings={headings} />}
+    </aside>
   </div>
 </BaseLayout>

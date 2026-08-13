@@ -40,6 +40,24 @@ export default function MobileMenu() {
             {({ close }) => (
               <>
                 <div className="drawer-grip" aria-hidden="true" />
+                <button
+                  type="button"
+                  className="drawer-search"
+                  onClick={() => {
+                    close();
+                    setTimeout(
+                      () => window.dispatchEvent(new CustomEvent("cueloop:open-search")),
+                      80,
+                    );
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="M21 21l-4.3-4.3" />
+                  </svg>
+                  <span>Search the docs</span>
+                  <kbd>&#8984;K</kbd>
+                </button>
                 <nav className="drawer-nav">
                   {LINKS.map((link) => (
                     <a

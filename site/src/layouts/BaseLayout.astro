@@ -6,6 +6,7 @@
 import "../styles/global.css";
 import ThemeToggle from "../components/ThemeToggle.tsx";
 import MobileMenu from "../components/MobileMenu.tsx";
+import DocsSearch from "../components/DocsSearch.tsx";
 
 interface Props {
   title?: string;
@@ -73,6 +74,9 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
           <span class="wordmark__mark">&raquo;</span>cueloop
         </a>
         <div class="site-header__right">
+          <div class="site-header__search">
+            <DocsSearch client:load />
+          </div>
           <nav class="nav nav--right" aria-label="Secondary">
             <a href="https://github.com/mmurakaru/cueloop">GitHub</a>
             <span class="nav__sep" aria-hidden="true"></span>
