@@ -542,42 +542,96 @@ pre {
 .menu-btn[data-pressed] {
   background: var(--paper-recessed);
 }
-.menu-popover {
-  width: min(16rem, calc(100vw - 2rem));
+/* Bottom drawer (delta.dev): a full-screen overlay that anchors the sheet to
+ * the bottom and slides it up via React Aria's data-entering/exiting hooks. */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(20, 18, 12, 0.42);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+.drawer-overlay[data-entering] {
+  animation: drawer-fade 0.25s ease both;
+}
+.drawer-overlay[data-exiting] {
+  animation: drawer-fade 0.2s ease reverse both;
+}
+.drawer {
+  width: 100%;
+  max-height: 82vh;
+  overflow-y: auto;
   background: var(--paper-raised);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius);
-  box-shadow: 0 20px 50px -24px rgba(20, 18, 12, 0.5);
+  border-top: 1px solid var(--hairline-strong);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -24px 60px -24px rgba(20, 18, 12, 0.45);
+  padding: 0.5rem 1.15rem calc(1.25rem + env(safe-area-inset-bottom));
+}
+.drawer[data-entering] {
+  animation: drawer-slide 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.drawer[data-exiting] {
+  animation: drawer-slide 0.24s ease reverse both;
+}
+@keyframes drawer-slide {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes drawer-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer[data-entering],
+  .drawer[data-exiting],
+  .drawer-overlay[data-entering],
+  .drawer-overlay[data-exiting] {
+    animation: none;
+  }
+}
+.drawer-grip {
+  width: 2.5rem;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--hairline-strong);
+  margin: 0.5rem auto 1rem;
+}
+.drawer-dialog {
   outline: none;
 }
-.menu-dialog {
-  outline: none;
-  padding: 0.5rem;
-}
-.menu-nav {
+.drawer-nav {
   display: grid;
 }
-.menu-link {
-  padding: 0.7rem 0.75rem;
-  border-radius: 6px;
+.drawer-link {
+  padding: 0.95rem 0.4rem;
   font-family: var(--font-mono);
-  font-size: var(--step-0);
+  font-size: var(--step-1);
   color: var(--ink);
   text-decoration: none;
+  border-bottom: 1px solid var(--hairline);
 }
-.menu-link:hover {
-  background: var(--paper-recessed);
+.drawer-link:active,
+.drawer-link:hover {
   color: var(--accent);
 }
-.menu-footer {
+.drawer-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 0.4rem;
-  padding: 0.6rem 0.75rem 0.3rem;
-  border-top: 1px solid var(--hairline);
+  padding: 1.1rem 0.4rem 0.4rem;
 }
-.menu-footer__label {
+.drawer-footer__label {
   font-family: var(--font-mono);
   font-size: var(--step--1);
   letter-spacing: 0.1em;

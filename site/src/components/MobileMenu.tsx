@@ -1,13 +1,15 @@
 /*
- * Mobile navigation: a hamburger button that opens a React Aria popover with
- * the nav links and the theme toggle. Shown only below the header's mobile
- * breakpoint (CSS controls visibility). Keyboard, focus, and dismiss behaviour
- * come from react-aria-components.
+ * Mobile navigation as a bottom drawer (delta.dev pattern). React Aria has no
+ * named Drawer, so it is built from ModalOverlay + Modal - which give focus
+ * trapping, dismiss-on-outside, Escape, and the data-entering/data-exiting
+ * hooks the CSS uses to slide the sheet up. Shown only below the header's
+ * mobile breakpoint (CSS controls the trigger's visibility).
  */
 import {
   DialogTrigger,
   Button,
-  Popover,
+  ModalOverlay,
+  Modal,
   Dialog,
 } from "react-aria-components";
 import ThemeToggle from "./ThemeToggle.tsx";
@@ -32,21 +34,33 @@ export default function MobileMenu() {
           />
         </svg>
       </Button>
-      <Popover className="menu-popover" placement="bottom end" offset={12}>
-        <Dialog className="menu-dialog" aria-label="Navigation">
-          <nav className="menu-nav">
-            {LINKS.map((link) => (
-              <a key={link.href} href={link.href} className="menu-link">
-                {link.title}
-              </a>
-            ))}
-          </nav>
-          <div className="menu-footer">
-            <span className="menu-footer__label">Theme</span>
-            <ThemeToggle />
-          </div>
-        </Dialog>
-      </Popover>
+      <ModalOverlay className="drawer-overlay" isDismissable>
+        <Modal className="drawer">
+          <Dialog className="drawer-dialog" aria-label="Navigation">
+            {({ close }) => (
+              <>
+                <div className="drawer-grip" aria-hidden="true" />
+                <nav className="drawer-nav">
+                  {LINKS.map((link) => (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      className="drawer-link"
+                      onClick={close}
+                    >
+                      {link.title}
+                    </a>
+                  ))}
+                </nav>
+                <div className="drawer-footer">
+                  <span className="drawer-footer__label">Theme</span>
+                  <ThemeToggle />
+                </div>
+              </>
+            )}
+          </Dialog>
+        </Modal>
+      </ModalOverlay>
     </DialogTrigger>
   );
 }
