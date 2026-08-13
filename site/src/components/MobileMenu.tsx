@@ -1,5 +1,5 @@
 /*
- * Mobile navigation as a bottom drawer (delta.dev pattern). React Aria has no
+ * Mobile navigation as a bottom drawer. React Aria has no
  * named Drawer, so it is built from ModalOverlay + Modal - which give focus
  * trapping, dismiss-on-outside, Escape, and the data-entering/data-exiting
  * hooks the CSS uses to slide the sheet up. Shown only below the header's

@@ -3,8 +3,8 @@
     .tile { fill: #1b1a22; }
     .mark { stroke: #6b4fd0; }
     @media (prefers-color-scheme: dark) {
-      .tile { fill: #232136; }
-      .mark { stroke: #eb6f92; }
+      .tile { fill: #17171a; }
+      .mark { stroke: #cba6f7; }
     }
   </style>
   <rect class="tile" width="32" height="32" rx="7" />
