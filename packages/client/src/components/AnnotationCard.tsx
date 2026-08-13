@@ -4,11 +4,13 @@
  * its body in place. Compose, saved, and re-edit share this rendering path,
  * so the kind-color and quote treatment can never drift between them.
  *
- * Bodies are multiline: the composer is a textarea (wrap, undo/redo,
- * shift+⏎ for a new line) while plain ⏎ stays the save key.
+ * Bodies are multiline: the composer is a textarea (wrap, undo/redo). Plain ⏎
+ * stays the save key while ⌥/Alt+⏎ and shift+⏎ insert a new line (the Slack
+ * convention). The box auto-grows with the wrapped text up to a cap, then
+ * scrolls internally.
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { KeyBinding, TextareaRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
@@ -43,24 +45,63 @@ export interface AnnotationCardProps {
   theme?: Theme;
 }
 
-/** ⏎ saves (the grammar owns it); shift+⏎ makes the body multiline. */
+/**
+ * ⏎ submits (which keeps the textarea from inserting its default newline; the
+ * grammar owns the actual save). ⌥/Alt+⏎ and shift+⏎ insert a newline so the
+ * body can grow multiline without leaving the composer.
+ *
+ * Option/Alt reaches a binding as `meta`, not `option`: a binding key here is
+ * built from name+ctrl+shift+meta+super only, so the newline binding matches on
+ * `meta`. This also overrides the textarea default that maps meta+⏎ to submit.
+ */
 const COMPOSE_KEY_BINDINGS: KeyBinding[] = [
   { name: "return", action: "submit" },
+  { name: "return", meta: true, action: "newline" },
   { name: "return", shift: true, action: "newline" },
 ];
 
-function editorRows(text: string): number {
-  return Math.min(4, Math.max(1, text.split("\n").length));
+/** The composer never grows past this many rows; beyond it the textarea scrolls. */
+export const COMPOSE_MAX_ROWS = 4;
+
+/**
+ * Visible row count for the composer, so a soft-wrapped long line grows the box
+ * just like a hard newline does. Each logical line takes `ceil(length /
+ * contentWidth)` visual rows (at least one), summed over the hard-newline lines
+ * and capped. A non-positive width (before layout is known) counts hard
+ * newlines only. Beyond the cap the textarea scrolls internally and keeps the
+ * caret line in view.
+ */
+export function composeRowCount(text: string, contentWidth: number, cap: number = COMPOSE_MAX_ROWS): number {
+  const usableWidth = contentWidth > 0 ? contentWidth : Number.MAX_SAFE_INTEGER;
+  let visualRowCount = 0;
+  for (const line of text.split("\n")) {
+    visualRowCount += Math.max(1, Math.ceil(line.length / usableWidth));
+  }
+  return Math.min(cap, Math.max(1, visualRowCount));
 }
 
-function DraftEditor({ draft, theme }: { draft: AnnotationDraft; theme?: Theme }): React.ReactNode {
+function DraftEditor({
+  draft,
+  rows,
+  onRowsChange,
+  theme,
+}: {
+  draft: AnnotationDraft;
+  /** Current visible height in rows; owned by the parent so the card frame agrees. */
+  rows: number;
+  onRowsChange: (rows: number) => void;
+  theme?: Theme;
+}): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const editorRef = useRef<TextareaRenderable | null>(null);
   // re-edit opens with the caret after the existing body, like a text field
   const initialTextLength = useRef(draft.text.length);
   useEffect(() => {
     const editor = editorRef.current;
-    if (editor) editor.cursorOffset = initialTextLength.current;
+    if (!editor) return;
+    editor.cursorOffset = initialTextLength.current;
+    // the box is laid out now, so its width is known: size to the wrapped body
+    onRowsChange(composeRowCount(editor.plainText, editor.width));
   }, []);
   return (
     <>
@@ -72,10 +113,12 @@ function DraftEditor({ draft, theme }: { draft: AnnotationDraft; theme?: Theme }
         keyBindings={COMPOSE_KEY_BINDINGS}
         onContentChange={() => {
           const editor = editorRef.current;
-          if (editor) draft.onInput(editor.plainText);
+          if (!editor) return;
+          draft.onInput(editor.plainText);
+          onRowsChange(composeRowCount(editor.plainText, editor.width));
         }}
         style={{
-          height: editorRows(draft.text),
+          height: rows,
           backgroundColor: tokens.elevated,
           focusedBackgroundColor: tokens.elevated,
           textColor: tokens.text,
@@ -97,18 +140,28 @@ function DraftEditor({ draft, theme }: { draft: AnnotationDraft; theme?: Theme }
 export function AnnotationCard({ id, kind, quote, draft, saved, theme }: AnnotationCardProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const kindColor = kind === "suggestion" ? tokens.green : tokens.accent;
+  const activeDraft = draft ?? saved?.editing ?? null;
+  // The composer's visible height, grown from the wrapped text. It is shared
+  // with the card frame (contentRows) so the border never clips the textarea
+  // or the toolbar. Seeded from hard newlines, then corrected once the mounted
+  // textarea reports its measured width.
+  const [editorRowCount, setEditorRowCount] = useState(() =>
+    // Width 0 is the "layout not known yet" contract: count hard newlines only,
+    // until the mounted textarea reports its measured width below.
+    composeRowCount(activeDraft?.text ?? "", 0),
+  );
   if (draft) {
     const verb = kind === "suggestion" ? "suggest replacement for" : "comment on";
     return (
       <Card
         title={` ${verb} "${truncateToSingleLine(quote, 40)}" `}
-        contentRows={editorRows(draft.text) + 1}
+        contentRows={editorRowCount + 1}
         borderColor={kindColor}
         marginLeft={2}
         marginRight={2}
         theme={theme}
       >
-        <DraftEditor draft={draft} theme={theme} />
+        <DraftEditor draft={draft} rows={editorRowCount} onRowsChange={setEditorRowCount} theme={theme} />
       </Card>
     );
   }
@@ -127,7 +180,7 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
       </text>
       <text fg={tokens.textDim}>  "{truncateToSingleLine(quote, 26)}"</text>
       {card.editing ? (
-        <DraftEditor draft={card.editing} theme={theme} />
+        <DraftEditor draft={card.editing} rows={editorRowCount} onRowsChange={setEditorRowCount} theme={theme} />
       ) : (
         <text fg={card.isOrphan ? tokens.textDim : tokens.textMuted}>  {truncateToSingleLine(card.body, 28)}</text>
       )}
