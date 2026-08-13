@@ -7,13 +7,15 @@ prev: { title: "Overview", href: "/docs/" }
 next: { title: "The review session", href: "/docs/concepts/review-session/" }
 ---
 
-cueloop is a single command-line tool. Install it globally with npm:
+import InstallTabs from "../../components/InstallTabs.tsx";
 
-```bash
-npm i -g cueloop
-```
+cueloop is a single command-line tool. Install it globally with whichever
+package manager you already use:
 
-If you use Bun, `bun add -g cueloop` works the same way.
+<InstallTabs client:load />
+
+All of them install the same `cueloop` binary. The Homebrew formula and the Nix
+flake track the latest published release.
 
 ## First run
 

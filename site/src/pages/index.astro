@@ -2,6 +2,7 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Terminal from "../components/Terminal.astro";
 import CopyCommand from "../components/CopyCommand.tsx";
+import InstallTabs from "../components/InstallTabs.tsx";
 
 const planBody = `<span class="t-accent">»</span> <span class="t-dim">cueloop plan</span>
 
@@ -49,12 +50,13 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
     <div class="container">
       <span class="eyebrow">Review surface for coding agents</span>
       <h1 class="hero__title">
-        Review what your agent is <em>about to do</em>.
+        <span class="ht-serif">Collaborate with your agent and team</span>
+        <span class="ht-sans">plan, diff <span class="amp">&amp;</span> review.</span>
       </h1>
       <p class="hero__lede">
-        cueloop opens the plan or the diff your coding agent produced right in
-        your terminal. You read it, annotate the exact lines, and send a verdict
-        back - before a single file changes.
+        cueloop opens what your coding agent produced - a plan, a diff, or a pull
+        request - right in your terminal. Annotate the exact lines, send a
+        verdict back to the agent, and share the review with a teammate over SSH.
       </p>
       <div class="hero__meta">
         <span>Bun + TypeScript</span>
@@ -62,12 +64,15 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
         <span>Claude Code, Codex</span>
         <span>Open source</span>
       </div>
+      <div class="hero__install">
+        <InstallTabs client:visible />
+      </div>
       <div class="hero__actions">
-        <CopyCommand command="npm i -g cueloop" client:visible />
+        <a class="btn btn--accent crop" href="/docs/install/">Quickstart</a>
         <a class="btn btn--ghost" href="/docs/">Read the docs</a>
       </div>
 
-      <div class="hero__showcase">
+      <div class="hero__showcase crop">
         <Terminal title="cueloop plan" body={planBody} />
       </div>
     </div>
@@ -78,7 +83,7 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
   <!-- The loop -->
   <section class="section">
     <div class="container">
-      <div class="section-head">
+      <div class="section-head reveal">
         <span class="eyebrow eyebrow--index">01 &middot; The loop</span>
         <h2>A gate between the plan and the code.</h2>
         <p style="color:var(--ink-soft)">
@@ -87,7 +92,7 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
           browser, no context switch.
         </p>
       </div>
-      <div class="grid grid--3">
+      <div class="grid grid--3 reveal">
         <div class="cell">
           <span class="cell__index">→ propose</span>
           <h3>The agent hands off</h3>
@@ -119,7 +124,7 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
   <!-- What you review -->
   <section class="section">
     <div class="container">
-      <div class="split">
+      <div class="split reveal">
         <div>
           <span class="eyebrow eyebrow--index">02 &middot; What you review</span>
           <h2 style="margin-top:0.9rem">Plan, diff, or pull request.</h2>
@@ -145,7 +150,7 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
   <!-- Sharing teaser -->
   <section class="section">
     <div class="container">
-      <div class="split split--reverse">
+      <div class="split split--reverse reveal">
         <div>
           <span class="eyebrow eyebrow--index">03 &middot; Share it</span>
           <h2 style="margin-top:0.9rem">
@@ -161,7 +166,7 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
             thing. Terminal only. No browser, ever.
           </p>
           <div style="margin-top:1.5rem">
-            <a class="btn btn--accent" href="/docs/sharing/">How sharing works</a>
+            <a class="btn btn--accent crop" href="/docs/sharing/">How sharing works</a>
           </div>
         </div>
         <div class="split__media">
@@ -174,11 +179,11 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
   <!-- Features -->
   <section class="section">
     <div class="container">
-      <div class="section-head section-head--wide">
+      <div class="section-head section-head--wide reveal">
         <span class="eyebrow">Built for the terminal</span>
         <h2>Small, sharp, and honest about where it runs.</h2>
       </div>
-      <div class="grid grid--2">
+      <div class="grid grid--2 reveal">
         <div class="cell">
           <span class="cell__index">✳ anchors</span>
           <h3>Quote-anchored annotations</h3>

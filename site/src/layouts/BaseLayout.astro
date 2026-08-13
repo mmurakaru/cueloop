@@ -33,8 +33,10 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <script is:inline>
-      // Set the theme before first paint so there is no flash.
+      // Set the theme before first paint so there is no flash, and flag that
+      // JS is on so the entrance animations can pre-hide their targets.
       (function () {
+        document.documentElement.classList.add("js");
         try {
           const stored = localStorage.getItem("cueloop-theme");
           const prefersDark = matchMedia("(prefers-color-scheme: dark)").matches;
@@ -47,15 +49,29 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     </script>
   </head>
   <body>
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker__track">
+        <span><b>»</b> ssh &lt;id&gt;@cueloop.dev - share a plan in a teammate's terminal</span>
+        <span><b>»</b> cueloop plan - open the latest plan your agent proposed</span>
+        <span><b>»</b> cueloop diff - review the working tree</span>
+        <span><b>»</b> cueloop review - pull a pull request into the terminal</span>
+        <span><b>»</b> ssh &lt;id&gt;@cueloop.dev - share a plan in a teammate's terminal</span>
+        <span><b>»</b> cueloop plan - open the latest plan your agent proposed</span>
+        <span><b>»</b> cueloop diff - review the working tree</span>
+        <span><b>»</b> cueloop review - pull a pull request into the terminal</span>
+      </div>
+    </div>
     <header class="site-header">
       <div class="container site-header__inner">
-        <a href="/" class="wordmark">
-          <span class="wordmark__mark">&raquo;</span>cueloop
-        </a>
-        <nav class="nav" aria-label="Primary">
+        <nav class="nav nav--left" aria-label="Primary">
           <a href="/docs/">Docs</a>
           <a href="/docs/sharing/">Sharing</a>
           <a class="nav__hide-sm" href="/docs/install/">Install</a>
+        </nav>
+        <a href="/" class="wordmark">
+          <span class="wordmark__mark">&raquo;</span>cueloop
+        </a>
+        <nav class="nav nav--right" aria-label="Secondary">
           <a href="https://github.com/mmurakaru/cueloop">GitHub</a>
           <span class="nav__sep" aria-hidden="true"></span>
           <ThemeToggle client:load />
@@ -94,5 +110,41 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
         </div>
       </div>
     </footer>
+
+    <script>
+      import gsap from "gsap";
+      import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const heroChildren = gsap.utils.toArray<HTMLElement>(".hero .container > *");
+      const revealBlocks = gsap.utils.toArray<HTMLElement>(".reveal");
+
+      if (reduceMotion) {
+        // Honour the preference: reveal everything, no motion.
+        gsap.set([...heroChildren, ...revealBlocks], { opacity: 1, y: 0 });
+      } else {
+        // Hero entrance: a soft, staggered rise once the page paints.
+        gsap.to(heroChildren, {
+          opacity: 1,
+          y: 0,
+          duration: 0.7,
+          ease: "power3.out",
+          stagger: 0.07,
+          delay: 0.05,
+        });
+        // Section blocks rise in as they enter the viewport.
+        revealBlocks.forEach((block) => {
+          gsap.to(block, {
+            opacity: 1,
+            y: 0,
+            duration: 0.7,
+            ease: "power3.out",
+            scrollTrigger: { trigger: block, start: "top 84%" },
+          });
+        });
+      }
+    </script>
   </body>
 </html>
