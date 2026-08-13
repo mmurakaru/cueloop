@@ -6,6 +6,7 @@
 
 import { newAnnotationId, type ArtifactType, type VerdictKind } from "@cueloop/schema";
 import { DaemonClient } from "@cueloop/daemon/client";
+import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
 import { openReview, verdictResponse, type ReviewNote } from "@cueloop/daemon/review";
 import { parseArgs, stringFlag } from "./args";
 
@@ -39,6 +40,10 @@ export async function sessionCommand(argv: string[]): Promise<number> {
           title: stringFlag(flags, "title"),
           notes,
         });
+        // herdr auto-open: a review created from inside herdr spawns a new tab
+        // that renders it. Guarded to genuinely new sessions and no-op outside
+        // herdr; a broken binary never blocks the create.
+        openHerdrPaneForReview(review.session);
         out(review.session);
         return 0;
       }

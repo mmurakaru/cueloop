@@ -14,6 +14,7 @@
  */
 
 import { DaemonClient } from "@cueloop/daemon/client";
+import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
 import { openReview } from "@cueloop/daemon/review";
 import { reportLabel, reportState } from "../herdr";
 
@@ -46,6 +47,11 @@ export async function runHook(event: HookEvent, home?: string): Promise<HookDeci
       // first-class herdr: the review knows which pane to return to
       herdrPane: process.env.HERDR_ENV === "1" ? process.env.HERDR_PANE_ID : undefined,
     });
+
+    // herdr auto-open: a review created from inside herdr spawns a new tab
+    // that renders it, so the human does not run a command by hand. Guarded to
+    // genuinely new sessions and no-op outside herdr.
+    openHerdrPaneForReview(review.session);
 
     // herdr tier 1: the pane shows blocked + "plan ready for review"
     // while the reviewer works; no-ops outside herdr.
