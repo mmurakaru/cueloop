@@ -1,5 +1,26 @@
 # cueloop
 
+## 0.1.0-alpha.21
+
+### Minor Changes
+
+- [#123](https://github.com/mmurakaru/cueloop/pull/123) [`fd0da2c`](https://github.com/mmurakaru/cueloop/commit/fd0da2cb1c0fda95222d7f79fd862591ff45b3cb) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The annotation composer now follows the Slack newline convention. Plain Enter still saves the note, while Option/Alt+Enter (and Shift+Enter, as before) insert a newline so you can write a multi-line comment without leaving the box; Cmd/Ctrl+Enter is a submit alias. The input also auto-grows as you type: a long line that soft-wraps expands the box the same way a hard newline does, up to four rows, after which it scrolls internally and keeps the caret line in view.
+
+- [#121](https://github.com/mmurakaru/cueloop/pull/121) [`0cd06f9`](https://github.com/mmurakaru/cueloop/commit/0cd06f96b4a8a8a90c6fdc76f8f033d29e8b6f6a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A review created from inside herdr now opens itself. When the Claude Code hook or `cueloop session create` starts a genuinely new review from a herdr pane, cueloop opens a fresh herdr tab, focuses it, and launches the review in it - no more copying a command out of the log by hand. A resubmit reuses the pane the original review already opened, so revisions never spam new tabs. It stays best-effort like the rest of the herdr tier: a missing or broken herdr binary is swallowed and never blocks the review, and outside herdr nothing changes.
+
+- [#124](https://github.com/mmurakaru/cueloop/pull/124) [`00d66e4`](https://github.com/mmurakaru/cueloop/commit/00d66e47dce773d235ee4a982695341b0c371a78) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The review panel now resizes and collapses so the plan gets the width it needs. It cycles through three states with `b`: expanded (the full annotation rail), compact (a narrow strip that keeps the count and one kind-colored dot per annotation - accent for a comment, green for a suggestion), and hidden (gone entirely, so the plan takes the full terminal, reopened with the same key and no leftover tab). Drag the single-column divider between the plan and the rail to resize the expanded width, or nudge it with `[` and `]`; the divider accents while you drag and the width is clamped to a sensible range. A muted chevron on the panel's edge toggles expanded and compact with a click (`»` to collapse, `«` to expand). The collapse state and rail width persist to `[ui] review_state` and `[ui] review_width` in your config, so the layout you pick survives a restart.
+
+- [#119](https://github.com/mmurakaru/cueloop/pull/119) [`5555790`](https://github.com/mmurakaru/cueloop/commit/55557901fa16c9ae086e9a998de31aef0ac0e3db) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Opening a review is now verb-first: one verb per artifact type, each defaulting to the latest pending review of that type. `cueloop plan` opens the latest pending plan, `cueloop diff` opens the latest pending diff, and `cueloop review` opens the latest pending PR review. Each verb also addresses a specific session directly - `cueloop plan <session-id>` by id, or `cueloop plan <title>` by a case-insensitive title match (an exact title wins, a unique substring wins, and several matches list the candidates so you can name one). An explicit `--latest` (alias `--open`) always selects the default. The create paths stay: `cueloop diff` with a dirty working tree still creates a working-tree review, a clean tree opens the latest pending diff instead of erroring, and `cueloop review <pr>` still opens a pull request. Bare `cueloop` still opens the inbox and `cueloop <session-id>` still opens that session. A miss prints a plain "nothing to open" line instead of failing silently.
+
+### Patch Changes
+
+- [#122](https://github.com/mmurakaru/cueloop/pull/122) [`ff9d791`](https://github.com/mmurakaru/cueloop/commit/ff9d791902f5b1f4c88a37b36017093e74990a2d) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Bordered frames now read their corner style from one design-system token, `FRAME_BORDER_STYLE`, instead of each frame hardcoding its own value. Cards, dialogs, and the stories gallery chrome all resolve their rounded corners from this single source of truth, so the frame look can never drift between surfaces. Buttons stay text-first and borderless - the frame they sit in carries the border, not the button.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.21
+  - @cueloop/daemon@0.1.0-alpha.21
+  - @cueloop/schema@0.1.0-alpha.21
+
 ## 0.1.0-alpha.20
 
 ### Patch Changes

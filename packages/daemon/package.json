@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/daemon",
-  "version": "0.1.0-alpha.20",
+  "version": "0.1.0-alpha.21",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -10,7 +10,7 @@
     "./herdr-pane": "./src/herdr-pane.ts"
   },
   "dependencies": {
-    "@cueloop/schema": "0.1.0-alpha.20",
+    "@cueloop/schema": "0.1.0-alpha.21",
     "valibot": "^1.4.2"
   },
   "publishConfig": {
