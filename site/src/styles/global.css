@@ -47,54 +47,61 @@
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Light theme - warm paper (default). */
+/* Light theme - a cool, clean off-white in the hex.tech register (default). */
 :root,
 [data-theme="light"] {
-  --paper: #f3f2ee;
-  --paper-raised: #fbfaf7;
-  --paper-recessed: #e9e7e0;
-  --ink: #17150f;
-  --ink-soft: #47433b;
-  --ink-faint: #837d70;
-  --hairline: rgba(23, 21, 15, 0.14);
-  --hairline-strong: rgba(23, 21, 15, 0.34);
-  --dot-grid: rgba(23, 21, 15, 0.06);
+  --paper: #f3f3f1;
+  --paper-raised: #fbfbfa;
+  --paper-recessed: #e8e8e4;
+  --ink: #1a1a1c;
+  --ink-soft: #4a4a4e;
+  --ink-faint: #86868c;
+  --hairline: rgba(26, 26, 28, 0.12);
+  --hairline-strong: rgba(26, 26, 28, 0.3);
+  --dot-grid: rgba(26, 26, 28, 0.05);
   --accent: #d9482b;
-  --accent-ink: #fbf7ee;
+  --accent-ink: #fbfbfa;
   --accent-soft: rgba(217, 72, 43, 0.1);
   --green: #3e7c4f;
   --green-soft: rgba(62, 124, 79, 0.12);
 
-  /* Terminal panel - always the sumi palette, so it reads as a real terminal. */
-  --term-bg: #16150f;
-  --term-bar: #211f17;
-  --term-ink: #ece7da;
-  --term-dim: #8f897b;
-  --term-line: rgba(236, 231, 218, 0.1);
+  /* Terminal panel - a cool sumi, so it reads as a real terminal on the light
+   * canvas. */
+  --term-bg: #17171a;
+  --term-bar: #202024;
+  --term-ink: #e6e6ea;
+  --term-dim: #8a8a92;
+  --term-line: rgba(230, 230, 234, 0.1);
   --term-accent: #ec6a4f;
   --term-green: #78c48b;
   --term-blue: #7fa8d8;
 }
 
-/* Dark theme - sumi ink. */
+/* Dark theme - Rosé Pine Moon (rosepinetheme.com). */
 [data-theme="dark"] {
-  --paper: #14130e;
-  --paper-raised: #1c1a14;
-  --paper-recessed: #100f0b;
-  --ink: #ece7da;
-  --ink-soft: #b8b2a2;
-  --ink-faint: #837d70;
-  --hairline: rgba(236, 231, 218, 0.14);
-  --hairline-strong: rgba(236, 231, 218, 0.3);
-  --dot-grid: rgba(236, 231, 218, 0.045);
-  --accent: #ec6a4f;
-  --accent-ink: #14130e;
-  --accent-soft: rgba(236, 106, 79, 0.14);
-  --green: #78c48b;
-  --green-soft: rgba(120, 196, 139, 0.14);
+  --paper: #232136; /* base */
+  --paper-raised: #2a273f; /* surface */
+  --paper-recessed: #1f1d2e; /* darker than base */
+  --ink: #e0def4; /* text */
+  --ink-soft: #908caa; /* subtle */
+  --ink-faint: #6e6a86; /* muted */
+  --hairline: rgba(110, 106, 134, 0.32); /* muted */
+  --hairline-strong: rgba(144, 140, 170, 0.5); /* subtle */
+  --dot-grid: rgba(224, 222, 244, 0.05);
+  --accent: #eb6f92; /* love */
+  --accent-ink: #232136;
+  --accent-soft: rgba(235, 111, 146, 0.16);
+  --green: #9ccfd8; /* foam */
+  --green-soft: rgba(156, 207, 216, 0.16);
 
-  --term-bg: #0f0e0a;
-  --term-bar: #1a1812;
+  --term-bg: #1f1d2e;
+  --term-bar: #2a273f;
+  --term-ink: #e0def4;
+  --term-dim: #6e6a86;
+  --term-line: rgba(224, 222, 244, 0.09);
+  --term-accent: #eb6f92; /* love */
+  --term-green: #9ccfd8; /* foam */
+  --term-blue: #c4a7e7; /* iris */
 }
 
 * {
