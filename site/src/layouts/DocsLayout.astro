@@ -1,0 +1,74 @@
+---
+/*
+ * Docs shell in the Hex docs layout: a grouped left sidebar, the content column
+ * with a breadcrumb + title + lede, and a right "On this page" TOC. Works for
+ * .mdx pages (props arrive under `frontmatter`, headings under `headings`).
+ */
+import BaseLayout from "./BaseLayout.astro";
+import DocsSidebar from "../components/DocsSidebar.tsx";
+import DocsToc from "../components/DocsToc.tsx";
+import { docsNav, normalizePath } from "../nav";
+
+const props = Astro.props as any;
+const fm = props.frontmatter ?? props;
+const {
+  title,
+  description,
+  lede,
+  prev,
+  next,
+} = fm as {
+  title: string;
+  description?: string;
+  lede?: string;
+  prev?: { title: string; href: string };
+  next?: { title: string; href: string };
+};
+
+const headings = ((props.headings ?? []) as Array<{ depth: number; slug: string; text: string }>).filter(
+  (heading) => heading.depth >= 2 && heading.depth <= 3,
+);
+
+const path = Astro.url.pathname;
+const current = normalizePath(path);
+const group = docsNav.find((candidate) =>
+  candidate.items.some((item) => normalizePath(item.href) === current),
+);
+const groupTitle = group?.title ?? "Docs";
+const pageTitle = `${title} - cueloop docs`;
+---
+
+<BaseLayout title={pageTitle} description={description ?? lede}>
+  <div class="container docs-shell">
+    <aside class="docs-aside">
+      <DocsSidebar path={path} />
+    </aside>
+
+    <article class="docs-content">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/docs/">Docs</a>
+        <span class="breadcrumb__sep" aria-hidden="true">/</span>
+        <span>{groupTitle}</span>
+        <span class="breadcrumb__sep" aria-hidden="true">/</span>
+        <span class="breadcrumb__current">{title}</span>
+      </nav>
+      <h1>{title}</h1>
+      {lede && <p class="lede">{lede}</p>}
+      <div class="prose">
+        <slot />
+      </div>
+      {
+        (prev || next) && (
+          <nav class="docs-pager" aria-label="Pagination">
+            <span>{prev && <a href={prev.href}>&larr; {prev.title}</a>}</span>
+            <span>{next && <a href={next.href}>{next.title} &rarr;</a>}</span>
+          </nav>
+        )
+      }
+    </article>
+
+    <aside class="docs-toc-rail">
+      {headings.length > 0 && <DocsToc client:load headings={headings} />}
+    </aside>
+  </div>
+</BaseLayout>
