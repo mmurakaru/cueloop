@@ -1,0 +1,53 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: The review session
+eyebrow: Docs · Concepts
+lede: The review session is the one primitive everything else is built on - an artifact, the annotations anchored to it, and a verdict.
+prev: { title: "Install & quickstart", href: "/docs/install/" }
+next: { title: "Annotations", href: "/docs/concepts/annotations/" }
+---
+
+A review session is the core primitive in cueloop. It pairs three things:
+
+- an **artifact** - a plan, a working-tree diff, or a pull request,
+- **annotations** anchored to the exact text they discuss, and
+- a **verdict** - the structured result you hand back.
+
+Every review, every share, and every agent gate is built on this one shape. Once
+you understand the session, the rest of the product is small.
+
+## What a session carries
+
+Each session has a stable id, minted once and never reused. It looks like this:
+
+```text
+ses_20260809210620_13hwi
+```
+
+The id encodes the moment the session was created, so two sessions never collide
+and any tool can refer to a session unambiguously.
+
+Alongside the id, a session carries:
+
+- a **title** - a short human label for the artifact under review,
+- **revisions** - each resubmit pushes a new revision onto the session, so the
+  history of what changed stays in one place, and
+- a **status** - `pending` while it waits for a verdict, `resolved` once you
+  send one.
+
+## Why resubmits update the same session
+
+An agent opens a session, and later revises it, by its agent-session id. When the
+agent resubmits after you request changes, cueloop matches that id and pushes a
+new revision onto the **same** session instead of spawning a new one.
+
+That single detail is what keeps a back-and-forth review coherent. Your
+annotations, the verdict history, and the id all stay put across revisions, so
+you are always reviewing the next draft of one thing rather than a pile of
+look-alike sessions.
+
+<div class="callout">
+  <div class="callout__label">One id, many revisions</div>
+  A session is stable. The artifact inside it can change revision by revision,
+  but the id, the title, and the annotation history travel with it.
+</div>

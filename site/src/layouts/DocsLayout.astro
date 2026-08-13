@@ -1,0 +1,54 @@
+---
+/*
+ * Docs shell: the collapsible React Aria sidebar on the left, prose content on
+ * the right, and a prev/next pager. Works for both .astro pages (direct props)
+ * and .mdx pages (props arrive under `frontmatter`).
+ */
+import BaseLayout from "./BaseLayout.astro";
+import DocsSidebar from "../components/DocsSidebar.tsx";
+
+const fm = (Astro.props as any).frontmatter ?? Astro.props;
+const {
+  title,
+  description,
+  eyebrow = "Docs",
+  lede,
+  prev,
+  next,
+} = fm as {
+  title: string;
+  description?: string;
+  eyebrow?: string;
+  lede?: string;
+  prev?: { title: string; href: string };
+  next?: { title: string; href: string };
+};
+
+const pageTitle = `${title} - cueloop docs`;
+const path = Astro.url.pathname;
+---
+
+<BaseLayout title={pageTitle} description={description ?? lede}>
+  <div class="container docs-shell">
+    <aside class="docs-aside">
+      <DocsSidebar client:load path={path} />
+    </aside>
+    <article class="docs-content">
+      <span class="eyebrow">{eyebrow}</span>
+      <h1>{title}</h1>
+      {lede && <p class="lede">{lede}</p>}
+      <hr class="hairline" />
+      <div class="prose">
+        <slot />
+      </div>
+      {
+        (prev || next) && (
+          <nav class="docs-pager" aria-label="Pagination">
+            <span>{prev && <a href={prev.href}>&larr; {prev.title}</a>}</span>
+            <span>{next && <a href={next.href}>{next.title} &rarr;</a>}</span>
+          </nav>
+        )
+      }
+    </article>
+  </div>
+</BaseLayout>

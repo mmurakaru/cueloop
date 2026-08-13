@@ -1,69 +1,97 @@
 ---
+/*
+ * The shared shell: head (fonts, meta, no-flash theme init), sticky header with
+ * the wordmark, nav, and theme toggle, then the page slot and footer.
+ */
 import "../styles/global.css";
+import ThemeToggle from "../components/ThemeToggle.tsx";
 
 interface Props {
-  title: string;
+  title?: string;
   description?: string;
 }
 
-const { title, description = "A terminal-first review surface for coding-agent plans and diffs." } =
-  Astro.props;
+const {
+  title = "cueloop - a terminal-first review surface for coding agents",
+  description = "cueloop is where you review what your coding agent is about to do. Read the plan or the diff in your terminal, annotate it, and send a verdict back - then share it over SSH.",
+} = Astro.props;
 
-const currentPath = Astro.url.pathname.replace(/\/$/, "") || "/";
-
-const navigationLinks = [
-  { href: "/", label: "home" },
-  { href: "/concepts/review-session", label: "concepts" },
-  { href: "/install", label: "install" },
-];
-
-function isCurrent(href: string): boolean {
-  if (href === "/") return currentPath === "/";
-  if (href.startsWith("/concepts")) return currentPath.startsWith("/concepts");
-  return currentPath === href;
-}
+const canonical = new URL(Astro.url.pathname, Astro.site);
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script is:inline>
+      // Set the theme before first paint so there is no flash.
+      (function () {
+        try {
+          const stored = localStorage.getItem("cueloop-theme");
+          const prefersDark = matchMedia("(prefers-color-scheme: dark)").matches;
+          const theme = stored ?? (prefersDark ? "dark" : "light");
+          document.documentElement.dataset.theme = theme;
+        } catch (_) {
+          document.documentElement.dataset.theme = "light";
+        }
+      })();
+    </script>
   </head>
   <body>
     <header class="site-header">
-      <div class="container">
-        <a class="brand" href="/"><span class="prompt">$</span> cueloop</a>
-        <nav class="site-nav" aria-label="Primary">
-          {
-            navigationLinks.map((link) => (
-              <a href={link.href} aria-current={isCurrent(link.href) ? "page" : undefined}>
-                {link.label}
-              </a>
-            ))
-          }
-          <a href="https://github.com/mmurakaru/cueloop">github</a>
+      <div class="container site-header__inner">
+        <a href="/" class="wordmark">
+          <span class="wordmark__mark">&raquo;</span>cueloop
+        </a>
+        <nav class="nav" aria-label="Primary">
+          <a href="/docs/">Docs</a>
+          <a href="/docs/sharing/">Sharing</a>
+          <a class="nav__hide-sm" href="/docs/install/">Install</a>
+          <a href="https://github.com/mmurakaru/cueloop">GitHub</a>
+          <span class="nav__sep" aria-hidden="true"></span>
+          <ThemeToggle client:load />
         </nav>
       </div>
     </header>
 
-    <main>
-      <div class="container">
-        <slot />
-      </div>
+    <main id="main">
+      <slot />
     </main>
 
     <footer class="site-footer">
-      <div class="container">
-        <span>cueloop - Apache-2.0. Alpha: expect rough edges.</span>
-        <span
-          ><a href="https://github.com/mmurakaru/cueloop">source</a> ·
-          <a href="https://www.npmjs.com/package/cueloop">npm</a></span
-        >
+      <div class="container site-footer__grid">
+        <div>
+          <a href="/" class="wordmark">
+            <span class="wordmark__mark">&raquo;</span>cueloop
+          </a>
+          <p class="site-footer__tag">
+            A terminal-first review surface for coding agents. Read the plan,
+            annotate it, send the verdict back.
+          </p>
+        </div>
+        <div class="site-footer__cols">
+          <div class="footer-col">
+            <h3>Docs</h3>
+            <a href="/docs/">Overview</a>
+            <a href="/docs/install/">Install</a>
+            <a href="/docs/concepts/review-session/">Concepts</a>
+            <a href="/docs/sharing/">Sharing over SSH</a>
+          </div>
+          <div class="footer-col">
+            <h3>Project</h3>
+            <a href="https://github.com/mmurakaru/cueloop">GitHub</a>
+            <a href="https://github.com/mmurakaru/cueloop/issues">Issues</a>
+          </div>
+        </div>
       </div>
     </footer>
   </body>

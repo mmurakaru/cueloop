@@ -1,0 +1,72 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Share a plan
+eyebrow: Docs · Sharing over SSH
+lede: The full loop from both sides. The planner presses Share and sends one line. The collaborator pastes it, reviews the plan, and submits. The notes merge back automatically.
+prev: { title: "Overview", href: "/docs/sharing/" }
+next: { title: "How the loop works", href: "/docs/sharing/how-it-works/" }
+---
+
+Sharing has two sides. This page walks both of them with the exact commands.
+
+## As the planner
+
+You are in a plan review in your terminal. When you want a teammate to look at
+it, press Share, or its keybinding:
+
+```text
+s
+```
+
+cueloop packages the session, encrypts it, stores it, and copies one line to
+your clipboard. A toast confirms the copy:
+
+```text
+Share link copied · ssh p_7f3k9x2q@cueloop.dev
+```
+
+Paste that line to your teammate however you already talk - chat, a ticket, a
+call. That is all you send:
+
+```bash
+ssh p_7f3k9x2q@cueloop.dev
+```
+
+You keep working. When a collaborator submits their annotations, you pull the
+merged notes into your local session, each one attributed to its author.
+
+## As the collaborator
+
+You receive the line. Paste it into any terminal:
+
+```bash
+ssh p_7f3k9x2q@cueloop.dev
+```
+
+The gateway loads the plan and renders cueloop's real terminal UI over the SSH
+connection. You see the plan with every annotation the planner already made. You
+navigate and annotate exactly as you would in the local UI - the keys are the
+same.
+
+When you are done, submit:
+
+```text
+S
+```
+
+The first time you submit, cueloop asks for an optional display name so your
+notes are attributed to you. It caches the name against your SSH key, so later
+sessions skip the prompt. Your annotations write back to the shared review and
+appear in the planner's session.
+
+## What each side controls
+
+The planner decides what reaches the agent. Your submit as a collaborator writes
+annotations back to the shared review only - it never sends feedback to anyone's
+agent. Those two directions stay separate on purpose.
+
+<div class="callout">
+  <div class="callout__label">Same keys</div>
+  A shared review is the same UI as a local one. If you know how to annotate in
+  cueloop locally, you already know how to review a shared plan.
+</div>

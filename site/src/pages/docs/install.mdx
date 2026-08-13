@@ -1,0 +1,75 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Install & quickstart
+eyebrow: Docs · Start here
+lede: Install cueloop, open your first review in the terminal, and wire the plan gate into your agent. A practical five-minute start.
+prev: { title: "Overview", href: "/docs/" }
+next: { title: "The review session", href: "/docs/concepts/review-session/" }
+---
+
+cueloop is a single command-line tool. Install it globally with npm:
+
+```bash
+npm i -g cueloop
+```
+
+If you use Bun, `bun add -g cueloop` works the same way.
+
+## First run
+
+Run `cueloop` with no arguments to open the inbox. The inbox lists every pending
+review across all types - plans, working-tree diffs, and pull requests - so you
+always land on the same place.
+
+```bash
+cueloop
+```
+
+From there, three verbs jump straight to the artifact you want:
+
+```bash
+cueloop plan          # open the latest pending plan
+cueloop diff          # open the working-tree diff
+cueloop review <pr>   # pull a pull request in and review it
+```
+
+Inside a review you read the artifact, annotate the exact lines that matter, and
+send a verdict. The verdict is the structured result your agent waits on.
+
+## Wire an agent
+
+The point of cueloop is the gate between what an agent proposes and what it does.
+For Claude Code or Codex, the plan gate opens a review and blocks on your
+verdict before the agent starts to build. The agent stays paused until you
+approve, request changes, or reject.
+
+See [Agent integration](/docs/agents/) for the exact hook setup.
+
+## Configuration
+
+cueloop reads a TOML config file. Everything has a sensible default, so you only
+set what you want to change.
+
+```text
+[ui]
+auto_close = "off"          # or a number of seconds to auto-close after the verdict
+editor = "nvim"             # editor for long annotation bodies; falls back to nano
+review_state = "expanded"   # review panel: "expanded", "compact", or "hidden"
+review_width = 34           # width of the review panel, in columns
+
+[theme]
+# per-token colour overrides
+
+[integrations.obsidian]
+# link reviews into an Obsidian vault
+```
+
+The `[ui]` block controls the review surface, `[theme]` restyles it, and
+`[integrations.obsidian]` connects reviews to an [Obsidian](https://obsidian.md)
+vault.
+
+<div class="callout">
+  <div class="callout__label">No account</div>
+  cueloop runs locally. There is no sign-up and no browser step - install the
+  command, run it, and you are reviewing.
+</div>

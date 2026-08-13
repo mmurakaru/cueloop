@@ -1,69 +1,234 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import Placeholder from "../components/Placeholder.astro";
-import { conceptPages } from "../concepts.ts";
+import Terminal from "../components/Terminal.astro";
+import CopyCommand from "../components/CopyCommand.tsx";
+
+const planBody = `<span class="t-accent">»</span> <span class="t-dim">cueloop plan</span>
+
+  Add rate limiting to the API              <span class="t-dim">plan · pending</span>
+
+  <span class="t-dim">1</span>  Add a token-bucket limiter in middleware/ratelimit.ts
+  <span class="t-dim">2</span>  Return 429 with Retry-After on overflow
+  <span class="t-dim">3</span>  Store counters in Redis (a new dependency)
+
+     <span class="t-accent">▌ alex</span>
+     <span class="t-accent">▌</span> per key or per IP? keys rotate, so IP is
+     <span class="t-accent">▌</span> the safer limit against abuse.
+
+  <span class="t-dim">[</span> comment <span class="t-dim">]</span>   <span class="t-green">approve</span>   request changes           <span class="t-dim">q · quit</span>`;
+
+const diffBody = `<span class="t-accent">»</span> <span class="t-dim">cueloop diff</span>
+
+ <span class="t-dim">M</span> ratelimit.ts   <span class="t-green">+42</span> <span class="t-accent">-3</span>
+ <span class="t-dim">M</span> server.ts      <span class="t-green">+8</span>  <span class="t-accent">-1</span>
+
+ <span class="t-green">+  limiter = tokenBucket(100)</span>   <span class="t-dim">// per key / min</span>
+ <span class="t-green">+  return 429 on overflow</span>
+ <span class="t-green">+  store counts in redis</span>
+ <span class="t-accent">-  // TODO: rate limiting</span>
+
+ <span class="t-dim">[</span> comment <span class="t-dim">]</span>  <span class="t-green">approve</span>  request changes`;
+
+const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
+
+ <span class="t-dim">the plan opens in your terminal,</span>
+ <span class="t-dim">annotations already in place.</span>
+
+ Add rate limiting to the API      <span class="t-dim">shared</span>
+
+    <span class="t-blue">▌ alex</span>  per key or per IP?
+    <span class="t-blue">▌</span>       keys rotate.
+    <span class="t-green">▌ you</span>   good catch, let's key on IP.
+
+ <span class="t-dim">[</span> comment <span class="t-dim">]</span>   submit annotations`;
 ---
 
-<BaseLayout title="cueloop - a terminal-first review surface for coding agents">
-  <p class="kicker">terminal-first review</p>
-  <h1>Review your coding agent, in the terminal.</h1>
-  <p class="lead">
-    cueloop is a review surface for the plans and diffs a coding agent produces. The agent
-    submits an artifact and blocks. You read it in the terminal, annotate it, and return a
-    verdict. Your annotations become structured feedback the agent acts on.
-  </p>
+<BaseLayout>
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <span class="eyebrow">Review surface for coding agents</span>
+      <h1 class="hero__title">
+        Review what your agent is <em>about to do</em>.
+      </h1>
+      <p class="hero__lede">
+        cueloop opens the plan or the diff your coding agent produced right in
+        your terminal. You read it, annotate the exact lines, and send a verdict
+        back - before a single file changes.
+      </p>
+      <div class="hero__meta">
+        <span>Bun + TypeScript</span>
+        <span>Runs in any terminal</span>
+        <span>Claude Code, Codex</span>
+        <span>Open source</span>
+      </div>
+      <div class="hero__actions">
+        <CopyCommand command="npm i -g cueloop" client:visible />
+        <a class="btn btn--ghost" href="/docs/">Read the docs</a>
+      </div>
 
-  <div class="cta-row">
-    <a class="button primary" href="/install">Install and quickstart</a>
-    <a class="button" href="/concepts/review-session">Read the concepts</a>
-  </div>
+      <div class="hero__showcase">
+        <Terminal title="cueloop plan" body={planBody} />
+      </div>
+    </div>
+  </section>
 
-  <h2>The core loop</h2>
-  <p>
-    One loop, four hops. The agent submits; you review; the verdict flows back; the agent
-    acts on it.
-  </p>
-  <code class="loop">agent &rarr; daemon &rarr; your terminal &rarr; verdict &rarr; agent</code>
-  <p>
-    The daemon is the only stateful part. Every client is a thin renderer over one local
-    unix socket, so a verdict is never lost, even if the agent-side wait times out.
-  </p>
+  <hr class="hairline" />
 
-  <Placeholder label="Coming soon">
-    A short asciinema cast of a plan review, plus a diagram of the loop above.
-  </Placeholder>
+  <!-- The loop -->
+  <section class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow eyebrow--index">01 &middot; The loop</span>
+        <h2>A gate between the plan and the code.</h2>
+        <p style="color:var(--ink-soft)">
+          Your agent proposes. You review in the terminal you already live in.
+          The verdict flows straight back to the agent as a structured note - no
+          browser, no context switch.
+        </p>
+      </div>
+      <div class="grid grid--3">
+        <div class="cell">
+          <span class="cell__index">→ propose</span>
+          <h3>The agent hands off</h3>
+          <p>
+            At the plan gate or after a diff, the agent opens a cueloop review
+            and waits on your verdict instead of charging ahead.
+          </p>
+        </div>
+        <div class="cell">
+          <span class="cell__index">→ review</span>
+          <h3>You annotate</h3>
+          <p>
+            Read it in place. Select a line, quote it, and attach a comment or a
+            suggested change - anchored to the exact text.
+          </p>
+        </div>
+        <div class="cell">
+          <span class="cell__index">→ decide</span>
+          <h3>The verdict returns</h3>
+          <p>
+            Approve, or request changes. Your notes become a structured feedback
+            document the agent reads and acts on.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <h2>Concepts</h2>
-  <p>Four short pages that explain how cueloop thinks about a review.</p>
-  <ul class="card-grid">
-    {
-      conceptPages.map((page) => (
-        <li class="card">
-          <a href={page.href}>{page.title}</a>
-          <p>{page.summary}</p>
-        </li>
-      ))
-    }
-  </ul>
+  <!-- What you review -->
+  <section class="section">
+    <div class="container">
+      <div class="split">
+        <div>
+          <span class="eyebrow eyebrow--index">02 &middot; What you review</span>
+          <h2 style="margin-top:0.9rem">Plan, diff, or pull request.</h2>
+          <p style="margin-top:1rem;color:var(--ink-soft);max-width:46ch">
+            One verb per artifact. <code>cueloop plan</code> opens the latest
+            plan an agent proposed. <code>cueloop diff</code> reviews the working
+            tree. <code>cueloop review</code> pulls a pull request into the same
+            surface - and posts the verdict back to the PR.
+          </p>
+          <div style="margin-top:1.5rem">
+            <a class="btn btn--ghost" href="/docs/concepts/plan-diff-review/"
+              >The three verbs</a
+            >
+          </div>
+        </div>
+        <div class="split__media">
+          <Terminal title="cueloop diff" body={diffBody} />
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <h2>The three verbs</h2>
-  <p>Each verb opens a ReviewSession over a different artifact.</p>
-  <ul>
-    <li>
-      <strong>plan</strong> - an agent (Claude Code and pi today; Codex planned) submits its
-      plan and blocks on your verdict through a hook.
-    </li>
-    <li>
-      <strong>diff</strong> - <code>cueloop diff</code> reviews your working tree, untracked
-      files included.
-    </li>
-    <li>
-      <strong>review</strong> - pull-request review is planned (<code>cueloop review &lt;pr&gt;</code>).
-    </li>
-  </ul>
+  <!-- Sharing teaser -->
+  <section class="section">
+    <div class="container">
+      <div class="split split--reverse">
+        <div>
+          <span class="eyebrow eyebrow--index">03 &middot; Share it</span>
+          <h2 style="margin-top:0.9rem">
+            Hand a plan to a teammate over <em style="font-style:italic;color:var(--accent)"
+              >SSH</em
+            >.
+          </h2>
+          <p style="margin-top:1rem;color:var(--ink-soft);max-width:46ch">
+            Press <strong>Share</strong> and cueloop copies one line. Your
+            teammate pastes <code>ssh &lt;id&gt;@cueloop.dev</code> and the plan
+            opens in <em>their</em> terminal - your annotations already on it.
+            They annotate, and it flows back to you, attributed, without losing a
+            thing. Terminal only. No browser, ever.
+          </p>
+          <div style="margin-top:1.5rem">
+            <a class="btn btn--accent" href="/docs/sharing/">How sharing works</a>
+          </div>
+        </div>
+        <div class="split__media">
+          <Terminal title="ssh p_7f3k9x2q@cueloop.dev" body={shareBody} />
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <p>
-    This is alpha software. Expect rough edges and breaking changes between versions. The
-    <a href="/concepts/sharing-over-ssh">SSH gateway</a> is a design direction, not a shipped feature.
-  </p>
+  <!-- Features -->
+  <section class="section">
+    <div class="container">
+      <div class="section-head section-head--wide">
+        <span class="eyebrow">Built for the terminal</span>
+        <h2>Small, sharp, and honest about where it runs.</h2>
+      </div>
+      <div class="grid grid--2">
+        <div class="cell">
+          <span class="cell__index">✳ anchors</span>
+          <h3>Quote-anchored annotations</h3>
+          <p>
+            Every note is pinned to the text it quotes, with a stable id. When
+            the plan is edited, notes re-resolve against the new text instead of
+            drifting.
+          </p>
+        </div>
+        <div class="cell">
+          <span class="cell__index">✳ native</span>
+          <h3>Agent-native hand-off</h3>
+          <p>
+            Wired into the plan gate for Claude Code and Codex. The agent blocks
+            on your verdict and reads your feedback back in its own format.
+          </p>
+        </div>
+        <div class="cell">
+          <span class="cell__index">✳ anywhere</span>
+          <h3>Runs in any terminal</h3>
+          <p>
+            A Bun daemon over a unix socket and an OpenTUI React front end. No
+            web app to host, no account to make.
+          </p>
+        </div>
+        <div class="cell">
+          <span class="cell__index">✳ merge</span>
+          <h3>Never loses an annotation</h3>
+          <p>
+            Shared annotations merge back by stable id - a union, not a
+            last-write-wins overwrite. Concurrent reviewers converge.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA band -->
+  <section class="section">
+    <div class="container">
+      <div
+        style="text-align:center;display:grid;gap:1.5rem;justify-items:center;padding-block:2rem"
+      >
+        <span class="eyebrow">Get started</span>
+        <h2 style="max-width:18ch">Put a reviewer between your agent and your codebase.</h2>
+        <div class="hero__actions" style="justify-content:center">
+          <CopyCommand command="npm i -g cueloop" client:visible />
+          <a class="btn" href="/docs/install/">Quickstart</a>
+        </div>
+      </div>
+    </div>
+  </section>
 </BaseLayout>
