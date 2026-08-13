@@ -11,6 +11,7 @@ import { createRoot, useKeyboard } from "@opentui/react";
 import { DARK } from "../theme";
 import { ThemeProvider } from "./theme-context";
 import { loadStories, type LoadedStory } from "./story";
+import { FRAME_BORDER_STYLE } from "./primitives/frame";
 
 function StoriesApp({ stories, onExit }: { stories: LoadedStory[]; onExit: () => void }): React.ReactNode {
   const moduleTitles = useMemo(() => [...new Set(stories.map((story) => story.moduleTitle))], [stories]);
@@ -60,7 +61,7 @@ function StoriesApp({ stories, onExit }: { stories: LoadedStory[]; onExit: () =>
               flexGrow: 1,
               flexDirection: "column",
               border: true,
-              borderStyle: "rounded",
+              borderStyle: FRAME_BORDER_STYLE,
               borderColor: DARK.border,
             }}
             title={` ${current.storyName} (${moduleStories.indexOf(current) + 1}/${moduleStories.length}) `}
