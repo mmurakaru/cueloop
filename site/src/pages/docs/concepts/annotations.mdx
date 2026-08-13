@@ -1,0 +1,51 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Annotations
+eyebrow: Docs · Concepts
+lede: An annotation is a note pinned to the exact text it quotes. When the artifact changes, anchors re-resolve against the new text, and notes merge additively so concurrent review stays safe.
+prev: { title: "The review session", href: "/docs/concepts/review-session/" }
+next: { title: "Plan, diff, review", href: "/docs/concepts/plan-diff-review/" }
+---
+
+An annotation is a note pinned to the exact text it quotes. It is not a line
+number and not a floating comment - it holds onto the words themselves.
+
+## What an annotation holds
+
+- a **stable id**, minted on the client the moment you write the note,
+- a **quote-primary anchor** - the exact text the note is pinned to,
+- a **body** - what you have to say,
+- a **kind** - `comment` or `suggestion`, and
+- an **author**.
+
+The client mints the id, which matters for the merge rules below: an annotation
+has a durable identity from the first keystroke, before it ever leaves your
+machine.
+
+## Anchors re-resolve when the text changes
+
+When the artifact is edited - a plan is revised, a diff is regenerated - the
+annotations do not move blindly. Each anchor re-resolves against the new text
+through a quote-primary cascade: cueloop looks for the quoted text first and
+falls back through weaker signals only when it must.
+
+If the quote no longer matches anywhere, the note is marked an **orphan**. It is
+never silently dropped. You still see it, you still know what it was about, and
+you decide what to do with it.
+
+## Merges are additive
+
+Annotations merge by their stable id, and the merge is a **union**, not
+last-write-wins. If two people annotate the same session and the sessions come
+back together, both sets of notes survive. Nothing is clobbered because two edits
+happened to touch the same session.
+
+That additive rule is what makes concurrent review and merge-back safe. You can
+share a plan, let a teammate mark it up, and fold their notes back into yours
+without losing a single annotation on either side.
+
+<div class="callout">
+  <div class="callout__label">Never silently dropped</div>
+  A note whose quote no longer matches becomes an orphan you can see, not a
+  deletion you cannot. cueloop keeps your review, even when the text moves.
+</div>

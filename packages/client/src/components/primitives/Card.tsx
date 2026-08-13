@@ -8,6 +8,7 @@
 import React from "react";
 import type { Theme } from "../../theme";
 import { useComponentTheme } from "../theme-context";
+import { FRAME_BORDER_STYLE } from "./frame";
 
 export interface CardProps {
   title?: string;
@@ -44,7 +45,7 @@ export function Card({
         marginLeft,
         marginRight,
         border: true,
-        borderStyle: "rounded",
+        borderStyle: FRAME_BORDER_STYLE,
         borderColor: borderColor ?? tokens.border,
         backgroundColor: backgroundColor ?? tokens.elevated,
         flexDirection: "column",

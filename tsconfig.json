@@ -26,5 +26,6 @@
     "packages/adapters/**/*.ts",
     "packages/integrations/*/src/**/*.ts",
     "test/**/*.ts"
-  ]
+  ],
+  "exclude": ["site"]
 }

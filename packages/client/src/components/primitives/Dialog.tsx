@@ -7,6 +7,7 @@
 import React from "react";
 import type { Theme } from "../../theme";
 import { useComponentTheme } from "../theme-context";
+import { FRAME_BORDER_STYLE } from "./frame";
 
 export interface DialogProps {
   isOpen: boolean;
@@ -38,7 +39,7 @@ export function Dialog({ isOpen, title, width, height, theme, children }: Dialog
           width,
           height,
           border: true,
-          borderStyle: "rounded",
+          borderStyle: FRAME_BORDER_STYLE,
           borderColor: tokens.accent,
           backgroundColor: tokens.panel,
           flexDirection: "column",

@@ -1,0 +1,57 @@
+---
+layout: ../../layouts/DocsLayout.astro
+title: Agent integration
+eyebrow: Docs · Agents
+lede: cueloop sits between what your coding agent proposes and what it does. The plan gate opens a review and blocks the agent on your verdict, then hands your feedback back in the agent's own format. herdr reports agent state and can open the pane for you.
+prev: { title: "Security & privacy", href: "/docs/sharing/security/" }
+---
+
+The point of cueloop is the gate between what an agent proposes and what it does.
+This page covers the local agent loop - the review that happens on your own
+machine, before any sharing.
+
+## The plan gate
+
+For Claude Code and Codex, cueloop installs a plan gate. When the agent produces
+a plan, the gate opens a review and blocks the agent on your verdict. The agent
+does not start to build until you respond. You read the plan, annotate the exact
+lines that need work, and send one of three verdicts:
+
+```text
+approve           # the agent proceeds as planned
+request changes   # the agent revises against your annotations
+reject            # the agent stops
+```
+
+The gate delivers your verdict back to the agent in that agent's own format, so
+the agent reads it the same way it reads any other tool result. Your annotations
+become structured feedback the agent can act on line by line, not a wall of prose
+it has to parse.
+
+## Feedback in the agent's format
+
+Different agents expect different shapes. cueloop translates your review into the
+format each agent understands, so a request-changes verdict reads naturally to
+Claude Code and to Codex alike. You annotate once, in one UI, and cueloop does
+the shaping.
+
+## herdr integration
+
+If you run [herdr](https://github.com/herdr), cueloop reports agent state to it -
+whether an agent is waiting on a plan review, building, or idle. herdr can then
+auto-open a cueloop pane when an agent reaches the gate, so a pending review
+surfaces the moment it exists instead of waiting for you to check.
+
+## The two directions, again
+
+This page is about the direction that reaches the agent: your review, your
+verdict, back to the agent. The other direction - sharing a plan with a teammate
+over SSH and merging their annotations into yours - is a separate loop. See
+[Sharing over SSH](/docs/sharing/) for that. A collaborator's notes never reach
+the agent on their own; only your verdict does.
+
+<div class="callout">
+  <div class="callout__label">Blocking by design</div>
+  The plan gate blocks the agent on your verdict. Nothing is built until you
+  approve, request changes, or reject.
+</div>

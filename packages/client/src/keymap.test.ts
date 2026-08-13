@@ -25,8 +25,8 @@ function state(patch: Partial<KeyState> = {}): KeyState {
   };
 }
 
-function key(name: string, shift = false): { name: string; shift: boolean } {
-  return { name, shift };
+function key(name: string, shift = false, meta = false): { name: string; shift: boolean; meta: boolean } {
+  return { name, shift, meta };
 }
 
 describe("compose overlay", () => {
@@ -45,6 +45,15 @@ describe("compose overlay", () => {
       expect(reduceKey(keyState, key(name))).toEqual(expected);
     });
   }
+
+  // ⌥/Alt+⏎ (meta) and shift+⏎ insert a newline in the composer, so the
+  // grammar must not save on them; only a bare ⏎ saves.
+  test("option/alt+return (meta) does not save - the textarea inserts a newline", () => {
+    expect(reduceKey(keyState, key("return", false, true))).toEqual([]);
+  });
+  test("shift+return does not save - the textarea inserts a newline", () => {
+    expect(reduceKey(keyState, key("return", true, false))).toEqual([]);
+  });
 });
 
 describe("submit overlay", () => {

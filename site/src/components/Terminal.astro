@@ -1,0 +1,31 @@
+---
+/*
+ * A faux terminal window - the site's signature motif, echoing cueloop's
+ * rounded OpenTUI border. The body is always the sumi palette so it reads as a
+ * real terminal on either theme. Pass `title` and a `body` HTML string (newlines
+ * are literal and preserved); use .t-dim / .t-accent / .t-green / .t-blue spans
+ * for colour. A `body` string is used instead of a slot because Astro collapses
+ * whitespace-only newlines between elements in slotted <pre> content.
+ */
+interface Props {
+  title?: string;
+  body?: string;
+}
+const { title = "cueloop", body } = Astro.props;
+---
+
+<div class="terminal">
+  <div class="terminal__bar">
+    <span class="terminal__dot"></span>
+    <span class="terminal__dot"></span>
+    <span class="terminal__dot"></span>
+    <span class="terminal__title">{title}</span>
+  </div>
+  {
+    body ? (
+      <pre class="terminal__body" set:html={body} />
+    ) : (
+      <pre class="terminal__body"><slot /></pre>
+    )
+  }
+</div>

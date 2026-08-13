@@ -42,6 +42,8 @@ export type Intent =
 export interface KeyInput {
   name: string;
   shift: boolean;
+  /** Option/Alt arrives as `meta` in this terminal stack (never as a raw alt). */
+  meta?: boolean;
 }
 
 export interface KeyState {
@@ -85,7 +87,14 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   if (state.overlay === "compose" || state.overlay === "submit") {
     if (name === "escape") return [{ type: "closeOverlay" }];
     if (name === "return" || name === "enter") {
-      return [state.overlay === "compose" ? { type: "saveCompose" } : { type: "submitVerdict" }];
+      // In the composer, ⌥/Alt+⏎ (meta) and shift+⏎ insert a newline - the
+      // focused textarea owns that; only a bare ⏎ saves. The submit overlay
+      // keeps its plain ⏎ submit.
+      if (state.overlay === "compose") {
+        if (key.shift || key.meta) return [];
+        return [{ type: "saveCompose" }];
+      }
+      return [{ type: "submitVerdict" }];
     }
     if (state.overlay === "submit" && (name === "left" || name === "right")) {
       return [{ type: "cycleVerdict", direction: name === "left" ? -1 : 1 }];
