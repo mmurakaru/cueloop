@@ -127,7 +127,7 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
       <div class="split reveal">
         <div>
           <span class="eyebrow eyebrow--index">02 &middot; What you review</span>
-          <h2 style="margin-top:0.9rem">Plan, diff, or pull request.</h2>
+          <h2 style="margin-top:0.9rem">Plan, diff, or review.</h2>
           <p style="margin-top:1rem;color:var(--ink-soft);max-width:46ch">
             One verb per artifact. <code>cueloop plan</code> opens the latest
             plan an agent proposed. <code>cueloop diff</code> reviews the working
@@ -185,36 +185,35 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
       </div>
       <div class="grid grid--2 reveal">
         <div class="cell">
-          <span class="cell__index">✳ anchors</span>
-          <h3>Quote-anchored annotations</h3>
+          <span class="cell__index">✳ precise</span>
+          <h3>Notes that stay put</h3>
           <p>
-            Every note is pinned to the text it quotes, with a stable id. When
-            the plan is edited, notes re-resolve against the new text instead of
-            drifting.
+            Comments attach to the exact lines they are about, and follow along
+            as the plan or diff changes underneath them.
           </p>
         </div>
         <div class="cell">
           <span class="cell__index">✳ native</span>
-          <h3>Agent-native hand-off</h3>
+          <h3>Made for agents</h3>
           <p>
-            Wired into the plan gate for Claude Code and Codex. The agent blocks
-            on your verdict and reads your feedback back in its own format.
+            Your agent pauses for your review, then picks up your feedback and
+            keeps going - built into Claude Code and Codex.
           </p>
         </div>
         <div class="cell">
           <span class="cell__index">✳ anywhere</span>
-          <h3>Runs in any terminal</h3>
+          <h3>Lives in your terminal</h3>
           <p>
-            A Bun daemon over a unix socket and an OpenTUI React front end. No
-            web app to host, no account to make.
+            No web app to host, no account to create. cueloop works in the
+            terminal you are already in.
           </p>
         </div>
         <div class="cell">
-          <span class="cell__index">✳ merge</span>
-          <h3>Never loses an annotation</h3>
+          <span class="cell__index">✳ together</span>
+          <h3>Nobody's notes get lost</h3>
           <p>
-            Shared annotations merge back by stable id - a union, not a
-            last-write-wins overwrite. Concurrent reviewers converge.
+            Share a review and everyone's comments come back together in one
+            place - no one's feedback gets overwritten.
           </p>
         </div>
       </div>
