@@ -5,6 +5,7 @@
  */
 import "../styles/global.css";
 import ThemeToggle from "../components/ThemeToggle.tsx";
+import MobileMenu from "../components/MobileMenu.tsx";
 
 interface Props {
   title?: string;
@@ -71,11 +72,16 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
         <a href="/" class="wordmark">
           <span class="wordmark__mark">&raquo;</span>cueloop
         </a>
-        <nav class="nav nav--right" aria-label="Secondary">
-          <a href="https://github.com/mmurakaru/cueloop">GitHub</a>
-          <span class="nav__sep" aria-hidden="true"></span>
-          <ThemeToggle client:load />
-        </nav>
+        <div class="site-header__right">
+          <nav class="nav nav--right" aria-label="Secondary">
+            <a href="https://github.com/mmurakaru/cueloop">GitHub</a>
+            <span class="nav__sep" aria-hidden="true"></span>
+            <ThemeToggle client:load />
+          </nav>
+          <div class="site-header__mobile">
+            <MobileMenu client:load />
+          </div>
+        </div>
       </div>
     </header>
 
