@@ -915,6 +915,8 @@ pre {
 .copy-command__btn {
   margin-left: 0.2rem;
   padding: 0.25rem 0.6rem;
+  min-width: 4.5rem;
+  text-align: center;
   border: 1px solid var(--hairline);
   border-radius: 999px;
   background: var(--paper-recessed);
@@ -1001,6 +1003,8 @@ pre {
 .install__copy {
   margin-left: auto;
   padding: 0.3rem 0.65rem;
+  min-width: 4.6rem;
+  text-align: center;
   border: 1px solid var(--hairline);
   border-radius: 999px;
   background: var(--paper-recessed);
