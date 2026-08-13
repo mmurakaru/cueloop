@@ -516,6 +516,7 @@ pre {
   justify-self: end;
   display: flex;
   align-items: center;
+  gap: clamp(0.9rem, 2vw, 1.5rem);
 }
 .site-header__mobile {
   display: none;
