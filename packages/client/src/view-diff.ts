@@ -29,28 +29,28 @@ export function diffRows(patchText: string): DiffRow[] {
         let newLine = hunk.additionStart;
         for (const segment of hunk.hunkContent) {
           if (segment.type === "context") {
-            for (let i = 0; i < segment.lines; i++) {
+            for (let lineOffset = 0; lineOffset < segment.lines; lineOffset++) {
               rows.push({
                 kind: "ctx",
-                text: file.additionLines[segment.additionLineIndex + i] ?? "",
+                text: file.additionLines[segment.additionLineIndex + lineOffset] ?? "",
                 file: file.name,
                 oldLine: oldLine++,
                 newLine: newLine++,
               });
             }
           } else {
-            for (let i = 0; i < segment.deletions; i++) {
+            for (let lineOffset = 0; lineOffset < segment.deletions; lineOffset++) {
               rows.push({
                 kind: "del",
-                text: file.deletionLines[segment.deletionLineIndex + i] ?? "",
+                text: file.deletionLines[segment.deletionLineIndex + lineOffset] ?? "",
                 file: file.name,
                 oldLine: oldLine++,
               });
             }
-            for (let i = 0; i < segment.additions; i++) {
+            for (let lineOffset = 0; lineOffset < segment.additions; lineOffset++) {
               rows.push({
                 kind: "add",
-                text: file.additionLines[segment.additionLineIndex + i] ?? "",
+                text: file.additionLines[segment.additionLineIndex + lineOffset] ?? "",
                 file: file.name,
                 newLine: newLine++,
               });
