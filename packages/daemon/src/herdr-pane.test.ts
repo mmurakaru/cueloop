@@ -18,15 +18,18 @@ const dir = mkdtempSync(join(tmpdir(), "cueloop-herdr-pane-"));
 
 /**
  * A stub herdr binary. It appends its argv to logPath and, when the verb is
- * `tab create`, prints a JSON result carrying paneId on stdout so the helper
- * can drive send-text and send-keys.
+ * `tab create`, prints a JSON result carrying the pane id on stdout so the
+ * helper can drive send-text and send-keys. The printed shape mirrors the
+ * REAL herdr `tab create` output ({ result: { root_pane: { pane_id } } },
+ * verified against herdr 0.8.0) - an earlier stub invented a different shape
+ * and let a parser that never matched real herdr pass the suite.
  */
 function makeStub(name: string, paneId = "w1:p2"): { binPath: string; logPath: string } {
   const logPath = join(dir, `${name}.log`);
   const binPath = join(dir, `${name}.sh`);
   writeFileSync(
     binPath,
-    `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "tab" ] && [ "$2" = "create" ]; then\n  printf '{"result":{"pane":{"id":"${paneId}"}}}'\nfi\n`,
+    `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "tab" ] && [ "$2" = "create" ]; then\n  printf '{"result":{"root_pane":{"pane_id":"${paneId}"}}}'\nfi\n`,
   );
   chmodSync(binPath, 0o755);
   return { binPath, logPath };
