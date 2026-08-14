@@ -9,6 +9,8 @@ import type { Annotation, Artifact, ReviewSession, VerdictKind, WorkspaceKey } f
 import { BackpressureWriter, LineBuffer, type EventFrame, type Response } from "./protocol";
 import { cueloopHome, socketPath } from "./paths";
 
+export type { EventFrame } from "./protocol";
+
 export interface ConnectOptions {
   home?: string;
   /** Spawn the daemon when the socket is not alive. */
@@ -17,7 +19,26 @@ export interface ConnectOptions {
 
 type PendingRequest = { resolve: (value: unknown) => void; reject: (error: Error) => void };
 
-export class DaemonClient {
+/**
+ * The session verbs the review controller drives. DaemonClient is the local
+ * implementation (unix socket); the sharing gateway supplies an in-memory,
+ * blob-backed one. Depending on this interface - not DaemonClient - is what
+ * lets the same <App> render a local session or a decrypted share unchanged.
+ */
+export interface SessionClient {
+  onEvent(listener: (event: EventFrame) => void): () => void;
+  subscribe(): Promise<void>;
+  sessionGet(id: string): Promise<ReviewSession>;
+  sessionList(filter?: { status?: "pending" | "resolved" }): Promise<ReviewSession[]>;
+  sessionAnnotate(id: string, annotation: Omit<Annotation, "createdAt">): Promise<ReviewSession>;
+  sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession>;
+  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession>;
+  sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
+  sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession>;
+  close(): void;
+}
+
+export class DaemonClient implements SessionClient {
   private socket: Awaited<ReturnType<typeof Bun.connect>> | null = null;
   private writer: BackpressureWriter | null = null;
   private pending = new Map<number, PendingRequest>();

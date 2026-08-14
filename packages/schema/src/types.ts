@@ -73,6 +73,12 @@ export interface Annotation {
   /** Set by resolution when the quote can no longer be found. */
   orphan?: boolean;
   /**
+   * SSH key fingerprint of a share collaborator who authored this note. Absent
+   * on the planner's own annotations; the sharing gateway stamps it so the
+   * planner can tell whose note is whose and never overwrite a collaborator's.
+   */
+  author?: string;
+  /**
    * Set when a revision addressed this annotation: the agent reported the id
    * on resubmit ("agent"), or the quoted text disappeared from the revised
    * plan ("drift"). Addressed annotations leave the default rail view and the

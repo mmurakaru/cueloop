@@ -52,6 +52,7 @@ export const DEFAULT_KEYS: Record<string, string[]> = {
   prev_annotation: ["p"],
   delete_annotation: ["backspace"],
   submit: ["return", "enter"],
+  share: ["S"],
   quit: ["q"],
   walk: ["w"],
   review_cycle: ["b"],

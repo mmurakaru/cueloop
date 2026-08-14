@@ -184,6 +184,8 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
         setReviewMode("expanded");
         setRailTab("review");
         return void setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
+      case "share":
+        return controller.share();
       case "cut":
         return controller.cut(cursor);
       case "edit":

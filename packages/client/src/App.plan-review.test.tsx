@@ -75,6 +75,16 @@ async function toContextParagraph(setup: Setup): Promise<void> {
   await press(setup, "j");
 }
 
+describe("share button", () => {
+  test("the owner's rail shows the one-click Share button", async () => {
+    // Arrange / Act
+    const setup = await renderApp();
+
+    // Assert
+    expect(setup.captureCharFrame()).toContain("Share plan");
+  });
+});
+
 describe("selection feeds the annotation quote", () => {
   test("v anchors, l extends, c composes with the char-precise quote", async () => {
     // Arrange

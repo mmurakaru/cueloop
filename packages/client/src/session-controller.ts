@@ -8,7 +8,7 @@
  */
 
 import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
-import { DaemonClient } from "@cueloop/daemon/client";
+import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
 import {
   cutBlock,
   detectHerdr,
@@ -23,6 +23,7 @@ import {
   type VerdictKind,
 } from "@cueloop/schema";
 import { loadBundledExporters, type BundledExporter } from "./integrations";
+import { publishShare } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
@@ -72,6 +73,12 @@ export interface ReviewControllerOptions {
   onExit?: (code: number) => void;
   /** Timer source for the auto-close countdown; tests inject a ManualClock. */
   clock?: Clock;
+  /**
+   * How the controller gets its session client. Defaults to dialing the local
+   * daemon; the sharing gateway injects a blob-backed client so the same <App>
+   * renders a decrypted share instead.
+   */
+  openClient?: () => Promise<SessionClient>;
 }
 
 export interface ReviewController {
@@ -115,6 +122,8 @@ export interface ReviewController {
   walkLeave(): void;
   /** Resolve the review, run the export, start the completion hand-back. */
   submit(verdict: VerdictKind, summary: string): void;
+  /** Publish the current session as a share; the ssh line lands on the clipboard. */
+  share(): void;
   /** Close the review and, inside herdr, bounce focus back to the agent. */
   finishReview(): void;
   dismissCompletion(): void;
@@ -134,7 +143,7 @@ export function createReviewController(options: ReviewControllerOptions): Review
 
 class Controller implements ReviewController {
   readonly readOnly: boolean;
-  private client: DaemonClient | null = null;
+  private client: SessionClient | null = null;
   private closed = false;
   private snapshot: ControllerSnapshot = {
     session: null,
@@ -179,7 +188,8 @@ class Controller implements ReviewController {
   connect(): void {
     void (async () => {
       try {
-        const client = await DaemonClient.connect({ home: this.options.home, autostart: true });
+        const openClient = this.options.openClient ?? (() => DaemonClient.connect({ home: this.options.home, autostart: true }));
+        const client = await openClient();
         if (this.closed) return void client.close();
         this.client = client;
         client.onEvent((event) => {
@@ -468,6 +478,15 @@ class Controller implements ReviewController {
         else this.startCounting(DEFAULT_AUTO_CLOSE);
       })
       .catch((error: unknown) => this.setStatus(String(error instanceof Error ? error.message : error)));
+  }
+
+  share(): void {
+    const session = this.snapshot.session;
+    if (!session) return;
+    this.setStatus("sharing…");
+    publishShare(session)
+      .then(({ line, copied }) => this.setStatus(copied ? `✓ share link copied - ${line}` : line))
+      .catch((error: unknown) => this.setStatus(`share failed: ${error instanceof Error ? error.message : String(error)}`));
   }
 
   // ── completion hand-back ────────────────────

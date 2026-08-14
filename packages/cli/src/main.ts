@@ -72,6 +72,16 @@ async function main(): Promise<number> {
       await new Promise(() => {}); // serve until signalled
       return 0;
     }
+    case "share": {
+      const { positional, flags } = parseArgs(argv.slice(1));
+      const { shareCommand } = await import("./share-command");
+      const port = stringFlag(flags, "port");
+      return shareCommand({
+        sessionId: positional[0],
+        host: stringFlag(flags, "host"),
+        port: port !== undefined ? Number(port) : undefined,
+      });
+    }
     case "review":
       return reviewEntry(argv.slice(1));
     case "review-post": {
@@ -213,6 +223,8 @@ function printHelp(): void {
       "  cueloop serve [session-id]       share over ssh: observers are read-only,",
       "                                   you stay the controller (--port 2222, --host 127.0.0.1;",
       "                                   password-less - share the address deliberately)",
+      "  cueloop share [session-id]       hand a plan to a teammate: copies one",
+      "                                   ssh line (--host cueloop.dev, --port 22)",
       "  cueloop session <verb> [flags]   script the daemon (create|get|list|wait|annotate|resolve|submit-revision)",
       "  cueloop daemon                   run the daemon in the foreground",
     ].join("\n"),
