@@ -19,6 +19,10 @@ export const MAX_BLOB_BYTES = 1024 * 1024;
 /** The SSH username `cueloop share` connects as to upload; the gateway routes on it. */
 export const SHARE_UPLOAD_USER = "share";
 
+/** Where shares live, in one place: the client uploads here, the gateway prints it. */
+export const DEFAULT_SHARE_HOST = "cueloop.dev";
+export const DEFAULT_SHARE_PORT = 22;
+
 /** Serialise + compress a session for upload. */
 export function packSessionBlob(session: ReviewSession): Buffer {
   return gzipSync(Buffer.from(JSON.stringify(session), "utf8"));

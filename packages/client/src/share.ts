@@ -6,7 +6,7 @@
  * Share button, so the two share exactly the same path.
  */
 
-import { SHARE_UPLOAD_USER, packSessionBlob } from "@cueloop/daemon/share-blob";
+import { DEFAULT_SHARE_HOST, DEFAULT_SHARE_PORT, SHARE_UPLOAD_USER, packSessionBlob } from "@cueloop/daemon/share-blob";
 import type { ReviewSession } from "@cueloop/schema";
 import { copyToClipboard } from "./clipboard";
 
@@ -22,12 +22,9 @@ export interface ShareResult {
   copied: boolean;
 }
 
-const DEFAULT_HOST = "cueloop.dev";
-const DEFAULT_PORT = 22;
-
 /** Upload the session to the gateway and copy the resulting ssh line. */
 export async function publishShare(session: ReviewSession, target: ShareTarget = {}): Promise<ShareResult> {
-  const line = await uploadOverSsh(packSessionBlob(session), target.host ?? DEFAULT_HOST, target.port ?? DEFAULT_PORT);
+  const line = await uploadOverSsh(packSessionBlob(session), target.host ?? DEFAULT_SHARE_HOST, target.port ?? DEFAULT_SHARE_PORT);
   const copied = await copyToClipboard(line);
   return { line, copied };
 }

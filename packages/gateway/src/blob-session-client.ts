@@ -84,8 +84,12 @@ export class BlobSessionClient implements SessionClient {
 
   /**
    * Read the current stored blob, apply `change`, and re-store it. Reading fresh
-   * each time (not from `this.session`) is what makes concurrent collaborators
-   * union rather than clobber. The updated session becomes the render source.
+   * each time (not from `this.session`) folds in notes other collaborators saved
+   * since this session loaded, so the common case unions rather than clobbers.
+   * There is no compare-and-swap: two writes that interleave inside one
+   * get/put window still last-write-wins, dropping the first note. Acceptable at
+   * single-owner scale; a conditional put (R2 ETag) is the fix if it ever bites.
+   * The updated session becomes the render source.
    */
   private async commit(writeBack: ShareWriteBack, change: (session: ReviewSession) => ReviewSession): Promise<ReviewSession> {
     const stored = await writeBack.store.get(writeBack.shareId);

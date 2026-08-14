@@ -11,9 +11,9 @@
 
 import { createHash } from "node:crypto";
 import React from "react";
-import { Server, type AuthContext, type Connection, type ServerChannel, type Session } from "ssh2";
+import { Server, utils, type AuthContext, type Connection, type ServerChannel, type Session } from "ssh2";
 import { App } from "@cueloop/client";
-import { packSessionBlob, unpackSessionBlob, MAX_BLOB_BYTES } from "@cueloop/daemon/share-blob";
+import { DEFAULT_SHARE_HOST, packSessionBlob, unpackSessionBlob, MAX_BLOB_BYTES } from "@cueloop/daemon/share-blob";
 import { BlobSessionClient } from "./blob-session-client";
 import { renderOverChannel, type ChannelRender, type PtySize } from "./channel-renderer";
 import { openBlob, sealBlob } from "./crypto";
@@ -52,7 +52,7 @@ interface Identity {
 }
 
 export async function startGateway(options: GatewayOptions): Promise<GatewayHandle> {
-  const publicHost = options.publicHost ?? "cueloop.dev";
+  const publicHost = options.publicHost ?? DEFAULT_SHARE_HOST;
   const maxUploadBytes = options.maxUploadBytes ?? MAX_BLOB_BYTES;
   const onError = options.onError ?? ((err: unknown) => console.error("[gateway]", err));
   const uploadLimiter = new TokenBucket(20, 1);
@@ -66,9 +66,19 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     client.on("close", () => clients.delete(client));
 
     client.on("authentication", (ctx: AuthContext) => {
-      // Accept any key, but require one: the fingerprint is the zero-signup
-      // identity (ADR 0003). Rejecting `none` guarantees we always capture it.
+      // Accept any key, but require one and PROVE ownership: the fingerprint is
+      // the zero-signup identity (ADR 0003), so it must be spoof-proof.
+      // Rejecting `none` guarantees we always capture a key. Public-key auth is
+      // two passes: the probe carries no signature - accept it so the client
+      // signs; the signed pass we verify against the presented key. ssh2 does
+      // not verify for us, so skipping this would let anyone claim any key.
       if (ctx.method !== "publickey") return ctx.reject(["publickey"]);
+      if (ctx.signature) {
+        const key = utils.parseKey(ctx.key.data);
+        if (key instanceof Error || !ctx.blob || !key.verify(ctx.blob, ctx.signature, ctx.hashAlgo)) {
+          return ctx.reject();
+        }
+      }
       identity = { username: ctx.username, fingerprint: keyFingerprint(ctx.key.data) };
       ctx.accept();
     });
