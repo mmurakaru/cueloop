@@ -125,14 +125,19 @@ async function waitForPendingSession(
 
 describe("slice 1: Claude Code plan round-trip", () => {
   test("deny path: reviewer annotates and requests changes; hook relays feedback.md", async () => {
+    // Arrange
     const hook = spawnHook(PLAN, 30_000);
     const sessionId = await waitForPendingSession(hook);
 
+    // Act
     // the reviewer opens the session in the real TUI
     const setup = await testRender(<App home={home} sessionId={sessionId} />, { width: 120, height: 30 });
     await waitForText(setup, "Rollout Plan");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("Enable it for everyone immediately.");
 
+    // Act
     // annotate the risky paragraph, then submit request_changes
     for (let i = 0; i < 6; i++) await press(setup, "j"); // to the Phase 2 paragraph
     await press(setup, "c");
@@ -141,10 +146,15 @@ describe("slice 1: Claude Code plan round-trip", () => {
     // wait until the annotate round-trip lands in the rail before submitting
     await waitForText(setup, "Review (1)");
     await press(setup, "enter"); // open submit (request_changes default with pending item)
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("[Changes]");
+
+    // Act
     await typeText(setup, "Too aggressive.");
     await press(setup, "enter");
 
+    // Assert
     const out = await hook.result;
     expect(out.decision).toBe("deny");
     expect(out.reason).toContain("# Review: request changes");
@@ -154,36 +164,48 @@ describe("slice 1: Claude Code plan round-trip", () => {
   }, TEST_TIMEOUT_MS);
 
   test("revision path: resubmit becomes revision 2 of the same session; approve allows", async () => {
+    // Arrange
     const revised = PLAN.replace("Enable it for everyone immediately.", "Enable it at 5%, then 50%, then 100%.");
     const hook = spawnHook(revised, 30_000);
-
     // wait for the revision to land (same session reopens as pending)
     const sessionId = await waitForPendingSession(hook, (candidate) => candidate.revisions.length >= 2);
     const client = await DaemonClient.connect({ home });
     const session = await client.sessionGet(sessionId);
+
+    // Assert
     expect(session.revisions.length).toBe(2);
     expect(session.artifact.content).toContain("at 5%, then 50%");
 
+    // Act
     await client.sessionResolve(sessionId, "approve", "Staged rollout looks right.");
     client.close();
 
+    // Assert
     const out = await hook.result;
     expect(out.decision).toBe("allow");
     expect(out.reason).toContain("# Review: approve");
   }, TEST_TIMEOUT_MS);
 
   test("timeout path: the verdict outlives the hook window", async () => {
+    // Arrange
     const hook = spawnHook("# Late Plan\n\nSomething slow.\n", 300);
+
+    // Act
     const out = await hook.result;
+
+    // Assert
     expect(out.decision).toBe("deny");
     expect(out.reason).toContain("still pending");
 
+    // Act
     // reviewer resolves after the hook gave up; the verdict is collectable
     const client = await DaemonClient.connect({ home });
     const pending = await client.sessionList({ status: "pending" });
     const late = pending.find((candidate) => candidate.artifact.content.includes("Late Plan"))!;
     await client.sessionResolve(late.id, "approve", "");
     const collected = await client.sessionWait(late.id, 1000);
+
+    // Assert
     expect(collected!.verdict!.kind).toBe("approve");
     client.close();
   }, TEST_TIMEOUT_MS);

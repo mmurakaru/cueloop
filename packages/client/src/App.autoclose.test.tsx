@@ -1,8 +1,4 @@
-/**
- * Post-submit completion overlay: prompt, opt-in persistence, countdown,
- * dismissal. Countdown seconds tick on an injected ManualClock, so the
- * tests advance time instead of waiting it out.
- */
+/** Post-submit completion overlay: prompt, opt-in persistence, countdown, dismissal. Countdown seconds tick on an injected ManualClock, so tests advance time instead of waiting it out. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -61,49 +57,77 @@ async function submitApprove(setup: Setup): Promise<void> {
 
 describe("completion overlay", () => {
   test("submit with auto-close off counts down from 5; ⏎ exits now", async () => {
+    // Arrange
     let exited = -1;
     const setup = await renderApp((code) => (exited = code));
+
+    // Act
     await submitApprove(setup);
+
+    // Assert
     const frame = await waitForText(setup, "closing in 5s");
     expect(frame).toContain("review approved");
     expect(frame).toContain("close [return]");
     expect(frame).toContain("return to plan [esc]");
+
+    // Act
     await press(setup, "enter");
+
+    // Assert
     expect(exited).toBe(0);
   });
 
   test("a remembers the countdown as the persisted default", async () => {
+    // Arrange
     const setup = await renderApp();
     await submitApprove(setup);
     await waitForText(setup, "closing in 5s");
+
+    // Act
     await press(setup, "a");
+
+    // Assert
     expect(existsSync(configPath)).toBe(true);
     expect(readFileSync(configPath, "utf8")).toContain("auto_close = 5");
+
+    // Act
     // the countdown keeps running; each second is one manual-clock tick
     clock.advance(1000);
+
+    // Assert
     await waitForText(setup, "closing in 4s");
   });
 
   test("esc dismisses to the resolved read-only view", async () => {
+    // Arrange
     const setup = await renderApp();
     await submitApprove(setup);
     await waitForText(setup, "closing in 5s");
+
+    // Act
     // a bare ESC sits in the input parser's escape-sequence disambiguation
     // window before it is delivered - the frame wait absorbs it
     await press(setup, "escape");
+
+    // Assert
     const frame = await waitForText(setup, "resolved: approve");
     expect(frame).not.toContain("closing in");
   });
 
   test("configured auto_close counts down and exits without interaction", async () => {
+    // Arrange
     writeFileSync(configPath, "[ui]\nauto_close = 1\n");
     let exited = -1;
     const setup = await renderApp((code) => (exited = code));
     await submitApprove(setup);
     await waitForText(setup, "closing in 1s");
     expect(exited).toBe(-1);
+
+    // Act
     clock.advance(1000);
     await settle(setup);
+
+    // Assert
     expect(exited).toBe(0);
   });
 });

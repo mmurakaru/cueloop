@@ -23,7 +23,10 @@ describe("titleFrom", () => {
   });
 
   test("caps the title at 50 characters", () => {
+    // Arrange
     const long = "# " + "word ".repeat(20);
+
+    // Assert
     expect(titleFrom(long).length).toBeLessThanOrEqual(50);
     expect(titleFrom(long).endsWith(" ")).toBe(false);
   });
@@ -54,10 +57,19 @@ describe("uniquePath", () => {
   });
 
   test("appends counting suffixes instead of overwriting", () => {
+    // Assert
     expect(uniquePath(dir, "plan")).toBe(join(dir, "plan.md"));
+
+    // Act
     writeFileSync(join(dir, "plan.md"), "");
+
+    // Assert
     expect(uniquePath(dir, "plan")).toBe(join(dir, "plan 2.md"));
+
+    // Act
     writeFileSync(join(dir, "plan 2.md"), "");
+
+    // Assert
     expect(uniquePath(dir, "plan")).toBe(join(dir, "plan 3.md"));
   });
 });

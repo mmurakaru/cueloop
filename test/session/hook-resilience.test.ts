@@ -22,6 +22,7 @@ async function runHookProcess(env: Record<string, string>, payload: string): Pro
 
 describe("hook resilience", () => {
   test("an unreachable daemon still yields a valid allow response", async () => {
+    // Act
     // point the home at a path that cannot host a socket, and make the start
     // deadline tiny so the failure is fast and deterministic
     const { out, code } = await runHookProcess(
@@ -34,6 +35,8 @@ describe("hook resilience", () => {
         tool_input: { plan: "# Plan\n\nDo something.\n" },
       }),
     );
+
+    // Assert
     expect(code).toBe(0);
     const parsed = JSON.parse(out.trim()) as {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
@@ -43,7 +46,10 @@ describe("hook resilience", () => {
   }, 30_000);
 
   test("an unparseable payload yields a valid response too", async () => {
+    // Act
     const { out, code } = await runHookProcess({}, "not json at all");
+
+    // Assert
     expect(code).toBe(0);
     // no event name in the payload, so the answer uses the PermissionRequest shape
     const parsed = JSON.parse(out.trim()) as { decision?: { behavior?: string } };
@@ -51,10 +57,13 @@ describe("hook resilience", () => {
   }, 30_000);
 
   test("an event without a plan passes through untouched", async () => {
+    // Act
     const { out } = await runHookProcess(
       {},
       JSON.stringify({ hook_event_name: "PreToolUse", tool_name: "Read", tool_input: {} }),
     );
+
+    // Assert
     const parsed = JSON.parse(out.trim()) as {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
     };

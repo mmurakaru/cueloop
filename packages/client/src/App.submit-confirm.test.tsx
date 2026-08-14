@@ -1,9 +1,4 @@
-/**
- * The rail submit confirm (tier 2): pressing submit expands the rail's
- * Submit button into a bordered confirm card - counts, verdict selector,
- * summary input, word-buttons. Char-frame assertions over the real App
- * and an in-process daemon, like App.test.tsx.
- */
+/** The rail submit confirm (tier 2): pressing submit expands the rail's Submit button into a bordered confirm card - counts, verdict selector, summary input, word-buttons. Char-frame assertions over the real App and an in-process daemon, like App.test.tsx. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -72,9 +67,16 @@ function seedAnnotations(count: number): void {
 
 describe("rail submit confirm", () => {
   test("submit expands the Submit button into the confirm card", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("Submit review (0)");
+
+    // Act
     await press(setup, "enter");
+
+    // Assert
     const frame = setup.captureCharFrame();
     // the card: title, honest counts, verdict selector, word-buttons
     expect(frame).toContain("submit review");
@@ -89,22 +91,44 @@ describe("rail submit confirm", () => {
   });
 
   test("left/right cycles the verdict selector in the card", async () => {
+    // Arrange
     const setup = await renderApp();
     await press(setup, "enter");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("[Approve]");
+
+    // Act
     await press(setup, "right");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("[Changes]");
+
+    // Act
     await press(setup, "right");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("[Comment]");
+
+    // Act
     await press(setup, "left");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("[Changes]");
   });
 
   test("esc cancels the card and restores the plain Submit button", async () => {
+    // Arrange
     const setup = await renderApp();
     await press(setup, "enter");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("[Approve]");
+
+    // Act
     await press(setup, "escape");
+
+    // Assert
     // a bare ESC settles after the parser's escape-sequence window
     const frame = await waitForTextGone(setup, "[Approve]");
     expect(frame).not.toContain("0 annotations");
@@ -112,14 +136,23 @@ describe("rail submit confirm", () => {
   });
 
   test("enter in the card resolves the session through the controller", async () => {
+    // Arrange
     seedAnnotations(1);
     const setup = await renderApp();
+
+    // Act
     await press(setup, "enter");
+
+    // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("1 annotations · 0 blocking");
     expect(frame).toContain("[Changes]"); // pending items: request changes default
+
+    // Act
     await setup.mockInput.typeText("Tighten the steps.");
     await press(setup, "enter");
+
+    // Assert
     // the completion flow after submit is unchanged
     await waitForText(setup, "feedback sent");
     const stored = server.core.sessionGet(session.id);
@@ -128,23 +161,36 @@ describe("rail submit confirm", () => {
   });
 
   test("the annotation stack stays scrollable while the card is open", async () => {
+    // Arrange
     seedAnnotations(12);
     const setup = await renderApp();
+
+    // Act
     // walk annotation focus to the last card: the rail scrolls it into view
     for (let index = 0; index < 12; index++) await press(setup, "n");
+
+    // Assert
     const scrolled = setup.captureCharFrame();
     expect(scrolled).toContain("note 12");
     expect(scrolled).not.toContain("note 01");
+
+    // Act
     await press(setup, "enter");
+
+    // Assert
     const opened = setup.captureCharFrame();
     // the card is pinned outside the scrollbox; the stack above stays
     // scrolled away from the top when the card takes its space
     expect(opened).toContain("12 annotations · 0 blocking");
     expect(opened).not.toContain("note 01");
+
+    // Act
     // the stack still scrolls with the card open: wheel over the rail
     // brings the last card back into view while the confirm card stays put
     for (let turn = 0; turn < 12; turn++) await setup.mockMouse.scroll(100, 10, "down");
     await settle(setup);
+
+    // Assert
     const scrolledWithCard = setup.captureCharFrame();
     expect(scrolledWithCard).toContain("note 12");
     expect(scrolledWithCard).toContain("12 annotations · 0 blocking");
@@ -152,9 +198,14 @@ describe("rail submit confirm", () => {
   });
 
   test("read-only observers never see the confirm card", async () => {
+    // Arrange
     seedAnnotations(1);
     const setup = await renderApp({ readOnly: true });
+
+    // Act
     await press(setup, "enter");
+
+    // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("observer - read-only");
     expect(frame).not.toContain("1 annotations");

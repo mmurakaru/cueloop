@@ -27,9 +27,16 @@ afterEach(() => {
 
 describe("socket round-trip", () => {
   test("ping and full session flow over the wire", async () => {
+    // Assert
     expect((await client.ping()).pid).toBe(process.pid);
+
+    // Act
     const session = await client.sessionCreate(WS, PLAN);
+
+    // Assert
     expect(session.status).toBe("pending");
+
+    // Act
     await client.sessionAnnotate(session.id, {
       id: "a1",
       kind: "comment",
@@ -39,6 +46,8 @@ describe("socket round-trip", () => {
     const wait = client.sessionWait(session.id, 5_000);
     await client.sessionResolve(session.id, "request_changes", "Expand it.");
     const resolved = (await wait)!;
+
+    // Assert
     expect(resolved.verdict!.kind).toBe("request_changes");
     expect(resolved.verdict!.feedback).toContain("More detail please.");
   });
@@ -53,12 +62,17 @@ describe("socket round-trip", () => {
   });
 
   test("events push to subscribed connections only", async () => {
+    // Arrange
     const observer = await DaemonClient.connect({ home });
     const seen: string[] = [];
     observer.onEvent((event) => seen.push(event.event));
     await observer.subscribe();
+
+    // Act
     const session = await client.sessionCreate(WS, PLAN);
     await client.sessionResolve(session.id, "approve", "");
+
+    // Assert
     // events are pushed async over the socket; give the loop a beat
     await Bun.sleep(50);
     expect(seen).toContain("session.created");
@@ -94,20 +108,28 @@ describe("socket round-trip", () => {
   });
 
   test("meta fields survive the wire: herdrPane set on create comes back from get", async () => {
+    // Act
     const session = await client.sessionCreate(WS, {
       type: "plan",
       content: "# P",
       meta: { agent: "claude-code", herdrPane: "%7" },
     });
     const got = await client.sessionGet(session.id);
+
+    // Assert
     expect(got.artifact.meta.herdrPane).toBe("%7");
     expect(got.artifact.meta.agent).toBe("claude-code");
   });
 
   test("two clients see the same state (thin-renderer model)", async () => {
+    // Arrange
     const second = await DaemonClient.connect({ home });
+
+    // Act
     const session = await client.sessionCreate(WS, PLAN);
     const fromSecond = await second.sessionGet(session.id);
+
+    // Assert
     expect(fromSecond.artifact.content).toBe(PLAN.content);
     second.close();
   });
@@ -118,15 +140,24 @@ describe("large payloads survive socket backpressure", () => {
     // Regression: responses larger than one socket write used to truncate
     // mid-line because the write return value was ignored, so the client
     // never saw the frame's newline and every later request wedged too.
+    // Arrange
     const bigContent = "# Big plan\n" + "lorem ipsum dolor sit amet, consectetur adipiscing elit\n".repeat(4000);
+
+    // Act
     const created = await client.sessionCreate(
       { repoRoot: "/repo", branch: "main" },
       { type: "plan", content: bigContent, meta: { title: "big" } },
     );
     const fetched = await client.sessionGet(created.id);
+
+    // Assert
     expect(fetched.artifact.content).toBe(bigContent);
+
+    // Act
     // the connection must still be usable for the next frame
     const listed = await client.sessionList();
+
+    // Assert
     expect(listed.some((session) => session.id === created.id)).toBe(true);
   }, 15_000);
 });

@@ -34,7 +34,10 @@ describe("cueloop session (black box)", () => {
   let sessionId: string;
 
   test("create autostarts the daemon and prints the session", async () => {
+    // Act
     const created = await runCli(home, ["session", "create", "--type", "plan", "--title", "Migration", "--agent", "test"], PLAN);
+
+    // Assert
     expect(created.code).toBe(0);
     const session = cliJson<ReviewSession>(created);
     expect(session.id.startsWith("ses_")).toBe(true);
@@ -44,18 +47,29 @@ describe("cueloop session (black box)", () => {
   });
 
   test("list and get see the session from a fresh process", async () => {
+    // Act
     const list = cliJson<ReviewSession[]>(await runCli(home, ["session", "list", "--status", "pending"]));
+
+    // Assert
     expect(list.some((candidate) => candidate.id === sessionId)).toBe(true);
+
+    // Act
     const got = cliJson<ReviewSession>(await runCli(home, ["session", "get", sessionId]));
+
+    // Assert
     expect(got.artifact.meta.title).toBe("Migration");
   });
 
   test("wait times out to pending without losing the session", async () => {
+    // Act
     const waited = await runCli(home, ["session", "wait", sessionId, "--timeout-ms", "100"]);
+
+    // Assert
     expect(cliJson<{ status: string }>(waited)).toEqual({ status: "pending" });
   });
 
   test("annotate + resolve from separate processes; wait collects the verdict", async () => {
+    // Act
     const annotated = await runCli(home, [
       "session",
       "annotate",
@@ -69,12 +83,22 @@ describe("cueloop session (black box)", () => {
       "--body",
       "Name the phases.",
     ]);
+
+    // Assert
     expect(annotated.code).toBe(0);
+
+    // Act
     const resolved = await runCli(home, ["session", "resolve", sessionId, "--verdict", "request_changes", "--summary", "Phase names please."]);
+
+    // Assert
     expect(resolved.code).toBe(0);
+
+    // Act
     const verdict = cliJson<{ status: string; allow: boolean; feedback: string }>(
       await runCli(home, ["session", "wait", sessionId, "--timeout-ms", "1000"]),
     );
+
+    // Assert
     expect(verdict.status).toBe("resolved");
     expect(verdict.allow).toBe(false);
     expect(verdict.feedback).toContain("Name the phases.");
@@ -82,9 +106,12 @@ describe("cueloop session (black box)", () => {
   });
 
   test("revision reopens through the CLI", async () => {
+    // Act
     const revised = cliJson<ReviewSession>(
       await runCli(home, ["session", "submit-revision", sessionId], PLAN + "\n## Phase names\n\nAlpha, beta.\n"),
     );
+
+    // Assert
     expect(revised.status).toBe("pending");
     expect(revised.revisions.length).toBe(2);
   });
@@ -109,6 +136,7 @@ describe("cueloop session (black box)", () => {
   });
 
   test("create inside herdr opens a tab that launches the review", async () => {
+    // Arrange
     const logPath = join(home, "herdr-cli.log");
     const binPath = join(home, "herdr-cli.sh");
     writeFileSync(
@@ -116,12 +144,16 @@ describe("cueloop session (black box)", () => {
       `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "tab" ] && [ "$2" = "create" ]; then\n  printf '{"result":{"root_pane":{"pane_id":"w1:p2"}}}'\nfi\n`,
     );
     chmodSync(binPath, 0o755);
+
+    // Act
     const created = await runCli(
       home,
       ["session", "create", "--type", "plan", "--title", "Auto Open", "--cwd", home],
       PLAN,
       { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: binPath },
     );
+
+    // Assert
     expect(created.code).toBe(0);
     const session = cliJson<ReviewSession>(created);
     const lines = readFileSync(logPath, "utf8").split("\n").filter(Boolean);
@@ -133,24 +165,36 @@ describe("cueloop session (black box)", () => {
   });
 
   test("create outside herdr opens no tab", async () => {
+    // Arrange
     const logPath = join(home, "herdr-none.log");
     const binPath = join(home, "herdr-none.sh");
     writeFileSync(binPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\n`);
     chmodSync(binPath, 0o755);
+
+    // Act
     // HERDR_ENV off: the bin path alone must not open a pane
     const created = await runCli(home, ["session", "create", "--type", "plan", "--title", "No Pane"], PLAN, {
       HERDR_ENV: "0",
       HERDR_PANE_ID: "w1:p1",
       HERDR_BIN_PATH: binPath,
     });
+
+    // Assert
     expect(created.code).toBe(0);
     expect(existsSync(logPath)).toBe(false);
   });
 
   test("help output and unknown verbs", async () => {
+    // Act
     const help = await runCli(home, ["help"]);
+
+    // Assert
     expect(help.stdout).toContain("cueloop session <verb>");
+
+    // Act
     const bad = await runCli(home, ["session", "frobnicate"]);
+
+    // Assert
     expect(bad.code).toBe(2);
   });
 });

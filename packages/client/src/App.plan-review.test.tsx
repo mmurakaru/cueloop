@@ -1,10 +1,4 @@
-/**
- * The plan review surface v2: native selection feeds the annotation
- * quote, the inline compose box keeps its anchor painted, the rail edits what
- * the document selects, and edit-exit reconciliation orphans annotations
- * whose passage was removed. Char-frame + styled-span assertions over the
- * real App and a real in-process daemon.
- */
+/** The plan review surface v2: native selection feeds the annotation quote, the inline compose box keeps its anchor painted, the rail edits what the document selects, and edit-exit reconciliation orphans annotations whose passage was removed. Char-frame + styled-span assertions over the real App and a real in-process daemon. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -83,32 +77,50 @@ async function toContextParagraph(setup: Setup): Promise<void> {
 
 describe("selection feeds the annotation quote", () => {
   test("v anchors, l extends, c composes with the char-precise quote", async () => {
+    // Arrange
     const setup = await renderApp();
     await toContextParagraph(setup);
+
+    // Act
     await press(setup, "v");
     await press(setup, "l"); // "The daemon"
     await press(setup, "c");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain('comment on "The daemon"');
+
+    // Act
     await type(setup, "Which daemon?");
     await press(setup, "enter");
+
+    // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations[0]!.anchor.quote).toBe("The daemon");
   });
 
   test("a mouse drag over the text becomes the compose quote", async () => {
+    // Arrange
     const setup = await renderApp();
     const lines = setup.captureCharFrame().split("\n");
     const row = lines.findIndex((line) => line.includes("persists sessions"));
     const startColumn = lines[row]!.indexOf("persists");
     expect(row).toBeGreaterThan(-1);
+
+    // Act
     // the drag's end cell is exclusive: release one past the last character
     await setup.mockMouse.drag(startColumn, row, startColumn + "persists sessions".length, row);
     await settle(setup);
     await press(setup, "c");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain('comment on "persists sessions"');
+
+    // Act
     await type(setup, "sessions plural?");
     await press(setup, "enter");
+
+    // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations[0]!.anchor.quote).toBe("persists sessions");
@@ -117,25 +129,38 @@ describe("selection feeds the annotation quote", () => {
 
 describe("inline compose keeps the anchor painted", () => {
   test("the selection stays painted while composing; cancel un-paints; save converts to the comment highlight", async () => {
+    // Arrange
     const setup = await renderApp();
     await toContextParagraph(setup);
+
+    // Act
     await press(setup, "v");
     await press(setup, "l");
     await press(setup, "c");
+
+    // Assert
     // compose open: the anchor is painted selection-style. The box can render
     // a frame before the anchor repaint settles, so wait on the color itself.
     expect(setup.captureCharFrame()).toContain("Save ⏎");
     expect(setup.captureCharFrame()).toContain("Cancel esc");
     await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(T.accent));
     expect(backgroundsOf(setup, "The daemon")).toContain(T.accent);
+
+    // Act
     // cancel un-paints (a bare ESC settles after the parser's escape window)
     await press(setup, "escape");
+
+    // Assert
     await waitForTextGone(setup, 'comment on "');
     expect(backgroundsOf(setup, "The daemon")).not.toContain(T.accent);
+
+    // Act
     // save converts the paint to the kind-colored annotation highlight
     await press(setup, "c");
     await type(setup, "Which daemon?");
     await press(setup, "enter");
+
+    // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     await settle(setup);
     // the whole cursor block is the anchor here; check the highlight landed
@@ -167,42 +192,65 @@ describe("compose newline convention", () => {
   }
 
   test("option+return inserts a newline; a bare return submits the multiline body", async () => {
+    // Arrange
     const setup = await renderModifierAwareApp();
     await toContextParagraph(setup);
     await press(setup, "v");
     await press(setup, "l");
     await press(setup, "c");
     await waitForText(setup, 'comment on "The daemon"');
+
+    // Act
     await type(setup, "first line");
     await pressReturnWith(setup, { meta: true }); // option/alt+return -> newline
     await type(setup, "second line");
+
+    // Assert
     // still composing: the newline did not submit
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
+
+    // Act
     await press(setup, "enter"); // bare return -> save
+
+    // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     expect(server.core.sessionGet(session.id).annotations[0]!.body).toBe("first line\nsecond line");
   });
 
   test("shift+return still inserts a newline (existing muscle memory)", async () => {
+    // Arrange
     const setup = await renderModifierAwareApp();
     await toContextParagraph(setup);
     await press(setup, "c");
+
+    // Act
     await type(setup, "alpha");
     await pressReturnWith(setup, { shift: true }); // shift+return -> newline
     await type(setup, "beta");
+
+    // Assert
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
+
+    // Act
     await press(setup, "enter");
+
+    // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     expect(server.core.sessionGet(session.id).annotations[0]!.body).toBe("alpha\nbeta");
   });
 
   test("escape cancels the composer without saving", async () => {
+    // Arrange
     const setup = await renderModifierAwareApp();
     await toContextParagraph(setup);
     await press(setup, "c");
     await waitForText(setup, 'comment on "');
     await type(setup, "never saved");
+
+    // Act
     await press(setup, "escape");
+
+    // Assert
     await waitForTextGone(setup, 'comment on "');
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
   });
@@ -210,16 +258,21 @@ describe("compose newline convention", () => {
 
 describe("the document selects, the rail edits", () => {
   test("e edits the selected card in place; enter saves through the controller", async () => {
+    // Arrange
     const setup = await renderApp();
     await toContextParagraph(setup);
     await press(setup, "c");
     await type(setup, "Needs a citation.");
     await press(setup, "enter");
     await waitForText(setup, "COMMENT · pending");
+
+    // Act
     // the saved card is selected; e turns its body into an input in place
     await press(setup, "e");
     await type(setup, " And a link.");
     await press(setup, "enter");
+
+    // Assert
     await waitForState(
       setup,
       () => server.core.sessionGet(session.id).annotations[0]!.body === "Needs a citation. And a link.",
@@ -227,6 +280,7 @@ describe("the document selects, the rail edits", () => {
   });
 
   test("x deletes the selected card and un-paints the document highlight", async () => {
+    // Arrange
     const setup = await renderApp();
     await toContextParagraph(setup);
     await press(setup, "c");
@@ -235,7 +289,11 @@ describe("the document selects, the rail edits", () => {
     await waitForText(setup, "COMMENT · pending");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
     expect(backgroundsOf(setup, "persists sessions")).toContain(T.markCommentBg);
+
+    // Act
     await press(setup, "x");
+
+    // Assert
     await waitForTextGone(setup, "COMMENT · pending");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
     expect(backgroundsOf(setup, "persists sessions")).not.toContain(T.markCommentBg);
@@ -277,19 +335,27 @@ describe("addressed annotations leave the open list", () => {
 
 describe("sheet header", () => {
   test("shows the submitting agent, the revision, and the Edit word-button", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("submitted by agent/worker-3 · revision 1");
     expect(frame).toContain("Edit");
   });
 
   test("the Agent tab shows the submitter, status, and revision", async () => {
+    // Arrange
     const setup = await renderApp();
     const lines = setup.captureCharFrame().split("\n");
     const tabRow = lines.findIndex((line) => line.includes("Review (0)"));
     const tabColumn = lines[tabRow]!.indexOf("Agent");
+
+    // Act
     await setup.mockMouse.click(tabColumn + 1, tabRow);
     await setup.renderOnce();
+
+    // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("agent/worker-3");
     expect(frame).toContain("status: pending");
@@ -304,16 +370,21 @@ describe("edit-exit reconciliation", () => {
     Bun.spawnSync(["chmod", "+x", script]);
     process.env.CUELOOP_EDITOR = script;
     try {
+      // Arrange
       const setup = await renderApp();
       await toContextParagraph(setup);
       await press(setup, "c");
       await type(setup, "Anchor me to the doomed passage.");
       await press(setup, "enter");
       await waitForText(setup, "· pending");
+
+      // Act
       // deselect the card so e reaches the editor hand-off, then edit
       await press(setup, "escape");
       await waitForTextGone(setup, "▸ COMMENT");
       await press(setup, "e");
+
+      // Assert
       await waitForText(setup, "1 annotation no longer match - the passage was removed.");
       // the rail card flips to ORPHANED once the working-copy refresh lands
       await waitForText(setup, "· ORPHANED");

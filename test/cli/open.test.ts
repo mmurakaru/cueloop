@@ -30,19 +30,28 @@ afterEach(async () => {
 
 describe("cueloop plan (black box)", () => {
   test("no pending plan reports nothing to open and exits 1", async () => {
+    // Act
     const runResult = await runCli(home, ["plan"]);
+
+    // Assert
     expect(runResult.code).toBe(1);
     expect(runResult.stderr).toContain("no pending plan review - nothing to open");
   });
 
   test("an unknown selector reports no match and exits 1", async () => {
+    // Act
     const runResult = await runCli(home, ["plan", "does-not-exist"]);
+
+    // Assert
     expect(runResult.code).toBe(1);
     expect(runResult.stderr).toContain('no plan review matches "does-not-exist" - nothing to open');
   });
 
   test("--latest with nothing pending reports nothing to open", async () => {
+    // Act
     const runResult = await runCli(home, ["plan", "--latest"]);
+
+    // Assert
     expect(runResult.code).toBe(1);
     expect(runResult.stderr).toContain("no pending plan review - nothing to open");
   });
@@ -50,7 +59,10 @@ describe("cueloop plan (black box)", () => {
 
 describe("cueloop review (black box, open path)", () => {
   test("--latest with no pending PR review reports nothing to open", async () => {
+    // Act
     const runResult = await runCli(home, ["review", "--latest"]);
+
+    // Assert
     expect(runResult.code).toBe(1);
     expect(runResult.stderr).toContain("no pending PR review - nothing to open");
   });

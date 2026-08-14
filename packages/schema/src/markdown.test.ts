@@ -29,7 +29,10 @@ const y = 2;
 
 describe("parseBlocks", () => {
   test("parses every block kind with source line ranges", () => {
+    // Act
     const blocks = parseBlocks(SAMPLE);
+
+    // Assert
     expect(blocks.map((block) => block.kind)).toEqual([
       "h1",
       "h2",
@@ -51,14 +54,20 @@ describe("parseBlocks", () => {
   });
 
   test("multi-line paragraph keeps its text and range", () => {
+    // Arrange
     const blocks = parseBlocks(SAMPLE);
     const paragraph = blocks.find((block) => block.kind === "p")!;
+
+    // Assert
     expect(paragraph.text).toBe("A paragraph that\nspans two lines.");
     expect(paragraph.lineEnd - paragraph.lineStart).toBe(1);
   });
 
   test("line ranges index into the source", () => {
+    // Arrange
     const lines = SAMPLE.split("\n");
+
+    // Assert
     for (const block of parseBlocks(SAMPLE)) {
       if (block.kind === "code") {
         expect(lines[block.lineStart]!.startsWith("```")).toBe(true);
@@ -69,6 +78,7 @@ describe("parseBlocks", () => {
   });
 
   test("round-trips through blockToMd", () => {
+    // Arrange
     const blocks = parseBlocks(SAMPLE);
     let orderedItemCount = 0;
     const rebuilt = blocks
@@ -77,21 +87,33 @@ describe("parseBlocks", () => {
         return blockToMd(block, orderedItemCount || 1);
       })
       .join("\n\n");
+
+    // Act
     // re-parsing the rebuild yields the same kinds and texts
     const again = parseBlocks(rebuilt);
+
+    // Assert
     expect(again.map((block) => [block.kind, block.text])).toEqual(blocks.map((block) => [block.kind, block.text]));
   });
 
   test("unknown constructs degrade to paragraphs, no content lost", () => {
+    // Arrange
     const md = "| a | b |\n|---|---|\n| 1 | 2 |";
+
+    // Act
     const blocks = parseBlocks(md);
+
+    // Assert
     expect(blocks.map((block) => block.text).join("\n")).toContain("| a | b |");
   });
 });
 
 describe("sectionOf", () => {
   test("returns the nearest preceding heading", () => {
+    // Arrange
     const blocks = parseBlocks(SAMPLE);
+
+    // Assert
     const orderedItemIndex = blocks.findIndex((block) => block.kind === "oli");
     expect(sectionOf(blocks, orderedItemIndex)).toBe("Steps");
     const paragraphIndex = blocks.findIndex((block) => block.kind === "p");

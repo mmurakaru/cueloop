@@ -1,11 +1,4 @@
-/**
- * Creation-side herdr pane opener tests. The herdr binary is stubbed by a
- * script that both records its argv to a log file and, for `tab create`,
- * prints the JSON the helper reads to learn the new pane id. The gating
- * wrapper is exercised for its three outcomes: no-op outside herdr, no-op for
- * a revision (the open pane is reused), and a full open for a genuinely new
- * session.
- */
+/** Creation-side herdr pane opener: a stubbed herdr binary logs its argv, and the gating wrapper is checked for its three outcomes (no-op outside herdr, no-op on revision, full open for a new session). */
 
 import { afterAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -57,8 +50,13 @@ function newSession(overrides: Partial<ReviewSession> = {}): ReviewSession {
 
 describe("openHerdrPane", () => {
   test("creates a focused tab, types the cueloop command, and presses enter", () => {
+    // Arrange
     const stub = makeStub("open");
+
+    // Act
     const ok = openHerdrPane({ sessionId: "ses_abc", cwd: "/repo/work", binPath: stub.binPath, label: "Rollout Plan" });
+
+    // Assert
     expect(ok).toBeTrue();
     expect(readLines(stub.logPath)).toEqual([
       "tab create --cwd /repo/work --label Rollout Plan --focus",
@@ -68,21 +66,29 @@ describe("openHerdrPane", () => {
   });
 
   test("returns false and never throws on a broken binary", () => {
+    // Act
     const ok = openHerdrPane({
       sessionId: "ses_abc",
       cwd: "/repo/work",
       binPath: join(dir, "missing-bin"),
       label: "x",
     });
+
+    // Assert
     expect(ok).toBeFalse();
   });
 
   test("bails out when tab create yields no pane id - no send-text, no send-keys", () => {
+    // Arrange
     const logPath = join(dir, "nopane.log");
     const binPath = join(dir, "nopane.sh");
     writeFileSync(binPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nprintf '{"result":{}}'\n`);
     chmodSync(binPath, 0o755);
+
+    // Act
     const ok = openHerdrPane({ sessionId: "ses_abc", cwd: "/repo/work", binPath, label: "x" });
+
+    // Assert
     expect(ok).toBeFalse();
     expect(readLines(logPath)).toEqual(["tab create --cwd /repo/work --label x --focus"]);
   });
@@ -90,9 +96,14 @@ describe("openHerdrPane", () => {
 
 describe("openHerdrPaneForReview", () => {
   test("opens a pane for a genuinely new session inside herdr", () => {
+    // Arrange
     const stub = makeStub("gated-new");
     const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };
+
+    // Act
     openHerdrPaneForReview(newSession({ id: "ses_xyz" }), env);
+
+    // Assert
     expect(readLines(stub.logPath)).toEqual([
       "tab create --cwd /repo/work --label Rollout Plan --focus",
       "pane send-text w1:p2 cueloop ses_xyz",
@@ -101,12 +112,18 @@ describe("openHerdrPaneForReview", () => {
   });
 
   test("no-op outside herdr - no herdr process is spawned", () => {
+    // Arrange
     const stub = makeStub("gated-outside");
+
+    // Act
     openHerdrPaneForReview(newSession(), { HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath });
+
+    // Assert
     expect(existsSync(stub.logPath)).toBeFalse();
   });
 
   test("no-op for a revision - the already open pane is reused, not spammed", () => {
+    // Arrange
     const stub = makeStub("gated-revision");
     const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };
     const revised = newSession({
@@ -115,7 +132,11 @@ describe("openHerdrPaneForReview", () => {
         { revision: 2, content: "# P2", submittedAt: "now" },
       ],
     });
+
+    // Act
     openHerdrPaneForReview(revised, env);
+
+    // Assert
     expect(existsSync(stub.logPath)).toBeFalse();
   });
 });

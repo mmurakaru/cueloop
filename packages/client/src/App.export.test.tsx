@@ -1,8 +1,4 @@
-/**
- * Tier-2 wiring test for the notes-vault export: with [integrations.obsidian]
- * configured to export on resolve, submitting a review writes the note into
- * the vault and surfaces the path in the status line.
- */
+/** Tier-2 wiring for the notes-vault export: with [integrations.obsidian] set to export on resolve, submitting a review writes the note into the vault and surfaces the path in the status line. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
@@ -50,12 +46,20 @@ afterEach(() => {
 
 describe("obsidian export on resolve", () => {
   test("submitting a review writes the plan into the vault and shows the path", async () => {
+    // Arrange
     const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 32 });
     await waitForText(setup, "cueloop");
-    // open the submit overlay, keep the default verdict (approve), submit
-    await press(setup, "enter");
+
+    // Act
+    await press(setup, "enter"); // open the submit overlay, keep the default verdict (approve)
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("verdict");
-    await press(setup, "enter");
+
+    // Act
+    await press(setup, "enter"); // submit
+
+    // Assert
     // the export is an async round-trip after resolve; the status line lands
     // on a later render than the file write
     const dir = join(vault, "cueloop");

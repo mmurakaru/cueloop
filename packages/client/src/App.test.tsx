@@ -1,8 +1,4 @@
-/**
- * Virtual-terminal component tests (tier 2): the real App over a real
- * in-process daemon in a temp home. Char-frame assertions + mock keys -
- * the whole review loop drivable without a terminal.
- */
+/** Virtual-terminal component tests (tier 2): the real App over a real in-process daemon in a temp home. Char-frame assertions + mock keys - the whole review loop drivable without a terminal. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -57,7 +53,10 @@ async function renderApp(sessionId?: string) {
 
 describe("plan rendering", () => {
   test("renders the plan with headings, list markers, and the rail", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("Migration Plan");
     expect(frame).toContain("Context");
@@ -70,24 +69,38 @@ describe("plan rendering", () => {
 
 describe("keyboard grammar", () => {
   test("j/k moves the cursor glyph between blocks", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Act
     await press(setup, "j");
     await press(setup, "j");
     await setup.renderOnce();
+
+    // Assert
     const lines = setup.captureCharFrame().split("\n");
     const cursorLine = lines.find((line) => line.includes("▎"))!;
     expect(cursorLine).toContain("persists sessions");
   });
 
   test("comment flow: c types a body, ⏎ saves to the daemon", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Act
     await press(setup, "j");
     await press(setup, "j");
     await press(setup, "c");
     await setup.renderOnce();
+
+    // Assert
     expect(setup.captureCharFrame()).toContain('comment on "The daemon');
+
+    // Act
     await type(setup, "Define atomically.");
     await press(setup, "enter");
+
+    // Assert
     await waitForText(setup, "COMMENT");
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations.length).toBe(1);
@@ -95,7 +108,10 @@ describe("keyboard grammar", () => {
   });
 
   test("span mode: v + l selects words, c anchors the exact span", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Act
     await press(setup, "j");
     await press(setup, "j");
     await press(setup, "v");
@@ -103,19 +119,30 @@ describe("keyboard grammar", () => {
     await press(setup, "c");
     await type(setup, "Which daemon?");
     await press(setup, "enter");
+
+    // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations[0]!.anchor.quote).toBe("The daemon");
   });
 
   test("x cuts a block into the working copy; x restores it", async () => {
+    // Arrange
     const setup = await renderApp();
     // move to "- move the store" (h1, h2, p, h2 = 4 steps in)
     for (let i = 0; i < 4; i++) await press(setup, "j");
+
+    // Act
     await press(setup, "x");
+
+    // Assert
     await waitForText(setup, "[cut]");
     expect(server.core.sessionGet(session.id).workingCopy).not.toContain("move the store");
+
+    // Act
     await press(setup, "x");
+
+    // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
   });
 
@@ -125,8 +152,13 @@ describe("keyboard grammar", () => {
     Bun.spawnSync(["chmod", "+x", script]);
     process.env.CUELOOP_EDITOR = script;
     try {
+      // Arrange
       const setup = await renderApp();
+
+      // Act
       await press(setup, "e");
+
+      // Assert
       await waitForText(setup, "[edited]");
       expect(server.core.sessionGet(session.id).workingCopy).toContain("very atomically");
     } finally {
@@ -137,6 +169,7 @@ describe("keyboard grammar", () => {
 
 describe("submit", () => {
   test("⏎ opens the rail confirm card; verdict + summary resolve the session", async () => {
+    // Arrange
     const setup = await renderApp();
     await press(setup, "j");
     await press(setup, "j");
@@ -144,10 +177,18 @@ describe("submit", () => {
     await type(setup, "Needs a phase list.");
     await press(setup, "enter");
     await waitForText(setup, "Review (1)");
+
+    // Act
     await press(setup, "enter"); // open submit
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("[Changes]");
+
+    // Act
     await type(setup, "Expand the steps.");
     await press(setup, "enter");
+
+    // Assert
     await waitForText(setup, "feedback sent");
     const stored = server.core.sessionGet(session.id);
     expect(stored.status).toBe("resolved");
@@ -158,10 +199,19 @@ describe("submit", () => {
   });
 
   test("approve via ←/→ verdict cycling", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Act
     await press(setup, "enter");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("[Approve]"); // no pending items → approve default
+
+    // Act
     await press(setup, "enter");
+
+    // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).verdict !== undefined);
     expect(server.core.sessionGet(session.id).verdict!.kind).toBe("approve");
   });
@@ -169,11 +219,18 @@ describe("submit", () => {
 
 describe("inbox", () => {
   test("inbox mode renders and opens a session", async () => {
+    // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
     await waitForText(setup, "inbox");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("inbox (1 pending)");
     expect(setup.captureCharFrame()).toContain("Migration Plan");
+
+    // Act
     await press(setup, "enter");
+
+    // Assert
     await waitForText(setup, "Submit review (0)");
   });
 });

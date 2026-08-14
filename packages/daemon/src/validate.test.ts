@@ -38,10 +38,13 @@ describe("method allowlist", () => {
 
 describe("parseParams", () => {
   test("accepts a well-formed create and defaults meta", () => {
+    // Act
     const params = parseParams("session.create", {
       workspace: { repoRoot: "/repo", branch: "main" },
       artifact: { type: "plan", content: "# P" },
     });
+
+    // Assert
     expect(params.artifact.meta).toEqual({});
   });
 
@@ -81,10 +84,13 @@ describe("parseParams", () => {
   });
 
   test("annotation kinds stay open (extension kinds are allowed)", () => {
+    // Act
     const params = parseParams("session.annotate", {
       id: "s",
       annotation: { id: "a1", kind: "praise", anchor: { quote: "x" }, body: "nice" },
     });
+
+    // Assert
     expect(params.annotation.kind).toBe("praise");
     expect(params.annotation.anchor.prefix).toBe("");
   });
@@ -122,13 +128,19 @@ describe("validateSessionRecord", () => {
   });
 
   test("rejects a foreign schema version with a readable reason", () => {
+    // Act
     const result = validateSessionRecord({ ...record, schemaVersion: "99" });
+
+    // Assert
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("schemaVersion");
   });
 
   test("rejects a structurally broken record", () => {
+    // Act
     const result = validateSessionRecord({ ...record, revisions: "nope" });
+
+    // Assert
     expect(result.ok).toBe(false);
   });
 });
@@ -199,12 +211,17 @@ describe("wire pins", () => {
   test("a fully-populated meta survives validation and DaemonCore unchanged", () => {
     const home = mkdtempSync(join(tmpdir(), "cueloop-val-"));
     try {
+      // Arrange
       const params = parseParams("session.create", {
         workspace: fullWorkspace,
         artifact: { type: "plan", content: "# P", meta: fullMeta },
       });
       const core = new DaemonCore(home);
+
+      // Act
       const created = core.sessionCreate(params);
+
+      // Assert
       expect(core.sessionGet(created.id).artifact.meta).toEqual(fullMeta);
     } finally {
       rmSync(home, { recursive: true, force: true });

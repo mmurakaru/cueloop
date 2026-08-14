@@ -14,6 +14,7 @@ function sh(args: string[], cwd: string): void {
 
 describe("workingTreeDiff", () => {
   test("captures tracked changes and untracked files", () => {
+    // Arrange
     const repo = mkdtempSync(join(tmpdir(), "cueloop-git-"));
     try {
       sh(["git", "init", "-q", "-b", "main"], repo);
@@ -24,17 +25,24 @@ describe("workingTreeDiff", () => {
       sh(["git", "commit", "-qm", "init"], repo);
       writeFileSync(join(repo, "a.ts"), "export const a = 2;\n");
       writeFileSync(join(repo, "b.ts"), "export const b = 1;\n");
+
       return (async () => {
+        // Act
         const ws = await resolveWorkspace(repo);
+
+        // Assert
         expect(ws.branch).toBe("main");
+
+        // Act
         const diff = await workingTreeDiff(repo);
+
+        // Assert
         expect(diff).toContain("-export const a = 1;");
         expect(diff).toContain("+export const a = 2;");
         expect(diff).toContain("+export const b = 1;");
       })();
     } finally {
-      // cleanup happens after the async assertions via test runner GC of tmp;
-      // still remove eagerly on the sync path
+      // remove eagerly on the sync path; the async assertions run later via tmp GC
       setTimeout(() => rmSync(repo, { recursive: true, force: true }), 500);
     }
   });

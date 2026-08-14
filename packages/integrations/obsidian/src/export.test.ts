@@ -44,8 +44,13 @@ function config(overrides: Partial<ObsidianConfig> = {}): ObsidianConfig {
 
 describe("exportSession", () => {
   test("writes the final plan with frontmatter into vault/folder", () => {
+    // Arrange
     const session = resolvedSession();
+
+    // Act
     const result = exportSession(session, config(), NOW);
+
+    // Assert
     expect(result.success).toBe(true);
     expect(result.path).toBe(join(vault, "cueloop", "2026-08-07 - Migration Plan.md"));
     const written = readFileSync(result.path!, "utf8");
@@ -57,40 +62,63 @@ describe("exportSession", () => {
   });
 
   test("the working copy wins over the submitted content", () => {
+    // Arrange
     const session = resolvedSession({ workingCopy: "# Migration Plan\n\nMove the store carefully.\n" });
+
+    // Act
     const result = exportSession(session, config(), NOW);
+
+    // Assert
     expect(readFileSync(result.path!, "utf8")).toContain("Move the store carefully.");
   });
 
   test("never overwrites: collisions get counting suffixes", () => {
+    // Arrange
     const session = resolvedSession();
+
+    // Act
     const first = exportSession(session, config(), NOW);
     const second = exportSession(session, config(), NOW);
     const third = exportSession(session, config(), NOW);
+
+    // Assert
     expect(second.path).toBe(join(vault, "cueloop", "2026-08-07 - Migration Plan 2.md"));
     expect(third.path).toBe(join(vault, "cueloop", "2026-08-07 - Migration Plan 3.md"));
     expect(existsSync(first.path!)).toBe(true);
   });
 
   test("no vault configured and none detected fails without writing", () => {
+    // Arrange
     const emptyConfigPath = join(vault, "obsidian.json");
+
+    // Act
     const result = exportSession(resolvedSession(), config({ vault: undefined, obsidianConfigPath: emptyConfigPath }), NOW);
+
+    // Assert
     expect(result.success).toBe(false);
     expect(result.error).toContain("no Obsidian vault");
   });
 
   test("a configured vault path that does not exist fails", () => {
+    // Act
     const result = exportSession(resolvedSession(), config({ vault: join(vault, "missing") }), NOW);
+
+    // Assert
     expect(result.success).toBe(false);
     expect(result.error).toContain("vault not found");
   });
 
   test("falls back to the first auto-detected vault", () => {
+    // Arrange
     const detected = join(vault, "detected-vault");
     mkdirSync(detected);
     const obsidianJson = join(vault, "obsidian.json");
     writeFileSync(obsidianJson, JSON.stringify({ vaults: { v1: { path: detected } } }));
+
+    // Act
     const result = exportSession(resolvedSession(), config({ vault: undefined, obsidianConfigPath: obsidianJson }), NOW);
+
+    // Assert
     expect(result.success).toBe(true);
     expect(result.path).toBe(join(detected, "cueloop", "2026-08-07 - Migration Plan.md"));
   });
@@ -98,12 +126,21 @@ describe("exportSession", () => {
 
 describe("obsidian extension", () => {
   test("registers the exporter through the extension API and exports a resolved session", async () => {
+    // Arrange
     const registry = new Registry();
+
+    // Act
     const record = await registry.load("obsidian", createObsidianExtension(config()));
+
+    // Assert
     expect(record.errors).toEqual([]);
     const exporter = record.exporters.get("obsidian");
     expect(exporter).toBeDefined();
+
+    // Act
     const result = await exporter!(resolvedSession());
+
+    // Assert
     expect(result.success).toBe(true);
     expect(existsSync(result.path!)).toBe(true);
   });

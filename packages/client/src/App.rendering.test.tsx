@@ -57,13 +57,19 @@ async function frame(): Promise<string> {
 
 describe("code blocks", () => {
   test("lines render verbatim: indentation preserved, no word-wrap", async () => {
+    // Arrange
     const rendered = await frame();
+
+    // Assert
     expect(rendered).toContain("  const blocked = full < 0.6;");
     expect(rendered).toContain('  return <text>{blocked ? "blocked" : "clear"}</text>;');
   });
 
   test("the block carries its language tag", async () => {
+    // Arrange
     const rendered = await frame();
+
+    // Assert
     expect(rendered).toContain("tsx");
   });
 });
@@ -74,22 +80,29 @@ describe("block spacing", () => {
   const planColumn = (line: string): string => line.split("│")[0]!.trimEnd();
 
   test("a code block never glues to the list item above it", async () => {
+    // Arrange
     const lines = (await frame()).split("\n").map(planColumn);
     const listItemLineIndex = lines.findIndex((line) => line.includes("wire the duck over MQTT"));
     const codeHeader = lines.findIndex((line) => line.trim().startsWith("tsx"));
+
+    // Assert
     expect(listItemLineIndex).toBeGreaterThan(-1);
     expect(codeHeader).toBeGreaterThan(listItemLineIndex);
     expect(lines.slice(listItemLineIndex + 1, codeHeader).some((line) => line === "")).toBe(true);
   });
 
   test("a heading never sits directly on the previous block", async () => {
+    // Arrange
     const lines = (await frame()).split("\n").map(planColumn);
     const gate = lines.findIndex((line) => line.trim() === "Gate");
+
+    // Assert
     expect(gate).toBeGreaterThan(0);
     expect(lines[gate - 1]).toBe("");
   });
 
   test("consecutive list items stay tight", async () => {
+    // Arrange
     const listPlan = "# T\n\n- one\n- two\n";
     const s2 = server.core.sessionCreate({
       workspace: { repoRoot: "/repo", branch: "main" },
@@ -97,6 +110,8 @@ describe("block spacing", () => {
     });
     const setup = await testRender(<App home={home} sessionId={s2.id} />, { width: 120, height: 30 });
     await waitForText(setup, "one");
+
+    // Assert
     const lines = setup.captureCharFrame().split("\n").map((line) => line.trimEnd());
     const one = lines.findIndex((line) => line.includes("- one"));
     expect(lines[one + 1]).toContain("- two");

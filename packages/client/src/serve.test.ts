@@ -70,6 +70,7 @@ function sshCapture(port: number, until: (frame: string) => boolean, timeoutMs =
 
 describe("cueloop serve", () => {
   test("listens on localhost, persists a host key under CUELOOP_HOME/ssh", () => {
+    // Assert
     expect(handle.host).toBe("127.0.0.1");
     expect(handle.port).toBeGreaterThan(0);
     expect(handle.fingerprints.length).toBe(1);
@@ -78,7 +79,10 @@ describe("cueloop serve", () => {
   });
 
   test("an anonymous ssh client gets the observer TUI for the session", async () => {
+    // Act
     const bytes = await sshCapture(handle.port, (frame) => frame.includes("Rollout Plan") && frame.includes("observer"));
+
+    // Assert
     expect(bytes).toContain("cueloop");
     expect(bytes).toContain("Rollout Plan");
     // observer chrome, not the controller's mutating hint bar
@@ -86,10 +90,13 @@ describe("cueloop serve", () => {
   });
 
   test("two observers can watch at once", async () => {
+    // Act
     const [a, b] = await Promise.all([
       sshCapture(handle.port, (frame) => frame.includes("Rollout Plan")),
       sshCapture(handle.port, (frame) => frame.includes("Rollout Plan")),
     ]);
+
+    // Assert
     expect(a).toContain("Rollout Plan");
     expect(b).toContain("Rollout Plan");
   });
