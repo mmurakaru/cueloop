@@ -181,13 +181,15 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
   return {
     ...listened,
-    // Actively end live connections so shutdown is deterministic - a lingering
-    // viewer (its renderer still tearing down) must not stall `close()`.
+    // Stop accepting, end live connections, and resolve at once. We do not wait
+    // for every connection to drain: a viewer whose renderer is still tearing
+    // down must never stall shutdown (systemctl stop, or a test's teardown).
     close: () =>
       new Promise<void>((resolve) => {
         for (const client of clients) client.end();
         clients.clear();
-        server.close(() => resolve());
+        server.close();
+        resolve();
       }),
   };
 }
