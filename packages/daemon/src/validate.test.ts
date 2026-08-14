@@ -159,6 +159,7 @@ describe("wire pins", () => {
     anchor: fullAnchor,
     body: "b",
     orphan: false,
+    resolution: { revision: 2, source: "agent" },
     createdAt: "now",
   };
   const fullArtifact: Required<Artifact> = { type: "plan", content: "# P", meta: fullMeta };

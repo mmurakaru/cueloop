@@ -8,7 +8,7 @@
 
 import React, { forwardRef, useImperativeHandle, useRef } from "react";
 import type { ScrollBoxRenderable } from "@opentui/core";
-import type { Annotation, ReviewSession } from "@cueloop/schema";
+import { isAddressed, type Annotation, type ReviewSession } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { Tabs, Tab, TabList } from "./primitives/Tabs";
@@ -76,6 +76,9 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
 ): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
+  // addressed annotations leave the card list; a dim count keeps them honest
+  const openAnnotations = session.annotations.filter((annotation) => !isAddressed(annotation));
+  const addressedCount = session.annotations.length - openAnnotations.length;
 
   useImperativeHandle(handleRef, () => ({
     revealCard: (annotationId: string): void => {
@@ -101,11 +104,12 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
       ) : (
         <>
           {session.workingCopy !== undefined ? <text fg={tokens.textDim}>± plan edits → one diff</text> : null}
-          {session.annotations.length === 0 ? (
-            <text fg={tokens.textDim}>no annotations yet</text>
+          {addressedCount > 0 ? <text fg={tokens.textDim}>✓ {addressedCount} addressed by revision</text> : null}
+          {openAnnotations.length === 0 ? (
+            <text fg={tokens.textDim}>{session.annotations.length === 0 ? "no annotations yet" : "all annotations addressed"}</text>
           ) : (
             <scrollbox ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
-              {session.annotations.map((annotation) => (
+              {openAnnotations.map((annotation) => (
                 <AnnotationCard
                   key={annotation.id}
                   id={`annotation-card-${annotation.id}`}

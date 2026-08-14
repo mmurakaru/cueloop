@@ -8,6 +8,7 @@
  */
 
 import {
+  isAddressed,
   lcsDiff,
   parseBlocks,
   resolveAnchor,
@@ -161,6 +162,8 @@ export function marksByDisplay(
   const workBlocks = workEntries.map((entry) => entry.block.work!);
   const marksByIndex = new Map<number, Mark[]>();
   for (const annotation of annotations) {
+    // an addressed annotation keeps its record but paints no highlight
+    if (isAddressed(annotation)) continue;
     const resolved = resolveAnchor(annotation.anchor, workBlocks);
     if (!resolved) continue;
     const entry = workEntries[resolved.blockIndex];

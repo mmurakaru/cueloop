@@ -111,6 +111,84 @@ describe("session lifecycle", () => {
   });
 });
 
+describe("revision marks addressed annotations", () => {
+  const annotate = (sessionId: string, id: string, quote: string, body = "note") =>
+    core.sessionAnnotate(sessionId, { id, kind: "comment", anchor: { quote, prefix: "", suffix: "" }, body });
+
+  test("ids the agent reports are marked addressed by that revision", () => {
+    // Arrange
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    annotate(session.id, "a1", "carefully");
+    annotate(session.id, "a2", "Context");
+
+    // Act: the revision keeps both quoted texts, so only the reported id resolves
+    const revised = core.sessionSubmitRevision(session.id, PLAN.content + "\nMore.\n", ["a1"]);
+
+    // Assert
+    const [first, second] = revised.annotations;
+    expect(first!.resolution).toEqual({ revision: 2, source: "agent" });
+    expect(second!.resolution).toBeUndefined();
+  });
+
+  test("a plan annotation whose quoted text vanished is drift-addressed; a surviving quote stays open", () => {
+    // Arrange
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    annotate(session.id, "gone", "carefully");
+    annotate(session.id, "kept", "Context");
+
+    // Act: the revision rewrites the "carefully" sentence but keeps the Context heading
+    const revised = core.sessionSubmitRevision(session.id, "# Plan\n\n## Context\n\nDo the thing with tests.\n");
+
+    // Assert
+    expect(revised.annotations.find((a) => a.id === "gone")!.resolution).toEqual({ revision: 2, source: "drift" });
+    expect(revised.annotations.find((a) => a.id === "kept")!.resolution).toBeUndefined();
+  });
+
+  test("an unknown reported id is ignored, and an already-addressed annotation keeps its first resolution", () => {
+    // Arrange
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    annotate(session.id, "a1", "carefully");
+    core.sessionSubmitRevision(session.id, PLAN.content, ["a1"]);
+
+    // Act: a second revision reports a stale id and re-reports the settled one
+    const revised = core.sessionSubmitRevision(session.id, PLAN.content, ["a1", "a_never_existed"]);
+
+    // Assert
+    expect(revised.annotations[0]!.resolution).toEqual({ revision: 2, source: "agent" });
+    expect(revised.revisions.length).toBe(3);
+  });
+
+  test("a diff revision never drift-addresses - a new patch says nothing about the feedback", () => {
+    // Arrange
+    const diffArtifact: Artifact = { type: "diff", content: "+++ b/a.ts\n+new line\n", meta: {} };
+    const session = core.sessionCreate({ workspace: WS, artifact: diffArtifact });
+    annotate(session.id, "d1", "new line");
+
+    // Act: the revised patch no longer contains the quoted text
+    const revised = core.sessionSubmitRevision(session.id, "+++ b/b.ts\n+other\n");
+
+    // Assert
+    expect(revised.annotations[0]!.resolution).toBeUndefined();
+  });
+
+  test("the next feedback document omits addressed annotations and teaches the addressed-ids call", () => {
+    // Arrange
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    annotate(session.id, "settled", "carefully");
+    annotate(session.id, "open", "Context", "needs a diagram");
+    core.sessionSubmitRevision(session.id, PLAN.content, ["settled"]);
+
+    // Act
+    const resolved = core.sessionResolve(session.id, "request_changes", "one left");
+
+    // Assert
+    expect(resolved.verdict!.feedback).not.toContain("settled");
+    expect(resolved.verdict!.feedback).toContain("annotation id: `open`");
+    expect(resolved.verdict!.feedback).toContain(`submit-revision ${session.id}`);
+    expect(resolved.verdict!.feedback).toContain("--addressed");
+  });
+});
+
 describe("the wait contract: verdicts outlive waits", () => {
   test("wait resolves when the verdict arrives", async () => {
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });

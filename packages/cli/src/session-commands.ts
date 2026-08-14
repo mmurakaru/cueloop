@@ -96,7 +96,12 @@ export async function sessionCommand(argv: string[]): Promise<number> {
         const id = required(positional[1], "session id");
         const contentFile = stringFlag(flags, "content-file");
         const content = contentFile ? await Bun.file(contentFile).text() : await readStdin();
-        out(await client.sessionSubmitRevision(id, content));
+        // --addressed a_1,a_2 - the annotation ids this revision acted on
+        const addressed = (stringFlag(flags, "addressed") ?? "")
+          .split(",")
+          .map((annotationId) => annotationId.trim())
+          .filter(Boolean);
+        out(await client.sessionSubmitRevision(id, content, addressed));
         return 0;
       }
       default:

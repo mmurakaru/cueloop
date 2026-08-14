@@ -251,7 +251,7 @@ export class DaemonServer {
       }
       case "session.submitRevision": {
         const params = parseParams("session.submitRevision", request.params);
-        return core.sessionSubmitRevision(params.id, params.content);
+        return core.sessionSubmitRevision(params.id, params.content, params.addressedAnnotationIds);
       }
       default:
         throw new DaemonError("unknown_method", `unknown method ${request.method}`);

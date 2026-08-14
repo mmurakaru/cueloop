@@ -165,8 +165,8 @@ export class DaemonClient {
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession> {
     return this.request("session.resolve", { id, verdictKind, summary });
   }
-  sessionSubmitRevision(id: string, content: string): Promise<ReviewSession> {
-    return this.request("session.submitRevision", { id, content });
+  sessionSubmitRevision(id: string, content: string, addressedAnnotationIds: string[] = []): Promise<ReviewSession> {
+    return this.request("session.submitRevision", { id, content, addressedAnnotationIds });
   }
   shutdown(): Promise<void> {
     return this.request("daemon.shutdown", {});
