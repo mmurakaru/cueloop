@@ -58,9 +58,12 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   const uploadLimiter = new TokenBucket(20, 1);
   const hostKey = loadOrCreateHostKey(options.hostKeyPath);
 
+  const clients = new Set<Connection>();
   const server = new Server({ hostKeys: [hostKey] }, (client, info) => {
     const remoteIp = info.ip;
     let identity: Identity | null = null;
+    clients.add(client);
+    client.on("close", () => clients.delete(client));
 
     client.on("authentication", (ctx: AuthContext) => {
       // Accept any key, but require one: the fingerprint is the zero-signup
@@ -178,8 +181,12 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
   return {
     ...listened,
+    // Actively end live connections so shutdown is deterministic - a lingering
+    // viewer (its renderer still tearing down) must not stall `close()`.
     close: () =>
       new Promise<void>((resolve) => {
+        for (const client of clients) client.end();
+        clients.clear();
         server.close(() => resolve());
       }),
   };
