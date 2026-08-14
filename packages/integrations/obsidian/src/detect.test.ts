@@ -15,6 +15,7 @@ afterEach(() => {
 
 describe("detectVaults", () => {
   test("returns registered vault paths that exist on disk", () => {
+    // Arrange
     const alive = join(dir, "notes");
     mkdirSync(alive);
     const gone = join(dir, "deleted-vault");
@@ -28,6 +29,8 @@ describe("detectVaults", () => {
         },
       }),
     );
+
+    // Assert
     expect(detectVaults(configPath)).toEqual([alive]);
   });
 

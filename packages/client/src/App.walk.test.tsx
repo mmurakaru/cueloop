@@ -1,11 +1,4 @@
-/**
- * The guided walk in the virtual terminal: the wizard steps every
- * changed file with a plain progress title, ] marks viewed and persists with
- * the session, esc keeps progress, w resumes at the first unviewed file
- * (across App instances - the daemon round-trip), the agent-note block
- * renders only for files carrying a note, and the end card hands over to the
- * submit confirm with the honest viewed count.
- */
+/** The guided walk in the virtual terminal: the wizard steps every changed file with a plain progress title, ] marks viewed and persists with the session, esc keeps progress, w resumes at the first unviewed file (across App instances via the daemon round-trip), the agent-note block renders only for files carrying a note, and the end card hands over to the submit confirm with the honest viewed count. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -87,56 +80,93 @@ function foregroundsOf(setup: Setup, needle: string): string[] {
 
 describe("the guided walk", () => {
   test("w walks all three files: progress title, persisted marks, end card, submit hand-over", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Act
     await press(setup, "w");
+
+    // Assert
     await waitForText(setup, "file 1 of 3 · 0 viewed");
     expect(setup.captureCharFrame()).toContain("src/a.ts");
     expect(setup.captureCharFrame()).toContain("+1 -1");
 
+    // Act
     await press(setup, "]");
+
+    // Assert
     await waitForText(setup, "file 2 of 3 · 1 viewed");
     // the viewed mark rides the session record, not the client
     await waitForState(setup, () => (server.core.sessionGet(session.id).viewedPaths ?? []).includes("src/a.ts"));
 
+    // Act
     // [ steps back; the revisited card shows its viewed marker
     await press(setup, "[");
+
+    // Assert
     await waitForText(setup, "file 1 of 3 · 1 viewed");
     expect(setup.captureCharFrame()).toContain("· viewed");
+
+    // Act
     await press(setup, "]");
+
+    // Assert
     await waitForText(setup, "file 2 of 3 · 1 viewed");
 
+    // Act
     await press(setup, "]");
+
+    // Assert
     await waitForText(setup, "file 3 of 3 · 2 viewed");
+
+    // Act
     await press(setup, "]");
+
+    // Assert
     await waitForText(setup, "walk complete");
     expect(setup.captureCharFrame()).toContain("every file viewed (3/3)");
     expect(server.core.sessionGet(session.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts", "src/c.ts"]);
 
+    // Act
     // the end card's return leaves the walk and opens the rail confirm
     await press(setup, "enter");
+
+    // Assert
     await waitForText(setup, "submit review");
     expect(setup.captureCharFrame()).toContain("3/3 files viewed");
+
+    // Act
     await press(setup, "enter");
+
+    // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).status === "resolved");
   });
 
   test("esc keeps progress and w resumes at the first unviewed file", async () => {
+    // Arrange
     const setup = await renderApp();
     await press(setup, "w");
     await waitForText(setup, "file 1 of 3 · 0 viewed");
     await press(setup, "]");
     await waitForText(setup, "file 2 of 3 · 1 viewed");
 
+    // Act
     await press(setup, "escape");
+
+    // Assert
     await waitForTextGone(setup, "file 2 of 3");
     // the sheet is back at full strength: no wizard card on screen
     expect(setup.captureCharFrame()).not.toContain("· 1 viewed");
 
+    // Act
     await press(setup, "w");
+
+    // Assert
     await waitForText(setup, "file 2 of 3 · 1 viewed");
   });
 
   test("a half-walked review resumes across App instances via the daemon", async () => {
+    // Arrange
     const first = await renderApp();
     await press(first, "w");
     await waitForText(first, "file 1 of 3 · 0 viewed");
@@ -146,15 +176,19 @@ describe("the guided walk", () => {
     await waitForState(first, () => (server.core.sessionGet(session.id).viewedPaths ?? []).length === 2);
     first.renderer.destroy();
 
+    // Act
     // a fresh client reads the viewed set back from the session record
     const second = await renderApp();
     await press(second, "w");
+
+    // Assert
     await waitForText(second, "file 3 of 3 · 2 viewed");
     expect(second.captureCharFrame()).toContain("src/c.ts");
     // two full App boots with daemon round-trips need more than the default budget
   }, 15_000);
 
   test("the agent-note block renders only for files carrying a note", async () => {
+    // Arrange
     server.core.sessionAnnotate(session.id, {
       id: "note-b",
       kind: "note",
@@ -162,14 +196,22 @@ describe("the guided walk", () => {
       body: "Swaps the stale line for the new constant.",
     });
     const setup = await renderApp();
+
+    // Act
     await press(setup, "w");
+
+    // Assert
     await waitForText(setup, "file 1 of 3");
     expect(setup.captureCharFrame()).not.toContain("agent note");
 
+    // Act
     await press(setup, "]");
+
+    // Assert
     await waitForText(setup, "agent note");
     expect(setup.captureCharFrame()).toContain("Swaps the stale line for the new constant.");
 
+    // Act
     // a note is agent context, not reviewer feedback: it neither counts nor
     // flips the default verdict, and never comes back in the feedback doc
     await press(setup, "escape");
@@ -177,6 +219,8 @@ describe("the guided walk", () => {
     await press(setup, "enter");
     await waitForText(setup, "0 annotations");
     await press(setup, "enter");
+
+    // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).status === "resolved");
     const resolved = server.core.sessionGet(session.id);
     expect(resolved.verdict!.kind).toBe("approve");
@@ -184,12 +228,18 @@ describe("the guided walk", () => {
   });
 
   test("the sheet dims behind the wizard; the preview keeps the diff colors", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Assert
     // before the walk the sheet's added line wears the insertion color
     await waitForText(setup, "+new line");
     expect(foregroundsOf(setup, "+new line")).toContain(DARK.insFg);
 
+    // Act
     await press(setup, "w");
+
+    // Assert
     await waitForText(setup, "file 1 of 3 · 0 viewed");
     // dimmed: the sheet line drops to the dim token...
     expect(foregroundsOf(setup, "+new line")).toEqual([DARK.textDim]);
@@ -198,10 +248,15 @@ describe("the guided walk", () => {
   });
 
   test("walking a resolved review answers read-only", async () => {
+    // Arrange
     server.core.sessionResolve(session.id, "approve", "");
     const setup = await renderApp();
     await waitForText(setup, "resolved");
+
+    // Act
     await press(setup, "w");
+
+    // Assert
     await waitForText(setup, "review submitted - read-only");
     expect(setup.captureCharFrame()).not.toContain("file 1 of 3");
   });

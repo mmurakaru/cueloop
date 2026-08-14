@@ -8,20 +8,28 @@ import { DARK } from "./theme";
 
 describe("loadConfig", () => {
   test("defaults when no file exists", () => {
+    // Act
     const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
+
+    // Assert
     expect(config.keys["comment"]).toEqual(["c"]);
     expect(config.theme.accent).toBe(DARK.accent);
   });
 
   test("user config rebinds actions and overrides theme tokens", () => {
+    // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-"));
     const path = join(dir, "config.toml");
     writeFileSync(
       path,
       `[keys]\ncomment = "a"\nsubmit = ["return", "S"]\n\n[theme]\naccent = "#ff0000"\n`,
     );
+
     try {
+      // Act
       const config = loadConfig({ userConfigPath: path });
+
+      // Assert
       expect(config.keys["comment"]).toEqual(["a"]);
       expect(config.keys["submit"]).toEqual(["return", "S"]);
       expect(config.keys["cut"]).toEqual(["x"]); // untouched defaults survive
@@ -33,14 +41,19 @@ describe("loadConfig", () => {
   });
 
   test("repo config layers over user config", () => {
+    // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg2-"));
     const user = join(dir, "user.toml");
     const repoRoot = join(dir, "repo");
     writeFileSync(user, `[keys]\ncomment = "a"\n`);
     Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
     writeFileSync(join(repoRoot, ".cueloop", "config.toml"), `[keys]\ncomment = "z"\n`);
+
     try {
+      // Act
       const config = loadConfig({ userConfigPath: user, repoRoot });
+
+      // Assert
       expect(config.keys["comment"]).toEqual(["z"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -48,11 +61,16 @@ describe("loadConfig", () => {
   });
 
   test("broken config never blocks a review", () => {
+    // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg3-"));
     const path = join(dir, "config.toml");
     writeFileSync(path, "not [valid toml");
+
     try {
+      // Act
       const config = loadConfig({ userConfigPath: path });
+
+      // Assert
       expect(config.keys["comment"]).toEqual(["c"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -60,11 +78,16 @@ describe("loadConfig", () => {
   });
 
   test("[ui] parses auto_close and the editor override", () => {
+    // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg4-"));
     const path = join(dir, "config.toml");
     writeFileSync(path, `[ui]\nauto_close = 3\neditor = "code --wait"\n`);
+
     try {
+      // Act
       const config = loadConfig({ userConfigPath: path });
+
+      // Assert
       expect(config.ui.autoClose).toBe(3);
       expect(config.ui.editor).toBe("code --wait");
     } finally {
@@ -73,10 +96,13 @@ describe("loadConfig", () => {
   });
 
   test("[ui] editor defaults to undefined and ignores a blank value", () => {
+    // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg5-"));
     const path = join(dir, "config.toml");
     writeFileSync(path, `[ui]\neditor = "   "\n`);
+
     try {
+      // Assert
       expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.editor).toBeUndefined();
       expect(loadConfig({ userConfigPath: path }).ui.editor).toBeUndefined();
     } finally {
@@ -85,17 +111,25 @@ describe("loadConfig", () => {
   });
 
   test("[ui] review panel defaults to an expanded rail at the default width", () => {
+    // Act
     const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
+
+    // Assert
     expect(config.ui.reviewState).toBe("expanded");
     expect(config.ui.reviewWidth).toBe(REVIEW_DEFAULT_WIDTH);
   });
 
   test("[ui] parses review_width (clamped) and review_state", () => {
+    // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg6-"));
     const path = join(dir, "config.toml");
     writeFileSync(path, `[ui]\nreview_width = 999\nreview_state = "compact"\n`);
+
     try {
+      // Act
       const config = loadConfig({ userConfigPath: path });
+
+      // Assert
       expect(config.ui.reviewWidth).toBe(REVIEW_MAX_WIDTH); // out-of-range width clamps
       expect(config.ui.reviewState).toBe("compact");
     } finally {
@@ -104,11 +138,16 @@ describe("loadConfig", () => {
   });
 
   test("[ui] ignores an unknown review_state and a non-numeric width", () => {
+    // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg7-"));
     const path = join(dir, "config.toml");
     writeFileSync(path, `[ui]\nreview_width = "wide"\nreview_state = "sideways"\n`);
+
     try {
+      // Act
       const config = loadConfig({ userConfigPath: path });
+
+      // Assert
       expect(config.ui.reviewWidth).toBe(REVIEW_DEFAULT_WIDTH);
       expect(config.ui.reviewState).toBe("expanded");
     } finally {
@@ -117,16 +156,25 @@ describe("loadConfig", () => {
   });
 
   test("persistReviewWidth and persistReviewState round-trip through the config file", () => {
+    // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg8-"));
     const path = join(dir, "config.toml");
+
     try {
+      // Act
       persistReviewWidth(42, path);
       persistReviewState("hidden", path);
+
+      // Assert
       const config = loadConfig({ userConfigPath: path });
       expect(config.ui.reviewWidth).toBe(42);
       expect(config.ui.reviewState).toBe("hidden");
+
       // a second write replaces the key in place rather than appending a duplicate
+      // Act
       persistReviewWidth(30, path);
+
+      // Assert
       expect(loadConfig({ userConfigPath: path }).ui.reviewWidth).toBe(30);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -136,7 +184,10 @@ describe("loadConfig", () => {
 
 describe("integrations.obsidian config", () => {
   test("defaults when the section is absent", () => {
+    // Act
     const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
+
+    // Assert
     expect(config.integrations.obsidian.vault).toBeUndefined();
     expect(config.integrations.obsidian.folder).toBe("cueloop");
     expect(config.integrations.obsidian.filenameFormat).toBe("{YYYY}-{MM}-{DD} - {title}");
@@ -145,14 +196,19 @@ describe("integrations.obsidian config", () => {
   });
 
   test("user config sets the section; invalid enum values are ignored", () => {
+    // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-obs-"));
     const path = join(dir, "config.toml");
     writeFileSync(
       path,
       `[integrations.obsidian]\nvault = "/notes/vault"\nfolder = "plans"\nexportOn = "approve"\nseparator = "comma"\n`,
     );
+
     try {
+      // Act
       const config = loadConfig({ userConfigPath: path });
+
+      // Assert
       expect(config.integrations.obsidian.vault).toBe("/notes/vault");
       expect(config.integrations.obsidian.folder).toBe("plans");
       expect(config.integrations.obsidian.exportOn).toBe("approve");
@@ -164,14 +220,19 @@ describe("integrations.obsidian config", () => {
   });
 
   test("repo config layers over user config for the section", () => {
+    // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-obs2-"));
     const user = join(dir, "user.toml");
     const repoRoot = join(dir, "repo");
     writeFileSync(user, `[integrations.obsidian]\nvault = "/user/vault"\nexportOn = "resolve"\n`);
     Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
     writeFileSync(join(repoRoot, ".cueloop", "config.toml"), `[integrations.obsidian]\nfolder = "repo-plans"\n`);
+
     try {
+      // Act
       const config = loadConfig({ userConfigPath: user, repoRoot });
+
+      // Assert
       expect(config.integrations.obsidian.vault).toBe("/user/vault"); // user layer survives
       expect(config.integrations.obsidian.exportOn).toBe("resolve");
       expect(config.integrations.obsidian.folder).toBe("repo-plans"); // repo layer wins
@@ -183,6 +244,7 @@ describe("integrations.obsidian config", () => {
 
 describe("actionFor", () => {
   test("resolves keys and shifted keys to actions", () => {
+    // Assert
     expect(actionFor(DEFAULT_KEYS, "j", false)).toBe("down");
     expect(actionFor(DEFAULT_KEYS, "g", true)).toBe("bottom"); // G
     expect(actionFor(DEFAULT_KEYS, "return", false)).toBe("submit");

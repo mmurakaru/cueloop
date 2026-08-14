@@ -26,7 +26,10 @@ describe("returnPaneFor", () => {
   });
 
   test("env override wins, session meta is the fallback", () => {
+    // Arrange
     const inside = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p9" };
+
+    // Assert
     expect(returnPaneFor("w1:p1", inside)).toBe("w1:p1");
     expect(returnPaneFor("w1:p1", { ...inside, CUELOOP_RETURN_PANE: "w1:p2" })).toBe("w1:p2");
   });

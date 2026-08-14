@@ -1,8 +1,4 @@
-/**
- * The keyboard grammar as data: every mode x key produces a known intent
- * list, the read-only rule is one gate, and plan and diff reviews share one
- * path for annotation navigation, deletion, and submit.
- */
+/** The keyboard grammar as data: every mode x key maps to a known intent list, gated once by the read-only rule. */
 
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_KEYS } from "./config";
@@ -30,6 +26,7 @@ function key(name: string, shift = false, meta = false): { name: string; shift: 
 }
 
 describe("compose overlay", () => {
+  // Arrange
   const keyState = state({ overlay: "compose" });
   const table: [string, Intent[]][] = [
     ["escape", [{ type: "closeOverlay" }]],
@@ -57,6 +54,7 @@ describe("compose overlay", () => {
 });
 
 describe("submit overlay", () => {
+  // Arrange
   const keyState = state({ overlay: "submit" });
   const table: [string, Intent[]][] = [
     ["escape", [{ type: "closeOverlay" }]],
@@ -75,6 +73,7 @@ describe("submit overlay", () => {
 });
 
 describe("completion overlay", () => {
+  // Arrange
   const prompt = state({ overlay: "completion-prompt" });
   const counting = state({ overlay: "completion-counting" });
   const table: [KeyState, string, Intent[]][] = [
@@ -97,6 +96,7 @@ describe("completion overlay", () => {
 });
 
 describe("inbox mode", () => {
+  // Arrange
   const keyState = state({ view: "inbox" });
   const table: [string, Intent[]][] = [
     ["j", [{ type: "inboxMove", to: "down" }]],
@@ -116,7 +116,10 @@ describe("inbox mode", () => {
   }
 
   test("an empty inbox swallows every non-quit key", () => {
+    // Arrange
     const empty = state({ view: "inbox", hasInboxItems: false });
+
+    // Assert
     for (const name of ["j", "k", "down", "up", "return", "enter"]) {
       expect(reduceKey(empty, key(name))).toEqual([]);
     }
@@ -125,6 +128,7 @@ describe("inbox mode", () => {
 });
 
 describe("plan normal mode", () => {
+  // Arrange
   const keyState = state();
   const table: [string, boolean, Intent[]][] = [
     ["j", false, [{ type: "move", to: "down" }]],
@@ -154,7 +158,10 @@ describe("plan normal mode", () => {
   }
 
   test("resolved sessions guard the mutating verbs", () => {
+    // Arrange
     const resolvedState = state({ resolved: true });
+
+    // Assert
     for (const name of ["c", "s", "x", "e"]) {
       expect(reduceKey(resolvedState, key(name))).toEqual([{ type: "status", message: "review submitted - read-only" }]);
     }
@@ -163,27 +170,37 @@ describe("plan normal mode", () => {
   });
 
   test("cut text cannot host a comment or a span", () => {
+    // Arrange
     const cut = state({ cursorAnnotatable: false });
+
+    // Assert
     expect(reduceKey(cut, key("c"))).toEqual([{ type: "status", message: "text is cut - restore it first" }]);
     expect(reduceKey(cut, key("s"))).toEqual([{ type: "status", message: "text is cut - restore it first" }]);
     expect(reduceKey(cut, key("v"))).toEqual([]);
   });
 
   test("annotation navigation without annotations reports, delete without focus is silent", () => {
+    // Arrange
     const none = state({ annotationCount: 0, hasFocusedAnnotation: false });
+
+    // Assert
     expect(reduceKey(none, key("n"))).toEqual([{ type: "status", message: "no annotations" }]);
     expect(reduceKey(none, key("p"))).toEqual([{ type: "status", message: "no annotations" }]);
     expect(reduceKey(none, key("backspace"))).toEqual([]);
   });
 
   test("without a selected card x cuts the block and e opens the editor", () => {
+    // Arrange
     const unfocused = state({ hasFocusedAnnotation: false });
+
+    // Assert
     expect(reduceKey(unfocused, key("x"))).toEqual([{ type: "cut" }]);
     expect(reduceKey(unfocused, key("e"))).toEqual([{ type: "edit" }]);
   });
 });
 
 describe("span mode", () => {
+  // Arrange
   const keyState = state({ spanMode: true });
   const table: [string, Intent[]][] = [
     ["l", [{ type: "spanKey", name: "l" }]],
@@ -206,6 +223,7 @@ describe("span mode", () => {
 });
 
 describe("diff mode", () => {
+  // Arrange
   const keyState = state({ view: "diff" });
   const table: [string, Intent[]][] = [
     ["j", [{ type: "move", to: "down" }]],
@@ -229,6 +247,7 @@ describe("diff mode", () => {
   }
 
   test("comment guards: resolved first, then non-code rows", () => {
+    // Assert
     expect(reduceKey(state({ view: "diff", resolved: true }), key("c"))).toEqual([
       { type: "status", message: "review submitted - read-only" },
     ]);
@@ -240,6 +259,7 @@ describe("diff mode", () => {
 
 describe("guided walk", () => {
   test("w enters the walk in diff view; resolved and read-only sessions answer", () => {
+    // Assert
     expect(reduceKey(state({ view: "diff" }), key("w"))).toEqual([{ type: "walkStart" }]);
     expect(reduceKey(state({ view: "diff", resolved: true }), key("w"))).toEqual([
       { type: "status", message: "review submitted - read-only" },
@@ -250,6 +270,7 @@ describe("guided walk", () => {
     expect(reduceKey(state(), key("w"))).toEqual([{ type: "status", message: "the guided walk is a diff-review mode" }]);
   });
 
+  // Arrange
   const walking = state({ view: "diff", overlay: "walk" });
   const table: [string, Intent[]][] = [
     ["]", [{ type: "walkForward" }]],
@@ -268,7 +289,10 @@ describe("guided walk", () => {
   }
 
   test("the end card's return leaves the walk and opens the submit confirm", () => {
+    // Arrange
     const atEnd = state({ view: "diff", overlay: "walk", walkAtEnd: true });
+
+    // Assert
     expect(reduceKey(atEnd, key("return"))).toEqual([{ type: "walkLeave" }, { type: "openSubmit" }]);
     expect(reduceKey(atEnd, key("enter"))).toEqual([{ type: "walkLeave" }, { type: "openSubmit" }]);
   });
@@ -289,17 +313,24 @@ describe("review panel controls", () => {
   }
 
   test("observers may still collapse and resize the panel (it is view state, not a mutation)", () => {
+    // Arrange
     const observer = state({ readOnly: true });
+
+    // Assert
     expect(reduceKey(observer, key("b"))).toEqual([{ type: "cycleReviewPanel" }]);
     expect(reduceKey(observer, key("]"))).toEqual([{ type: "resizeReviewPanel", direction: 1 }]);
   });
 
   test("span mode still owns b as a span verb, not a panel cycle", () => {
+    // Assert
     expect(reduceKey(state({ spanMode: true }), key("b"))).toEqual([{ type: "spanKey", name: "b" }]);
   });
 
   test("the walk overlay keeps the brackets for stepping", () => {
+    // Arrange
     const walking = state({ view: "diff", overlay: "walk" });
+
+    // Assert
     expect(reduceKey(walking, key("]"))).toEqual([{ type: "walkForward" }]);
     expect(reduceKey(walking, key("["))).toEqual([{ type: "walkBack" }]);
   });
@@ -332,15 +363,21 @@ describe("read-only filter", () => {
   });
 
   test("navigation and annotation focus still work for observers", () => {
+    // Arrange
     const keyState = state({ readOnly: true });
+
+    // Assert
     expect(reduceKey(keyState, key("j"))).toEqual([{ type: "move", to: "down" }]);
     expect(reduceKey(keyState, key("n"))).toEqual([{ type: "nextAnnotation" }]);
     expect(reduceKey(keyState, key("q"))).toEqual([{ type: "exit" }]);
   });
 
   test("span-mode c/s are gated by key name even under a rebound keymap", () => {
+    // Arrange
     const rebound = { ...DEFAULT_KEYS, comment: ["m"], suggest: ["t"] };
     const keyState = state({ spanMode: true, readOnly: true, keys: rebound });
+
+    // Assert
     expect(reduceKey(keyState, key("c"))).toEqual([{ type: "status", message: "observer - read-only" }]);
     expect(reduceKey(keyState, key("s"))).toEqual([{ type: "status", message: "observer - read-only" }]);
   });

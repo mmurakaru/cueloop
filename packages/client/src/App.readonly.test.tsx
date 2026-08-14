@@ -1,8 +1,4 @@
-/**
- * Observer mode (tier 2): the App with readOnly renders and navigates like the
- * controller's, but every mutating verb answers "observer - read-only" and
- * leaves daemon state untouched.
- */
+/** Observer mode (tier 2): the App with readOnly renders and navigates like the controller's, but every mutating verb answers "observer - read-only" and leaves daemon state untouched. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -62,7 +58,10 @@ function snapshot() {
 
 describe("observer rendering", () => {
   test("shows the observer badge and read-only hint bar", async () => {
+    // Arrange
     const setup = await renderObserver();
+
+    // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("· observer");
     expect(frame).toContain("observer - read-only · j/k move");
@@ -94,12 +93,17 @@ describe("observer verbs are blocked", () => {
   }
 
   test("span mode c/s is blocked too", async () => {
+    // Arrange
     const setup = await renderObserver();
+
+    // Act
     await press(setup, "j");
     await press(setup, "j");
     await press(setup, "v");
     await press(setup, "c");
     await setup.renderOnce();
+
+    // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("observer - read-only");
     expect(frame).not.toContain("COMMENT ON");
@@ -109,16 +113,22 @@ describe("observer verbs are blocked", () => {
 
 describe("observer navigation still works", () => {
   test("j/k moves the cursor between blocks", async () => {
+    // Arrange
     const setup = await renderObserver();
+
+    // Act
     await press(setup, "j");
     await press(setup, "j");
     await setup.renderOnce();
+
+    // Assert
     const lines = setup.captureCharFrame().split("\n");
     const cursorLine = lines.find((line) => line.includes("▎"))!;
     expect(cursorLine).toContain("persists sessions");
   });
 
   test("n focuses annotations made by the controller", async () => {
+    // Arrange
     server.core.sessionAnnotate(session.id, {
       id: "a_obs1",
       kind: "comment",
@@ -126,8 +136,12 @@ describe("observer navigation still works", () => {
       body: "From the controller.",
     });
     const setup = await renderObserver();
+
+    // Act
     await press(setup, "n");
     await setup.renderOnce();
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("▸ COMMENT");
   });
 });

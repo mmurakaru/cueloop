@@ -35,21 +35,27 @@ function server(): DaemonServer {
 
 describe("one daemon per home", () => {
   test("the second start is refused instead of stealing the socket", () => {
+    // Arrange
     const first = server();
     const path = first.start();
     expect(path).toBe(socketPath(home));
     const second = server();
+
+    // Assert
     expect(second.start()).toBeNull();
     // the winner's socket survives untouched
     expect(existsSync(path!)).toBe(true);
   });
 
   test("clients keep talking to the one live daemon after a refused start", async () => {
+    // Arrange
     const first = server();
     first.start();
     const created = first.core.sessionCreate({ workspace: WS, artifact: PLAN });
     server().start(); // refused
     const client = await DaemonClient.connect({ home });
+
+    // Assert
     try {
       // no split brain: the session created on the winner is visible
       expect((await client.sessionGet(created.id)).id).toBe(created.id);
@@ -60,29 +66,40 @@ describe("one daemon per home", () => {
   });
 
   test("a stale lock from a crashed daemon is reclaimed", () => {
+    // Arrange
     // a pid that cannot be running (init is never a cueloop daemon, and this
     // simulates the record a crashed process leaves behind)
     writeFileSync(lockPath(home), "999999");
     const daemonServer = server();
+
+    // Assert
     expect(daemonServer.start()).toBe(socketPath(home));
   });
 
   test("stopping releases the lock so a restart works", () => {
+    // Arrange
     const first = server();
     first.start();
+
+    // Act
     first.stop();
+
+    // Assert
     expect(existsSync(lockPath(home))).toBe(false);
     const second = server();
     expect(second.start()).toBe(socketPath(home));
   });
 
   test("concurrent autostarts converge on a single daemon", async () => {
+    // Act
     // several clients race to autostart; all must end up on the same daemon
     const clients = await Promise.all([
       DaemonClient.connect({ home, autostart: true }),
       DaemonClient.connect({ home, autostart: true }),
       DaemonClient.connect({ home, autostart: true }),
     ]);
+
+    // Assert
     try {
       const pids = await Promise.all(clients.map((client) => client.ping()));
       const unique = new Set(pids.map((ping) => ping.pid));

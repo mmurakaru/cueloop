@@ -28,10 +28,15 @@ describe("stories catalog", () => {
 
   for (const { moduleTitle, storyName, story } of stories) {
     test(`${moduleTitle}/${storyName} renders, snapshots, and carries its colors`, async () => {
+      // Arrange
       const size = story.size ?? { width: 80, height: 24 };
+
+      // Act
       const setup = await testRender(story.render(), size);
       await setup.waitForVisualIdle();
       const frame = setup.captureCharFrame();
+
+      // Assert
       expect(frame).toMatchSnapshot(`${moduleTitle}/${storyName}`);
       if (story.expectedColors?.length) {
         const seenColors = new Set<string>();

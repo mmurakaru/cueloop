@@ -24,7 +24,10 @@ afterEach(() => rmSync(home, { recursive: true, force: true }));
 
 describe("session lifecycle", () => {
   test("create → get → list", () => {
+    // Act
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Assert
     expect(session.status).toBe("pending");
     expect(session.revisions.length).toBe(1);
     expect(core.sessionGet(session.id).id).toBe(session.id);
@@ -32,7 +35,10 @@ describe("session lifecycle", () => {
   });
 
   test("annotate upserts by id; remove deletes", () => {
+    // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
     core.sessionAnnotate(session.id, {
       id: "a1",
       kind: "comment",
@@ -45,13 +51,20 @@ describe("session lifecycle", () => {
       anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
       body: "Define carefully.",
     });
+
+    // Assert
     expect(core.sessionGet(session.id).annotations.length).toBe(1);
     expect(core.sessionGet(session.id).annotations[0]!.body).toBe("Define carefully.");
+
+    // Act
     core.sessionRemoveAnnotation(session.id, "a1");
+
+    // Assert
     expect(core.sessionGet(session.id).annotations.length).toBe(0);
   });
 
   test("resolve produces feedback.md and maps to the agent contract", () => {
+    // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
     core.sessionAnnotate(session.id, {
       id: "a1",
@@ -59,50 +72,90 @@ describe("session lifecycle", () => {
       anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
       body: "Spell out the steps.",
     });
+
+    // Act
     const resolved = core.sessionResolve(session.id, "request_changes", "Needs detail.");
+
+    // Assert
     expect(resolved.verdict!.feedback).toContain("# Review: request changes");
     expect(resolved.verdict!.feedback).toContain("> carefully");
     expect(verdictResponse(resolved)).toEqual({ allow: false, feedback: resolved.verdict!.feedback });
+
+    // Arrange
     const approved = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
     core.sessionResolve(approved.id, "approve", "LGTM");
+
+    // Assert
     expect(verdictResponse(core.sessionGet(approved.id)).allow).toBe(true);
   });
 
   test("mutating a resolved session throws", () => {
+    // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
     core.sessionResolve(session.id, "approve", "");
+
+    // Assert
     expect(() =>
       core.sessionAnnotate(session.id, { id: "a1", kind: "comment", anchor: { quote: "x", prefix: "", suffix: "" }, body: "b" }),
     ).toThrow("already resolved");
   });
 
   test("working copy stores edits and clears on revert or no-op", () => {
+    // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
     core.sessionSetWorkingCopy(session.id, PLAN.content.replace("carefully", "very carefully"));
+
+    // Assert
     expect(core.sessionGet(session.id).workingCopy).toContain("very carefully");
+
+    // Act
     core.sessionSetWorkingCopy(session.id, PLAN.content);
+
+    // Assert
     expect(core.sessionGet(session.id).workingCopy).toBeUndefined();
   });
 
   test("viewed paths merge, dedupe, clear on empty, and survive a daemon restart", () => {
+    // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
     core.sessionSetViewed(session.id, ["src/a.ts", "src/b.ts", "src/a.ts"]);
+
+    // Assert
     expect(core.sessionGet(session.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts"]);
+
+    // Act
     // merge-additive: a stale client sending only its own new mark loses nothing
     core.sessionSetViewed(session.id, ["src/c.ts"]);
+
+    // Assert
     expect(core.sessionGet(session.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts", "src/c.ts"]);
     // a resumed review reads its progress back after a daemon restart
     const reborn = new DaemonCore(home);
     expect(reborn.sessionGet(session.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts", "src/c.ts"]);
+
+    // Act
     core.sessionSetViewed(session.id, []);
+
+    // Assert
     expect(core.sessionGet(session.id).viewedPaths).toBeUndefined();
   });
 
   test("revision reopens the session and resets working copy + verdict", () => {
+    // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
     core.sessionSetWorkingCopy(session.id, PLAN.content + "\nedit");
     core.sessionResolve(session.id, "request_changes", "redo");
+
+    // Act
     const revised = core.sessionSubmitRevision(session.id, "# Plan v2\n");
+
+    // Assert
     expect(revised.status).toBe("pending");
     expect(revised.verdict).toBeNull();
     expect(revised.workingCopy).toBeUndefined();
@@ -191,45 +244,74 @@ describe("revision marks addressed annotations", () => {
 
 describe("the wait contract: verdicts outlive waits", () => {
   test("wait resolves when the verdict arrives", async () => {
+    // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
     const wait = core.sessionWait(session.id, 5_000);
+
+    // Act
     core.sessionResolve(session.id, "approve", "");
     const resolved = await wait;
+
+    // Assert
     expect(resolved!.verdict!.kind).toBe("approve");
   });
 
   test("wait times out to null; a later wait collects the stored verdict", async () => {
+    // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
     const first = await core.sessionWait(session.id, 30);
+
+    // Assert
     expect(first).toBeNull();
+
+    // Act
     core.sessionResolve(session.id, "request_changes", "later");
     const second = await core.sessionWait(session.id, 30);
+
+    // Assert
     expect(second!.verdict!.summary).toBe("later");
   });
 
   test("multiple waiters all resolve", async () => {
+    // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
     const waits = [core.sessionWait(session.id, 5_000), core.sessionWait(session.id, 5_000)];
+
+    // Act
     core.sessionResolve(session.id, "approve", "");
     const results = await Promise.all(waits);
+
+    // Assert
     expect(results.every((result) => result?.status === "resolved")).toBe(true);
   });
 });
 
 describe("persistence and recovery", () => {
   test("sessions survive a daemon restart", () => {
+    // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
     core.sessionResolve(session.id, "approve", "done");
+
+    // Act
     const reborn = new DaemonCore(home);
     const recovered = reborn.sessionGet(session.id);
+
+    // Assert
     expect(recovered.verdict!.summary).toBe("done");
   });
 
   test("corrupt records are skipped, not fatal, and never deleted", async () => {
+    // Arrange
     core.sessionCreate({ workspace: WS, artifact: PLAN });
     await Bun.write(join(home, "sessions", "broken.json"), "{ not json");
     const store = new SessionStore(home);
+
+    // Act
     const report = store.recover();
+
+    // Assert
     expect(report.recovered.length).toBe(1);
     expect(report.skipped.length).toBe(1);
     expect(await Bun.file(join(home, "sessions", "broken.json")).exists()).toBe(true);
@@ -238,11 +320,16 @@ describe("persistence and recovery", () => {
 
 describe("events", () => {
   test("lifecycle events fire in order", () => {
+    // Arrange
     const seen: string[] = [];
     core.onEvent((event) => seen.push(event.event));
+
+    // Act
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
     core.sessionAnnotate(session.id, { id: "a1", kind: "comment", anchor: { quote: "thing", prefix: "", suffix: "" }, body: "b" });
     core.sessionResolve(session.id, "approve", "");
+
+    // Assert
     expect(seen).toEqual(["session.created", "inbox.changed", "session.updated", "session.resolved", "inbox.changed"]);
   });
 });

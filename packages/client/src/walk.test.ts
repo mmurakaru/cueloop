@@ -92,12 +92,16 @@ describe("noteForFile", () => {
   });
 
   test("finds the note anchored at the file path", () => {
+    // Arrange
     const annotations = [note("src/a.ts", "Renames b and adds c."), note("src/b.ts", "Swaps the line.")];
+
+    // Assert
     expect(noteForFile(annotations, "src/b.ts")).toBe("Swaps the line.");
     expect(noteForFile(annotations, "src/c.ts")).toBeUndefined();
   });
 
   test("ignores non-note annotations that happen to quote the path", () => {
+    // Arrange
     const comment: Annotation = {
       id: "a_1",
       kind: "comment",
@@ -105,6 +109,8 @@ describe("noteForFile", () => {
       body: "not a note",
       createdAt: "now",
     };
+
+    // Assert
     expect(noteForFile([comment], "src/a.ts")).toBeUndefined();
   });
 });

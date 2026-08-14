@@ -15,6 +15,7 @@ afterEach(() => {
 
 describe("focusHerdrPane", () => {
   test("resolves the pane's tab and focuses it", () => {
+    // Arrange
     const log = join(dir, "calls.log");
     const stub = join(dir, "herdr");
     writeFileSync(
@@ -25,6 +26,8 @@ if [ "$1" = "pane" ]; then echo '{"result":{"pane":{"tab_id":"w1:t3"}}}'; fi
 `,
     );
     Bun.spawnSync(["chmod", "+x", stub]);
+
+    // Assert
     expect(focusHerdrPane(stub, "w1:p1")).toBe(true);
     const calls = readFileSync(log, "utf8").trim().split("\n");
     expect(calls[0]).toBe("pane get w1:p1");
@@ -32,6 +35,7 @@ if [ "$1" = "pane" ]; then echo '{"result":{"pane":{"tab_id":"w1:t3"}}}'; fi
   });
 
   test("a missing binary never throws", () => {
+    // Assert
     expect(focusHerdrPane(join(dir, "nope"), "w1:p1")).toBe(false);
   });
 });

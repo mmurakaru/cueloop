@@ -1,9 +1,4 @@
-/**
- * The review panel end to end: the b key cycles expanded -> compact -> hidden
- * -> expanded on the live App, and the collapse mode persists to the user
- * config so it survives a restart. Rendering details are locked by the
- * ReviewPanel stories; this suite proves the App wiring and the persistence.
- */
+/** The review panel end to end: the b key cycles expanded -> compact -> hidden -> expanded on the live App, and the collapse mode persists to the user config so it survives a restart. Rendering details are locked by the ReviewPanel stories; this suite proves the App wiring and the persistence. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -49,44 +44,72 @@ async function renderApp() {
 
 describe("review panel", () => {
   test("b cycles expanded -> compact -> hidden -> expanded", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("Submit review"); // expanded rail
 
+    // Act
     await press(setup, "b");
+
+    // Assert
     let frame = setup.captureCharFrame();
     expect(frame).toContain("«"); // compact strip shows the expand chevron
     expect(frame).not.toContain("Submit review");
 
+    // Act
     await press(setup, "b");
+
+    // Assert
     frame = setup.captureCharFrame();
     expect(frame).not.toContain("«"); // hidden: no strip, no divider
     expect(frame).not.toContain("│");
 
+    // Act
     await press(setup, "b");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("Submit review"); // back to expanded
   });
 
   test("the collapse mode persists to the user config", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Act
     await press(setup, "b"); // -> compact
+
+    // Assert
     expect(loadConfig({ userConfigPath: configPath }).ui.reviewState).toBe("compact");
   });
 
   test("] widens the rail and persists the new width", async () => {
+    // Arrange
     const setup = await renderApp();
     const startWidth = loadConfig({ userConfigPath: configPath }).ui.reviewWidth;
+
+    // Act
     await press(setup, "]");
+
+    // Assert
     const widened = loadConfig({ userConfigPath: configPath }).ui.reviewWidth;
     expect(widened).toBeGreaterThan(startWidth);
   });
 
   test("submitting from a hidden panel force-opens the rail so the confirm card is reachable", async () => {
+    // Arrange
     const setup = await renderApp();
     await press(setup, "b"); // -> compact
     await press(setup, "b"); // -> hidden
+
+    // Assert
     expect(setup.captureCharFrame()).not.toContain("Submit review"); // rail is gone
 
+    // Act
     await press(setup, "enter"); // submit while hidden must not trap in an invisible modal
+
+    // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("submit review"); // the confirm card is visible again
     expect(frame).toContain("[Approve]");

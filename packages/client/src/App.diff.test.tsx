@@ -48,7 +48,10 @@ async function renderApp() {
 
 describe("diff review", () => {
   test("renders file header, hunks, and signed lines", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("■ src/store.ts");
     expect(frame).toContain("@@ -1,4 +1,4 @@");
@@ -57,21 +60,33 @@ describe("diff review", () => {
   });
 
   test("line comment: quote-anchored, lands in feedback with the code line", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Act
     // rows: file(0), hunk(1), ctx(2), del(3), add(4)
     for (let i = 0; i < 4; i++) await press(setup, "j");
     await press(setup, "c");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("COMMENT ON");
+
+    // Act
     await setup.mockInput.typeText("Map needs an eviction story.");
     await press(setup, "enter");
+
+    // Assert
     // inline annotation card rendered under the line
     await waitForText(setup, "◆ Map needs an eviction story.");
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations.length).toBe(1);
     expect(stored.annotations[0]!.anchor.quote).toContain("new Map()");
 
+    // Act
     await press(setup, "enter"); // submit
     await press(setup, "enter"); // confirm request_changes
+
+    // Assert
     await waitForText(setup, "feedback sent");
     const resolved = server.core.sessionGet(session.id);
     expect(resolved.verdict!.feedback).toContain("new Map()");
@@ -79,8 +94,13 @@ describe("diff review", () => {
   });
 
   test("plan verbs are guarded in diff sessions", async () => {
+    // Arrange
     const setup = await renderApp();
+
+    // Act
     await press(setup, "x");
+
+    // Assert
     expect(setup.captureCharFrame()).toContain("plan-only verb");
   });
 });

@@ -7,9 +7,14 @@ describe("unifiedDiff", () => {
   });
 
   test("produces hunk headers with correct line numbers", () => {
+    // Arrange
     const oldText = ["l1", "l2", "l3", "l4", "l5", "l6", "l7", "l8"].join("\n");
     const newText = ["l1", "l2", "l3", "CHANGED", "l5", "l6", "l7", "l8"].join("\n");
+
+    // Act
     const diffLines = unifiedDiff(oldText, newText, 1)!;
+
+    // Assert
     expect(diffLines[0]!.kind).toBe("hunk");
     expect(diffLines[0]!.text).toBe("@@ -3,3 +3,3 @@");
     expect(diffLines.map((line) => line.text)).toEqual([
@@ -22,18 +27,28 @@ describe("unifiedDiff", () => {
   });
 
   test("distant changes split into separate hunks", () => {
+    // Arrange
     const oldLines = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`);
     const newLines = [...oldLines];
     newLines[1] = "first change";
     newLines[27] = "second change";
+
+    // Act
     const diffLines = unifiedDiff(oldLines.join("\n"), newLines.join("\n"), 2)!;
+
+    // Assert
     expect(diffLines.filter((line) => line.kind === "hunk").length).toBe(2);
   });
 
   test("applies cleanly: reconstructing new text from old + diff", () => {
+    // Arrange
     const oldText = "keep\ndrop\nkeep2\nkeep3";
     const newText = "keep\nadded\nkeep2\nkeep3\ntail";
+
+    // Act
     const diffLines = unifiedDiff(oldText, newText, 50)!;
+
+    // Assert
     const rebuilt: string[] = [];
     for (const line of diffLines) {
       if (line.kind === "hunk") continue;
@@ -43,7 +58,10 @@ describe("unifiedDiff", () => {
   });
 
   test("unifiedDiffText carries file headers and path", () => {
+    // Act
     const diffText = unifiedDiffText("a", "b", "docs/plan.md")!;
+
+    // Assert
     expect(diffText.startsWith("--- a/docs/plan.md\n+++ b/docs/plan.md\n@@")).toBe(true);
   });
 });
@@ -56,7 +74,10 @@ describe("editStats", () => {
 
 describe("wordDiff", () => {
   test("preserves whitespace tokens and reconstructs both sides", () => {
+    // Act
     const ops = wordDiff("the quick brown fox", "the slow brown foxes");
+
+    // Assert
     const oldSide = ops.filter((op) => op.kind !== "add").map((op) => op.oldValue).join("");
     const newSide = ops.filter((op) => op.kind !== "del").map((op) => op.newValue).join("");
     expect(oldSide).toBe("the quick brown fox");
@@ -66,7 +87,10 @@ describe("wordDiff", () => {
 
 describe("lcsDiff", () => {
   test("custom equality", () => {
+    // Act
     const ops = lcsDiff([{ v: 1 }, { v: 2 }], [{ v: 2 }, { v: 3 }], (oldItem, newItem) => oldItem.v === newItem.v);
+
+    // Assert
     expect(ops.map((op) => op.kind)).toEqual(["del", "ctx", "add"]);
   });
 });
