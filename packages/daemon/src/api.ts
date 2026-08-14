@@ -8,6 +8,10 @@
 import {
   SCHEMA_VERSION,
   feedbackForSession,
+  isAddressed,
+  isAgentNote,
+  parseBlocks,
+  resolveAnchor,
   verdictAllows,
   type Annotation,
   type Artifact,
@@ -183,15 +187,39 @@ export class DaemonCore {
     return session;
   }
 
-  /** Agent resubmits: new revision becomes the artifact, session reopens. */
-  sessionSubmitRevision(id: string, content: string): ReviewSession {
+  /**
+   * Agent resubmits: new revision becomes the artifact, session reopens.
+   * Annotations the agent reports as acted on (by id) are marked addressed,
+   * and for plan revisions any still-open annotation whose quoted text no
+   * longer resolves is marked addressed too ("drift" - the line it pointed at
+   * was rewritten). Addressed is a marker, never a delete: the reviewer's
+   * rail hides them behind a count, and the next feedback document omits them.
+   * Unknown ids are ignored, so a stale id in the agent's list never fails
+   * the resubmit.
+   */
+  sessionSubmitRevision(id: string, content: string, addressedAnnotationIds: string[] = []): ReviewSession {
     const session = this.sessionGet(id);
     const now = new Date().toISOString();
-    session.revisions.push({ revision: session.revisions.length + 1, content, submittedAt: now });
+    const revisionNumber = session.revisions.length + 1;
+    session.revisions.push({ revision: revisionNumber, content, submittedAt: now });
     session.artifact = { ...session.artifact, content };
     delete session.workingCopy;
     session.verdict = null;
     session.status = "pending";
+
+    const reportedIds = new Set(addressedAnnotationIds);
+    // drift assist applies to plans only: a diff revision is a whole new
+    // patch, where a vanished quote says nothing about the feedback
+    const revisedBlocks = session.artifact.type === "plan" ? parseBlocks(content) : null;
+    for (const annotation of session.annotations) {
+      if (isAddressed(annotation) || isAgentNote(annotation)) continue;
+      if (reportedIds.has(annotation.id)) {
+        annotation.resolution = { revision: revisionNumber, source: "agent" };
+      } else if (revisedBlocks !== null && resolveAnchor(annotation.anchor, revisedBlocks) === null) {
+        annotation.resolution = { revision: revisionNumber, source: "drift" };
+      }
+    }
+
     this.store.upsert(session);
     this.emit("session.revised", id);
     this.emit("inbox.changed", id);

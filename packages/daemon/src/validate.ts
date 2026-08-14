@@ -72,6 +72,12 @@ export const AnnotationSchema = v.object({
   anchor: AnchorSchema,
   body: v.string(),
   orphan: v.optional(v.boolean()),
+  resolution: v.optional(
+    v.object({
+      revision: v.number(),
+      source: v.picklist(["agent", "drift"]),
+    }),
+  ),
 } satisfies EntriesOf<Omit<Annotation, "createdAt">>);
 
 const SessionId = NonEmpty;
@@ -101,7 +107,12 @@ export const Params = {
     verdictKind: v.picklist(["comment", "approve", "request_changes"]),
     summary: v.optional(v.string(), ""),
   }),
-  "session.submitRevision": v.object({ id: SessionId, content: v.string() }),
+  "session.submitRevision": v.object({
+    id: SessionId,
+    content: v.string(),
+    /** Annotation ids the agent acted on; each is marked addressed. */
+    addressedAnnotationIds: v.optional(v.array(NonEmpty), []),
+  }),
   "events.subscribe": v.object({}),
   "daemon.ping": v.object({}),
   "daemon.shutdown": v.object({}),

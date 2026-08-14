@@ -72,7 +72,25 @@ export interface Annotation {
   body: string;
   /** Set by resolution when the quote can no longer be found. */
   orphan?: boolean;
+  /**
+   * Set when a revision addressed this annotation: the agent reported the id
+   * on resubmit ("agent"), or the quoted text disappeared from the revised
+   * plan ("drift"). Addressed annotations leave the default rail view and the
+   * next feedback document, but are never deleted.
+   */
+  resolution?: AnnotationResolution;
   createdAt: string;
+}
+
+export interface AnnotationResolution {
+  /** The revision number whose submission addressed this annotation. */
+  revision: number;
+  source: "agent" | "drift";
+}
+
+/** An annotation a revision has addressed; it leaves the default views. */
+export function isAddressed(annotation: Annotation): boolean {
+  return annotation.resolution !== undefined;
 }
 
 export type VerdictKind = "comment" | "approve" | "request_changes";

@@ -89,6 +89,25 @@ describe("cueloop session (black box)", () => {
     expect(revised.revisions.length).toBe(2);
   });
 
+  test("--addressed marks the reported annotation addressed on resubmit", async () => {
+    // Arrange
+    const before = cliJson<ReviewSession>(await runCli(home, ["session", "get", sessionId]));
+    const annotationId = before.annotations[0]!.id;
+    expect(before.annotations[0]!.resolution).toBeUndefined();
+
+    // Act
+    const revised = cliJson<ReviewSession>(
+      await runCli(
+        home,
+        ["session", "submit-revision", sessionId, "--addressed", annotationId],
+        PLAN + "\n## Phase names\n\nAlpha, beta, gamma.\n",
+      ),
+    );
+
+    // Assert
+    expect(revised.annotations[0]!.resolution).toEqual({ revision: 3, source: "agent" });
+  });
+
   test("create inside herdr opens a tab that launches the review", async () => {
     const logPath = join(home, "herdr-cli.log");
     const binPath = join(home, "herdr-cli.sh");

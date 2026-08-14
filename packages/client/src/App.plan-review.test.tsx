@@ -242,6 +242,39 @@ describe("the document selects, the rail edits", () => {
   });
 });
 
+describe("addressed annotations leave the open list", () => {
+  test("a revision that addresses one card hides it, un-paints it, and shows the count", async () => {
+    // Arrange: two annotations through the daemon, then a revision addressing one
+    const { makeAnchor, parseBlocks } = await import("@cueloop/schema");
+    const blocks = parseBlocks(PLAN);
+    const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("The daemon persists"));
+    server.core.sessionAnnotate(session.id, {
+      id: "a_settled",
+      kind: "comment",
+      anchor: makeAnchor(blocks, contextBlockIndex, 0, 10), // "The daemon"
+      body: "settled note",
+    });
+    server.core.sessionAnnotate(session.id, {
+      id: "a_open",
+      kind: "comment",
+      anchor: makeAnchor(blocks, contextBlockIndex, 11, 19), // "persists"
+      body: "still open note",
+    });
+    server.core.sessionSubmitRevision(session.id, PLAN, ["a_settled"]);
+
+    // Act
+    const setup = await renderApp();
+    await waitForText(setup, "still open note");
+
+    // Assert: the open card renders, the addressed one is gone behind the count
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("✓ 1 addressed by revision");
+    expect(frame).not.toContain("settled note");
+    expect(frame).toContain("Review (1)"); // the addressed card no longer counts as pending
+    expect(backgroundsOf(setup, "The daemon")).not.toContain(T.markCommentBg); // no highlight paint
+  });
+});
+
 describe("sheet header", () => {
   test("shows the submitting agent, the revision, and the Edit word-button", async () => {
     const setup = await renderApp();

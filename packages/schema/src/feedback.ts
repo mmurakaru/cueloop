@@ -5,7 +5,7 @@
  * by quoted text.
  */
 
-import { isAgentNote, type Annotation, type ReviewSession, type VerdictKind } from "./types";
+import { isAddressed, isAgentNote, type Annotation, type ReviewSession, type VerdictKind } from "./types";
 import { parseBlocks, sectionOf } from "./markdown";
 import { resolveAnchor } from "./anchor";
 import { unifiedDiffText } from "./diff";
@@ -20,14 +20,18 @@ export interface FeedbackInput {
   annotations: Annotation[];
   /** Path the agent knows the plan by, for direct reference. */
   planPath?: string;
+  /** Session id, so the document can teach the addressed-ids resubmit call. */
+  sessionId?: string;
 }
 
 const quoteLines = (text: string) => "> " + text.replace(/\n/g, "\n> ");
 
 export function renderFeedback(input: FeedbackInput): string {
   const path = input.planPath ?? "plan.md";
-  // agent notes are the submitter's own context - never echoed back as feedback
-  const annotations = input.annotations.filter((annotation) => !isAgentNote(annotation));
+  // agent notes are the submitter's own context - never echoed back as
+  // feedback - and annotations a previous revision already addressed stay out
+  // of the next document, so the agent only ever sees the open items
+  const annotations = input.annotations.filter((annotation) => !isAgentNote(annotation) && !isAddressed(annotation));
   const blocks = parseBlocks(input.workingCopy ?? input.artifactContent);
   const lines: string[] = [];
   lines.push("# Review: " + input.verdictKind.replace("_", " "));
@@ -76,7 +80,20 @@ export function renderFeedback(input: FeedbackInput): string {
         lines.push(annotation.body);
       }
       lines.push("");
+      lines.push(`annotation id: \`${annotation.id}\``);
+      lines.push("");
     });
+    if (input.sessionId) {
+      lines.push("## Reporting what you addressed");
+      lines.push("");
+      lines.push("When you resubmit the revised plan, list the annotation ids you acted on -");
+      lines.push("they are marked addressed for the reviewer and leave the open list:");
+      lines.push("");
+      lines.push("```sh");
+      lines.push(`cueloop session submit-revision ${input.sessionId} --content-file ${path} --addressed <id,id,...>`);
+      lines.push("```");
+      lines.push("");
+    }
   }
 
   if (!diff && !annotations.length) {
@@ -94,6 +111,7 @@ export function feedbackForSession(session: ReviewSession, verdictKind: VerdictK
     workingCopy: session.workingCopy,
     annotations: session.annotations,
     planPath: session.artifact.meta.planPath,
+    sessionId: session.id,
   });
 }
 

@@ -12,7 +12,7 @@
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock, MouseEvent } from "@opentui/core";
-import { isAgentNote, type ReviewSession, type VerdictKind } from "@cueloop/schema";
+import { isAddressed, isAgentNote, type ReviewSession, type VerdictKind } from "@cueloop/schema";
 import { displayText, marksByDisplay, spanKey, startSpan, type Mark, type SpanState } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
@@ -69,9 +69,13 @@ type Mode =
   | { type: "railEdit"; id: string; text: string }
   | { type: "submit"; verdict: VerdictKind; summary: string };
 
-/** Reviewer-authored annotations only: agent notes never count as feedback. */
+/**
+ * Annotations that still count as feedback: agent notes never do, and an
+ * annotation a revision already addressed is settled - it neither blocks the
+ * verdict default nor re-enters the next feedback document.
+ */
 function reviewerAnnotations(session: ReviewSession) {
-  return session.annotations.filter((annotation) => !isAgentNote(annotation));
+  return session.annotations.filter((annotation) => !isAgentNote(annotation) && !isAddressed(annotation));
 }
 
 function defaultVerdict(session: ReviewSession): VerdictKind {
@@ -298,7 +302,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock }: AppPro
         return;
       case "nextAnnotation":
       case "prevAnnotation": {
-        const annotations = session?.annotations ?? [];
+        // cycle open cards only - addressed ones are out of the rail
+        const annotations = (session?.annotations ?? []).filter((annotation) => !isAddressed(annotation));
         if (!annotations.length) return;
         const focusedIndex = annotations.findIndex((annotation) => annotation.id === focusedAnnotationId);
         const nextIndex =
