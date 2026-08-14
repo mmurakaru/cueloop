@@ -16,6 +16,7 @@
     "paths": {
       "@cueloop/schema": ["./packages/schema/src/index.ts"],
       "@cueloop/daemon": ["./packages/daemon/src/index.ts"],
+      "@cueloop/gateway": ["./packages/gateway/src/index.ts"],
       "@cueloop/extension-api": ["./packages/extension-api/src/index.ts"],
       "@cueloop/integration-obsidian": ["./packages/integrations/obsidian/src/index.ts"]
     }

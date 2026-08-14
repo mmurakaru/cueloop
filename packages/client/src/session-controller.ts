@@ -8,7 +8,7 @@
  */
 
 import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
-import { DaemonClient } from "@cueloop/daemon/client";
+import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
 import {
   cutBlock,
   detectHerdr,
@@ -72,6 +72,12 @@ export interface ReviewControllerOptions {
   onExit?: (code: number) => void;
   /** Timer source for the auto-close countdown; tests inject a ManualClock. */
   clock?: Clock;
+  /**
+   * How the controller gets its session client. Defaults to dialing the local
+   * daemon; the sharing gateway injects a blob-backed client so the same <App>
+   * renders a decrypted share instead.
+   */
+  openClient?: () => Promise<SessionClient>;
 }
 
 export interface ReviewController {
@@ -134,7 +140,7 @@ export function createReviewController(options: ReviewControllerOptions): Review
 
 class Controller implements ReviewController {
   readonly readOnly: boolean;
-  private client: DaemonClient | null = null;
+  private client: SessionClient | null = null;
   private closed = false;
   private snapshot: ControllerSnapshot = {
     session: null,
@@ -179,7 +185,8 @@ class Controller implements ReviewController {
   connect(): void {
     void (async () => {
       try {
-        const client = await DaemonClient.connect({ home: this.options.home, autostart: true });
+        const openClient = this.options.openClient ?? (() => DaemonClient.connect({ home: this.options.home, autostart: true }));
+        const client = await openClient();
         if (this.closed) return void client.close();
         this.client = client;
         client.onEvent((event) => {

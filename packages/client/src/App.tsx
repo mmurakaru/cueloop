@@ -19,6 +19,7 @@ import { DARK, dimmedTheme } from "./theme";
 import { DEFAULT_KEYS, loadConfig } from "./config";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
+import type { SessionClient } from "@cueloop/daemon/client";
 import { createIntentDispatch, reviewerAnnotations, type Mode } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings, type HintMode } from "./key-bindings";
@@ -58,11 +59,13 @@ export interface AppProps {
   onExit?: (code: number) => void;
   /** Timer source for the auto-close countdown; tests inject a ManualClock. */
   clock?: Clock;
+  /** Session source; the sharing gateway injects a blob-backed client. */
+  openClient?: () => Promise<SessionClient>;
 }
 
-export function App({ home, sessionId, readOnly = false, onExit, clock }: AppProps): React.ReactNode {
+export function App({ home, sessionId, readOnly = false, onExit, clock, openClient }: AppProps): React.ReactNode {
   const controller = useMemo(
-    () => createReviewController({ home, sessionId, readOnly, onExit, clock }),
+    () => createReviewController({ home, sessionId, readOnly, onExit, clock, openClient }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home, sessionId],
   );

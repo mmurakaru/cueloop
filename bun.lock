@@ -22,7 +22,7 @@
     },
     "packages/adapters": {
       "name": "@cueloop/adapters",
-      "version": "0.1.0-alpha.19",
+      "version": "0.1.0-alpha.21",
       "dependencies": {
         "@cueloop/daemon": "workspace:*",
         "@cueloop/schema": "workspace:*",
@@ -30,7 +30,7 @@
     },
     "packages/cli": {
       "name": "cueloop",
-      "version": "0.1.0-alpha.19",
+      "version": "0.1.0-alpha.21",
       "bin": {
         "cueloop": "./src/main.ts",
       },
@@ -42,12 +42,12 @@
     },
     "packages/client": {
       "name": "@cueloop/client",
-      "version": "0.1.0-alpha.19",
+      "version": "0.1.0-alpha.21",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.10",
-        "@cueloop/extension-api": "0.1.0-alpha.10",
-        "@cueloop/integration-obsidian": "0.1.0-alpha.10",
-        "@cueloop/schema": "0.1.0-alpha.10",
+        "@cueloop/daemon": "0.1.0-alpha.21",
+        "@cueloop/extension-api": "0.1.0-alpha.21",
+        "@cueloop/integration-obsidian": "0.1.0-alpha.21",
+        "@cueloop/schema": "0.1.0-alpha.21",
         "@opentui/core": "^0.5.1",
         "@opentui/keymap": "0.5.1",
         "@opentui/react": "^0.5.1",
@@ -63,30 +63,49 @@
     },
     "packages/daemon": {
       "name": "@cueloop/daemon",
-      "version": "0.1.0-alpha.19",
+      "version": "0.1.0-alpha.21",
       "dependencies": {
-        "@cueloop/schema": "0.1.0-alpha.10",
+        "@cueloop/schema": "0.1.0-alpha.21",
         "valibot": "^1.4.2",
       },
     },
     "packages/extension-api": {
       "name": "@cueloop/extension-api",
-      "version": "0.1.0-alpha.19",
+      "version": "0.1.0-alpha.21",
       "dependencies": {
-        "@cueloop/schema": "0.1.0-alpha.10",
+        "@cueloop/schema": "0.1.0-alpha.21",
+      },
+    },
+    "packages/gateway": {
+      "name": "@cueloop/gateway",
+      "version": "0.1.0-alpha.21",
+      "bin": {
+        "cueloop-gateway": "./src/main.ts",
+      },
+      "dependencies": {
+        "@cueloop/client": "0.1.0-alpha.21",
+        "@cueloop/daemon": "0.1.0-alpha.21",
+        "@cueloop/schema": "0.1.0-alpha.21",
+        "@opentui/core": "^0.5.1",
+        "@opentui/react": "^0.5.1",
+        "react": "^19.2.0",
+        "ssh2": "^1.17.0",
+      },
+      "devDependencies": {
+        "@types/ssh2": "^1.15.5",
       },
     },
     "packages/integrations/obsidian": {
       "name": "@cueloop/integration-obsidian",
-      "version": "0.1.0-alpha.19",
+      "version": "0.1.0-alpha.21",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.10",
-        "@cueloop/schema": "0.1.0-alpha.10",
+        "@cueloop/extension-api": "0.1.0-alpha.21",
+        "@cueloop/schema": "0.1.0-alpha.21",
       },
     },
     "packages/schema": {
       "name": "@cueloop/schema",
-      "version": "0.1.0-alpha.19",
+      "version": "0.1.0-alpha.21",
     },
   },
   "packages": {
@@ -137,6 +156,8 @@
     "@cueloop/daemon": ["@cueloop/daemon@workspace:packages/daemon"],
 
     "@cueloop/extension-api": ["@cueloop/extension-api@workspace:packages/extension-api"],
+
+    "@cueloop/gateway": ["@cueloop/gateway@workspace:packages/gateway"],
 
     "@cueloop/integration-obsidian": ["@cueloop/integration-obsidian@workspace:packages/integrations/obsidian"],
 
