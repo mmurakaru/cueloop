@@ -61,11 +61,23 @@ export interface AppProps {
   clock?: Clock;
   /** Session source; the sharing gateway injects a blob-backed client. */
   openClient?: () => Promise<SessionClient>;
+  /**
+   * Who is at the keyboard. `owner` is the local planner (default). `observer`
+   * is a passive `cueloop serve` watcher (read-only). `collaborator` is a share
+   * viewer: annotates, but cannot edit the plan or submit an agent verdict.
+   */
+  role?: "owner" | "observer" | "collaborator";
 }
 
-export function App({ home, sessionId, readOnly = false, onExit, clock, openClient }: AppProps): React.ReactNode {
+export function App({ home, sessionId, readOnly = false, onExit, clock, openClient, role = "owner" }: AppProps): React.ReactNode {
+  // Observer stays fully read-only; a collaborator writes annotations but not
+  // the plan or a verdict. `observer` is what the controller and every write
+  // gate key off; the two capability flags carve out the collaborator's middle.
+  const observer = readOnly || role === "observer";
+  const canEditPlan = !observer && role !== "collaborator";
+  const canSubmitVerdict = !observer && role !== "collaborator";
   const controller = useMemo(
-    () => createReviewController({ home, sessionId, readOnly, onExit, clock, openClient }),
+    () => createReviewController({ home, sessionId, readOnly: observer, onExit, clock, openClient }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home, sessionId],
   );
@@ -183,7 +195,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   };
 
   const openCardEdit = (annotationId: string): void => {
-    if (readOnly) return controller.setStatus("observer - read-only");
+    if (observer) return controller.setStatus("observer - read-only");
     if (resolved) return controller.setStatus("review submitted - read-only");
     const annotation = session?.annotations.find((candidate) => candidate.id === annotationId);
     if (!annotation) return;
@@ -249,7 +261,9 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   useKeyboard((key) => {
     const state: KeyState = {
       keys: keysRef.current,
-      readOnly,
+      readOnly: observer,
+      canEditPlan,
+      canSubmitVerdict,
       overlay,
       view: !session ? "inbox" : isDiff ? "diff" : "plan",
       spanMode: mode.type === "span",
@@ -342,14 +356,16 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   };
 
   const onEditRequest = (): void => {
-    if (readOnly) return controller.setStatus("observer - read-only");
+    if (observer) return controller.setStatus("observer - read-only");
+    if (!canEditPlan) return controller.setStatus("shared plan - edit it in your own copy");
     if (resolved) return controller.setStatus("review submitted - read-only");
     runEditorHandOff();
   };
 
   // clicking the rail Submit button: same read-only answer as the submit key
   const onSubmitRequest = (): void => {
-    if (readOnly) return controller.setStatus("observer - read-only");
+    if (observer) return controller.setStatus("observer - read-only");
+    if (!canSubmitVerdict) return controller.setStatus("shared view - your notes save as you go");
     if (resolved) return;
     dispatch({ type: "openSubmit" });
   };
@@ -406,12 +422,13 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     { label: "cueloop", tone: "accent" },
     { label: `${activeSession.artifact.meta.title ?? activeSession.artifact.meta.planPath ?? activeSession.id} · rev ${activeSession.revisions.length}`, tone: "dim" },
     ...(resolved ? [{ label: `resolved: ${activeSession.verdict!.kind.replace("_", " ")}`, tone: "green" as const }] : []),
-    ...(readOnly ? [{ label: "observer", tone: "dim" as const }] : []),
+    ...(observer ? [{ label: "observer", tone: "dim" as const }] : []),
+    ...(role === "collaborator" ? [{ label: "shared · your notes save as you go", tone: "dim" as const }] : []),
     ...(status ? [{ label: status, tone: "accent" as const }] : []),
   ];
 
   keyBindings.setContext({ overlay, spanMode: mode.type === "span" });
-  const hintMode: HintMode = readOnly
+  const hintMode: HintMode = observer
     ? "read-only"
     : mode.type === "submit"
       ? "submit"

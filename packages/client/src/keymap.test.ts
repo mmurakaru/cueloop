@@ -127,6 +127,41 @@ describe("inbox mode", () => {
   });
 });
 
+describe("collaborator (share) capabilities", () => {
+  test("can annotate: comment opens the composer", () => {
+    // Arrange
+    const collab = state({ canEditPlan: false, canSubmitVerdict: false });
+
+    // Act / Assert
+    expect(reduceKey(collab, key("c"), "comment")).toEqual([{ type: "openCompose", kind: "comment", from: "cursor" }]);
+  });
+
+  test("can edit their own card: edit with a focused annotation rewrites it", () => {
+    // Arrange
+    const collab = state({ canEditPlan: false, hasFocusedAnnotation: true });
+
+    // Act / Assert
+    expect(reduceKey(collab, key("e"), "edit")).toEqual([{ type: "editCard" }]);
+  });
+
+  test("cannot edit the plan: cut/edit with no card is refused", () => {
+    // Arrange
+    const collab = state({ canEditPlan: false, hasFocusedAnnotation: false });
+
+    // Act / Assert
+    expect(reduceKey(collab, key("e"), "edit")).toEqual([{ type: "status", message: "shared plan - edit it in your own copy" }]);
+    expect(reduceKey(collab, key("c"), "cut")).toEqual([{ type: "status", message: "shared plan - edit it in your own copy" }]);
+  });
+
+  test("cannot submit a verdict: there is no agent on a share", () => {
+    // Arrange
+    const collab = state({ canSubmitVerdict: false });
+
+    // Act / Assert
+    expect(reduceKey(collab, key("x"), "submit")).toEqual([{ type: "status", message: "shared view - your notes save as you go; q to leave" }]);
+  });
+});
+
 describe("plan normal mode", () => {
   // Arrange
   const keyState = state();

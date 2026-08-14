@@ -97,7 +97,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
     session.on("shell", (accept) => {
       const channel = accept();
-      void handleView(channel, identity.username, pty, (handle) => (render = handle));
+      void handleView(channel, identity, pty, (handle) => (render = handle));
     });
 
     session.on("exec", (accept, reject) => {
@@ -108,36 +108,46 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
   async function handleView(
     channel: ServerChannel,
-    username: string,
+    identity: Identity,
     pty: PtySize,
     keepRender: (handle: ChannelRender) => void,
   ): Promise<void> {
-    if (!isShareId(username)) {
+    const shareId = identity.username;
+    if (!isShareId(shareId)) {
       channel.stderr.write("cueloop: connect as ssh <share-id>@" + publicHost + " to view a shared plan\r\n");
       return end(channel, 1);
     }
     let session;
     try {
-      const stored = await options.store.get(username);
+      const stored = await options.store.get(shareId);
       if (!stored) {
         channel.stderr.write("cueloop: this share was not found or has expired\r\n");
         return end(channel, 1);
       }
-      session = unpackSessionBlob(openBlob(options.masterKey, username, stored));
+      session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
     } catch (err) {
       onError(err);
       channel.stderr.write("cueloop: could not open this share\r\n");
       return end(channel, 1);
     }
     try {
+      // Every viewer is a collaborator: they annotate, and each note unions
+      // back into the stored blob stamped with their fingerprint. They cannot
+      // edit the plan or submit a verdict (the App's collaborator role).
+      const client = new BlobSessionClient(session, {
+        store: options.store,
+        masterKey: options.masterKey,
+        shareId,
+        author: identity.fingerprint,
+      });
       keepRender(
         await renderOverChannel(
           channel,
           pty,
           React.createElement(App, {
             sessionId: session.id,
-            readOnly: true,
-            openClient: () => Promise.resolve(new BlobSessionClient(session)),
+            role: "collaborator",
+            openClient: () => Promise.resolve(client),
             onExit: () => end(channel, 0),
           }),
         ),

@@ -15,9 +15,12 @@ import { join } from "node:path";
 import { Client, utils } from "ssh2";
 import { SCHEMA_VERSION, type ReviewSession } from "@cueloop/schema";
 import { packSessionBlob } from "@cueloop/daemon/share-blob";
-import { generateMasterKey } from "./crypto";
+import { generateMasterKey, openBlob } from "./crypto";
+import { unpackSessionBlob } from "@cueloop/daemon/share-blob";
 import { startGateway, type GatewayHandle } from "./server";
 import { MemoryShareStore } from "./store";
+
+const MASTER = generateMasterKey();
 
 const PLAN = "# Rollout Plan\n\nShip the store move behind a flag.\n";
 const SESSION: ReviewSession = {
@@ -43,7 +46,7 @@ beforeEach(async () => {
   store = new MemoryShareStore();
   handle = await startGateway({
     store,
-    masterKey: generateMasterKey(),
+    masterKey: MASTER,
     hostKeyPath: join(home, "host_key"),
     port: 0,
     host: "127.0.0.1",
@@ -119,18 +122,19 @@ function idFrom(sshLine: string): string {
 }
 
 describe("share upload then view", () => {
-  test("mints an ssh line, and shelling in as that id renders the plan read-only", async () => {
+  test("mints an ssh line, and shelling in as that id renders the shared plan", async () => {
     // Arrange
     const line = await shareUpload(handle.port, packSessionBlob(SESSION));
 
     // Act
     const id = idFrom(line);
-    const frames = await shellCapture(handle.port, id, (frame) => frame.includes("Rollout Plan") && frame.includes("observer"));
+    const frames = await shellCapture(handle.port, id, (frame) => frame.includes("Rollout Plan") && frame.includes("shared"));
 
     // Assert
     expect(line).toMatch(/^ssh p_[A-Za-z0-9]{8}@cueloop\.dev$/);
     expect(frames).toContain("Rollout Plan");
-    expect(frames).toContain("observer - read-only");
+    // collaborator chrome (viewers annotate), not the passive observer label
+    expect(frames).toContain("shared");
   });
 
   test("stores the blob as ciphertext, never the plaintext plan", async () => {
@@ -143,6 +147,62 @@ describe("share upload then view", () => {
     // Assert
     expect(stored).not.toBeNull();
     expect(Buffer.from(stored!).toString("utf8")).not.toContain("Rollout Plan");
+  });
+});
+
+/** Open the share, drive keystrokes to add one comment, then hang up. */
+function annotateOverShell(port: number, shareId: string, body: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    let frames = "";
+    const timer = setTimeout(() => (conn.end(), reject(new Error(`annotate timed out; frames:\n${frames}`))), 20000);
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const until = async (needle: string, ms = 10000) => {
+      const deadline = Date.now() + ms;
+      while (Date.now() < deadline) {
+        if (frames.includes(needle)) return true;
+        await wait(100);
+      }
+      return false;
+    };
+    conn
+      .on("ready", () =>
+        conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, async (err, stream) => {
+          if (err) return reject(err);
+          const collect = (chunk: Buffer) => (frames += chunk.toString("utf8"));
+          stream.on("data", collect);
+          stream.stderr.on("data", collect);
+          if (!(await until("Rollout Plan"))) return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
+          await wait(400);
+          stream.write("c"); // comment on the cursor line
+          await wait(700);
+          stream.write(body);
+          await wait(400);
+          stream.write("\r"); // save -> unions into the stored blob
+          await wait(1000);
+          clearTimeout(timer);
+          conn.end();
+          resolve();
+        }),
+      )
+      .on("error", reject)
+      .connect({ host: "127.0.0.1", port, username: shareId, privateKey: CLIENT_KEY });
+  });
+}
+
+describe("collaborator write-back", () => {
+  test("a viewer annotates and the note unions into the stored blob with an author", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+
+    // Act
+    await annotateOverShell(handle.port, id, "risky move");
+    const stored = unpackSessionBlob(openBlob(MASTER, id, (await store.get(id))!));
+
+    // Assert
+    const note = stored.annotations.find((annotation) => annotation.body.includes("risky move"));
+    expect(note).toBeDefined();
+    expect(note?.author).toMatch(/^SHA256:/);
   });
 });
 

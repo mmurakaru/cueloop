@@ -171,6 +171,7 @@ describe("wire pins", () => {
     anchor: fullAnchor,
     body: "b",
     orphan: false,
+    author: "SHA256:abc",
     resolution: { revision: 2, source: "agent" },
     createdAt: "now",
   };
