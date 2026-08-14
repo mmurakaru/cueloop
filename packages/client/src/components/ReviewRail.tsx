@@ -40,6 +40,8 @@ export interface ReviewRailProps {
   onSelectCard: (id: string) => void;
   onActivateCard: (id: string) => void;
   onSubmitRequest: () => void;
+  /** Publish the plan as a share; omitted for non-owners (hides the button). */
+  onShareRequest?: () => void;
   /** Rail column width; the app derives it from the persisted review layout. */
   width?: number;
   /**
@@ -68,6 +70,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
     onSelectCard,
     onActivateCard,
     onSubmitRequest,
+    onShareRequest,
     width = 34,
     onCollapse,
     theme,
@@ -149,6 +152,11 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
               {`Submit review (${pendingCount}) ⏎`}
             </Button>
           )}
+          {onShareRequest && session.status !== "resolved" ? (
+            <Button variant="plain" onPress={onShareRequest} theme={theme}>
+              {"Share plan ⇧S"}
+            </Button>
+          ) : null}
         </>
       )}
       {/* the collapse chevron: muted, left-bound, one column from the divider.

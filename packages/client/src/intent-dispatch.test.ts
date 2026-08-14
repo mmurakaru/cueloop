@@ -35,6 +35,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     walkBack: mock(),
     walkLeave: mock(),
     submit: mock(),
+    share: mock(),
     finishReview: mock(),
     optInAutoClose: mock(),
     dismissCompletion: mock(),
@@ -180,6 +181,20 @@ describe("openSubmit", () => {
 
     // Assert
     expect(deps.setMode).not.toHaveBeenCalled();
+  });
+});
+
+describe("share", () => {
+  test("dispatches to the controller's share", () => {
+    // Arrange
+    const deps = makeDeps();
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "share" });
+
+    // Assert
+    expect(deps.controller.share).toHaveBeenCalled();
   });
 });
 

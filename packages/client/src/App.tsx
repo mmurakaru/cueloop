@@ -76,6 +76,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   const observer = readOnly || role === "observer";
   const canEditPlan = !observer && role !== "collaborator";
   const canSubmitVerdict = !observer && role !== "collaborator";
+  const canShare = !observer && role === "owner";
   const controller = useMemo(
     () => createReviewController({ home, sessionId, readOnly: observer, onExit, clock, openClient }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -264,6 +265,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
       readOnly: observer,
       canEditPlan,
       canSubmitVerdict,
+      canShare,
       overlay,
       view: !session ? "inbox" : isDiff ? "diff" : "plan",
       spanMode: mode.type === "span",
@@ -360,6 +362,12 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     if (!canEditPlan) return controller.setStatus("shared plan - edit it in your own copy");
     if (resolved) return controller.setStatus("review submitted - read-only");
     runEditorHandOff();
+  };
+
+  // clicking the rail Share button: publish the plan, copy the ssh line
+  const onShareRequest = (): void => {
+    if (!canShare) return controller.setStatus("only the plan owner can share");
+    controller.share();
   };
 
   // clicking the rail Submit button: same read-only answer as the submit key
@@ -503,6 +511,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               onSelectCard: selectCardFromRail,
               onActivateCard: openCardEdit,
               onSubmitRequest,
+              onShareRequest: canShare ? onShareRequest : undefined,
             }}
           />
         </box>

@@ -160,6 +160,26 @@ describe("collaborator (share) capabilities", () => {
     // Act / Assert
     expect(reduceKey(collab, key("x"), "submit")).toEqual([{ type: "status", message: "shared view - your notes save as you go; q to leave" }]);
   });
+
+  test("cannot re-share: only the owner shares", () => {
+    // Arrange
+    const collab = state({ canShare: false });
+
+    // Act / Assert
+    expect(reduceKey(collab, key("S", true), "share")).toEqual([{ type: "status", message: "only the plan owner can share" }]);
+  });
+});
+
+describe("share", () => {
+  test("the owner's share key publishes", () => {
+    // Act / Assert
+    expect(reduceKey(state(), key("S", true), "share")).toEqual([{ type: "share" }]);
+  });
+
+  test("an observer cannot share", () => {
+    // Act / Assert
+    expect(reduceKey(state({ readOnly: true }), key("S", true), "share")).toEqual([{ type: "status", message: "observer - read-only" }]);
+  });
 });
 
 describe("plan normal mode", () => {

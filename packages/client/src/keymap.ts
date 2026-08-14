@@ -18,6 +18,7 @@ export type Intent =
   | { type: "spanKey"; name: string }
   | { type: "openCompose"; kind: "comment" | "suggestion"; from: "cursor" | "span" }
   | { type: "openSubmit" }
+  | { type: "share" }
   | { type: "cut" }
   | { type: "edit" }
   | { type: "editCard" }
@@ -57,6 +58,8 @@ export interface KeyState {
    */
   canEditPlan?: boolean;
   canSubmitVerdict?: boolean;
+  /** Owner-only: publish the plan as a share. A collaborator never re-shares. */
+  canShare?: boolean;
   /** Layer that owns keys before the grammar runs. */
   overlay: "none" | "walk" | "compose" | "submit" | "completion-prompt" | "completion-counting";
   view: "inbox" | "plan" | "diff";
@@ -73,7 +76,7 @@ export interface KeyState {
 }
 
 /** Verbs that write session state; an observer never reaches their handlers. */
-const MUTATING_ACTIONS = new Set(["comment", "suggest", "cut", "edit", "delete_annotation", "submit", "walk"]);
+const MUTATING_ACTIONS = new Set(["comment", "suggest", "cut", "edit", "delete_annotation", "submit", "walk", "share"]);
 
 const SPAN_KEYS = ["l", "h", "w", "b", "$", "0"];
 
@@ -133,6 +136,12 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   // (span-mode c/s are hardwired keys, so they gate by name as well)
   const mutating = MUTATING_ACTIONS.has(action ?? "") || (state.spanMode && (name === "c" || name === "s"));
   if (state.readOnly && mutating) return status("observer - read-only");
+
+  // share is a session-level verb: it works from any view, owner only
+  if (action === "share") {
+    if (state.canShare === false) return status("only the plan owner can share");
+    return [{ type: "share" }];
+  }
 
   if (state.view === "inbox") return inboxGrammar(state, name);
   // span mode owns its single-letter keys (b slides the span back) before the

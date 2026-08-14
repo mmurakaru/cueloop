@@ -23,6 +23,7 @@ import {
   type VerdictKind,
 } from "@cueloop/schema";
 import { loadBundledExporters, type BundledExporter } from "./integrations";
+import { publishShare } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
@@ -121,6 +122,8 @@ export interface ReviewController {
   walkLeave(): void;
   /** Resolve the review, run the export, start the completion hand-back. */
   submit(verdict: VerdictKind, summary: string): void;
+  /** Publish the current session as a share; the ssh line lands on the clipboard. */
+  share(): void;
   /** Close the review and, inside herdr, bounce focus back to the agent. */
   finishReview(): void;
   dismissCompletion(): void;
@@ -475,6 +478,15 @@ class Controller implements ReviewController {
         else this.startCounting(DEFAULT_AUTO_CLOSE);
       })
       .catch((error: unknown) => this.setStatus(String(error instanceof Error ? error.message : error)));
+  }
+
+  share(): void {
+    const session = this.snapshot.session;
+    if (!session) return;
+    this.setStatus("sharing…");
+    publishShare(session)
+      .then(({ line, copied }) => this.setStatus(copied ? `✓ share link copied - ${line}` : line))
+      .catch((error: unknown) => this.setStatus(`share failed: ${error instanceof Error ? error.message : String(error)}`));
   }
 
   // ── completion hand-back ────────────────────
