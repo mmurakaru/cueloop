@@ -38,8 +38,9 @@ export interface OpenHerdrPaneOptions {
 
 /**
  * Open a herdr tab that renders the review. `tab create` prints a JSON result
- * shaped like `{ result: { pane: { id } } }` - the same `result.pane` nesting
- * focusHerdrPane reads - and the pane id drives the two follow-up steps.
+ * shaped like `{ result: { root_pane: { pane_id } } }` (verified against
+ * herdr 0.8.0; `pane get` uses a different `result.pane` nesting, which is
+ * what focusHerdrPane reads). The pane id drives the two follow-up steps.
  * Returns true when the full open-and-launch sequence completed, false on any
  * best-effort bail-out.
  */
@@ -52,8 +53,8 @@ export function openHerdrPane(options: OpenHerdrPaneOptions): boolean {
       timeout: HERDR_SPAWN_TIMEOUT_MS,
     });
     if (created.exitCode !== 0) return false;
-    const parsed = JSON.parse(created.stdout.toString()) as { result?: { pane?: { id?: string } } };
-    const paneId = parsed.result?.pane?.id;
+    const parsed = JSON.parse(created.stdout.toString()) as { result?: { root_pane?: { pane_id?: string } } };
+    const paneId = parsed.result?.root_pane?.pane_id;
     if (!paneId) return false;
     // A fresh tab hosts a plain shell, so the review is typed in like a human.
     const typed = Bun.spawnSync([binPath, "pane", "send-text", paneId, `cueloop ${sessionId}`], {
