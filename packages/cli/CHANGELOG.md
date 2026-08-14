@@ -1,5 +1,22 @@
 # cueloop
 
+## 0.1.0-alpha.22
+
+### Minor Changes
+
+- [#131](https://github.com/mmurakaru/cueloop/pull/131) [`3b8aa11`](https://github.com/mmurakaru/cueloop/commit/3b8aa1115923692c7bdfde1b855abef2e8f1d5b5) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Annotations now resolve when a revision addresses them, so re-review shows only what is still open. The feedback document lists each annotation's id and teaches the agent to report what it acted on (`cueloop session submit-revision <id> --addressed <id,id>`); reported annotations are marked addressed by that revision. As an assist, a plan revision that removed an annotation's quoted text marks it addressed too ("drift"). Addressed annotations leave the rail (a dim `✓ N addressed by revision` line keeps the count), lose their document highlight, stop counting toward the pending badge and the verdict default, and stay out of the next feedback document - but they are never deleted from the session record.
+
+- [#135](https://github.com/mmurakaru/cueloop/pull/135) [`a6ab587`](https://github.com/mmurakaru/cueloop/commit/a6ab5874d3c879b3fa28a114c6f9c47099f76abf) Thanks [@mmurakaru](https://github.com/mmurakaru)! - SSH plan sharing: `cueloop share` (and a one-click Share button / ⇧S in the plan TUI) publishes a plan as one line - `ssh p_xxxxxxxx@cueloop.dev` - copied to the clipboard. A teammate pastes it and the plan renders in their terminal, no install, with every annotation already on it. They annotate too, and their notes union back into the shared blob attributed by SSH key, never overwriting the planner's. Backed by a new SSH gateway (raw ssh2, one port, shell renders / exec uploads) that seals each blob (AES-256-GCM, per-blob HKDF key) before it reaches R2. Annotations gain an optional `author` fingerprint; the review controller now renders the same TUI against a local session or a decrypted share.
+
+### Patch Changes
+
+- [#130](https://github.com/mmurakaru/cueloop/pull/130) [`f9980cc`](https://github.com/mmurakaru/cueloop/commit/f9980ccb6aaa0ac76e61a0ef57a5e062986d486d) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Fixed herdr auto-open silently doing nothing. The `tab create` response parser expected `result.pane.id`, but real herdr (0.8.0) returns `result.root_pane.pane_id` - so a review created inside herdr never actually opened its tab. Verified against the real binary; the test stub now mirrors the real output shape.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.22
+  - @cueloop/daemon@0.1.0-alpha.22
+  - @cueloop/schema@0.1.0-alpha.22
+
 ## 0.1.0-alpha.21
 
 ### Minor Changes
