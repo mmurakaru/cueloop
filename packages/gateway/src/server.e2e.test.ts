@@ -12,11 +12,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Client, utils } from "ssh2";
+import { Client } from "ssh2";
 import { SCHEMA_VERSION, type ReviewSession } from "@cueloop/schema";
 import { packSessionBlob } from "@cueloop/daemon/share-blob";
 import { generateMasterKey, openBlob } from "./crypto";
 import { unpackSessionBlob } from "@cueloop/daemon/share-blob";
+import { generateEd25519Key } from "./host-key";
 import { startGateway, type GatewayHandle } from "./server";
 import { MemoryShareStore } from "./store";
 
@@ -35,7 +36,7 @@ const SESSION: ReviewSession = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
-const CLIENT_KEY = utils.generateKeyPairSync("ed25519").private;
+const CLIENT_KEY = generateEd25519Key();
 
 let home: string;
 let store: MemoryShareStore;

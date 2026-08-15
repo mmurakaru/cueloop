@@ -170,19 +170,16 @@ describe("rail submit confirm", () => {
     for (let index = 0; index < 12; index++) await press(setup, "n");
 
     // Assert
-    const scrolled = setup.captureCharFrame();
-    expect(scrolled).toContain("note 12");
-    expect(scrolled).not.toContain("note 01");
+    await waitForText(setup, "note 12");
+    expect(setup.captureCharFrame()).not.toContain("note 01");
 
     // Act
     await press(setup, "enter");
 
     // Assert
-    const opened = setup.captureCharFrame();
-    // the card is pinned outside the scrollbox; the stack above stays
-    // scrolled away from the top when the card takes its space
-    expect(opened).toContain("12 annotations · 0 blocking");
-    expect(opened).not.toContain("note 01");
+    await waitForText(setup, "12 annotations · 0 blocking");
+    // the card is pinned outside the scrollbox; the stack stays scrolled off the top
+    expect(setup.captureCharFrame()).not.toContain("note 01");
 
     // Act
     // the stack still scrolls with the card open: wheel over the rail
@@ -191,8 +188,8 @@ describe("rail submit confirm", () => {
     await settle(setup);
 
     // Assert
+    await waitForText(setup, "note 12");
     const scrolledWithCard = setup.captureCharFrame();
-    expect(scrolledWithCard).toContain("note 12");
     expect(scrolledWithCard).toContain("12 annotations · 0 blocking");
     expect(scrolledWithCard).not.toContain("note 01");
   });
