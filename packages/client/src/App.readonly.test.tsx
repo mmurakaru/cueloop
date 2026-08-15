@@ -142,6 +142,6 @@ describe("observer navigation still works", () => {
     await setup.renderOnce();
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("▸ COMMENT");
+    await waitForText(setup, "▸ COMMENT");
   });
 });

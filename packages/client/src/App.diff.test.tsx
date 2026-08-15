@@ -69,7 +69,7 @@ describe("diff review", () => {
     await press(setup, "c");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("COMMENT ON");
+    await waitForText(setup, "COMMENT ON");
 
     // Act
     await setup.mockInput.typeText("Map needs an eviction story.");
@@ -101,6 +101,6 @@ describe("diff review", () => {
     await press(setup, "x");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("plan-only verb");
+    await waitForText(setup, "plan-only verb");
   });
 });

@@ -94,7 +94,7 @@ describe("keyboard grammar", () => {
     await setup.renderOnce();
 
     // Assert
-    expect(setup.captureCharFrame()).toContain('comment on "The daemon');
+    await waitForText(setup, 'comment on "The daemon');
 
     // Act
     await type(setup, "Define atomically.");
@@ -182,7 +182,7 @@ describe("submit", () => {
     await press(setup, "enter"); // open submit
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("[Changes]");
+    await waitForText(setup, "[Changes]");
 
     // Act
     await type(setup, "Expand the steps.");
@@ -206,7 +206,7 @@ describe("submit", () => {
     await press(setup, "enter");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("[Approve]"); // no pending items → approve default
+    await waitForText(setup, "[Approve]"); // no pending items → approve default
 
     // Act
     await press(setup, "enter");
