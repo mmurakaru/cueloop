@@ -27,9 +27,14 @@ The daemon persists sessions to disk atomically.
 let home: string;
 let server: DaemonServer;
 let session: ReviewSession;
+let priorConfig: string | undefined;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-plan-review-"));
+  // Isolate from the dev's real config so the rail state is the default here,
+  // not whatever review_state they last persisted (CI runs clean already).
+  priorConfig = process.env.CUELOOP_CONFIG;
+  process.env.CUELOOP_CONFIG = join(home, "no-config.toml");
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
   session = server.core.sessionCreate({
@@ -38,6 +43,8 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
+  if (priorConfig === undefined) delete process.env.CUELOOP_CONFIG;
+  else process.env.CUELOOP_CONFIG = priorConfig;
   server.stop();
   rmSync(home, { recursive: true, force: true });
 });
@@ -127,6 +134,28 @@ describe("edit affordance", () => {
 
     // Assert
     expect(viewer.captureCharFrame()).not.toContain("Edit");
+  });
+});
+
+describe("attribution", () => {
+  test("a collaborator's note shows their name in the card border", async () => {
+    // Arrange - a pulled collaborator note carries an author fingerprint
+    const { makeAnchor, parseBlocks } = await import("@cueloop/schema");
+    const blocks = parseBlocks(PLAN);
+    const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("The daemon persists"));
+    server.core.sessionAnnotate(session.id, {
+      id: "collab-1",
+      kind: "comment",
+      anchor: makeAnchor(blocks, contextBlockIndex, 0, 10),
+      body: "who owns retries?",
+      author: "SHA256:1a2b3c4d5e6f",
+    });
+
+    // Act
+    const setup = await renderApp();
+
+    // Assert - the short author handle rides the card border
+    await waitForText(setup, "1a2b3c4d");
   });
 });
 

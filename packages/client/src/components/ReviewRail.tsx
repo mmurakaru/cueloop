@@ -121,6 +121,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
                     isSelected: annotation.id === selectedId,
                     isOrphan: resolvedIds !== null && !resolvedIds.has(annotation.id),
                     isBlocking: annotationBlocking(annotation),
+                    author: annotation.author,
                     editing:
                       cardEdit && cardEdit.id === annotation.id
                         ? {

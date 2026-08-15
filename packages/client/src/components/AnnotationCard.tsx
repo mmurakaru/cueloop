@@ -14,10 +14,12 @@ import React, { useEffect, useRef, useState } from "react";
 import type { KeyBinding, TextareaRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
-import { Card } from "./primitives/Card";
+import { Card, cardHeight } from "./primitives/Card";
+import { FRAME_BORDER_STYLE } from "./primitives/frame";
 import { Button } from "./primitives/Button";
 import { Toolbar } from "./primitives/Toolbar";
 import { truncateToSingleLine } from "./truncate-text";
+import { authorLabel } from "../attribution";
 
 export interface AnnotationDraft {
   text: string;
@@ -31,6 +33,8 @@ export interface AnnotationSaved {
   isSelected: boolean;
   isOrphan: boolean;
   isBlocking: boolean;
+  /** A collaborator's SSH fingerprint; own notes carry none. Set = name-in-border. */
+  author?: string;
   /** Non-null while the card body is being rewritten in place. */
   editing: AnnotationDraft | null;
   onPress: () => void;
@@ -166,23 +170,42 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
     );
   }
   const card = saved!;
+  // A collaborator's note (author set) reads as a named, bordered card so it
+  // stands out from your own; own notes stay borderless. The border title is
+  // the author, its color the shared-note accent.
+  const authored = card.author !== undefined && card.author !== "";
+  const indent = authored ? "" : "  ";
+  const marker = card.isSelected ? "▸ " : indent;
+  // Content rows for the author border's fixed height (a bordered box must
+  // declare one or the frame collapses): header + quote + body, or the editor.
+  const contentRows = card.editing ? editorRowCount + 3 : 3;
+  // The border + its side padding eat this much content width, so text truncates shorter.
+  const borderInset = authored ? 4 : 0;
   return (
     <box
       id={id}
-      style={{ flexDirection: "column", marginBottom: 1, backgroundColor: card.isSelected ? tokens.elevated : undefined }}
+      title={authored ? ` ${authorLabel(card.author!)} ` : undefined}
+      style={{
+        flexDirection: "column",
+        marginBottom: 1,
+        backgroundColor: card.isSelected ? tokens.elevated : undefined,
+        ...(authored
+          ? { height: cardHeight(contentRows), border: true, borderStyle: FRAME_BORDER_STYLE, borderColor: tokens.blue, paddingLeft: 1, paddingRight: 1 }
+          : {}),
+      }}
       onMouseUp={card.onPress}
     >
       <text fg={card.isSelected ? tokens.text : kindColor}>
-        {card.isSelected ? "▸ " : "  "}
+        {marker}
         {kind.toUpperCase()}
         {card.isBlocking ? <span fg={tokens.red}> · BLOCKING</span> : null}
         <span fg={tokens.textDim}>{card.isOrphan ? " · ORPHANED" : " · pending"}</span>
       </text>
-      <text fg={tokens.textDim}>  "{truncateToSingleLine(quote, 26)}"</text>
+      <text fg={tokens.textDim}>{indent}"{truncateToSingleLine(quote, 26 - borderInset)}"</text>
       {card.editing ? (
         <DraftEditor draft={card.editing} rows={editorRowCount} onRowsChange={setEditorRowCount} theme={theme} />
       ) : (
-        <text fg={card.isOrphan ? tokens.textDim : tokens.textMuted}>  {truncateToSingleLine(card.body, 28)}</text>
+        <text fg={card.isOrphan ? tokens.textDim : tokens.textMuted}>{indent}{truncateToSingleLine(card.body, 28 - borderInset)}</text>
       )}
     </box>
   );
