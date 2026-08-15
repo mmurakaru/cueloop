@@ -6,7 +6,7 @@ import { fixtureDisplay, fixtureMarks, fixturePlanSession } from "./story-fixtur
 
 export const meta: StoryMeta = { title: "PlanSheet" };
 
-const callbacks = { onLineActivate: () => {}, onEditRequest: () => {}, canEdit: true };
+const callbacks = { onLineActivate: () => {}, onEditRequest: () => {}, onShareRequest: () => {}, canEdit: true };
 
 export const AnnotatedPlan: Story = {
   render: () => (

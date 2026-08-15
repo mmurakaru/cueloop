@@ -76,12 +76,23 @@ async function toContextParagraph(setup: Setup): Promise<void> {
 }
 
 describe("share button", () => {
-  test("the owner's rail shows the one-click Share button", async () => {
+  test("the owner's plan header shows the Share button next to Edit", async () => {
     // Arrange / Act
     const setup = await renderApp();
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("Share plan");
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("Edit");
+    expect(frame).toContain("Share");
+  });
+
+  test("a read-only viewer (a plan shared over ssh) never sees the Share button", async () => {
+    // Arrange / Act
+    const viewer = await testRender(<App home={home} sessionId={session.id} readOnly />, { width: 120, height: 32 });
+    await waitForText(viewer, "cueloop");
+
+    // Assert
+    expect(viewer.captureCharFrame()).not.toContain("Share");
   });
 });
 
@@ -364,7 +375,7 @@ describe("addressed annotations leave the open list", () => {
 });
 
 describe("sheet header", () => {
-  test("shows the submitting agent, the revision, and the Edit word-button", async () => {
+  test("shows the submitting agent, the revision, and the Edit and Share word-buttons", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -372,6 +383,7 @@ describe("sheet header", () => {
     const frame = setup.captureCharFrame();
     expect(frame).toContain("submitted by agent/worker-3 · revision 1");
     expect(frame).toContain("Edit");
+    expect(frame).toContain("Share");
   });
 
   test("the Agent tab shows the submitter, status, and revision", async () => {
