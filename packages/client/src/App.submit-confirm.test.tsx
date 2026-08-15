@@ -77,6 +77,7 @@ describe("rail submit confirm", () => {
     await press(setup, "enter");
 
     // Assert
+    await waitForText(setup, "submit review");
     const frame = setup.captureCharFrame();
     // the card: title, honest counts, verdict selector, word-buttons
     expect(frame).toContain("submit review");
@@ -123,7 +124,7 @@ describe("rail submit confirm", () => {
     await press(setup, "enter");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("[Approve]");
+    await waitForText(setup, "[Approve]");
 
     // Act
     await press(setup, "escape");
@@ -144,6 +145,7 @@ describe("rail submit confirm", () => {
     await press(setup, "enter");
 
     // Assert
+    await waitForText(setup, "1 annotations · 0 blocking");
     const frame = setup.captureCharFrame();
     expect(frame).toContain("1 annotations · 0 blocking");
     expect(frame).toContain("[Changes]"); // pending items: request changes default
@@ -203,6 +205,7 @@ describe("rail submit confirm", () => {
     await press(setup, "enter");
 
     // Assert
+    await waitForText(setup, "observer - read-only");
     const frame = setup.captureCharFrame();
     expect(frame).toContain("observer - read-only");
     expect(frame).not.toContain("1 annotations");

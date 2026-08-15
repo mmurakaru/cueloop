@@ -54,7 +54,7 @@ describe("obsidian export on resolve", () => {
     await press(setup, "enter"); // open the submit overlay, keep the default verdict (approve)
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("verdict");
+    await waitForText(setup, "verdict");
 
     // Act
     await press(setup, "enter"); // submit

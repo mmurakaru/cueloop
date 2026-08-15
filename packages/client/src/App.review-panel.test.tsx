@@ -10,7 +10,7 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { loadConfig } from "./config";
-import { press, waitForText } from "./test-support";
+import { press, waitForText, waitForTextGone } from "./test-support";
 
 const PLAN = "# Plan\n\nShip the thing.\n";
 
@@ -54,6 +54,7 @@ describe("review panel", () => {
     await press(setup, "b");
 
     // Assert
+    await waitForText(setup, "«");
     let frame = setup.captureCharFrame();
     expect(frame).toContain("«"); // compact strip shows the expand chevron
     expect(frame).not.toContain("Submit review");
@@ -62,7 +63,7 @@ describe("review panel", () => {
     await press(setup, "b");
 
     // Assert
-    frame = setup.captureCharFrame();
+    frame = await waitForTextGone(setup, "«");
     expect(frame).not.toContain("«"); // hidden: no strip, no divider
     expect(frame).not.toContain("│");
 
@@ -70,7 +71,7 @@ describe("review panel", () => {
     await press(setup, "b");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("Submit review"); // back to expanded
+    await waitForText(setup, "Submit review"); // back to expanded
   });
 
   test("the collapse mode persists to the user config", async () => {
@@ -104,12 +105,14 @@ describe("review panel", () => {
     await press(setup, "b"); // -> hidden
 
     // Assert
-    expect(setup.captureCharFrame()).not.toContain("Submit review"); // rail is gone
+    await waitForTextGone(setup, "Submit review"); // rail is gone
+    expect(setup.captureCharFrame()).not.toContain("Submit review");
 
     // Act
     await press(setup, "enter"); // submit while hidden must not trap in an invisible modal
 
     // Assert
+    await waitForText(setup, "submit review");
     const frame = setup.captureCharFrame();
     expect(frame).toContain("submit review"); // the confirm card is visible again
     expect(frame).toContain("[Approve]");
