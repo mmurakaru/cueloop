@@ -92,6 +92,15 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     controller.getSnapshot,
     controller.getSnapshot,
   );
+  // Opening a plan you shared collects any collaborator notes once, up front;
+  // the merge refreshes through the normal event path. Owner-only and one-shot
+  // per session - Stage 2 turns this into a live poll.
+  const pulledSessionId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isOwner || !session?.shareId || pulledSessionId.current === session.id) return;
+    pulledSessionId.current = session.id;
+    controller.pullShared();
+  }, [isOwner, session?.id, session?.shareId, controller]);
   const renderer = useRenderer();
   const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
 

@@ -140,6 +140,10 @@ export interface ReviewSession {
   verdict: Verdict | null;
   status: SessionStatus;
   createdAt: string;
+  /** Share id once published; lets the planner pull collaborator notes back. */
+  shareId?: string;
+  /** SSH fingerprint that created the share; the gateway stamps it to gate pulls. */
+  owner?: string;
 }
 
 /** comment and request_changes both map to deny in agent-native contracts. */

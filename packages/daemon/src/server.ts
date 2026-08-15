@@ -245,6 +245,14 @@ export class DaemonServer {
         const params = parseParams("session.setViewed", request.params);
         return core.sessionSetViewed(params.id, params.viewedPaths);
       }
+      case "session.setShareId": {
+        const params = parseParams("session.setShareId", request.params);
+        return core.sessionSetShareId(params.id, params.shareId);
+      }
+      case "session.mergeAnnotations": {
+        const params = parseParams("session.mergeAnnotations", request.params);
+        return core.sessionMergeAnnotations(params.id, params.annotations);
+      }
       case "session.resolve": {
         const params = parseParams("session.resolve", request.params);
         return core.sessionResolve(params.id, params.verdictKind, params.summary);
