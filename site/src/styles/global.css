@@ -1602,6 +1602,19 @@ pre {
   color: var(--cl);
   margin-bottom: 0.5rem;
 }
+/* Shared icon-mask idiom: each caller sets its own --icon and box size. */
+.callout__label::before,
+.page-summary__label::before,
+.learn__label::before,
+.copypage__ico,
+.docs-nav-trigger::before,
+.docs-edit a::before,
+.docs-pager__prev::before,
+.docs-pager__next::after {
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
 .callout__label::before,
 .page-summary__label::before,
 .learn__label::before {
@@ -1609,9 +1622,6 @@ pre {
   width: 1.05em;
   height: 1.05em;
   flex: none;
-  background: currentColor;
-  -webkit-mask: var(--icon) center / contain no-repeat;
-  mask: var(--icon) center / contain no-repeat;
 }
 /* Code chips inside a callout inherit the callout colour, not the violet chip. */
 .callout code {
@@ -1694,9 +1704,6 @@ pre {
 .copypage__ico {
   width: 0.95em;
   height: 0.95em;
-  background: currentColor;
-  -webkit-mask: var(--icon) center / contain no-repeat;
-  mask: var(--icon) center / contain no-repeat;
 }
 .copypage__ico--copy {
   --icon: url("/icons/copy.svg");
@@ -1724,9 +1731,6 @@ pre {
   content: "";
   width: 1.15rem;
   height: 1.15rem;
-  background: currentColor;
-  -webkit-mask: var(--icon) center / contain no-repeat;
-  mask: var(--icon) center / contain no-repeat;
 }
 .docs-nav-trigger:hover {
   color: var(--ink);
@@ -1876,6 +1880,7 @@ pre {
   border-top: 1px solid var(--hairline);
 }
 .docs-edit a {
+  --icon: url("/icons/square-pen.svg");
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -1891,9 +1896,6 @@ pre {
   width: 0.95em;
   height: 0.95em;
   flex: none;
-  background: currentColor;
-  -webkit-mask: url("/icons/square-pen.svg") center / contain no-repeat;
-  mask: url("/icons/square-pen.svg") center / contain no-repeat;
 }
 .docs-edit a:hover {
   color: var(--accent);
@@ -1955,9 +1957,6 @@ pre {
   width: 1em;
   height: 1em;
   flex: none;
-  background: currentColor;
-  -webkit-mask: var(--icon) center / contain no-repeat;
-  mask: var(--icon) center / contain no-repeat;
 }
 .docs-pager__prev::before {
   --icon: url("/icons/chevron-left.svg");

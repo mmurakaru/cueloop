@@ -43,15 +43,12 @@ cueloop review <pr>     # pull a pull request in and review it
 
 ```bash
 cueloop share [session-id]        # upload a plan, copy the ssh line
-cueloop share pull [session-id]   # pull a teammate's annotations back
 cueloop serve [session-id]        # serve a live session over SSH yourself
 ```
 
 - **`cueloop share`** uploads the plan to the gateway and copies a single
   `ssh p_…@cueloop.dev` line for a teammate. With no id it shares the most recent
   session. Flags: `--host` (default `cueloop.dev`), `--port` (default `22`).
-- **`cueloop share pull`** merges a teammate's annotations back into your plan by
-  stable id, so nothing you wrote is overwritten.
 - **`cueloop serve`** hosts a session from your own machine over SSH; observers
   are read-only and you stay the writable controller. Flags: `--port` (default
   `2222`, `0` picks a free port), `--host` (default `127.0.0.1`).
