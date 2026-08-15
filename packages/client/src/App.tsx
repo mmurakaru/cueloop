@@ -74,9 +74,10 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   // the plan or a verdict. `observer` is what the controller and every write
   // gate key off; the two capability flags carve out the collaborator's middle.
   const observer = readOnly || role === "observer";
-  const canEditPlan = !observer && role !== "collaborator";
-  const canSubmitVerdict = !observer && role !== "collaborator";
-  const canShare = !observer && role === "owner";
+  // Editing the plan, submitting a verdict, and sharing are all the owner's
+  // alone - a collaborator annotates, an observer only reads. One predicate
+  // feeds all three; split it the day a collaborator earns one of them.
+  const isOwner = !observer && role === "owner";
   const controller = useMemo(
     () => createReviewController({ home, sessionId, readOnly: observer, onExit, clock, openClient }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -263,9 +264,9 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     const state: KeyState = {
       keys: keysRef.current,
       readOnly: observer,
-      canEditPlan,
-      canSubmitVerdict,
-      canShare,
+      canEditPlan: isOwner,
+      canSubmitVerdict: isOwner,
+      canShare: isOwner,
       overlay,
       view: !session ? "inbox" : isDiff ? "diff" : "plan",
       spanMode: mode.type === "span",
@@ -360,21 +361,21 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   const onEditRequest = (): void => {
     // A share viewer/observer has no Edit affordance (the button is hidden), so
     // this is owner-only; stay silent rather than nag if it is ever reached.
-    if (!canEditPlan) return;
+    if (!isOwner) return;
     if (resolved) return controller.setStatus("review submitted - read-only");
     runEditorHandOff();
   };
 
   // clicking the rail Share button: publish the plan, copy the ssh line
   const onShareRequest = (): void => {
-    if (!canShare) return controller.setStatus("only the plan owner can share");
+    if (!isOwner) return controller.setStatus("only the plan owner can share");
     controller.share();
   };
 
   // clicking the rail Submit button: same read-only answer as the submit key
   const onSubmitRequest = (): void => {
     if (observer) return controller.setStatus("observer - read-only");
-    if (!canSubmitVerdict) return controller.setStatus("shared view - your notes save as you go");
+    if (!isOwner) return controller.setStatus("shared view - your notes save as you go");
     if (resolved) return;
     dispatch({ type: "openSubmit" });
   };
@@ -492,7 +493,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               editOrphanCount={editOrphanCount}
               onLineActivate={onLineActivate}
               onEditRequest={onEditRequest}
-              canEdit={canEditPlan}
+              canEdit={isOwner}
             />
           )}
           <ReviewPanel
@@ -515,7 +516,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               onSelectCard: selectCardFromRail,
               onActivateCard: openCardEdit,
               onSubmitRequest,
-              onShareRequest: canShare ? onShareRequest : undefined,
+              onShareRequest: isOwner ? onShareRequest : undefined,
             }}
           />
         </box>
