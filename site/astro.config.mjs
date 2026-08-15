@@ -10,4 +10,6 @@ import react from "@astrojs/react";
 export default defineConfig({
   site: "https://www.cueloop.dev",
   integrations: [react(), mdx()],
+  // Keep punctuation literal: no `--` -> en-dash or `---` -> em-dash conversion.
+  markdown: { smartypants: false },
 });

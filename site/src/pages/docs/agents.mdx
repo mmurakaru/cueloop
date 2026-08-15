@@ -6,6 +6,15 @@ lede: cueloop sits between what your coding agent proposes and what it does. The
 prev: { title: "Security & privacy", href: "/docs/sharing/security/" }
 ---
 
+<div class="learn">
+  <div class="learn__label">You'll learn</div>
+  <ul>
+    <li>how the plan gate blocks an agent on your verdict</li>
+    <li>the three verdicts, and which one lets the agent build</li>
+    <li>how your feedback reaches the agent in its own format</li>
+  </ul>
+</div>
+
 The point of cueloop is the gate between what an agent proposes and what it does.
 This page covers the local agent loop - the review that happens on your own
 machine, before any sharing.
@@ -18,10 +27,14 @@ does not start to build until you respond. You read the plan, annotate the exact
 lines that need work, and send one of three verdicts:
 
 ```text
+comment           # leave feedback; the agent does not proceed
 approve           # the agent proceeds as planned
 request changes   # the agent revises against your annotations
-reject            # the agent stops
 ```
+
+Only `approve` lets the agent build. Both `comment` and `request changes` keep it
+from proceeding as planned. These are the same three verdicts as a
+[GitHub pull-request review](https://docs.github.com/en/pull-requests).
 
 The gate delivers your verdict back to the agent in that agent's own format, so
 the agent reads it the same way it reads any other tool result. Your annotations
@@ -50,8 +63,16 @@ over SSH and merging their annotations into yours - is a separate loop. See
 [Sharing over SSH](/docs/sharing/) for that. A collaborator's notes never reach
 the agent on their own; only your verdict does.
 
+## Where to go next
+
+- Revisit [The review session](/docs/concepts/review-session/) - the primitive
+  every gate is built on.
+- Look up the exact commands and flags in the
+  [Command reference](/docs/reference/commands/).
+- Read [Sharing over SSH](/docs/sharing/) for the other direction of feedback.
+
 <div class="callout">
   <div class="callout__label">Blocking by design</div>
-  The plan gate blocks the agent on your verdict. Nothing is built until you
-  approve, request changes, or reject.
+  The plan gate blocks the agent on your verdict. It builds only when you
+  approve.
 </div>

@@ -49,14 +49,12 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
   <section class="hero">
     <div class="container">
       <span class="eyebrow">Review surface for coding agents</span>
-      <h1 class="hero__title">
-        <span class="ht-serif">Collaborate with your agent and team</span>
-        <span class="ht-sans">plan, diff <span class="amp">&amp;</span> review.</span>
+      <h1 class="hero__title ht-sans">
+        plan, diff <span class="amp">&amp;</span> review.
       </h1>
       <p class="hero__lede">
-        cueloop opens what your coding agent produced - a plan, a diff, or a pull
-        request - right in your terminal. Annotate the exact lines, send a
-        verdict back to the agent, and share the review with a teammate over SSH.
+        cueloop opens your agent's plan or diff in the terminal, where you
+        annotate the lines and send back a verdict it acts on.
       </p>
       <div class="hero__meta">
         <span>Runs in your terminal</span>
@@ -86,34 +84,35 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
         <span class="eyebrow eyebrow--index">01 &middot; The loop</span>
         <h2>A gate between the plan and the code.</h2>
         <p style="color:var(--ink-soft)">
-          Your agent proposes. You review in the terminal you already live in.
-          The verdict flows straight back to the agent as a structured note - no
-          browser, no context switch.
+          Your agent proposes a change and waits for your call. You read it in
+          the terminal and reply with a verdict it can act on. Nothing leaves
+          the command line.
         </p>
       </div>
       <div class="grid grid--3 reveal">
         <div class="cell">
-          <span class="cell__index">→ propose</span>
+          <span class="cell__index">[ propose ]</span>
           <h3>The agent hands off</h3>
           <p>
             At the plan gate or after a diff, the agent opens a cueloop review
-            and waits on your verdict instead of charging ahead.
+            and waits for your verdict instead of charging ahead.
           </p>
         </div>
         <div class="cell">
-          <span class="cell__index">→ review</span>
+          <span class="cell__index">[ review ]</span>
           <h3>You annotate</h3>
           <p>
             Read it in place. Select a line, quote it, and attach a comment or a
-            suggested change - anchored to the exact text.
+            suggested change, anchored to the exact text.
           </p>
         </div>
         <div class="cell">
-          <span class="cell__index">→ decide</span>
+          <span class="cell__index">[ decide ]</span>
           <h3>The verdict returns</h3>
           <p>
-            Approve, or request changes. Your notes become a structured feedback
-            document the agent reads and acts on.
+            Comment, approve, or request changes - the same verdicts as a pull
+            request review. Your notes become a structured feedback document the
+            agent reads and acts on.
           </p>
         </div>
       </div>
@@ -131,7 +130,7 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
             One verb per artifact. <code>cueloop plan</code> opens the latest
             plan an agent proposed. <code>cueloop diff</code> reviews the working
             tree. <code>cueloop review</code> pulls a pull request into the same
-            surface - and posts the verdict back to the PR.
+            surface and posts the verdict back to the PR.
           </p>
           <div style="margin-top:1.5rem">
             <a class="btn btn--ghost" href="/docs/concepts/plan-diff-review/"
@@ -160,9 +159,9 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
           <p style="margin-top:1rem;color:var(--ink-soft);max-width:46ch">
             Press <strong>Share</strong> and cueloop copies one line. Your
             teammate pastes <code>ssh &lt;id&gt;@cueloop.dev</code> and the plan
-            opens in <em>their</em> terminal - your annotations already on it.
-            They annotate, and it flows back to you, attributed, without losing a
-            thing. Terminal only. No browser, ever.
+            opens in <em>their</em> terminal, your annotations already on it.
+            Their notes come back to you attributed to them, over SSH the whole
+            way.
           </p>
           <div style="margin-top:1.5rem">
             <a class="btn btn--accent crop" href="/docs/sharing/">How sharing works</a>
@@ -180,11 +179,11 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
     <div class="container">
       <div class="section-head section-head--wide reveal">
         <span class="eyebrow">Built for the terminal</span>
-        <h2>Small, sharp, and honest about where it runs.</h2>
+        <h2>It runs where you already work.</h2>
       </div>
       <div class="grid grid--2 reveal">
         <div class="cell">
-          <span class="cell__index">✳ precise</span>
+          <span class="cell__index">[ precise ]</span>
           <h3>Notes that stay put</h3>
           <p>
             Comments attach to the exact lines they are about, and follow along
@@ -192,27 +191,27 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
           </p>
         </div>
         <div class="cell">
-          <span class="cell__index">✳ native</span>
+          <span class="cell__index">[ native ]</span>
           <h3>Made for agents</h3>
           <p>
             Your agent pauses for your review, then picks up your feedback and
-            keeps going - built into Claude Code and Codex.
+            keeps going. Built into Claude Code and Codex.
           </p>
         </div>
         <div class="cell">
-          <span class="cell__index">✳ anywhere</span>
+          <span class="cell__index">[ anywhere ]</span>
           <h3>Lives in your terminal</h3>
           <p>
-            No web app to host, no account to create. cueloop works in the
-            terminal you are already in.
+            Nothing to host, no account to create. cueloop runs wherever your
+            shell does.
           </p>
         </div>
         <div class="cell">
-          <span class="cell__index">✳ together</span>
+          <span class="cell__index">[ together ]</span>
           <h3>Nobody's notes get lost</h3>
           <p>
-            Share a review and everyone's comments come back together in one
-            place - no one's feedback gets overwritten.
+            Share a review and everyone's comments come back in one place,
+            attributed and intact.
           </p>
         </div>
       </div>

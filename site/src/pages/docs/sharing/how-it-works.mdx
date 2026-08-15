@@ -7,6 +7,15 @@ prev: { title: "Share a plan", href: "/docs/sharing/quickstart/" }
 next: { title: "Identity & attribution", href: "/docs/sharing/identity/" }
 ---
 
+<div class="learn">
+  <div class="learn__label">You'll learn</div>
+  <ul>
+    <li>what each of the four steps does under the hood</li>
+    <li>how a short id and AES-256-GCM protect a shared plan</li>
+    <li>why an id-keyed union means nothing is ever lost</li>
+  </ul>
+</div>
+
 Sharing is four steps. This page explains what each one does.
 
 ## 1. Share
@@ -61,7 +70,7 @@ id-keyed union. There is no "last write wins" and no full-document overwrite. An
 annotation can be added or updated by its own id, and nothing else moves. That
 is why a merge-back can only ever grow the set of notes, never shrink it.
 
-<div class="callout">
+<div class="callout callout--tip">
   <div class="callout__label">Union, not overwrite</div>
   Every merge-back is an id-keyed union into the stored review. Notes are added
   or updated by their own id - never overwritten in bulk, never dropped.
