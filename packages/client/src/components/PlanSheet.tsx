@@ -64,6 +64,8 @@ export interface PlanSheetProps {
   editOrphanCount: number;
   onLineActivate: (displayIndex: number) => void;
   onEditRequest: () => void;
+  /** Owner-only: show the Edit affordance. A share viewer never sees it. */
+  canEdit: boolean;
   theme?: Theme;
 }
 
@@ -97,6 +99,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     editOrphanCount,
     onLineActivate,
     onEditRequest,
+    canEdit,
     theme,
   }: PlanSheetProps,
   handleRef,
@@ -215,7 +218,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
 
   return (
     <box style={{ flexGrow: 1, flexDirection: "column" }}>
-      <SheetHeader session={session} onEditRequest={onEditRequest} theme={theme} />
+      <SheetHeader session={session} onEditRequest={onEditRequest} canEdit={canEdit} theme={theme} />
       {editOrphanCount > 0 ? (
         <box style={{ height: 1, backgroundColor: tokens.markCommentBg, paddingLeft: 2 }}>
           <text fg={tokens.red}>
@@ -234,10 +237,12 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
 function SheetHeader({
   session,
   onEditRequest,
+  canEdit,
   theme,
 }: {
   session: ReviewSession;
   onEditRequest: () => void;
+  canEdit: boolean;
   theme?: Theme;
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -255,11 +260,13 @@ function SheetHeader({
         ) : null}
       </text>
       <box style={{ flexGrow: 1 }} />
-      <Toolbar>
-        <Button onPress={onEditRequest} theme={theme}>
-          {" Edit "}
-        </Button>
-      </Toolbar>
+      {canEdit ? (
+        <Toolbar>
+          <Button onPress={onEditRequest} theme={theme}>
+            {" Edit "}
+          </Button>
+        </Toolbar>
+      ) : null}
     </box>
   );
 }

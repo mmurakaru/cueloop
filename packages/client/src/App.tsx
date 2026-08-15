@@ -358,8 +358,9 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   };
 
   const onEditRequest = (): void => {
-    if (observer) return controller.setStatus("observer - read-only");
-    if (!canEditPlan) return controller.setStatus("shared plan - edit it in your own copy");
+    // A share viewer/observer has no Edit affordance (the button is hidden), so
+    // this is owner-only; stay silent rather than nag if it is ever reached.
+    if (!canEditPlan) return;
     if (resolved) return controller.setStatus("review submitted - read-only");
     runEditorHandOff();
   };
@@ -448,7 +449,9 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
             ? "walk"
             : focusedAnnotationId !== undefined
               ? "card"
-              : "normal";
+              : role === "collaborator"
+                ? "collaborator"
+                : "normal";
 
   return (
     <ThemeProvider theme={theme}>
@@ -489,6 +492,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               editOrphanCount={editOrphanCount}
               onLineActivate={onLineActivate}
               onEditRequest={onEditRequest}
+              canEdit={canEditPlan}
             />
           )}
           <ReviewPanel

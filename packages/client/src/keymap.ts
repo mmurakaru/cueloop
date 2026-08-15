@@ -217,8 +217,9 @@ function planGrammar(state: KeyState, action: string | undefined, name: string):
     // the document selects, the rail edits: with a card selected, Cut deletes
     // the annotation and edit rewrites the card body in place
     if (state.hasFocusedAnnotation) return [action === "cut" ? { type: "removeAnnotation" } : { type: "editCard" }];
-    // editing the plan itself is the owner's verb - a collaborator only annotates
-    if (state.canEditPlan === false) return status("shared plan - edit it in your own copy");
+    // editing the plan itself is the owner's verb; a share viewer only annotates,
+    // and has no edit affordance, so the key is silent rather than a nag
+    if (state.canEditPlan === false) return [];
     return [{ type: action }];
   }
   return annotationCluster(state, action) ?? [];

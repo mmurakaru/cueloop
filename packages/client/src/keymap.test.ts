@@ -144,13 +144,13 @@ describe("collaborator (share) capabilities", () => {
     expect(reduceKey(collab, key("e"), "edit")).toEqual([{ type: "editCard" }]);
   });
 
-  test("cannot edit the plan: cut/edit with no card is refused", () => {
+  test("cannot edit the plan: cut/edit with no card is silent (no nag, no button)", () => {
     // Arrange
     const collab = state({ canEditPlan: false, hasFocusedAnnotation: false });
 
     // Act / Assert
-    expect(reduceKey(collab, key("e"), "edit")).toEqual([{ type: "status", message: "shared plan - edit it in your own copy" }]);
-    expect(reduceKey(collab, key("c"), "cut")).toEqual([{ type: "status", message: "shared plan - edit it in your own copy" }]);
+    expect(reduceKey(collab, key("e"), "edit")).toEqual([]);
+    expect(reduceKey(collab, key("c"), "cut")).toEqual([]);
   });
 
   test("cannot submit a verdict: there is no agent on a share", () => {

@@ -24,7 +24,7 @@ export interface KeyLayerContext {
 }
 
 /** Hint templates keyed by the same view states the status line shows. */
-export type HintMode = "normal" | "card" | "span" | "compose" | "submit" | "walk" | "read-only";
+export type HintMode = "normal" | "collaborator" | "card" | "span" | "compose" | "submit" | "walk" | "read-only";
 
 type HintEntry =
   | { text: string }
@@ -41,6 +41,16 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
     { commands: ["edit"], label: "edit" },
     { commands: ["next_annotation", "prev_annotation"], label: "annotations" },
     { commands: ["submit"], label: "submit" },
+    { commands: ["quit"], label: "quit" },
+  ],
+  // A share viewer: annotate and navigate, no plan edit / verdict submit.
+  collaborator: [
+    { commands: ["down", "up"], label: "move" },
+    { commands: ["span"], label: "span" },
+    { text: "drag selects" },
+    { commands: ["comment"], label: "comment" },
+    { commands: ["suggest"], label: "suggest" },
+    { commands: ["next_annotation", "prev_annotation"], label: "annotations" },
     { commands: ["quit"], label: "quit" },
   ],
   card: [

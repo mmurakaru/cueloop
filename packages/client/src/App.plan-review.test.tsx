@@ -85,6 +85,25 @@ describe("share button", () => {
   });
 });
 
+describe("edit affordance", () => {
+  test("the owner sees the Edit button", async () => {
+    // Arrange / Act
+    const owner = await renderApp();
+
+    // Assert
+    expect(owner.captureCharFrame()).toContain("Edit");
+  });
+
+  test("a read-only viewer (a plan shared over ssh) never sees the Edit button", async () => {
+    // Arrange / Act
+    const viewer = await testRender(<App home={home} sessionId={session.id} readOnly />, { width: 120, height: 32 });
+    await waitForText(viewer, "cueloop");
+
+    // Assert
+    expect(viewer.captureCharFrame()).not.toContain("Edit");
+  });
+});
+
 describe("selection feeds the annotation quote", () => {
   test("v anchors, l extends, c composes with the char-precise quote", async () => {
     // Arrange
