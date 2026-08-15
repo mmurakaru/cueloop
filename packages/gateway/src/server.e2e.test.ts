@@ -264,6 +264,93 @@ describe("planner pull", () => {
   });
 });
 
+/** Exec `cueloop-push` with `privateKey`, streaming {shareId, annotations}; capture stderr/exit. */
+function sharePush(port: number, shareId: string, annotations: object[], privateKey: string): Promise<{ err: string; code: number | null }> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    let err = "";
+    let code: number | null = null;
+    const timer = setTimeout(() => reject(new Error("push timed out")), 8000);
+    conn
+      .on("ready", () => {
+        conn.exec("cueloop-push", (error, stream) => {
+          if (error) return reject(error);
+          stream.on("data", () => {});
+          stream.stderr.on("data", (chunk: Buffer) => (err += chunk.toString("utf8")));
+          stream.on("exit", (exitCode: number) => (code = exitCode));
+          stream.on("close", () => {
+            clearTimeout(timer);
+            conn.end();
+            resolve({ err, code });
+          });
+          stream.end(JSON.stringify({ shareId, annotations }));
+        });
+      })
+      .on("error", reject)
+      .connect({ host: "127.0.0.1", port, username: "share", privateKey });
+  });
+}
+
+describe("planner push", () => {
+  test("the owner mirrors a note up and it lands in the blob, unauthored and stamped", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+    const note = { id: "planner-1", kind: "comment", anchor: { quote: "Rollout", prefix: "", suffix: "" }, body: "from the planner" };
+
+    // Act
+    const result = await sharePush(handle.port, id, [note], CLIENT_KEY);
+    const stored = unpackSessionBlob(openBlob(MASTER, id, (await store.get(id))!));
+
+    // Assert
+    expect(result.code).toBe(0);
+    const landed = stored.annotations.find((annotation) => annotation.id === "planner-1");
+    expect(landed?.body).toBe("from the planner");
+    expect(landed?.author).toBeUndefined();
+    expect(landed?.createdAt).toBeTruthy();
+  });
+
+  test("a fingerprint that did not share it is refused", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+    const note = { id: "x", kind: "comment", anchor: { quote: "Rollout", prefix: "", suffix: "" }, body: "nope" };
+
+    // Act
+    const result = await sharePush(handle.port, id, [note], OTHER_KEY);
+
+    // Assert
+    expect(result.code).not.toBe(0);
+    expect(result.err).toContain("only the planner who shared this can push to it");
+  });
+
+  test("strips a spoofed author off a pushed note", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+    const note = { id: "spoof-1", kind: "comment", anchor: { quote: "Rollout", prefix: "", suffix: "" }, body: "not really theirs", author: "SHA256:someone-else" };
+
+    // Act
+    await sharePush(handle.port, id, [note], CLIENT_KEY);
+    const stored = unpackSessionBlob(openBlob(MASTER, id, (await store.get(id))!));
+
+    // Assert
+    expect(stored.annotations.find((annotation) => annotation.id === "spoof-1")?.author).toBeUndefined();
+  });
+});
+
+describe("upload hygiene", () => {
+  test("strips the planner's local shareId from the stored blob", async () => {
+    // Arrange - a re-shared session carries an old shareId; it must not reach the blob
+    const carried = { ...SESSION, shareId: "p_oldshare" };
+
+    // Act
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(carried)));
+    const stored = unpackSessionBlob(openBlob(MASTER, id, (await store.get(id))!));
+
+    // Assert
+    expect(stored.shareId).toBeUndefined();
+    expect(stored.owner).toBeTruthy();
+  });
+});
+
 describe("viewing an unknown id", () => {
   test("fails with a readable message instead of hanging", async () => {
     // Act

@@ -19,11 +19,12 @@ import {
   restoreBlock,
   restoreLine,
   returnPaneFor,
+  type Annotation,
   type ReviewSession,
   type VerdictKind,
 } from "@cueloop/schema";
 import { loadBundledExporters, type BundledExporter } from "./integrations";
-import { collaboratorAnnotations, publishShare, pullShare, shareIdFromLine } from "./share";
+import { collaboratorAnnotations, publishShare, pullShare, pushShare, shareIdFromLine } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
@@ -45,6 +46,9 @@ export type Completion =
 
 /** Seconds the completion overlay counts down before it hands back. */
 export const DEFAULT_AUTO_CLOSE = 5;
+
+/** How often an open shared plan re-pulls collaborator notes (ADR 0005 stage 2). */
+export const SHARE_POLL_MS = 4000;
 
 export interface ControllerSnapshot {
   session: ReviewSession | null;
@@ -125,7 +129,9 @@ export interface ReviewController {
   /** Publish the current session as a share; the ssh line lands on the clipboard. */
   share(): void;
   /** Pull a shared plan's collaborator notes back and union them in (planner only). */
-  pullShared(): void;
+  pullShared(): Promise<void>;
+  /** Poll the share for collaborator notes while it is open; returns a stop handle. */
+  startSharePoll(): () => void;
   /** Close the review and, inside herdr, bounce focus back to the agent. */
   finishReview(): void;
   dismissCompletion(): void;
@@ -162,6 +168,8 @@ class Controller implements ReviewController {
   private exporters: BundledExporter[] = [];
   private readonly clock: Clock;
   private countdown: TimerHandle | undefined;
+  private sharePoll: TimerHandle | undefined;
+  private shareRun: object | null = null;
   /** Projections keyed by session identity so renders reuse one computation. */
   private derivedFor: ReviewSession | null = null;
   private derived: { display: DisplayBlock[]; rows: DiffRow[]; files: WalkFile[] } = {
@@ -215,6 +223,7 @@ class Controller implements ReviewController {
   close(): void {
     this.closed = true;
     this.clearCountdown();
+    this.stopSharePoll();
     this.client?.close();
   }
 
@@ -368,17 +377,12 @@ class Controller implements ReviewController {
       const workBlockIndex = display.slice(0, displayIndex + 1).filter((entry) => entry.work).length - 1;
       anchor = makeAnchor(workBlocks, workBlockIndex, start, end);
     }
-    const annotationId = newAnnotationId();
-    this.apply(
-      this.client!.sessionAnnotate(session.id, {
-        id: annotationId,
-        kind,
-        anchor,
-        body,
-      }),
-    );
+    const wire = { id: newAnnotationId(), kind, anchor, body };
+    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    this.apply(persisted);
+    this.mirrorAnnotation(persisted, wire);
     this.setStatus(kind === "suggestion" ? "suggestion added - the agent applies it" : "comment added");
-    return annotationId;
+    return wire.id;
   }
 
   updateAnnotation(id: string, body: string): void {
@@ -387,15 +391,18 @@ class Controller implements ReviewController {
     const existing = session.annotations.find((annotation) => annotation.id === id);
     if (!existing) return;
     // the daemon's annotate verb upserts by id: same id + anchor, new body
-    this.apply(
-      this.client!.sessionAnnotate(session.id, {
-        id: existing.id,
-        kind: existing.kind,
-        anchor: existing.anchor,
-        body,
-      }),
-    );
+    const wire = { id: existing.id, kind: existing.kind, anchor: existing.anchor, body };
+    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    this.apply(persisted);
+    this.mirrorAnnotation(persisted, wire);
     this.setStatus("annotation updated");
+  }
+
+  // push only after the local write lands, so a rejected write never leaks to the share
+  private mirrorAnnotation(persisted: Promise<ReviewSession>, annotation: Omit<Annotation, "createdAt">): void {
+    const shareId = this.snapshot.session?.shareId;
+    if (!shareId) return;
+    void persisted.then(() => pushShare(shareId, [annotation])).catch(() => {});
   }
 
   removeAnnotation(id: string): void {
@@ -497,17 +504,46 @@ class Controller implements ReviewController {
   }
 
   /**
-   * Pull collaborator notes for a shared plan and union them in. The daemon's
-   * merge emits session.updated, so the refresh and re-render happen through the
-   * normal event path. No-op unless this plan was shared from here.
+   * Pull collaborator notes for a shared plan and union them in, awaiting the
+   * merge so a poll never overlaps rounds. The daemon's merge emits
+   * session.updated, so the re-render happens through the normal event path.
+   * Best-effort: a failed refresh is silent and the next tick retries.
    */
-  pullShared(): void {
+  pullShared(): Promise<void> {
     const session = this.snapshot.session;
-    if (!session?.shareId || !this.client) return;
+    if (!session?.shareId || !this.client) return Promise.resolve();
     const client = this.client;
-    pullShare(session.shareId)
+    return pullShare(session.shareId)
       .then((remote) => client.sessionMergeAnnotations(session.id, collaboratorAnnotations(remote)))
-      .catch((error: unknown) => this.setStatus(`pull failed: ${error instanceof Error ? error.message : String(error)}`));
+      .then(() => {})
+      .catch(() => {});
+  }
+
+  /**
+   * Poll the share for collaborator notes while it is open: pull now, then again
+   * every few seconds, each round waiting for the last so slow pulls never stack.
+   * Returns a stop handle the caller runs on leave.
+   */
+  startSharePoll(): () => void {
+    this.stopSharePoll();
+    // per-run token so a stale run's in-flight pull never re-arms the poll
+    const run = {};
+    this.shareRun = run;
+    const tick = (): void => {
+      void this.pullShared().finally(() => {
+        if (this.shareRun === run && !this.closed) this.sharePoll = this.clock.setTimeout(tick, SHARE_POLL_MS);
+      });
+    };
+    tick();
+    return () => {
+      if (this.shareRun === run) this.stopSharePoll();
+    };
+  }
+
+  private stopSharePoll(): void {
+    this.shareRun = null;
+    if (this.sharePoll !== undefined) this.clock.clearTimeout(this.sharePoll);
+    this.sharePoll = undefined;
   }
 
   // ── completion hand-back ────────────────────

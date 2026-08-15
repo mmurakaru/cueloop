@@ -12,6 +12,7 @@
 import { createHash } from "node:crypto";
 import React from "react";
 import { Server, utils, type AuthContext, type Connection, type ServerChannel, type Session } from "ssh2";
+import type { Annotation, ReviewSession } from "@cueloop/schema";
 import { App } from "@cueloop/client";
 import { DEFAULT_SHARE_HOST, packSessionBlob, unpackSessionBlob, MAX_BLOB_BYTES } from "@cueloop/daemon/share-blob";
 import { BlobSessionClient } from "./blob-session-client";
@@ -114,6 +115,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       if (identity.username !== SHARE_UPLOAD_USER) return reject();
       const channel = accept();
       if (info.command === "cueloop-pull") void handlePull(channel, identity);
+      else if (info.command === "cueloop-push") void handlePush(channel, identity);
       else void handleUpload(channel, identity, remoteIp);
     });
   }
@@ -178,7 +180,10 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     let id: string;
     try {
       const bytes = await readCapped(channel, maxUploadBytes);
-      const session = { ...unpackSessionBlob(bytes), owner: identity.fingerprint };
+      // shareId is the planner's local marker; it must never live in the blob,
+      // or a collaborator's view would try to pull/push against the gateway.
+      const { shareId: _local, ...uploaded } = unpackSessionBlob(bytes);
+      const session = { ...uploaded, owner: identity.fingerprint };
       id = mintShareId();
       await options.store.put(id, sealBlob(options.masterKey, id, packSessionBlob(session)));
     } catch (err) {
@@ -204,6 +209,26 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     } catch (err) {
       onError(err);
       fail(channel, "could not read this share");
+    }
+  }
+
+  // The owner mirrors their own annotations into the share (stage 2 push-up).
+  async function handlePush(channel: ServerChannel, identity: Identity): Promise<void> {
+    try {
+      const payload = JSON.parse((await readCapped(channel, maxUploadBytes)).toString("utf8")) as { shareId?: unknown; annotations?: unknown };
+      if (typeof payload.shareId !== "string" || !isShareId(payload.shareId)) return void fail(channel, "not a share id");
+      if (!Array.isArray(payload.annotations)) return void fail(channel, "annotations must be a list");
+      const stored = await options.store.get(payload.shareId);
+      if (!stored) return void fail(channel, "this share was not found or has expired");
+      const session = unpackSessionBlob(openBlob(options.masterKey, payload.shareId, stored));
+      if (session.owner !== identity.fingerprint) return void fail(channel, "only the planner who shared this can push to it");
+      // Round-trip validates the pushed notes: a malformed one throws here, so the stored blob stays intact.
+      const next = unpackSessionBlob(packSessionBlob(mergeOwnerAnnotations(session, payload.annotations as Array<Omit<Annotation, "createdAt">>)));
+      await options.store.put(payload.shareId, sealBlob(options.masterKey, payload.shareId, packSessionBlob(next)));
+      end(channel, 0);
+    } catch (err) {
+      onError(err);
+      fail(channel, "could not update this share");
     }
   }
 
@@ -265,4 +290,18 @@ function end(channel: ServerChannel, code: number): void {
 function fail(channel: ServerChannel, message: string): void {
   channel.stderr.write(`cueloop: ${message}\r\n`);
   end(channel, 1);
+}
+
+/** Union the owner's own notes into the blob by id, never clobbering a collaborator's. */
+function mergeOwnerAnnotations(session: ReviewSession, incoming: Array<Omit<Annotation, "createdAt">>): ReviewSession {
+  const byId = new Map(session.annotations.map((annotation) => [annotation.id, annotation]));
+  const now = new Date().toISOString();
+  for (const note of incoming) {
+    const existing = byId.get(note.id);
+    if (existing?.author) continue;
+    // the owner's notes stay unauthored: strip any author so the pull filter and the delete guard hold
+    const { author: _drop, ...rest } = note;
+    byId.set(note.id, { ...rest, createdAt: existing?.createdAt ?? now });
+  }
+  return { ...session, annotations: [...byId.values()] };
 }
