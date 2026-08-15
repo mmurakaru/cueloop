@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.26
+
+### Patch Changes
+
+- [#151](https://github.com/mmurakaru/cueloop/pull/151) [`4110683`](https://github.com/mmurakaru/cueloop/commit/41106835ae166c0926d55d202a8e2c29f2121a27) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Gateway connection-error logging is now classified: expected transport failures (bad handshake, auth abort, connection reset) from internet scanners on port 22 log one terse line instead of a full stack trace, while genuinely unexpected errors stay loud. Cuts log noise without hiding real faults.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.26
+  - @cueloop/daemon@0.1.0-alpha.26
+  - @cueloop/schema@0.1.0-alpha.26
+
 ## 0.1.0-alpha.25
 
 ### Minor Changes
