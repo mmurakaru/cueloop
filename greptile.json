@@ -1,0 +1,6 @@
+{
+  "strictness": 2,
+  "instructions": "cueloop conventions to enforce: never use the em dash - use a plain dash. Comments state intent or invariants, not narration; one line where possible, and omit a comment that only restates the code. Use full, descriptive identifiers, never abbreviations. Describe cueloop on its own terms - do not reference or compare to other products in code or comments (naming our own dependencies like OpenTUI is fine). Validate data crossing a trust boundary - network, IPC, or persistence - with valibot before internal code uses it; do not re-validate between internal modules. Anchors are quote-primary: never silently rebind an annotation to the wrong text - orphan it and say so.",
+  "ignorePatterns": "**/CHANGELOG.md\nbun.lock",
+  "excludeAuthors": ["dependabot[bot]"]
+}
