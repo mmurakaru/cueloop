@@ -1,5 +1,14 @@
 # @cueloop/gateway
 
+## 0.1.0-alpha.24
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.24
+  - @cueloop/daemon@0.1.0-alpha.24
+  - @cueloop/schema@0.1.0-alpha.24
+
 ## 0.1.0-alpha.23
 
 ### Patch Changes
