@@ -197,8 +197,9 @@ describe("inline compose keeps the anchor painted", () => {
     expect(stored.annotations.length).toBe(1);
     expect(backgroundsOf(setup, stored.annotations[0]!.anchor.quote.slice(0, 20))).toContain(T.markCommentBg);
     // renderApp plus this many frame-waits grazes the 5s default on a loaded CI
-    // runner; the sibling walk resume test carries the same budget.
-  }, 15_000);
+    // runner, and the whole-suite publish lane has timed even 15s out; give the
+    // heaviest frame-wait chain generous headroom so runner load cannot flake it.
+  }, 30_000);
 });
 
 describe("compose newline convention", () => {

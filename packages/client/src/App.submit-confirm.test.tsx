@@ -96,25 +96,25 @@ describe("rail submit confirm", () => {
     await press(setup, "enter");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("[Approve]");
+    await waitForText(setup, "[Approve]");
 
     // Act
     await press(setup, "right");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("[Changes]");
+    await waitForText(setup, "[Changes]");
 
     // Act
     await press(setup, "right");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("[Comment]");
+    await waitForText(setup, "[Comment]");
 
     // Act
     await press(setup, "left");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("[Changes]");
+    await waitForText(setup, "[Changes]");
   });
 
   test("esc cancels the card and restores the plain Submit button", async () => {
