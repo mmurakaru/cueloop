@@ -89,7 +89,12 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         if (identity) handleSession(accept(), identity, remoteIp);
       });
     });
-    client.on("error", onError);
+    client.on("error", (err) => {
+      // Scanners on the open :22 fail the handshake constantly; keep those to one
+      // terse line and reserve the loud path for genuinely unexpected errors.
+      if (isExpectedTransportError(err)) console.warn(`[gateway] dropped ${remoteIp}: ${errorMessage(err)}`);
+      else onError(err);
+    });
   });
 
   function handleSession(session: Session, identity: Identity, remoteIp: string): void {
@@ -290,6 +295,18 @@ function end(channel: ServerChannel, code: number): void {
 function fail(channel: ServerChannel, message: string): void {
   channel.stderr.write(`cueloop: ${message}\r\n`);
   end(channel, 1);
+}
+
+/** ssh2 transport failures from the open internet (bad handshake, auth abort, reset) are per-connection and expected - not gateway faults. */
+export function isExpectedTransportError(err: unknown): boolean {
+  const level = (err as { level?: unknown })?.level;
+  if (level === "handshake" || level === "authentication" || level === "protocol") return true;
+  const code = (err as { code?: unknown })?.code;
+  return code === "ECONNRESET" || code === "EPIPE" || code === "ETIMEDOUT";
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 /** Union the owner's own notes into the blob by id, never clobbering a collaborator's. */
