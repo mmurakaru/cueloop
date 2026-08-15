@@ -1,5 +1,12 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.23
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/schema@0.1.0-alpha.23
+
 ## 0.1.0-alpha.22
 
 ### Patch Changes
