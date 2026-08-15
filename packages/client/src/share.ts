@@ -53,6 +53,16 @@ export function collaboratorAnnotations(session: ReviewSession): Annotation[] {
   return session.annotations.filter((annotation) => annotation.author);
 }
 
+/**
+ * Mirror the planner's own annotations up into the share, so collaborators see
+ * them on their next refresh. Owner-gated at the gateway; the notes stay
+ * unauthored (the planner's), unioned by id.
+ */
+export async function pushShare(shareId: string, annotations: Array<Omit<Annotation, "createdAt">>, target: ShareTarget = {}): Promise<void> {
+  const { stderr, code } = await runShareSsh("cueloop-push", Buffer.from(JSON.stringify({ shareId, annotations })), target);
+  if (code !== 0) throw new Error(`gateway push failed: ${stderr.trim() || `ssh exited ${code}`}`);
+}
+
 /** Run one `share@host:port` ssh command with `stdin`; hand back its streams and exit code. */
 async function runShareSsh(command: string, stdin: Buffer, target: ShareTarget): Promise<{ stdout: string; stderr: string; code: number }> {
   const host = target.host ?? DEFAULT_SHARE_HOST;
