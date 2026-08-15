@@ -372,7 +372,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     runEditorHandOff();
   };
 
-  // clicking the rail Share button: publish the plan, copy the ssh line
+  // clicking the header Share button: publish the plan, copy the ssh line
   const onShareRequest = (): void => {
     if (!isOwner) return controller.setStatus("only the plan owner can share");
     controller.share();
@@ -499,6 +499,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               editOrphanCount={editOrphanCount}
               onLineActivate={onLineActivate}
               onEditRequest={onEditRequest}
+              onShareRequest={onShareRequest}
               canEdit={isOwner}
             />
           )}
@@ -522,7 +523,6 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               onSelectCard: selectCardFromRail,
               onActivateCard: openCardEdit,
               onSubmitRequest,
-              onShareRequest: isOwner ? onShareRequest : undefined,
             }}
           />
         </box>

@@ -64,7 +64,8 @@ export interface PlanSheetProps {
   editOrphanCount: number;
   onLineActivate: (displayIndex: number) => void;
   onEditRequest: () => void;
-  /** Owner-only: show the Edit affordance. A share viewer never sees it. */
+  onShareRequest: () => void;
+  /** Owner-only: show the Edit and Share affordances. A share viewer never sees either. */
   canEdit: boolean;
   theme?: Theme;
 }
@@ -99,6 +100,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     editOrphanCount,
     onLineActivate,
     onEditRequest,
+    onShareRequest,
     canEdit,
     theme,
   }: PlanSheetProps,
@@ -218,7 +220,13 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
 
   return (
     <box style={{ flexGrow: 1, flexDirection: "column" }}>
-      <SheetHeader session={session} onEditRequest={onEditRequest} canEdit={canEdit} theme={theme} />
+      <SheetHeader
+        session={session}
+        onEditRequest={onEditRequest}
+        onShareRequest={onShareRequest}
+        canEdit={canEdit}
+        theme={theme}
+      />
       {editOrphanCount > 0 ? (
         <box style={{ height: 1, backgroundColor: tokens.markCommentBg, paddingLeft: 2 }}>
           <text fg={tokens.red}>
@@ -233,15 +241,17 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
   );
 });
 
-/** Sheet chrome: submitted-by + revision delta left, the Edit word-button right. */
+/** Sheet chrome: submitted-by + revision delta left, the Edit and Share word-buttons right. */
 function SheetHeader({
   session,
   onEditRequest,
+  onShareRequest,
   canEdit,
   theme,
 }: {
   session: ReviewSession;
   onEditRequest: () => void;
+  onShareRequest: () => void;
   canEdit: boolean;
   theme?: Theme;
 }): React.ReactNode {
@@ -260,10 +270,13 @@ function SheetHeader({
         ) : null}
       </text>
       <box style={{ flexGrow: 1 }} />
-      {canEdit ? (
+      {canEdit && session.status !== "resolved" ? (
         <Toolbar>
           <Button onPress={onEditRequest} theme={theme}>
             {" Edit "}
+          </Button>
+          <Button onPress={onShareRequest} theme={theme}>
+            {" Share "}
           </Button>
         </Toolbar>
       ) : null}

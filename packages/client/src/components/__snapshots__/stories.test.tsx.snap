@@ -489,7 +489,7 @@ exports[`stories catalog InboxList/TwoPending renders, snapshots, and carries it
 `;
 
 exports[`stories catalog PlanSheet/AnnotatedPlan renders, snapshots, and carries its colors: PlanSheet/AnnotatedPlan 1`] = `
-"  submitted by agent/worker-3 · revision 1                                          Edit  
+"  submitted by agent/worker-3 · revision 1                                   Edit  Share  
                                                                                           
     Migration Plan                                                                        
                                                                                           
@@ -521,7 +521,7 @@ exports[`stories catalog PlanSheet/AnnotatedPlan renders, snapshots, and carries
 `;
 
 exports[`stories catalog PlanSheet/InlineCompose renders, snapshots, and carries its colors: PlanSheet/InlineCompose 1`] = `
-"  submitted by agent/worker-3 · revision 1                                          Edit  
+"  submitted by agent/worker-3 · revision 1                                   Edit  Share  
                                                                                           
     Migration Plan                                                                        
                                                                                           
@@ -555,7 +555,7 @@ exports[`stories catalog PlanSheet/InlineCompose renders, snapshots, and carries
 `;
 
 exports[`stories catalog PlanSheet/OrphanBanner renders, snapshots, and carries its colors: PlanSheet/OrphanBanner 1`] = `
-"  submitted by agent/worker-3 · revision 1                                          Edit  
+"  submitted by agent/worker-3 · revision 1                                   Edit  Share  
   1 annotation no longer match - the passage was removed.                                 
                                                                                           
   ▎ Migration Plan                                                                        
@@ -587,7 +587,7 @@ exports[`stories catalog PlanSheet/OrphanBanner renders, snapshots, and carries 
 `;
 
 exports[`stories catalog PlanSheet/SpanSelection renders, snapshots, and carries its colors: PlanSheet/SpanSelection 1`] = `
-"  submitted by agent/worker-3 · revision 1                                          Edit  
+"  submitted by agent/worker-3 · revision 1                                   Edit  Share  
                                                                                           
     Migration Plan                                                                        
                                                                                           
