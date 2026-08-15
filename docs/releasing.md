@@ -66,39 +66,39 @@ bunx changeset pre exit   # then a normal release publishes 0.1.0 on `latest`
 
 Commit the `.changeset/pre.json` removal with a changeset like any other change.
 
-## npm auth: bootstrap once, then trusted publishing
+## npm auth: OIDC for publish, a scoped token for dist-tags
 
-Trusted publishing (OIDC) needs no stored secret and attaches provenance to
-every tarball, but npm can only configure a trusted publisher on a package that
-already exists. So:
+Auth is split by operation, because OIDC covers `npm publish` but NOT
+`npm dist-tag add`:
 
-### 1. Bootstrap (one time)
+### Publishing → trusted publishing (OIDC), no token
 
-- npmjs.com → Access Tokens → **Granular Access Token**
-  - name: `github-actions-cueloop-release`
-  - **Bypass two-factor authentication: on** (CI cannot answer an OTP prompt)
-  - Allowed IP ranges: **empty** (runner IPs rotate)
-  - Packages and scopes: **Read and write** covering `@cueloop` and the
-    unscoped `cueloop` package
-  - Expiration: short - **7 days** is enough to bootstrap
-- GitHub → repo Settings → Secrets and variables → Actions → new secret
-  **`NPM_TOKEN`**
-- Publish the first alpha through the normal flow above.
-
-### 2. Cut over to trusted publishing (immediately after)
-
-For each published package (`cueloop`, `@cueloop/schema`, `@cueloop/daemon`,
-`@cueloop/client`, `@cueloop/extension-api`, `@cueloop/adapters`):
+Needs no stored secret and attaches provenance to every tarball. npm can only
+configure a trusted publisher on a package that already exists, so a package's
+FIRST publish is done once with a token (see below), then per package:
 
 - npmjs.com → the package → Settings → **Publishing access** → Trusted publisher
-  - Repository: `mmurakaru/cueloop`
-  - Workflow: `release.yml`
-  - Select the allowed action(s) - required for configurations created after
-    2026-05-20.
+  - Repository: `mmurakaru/cueloop`, Workflow: `release.yml`
+  - Select the allowed action(s) - required for configs created after 2026-05-20.
 
-Then **revoke the npm token** and **delete the `NPM_TOKEN` repo secret**. No
-workflow change is needed: `id-token: write`, npm >= 11.5.1, and Node >= 22.14
-are already configured, and npm falls back to OIDC when no token is present.
+Packages: `cueloop`, `@cueloop/schema`, `@cueloop/daemon`, `@cueloop/client`,
+`@cueloop/extension-api`, `@cueloop/adapters`, `@cueloop/integration-obsidian`.
+The publish step carries no `NODE_AUTH_TOKEN`, so npm uses OIDC automatically.
 
-Verify the cutover on the next release: the run should publish with a
-`provenance` attestation and no `NODE_AUTH_TOKEN` in the environment.
+### Dist-tags → a retained scoped `NPM_TOKEN`
+
+In changesets pre mode, `changeset publish` lands on `latest`; the sync step then
+points `alpha` at the new version with `npm dist-tag add`, which OIDC cannot
+authenticate. So we keep one repo secret **`NPM_TOKEN`**, wired ONLY into the
+`Sync prerelease dist-tags` step:
+
+- npmjs.com → Access Tokens → **Granular Access Token**
+  - name: `cueloop-ci-dist-tags`
+  - Packages and scopes: **Read and write** covering `@cueloop` + the unscoped
+    `cueloop` package (Organizations: No access)
+  - Expiration: set one and rotate (npm requires it)
+- GitHub → repo Settings → Secrets and variables → Actions → secret **`NPM_TOKEN`**
+
+Do NOT delete this secret after cutover - publishing uses OIDC, but the dist-tag
+step needs the token. Verify on the next release: the run publishes with a
+`provenance` attestation and the `alpha` dist-tag resolves to the new version.
