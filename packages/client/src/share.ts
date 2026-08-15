@@ -7,7 +7,7 @@
  */
 
 import { DEFAULT_SHARE_HOST, DEFAULT_SHARE_PORT, SHARE_UPLOAD_USER, packSessionBlob } from "@cueloop/daemon/share-blob";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Annotation, ReviewSession } from "@cueloop/schema";
 import { copyToClipboard } from "./clipboard";
 
 export interface ShareTarget {
@@ -29,49 +29,42 @@ export function shareIdFromLine(line: string): string | undefined {
 
 /** Upload the session to the gateway and copy the resulting ssh line. */
 export async function publishShare(session: ReviewSession, target: ShareTarget = {}): Promise<ShareResult> {
-  const line = await uploadOverSsh(packSessionBlob(session), target.host ?? DEFAULT_SHARE_HOST, target.port ?? DEFAULT_SHARE_PORT);
+  const { stdout, stderr, code } = await runShareSsh("cueloop-share", packSessionBlob(session), target);
+  if (code !== 0) throw new Error(`gateway upload failed: ${stderr.trim() || `ssh exited ${code}`}`);
+  const line = stdout.trim();
+  if (!line.startsWith("ssh ")) throw new Error(`unexpected gateway reply: ${line || "(empty)"}`);
   const copied = await copyToClipboard(line);
   return { line, copied };
 }
 
 /**
- * Pull a share's current session back from the gateway. Only the fingerprint
- * that uploaded it is let through, so collaborator notes flow to the planner
- * without exposing the master key. Returns the decrypted session.
+ * Pull a share's current session back from the gateway. The gateway lets only
+ * the fingerprint that uploaded it through, so collaborator notes reach the
+ * planner without exposing the master key.
  */
 export async function pullShare(shareId: string, target: ShareTarget = {}): Promise<ReviewSession> {
-  const json = await pullOverSsh(shareId, target.host ?? DEFAULT_SHARE_HOST, target.port ?? DEFAULT_SHARE_PORT);
-  return JSON.parse(json) as ReviewSession;
-}
-
-/** Stream the blob to `share@host:port` over the system `ssh` client. */
-async function uploadOverSsh(blob: Buffer, host: string, port: number): Promise<string> {
-  const proc = Bun.spawn(
-    ["ssh", "-p", String(port), "-o", "StrictHostKeyChecking=accept-new", `${SHARE_UPLOAD_USER}@${host}`, "cueloop-share"],
-    { stdin: blob, stdout: "pipe", stderr: "pipe" },
-  );
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-  if (code !== 0) throw new Error(`gateway upload failed: ${stderr.trim() || `ssh exited ${code}`}`);
-  const line = stdout.trim();
-  if (!line.startsWith("ssh ")) throw new Error(`unexpected gateway reply: ${line || "(empty)"}`);
-  return line;
-}
-
-/** Send the share id to `share@host:port` and read back the session JSON. */
-async function pullOverSsh(shareId: string, host: string, port: number): Promise<string> {
-  const proc = Bun.spawn(
-    ["ssh", "-p", String(port), "-o", "StrictHostKeyChecking=accept-new", `${SHARE_UPLOAD_USER}@${host}`, "cueloop-pull"],
-    { stdin: Buffer.from(shareId), stdout: "pipe", stderr: "pipe" },
-  );
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
+  const { stdout, stderr, code } = await runShareSsh("cueloop-pull", Buffer.from(shareId), target);
   if (code !== 0) throw new Error(`gateway pull failed: ${stderr.trim() || `ssh exited ${code}`}`);
-  return stdout;
+  return JSON.parse(stdout) as ReviewSession;
+}
+
+/** A share's collaborator notes: the ones a viewer authored (author stamped). */
+export function collaboratorAnnotations(session: ReviewSession): Annotation[] {
+  return session.annotations.filter((annotation) => annotation.author);
+}
+
+/** Run one `share@host:port` ssh command with `stdin`; hand back its streams and exit code. */
+async function runShareSsh(command: string, stdin: Buffer, target: ShareTarget): Promise<{ stdout: string; stderr: string; code: number }> {
+  const host = target.host ?? DEFAULT_SHARE_HOST;
+  const port = target.port ?? DEFAULT_SHARE_PORT;
+  const proc = Bun.spawn(
+    ["ssh", "-p", String(port), "-o", "StrictHostKeyChecking=accept-new", `${SHARE_UPLOAD_USER}@${host}`, command],
+    { stdin, stdout: "pipe", stderr: "pipe" },
+  );
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  return { stdout, stderr, code };
 }

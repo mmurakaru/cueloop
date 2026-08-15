@@ -18,8 +18,9 @@ function sessionFixture(id: string, overrides: Partial<ReviewSession> = {}): Rev
   };
 }
 
-function annotationFixture(id: string, author: string): Annotation {
-  return { id, kind: "comment", anchor: { quote: "Plan", prefix: "", suffix: "" }, body: "note", author, createdAt: "2026-01-01T00:00:00.000Z" };
+function annotationFixture(id: string, author?: string): Annotation {
+  const base: Annotation = { id, kind: "comment", anchor: { quote: "Plan", prefix: "", suffix: "" }, body: "note", createdAt: "2026-01-01T00:00:00.000Z" };
+  return author ? { ...base, author } : base;
 }
 
 /** A SessionClient that answers get/list from a fixed list and records the share/merge verbs. */
@@ -121,13 +122,11 @@ function pullDepsSpy(remote: ReviewSession): PullDeps & { lines: string[] } {
 }
 
 describe(pullSession, () => {
-  test("unions collaborator notes in and reports the count", async () => {
-    // Arrange
-    const local = sessionFixture("ses_1", { shareId: "p_abc123xy", annotations: [annotationFixture("a1", "SHA256:owner")] });
+  test("unions collaborator notes in, ignoring the planner's own unauthored notes", async () => {
+    // Arrange - the planner's own note carries no author; the collaborator's does
+    const local = sessionFixture("ses_1", { shareId: "p_abc123xy", annotations: [annotationFixture("mine")] });
     const client = fakeClient([local]);
-    const remote = sessionFixture("ses_1", {
-      annotations: [annotationFixture("a1", "SHA256:owner"), annotationFixture("a2", "SHA256:mate")],
-    });
+    const remote = sessionFixture("ses_1", { annotations: [annotationFixture("mine"), annotationFixture("theirs", "SHA256:mate")] });
     const deps = pullDepsSpy(remote);
 
     // Act
@@ -136,14 +135,27 @@ describe(pullSession, () => {
     // Assert
     expect(code).toBe(0);
     expect(deps.pull).toHaveBeenCalledWith("p_abc123xy", { host: undefined, port: undefined });
-    expect(local.annotations.map((annotation) => annotation.id)).toEqual(["a1", "a2"]);
+    expect(local.annotations.map((annotation) => annotation.id)).toEqual(["mine", "theirs"]);
     expect(deps.lines).toEqual(["pulled 1 new annotation"]);
+  });
+
+  test("does not resurrect a note the planner deleted locally after sharing", async () => {
+    // Arrange - the planner deleted "mine" locally; the share blob still carries it, unauthored
+    const local = sessionFixture("ses_1", { shareId: "p_abc123xy", annotations: [] });
+    const deps = pullDepsSpy(sessionFixture("ses_1", { annotations: [annotationFixture("mine")] }));
+
+    // Act
+    await pullSession(fakeClient([local]), { sessionId: "ses_1" }, deps);
+
+    // Assert
+    expect(local.annotations).toEqual([]);
+    expect(deps.lines).toEqual(["no new annotations"]);
   });
 
   test("reports when nothing new came back", async () => {
     // Arrange
-    const local = sessionFixture("ses_1", { shareId: "p_abc123xy", annotations: [annotationFixture("a1", "SHA256:owner")] });
-    const deps = pullDepsSpy(sessionFixture("ses_1", { annotations: [annotationFixture("a1", "SHA256:owner")] }));
+    const local = sessionFixture("ses_1", { shareId: "p_abc123xy", annotations: [annotationFixture("theirs", "SHA256:mate")] });
+    const deps = pullDepsSpy(sessionFixture("ses_1", { annotations: [annotationFixture("theirs", "SHA256:mate")] }));
 
     // Act
     await pullSession(fakeClient([local]), { sessionId: "ses_1" }, deps);

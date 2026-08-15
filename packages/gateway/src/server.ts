@@ -113,7 +113,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     session.on("exec", (accept, reject, info) => {
       if (identity.username !== SHARE_UPLOAD_USER) return reject();
       const channel = accept();
-      if (info.command.includes("pull")) void handlePull(channel, identity);
+      if (info.command === "cueloop-pull") void handlePull(channel, identity);
       else void handleUpload(channel, identity, remoteIp);
     });
   }
@@ -194,16 +194,16 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   async function handlePull(channel: ServerChannel, identity: Identity): Promise<void> {
     try {
       const shareId = (await readCapped(channel, 256)).toString("utf8").trim();
-      if (!isShareId(shareId)) return void reject(channel, "not a share id");
+      if (!isShareId(shareId)) return void fail(channel, "not a share id");
       const stored = await options.store.get(shareId);
-      if (!stored) return void reject(channel, "this share was not found or has expired");
+      if (!stored) return void fail(channel, "this share was not found or has expired");
       const session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
-      if (session.owner !== identity.fingerprint) return void reject(channel, "only the planner who shared this can pull it");
+      if (session.owner !== identity.fingerprint) return void fail(channel, "only the planner who shared this can pull it");
       channel.write(JSON.stringify(session));
       end(channel, 0);
     } catch (err) {
       onError(err);
-      reject(channel, "could not read this share");
+      fail(channel, "could not read this share");
     }
   }
 
@@ -262,7 +262,7 @@ function end(channel: ServerChannel, code: number): void {
   channel.end();
 }
 
-function reject(channel: ServerChannel, message: string): void {
+function fail(channel: ServerChannel, message: string): void {
   channel.stderr.write(`cueloop: ${message}\r\n`);
   end(channel, 1);
 }

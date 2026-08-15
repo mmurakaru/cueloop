@@ -7,7 +7,7 @@
  */
 
 import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
-import { publishShare, pullShare, shareIdFromLine, type ShareResult, type ShareTarget } from "@cueloop/client";
+import { collaboratorAnnotations, publishShare, pullShare, shareIdFromLine, type ShareResult, type ShareTarget } from "@cueloop/client";
 import type { ReviewSession } from "@cueloop/schema";
 
 export interface ShareParams {
@@ -77,7 +77,7 @@ export async function pullSession(client: SessionClient, params: ShareParams, de
   }
   const remote = await deps.pull(session.shareId!, { host: params.host, port: params.port });
   const before = session.annotations.length;
-  const merged = await client.sessionMergeAnnotations(session.id, remote.annotations);
+  const merged = await client.sessionMergeAnnotations(session.id, collaboratorAnnotations(remote));
   const added = merged.annotations.length - before;
   deps.out(added > 0 ? `pulled ${added} new annotation${added === 1 ? "" : "s"}` : "no new annotations");
   return 0;

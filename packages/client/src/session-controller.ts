@@ -23,7 +23,7 @@ import {
   type VerdictKind,
 } from "@cueloop/schema";
 import { loadBundledExporters, type BundledExporter } from "./integrations";
-import { publishShare, pullShare, shareIdFromLine } from "./share";
+import { collaboratorAnnotations, publishShare, pullShare, shareIdFromLine } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
@@ -506,7 +506,7 @@ class Controller implements ReviewController {
     if (!session?.shareId || !this.client) return;
     const client = this.client;
     pullShare(session.shareId)
-      .then((remote) => client.sessionMergeAnnotations(session.id, remote.annotations))
+      .then((remote) => client.sessionMergeAnnotations(session.id, collaboratorAnnotations(remote)))
       .catch((error: unknown) => this.setStatus(`pull failed: ${error instanceof Error ? error.message : String(error)}`));
   }
 
