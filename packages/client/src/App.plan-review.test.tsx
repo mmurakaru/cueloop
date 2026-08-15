@@ -116,7 +116,7 @@ describe("selection feeds the annotation quote", () => {
     await press(setup, "c");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain('comment on "The daemon"');
+    await waitForText(setup, 'comment on "The daemon"');
 
     // Act
     await type(setup, "Which daemon?");
@@ -143,7 +143,7 @@ describe("selection feeds the annotation quote", () => {
     await press(setup, "c");
 
     // Assert
-    expect(setup.captureCharFrame()).toContain('comment on "persists sessions"');
+    await waitForText(setup, 'comment on "persists sessions"');
 
     // Act
     await type(setup, "sessions plural?");
