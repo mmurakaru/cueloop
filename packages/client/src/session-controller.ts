@@ -169,7 +169,7 @@ class Controller implements ReviewController {
   private readonly clock: Clock;
   private countdown: TimerHandle | undefined;
   private sharePoll: TimerHandle | undefined;
-  private sharePolling = false;
+  private shareRun: object | null = null;
   /** Projections keyed by session identity so renders reuse one computation. */
   private derivedFor: ReviewSession | null = null;
   private derived: { display: DisplayBlock[]; rows: DiffRow[]; files: WalkFile[] } = {
@@ -378,8 +378,9 @@ class Controller implements ReviewController {
       anchor = makeAnchor(workBlocks, workBlockIndex, start, end);
     }
     const wire = { id: newAnnotationId(), kind, anchor, body };
-    this.apply(this.client!.sessionAnnotate(session.id, wire));
-    this.mirrorAnnotation(wire);
+    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    this.apply(persisted);
+    this.mirrorAnnotation(persisted, wire);
     this.setStatus(kind === "suggestion" ? "suggestion added - the agent applies it" : "comment added");
     return wire.id;
   }
@@ -391,18 +392,17 @@ class Controller implements ReviewController {
     if (!existing) return;
     // the daemon's annotate verb upserts by id: same id + anchor, new body
     const wire = { id: existing.id, kind: existing.kind, anchor: existing.anchor, body };
-    this.apply(this.client!.sessionAnnotate(session.id, wire));
-    this.mirrorAnnotation(wire);
+    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    this.apply(persisted);
+    this.mirrorAnnotation(persisted, wire);
     this.setStatus("annotation updated");
   }
 
-  // Mirror a just-made annotation up so collaborators see it (best-effort). Only
-  // the planner's local session carries a shareId - the gateway strips it from
-  // blobs - so this gate never fires in a collaborator's view.
-  private mirrorAnnotation(annotation: Omit<Annotation, "createdAt">): void {
-    const session = this.snapshot.session;
-    if (!session?.shareId) return;
-    void pushShare(session.shareId, [annotation]).catch(() => {});
+  // push only after the local write lands, so a rejected write never leaks to the share
+  private mirrorAnnotation(persisted: Promise<ReviewSession>, annotation: Omit<Annotation, "createdAt">): void {
+    const shareId = this.snapshot.session?.shareId;
+    if (!shareId) return;
+    void persisted.then(() => pushShare(shareId, [annotation])).catch(() => {});
   }
 
   removeAnnotation(id: string): void {
@@ -526,19 +526,22 @@ class Controller implements ReviewController {
    */
   startSharePoll(): () => void {
     this.stopSharePoll();
-    this.sharePolling = true;
+    // per-run token so a stale run's in-flight pull never re-arms the poll
+    const run = {};
+    this.shareRun = run;
     const tick = (): void => {
       void this.pullShared().finally(() => {
-        // an in-flight pull can settle after a leave; only re-arm if still polling
-        if (this.sharePolling && !this.closed) this.sharePoll = this.clock.setTimeout(tick, SHARE_POLL_MS);
+        if (this.shareRun === run && !this.closed) this.sharePoll = this.clock.setTimeout(tick, SHARE_POLL_MS);
       });
     };
     tick();
-    return () => this.stopSharePoll();
+    return () => {
+      if (this.shareRun === run) this.stopSharePoll();
+    };
   }
 
   private stopSharePoll(): void {
-    this.sharePolling = false;
+    this.shareRun = null;
     if (this.sharePoll !== undefined) this.clock.clearTimeout(this.sharePoll);
     this.sharePoll = undefined;
   }

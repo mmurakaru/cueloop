@@ -140,6 +140,22 @@ describe("mirror on annotate", () => {
     // Assert
     expect(pushShare).not.toHaveBeenCalled();
   });
+
+  test("does not push when the local write is rejected", async () => {
+    // Arrange - the daemon write fails (e.g. a resolved session)
+    pushShare.mockClear();
+    const { controller, client } = await connectedController(sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }));
+    (client.sessionAnnotate as ReturnType<typeof mock>).mockImplementationOnce(async () => {
+      throw new Error("session is resolved");
+    });
+
+    // Act
+    controller.updateAnnotation("a1", "revised body");
+    await tick();
+
+    // Assert - a failed local write must never leak to the share
+    expect(pushShare).not.toHaveBeenCalled();
+  });
 });
 
 describe("startSharePoll", () => {
@@ -194,5 +210,33 @@ describe("startSharePoll", () => {
 
     // Assert - the settled pull's finally must not re-arm the timer
     expect(pullShare).toHaveBeenCalledTimes(1);
+  });
+
+  test("a restart during an in-flight pull does not double the poll", async () => {
+    // Arrange - run A's first pull hangs; later pulls resolve immediately
+    pullShare.mockClear();
+    remote = sessionFixture({ annotations: [] });
+    let release: () => void = () => {};
+    pullShare.mockImplementationOnce(() => new Promise<ReviewSession>((resolve) => (release = () => resolve(remote))));
+    const clock = new ManualClock();
+    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }), clock);
+
+    // Act - run A starts (pull hangs), then run B restarts while A is in flight
+    controller.startSharePoll();
+    await tick();
+    expect(pullShare).toHaveBeenCalledTimes(1);
+    const stopB = controller.startSharePoll();
+    await tick();
+    expect(pullShare).toHaveBeenCalledTimes(2);
+
+    // A's stale pull settles - it must not re-arm; then one interval fires only run B
+    release();
+    await tick();
+    clock.advance(SHARE_POLL_MS);
+    await tick();
+
+    // Assert - exactly one more pull (run B), not two
+    expect(pullShare).toHaveBeenCalledTimes(3);
+    stopB();
   });
 });
