@@ -97,6 +97,6 @@ review. See `AGENTS.md` for dev-loop conventions and the test pyramid.
 | [`@cueloop/adapters`](https://www.npmjs.com/package/@cueloop/adapters) | Claude Code and pi adapters (Codex planned) |
 
 Apache-2.0. Contributions: every PR ships a changeset (`bunx changeset`) - see
-[docs/releasing.md](./docs/releasing.md) and [AGENTS.md](./AGENTS.md). The design
+[AGENTS.md](./AGENTS.md). The design
 decisions behind cueloop are recorded in the
 [closed decision tickets](https://github.com/mmurakaru/cueloop/issues?q=is%3Aissue+is%3Aclosed+label%3Awayfinder%3Agrilling).

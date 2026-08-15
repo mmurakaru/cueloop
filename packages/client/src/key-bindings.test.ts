@@ -118,6 +118,17 @@ describe("getActiveKeys-generated status hints", () => {
     expect(bindings().statusHint("read-only")).toBe("observer - read-only · j/k move · n/p annotations · q quit");
   });
 
+  test("collaborator hint annotates but shows no plan edit or submit", () => {
+    // Arrange / Act
+    const hint = bindings().statusHint("collaborator");
+
+    // Assert
+    expect(hint).toBe("j/k move · v span · drag selects · c comment · s suggest · n/p annotations · q quit");
+    expect(hint).not.toContain("cut");
+    expect(hint).not.toContain("edit");
+    expect(hint).not.toContain("submit");
+  });
+
   test("a rebound key shows its real binding in the hint", () => {
     // Arrange
     const resolver = new KeyBindings({ ...DEFAULT_KEYS, comment: ["m"] });

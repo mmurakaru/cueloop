@@ -5,21 +5,8 @@ name: release
 # into version bumps + changelogs + the plugin.json sync) or, when that PR
 # merges, publishes the workspace to npm under the `alpha` dist-tag.
 #
-# AUTH: trusted publishing (OIDC) is the target - no long-lived npm secret, and
-# every tarball gets a provenance attestation. It cannot be used for a package's
-# FIRST publish (a trusted publisher is configured on an already-existing
-# package), so the flow bootstraps once with NPM_TOKEN and then drops it:
-#
-#   1. bootstrap: set NPM_TOKEN (short-lived granular token, 2FA bypass on) and
-#      let this workflow publish the first alpha.
-#   2. cutover: for each published package on npmjs.com → Settings →
-#      Publishing access → Trusted publisher: repo mmurakaru/cueloop, workflow
-#      release.yml. Then delete the token on npm AND remove the NPM_TOKEN repo
-#      secret. Nothing here needs to change: the `id-token: write` permission
-#      and the npm/Node versions below are already in place, and npm uses OIDC
-#      automatically when no token is present.
-#
-# See docs/releasing.md for the full checklist.
+# Publishing uses npm trusted publishing (OIDC). The dist-tag sync step is not
+# OIDC-covered, so it reads the NPM_TOKEN secret; publishing carries no token.
 #
 # RELEASE_TOKEN (optional PAT): merges made with the default GITHUB_TOKEN do not
 # trigger workflows (GitHub's anti-recursion rule), so without it the publish
@@ -75,13 +62,10 @@ jobs:
           title: "Release: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          # Bootstrap only. Once trusted publishing is configured per package,
-          # remove this secret; npm then authenticates via OIDC.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NODE_AUTH_TOKEN here: publishing uses OIDC (provenance, no token).
           NPM_CONFIG_PROVENANCE: "true"
-      # changesets publishes a prerelease to `latest` when a package has had no
-      # normal release, so the prerelease tag must be pointed at this version
-      # explicitly - otherwise `npm i cueloop@alpha` serves an older build.
+      # Point the prerelease dist-tag at this version. `npm dist-tag add` is not
+      # OIDC-covered, so this one step uses the NPM_TOKEN secret.
       - name: Sync prerelease dist-tags
         if: steps.changesets.outputs.published == 'true'
         run: bun run scripts/sync-dist-tags.ts
