@@ -51,7 +51,7 @@ jobs:
       # fresh install in the publish lane - tarball contents never come from a cache
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
-      - run: bun test ./packages ./test
+      - run: bun run test
       - name: Create Release PR or publish
         id: changesets
         uses: changesets/action@v1
