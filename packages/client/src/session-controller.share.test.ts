@@ -172,4 +172,27 @@ describe("startSharePoll", () => {
     // Assert
     expect(pullShare).toHaveBeenCalledTimes(2);
   });
+
+  test("a stop during an in-flight pull leaves no zombie timer", async () => {
+    // Arrange - the first pull hangs until released
+    pullShare.mockClear();
+    remote = sessionFixture({ annotations: [] });
+    let release: () => void = () => {};
+    pullShare.mockImplementationOnce(() => new Promise<ReviewSession>((resolve) => (release = () => resolve(remote))));
+    const clock = new ManualClock();
+    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }), clock);
+
+    // Act - start (pull is in flight), leave, then let the pull settle
+    const stop = controller.startSharePoll();
+    await tick();
+    expect(pullShare).toHaveBeenCalledTimes(1);
+    stop();
+    release();
+    await tick();
+    clock.advance(SHARE_POLL_MS * 3);
+    await tick();
+
+    // Assert - the settled pull's finally must not re-arm the timer
+    expect(pullShare).toHaveBeenCalledTimes(1);
+  });
 });
