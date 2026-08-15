@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.23
+
+### Patch Changes
+
+- [#136](https://github.com/mmurakaru/cueloop/pull/136) [`ad0cda6`](https://github.com/mmurakaru/cueloop/commit/ad0cda666ee004d612be8607abf14c9f588eaa4e) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A plan shared over SSH now hides every plan-edit affordance from the viewer: the sheet-header Edit button is owner-only, the edit/cut keys are silent instead of nagging "shared plan - edit it in your own copy", and the hint strip drops cut/edit/submit. A collaborator still annotates, navigates, and edits their own notes.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.23
+  - @cueloop/daemon@0.1.0-alpha.23
+  - @cueloop/schema@0.1.0-alpha.23
+
 ## 0.1.0-alpha.22
 
 ### Minor Changes
