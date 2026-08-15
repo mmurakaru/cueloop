@@ -270,7 +270,7 @@ function SheetHeader({
         ) : null}
       </text>
       <box style={{ flexGrow: 1 }} />
-      {canEdit ? (
+      {canEdit && session.status !== "resolved" ? (
         <Toolbar>
           <Button onPress={onEditRequest} theme={theme}>
             {" Edit "}

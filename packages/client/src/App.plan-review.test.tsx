@@ -95,6 +95,20 @@ describe("share button", () => {
     // Assert
     expect(viewer.captureCharFrame()).not.toContain("Share");
   });
+
+  test("a resolved plan hides Edit and Share (no re-sharing a finished review)", async () => {
+    // Arrange - resolve the session before opening it
+    server.core.sessionResolve(session.id, "approve", "");
+
+    // Act
+    const setup = await renderApp();
+    await waitForText(setup, "submitted by");
+
+    // Assert - the owner toolbar is gone once the review is resolved
+    const headerLine = setup.captureCharFrame().split("\n").find((line) => line.includes("submitted by"));
+    expect(headerLine).not.toContain("Edit");
+    expect(headerLine).not.toContain("Share");
+  });
 });
 
 describe("edit affordance", () => {
