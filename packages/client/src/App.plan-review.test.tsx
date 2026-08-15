@@ -81,9 +81,10 @@ describe("share button", () => {
     const setup = await renderApp();
 
     // Assert
-    const frame = setup.captureCharFrame();
-    expect(frame).toContain("Edit");
-    expect(frame).toContain("Share");
+    // both word-buttons ride the same header row, so Share sits next to Edit
+    const headerLine = setup.captureCharFrame().split("\n").find((line) => line.includes("submitted by"));
+    expect(headerLine).toContain("Edit");
+    expect(headerLine).toContain("Share");
   });
 
   test("a read-only viewer (a plan shared over ssh) never sees the Share button", async () => {
