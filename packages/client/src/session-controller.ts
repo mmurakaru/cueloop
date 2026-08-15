@@ -169,6 +169,7 @@ class Controller implements ReviewController {
   private readonly clock: Clock;
   private countdown: TimerHandle | undefined;
   private sharePoll: TimerHandle | undefined;
+  private sharePolling = false;
   /** Projections keyed by session identity so renders reuse one computation. */
   private derivedFor: ReviewSession | null = null;
   private derived: { display: DisplayBlock[]; rows: DiffRow[]; files: WalkFile[] } = {
@@ -395,7 +396,9 @@ class Controller implements ReviewController {
     this.setStatus("annotation updated");
   }
 
-  /** Push a just-made annotation up to the share so collaborators see it (owner only, best-effort). */
+  // Mirror a just-made annotation up so collaborators see it (best-effort). Only
+  // the planner's local session carries a shareId - the gateway strips it from
+  // blobs - so this gate never fires in a collaborator's view.
   private mirrorAnnotation(annotation: Omit<Annotation, "createdAt">): void {
     const session = this.snapshot.session;
     if (!session?.shareId) return;
@@ -501,17 +504,19 @@ class Controller implements ReviewController {
   }
 
   /**
-   * Pull collaborator notes for a shared plan and union them in. The daemon's
-   * merge emits session.updated, so the refresh and re-render happen through the
-   * normal event path. No-op unless this plan was shared from here.
+   * Pull collaborator notes for a shared plan and union them in, awaiting the
+   * merge so a poll never overlaps rounds. The daemon's merge emits
+   * session.updated, so the re-render happens through the normal event path.
+   * Best-effort: a failed refresh is silent and the next tick retries.
    */
   pullShared(): Promise<void> {
     const session = this.snapshot.session;
     if (!session?.shareId || !this.client) return Promise.resolve();
     const client = this.client;
     return pullShare(session.shareId)
-      .then((remote) => void client.sessionMergeAnnotations(session.id, collaboratorAnnotations(remote)))
-      .catch((error: unknown) => this.setStatus(`pull failed: ${error instanceof Error ? error.message : String(error)}`));
+      .then((remote) => client.sessionMergeAnnotations(session.id, collaboratorAnnotations(remote)))
+      .then(() => {})
+      .catch(() => {});
   }
 
   /**
@@ -521,9 +526,11 @@ class Controller implements ReviewController {
    */
   startSharePoll(): () => void {
     this.stopSharePoll();
+    this.sharePolling = true;
     const tick = (): void => {
       void this.pullShared().finally(() => {
-        if (!this.closed) this.sharePoll = this.clock.setTimeout(tick, SHARE_POLL_MS);
+        // an in-flight pull can settle after a leave; only re-arm if still polling
+        if (this.sharePolling && !this.closed) this.sharePoll = this.clock.setTimeout(tick, SHARE_POLL_MS);
       });
     };
     tick();
@@ -531,6 +538,7 @@ class Controller implements ReviewController {
   }
 
   private stopSharePoll(): void {
+    this.sharePolling = false;
     if (this.sharePoll !== undefined) this.clock.clearTimeout(this.sharePoll);
     this.sharePoll = undefined;
   }

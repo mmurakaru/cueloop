@@ -292,14 +292,16 @@ function fail(channel: ServerChannel, message: string): void {
   end(channel, 1);
 }
 
-/** Union the owner's own (unauthored) notes into the blob by id, never clobbering a collaborator's. */
+/** Union the owner's own notes into the blob by id, never clobbering a collaborator's. */
 function mergeOwnerAnnotations(session: ReviewSession, incoming: Array<Omit<Annotation, "createdAt">>): ReviewSession {
   const byId = new Map(session.annotations.map((annotation) => [annotation.id, annotation]));
   const now = new Date().toISOString();
   for (const note of incoming) {
     const existing = byId.get(note.id);
     if (existing?.author) continue;
-    byId.set(note.id, { ...note, createdAt: existing?.createdAt ?? now });
+    // the owner's notes stay unauthored: strip any author so the pull filter and the delete guard hold
+    const { author: _drop, ...rest } = note;
+    byId.set(note.id, { ...rest, createdAt: existing?.createdAt ?? now });
   }
   return { ...session, annotations: [...byId.values()] };
 }

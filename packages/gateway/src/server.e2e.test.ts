@@ -321,6 +321,19 @@ describe("planner push", () => {
     expect(result.code).not.toBe(0);
     expect(result.err).toContain("only the planner who shared this can push to it");
   });
+
+  test("strips a spoofed author off a pushed note", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+    const note = { id: "spoof-1", kind: "comment", anchor: { quote: "Rollout", prefix: "", suffix: "" }, body: "not really theirs", author: "SHA256:someone-else" };
+
+    // Act
+    await sharePush(handle.port, id, [note], CLIENT_KEY);
+    const stored = unpackSessionBlob(openBlob(MASTER, id, (await store.get(id))!));
+
+    // Assert
+    expect(stored.annotations.find((annotation) => annotation.id === "spoof-1")?.author).toBeUndefined();
+  });
 });
 
 describe("upload hygiene", () => {
