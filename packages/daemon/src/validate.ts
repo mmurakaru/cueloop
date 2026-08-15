@@ -83,6 +83,9 @@ export const AnnotationSchema = v.object({
 
 const SessionId = NonEmpty;
 
+/** A stored annotation: the wire shape plus the daemon-stamped createdAt. */
+export const FullAnnotationSchema = v.object({ ...AnnotationSchema.entries, createdAt: v.string() } satisfies EntriesOf<Annotation>);
+
 export const Params = {
   "session.create": v.object({ workspace: WorkspaceSchema, artifact: ArtifactSchema }),
   "session.get": v.object({ id: SessionId }),
@@ -103,6 +106,8 @@ export const Params = {
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
   "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
+  "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
+  "session.mergeAnnotations": v.object({ id: SessionId, annotations: v.array(FullAnnotationSchema) }),
   "session.resolve": v.object({
     id: SessionId,
     verdictKind: v.picklist(["comment", "approve", "request_changes"]),
@@ -156,12 +161,14 @@ export const SessionRecordSchema = v.object({
   workspace: WorkspaceSchema,
   artifact: ArtifactSchema,
   revisions: v.array(RevisionSchema),
-  annotations: v.array(v.object({ ...AnnotationSchema.entries, createdAt: v.string() } satisfies EntriesOf<Annotation>)),
+  annotations: v.array(FullAnnotationSchema),
   workingCopy: v.optional(v.string()),
   viewedPaths: v.optional(v.array(v.string())),
   verdict: v.nullable(VerdictSchema),
   status: v.picklist(["pending", "resolved"]),
   createdAt: v.string(),
+  shareId: v.optional(v.string()),
+  owner: v.optional(v.string()),
 } satisfies EntriesOf<ReviewSession>);
 
 export function validateSessionRecord(raw: unknown): { ok: true; value: v.InferOutput<typeof SessionRecordSchema> } | { ok: false; error: string } {

@@ -168,6 +168,24 @@ export class DaemonCore {
     return session;
   }
 
+  sessionSetShareId(id: string, shareId: string): ReviewSession {
+    const session = this.mutable(id);
+    session.shareId = shareId;
+    this.store.upsert(session);
+    this.emit("session.updated", id);
+    return session;
+  }
+
+  /** Union incoming annotations in by id; existing ids (the planner's) win. */
+  sessionMergeAnnotations(id: string, incoming: Annotation[]): ReviewSession {
+    const session = this.mutable(id);
+    const known = new Set(session.annotations.map((annotation) => annotation.id));
+    for (const annotation of incoming) if (!known.has(annotation.id)) session.annotations.push(annotation);
+    this.store.upsert(session);
+    this.emit("session.updated", id);
+    return session;
+  }
+
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): ReviewSession {
     const session = this.mutable(id);
     const verdict: Verdict = {

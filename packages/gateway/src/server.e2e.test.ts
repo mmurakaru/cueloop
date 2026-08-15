@@ -37,6 +37,7 @@ const SESSION: ReviewSession = {
 };
 
 const CLIENT_KEY = generateEd25519Key();
+const OTHER_KEY = generateEd25519Key();
 
 let home: string;
 let store: MemoryShareStore;
@@ -204,6 +205,62 @@ describe("collaborator write-back", () => {
     const note = stored.annotations.find((annotation) => annotation.body.includes("risky move"));
     expect(note).toBeDefined();
     expect(note?.author).toMatch(/^SHA256:/);
+  });
+});
+
+/** Exec `cueloop-pull` with `privateKey`, streaming the share id; capture stdout/stderr/exit. */
+function sharePull(port: number, shareId: string, privateKey: string): Promise<{ out: string; err: string; code: number | null }> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    let out = "";
+    let err = "";
+    let code: number | null = null;
+    const timer = setTimeout(() => reject(new Error("pull timed out")), 8000);
+    conn
+      .on("ready", () => {
+        conn.exec("cueloop-pull", (error, stream) => {
+          if (error) return reject(error);
+          stream.on("data", (chunk: Buffer) => (out += chunk.toString("utf8")));
+          stream.stderr.on("data", (chunk: Buffer) => (err += chunk.toString("utf8")));
+          stream.on("exit", (exitCode: number) => (code = exitCode));
+          stream.on("close", () => {
+            clearTimeout(timer);
+            conn.end();
+            resolve({ out, err, code });
+          });
+          stream.end(shareId);
+        });
+      })
+      .on("error", reject)
+      .connect({ host: "127.0.0.1", port, username: "share", privateKey });
+  });
+}
+
+describe("planner pull", () => {
+  test("the fingerprint that shared it pulls the session back with collaborator notes", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+    await annotateOverShell(handle.port, id, "pull me back");
+
+    // Act
+    const result = await sharePull(handle.port, id, CLIENT_KEY);
+    const pulled = JSON.parse(result.out) as ReviewSession;
+
+    // Assert
+    expect(result.code).toBe(0);
+    expect(pulled.annotations.some((annotation) => annotation.body.includes("pull me back"))).toBe(true);
+  });
+
+  test("a fingerprint that did not share it is refused", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+
+    // Act
+    const result = await sharePull(handle.port, id, OTHER_KEY);
+
+    // Assert
+    expect(result.code).not.toBe(0);
+    expect(result.err).toContain("only the planner who shared this can pull it");
   });
 });
 

@@ -34,6 +34,8 @@ export interface SessionClient {
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession>;
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
+  sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
+  sessionMergeAnnotations(id: string, annotations: Annotation[]): Promise<ReviewSession>;
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession>;
   close(): void;
 }
@@ -182,6 +184,12 @@ export class DaemonClient implements SessionClient {
   }
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession> {
     return this.request("session.setViewed", { id, viewedPaths });
+  }
+  sessionSetShareId(id: string, shareId: string): Promise<ReviewSession> {
+    return this.request("session.setShareId", { id, shareId });
+  }
+  sessionMergeAnnotations(id: string, annotations: Annotation[]): Promise<ReviewSession> {
+    return this.request("session.mergeAnnotations", { id, annotations });
   }
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession> {
     return this.request("session.resolve", { id, verdictKind, summary });

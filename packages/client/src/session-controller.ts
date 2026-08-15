@@ -23,7 +23,7 @@ import {
   type VerdictKind,
 } from "@cueloop/schema";
 import { loadBundledExporters, type BundledExporter } from "./integrations";
-import { publishShare } from "./share";
+import { collaboratorAnnotations, publishShare, pullShare, shareIdFromLine } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
@@ -124,6 +124,8 @@ export interface ReviewController {
   submit(verdict: VerdictKind, summary: string): void;
   /** Publish the current session as a share; the ssh line lands on the clipboard. */
   share(): void;
+  /** Pull a shared plan's collaborator notes back and union them in (planner only). */
+  pullShared(): void;
   /** Close the review and, inside herdr, bounce focus back to the agent. */
   finishReview(): void;
   dismissCompletion(): void;
@@ -485,8 +487,27 @@ class Controller implements ReviewController {
     if (!session) return;
     this.setStatus("sharing…");
     publishShare(session)
-      .then(({ line, copied }) => this.setStatus(copied ? `✓ share link copied - ${line}` : line))
+      .then(async ({ line, copied }) => {
+        // Stamp the id back so a later pull knows which share to collect from.
+        const shareId = shareIdFromLine(line);
+        if (shareId && this.client) await this.client.sessionSetShareId(session.id, shareId);
+        this.setStatus(copied ? `✓ share link copied - ${line}` : line);
+      })
       .catch((error: unknown) => this.setStatus(`share failed: ${error instanceof Error ? error.message : String(error)}`));
+  }
+
+  /**
+   * Pull collaborator notes for a shared plan and union them in. The daemon's
+   * merge emits session.updated, so the refresh and re-render happen through the
+   * normal event path. No-op unless this plan was shared from here.
+   */
+  pullShared(): void {
+    const session = this.snapshot.session;
+    if (!session?.shareId || !this.client) return;
+    const client = this.client;
+    pullShare(session.shareId)
+      .then((remote) => client.sessionMergeAnnotations(session.id, collaboratorAnnotations(remote)))
+      .catch((error: unknown) => this.setStatus(`pull failed: ${error instanceof Error ? error.message : String(error)}`));
   }
 
   // ── completion hand-back ────────────────────

@@ -1,4 +1,4 @@
 export { runClient, type RunClientOptions } from "./run";
 export { serveClient, type ServeHandle, type ServeOptions } from "./serve";
 export { App, type AppProps } from "./App";
-export { publishShare, type ShareResult, type ShareTarget } from "./share";
+export { collaboratorAnnotations, publishShare, pullShare, shareIdFromLine, type ShareResult, type ShareTarget } from "./share";

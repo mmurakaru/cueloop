@@ -191,6 +191,8 @@ describe("wire pins", () => {
     verdict: fullVerdict,
     status: "pending",
     createdAt: "now",
+    shareId: "p_abc123xy",
+    owner: "SHA256:owner",
   };
 
   test("schema key sets match the schema types", () => {

@@ -92,6 +92,14 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     controller.getSnapshot,
     controller.getSnapshot,
   );
+  // Opening a plan you shared collects collaborator notes once; owner-only, and
+  // the merge refreshes through the normal event path.
+  const pulledSessionId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isOwner || !session?.shareId || pulledSessionId.current === session.id) return;
+    pulledSessionId.current = session.id;
+    controller.pullShared();
+  }, [isOwner, session?.id, session?.shareId, controller]);
   const renderer = useRenderer();
   const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
 

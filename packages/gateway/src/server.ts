@@ -110,9 +110,11 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       void handleView(channel, identity, pty, (handle) => (render = handle));
     });
 
-    session.on("exec", (accept, reject) => {
+    session.on("exec", (accept, reject, info) => {
       if (identity.username !== SHARE_UPLOAD_USER) return reject();
-      void handleUpload(accept(), remoteIp);
+      const channel = accept();
+      if (info.command === "cueloop-pull") void handlePull(channel, identity);
+      else void handleUpload(channel, identity, remoteIp);
     });
   }
 
@@ -168,7 +170,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     }
   }
 
-  async function handleUpload(channel: ServerChannel, remoteIp: string): Promise<void> {
+  async function handleUpload(channel: ServerChannel, identity: Identity, remoteIp: string): Promise<void> {
     if (!uploadLimiter.take(remoteIp)) {
       channel.stderr.write("cueloop: rate limited, try again shortly\r\n");
       return end(channel, 1);
@@ -176,7 +178,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     let id: string;
     try {
       const bytes = await readCapped(channel, maxUploadBytes);
-      const session = unpackSessionBlob(bytes);
+      const session = { ...unpackSessionBlob(bytes), owner: identity.fingerprint };
       id = mintShareId();
       await options.store.put(id, sealBlob(options.masterKey, id, packSessionBlob(session)));
     } catch (err) {
@@ -186,6 +188,23 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     }
     channel.write(`ssh ${id}@${publicHost}\n`);
     end(channel, 0);
+  }
+
+  // The owner (the fingerprint that uploaded) pulls the current session back.
+  async function handlePull(channel: ServerChannel, identity: Identity): Promise<void> {
+    try {
+      const shareId = (await readCapped(channel, 256)).toString("utf8").trim();
+      if (!isShareId(shareId)) return void fail(channel, "not a share id");
+      const stored = await options.store.get(shareId);
+      if (!stored) return void fail(channel, "this share was not found or has expired");
+      const session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
+      if (session.owner !== identity.fingerprint) return void fail(channel, "only the planner who shared this can pull it");
+      channel.write(JSON.stringify(session));
+      end(channel, 0);
+    } catch (err) {
+      onError(err);
+      fail(channel, "could not read this share");
+    }
   }
 
   const port = options.port ?? 22;
@@ -241,4 +260,9 @@ function readCapped(channel: ServerChannel, max: number): Promise<Buffer> {
 function end(channel: ServerChannel, code: number): void {
   channel.exit(code);
   channel.end();
+}
+
+function fail(channel: ServerChannel, message: string): void {
+  channel.stderr.write(`cueloop: ${message}\r\n`);
+  end(channel, 1);
 }
