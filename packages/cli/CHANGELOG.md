@@ -1,5 +1,22 @@
 # cueloop
 
+## 0.1.0-alpha.25
+
+### Minor Changes
+
+- [#148](https://github.com/mmurakaru/cueloop/pull/148) [`137f92c`](https://github.com/mmurakaru/cueloop/commit/137f92c08f8c3c235dc9b38def27778e336f5686) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Near-live sync for shared plans. While you have a plan you shared open, cueloop now re-pulls collaborator notes every few seconds, so a teammate's comments stream in without reopening anything. It is bidirectional: your own notes and edits on a shared plan mirror up to the share, so collaborators see them on their next refresh. Everything still converges by id, so order never matters and there is nothing to resolve by hand.
+
+- [#145](https://github.com/mmurakaru/cueloop/pull/145) [`6fb25ca`](https://github.com/mmurakaru/cueloop/commit/6fb25caaa5c9b8d4176c67a459d03687e572226b) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Pull collaborator notes on a shared plan back to the planner. When you share a plan, cueloop now records the share id on the session; `cueloop share pull [session-id]` (and opening a shared plan in the TUI) fetches the share's current notes and unions them into your local plan by id, so teammates' comments show up without losing your own. The gateway lets only the fingerprint that created the share pull it back.
+
+### Patch Changes
+
+- [#141](https://github.com/mmurakaru/cueloop/pull/141) [`20a1e03`](https://github.com/mmurakaru/cueloop/commit/20a1e03ff0e73020ee5b23954f3ed04ac6224e9c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The Share affordance moves out of the review rail and into the plan sheet header, inline next to Edit, with a plain "Share" label. It renders under the same owner-only gate as Edit, so `cueloop serve` observers and share collaborators still see neither button. The `⇧S` share keybinding and the underlying share intent are unchanged.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.25
+  - @cueloop/daemon@0.1.0-alpha.25
+  - @cueloop/schema@0.1.0-alpha.25
+
 ## 0.1.0-alpha.24
 
 ### Patch Changes
