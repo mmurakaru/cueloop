@@ -41,7 +41,8 @@ jobs:
           gh label create uptime-alert --color B60205 --description "Automated uptime probe failure" 2>/dev/null || true
           open=$(gh issue list --label uptime-alert --state open --json number --jq 'length')
           if [ "$open" = "0" ]; then
+            body=$(printf 'The scheduled uptime probe failed. Check the gateway (`:22`) and `https://www.cueloop.dev`.\n\nRun: %s\n\nAuto-filed; close this once service is restored (it dedupes while open).' "$RUN_URL")
             gh issue create --label uptime-alert \
               --title "Uptime alert: cueloop.dev probe failed" \
-              --body "The scheduled uptime probe failed. Check the gateway (\`:22\`) and \`https://www.cueloop.dev\`.\n\nRun: $RUN_URL\n\nAuto-filed; close this once service is restored (it dedupes while open)."
+              --body "$body"
           fi
