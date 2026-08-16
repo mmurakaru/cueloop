@@ -253,9 +253,9 @@ export class DaemonServer {
         core.sessionDelete(parseParams("session.delete", request.params).id);
         return {};
       }
-      case "session.mergeAnnotations": {
-        const params = parseParams("session.mergeAnnotations", request.params);
-        return core.sessionMergeAnnotations(params.id, params.annotations);
+      case "session.mergeShared": {
+        const params = parseParams("session.mergeShared", request.params);
+        return core.sessionMergeShared(params.id, { annotations: params.annotations, participants: params.participants });
       }
       case "session.resolve": {
         const params = parseParams("session.resolve", request.params);

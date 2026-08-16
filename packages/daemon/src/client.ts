@@ -5,7 +5,7 @@
  */
 
 import { existsSync, rmSync } from "node:fs";
-import type { Annotation, Artifact, ReviewSession, VerdictKind, WorkspaceKey } from "@cueloop/schema";
+import type { Annotation, Artifact, Identity, ReviewSession, VerdictKind, WorkspaceKey } from "@cueloop/schema";
 import { BackpressureWriter, LineBuffer, type EventFrame, type Response } from "./protocol";
 import { cueloopHome, socketPath } from "./paths";
 
@@ -35,7 +35,7 @@ export interface SessionClient {
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
-  sessionMergeAnnotations(id: string, annotations: Annotation[]): Promise<ReviewSession>;
+  sessionMergeShared(id: string, incoming: { annotations: Annotation[]; participants?: Identity[] }): Promise<ReviewSession>;
   sessionDelete(id: string): Promise<void>;
   /** Record the caller's own identity name (collaborator self-naming on a share). */
   sessionSetSelfName(id: string, name: string): Promise<ReviewSession>;
@@ -191,8 +191,8 @@ export class DaemonClient implements SessionClient {
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession> {
     return this.request("session.setShareId", { id, shareId });
   }
-  sessionMergeAnnotations(id: string, annotations: Annotation[]): Promise<ReviewSession> {
-    return this.request("session.mergeAnnotations", { id, annotations });
+  sessionMergeShared(id: string, incoming: { annotations: Annotation[]; participants?: Identity[] }): Promise<ReviewSession> {
+    return this.request("session.mergeShared", { id, ...incoming });
   }
   sessionDelete(id: string): Promise<void> {
     return this.request("session.delete", { id });

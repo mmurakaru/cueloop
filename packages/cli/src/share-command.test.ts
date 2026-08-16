@@ -33,10 +33,10 @@ function fakeClient(sessions: ReviewSession[]): SessionClient {
       session.shareId = shareId;
       return session;
     }),
-    sessionMergeAnnotations: mock(async (id: string, incoming: Annotation[]) => {
+    sessionMergeShared: mock(async (id: string, incoming: { annotations: Annotation[] }) => {
       const session = sessions.find((candidate) => candidate.id === id)!;
       const known = new Set(session.annotations.map((annotation) => annotation.id));
-      for (const annotation of incoming) if (!known.has(annotation.id)) session.annotations.push(annotation);
+      for (const annotation of incoming.annotations) if (!known.has(annotation.id)) session.annotations.push(annotation);
       return session;
     }),
   } as unknown as SessionClient;

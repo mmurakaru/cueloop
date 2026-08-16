@@ -77,7 +77,10 @@ export async function pullSession(client: SessionClient, params: ShareParams, de
   }
   const remote = await deps.pull(session.shareId!, { host: params.host, port: params.port });
   const before = session.annotations.length;
-  const merged = await client.sessionMergeAnnotations(session.id, collaboratorAnnotations(remote));
+  const merged = await client.sessionMergeShared(session.id, {
+    annotations: collaboratorAnnotations(remote),
+    participants: remote.participants,
+  });
   const added = merged.annotations.length - before;
   deps.out(added > 0 ? `pulled ${added} new annotation${added === 1 ? "" : "s"}` : "no new annotations");
   return 0;
