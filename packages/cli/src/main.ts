@@ -18,6 +18,7 @@ import {
   resolveOpenTarget,
 } from "./open-target";
 import { sessionCommand } from "./session-commands";
+import { CLI_VERSION } from "./version";
 import { workingTreeDiff } from "./working-tree";
 import { DaemonClient } from "@cueloop/daemon/client";
 import type { ReviewSession } from "@cueloop/schema";
@@ -86,6 +87,12 @@ async function main(): Promise<number> {
       const { reviewPostCommand } = await import("./pr");
       return reviewPostCommand(argv.slice(1));
     }
+    case "-v":
+    case "--version":
+    case "version":
+      console.log(CLI_VERSION);
+      return 0;
+    case "-h":
     case "--help":
     case "help":
       printHelp();
@@ -234,6 +241,9 @@ function printHelp(): void {
       "  cueloop session <verb> [flags]   script the daemon (create|get|list|wait|annotate|resolve|submit-revision)",
       "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
       "  cueloop daemon                   run the daemon in the foreground",
+      "",
+      "  cueloop -v, --version            print the installed version",
+      "  cueloop -h, --help               print this help",
     ].join("\n"),
   );
 }
