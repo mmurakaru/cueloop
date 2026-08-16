@@ -17,6 +17,15 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import type { ServerChannel } from "ssh2";
 
+/**
+ * Terminal restore bytes: disable mouse reporting (?1000/1002/1003/1006), show
+ * the cursor (?25), and leave the alt screen (?1049). The renderer emits these
+ * on destroy, but that only runs after the channel closes - too late, so the
+ * graceful teardown writes them explicitly while the channel is still open, or
+ * the client is left spewing SGR mouse reports until `reset`.
+ */
+export const TERMINAL_RESTORE = "\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l\x1b[?25h\x1b[?1049l";
+
 export interface PtySize {
   cols: number;
   rows: number;

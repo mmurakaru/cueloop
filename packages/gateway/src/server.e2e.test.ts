@@ -138,6 +138,43 @@ async function pollFrames(getFrames: () => string, needle: string, ms = 20000): 
   return false;
 }
 
+/** Open the share, skip the name prompt, quit with `q`, and resolve with every byte seen through close. */
+function viewThenQuit(port: number, shareId: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    let frames = "";
+    const timer = setTimeout(() => (conn.end(), reject(new Error(`quit timed out; frames:\n${frames}`))), 35000);
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const until = async (needle: string, ms = 20000) => {
+      const deadline = Date.now() + ms;
+      while (Date.now() < deadline) {
+        if (frames.includes(needle)) return true;
+        await wait(100);
+      }
+      return false;
+    };
+    conn
+      .on("ready", () =>
+        conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, async (err, stream) => {
+          if (err) return reject(err);
+          const collect = (chunk: Buffer) => (frames += chunk.toString("utf8"));
+          stream.on("data", collect);
+          stream.stderr.on("data", collect);
+          // the channel closing on the app's graceful exit is the resolve signal
+          stream.on("close", () => (clearTimeout(timer), conn.end(), resolve(frames)));
+          if (!(await until("Welcome"))) return (clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`)));
+          await wait(300);
+          stream.write("\x1b"); // skip naming
+          if (!(await until("Rollout Plan"))) return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
+          await wait(400);
+          stream.write("q"); // graceful quit -> restore the terminal, then close
+        }),
+      )
+      .on("error", reject)
+      .connect({ host: "127.0.0.1", port, username: shareId, privateKey: CLIENT_KEY });
+  });
+}
+
 function idFrom(sshLine: string): string {
   const match = sshLine.match(/ssh (p_[A-Za-z0-9]{8})@/);
   if (!match) throw new Error(`no share id in: ${sshLine}`);
@@ -169,6 +206,18 @@ describe("share upload then view", () => {
     expect(frames).toContain("Rollout Plan");
     // collaborator chrome (viewers annotate), not the passive observer label
     expect(frames).toContain("shared");
+  });
+
+  test("quitting restores the terminal so the client is not left spewing mouse reports", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+
+    // Act
+    const frames = await viewThenQuit(handle.port, id);
+
+    // Assert - the disable-mouse and leave-alt-screen bytes reach the client before close
+    expect(frames).toContain("\x1b[?1006l");
+    expect(frames).toContain("\x1b[?1049l");
   });
 
   test("stores the blob as ciphertext, never the plaintext plan", async () => {
