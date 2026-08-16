@@ -1,0 +1,87 @@
+name: Deploy site
+
+# Deploys the Astro site in site/ to Cloudflare Pages (project cueloop-site).
+# - push to main (site/ changed) -> production (www.cueloop.dev)
+# - PR labelled "deploy-preview" -> a preview deployment, URL posted on the PR
+# - workflow_dispatch -> manual production deploy
+#
+# Requires the repo secret CLOUDFLARE_API_TOKEN (Cloudflare -> My Profile ->
+# API Tokens -> "Edit Cloudflare Pages" for account 7a31fcb2...). The account
+# id is public, so it is inlined below.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/deploy-site.yml"
+  pull_request:
+    types: [labeled, synchronize]
+    paths:
+      - "site/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: deploy-site-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # Production on main / manual; preview only when the PR carries the label.
+    if: >
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'deploy-preview')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install
+        working-directory: site
+        run: bun install --frozen-lockfile
+      - name: Build
+        working-directory: site
+        run: bun run build
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: 7a31fcb24b660fc77f69222e21459965
+          workingDirectory: site
+          # branch=main is the production alias; any other branch is a preview.
+          command: pages deploy dist --project-name=cueloop-site --branch=${{ github.head_ref || github.ref_name }}
+      - name: Comment preview URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const url = "${{ steps.deploy.outputs.deployment-url }}";
+            const marker = "<!-- cueloop-site-preview -->";
+            const body = `${marker}\n**Site preview deployed** → ${url}\n\nFrom \`${context.sha.slice(0, 7)}\`.`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((comment) => comment.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
