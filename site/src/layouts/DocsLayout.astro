@@ -171,6 +171,16 @@ const pageUrl = new URL(path, Astro.site).href;
 
       const shell = document.getElementById("docs-shell");
       if (!shell) return;
+
+      // Toggle the top/bottom scroll fade only while the sidebar overflows.
+      const aside = shell.querySelector<HTMLElement>(".docs-aside");
+      if (aside) {
+        const syncFade = () =>
+          aside.classList.toggle("is-scrollable", aside.scrollHeight > aside.clientHeight + 1);
+        syncFade();
+        new ResizeObserver(syncFade).observe(aside);
+      }
+
       if (readStore(NAV_KEY) === "collapsed") shell.classList.add("is-nav-collapsed");
       shell.querySelectorAll<HTMLElement>("[data-nav-trigger], [data-nav-close]").forEach((el) => {
         if (el.dataset.wired) return;

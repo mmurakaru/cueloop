@@ -719,8 +719,8 @@ pre {
 
 .wordmark {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 0.45rem;
   font-family: var(--font-mono);
   font-weight: 600;
   font-size: 1.05rem;
@@ -729,8 +729,9 @@ pre {
   text-decoration: none;
 }
 
-.wordmark__mark {
-  color: var(--accent);
+.wordmark__logo {
+  display: block;
+  flex: none;
 }
 
 .nav {
@@ -1208,7 +1209,43 @@ pre {
   align-self: start;
   max-height: calc(100vh - 6rem);
   overflow-y: auto;
-  scrollbar-width: thin;
+  /* Scrollable but no visible scrollbar. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.docs-aside::-webkit-scrollbar {
+  display: none;
+}
+/* Fade the sidebar's top/bottom edges into the page while it can scroll. The
+ * mask (alpha) reveals the page background, so it always matches --paper. The
+ * scroll timeline shows the bottom fade at the top, both in the middle, and the
+ * top fade at the bottom. Added by JS only when the nav overflows. */
+@media (min-width: 901px) {
+  .docs-aside.is-scrollable {
+    --fade: 28px;
+    animation: docs-nav-fade linear both;
+    animation-timeline: scroll(self);
+  }
+  @keyframes docs-nav-fade {
+    0% {
+      -webkit-mask-image: linear-gradient(to bottom, #000, #000 calc(100% - var(--fade)), transparent);
+      mask-image: linear-gradient(to bottom, #000, #000 calc(100% - var(--fade)), transparent);
+    }
+    2%,
+    98% {
+      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+      mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+    }
+    100% {
+      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000);
+      mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000);
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .docs-aside.is-scrollable {
+    animation: none;
+  }
 }
 
 .docs-content {
@@ -1350,7 +1387,7 @@ pre {
   border-color: var(--accent);
 }
 
-/* ---- Header search trigger ---- */
+/* ---- Header search: an icon that expands into an inline input ---- */
 .site-header__search {
   display: flex;
 }
@@ -1359,110 +1396,100 @@ pre {
     display: none;
   }
 }
-.search-trigger {
+.search-box {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.42rem 0.7rem;
-  border: 1px solid var(--hairline);
+  gap: 0.3rem;
+  padding: 0.25rem;
+  border: 1px solid transparent;
   border-radius: 8px;
-  background: var(--paper-raised);
-  color: var(--ink-faint);
-  font-family: var(--font-mono);
-  font-size: var(--step--1);
-  cursor: pointer;
-  transition: border-color 0.12s var(--ease), color 0.12s var(--ease);
+  background: transparent;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease),
+    padding 0.2s var(--ease);
 }
-.search-trigger[data-hovered] {
+.search-box.is-expanded {
   border-color: var(--hairline-strong);
-  color: var(--ink-soft);
+  background: var(--paper-raised);
+  padding: 0.25rem 0.5rem;
 }
-.search-trigger__kbd {
-  font-size: 0.72rem;
-  padding: 0.05rem 0.35rem;
-  border: 1px solid var(--hairline);
-  border-radius: 4px;
+.search-box__icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color 0.12s var(--ease), background 0.12s var(--ease);
+}
+.search-box:not(.is-expanded) .search-box__icon:hover {
+  color: var(--ink);
+  background: var(--paper-recessed);
+}
+.search-box.is-expanded .search-box__icon {
+  cursor: default;
+}
+.search-box__input {
+  width: 0;
+  opacity: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: var(--step--1);
+  color: var(--ink);
+  pointer-events: none;
+  transition: width 0.28s var(--ease), opacity 0.18s var(--ease);
+}
+.search-box.is-expanded .search-box__input {
+  width: 15rem;
+  opacity: 1;
+  pointer-events: auto;
+}
+.search-box__input::placeholder {
   color: var(--ink-faint);
 }
-
-/* ---- Search command palette (React Aria Modal + Fuse.js) ---- */
-.search-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 120;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: clamp(3rem, 12vh, 8rem) 1rem 1rem;
-  background: rgba(20, 18, 12, 0.4);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
-}
-.search-overlay[data-entering] {
-  animation: drawer-fade 0.2s ease both;
-}
-.search-overlay[data-exiting] {
-  animation: drawer-fade 0.15s ease reverse both;
-}
-.search-modal {
-  width: min(40rem, 100%);
-  background: var(--paper-raised);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius);
-  box-shadow: 0 30px 70px -30px rgba(20, 18, 12, 0.5);
-  overflow: hidden;
-}
-.search-modal[data-entering] {
-  animation: search-pop 0.22s var(--ease) both;
-}
-@keyframes search-pop {
-  from {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: none;
+@media (max-width: 1024px) {
+  .search-box.is-expanded .search-box__input {
+    width: 10rem;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .search-modal[data-entering],
-  .search-overlay[data-entering],
-  .search-overlay[data-exiting] {
-    animation: none;
+  .search-box,
+  .search-box__input {
+    transition: none;
   }
 }
-.search-dialog {
-  outline: none;
+
+/* ---- Results popover, anchored below the input (no overlay/backdrop) ---- */
+.search-pop {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: min(24rem, 78vw);
+  background: var(--paper-raised);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  box-shadow: 0 24px 60px -30px rgba(20, 18, 12, 0.45);
+  overflow: hidden;
+  z-index: 60;
+  transition: opacity 0.16s var(--ease), transform 0.16s var(--ease);
 }
-.search-field {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.85rem 1rem;
-  border-bottom: 1px solid var(--hairline);
-  color: var(--ink-faint);
+@starting-style {
+  .search-pop {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
-.search-input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: none;
-  outline: none;
-  font-family: var(--font-sans);
-  font-size: var(--step-1);
-  color: var(--ink);
-}
-.search-input::placeholder {
-  color: var(--ink-faint);
-}
-.search-esc {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  padding: 0.1rem 0.4rem;
-  border: 1px solid var(--hairline);
-  border-radius: 4px;
-  color: var(--ink-faint);
+@media (prefers-reduced-motion: reduce) {
+  .search-pop {
+    transition: none;
+  }
 }
 .search-results {
   list-style: none;
@@ -1472,69 +1499,86 @@ pre {
   overflow-y: auto;
 }
 .search-empty {
-  padding: 1.2rem;
+  padding: 0.5rem 0.7rem;
   color: var(--ink-faint);
   font-size: var(--step-0);
-  text-align: center;
 }
 .search-result {
-  display: grid;
-  gap: 0.15rem;
-  padding: 0.6rem 0.8rem;
-  border-radius: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 7px;
   text-decoration: none;
 }
 .search-result.is-active {
   background: var(--accent-soft);
 }
-.search-result__group {
-  font-family: var(--font-mono);
-  font-size: var(--step--1);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
 .search-result__title {
+  min-width: 0;
   font-size: var(--step-0);
   color: var(--ink);
-  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .search-result.is-active .search-result__title {
   color: var(--accent);
 }
-.search-result__desc {
+.search-result__meta {
+  margin-left: auto;
+  flex: none;
   font-size: var(--step--1);
-  color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--ink-faint);
 }
 
-/* Mobile drawer search button */
-.drawer-search {
+/* Mobile drawer search: a field that swaps the nav list for results */
+.drawer-search-field {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  width: 100%;
-  padding: 0.85rem 0.4rem;
-  background: none;
-  border: 0;
-  border-bottom: 1px solid var(--hairline);
-  color: var(--ink-soft);
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: var(--step-0);
-  text-align: left;
-}
-.drawer-search span {
-  flex: 1;
-}
-.drawer-search kbd {
-  font-size: 0.72rem;
-  padding: 0.1rem 0.4rem;
-  border: 1px solid var(--hairline);
-  border-radius: 4px;
+  padding: 0.7rem 0.85rem;
+  margin-bottom: 0.6rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  background: var(--paper-recessed);
   color: var(--ink-faint);
+}
+.drawer-search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: var(--step-0);
+  color: var(--ink);
+}
+.drawer-search-input::placeholder {
+  color: var(--ink-faint);
+}
+.drawer-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 55vh;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.1rem;
+}
+.drawer-result {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.65rem 0.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+}
+.drawer-result .search-result__title {
+  color: var(--ink);
+}
+.drawer-result:active {
+  background: var(--accent-soft);
 }
 
 /* ---- "You'll learn" opener ---- */

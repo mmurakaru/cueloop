@@ -8,6 +8,7 @@ import { ClientRouter } from "astro:transitions";
 import ThemeToggle from "../components/ThemeToggle.tsx";
 import MobileMenu from "../components/MobileMenu.tsx";
 import DocsSearch from "../components/DocsSearch.tsx";
+import Logo from "../components/Logo.astro";
 
 interface Props {
   title?: string;
@@ -83,7 +84,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
           <a class="nav__hide-sm" href="/docs/install/">Install</a>
         </nav>
         <a href="/" class="wordmark">
-          <span class="wordmark__mark">&raquo;</span>cueloop
+          <Logo size={20} uid="hdr" class="wordmark__logo" />cueloop
         </a>
         <div class="site-header__right">
           <div class="site-header__search">
@@ -109,7 +110,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       <div class="container site-footer__grid">
         <div>
           <a href="/" class="wordmark">
-            <span class="wordmark__mark">&raquo;</span>cueloop
+            <Logo size={20} uid="ftr" class="wordmark__logo" />cueloop
           </a>
           <p class="site-footer__tag">
             A terminal-first review surface for coding agents. Read the plan,
