@@ -4,6 +4,7 @@
  * the wordmark, nav, and theme toggle, then the page slot and footer.
  */
 import "../styles/global.css";
+import { ClientRouter } from "astro:transitions";
 import ThemeToggle from "../components/ThemeToggle.tsx";
 import MobileMenu from "../components/MobileMenu.tsx";
 import DocsSearch from "../components/DocsSearch.tsx";
@@ -34,24 +35,30 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <ClientRouter />
     <script is:inline>
       // Resolve the stored preference (system | light | dark) to a concrete
       // theme before first paint so there is no flash. "system" (the default)
-      // follows the OS. Also flag that JS is on for the entrance animations.
+      // follows the OS. Re-apply on astro:after-swap - it runs before the next
+      // paint, so View Transitions never flash the server default theme.
       (function () {
-        document.documentElement.classList.add("js");
-        try {
-          const pref = localStorage.getItem("cueloop-theme") || "system";
-          const resolved =
-            pref === "light" || pref === "dark"
-              ? pref
-              : matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light";
-          document.documentElement.dataset.theme = resolved;
-        } catch (_) {
-          document.documentElement.dataset.theme = "light";
+        const root = document.documentElement;
+        root.classList.add("js");
+        function applyTheme() {
+          try {
+            const pref = localStorage.getItem("cueloop-theme") || "system";
+            root.dataset.theme =
+              pref === "light" || pref === "dark"
+                ? pref
+                : matchMedia("(prefers-color-scheme: dark)").matches
+                  ? "dark"
+                  : "light";
+          } catch (_) {
+            root.dataset.theme = "light";
+          }
         }
+        applyTheme();
+        document.addEventListener("astro:after-swap", applyTheme);
       })();
     </script>
   </head>
@@ -132,23 +139,34 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
 
       gsap.registerPlugin(ScrollTrigger);
 
-      const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const heroChildren = gsap.utils.toArray<HTMLElement>(".hero .container > *");
-      const revealBlocks = gsap.utils.toArray<HTMLElement>(".reveal");
+      // Runs on the first paint and again after every client-side navigation
+      // (astro:page-load fires for both), so entrance animations work with the
+      // View Transitions router instead of only on a hard reload.
+      function initEntranceAnimations() {
+        // Drop ScrollTriggers left over from the page we navigated away from.
+        ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
 
-      if (reduceMotion) {
-        // Honour the preference: reveal everything, no motion.
-        gsap.set([...heroChildren, ...revealBlocks], { opacity: 1, y: 0 });
-      } else {
+        const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const heroChildren = gsap.utils.toArray<HTMLElement>(".hero .container > *");
+        const revealBlocks = gsap.utils.toArray<HTMLElement>(".reveal");
+
+        if (reduceMotion) {
+          // Honour the preference: reveal everything, no motion.
+          gsap.set([...heroChildren, ...revealBlocks], { opacity: 1, y: 0 });
+          return;
+        }
+
         // Hero entrance: a soft, staggered rise once the page paints.
-        gsap.to(heroChildren, {
-          opacity: 1,
-          y: 0,
-          duration: 0.7,
-          ease: "power3.out",
-          stagger: 0.07,
-          delay: 0.05,
-        });
+        if (heroChildren.length) {
+          gsap.to(heroChildren, {
+            opacity: 1,
+            y: 0,
+            duration: 0.7,
+            ease: "power3.out",
+            stagger: 0.07,
+            delay: 0.05,
+          });
+        }
         // Section blocks rise in as they enter the viewport.
         revealBlocks.forEach((block) => {
           gsap.to(block, {
@@ -160,6 +178,8 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
           });
         });
       }
+
+      document.addEventListener("astro:page-load", initEntranceAnimations);
     </script>
   </body>
 </html>

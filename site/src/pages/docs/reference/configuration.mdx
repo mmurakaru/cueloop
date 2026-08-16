@@ -1,0 +1,126 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Configuration
+eyebrow: Docs · Reference
+lede: cueloop reads an optional TOML config. Every key has a default, so you set only what you want to change - keybindings, the review surface, the theme, and the Obsidian export.
+prev: { title: "Commands", href: "/docs/reference/commands/" }
+next: { title: "Sharing over SSH", href: "/docs/sharing/" }
+---
+
+Configuration is optional. cueloop ships with sensible defaults and reads a TOML
+file only to override them.
+
+## Where the file lives
+
+cueloop looks for a user config in this order, and stops at the first it finds:
+
+```text
+$CUELOOP_CONFIG
+${XDG_CONFIG_HOME:-~/.config}/cueloop/config.toml
+```
+
+If the current repository has a `.cueloop/config.toml`, it is layered **on top**
+of the user config. Later layers win: built-in defaults, then user config, then
+repo config. A file that fails to parse is ignored, and the defaults stand.
+
+## `[keys]`
+
+Every action is rebindable. A value is a single key combo or an array of them.
+
+```toml
+[keys]
+down = ["j", "down"]
+comment = ["c"]
+submit = ["return", "enter"]
+```
+
+| Action | Default | What it does |
+|---|---|---|
+| `down` / `up` | `j`,`down` / `k`,`up` | move the cursor |
+| `top` / `bottom` | `g` / `G` | jump to top / bottom |
+| `span` | `v` | start a span selection |
+| `comment` / `suggest` | `c` / `s` | add a comment / a suggestion |
+| `cut` | `x` | cut the selected span |
+| `edit` | `e` | edit in `$EDITOR` |
+| `next_annotation` / `prev_annotation` | `n` / `p` | move between annotations |
+| `delete_annotation` | `backspace` | delete an annotation |
+| `submit` | `return`,`enter` | submit the review |
+| `share` | `S` | share the plan |
+| `quit` | `q` | quit |
+| `walk` | `w` | start the walk wizard |
+| `review_cycle` | `b` | cycle the review panel mode |
+| `review_wider` / `review_narrower` | `]` / `[` | resize the review panel |
+
+## `[ui]`
+
+```toml
+[ui]
+auto_close = "off"        # "off", 0 (instant), or N seconds
+editor = "nvim"           # overrides $EDITOR for the edit action
+review_width = 34          # review panel width in columns (24-50)
+review_state = "expanded" # "expanded", "compact", or "hidden"
+```
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `auto_close` | `"off"` or number ≥ 0 | `"off"` | after a verdict: `"off"` prompts, `0` closes at once, `N` counts down N seconds |
+| `editor` | string | `$EDITOR` | editor for long annotation bodies |
+| `review_width` | number, clamped 24-50 | `34` | width of the expanded review panel |
+| `review_state` | `expanded` \| `compact` \| `hidden` | `expanded` | review panel mode |
+
+`review_width` and `review_state` also persist as you adjust them in the UI, so
+your last layout carries over between runs.
+
+## `[theme]`
+
+Override any theme token with a colour string. Unset tokens keep their default.
+
+```toml
+[theme]
+accent = "#cba6f7"
+green = "#a6e3a1"
+```
+
+Tokens: `bg`, `panel`, `elevated`, `border`, `text`, `textMuted`, `textDim`,
+`accent`, `accentInk`, `green`, `red`, `blue`, `cursorBg`, `markCommentBg`,
+`markSuggestionBg`, `insFg`, `delFg`, `backdrop`. Unknown tokens are ignored.
+
+## `[integrations.obsidian]`
+
+Export resolved reviews into an [Obsidian](https://obsidian.md) vault.
+
+```toml
+[integrations.obsidian]
+vault = "~/notes"
+folder = "cueloop"
+filenameFormat = "{YYYY}-{MM}-{DD} - {title}"
+separator = "space"
+exportOn = "manual"
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `vault` | first vault found | vault path |
+| `folder` | `cueloop` | destination folder in the vault |
+| `filenameFormat` | `{YYYY}-{MM}-{DD} - {title}` | note filename template |
+| `separator` | `space` | filename word separator: `space`, `dash`, or `underscore` |
+| `exportOn` | `manual` | when to export: `approve`, any `resolve`, or `manual` |
+
+<div class="callout callout--warning">
+  <div class="callout__label">camelCase here</div>
+  The Obsidian keys <code>filenameFormat</code> and <code>exportOn</code> are
+  camelCase, unlike the snake_case <code>[ui]</code> keys - they are read
+  verbatim.
+</div>
+
+## Environment variables
+
+| Variable | Default | Used for |
+|---|---|---|
+| `CUELOOP_CONFIG` | - | path to your user config file |
+| `CUELOOP_HOME` | `~/.cueloop` | daemon state: socket, sessions, pid, lock |
+| `CUELOOP_GH` | `gh` | the GitHub CLI used to fetch and post PR reviews |
+| `EDITOR` | - | editor for the edit action (overridden by `[ui] editor`) |
+
+The gateway that serves shared plans reads its own `CUELOOP_GATEWAY_*` and key
+variables, but those are server-side and do not affect the local CLI.

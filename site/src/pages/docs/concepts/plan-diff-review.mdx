@@ -4,8 +4,17 @@ title: Plan, diff, review
 eyebrow: Docs · Concepts
 lede: One verb per artifact type. plan for plans, diff for the working tree, review for pull requests - and bare cueloop for the inbox across all three.
 prev: { title: "Annotations", href: "/docs/concepts/annotations/" }
-next: { title: "Sharing over SSH", href: "/docs/sharing/" }
+next: { title: "Commands", href: "/docs/reference/commands/" }
 ---
+
+<div class="learn">
+  <div class="learn__label">You'll learn</div>
+  <ul>
+    <li>which verb opens which artifact</li>
+    <li>how <code>diff</code> creates a review from your working tree</li>
+    <li>how <code>review</code> posts a verdict back to a pull request</li>
+  </ul>
+</div>
 
 cueloop maps one verb onto each artifact type. The verb tells cueloop what kind
 of thing you want to review; it then picks the latest pending one of that type,
@@ -39,7 +48,7 @@ yourself.
 `cueloop review <pr>` pulls that specific pull request in, lets you annotate it,
 and posts the verdict back to the pull request itself.
 
-## The inbox and --latest
+## The inbox and `--latest`
 
 Bare `cueloop` opens the inbox across all types, so you do not have to know which
 verb you want before you look. And on any verb, `--latest` - alias `--open` -

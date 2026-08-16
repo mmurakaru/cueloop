@@ -1,12 +1,14 @@
 ---
 /*
- * Docs shell: a grouped left sidebar, the content column
- * with a breadcrumb + title + lede, and a right "On this page" TOC. Works for
- * .mdx pages (props arrive under `frontmatter`, headings under `headings`).
+ * Docs shell: a grouped left sidebar (collapsible), the content column with a
+ * page toolbar, breadcrumb, title, summary, and prose, and a right rail with the
+ * "On this page" TOC plus an edit link. Works for .mdx pages (props arrive under
+ * `frontmatter`, headings under `headings`).
  */
 import BaseLayout from "./BaseLayout.astro";
 import DocsSidebar from "../components/DocsSidebar.tsx";
 import DocsToc from "../components/DocsToc.tsx";
+import CopyPage from "../components/CopyPage.tsx";
 import { docsNav, normalizePath } from "../nav";
 
 const props = Astro.props as any;
@@ -36,15 +38,49 @@ const group = docsNav.find((candidate) =>
 );
 const groupTitle = group?.title ?? "Docs";
 const pageTitle = `${title} - cueloop docs`;
+
+// Resolve the page's own .mdx source so we can offer "Copy as Markdown" and an
+// "edit this page" link. The key is derived from the URL; a page is either
+// <rest>.mdx or <rest>/index.mdx.
+const REPO = "https://github.com/mmurakaru/cueloop";
+const rawMap = import.meta.glob("../pages/docs/**/*.mdx", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+const rest = current.replace(/^\/docs\/?/, "");
+const keyCandidates =
+  rest === ""
+    ? ["../pages/docs/index.mdx"]
+    : [`../pages/docs/${rest}.mdx`, `../pages/docs/${rest}/index.mdx`];
+const sourceKey = keyCandidates.find((candidate) => candidate in rawMap);
+const rawSource = sourceKey ? String(rawMap[sourceKey]) : "";
+// Strip the frontmatter block; keep the body for copying.
+const markdown = rawSource.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+const sourcePath = sourceKey ? `site/${sourceKey.replace("../", "src/")}` : "";
+const editUrl = sourcePath ? `${REPO}/edit/main/${sourcePath}` : REPO;
+const pageUrl = new URL(path, Astro.site).href;
 ---
 
 <BaseLayout title={pageTitle} description={description ?? lede}>
-  <div class="container docs-shell">
-    <aside class="docs-aside">
+  <div class="container docs-shell" id="docs-shell">
+    <div class="docs-nav-backdrop" data-nav-close aria-hidden="true"></div>
+    <aside class="docs-aside" id="docs-nav">
       <DocsSidebar path={path} />
     </aside>
 
     <article class="docs-content">
+      <div class="docs-toolbar">
+        <button
+          type="button"
+          class="docs-nav-trigger"
+          data-nav-trigger
+          aria-label="Toggle navigation"
+          title="Toggle navigation (⌘B)"
+        ></button>
+        <CopyPage markdown={markdown} editUrl={editUrl} pageUrl={pageUrl} client:load />
+      </div>
+
       <nav class="breadcrumb" aria-label="Breadcrumb">
         <a href="/docs/">Docs</a>
         <span class="breadcrumb__sep" aria-hidden="true">/</span>
@@ -53,15 +89,22 @@ const pageTitle = `${title} - cueloop docs`;
         <span class="breadcrumb__current">{title}</span>
       </nav>
       <h1>{title}</h1>
-      {lede && <p class="lede">{lede}</p>}
+      {
+        lede && (
+          <div class="page-summary">
+            <div class="page-summary__label">Summary</div>
+            <p>{lede}</p>
+          </div>
+        )
+      }
       <div class="prose">
         <slot />
       </div>
       {
         (prev || next) && (
           <nav class="docs-pager" aria-label="Pagination">
-            <span>{prev && <a href={prev.href}>&larr; {prev.title}</a>}</span>
-            <span>{next && <a href={next.href}>{next.title} &rarr;</a>}</span>
+            <span>{prev && <a class="docs-pager__prev" href={prev.href}>{prev.title}</a>}</span>
+            <span>{next && <a class="docs-pager__next" href={next.href}>{next.title}</a>}</span>
           </nav>
         )
       }
@@ -69,6 +112,96 @@ const pageTitle = `${title} - cueloop docs`;
 
     <aside class="docs-toc-rail">
       {headings.length > 0 && <DocsToc client:load headings={headings} />}
+      <div class="docs-edit">
+        <a href={editUrl} target="_blank" rel="noopener noreferrer">
+          Contribute
+        </a>
+      </div>
     </aside>
   </div>
+
+  <script>
+    // Docs chrome that must survive View Transitions: a copy button on every
+    // code block, and a collapsible navigation (desktop) / bottom-sheet (mobile).
+    const NAV_KEY = "cueloop-docs-nav";
+    const isMobile = () => matchMedia("(max-width: 900px)").matches;
+    const readStore = (key: string) => {
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    };
+    const writeStore = (key: string, value: string) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        /* storage unavailable */
+      }
+    };
+    function toggleNav(shell: HTMLElement) {
+      if (isMobile()) {
+        shell.classList.toggle("is-nav-open");
+      } else {
+        const collapsed = shell.classList.toggle("is-nav-collapsed");
+        writeStore(NAV_KEY, collapsed ? "collapsed" : "open");
+      }
+    }
+
+    function enhanceDocs() {
+      document.querySelectorAll<HTMLPreElement>(".docs-content .prose pre").forEach((pre) => {
+        if (pre.querySelector(".code-copy")) return;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "code-copy";
+        button.textContent = "copy";
+        button.setAttribute("aria-label", "Copy code");
+        button.addEventListener("click", async () => {
+          const code = pre.querySelector("code")?.textContent ?? pre.textContent ?? "";
+          try {
+            await navigator.clipboard.writeText(code.replace(/\n$/, ""));
+            button.textContent = "copied";
+            setTimeout(() => (button.textContent = "copy"), 1600);
+          } catch {
+            /* clipboard unavailable */
+          }
+        });
+        pre.appendChild(button);
+      });
+
+      const shell = document.getElementById("docs-shell");
+      if (!shell) return;
+      if (readStore(NAV_KEY) === "collapsed") shell.classList.add("is-nav-collapsed");
+      shell.querySelectorAll<HTMLElement>("[data-nav-trigger], [data-nav-close]").forEach((el) => {
+        if (el.dataset.wired) return;
+        el.dataset.wired = "1";
+        const isClose = el.hasAttribute("data-nav-close");
+        el.addEventListener("click", () =>
+          isClose ? shell.classList.remove("is-nav-open") : toggleNav(shell),
+        );
+      });
+      shell.querySelectorAll<HTMLElement>(".docs-aside a").forEach((link) => {
+        if (link.dataset.navWired) return;
+        link.dataset.navWired = "1";
+        link.addEventListener("click", () => isMobile() && shell.classList.remove("is-nav-open"));
+      });
+    }
+
+    // Registered once per document (window guard survives any re-execution).
+    // Re-queries the live shell each press so it keeps working across swaps.
+    if (!(window as any).__cueloopDocsKeys) {
+      (window as any).__cueloopDocsKeys = true;
+      document.addEventListener("keydown", (event) => {
+        const shell = document.getElementById("docs-shell");
+        if (!shell) return;
+        if (event.key === "Escape") shell.classList.remove("is-nav-open");
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
+          event.preventDefault();
+          toggleNav(shell);
+        }
+      });
+    }
+
+    document.addEventListener("astro:page-load", enhanceDocs);
+  </script>
 </BaseLayout>

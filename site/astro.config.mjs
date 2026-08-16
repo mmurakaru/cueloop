@@ -10,4 +10,14 @@ import react from "@astrojs/react";
 export default defineConfig({
   site: "https://www.cueloop.dev",
   integrations: [react(), mdx()],
+  markdown: {
+    // Keep punctuation literal: no `--` -> en-dash or `---` -> em-dash conversion.
+    smartypants: false,
+    // Light and dark syntax themes; defaultColor: false emits both as CSS vars
+    // so global.css can switch on [data-theme].
+    shikiConfig: {
+      themes: { light: "github-light", dark: "github-dark" },
+      defaultColor: false,
+    },
+  },
 });

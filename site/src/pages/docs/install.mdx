@@ -43,35 +43,17 @@ send a verdict. The verdict is the structured result your agent waits on.
 The point of cueloop is the gate between what an agent proposes and what it does.
 For Claude Code or Codex, the plan gate opens a review and blocks on your
 verdict before the agent starts to build. The agent stays paused until you
-approve, request changes, or reject.
+send a verdict, and it builds only when you approve.
 
 See [Agent integration](/docs/agents/) for the exact hook setup.
 
-## Configuration
+That is the whole quickstart. cueloop reads an optional TOML config for
+keybindings, the review surface, the theme, and Obsidian export, but every key
+has a default - so you can start reviewing now and tune later.
 
-cueloop reads a TOML config file. Everything has a sensible default, so you only
-set what you want to change.
-
-```text
-[ui]
-auto_close = "off"          # or a number of seconds to auto-close after the verdict
-editor = "nvim"             # editor for long annotation bodies; falls back to nano
-review_state = "expanded"   # review panel: "expanded", "compact", or "hidden"
-review_width = 34           # width of the review panel, in columns
-
-[theme]
-# per-token colour overrides
-
-[integrations.obsidian]
-# link reviews into an Obsidian vault
-```
-
-The `[ui]` block controls the review surface, `[theme]` restyles it, and
-`[integrations.obsidian]` connects reviews to an [Obsidian](https://obsidian.md)
-vault.
-
-<div class="callout">
-  <div class="callout__label">No account</div>
-  cueloop runs locally. There is no sign-up and no browser step - install the
-  command, run it, and you are reviewing.
+<div class="callout callout--tip">
+  <div class="callout__label">Start now, tune later</div>
+  Every config key has a sensible default. See
+  [Commands](/docs/reference/commands/) for the full command surface and
+  [Configuration](/docs/reference/configuration/) for every setting.
 </div>

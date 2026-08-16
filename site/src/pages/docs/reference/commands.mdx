@@ -1,0 +1,97 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Commands
+eyebrow: Docs · Reference
+lede: The full cueloop command surface - opening reviews, sharing over SSH, posting to GitHub, and the scripting API. Every command runs against a local daemon that starts on demand.
+prev: { title: "Plan, diff, review", href: "/docs/concepts/plan-diff-review/" }
+next: { title: "Configuration", href: "/docs/reference/configuration/" }
+---
+
+cueloop is one binary, `cueloop`, with a small set of subcommands. Most connect
+to a local daemon that starts automatically the first time you run one. This page
+is the reference; for the ideas behind the verbs, read
+[Plan, diff, review](/docs/concepts/plan-diff-review/).
+
+## Open a review
+
+```bash
+cueloop                 # open the inbox (every pending review)
+cueloop <session-id>    # open one session by its ses_… id
+cueloop plan [id|title] # latest pending plan, or one you name
+cueloop diff [id|title] # working-tree diff review
+cueloop review <pr>     # pull a pull request in and review it
+```
+
+- **`cueloop`** with no arguments opens the inbox across all types.
+- **`cueloop plan`** opens the latest pending plan review. Pass an id or title to
+  address a specific one.
+- **`cueloop diff`** is dual-mode: on a dirty working tree with no argument it
+  *creates* a review from the current changes (untracked files included); with a
+  selector, or on a clean tree, it opens the latest pending diff review.
+- **`cueloop review <pr>`** is dual-mode too: a bare `review` (or `--latest` /
+  `--open` / a `ses_…` id) opens a pending pull-request review, while any other
+  value is treated as a PR reference and pulls that PR in via `gh`.
+
+**Flags** (on `plan`, `diff`, `review`):
+
+- `--latest` - open the latest pending review of that type.
+- `--open [id|title]` - open a pending review, optionally by id or title.
+- `--no-tui` - (on `review <pr>`) skip the UI and print the created session as
+  JSON.
+
+## Share over SSH
+
+```bash
+cueloop share [session-id]        # upload a plan, copy the ssh line
+cueloop serve [session-id]        # serve a live session over SSH yourself
+```
+
+- **`cueloop share`** uploads the plan to the gateway and copies a single
+  `ssh p_…@cueloop.dev` line for a teammate. With no id it shares the most recent
+  session. Flags: `--host` (default `cueloop.dev`), `--port` (default `22`).
+- **`cueloop serve`** hosts a session from your own machine over SSH; observers
+  are read-only and you stay the writable controller. Flags: `--port` (default
+  `2222`, `0` picks a free port), `--host` (default `127.0.0.1`).
+
+See [Sharing over SSH](/docs/sharing/) for the whole loop.
+
+## Post to GitHub
+
+```bash
+cueloop review-post <session-id> <pr>
+```
+
+Posts a resolved session's verdict back to a pull request as a real
+`gh pr review`, without opening the UI. Verdicts map directly:
+
+```text
+approve          → gh pr review --approve
+request changes  → gh pr review --request-changes
+comment          → gh pr review --comment
+```
+
+The verdict's feedback becomes the review body.
+
+## Scripting and the daemon
+
+```bash
+cueloop session <verb> [flags]   # script the daemon API; JSON on stdout
+cueloop daemon                   # run the daemon in the foreground
+cueloop --help                   # print help
+```
+
+**`cueloop session`** exposes the daemon API one-to-one for scripts and agents.
+Verbs: `create`, `get`, `list`, `wait`, `annotate`, `resolve`,
+`submit-revision`. Each prints JSON, so it composes with other tools. Run
+`cueloop session` with no verb for the flag list.
+
+**`cueloop daemon`** runs the daemon in the foreground and never idle-exits -
+useful under a process manager. Normally you never call it: other commands start
+the daemon on demand.
+
+<div class="callout">
+  <div class="callout__label">Exit codes</div>
+  <code>0</code> success · <code>1</code> a runtime failure (no pending review,
+  a <code>gh</code> error, nothing to share) · <code>2</code> a usage error (a
+  missing argument or unknown command).
+</div>

@@ -31,6 +31,13 @@ export const docsNav: NavGroup[] = [
     ],
   },
   {
+    title: "Reference",
+    items: [
+      { title: "Commands", href: "/docs/reference/commands/" },
+      { title: "Configuration", href: "/docs/reference/configuration/" },
+    ],
+  },
+  {
     title: "Sharing over SSH",
     items: [
       { title: "Overview", href: "/docs/sharing/" },
