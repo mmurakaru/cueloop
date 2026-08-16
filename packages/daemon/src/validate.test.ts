@@ -9,6 +9,7 @@ import {
   AnnotationSchema,
   ArtifactMetaSchema,
   ArtifactSchema,
+  IdentitySchema,
   RevisionSchema,
   SessionRecordSchema,
   VerdictSchema,
@@ -23,6 +24,7 @@ import {
   type Annotation,
   type Artifact,
   type ArtifactMeta,
+  type Identity,
   type ReviewSession,
   type Revision,
   type Verdict,
@@ -179,6 +181,7 @@ describe("wire pins", () => {
   const fullVerdict: Required<Verdict> = { kind: "approve", summary: "", feedback: "", resolvedAt: "now" };
   const fullRevision: Required<Revision> = { revision: 1, content: "# P", submittedAt: "now" };
   const fullWorkspace: Required<WorkspaceKey> = { repoRoot: "/repo", branch: "main" };
+  const fullIdentity: Required<Identity> = { id: "SHA256:abc", provider: "ssh", name: "Al", handle: "abc" };
   const fullSession: Required<ReviewSession> = {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
@@ -193,6 +196,7 @@ describe("wire pins", () => {
     createdAt: "now",
     shareId: "p_abc123xy",
     owner: "SHA256:owner",
+    participants: [fullIdentity],
   };
 
   test("schema key sets match the schema types", () => {
@@ -205,6 +209,7 @@ describe("wire pins", () => {
     expect(entryKeys(AnnotationSchema)).toEqual(keys(wireAnnotation));
     expect(entryKeys(RevisionSchema)).toEqual(keys(fullRevision));
     expect(entryKeys(VerdictSchema)).toEqual(keys(fullVerdict));
+    expect(entryKeys(IdentitySchema)).toEqual(keys(fullIdentity));
     expect(entryKeys(SessionRecordSchema)).toEqual(keys(fullSession));
     // persisted annotations carry the stamped createdAt
     const stored = SessionRecordSchema.entries.annotations.item;

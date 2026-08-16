@@ -19,7 +19,6 @@ import { FRAME_BORDER_STYLE } from "./primitives/frame";
 import { Button } from "./primitives/Button";
 import { Toolbar } from "./primitives/Toolbar";
 import { truncateToSingleLine } from "./truncate-text";
-import { authorLabel } from "../attribution";
 
 export interface AnnotationDraft {
   text: string;
@@ -33,8 +32,8 @@ export interface AnnotationSaved {
   isSelected: boolean;
   isOrphan: boolean;
   isBlocking: boolean;
-  /** A collaborator's SSH fingerprint; own notes carry none. Set = name-in-border. */
-  author?: string;
+  /** Resolved author display name; own notes carry none. Set = name-in-border. */
+  authorLabel?: string;
   /** Non-null while the card body is being rewritten in place. */
   editing: AnnotationDraft | null;
   onPress: () => void;
@@ -173,7 +172,7 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
   // A collaborator's note (author set) reads as a named, bordered card so it
   // stands out from your own; own notes stay borderless. The border title is
   // the author, its color the shared-note accent.
-  const authored = card.author !== undefined && card.author !== "";
+  const authored = card.authorLabel !== undefined && card.authorLabel !== "";
   const indent = authored ? "" : "  ";
   const marker = card.isSelected ? "▸ " : indent;
   // Content rows for the author border's fixed height (a bordered box must
@@ -184,7 +183,7 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
   return (
     <box
       id={id}
-      title={authored ? ` ${authorLabel(card.author!)} ` : undefined}
+      title={authored ? ` ${card.authorLabel} ` : undefined}
       style={{
         flexDirection: "column",
         marginBottom: 1,

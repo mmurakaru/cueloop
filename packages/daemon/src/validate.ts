@@ -16,6 +16,7 @@ import {
   type Annotation,
   type Artifact,
   type ArtifactMeta,
+  type Identity,
   type ReviewSession,
   type Revision,
   type Verdict,
@@ -154,6 +155,13 @@ export const VerdictSchema = v.object({
   resolvedAt: v.string(),
 } satisfies EntriesOf<Verdict>);
 
+export const IdentitySchema = v.object({
+  id: NonEmpty,
+  provider: v.literal("ssh"),
+  name: v.optional(v.string()),
+  handle: v.optional(v.string()),
+} satisfies EntriesOf<Identity>);
+
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
 export const SessionRecordSchema = v.object({
   schemaVersion: v.literal(SCHEMA_VERSION),
@@ -169,6 +177,7 @@ export const SessionRecordSchema = v.object({
   createdAt: v.string(),
   shareId: v.optional(v.string()),
   owner: v.optional(v.string()),
+  participants: v.optional(v.array(IdentitySchema)),
 } satisfies EntriesOf<ReviewSession>);
 
 export function validateSessionRecord(raw: unknown): { ok: true; value: v.InferOutput<typeof SessionRecordSchema> } | { ok: false; error: string } {

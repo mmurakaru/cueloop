@@ -1,21 +1,31 @@
 import { describe, expect, test } from "bun:test";
-import { authorLabel } from "./attribution";
+import type { Identity } from "@cueloop/schema";
+import { ANONYMOUS_LABEL, resolveDisplayName, shortHandle } from "./attribution";
 
-describe(authorLabel, () => {
+describe(shortHandle, () => {
   test("shortens an ssh fingerprint to a stable handle", () => {
-    // Arrange
-    const fingerprint = "SHA256:1a2b3c4d5e6f7g8h";
+    // Arrange / Act / Assert
+    expect(shortHandle("SHA256:1a2b3c4d5e6f")).toBe("1a2b3c4d");
+    expect(shortHandle("SHA256:1a2b3c4d5e6f")).toBe(shortHandle("SHA256:1a2b3c4d5e6f"));
+  });
+});
 
-    // Act
-    const label = authorLabel(fingerprint);
+describe(resolveDisplayName, () => {
+  const named: Identity[] = [{ id: "SHA256:abc", provider: "ssh", name: "Al" }];
+  const unnamed: Identity[] = [{ id: "SHA256:abc", provider: "ssh" }];
+
+  test("a local rename override wins over everything", () => {
+    // Arrange / Act
+    const label = resolveDisplayName("SHA256:abc", named, { "SHA256:abc": "Alex" });
 
     // Assert
-    expect(label).toBe("1a2b3c4d");
+    expect(label).toBe("Alex");
   });
 
-  test("is deterministic and passes a non-fingerprint author through", () => {
+  test("falls back to name, then anonymous, then the short handle", () => {
     // Arrange / Act / Assert
-    expect(authorLabel("SHA256:zzxxccvvbb")).toBe(authorLabel("SHA256:zzxxccvvbb"));
-    expect(authorLabel("alex")).toBe("alex");
+    expect(resolveDisplayName("SHA256:abc", named, {})).toBe("Al");
+    expect(resolveDisplayName("SHA256:abc", unnamed, {})).toBe(ANONYMOUS_LABEL);
+    expect(resolveDisplayName("SHA256:1a2b3c4d5e", [], {})).toBe("1a2b3c4d");
   });
 });

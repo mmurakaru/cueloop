@@ -126,6 +126,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   const keysRef = useRef(DEFAULT_KEYS);
   const keyBindings = useMemo(() => new KeyBindings(DEFAULT_KEYS), []);
   const [theme, setTheme] = useState(DARK);
+  const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
     keysRef.current = config.keys;
@@ -134,6 +135,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     setReviewMode(config.ui.reviewState);
     setReviewWidth(config.ui.reviewWidth);
     reviewWidthRef.current = config.ui.reviewWidth;
+    setAuthorNames(config.authors);
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings]);
   useEffect(
@@ -513,6 +515,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
             railRef={railRef}
             rail={{
               session: activeSession,
+              authorNames,
               selectedId: focusedAnnotationId,
               resolvedIds: isDiff ? null : resolvedIds,
               railTab,

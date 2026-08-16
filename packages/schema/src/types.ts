@@ -117,6 +117,22 @@ export interface Revision {
 
 export type SessionStatus = "pending" | "resolved";
 
+/**
+ * A person who authored annotations on a session. `id` is the stable key an
+ * annotation's `author` points at - the SSH fingerprint today, an OAuth id
+ * ("github:…") later. Provider-agnostic so those identities slot in unchanged.
+ */
+export interface Identity {
+  /** Stable identity key; equals an annotation's `author`. */
+  id: string;
+  /** Identity source. One value today; widen the union when OAuth lands. */
+  provider: "ssh";
+  /** Display name; absent = the collaborator stayed anonymous. */
+  name?: string;
+  /** Provider handle: a github login, an email, or a short fingerprint. */
+  handle?: string;
+}
+
 export interface ReviewSession {
   schemaVersion: string;
   id: string;
@@ -144,6 +160,12 @@ export interface ReviewSession {
   shareId?: string;
   /** SSH fingerprint that created the share; the gateway stamps it to gate pulls. */
   owner?: string;
+  /**
+   * Identities that authored annotations here, keyed by id (union-by-id, like
+   * annotations). The gateway records a collaborator's identity and chosen name;
+   * the rail resolves an annotation's `author` against this registry.
+   */
+  participants?: Identity[];
 }
 
 /** comment and request_changes both map to deny in agent-native contracts. */
