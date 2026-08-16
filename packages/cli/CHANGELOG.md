@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.28
+
+### Patch Changes
+
+- [#165](https://github.com/mmurakaru/cueloop/pull/165) [`70b312a`](https://github.com/mmurakaru/cueloop/commit/70b312a37a0f063859c5a560d0bd56b3c8f58125) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Fix the gateway leaving a collaborator's terminal in mouse-reporting mode. Quitting a shared plan now restores the terminal (disables mouse reporting, shows the cursor, leaves the alt screen) before the channel closes, so the local terminal no longer spews raw SGR mouse reports on every mouse move until `reset`. Previously the restore only ran after the channel had already closed, which dropped the bytes.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.28
+  - @cueloop/daemon@0.1.0-alpha.28
+  - @cueloop/schema@0.1.0-alpha.28
+
 ## 0.1.0-alpha.27
 
 ### Minor Changes
