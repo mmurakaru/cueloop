@@ -112,4 +112,39 @@ describe("collaborator write-back", () => {
     // Assert
     expect(after.annotations.map((annotation) => annotation.id)).toEqual(["a_planner"]);
   });
+
+  test("self-naming records the collaborator's identity in the participant registry", async () => {
+    // Arrange
+    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+
+    // Act
+    const after = await client.sessionSetSelfName("ses_1", "  Robin  ");
+
+    // Assert
+    expect(after.participants).toEqual([{ id: "SHA256:collab", provider: "ssh", name: "Robin" }]);
+    expect((await storedSession()).participants).toEqual([{ id: "SHA256:collab", provider: "ssh", name: "Robin" }]);
+  });
+
+  test("self-naming again updates the existing entry, not a duplicate", async () => {
+    // Arrange
+    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    await client.sessionSetSelfName("ses_1", "Robin");
+
+    // Act
+    const after = await client.sessionSetSelfName("ses_1", "Robin H.");
+
+    // Assert
+    expect(after.participants).toEqual([{ id: "SHA256:collab", provider: "ssh", name: "Robin H." }]);
+  });
+
+  test("an empty name registers the fingerprint without a name - anonymous", async () => {
+    // Arrange
+    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+
+    // Act
+    const after = await client.sessionSetSelfName("ses_1", "   ");
+
+    // Assert
+    expect(after.participants).toEqual([{ id: "SHA256:collab", provider: "ssh" }]);
+  });
 });

@@ -27,6 +27,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     setStatus: mock(),
     open: mock(),
     deleteSession: mock(),
+    setSelfName: mock(),
     cut: mock(),
     annotate: mock(),
     updateAnnotation: mock(),
@@ -276,6 +277,32 @@ describe("rename author", () => {
 
     // Assert
     expect(deps.renameAuthor).toHaveBeenCalledWith("SHA256:x", "Alex");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+});
+
+describe("collaborator self-name", () => {
+  test("confirmDialog in nameSelf mode records the trimmed name and closes", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "nameSelf", text: "  Robin  " } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "confirmDialog" });
+
+    // Assert
+    expect(deps.controller.setSelfName).toHaveBeenCalledWith("Robin");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+
+  test("an empty name still closes - the collaborator stays anonymous", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "nameSelf", text: "   " } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "confirmDialog" });
+
+    // Assert
+    expect(deps.controller.setSelfName).toHaveBeenCalledWith("");
     expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
   });
 });

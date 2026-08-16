@@ -12,7 +12,7 @@
  * Plan edits and agent verdicts stay rejected - a share has neither.
  */
 
-import type { Annotation, ReviewSession } from "@cueloop/schema";
+import type { Annotation, Identity, ReviewSession } from "@cueloop/schema";
 import type { EventFrame, SessionClient } from "@cueloop/daemon/client";
 import { packSessionBlob, unpackSessionBlob } from "@cueloop/daemon/share-blob";
 import { openBlob, sealBlob } from "./crypto";
@@ -83,6 +83,11 @@ export class BlobSessionClient implements SessionClient {
     return rejectReadOnly();
   }
 
+  async sessionSetSelfName(_id: string, name: string): Promise<ReviewSession> {
+    const writeBack = this.requireWriteBack();
+    return this.commit(writeBack, (session) => upsertSelfParticipant(session, writeBack.author, name));
+  }
+
   sessionResolve(): Promise<ReviewSession> {
     return rejectReadOnly();
   }
@@ -126,6 +131,20 @@ function upsertAnnotation(session: ReviewSession, incoming: Omit<Annotation, "cr
     ? session.annotations.map((annotation) => (annotation.id === incoming.id ? stamped : annotation))
     : [...session.annotations, stamped];
   return { ...session, annotations };
+}
+
+/** Record the collaborator's own identity in the participant registry by fingerprint. */
+function upsertSelfParticipant(session: ReviewSession, author: string, name: string): ReviewSession {
+  const trimmed = name.trim();
+  const self: Identity = { id: author, provider: "ssh", ...(trimmed ? { name: trimmed } : {}) };
+  const participants = session.participants ?? [];
+  const known = participants.some((participant) => participant.id === author);
+  return {
+    ...session,
+    participants: known
+      ? participants.map((participant) => (participant.id === author ? { ...participant, ...self } : participant))
+      : [...participants, self],
+  };
 }
 
 /** Remove an annotation only when it is the collaborator's own. */

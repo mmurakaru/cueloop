@@ -467,7 +467,7 @@ exports[`stories catalog InboxList/Empty renders, snapshots, and carries its col
  nothing waiting for review                                                     
                                                                                 
                                                                                 
-  j/k move · ⏎ open · q quit                                                    
+  j/k move · ⏎ open · d delete · q quit                                         
                                                                                 
 "
 `;
@@ -483,7 +483,7 @@ exports[`stories catalog InboxList/TwoPending renders, snapshots, and carries it
                                                                                 
                                                                                 
                                                                                 
-  j/k move · ⏎ open · q quit                                                    
+  j/k move · ⏎ open · d delete · q quit                                         
                                                                                 
 "
 `;
@@ -1455,5 +1455,65 @@ exports[`stories catalog ReviewPanel/Hidden renders, snapshots, and carries its 
                                                             
                                                             
                                                             
+"
+`;
+
+exports[`stories catalog ConfirmDialog/DeletePlan renders, snapshots, and carries its colors: ConfirmDialog/DeletePlan 1`] = `
+"                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+     ╭─ Delete plan ──────────────────────────────────────╮     
+     │                                                    │     
+     │ Delete "Auth rollout"? This removes the plan and   │     
+     │ its review.                                        │     
+     │                                                    │     
+     │  Delete ⏎  Cancel esc                              │     
+     ╰────────────────────────────────────────────────────╯     
+                                                                
+                                                                
+                                                                
+                                                                
+"
+`;
+
+exports[`stories catalog PromptDialog/NameYourself renders, snapshots, and carries its colors: PromptDialog/NameYourself 1`] = `
+"                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+     ╭─ Welcome ──────────────────────────────────────────╮     
+     │                                                    │     
+     │ Your name (optional) - it attributes the notes     │     
+     │ you leave:                                         │     
+     │ your name                                          │     
+     │ ⏎ save · esc cancel                                │     
+     ╰────────────────────────────────────────────────────╯     
+                                                                
+                                                                
+                                                                
+                                                                
+"
+`;
+
+exports[`stories catalog PromptDialog/RenameAuthor renders, snapshots, and carries its colors: PromptDialog/RenameAuthor 1`] = `
+"                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+     ╭─ Rename author ────────────────────────────────────╮     
+     │                                                    │     
+     │ Display name for this collaborator:                │     
+     │ Robin                                              │     
+     │                                                    │     
+     │ ⏎ save · esc cancel                                │     
+     ╰────────────────────────────────────────────────────╯     
+                                                                
+                                                                
+                                                                
+                                                                
 "
 `;

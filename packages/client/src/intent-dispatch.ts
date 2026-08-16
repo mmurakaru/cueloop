@@ -25,7 +25,8 @@ export type Mode =
   | { type: "railEdit"; id: string; text: string }
   | { type: "submit"; verdict: VerdictKind; summary: string }
   | { type: "confirmDelete"; sessionId: string; title: string }
-  | { type: "rename"; authorId: string; text: string };
+  | { type: "rename"; authorId: string; text: string }
+  | { type: "nameSelf"; text: string };
 
 /**
  * Annotations that still count as feedback: agent notes never do, and an
@@ -157,6 +158,7 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
       case "confirmDialog": {
         if (mode.type === "confirmDelete") controller.deleteSession(mode.sessionId);
         else if (mode.type === "rename") renameAuthor(mode.authorId, mode.text.trim());
+        else if (mode.type === "nameSelf") controller.setSelfName(mode.text.trim());
         return void setMode({ type: "normal" });
       }
       case "startSpan": {

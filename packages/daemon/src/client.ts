@@ -37,6 +37,8 @@ export interface SessionClient {
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
   sessionMergeAnnotations(id: string, annotations: Annotation[]): Promise<ReviewSession>;
   sessionDelete(id: string): Promise<void>;
+  /** Record the caller's own identity name (collaborator self-naming on a share). */
+  sessionSetSelfName(id: string, name: string): Promise<ReviewSession>;
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession>;
   close(): void;
 }
@@ -194,6 +196,10 @@ export class DaemonClient implements SessionClient {
   }
   sessionDelete(id: string): Promise<void> {
     return this.request("session.delete", { id });
+  }
+  /** Local sessions have no collaborator self-name; the share client owns this. */
+  sessionSetSelfName(id: string, _name: string): Promise<ReviewSession> {
+    return this.sessionGet(id);
   }
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession> {
     return this.request("session.resolve", { id, verdictKind, summary });

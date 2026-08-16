@@ -69,9 +69,14 @@ export interface AppProps {
    * viewer: annotates, but cannot edit the plan or submit an agent verdict.
    */
   role?: "owner" | "observer" | "collaborator";
+  /**
+   * A collaborator's own SSH fingerprint. On first open of a share it seeds the
+   * name prompt so their notes attribute to a name, not a fingerprint.
+   */
+  selfAuthor?: string;
 }
 
-export function App({ home, sessionId, readOnly = false, onExit, clock, openClient, role = "owner" }: AppProps): React.ReactNode {
+export function App({ home, sessionId, readOnly = false, onExit, clock, openClient, role = "owner", selfAuthor }: AppProps): React.ReactNode {
   // Observer stays fully read-only; a collaborator writes annotations but not
   // the plan or a verdict. `observer` is what the controller and every write
   // gate key off; the two capability flags carve out the collaborator's middle.
@@ -146,6 +151,16 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     },
     [],
   );
+
+  // First open of a share: ask the collaborator for a display name once, unless
+  // a past visit already recorded one. esc skips and their notes read anonymous.
+  const promptedSelfRef = useRef(false);
+  useEffect(() => {
+    if (promptedSelfRef.current || role !== "collaborator" || !selfAuthor || !session) return;
+    promptedSelfRef.current = true;
+    const known = session.participants?.find((participant) => participant.id === selfAuthor)?.name;
+    if (!known) setMode({ type: "nameSelf", text: "" });
+  }, [role, selfAuthor, session]);
 
   // ── derived view model ──────────────────────
   const display = controller.display();
@@ -269,7 +284,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
         ? "submit"
         : mode.type === "confirmDelete"
           ? "confirm"
-        : mode.type === "rename"
+        : mode.type === "rename" || mode.type === "nameSelf"
           ? "prompt"
         : completion.phase === "prompt"
           ? "completion-prompt"
@@ -594,6 +609,17 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
             label="Display name for this collaborator:"
             value={mode.text}
             placeholder="their name"
+            onInput={(text) => setMode({ ...mode, text })}
+            theme={theme}
+          />
+        ) : null}
+        {mode.type === "nameSelf" ? (
+          <PromptDialog
+            isOpen
+            title=" Welcome "
+            label="Your name (optional) - it attributes the notes you leave:"
+            value={mode.text}
+            placeholder="your name"
             onInput={(text) => setMode({ ...mode, text })}
             theme={theme}
           />
