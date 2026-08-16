@@ -56,6 +56,8 @@
   --hairline: rgba(26, 26, 28, 0.12);
   --hairline-strong: rgba(26, 26, 28, 0.3);
   --dot-grid: rgba(26, 26, 28, 0.05);
+  /* Glass-edge refraction: darken the lip on light, brighten it on dark. */
+  --edge-brightness: 0.9;
   /* a deep, readable violet */
   --accent: #5b3ea6;
   --accent-ink: #fbfbfa;
@@ -89,6 +91,7 @@
   --hairline: rgba(234, 232, 238, 0.12);
   --hairline-strong: rgba(234, 232, 238, 0.26);
   --dot-grid: rgba(234, 232, 238, 0.05);
+  --edge-brightness: 1.4;
   --accent: #cba6f7;
   --accent-ink: #17171a;
   --accent-soft: rgba(203, 166, 247, 0.15);
@@ -677,9 +680,9 @@ pre {
   display: grid;
 }
 .drawer-link {
-  padding: 0.95rem 0.4rem;
+  padding: 0.75rem 0.4rem;
   font-family: var(--font-mono);
-  font-size: var(--step-1);
+  font-size: var(--step-0);
   color: var(--ink);
   text-decoration: none;
   border-bottom: 1px solid var(--hairline);
@@ -756,7 +759,7 @@ pre {
   place-items: center;
   width: 2rem;
   height: 2rem;
-  border-radius: 999px;
+  border-radius: 10px;
   border: 1px solid var(--hairline);
   background: var(--paper-raised);
   color: var(--ink-soft);
@@ -824,7 +827,78 @@ pre {
 /* ---- Hero ---- */
 .hero {
   padding-block: clamp(2rem, 6vw, 4.5rem) clamp(2.5rem, 6vw, 5rem);
+  /* Horizontal gutter so the glass panel never touches the viewport edge. */
+  padding-inline: clamp(1rem, 4vw, 2rem);
   text-align: center;
+  position: relative;
+  isolation: isolate;
+}
+
+/* ---- Liquid-glass hero (PROTOTYPE) ----
+ * A vivid blurred backdrop gives the frosted panel something to refract; the
+ * panel is translucent with a rim highlight + inner sheen. Hero-scoped. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -8% -4% -4%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 52% at 22% 28%, color-mix(in srgb, var(--accent) 62%, transparent), transparent 72%),
+    radial-gradient(42% 48% at 82% 22%, color-mix(in srgb, #f4f2ec 40%, transparent), transparent 72%),
+    radial-gradient(52% 60% at 62% 96%, color-mix(in srgb, var(--accent) 48%, transparent), transparent 74%);
+  filter: blur(38px) saturate(125%);
+  opacity: 0.85;
+}
+.hero > .container {
+  position: relative;
+  isolation: isolate;
+  padding: clamp(2rem, 5vw, 4rem) clamp(1.4rem, 4vw, 3rem);
+}
+/* The frosted panel: a backdrop-filter layer shaped by the SVG mask
+ * (#heroGlassMask). Masking the backdrop element - rather than clipping with
+ * border-radius - lets us subtract the & glyph to cut a real see-through hole. */
+.hero__backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--paper) 52%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(165%);
+  backdrop-filter: blur(20px) saturate(165%);
+  -webkit-mask-image: url(#heroGlassMask);
+  mask-image: url(#heroGlassMask);
+}
+/* Comeau's glass edge: a second backdrop layer masked to a thin rim
+ * (#heroEdgeMask) so the panel's lip refracts light. Comeau brightens the edge,
+ * which only reads on a dark backdrop; --edge-brightness brightens on dark but
+ * darkens slightly on light, where a glass lip is a faint darker refraction. */
+.hero__edge {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  /* Rounded box clips the stroke's outer half uniformly - without it the corner
+   * rim renders at full stroke width while the straight sides are clipped thin. */
+  border-radius: 28px;
+  -webkit-backdrop-filter: blur(8px) brightness(var(--edge-brightness));
+  backdrop-filter: blur(8px) brightness(var(--edge-brightness));
+  -webkit-mask-image: url(#heroEdgeMask);
+  mask-image: url(#heroEdgeMask);
+}
+/* The mask lives in the DOM (referenced by url(#…)) and defines its coordinate
+ * space; it never paints itself. */
+.hero__mask {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+/* Graceful fallback where backdrop-filter is unsupported: a more opaque panel. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .hero__backdrop {
+    background: color-mix(in srgb, var(--paper) 90%, transparent);
+  }
 }
 
 .hero__title {
@@ -844,21 +918,10 @@ pre {
   color: var(--ink);
 }
 
-/* The ampersand as frosted gray glass: a glossy gradient on the glyph itself
- * (light highlight to deep ink), no box or border. */
+/* The & is a plain glyph like the rest of the headline, a touch lighter weight. */
 .ht-sans .amp {
   font-weight: 700;
   font-style: normal;
-  color: color-mix(in srgb, var(--ink) 55%, var(--paper));
-  background: linear-gradient(
-    165deg,
-    color-mix(in srgb, var(--ink) 32%, var(--paper)) 0%,
-    color-mix(in srgb, var(--ink) 62%, var(--paper)) 48%,
-    var(--ink) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .hero__lede {
@@ -1404,37 +1467,42 @@ pre {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.25rem;
+  gap: 0.25rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
-  transition: border-color 0.2s var(--ease), background 0.2s var(--ease),
-    padding 0.2s var(--ease);
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
 }
+/* Expanded: the wrapper becomes the field chip. It stays the icon's height
+ * (no vertical padding) so the row never grows taller than the icon. */
 .search-box.is-expanded {
   border-color: var(--hairline-strong);
   background: var(--paper-raised);
-  padding: 0.25rem 0.5rem;
+  padding-right: 0.6rem;
 }
+/* Collapsed: the icon is a square chip that matches the theme toggle - a subtle
+ * border that strengthens on hover, no dark fill. */
 .search-box__icon {
   display: inline-grid;
   place-items: center;
   flex: none;
   width: 2rem;
   height: 2rem;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--ink-faint);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--paper-raised);
+  color: var(--ink-soft);
   cursor: pointer;
-  transition: color 0.12s var(--ease), background 0.12s var(--ease);
+  transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
 }
 .search-box:not(.is-expanded) .search-box__icon:hover {
+  border-color: var(--hairline-strong);
   color: var(--ink);
-  background: var(--paper-recessed);
 }
+/* Expanded: the icon sheds its own chip so only the wrapper reads as the field. */
 .search-box.is-expanded .search-box__icon {
+  border-color: transparent;
+  background: transparent;
   cursor: default;
 }
 .search-box__input {
@@ -1503,15 +1571,20 @@ pre {
   overflow-y: auto;
 }
 .search-empty {
-  padding: 0.5rem 0.7rem;
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0 0.65rem;
   color: var(--ink-faint);
-  font-size: var(--step-0);
+  font-size: var(--step--1);
 }
+/* Rows are the same height as the search input (2rem), content centered. */
 .search-result {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0.7rem;
+  min-height: 2rem;
+  padding: 0 0.65rem;
   border-radius: 7px;
   text-decoration: none;
 }
@@ -1520,7 +1593,7 @@ pre {
 }
 .search-result__title {
   min-width: 0;
-  font-size: var(--step-0);
+  font-size: var(--step--1);
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
@@ -1532,7 +1605,7 @@ pre {
 .search-result__meta {
   margin-left: auto;
   flex: none;
-  font-size: var(--step--1);
+  font-size: 0.75rem;
   color: var(--ink-faint);
 }
 
