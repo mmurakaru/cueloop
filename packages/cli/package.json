@@ -1,6 +1,6 @@
 {
   "name": "cueloop",
-  "version": "0.1.0-alpha.28",
+  "version": "0.1.0-alpha.29",
   "license": "Apache-2.0",
   "type": "module",
   "bin": {
@@ -10,9 +10,9 @@
     ".": "./src/main.ts"
   },
   "dependencies": {
-    "@cueloop/schema": "0.1.0-alpha.28",
-    "@cueloop/daemon": "0.1.0-alpha.28",
-    "@cueloop/client": "0.1.0-alpha.28"
+    "@cueloop/schema": "0.1.0-alpha.29",
+    "@cueloop/daemon": "0.1.0-alpha.29",
+    "@cueloop/client": "0.1.0-alpha.29"
   },
   "publishConfig": {
     "access": "public"

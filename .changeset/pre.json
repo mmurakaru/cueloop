@@ -12,6 +12,7 @@
     "@cueloop/gateway": "0.1.0-alpha.21"
   },
   "changesets": [
+    "adapter-e2e-start-budget",
     "addressed-annotations",
     "annotation-id-uniqueness",
     "auto-close",
@@ -30,6 +31,7 @@
     "edit-mode",
     "favicon",
     "gateway-connlog-classify",
+    "gateway-metrics",
     "gateway-terminal-restore",
     "global-test-timeout",
     "greptile-config",

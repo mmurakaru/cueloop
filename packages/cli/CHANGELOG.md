@@ -1,5 +1,18 @@
 # cueloop
 
+## 0.1.0-alpha.29
+
+### Minor Changes
+
+- [#169](https://github.com/mmurakaru/cueloop/pull/169) [`3d676af`](https://github.com/mmurakaru/cueloop/commit/3d676af92235fe4dfe30d2a70953d4bf4252f082) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add an opt-in Prometheus `/metrics` endpoint to the sharing gateway (ADR 0007, Layer 2). Off by default and bound to loopback - it starts only when `CUELOOP_METRICS_PORT` is set, so it never faces the public port and production is unchanged until an operator opts in. It exposes share-verb success/error counts + latency (`cueloop_share_ops_total`, `cueloop_share_op_duration_seconds`) and R2 operation outcomes (`cueloop_r2_ops_total`), the SLIs a scraping agent (e.g. Grafana Cloud) needs. Box CPU/mem/disk stay the agent's node integration.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.29
+  - @cueloop/daemon@0.1.0-alpha.29
+  - @cueloop/schema@0.1.0-alpha.29
+
 ## 0.1.0-alpha.28
 
 ### Patch Changes
