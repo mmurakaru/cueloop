@@ -19,6 +19,7 @@ import { BlobSessionClient } from "./blob-session-client";
 import { renderOverChannel, TERMINAL_RESTORE, type ChannelRender, type PtySize } from "./channel-renderer";
 import { openBlob, sealBlob } from "./crypto";
 import { loadOrCreateHostKey } from "./host-key";
+import { GatewayMetrics, startMetricsServer } from "./metrics";
 import { TokenBucket } from "./rate-limit";
 import { SHARE_UPLOAD_USER, isShareId, mintShareId } from "./share-id";
 import type { ShareStore } from "./store";
@@ -37,12 +38,18 @@ export interface GatewayOptions {
   publicHost?: string;
   /** Largest accepted upload. Default MAX_BLOB_BYTES (1 MiB). */
   maxUploadBytes?: number;
+  /** When set, serve Prometheus `/metrics` on this port (loopback). Off if absent. */
+  metricsPort?: number;
+  /** Bind for the metrics server. Default 127.0.0.1 - never expose it on the public port. */
+  metricsHost?: string;
   onError?: (err: unknown) => void;
 }
 
 export interface GatewayHandle {
   host: string;
   port: number;
+  /** The bound loopback metrics port, when a metrics server was started. */
+  metricsPort?: number;
   close(): Promise<void>;
 }
 
@@ -58,6 +65,13 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   const onError = options.onError ?? ((err: unknown) => console.error("[gateway]", err));
   const uploadLimiter = new TokenBucket(20, 1);
   const hostKey = loadOrCreateHostKey(options.hostKeyPath);
+
+  // Metrics are always collected (bounded, negligible) but only served when a
+  // port is configured, so production is unaffected until an operator opts in.
+  const metrics = new GatewayMetrics();
+  const store = meterStore(options.store, metrics);
+  const metricsServer =
+    options.metricsPort !== undefined ? startMetricsServer(metrics, { host: options.metricsHost, port: options.metricsPort }) : null;
 
   const clients = new Set<Connection>();
   const server = new Server({ hostKeys: [hostKey] }, (client, info) => {
@@ -131,6 +145,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     pty: PtySize,
     keepRender: (handle: ChannelRender) => void,
   ): Promise<void> {
+    const startedAt = Date.now();
     const shareId = identity.username;
     if (!isShareId(shareId)) {
       channel.stderr.write("cueloop: connect as ssh <share-id>@" + publicHost + " to view a shared plan\r\n");
@@ -138,7 +153,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     }
     let session;
     try {
-      const stored = await options.store.get(shareId);
+      const stored = await store.get(shareId);
       if (!stored) {
         channel.stderr.write("cueloop: this share was not found or has expired\r\n");
         return end(channel, 1);
@@ -146,6 +161,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
     } catch (err) {
       onError(err);
+      metrics.recordShare("view", "error", elapsed(startedAt));
       channel.stderr.write("cueloop: could not open this share\r\n");
       return end(channel, 1);
     }
@@ -154,7 +170,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       // back into the stored blob stamped with their fingerprint. They cannot
       // edit the plan or submit a verdict (the App's collaborator role).
       const client = new BlobSessionClient(session, {
-        store: options.store,
+        store,
         masterKey: options.masterKey,
         shareId,
         author: identity.fingerprint,
@@ -174,8 +190,10 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         }),
       );
       keepRender(handle);
+      metrics.recordShare("view", "ok", elapsed(startedAt));
     } catch (err) {
       onError(err);
+      metrics.recordShare("view", "error", elapsed(startedAt));
       end(channel, 1);
     }
   }
@@ -185,6 +203,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       channel.stderr.write("cueloop: rate limited, try again shortly\r\n");
       return end(channel, 1);
     }
+    const startedAt = Date.now();
     let id: string;
     try {
       const bytes = await readCapped(channel, maxUploadBytes);
@@ -193,49 +212,57 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       const { shareId: _local, ...uploaded } = unpackSessionBlob(bytes);
       const session = { ...uploaded, owner: identity.fingerprint };
       id = mintShareId();
-      await options.store.put(id, sealBlob(options.masterKey, id, packSessionBlob(session)));
+      await store.put(id, sealBlob(options.masterKey, id, packSessionBlob(session)));
     } catch (err) {
       onError(err);
+      metrics.recordShare("create", "error", elapsed(startedAt));
       channel.stderr.write(`cueloop: upload rejected - ${err instanceof Error ? err.message : String(err)}\r\n`);
       return end(channel, 1);
     }
     channel.write(`ssh ${id}@${publicHost}\n`);
+    metrics.recordShare("create", "ok", elapsed(startedAt));
     end(channel, 0);
   }
 
   // The owner (the fingerprint that uploaded) pulls the current session back.
   async function handlePull(channel: ServerChannel, identity: Identity): Promise<void> {
+    const startedAt = Date.now();
     try {
       const shareId = (await readCapped(channel, 256)).toString("utf8").trim();
       if (!isShareId(shareId)) return void fail(channel, "not a share id");
-      const stored = await options.store.get(shareId);
+      const stored = await store.get(shareId);
       if (!stored) return void fail(channel, "this share was not found or has expired");
       const session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
       if (session.owner !== identity.fingerprint) return void fail(channel, "only the planner who shared this can pull it");
       channel.write(JSON.stringify(session));
+      metrics.recordShare("pull", "ok", elapsed(startedAt));
       end(channel, 0);
     } catch (err) {
       onError(err);
+      metrics.recordShare("pull", "error", elapsed(startedAt));
       fail(channel, "could not read this share");
     }
   }
 
   // The owner mirrors their own annotations into the share (stage 2 push-up).
   async function handlePush(channel: ServerChannel, identity: Identity): Promise<void> {
+    const startedAt = Date.now();
     try {
       const payload = JSON.parse((await readCapped(channel, maxUploadBytes)).toString("utf8")) as { shareId?: unknown; annotations?: unknown };
       if (typeof payload.shareId !== "string" || !isShareId(payload.shareId)) return void fail(channel, "not a share id");
       if (!Array.isArray(payload.annotations)) return void fail(channel, "annotations must be a list");
-      const stored = await options.store.get(payload.shareId);
+      const stored = await store.get(payload.shareId);
       if (!stored) return void fail(channel, "this share was not found or has expired");
       const session = unpackSessionBlob(openBlob(options.masterKey, payload.shareId, stored));
       if (session.owner !== identity.fingerprint) return void fail(channel, "only the planner who shared this can push to it");
       // Round-trip validates the pushed notes: a malformed one throws here, so the stored blob stays intact.
       const next = unpackSessionBlob(packSessionBlob(mergeOwnerAnnotations(session, payload.annotations as Array<Omit<Annotation, "createdAt">>)));
-      await options.store.put(payload.shareId, sealBlob(options.masterKey, payload.shareId, packSessionBlob(next)));
+      await store.put(payload.shareId, sealBlob(options.masterKey, payload.shareId, packSessionBlob(next)));
+      metrics.recordShare("push", "ok", elapsed(startedAt));
       end(channel, 0);
     } catch (err) {
       onError(err);
+      metrics.recordShare("push", "error", elapsed(startedAt));
       fail(channel, "could not update this share");
     }
   }
@@ -253,6 +280,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
   return {
     ...listened,
+    metricsPort: metricsServer?.port,
     // Stop accepting, end live connections, and resolve at once. We do not wait
     // for every connection to drain: a viewer whose renderer is still tearing
     // down must never stall shutdown (systemctl stop, or a test's teardown).
@@ -261,8 +289,39 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         for (const client of clients) client.end();
         clients.clear();
         server.close();
+        metricsServer?.stop();
         resolve();
       }),
+  };
+}
+
+/** Seconds since `startedAt`, for latency histograms. */
+function elapsed(startedAt: number): number {
+  return (Date.now() - startedAt) / 1000;
+}
+
+/** Wrap a store so every R2 get/put counts toward the R2 error-rate SLI. */
+function meterStore(store: ShareStore, metrics: GatewayMetrics): ShareStore {
+  return {
+    async get(id) {
+      try {
+        const bytes = await store.get(id);
+        metrics.recordR2("get", "ok");
+        return bytes;
+      } catch (err) {
+        metrics.recordR2("get", "error");
+        throw err;
+      }
+    },
+    async put(id, bytes) {
+      try {
+        await store.put(id, bytes);
+        metrics.recordR2("put", "ok");
+      } catch (err) {
+        metrics.recordR2("put", "error");
+        throw err;
+      }
+    },
   };
 }
 

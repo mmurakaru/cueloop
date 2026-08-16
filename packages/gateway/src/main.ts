@@ -29,9 +29,13 @@ async function main(): Promise<void> {
     port: Number(process.env.CUELOOP_GATEWAY_PORT ?? 22),
     host: process.env.CUELOOP_GATEWAY_HOST,
     publicHost: process.env.CUELOOP_PUBLIC_HOST,
+    // Off unless CUELOOP_METRICS_PORT is set; binds loopback so it never faces the internet.
+    metricsPort: process.env.CUELOOP_METRICS_PORT ? Number(process.env.CUELOOP_METRICS_PORT) : undefined,
+    metricsHost: process.env.CUELOOP_METRICS_HOST,
   });
 
-  console.log(`cueloop gateway listening on ${handle.host}:${handle.port}${useMemory ? " (memory store, ephemeral key)" : ""}`);
+  const metricsNote = process.env.CUELOOP_METRICS_PORT ? `, metrics on ${process.env.CUELOOP_METRICS_HOST ?? "127.0.0.1"}:${process.env.CUELOOP_METRICS_PORT}` : "";
+  console.log(`cueloop gateway listening on ${handle.host}:${handle.port}${useMemory ? " (memory store, ephemeral key)" : ""}${metricsNote}`);
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, () => void handle.close().then(() => process.exit(0)));
   }

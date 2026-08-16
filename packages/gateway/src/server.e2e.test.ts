@@ -220,6 +220,34 @@ describe("share upload then view", () => {
     expect(frames).toContain("\x1b[?1049l");
   });
 
+  test("with metrics enabled, an upload increments the share + R2 counters at /metrics", async () => {
+    // Arrange - a gateway with the loopback metrics server on
+    const metricsHome = mkdtempSync(join(tmpdir(), "cueloop-gw-metrics-"));
+    const metricsStore = new MemoryShareStore();
+    const metricsGateway = await startGateway({
+      store: metricsStore,
+      masterKey: MASTER,
+      hostKeyPath: join(metricsHome, "host_key"),
+      port: 0,
+      host: "127.0.0.1",
+      metricsPort: 0,
+      metricsHost: "127.0.0.1",
+      onError: () => {},
+    });
+    try {
+      // Act - one upload, then scrape /metrics
+      await shareUpload(metricsGateway.port, packSessionBlob(SESSION));
+      const body = await (await fetch(`http://127.0.0.1:${metricsGateway.metricsPort}/metrics`)).text();
+
+      // Assert - the create verb and the R2 put both counted
+      expect(body).toContain('cueloop_share_ops_total{verb="create",outcome="ok"} 1');
+      expect(body).toContain('cueloop_r2_ops_total{op="put",outcome="ok"} 1');
+    } finally {
+      await metricsGateway.close();
+      rmSync(metricsHome, { recursive: true, force: true });
+    }
+  });
+
   test("stores the blob as ciphertext, never the plaintext plan", async () => {
     // Arrange
     const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
