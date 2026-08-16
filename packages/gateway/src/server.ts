@@ -16,7 +16,7 @@ import type { Annotation, ReviewSession } from "@cueloop/schema";
 import { App } from "@cueloop/client";
 import { DEFAULT_SHARE_HOST, packSessionBlob, unpackSessionBlob, MAX_BLOB_BYTES } from "@cueloop/daemon/share-blob";
 import { BlobSessionClient } from "./blob-session-client";
-import { renderOverChannel, type ChannelRender, type PtySize } from "./channel-renderer";
+import { renderOverChannel, TERMINAL_RESTORE, type ChannelRender, type PtySize } from "./channel-renderer";
 import { openBlob, sealBlob } from "./crypto";
 import { loadOrCreateHostKey } from "./host-key";
 import { TokenBucket } from "./rate-limit";
@@ -159,19 +159,21 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         shareId,
         author: identity.fingerprint,
       });
-      keepRender(
-        await renderOverChannel(
-          channel,
-          pty,
-          React.createElement(App, {
-            sessionId: session.id,
-            role: "collaborator",
-            selfAuthor: identity.fingerprint,
-            openClient: () => Promise.resolve(client),
-            onExit: () => end(channel, 0),
-          }),
-        ),
+      let handle: ChannelRender | null = null;
+      handle = await renderOverChannel(
+        channel,
+        pty,
+        React.createElement(App, {
+          sessionId: session.id,
+          role: "collaborator",
+          selfAuthor: identity.fingerprint,
+          openClient: () => Promise.resolve(client),
+          // quitting is the graceful path: stop the renderer and restore the
+          // terminal before the channel closes, so mouse reporting is left off
+          onExit: () => endView(channel, handle, 0),
+        }),
       );
+      keepRender(handle);
     } catch (err) {
       onError(err);
       end(channel, 1);
@@ -291,6 +293,19 @@ function readCapped(channel: ServerChannel, max: number): Promise<Buffer> {
 function end(channel: ServerChannel, code: number): void {
   channel.exit(code);
   channel.end();
+}
+
+/**
+ * Graceful teardown of a rendered view: stop the renderer (no more frames), then
+ * write the terminal-restore bytes straight to the still-open channel and flush
+ * them with the close. Relying on the renderer's post-close restore drops these
+ * (the wrapped stdout early-returns once the channel is gone), leaving the
+ * client's terminal spewing SGR mouse reports.
+ */
+function endView(channel: ServerChannel, render: ChannelRender | null, code: number): void {
+  render?.destroy();
+  channel.write(TERMINAL_RESTORE);
+  end(channel, code);
 }
 
 function fail(channel: ServerChannel, message: string): void {
