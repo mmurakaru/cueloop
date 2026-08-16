@@ -36,6 +36,7 @@ export interface SessionClient {
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
   sessionMergeAnnotations(id: string, annotations: Annotation[]): Promise<ReviewSession>;
+  sessionDelete(id: string): Promise<void>;
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession>;
   close(): void;
 }
@@ -190,6 +191,9 @@ export class DaemonClient implements SessionClient {
   }
   sessionMergeAnnotations(id: string, annotations: Annotation[]): Promise<ReviewSession> {
     return this.request("session.mergeAnnotations", { id, annotations });
+  }
+  sessionDelete(id: string): Promise<void> {
+    return this.request("session.delete", { id });
   }
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession> {
     return this.request("session.resolve", { id, verdictKind, summary });

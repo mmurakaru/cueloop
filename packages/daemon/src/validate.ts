@@ -108,6 +108,7 @@ export const Params = {
   "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
   "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
+  "session.delete": v.object({ id: SessionId }),
   "session.mergeAnnotations": v.object({ id: SessionId, annotations: v.array(FullAnnotationSchema) }),
   "session.resolve": v.object({
     id: SessionId,

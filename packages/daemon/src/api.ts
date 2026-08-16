@@ -176,6 +176,12 @@ export class DaemonCore {
     return session;
   }
 
+  /** Remove a session for good (inbox delete); resolved or pending, both go. */
+  sessionDelete(id: string): void {
+    if (!this.store.delete(id)) throw new DaemonError("not_found", `no session ${id}`);
+    this.emit("inbox.changed", id);
+  }
+
   /** Union incoming annotations in by id; existing ids (the planner's) win. */
   sessionMergeAnnotations(id: string, incoming: Annotation[]): ReviewSession {
     const session = this.mutable(id);

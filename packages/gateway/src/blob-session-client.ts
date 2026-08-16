@@ -79,6 +79,10 @@ export class BlobSessionClient implements SessionClient {
     return rejectReadOnly();
   }
 
+  sessionDelete(): Promise<never> {
+    return rejectReadOnly();
+  }
+
   sessionResolve(): Promise<ReviewSession> {
     return rejectReadOnly();
   }
