@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/gateway",
-  "version": "0.1.0-alpha.27",
+  "version": "0.1.0-alpha.28",
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
@@ -11,9 +11,9 @@
     "cueloop-gateway": "./src/main.ts"
   },
   "dependencies": {
-    "@cueloop/client": "0.1.0-alpha.27",
-    "@cueloop/daemon": "0.1.0-alpha.27",
-    "@cueloop/schema": "0.1.0-alpha.27",
+    "@cueloop/client": "0.1.0-alpha.28",
+    "@cueloop/daemon": "0.1.0-alpha.28",
+    "@cueloop/schema": "0.1.0-alpha.28",
     "@opentui/core": "^0.5.1",
     "@opentui/react": "^0.5.1",
     "react": "^19.2.0",

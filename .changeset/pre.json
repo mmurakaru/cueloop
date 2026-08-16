@@ -30,6 +30,8 @@
     "edit-mode",
     "favicon",
     "gateway-connlog-classify",
+    "gateway-terminal-restore",
+    "global-test-timeout",
     "greptile-config",
     "guided-walk",
     "help-catalogue",
