@@ -1,5 +1,22 @@
 # cueloop
 
+## 0.1.0-alpha.27
+
+### Minor Changes
+
+- [#156](https://github.com/mmurakaru/cueloop/pull/156) [`7464609`](https://github.com/mmurakaru/cueloop/commit/7464609c7320f32ba1f3ab3123b9b353bb925341) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Name and manage collaborators. A share viewer is asked for a display name the first time they open a shared plan, so their notes attribute to a name rather than an SSH fingerprint; skipping keeps them anonymous, and a name from a past visit is remembered. The planner can rename any collaborator from the rail - r on a selected note, or activate the note (click it again, or e) - stored per fingerprint in the user config. The inbox gains a delete action (d, or the [delete] button) behind a centered confirm dialog, so finished plans can be cleared.
+
+- [#156](https://github.com/mmurakaru/cueloop/pull/156) [`7464609`](https://github.com/mmurakaru/cueloop/commit/7464609c7320f32ba1f3ab3123b9b353bb925341) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Attribute collaborator annotations in the review rail. A note pulled from a shared plan now renders as a bordered card titled with the author's handle (derived from their SSH fingerprint until display names are captured), so a teammate's notes stand out from your own - which stay borderless. Own-only rails are unchanged.
+
+### Patch Changes
+
+- [#163](https://github.com/mmurakaru/cueloop/pull/163) [`d38cefd`](https://github.com/mmurakaru/cueloop/commit/d38cefd505e21ccbd920ba578eec041f51c0cc41) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Collaborator names now reach the planner on pull. Pulling a shared plan merges the participant registry (union by id) alongside the collaborator notes, so a teammate who named themselves resolves to that name in the review rail instead of a raw SSH fingerprint. A collaborator who left a note without naming themselves reads as anonymous. The daemon's `session.mergeAnnotations` verb becomes `session.mergeShared`, carrying both the notes and the identities behind them.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.27
+  - @cueloop/daemon@0.1.0-alpha.27
+  - @cueloop/schema@0.1.0-alpha.27
+
 ## 0.1.0-alpha.26
 
 ### Patch Changes
