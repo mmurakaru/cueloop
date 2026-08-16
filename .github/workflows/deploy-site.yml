@@ -55,7 +55,8 @@ jobs:
           accountId: 7a31fcb24b660fc77f69222e21459965
           workingDirectory: site
           # branch=main is the production alias; any other branch is a preview.
-          command: pages deploy dist --project-name=cueloop-site --branch=${{ github.head_ref || github.ref_name }}
+          # workflow_dispatch always targets production regardless of the ref.
+          command: pages deploy dist --project-name=cueloop-site --branch=${{ github.event_name == 'workflow_dispatch' && 'main' || github.head_ref || github.ref_name }}
       - name: Comment preview URL
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
