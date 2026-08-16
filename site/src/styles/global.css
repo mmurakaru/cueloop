@@ -67,16 +67,15 @@
   --red: #b3261e;
   --red-soft: rgba(179, 38, 30, 0.09);
 
-  /* Terminal panel - a cool sumi, so it reads as a real terminal on the light
-   * canvas. */
-  --term-bg: #17171a;
-  --term-bar: #202024;
-  --term-ink: #e6e6ea;
-  --term-dim: #8a8a92;
-  --term-line: rgba(230, 230, 234, 0.1);
-  --term-accent: #a78bde;
-  --term-green: #78c48b;
-  --term-blue: #7fa8d8;
+  /* Terminal panel - light in light mode, matching the docs code blocks. */
+  --term-bg: #fbfbfa;
+  --term-bar: #ecece8;
+  --term-ink: #1a1a1c;
+  --term-dim: #86868c;
+  --term-line: rgba(26, 26, 28, 0.1);
+  --term-accent: #5b3ea6;
+  --term-green: #3e7c4f;
+  --term-blue: #3a6ea5;
 }
 
 /* Dark theme - a cool greyscale near-black with a soft lavender accent. */
@@ -220,7 +219,7 @@ pre {
 }
 
 .section {
-  padding-block: clamp(3.5rem, 9vw, 8rem);
+  padding-block: clamp(2.75rem, 6.5vw, 6rem);
 }
 
 .hairline {
@@ -249,31 +248,17 @@ pre {
 
 /* ---- Mono eyebrow, framed by crop-marks ---- */
 .eyebrow {
-  --m: 6px;
-  --mc: var(--hairline-strong);
   display: inline-block;
-  padding: 0.45em 0.75em;
   font-family: var(--font-mono);
   font-size: var(--step--1);
   font-weight: 500;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-faint);
-  background-image: linear-gradient(var(--mc), var(--mc)),
-    linear-gradient(var(--mc), var(--mc)), linear-gradient(var(--mc), var(--mc)),
-    linear-gradient(var(--mc), var(--mc)), linear-gradient(var(--mc), var(--mc)),
-    linear-gradient(var(--mc), var(--mc)), linear-gradient(var(--mc), var(--mc)),
-    linear-gradient(var(--mc), var(--mc));
-  background-repeat: no-repeat;
-  background-size: var(--m) 1px, 1px var(--m), var(--m) 1px, 1px var(--m),
-    var(--m) 1px, 1px var(--m), var(--m) 1px, 1px var(--m);
-  background-position: top left, top left, top right, top right, bottom left,
-    bottom left, bottom right, bottom right;
 }
 
 .eyebrow--index {
   color: var(--accent);
-  --mc: var(--accent);
 }
 
 .dot {
@@ -838,7 +823,7 @@ pre {
 
 /* ---- Hero ---- */
 .hero {
-  padding-block: clamp(3rem, 9vw, 7rem) clamp(2.5rem, 6vw, 5rem);
+  padding-block: clamp(2rem, 6vw, 4.5rem) clamp(2.5rem, 6vw, 5rem);
   text-align: center;
 }
 
@@ -859,17 +844,28 @@ pre {
   color: var(--ink);
 }
 
+/* The ampersand as frosted gray glass: a glossy gradient on the glyph itself
+ * (light highlight to deep ink), no box or border. */
 .ht-sans .amp {
-  color: var(--accent);
   font-weight: 700;
   font-style: normal;
+  color: color-mix(in srgb, var(--ink) 55%, var(--paper));
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--ink) 32%, var(--paper)) 0%,
+    color-mix(in srgb, var(--ink) 62%, var(--paper)) 48%,
+    var(--ink) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .hero__lede {
   margin: 1.6rem auto 0;
-  max-width: 52ch;
-  font-size: var(--step-1);
-  line-height: 1.5;
+  max-width: 54ch;
+  font-size: clamp(1.05rem, 1rem + 0.25vw, 1.2rem);
+  line-height: 1.6;
   color: var(--ink-soft);
 }
 
@@ -991,47 +987,47 @@ pre {
    * reflows the widget. Caps to the container on narrow screens. */
   width: 32rem;
   max-width: 100%;
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-sm);
-  background: var(--paper-raised);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
 }
+/* Provider tabs as detached pills above the command box. */
 .install__tabs {
   display: flex;
-  overflow-x: auto;
-  scrollbar-width: none;
-  border-bottom: 1px solid var(--hairline);
-  background: var(--paper-recessed);
-}
-.install__tabs::-webkit-scrollbar {
-  display: none;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
 }
 .install__tab {
-  padding: 0.55rem 0.95rem;
+  padding: 0.3rem 0.75rem;
   font-family: var(--font-mono);
   font-size: var(--step--1);
   color: var(--ink-faint);
+  border-radius: 999px;
   cursor: pointer;
-  border-bottom: 2px solid transparent;
   outline: none;
   white-space: nowrap;
-  transition: color 0.15s var(--ease), border-color 0.15s var(--ease),
-    background 0.15s var(--ease);
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
 }
 .install__tab[data-hovered] {
   color: var(--ink);
+  background: var(--paper-recessed);
 }
 .install__tab[data-selected] {
-  color: var(--ink);
-  border-bottom-color: var(--accent);
-  background: var(--paper-raised);
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 500;
 }
 .install__tab[data-focus-visible] {
   outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline-offset: 2px;
 }
+/* Command box, matching the standalone copy chip. */
 .install__panel {
-  padding: 0.9rem 1rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-sm);
+  background: var(--paper-raised);
+  padding: 0.55rem 0.7rem 0.55rem 0.9rem;
 }
 .install__cmd {
   display: flex;
