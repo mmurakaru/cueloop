@@ -1,0 +1,70 @@
+---
+/*
+ * cueloop mark: a clean outer circle with two morphed inner blobs offset
+ * top-left, separated by real transparency (mask cut-outs) so the gaps match
+ * whatever background is behind the mark. Pass a unique `uid` per instance on a
+ * page so the mask ids do not collide.
+ */
+interface Props {
+  size?: number;
+  uid?: string;
+  class?: string;
+}
+const { size = 20, uid = "cl", class: className } = Astro.props;
+
+function blob(
+  centerX: number,
+  centerY: number,
+  radius: number,
+  wobble: number,
+  phase: number,
+  pointCount = 7,
+) {
+  const nodes: [number, number][] = [];
+  for (let index = 0; index < pointCount; index++) {
+    const angle = (index / pointCount) * Math.PI * 2 + phase * 0.4;
+    const pointRadius = radius * (1 + wobble * Math.sin(index * 2.3 + phase));
+    nodes.push([centerX + pointRadius * Math.cos(angle), centerY + pointRadius * Math.sin(angle)]);
+  }
+  let path = `M ${nodes[0][0].toFixed(2)} ${nodes[0][1].toFixed(2)}`;
+  for (let index = 0; index < pointCount; index++) {
+    const prev = nodes[(index - 1 + pointCount) % pointCount];
+    const curr = nodes[index];
+    const next = nodes[(index + 1) % pointCount];
+    const after = nodes[(index + 2) % pointCount];
+    const control1X = curr[0] + (next[0] - prev[0]) / 6;
+    const control1Y = curr[1] + (next[1] - prev[1]) / 6;
+    const control2X = next[0] - (after[0] - curr[0]) / 6;
+    const control2Y = next[1] - (after[1] - curr[1]) / 6;
+    path += ` C ${control1X.toFixed(2)} ${control1Y.toFixed(2)}, ${control2X.toFixed(2)} ${control2Y.toFixed(2)}, ${next[0].toFixed(2)} ${next[1].toFixed(2)}`;
+  }
+  return `${path} Z`;
+}
+
+const GAP = 1.4;
+const midBlob = blob(13.6, 13.6, 9, 0.07, 0.6);
+const midHole = blob(13.6, 13.6, 9 + GAP, 0.07, 0.6);
+const innerBlob = blob(11, 11, 5.6, 0.09, 2.1);
+const innerHole = blob(11, 11, 5.6 + GAP, 0.09, 2.1);
+---
+
+<svg
+  width={size}
+  height={size}
+  viewBox="0 0 32 32"
+  class={className}
+  aria-hidden="true"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <mask id={`clm-${uid}`}>
+    <rect width="32" height="32" fill="#fff"></rect>
+    <path d={midHole} fill="#000"></path>
+  </mask>
+  <mask id={`cli-${uid}`}>
+    <rect width="32" height="32" fill="#fff"></rect>
+    <path d={innerHole} fill="#000"></path>
+  </mask>
+  <circle cx="16" cy="16" r="12" fill="#9a9ca6" mask={`url(#clm-${uid})`}></circle>
+  <path d={midBlob} fill="#6b6d76" mask={`url(#cli-${uid})`}></path>
+  <path d={innerBlob} fill="#2f3037"></path>
+</svg>

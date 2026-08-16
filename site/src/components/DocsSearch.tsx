@@ -1,58 +1,29 @@
 /*
- * Docs search: a command-palette modal over the build-time index, fuzzed with
- * Fuse.js. Opens from the header trigger, the Cmd/Ctrl+K shortcut, or a
- * `cueloop:open-search` event (dispatched by the mobile drawer). React Aria
- * ModalOverlay handles focus trap + dismiss; result navigation is keyboard
- * driven (up/down/enter).
+ * Header docs search (desktop). A search icon that expands into an inline input;
+ * results render in a popover anchored below the input - no centered overlay.
+ * Cmd/Ctrl+K expands and focuses it. Collapses on Escape, outside click, or
+ * after picking a result.
  */
-import { useEffect, useMemo, useState } from "react";
-import { ModalOverlay, Modal, Dialog, Button } from "react-aria-components";
-import Fuse from "fuse.js";
-import type { SearchDoc } from "../search-data";
-
-function SearchIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      <path d="M21 21l-4.3-4.3" />
-    </svg>
-  );
-}
+import { useEffect, useRef, useState } from "react";
+import { useDocsSearch, SearchGlyph, highlight } from "./useDocsSearch.tsx";
 
 export default function DocsSearch() {
-  const [isOpen, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
-  const [docs, setDocs] = useState<SearchDoc[]>([]);
+  const results = useDocsSearch(query);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetch("/search-index.json")
-      .then((response) => response.json())
-      .then((data: SearchDoc[]) => setDocs(data))
-      .catch(() => {
-        // search index unavailable; the palette just shows no results
-      });
-  }, []);
-
-  const fuse = useMemo(
-    () =>
-      new Fuse(docs, {
-        keys: [
-          { name: "title", weight: 0.5 },
-          { name: "headings", weight: 0.25 },
-          { name: "description", weight: 0.2 },
-          { name: "group", weight: 0.1 },
-        ],
-        threshold: 0.4,
-        ignoreLocation: true,
-      }),
-    [docs],
-  );
-
-  const results = useMemo<SearchDoc[]>(() => {
-    if (!query.trim()) return docs.slice(0, 6);
-    return fuse.search(query).slice(0, 8).map((hit) => hit.item);
-  }, [query, fuse, docs]);
+  function open() {
+    setExpanded(true);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+  function close() {
+    setExpanded(false);
+    setQuery("");
+    setActive(0);
+  }
 
   useEffect(() => setActive(0), [query]);
 
@@ -60,26 +31,30 @@ export default function DocsSearch() {
     function onKey(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setOpen(true);
+        open();
       }
     }
-    function onOpenEvent() {
-      setOpen(true);
-    }
     window.addEventListener("keydown", onKey);
-    window.addEventListener("cueloop:open-search", onOpenEvent);
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("cueloop:open-search", onOpenEvent);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  function navigate(doc: SearchDoc | undefined) {
-    if (doc) window.location.href = doc.href;
+  useEffect(() => {
+    if (!expanded) return;
+    function onPointerDown(event: MouseEvent) {
+      if (boxRef.current && !boxRef.current.contains(event.target as Node)) close();
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [expanded]);
+
+  function navigate(href: string | undefined) {
+    if (href) window.location.href = href;
   }
 
   function onInputKey(event: React.KeyboardEvent) {
-    if (event.key === "ArrowDown") {
+    if (event.key === "Escape") {
+      close();
+    } else if (event.key === "ArrowDown") {
       event.preventDefault();
       setActive((current) => Math.min(current + 1, results.length - 1));
     } else if (event.key === "ArrowUp") {
@@ -87,61 +62,58 @@ export default function DocsSearch() {
       setActive((current) => Math.max(current - 1, 0));
     } else if (event.key === "Enter") {
       event.preventDefault();
-      navigate(results[active]);
+      navigate(results[active]?.doc.href);
     }
   }
 
   return (
-    <>
-      <Button className="search-trigger" onPress={() => setOpen(true)} aria-label="Search docs">
-        <SearchIcon />
-        <span className="search-trigger__label">Search</span>
-        <kbd className="search-trigger__kbd">&#8984;K</kbd>
-      </Button>
-      <ModalOverlay className="search-overlay" isOpen={isOpen} onOpenChange={setOpen} isDismissable>
-        <Modal className="search-modal">
-          <Dialog className="search-dialog" aria-label="Search the docs">
-            <div className="search-field">
-              <SearchIcon size={18} />
-              {/* eslint-disable-next-line jsx-a11y/no-autofocus */}
-              <input
-                autoFocus
-                type="text"
-                className="search-input"
-                placeholder="Search the docs"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={onInputKey}
-                role="combobox"
-                aria-expanded="true"
-                aria-controls="search-results"
-                aria-label="Search the docs"
-              />
-              <kbd className="search-esc">esc</kbd>
-            </div>
-            <ul id="search-results" className="search-results" role="listbox">
-              {results.length === 0 && (
-                <li className="search-empty">No matches for &ldquo;{query}&rdquo;</li>
-              )}
-              {results.map((doc, index) => (
-                <li key={doc.href} role="option" aria-selected={index === active}>
-                  <a
-                    href={doc.href}
-                    className={`search-result${index === active ? " is-active" : ""}`}
-                    onMouseEnter={() => setActive(index)}
-                  >
-                    <span className="search-result__group">{doc.group}</span>
-                    <span className="search-result__title">{doc.title}</span>
-                    {doc.description && (
-                      <span className="search-result__desc">{doc.description}</span>
-                    )}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </Dialog>
-        </Modal>
-      </ModalOverlay>
-    </>
+    <div className={`search-box${expanded ? " is-expanded" : ""}`} ref={boxRef}>
+      <button
+        type="button"
+        className="search-box__icon"
+        aria-label="Search docs"
+        aria-expanded={expanded}
+        onClick={() => (expanded ? inputRef.current?.focus() : open())}
+      >
+        <SearchGlyph size={17} />
+      </button>
+      <input
+        ref={inputRef}
+        type="text"
+        className="search-box__input"
+        placeholder="Search the docs"
+        value={query}
+        tabIndex={expanded ? 0 : -1}
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={onInputKey}
+        role="combobox"
+        aria-expanded={expanded}
+        aria-controls="search-pop-list"
+        aria-label="Search the docs"
+      />
+      {expanded && (
+        <div className="search-pop">
+          <ul id="search-pop-list" className="search-results" role="listbox">
+            {results.length === 0 && (
+              <li className="search-empty">No matches for &ldquo;{query}&rdquo;</li>
+            )}
+            {results.map((hit, index) => (
+              <li key={hit.doc.href} role="option" aria-selected={index === active}>
+                <a
+                  href={hit.doc.href}
+                  className={`search-result${index === active ? " is-active" : ""}`}
+                  onMouseEnter={() => setActive(index)}
+                >
+                  <span className="search-result__title">
+                    {highlight(hit.doc.title, hit.titleRanges)}
+                  </span>
+                  <span className="search-result__meta">{hit.doc.group}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
