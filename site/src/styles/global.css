@@ -426,13 +426,28 @@ pre {
   text-decoration-color: var(--accent-soft);
 }
 .prose pre {
-  background: var(--term-bg);
-  color: var(--term-ink);
   padding: 1rem 1.15rem;
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-sm);
   overflow-x: auto;
   font-size: 0.86rem;
   line-height: 1.55;
+}
+/* Dual-theme syntax colours (Shiki emits --shiki-light / --shiki-dark); the
+ * block background uses cueloop's own tokens so code fits the palette. */
+[data-theme="light"] .prose pre {
+  background: var(--paper-raised);
+  color: var(--shiki-light);
+}
+[data-theme="light"] .prose pre span {
+  color: var(--shiki-light);
+}
+[data-theme="dark"] .prose pre {
+  background: var(--term-bg);
+  color: var(--shiki-dark);
+}
+[data-theme="dark"] .prose pre span {
+  color: var(--shiki-dark);
 }
 .prose pre code {
   background: none;
@@ -1910,10 +1925,10 @@ pre {
   top: 0.55rem;
   right: 0.55rem;
   padding: 0.2rem 0.5rem;
-  border: 1px solid var(--term-line);
+  border: 1px solid var(--hairline);
   border-radius: 5px;
-  background: color-mix(in srgb, var(--term-bar) 80%, transparent);
-  color: var(--term-dim);
+  background: var(--paper-raised);
+  color: var(--ink-faint);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   letter-spacing: 0.04em;
@@ -1927,7 +1942,7 @@ pre {
   opacity: 1;
 }
 .code-copy:hover {
-  color: var(--term-ink);
+  color: var(--ink);
 }
 
 /* ---- Prev / next docs pager ---- */

@@ -122,9 +122,33 @@ const pageUrl = new URL(path, Astro.site).href;
 
   <script>
     // Docs chrome that must survive View Transitions: a copy button on every
-    // code block, and a collapsible left navigation persisted per browser.
+    // code block, and a collapsible navigation (desktop) / bottom-sheet (mobile).
+    const NAV_KEY = "cueloop-docs-nav";
+    const isMobile = () => matchMedia("(max-width: 900px)").matches;
+    const readStore = (key: string) => {
+      try {
+        return localStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    };
+    const writeStore = (key: string, value: string) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        /* storage unavailable */
+      }
+    };
+    function toggleNav(shell: HTMLElement) {
+      if (isMobile()) {
+        shell.classList.toggle("is-nav-open");
+      } else {
+        const collapsed = shell.classList.toggle("is-nav-collapsed");
+        writeStore(NAV_KEY, collapsed ? "collapsed" : "open");
+      }
+    }
+
     function enhanceDocs() {
-      // Copy buttons on code blocks.
       document.querySelectorAll<HTMLPreElement>(".docs-content .prose pre").forEach((pre) => {
         if (pre.querySelector(".code-copy")) return;
         const button = document.createElement("button");
@@ -145,47 +169,39 @@ const pageUrl = new URL(path, Astro.site).href;
         pre.appendChild(button);
       });
 
-      // Navigation: on desktop the trigger collapses the sidebar (persisted);
-      // on mobile it opens an off-canvas drawer (not persisted).
       const shell = document.getElementById("docs-shell");
       if (!shell) return;
-      const KEY = "cueloop-docs-nav";
-      const isMobile = () => matchMedia("(max-width: 900px)").matches;
-      if (localStorage.getItem(KEY) === "collapsed") shell.classList.add("is-nav-collapsed");
-      const closeDrawer = () => shell.classList.remove("is-nav-open");
-      const toggleNav = () => {
-        if (isMobile()) {
-          shell.classList.toggle("is-nav-open");
-        } else {
-          const collapsed = shell.classList.toggle("is-nav-collapsed");
-          localStorage.setItem(KEY, collapsed ? "collapsed" : "open");
-        }
-      };
-      shell.querySelectorAll("[data-nav-trigger]").forEach((el) => {
-        if ((el as HTMLElement).dataset.wired) return;
-        (el as HTMLElement).dataset.wired = "1";
-        el.addEventListener("click", toggleNav);
+      if (readStore(NAV_KEY) === "collapsed") shell.classList.add("is-nav-collapsed");
+      shell.querySelectorAll<HTMLElement>("[data-nav-trigger], [data-nav-close]").forEach((el) => {
+        if (el.dataset.wired) return;
+        el.dataset.wired = "1";
+        const isClose = el.hasAttribute("data-nav-close");
+        el.addEventListener("click", () =>
+          isClose ? shell.classList.remove("is-nav-open") : toggleNav(shell),
+        );
       });
-      shell.querySelectorAll("[data-nav-close]").forEach((el) => {
-        el.addEventListener("click", closeDrawer);
+      shell.querySelectorAll<HTMLElement>(".docs-aside a").forEach((link) => {
+        if (link.dataset.navWired) return;
+        link.dataset.navWired = "1";
+        link.addEventListener("click", () => isMobile() && shell.classList.remove("is-nav-open"));
       });
-      // Tapping a sidebar link on mobile closes the drawer.
-      shell.querySelectorAll(".docs-aside a").forEach((link) => {
-        link.addEventListener("click", () => isMobile() && closeDrawer());
-      });
-      if (!document.body.dataset.navShortcut) {
-        document.body.dataset.navShortcut = "1";
-        document.addEventListener("keydown", (event) => {
-          const activeShell = document.getElementById("docs-shell");
-          if (!activeShell) return;
-          if (event.key === "Escape") activeShell.classList.remove("is-nav-open");
-          if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
-            event.preventDefault();
-            toggleNav();
-          }
-        });
-      }
     }
+
+    // Registered once per document (window guard survives any re-execution).
+    // Re-queries the live shell each press so it keeps working across swaps.
+    if (!(window as any).__cueloopDocsKeys) {
+      (window as any).__cueloopDocsKeys = true;
+      document.addEventListener("keydown", (event) => {
+        const shell = document.getElementById("docs-shell");
+        if (!shell) return;
+        if (event.key === "Escape") shell.classList.remove("is-nav-open");
+        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
+          event.preventDefault();
+          toggleNav(shell);
+        }
+      });
+    }
+
     document.addEventListener("astro:page-load", enhanceDocs);
   </script>
 </BaseLayout>
