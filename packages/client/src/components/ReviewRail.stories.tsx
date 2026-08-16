@@ -23,6 +23,7 @@ export const AnnotationStack: Story = {
     <RailFrame>
       <ReviewRail
       session={fixturePlanSession()}
+      authorNames={{}}
       selectedId={FIXTURE_ANNOTATIONS[0]!.id}
       resolvedIds={new Set(FIXTURE_ANNOTATIONS.map((annotation) => annotation.id))}
       railTab="review"
@@ -42,6 +43,7 @@ export const AgentTab: Story = {
     <RailFrame>
       <ReviewRail
       session={fixturePlanSession()}
+      authorNames={{}}
       resolvedIds={new Set()}
       railTab="agent"
       pendingCount={2}
@@ -59,6 +61,7 @@ export const SubmitConfirmOpen: Story = {
     <RailFrame>
       <ReviewRail
       session={fixturePlanSession()}
+      authorNames={{}}
       resolvedIds={new Set()}
       railTab="review"
       pendingCount={2}
@@ -89,6 +92,7 @@ export const Resolved: Story = {
         status: "resolved",
         verdict: { kind: "approve", summary: "", feedback: "", resolvedAt: "2026-01-01T00:00:00Z" },
       })}
+      authorNames={{}}
       resolvedIds={new Set()}
       railTab="review"
       pendingCount={0}

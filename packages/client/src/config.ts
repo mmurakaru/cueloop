@@ -53,6 +53,7 @@ export const DEFAULT_KEYS: Record<string, string[]> = {
   next_annotation: ["n"],
   prev_annotation: ["p"],
   delete_annotation: ["backspace"],
+  rename: ["r"],
   submit: ["return", "enter"],
   share: ["S"],
   quit: ["q"],

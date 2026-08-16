@@ -57,6 +57,8 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     reviewWidth: 34,
     terminalWidth: 120,
     focusedAnnotationId: undefined,
+    authorNames: {},
+    renameAuthor: mock(),
     liveInput: { current: "" },
     reviewWidthRef: { current: 34 },
     planSheetRef: { current: null },
@@ -235,6 +237,45 @@ describe("inbox delete", () => {
 
     // Assert
     expect(deps.controller.deleteSession).toHaveBeenCalledWith("ses_1");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+});
+
+describe("rename author", () => {
+  test("openRename seeds the prompt with the author's current local name", () => {
+    // Arrange
+    const session = { annotations: [{ id: "a1", author: "SHA256:x" }] } as never;
+    const deps = makeDeps({ session, focusedAnnotationId: "a1", authorNames: { "SHA256:x": "Alex" } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "openRename" });
+
+    // Assert
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "rename", authorId: "SHA256:x", text: "Alex" });
+  });
+
+  test("openRename on your own note does nothing but explain", () => {
+    // Arrange
+    const session = { annotations: [{ id: "a1" }] } as never;
+    const deps = makeDeps({ session, focusedAnnotationId: "a1" });
+
+    // Act
+    createIntentDispatch(deps)({ type: "openRename" });
+
+    // Assert
+    expect(deps.controller.setStatus).toHaveBeenCalled();
+    expect(deps.setMode).not.toHaveBeenCalled();
+  });
+
+  test("confirmDialog in rename mode persists the trimmed name and closes", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "rename", authorId: "SHA256:x", text: "  Alex  " } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "confirmDialog" });
+
+    // Assert
+    expect(deps.renameAuthor).toHaveBeenCalledWith("SHA256:x", "Alex");
     expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
   });
 });

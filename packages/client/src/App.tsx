@@ -16,7 +16,7 @@ import { type VerdictKind } from "@cueloop/schema";
 import { displayText, marksByDisplay, type Mark } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
-import { DEFAULT_KEYS, loadConfig } from "./config";
+import { DEFAULT_KEYS, loadConfig, persistAuthorName } from "./config";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
@@ -40,6 +40,7 @@ import {
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { PromptDialog } from "./components/PromptDialog";
 import { ComposeBar } from "./components/ComposeBar";
 import { WalkWizard } from "./components/WalkWizard";
 
@@ -240,6 +241,11 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     reviewWidth,
     terminalWidth,
     focusedAnnotationId,
+    authorNames,
+    renameAuthor: (id: string, name: string) => {
+      persistAuthorName(id, name);
+      setAuthorNames((prev) => ({ ...prev, [id]: name }));
+    },
     liveInput,
     reviewWidthRef,
     planSheetRef,
@@ -263,6 +269,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
         ? "submit"
         : mode.type === "confirmDelete"
           ? "confirm"
+        : mode.type === "rename"
+          ? "prompt"
         : completion.phase === "prompt"
           ? "completion-prompt"
           : completion.phase === "counting"
@@ -577,6 +585,17 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               dispatch({ type: "openSubmit" });
             }}
             onBack={() => dispatch({ type: "walkBack" })}
+          />
+        ) : null}
+        {mode.type === "rename" ? (
+          <PromptDialog
+            isOpen
+            title=" Rename author "
+            label="Display name for this collaborator:"
+            value={mode.text}
+            placeholder="their name"
+            onInput={(text) => setMode({ ...mode, text })}
+            theme={theme}
           />
         ) : null}
       </box>

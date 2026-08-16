@@ -461,3 +461,17 @@ describe("confirm overlay", () => {
     });
   }
 });
+
+describe("rename grammar", () => {
+  test("r on a focused note opens rename", () => {
+    // Arrange / Act / Assert
+    expect(reduceKey(state({ hasFocusedAnnotation: true }), key("r"))).toEqual([{ type: "openRename" }]);
+  });
+
+  test("prompt overlay routes ⏎ to confirm and esc to cancel", () => {
+    // Arrange / Act / Assert
+    expect(reduceKey(state({ overlay: "prompt" }), key("return"))).toEqual([{ type: "confirmDialog" }]);
+    expect(reduceKey(state({ overlay: "prompt" }), key("escape"))).toEqual([{ type: "closeOverlay" }]);
+    expect(reduceKey(state({ overlay: "prompt" }), key("a"))).toEqual([]);
+  });
+});
