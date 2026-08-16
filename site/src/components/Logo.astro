@@ -12,21 +12,33 @@ interface Props {
 }
 const { size = 20, uid = "cl", class: className } = Astro.props;
 
-function blob(cx: number, cy: number, r: number, wobble: number, phase: number, n = 7) {
-  const pts: [number, number][] = [];
-  for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + phase * 0.4;
-    const rad = r * (1 + wobble * Math.sin(i * 2.3 + phase));
-    pts.push([cx + rad * Math.cos(a), cy + rad * Math.sin(a)]);
+function blob(
+  centerX: number,
+  centerY: number,
+  radius: number,
+  wobble: number,
+  phase: number,
+  pointCount = 7,
+) {
+  const nodes: [number, number][] = [];
+  for (let index = 0; index < pointCount; index++) {
+    const angle = (index / pointCount) * Math.PI * 2 + phase * 0.4;
+    const pointRadius = radius * (1 + wobble * Math.sin(index * 2.3 + phase));
+    nodes.push([centerX + pointRadius * Math.cos(angle), centerY + pointRadius * Math.sin(angle)]);
   }
-  let d = `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`;
-  for (let i = 0; i < n; i++) {
-    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
-    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
-    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
-    d += ` C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${p2[0].toFixed(2)} ${p2[1].toFixed(2)}`;
+  let path = `M ${nodes[0][0].toFixed(2)} ${nodes[0][1].toFixed(2)}`;
+  for (let index = 0; index < pointCount; index++) {
+    const prev = nodes[(index - 1 + pointCount) % pointCount];
+    const curr = nodes[index];
+    const next = nodes[(index + 1) % pointCount];
+    const after = nodes[(index + 2) % pointCount];
+    const control1X = curr[0] + (next[0] - prev[0]) / 6;
+    const control1Y = curr[1] + (next[1] - prev[1]) / 6;
+    const control2X = next[0] - (after[0] - curr[0]) / 6;
+    const control2Y = next[1] - (after[1] - curr[1]) / 6;
+    path += ` C ${control1X.toFixed(2)} ${control1Y.toFixed(2)}, ${control2X.toFixed(2)} ${control2Y.toFixed(2)}, ${next[0].toFixed(2)} ${next[1].toFixed(2)}`;
   }
-  return `${d} Z`;
+  return `${path} Z`;
 }
 
 const GAP = 1.4;

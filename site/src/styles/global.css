@@ -1242,6 +1242,14 @@ pre {
   .docs-aside.is-scrollable {
     animation: none;
   }
+  /* No scroll-fade for these users, so restore a scrollbar as the overflow cue. */
+  .docs-aside {
+    scrollbar-width: thin;
+  }
+  .docs-aside::-webkit-scrollbar {
+    display: block;
+    width: 8px;
+  }
 }
 
 .docs-content {

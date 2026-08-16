@@ -124,6 +124,7 @@ const pageUrl = new URL(path, Astro.site).href;
     // Docs chrome that must survive View Transitions: a copy button on every
     // code block, and a collapsible navigation (desktop) / bottom-sheet (mobile).
     const NAV_KEY = "cueloop-docs-nav";
+    let navResizeObserver: ResizeObserver | null = null;
     const isMobile = () => matchMedia("(max-width: 900px)").matches;
     const readStore = (key: string) => {
       try {
@@ -173,12 +174,15 @@ const pageUrl = new URL(path, Astro.site).href;
       if (!shell) return;
 
       // Toggle the top/bottom scroll fade only while the sidebar overflows.
+      // Disconnect the prior observer so client navigations do not stack them.
       const aside = shell.querySelector<HTMLElement>(".docs-aside");
       if (aside) {
+        navResizeObserver?.disconnect();
         const syncFade = () =>
           aside.classList.toggle("is-scrollable", aside.scrollHeight > aside.clientHeight + 1);
         syncFade();
-        new ResizeObserver(syncFade).observe(aside);
+        navResizeObserver = new ResizeObserver(syncFade);
+        navResizeObserver.observe(aside);
       }
 
       if (readStore(NAV_KEY) === "collapsed") shell.classList.add("is-nav-collapsed");
