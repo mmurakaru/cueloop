@@ -9,6 +9,7 @@ export const meta: StoryMeta = { title: "ReviewPanel" };
 
 const rail = {
   session: fixturePlanSession(),
+  authorNames: {},
   selectedId: FIXTURE_ANNOTATIONS[0]!.id,
   resolvedIds: new Set(FIXTURE_ANNOTATIONS.map((annotation) => annotation.id)),
   railTab: "review" as const,

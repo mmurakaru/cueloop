@@ -23,7 +23,10 @@ export type Mode =
   | { type: "span"; span: SpanState }
   | { type: "compose"; kind: "comment" | "suggestion"; displayIndex: number; start: number; end: number; text: string }
   | { type: "railEdit"; id: string; text: string }
-  | { type: "submit"; verdict: VerdictKind; summary: string };
+  | { type: "submit"; verdict: VerdictKind; summary: string }
+  | { type: "confirmDelete"; sessionId: string; title: string }
+  | { type: "rename"; authorId: string; text: string }
+  | { type: "nameSelf"; text: string };
 
 /**
  * Annotations that still count as feedback: agent notes never do, and an
@@ -60,6 +63,10 @@ export interface IntentDispatchDeps {
   reviewWidth: number;
   terminalWidth: number;
   focusedAnnotationId: string | undefined;
+  /** Planner-local author renames, for seeding the rename prompt. */
+  authorNames: Record<string, string>;
+  /** Persist an author rename and update the live overrides (App-owned). */
+  renameAuthor: (id: string, name: string) => void;
 
   liveInput: MutableRefObject<string>;
   reviewWidthRef: MutableRefObject<number>;
@@ -96,6 +103,8 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
     reviewWidth,
     terminalWidth,
     focusedAnnotationId,
+    authorNames,
+    renameAuthor,
     liveInput,
     reviewWidthRef,
     planSheetRef,
@@ -135,6 +144,22 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
         const selected = inbox?.[inboxCursor];
         if (selected) controller.open(selected.id);
         return;
+      }
+      case "requestDeleteSession": {
+        const selected = inbox?.[inboxCursor];
+        if (selected) setMode({ type: "confirmDelete", sessionId: selected.id, title: selected.artifact.meta.title ?? selected.id });
+        return;
+      }
+      case "openRename": {
+        const focused = session?.annotations.find((annotation) => annotation.id === focusedAnnotationId);
+        if (!focused?.author) return void controller.setStatus("that is your own note - nothing to rename");
+        return void setMode({ type: "rename", authorId: focused.author, text: authorNames[focused.author] ?? "" });
+      }
+      case "confirmDialog": {
+        if (mode.type === "confirmDelete") controller.deleteSession(mode.sessionId);
+        else if (mode.type === "rename") renameAuthor(mode.authorId, mode.text.trim());
+        else if (mode.type === "nameSelf") controller.setSelfName(mode.text.trim());
+        return void setMode({ type: "normal" });
       }
       case "startSpan": {
         const block = display[cursor];

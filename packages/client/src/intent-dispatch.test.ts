@@ -26,6 +26,8 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
   const controller = {
     setStatus: mock(),
     open: mock(),
+    deleteSession: mock(),
+    setSelfName: mock(),
     cut: mock(),
     annotate: mock(),
     updateAnnotation: mock(),
@@ -56,6 +58,8 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     reviewWidth: 34,
     terminalWidth: 120,
     focusedAnnotationId: undefined,
+    authorNames: {},
+    renameAuthor: mock(),
     liveInput: { current: "" },
     reviewWidthRef: { current: 34 },
     planSheetRef: { current: null },
@@ -209,5 +213,96 @@ describe("exit", () => {
 
     // Assert
     expect(deps.onExit).toHaveBeenCalledWith(0);
+  });
+});
+
+describe("inbox delete", () => {
+  test("requestDeleteSession opens the confirm on the cursor row", () => {
+    // Arrange
+    const inbox = [{ id: "ses_1", artifact: { meta: { title: "Plan A" } } }] as never;
+    const deps = makeDeps({ inbox, inboxCursor: 0 });
+
+    // Act
+    createIntentDispatch(deps)({ type: "requestDeleteSession" });
+
+    // Assert
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "confirmDelete", sessionId: "ses_1", title: "Plan A" });
+  });
+
+  test("confirmDialog deletes the session and closes", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "confirmDelete", sessionId: "ses_1", title: "Plan A" } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "confirmDialog" });
+
+    // Assert
+    expect(deps.controller.deleteSession).toHaveBeenCalledWith("ses_1");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+});
+
+describe("rename author", () => {
+  test("openRename seeds the prompt with the author's current local name", () => {
+    // Arrange
+    const session = { annotations: [{ id: "a1", author: "SHA256:x" }] } as never;
+    const deps = makeDeps({ session, focusedAnnotationId: "a1", authorNames: { "SHA256:x": "Alex" } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "openRename" });
+
+    // Assert
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "rename", authorId: "SHA256:x", text: "Alex" });
+  });
+
+  test("openRename on your own note does nothing but explain", () => {
+    // Arrange
+    const session = { annotations: [{ id: "a1" }] } as never;
+    const deps = makeDeps({ session, focusedAnnotationId: "a1" });
+
+    // Act
+    createIntentDispatch(deps)({ type: "openRename" });
+
+    // Assert
+    expect(deps.controller.setStatus).toHaveBeenCalled();
+    expect(deps.setMode).not.toHaveBeenCalled();
+  });
+
+  test("confirmDialog in rename mode persists the trimmed name and closes", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "rename", authorId: "SHA256:x", text: "  Alex  " } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "confirmDialog" });
+
+    // Assert
+    expect(deps.renameAuthor).toHaveBeenCalledWith("SHA256:x", "Alex");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+});
+
+describe("collaborator self-name", () => {
+  test("confirmDialog in nameSelf mode records the trimmed name and closes", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "nameSelf", text: "  Robin  " } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "confirmDialog" });
+
+    // Assert
+    expect(deps.controller.setSelfName).toHaveBeenCalledWith("Robin");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+
+  test("an empty name still closes - the collaborator stays anonymous", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "nameSelf", text: "   " } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "confirmDialog" });
+
+    // Assert
+    expect(deps.controller.setSelfName).toHaveBeenCalledWith("");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
   });
 });

@@ -166,6 +166,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
           React.createElement(App, {
             sessionId: session.id,
             role: "collaborator",
+            selfAuthor: identity.fingerprint,
             openClient: () => Promise.resolve(client),
             onExit: () => end(channel, 0),
           }),

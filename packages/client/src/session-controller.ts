@@ -104,6 +104,10 @@ export interface ReviewController {
   working(): string;
   /** Open a session from the inbox. */
   open(id: string): void;
+  /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
+  deleteSession(id: string): void;
+  /** Record the viewer's own name into the share's participant registry (collaborator self-naming). */
+  setSelfName(name: string): void;
   /** Cut the block under the cursor, or restore a cut one. */
   cut(displayIndex: number): void;
   /** The $EDITOR hand-off on the working copy. */
@@ -309,6 +313,19 @@ class Controller implements ReviewController {
     const cached = this.snapshot.inbox?.find((candidate) => candidate.id === id);
     if (cached) this.update({ session: cached });
     else void this.refreshSession(id);
+  }
+
+  deleteSession(id: string): void {
+    this.client
+      ?.sessionDelete(id)
+      .then(() => this.setStatus("plan deleted"))
+      .catch((error: unknown) => this.setStatus(`delete failed: ${error instanceof Error ? error.message : String(error)}`));
+  }
+
+  setSelfName(name: string): void {
+    const session = this.snapshot.session;
+    if (!session) return;
+    this.apply(this.client!.sessionSetSelfName(session.id, name));
   }
 
   cut(displayIndex: number): void {

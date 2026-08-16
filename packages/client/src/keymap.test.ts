@@ -437,3 +437,41 @@ describe("read-only filter", () => {
     expect(reduceKey(keyState, key("s"))).toEqual([{ type: "status", message: "observer - read-only" }]);
   });
 });
+
+describe("inbox delete", () => {
+  test("d on a session requests delete", () => {
+    // Arrange / Act / Assert
+    expect(reduceKey(state({ view: "inbox" }), key("d"))).toEqual([{ type: "requestDeleteSession" }]);
+  });
+});
+
+describe("confirm overlay", () => {
+  // Arrange
+  const keyState = state({ overlay: "confirm" });
+  const table: [string, Intent[]][] = [
+    ["return", [{ type: "confirmDialog" }]],
+    ["enter", [{ type: "confirmDialog" }]],
+    ["escape", [{ type: "closeOverlay" }]],
+    ["j", []],
+    ["d", []],
+  ];
+  for (const [name, expected] of table) {
+    test(`${name} -> ${JSON.stringify(expected)}`, () => {
+      expect(reduceKey(keyState, key(name))).toEqual(expected);
+    });
+  }
+});
+
+describe("rename grammar", () => {
+  test("r on a focused note opens rename", () => {
+    // Arrange / Act / Assert
+    expect(reduceKey(state({ hasFocusedAnnotation: true }), key("r"))).toEqual([{ type: "openRename" }]);
+  });
+
+  test("prompt overlay routes ⏎ to confirm and esc to cancel", () => {
+    // Arrange / Act / Assert
+    expect(reduceKey(state({ overlay: "prompt" }), key("return"))).toEqual([{ type: "confirmDialog" }]);
+    expect(reduceKey(state({ overlay: "prompt" }), key("escape"))).toEqual([{ type: "closeOverlay" }]);
+    expect(reduceKey(state({ overlay: "prompt" }), key("a"))).toEqual([]);
+  });
+});

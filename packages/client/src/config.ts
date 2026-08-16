@@ -34,6 +34,8 @@ export interface CueloopConfig {
    * collapse mode and expanded-rail width, persisted so they survive restarts.
    */
   ui: { autoClose: AutoClose; editor?: string; reviewState: ReviewPanelMode; reviewWidth: number };
+  /** Planner-local author renames: identity id → display name ([authors] table). */
+  authors: Record<string, string>;
   integrations: IntegrationsConfig;
 }
 
@@ -51,6 +53,7 @@ export const DEFAULT_KEYS: Record<string, string[]> = {
   next_annotation: ["n"],
   prev_annotation: ["p"],
   delete_annotation: ["backspace"],
+  rename: ["r"],
   submit: ["return", "enter"],
   share: ["S"],
   quit: ["q"],
@@ -70,8 +73,15 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
     keys: { ...base.keys },
     theme: { ...base.theme },
     ui: { ...base.ui },
+    authors: { ...base.authors },
     integrations: { obsidian: { ...base.integrations.obsidian } },
   };
+  const authors = raw["authors"] as Record<string, unknown> | undefined;
+  if (authors) {
+    for (const [id, value] of Object.entries(authors)) {
+      if (typeof value === "string") out.authors[id] = value;
+    }
+  }
   const keys = raw["keys"] as KeymapConfig | undefined;
   if (keys) {
     for (const [action, combo] of Object.entries(keys)) {
@@ -120,6 +130,7 @@ export function loadConfig(options: { repoRoot?: string; userConfigPath?: string
     keys: { ...DEFAULT_KEYS },
     theme: { ...DARK },
     ui: { autoClose: "off", reviewState: "expanded", reviewWidth: REVIEW_DEFAULT_WIDTH },
+    authors: {},
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
   };
   const userPath = userConfigPathFrom(options.userConfigPath);
@@ -186,4 +197,29 @@ export function persistReviewWidth(width: number, userConfigPath?: string): void
 /** Persist the review-panel collapse mode (`[ui] review_state`) into the config. */
 export function persistReviewState(state: ReviewPanelMode, userConfigPath?: string): void {
   persistUiSetting("review_state", `"${state}"`, userConfigPath);
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Persist an author rename into the `[authors]` table. The identity id (an SSH
+ * fingerprint) is not a bare TOML key, so it is written quoted.
+ */
+export function persistAuthorName(id: string, name: string, userConfigPath?: string): void {
+  const path = userConfigPathFrom(userConfigPath);
+  let text = existsSync(path) ? readFileSync(path, "utf8") : "";
+  const key = `"${id.replace(/"/g, '\\"')}"`;
+  const value = `"${name.replace(/"/g, '\\"')}"`;
+  const assignment = new RegExp(`^(\\s*)${escapeRegExp(key)}\\s*=.*$`, "m");
+  if (assignment.test(text)) {
+    text = text.replace(assignment, `$1${key} = ${value}`);
+  } else if (/^\[authors\]/m.test(text)) {
+    text = text.replace(/^\[authors\]\s*$/m, `[authors]\n${key} = ${value}`);
+  } else {
+    text = text.trimEnd() + (text.trim() ? "\n\n" : "") + `[authors]\n${key} = ${value}\n`;
+  }
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, text);
 }

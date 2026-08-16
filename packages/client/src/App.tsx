@@ -16,7 +16,7 @@ import { type VerdictKind } from "@cueloop/schema";
 import { displayText, marksByDisplay, type Mark } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
-import { DEFAULT_KEYS, loadConfig } from "./config";
+import { DEFAULT_KEYS, loadConfig, persistAuthorName } from "./config";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
@@ -39,6 +39,8 @@ import {
 } from "./review-panel";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
+import { ConfirmDialog } from "./components/ConfirmDialog";
+import { PromptDialog } from "./components/PromptDialog";
 import { ComposeBar } from "./components/ComposeBar";
 import { WalkWizard } from "./components/WalkWizard";
 
@@ -67,9 +69,14 @@ export interface AppProps {
    * viewer: annotates, but cannot edit the plan or submit an agent verdict.
    */
   role?: "owner" | "observer" | "collaborator";
+  /**
+   * A collaborator's own SSH fingerprint. On first open of a share it seeds the
+   * name prompt so their notes attribute to a name, not a fingerprint.
+   */
+  selfAuthor?: string;
 }
 
-export function App({ home, sessionId, readOnly = false, onExit, clock, openClient, role = "owner" }: AppProps): React.ReactNode {
+export function App({ home, sessionId, readOnly = false, onExit, clock, openClient, role = "owner", selfAuthor }: AppProps): React.ReactNode {
   // Observer stays fully read-only; a collaborator writes annotations but not
   // the plan or a verdict. `observer` is what the controller and every write
   // gate key off; the two capability flags carve out the collaborator's middle.
@@ -126,6 +133,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   const keysRef = useRef(DEFAULT_KEYS);
   const keyBindings = useMemo(() => new KeyBindings(DEFAULT_KEYS), []);
   const [theme, setTheme] = useState(DARK);
+  const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
     keysRef.current = config.keys;
@@ -134,6 +142,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     setReviewMode(config.ui.reviewState);
     setReviewWidth(config.ui.reviewWidth);
     reviewWidthRef.current = config.ui.reviewWidth;
+    setAuthorNames(config.authors);
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings]);
   useEffect(
@@ -142,6 +151,16 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     },
     [],
   );
+
+  // First open of a share: ask the collaborator for a display name once, unless
+  // a past visit already recorded one. esc skips and their notes read anonymous.
+  const promptedSelfRef = useRef(false);
+  useEffect(() => {
+    if (promptedSelfRef.current || role !== "collaborator" || !selfAuthor || !session) return;
+    promptedSelfRef.current = true;
+    const known = session.participants?.find((participant) => participant.id === selfAuthor)?.name;
+    if (!known) setMode({ type: "nameSelf", text: "" });
+  }, [role, selfAuthor, session]);
 
   // ── derived view model ──────────────────────
   const display = controller.display();
@@ -204,9 +223,15 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
 
   const openCardEdit = (annotationId: string): void => {
     if (observer) return controller.setStatus("observer - read-only");
-    if (resolved) return controller.setStatus("review submitted - read-only");
     const annotation = session?.annotations.find((candidate) => candidate.id === annotationId);
     if (!annotation) return;
+    // a collaborator's note is theirs to word: activating it (click or e) renames
+    // the author rather than editing the body the planner does not own
+    if (annotation.author) {
+      setFocusedAnnotationId(annotationId);
+      return void setMode({ type: "rename", authorId: annotation.author, text: authorNames[annotation.author] ?? "" });
+    }
+    if (resolved) return controller.setStatus("review submitted - read-only");
     liveInput.current = annotation.body;
     setMode({ type: "railEdit", id: annotation.id, text: annotation.body });
   };
@@ -237,6 +262,11 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     reviewWidth,
     terminalWidth,
     focusedAnnotationId,
+    authorNames,
+    renameAuthor: (id: string, name: string) => {
+      persistAuthorName(id, name);
+      setAuthorNames((prev) => ({ ...prev, [id]: name }));
+    },
     liveInput,
     reviewWidthRef,
     planSheetRef,
@@ -258,6 +288,10 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
       ? "compose"
       : mode.type === "submit"
         ? "submit"
+        : mode.type === "confirmDelete"
+          ? "confirm"
+        : mode.type === "rename" || mode.type === "nameSelf"
+          ? "prompt"
         : completion.phase === "prompt"
           ? "completion-prompt"
           : completion.phase === "counting"
@@ -307,9 +341,25 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     );
   }
   if (!session && inbox) {
+    const confirming = mode.type === "confirmDelete" ? mode : null;
     return (
       <ThemeProvider theme={theme}>
-        <InboxList inbox={inbox} cursor={inboxCursor} />
+        <InboxList
+          inbox={inbox}
+          cursor={inboxCursor}
+          onRequestDelete={(id, title) => setMode({ type: "confirmDelete", sessionId: id, title })}
+        />
+        <ConfirmDialog
+          isOpen={confirming !== null}
+          title=" Delete plan "
+          message={confirming ? `Delete "${confirming.title}"? This removes the plan and its review.` : ""}
+          onConfirm={() => {
+            if (confirming) controller.deleteSession(confirming.sessionId);
+            setMode({ type: "normal" });
+          }}
+          onCancel={() => setMode({ type: "normal" })}
+          theme={theme}
+        />
       </ThemeProvider>
     );
   }
@@ -513,6 +563,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
             railRef={railRef}
             rail={{
               session: activeSession,
+              authorNames,
               selectedId: focusedAnnotationId,
               resolvedIds: isDiff ? null : resolvedIds,
               railTab,
@@ -555,6 +606,28 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               dispatch({ type: "openSubmit" });
             }}
             onBack={() => dispatch({ type: "walkBack" })}
+          />
+        ) : null}
+        {mode.type === "rename" ? (
+          <PromptDialog
+            isOpen
+            title=" Rename author "
+            label="Display name for this collaborator:"
+            value={mode.text}
+            placeholder="their name"
+            onInput={(text) => setMode({ ...mode, text })}
+            theme={theme}
+          />
+        ) : null}
+        {mode.type === "nameSelf" ? (
+          <PromptDialog
+            isOpen
+            title=" Welcome "
+            label="Your name (optional) - it attributes the notes you leave:"
+            value={mode.text}
+            placeholder="your name"
+            onInput={(text) => setMode({ ...mode, text })}
+            theme={theme}
           />
         ) : null}
       </box>

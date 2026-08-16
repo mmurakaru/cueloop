@@ -14,6 +14,9 @@ export type Intent =
   | { type: "move"; to: "down" | "up" | "top" | "bottom" }
   | { type: "inboxMove"; to: "down" | "up" }
   | { type: "openSession" }
+  | { type: "requestDeleteSession" }
+  | { type: "openRename" }
+  | { type: "confirmDialog" }
   | { type: "startSpan" }
   | { type: "spanKey"; name: string }
   | { type: "openCompose"; kind: "comment" | "suggestion"; from: "cursor" | "span" }
@@ -61,7 +64,7 @@ export interface KeyState {
   /** Owner-only: publish the plan as a share. A collaborator never re-shares. */
   canShare?: boolean;
   /** Layer that owns keys before the grammar runs. */
-  overlay: "none" | "walk" | "compose" | "submit" | "completion-prompt" | "completion-counting";
+  overlay: "none" | "walk" | "compose" | "submit" | "confirm" | "prompt" | "completion-prompt" | "completion-counting";
   view: "inbox" | "plan" | "diff";
   /** Plan-only span selection sub-mode. */
   spanMode: boolean;
@@ -109,6 +112,18 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
     if (state.overlay === "submit" && (name === "left" || name === "right")) {
       return [{ type: "cycleVerdict", direction: name === "left" ? -1 : 1 }];
     }
+    return [];
+  }
+  // a modal confirm owns the keys: ⏎ commits the action, escape backs out
+  if (state.overlay === "confirm") {
+    if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
+    if (name === "escape") return [{ type: "closeOverlay" }];
+    return [];
+  }
+  // a text prompt: the focused input owns typing; only ⏎ save and esc route here
+  if (state.overlay === "prompt") {
+    if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
+    if (name === "escape") return [{ type: "closeOverlay" }];
     return [];
   }
   if (state.overlay === "completion-prompt" || state.overlay === "completion-counting") {
@@ -168,6 +183,7 @@ function inboxGrammar(state: KeyState, name: string): Intent[] {
   if (name === "j" || name === "down") return [{ type: "inboxMove", to: "down" }];
   if (name === "k" || name === "up") return [{ type: "inboxMove", to: "up" }];
   if (name === "return" || name === "enter") return [{ type: "openSession" }];
+  if (name === "d") return [{ type: "requestDeleteSession" }];
   return [];
 }
 
@@ -242,6 +258,10 @@ function annotationCluster(state: KeyState, action: string | undefined): Intent[
   if (action === "delete_annotation") {
     if (state.resolved || !state.hasFocusedAnnotation) return [];
     return [{ type: "removeAnnotation" }];
+  }
+  if (action === "rename") {
+    if (!state.hasFocusedAnnotation) return status("select a collaborator's note to rename them");
+    return [{ type: "openRename" }];
   }
   if (action === "submit") {
     // a collaborator's notes union back as they go; there is no verdict to submit

@@ -156,6 +156,23 @@ describe("socket round-trip", () => {
     }
   });
 
+  test("session.delete removes a session over the wire", async () => {
+    // Given a created session
+    const session = await client.sessionCreate(WS, PLAN);
+
+    // When it is deleted
+    await client.sessionDelete(session.id);
+
+    // Then it is gone, and deleting an unknown id is a not_found error
+    expect(client.sessionGet(session.id)).rejects.toBeInstanceOf(DaemonClientError);
+    try {
+      await client.sessionDelete("ses_missing");
+      throw new Error("should have thrown");
+    } catch (error) {
+      expect((error as DaemonClientError).code).toBe("not_found");
+    }
+  });
+
   test("two clients see the same state (thin-renderer model)", async () => {
     // Arrange
     const second = await DaemonClient.connect({ home });

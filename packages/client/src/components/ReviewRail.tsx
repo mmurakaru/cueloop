@@ -15,6 +15,7 @@ import { Tabs, Tab, TabList } from "./primitives/Tabs";
 import { Button } from "./primitives/Button";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { ConfirmCard, type ConfirmCardProps } from "./ConfirmCard";
+import { resolveDisplayName } from "../attribution";
 
 export type RailTab = "review" | "agent";
 
@@ -29,6 +30,8 @@ export interface ReviewRailHandle {
 
 export interface ReviewRailProps {
   session: ReviewSession;
+  /** Planner-local author renames (config [authors]); override the registry name. */
+  authorNames: Record<string, string>;
   selectedId?: string;
   /** Ids whose anchor resolved; null = orphan display off (diff view). */
   resolvedIds: Set<string> | null;
@@ -58,6 +61,7 @@ export function annotationBlocking(annotation: Annotation): boolean {
 export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function ReviewRail(
   {
     session,
+    authorNames,
     selectedId,
     resolvedIds,
     railTab,
@@ -121,6 +125,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
                     isSelected: annotation.id === selectedId,
                     isOrphan: resolvedIds !== null && !resolvedIds.has(annotation.id),
                     isBlocking: annotationBlocking(annotation),
+                    authorLabel: annotation.author ? resolveDisplayName(annotation.author, session.participants, authorNames) : undefined,
                     editing:
                       cardEdit && cardEdit.id === annotation.id
                         ? {

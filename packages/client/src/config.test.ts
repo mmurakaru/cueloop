@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_KEYS, actionFor, loadConfig, persistReviewState, persistReviewWidth } from "./config";
+import { DEFAULT_KEYS, actionFor, loadConfig, persistAuthorName, persistReviewState, persistReviewWidth } from "./config";
 import { REVIEW_DEFAULT_WIDTH, REVIEW_MAX_WIDTH } from "./review-panel";
 import { DARK } from "./theme";
 
@@ -249,5 +249,34 @@ describe("actionFor", () => {
     expect(actionFor(DEFAULT_KEYS, "g", true)).toBe("bottom"); // G
     expect(actionFor(DEFAULT_KEYS, "return", false)).toBe("submit");
     expect(actionFor(DEFAULT_KEYS, "zz", false)).toBeUndefined();
+  });
+});
+
+describe("[authors] rename map", () => {
+  test("loads quoted fingerprint keys", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-authors-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(path, `[authors]\n"SHA256:abc+def/gh" = "Alex"\n`);
+
+    // Act
+    const config = loadConfig({ userConfigPath: path });
+
+    // Assert
+    expect(config.authors["SHA256:abc+def/gh"]).toBe("Alex");
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("persistAuthorName round-trips and updates a fingerprint id in place", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-authors2-"));
+    const path = join(dir, "config.toml");
+
+    // Act / Assert
+    persistAuthorName("SHA256:abc+def/gh", "Alex", path);
+    expect(loadConfig({ userConfigPath: path }).authors["SHA256:abc+def/gh"]).toBe("Alex");
+    persistAuthorName("SHA256:abc+def/gh", "Alexa", path);
+    expect(loadConfig({ userConfigPath: path }).authors["SHA256:abc+def/gh"]).toBe("Alexa");
+    rmSync(dir, { recursive: true, force: true });
   });
 });
