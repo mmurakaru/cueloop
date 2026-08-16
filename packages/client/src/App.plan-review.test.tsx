@@ -364,6 +364,29 @@ describe("the document selects, the rail edits", () => {
     );
   });
 
+  test("activating a collaborator's card opens rename, not a body edit", async () => {
+    // Arrange - a pulled collaborator note carries an author fingerprint
+    const { makeAnchor, parseBlocks } = await import("@cueloop/schema");
+    const blocks = parseBlocks(PLAN);
+    const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("The daemon persists"));
+    server.core.sessionAnnotate(session.id, {
+      id: "collab-1",
+      kind: "comment",
+      anchor: makeAnchor(blocks, contextBlockIndex, 0, 10),
+      body: "who owns retries?",
+      author: "SHA256:1a2b3c4d5e6f",
+    });
+    const setup = await renderApp();
+    await waitForText(setup, "1a2b3c4d");
+
+    // Act - focus the collaborator card, then activate it
+    await press(setup, "n");
+    await press(setup, "e");
+
+    // Assert - the rename prompt opens; the body never becomes an editor
+    await waitForText(setup, "Rename author");
+  });
+
   test("x deletes the selected card and un-paints the document highlight", async () => {
     // Arrange
     const setup = await renderApp();

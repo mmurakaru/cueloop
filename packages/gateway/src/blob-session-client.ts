@@ -85,7 +85,7 @@ export class BlobSessionClient implements SessionClient {
 
   async sessionSetSelfName(_id: string, name: string): Promise<ReviewSession> {
     const writeBack = this.requireWriteBack();
-    return this.commit(writeBack, (session) => upsertSelfParticipant(session, writeBack.author, name));
+    return this.commit(writeBack, (session) => withParticipant(session, writeBack.author, name));
   }
 
   sessionResolve(): Promise<ReviewSession> {
@@ -130,20 +130,27 @@ function upsertAnnotation(session: ReviewSession, incoming: Omit<Annotation, "cr
   const annotations = existing
     ? session.annotations.map((annotation) => (annotation.id === incoming.id ? stamped : annotation))
     : [...session.annotations, stamped];
-  return { ...session, annotations };
+  // Leaving a note registers the author in the participant registry, so a
+  // collaborator who skipped naming resolves to anonymous, not a raw fingerprint.
+  return withParticipant({ ...session, annotations }, writeBack.author);
 }
 
-/** Record the collaborator's own identity in the participant registry by fingerprint. */
-function upsertSelfParticipant(session: ReviewSession, author: string, name: string): ReviewSession {
-  const trimmed = name.trim();
-  const self: Identity = { id: author, provider: "ssh", ...(trimmed ? { name: trimmed } : {}) };
+/**
+ * Ensure `author` is in the participant registry; set the display name when one
+ * is given. A nameless call only records presence (renders anonymous) and never
+ * erases a name a past visit set.
+ */
+function withParticipant(session: ReviewSession, author: string, name?: string): ReviewSession {
   const participants = session.participants ?? [];
-  const known = participants.some((participant) => participant.id === author);
+  const existing = participants.find((participant) => participant.id === author);
+  const trimmed = name?.trim();
+  if (existing && !trimmed) return session;
+  const next: Identity = { id: author, provider: "ssh", ...(trimmed ? { name: trimmed } : existing?.name ? { name: existing.name } : {}) };
   return {
     ...session,
-    participants: known
-      ? participants.map((participant) => (participant.id === author ? { ...participant, ...self } : participant))
-      : [...participants, self],
+    participants: existing
+      ? participants.map((participant) => (participant.id === author ? next : participant))
+      : [...participants, next],
   };
 }
 

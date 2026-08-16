@@ -223,9 +223,15 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
 
   const openCardEdit = (annotationId: string): void => {
     if (observer) return controller.setStatus("observer - read-only");
-    if (resolved) return controller.setStatus("review submitted - read-only");
     const annotation = session?.annotations.find((candidate) => candidate.id === annotationId);
     if (!annotation) return;
+    // a collaborator's note is theirs to word: activating it (click or e) renames
+    // the author rather than editing the body the planner does not own
+    if (annotation.author) {
+      setFocusedAnnotationId(annotationId);
+      return void setMode({ type: "rename", authorId: annotation.author, text: authorNames[annotation.author] ?? "" });
+    }
+    if (resolved) return controller.setStatus("review submitted - read-only");
     liveInput.current = annotation.body;
     setMode({ type: "railEdit", id: annotation.id, text: annotation.body });
   };

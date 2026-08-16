@@ -169,14 +169,11 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
     );
   }
   const card = saved!;
-  // A collaborator's note (author set) reads as a named, bordered card so it
-  // stands out from your own; own notes stay borderless. The border title is
-  // the author, its color the shared-note accent.
+  // A collaborator's note (author set) renders as a named, bordered card; own notes stay borderless.
   const authored = card.authorLabel !== undefined && card.authorLabel !== "";
   const indent = authored ? "" : "  ";
   const marker = card.isSelected ? "▸ " : indent;
-  // Content rows for the author border's fixed height (a bordered box must
-  // declare one or the frame collapses): header + quote + body, or the editor.
+  // Fixed content rows (a bordered box must declare a height or it collapses): header + quote + body, or the editor.
   const contentRows = card.editing ? editorRowCount + 3 : 3;
   // The border + its side padding eat this much content width, so text truncates shorter.
   const borderInset = authored ? 4 : 0;
