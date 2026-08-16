@@ -1,5 +1,18 @@
 # cueloop
 
+## 0.1.0-alpha.30
+
+### Patch Changes
+
+- [#173](https://github.com/mmurakaru/cueloop/pull/173) [`c6a18ef`](https://github.com/mmurakaru/cueloop/commit/c6a18ef8fd6165dda8f05ca6ccc51306943ee4f4) Thanks [@dependabot](https://github.com/apps/dependabot)! - Bump the `@opentui/*` group (core, react, keymap, ssh) from 0.5.1 to 0.5.2.
+
+- [#172](https://github.com/mmurakaru/cueloop/pull/172) [`b1f55f9`](https://github.com/mmurakaru/cueloop/commit/b1f55f9aff7e6383b2067211a7f16847e9e430a0) Thanks [@mmurakaru](https://github.com/mmurakaru)! - `cueloop -v` / `cueloop --version` (and the bare `version` verb) now print the installed version and exit 0, instead of dumping the help text and exiting 2. `-h` is added as an alias for `--help`, and both are listed in the help output.
+
+- Updated dependencies []:
+  - @cueloop/client@0.1.0-alpha.30
+  - @cueloop/daemon@0.1.0-alpha.30
+  - @cueloop/schema@0.1.0-alpha.30
+
 ## 0.1.0-alpha.29
 
 ### Minor Changes
