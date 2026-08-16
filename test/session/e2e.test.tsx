@@ -18,6 +18,13 @@ import { press, typeText, waitForText } from "../../packages/client/src/test-sup
 /** Generous on purpose: these spawn real subprocesses on shared CI runners. */
 const POLL_TIMEOUT_MS = 60_000;
 const TEST_TIMEOUT_MS = 120_000;
+/**
+ * The daemon-startup budget (DaemonClient's autostart deadline) is separate from
+ * the per-test timeout above and defaults to 30s. On a contended CI runner a
+ * cold bun start plus a daemon spawn can miss that window, failing inside
+ * connect() long before the generous test budget - so raise it to match.
+ */
+const START_TIMEOUT_MS = 60_000;
 
 const HOOK = join(import.meta.dir, "..", "..", "packages", "adapters", "claude-code", "hook.ts");
 
@@ -33,9 +40,13 @@ Enable it for everyone immediately.
 `;
 
 let home: string;
+let priorStartTimeout: string | undefined;
 
 beforeAll(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-e2e-"));
+  // Applies to this test's connect() and, via spawnHook's inherited env, the hook subprocess.
+  priorStartTimeout = process.env.CUELOOP_START_TIMEOUT_MS;
+  process.env.CUELOOP_START_TIMEOUT_MS = String(START_TIMEOUT_MS);
 });
 afterAll(async () => {
   try {
@@ -45,6 +56,8 @@ afterAll(async () => {
   } catch {
     // daemon already gone
   }
+  if (priorStartTimeout === undefined) delete process.env.CUELOOP_START_TIMEOUT_MS;
+  else process.env.CUELOOP_START_TIMEOUT_MS = priorStartTimeout;
   rmSync(home, { recursive: true, force: true });
 });
 
