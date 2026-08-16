@@ -87,6 +87,13 @@ const SessionId = NonEmpty;
 /** A stored annotation: the wire shape plus the daemon-stamped createdAt. */
 export const FullAnnotationSchema = v.object({ ...AnnotationSchema.entries, createdAt: v.string() } satisfies EntriesOf<Annotation>);
 
+export const IdentitySchema = v.object({
+  id: NonEmpty,
+  provider: v.literal("ssh"),
+  name: v.optional(v.string()),
+  handle: v.optional(v.string()),
+} satisfies EntriesOf<Identity>);
+
 export const Params = {
   "session.create": v.object({ workspace: WorkspaceSchema, artifact: ArtifactSchema }),
   "session.get": v.object({ id: SessionId }),
@@ -109,7 +116,11 @@ export const Params = {
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
   "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
   "session.delete": v.object({ id: SessionId }),
-  "session.mergeAnnotations": v.object({ id: SessionId, annotations: v.array(FullAnnotationSchema) }),
+  "session.mergeShared": v.object({
+    id: SessionId,
+    annotations: v.array(FullAnnotationSchema),
+    participants: v.optional(v.array(IdentitySchema)),
+  }),
   "session.resolve": v.object({
     id: SessionId,
     verdictKind: v.picklist(["comment", "approve", "request_changes"]),
@@ -155,13 +166,6 @@ export const VerdictSchema = v.object({
   feedback: v.string(),
   resolvedAt: v.string(),
 } satisfies EntriesOf<Verdict>);
-
-export const IdentitySchema = v.object({
-  id: NonEmpty,
-  provider: v.literal("ssh"),
-  name: v.optional(v.string()),
-  handle: v.optional(v.string()),
-} satisfies EntriesOf<Identity>);
 
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
 export const SessionRecordSchema = v.object({

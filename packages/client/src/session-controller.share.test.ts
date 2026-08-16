@@ -46,9 +46,9 @@ function fakeClient(session: ReviewSession): SessionClient {
     sessionList: async () => [session],
     sessionAnnotate: mock(async () => session),
     sessionSetShareId: mock(async (_id: string, shareId: string) => ((session.shareId = shareId), session)),
-    sessionMergeAnnotations: mock(async (_id: string, incoming: Annotation[]) => {
+    sessionMergeShared: mock(async (_id: string, incoming: { annotations: Annotation[] }) => {
       const known = new Set(session.annotations.map((existing) => existing.id));
-      for (const note of incoming) if (!known.has(note.id)) session.annotations.push(note);
+      for (const note of incoming.annotations) if (!known.has(note.id)) session.annotations.push(note);
       return session;
     }),
     close: () => {},
@@ -83,9 +83,12 @@ describe("share", () => {
 });
 
 describe("pullShared", () => {
-  test("unions collaborator notes in when the plan was shared", async () => {
+  test("unions collaborator notes and identities in when the plan was shared", async () => {
     // Arrange
-    remote = sessionFixture({ annotations: [annotation("a1", "SHA256:mate")] });
+    remote = sessionFixture({
+      annotations: [annotation("a1", "SHA256:mate")],
+      participants: [{ id: "SHA256:mate", provider: "ssh", name: "Sam" }],
+    });
     const { controller, client } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }));
 
     // Act
@@ -94,7 +97,10 @@ describe("pullShared", () => {
 
     // Assert
     expect(pullShare).toHaveBeenCalledWith("p_abc123xy");
-    expect(client.sessionMergeAnnotations).toHaveBeenCalledWith("ses_1", remote.annotations);
+    expect(client.sessionMergeShared).toHaveBeenCalledWith("ses_1", {
+      annotations: remote.annotations,
+      participants: remote.participants,
+    });
   });
 
   test("does nothing for a plan that was never shared", async () => {
@@ -108,7 +114,7 @@ describe("pullShared", () => {
 
     // Assert
     expect(pullShare).not.toHaveBeenCalled();
-    expect(client.sessionMergeAnnotations).not.toHaveBeenCalled();
+    expect(client.sessionMergeShared).not.toHaveBeenCalled();
   });
 });
 

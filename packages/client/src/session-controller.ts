@@ -531,7 +531,9 @@ class Controller implements ReviewController {
     if (!session?.shareId || !this.client) return Promise.resolve();
     const client = this.client;
     return pullShare(session.shareId)
-      .then((remote) => client.sessionMergeAnnotations(session.id, collaboratorAnnotations(remote)))
+      .then((remote) =>
+        client.sessionMergeShared(session.id, { annotations: collaboratorAnnotations(remote), participants: remote.participants }),
+      )
       .then(() => {})
       .catch(() => {});
   }

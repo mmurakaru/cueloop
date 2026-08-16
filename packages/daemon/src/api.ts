@@ -15,6 +15,7 @@ import {
   verdictAllows,
   type Annotation,
   type Artifact,
+  type Identity,
   type ReviewSession,
   type Verdict,
   type VerdictKind,
@@ -182,11 +183,22 @@ export class DaemonCore {
     this.emit("inbox.changed", id);
   }
 
-  /** Union incoming annotations in by id; existing ids (the planner's) win. */
-  sessionMergeAnnotations(id: string, incoming: Annotation[]): ReviewSession {
+  /**
+   * Merge a share's collaborator state back into the local session: annotations
+   * union by id with existing ones (the planner's) winning, and the participant
+   * registry union by id with the incoming identity winning (a collaborator is
+   * the authority on their own name). This is how a teammate's name reaches the
+   * planner after a pull, alongside their notes.
+   */
+  sessionMergeShared(id: string, incoming: { annotations: Annotation[]; participants?: Identity[] }): ReviewSession {
     const session = this.mutable(id);
     const known = new Set(session.annotations.map((annotation) => annotation.id));
-    for (const annotation of incoming) if (!known.has(annotation.id)) session.annotations.push(annotation);
+    for (const annotation of incoming.annotations) if (!known.has(annotation.id)) session.annotations.push(annotation);
+    if (incoming.participants?.length) {
+      const registry = new Map((session.participants ?? []).map((participant) => [participant.id, participant]));
+      for (const participant of incoming.participants) registry.set(participant.id, participant);
+      session.participants = [...registry.values()];
+    }
     this.store.upsert(session);
     this.emit("session.updated", id);
     return session;

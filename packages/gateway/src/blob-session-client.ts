@@ -75,7 +75,7 @@ export class BlobSessionClient implements SessionClient {
     return rejectReadOnly();
   }
 
-  sessionMergeAnnotations(): Promise<ReviewSession> {
+  sessionMergeShared(): Promise<ReviewSession> {
     return rejectReadOnly();
   }
 
