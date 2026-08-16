@@ -17,7 +17,7 @@ jobs:
       - run: bun run typecheck
       - run: bun run check:release
       - run: bun run check:publish -- --dev
-      - run: bun test ./packages ./test
+      - run: bun run test
 
   changeset:
     # Every PR ships a changeset (empty is fine for docs/CI-only changes:
