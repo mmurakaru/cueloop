@@ -26,6 +26,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
   const controller = {
     setStatus: mock(),
     open: mock(),
+    deleteSession: mock(),
     cut: mock(),
     annotate: mock(),
     updateAnnotation: mock(),
@@ -209,5 +210,31 @@ describe("exit", () => {
 
     // Assert
     expect(deps.onExit).toHaveBeenCalledWith(0);
+  });
+});
+
+describe("inbox delete", () => {
+  test("requestDeleteSession opens the confirm on the cursor row", () => {
+    // Arrange
+    const inbox = [{ id: "ses_1", artifact: { meta: { title: "Plan A" } } }] as never;
+    const deps = makeDeps({ inbox, inboxCursor: 0 });
+
+    // Act
+    createIntentDispatch(deps)({ type: "requestDeleteSession" });
+
+    // Assert
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "confirmDelete", sessionId: "ses_1", title: "Plan A" });
+  });
+
+  test("confirmDialog deletes the session and closes", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "confirmDelete", sessionId: "ses_1", title: "Plan A" } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "confirmDialog" });
+
+    // Assert
+    expect(deps.controller.deleteSession).toHaveBeenCalledWith("ses_1");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
   });
 });

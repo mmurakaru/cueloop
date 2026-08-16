@@ -23,7 +23,8 @@ export type Mode =
   | { type: "span"; span: SpanState }
   | { type: "compose"; kind: "comment" | "suggestion"; displayIndex: number; start: number; end: number; text: string }
   | { type: "railEdit"; id: string; text: string }
-  | { type: "submit"; verdict: VerdictKind; summary: string };
+  | { type: "submit"; verdict: VerdictKind; summary: string }
+  | { type: "confirmDelete"; sessionId: string; title: string };
 
 /**
  * Annotations that still count as feedback: agent notes never do, and an
@@ -135,6 +136,15 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
         const selected = inbox?.[inboxCursor];
         if (selected) controller.open(selected.id);
         return;
+      }
+      case "requestDeleteSession": {
+        const selected = inbox?.[inboxCursor];
+        if (selected) setMode({ type: "confirmDelete", sessionId: selected.id, title: selected.artifact.meta.title ?? selected.id });
+        return;
+      }
+      case "confirmDialog": {
+        if (mode.type === "confirmDelete") controller.deleteSession(mode.sessionId);
+        return void setMode({ type: "normal" });
       }
       case "startSpan": {
         const block = display[cursor];

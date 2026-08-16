@@ -437,3 +437,27 @@ describe("read-only filter", () => {
     expect(reduceKey(keyState, key("s"))).toEqual([{ type: "status", message: "observer - read-only" }]);
   });
 });
+
+describe("inbox delete", () => {
+  test("d on a session requests delete", () => {
+    // Arrange / Act / Assert
+    expect(reduceKey(state({ view: "inbox" }), key("d"))).toEqual([{ type: "requestDeleteSession" }]);
+  });
+});
+
+describe("confirm overlay", () => {
+  // Arrange
+  const keyState = state({ overlay: "confirm" });
+  const table: [string, Intent[]][] = [
+    ["return", [{ type: "confirmDialog" }]],
+    ["enter", [{ type: "confirmDialog" }]],
+    ["escape", [{ type: "closeOverlay" }]],
+    ["j", []],
+    ["d", []],
+  ];
+  for (const [name, expected] of table) {
+    test(`${name} -> ${JSON.stringify(expected)}`, () => {
+      expect(reduceKey(keyState, key(name))).toEqual(expected);
+    });
+  }
+});

@@ -39,6 +39,7 @@ import {
 } from "./review-panel";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ComposeBar } from "./components/ComposeBar";
 import { WalkWizard } from "./components/WalkWizard";
 
@@ -260,6 +261,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
       ? "compose"
       : mode.type === "submit"
         ? "submit"
+        : mode.type === "confirmDelete"
+          ? "confirm"
         : completion.phase === "prompt"
           ? "completion-prompt"
           : completion.phase === "counting"
@@ -309,9 +312,25 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     );
   }
   if (!session && inbox) {
+    const confirming = mode.type === "confirmDelete" ? mode : null;
     return (
       <ThemeProvider theme={theme}>
-        <InboxList inbox={inbox} cursor={inboxCursor} />
+        <InboxList
+          inbox={inbox}
+          cursor={inboxCursor}
+          onRequestDelete={(id, title) => setMode({ type: "confirmDelete", sessionId: id, title })}
+        />
+        <ConfirmDialog
+          isOpen={confirming !== null}
+          title=" Delete plan "
+          message={confirming ? `Delete "${confirming.title}"? This removes the plan and its review.` : ""}
+          onConfirm={() => {
+            if (confirming) controller.deleteSession(confirming.sessionId);
+            setMode({ type: "normal" });
+          }}
+          onCancel={() => setMode({ type: "normal" })}
+          theme={theme}
+        />
       </ThemeProvider>
     );
   }
