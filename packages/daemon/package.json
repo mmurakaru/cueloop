@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/daemon",
-  "version": "0.1.0-alpha.29",
+  "version": "0.1.0-alpha.30",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -11,7 +11,7 @@
     "./share-blob": "./src/share-blob.ts"
   },
   "dependencies": {
-    "@cueloop/schema": "0.1.0-alpha.29",
+    "@cueloop/schema": "0.1.0-alpha.30",
     "valibot": "^1.4.2"
   },
   "publishConfig": {
