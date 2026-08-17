@@ -1,5 +1,23 @@
 # @cueloop/client
 
+## 0.1.0-alpha.31
+
+### Minor Changes
+
+- [#180](https://github.com/mmurakaru/cueloop/pull/180) [`3cfa5e0`](https://github.com/mmurakaru/cueloop/commit/3cfa5e065d897b3f27f3fe81f7e999e52731f24a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The default theme no longer paints the canvas or flat chrome: `bg` and
+  `panel` default to `transparent`, so the terminal's own background (and any
+  transparency or blur it renders) shows through. Floating surfaces (dialogs,
+  walk cards) now sit on the `elevated` token and stay opaque. Set `[theme]`
+  `bg`/`panel` overrides in the user config for an opaque look.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.31
+  - @cueloop/extension-api@0.1.0-alpha.31
+  - @cueloop/integration-obsidian@0.1.0-alpha.31
+  - @cueloop/schema@0.1.0-alpha.31
+
 ## 0.1.0-alpha.30
 
 ### Patch Changes
