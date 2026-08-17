@@ -1,5 +1,31 @@
 # @cueloop/client
 
+## 0.1.0-alpha.32
+
+### Minor Changes
+
+- [#182](https://github.com/mmurakaru/cueloop/pull/182) [`010b7a9`](https://github.com/mmurakaru/cueloop/commit/010b7a9837e0263a4779729d492ba0fd51eba8db) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Dialogs no longer paint a dim backdrop or a surface fill - an open dialog
+  floats as a bordered frame and the session stays visible behind it. Set
+  `[theme] backdrop` to a colour to restore the dimmed layer.
+
+  Theme tokens now use full names, and `[theme]` config keys follow suit:
+  `bg` is `background`, `cursorBg` is `cursorBackground`, `markCommentBg` is
+  `markCommentBackground`, `markSuggestionBg` is `markSuggestionBackground`,
+  `insFg` is `insertedForeground`, `delFg` is `deletedForeground`. Update any
+  overrides using the old keys.
+
+### Patch Changes
+
+- [#182](https://github.com/mmurakaru/cueloop/pull/182) [`010b7a9`](https://github.com/mmurakaru/cueloop/commit/010b7a9837e0263a4779729d492ba0fd51eba8db) Thanks [@mmurakaru](https://github.com/mmurakaru)! - App test suites isolate the user config: a shared test helper points the
+  config path into the test home, so local runs no longer read the
+  developer's real config (a persisted review_state made char-frame tests
+  time out locally while CI passed).
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.32
+  - @cueloop/extension-api@0.1.0-alpha.32
+  - @cueloop/integration-obsidian@0.1.0-alpha.32
+  - @cueloop/schema@0.1.0-alpha.32
+
 ## 0.1.0-alpha.31
 
 ### Minor Changes
