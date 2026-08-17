@@ -1,22 +1,22 @@
 /*
- * A liquid-metal ring around a single child box. One WebGL canvas per
- * instance renders an animated plasma masked to the box's border in-shader
- * (rounded-box SDF), so there is no shared context, no overlay elements, and
- * nothing outside the wrapper. While the ring is live the wrapper carries
- * `is-active`, letting CSS drop the child's own border; without WebGL the
- * child keeps its hairline.
- *
- * Plasma shader and color presets adapted from metal-fx (c) Jakub Antalik,
- * MIT license.
+ * Liquid metal ring: an animated metal border around a single child box.
+ * Two WebGL passes per instance - plasma into a small texture, then a
+ * bilinear upscale masked to the border (rounded-box SDF). While the ring is
+ * live the wrapper carries `is-active` so CSS can drop the child's own
+ * border; without WebGL the child keeps its hairline.
+ * Plasma shader and presets adapted from metal-fx (c) Jakub Antalik, MIT.
  */
 import { useEffect, useRef, type ReactNode } from "react";
+
+/* Tiny on purpose: the upscale melts the noise into smooth liquid streaks. */
+const PLASMA_SIZE = 66;
 
 const VERTEX_SOURCE = `
 attribute vec2 a_position;
 void main() { gl_Position = vec4(a_position, 0.0, 1.0); }
 `;
 
-const FRAGMENT_SOURCE = `
+const PLASMA_SOURCE = `
 precision highp float;
 
 uniform vec2 u_resolution;
@@ -24,7 +24,6 @@ uniform float u_time;
 uniform vec3 u_color1, u_color2, u_color3, u_color4, u_color5;
 uniform float u_intensity, u_scale, u_direction;
 uniform float u_distortion, u_complexity, u_blur;
-uniform float u_radius, u_ring;
 
 vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
 vec2 mod289v2(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -90,9 +89,8 @@ vec2 warp(vec2 p, float t) {
 }
 
 /* Plasma: four sine bands warped by an FBM field, mapped through the palette. */
-vec3 plasma(vec2 uv, float aspect, float t) {
+vec3 plasma(vec2 uv, float t) {
   vec2 p = (uv - 0.5) * u_scale;
-  p.x *= aspect;
   p += vec2(cos(u_direction), sin(u_direction)) * t * 0.15;
 
   float freq = 3.0 + u_complexity * 8.0;
@@ -108,6 +106,35 @@ vec3 plasma(vec2 uv, float aspect, float t) {
   return palette(clamp(val, 0.0, 1.0));
 }
 
+void main() {
+  vec2 uv = gl_FragCoord.xy / u_resolution;
+  float t = u_time;
+
+  vec3 col;
+  if (u_blur < 0.01) {
+    col = plasma(uv, t);
+  } else {
+    float r = u_blur * 0.02;
+    col  = plasma(uv, t) * 0.4;
+    col += plasma(uv + vec2( r, 0.0), t) * 0.15;
+    col += plasma(uv + vec2(-r, 0.0), t) * 0.15;
+    col += plasma(uv + vec2(0.0,  r), t) * 0.15;
+    col += plasma(uv + vec2(0.0, -r), t) * 0.15;
+  }
+  col = pow(col, vec3(1.3));
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+/* Pass 2: upscale the plasma texture, mask it to the ring (smoothstep AA). */
+const COMPOSITE_SOURCE = `
+precision mediump float;
+
+uniform sampler2D u_plasma;
+uniform vec2 u_resolution;
+uniform float u_radius, u_ring;
+
 float roundedBoxSDF(vec2 p, vec2 halfSize, float r) {
   vec2 q = abs(p) - halfSize + r;
   return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
@@ -115,24 +142,8 @@ float roundedBoxSDF(vec2 p, vec2 halfSize, float r) {
 
 void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution;
-  float aspect = u_resolution.x / u_resolution.y;
-  float t = u_time;
+  vec3 col = texture2D(u_plasma, uv).rgb;
 
-  vec3 col;
-  if (u_blur < 0.01) {
-    col = plasma(uv, aspect, t);
-  } else {
-    float r = u_blur * 0.02;
-    col  = plasma(uv, aspect, t) * 0.4;
-    col += plasma(uv + vec2( r, 0.0), aspect, t) * 0.15;
-    col += plasma(uv + vec2(-r, 0.0), aspect, t) * 0.15;
-    col += plasma(uv + vec2(0.0,  r), aspect, t) * 0.15;
-    col += plasma(uv + vec2(0.0, -r), aspect, t) * 0.15;
-  }
-  col = pow(col, vec3(1.3));
-
-  /* Mask to the border ring: inside the outer rounded box, outside the inner
-   * one. One-pixel smoothsteps antialias both edges. */
   vec2 pos = gl_FragCoord.xy - u_resolution * 0.5;
   float dOuter = roundedBoxSDF(pos, u_resolution * 0.5, u_radius);
   float dInner = roundedBoxSDF(pos, u_resolution * 0.5 - vec2(u_ring),
@@ -200,6 +211,25 @@ function compileShader(gl: WebGLRenderingContext, type: number, source: string):
   return shader;
 }
 
+function buildProgram(
+  gl: WebGLRenderingContext,
+  vertexSource: string,
+  fragmentSource: string,
+): WebGLProgram | null {
+  try {
+    const vertex = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
+    const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+    const program = gl.createProgram()!;
+    gl.attachShader(program, vertex);
+    gl.attachShader(program, fragment);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+    return program;
+  } catch {
+    return null;
+  }
+}
+
 interface MetalRingProps {
   children: ReactNode;
   theme: "dark" | "light";
@@ -235,20 +265,11 @@ export default function MetalRing({
     }
     if (!gl) return; // no WebGL: the box keeps its plain border
 
-    let program: WebGLProgram;
-    try {
-      const vertex = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SOURCE);
-      const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SOURCE);
-      program = gl.createProgram()!;
-      gl.attachShader(program, vertex);
-      gl.attachShader(program, fragment);
-      gl.linkProgram(program);
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
-    } catch {
-      return; // shader failed to build: the box keeps its plain border
-    }
-    gl.useProgram(program);
+    const plasmaProgram = buildProgram(gl, VERTEX_SOURCE, PLASMA_SOURCE);
+    const compositeProgram = buildProgram(gl, VERTEX_SOURCE, COMPOSITE_SOURCE);
+    if (!plasmaProgram || !compositeProgram) return;
 
+    // One shared fullscreen triangle.
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(
@@ -256,37 +277,72 @@ export default function MetalRing({
       new Float32Array([-1, -1, 3, -1, -1, 3]),
       gl.STATIC_DRAW,
     );
-    const positionLocation = gl.getAttribLocation(program, "a_position");
-    gl.enableVertexAttribArray(positionLocation);
-    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    for (const program of [plasmaProgram, compositeProgram]) {
+      const position = gl.getAttribLocation(program, "a_position");
+      gl.enableVertexAttribArray(position);
+      gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+    }
 
-    const uniform = (name: string) => gl!.getUniformLocation(program, name);
-    const locations = {
-      resolution: uniform("u_resolution"),
-      time: uniform("u_time"),
-      colors: [1, 2, 3, 4, 5].map((n) => uniform(`u_color${n}`)),
-      intensity: uniform("u_intensity"),
-      scale: uniform("u_scale"),
-      direction: uniform("u_direction"),
-      distortion: uniform("u_distortion"),
-      complexity: uniform("u_complexity"),
-      blur: uniform("u_blur"),
-      radius: uniform("u_radius"),
-      ring: uniform("u_ring"),
+    // Offscreen plasma texture, linearly sampled for the smoothing upscale.
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.RGBA, PLASMA_SIZE, PLASMA_SIZE, 0,
+      gl.RGBA, gl.UNSIGNED_BYTE, null,
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const framebuffer = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0,
+    );
+    const complete =
+      gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!complete) return;
+
+    const plasmaUniform = (name: string) => gl!.getUniformLocation(plasmaProgram, name);
+    const plasmaLocations = {
+      resolution: plasmaUniform("u_resolution"),
+      time: plasmaUniform("u_time"),
+      colors: [1, 2, 3, 4, 5].map((n) => plasmaUniform(`u_color${n}`)),
+      intensity: plasmaUniform("u_intensity"),
+      scale: plasmaUniform("u_scale"),
+      direction: plasmaUniform("u_direction"),
+      distortion: plasmaUniform("u_distortion"),
+      complexity: plasmaUniform("u_complexity"),
+      blur: plasmaUniform("u_blur"),
     };
+    const compositeUniform = (name: string) =>
+      gl!.getUniformLocation(compositeProgram, name);
+    const compositeLocations = {
+      plasma: compositeUniform("u_plasma"),
+      resolution: compositeUniform("u_resolution"),
+      radius: compositeUniform("u_radius"),
+      ring: compositeUniform("u_ring"),
+    };
+
+    gl.useProgram(plasmaProgram);
+    gl.uniform2f(plasmaLocations.resolution, PLASMA_SIZE, PLASMA_SIZE);
+    gl.useProgram(compositeProgram);
+    gl.uniform1i(compositeLocations.plasma, 0);
 
     let appliedTheme: "dark" | "light" | null = null;
     function applyPreset() {
       const preset = CHROMATIC[themeRef.current];
+      gl!.useProgram(plasmaProgram);
       preset.colors.forEach((hex, index) => {
-        gl!.uniform3fv(locations.colors[index], hexToRgb(hex));
+        gl!.uniform3fv(plasmaLocations.colors[index], hexToRgb(hex));
       });
-      gl!.uniform1f(locations.intensity, preset.intensity);
-      gl!.uniform1f(locations.scale, preset.scale);
-      gl!.uniform1f(locations.direction, (preset.direction * Math.PI) / 180);
-      gl!.uniform1f(locations.distortion, preset.distortion);
-      gl!.uniform1f(locations.complexity, preset.complexity);
-      gl!.uniform1f(locations.blur, preset.blur);
+      gl!.uniform1f(plasmaLocations.intensity, preset.intensity);
+      gl!.uniform1f(plasmaLocations.scale, preset.scale);
+      gl!.uniform1f(plasmaLocations.direction, (preset.direction * Math.PI) / 180);
+      gl!.uniform1f(plasmaLocations.distortion, preset.distortion);
+      gl!.uniform1f(plasmaLocations.complexity, preset.complexity);
+      gl!.uniform1f(plasmaLocations.blur, preset.blur);
       appliedTheme = themeRef.current;
     }
 
@@ -298,11 +354,11 @@ export default function MetalRing({
       if (canvas!.width !== width || canvas!.height !== height) {
         canvas!.width = width;
         canvas!.height = height;
-        gl!.viewport(0, 0, width, height);
       }
-      gl!.uniform2f(locations.resolution, width, height);
-      gl!.uniform1f(locations.radius, radius * dpr);
-      gl!.uniform1f(locations.ring, thickness * dpr);
+      gl!.useProgram(compositeProgram);
+      gl!.uniform2f(compositeLocations.resolution, width, height);
+      gl!.uniform1f(compositeLocations.radius, radius * dpr);
+      gl!.uniform1f(compositeLocations.ring, thickness * dpr);
     }
 
     const start = performance.now();
@@ -314,10 +370,27 @@ export default function MetalRing({
       if (!visible) return;
       if (appliedTheme !== themeRef.current) applyPreset();
       const preset = CHROMATIC[themeRef.current];
-      gl!.uniform1f(locations.time, ((performance.now() - start) / 1000) * preset.speed);
+
+      // Pass 1: plasma into the small texture.
+      gl!.useProgram(plasmaProgram);
+      gl!.uniform1f(
+        plasmaLocations.time,
+        ((performance.now() - start) / 1000) * preset.speed,
+      );
+      gl!.bindFramebuffer(gl!.FRAMEBUFFER, framebuffer);
+      gl!.viewport(0, 0, PLASMA_SIZE, PLASMA_SIZE);
+      gl!.drawArrays(gl!.TRIANGLES, 0, 3);
+
+      // Pass 2: upscale + ring mask onto the canvas.
+      gl!.bindFramebuffer(gl!.FRAMEBUFFER, null);
+      gl!.viewport(0, 0, canvas!.width, canvas!.height);
+      gl!.useProgram(compositeProgram);
+      gl!.activeTexture(gl!.TEXTURE0);
+      gl!.bindTexture(gl!.TEXTURE_2D, texture);
       gl!.clearColor(0, 0, 0, 0);
       gl!.clear(gl!.COLOR_BUFFER_BIT);
       gl!.drawArrays(gl!.TRIANGLES, 0, 3);
+
       if (!reducedMotion.matches) rafId = requestAnimationFrame(frame);
     }
     function schedule() {
