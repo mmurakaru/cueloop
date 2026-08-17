@@ -76,7 +76,7 @@ export function WalkWizard({
             title=" walk complete "
             contentRows={3}
             borderColor={tokens.green}
-            backgroundColor={tokens.panel}
+            backgroundColor={tokens.elevated}
             theme={theme}
           >
             <text fg={tokens.text}>
@@ -100,7 +100,7 @@ export function WalkWizard({
               title={` file ${index + 1} of ${files.length} · ${viewed} viewed `}
               contentRows={3 + Math.max(1, currentFile.preview.length)}
               borderColor={tokens.accent}
-              backgroundColor={tokens.panel}
+              backgroundColor={tokens.elevated}
               theme={theme}
             >
               <text fg={tokens.text}>{currentFile.path}</text>
@@ -131,7 +131,7 @@ export function WalkWizard({
                   title=" agent note "
                   contentRows={noteRows(note, width - 4)}
                   borderColor={tokens.border}
-                  backgroundColor={tokens.panel}
+                  backgroundColor={tokens.elevated}
                   theme={theme}
                 >
                   <text fg={tokens.textMuted}>{note}</text>

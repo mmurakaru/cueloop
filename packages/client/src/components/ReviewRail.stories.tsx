@@ -34,7 +34,7 @@ export const AnnotationStack: Story = {
       />
     </RailFrame>
   ),
-  expectedColors: [DARK.panel, DARK.green],
+  expectedColors: [DARK.green],
   size: { width: 40, height: 24 },
 };
 

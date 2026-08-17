@@ -12,7 +12,9 @@ import { componentFilesMissingStories, loadStories } from "./story";
 
 const stories = await loadStories();
 
-function hexOf(color: RGBA): string {
+/** Hex of a painted color; undefined for unpainted (transparent) spans. */
+function hexOf(color: RGBA | null | undefined): string | undefined {
+  if (!color) return undefined;
   const [red, green, blue] = color.toInts();
   return "#" + [red, green, blue].map((part) => part!.toString(16).padStart(2, "0")).join("");
 }
@@ -42,8 +44,10 @@ describe("stories catalog", () => {
         const seenColors = new Set<string>();
         for (const line of setup.captureSpans().lines) {
           for (const span of line.spans) {
-            seenColors.add(hexOf(span.fg));
-            seenColors.add(hexOf(span.bg));
+            const fg = hexOf(span.fg);
+            const bg = hexOf(span.bg);
+            if (fg) seenColors.add(fg);
+            if (bg) seenColors.add(bg);
           }
         }
         for (const expectedColor of story.expectedColors) {
