@@ -48,9 +48,7 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
   <!-- Hero -->
   <section class="hero">
     <div class="container">
-      <!-- Liquid-glass panel (Comeau technique): a backdrop-filter layer shaped
-           by an SVG mask. The mask is a rounded rect; subtracting a glyph from
-           it later cuts a real see-through hole in the glass. -->
+      <!-- Frosted glass panel: a backdrop-filter layer shaped by an SVG mask. -->
       <div class="hero__backdrop" aria-hidden="true"></div>
       <div class="hero__edge" aria-hidden="true"></div>
       <svg
@@ -63,8 +61,7 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
         <mask id="heroGlassMask">
           <rect width="100%" height="100%" fill="white" rx="28" ry="28" />
         </mask>
-        <!-- A stroked outline of the same rounded rect: masks the edge layer to a
-             thin rim that refracts light like the lip of real glass. -->
+        <!-- Stroked outline: masks the edge layer to a thin refractive rim. -->
         <mask id="heroEdgeMask">
           <rect
             width="100%"

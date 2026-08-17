@@ -855,9 +855,7 @@ pre {
   isolation: isolate;
   padding: clamp(2rem, 5vw, 4rem) clamp(1.4rem, 4vw, 3rem);
 }
-/* The frosted panel: a backdrop-filter layer shaped by the SVG mask
- * (#heroGlassMask). Masking the backdrop element - rather than clipping with
- * border-radius - lets us subtract the & glyph to cut a real see-through hole. */
+/* Frosted glass panel: backdrop-filter shaped by the #heroGlassMask SVG mask. */
 .hero__backdrop {
   position: absolute;
   inset: 0;
@@ -869,25 +867,21 @@ pre {
   -webkit-mask-image: url(#heroGlassMask);
   mask-image: url(#heroGlassMask);
 }
-/* Comeau's glass edge: a second backdrop layer masked to a thin rim
- * (#heroEdgeMask) so the panel's lip refracts light. Comeau brightens the edge,
- * which only reads on a dark backdrop; --edge-brightness brightens on dark but
- * darkens slightly on light, where a glass lip is a faint darker refraction. */
+/* Glass edge: a backdrop layer masked to a thin rim (#heroEdgeMask); brightness
+ * is theme-adaptive (--edge-brightness) so the lip reads on light and dark. */
 .hero__edge {
   position: absolute;
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  /* Rounded box clips the stroke's outer half uniformly - without it the corner
-   * rim renders at full stroke width while the straight sides are clipped thin. */
+  /* Rounded box so the stroke's outer half clips evenly at the corners. */
   border-radius: 28px;
   -webkit-backdrop-filter: blur(8px) brightness(var(--edge-brightness));
   backdrop-filter: blur(8px) brightness(var(--edge-brightness));
   -webkit-mask-image: url(#heroEdgeMask);
   mask-image: url(#heroEdgeMask);
 }
-/* The mask lives in the DOM (referenced by url(#…)) and defines its coordinate
- * space; it never paints itself. */
+/* Holds the mask definitions; never paints itself. */
 .hero__mask {
   position: absolute;
   inset: 0;
