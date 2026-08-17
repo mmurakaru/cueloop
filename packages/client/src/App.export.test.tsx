@@ -9,7 +9,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { press, waitForState, waitForText } from "./test-support";
+import { isolateUserConfig, press, waitForState, waitForText } from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -20,7 +20,7 @@ let home: string;
 let vault: string;
 let server: DaemonServer;
 let session: ReviewSession;
-let savedConfigEnv: string | undefined;
+let restoreUserConfig: () => void;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-app-export-"));
@@ -28,8 +28,7 @@ beforeEach(() => {
   mkdirSync(vault);
   const configPath = join(home, "config.toml");
   writeFileSync(configPath, `[integrations.obsidian]\nvault = ${JSON.stringify(vault)}\nexportOn = "resolve"\n`);
-  savedConfigEnv = process.env.CUELOOP_CONFIG;
-  process.env.CUELOOP_CONFIG = configPath;
+  restoreUserConfig = isolateUserConfig(home, "config.toml");
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
   session = server.core.sessionCreate({
@@ -38,8 +37,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
-  if (savedConfigEnv === undefined) delete process.env.CUELOOP_CONFIG;
-  else process.env.CUELOOP_CONFIG = savedConfigEnv;
+  restoreUserConfig();
   server.stop();
   rmSync(home, { recursive: true, force: true });
 });

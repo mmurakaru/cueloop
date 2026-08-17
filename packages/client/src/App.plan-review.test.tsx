@@ -10,7 +10,7 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { DARK as T } from "./theme";
-import { press, settle, typeText as type, waitForState, waitForText, waitForTextGone } from "./test-support";
+import { isolateUserConfig, press, settle, typeText as type, waitForState, waitForText, waitForTextGone } from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -27,14 +27,11 @@ The daemon persists sessions to disk atomically.
 let home: string;
 let server: DaemonServer;
 let session: ReviewSession;
-let priorConfig: string | undefined;
+let restoreUserConfig: () => void;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-plan-review-"));
-  // Isolate from the dev's real config so the rail state is the default here,
-  // not whatever review_state they last persisted (CI runs clean already).
-  priorConfig = process.env.CUELOOP_CONFIG;
-  process.env.CUELOOP_CONFIG = join(home, "no-config.toml");
+  restoreUserConfig = isolateUserConfig(home);
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
   session = server.core.sessionCreate({
@@ -43,8 +40,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
-  if (priorConfig === undefined) delete process.env.CUELOOP_CONFIG;
-  else process.env.CUELOOP_CONFIG = priorConfig;
+  restoreUserConfig();
   server.stop();
   rmSync(home, { recursive: true, force: true });
 });

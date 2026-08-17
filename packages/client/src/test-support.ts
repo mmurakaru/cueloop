@@ -6,10 +6,28 @@
  * generous pass budgets.
  */
 
+import { join } from "node:path";
 import type { TestRendererSetup } from "@opentui/core/testing";
 
 /** Pass budget for waits that include daemon or subprocess round-trips. */
 export const WAIT_PASSES = { maxPasses: 400 };
+
+/**
+ * Isolate the user config: point CUELOOP_CONFIG into the test home so
+ * loadConfig never reads the developer's real ~/.config/cueloop (a persisted
+ * review_state would change what char frames render locally while CI stays
+ * clean). The default file name does not exist, so loadConfig returns
+ * defaults; pass a file name for suites that write and assert a config of
+ * their own. Call in beforeEach; invoke the returned restore in afterEach.
+ */
+export function isolateUserConfig(home: string, fileName = "no-config.toml"): () => void {
+  const priorUserConfig = process.env.CUELOOP_CONFIG;
+  process.env.CUELOOP_CONFIG = join(home, fileName);
+  return () => {
+    if (priorUserConfig === undefined) delete process.env.CUELOOP_CONFIG;
+    else process.env.CUELOOP_CONFIG = priorUserConfig;
+  };
+}
 
 /**
  * One macrotask yield lets the input parser and the React scheduler run,

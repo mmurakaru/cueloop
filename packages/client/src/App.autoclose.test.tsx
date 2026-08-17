@@ -10,7 +10,7 @@ import { ManualClock } from "@opentui/core/testing";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { press, settle, waitForText } from "./test-support";
+import { isolateUserConfig, press, settle, waitForText } from "./test-support";
 
 const PLAN = "# Plan\n\nShip the thing.\n";
 
@@ -18,12 +18,13 @@ let home: string;
 let server: DaemonServer;
 let session: ReviewSession;
 let configPath: string;
+let restoreUserConfig: () => void;
 let clock: ManualClock;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-close-"));
   configPath = join(home, "config.toml");
-  process.env.CUELOOP_CONFIG = configPath;
+  restoreUserConfig = isolateUserConfig(home, "config.toml");
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
   session = server.core.sessionCreate({
@@ -33,7 +34,7 @@ beforeEach(() => {
   clock = new ManualClock();
 });
 afterEach(() => {
-  delete process.env.CUELOOP_CONFIG;
+  restoreUserConfig();
   server.stop();
   rmSync(home, { recursive: true, force: true });
 });

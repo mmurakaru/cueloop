@@ -10,7 +10,7 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { loadConfig } from "./config";
-import { press, waitForText, waitForTextGone } from "./test-support";
+import { isolateUserConfig, press, waitForText, waitForTextGone } from "./test-support";
 
 const PLAN = "# Plan\n\nShip the thing.\n";
 
@@ -18,11 +18,12 @@ let home: string;
 let server: DaemonServer;
 let session: ReviewSession;
 let configPath: string;
+let restoreUserConfig: () => void;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-panel-"));
   configPath = join(home, "config.toml");
-  process.env.CUELOOP_CONFIG = configPath;
+  restoreUserConfig = isolateUserConfig(home, "config.toml");
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
   session = server.core.sessionCreate({
@@ -31,7 +32,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
-  delete process.env.CUELOOP_CONFIG;
+  restoreUserConfig();
   server.stop();
   rmSync(home, { recursive: true, force: true });
 });
