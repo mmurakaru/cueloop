@@ -44,10 +44,10 @@ describe("stories catalog", () => {
         const seenColors = new Set<string>();
         for (const line of setup.captureSpans().lines) {
           for (const span of line.spans) {
-            const fg = hexOf(span.fg);
-            const bg = hexOf(span.bg);
-            if (fg) seenColors.add(fg);
-            if (bg) seenColors.add(bg);
+            const foregroundHex = hexOf(span.fg);
+            const backgroundHex = hexOf(span.bg);
+            if (foregroundHex) seenColors.add(foregroundHex);
+            if (backgroundHex) seenColors.add(backgroundHex);
           }
         }
         for (const expectedColor of story.expectedColors) {
