@@ -1,6 +1,7 @@
 /**
- * Centered modal over a dimmed backdrop. The dialog fills the terminal with
- * the backdrop token and centers a bordered panel; content composes inside.
+ * Centered modal: a full-screen layer (backdrop token, transparent by
+ * default) centers a bordered, unpainted panel over the session - the frame
+ * delineates the dialog, the content behind stays visible.
  * `isOpen` keeps the mount decision with the caller-visible prop vocabulary.
  */
 
@@ -41,8 +42,6 @@ export function Dialog({ isOpen, title, width, height, theme, children }: Dialog
           border: true,
           borderStyle: FRAME_BORDER_STYLE,
           borderColor: tokens.accent,
-          /* Floating surface: painted so dialog text never mixes with the page behind. */
-          backgroundColor: tokens.elevated,
           flexDirection: "column",
         }}
         title={title}

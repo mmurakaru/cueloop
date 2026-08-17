@@ -239,7 +239,7 @@ describe("the guided walk", () => {
     // Assert
     // before the walk the sheet's added line wears the insertion color
     await waitForText(setup, "+new line");
-    expect(foregroundsOf(setup, "+new line")).toContain(DARK.insFg);
+    expect(foregroundsOf(setup, "+new line")).toContain(DARK.insertedForeground);
 
     // Act
     await press(setup, "w");
@@ -249,7 +249,7 @@ describe("the guided walk", () => {
     // dimmed: the sheet line drops to the dim token...
     expect(foregroundsOf(setup, "+new line")).toEqual([DARK.textDim]);
     // ...while the wizard preview keeps the insertion color
-    expect(foregroundsOf(setup, "+export const b = 3;")).toContain(DARK.insFg);
+    expect(foregroundsOf(setup, "+export const b = 3;")).toContain(DARK.insertedForeground);
   });
 
   test("walking a resolved review answers read-only", async () => {

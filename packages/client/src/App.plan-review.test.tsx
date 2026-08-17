@@ -246,7 +246,7 @@ describe("inline compose keeps the anchor painted", () => {
     // the whole cursor block is the anchor here; check the highlight landed
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations.length).toBe(1);
-    expect(backgroundsOf(setup, stored.annotations[0]!.anchor.quote.slice(0, 20))).toContain(T.markCommentBg);
+    expect(backgroundsOf(setup, stored.annotations[0]!.anchor.quote.slice(0, 20))).toContain(T.markCommentBackground);
     // renderApp plus this many frame-waits grazes the 5s default on a loaded CI
     // runner, and the whole-suite publish lane has timed even 15s out; give the
     // heaviest frame-wait chain generous headroom so runner load cannot flake it.
@@ -392,7 +392,7 @@ describe("the document selects, the rail edits", () => {
     await press(setup, "enter");
     await waitForText(setup, "COMMENT · pending");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
-    expect(backgroundsOf(setup, "persists sessions")).toContain(T.markCommentBg);
+    expect(backgroundsOf(setup, "persists sessions")).toContain(T.markCommentBackground);
 
     // Act
     await press(setup, "x");
@@ -400,7 +400,7 @@ describe("the document selects, the rail edits", () => {
     // Assert
     await waitForTextGone(setup, "COMMENT · pending");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
-    expect(backgroundsOf(setup, "persists sessions")).not.toContain(T.markCommentBg);
+    expect(backgroundsOf(setup, "persists sessions")).not.toContain(T.markCommentBackground);
   });
 });
 
@@ -433,7 +433,7 @@ describe("addressed annotations leave the open list", () => {
     expect(frame).toContain("✓ 1 addressed by revision");
     expect(frame).not.toContain("settled note");
     expect(frame).toContain("Review (1)"); // the addressed card no longer counts as pending
-    expect(backgroundsOf(setup, "The daemon")).not.toContain(T.markCommentBg); // no highlight paint
+    expect(backgroundsOf(setup, "The daemon")).not.toContain(T.markCommentBackground); // no highlight paint
   });
 });
 

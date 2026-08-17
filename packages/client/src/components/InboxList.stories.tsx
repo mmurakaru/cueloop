@@ -8,7 +8,7 @@ export const meta: StoryMeta = { title: "InboxList" };
 
 export const TwoPending: Story = {
   render: () => <InboxList inbox={[fixturePlanSession(), fixtureDiffSession()]} cursor={0} />,
-  expectedColors: [DARK.accent, DARK.cursorBg],
+  expectedColors: [DARK.accent, DARK.cursorBackground],
   size: { width: 80, height: 12 },
 };
 

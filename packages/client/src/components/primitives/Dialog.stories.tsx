@@ -11,7 +11,7 @@ export const Open: Story = {
       <text>dialog body content</text>
     </Dialog>
   ),
-  expectedColors: [DARK.accent, DARK.backdrop],
+  expectedColors: [DARK.accent],
   size: { width: 60, height: 16 },
 };
 

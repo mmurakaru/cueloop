@@ -38,7 +38,7 @@ function StoriesApp({ stories, onExit }: { stories: LoadedStory[]; onExit: () =>
 
   return (
     <ThemeProvider theme={DARK}>
-      <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: DARK.bg }}>
+      <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: DARK.background }}>
         <box style={{ height: 1, backgroundColor: DARK.panel, paddingLeft: 1 }}>
           <text fg={DARK.text}>
             <span fg={DARK.accent}>cueloop stories</span>

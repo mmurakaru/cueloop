@@ -513,7 +513,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   return (
     <ThemeProvider theme={theme}>
       <box
-        style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: theme.bg }}
+        style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: theme.background }}
         onMouseDrag={(event: MouseEvent) => {
           if (!dividerDragging || reviewMode !== "expanded") return;
           const next = widthFromMouseColumn(event.x, terminalWidth);
