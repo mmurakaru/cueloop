@@ -15,5 +15,5 @@ export const SessionHeader: Story = {
       ]}
     />
   ),
-  expectedColors: [DARK.accent, DARK.green, DARK.panel],
+  expectedColors: [DARK.accent, DARK.green],
 };

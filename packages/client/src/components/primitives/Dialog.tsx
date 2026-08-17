@@ -41,7 +41,8 @@ export function Dialog({ isOpen, title, width, height, theme, children }: Dialog
           border: true,
           borderStyle: FRAME_BORDER_STYLE,
           borderColor: tokens.accent,
-          backgroundColor: tokens.panel,
+          /* Floating surface: painted so dialog text never mixes with the page behind. */
+          backgroundColor: tokens.elevated,
           flexDirection: "column",
         }}
         title={title}

@@ -42,7 +42,7 @@ export const ExpandedNarrow: Story = {
       <ReviewPanel mode="expanded" width={REVIEW_MIN_WIDTH} height={24} dragging={false} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
-  expectedColors: [DARK.panel, DARK.border],
+  expectedColors: [DARK.border],
   size: { width: 80, height: 24 },
 };
 
@@ -52,7 +52,7 @@ export const ExpandedWide: Story = {
       <ReviewPanel mode="expanded" width={REVIEW_MAX_WIDTH} height={24} dragging={false} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
-  expectedColors: [DARK.panel, DARK.green],
+  expectedColors: [DARK.green],
   size: { width: 90, height: 24 },
 };
 

@@ -47,8 +47,9 @@ export function dimmedTheme(theme: Theme): Theme {
 }
 
 export const DARK: Theme = {
-  bg: "#1f1f29",
-  panel: "#1a1a23",
+  /* Unpainted so the terminal background shows through; override in [theme]. */
+  bg: "transparent",
+  panel: "transparent",
   elevated: "#23232f",
   border: "#3a3a4a",
   text: "#e4e6ec",

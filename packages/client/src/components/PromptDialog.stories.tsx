@@ -16,7 +16,7 @@ export const RenameAuthor: Story = {
       onInput={() => {}}
     />
   ),
-  expectedColors: [DARK.backdrop, DARK.panel, DARK.accent],
+  expectedColors: [DARK.backdrop, DARK.elevated, DARK.accent],
   size: { width: 64, height: 16 },
 };
 
@@ -31,6 +31,6 @@ export const NameYourself: Story = {
       onInput={() => {}}
     />
   ),
-  expectedColors: [DARK.backdrop, DARK.panel],
+  expectedColors: [DARK.backdrop, DARK.elevated],
   size: { width: 64, height: 16 },
 };
