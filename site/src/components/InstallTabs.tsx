@@ -5,7 +5,26 @@
  * is a bordered terminal-style field with crop-marks.
  */
 import { Tabs, TabList, Tab, TabPanel, Button } from "react-aria-components";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import MetalRing from "./MetalRing.tsx";
+
+// Mirror the site's manual [data-theme] so the metal shader picks the matching
+// dark/light preset tuning instead of following the OS.
+function useSiteTheme(): "dark" | "light" {
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  useEffect(() => {
+    const read = () =>
+      setTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
+    read();
+    const observer = new MutationObserver(read);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
+  return theme;
+}
 
 interface Method {
   id: string;
@@ -22,8 +41,9 @@ const METHODS: Method[] = [
   { id: "nix", label: "nix", command: "nix run github:mmurakaru/cueloop" },
 ];
 
-function CommandRow({ command }: { command: string }) {
+function CommandRow({ command, metal }: { command: string; metal?: boolean }) {
   const [copied, setCopied] = useState(false);
+  const theme = useSiteTheme();
   async function copy() {
     try {
       await navigator.clipboard.writeText(command);
@@ -33,7 +53,7 @@ function CommandRow({ command }: { command: string }) {
       // clipboard unavailable; the command stays visible to copy by hand
     }
   }
-  return (
+  const box = (
     <div className="install__cmd">
       <span className="install__prompt" aria-hidden="true">
         $
@@ -48,9 +68,16 @@ function CommandRow({ command }: { command: string }) {
       </Button>
     </div>
   );
+  // The metal ring is opt-in (landing hero only).
+  if (!metal) return box;
+  return (
+    <MetalRing theme={theme} radius={8} className="install__metal">
+      {box}
+    </MetalRing>
+  );
 }
 
-export default function InstallTabs() {
+export default function InstallTabs({ metal = false }: { metal?: boolean }) {
   return (
     <Tabs className="install">
       <TabList className="install__tabs" aria-label="Install method">
@@ -62,7 +89,7 @@ export default function InstallTabs() {
       </TabList>
       {METHODS.map((method) => (
         <TabPanel key={method.id} id={method.id} className="install__panel">
-          <CommandRow command={method.command} />
+          <CommandRow command={method.command} metal={metal} />
         </TabPanel>
       ))}
     </Tabs>
