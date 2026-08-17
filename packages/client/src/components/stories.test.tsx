@@ -9,6 +9,7 @@ import { describe, expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import { RGBA } from "@opentui/core";
 import { componentFilesMissingStories, loadStories } from "./story";
+import { allowEventLoopUpdates } from "../test-support";
 
 const stories = await loadStories();
 
@@ -35,6 +36,7 @@ describe("stories catalog", () => {
 
       // Act
       const setup = await testRender(story.render(), size);
+      allowEventLoopUpdates();
       await setup.waitForVisualIdle();
       const frame = setup.captureCharFrame();
 

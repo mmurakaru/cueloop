@@ -29,11 +29,17 @@ export function isolateUserConfig(home: string, fileName = "no-config.toml"): ()
   };
 }
 
+/** The harness drives the real event loop by design; keep React's act warning off. */
+export function allowEventLoopUpdates(): void {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = false;
+}
+
 /**
  * One macrotask yield lets the input parser and the React scheduler run,
  * then a render pass commits the result before the visual-idle wait.
  */
 export async function settle(setup: TestRendererSetup): Promise<void> {
+  allowEventLoopUpdates();
   await new Promise((resolve) => setTimeout(resolve, 0));
   await setup.renderOnce();
   await setup.waitForVisualIdle();
@@ -68,6 +74,7 @@ async function waitForFramePredicate(
   setup: TestRendererSetup,
   predicate: (frame: string) => boolean,
 ): Promise<string> {
+  allowEventLoopUpdates();
   const deadline = Date.now() + WAIT_DEADLINE_MS;
   for (;;) {
     try {
@@ -82,6 +89,7 @@ async function waitForFramePredicate(
 
 /** Wait until a state predicate holds (daemon round-trips included). */
 export async function waitForState(setup: TestRendererSetup, predicate: () => boolean): Promise<void> {
+  allowEventLoopUpdates();
   const deadline = Date.now() + WAIT_DEADLINE_MS;
   for (;;) {
     try {
