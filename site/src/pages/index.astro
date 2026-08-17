@@ -48,6 +48,32 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
   <!-- Hero -->
   <section class="hero">
     <div class="container">
+      <!-- Frosted glass panel: a backdrop-filter layer shaped by an SVG mask. -->
+      <div class="hero__backdrop" aria-hidden="true"></div>
+      <div class="hero__edge" aria-hidden="true"></div>
+      <svg
+        class="hero__mask"
+        width="100%"
+        height="100%"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <mask id="heroGlassMask">
+          <rect width="100%" height="100%" fill="white" rx="28" ry="28" />
+        </mask>
+        <!-- Stroked outline: masks the edge layer to a thin refractive rim. -->
+        <mask id="heroEdgeMask">
+          <rect
+            width="100%"
+            height="100%"
+            rx="28"
+            ry="28"
+            fill="none"
+            stroke="white"
+            stroke-width="3"
+          />
+        </mask>
+      </svg>
       <span class="eyebrow">Review your coding agent's work</span>
       <h1 class="hero__title ht-sans">
         plan, diff <span class="amp">&amp;</span> review.
@@ -59,7 +85,6 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
       <div class="hero__meta">
         <span>Runs in your terminal</span>
         <span>Pi, Claude Code, Codex &amp; more</span>
-        <span>Open source</span>
       </div>
       <div class="hero__install">
         <InstallTabs client:visible />
