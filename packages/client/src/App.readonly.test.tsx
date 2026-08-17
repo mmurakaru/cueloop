@@ -88,8 +88,8 @@ describe("observer verbs are blocked", () => {
       await press(setup, key);
       const frame = await waitForText(setup, "observer - read-only");
       // no overlay opened: compose/submit bars never appear
-      expect(frame).not.toContain("COMMENT ON");
-      expect(frame).not.toContain("SUGGEST REPLACEMENT");
+      expect(frame).not.toContain('comment on "');
+      expect(frame).not.toContain('suggest replacement for "');
       expect(frame).not.toContain("verdict ←/→");
       expect(snapshot()).toEqual(before);
     });
@@ -109,7 +109,7 @@ describe("observer verbs are blocked", () => {
     // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("observer - read-only");
-    expect(frame).not.toContain("COMMENT ON");
+    expect(frame).not.toContain('comment on "');
     expect(snapshot().annotations).toBe(0);
   });
 });

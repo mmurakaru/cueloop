@@ -122,8 +122,8 @@ function DraftEditor({
         }}
         style={{
           height: rows,
-          backgroundColor: tokens.elevated,
-          focusedBackgroundColor: tokens.elevated,
+          backgroundColor: "transparent",
+          focusedBackgroundColor: "transparent",
           textColor: tokens.text,
           focusedTextColor: tokens.text,
         }}
@@ -160,6 +160,7 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
         title={` ${verb} "${truncateToSingleLine(quote, 40)}" `}
         contentRows={editorRowCount + 1}
         borderColor={kindColor}
+        backgroundColor="transparent"
         marginLeft={2}
         marginRight={2}
         theme={theme}
@@ -184,7 +185,7 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
       style={{
         flexDirection: "column",
         marginBottom: 1,
-        backgroundColor: card.isSelected ? tokens.elevated : undefined,
+        backgroundColor: card.isSelected && !card.editing ? tokens.elevated : undefined,
         ...(authored
           ? { height: cardHeight(contentRows), border: true, borderStyle: FRAME_BORDER_STYLE, borderColor: tokens.blue, paddingLeft: 1, paddingRight: 1 }
           : {}),

@@ -41,7 +41,6 @@ import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
-import { ComposeBar } from "./components/ComposeBar";
 import { WalkWizard } from "./components/WalkWizard";
 
 /**
@@ -398,6 +397,24 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
         }
       : null;
 
+  const diffComposeState =
+    mode.type === "compose" && isDiff
+      ? {
+          kind: mode.kind,
+          rowIndex: mode.displayIndex,
+          quote: rows[mode.displayIndex]?.text.replace(/\n$/, "") ?? "",
+          draft: {
+            text: mode.text,
+            onInput: (text: string) => {
+              liveInput.current = text;
+              setMode({ ...mode, text });
+            },
+            onSave: () => dispatch({ type: "saveCompose" }),
+            onCancel: () => dispatch({ type: "closeOverlay" }),
+          },
+        }
+      : null;
+
   const activeSpan =
     mode.type === "span"
       ? { displayIndex: mode.span.displayIndex, start: mode.span.start, end: mode.span.end }
@@ -535,6 +552,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               cursor={cursor}
               annotations={activeSession.annotations}
               focusedAnnotationId={focusedAnnotationId}
+              compose={diffComposeState}
               theme={walking ? dimmedTheme(theme) : undefined}
             />
           ) : (
@@ -577,19 +595,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
             }}
           />
         </box>
-        {mode.type === "compose" && isDiff ? (
-          <ComposeBar
-            kind={mode.kind}
-            quote={rows[mode.displayIndex]?.text ?? ""}
-            text={mode.text}
-            onInput={(text) => {
-              liveInput.current = text;
-              setMode({ ...mode, text });
-            }}
-          />
-        ) : (
-          <StatusBar>{keyBindings.statusHint(hintMode)}</StatusBar>
-        )}
+        <StatusBar>{keyBindings.statusHint(hintMode)}</StatusBar>
         {walking && walk !== null ? (
           <WalkWizard
             files={walkFileList}

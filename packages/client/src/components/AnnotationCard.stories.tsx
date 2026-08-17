@@ -11,7 +11,7 @@ export const CommentDraft: Story = {
   render: () => (
     <AnnotationCard kind="comment" quote="persists sessions" draft={{ text: "Which daemon?", ...draftCallbacks }} />
   ),
-  expectedColors: [DARK.accent, DARK.elevated],
+  expectedColors: [DARK.accent],
 };
 
 export const SuggestionDraft: Story = {

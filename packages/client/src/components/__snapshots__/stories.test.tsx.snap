@@ -308,62 +308,6 @@ exports[`stories catalog CompletionOverlay/FeedbackCounting renders, snapshots, 
 "
 `;
 
-exports[`stories catalog ComposeBar/CommentOnLine renders, snapshots, and carries its colors: ComposeBar/CommentOnLine 1`] = `
-" COMMENT ON “  private items = new Map();” · ⏎ save · esc cancel                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog ComposeBar/SuggestionOnLine renders, snapshots, and carries its colors: ComposeBar/SuggestionOnLine 1`] = `
-" SUGGEST REPLACEMENT FOR “export class Store {” · ⏎ save · esc cancel           
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
 exports[`stories catalog ConfirmCard/ApproveDefault renders, snapshots, and carries its colors: ConfirmCard/ApproveDefault 1`] = `
 "╭─ submit review ─────────────────────╮ 
 │ 0 annotations · 0 blocking          │ 
@@ -1515,5 +1459,25 @@ exports[`stories catalog PromptDialog/RenameAuthor renders, snapshots, and carri
                                                                 
                                                                 
                                                                 
+"
+`;
+
+exports[`stories catalog DiffSheet/ComposingOnLine renders, snapshots, and carries its colors: DiffSheet/ComposingOnLine 1`] = `
+"                                                                                          
+  ■ src/store.ts                                                                          
+  @@ -1,4 +1,4 @@                                                                         
+    1  export class Store {                                                               
+    2 -  private items = [];                                                              
+ ▎  2 +  private items = new Map();                                                       
+   ╭─ comment on "  private items = new Map();" ───────────────────────────────────────╮  
+   │ Map needs an eviction story.                                                      │  
+   │  Save ⏎    Cancel esc                                                             │  
+   ╰───────────────────────────────────────────────────────────────────────────────────╯  
+   3  }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
 "
 `;

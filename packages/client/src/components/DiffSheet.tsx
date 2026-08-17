@@ -14,12 +14,21 @@ import type { DiffRow } from "../view-diff";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { truncateToSingleLine } from "./truncate-text";
+import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
+
+export interface DiffComposeState {
+  kind: "comment" | "suggestion";
+  rowIndex: number;
+  quote: string;
+  draft: AnnotationDraft;
+}
 
 export interface DiffSheetProps {
   rows: DiffRow[];
   cursor: number;
   annotations: Annotation[];
   focusedAnnotationId?: string;
+  compose?: DiffComposeState | null;
   theme?: Theme;
 }
 
@@ -32,8 +41,8 @@ function rowLine(row: DiffRow): string {
   return row.text.replace(/\n$/, "");
 }
 
-/** Chunks split after an annotated row so its card can sit directly below. */
-function segmentRows(rows: DiffRow[], annotatedByRow: Map<number, Annotation>): DiffSegment[] {
+/** Chunks split after an annotated or composed row so a card can sit below. */
+function segmentRows(rows: DiffRow[], annotatedByRow: Map<number, Annotation>, composeRowIndex?: number): DiffSegment[] {
   const segments: DiffSegment[] = [];
   let chunk: DiffRow[] = [];
   let chunkStart = 0;
@@ -54,6 +63,9 @@ function segmentRows(rows: DiffRow[], annotatedByRow: Map<number, Annotation>): 
     const annotation = annotatedByRow.get(rowIndex);
     if (annotation) {
       closeChunk(annotation);
+      chunkStart = rowIndex + 1;
+    } else if (rowIndex === composeRowIndex) {
+      closeChunk(null);
       chunkStart = rowIndex + 1;
     }
   }
@@ -160,7 +172,7 @@ function DiffChunk({
   );
 }
 
-export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, theme }: DiffSheetProps): React.ReactNode {
+export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, compose, theme }: DiffSheetProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
 
@@ -175,7 +187,10 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, them
     return byRow;
   }, [rows, annotations]);
 
-  const segments = useMemo(() => segmentRows(rows, annotatedByRow), [rows, annotatedByRow]);
+  const segments = useMemo(
+    () => segmentRows(rows, annotatedByRow, compose?.rowIndex),
+    [rows, annotatedByRow, compose?.rowIndex],
+  );
 
   // content y offset per row index, for cursor-following scroll
   const rowOffsets = useMemo(() => {
@@ -227,14 +242,14 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, them
               </text>
             );
           }
+          const lastRowIndex = segment.firstRowIndex + segment.rows.length - 1;
           return (
-            <DiffChunk
-              key={segmentIndex}
-              segment={segment}
-              cursor={cursor}
-              focusedAnnotationId={focusedAnnotationId}
-              theme={theme}
-            />
+            <React.Fragment key={segmentIndex}>
+              <DiffChunk segment={segment} cursor={cursor} focusedAnnotationId={focusedAnnotationId} theme={theme} />
+              {compose && compose.rowIndex === lastRowIndex ? (
+                <AnnotationCard kind={compose.kind} quote={compose.quote} draft={compose.draft} theme={theme} />
+              ) : null}
+            </React.Fragment>
           );
         })}
       </scrollbox>
