@@ -371,7 +371,6 @@ export default function MetalRing({
       if (appliedTheme !== themeRef.current) applyPreset();
       const preset = CHROMATIC[themeRef.current];
 
-      // Pass 1: plasma into the small texture.
       gl!.useProgram(plasmaProgram);
       gl!.uniform1f(
         plasmaLocations.time,
@@ -381,7 +380,6 @@ export default function MetalRing({
       gl!.viewport(0, 0, PLASMA_SIZE, PLASMA_SIZE);
       gl!.drawArrays(gl!.TRIANGLES, 0, 3);
 
-      // Pass 2: upscale + ring mask onto the canvas.
       gl!.bindFramebuffer(gl!.FRAMEBUFFER, null);
       gl!.viewport(0, 0, canvas!.width, canvas!.height);
       gl!.useProgram(compositeProgram);
