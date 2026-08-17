@@ -1108,17 +1108,27 @@ pre {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-/* Command box, matching the standalone copy chip. */
-.install__panel {
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-sm);
-  background: var(--paper-raised);
-  padding: 0.55rem 0.7rem 0.55rem 0.9rem;
+/* The metal wrapper spans the panel so the ring frames the whole box. Only a
+ * live ring (is-active, set once WebGL is up) replaces the hairline border -
+ * without WebGL the box keeps its normal border. */
+.install__metal {
+  display: block;
+  width: 100%;
 }
+.install__metal.is-active .install__cmd {
+  border-color: transparent;
+}
+/* Command box chrome lives on .install__cmd so the metal ring frames the full
+ * input when it is active. */
 .install__cmd {
   display: flex;
   align-items: center;
   gap: 0.7rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem 0.55rem 0.9rem;
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-sm);
+  background: var(--paper-raised);
   font-family: var(--font-mono);
   font-size: var(--step-0);
 }
