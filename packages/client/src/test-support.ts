@@ -29,12 +29,7 @@ export function isolateUserConfig(home: string, fileName = "no-config.toml"): ()
   };
 }
 
-/**
- * testRender turns the React act environment on, but this harness drives
- * updates through the real event loop (stdin parser, daemon IO, visual-idle
- * waits) by design - the act warning would fire on every legitimate update
- * and flood the test output. Off while the harness drives.
- */
+/** The harness drives the real event loop by design; keep React's act warning off. */
 export function allowEventLoopUpdates(): void {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = false;
 }
