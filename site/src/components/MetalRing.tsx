@@ -2,8 +2,12 @@
  * A liquid-metal ring around a single child box. One WebGL canvas per
  * instance renders an animated plasma masked to the box's border in-shader
  * (rounded-box SDF), so there is no shared context, no overlay elements, and
- * nothing outside the wrapper. Plasma shader and presets adapted from
- * metal-fx by Jakub Antalik (MIT).
+ * nothing outside the wrapper. While the ring is live the wrapper carries
+ * `is-active`, letting CSS drop the child's own border; without WebGL the
+ * child keeps its hairline.
+ *
+ * Plasma shader and color presets adapted from metal-fx (c) Jakub Antalik,
+ * MIT license.
  */
 import { useEffect, useRef, type ReactNode } from "react";
 
@@ -150,7 +154,7 @@ interface PresetMode {
   blur: number;
 }
 
-/* Chromatic preset tunings, per theme (from metal-fx, MIT). */
+/* Chromatic preset tunings, per theme. */
 const CHROMATIC: Record<"dark" | "light", PresetMode> = {
   dark: {
     colors: ["#000000", "#aae8ff", "#c5fe9e", "#f7888d", "#0d0d0d"],
@@ -231,13 +235,18 @@ export default function MetalRing({
     }
     if (!gl) return; // no WebGL: the box keeps its plain border
 
-    const vertex = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SOURCE);
-    const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SOURCE);
-    const program = gl.createProgram()!;
-    gl.attachShader(program, vertex);
-    gl.attachShader(program, fragment);
-    gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+    let program: WebGLProgram;
+    try {
+      const vertex = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SOURCE);
+      const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SOURCE);
+      program = gl.createProgram()!;
+      gl.attachShader(program, vertex);
+      gl.attachShader(program, fragment);
+      gl.linkProgram(program);
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+    } catch {
+      return; // shader failed to build: the box keeps its plain border
+    }
     gl.useProgram(program);
 
     const buffer = gl.createBuffer();
@@ -335,8 +344,11 @@ export default function MetalRing({
     applyPreset();
     resize();
     schedule();
+    // The ring now replaces the child's border (see .is-active CSS).
+    wrapper.classList.add("is-active");
 
     return () => {
+      wrapper.classList.remove("is-active");
       if (rafId) cancelAnimationFrame(rafId);
       reducedMotion.removeEventListener("change", onMotionChange);
       resizeObserver.disconnect();

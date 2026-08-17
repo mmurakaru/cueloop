@@ -1108,17 +1108,18 @@ pre {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-/* The metal wrapper spans the panel so the ring frames the whole box; the
- * ring canvas replaces the hairline border. */
+/* The metal wrapper spans the panel so the ring frames the whole box. Only a
+ * live ring (is-active, set once WebGL is up) replaces the hairline border -
+ * without WebGL the box keeps its normal border. */
 .install__metal {
   display: block;
   width: 100%;
 }
-.install__metal .install__cmd {
+.install__metal.is-active .install__cmd {
   border-color: transparent;
 }
-/* Command box chrome lives on .install__cmd (the element MetalFx wraps) so the
- * ring frames the full input; MetalFx normalizes the border and paints its own. */
+/* Command box chrome lives on .install__cmd so the metal ring frames the full
+ * input when it is active. */
 .install__cmd {
   display: flex;
   align-items: center;
