@@ -776,6 +776,35 @@ pre {
   color: var(--ink);
 }
 
+/* A quick one-shot boop on the header icons when hovered. */
+@keyframes icon-boop {
+  0% {
+    transform: rotate(0);
+  }
+  20% {
+    transform: rotate(-14deg);
+  }
+  45% {
+    transform: rotate(11deg);
+  }
+  70% {
+    transform: rotate(-6deg);
+  }
+  100% {
+    transform: rotate(0);
+  }
+}
+.search-box:not(.is-expanded) .search-box__icon:hover svg,
+.theme-toggle:hover svg {
+  animation: icon-boop 0.45s var(--ease);
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-box:not(.is-expanded) .search-box__icon:hover svg,
+  .theme-toggle:hover svg {
+    animation: none;
+  }
+}
+
 /* ---- Footer ---- */
 .site-footer {
   border-top: 1px solid var(--hairline);
