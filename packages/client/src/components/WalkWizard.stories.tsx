@@ -40,7 +40,7 @@ export const FirstFile: Story = {
     />
   ),
   // the main card wears the accent border; stats carry the +/- colors
-  expectedColors: [DARK.accent, DARK.green, DARK.red, DARK.insFg, DARK.delFg],
+  expectedColors: [DARK.accent, DARK.green, DARK.red, DARK.insertedForeground, DARK.deletedForeground],
 };
 
 export const WithAgentNote: Story = {

@@ -118,7 +118,7 @@ export function WalkWizard({
                   <text
                     key={previewIndex}
                     style={{ wrapMode: "none" }}
-                    fg={previewLine.sign === "+" ? tokens.insFg : tokens.delFg}
+                    fg={previewLine.sign === "+" ? tokens.insertedForeground : tokens.deletedForeground}
                   >
                     {previewLine.sign + previewLine.text}
                   </text>

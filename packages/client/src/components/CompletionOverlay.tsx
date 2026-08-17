@@ -27,7 +27,7 @@ export function CompletionOverlay({ verdict, completion, status, returnsTo, them
       style={{
         width: "100%",
         height: "100%",
-        backgroundColor: tokens.bg,
+        backgroundColor: tokens.background,
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",

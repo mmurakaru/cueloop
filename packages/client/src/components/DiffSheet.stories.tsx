@@ -8,13 +8,13 @@ export const meta: StoryMeta = { title: "DiffSheet" };
 
 export const SignedRows: Story = {
   render: () => <DiffSheet rows={fixtureDiffRows()} cursor={0} annotations={[]} />,
-  expectedColors: [DARK.insFg, DARK.delFg],
+  expectedColors: [DARK.insertedForeground, DARK.deletedForeground],
   size: { width: 90, height: 16 },
 };
 
 export const CursorOnAddedLine: Story = {
   render: () => <DiffSheet rows={fixtureDiffRows()} cursor={4} annotations={[]} />,
-  expectedColors: [DARK.cursorBg],
+  expectedColors: [DARK.cursorBackground],
   size: { width: 90, height: 16 },
 };
 
@@ -39,6 +39,6 @@ export const AnnotatedLine: Story = {
       ]}
     />
   ),
-  expectedColors: [DARK.markCommentBg],
+  expectedColors: [DARK.markCommentBackground],
   size: { width: 90, height: 16 },
 };

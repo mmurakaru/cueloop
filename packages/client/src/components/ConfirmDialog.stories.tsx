@@ -16,6 +16,6 @@ export const DeletePlan: Story = {
       {...callbacks}
     />
   ),
-  expectedColors: [DARK.backdrop, DARK.elevated, DARK.accent],
+  expectedColors: [DARK.accent],
   size: { width: 64, height: 16 },
 };

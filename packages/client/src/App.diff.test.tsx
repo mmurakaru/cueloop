@@ -9,7 +9,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { press, waitForText } from "./test-support";
+import { isolateUserConfig, press, waitForText } from "./test-support";
 
 const PATCH = `diff --git a/src/store.ts b/src/store.ts
 index 111..222 100644
@@ -23,11 +23,13 @@ index 111..222 100644
 `;
 
 let home: string;
+let restoreUserConfig: () => void;
 let server: DaemonServer;
 let session: ReviewSession;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-diff-"));
+  restoreUserConfig = isolateUserConfig(home);
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
   session = server.core.sessionCreate({
@@ -36,6 +38,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
+  restoreUserConfig();
   server.stop();
   rmSync(home, { recursive: true, force: true });
 });

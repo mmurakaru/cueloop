@@ -9,7 +9,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { waitForText } from "./test-support";
+import { isolateUserConfig, waitForText } from "./test-support";
 
 const PLAN = `# Render Plan
 
@@ -30,11 +30,13 @@ Deploys block below the threshold.
 `;
 
 let home: string;
+let restoreUserConfig: () => void;
 let server: DaemonServer;
 let session: ReviewSession;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-render-"));
+  restoreUserConfig = isolateUserConfig(home);
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
   session = server.core.sessionCreate({
@@ -43,6 +45,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
+  restoreUserConfig();
   server.stop();
   rmSync(home, { recursive: true, force: true });
 });

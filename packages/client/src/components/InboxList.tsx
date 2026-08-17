@@ -23,7 +23,7 @@ export interface InboxListProps {
 export function InboxList({ inbox, cursor, onRequestDelete, theme }: InboxListProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   return (
-    <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: tokens.bg, padding: 1 }}>
+    <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: tokens.background, padding: 1 }}>
       <text fg={tokens.accent}>cueloop · inbox ({inbox.length} pending)</text>
       <text> </text>
       {inbox.length === 0 ? (
@@ -33,7 +33,7 @@ export function InboxList({ inbox, cursor, onRequestDelete, theme }: InboxListPr
           const selected = index === cursor;
           const title = session.artifact.meta.title ?? session.id;
           return (
-            <box key={session.id} style={{ flexDirection: "row", backgroundColor: selected ? tokens.cursorBg : undefined }}>
+            <box key={session.id} style={{ flexDirection: "row", backgroundColor: selected ? tokens.cursorBackground : undefined }}>
               <text fg={selected ? tokens.text : tokens.textMuted}>
                 {selected ? "▸ " : "  "}
                 {title} · {session.workspace.branch} · {session.artifact.type}

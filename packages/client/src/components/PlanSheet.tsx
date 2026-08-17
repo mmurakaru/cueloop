@@ -193,7 +193,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
             <span fg={tokens.textDim}>{marker(block)}</span>
           </text>
           <text
-            bg={isCursor ? tokens.cursorBg : undefined}
+            bg={isCursor ? tokens.cursorBackground : undefined}
             selectable
             selectionBg={tokens.accent}
             selectionFg={tokens.accentInk}
@@ -228,7 +228,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
         theme={theme}
       />
       {editOrphanCount > 0 ? (
-        <box style={{ height: 1, backgroundColor: tokens.markCommentBg, paddingLeft: 2 }}>
+        <box style={{ height: 1, backgroundColor: tokens.markCommentBackground, paddingLeft: 2 }}>
           <text fg={tokens.red}>
             {editOrphanCount} annotation{editOrphanCount === 1 ? "" : "s"} no longer match - the passage was removed.
           </text>
@@ -312,13 +312,13 @@ function runStyle(run: StyleRun, block: DisplayBlock, tokens: Theme): { fg?: str
   const struck = block.type === "del";
   switch (run.role) {
     case "ins":
-      return { fg: tokens.insFg };
+      return { fg: tokens.insertedForeground };
     case "del":
-      return { fg: tokens.delFg };
+      return { fg: tokens.deletedForeground };
     case "mark-comment":
-      return { fg: tokens.text, bg: tokens.markCommentBg };
+      return { fg: tokens.text, bg: tokens.markCommentBackground };
     case "mark-suggestion":
-      return { fg: tokens.text, bg: tokens.markSuggestionBg };
+      return { fg: tokens.text, bg: tokens.markSuggestionBackground };
     case "mark-focus":
       return { fg: tokens.accentInk, bg: tokens.accent };
     case "kspan":

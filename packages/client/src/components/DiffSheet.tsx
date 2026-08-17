@@ -100,10 +100,10 @@ function DiffChunk({
     // the renderable's config parser requires the gutter key to be present
     const colors = new Map<number, { gutter: string | undefined; content: string }>();
     if (segment.annotation) {
-      colors.set(segment.rows.length - 1, { gutter: undefined, content: tokens.markCommentBg });
+      colors.set(segment.rows.length - 1, { gutter: undefined, content: tokens.markCommentBackground });
     }
     if (cursorInChunk >= 0 && cursorInChunk < segment.rows.length) {
-      colors.set(cursorInChunk, { gutter: tokens.cursorBg, content: tokens.cursorBg });
+      colors.set(cursorInChunk, { gutter: tokens.cursorBackground, content: tokens.cursorBackground });
     }
     return colors;
   }, [segment, cursorInChunk, tokens]);
@@ -124,7 +124,7 @@ function DiffChunk({
       <line-number
         ref={gutterRef}
         fg={tokens.textDim}
-        bg={tokens.bg}
+        bg={tokens.background}
         minWidth={4}
         paddingRight={1}
         lineNumbers={lineNumbers}
@@ -133,14 +133,14 @@ function DiffChunk({
         <text style={{ wrapMode: "none" }} selectable={false}>
           {segment.rows.map((row, lineIndex) => {
             const sign = row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ";
-            const foreground = row.kind === "add" ? tokens.insFg : row.kind === "del" ? tokens.delFg : tokens.textMuted;
+            const foreground = row.kind === "add" ? tokens.insertedForeground : row.kind === "del" ? tokens.deletedForeground : tokens.textMuted;
             const isCursorRow = lineIndex === cursorInChunk;
             const isAnnotatedRow = segment.annotation !== null && lineIndex === segment.rows.length - 1;
             return (
               <span
                 key={lineIndex}
                 fg={foreground}
-                bg={isCursorRow ? tokens.cursorBg : isAnnotatedRow ? tokens.markCommentBg : undefined}
+                bg={isCursorRow ? tokens.cursorBackground : isAnnotatedRow ? tokens.markCommentBackground : undefined}
               >
                 {(lineIndex > 0 ? "\n" : "") + sign + rowLine(row)}
               </span>
@@ -215,13 +215,13 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, them
             const isCursor = segment.rowIndex === cursor;
             if (segment.row.kind === "file") {
               return (
-                <text key={segmentIndex} fg={tokens.text} bg={isCursor ? tokens.cursorBg : tokens.panel}>
+                <text key={segmentIndex} fg={tokens.text} bg={isCursor ? tokens.cursorBackground : tokens.panel}>
                   {isCursor ? "▎" : " "}■ {rowLine(segment.row)}
                 </text>
               );
             }
             return (
-              <text key={segmentIndex} fg={tokens.blue} bg={isCursor ? tokens.cursorBg : undefined}>
+              <text key={segmentIndex} fg={tokens.blue} bg={isCursor ? tokens.cursorBackground : undefined}>
                 {isCursor ? "▎" : " "}
                 {rowLine(segment.row)}
               </text>

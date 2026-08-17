@@ -41,7 +41,7 @@ export const NavZone: Story = {
       onRowActivate={() => {}}
     />
   ),
-  expectedColors: [DARK.accent, DARK.backdrop],
+  expectedColors: [DARK.accent],
   size: { width: 100, height: 30 },
 };
 

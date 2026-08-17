@@ -10,7 +10,7 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { DARK } from "./theme";
-import { press, waitForState, waitForText, waitForTextGone } from "./test-support";
+import { isolateUserConfig, press, waitForState, waitForText, waitForTextGone } from "./test-support";
 
 const PATCH = `diff --git a/src/a.ts b/src/a.ts
 index 111..222 100644
@@ -38,11 +38,13 @@ index 555..666 100644
 `;
 
 let home: string;
+let restoreUserConfig: () => void;
 let server: DaemonServer;
 let session: ReviewSession;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-walk-"));
+  restoreUserConfig = isolateUserConfig(home);
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
   session = server.core.sessionCreate({
@@ -51,6 +53,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
+  restoreUserConfig();
   server.stop();
   rmSync(home, { recursive: true, force: true });
 });
@@ -236,7 +239,7 @@ describe("the guided walk", () => {
     // Assert
     // before the walk the sheet's added line wears the insertion color
     await waitForText(setup, "+new line");
-    expect(foregroundsOf(setup, "+new line")).toContain(DARK.insFg);
+    expect(foregroundsOf(setup, "+new line")).toContain(DARK.insertedForeground);
 
     // Act
     await press(setup, "w");
@@ -246,7 +249,7 @@ describe("the guided walk", () => {
     // dimmed: the sheet line drops to the dim token...
     expect(foregroundsOf(setup, "+new line")).toEqual([DARK.textDim]);
     // ...while the wizard preview keeps the insertion color
-    expect(foregroundsOf(setup, "+export const b = 3;")).toContain(DARK.insFg);
+    expect(foregroundsOf(setup, "+export const b = 3;")).toContain(DARK.insertedForeground);
   });
 
   test("walking a resolved review answers read-only", async () => {

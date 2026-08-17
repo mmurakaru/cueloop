@@ -6,7 +6,7 @@
  */
 
 export interface Theme {
-  bg: string;
+  background: string;
   panel: string;
   elevated: string;
   border: string;
@@ -18,12 +18,12 @@ export interface Theme {
   green: string;
   red: string;
   blue: string;
-  cursorBg: string;
-  markCommentBg: string;
-  markSuggestionBg: string;
-  insFg: string;
-  delFg: string;
-  /** Dimmed layer painted behind centered dialogs. */
+  cursorBackground: string;
+  markCommentBackground: string;
+  markSuggestionBackground: string;
+  insertedForeground: string;
+  deletedForeground: string;
+  /** Layer behind centered dialogs; transparent keeps the session visible. */
   backdrop: string;
 }
 
@@ -41,14 +41,14 @@ export function dimmedTheme(theme: Theme): Theme {
     green: theme.textDim,
     red: theme.textDim,
     blue: theme.textDim,
-    insFg: theme.textDim,
-    delFg: theme.textDim,
+    insertedForeground: theme.textDim,
+    deletedForeground: theme.textDim,
   };
 }
 
 export const DARK: Theme = {
   /* Unpainted so the terminal background shows through; override in [theme]. */
-  bg: "transparent",
+  background: "transparent",
   panel: "transparent",
   elevated: "#23232f",
   border: "#3a3a4a",
@@ -60,10 +60,10 @@ export const DARK: Theme = {
   green: "#62d96b",
   red: "#ff6b6b",
   blue: "#84a6e8",
-  cursorBg: "#33262a",
-  markCommentBg: "#3d2a2e",
-  markSuggestionBg: "#20351f",
-  insFg: "#62d96b",
-  delFg: "#ff6b6b",
-  backdrop: "#14141b",
+  cursorBackground: "#33262a",
+  markCommentBackground: "#3d2a2e",
+  markSuggestionBackground: "#20351f",
+  insertedForeground: "#62d96b",
+  deletedForeground: "#ff6b6b",
+  backdrop: "transparent",
 }
