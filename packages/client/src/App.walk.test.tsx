@@ -190,7 +190,7 @@ describe("the guided walk", () => {
     // two full App boots with daemon round-trips need more than the default
     // budget, and the whole-suite publish lane has timed even 15s out; give the
     // double-boot chain generous headroom so runner load cannot flake it.
-  }, 30_000);
+  }, 60_000);
 
   test("the agent-note block renders only for files carrying a note", async () => {
     // Arrange

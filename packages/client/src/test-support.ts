@@ -61,7 +61,10 @@ export async function typeText(setup: TestRendererSetup, text: string): Promise<
   await settle(setup);
 }
 
-const WAIT_DEADLINE_MS = 30_000;
+// Below the 60s per-test budget so a genuinely stuck wait throws its frame
+// error (useful) before bun's bare "timed out" fires. Generous because a
+// contended CI runner starves the render loop and daemon round-trips.
+const WAIT_DEADLINE_MS = 45_000;
 
 /**
  * waitForFrame gives up as soon as the renderer is idle, but external timers
