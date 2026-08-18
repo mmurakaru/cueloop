@@ -66,12 +66,18 @@ export async function typeText(setup: TestRendererSetup, text: string): Promise<
 // contended CI runner starves the render loop and daemon round-trips.
 const WAIT_DEADLINE_MS = 45_000;
 
+/** One macrotask turn: hands the event loop back so the in-process daemon can
+ *  read its socket and apply the write before the next poll. Tight render-pass
+ *  bursts starve that read on a contended CI runner - the round-trip then never
+ *  lands and the wait hangs the whole budget. */
+function yieldEventLoop(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 2));
+}
+
 /**
- * waitForFrame gives up as soon as the renderer is idle, but external timers
- * (the parser's bare-ESC window, daemon IO, spawned editors) settle on the
- * event loop while nothing is scheduled. Between attempts, one real
- * event-loop turn plus a render pass lets those land; the deadline bounds
- * the whole wait.
+ * Poll gently: one render pass, one frame check, one macrotask yield. No
+ * multi-pass bursts, so the daemon (same event loop) always gets a turn to
+ * process IO between checks. The deadline bounds the whole wait.
  */
 async function waitForFramePredicate(
   setup: TestRendererSetup,
@@ -80,13 +86,11 @@ async function waitForFramePredicate(
   allowEventLoopUpdates();
   const deadline = Date.now() + WAIT_DEADLINE_MS;
   for (;;) {
-    try {
-      return await setup.waitForFrame(predicate, { maxPasses: 50 });
-    } catch (error) {
-      if (Date.now() > deadline) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      await setup.renderOnce();
-    }
+    await setup.renderOnce();
+    const frame = setup.captureCharFrame();
+    if (predicate(frame)) return frame;
+    if (Date.now() > deadline) throw new Error(`waitForFrame timed out; last frame:\n${frame}`);
+    await yieldEventLoop();
   }
 }
 
@@ -95,13 +99,11 @@ export async function waitForState(setup: TestRendererSetup, predicate: () => bo
   allowEventLoopUpdates();
   const deadline = Date.now() + WAIT_DEADLINE_MS;
   for (;;) {
-    try {
-      return await setup.waitFor(predicate, { maxPasses: 50 });
-    } catch (error) {
-      if (Date.now() > deadline) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      await setup.renderOnce();
-    }
+    if (predicate()) return;
+    await setup.renderOnce();
+    if (predicate()) return;
+    if (Date.now() > deadline) throw new Error("waitForState timed out");
+    await yieldEventLoop();
   }
 }
 
