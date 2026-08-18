@@ -46,7 +46,7 @@ export interface ReviewRailProps {
   /** Rail column width; the app derives it from the persisted review layout. */
   width?: number;
   /**
-   * When set, renders the muted `»` chevron pinned at the rail's bottom-left,
+   * When set, renders the muted `>` chevron pinned at the rail's bottom-left,
    * one column from the divider. Clicking it collapses the panel to compact.
    */
   onCollapse?: () => void;
@@ -156,7 +156,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
       <box style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         {onCollapse ? (
           <box onMouseUp={onCollapse}>
-            <text fg={tokens.textDim}>»</text>
+            <text fg={tokens.textDim}>{">"}</text>
           </box>
         ) : null}
         {railTab !== "agent" && !submitConfirm ? (

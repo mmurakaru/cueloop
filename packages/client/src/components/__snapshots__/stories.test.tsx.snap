@@ -735,8 +735,8 @@ exports[`stories catalog ReviewPanel/Compact renders, snapshots, and carries its
                                                             
                                                             
                                                             
+                                                       <    
                                                             
-                                                       «    
 "
 `;
 
@@ -763,7 +763,7 @@ exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carr
                                                                                 
                                                                                 
                                                                                 
-                                                         »         Submit review
+                                                         >         Submit review
                                                                                 
 "
 `;
@@ -791,7 +791,7 @@ exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carrie
                                                                                           
                                                                                           
                                                                                           
-                                         »                                   Submit review
+                                         >                                   Submit review
                                                                                           
 "
 `;

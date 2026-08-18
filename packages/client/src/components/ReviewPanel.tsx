@@ -38,7 +38,7 @@ function ReviewDivider({ onGrab }: { onGrab: () => void }): React.ReactNode {
 }
 
 /** The compact strip: the card count, one kind-colored dot per card, and the
- *  `«` chevron left-bound to match the expanded `»` gap. */
+ *  `<` expand chevron, bottom-padded to sit at the same row as the expanded `>`. */
 function CompactRail({
   annotations,
   onExpand,
@@ -53,7 +53,7 @@ function CompactRail({
     annotation.kind === "suggestion" ? tokens.green : tokens.accent;
   return (
     <box
-      style={{ width: REVIEW_COMPACT_WIDTH, backgroundColor: tokens.panel, flexDirection: "column", paddingTop: 1 }}
+      style={{ width: REVIEW_COMPACT_WIDTH, backgroundColor: tokens.panel, flexDirection: "column", paddingTop: 1, paddingBottom: 1 }}
     >
       <box style={{ alignItems: "center" }}>
         <text fg={tokens.accent}>{String(annotations.length)}</text>
@@ -68,7 +68,7 @@ function CompactRail({
       </box>
       <box style={{ flexGrow: 1 }} />
       <box style={{ paddingLeft: 1 }} onMouseUp={onExpand}>
-        <text fg={tokens.textDim}>«</text>
+        <text fg={tokens.textDim}>{"<"}</text>
       </box>
     </box>
   );
