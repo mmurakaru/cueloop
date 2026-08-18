@@ -39,7 +39,7 @@ function PanelFrame({ children }: { children: React.ReactNode }): React.ReactNod
 export const ExpandedNarrow: Story = {
   render: () => (
     <PanelFrame>
-      <ReviewPanel mode="expanded" width={REVIEW_MIN_WIDTH} height={24} rail={rail} {...panelCallbacks} />
+      <ReviewPanel mode="expanded" width={REVIEW_MIN_WIDTH} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
   size: { width: 80, height: 24 },
@@ -48,7 +48,7 @@ export const ExpandedNarrow: Story = {
 export const ExpandedWide: Story = {
   render: () => (
     <PanelFrame>
-      <ReviewPanel mode="expanded" width={REVIEW_MAX_WIDTH} height={24} rail={rail} {...panelCallbacks} />
+      <ReviewPanel mode="expanded" width={REVIEW_MAX_WIDTH} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
   expectedColors: [DARK.green],
@@ -58,7 +58,7 @@ export const ExpandedWide: Story = {
 export const Compact: Story = {
   render: () => (
     <PanelFrame>
-      <ReviewPanel mode="compact" width={34} height={24} rail={rail} {...panelCallbacks} />
+      <ReviewPanel mode="compact" width={34} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
   expectedColors: [DARK.accent, DARK.green],
@@ -68,7 +68,7 @@ export const Compact: Story = {
 export const Hidden: Story = {
   render: () => (
     <PanelFrame>
-      <ReviewPanel mode="hidden" width={34} height={24} rail={rail} {...panelCallbacks} />
+      <ReviewPanel mode="hidden" width={34} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
   size: { width: 60, height: 24 },

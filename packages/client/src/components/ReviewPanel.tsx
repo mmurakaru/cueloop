@@ -14,14 +14,12 @@ import type { Annotation } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { ReviewRail, type ReviewRailHandle, type ReviewRailProps } from "./ReviewRail";
-import { REVIEW_COMPACT_WIDTH, reviewRowsToDivider, type ReviewPanelMode } from "../review-panel";
+import { REVIEW_COMPACT_WIDTH, type ReviewPanelMode } from "../review-panel";
 
 export interface ReviewPanelProps {
   mode: ReviewPanelMode;
   /** Expanded-rail width in columns (already clamped by the app). */
   width: number;
-  /** Rows for the divider grab column - the height of the plan/rail row. */
-  height: number;
   /** Arm a divider drag; the app tracks the drag itself on the container. */
   onDividerGrab: () => void;
   /** Chevron click: expanded <-> compact (never hidden). */
@@ -33,18 +31,10 @@ export interface ReviewPanelProps {
 }
 
 /** An invisible, full-height grab column: the plan's right border is the seam. */
-function ReviewDivider({
-  rows,
-  onGrab,
-}: {
-  rows: number;
-  onGrab: () => void;
-}): React.ReactNode {
-  return (
-    <box style={{ width: 1 }} onMouseDown={onGrab}>
-      <text fg="transparent">{reviewRowsToDivider(rows)}</text>
-    </box>
-  );
+function ReviewDivider({ onGrab }: { onGrab: () => void }): React.ReactNode {
+  // childless: it stretches to the row height like the plan and rail beside it,
+  // so the three columns share one bottom edge. Invisible, but full-height grab.
+  return <box style={{ width: 1 }} onMouseDown={onGrab} />;
 }
 
 /** The compact strip: the card count, one kind-colored dot per card, and the
@@ -87,7 +77,6 @@ function CompactRail({
 export function ReviewPanel({
   mode,
   width,
-  height,
   onDividerGrab,
   onToggle,
   rail,
@@ -97,7 +86,7 @@ export function ReviewPanel({
   if (mode === "hidden") return null;
   return (
     <>
-      <ReviewDivider rows={height} onGrab={onDividerGrab} />
+      <ReviewDivider onGrab={onDividerGrab} />
       {mode === "expanded" ? (
         <ReviewRail ref={railRef} {...rail} width={width} onCollapse={onToggle} theme={theme} />
       ) : (

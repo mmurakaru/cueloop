@@ -50,12 +50,6 @@ import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
 import { Toast } from "./components/Toast";
 
-/**
- * The breadcrumb header and the status bar each occupy one terminal row; the
- * review layout (plan column, divider, rail) gets the rows that remain.
- */
-const CHROME_ROWS = 2;
-
 /** A toast clears itself after this idle; esc dismisses it sooner. */
 const TOAST_DISMISS_MS = 4000;
 
@@ -115,7 +109,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     return controller.startSharePoll();
   }, [isOwner, session?.id, session?.shareId, controller]);
   const renderer = useRenderer();
-  const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
+  const { width: terminalWidth } = useTerminalDimensions();
 
   // ── view state ──────────────────────────────
   const [cursor, setCursor] = useState(0);
@@ -647,7 +641,6 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
           <ReviewPanel
             mode={reviewMode}
             width={resolveReviewWidth(reviewWidth, terminalWidth)}
-            height={terminalHeight - CHROME_ROWS}
             onDividerGrab={onDividerGrab}
             onToggle={onToggleReviewPanel}
             railRef={railRef}
