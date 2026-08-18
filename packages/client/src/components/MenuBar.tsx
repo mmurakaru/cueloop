@@ -47,7 +47,7 @@ export function MenuBar({ open, version, status, onToggle, onSettings, onKeybind
       ) : null}
       <box style={{ flexDirection: "row", height: 1, backgroundColor: tokens.panel, paddingLeft: 1, paddingRight: 1 }}>
         <box onMouseUp={onToggle}>
-          <text fg={tokens.textDim}>{open ? "menu ▾" : "menu ▴"}</text>
+          <text fg={tokens.textDim}>menu</text>
         </box>
         {status ? <text fg={tokens.accent}>{`  ${status}`}</text> : null}
         <box style={{ flexGrow: 1 }} />

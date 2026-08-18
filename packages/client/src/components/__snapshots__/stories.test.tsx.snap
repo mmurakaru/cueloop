@@ -526,7 +526,7 @@ exports[`stories catalog MenuBar/Closed renders, snapshots, and carries its colo
                                                             
                                                             
                                                             
- menu ▴                                     v0.1.0-alpha.32 
+ menu                                       v0.1.0-alpha.32 
 "
 `;
 
@@ -538,7 +538,7 @@ exports[`stories catalog MenuBar/Open renders, snapshots, and carries its colors
  │ Settings     │                                           
  │ Keybinds     │                                           
  ╰──────────────╯                                           
- menu ▾                                     v0.1.0-alpha.32 
+ menu                                       v0.1.0-alpha.32 
 "
 `;
 
