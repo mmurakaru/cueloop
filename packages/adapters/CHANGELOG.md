@@ -1,5 +1,13 @@
 # @cueloop/adapters
 
+## 0.1.0-alpha.33
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.33
+  - @cueloop/schema@0.1.0-alpha.33
+
 ## 0.1.0-alpha.32
 
 ### Patch Changes
