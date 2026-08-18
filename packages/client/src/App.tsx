@@ -601,7 +601,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
           controller.saveReviewPanel({ width: reviewWidthRef.current });
         }}
       >
-        <box style={{ flexDirection: "row", height: 1, backgroundColor: theme.panel }}>
+        <box style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}>
           <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
             <Breadcrumb items={headerItems} />
             <box style={{ flexGrow: 1 }} />
