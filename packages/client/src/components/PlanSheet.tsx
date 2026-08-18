@@ -17,7 +17,6 @@ import {
   displayText,
   overlayMarks,
   renderedOffsetFor,
-  revisionDelta,
   workRangeForRendered,
   type DisplayBlock,
   type Mark,
@@ -28,8 +27,7 @@ import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { CodeBlock } from "./CodeBlock";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
-import { Button } from "./primitives/Button";
-import { Toolbar } from "./primitives/Toolbar";
+import { FRAME_BORDER_STYLE } from "./primitives/frame";
 
 export interface PlanSelection {
   displayIndex: number;
@@ -63,10 +61,6 @@ export interface PlanSheetProps {
   compose: PlanComposeState | null;
   editOrphanCount: number;
   onLineActivate: (displayIndex: number) => void;
-  onEditRequest: () => void;
-  onShareRequest: () => void;
-  /** Owner-only: show the Edit and Share affordances. A share viewer never sees either. */
-  canEdit: boolean;
   theme?: Theme;
 }
 
@@ -99,9 +93,6 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     compose,
     editOrphanCount,
     onLineActivate,
-    onEditRequest,
-    onShareRequest,
-    canEdit,
     theme,
   }: PlanSheetProps,
   handleRef,
@@ -220,69 +211,29 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
 
   return (
     <box style={{ flexGrow: 1, flexDirection: "column" }}>
-      <SheetHeader
-        session={session}
-        onEditRequest={onEditRequest}
-        onShareRequest={onShareRequest}
-        canEdit={canEdit}
-        theme={theme}
-      />
-      {editOrphanCount > 0 ? (
-        <box style={{ height: 1, backgroundColor: tokens.markCommentBackground, paddingLeft: 2 }}>
-          <text fg={tokens.red}>
-            {editOrphanCount} annotation{editOrphanCount === 1 ? "" : "s"} no longer match - the passage was removed.
-          </text>
-        </box>
-      ) : null}
-      <scrollbox ref={scrollRef} style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }} focused={false}>
-        {children}
-      </scrollbox>
+      <box
+        style={{
+          flexGrow: 1,
+          flexDirection: "column",
+          border: true,
+          borderStyle: FRAME_BORDER_STYLE,
+          borderColor: tokens.text,
+        }}
+      >
+        {editOrphanCount > 0 ? (
+          <box style={{ height: 1, backgroundColor: tokens.markCommentBackground, paddingLeft: 1 }}>
+            <text fg={tokens.red}>
+              {editOrphanCount} annotation{editOrphanCount === 1 ? "" : "s"} no longer match - the passage was removed.
+            </text>
+          </box>
+        ) : null}
+        <scrollbox ref={scrollRef} style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 0 }} focused={false}>
+          {children}
+        </scrollbox>
+      </box>
     </box>
   );
 });
-
-/** Sheet chrome: submitted-by + revision delta left, the Edit and Share word-buttons right. */
-function SheetHeader({
-  session,
-  onEditRequest,
-  onShareRequest,
-  canEdit,
-  theme,
-}: {
-  session: ReviewSession;
-  onEditRequest: () => void;
-  onShareRequest: () => void;
-  canEdit: boolean;
-  theme?: Theme;
-}): React.ReactNode {
-  const tokens = useComponentTheme(theme);
-  const revisionCount = session.revisions.length;
-  const previous = revisionCount > 1 ? session.revisions[revisionCount - 2] : undefined;
-  const delta = previous ? revisionDelta(previous.content, session.artifact.content) : null;
-  return (
-    <box style={{ height: 1, flexDirection: "row", paddingLeft: 2, paddingRight: 1 }}>
-      <text fg={tokens.textDim}>
-        submitted by <span fg={tokens.textMuted}>{session.artifact.meta.agent ?? "unknown"}</span> · revision {revisionCount}
-        {delta ? (
-          <span fg={tokens.green}>
-            {" "}· v{revisionCount - 1}→v{revisionCount} +{delta.added} -{delta.removed}
-          </span>
-        ) : null}
-      </text>
-      <box style={{ flexGrow: 1 }} />
-      {canEdit && session.status !== "resolved" ? (
-        <Toolbar>
-          <Button onPress={onEditRequest} theme={theme}>
-            {" Edit "}
-          </Button>
-          <Button onPress={onShareRequest} theme={theme}>
-            {" Share "}
-          </Button>
-        </Toolbar>
-      ) : null}
-    </box>
-  );
-}
 
 /** Vertical rhythm: gaps live ABOVE blocks so boundaries never collapse. */
 function topGap(previous: DisplayBlock | undefined, current: DisplayBlock): number {

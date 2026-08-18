@@ -444,7 +444,8 @@ describe("sheet header", () => {
 
     // Assert
     const frame = setup.captureCharFrame();
-    expect(frame).toContain("submitted by agent/worker-3 · revision 1");
+    expect(frame).toContain("submitted by agent/worker-3");
+    expect(frame).toContain("rev 1");
     expect(frame).toContain("Edit");
     expect(frame).toContain("Share");
   });

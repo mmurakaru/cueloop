@@ -20,10 +20,8 @@ export interface ReviewPanelProps {
   mode: ReviewPanelMode;
   /** Expanded-rail width in columns (already clamped by the app). */
   width: number;
-  /** Rows for the divider glyph column - the height of the plan/rail row. */
+  /** Rows for the divider grab column - the height of the plan/rail row. */
   height: number;
-  /** Accent the divider while a drag is live. */
-  dragging: boolean;
   /** Arm a divider drag; the app tracks the drag itself on the container. */
   onDividerGrab: () => void;
   /** Chevron click: expanded <-> compact (never hidden). */
@@ -34,22 +32,17 @@ export interface ReviewPanelProps {
   theme?: Theme;
 }
 
-/** A single-column stack of `│`, accent while dragging. Grabbing arms a drag. */
+/** An invisible, full-height grab column: the plan's right border is the seam. */
 function ReviewDivider({
-  dragging,
   rows,
   onGrab,
-  theme,
 }: {
-  dragging: boolean;
   rows: number;
   onGrab: () => void;
-  theme?: Theme;
 }): React.ReactNode {
-  const tokens = useComponentTheme(theme);
   return (
     <box style={{ width: 1 }} onMouseDown={onGrab}>
-      <text fg={dragging ? tokens.accent : tokens.border}>{reviewRowsToDivider(rows)}</text>
+      <text fg="transparent">{reviewRowsToDivider(rows)}</text>
     </box>
   );
 }
@@ -95,7 +88,6 @@ export function ReviewPanel({
   mode,
   width,
   height,
-  dragging,
   onDividerGrab,
   onToggle,
   rail,
@@ -105,7 +97,7 @@ export function ReviewPanel({
   if (mode === "hidden") return null;
   return (
     <>
-      <ReviewDivider dragging={dragging} rows={height} onGrab={onDividerGrab} theme={theme} />
+      <ReviewDivider rows={height} onGrab={onDividerGrab} />
       {mode === "expanded" ? (
         <ReviewRail ref={railRef} {...rail} width={width} onCollapse={onToggle} theme={theme} />
       ) : (

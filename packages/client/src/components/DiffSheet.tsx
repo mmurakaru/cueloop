@@ -15,6 +15,7 @@ import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { truncateToSingleLine } from "./truncate-text";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
+import { FRAME_BORDER_STYLE } from "./primitives/frame";
 
 export interface DiffComposeState {
   kind: "comment" | "suggestion";
@@ -223,7 +224,17 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, comp
   }, [cursor, rowOffsets]);
 
   return (
-    <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
+    <box
+      style={{
+        flexGrow: 1,
+        flexDirection: "column",
+        border: true,
+        borderStyle: FRAME_BORDER_STYLE,
+        borderColor: tokens.text,
+        paddingLeft: 1,
+        paddingTop: 0,
+      }}
+    >
       <scrollbox ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
         {segments.map((segment, segmentIndex) => {
           if (segment.kind === "header") {

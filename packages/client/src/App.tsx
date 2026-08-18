@@ -25,12 +25,15 @@ import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings, type HintMode } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
 import { StatusBar } from "./components/primitives/StatusBar";
+import { Button } from "./components/primitives/Button";
+import { Toolbar } from "./components/primitives/Toolbar";
 import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { DiffSheet } from "./components/DiffSheet";
 import { annotationBlocking, type ReviewRailHandle } from "./components/ReviewRail";
 import { ReviewPanel } from "./components/ReviewPanel";
 import {
+  REVIEW_COMPACT_WIDTH,
   REVIEW_DEFAULT_WIDTH,
   resolveReviewWidth,
   toggleReviewPanelMode,
@@ -42,12 +45,16 @@ import { InboxList } from "./components/InboxList";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
+import { Toast } from "./components/Toast";
 
 /**
  * The breadcrumb header and the status bar each occupy one terminal row; the
  * review layout (plan column, divider, rail) gets the rows that remain.
  */
 const CHROME_ROWS = 2;
+
+/** A toast clears itself after this idle; esc dismisses it sooner. */
+const TOAST_DISMISS_MS = 4000;
 
 export interface AppProps {
   home?: string;
@@ -93,7 +100,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     controller.connect();
     return () => controller.close();
   }, [controller]);
-  const { session, inbox, status, error, completion, editOrphanCount, walk } = useSyncExternalStore(
+  const { session, inbox, status, toast, error, completion, editOrphanCount, walk } = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
@@ -150,6 +157,12 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     },
     [],
   );
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => controller.dismissToast(), TOAST_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [toast, controller]);
 
   // First open of a share: ask the collaborator for a display name once, unless
   // a past visit already recorded one. esc skips and their notes read anonymous.
@@ -300,6 +313,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               : "none";
 
   useKeyboard((key) => {
+    if (toast && key.name === "escape") return controller.dismissToast();
     const state: KeyState = {
       keys: keysRef.current,
       readOnly: observer,
@@ -501,9 +515,17 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
         }
       : null;
 
+  // width the review panel occupies (divider + rail), so the header can reserve
+  // it and keep Edit/Share pinned to the plan sheet's right edge, not the rail's
+  const railFootprint =
+    reviewMode === "hidden"
+      ? 0
+      : 1 + (reviewMode === "compact" ? REVIEW_COMPACT_WIDTH : resolveReviewWidth(reviewWidth, terminalWidth));
+
   const headerItems: BreadcrumbItem[] = [
     { label: "cueloop", tone: "accent" },
     { label: `${activeSession.artifact.meta.title ?? activeSession.artifact.meta.planPath ?? activeSession.id} · rev ${activeSession.revisions.length}`, tone: "dim" },
+    { label: `submitted by ${activeSession.artifact.meta.agent ?? "unknown"}`, tone: "dim" },
     ...(resolved ? [{ label: `resolved: ${activeSession.verdict!.kind.replace("_", " ")}`, tone: "green" as const }] : []),
     ...(observer ? [{ label: "observer", tone: "dim" as const }] : []),
     ...(role === "collaborator" ? [{ label: "shared · your notes save as you go", tone: "dim" as const }] : []),
@@ -543,7 +565,19 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
           controller.saveReviewPanel({ width: reviewWidthRef.current });
         }}
       >
-        <Breadcrumb items={headerItems} />
+        <box style={{ flexDirection: "row", height: 1, backgroundColor: theme.panel }}>
+          <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
+            <Breadcrumb items={headerItems} />
+            <box style={{ flexGrow: 1 }} />
+            {isOwner && !isDiff && !resolved ? (
+              <Toolbar>
+                <Button onPress={onEditRequest} theme={theme}>{" Edit "}</Button>
+                <Button onPress={onShareRequest} theme={theme}>{" Share "}</Button>
+              </Toolbar>
+            ) : null}
+          </box>
+          <box style={{ width: railFootprint }} />
+        </box>
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
           {isDiff ? (
             // the sheet dims to reading-quiet colors while the wizard has focus
@@ -566,16 +600,12 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               compose={composeState}
               editOrphanCount={editOrphanCount}
               onLineActivate={onLineActivate}
-              onEditRequest={onEditRequest}
-              onShareRequest={onShareRequest}
-              canEdit={isOwner}
             />
           )}
           <ReviewPanel
             mode={reviewMode}
             width={resolveReviewWidth(reviewWidth, terminalWidth)}
             height={terminalHeight - CHROME_ROWS}
-            dragging={dividerDragging}
             onDividerGrab={onDividerGrab}
             onToggle={onToggleReviewPanel}
             railRef={railRef}
@@ -636,6 +666,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
             theme={theme}
           />
         ) : null}
+        {toast ? <Toast title={toast.title} body={toast.body} theme={theme} /> : null}
       </box>
     </ThemeProvider>
   );

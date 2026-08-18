@@ -66,7 +66,9 @@ describe("review panel", () => {
     // Assert
     frame = await waitForTextGone(setup, "«");
     expect(frame).not.toContain("«"); // hidden: no strip, no divider
-    expect(frame).not.toContain("│");
+    // the plan frame now spans the full width - no rail column to its right
+    const topBorder = frame.split("\n").find((line) => line.includes("╭"));
+    expect(topBorder!.trimEnd().length).toBeGreaterThan(115);
 
     // Act
     await press(setup, "b");

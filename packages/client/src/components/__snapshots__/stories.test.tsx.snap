@@ -344,63 +344,121 @@ exports[`stories catalog ConfirmCard/RequestChanges renders, snapshots, and carr
 "
 `;
 
+exports[`stories catalog ConfirmCard/WithViewedSummary renders, snapshots, and carries its colors: ConfirmCard/WithViewedSummary 1`] = `
+"╭─ submit review ─────────────────────╮ 
+│ 1 annotations · 0 blocking          │ 
+│ 2/3 files viewed                    │ 
+│                                     │ 
+│  Comment  [Approve]  Changes        │ 
+│                                     │ 
+│ summary for the agent (optional)    │ 
+│                                     │ 
+│  Submit    Cancel                   │ 
+╰─────────────────────────────────────╯ 
+                                        
+                                        
+                                        
+                                        
+"
+`;
+
+exports[`stories catalog ConfirmDialog/DeletePlan renders, snapshots, and carries its colors: ConfirmDialog/DeletePlan 1`] = `
+"                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+     ╭─ Delete plan ──────────────────────────────────────╮     
+     │                                                    │     
+     │ Delete "Auth rollout"? This removes the plan and   │     
+     │ its review.                                        │     
+     │                                                    │     
+     │  Delete ⏎  Cancel esc                              │     
+     ╰────────────────────────────────────────────────────╯     
+                                                                
+                                                                
+                                                                
+                                                                
+"
+`;
+
 exports[`stories catalog DiffSheet/AnnotatedLine renders, snapshots, and carries its colors: DiffSheet/AnnotatedLine 1`] = `
-"                                                                                          
- ▎■ src/store.ts                                                                          
-  @@ -1,4 +1,4 @@                                                                         
-   1   export class Store {                                                               
-   2  -  private items = [];                                                              
-   2◆ +  private items = new Map();                                                       
-       ◆ Map needs an eviction story.                                                     
-   3  }                                                                                   
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│ ▎■ src/store.ts                                                                        │
+│  @@ -1,4 +1,4 @@                                                                       │
+│   1   export class Store {                                                             │
+│   2  -  private items = [];                                                            │
+│   2◆ +  private items = new Map();                                                     │
+│       ◆ Map needs an eviction story.                                                   │
+│   3  }                                                                                 │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+"
+`;
+
+exports[`stories catalog DiffSheet/ComposingOnLine renders, snapshots, and carries its colors: DiffSheet/ComposingOnLine 1`] = `
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│  ■ src/store.ts                                                                        │
+│  @@ -1,4 +1,4 @@                                                                       │
+│    1  export class Store {                                                             │
+│    2 -  private items = [];                                                            │
+│ ▎  2 +  private items = new Map();                                                     │
+│   ╭─ comment on "  private items = new Map();" ─────────────────────────────────────╮  │
+│   │ Map needs an eviction story.                                                    │  │
+│   │  Save ⏎    Cancel esc                                                           │  │
+│   ╰─────────────────────────────────────────────────────────────────────────────────╯  │
+│   3  }                                                                                 │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
 "
 `;
 
 exports[`stories catalog DiffSheet/CursorOnAddedLine renders, snapshots, and carries its colors: DiffSheet/CursorOnAddedLine 1`] = `
-"                                                                                          
-  ■ src/store.ts                                                                          
-  @@ -1,4 +1,4 @@                                                                         
-    1  export class Store {                                                               
-    2 -  private items = [];                                                              
- ▎  2 +  private items = new Map();                                                       
-    3  }                                                                                  
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│  ■ src/store.ts                                                                        │
+│  @@ -1,4 +1,4 @@                                                                       │
+│    1  export class Store {                                                             │
+│    2 -  private items = [];                                                            │
+│ ▎  2 +  private items = new Map();                                                     │
+│    3  }                                                                                │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
 "
 `;
 
 exports[`stories catalog DiffSheet/SignedRows renders, snapshots, and carries its colors: DiffSheet/SignedRows 1`] = `
-"                                                                                          
- ▎■ src/store.ts                                                                          
-  @@ -1,4 +1,4 @@                                                                         
-   1  export class Store {                                                                
-   2 -  private items = [];                                                               
-   2 +  private items = new Map();                                                        
-   3  }                                                                                   
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│ ▎■ src/store.ts                                                                        │
+│  @@ -1,4 +1,4 @@                                                                       │
+│   1  export class Store {                                                              │
+│   2 -  private items = [];                                                             │
+│   2 +  private items = new Map();                                                      │
+│   3  }                                                                                 │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
 "
 `;
 
@@ -433,123 +491,243 @@ exports[`stories catalog InboxList/TwoPending renders, snapshots, and carries it
 `;
 
 exports[`stories catalog PlanSheet/AnnotatedPlan renders, snapshots, and carries its colors: PlanSheet/AnnotatedPlan 1`] = `
-"  submitted by agent/worker-3 · revision 1                                   Edit  Share  
-                                                                                          
-    Migration Plan                                                                        
-                                                                                          
-    Context                                                                               
-                                                                                          
-  ▎ The daemon persists sessions to disk atomically.                                      
-                                                                                          
-    Steps                                                                                 
-                                                                                          
-    - move the store                                                                      
-    - add recovery                                                                        
-                                                                                          
-    ts                                                                                    
-                                                                                          
-      export function persist(session: Session): void {                                   
-        // one JSON document per session                                                  
-        writeAtomically(pathFor(session.id), serialize(session));                         
-      }                                                                                   
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│   Migration Plan                                                                       │
+│                                                                                        │
+│   Context                                                                              │
+│                                                                                        │
+│ ▎ The daemon persists sessions to disk atomically.                                     │
+│                                                                                        │
+│   Steps                                                                                │
+│                                                                                        │
+│   - move the store                                                                     │
+│   - add recovery                                                                       │
+│                                                                                        │
+│   ts                                                                                   │
+│                                                                                        │
+│     export function persist(session: Session): void {                                  │
+│       // one JSON document per session                                                 │
+│       writeAtomically(pathFor(session.id), serialize(session));                        │
+│     }                                                                                  │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
 "
 `;
 
 exports[`stories catalog PlanSheet/InlineCompose renders, snapshots, and carries its colors: PlanSheet/InlineCompose 1`] = `
-"  submitted by agent/worker-3 · revision 1                                   Edit  Share  
-                                                                                          
-    Migration Plan                                                                        
-                                                                                          
-    Context                                                                               
-                                                                                          
-  ▎ The daemon persists sessions to disk atomically.                                      
-    ╭─ comment on "The daemon" ────────────────────────────────────────────────────────╮  
-    │ Which daemon?                                                                    │  
-    │  Save ⏎    Cancel esc                                                            │  
-    ╰──────────────────────────────────────────────────────────────────────────────────╯  
-                                                                                          
-    Steps                                                                                 
-                                                                                          
-    - move the store                                                                      
-    - add recovery                                                                        
-                                                                                          
-    ts                                                                                    
-                                                                                          
-      export function persist(session: Session): void {                                   
-        // one JSON document per session                                                  
-        writeAtomically(pathFor(session.id), serialize(session));                         
-      }                                                                                   
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│   Migration Plan                                                                       │
+│                                                                                        │
+│   Context                                                                              │
+│                                                                                        │
+│ ▎ The daemon persists sessions to disk atomically.                                     │
+│   ╭─ comment on "The daemon" ───────────────────────────────────────────────────────╮  │
+│   │ Which daemon?                                                                   │  │
+│   │  Save ⏎    Cancel esc                                                           │  │
+│   ╰─────────────────────────────────────────────────────────────────────────────────╯  │
+│                                                                                        │
+│   Steps                                                                                │
+│                                                                                        │
+│   - move the store                                                                     │
+│   - add recovery                                                                       │
+│                                                                                        │
+│   ts                                                                                   │
+│                                                                                        │
+│     export function persist(session: Session): void {                                  │
+│       // one JSON document per session                                                 │
+│       writeAtomically(pathFor(session.id), serialize(session));                        │
+│     }                                                                                  │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
 "
 `;
 
 exports[`stories catalog PlanSheet/OrphanBanner renders, snapshots, and carries its colors: PlanSheet/OrphanBanner 1`] = `
-"  submitted by agent/worker-3 · revision 1                                   Edit  Share  
-  1 annotation no longer match - the passage was removed.                                 
-                                                                                          
-  ▎ Migration Plan                                                                        
-                                                                                          
-    Context                                                                               
-                                                                                          
-    The daemon persists sessions to disk atomically.                                      
-                                                                                          
-    Steps                                                                                 
-                                                                                          
-    - move the store                                                                      
-    - add recovery                                                                        
-                                                                                          
-    ts                                                                                    
-                                                                                          
-      export function persist(session: Session): void {                                   
-        // one JSON document per session                                                  
-        writeAtomically(pathFor(session.id), serialize(session));                         
-      }                                                                                   
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│ 1 annotation no longer match - the passage was removed.                                │
+│ ▎ Migration Plan                                                                       │
+│                                                                                        │
+│   Context                                                                              │
+│                                                                                        │
+│   The daemon persists sessions to disk atomically.                                     │
+│                                                                                        │
+│   Steps                                                                                │
+│                                                                                        │
+│   - move the store                                                                     │
+│   - add recovery                                                                       │
+│                                                                                        │
+│   ts                                                                                   │
+│                                                                                        │
+│     export function persist(session: Session): void {                                  │
+│       // one JSON document per session                                                 │
+│       writeAtomically(pathFor(session.id), serialize(session));                        │
+│     }                                                                                  │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
 "
 `;
 
 exports[`stories catalog PlanSheet/SpanSelection renders, snapshots, and carries its colors: PlanSheet/SpanSelection 1`] = `
-"  submitted by agent/worker-3 · revision 1                                   Edit  Share  
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│   Migration Plan                                                                       │
+│                                                                                        │
+│   Context                                                                              │
+│                                                                                        │
+│ ▎ The daemon persists sessions to disk atomically.                                     │
+│                                                                                        │
+│   Steps                                                                                │
+│                                                                                        │
+│   - move the store                                                                     │
+│   - add recovery                                                                       │
+│                                                                                        │
+│   ts                                                                                   │
+│                                                                                        │
+│     export function persist(session: Session): void {                                  │
+│       // one JSON document per session                                                 │
+│       writeAtomically(pathFor(session.id), serialize(session));                        │
+│     }                                                                                  │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+"
+`;
+
+exports[`stories catalog PromptDialog/NameYourself renders, snapshots, and carries its colors: PromptDialog/NameYourself 1`] = `
+"                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+     ╭─ Welcome ──────────────────────────────────────────╮     
+     │                                                    │     
+     │ Your name (optional) - it attributes the notes     │     
+     │ you leave:                                         │     
+     │ your name                                          │     
+     │ ⏎ save · esc cancel                                │     
+     ╰────────────────────────────────────────────────────╯     
+                                                                
+                                                                
+                                                                
+                                                                
+"
+`;
+
+exports[`stories catalog PromptDialog/RenameAuthor renders, snapshots, and carries its colors: PromptDialog/RenameAuthor 1`] = `
+"                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+     ╭─ Rename author ────────────────────────────────────╮     
+     │                                                    │     
+     │ Display name for this collaborator:                │     
+     │ Robin                                              │     
+     │                                                    │     
+     │ ⏎ save · esc cancel                                │     
+     ╰────────────────────────────────────────────────────╯     
+                                                                
+                                                                
+                                                                
+                                                                
+"
+`;
+
+exports[`stories catalog ReviewPanel/Compact renders, snapshots, and carries its colors: ReviewPanel/Compact 1`] = `
+" The plan takes the width the panel hands back.             
+                                                        2   
+                                                            
+                                                        ●   
+                                                        ●   
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                       «    
+"
+`;
+
+exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carries its colors: ReviewPanel/ExpandedNarrow 1`] = `
+" The plan takes the width the panel hands back.          ╭─────────────────────╮
+                                                         │ Review (2)  Agent   │
+                                                         ╰─────────────────────╯
+                                                                                
+                                                           ▸ COMMENT · pending  
+                                                             "persists sessions"
+                                                             Which daemon owns  
+                                                           this?                
+                                                                                
+                                                             SUGGESTION ·       
+                                                           pending              
+                                                             "move the store"   
+                                                             move the store     
+                                                           behind one i…        
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                           Submit review (2) ⏎  
+                                                         »                      
+"
+`;
+
+exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carries its colors: ReviewPanel/ExpandedWide 1`] = `
+" The plan takes the width the panel      ╭───────────────────────────────────────────────╮
+ hands back.                             │ Review (2)  Agent                             │
+                                         ╰───────────────────────────────────────────────╯
                                                                                           
-    Migration Plan                                                                        
+                                           ▸ COMMENT · pending                            
+                                             "persists sessions"                          
+                                             Which daemon owns this?                      
                                                                                           
-    Context                                                                               
-                                                                                          
-  ▎ The daemon persists sessions to disk atomically.                                      
-                                                                                          
-    Steps                                                                                 
-                                                                                          
-    - move the store                                                                      
-    - add recovery                                                                        
-                                                                                          
-    ts                                                                                    
-                                                                                          
-      export function persist(session: Session): void {                                   
-        // one JSON document per session                                                  
-        writeAtomically(pathFor(session.id), serialize(session));                         
-      }                                                                                   
+                                             SUGGESTION · pending                         
+                                             "move the store"                             
+                                             move the store behind one i…                 
                                                                                           
                                                                                           
                                                                                           
@@ -559,17 +737,49 @@ exports[`stories catalog PlanSheet/SpanSelection renders, snapshots, and carries
                                                                                           
                                                                                           
                                                                                           
+                                                                                          
+                                                                                          
+                                           Submit review (2) ⏎                            
+                                         »                                                
+"
+`;
+
+exports[`stories catalog ReviewPanel/Hidden renders, snapshots, and carries its colors: ReviewPanel/Hidden 1`] = `
+" The plan takes the width the panel hands back.             
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
 "
 `;
 
 exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its colors: ReviewRail/AgentTab 1`] = `
-"                                        
-  Review (2)  Agent                     
+" ╭───────────────────────────────╮      
+ │ Review (2)  Agent             │      
+ ╰───────────────────────────────╯      
                                         
- agent/worker-3                         
- status: pending                        
- revision 1                             
-                                        
+   agent/worker-3                       
+   status: pending                      
+   revision 1                           
                                         
                                         
                                         
@@ -591,19 +801,17 @@ exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its
 `;
 
 exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carries its colors: ReviewRail/AnnotationStack 1`] = `
-"                                        
-  Review (2)  Agent                     
+" ╭───────────────────────────────╮      
+ │ Review (2)  Agent             │      
+ ╰───────────────────────────────╯      
                                         
- ▸ COMMENT · pending                    
-   "persists sessions"                  
-   Which daemon owns this?              
+   ▸ COMMENT · pending                  
+     "persists sessions"                
+     Which daemon owns this?            
                                         
-   SUGGESTION · pending                 
-   "move the store"                     
-   move the store behind one i…         
-                                        
-                                        
-                                        
+     SUGGESTION · pending               
+     "move the store"                   
+     move the store behind one i…       
                                         
                                         
                                         
@@ -614,24 +822,52 @@ exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carr
                                         
                                         
                                         
- Submit review (2) ⏎                    
+                                        
+                                        
+   Submit review (2) ⏎                  
+"
+`;
+
+exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and carries its colors: ReviewRail/MixedOwnershipStack 1`] = `
+" ╭───────────────────────────────╮      
+ │ Review (2)  Agent             │      
+ ╰───────────────────────────────╯      
+                                        
+   ╭─ me ────────────────────────╮      
+   │ ▸ COMMENT · pending         │      
+   │ "persists sessions"         │      
+   │ Which daemon owns this?     │      
+   ╰─────────────────────────────╯      
+                                        
+   ╭─ Priya ─────────────────────╮      
+   │ SUGGESTION · pending        │      
+   │ "move the store"            │      
+   │ move it behind one inte…    │      
+   ╰─────────────────────────────╯      
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+   Submit review (2) ⏎                  
 "
 `;
 
 exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its colors: ReviewRail/Resolved 1`] = `
-"                                        
-  Review (0)  Agent                     
+" ╭───────────────────────────────╮      
+ │ Review (0)  Agent             │      
+ ╰───────────────────────────────╯      
                                         
-   COMMENT · ORPHANED                   
-   "persists sessions"                  
-   Which daemon owns this?              
+     COMMENT · ORPHANED                 
+     "persists sessions"                
+     Which daemon owns this?            
                                         
-   SUGGESTION · ORPHANED                
-   "move the store"                     
-   move the store behind one i…         
-                                        
-                                        
-                                        
+     SUGGESTION · ORPHANED              
+     "move the store"                   
+     move the store behind one i…       
                                         
                                         
                                         
@@ -642,22 +878,24 @@ exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its
                                         
                                         
                                         
- resolved: approve                      
+                                        
+                                        
+   resolved: approve                    
 "
 `;
 
 exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and carries its colors: ReviewRail/SubmitConfirmOpen 1`] = `
-"                                        
-  Review (2)  Agent                     
+" ╭───────────────────────────────╮      
+ │ Review (2)  Agent             │      
+ ╰───────────────────────────────╯      
                                         
-   COMMENT · ORPHANED                   
-   "persists sessions"                  
-   Which daemon owns this?              
+     COMMENT · ORPHANED                 
+     "persists sessions"                
+     Which daemon owns this?            
                                         
-   SUGGESTION · ORPHANED                
-   "move the store"                     
-   move the store behind one i…         
-                                        
+     SUGGESTION · ORPHANED              
+     "move the store"                   
+     move the store behind one i…       
                                         
                                         
                                         
@@ -767,6 +1005,134 @@ exports[`stories catalog SettingsRows/AllKinds renders, snapshots, and carries i
                                                                                 
                                                                                 
                                                                                 
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Toast/ShareLink renders, snapshots, and carries its colors: Toast/ShareLink 1`] = `
+"                                                            
+                                                            
+                                                            
+               ╭─ share link copied ─────────╮              
+               │                             │              
+               │ ssh review-4f2a@cueloop.dev │              
+               │                             │              
+               │                       [esc] │              
+               ╰─────────────────────────────╯              
+                                                            
+                                                            
+                                                            
+"
+`;
+
+exports[`stories catalog WalkWizard/EndCard renders, snapshots, and carries its colors: WalkWizard/EndCard 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+    ╭─ walk complete ──────────────────────────────────────────────────────╮    
+    │ every file viewed (3/3)                                              │    
+    │                                                                      │    
+    │  Submit review    [ back                                             │    
+    ╰──────────────────────────────────────────────────────────────────────╯    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog WalkWizard/EndCardPartialPass renders, snapshots, and carries its colors: WalkWizard/EndCardPartialPass 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+    ╭─ walk complete ──────────────────────────────────────────────────────╮    
+    │ 1 of 3 files viewed                                                  │    
+    │                                                                      │    
+    │  Submit review    [ back                                             │    
+    ╰──────────────────────────────────────────────────────────────────────╯    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog WalkWizard/FirstFile renders, snapshots, and carries its colors: WalkWizard/FirstFile 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+    ╭─ file 1 of 3 · 0 viewed ─────────────────────────────────────────────╮    
+    │ packages/daemon/src/store.ts                                         │    
+    │ +12 -3                                                               │    
+    │                                                                      │    
+    │ +const viewed = new Set<string>();                                   │    
+    │ +record.viewedPaths = [...viewed];                                   │    
+    │ -// viewed tracking lives in the client only                         │    
+    ╰──────────────────────────────────────────────────────────────────────╯    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog WalkWizard/WithAgentNote renders, snapshots, and carries its colors: WalkWizard/WithAgentNote 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+    ╭─ file 2 of 3 · 1 viewed ─────────────────────────────────────────────╮    
+    │ packages/client/src/walk.ts                                          │    
+    │ +48 -0                                                               │    
+    │                                                                      │    
+    │ +export function firstUnviewedIndex(files, viewed) {                 │    
+    ╰──────────────────────────────────────────────────────────────────────╯    
+                                                                                
+    ╭─ agent note ─────────────────────────────────────────────────────────╮    
+    │ New module: pure helpers that pick the next unviewed file. No IO,    │    
+    │ unit tested.                                                         │    
+    ╰──────────────────────────────────────────────────────────────────────╯    
                                                                                 
                                                                                 
                                                                                 
@@ -965,9 +1331,9 @@ exports[`stories catalog primitives/StatusBar/HintLine renders, snapshots, and c
 `;
 
 exports[`stories catalog primitives/Tabs/SecondSelected renders, snapshots, and carries its colors: primitives/Tabs/SecondSelected 1`] = `
-" Review (0)  Agent                                                              
-                                                                                
-                                                                                
+"╭──────────────────────────────────────────────────────────────────────────────╮
+│ Review (0)  Agent                                                            │
+╰──────────────────────────────────────────────────────────────────────────────╯
                                                                                 
                                                                                 
                                                                                 
@@ -993,9 +1359,9 @@ exports[`stories catalog primitives/Tabs/SecondSelected renders, snapshots, and 
 `;
 
 exports[`stories catalog primitives/Tabs/TwoTabs renders, snapshots, and carries its colors: primitives/Tabs/TwoTabs 1`] = `
-" Review (2)  Agent                                                              
-                                                                                
-                                                                                
+"╭──────────────────────────────────────────────────────────────────────────────╮
+│ Review (2)  Agent                                                            │
+╰──────────────────────────────────────────────────────────────────────────────╯
                                                                                 
                                                                                 
                                                                                 
@@ -1129,355 +1495,5 @@ exports[`stories catalog theme-context/ProviderSwap renders, snapshots, and carr
                                                                                 
                                                                                 
                                                                                 
-"
-`;
-
-exports[`stories catalog ConfirmCard/WithViewedSummary renders, snapshots, and carries its colors: ConfirmCard/WithViewedSummary 1`] = `
-"╭─ submit review ─────────────────────╮ 
-│ 1 annotations · 0 blocking          │ 
-│ 2/3 files viewed                    │ 
-│                                     │ 
-│  Comment  [Approve]  Changes        │ 
-│                                     │ 
-│ summary for the agent (optional)    │ 
-│                                     │ 
-│  Submit    Cancel                   │ 
-╰─────────────────────────────────────╯ 
-                                        
-                                        
-                                        
-                                        
-"
-`;
-
-exports[`stories catalog WalkWizard/EndCard renders, snapshots, and carries its colors: WalkWizard/EndCard 1`] = `
-"                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-    ╭─ walk complete ──────────────────────────────────────────────────────╮    
-    │ every file viewed (3/3)                                              │    
-    │                                                                      │    
-    │  Submit review    [ back                                             │    
-    ╰──────────────────────────────────────────────────────────────────────╯    
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog WalkWizard/EndCardPartialPass renders, snapshots, and carries its colors: WalkWizard/EndCardPartialPass 1`] = `
-"                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-    ╭─ walk complete ──────────────────────────────────────────────────────╮    
-    │ 1 of 3 files viewed                                                  │    
-    │                                                                      │    
-    │  Submit review    [ back                                             │    
-    ╰──────────────────────────────────────────────────────────────────────╯    
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog WalkWizard/FirstFile renders, snapshots, and carries its colors: WalkWizard/FirstFile 1`] = `
-"                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-    ╭─ file 1 of 3 · 0 viewed ─────────────────────────────────────────────╮    
-    │ packages/daemon/src/store.ts                                         │    
-    │ +12 -3                                                               │    
-    │                                                                      │    
-    │ +const viewed = new Set<string>();                                   │    
-    │ +record.viewedPaths = [...viewed];                                   │    
-    │ -// viewed tracking lives in the client only                         │    
-    ╰──────────────────────────────────────────────────────────────────────╯    
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog WalkWizard/WithAgentNote renders, snapshots, and carries its colors: WalkWizard/WithAgentNote 1`] = `
-"                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-    ╭─ file 2 of 3 · 1 viewed ─────────────────────────────────────────────╮    
-    │ packages/client/src/walk.ts                                          │    
-    │ +48 -0                                                               │    
-    │                                                                      │    
-    │ +export function firstUnviewedIndex(files, viewed) {                 │    
-    ╰──────────────────────────────────────────────────────────────────────╯    
-                                                                                
-    ╭─ agent note ─────────────────────────────────────────────────────────╮    
-    │ New module: pure helpers that pick the next unviewed file. No IO,    │    
-    │ unit tested.                                                         │    
-    ╰──────────────────────────────────────────────────────────────────────╯    
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog ReviewPanel/Compact renders, snapshots, and carries its colors: ReviewPanel/Compact 1`] = `
-" The plan takes the width the panel hands back.      │      
-                                                     │  2   
-                                                     │      
-                                                     │  ●   
-                                                     │  ●   
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │      
-                                                     │ «    
-"
-`;
-
-exports[`stories catalog ReviewPanel/DraggingDivider renders, snapshots, and carries its colors: ReviewPanel/DraggingDivider 1`] = `
-" The plan takes the width the panel hands    │                                  
- back.                                       │  Review (2)  Agent               
-                                             │                                  
-                                             │ ▸ COMMENT · pending              
-                                             │   "persists sessions"            
-                                             │   Which daemon owns this?        
-                                             │                                  
-                                             │   SUGGESTION · pending           
-                                             │   "move the store"               
-                                             │   move the store behind one i…   
-                                             │                                  
-                                             │                                  
-                                             │                                  
-                                             │                                  
-                                             │                                  
-                                             │                                  
-                                             │                                  
-                                             │                                  
-                                             │                                  
-                                             │                                  
-                                             │                                  
-                                             │                                  
-                                             │ Submit review (2) ⏎              
-                                             │ »                                
-"
-`;
-
-exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carries its colors: ReviewPanel/ExpandedNarrow 1`] = `
-" The plan takes the width the panel hands back.        │                        
-                                                       │  Review (2)  Agent     
-                                                       │                        
-                                                       │ ▸ COMMENT · pending    
-                                                       │   "persists sessions"  
-                                                       │   Which daemon owns    
-                                                       │ this?                  
-                                                       │                        
-                                                       │   SUGGESTION · pending 
-                                                       │   "move the store"     
-                                                       │   move the store       
-                                                       │ behind one i…          
-                                                       │                        
-                                                       │                        
-                                                       │                        
-                                                       │                        
-                                                       │                        
-                                                       │                        
-                                                       │                        
-                                                       │                        
-                                                       │                        
-                                                       │                        
-                                                       │ Submit review (2) ⏎    
-                                                       │ »                      
-"
-`;
-
-exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carries its colors: ReviewPanel/ExpandedWide 1`] = `
-" The plan takes the width the panel    │                                                  
- hands back.                           │  Review (2)  Agent                               
-                                       │                                                  
-                                       │ ▸ COMMENT · pending                              
-                                       │   "persists sessions"                            
-                                       │   Which daemon owns this?                        
-                                       │                                                  
-                                       │   SUGGESTION · pending                           
-                                       │   "move the store"                               
-                                       │   move the store behind one i…                   
-                                       │                                                  
-                                       │                                                  
-                                       │                                                  
-                                       │                                                  
-                                       │                                                  
-                                       │                                                  
-                                       │                                                  
-                                       │                                                  
-                                       │                                                  
-                                       │                                                  
-                                       │                                                  
-                                       │                                                  
-                                       │ Submit review (2) ⏎                              
-                                       │ »                                                
-"
-`;
-
-exports[`stories catalog ReviewPanel/Hidden renders, snapshots, and carries its colors: ReviewPanel/Hidden 1`] = `
-" The plan takes the width the panel hands back.             
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-"
-`;
-
-exports[`stories catalog ConfirmDialog/DeletePlan renders, snapshots, and carries its colors: ConfirmDialog/DeletePlan 1`] = `
-"                                                                
-                                                                
-                                                                
-                                                                
-                                                                
-     ╭─ Delete plan ──────────────────────────────────────╮     
-     │                                                    │     
-     │ Delete "Auth rollout"? This removes the plan and   │     
-     │ its review.                                        │     
-     │                                                    │     
-     │  Delete ⏎  Cancel esc                              │     
-     ╰────────────────────────────────────────────────────╯     
-                                                                
-                                                                
-                                                                
-                                                                
-"
-`;
-
-exports[`stories catalog PromptDialog/NameYourself renders, snapshots, and carries its colors: PromptDialog/NameYourself 1`] = `
-"                                                                
-                                                                
-                                                                
-                                                                
-                                                                
-     ╭─ Welcome ──────────────────────────────────────────╮     
-     │                                                    │     
-     │ Your name (optional) - it attributes the notes     │     
-     │ you leave:                                         │     
-     │ your name                                          │     
-     │ ⏎ save · esc cancel                                │     
-     ╰────────────────────────────────────────────────────╯     
-                                                                
-                                                                
-                                                                
-                                                                
-"
-`;
-
-exports[`stories catalog PromptDialog/RenameAuthor renders, snapshots, and carries its colors: PromptDialog/RenameAuthor 1`] = `
-"                                                                
-                                                                
-                                                                
-                                                                
-                                                                
-     ╭─ Rename author ────────────────────────────────────╮     
-     │                                                    │     
-     │ Display name for this collaborator:                │     
-     │ Robin                                              │     
-     │                                                    │     
-     │ ⏎ save · esc cancel                                │     
-     ╰────────────────────────────────────────────────────╯     
-                                                                
-                                                                
-                                                                
-                                                                
-"
-`;
-
-exports[`stories catalog DiffSheet/ComposingOnLine renders, snapshots, and carries its colors: DiffSheet/ComposingOnLine 1`] = `
-"                                                                                          
-  ■ src/store.ts                                                                          
-  @@ -1,4 +1,4 @@                                                                         
-    1  export class Store {                                                               
-    2 -  private items = [];                                                              
- ▎  2 +  private items = new Map();                                                       
-   ╭─ comment on "  private items = new Map();" ───────────────────────────────────────╮  
-   │ Map needs an eviction story.                                                      │  
-   │  Save ⏎    Cancel esc                                                             │  
-   ╰───────────────────────────────────────────────────────────────────────────────────╯  
-   3  }                                                                                   
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
 "
 `;

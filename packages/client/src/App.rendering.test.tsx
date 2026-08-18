@@ -80,7 +80,8 @@ describe("code blocks", () => {
 describe("block spacing", () => {
   // the review panel's full-height divider paints a `│` on every row, so read
   // the plan column (everything left of the divider) before asserting spacing
-  const planColumn = (line: string): string => line.split("│")[0]!.trimEnd();
+  // the plan body is framed: content sits between the left border and the next │
+  const planColumn = (line: string): string => line.split("│")[1]?.trimEnd() ?? "";
 
   test("a code block never glues to the list item above it", async () => {
     // Arrange

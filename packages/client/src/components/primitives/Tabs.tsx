@@ -7,10 +7,10 @@
  * native tab geometry.
  */
 
-import React, { createContext, useContext, useEffect, useRef } from "react";
-import type { MouseEvent, TabSelectRenderable } from "@opentui/core";
+import React, { createContext, useContext } from "react";
 import type { Theme } from "../../theme";
 import { useComponentTheme } from "../theme-context";
+import { FRAME_BORDER_STYLE } from "./frame";
 
 interface TabsContextValue {
   selectedKey: string;
@@ -62,36 +62,18 @@ export function TabList({ children }: TabListProps): React.ReactNode {
       items.push({ id: child.props.id, label: child.props.children });
     }
   });
-  const tabWidth = Math.max(...items.map((item) => item.label.length)) + 2;
-  const selectedIndex = Math.max(
-    0,
-    items.findIndex((item) => item.id === tabs.selectedKey),
-  );
-  const stripRef = useRef<TabSelectRenderable | null>(null);
-  // selection is controlled: mirror the selected key into the native strip
-  useEffect(() => {
-    stripRef.current?.setSelectedIndex(selectedIndex);
-  }, [selectedIndex, items.length]);
-  const onMouseUp = (event: MouseEvent): void => {
-    const strip = stripRef.current;
-    if (!strip) return;
-    const index = Math.floor((event.x - strip.x) / tabWidth);
-    const item = items[index];
-    if (item) tabs.onSelectionChange(item.id);
-  };
   return (
-    <tab-select
-      ref={stripRef}
-      options={items.map((item) => ({ name: item.label, description: "", value: item.id }))}
-      tabWidth={tabWidth}
-      showUnderline={false}
-      showDescription={false}
-      showScrollArrows={false}
-      textColor={tokens.textDim}
-      selectedTextColor={tabs.selectedColor ?? tokens.accent}
-      selectedBackgroundColor={tokens.elevated}
-      onMouseUp={onMouseUp}
-      style={{ height: 1, width: tabWidth * items.length }}
-    />
+    <box
+      style={{ width: "100%", height: 3, border: true, borderStyle: FRAME_BORDER_STYLE, borderColor: tokens.text, flexDirection: "row", paddingLeft: 1 }}
+    >
+      {items.map((item) => {
+        const selected = item.id === tabs.selectedKey;
+        return (
+          <box key={item.id} style={{ marginRight: 2 }} onMouseUp={() => tabs.onSelectionChange(item.id)}>
+            <text fg={selected ? (tabs.selectedColor ?? tokens.accent) : tokens.textDim}>{item.label}</text>
+          </box>
+        );
+      })}
+    </box>
   );
 }

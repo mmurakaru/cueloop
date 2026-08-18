@@ -39,38 +39,26 @@ function PanelFrame({ children }: { children: React.ReactNode }): React.ReactNod
 export const ExpandedNarrow: Story = {
   render: () => (
     <PanelFrame>
-      <ReviewPanel mode="expanded" width={REVIEW_MIN_WIDTH} height={24} dragging={false} rail={rail} {...panelCallbacks} />
+      <ReviewPanel mode="expanded" width={REVIEW_MIN_WIDTH} height={24} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
-  expectedColors: [DARK.border],
   size: { width: 80, height: 24 },
 };
 
 export const ExpandedWide: Story = {
   render: () => (
     <PanelFrame>
-      <ReviewPanel mode="expanded" width={REVIEW_MAX_WIDTH} height={24} dragging={false} rail={rail} {...panelCallbacks} />
+      <ReviewPanel mode="expanded" width={REVIEW_MAX_WIDTH} height={24} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
   expectedColors: [DARK.green],
   size: { width: 90, height: 24 },
 };
 
-/** Dragging accents the divider glyph column. */
-export const DraggingDivider: Story = {
-  render: () => (
-    <PanelFrame>
-      <ReviewPanel mode="expanded" width={34} height={24} dragging={true} rail={rail} {...panelCallbacks} />
-    </PanelFrame>
-  ),
-  expectedColors: [DARK.accent],
-  size: { width: 80, height: 24 },
-};
-
 export const Compact: Story = {
   render: () => (
     <PanelFrame>
-      <ReviewPanel mode="compact" width={34} height={24} dragging={false} rail={rail} {...panelCallbacks} />
+      <ReviewPanel mode="compact" width={34} height={24} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
   expectedColors: [DARK.accent, DARK.green],
@@ -80,7 +68,7 @@ export const Compact: Story = {
 export const Hidden: Story = {
   render: () => (
     <PanelFrame>
-      <ReviewPanel mode="hidden" width={34} height={24} dragging={false} rail={rail} {...panelCallbacks} />
+      <ReviewPanel mode="hidden" width={34} height={24} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
   size: { width: 60, height: 24 },
