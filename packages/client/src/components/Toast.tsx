@@ -15,7 +15,7 @@ export function Toast({ title, body, theme }: ToastProps): React.ReactNode {
   const { width: terminalWidth } = useTerminalDimensions();
   const width = Math.min(terminalWidth - 6, Math.max(28, body.length + 4));
   return (
-    <Dialog isOpen title={title ? ` ${title} ` : undefined} width={width} height={6} theme={theme}>
+    <Dialog isOpen title={title ? ` ${title} ` : undefined} width={width} height={6} background={tokens.elevated} theme={theme}>
       <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 1, paddingRight: 1, paddingTop: 1 }}>
         <text fg={tokens.text}>{body}</text>
         <box style={{ flexGrow: 1 }} />

@@ -532,7 +532,7 @@ class Controller implements ReviewController {
         // Stamp the id back so a later pull knows which share to collect from.
         const shareId = shareIdFromLine(line);
         if (shareId && this.client) await this.client.sessionSetShareId(session.id, shareId);
-        this.setStatus(copied ? "✓ share link copied" : "share link ready");
+        this.setStatus("");
         this.showToast(line, copied ? "share link copied" : "share link");
       })
       .catch((error: unknown) => this.setStatus(`share failed: ${error instanceof Error ? error.message : String(error)}`));
