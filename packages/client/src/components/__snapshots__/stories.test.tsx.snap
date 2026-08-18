@@ -742,7 +742,7 @@ exports[`stories catalog ReviewPanel/Compact renders, snapshots, and carries its
 
 exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carries its colors: ReviewPanel/ExpandedNarrow 1`] = `
 " The plan takes the width the panel hands back.          ╭─────────────────────╮
-                                                         │ Review (2)  Agent   │
+                                                         │ Review  Agent       │
                                                          ╰─────────────────────╯
                                                                                 
                                                            ▸ COMMENT · pending  
@@ -763,14 +763,14 @@ exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carr
                                                                                 
                                                                                 
                                                                                 
-                                                         » Submit review (2)    
+                                                         »         Submit review
                                                                                 
 "
 `;
 
 exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carries its colors: ReviewPanel/ExpandedWide 1`] = `
 " The plan takes the width the panel      ╭───────────────────────────────────────────────╮
- hands back.                             │ Review (2)  Agent                             │
+ hands back.                             │ Review  Agent                                 │
                                          ╰───────────────────────────────────────────────╯
                                                                                           
                                            ▸ COMMENT · pending                            
@@ -791,7 +791,7 @@ exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carrie
                                                                                           
                                                                                           
                                                                                           
-                                         » Submit review (2)                              
+                                         »                                   Submit review
                                                                                           
 "
 `;
@@ -826,7 +826,7 @@ exports[`stories catalog ReviewPanel/Hidden renders, snapshots, and carries its 
 
 exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its colors: ReviewRail/AgentTab 1`] = `
 " ╭───────────────────────────────╮      
- │ Review (2)  Agent             │      
+ │ Review  Agent                 │      
  ╰───────────────────────────────╯      
                                         
    agent/worker-3                       
@@ -854,7 +854,7 @@ exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its
 
 exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carries its colors: ReviewRail/AnnotationStack 1`] = `
 " ╭───────────────────────────────╮      
- │ Review (2)  Agent             │      
+ │ Review  Agent                 │      
  ╰───────────────────────────────╯      
                                         
    ▸ COMMENT · pending                  
@@ -875,14 +875,14 @@ exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carr
                                         
                                         
                                         
- Submit review (2)                      
+ Submit review                          
                                         
 "
 `;
 
 exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and carries its colors: ReviewRail/MixedOwnershipStack 1`] = `
 " ╭───────────────────────────────╮      
- │ Review (2)  Agent             │      
+ │ Review  Agent                 │      
  ╰───────────────────────────────╯      
                                         
    ╭─ me ────────────────────────╮      
@@ -903,14 +903,14 @@ exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and 
                                         
                                         
                                         
- Submit review (2)                      
+ Submit review                          
                                         
 "
 `;
 
 exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its colors: ReviewRail/Resolved 1`] = `
 " ╭───────────────────────────────╮      
- │ Review (0)  Agent             │      
+ │ Review  Agent                 │      
  ╰───────────────────────────────╯      
                                         
      COMMENT · ORPHANED                 
@@ -938,7 +938,7 @@ exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its
 
 exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and carries its colors: ReviewRail/SubmitConfirmOpen 1`] = `
 " ╭───────────────────────────────╮      
- │ Review (2)  Agent             │      
+ │ Review  Agent                 │      
  ╰───────────────────────────────╯      
                                         
      COMMENT · ORPHANED                 

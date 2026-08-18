@@ -99,7 +99,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
     <box style={{ width, backgroundColor: tokens.panel, flexDirection: "column", paddingLeft: 1, paddingBottom: 1 }}>
       <Tabs selectedKey={railTab} onSelectionChange={(key) => onTabChange(key as RailTab)} theme={theme}>
         <TabList>
-          <Tab id="review">{`Review (${pendingCount})`}</Tab>
+          <Tab id="review">Review</Tab>
           <Tab id="agent">Agent</Tab>
         </TabList>
       </Tabs>
@@ -153,10 +153,10 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
       {railTab !== "agent" && submitConfirm ? <ConfirmCard {...submitConfirm} theme={theme} /> : null}
       {/* footer row: collapse chevron left-bound, the submit affordance inline
           beside it, both on the rail's last row (the plan's bottom-border height) */}
-      <box style={{ flexDirection: "row", alignItems: "center" }}>
+      <box style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         {onCollapse ? (
           <box onMouseUp={onCollapse}>
-            <text fg={tokens.textDim}>{"» "}</text>
+            <text fg={tokens.textDim}>»</text>
           </box>
         ) : null}
         {railTab !== "agent" && !submitConfirm ? (
@@ -164,7 +164,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
             <text fg={tokens.green}>resolved: {session.verdict!.kind.replace("_", " ")}</text>
           ) : (
             <Button variant="accent-text" onPress={onSubmitRequest} theme={theme}>
-              {`Submit review (${pendingCount})`}
+              Submit review
             </Button>
           )
         ) : null}

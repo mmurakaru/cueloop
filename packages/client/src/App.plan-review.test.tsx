@@ -432,7 +432,7 @@ describe("addressed annotations leave the open list", () => {
     const frame = setup.captureCharFrame();
     expect(frame).toContain("✓ 1 addressed by revision");
     expect(frame).not.toContain("settled note");
-    expect(frame).toContain("Review (1)"); // the addressed card no longer counts as pending
+    expect(frame).toContain("still open note"); // the open card survives; the addressed one does not
     expect(backgroundsOf(setup, "The daemon")).not.toContain(T.markCommentBackground); // no highlight paint
   });
 });
@@ -454,7 +454,7 @@ describe("sheet header", () => {
     // Arrange
     const setup = await renderApp();
     const lines = setup.captureCharFrame().split("\n");
-    const tabRow = lines.findIndex((line) => line.includes("Review (0)"));
+    const tabRow = lines.findIndex((line) => line.includes("Review") && line.includes("Agent"));
     const tabColumn = lines[tabRow]!.indexOf("Agent");
 
     // Act
