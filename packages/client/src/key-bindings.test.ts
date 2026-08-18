@@ -86,12 +86,12 @@ describe("mode layers own their keys", () => {
 describe("getActiveKeys-generated status hints", () => {
   test("normal mode hint matches the locked string", () => {
     expect(bindings().statusHint("normal")).toBe(
-      "j/k move · v span · drag selects · c comment · s suggest · x cut · e edit · n/p annotations · ⏎ submit · q quit",
+      "j/k move · v span · drag selects · c comment · s suggest · x cut · e edit · n/p annotations · enter submit · q quit",
     );
   });
 
   test("card-selected hint keeps the locked Cut label", () => {
-    expect(bindings().statusHint("card")).toBe("card · e edit · x Cut · n/p cards · esc deselect · ⏎ submit");
+    expect(bindings().statusHint("card")).toBe("card · e edit · x Cut · n/p cards · esc deselect · enter submit");
   });
 
   test("span hint", () => {
@@ -101,11 +101,11 @@ describe("getActiveKeys-generated status hints", () => {
   });
 
   test("compose hint", () => {
-    expect(bindings({ overlay: "compose" }).statusHint("compose")).toBe("typing · ⏎ save · esc cancel");
+    expect(bindings({ overlay: "compose" }).statusHint("compose")).toBe("typing · enter save · esc cancel");
   });
 
   test("submit hint", () => {
-    expect(bindings({ overlay: "submit" }).statusHint("submit")).toBe("verdict ←/→ · ⏎ submit · esc cancel");
+    expect(bindings({ overlay: "submit" }).statusHint("submit")).toBe("verdict ←/→ · enter submit · esc cancel");
   });
 
   test("walk hint", () => {

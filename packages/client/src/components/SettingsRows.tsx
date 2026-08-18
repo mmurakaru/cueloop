@@ -29,7 +29,7 @@ function RowShell({ label, isActive, onPress, theme, children }: RowShellProps):
   const tokens = useComponentTheme(theme);
   return (
     <box
-      style={{ flexDirection: "row", height: 1, backgroundColor: isActive ? tokens.elevated : undefined }}
+      style={{ flexDirection: "row", height: 1, backgroundColor: isActive ? tokens.border : undefined }}
       onMouseUp={onPress}
     >
       <box style={{ width: 26, paddingLeft: 1 }}>

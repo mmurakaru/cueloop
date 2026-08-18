@@ -49,7 +49,7 @@ export function InboxList({ inbox, cursor, onRequestDelete, theme }: InboxListPr
         })
       )}
       <box style={{ flexGrow: 1 }} />
-      <StatusBar theme={theme}>j/k move · ⏎ open · d delete · q quit</StatusBar>
+      <StatusBar theme={theme}>j/k move · enter open · d delete · q quit</StatusBar>
     </box>
   );
 }

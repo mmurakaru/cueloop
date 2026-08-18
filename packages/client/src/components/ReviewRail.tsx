@@ -8,7 +8,7 @@
 
 import React, { forwardRef, useImperativeHandle, useRef } from "react";
 import type { ScrollBoxRenderable } from "@opentui/core";
-import { isAddressed, type Annotation, type ReviewSession } from "@cueloop/schema";
+import { isAddressed, isAgentNote, type Annotation, type ReviewSession } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { Tabs, Tab, TabList } from "./primitives/Tabs";
@@ -46,7 +46,7 @@ export interface ReviewRailProps {
   /** Rail column width; the app derives it from the persisted review layout. */
   width?: number;
   /**
-   * When set, renders the muted `»` chevron pinned at the rail's bottom-left,
+   * When set, renders the muted `>` chevron pinned at the rail's bottom-left,
    * one column from the divider. Clicking it collapses the panel to compact.
    */
   onCollapse?: () => void;
@@ -83,6 +83,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
   // addressed annotations leave the card list; a dim count keeps them honest
   const openAnnotations = session.annotations.filter((annotation) => !isAddressed(annotation));
   const addressedCount = session.annotations.length - openAnnotations.length;
+  const collaboratorsPresent = session.annotations.some((annotation) => annotation.author);
 
   useImperativeHandle(handleRef, () => ({
     revealCard: (annotationId: string): void => {
@@ -95,74 +96,78 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
   }));
 
   return (
-    <box style={{ width, backgroundColor: tokens.panel, flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
+    <box style={{ width, backgroundColor: tokens.panel, flexDirection: "column", paddingLeft: 1, paddingBottom: 1 }}>
       <Tabs selectedKey={railTab} onSelectionChange={(key) => onTabChange(key as RailTab)} theme={theme}>
         <TabList>
-          <Tab id="review">{`Review (${pendingCount})`}</Tab>
+          <Tab id="review">Review</Tab>
           <Tab id="agent">Agent</Tab>
         </TabList>
       </Tabs>
-      <text> </text>
       {railTab === "agent" ? (
-        <AgentTab session={session} theme={theme} />
+        <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 2 }}>
+          <text> </text>
+          <AgentTab session={session} theme={theme} />
+        </box>
+      ) : openAnnotations.length === 0 ? (
+        <box style={{ flexGrow: 1, alignItems: "center", justifyContent: "center" }}>
+          <text fg={tokens.textDim}>{session.annotations.length === 0 ? "no annotations yet" : "all annotations addressed"}</text>
+        </box>
       ) : (
-        <>
+        <box style={{ flexGrow: 1, flexDirection: "column" }}>
           {session.workingCopy !== undefined ? <text fg={tokens.textDim}>± plan edits → one diff</text> : null}
           {addressedCount > 0 ? <text fg={tokens.textDim}>✓ {addressedCount} addressed by revision</text> : null}
-          {openAnnotations.length === 0 ? (
-            <text fg={tokens.textDim}>{session.annotations.length === 0 ? "no annotations yet" : "all annotations addressed"}</text>
-          ) : (
-            <scrollbox ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
-              {openAnnotations.map((annotation) => (
-                <AnnotationCard
-                  key={annotation.id}
-                  id={`annotation-card-${annotation.id}`}
-                  kind={annotation.kind}
-                  quote={annotation.anchor.quote}
-                  theme={theme}
-                  saved={{
-                    body: annotation.body,
-                    isSelected: annotation.id === selectedId,
-                    isOrphan: resolvedIds !== null && !resolvedIds.has(annotation.id),
-                    isBlocking: annotationBlocking(annotation),
-                    authorLabel: annotation.author ? resolveDisplayName(annotation.author, session.participants, authorNames) : undefined,
-                    editing:
-                      cardEdit && cardEdit.id === annotation.id
-                        ? {
-                            text: cardEdit.text,
-                            onInput: cardEdit.onInput,
-                            onSave: cardEdit.onSave,
-                            onCancel: cardEdit.onCancel,
-                          }
-                        : null,
-                    onPress: () =>
-                      annotation.id === selectedId ? onActivateCard(annotation.id) : onSelectCard(annotation.id),
-                  }}
-                />
-              ))}
-            </scrollbox>
-          )}
-          <box style={{ flexGrow: 1 }} />
-          {/* the confirm card sits OUTSIDE the scrollbox: the annotation stack
-              above scrolls while the card stays pinned to the rail bottom */}
-          {session.status === "resolved" ? (
+          <scrollbox ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
+            {openAnnotations.map((annotation) => (
+              <AnnotationCard
+                key={annotation.id}
+                id={`annotation-card-${annotation.id}`}
+                kind={annotation.kind}
+                quote={annotation.anchor.quote}
+                theme={theme}
+                saved={{
+                  body: annotation.body,
+                  isSelected: annotation.id === selectedId,
+                  isOrphan: resolvedIds !== null && !resolvedIds.has(annotation.id),
+                  isBlocking: annotationBlocking(annotation),
+                  authorLabel: annotation.author ? resolveDisplayName(annotation.author, session.participants, authorNames) : undefined,
+                  selfLabel: !annotation.author && !isAgentNote(annotation) && collaboratorsPresent ? "me" : undefined,
+                  editing:
+                    cardEdit && cardEdit.id === annotation.id
+                      ? {
+                          text: cardEdit.text,
+                          onInput: cardEdit.onInput,
+                          onSave: cardEdit.onSave,
+                          onCancel: cardEdit.onCancel,
+                        }
+                      : null,
+                  onPress: () =>
+                    annotation.id === selectedId ? onActivateCard(annotation.id) : onSelectCard(annotation.id),
+                }}
+              />
+            ))}
+          </scrollbox>
+        </box>
+      )}
+      {/* the confirm card keeps full width, above the footer row */}
+      {railTab !== "agent" && submitConfirm ? <ConfirmCard {...submitConfirm} theme={theme} /> : null}
+      {/* footer row: collapse chevron left-bound, the submit affordance inline
+          beside it, both on the rail's last row (the plan's bottom-border height) */}
+      <box style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        {onCollapse ? (
+          <box onMouseUp={onCollapse}>
+            <text fg={tokens.textDim}>{">"}</text>
+          </box>
+        ) : null}
+        {railTab !== "agent" && !submitConfirm ? (
+          session.status === "resolved" ? (
             <text fg={tokens.green}>resolved: {session.verdict!.kind.replace("_", " ")}</text>
-          ) : submitConfirm ? (
-            <ConfirmCard {...submitConfirm} theme={theme} />
           ) : (
             <Button variant="accent-text" onPress={onSubmitRequest} theme={theme}>
-              {`Submit review (${pendingCount}) ⏎`}
+              Submit review
             </Button>
-          )}
-        </>
-      )}
-      {/* the collapse chevron: muted, left-bound, one column from the divider.
-          » points right - it hands the width back toward the plan */}
-      {onCollapse ? (
-        <box style={{ flexDirection: "row" }} onMouseUp={onCollapse}>
-          <text fg={tokens.textDim}>»</text>
-        </box>
-      ) : null}
+          )
+        ) : null}
+      </box>
     </box>
   );
 });

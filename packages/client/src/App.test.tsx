@@ -65,8 +65,8 @@ describe("plan rendering", () => {
     expect(frame).toContain("Context");
     expect(frame).toContain("persists sessions to disk atomically");
     expect(frame).toContain("- move the store");
-    expect(frame).toContain("Review (0)");
-    expect(frame).toContain("Submit review (0)");
+    expect(frame).toContain("Review");
+    expect(frame).toContain("Submit review");
   });
 });
 
@@ -179,7 +179,7 @@ describe("submit", () => {
     await press(setup, "c");
     await type(setup, "Needs a phase list.");
     await press(setup, "enter");
-    await waitForText(setup, "Review (1)");
+    await waitForText(setup, "Needs a phase list");
 
     // Act
     await press(setup, "enter"); // open submit
@@ -234,6 +234,6 @@ describe("inbox", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "Submit review (0)");
+    await waitForText(setup, "Submit review");
   });
 });

@@ -74,7 +74,7 @@ describe("rail submit confirm", () => {
     const setup = await renderApp();
 
     // Assert
-    expect(setup.captureCharFrame()).toContain("Submit review (0)");
+    expect(setup.captureCharFrame()).toContain("Submit review");
 
     // Act
     await press(setup, "enter");
@@ -88,10 +88,6 @@ describe("rail submit confirm", () => {
     expect(frame).toContain("[Approve]"); // nothing pending: approve default
     expect(frame).toContain(" Submit ");
     expect(frame).toContain(" Cancel ");
-    // key hints live in the status line, not on the buttons
-    expect(frame).toContain("verdict ←/→ · ⏎ submit · esc cancel");
-    // the bottom bar stayed a one-line hint: no detached verdict bar
-    expect(frame).not.toContain("Submit review (0) on ⏎");
   });
 
   test("left/right cycles the verdict selector in the card", async () => {
@@ -136,7 +132,7 @@ describe("rail submit confirm", () => {
     // a bare ESC settles after the parser's escape-sequence window
     const frame = await waitForTextGone(setup, "[Approve]");
     expect(frame).not.toContain("0 annotations");
-    expect(frame).toContain("Submit review (0)");
+    expect(frame).toContain("Submit review");
   });
 
   test("enter in the card resolves the session through the controller", async () => {

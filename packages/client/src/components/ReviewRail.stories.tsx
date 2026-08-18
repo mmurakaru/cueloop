@@ -38,6 +38,45 @@ export const AnnotationStack: Story = {
   size: { width: 40, height: 24 },
 };
 
+export const MixedOwnershipStack: Story = {
+  render: () => (
+    <RailFrame>
+      <ReviewRail
+      session={fixturePlanSession({
+        participants: [{ id: "SHA256:collab1", provider: "ssh", name: "Priya" }],
+        annotations: [
+          {
+            id: "own_note",
+            kind: "comment",
+            anchor: { quote: "persists sessions", prefix: "The daemon ", suffix: " to disk" },
+            body: "Which daemon owns this?",
+            createdAt: "2026-01-01T00:00:00Z",
+          },
+          {
+            id: "collab_note",
+            kind: "suggestion",
+            anchor: { quote: "move the store", prefix: "", suffix: "" },
+            body: "move it behind one interface",
+            author: "SHA256:collab1",
+            createdAt: "2026-01-01T00:00:01Z",
+          },
+        ],
+      })}
+      authorNames={{}}
+      selectedId="own_note"
+      resolvedIds={new Set(["own_note", "collab_note"])}
+      railTab="review"
+      pendingCount={2}
+      cardEdit={null}
+      submitConfirm={null}
+      {...callbacks}
+      />
+    </RailFrame>
+  ),
+  expectedColors: [DARK.accent, DARK.blue],
+  size: { width: 40, height: 24 },
+};
+
 export const AgentTab: Story = {
   render: () => (
     <RailFrame>

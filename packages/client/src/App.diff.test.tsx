@@ -72,7 +72,7 @@ describe("diff review", () => {
     await press(setup, "c");
 
     // Assert
-    await waitForText(setup, "COMMENT ON");
+    await waitForText(setup, 'comment on "');
 
     // Act
     await setup.mockInput.typeText("Map needs an eviction story.");

@@ -16,21 +16,27 @@ import { type VerdictKind } from "@cueloop/schema";
 import { displayText, marksByDisplay, type Mark } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
-import { DEFAULT_KEYS, loadConfig, persistAuthorName } from "./config";
+import { DEFAULT_KEYS, loadConfig, persistAuthorName, persistAutoClose, type AutoClose } from "./config";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { createIntentDispatch, reviewerAnnotations, type Mode } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
-import { KeyBindings, type HintMode } from "./key-bindings";
+import { KeyBindings } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
-import { StatusBar } from "./components/primitives/StatusBar";
+import { Button } from "./components/primitives/Button";
+import { Toolbar } from "./components/primitives/Toolbar";
+import { MenuBar } from "./components/MenuBar";
+import { KeybindsDialog } from "./components/KeybindsDialog";
+import { SettingsDialog, type SettingsCategory } from "./components/SettingsDialog";
+import { CLIENT_VERSION } from "./version";
 import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { DiffSheet } from "./components/DiffSheet";
 import { annotationBlocking, type ReviewRailHandle } from "./components/ReviewRail";
 import { ReviewPanel } from "./components/ReviewPanel";
 import {
+  REVIEW_COMPACT_WIDTH,
   REVIEW_DEFAULT_WIDTH,
   resolveReviewWidth,
   toggleReviewPanelMode,
@@ -41,14 +47,11 @@ import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
-import { ComposeBar } from "./components/ComposeBar";
 import { WalkWizard } from "./components/WalkWizard";
+import { Toast } from "./components/Toast";
 
-/**
- * The breadcrumb header and the status bar each occupy one terminal row; the
- * review layout (plan column, divider, rail) gets the rows that remain.
- */
-const CHROME_ROWS = 2;
+/** A toast clears itself after this idle; esc dismisses it sooner. */
+const TOAST_DISMISS_MS = 4000;
 
 export interface AppProps {
   home?: string;
@@ -94,7 +97,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     controller.connect();
     return () => controller.close();
   }, [controller]);
-  const { session, inbox, status, error, completion, editOrphanCount, walk } = useSyncExternalStore(
+  const { session, inbox, status, toast, error, completion, editOrphanCount, walk } = useSyncExternalStore(
     controller.subscribe,
     controller.getSnapshot,
     controller.getSnapshot,
@@ -106,12 +109,21 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     return controller.startSharePoll();
   }, [isOwner, session?.id, session?.shareId, controller]);
   const renderer = useRenderer();
-  const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
+  const { width: terminalWidth } = useTerminalDimensions();
 
   // ── view state ──────────────────────────────
   const [cursor, setCursor] = useState(0);
   const [inboxCursor, setInboxCursor] = useState(0);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
+  // the bottom-left menu drop-up and the centered dialog it opens
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
+  const [autoClose, setAutoClose] = useState<AutoClose>("off");
+  const [settingsNav, setSettingsNav] = useState<{ categoryId: string; rowIndex: number; zone: "nav" | "body" }>({
+    categoryId: "general",
+    rowIndex: 0,
+    zone: "body",
+  });
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<"review" | "agent">("review");
   // review panel layout: mode + expanded width are client view state, loaded
@@ -143,6 +155,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     setReviewWidth(config.ui.reviewWidth);
     reviewWidthRef.current = config.ui.reviewWidth;
     setAuthorNames(config.authors);
+    setAutoClose(config.ui.autoClose);
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings]);
   useEffect(
@@ -151,6 +164,12 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     },
     [],
   );
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => controller.dismissToast(), TOAST_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [toast, controller]);
 
   // First open of a share: ask the collaborator for a display name once, unless
   // a past visit already recorded one. esc skips and their notes read anonymous.
@@ -300,7 +319,57 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               ? "walk"
               : "none";
 
+  // ── settings dialog: config-backed model, navigation, persistence ──
+  const settingsCategories: SettingsCategory[] = [
+    {
+      id: "general",
+      name: "General",
+      description: "submission behaviour",
+      rows: [{ key: "autoClose", label: "Auto-close on submit", kind: "cycle", options: ["off", "3s", "10s"] }],
+    },
+    {
+      id: "display",
+      name: "Display",
+      description: "the review panel",
+      rows: [{ key: "reviewPanel", label: "Review panel", kind: "cycle", options: ["expanded", "compact", "hidden"] }],
+    },
+  ];
+  const settingsValues = { autoClose: autoClose === "off" ? "off" : `${autoClose}s`, reviewPanel: reviewMode };
+  const cycleSetting = (rowKey: string): void => {
+    if (rowKey === "autoClose") {
+      const next: AutoClose = autoClose === "off" ? 3 : autoClose === 3 ? 10 : "off";
+      setAutoClose(next);
+      persistAutoClose(next);
+    } else if (rowKey === "reviewPanel") {
+      const order: ReviewPanelMode[] = ["expanded", "compact", "hidden"];
+      const next = order[(order.indexOf(reviewMode) + 1) % order.length]!;
+      setReviewMode(next);
+      controller.saveReviewPanel({ mode: next });
+    }
+  };
+  const handleSettingsKey = (name: string): void => {
+    if (name === "escape") return void setMenuDialog(null);
+    const categoryIndex = settingsCategories.findIndex((category) => category.id === settingsNav.categoryId);
+    const category = settingsCategories[categoryIndex]!;
+    if (settingsNav.zone === "nav") {
+      if (name === "j" || name === "down") setSettingsNav({ categoryId: settingsCategories[Math.min(settingsCategories.length - 1, categoryIndex + 1)]!.id, rowIndex: 0, zone: "nav" });
+      else if (name === "k" || name === "up") setSettingsNav({ categoryId: settingsCategories[Math.max(0, categoryIndex - 1)]!.id, rowIndex: 0, zone: "nav" });
+      else if (name === "l" || name === "tab" || name === "return") setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: 0 }));
+      return;
+    }
+    if (name === "j" || name === "down") setSettingsNav((state) => ({ ...state, rowIndex: Math.min(category.rows.length - 1, state.rowIndex + 1) }));
+    else if (name === "k" || name === "up") setSettingsNav((state) => ({ ...state, rowIndex: Math.max(0, state.rowIndex - 1) }));
+    else if (name === "h" || name === "tab") setSettingsNav((state) => ({ ...state, zone: "nav" }));
+    else if (name === "return" || name === "space") cycleSetting(category.rows[settingsNav.rowIndex]!.key);
+  };
+
   useKeyboard((key) => {
+    if (menuDialog === "settings") return void handleSettingsKey(key.name);
+    if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
+    if (menuOpen) return void (key.name === "escape" && setMenuOpen(false));
+    // the toast is non-modal: escape only dismisses it when nothing else owns
+    // escape, so an open overlay (compose, submit, prompt, walk) still cancels
+    if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span") return controller.dismissToast();
     const state: KeyState = {
       keys: keysRef.current,
       readOnly: observer,
@@ -386,6 +455,24 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
           kind: mode.kind,
           displayIndex: mode.displayIndex,
           quote: displayText(display[mode.displayIndex]!).slice(mode.start, mode.end),
+          draft: {
+            text: mode.text,
+            onInput: (text: string) => {
+              liveInput.current = text;
+              setMode({ ...mode, text });
+            },
+            onSave: () => dispatch({ type: "saveCompose" }),
+            onCancel: () => dispatch({ type: "closeOverlay" }),
+          },
+        }
+      : null;
+
+  const diffComposeState =
+    mode.type === "compose" && isDiff
+      ? {
+          kind: mode.kind,
+          rowIndex: mode.displayIndex,
+          quote: rows[mode.displayIndex]?.text.replace(/\n$/, "") ?? "",
           draft: {
             text: mode.text,
             onInput: (text: string) => {
@@ -484,31 +571,23 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
         }
       : null;
 
+  // width the review panel occupies (divider + rail), so the header can reserve
+  // it and keep Edit/Share pinned to the plan sheet's right edge, not the rail's
+  const railFootprint =
+    reviewMode === "hidden"
+      ? 0
+      : 1 + (reviewMode === "compact" ? REVIEW_COMPACT_WIDTH : resolveReviewWidth(reviewWidth, terminalWidth));
+
+  // status badges sit right after the product word so they survive a header
+  // that is too narrow for the whole trail (the rail can eat the width)
   const headerItems: BreadcrumbItem[] = [
     { label: "cueloop", tone: "accent" },
-    { label: `${activeSession.artifact.meta.title ?? activeSession.artifact.meta.planPath ?? activeSession.id} · rev ${activeSession.revisions.length}`, tone: "dim" },
     ...(resolved ? [{ label: `resolved: ${activeSession.verdict!.kind.replace("_", " ")}`, tone: "green" as const }] : []),
     ...(observer ? [{ label: "observer", tone: "dim" as const }] : []),
     ...(role === "collaborator" ? [{ label: "shared · your notes save as you go", tone: "dim" as const }] : []),
-    ...(status ? [{ label: status, tone: "accent" as const }] : []),
+    { label: `${activeSession.artifact.meta.title ?? activeSession.artifact.meta.planPath ?? activeSession.id} · rev ${activeSession.revisions.length}`, tone: "dim" },
+    { label: `submitted by ${activeSession.artifact.meta.agent ?? "unknown"}`, tone: "dim" },
   ];
-
-  keyBindings.setContext({ overlay, spanMode: mode.type === "span" });
-  const hintMode: HintMode = observer
-    ? "read-only"
-    : mode.type === "submit"
-      ? "submit"
-      : mode.type === "span"
-        ? "span"
-        : mode.type === "compose" || mode.type === "railEdit"
-          ? "compose"
-          : walking
-            ? "walk"
-            : focusedAnnotationId !== undefined
-              ? "card"
-              : role === "collaborator"
-                ? "collaborator"
-                : "normal";
 
   return (
     <ThemeProvider theme={theme}>
@@ -526,7 +605,19 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
           controller.saveReviewPanel({ width: reviewWidthRef.current });
         }}
       >
-        <Breadcrumb items={headerItems} />
+        <box style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}>
+          <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
+            <Breadcrumb items={headerItems} />
+            <box style={{ flexGrow: 1 }} />
+            {isOwner && !isDiff && !resolved ? (
+              <Toolbar>
+                <Button onPress={onEditRequest} theme={theme}>{" Edit "}</Button>
+                <Button onPress={onShareRequest} theme={theme}>{" Share "}</Button>
+              </Toolbar>
+            ) : null}
+          </box>
+          <box style={{ width: railFootprint }} />
+        </box>
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
           {isDiff ? (
             // the sheet dims to reading-quiet colors while the wizard has focus
@@ -535,6 +626,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               cursor={cursor}
               annotations={activeSession.annotations}
               focusedAnnotationId={focusedAnnotationId}
+              compose={diffComposeState}
               theme={walking ? dimmedTheme(theme) : undefined}
             />
           ) : (
@@ -548,16 +640,11 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               compose={composeState}
               editOrphanCount={editOrphanCount}
               onLineActivate={onLineActivate}
-              onEditRequest={onEditRequest}
-              onShareRequest={onShareRequest}
-              canEdit={isOwner}
             />
           )}
           <ReviewPanel
             mode={reviewMode}
             width={resolveReviewWidth(reviewWidth, terminalWidth)}
-            height={terminalHeight - CHROME_ROWS}
-            dragging={dividerDragging}
             onDividerGrab={onDividerGrab}
             onToggle={onToggleReviewPanel}
             railRef={railRef}
@@ -577,19 +664,21 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
             }}
           />
         </box>
-        {mode.type === "compose" && isDiff ? (
-          <ComposeBar
-            kind={mode.kind}
-            quote={rows[mode.displayIndex]?.text ?? ""}
-            text={mode.text}
-            onInput={(text) => {
-              liveInput.current = text;
-              setMode({ ...mode, text });
-            }}
-          />
-        ) : (
-          <StatusBar>{keyBindings.statusHint(hintMode)}</StatusBar>
-        )}
+        <MenuBar
+          open={menuOpen}
+          version={CLIENT_VERSION}
+          status={status}
+          onToggle={() => setMenuOpen((isOpen) => !isOpen)}
+          onSettings={() => {
+            setMenuOpen(false);
+            setMenuDialog("settings");
+          }}
+          onKeybinds={() => {
+            setMenuOpen(false);
+            setMenuDialog("keybinds");
+          }}
+          theme={theme}
+        />
         {walking && walk !== null ? (
           <WalkWizard
             files={walkFileList}
@@ -627,6 +716,21 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
             value={mode.text}
             placeholder="your name"
             onInput={(text) => setMode({ ...mode, text })}
+            theme={theme}
+          />
+        ) : null}
+        {toast ? <Toast title={toast.title} body={toast.body} theme={theme} /> : null}
+        {menuDialog === "keybinds" ? <KeybindsDialog sections={keyBindings.cheatsheet()} theme={theme} /> : null}
+        {menuDialog === "settings" ? (
+          <SettingsDialog
+            isOpen
+            categories={settingsCategories}
+            values={settingsValues}
+            activeCategoryId={settingsNav.categoryId}
+            activeRowIndex={settingsNav.rowIndex}
+            activeZone={settingsNav.zone}
+            onCategorySelect={(id) => setSettingsNav({ categoryId: id, rowIndex: 0, zone: "body" })}
+            onRowActivate={(row) => cycleSetting(row.key)}
             theme={theme}
           />
         ) : null}

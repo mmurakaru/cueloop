@@ -80,6 +80,19 @@ describe("share", () => {
     // Assert
     expect(client.sessionSetShareId).toHaveBeenCalledWith("ses_1", "p_abc123xy");
   });
+
+  test("surfaces the ssh line as a toast, not an inline status", async () => {
+    // Arrange
+    const { controller } = await connectedController(sessionFixture());
+
+    // Act
+    controller.share();
+    await tick();
+
+    // Assert
+    expect(controller.getSnapshot().toast).toEqual({ body: "ssh p_abc123xy@cueloop.dev", title: "share link copied" });
+    expect(controller.getSnapshot().status).not.toContain("ssh p_abc123xy@cueloop.dev");
+  });
 });
 
 describe("pullShared", () => {

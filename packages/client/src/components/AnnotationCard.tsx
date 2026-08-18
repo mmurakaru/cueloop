@@ -32,8 +32,10 @@ export interface AnnotationSaved {
   isSelected: boolean;
   isOrphan: boolean;
   isBlocking: boolean;
-  /** Resolved author display name; own notes carry none. Set = name-in-border. */
+  /** A collaborator's resolved display name; own notes carry none. Set = name-in-border, blue. */
   authorLabel?: string;
+  /** The viewer's own note when collaborators are also present (e.g. "me"). Set = tag-in-border, accent. */
+  selfLabel?: string;
   /** Non-null while the card body is being rewritten in place. */
   editing: AnnotationDraft | null;
   onPress: () => void;
@@ -122,15 +124,15 @@ function DraftEditor({
         }}
         style={{
           height: rows,
-          backgroundColor: tokens.elevated,
-          focusedBackgroundColor: tokens.elevated,
+          backgroundColor: "transparent",
+          focusedBackgroundColor: "transparent",
           textColor: tokens.text,
           focusedTextColor: tokens.text,
         }}
       />
       <Toolbar>
         <Button variant="solid" marginRight={2} onPress={draft.onSave} theme={theme}>
-          {" Save ⏎ "}
+          {" Save "}
         </Button>
         <Button onPress={draft.onCancel} theme={theme}>
           {" Cancel esc "}
@@ -160,6 +162,7 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
         title={` ${verb} "${truncateToSingleLine(quote, 40)}" `}
         contentRows={editorRowCount + 1}
         borderColor={kindColor}
+        backgroundColor="transparent"
         marginLeft={2}
         marginRight={2}
         theme={theme}
@@ -169,24 +172,26 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
     );
   }
   const card = saved!;
-  // A collaborator's note (author set) renders as a named, bordered card; own notes stay borderless.
-  const authored = card.authorLabel !== undefined && card.authorLabel !== "";
-  const indent = authored ? "" : "  ";
+  const collaboratorName = card.authorLabel !== undefined && card.authorLabel !== "" ? card.authorLabel : undefined;
+  const ownTag = card.selfLabel !== undefined && card.selfLabel !== "" ? card.selfLabel : undefined;
+  const borderLabel = collaboratorName ?? ownTag;
+  const borderColor = ownTag ? tokens.accent : tokens.blue;
+  const indent = borderLabel ? "" : "  ";
   const marker = card.isSelected ? "▸ " : indent;
   // Fixed content rows (a bordered box must declare a height or it collapses): header + quote + body, or the editor.
   const contentRows = card.editing ? editorRowCount + 3 : 3;
   // The border + its side padding eat this much content width, so text truncates shorter.
-  const borderInset = authored ? 4 : 0;
+  const borderInset = borderLabel ? 4 : 0;
   return (
     <box
       id={id}
-      title={authored ? ` ${card.authorLabel} ` : undefined}
+      title={borderLabel ? ` ${borderLabel} ` : undefined}
       style={{
         flexDirection: "column",
-        marginBottom: 1,
-        backgroundColor: card.isSelected ? tokens.elevated : undefined,
-        ...(authored
-          ? { height: cardHeight(contentRows), border: true, borderStyle: FRAME_BORDER_STYLE, borderColor: tokens.blue, paddingLeft: 1, paddingRight: 1 }
+        marginBottom: 0,
+        backgroundColor: card.isSelected && !card.editing ? tokens.elevated : undefined,
+        ...(borderLabel
+          ? { height: cardHeight(contentRows), border: true, borderStyle: FRAME_BORDER_STYLE, borderColor, paddingLeft: 1, paddingRight: 1 }
           : {}),
       }}
       onMouseUp={card.onPress}

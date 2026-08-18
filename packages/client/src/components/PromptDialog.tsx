@@ -55,7 +55,7 @@ export function PromptDialog({ isOpen, title, label, value, placeholder, onInput
           }}
         />
         <box style={{ flexGrow: 1 }} />
-        <text fg={tokens.textDim}>⏎ save · esc cancel</text>
+        <text fg={tokens.textDim}>enter save · esc cancel</text>
       </box>
     </Dialog>
   );

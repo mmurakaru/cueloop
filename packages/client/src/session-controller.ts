@@ -50,10 +50,16 @@ export const DEFAULT_AUTO_CLOSE = 5;
 /** How often an open shared plan re-pulls collaborator notes (ADR 0005 stage 2). */
 export const SHARE_POLL_MS = 4000;
 
+export interface ToastState {
+  title?: string;
+  body: string;
+}
+
 export interface ControllerSnapshot {
   session: ReviewSession | null;
   inbox: ReviewSession[] | null;
   status: string;
+  toast: ToastState | null;
   error: string | null;
   completion: Completion;
   /**
@@ -96,6 +102,8 @@ export interface ReviewController {
   /** Loaded config parts the controller acts on: auto-close and exporters. */
   applyConfig(config: CueloopConfig): void;
   setStatus(message: string): void;
+  showToast(body: string, title?: string): void;
+  dismissToast(): void;
   /** Derived projections, cached per session identity. */
   display(): DisplayBlock[];
   rows(): DiffRow[];
@@ -161,6 +169,7 @@ class Controller implements ReviewController {
     session: null,
     inbox: null,
     status: "",
+    toast: null,
     error: null,
     completion: { phase: "idle" },
     editOrphanCount: 0,
@@ -246,6 +255,14 @@ class Controller implements ReviewController {
 
   setStatus(message: string): void {
     this.update({ status: message });
+  }
+
+  showToast(body: string, title?: string): void {
+    this.update({ toast: { body, title } });
+  }
+
+  dismissToast(): void {
+    if (this.snapshot.toast) this.update({ toast: null });
   }
 
   // ── derived projections ─────────────────────
@@ -515,7 +532,8 @@ class Controller implements ReviewController {
         // Stamp the id back so a later pull knows which share to collect from.
         const shareId = shareIdFromLine(line);
         if (shareId && this.client) await this.client.sessionSetShareId(session.id, shareId);
-        this.setStatus(copied ? `✓ share link copied - ${line}` : line);
+        this.setStatus(copied ? "✓ share link copied" : "share link ready");
+        this.showToast(line, copied ? "share link copied" : "share link");
       })
       .catch((error: unknown) => this.setStatus(`share failed: ${error instanceof Error ? error.message : String(error)}`));
   }

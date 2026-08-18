@@ -221,7 +221,7 @@ describe("inline compose keeps the anchor painted", () => {
     // Assert
     // compose open: the anchor is painted selection-style. The box can render
     // a frame before the anchor repaint settles, so wait on the color itself.
-    await waitForText(setup, "Save ⏎");
+    await waitForText(setup, "Save");
     expect(setup.captureCharFrame()).toContain("Cancel esc");
     await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(T.accent));
     expect(backgroundsOf(setup, "The daemon")).toContain(T.accent);
@@ -432,7 +432,7 @@ describe("addressed annotations leave the open list", () => {
     const frame = setup.captureCharFrame();
     expect(frame).toContain("✓ 1 addressed by revision");
     expect(frame).not.toContain("settled note");
-    expect(frame).toContain("Review (1)"); // the addressed card no longer counts as pending
+    expect(frame).toContain("still open note"); // the open card survives; the addressed one does not
     expect(backgroundsOf(setup, "The daemon")).not.toContain(T.markCommentBackground); // no highlight paint
   });
 });
@@ -444,7 +444,8 @@ describe("sheet header", () => {
 
     // Assert
     const frame = setup.captureCharFrame();
-    expect(frame).toContain("submitted by agent/worker-3 · revision 1");
+    expect(frame).toContain("submitted by agent/worker-3");
+    expect(frame).toContain("rev 1");
     expect(frame).toContain("Edit");
     expect(frame).toContain("Share");
   });
@@ -453,7 +454,7 @@ describe("sheet header", () => {
     // Arrange
     const setup = await renderApp();
     const lines = setup.captureCharFrame().split("\n");
-    const tabRow = lines.findIndex((line) => line.includes("Review (0)"));
+    const tabRow = lines.findIndex((line) => line.includes("Review") && line.includes("Agent"));
     const tabColumn = lines[tabRow]!.indexOf("Agent");
 
     // Act

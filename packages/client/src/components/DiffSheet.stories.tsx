@@ -18,6 +18,24 @@ export const CursorOnAddedLine: Story = {
   size: { width: 90, height: 16 },
 };
 
+export const ComposingOnLine: Story = {
+  render: () => (
+    <DiffSheet
+      rows={fixtureDiffRows()}
+      cursor={4}
+      annotations={[]}
+      compose={{
+        kind: "comment",
+        rowIndex: 4,
+        quote: "  private items = new Map();",
+        draft: { text: "Map needs an eviction story.", onInput: () => {}, onSave: () => {}, onCancel: () => {} },
+      }}
+    />
+  ),
+  expectedColors: [DARK.accent],
+  size: { width: 90, height: 16 },
+};
+
 export const AnnotatedLine: Story = {
   render: () => (
     <DiffSheet

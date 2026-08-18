@@ -26,6 +26,15 @@ export interface KeyLayerContext {
 /** Hint templates keyed by the same view states the status line shows. */
 export type HintMode = "normal" | "collaborator" | "card" | "span" | "compose" | "submit" | "walk" | "read-only";
 
+export interface CheatsheetEntry {
+  keys: string;
+  label: string;
+}
+export interface CheatsheetSection {
+  title: string;
+  entries: CheatsheetEntry[];
+}
+
 type HintEntry =
   | { text: string }
   | { commands: string[]; label: string; labelFirst?: boolean };
@@ -97,8 +106,8 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
 
 /** Status-line glyphs for named keys. */
 const KEY_GLYPHS: Record<string, string> = {
-  return: "⏎",
-  enter: "⏎",
+  return: "enter",
+  enter: "enter",
   escape: "esc",
   left: "←",
   right: "→",
@@ -359,5 +368,35 @@ export class KeyBindings {
       else fragments.push(entry.labelFirst ? `${entry.label} ${keyPart}` : `${keyPart} ${entry.label}`);
     }
     return fragments.join(" · ");
+  }
+
+  /**
+   * The full keybinding cheatsheet, grouped by mode. Each section sets the
+   * layer context so getActiveKeys resolves that mode's real bindings, then
+   * restores it - a rebound key shows its live binding here too.
+   */
+  cheatsheet(): CheatsheetSection[] {
+    const saved = this.context;
+    const build = (context: KeyLayerContext, mode: HintMode, title: string): CheatsheetSection => {
+      this.context = context;
+      const entries: CheatsheetEntry[] = [];
+      for (const entry of HINT_TEMPLATES[mode]) {
+        if ("text" in entry || !entry.label) continue;
+        const keys = entry.commands
+          .map((command) => this.keyDisplayFor(command))
+          .filter((display): display is string => display !== null)
+          .join(" / ");
+        if (keys) entries.push({ keys, label: entry.label });
+      }
+      return { title, entries };
+    };
+    const sections = [
+      build({ overlay: "none", spanMode: false }, "normal", "Review"),
+      build({ overlay: "none", spanMode: true }, "span", "Selection"),
+      build({ overlay: "submit", spanMode: false }, "submit", "Submit"),
+      build({ overlay: "walk", spanMode: false }, "walk", "Walk"),
+    ];
+    this.context = saved;
+    return sections.filter((section) => section.entries.length > 0);
   }
 }

@@ -10,7 +10,7 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { loadConfig } from "./config";
-import { isolateUserConfig, press, waitForText, waitForTextGone } from "./test-support";
+import { isolateUserConfig, press, settle, waitForText, waitForTextGone } from "./test-support";
 
 const PLAN = "# Plan\n\nShip the thing.\n";
 
@@ -47,26 +47,30 @@ describe("review panel", () => {
   test("b cycles expanded -> compact -> hidden -> expanded", async () => {
     // Arrange
     const setup = await renderApp();
+    // the plan frame widens as the rail shrinks: expanded < compact < hidden.
+    // its width is the column of its top-right corner (the first ╮ on the row).
+    const planWidth = () => setup.captureCharFrame().split("\n").find((line) => line.includes("╮"))?.indexOf("╮") ?? 0;
 
-    // Assert
-    expect(setup.captureCharFrame()).toContain("Submit review"); // expanded rail
-
-    // Act
-    await press(setup, "b");
-
-    // Assert
-    await waitForText(setup, "«");
-    let frame = setup.captureCharFrame();
-    expect(frame).toContain("«"); // compact strip shows the expand chevron
-    expect(frame).not.toContain("Submit review");
+    // Assert: expanded shows the submit button and leaves room for the rail
+    expect(setup.captureCharFrame()).toContain("Submit review");
+    const expandedWidth = planWidth();
 
     // Act
     await press(setup, "b");
 
-    // Assert
-    frame = await waitForTextGone(setup, "«");
-    expect(frame).not.toContain("«"); // hidden: no strip, no divider
-    expect(frame).not.toContain("│");
+    // Assert: compact drops the submit button and widens the plan (rail is a strip)
+    await waitForTextGone(setup, "Submit review");
+    const compactWidth = planWidth();
+    expect(compactWidth).toBeGreaterThan(expandedWidth);
+
+    // Act
+    await press(setup, "b");
+    await settle(setup);
+
+    // Assert: hidden spans the plan full width, no rail column
+    const hiddenWidth = planWidth();
+    expect(hiddenWidth).toBeGreaterThan(compactWidth);
+    expect(hiddenWidth).toBeGreaterThan(115);
 
     // Act
     await press(setup, "b");
