@@ -188,7 +188,7 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
       title={borderLabel ? ` ${borderLabel} ` : undefined}
       style={{
         flexDirection: "column",
-        marginBottom: 1,
+        marginBottom: 0,
         backgroundColor: card.isSelected && !card.editing ? tokens.elevated : undefined,
         ...(borderLabel
           ? { height: cardHeight(contentRows), border: true, borderStyle: FRAME_BORDER_STYLE, borderColor, paddingLeft: 1, paddingRight: 1 }

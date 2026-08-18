@@ -744,17 +744,17 @@ exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carr
 " The plan takes the width the panel hands back.          ╭─────────────────────╮
                                                          │ Review  Agent       │
                                                          ╰─────────────────────╯
+                                                         ▸ COMMENT · pending    
+                                                           "persists sessions"  
+                                                           Which daemon owns    
+                                                         this?                  
+                                                           SUGGESTION · pending 
+                                                           "move the store"     
+                                                           move the store       
+                                                         behind one i…          
                                                                                 
-                                                           ▸ COMMENT · pending  
-                                                             "persists sessions"
-                                                             Which daemon owns  
-                                                           this?                
                                                                                 
-                                                             SUGGESTION ·       
-                                                           pending              
-                                                             "move the store"   
-                                                             move the store     
-                                                           behind one i…        
+                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -772,14 +772,14 @@ exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carrie
 " The plan takes the width the panel      ╭───────────────────────────────────────────────╮
  hands back.                             │ Review  Agent                                 │
                                          ╰───────────────────────────────────────────────╯
+                                         ▸ COMMENT · pending                              
+                                           "persists sessions"                            
+                                           Which daemon owns this?                        
+                                           SUGGESTION · pending                           
+                                           "move the store"                               
+                                           move the store behind one i…                   
                                                                                           
-                                           ▸ COMMENT · pending                            
-                                             "persists sessions"                          
-                                             Which daemon owns this?                      
                                                                                           
-                                             SUGGESTION · pending                         
-                                             "move the store"                             
-                                             move the store behind one i…                 
                                                                                           
                                                                                           
                                                                                           
@@ -856,14 +856,14 @@ exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carr
 " ╭───────────────────────────────╮      
  │ Review  Agent                 │      
  ╰───────────────────────────────╯      
+ ▸ COMMENT · pending                    
+   "persists sessions"                  
+   Which daemon owns this?              
+   SUGGESTION · pending                 
+   "move the store"                     
+   move the store behind one i…         
                                         
-   ▸ COMMENT · pending                  
-     "persists sessions"                
-     Which daemon owns this?            
                                         
-     SUGGESTION · pending               
-     "move the store"                   
-     move the store behind one i…       
                                         
                                         
                                         
@@ -884,18 +884,18 @@ exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and 
 " ╭───────────────────────────────╮      
  │ Review  Agent                 │      
  ╰───────────────────────────────╯      
+ ╭─ me ──────────────────────────╮      
+ │ ▸ COMMENT · pending           │      
+ │ "persists sessions"           │      
+ │ Which daemon owns this?       │      
+ ╰───────────────────────────────╯      
+ ╭─ Priya ───────────────────────╮      
+ │ SUGGESTION · pending          │      
+ │ "move the store"              │      
+ │ move it behind one inte…      │      
+ ╰───────────────────────────────╯      
                                         
-   ╭─ me ────────────────────────╮      
-   │ ▸ COMMENT · pending         │      
-   │ "persists sessions"         │      
-   │ Which daemon owns this?     │      
-   ╰─────────────────────────────╯      
                                         
-   ╭─ Priya ─────────────────────╮      
-   │ SUGGESTION · pending        │      
-   │ "move the store"            │      
-   │ move it behind one inte…    │      
-   ╰─────────────────────────────╯      
                                         
                                         
                                         
@@ -912,14 +912,14 @@ exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its
 " ╭───────────────────────────────╮      
  │ Review  Agent                 │      
  ╰───────────────────────────────╯      
+   COMMENT · ORPHANED                   
+   "persists sessions"                  
+   Which daemon owns this?              
+   SUGGESTION · ORPHANED                
+   "move the store"                     
+   move the store behind one i…         
                                         
-     COMMENT · ORPHANED                 
-     "persists sessions"                
-     Which daemon owns this?            
                                         
-     SUGGESTION · ORPHANED              
-     "move the store"                   
-     move the store behind one i…       
                                         
                                         
                                         
@@ -940,14 +940,14 @@ exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and ca
 " ╭───────────────────────────────╮      
  │ Review  Agent                 │      
  ╰───────────────────────────────╯      
+   COMMENT · ORPHANED                   
+   "persists sessions"                  
+   Which daemon owns this?              
+   SUGGESTION · ORPHANED                
+   "move the store"                     
+   move the store behind one i…         
                                         
-     COMMENT · ORPHANED                 
-     "persists sessions"                
-     Which daemon owns this?            
                                         
-     SUGGESTION · ORPHANED              
-     "move the store"                   
-     move the store behind one i…       
                                         
                                         
                                         

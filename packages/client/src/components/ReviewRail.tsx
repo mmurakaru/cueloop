@@ -113,8 +113,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
           <text fg={tokens.textDim}>{session.annotations.length === 0 ? "no annotations yet" : "all annotations addressed"}</text>
         </box>
       ) : (
-        <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 2 }}>
-          <text> </text>
+        <box style={{ flexGrow: 1, flexDirection: "column" }}>
           {session.workingCopy !== undefined ? <text fg={tokens.textDim}>± plan edits → one diff</text> : null}
           {addressedCount > 0 ? <text fg={tokens.textDim}>✓ {addressedCount} addressed by revision</text> : null}
           <scrollbox ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
