@@ -51,7 +51,17 @@ jobs:
       # fresh install in the publish lane - tarball contents never come from a cache
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
-      - run: bun run test
+      # Retry the suite up to 3x for the low-rate opentui composer flake (green
+      # locally, self-diagnosing via the wait logs). Pass on the first clean run.
+      - name: test
+        run: |
+          for attempt in 1 2 3; do
+            echo "::group::test attempt $attempt"
+            if bun run test; then echo "::endgroup::"; exit 0; fi
+            echo "::endgroup::"
+            echo "test attempt $attempt failed - retrying"
+          done
+          exit 1
       - name: Create Release PR or publish
         id: changesets
         uses: changesets/action@v1

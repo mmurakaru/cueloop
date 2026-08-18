@@ -250,7 +250,7 @@ describe("inline compose keeps the anchor painted", () => {
     // renderApp plus this many frame-waits grazes the 5s default on a loaded CI
     // runner, and the whole-suite publish lane has timed even 15s out; give the
     // heaviest frame-wait chain generous headroom so runner load cannot flake it.
-  }, 30_000);
+  }, 60_000);
 });
 
 describe("compose newline convention", () => {

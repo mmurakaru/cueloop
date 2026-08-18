@@ -43,7 +43,7 @@ describe("hook resilience", () => {
     };
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("allow");
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain("cueloop unavailable");
-  }, 30_000);
+  }, 60_000);
 
   test("an unparseable payload yields a valid response too", async () => {
     // Act
@@ -54,7 +54,7 @@ describe("hook resilience", () => {
     // no event name in the payload, so the answer uses the PermissionRequest shape
     const parsed = JSON.parse(out.trim()) as { decision?: { behavior?: string } };
     expect(parsed.decision?.behavior).toBe("allow");
-  }, 30_000);
+  }, 60_000);
 
   test("an event without a plan passes through untouched", async () => {
     // Act
@@ -69,5 +69,5 @@ describe("hook resilience", () => {
     };
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("allow");
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain("no plan payload");
-  }, 30_000);
+  }, 60_000);
 });

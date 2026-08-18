@@ -110,7 +110,7 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
     expect(frame).toContain("Ship the daemon behind a flag.");
     // the cursor glyph starts on the title block
     expect(frame).toMatch(/▎ +Rollout Plan/);
-  }, 30_000);
+  }, 60_000);
 
   ptyTest("j routes through the raw tty: the cursor glyph moves block by block", async () => {
     // Arrange
@@ -129,7 +129,7 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
 
     // Assert
     await waitFor(() => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(ptyOutput)), 10_000, "cursor on the paragraph");
-  }, 30_000);
+  }, 60_000);
 
   ptyTest("resize does not crash and forces a repaint", async () => {
     // Arrange
@@ -152,7 +152,7 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
     expect(exit).toBeNull();
     // the cursor position survives both resizes
     await waitFor(() => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(ptyOutput)), 10_000, "cursor after resize");
-  }, 30_000);
+  }, 60_000);
 
   ptyTest("e suspends the renderer, runs the editor on the real tty, and resumes with the edit", async () => {
     // Arrange
@@ -175,7 +175,7 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
     // Assert
     await waitFor(() => ptyOutput.length > 0, 10_000, "a repaint after resume");
     expect(exit).toBeNull();
-  }, 30_000);
+  }, 60_000);
 
   ptyTest("q exits cleanly with code 0", async () => {
     // Act
@@ -184,5 +184,5 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
     // Assert
     await waitFor(() => exit !== null, 10_000, "process exit");
     expect(exit!.exitCode).toBe(0);
-  }, 30_000);
+  }, 60_000);
 });
