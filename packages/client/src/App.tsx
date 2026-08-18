@@ -367,7 +367,9 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     if (menuDialog === "settings") return void handleSettingsKey(key.name);
     if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
     if (menuOpen) return void (key.name === "escape" && setMenuOpen(false));
-    if (toast && key.name === "escape") return controller.dismissToast();
+    // the toast is non-modal: escape only dismisses it when nothing else owns
+    // escape, so an open overlay (compose, submit, prompt, walk) still cancels
+    if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span") return controller.dismissToast();
     const state: KeyState = {
       keys: keysRef.current,
       readOnly: observer,
