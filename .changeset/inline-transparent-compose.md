@@ -20,3 +20,8 @@ Review surface refresh, all on the transparent theme:
 - Share now surfaces the ssh link as a centred, auto-dismissing toast (a new
   `Toast` primitive) instead of an inline status line. The submit-review card is
   transparent like the other dialogs.
+- Replace the always-on keybind bar with a bottom-left menu that drops up to a
+  keybinds cheatsheet and a settings dialog (auto-close and review panel,
+  persisted), and show the cueloop version at the bottom-right under the rail.
+- Put "Submit review" inline with the rail's collapse chevron on the plan's
+  bottom-border row and drop the trailing return glyph.

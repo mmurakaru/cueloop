@@ -16,17 +16,20 @@ import { type VerdictKind } from "@cueloop/schema";
 import { displayText, marksByDisplay, type Mark } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
-import { DEFAULT_KEYS, loadConfig, persistAuthorName } from "./config";
+import { DEFAULT_KEYS, loadConfig, persistAuthorName, persistAutoClose, type AutoClose } from "./config";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { createIntentDispatch, reviewerAnnotations, type Mode } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
-import { KeyBindings, type HintMode } from "./key-bindings";
+import { KeyBindings } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
-import { StatusBar } from "./components/primitives/StatusBar";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
+import { MenuBar } from "./components/MenuBar";
+import { KeybindsDialog } from "./components/KeybindsDialog";
+import { SettingsDialog, type SettingsCategory } from "./components/SettingsDialog";
+import { CLIENT_VERSION } from "./version";
 import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { DiffSheet } from "./components/DiffSheet";
@@ -118,6 +121,15 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   const [cursor, setCursor] = useState(0);
   const [inboxCursor, setInboxCursor] = useState(0);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
+  // the bottom-left menu drop-up and the centered dialog it opens
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
+  const [autoClose, setAutoClose] = useState<AutoClose>("off");
+  const [settingsNav, setSettingsNav] = useState<{ categoryId: string; rowIndex: number; zone: "nav" | "body" }>({
+    categoryId: "general",
+    rowIndex: 0,
+    zone: "body",
+  });
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<"review" | "agent">("review");
   // review panel layout: mode + expanded width are client view state, loaded
@@ -149,6 +161,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     setReviewWidth(config.ui.reviewWidth);
     reviewWidthRef.current = config.ui.reviewWidth;
     setAuthorNames(config.authors);
+    setAutoClose(config.ui.autoClose);
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings]);
   useEffect(
@@ -312,7 +325,54 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
               ? "walk"
               : "none";
 
+  // ── settings dialog: config-backed model, navigation, persistence ──
+  const settingsCategories: SettingsCategory[] = [
+    {
+      id: "general",
+      name: "General",
+      description: "submission behaviour",
+      rows: [{ key: "autoClose", label: "Auto-close on submit", kind: "cycle", options: ["off", "3s", "10s"] }],
+    },
+    {
+      id: "display",
+      name: "Display",
+      description: "the review panel",
+      rows: [{ key: "reviewPanel", label: "Review panel", kind: "cycle", options: ["expanded", "compact", "hidden"] }],
+    },
+  ];
+  const settingsValues = { autoClose: autoClose === "off" ? "off" : `${autoClose}s`, reviewPanel: reviewMode };
+  const cycleSetting = (rowKey: string): void => {
+    if (rowKey === "autoClose") {
+      const next: AutoClose = autoClose === "off" ? 3 : autoClose === 3 ? 10 : "off";
+      setAutoClose(next);
+      persistAutoClose(next);
+    } else if (rowKey === "reviewPanel") {
+      const order: ReviewPanelMode[] = ["expanded", "compact", "hidden"];
+      const next = order[(order.indexOf(reviewMode) + 1) % order.length]!;
+      setReviewMode(next);
+      controller.saveReviewPanel({ mode: next });
+    }
+  };
+  const handleSettingsKey = (name: string): void => {
+    if (name === "escape") return void setMenuDialog(null);
+    const categoryIndex = settingsCategories.findIndex((category) => category.id === settingsNav.categoryId);
+    const category = settingsCategories[categoryIndex]!;
+    if (settingsNav.zone === "nav") {
+      if (name === "j" || name === "down") setSettingsNav({ categoryId: settingsCategories[Math.min(settingsCategories.length - 1, categoryIndex + 1)]!.id, rowIndex: 0, zone: "nav" });
+      else if (name === "k" || name === "up") setSettingsNav({ categoryId: settingsCategories[Math.max(0, categoryIndex - 1)]!.id, rowIndex: 0, zone: "nav" });
+      else if (name === "l" || name === "tab" || name === "return") setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: 0 }));
+      return;
+    }
+    if (name === "j" || name === "down") setSettingsNav((state) => ({ ...state, rowIndex: Math.min(category.rows.length - 1, state.rowIndex + 1) }));
+    else if (name === "k" || name === "up") setSettingsNav((state) => ({ ...state, rowIndex: Math.max(0, state.rowIndex - 1) }));
+    else if (name === "h" || name === "tab") setSettingsNav((state) => ({ ...state, zone: "nav" }));
+    else if (name === "return" || name === "space") cycleSetting(category.rows[settingsNav.rowIndex]!.key);
+  };
+
   useKeyboard((key) => {
+    if (menuDialog === "settings") return void handleSettingsKey(key.name);
+    if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
+    if (menuOpen) return void (key.name === "escape" && setMenuOpen(false));
     if (toast && key.name === "escape") return controller.dismissToast();
     const state: KeyState = {
       keys: keysRef.current,
@@ -529,25 +589,7 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     ...(resolved ? [{ label: `resolved: ${activeSession.verdict!.kind.replace("_", " ")}`, tone: "green" as const }] : []),
     ...(observer ? [{ label: "observer", tone: "dim" as const }] : []),
     ...(role === "collaborator" ? [{ label: "shared · your notes save as you go", tone: "dim" as const }] : []),
-    ...(status ? [{ label: status, tone: "accent" as const }] : []),
   ];
-
-  keyBindings.setContext({ overlay, spanMode: mode.type === "span" });
-  const hintMode: HintMode = observer
-    ? "read-only"
-    : mode.type === "submit"
-      ? "submit"
-      : mode.type === "span"
-        ? "span"
-        : mode.type === "compose" || mode.type === "railEdit"
-          ? "compose"
-          : walking
-            ? "walk"
-            : focusedAnnotationId !== undefined
-              ? "card"
-              : role === "collaborator"
-                ? "collaborator"
-                : "normal";
 
   return (
     <ThemeProvider theme={theme}>
@@ -625,7 +667,21 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
             }}
           />
         </box>
-        <StatusBar>{keyBindings.statusHint(hintMode)}</StatusBar>
+        <MenuBar
+          open={menuOpen}
+          version={CLIENT_VERSION}
+          status={status}
+          onToggle={() => setMenuOpen((isOpen) => !isOpen)}
+          onSettings={() => {
+            setMenuOpen(false);
+            setMenuDialog("settings");
+          }}
+          onKeybinds={() => {
+            setMenuOpen(false);
+            setMenuDialog("keybinds");
+          }}
+          theme={theme}
+        />
         {walking && walk !== null ? (
           <WalkWizard
             files={walkFileList}
@@ -667,6 +723,20 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
           />
         ) : null}
         {toast ? <Toast title={toast.title} body={toast.body} theme={theme} /> : null}
+        {menuDialog === "keybinds" ? <KeybindsDialog sections={keyBindings.cheatsheet()} theme={theme} /> : null}
+        {menuDialog === "settings" ? (
+          <SettingsDialog
+            isOpen
+            categories={settingsCategories}
+            values={settingsValues}
+            activeCategoryId={settingsNav.categoryId}
+            activeRowIndex={settingsNav.rowIndex}
+            activeZone={settingsNav.zone}
+            onCategorySelect={(id) => setSettingsNav({ categoryId: id, rowIndex: 0, zone: "body" })}
+            onRowActivate={(row) => cycleSetting(row.key)}
+            theme={theme}
+          />
+        ) : null}
       </box>
     </ThemeProvider>
   );

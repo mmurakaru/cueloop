@@ -1,10 +1,9 @@
 /**
- * Tabs / TabList / Tab over the native tab-select renderable. The composition
- * follows the ARIA tabs pattern: Tabs owns the controlled selection
- * (`selectedKey` + `onSelectionChange`), TabList renders the strip, Tab
- * declares one item. Selection stays controlled from outside so the keyboard
- * grammar (not the strip) remains the key owner; clicks map through the
- * native tab geometry.
+ * Tabs / TabList / Tab: a transparent, full-width rounded strip of clickable
+ * text tabs. The composition follows the ARIA tabs pattern: Tabs owns the
+ * controlled selection (`selectedKey` + `onSelectionChange`), TabList renders
+ * the strip, Tab declares one item. Selection stays controlled from outside so
+ * the keyboard grammar remains the key owner; each tab click sets the key.
  */
 
 import React, { createContext, useContext } from "react";

@@ -149,30 +149,26 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
           </scrollbox>
         </box>
       )}
-      {/* the submit affordance stays pinned at the rail bottom, below the stack.
-          the card keeps full width; only the text affordances get the label indent */}
-      {railTab !== "agent" ? (
-        session.status === "resolved" ? (
-          <box style={{ paddingLeft: 2 }}>
+      {/* the confirm card keeps full width, above the footer row */}
+      {railTab !== "agent" && submitConfirm ? <ConfirmCard {...submitConfirm} theme={theme} /> : null}
+      {/* footer row: collapse chevron left-bound, the submit affordance inline
+          beside it, both on the rail's last row (the plan's bottom-border height) */}
+      <box style={{ flexDirection: "row", alignItems: "center" }}>
+        {onCollapse ? (
+          <box onMouseUp={onCollapse}>
+            <text fg={tokens.textDim}>{"» "}</text>
+          </box>
+        ) : null}
+        {railTab !== "agent" && !submitConfirm ? (
+          session.status === "resolved" ? (
             <text fg={tokens.green}>resolved: {session.verdict!.kind.replace("_", " ")}</text>
-          </box>
-        ) : submitConfirm ? (
-          <ConfirmCard {...submitConfirm} theme={theme} />
-        ) : (
-          <box style={{ paddingLeft: 2 }}>
+          ) : (
             <Button variant="accent-text" onPress={onSubmitRequest} theme={theme}>
-              {`Submit review (${pendingCount}) ⏎`}
+              {`Submit review (${pendingCount})`}
             </Button>
-          </box>
-        )
-      ) : null}
-      {/* the collapse chevron: muted, left-bound, one column from the divider.
-          » points right - it hands the width back toward the plan */}
-      {onCollapse ? (
-        <box style={{ flexDirection: "row" }} onMouseUp={onCollapse}>
-          <text fg={tokens.textDim}>»</text>
-        </box>
-      ) : null}
+          )
+        ) : null}
+      </box>
     </box>
   );
 });

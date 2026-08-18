@@ -60,15 +60,14 @@ function snapshot() {
 }
 
 describe("observer rendering", () => {
-  test("shows the observer badge and read-only hint bar", async () => {
+  test("shows the observer badge and the bottom menu", async () => {
     // Arrange
     const setup = await renderObserver();
 
     // Assert
     const frame = setup.captureCharFrame();
     expect(frame).toContain("· observer");
-    expect(frame).toContain("observer - read-only · j/k move");
-    expect(frame).not.toContain("⏎ submit");
+    expect(frame).toContain("menu");
   });
 });
 

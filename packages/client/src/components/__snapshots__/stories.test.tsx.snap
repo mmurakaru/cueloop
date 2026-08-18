@@ -490,6 +490,58 @@ exports[`stories catalog InboxList/TwoPending renders, snapshots, and carries it
 "
 `;
 
+exports[`stories catalog KeybindsDialog/Cheatsheet renders, snapshots, and carries its colors: KeybindsDialog/Cheatsheet 1`] = `
+"                                                                      
+                                                                      
+                                                                      
+                                                                      
+                                                                      
+         ╭─ keybinds ───────────────────────────────────────╮         
+         │                                                  │         
+         │ Review                                           │         
+         │ j / k       move                                 │         
+         │ v           span                                 │         
+         │ c           comment                              │         
+         │ ⏎           submit                               │         
+         │                                                  │         
+         │ Submit                                           │         
+         │ ← / →       verdict                              │         
+         │ esc         cancel                               │         
+         │                                                  │         
+         │                                            [esc] │         
+         ╰──────────────────────────────────────────────────╯         
+                                                                      
+                                                                      
+                                                                      
+                                                                      
+                                                                      
+"
+`;
+
+exports[`stories catalog MenuBar/Closed renders, snapshots, and carries its colors: MenuBar/Closed 1`] = `
+"                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+ menu ▴                                     v0.1.0-alpha.32 
+"
+`;
+
+exports[`stories catalog MenuBar/Open renders, snapshots, and carries its colors: MenuBar/Open 1`] = `
+"                                                            
+                                                            
+                                                            
+ ╭──────────────╮                                           
+ │ Settings     │                                           
+ │ Keybinds     │                                           
+ ╰──────────────╯                                           
+ menu ▾                                     v0.1.0-alpha.32 
+"
+`;
+
 exports[`stories catalog PlanSheet/AnnotatedPlan renders, snapshots, and carries its colors: PlanSheet/AnnotatedPlan 1`] = `
 "╭────────────────────────────────────────────────────────────────────────────────────────╮
 │   Migration Plan                                                                       │
@@ -711,8 +763,8 @@ exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carr
                                                                                 
                                                                                 
                                                                                 
-                                                           Submit review (2) ⏎  
-                                                         »                      
+                                                                                
+                                                         » Submit review (2)    
 "
 `;
 
@@ -739,8 +791,8 @@ exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carrie
                                                                                           
                                                                                           
                                                                                           
-                                           Submit review (2) ⏎                            
-                                         »                                                
+                                                                                          
+                                         » Submit review (2)                              
 "
 `;
 
@@ -824,7 +876,7 @@ exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carr
                                         
                                         
                                         
-   Submit review (2) ⏎                  
+ Submit review (2)                      
 "
 `;
 
@@ -852,7 +904,7 @@ exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and 
                                         
                                         
                                         
-   Submit review (2) ⏎                  
+ Submit review (2)                      
 "
 `;
 
@@ -880,7 +932,7 @@ exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its
                                         
                                         
                                         
-   resolved: approve                    
+ resolved: approve                      
 "
 `;
 
