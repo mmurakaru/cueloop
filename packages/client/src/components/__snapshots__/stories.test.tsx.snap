@@ -763,8 +763,8 @@ exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carr
                                                                                 
                                                                                 
                                                                                 
-                                                                                
                                                          » Submit review (2)    
+                                                                                
 "
 `;
 
@@ -791,8 +791,8 @@ exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carrie
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
                                          » Submit review (2)                              
+                                                                                          
 "
 `;
 
@@ -875,8 +875,8 @@ exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carr
                                         
                                         
                                         
-                                        
  Submit review (2)                      
+                                        
 "
 `;
 
@@ -903,8 +903,8 @@ exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and 
                                         
                                         
                                         
-                                        
  Submit review (2)                      
+                                        
 "
 `;
 
@@ -931,8 +931,8 @@ exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its
                                         
                                         
                                         
-                                        
  resolved: approve                      
+                                        
 "
 `;
 
@@ -957,7 +957,6 @@ exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and ca
                                         
                                         
                                         
-                                        
  ╭─ submit review ──────────────╮       
  │ 2 annotations · 0 blocking   │       
  │                              │       
@@ -967,6 +966,7 @@ exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and ca
  │                              │       
  │  Submit    Cancel            │       
  ╰──────────────────────────────╯       
+                                        
 "
 `;
 

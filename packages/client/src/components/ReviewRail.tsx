@@ -96,7 +96,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
   }));
 
   return (
-    <box style={{ width, backgroundColor: tokens.panel, flexDirection: "column", paddingLeft: 1 }}>
+    <box style={{ width, backgroundColor: tokens.panel, flexDirection: "column", paddingLeft: 1, paddingBottom: 1 }}>
       <Tabs selectedKey={railTab} onSelectionChange={(key) => onTabChange(key as RailTab)} theme={theme}>
         <TabList>
           <Tab id="review">{`Review (${pendingCount})`}</Tab>
