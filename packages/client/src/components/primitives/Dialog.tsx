@@ -15,11 +15,13 @@ export interface DialogProps {
   title?: string;
   width: number;
   height: number;
+  /** Solid panel fill for content-heavy dialogs; default transparent. */
+  background?: string;
   theme?: Theme;
   children: React.ReactNode;
 }
 
-export function Dialog({ isOpen, title, width, height, theme, children }: DialogProps): React.ReactNode {
+export function Dialog({ isOpen, title, width, height, background, theme, children }: DialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   if (!isOpen) return null;
   return (
@@ -42,6 +44,7 @@ export function Dialog({ isOpen, title, width, height, theme, children }: Dialog
           border: true,
           borderStyle: FRAME_BORDER_STYLE,
           borderColor: tokens.accent,
+          backgroundColor: background,
           flexDirection: "column",
         }}
         title={title}

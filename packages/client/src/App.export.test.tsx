@@ -52,7 +52,7 @@ describe("obsidian export on resolve", () => {
     await press(setup, "enter"); // open the submit overlay, keep the default verdict (approve)
 
     // Assert
-    await waitForText(setup, "verdict");
+    await waitForText(setup, "[Approve]");
 
     // Act
     await press(setup, "enter"); // submit

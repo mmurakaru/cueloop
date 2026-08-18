@@ -3,7 +3,7 @@
 exports[`stories catalog AnnotationCard/CommentDraft renders, snapshots, and carries its colors: AnnotationCard/CommentDraft 1`] = `
 "  ╭─ comment on "persists sessions" ─────────────────────────────────────────╮  
   │ Which daemon?                                                            │  
-  │  Save ⏎    Cancel esc                                                    │  
+  │  Save    Cancel esc                                                      │  
   ╰──────────────────────────────────────────────────────────────────────────╯  
                                                                                 
                                                                                 
@@ -32,7 +32,7 @@ exports[`stories catalog AnnotationCard/SavedEditing renders, snapshots, and car
 "▸ SUGGESTION · pending                                                          
   "move the store"                                                              
 new body                                                                        
- Save ⏎    Cancel esc                                                           
+ Save    Cancel esc                                                             
                                                                                 
                                                                                 
                                                                                 
@@ -115,7 +115,7 @@ exports[`stories catalog AnnotationCard/SavedSelected renders, snapshots, and ca
 exports[`stories catalog AnnotationCard/SuggestionDraft renders, snapshots, and carries its colors: AnnotationCard/SuggestionDraft 1`] = `
 "  ╭─ suggest replacement for "move the store" ───────────────────────────────╮  
   │ write a note...                                                          │  
-  │  Save ⏎    Cancel esc                                                    │  
+  │  Save    Cancel esc                                                      │  
   ╰──────────────────────────────────────────────────────────────────────────╯  
                                                                                 
                                                                                 
@@ -373,7 +373,7 @@ exports[`stories catalog ConfirmDialog/DeletePlan renders, snapshots, and carrie
      │ Delete "Auth rollout"? This removes the plan and   │     
      │ its review.                                        │     
      │                                                    │     
-     │  Delete ⏎  Cancel esc                              │     
+     │  Delete  Cancel esc                                │     
      ╰────────────────────────────────────────────────────╯     
                                                                 
                                                                 
@@ -411,7 +411,7 @@ exports[`stories catalog DiffSheet/ComposingOnLine renders, snapshots, and carri
 │ ▎  2 +  private items = new Map();                                                     │
 │   ╭─ comment on "  private items = new Map();" ─────────────────────────────────────╮  │
 │   │ Map needs an eviction story.                                                    │  │
-│   │  Save ⏎    Cancel esc                                                           │  │
+│   │  Save    Cancel esc                                                             │  │
 │   ╰─────────────────────────────────────────────────────────────────────────────────╯  │
 │   3  }                                                                                 │
 │                                                                                        │
@@ -469,7 +469,7 @@ exports[`stories catalog InboxList/Empty renders, snapshots, and carries its col
  nothing waiting for review                                                     
                                                                                 
                                                                                 
-  j/k move · ⏎ open · d delete · q quit                                         
+  j/k move · enter open · d delete · q quit                                     
                                                                                 
 "
 `;
@@ -485,7 +485,7 @@ exports[`stories catalog InboxList/TwoPending renders, snapshots, and carries it
                                                                                 
                                                                                 
                                                                                 
-  j/k move · ⏎ open · d delete · q quit                                         
+  j/k move · enter open · d delete · q quit                                     
                                                                                 
 "
 `;
@@ -502,7 +502,7 @@ exports[`stories catalog KeybindsDialog/Cheatsheet renders, snapshots, and carri
          │ j / k       move                                 │         
          │ v           span                                 │         
          │ c           comment                              │         
-         │ ⏎           submit                               │         
+         │ enter       submit                               │         
          │                                                  │         
          │ Submit                                           │         
          │ ← / →       verdict                              │         
@@ -583,7 +583,7 @@ exports[`stories catalog PlanSheet/InlineCompose renders, snapshots, and carries
 │ ▎ The daemon persists sessions to disk atomically.                                     │
 │   ╭─ comment on "The daemon" ───────────────────────────────────────────────────────╮  │
 │   │ Which daemon?                                                                   │  │
-│   │  Save ⏎    Cancel esc                                                           │  │
+│   │  Save    Cancel esc                                                             │  │
 │   ╰─────────────────────────────────────────────────────────────────────────────────╯  │
 │                                                                                        │
 │   Steps                                                                                │
@@ -683,7 +683,7 @@ exports[`stories catalog PromptDialog/NameYourself renders, snapshots, and carri
      │ Your name (optional) - it attributes the notes     │     
      │ you leave:                                         │     
      │ your name                                          │     
-     │ ⏎ save · esc cancel                                │     
+     │ enter save · esc cancel                            │     
      ╰────────────────────────────────────────────────────╯     
                                                                 
                                                                 
@@ -703,7 +703,7 @@ exports[`stories catalog PromptDialog/RenameAuthor renders, snapshots, and carri
      │ Display name for this collaborator:                │     
      │ Robin                                              │     
      │                                                    │     
-     │ ⏎ save · esc cancel                                │     
+     │ enter save · esc cancel                            │     
      ╰────────────────────────────────────────────────────╯     
                                                                 
                                                                 
@@ -1029,7 +1029,7 @@ exports[`stories catalog SettingsDialog/NavZone renders, snapshots, and carries 
             │                                                                          │            
             │                                                                          │            
             │                                                                          │            
-            │ j/k category · l/⏎ into settings · esc close                             │            
+            │ j/k category · l/enter into settings · esc close                         │            
             ╰──────────────────────────────────────────────────────────────────────────╯            
                                                                                                     
                                                                                                     
@@ -1223,7 +1223,7 @@ exports[`stories catalog primitives/Button/Disabled renders, snapshots, and carr
 `;
 
 exports[`stories catalog primitives/Button/Variants renders, snapshots, and carries its colors: primitives/Button/Variants 1`] = `
-" Save ⏎    Cancel esc   Submit review (2) ⏎                                     
+" Save    Cancel esc   Submit review                                             
                                                                                 
                                                                                 
                                                                                 

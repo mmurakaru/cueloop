@@ -14,5 +14,5 @@ export const AllKinds: Story = {
       <TextRow label="Vault path" value="~/vaults/notes" isActive={false} onPress={() => {}} />
     </box>
   ),
-  expectedColors: [DARK.green, DARK.accent, DARK.elevated],
+  expectedColors: [DARK.green, DARK.accent, DARK.border],
 };

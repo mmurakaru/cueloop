@@ -25,3 +25,7 @@ Review surface refresh, all on the transparent theme:
   persisted), and show the cueloop version at the bottom-right under the rail.
 - Put "Submit review" inline with the rail's collapse chevron on the plan's
   bottom-border row and drop the trailing return glyph.
+- Annotation cards share the tab box's width and stack tightly; the keybinds and
+  settings dialogs get a solid dark panel so their content stays legible.
+- Drop the `⏎` return glyph from every button and hint - the return key reads as
+  the word "enter" where a key needs naming, and buttons show their label alone.

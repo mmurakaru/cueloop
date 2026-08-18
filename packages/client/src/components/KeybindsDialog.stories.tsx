@@ -12,7 +12,7 @@ const SECTIONS = [
       { keys: "j / k", label: "move" },
       { keys: "v", label: "span" },
       { keys: "c", label: "comment" },
-      { keys: "⏎", label: "submit" },
+      { keys: "enter", label: "submit" },
     ],
   },
   {

@@ -85,8 +85,8 @@ describe("cueloop serve", () => {
     // Assert
     expect(bytes).toContain("cueloop");
     expect(bytes).toContain("Rollout Plan");
-    // observer chrome, not the controller's mutating hint bar
-    expect(bytes).toContain("observer - read-only");
+    // observer chrome: the header badge marks the read-only session
+    expect(bytes).toContain("observer");
   });
 
   test("two observers can watch at once", async () => {

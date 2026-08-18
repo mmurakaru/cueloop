@@ -57,6 +57,7 @@ export function SettingsDialog({
       title=" Settings "
       width={Math.min(76, terminalWidth - 6)}
       height={Math.min(22, terminalHeight - 4)}
+      background={tokens.elevated}
       theme={theme}
     >
       <box style={{ flexDirection: "row", flexGrow: 1 }}>
@@ -67,7 +68,7 @@ export function SettingsDialog({
             return (
               <box
                 key={candidate.id}
-                style={{ backgroundColor: isActive && activeZone === "nav" ? tokens.elevated : undefined }}
+                style={{ backgroundColor: isActive && activeZone === "nav" ? tokens.border : undefined }}
                 onMouseUp={() => onCategorySelect(candidate.id)}
               >
                 <text fg={isActive ? tokens.accent : tokens.textMuted}>{`${isActive ? "› " : "  "}${candidate.name}`}</text>
@@ -120,10 +121,10 @@ export function SettingsDialog({
           })}
         </box>
       </box>
-      <box style={{ flexDirection: "row", height: 1, backgroundColor: tokens.elevated, paddingLeft: 1 }}>
+      <box style={{ flexDirection: "row", height: 1, paddingLeft: 1 }}>
         <text fg={tokens.textDim}>
           {activeZone === "nav"
-            ? "j/k category · l/⏎ into settings · esc close"
+            ? "j/k category · l/enter into settings · esc close"
             : "j/k row · l/space change · h back · esc close"}
         </text>
       </box>

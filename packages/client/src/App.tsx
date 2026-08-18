@@ -576,13 +576,15 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
       ? 0
       : 1 + (reviewMode === "compact" ? REVIEW_COMPACT_WIDTH : resolveReviewWidth(reviewWidth, terminalWidth));
 
+  // status badges sit right after the product word so they survive a header
+  // that is too narrow for the whole trail (the rail can eat the width)
   const headerItems: BreadcrumbItem[] = [
     { label: "cueloop", tone: "accent" },
-    { label: `${activeSession.artifact.meta.title ?? activeSession.artifact.meta.planPath ?? activeSession.id} · rev ${activeSession.revisions.length}`, tone: "dim" },
-    { label: `submitted by ${activeSession.artifact.meta.agent ?? "unknown"}`, tone: "dim" },
     ...(resolved ? [{ label: `resolved: ${activeSession.verdict!.kind.replace("_", " ")}`, tone: "green" as const }] : []),
     ...(observer ? [{ label: "observer", tone: "dim" as const }] : []),
     ...(role === "collaborator" ? [{ label: "shared · your notes save as you go", tone: "dim" as const }] : []),
+    { label: `${activeSession.artifact.meta.title ?? activeSession.artifact.meta.planPath ?? activeSession.id} · rev ${activeSession.revisions.length}`, tone: "dim" },
+    { label: `submitted by ${activeSession.artifact.meta.agent ?? "unknown"}`, tone: "dim" },
   ];
 
   return (

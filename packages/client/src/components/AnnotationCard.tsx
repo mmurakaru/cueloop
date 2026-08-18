@@ -132,7 +132,7 @@ function DraftEditor({
       />
       <Toolbar>
         <Button variant="solid" marginRight={2} onPress={draft.onSave} theme={theme}>
-          {" Save ⏎ "}
+          {" Save "}
         </Button>
         <Button onPress={draft.onCancel} theme={theme}>
           {" Cancel esc "}

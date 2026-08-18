@@ -17,7 +17,7 @@ export function KeybindsDialog({ sections, theme }: KeybindsDialogProps): React.
   const width = Math.min(52, terminalWidth - 6);
   const height = Math.min(terminalHeight - 4, contentRows + 3);
   return (
-    <Dialog isOpen title=" keybinds " width={width} height={height} theme={theme}>
+    <Dialog isOpen title=" keybinds " width={width} height={height} background={tokens.elevated} theme={theme}>
       <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 1, paddingRight: 1, paddingTop: 1 }}>
         {sections.map((section) => (
           <box key={section.title} style={{ flexDirection: "column" }}>

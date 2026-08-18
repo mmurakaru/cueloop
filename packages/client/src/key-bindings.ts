@@ -106,8 +106,8 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
 
 /** Status-line glyphs for named keys. */
 const KEY_GLYPHS: Record<string, string> = {
-  return: "⏎",
-  enter: "⏎",
+  return: "enter",
+  enter: "enter",
   escape: "esc",
   left: "←",
   right: "→",

@@ -44,7 +44,7 @@ export function ConfirmDialog({
         <box style={{ flexGrow: 1 }} />
         <Toolbar>
           <Button variant="solid" onPress={onConfirm} theme={theme}>
-            {` ${confirmLabel} ⏎ `}
+            {` ${confirmLabel} `}
           </Button>
           <Button onPress={onCancel} theme={theme}>
             {` ${cancelLabel} esc `}

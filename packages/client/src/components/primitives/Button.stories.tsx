@@ -10,13 +10,13 @@ export const Variants: Story = {
   render: () => (
     <Toolbar>
       <Button variant="solid" marginRight={2} onPress={() => {}}>
-        {" Save ⏎ "}
+        {" Save "}
       </Button>
       <Button marginRight={2} onPress={() => {}}>
         {" Cancel esc "}
       </Button>
       <Button variant="accent-text" onPress={() => {}}>
-        {"Submit review (2) ⏎"}
+        {"Submit review"}
       </Button>
     </Toolbar>
   ),
