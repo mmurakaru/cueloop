@@ -34,7 +34,7 @@ export function unpackSessionBlob(bytes: Uint8Array): ReviewSession {
   try {
     json = gunzipSync(bytes, { maxOutputLength: MAX_BLOB_BYTES }).toString("utf8");
   } catch (err) {
-    throw new Error(`blob is not valid gzip or exceeds ${MAX_BLOB_BYTES} bytes: ${err instanceof Error ? err.message : String(err)}`);
+    throw new Error(`blob is not valid gzip or exceeds ${MAX_BLOB_BYTES} bytes: ${err instanceof Error ? err.message : String(err)}`, { cause: err });
   }
   let raw: unknown;
   try {

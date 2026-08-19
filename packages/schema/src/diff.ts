@@ -22,7 +22,9 @@ export function lcsDiff<T>(
 ): DiffOp<T>[] {
   const oldCount = oldItems.length;
   const newCount = newItems.length;
-  const longestCommon: number[][] = Array.from({ length: oldCount + 1 }, () => new Array<number>(newCount + 1).fill(0));
+  const longestCommon: number[][] = Array.from({ length: oldCount + 1 }, () =>
+    Array.from<number>({ length: newCount + 1 }, () => 0),
+  );
   for (let oldIndex = oldCount - 1; oldIndex >= 0; oldIndex--) {
     for (let newIndex = newCount - 1; newIndex >= 0; newIndex--) {
       longestCommon[oldIndex]![newIndex] = equals(oldItems[oldIndex]!, newItems[newIndex]!)
@@ -76,7 +78,7 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
     if (op.kind !== "del") newLineNumber++;
     return row;
   });
-  const keep = new Array<boolean>(rows.length).fill(false);
+  const keep = Array.from<boolean>({ length: rows.length }, () => false);
   rows.forEach((row, rowIndex) => {
     if (row.kind !== "ctx") {
       for (

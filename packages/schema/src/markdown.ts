@@ -26,7 +26,7 @@ function isMarkerLine(line: string): boolean {
     line.startsWith("## ") ||
     line.startsWith("### ") ||
     line.startsWith("> ") ||
-    /^- /.test(line) ||
+    line.startsWith('- ') ||
     /^\d+\. /.test(line) ||
     /^(---|\*\*\*|___)\s*$/.test(line)
   );
@@ -74,7 +74,7 @@ export function parseBlocks(markdown: string): Block[] {
         lineIndex++;
       }
       blocks.push({ kind: "quote", text: body.join("\n"), lineStart: start, lineEnd: lineIndex - 1 });
-    } else if (/^- /.test(line)) {
+    } else if (line.startsWith('- ')) {
       blocks.push({ kind: "li", text: line.slice(2), lineStart: lineIndex, lineEnd: lineIndex });
       lineIndex++;
     } else if (/^\d+\. /.test(line)) {

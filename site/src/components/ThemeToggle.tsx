@@ -56,6 +56,7 @@ export default function ThemeToggle() {
 
   useEffect(() => {
     const stored = typeof localStorage !== "undefined" ? localStorage.getItem("cueloop-theme") : null;
+    // oxlint-disable-next-line react/set-state-in-effect -- localStorage is unavailable during SSR, so read the stored pref after hydration
     setPref(isPref(stored) ? stored : "system");
   }, []);
 

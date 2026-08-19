@@ -81,7 +81,7 @@ export interface KeyState {
 /** Verbs that write session state; an observer never reaches their handlers. */
 const MUTATING_ACTIONS = new Set(["comment", "suggest", "cut", "edit", "delete_annotation", "submit", "walk", "share"]);
 
-const SPAN_KEYS = ["l", "h", "w", "b", "$", "0"];
+const SPAN_KEYS = new Set(["l", "h", "w", "b", "$", "0"]);
 
 function status(message: string): Intent[] {
   return [{ type: "status", message }];
@@ -210,7 +210,7 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 
 function spanGrammar(name: string): Intent[] {
   if (name === "escape") return [{ type: "closeOverlay" }];
-  if (SPAN_KEYS.includes(name)) return [{ type: "spanKey", name }];
+  if (SPAN_KEYS.has(name)) return [{ type: "spanKey", name }];
   if (name === "c" || name === "s") {
     return [{ type: "openCompose", kind: name === "s" ? "suggestion" : "comment", from: "span" }];
   }

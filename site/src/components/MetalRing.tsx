@@ -250,6 +250,7 @@ export default function MetalRing({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const themeRef = useRef(theme);
+  // oxlint-disable-next-line react/refs -- latest-value ref read only inside the WebGL loop; render-time sync keeps it current without re-running the effect
   themeRef.current = theme;
 
   useEffect(() => {

@@ -48,7 +48,8 @@ function sshCapture(port: number, until: (frame: string) => boolean, timeoutMs =
       done = true;
       clearTimeout(timer);
       conn.end();
-      err ? reject(err) : resolve(out);
+      if (err) reject(err);
+      else resolve(out);
     };
     const timer = setTimeout(() => finish(new Error(`timed out; captured:\n${out}`)), timeoutMs);
     conn

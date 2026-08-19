@@ -118,20 +118,19 @@ export class DaemonServer {
     // safe now: holding the lock means no live daemon owns this home, so any
     // socket file left behind is stale
     if (existsSync(path)) rmSync(path, { force: true });
-    const self = this;
     this.server = Bun.listen<{ buffer: LineBuffer; connection: Connection; writer: BackpressureWriter }>({
       unix: path,
       socket: {
-        open(socket) {
+        open: (socket) => {
           const writer = new BackpressureWriter(socket);
           const connection: Connection = { write: (data) => writer.write(data), subscribed: false };
           socket.data = { buffer: new LineBuffer(), connection, writer };
-          self.connections.add(connection);
-          self.scheduleIdleCheck();
+          this.connections.add(connection);
+          this.scheduleIdleCheck();
         },
-        data(socket, data) {
+        data: (socket, data) => {
           socket.data.buffer.push(data.toString(), (line) => {
-            void self.respondToRequestLine(socket.data.connection, line);
+            void this.respondToRequestLine(socket.data.connection, line);
           });
         },
         drain(socket) {
@@ -139,9 +138,9 @@ export class DaemonServer {
           // a throw here would take the whole daemon down with the socket
           socket.data?.writer.drain();
         },
-        close(socket) {
-          self.connections.delete(socket.data.connection);
-          self.scheduleIdleCheck();
+        close: (socket) => {
+          this.connections.delete(socket.data.connection);
+          this.scheduleIdleCheck();
         },
         error() {},
       },

@@ -9,7 +9,6 @@ import { DaemonClient } from "@cueloop/daemon/client";
 import { openReview } from "@cueloop/daemon/review";
 import type { ReviewSession } from "@cueloop/schema";
 import type {
-  PiContext,
   PiExtensionAPI,
   PiToolDefinition,
   PiToolResult,

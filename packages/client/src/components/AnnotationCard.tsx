@@ -107,7 +107,7 @@ function DraftEditor({
     editor.cursorOffset = initialTextLength.current;
     // the box is laid out now, so its width is known: size to the wrapped body
     onRowsChange(composeRowCount(editor.plainText, editor.width));
-  }, []);
+  }, [onRowsChange]);
   return (
     <>
       <textarea

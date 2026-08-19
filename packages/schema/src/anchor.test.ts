@@ -96,7 +96,6 @@ describe("anchor cascade", () => {
 
   test("trimmed-quote fallback marks the resolution approximate", () => {
     // Arrange
-    const blocks = blocksOf("some text here");
     const anchor = { quote: " text ", prefix: "some", suffix: "here", blockIndex: 0, start: 4, end: 10 };
     const edited = blocksOf("some\ntext\nhere");
     // " text " (with spaces) is gone, "text" survives

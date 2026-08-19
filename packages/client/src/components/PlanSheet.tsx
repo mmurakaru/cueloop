@@ -85,7 +85,6 @@ function positionOfRenderedOffset(renderable: TextRenderable, renderedOffset: nu
 
 export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function PlanSheet(
   {
-    session,
     display,
     marks,
     cursor,

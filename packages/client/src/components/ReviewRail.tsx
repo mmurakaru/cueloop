@@ -65,7 +65,6 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
     selectedId,
     resolvedIds,
     railTab,
-    pendingCount,
     cardEdit,
     submitConfirm,
     onTabChange,

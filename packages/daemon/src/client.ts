@@ -82,20 +82,19 @@ export class DaemonClient implements SessionClient {
 
   private async dial(path: string): Promise<void> {
     const buffer = new LineBuffer();
-    const self = this;
     this.socket = await Bun.connect({
       unix: path,
       socket: {
-        data(_socket, data) {
-          buffer.push(data.toString(), (line) => self.routeInboundFrame(line));
+        data: (_socket, data) => {
+          buffer.push(data.toString(), (line) => this.routeInboundFrame(line));
         },
-        drain() {
-          self.writer?.drain();
+        drain: () => {
+          this.writer?.drain();
         },
-        close() {
-          self.closed = true;
-          for (const pendingRequest of self.pending.values()) pendingRequest.reject(new Error("daemon connection closed"));
-          self.pending.clear();
+        close: () => {
+          this.closed = true;
+          for (const pendingRequest of this.pending.values()) pendingRequest.reject(new Error("daemon connection closed"));
+          this.pending.clear();
         },
         error() {},
       },

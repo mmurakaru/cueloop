@@ -53,8 +53,6 @@ async function renderApp(options: { readOnly?: boolean } = {}) {
   return setup;
 }
 
-type Setup = Awaited<ReturnType<typeof renderApp>>;
-
 /** Seed annotations directly through the daemon core (all on one block). */
 function seedAnnotations(count: number): void {
   const blocks = parseBlocks(PLAN);
