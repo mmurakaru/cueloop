@@ -16,6 +16,7 @@ import {
   type Annotation,
   type Artifact,
   type ArtifactMeta,
+  type DiffFileContents,
   type Identity,
   type ReviewSession,
   type Revision,
@@ -50,10 +51,17 @@ export const ArtifactMetaSchema = v.object({
   title: v.optional(v.string()),
 } satisfies EntriesOf<ArtifactMeta>);
 
+export const DiffFileContentsSchema = v.object({
+  path: NonEmpty,
+  oldContents: v.string(),
+  newContents: v.string(),
+} satisfies EntriesOf<DiffFileContents>);
+
 export const ArtifactSchema = v.object({
   type: v.picklist(["plan", "diff"]),
   content: v.string(),
   meta: v.optional(ArtifactMetaSchema, {}),
+  files: v.optional(v.array(DiffFileContentsSchema)),
 } satisfies EntriesOf<Artifact>);
 
 export const AnchorSchema = v.object({

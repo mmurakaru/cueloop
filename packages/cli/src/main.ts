@@ -173,7 +173,7 @@ async function diffCommand(argv: string[]): Promise<number> {
 
   const workspace = await resolveWorkspace();
   const diff = await workingTreeDiff();
-  if (!diff.trim()) {
+  if (!diff.patch.trim()) {
     return openReviewOfKind(
       isDiffReview,
       "diff",
@@ -184,7 +184,8 @@ async function diffCommand(argv: string[]): Promise<number> {
   const client = await DaemonClient.connect({ autostart: true });
   const review = await openReview(client, {
     type: "diff",
-    content: diff,
+    content: diff.patch,
+    files: diff.files,
     workspace,
     title: `working tree @ ${workspace.branch}`,
   });

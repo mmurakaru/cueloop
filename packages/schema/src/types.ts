@@ -28,11 +28,23 @@ export interface ArtifactMeta {
   title?: string;
 }
 
+/** Full old/new contents of one changed file, keyed by its repo-relative path. */
+export interface DiffFileContents {
+  path: string;
+  oldContents: string;
+  newContents: string;
+}
+
 export interface Artifact {
   type: ArtifactType;
   /** Markdown source for plans; unified-diff text for diffs. */
   content: string;
   meta: ArtifactMeta;
+  /**
+   * Full file contents for a diff artifact, so hunk curation produces an
+   * exactly applyable patch; absent for legacy or partial (PR) diffs.
+   */
+  files?: DiffFileContents[];
 }
 
 /**

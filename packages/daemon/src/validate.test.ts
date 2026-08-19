@@ -190,7 +190,12 @@ describe("wire pins", () => {
     resolution: { revision: 2, source: "agent" },
     createdAt: "now",
   };
-  const fullArtifact: Required<Artifact> = { type: "plan", content: "# P", meta: fullMeta };
+  const fullArtifact: Required<Artifact> = {
+    type: "plan",
+    content: "# P",
+    meta: fullMeta,
+    files: [{ path: "src/a.ts", oldContents: "old\n", newContents: "new\n" }],
+  };
   const fullVerdict: Required<Verdict> = {
     kind: "approve",
     summary: "",

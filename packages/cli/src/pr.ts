@@ -56,6 +56,8 @@ export async function reviewCommand(argv: string[]): Promise<number> {
     return 1;
   }
   const client = await DaemonClient.connect({ autostart: true });
+  // A PR diff is a partial patch with no full file contents, so no `files` here;
+  // hunk curation stays disabled for PR reviews (see diff-hunk-curate.ts).
   const review = await openReview(client, {
     type: "diff",
     content: diff.stdout,
