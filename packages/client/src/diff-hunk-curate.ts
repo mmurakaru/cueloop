@@ -14,7 +14,7 @@
  */
 
 import { parseDiffFromFile, diffAcceptRejectHunk, type FileDiffMetadata } from "@pierre/diffs";
-import { unifiedDiffText, type DiffFileContents } from "@cueloop/schema";
+import { unifiedDiffText, type DiffFileContents, type DiffFileStatus } from "@cueloop/schema";
 import type { DiffRow } from "./view-diff";
 
 /** One reject decision; `changeIndex` absent rejects the whole hunk. */
@@ -196,24 +196,26 @@ function curateFilePatch(file: DiffFileContents, rejections: HunkRejection[]): s
   if (curatedNew === file.oldContents) return null;
   const patch = unifiedDiffText(file.oldContents, curatedNew, file.path);
   if (patch === null) return null;
-  return withFileStateHeaders(patch, file.path, file.oldContents, curatedNew);
+  return withFileStateHeaders(patch, file.path, file.status, curatedNew);
 }
 
 /**
- * Point the diff headers at /dev/null for a created or deleted file so the
- * curated patch applies. A rename is not represented (DiffFileContents carries
- * no previous name); it degrades to a created file at the new path.
+ * Point the diff headers at /dev/null for a created or fully-deleted file so the
+ * curated patch applies. git's status - not empty contents - decides existence,
+ * so editing an existing empty file stays a modify; a deletion whose removals
+ * were partly restored also falls back to a modify.
  */
 function withFileStateHeaders(
   patch: string,
   path: string,
-  oldContents: string,
-  newContents: string,
+  status: DiffFileStatus,
+  curatedNew: string,
 ): string {
-  let headed = patch;
-  if (oldContents === "") headed = headed.replace(`--- a/${path}`, "--- /dev/null");
-  if (newContents === "") headed = headed.replace(`+++ b/${path}`, "+++ /dev/null");
-  return headed;
+  if (status === "added") return patch.replace(`--- a/${path}`, "--- /dev/null");
+  if (status === "deleted" && curatedNew === "") {
+    return patch.replace(`+++ b/${path}`, "+++ /dev/null");
+  }
+  return patch;
 }
 
 /**

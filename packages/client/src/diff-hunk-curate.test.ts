@@ -14,7 +14,12 @@ import type { DiffRow } from "./view-diff";
 const OLD = "line1\nline2\nline3\nline4\nline5\n";
 // Two changes in one hunk: line2 modified, then a pure addition after line4.
 const NEW = "line1\nCHANGED2\nline3\nline4\nADDED\nline5\n";
-const FILE: DiffFileContents = { path: "src/a.ts", oldContents: OLD, newContents: NEW };
+const FILE: DiffFileContents = {
+  path: "src/a.ts",
+  oldContents: OLD,
+  newContents: NEW,
+  status: "modified",
+};
 
 // Two changes far apart, so the model splits into two hunks.
 const MULTI_OLD = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl\n";
@@ -23,6 +28,7 @@ const MULTI: DiffFileContents = {
   path: "src/b.ts",
   oldContents: MULTI_OLD,
   newContents: MULTI_NEW,
+  status: "modified",
 };
 
 describe("curateDiff", () => {
@@ -277,6 +283,7 @@ describe("curateDiff file-state headers", () => {
       path: "src/new.ts",
       oldContents: "",
       newContents: "one\ntwo\n",
+      status: "added",
     };
 
     // Act
@@ -294,6 +301,7 @@ describe("curateDiff file-state headers", () => {
       path: "src/gone.ts",
       oldContents: "one\ntwo\n",
       newContents: "",
+      status: "deleted",
     };
 
     // Act

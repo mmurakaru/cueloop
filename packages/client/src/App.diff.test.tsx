@@ -134,6 +134,7 @@ describe("diff review", () => {
             path: "src/store.ts",
             oldContents: "export class Store {\n  private items = [];\n}\n",
             newContents: "export class Store {\n  private items = new Map();\n}\n",
+            status: "modified",
           },
         ],
       },

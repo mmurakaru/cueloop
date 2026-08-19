@@ -194,7 +194,7 @@ describe("wire pins", () => {
     type: "plan",
     content: "# P",
     meta: fullMeta,
-    files: [{ path: "src/a.ts", oldContents: "old\n", newContents: "new\n" }],
+    files: [{ path: "src/a.ts", oldContents: "old\n", newContents: "new\n", status: "modified" }],
   };
   const fullVerdict: Required<Verdict> = {
     kind: "approve",

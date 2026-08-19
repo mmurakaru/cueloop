@@ -55,6 +55,7 @@ export const DiffFileContentsSchema = v.object({
   path: NonEmpty,
   oldContents: v.string(),
   newContents: v.string(),
+  status: v.picklist(["added", "modified", "deleted"]),
 } satisfies EntriesOf<DiffFileContents>);
 
 export const ArtifactSchema = v.object({
