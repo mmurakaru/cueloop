@@ -28,6 +28,19 @@ describe("spansByLine", () => {
     expect(lineSpans[1]).toEqual([{ start: 0, end: 3, group: "variable" }]);
   });
 
+  test("spreads a capture that crosses newlines onto every line it covers", () => {
+    // Arrange - one capture spanning both lines, as a block comment would
+    const source = "aa\nbb";
+    const highlights: SimpleHighlight[] = [[0, 5, "comment"]];
+
+    // Act
+    const lineSpans = spansByLine(source, highlights);
+
+    // Assert
+    expect(lineSpans[0]).toEqual([{ start: 0, end: 2, group: "comment" }]);
+    expect(lineSpans[1]).toEqual([{ start: 0, end: 2, group: "comment" }]);
+  });
+
   test("resolves overlapping captures with later winning", () => {
     // Arrange
     const source = "foo";

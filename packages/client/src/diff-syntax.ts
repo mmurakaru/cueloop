@@ -103,13 +103,18 @@ export function spansByLine(source: string, highlights: SimpleHighlight[]): Synt
     return Array.from({ length: Math.max(0, end - start) }, () => undefined);
   });
   for (const [start, end, group] of highlights) {
-    const line = lineOf(start);
-    const lineStart = lineStarts[line]!;
-    const lineEnd = line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : source.length;
-    const from = start - lineStart;
-    const to = Math.min(end, lineEnd) - lineStart;
-    const chars = groupsByLine[line]!;
-    for (let column = from; column < to; column++) chars[column] = group;
+    // A capture can span newlines (block comments, template literals); color the
+    // covered columns on every line it crosses, not just the starting line.
+    let cursor = start;
+    while (cursor < end) {
+      const line = lineOf(cursor);
+      const lineStart = lineStarts[line]!;
+      const lineEnd = line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : source.length;
+      const chars = groupsByLine[line]!;
+      const to = Math.min(end, lineEnd) - lineStart;
+      for (let column = cursor - lineStart; column < to; column++) chars[column] = group;
+      cursor = lineEnd + 1;
+    }
   }
   return groupsByLine.map((chars) => {
     const spans: SyntaxSpan[] = [];

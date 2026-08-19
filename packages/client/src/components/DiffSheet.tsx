@@ -35,7 +35,7 @@ function rowColorSpans(
   syntaxSpans: SyntaxSpan[] | undefined,
   foreground: string,
   tokens: Theme,
-): Array<{ text: string; fg: string }> {
+): Array<{ text: string; foreground: string }> {
   const changed: boolean[] = Array.from({ length: text.length }, () => false);
   if (runs) {
     let offset = 0;
@@ -57,14 +57,14 @@ function rowColorSpans(
     }
   }
   const modifiedLine = runs !== undefined;
-  const spans: Array<{ text: string; fg: string }> = [];
+  const spans: Array<{ text: string; foreground: string }> = [];
   for (let column = 0; column < text.length; column++) {
     const color = changed[column]
       ? foreground
       : (syntaxColorByColumn[column] ?? (modifiedLine ? tokens.textDim : foreground));
     const previous = spans[spans.length - 1];
-    if (previous && previous.fg === color) previous.text += text[column];
-    else spans.push({ text: text[column]!, fg: color });
+    if (previous && previous.foreground === color) previous.text += text[column];
+    else spans.push({ text: text[column]!, foreground: color });
   }
   return spans;
 }
@@ -242,7 +242,7 @@ function DiffChunk({
                   {prefix}
                 </span>
                 {spans.map((span, spanIndex) => (
-                  <span key={spanIndex} fg={span.fg} bg={rowBackground}>
+                  <span key={spanIndex} fg={span.foreground} bg={rowBackground}>
                     {span.text}
                   </span>
                 ))}
