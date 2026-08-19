@@ -1,10 +1,10 @@
 /**
- * The diff review sheet: every row of the patch renders (no window cap)
- * inside a scrollbox, with file headers, hunk headers, and contiguous line
- * chunks. Line chunks draw through the native line-number gutter - custom
- * numbers per row (old numbers on deletions), the cursor as a gutter sign,
- * and annotation markers as line signs. Chunks split after an annotated row
- * so the annotation body renders directly under its line.
+ * The diff review sheet: a thin renderer over diff-sheet-layout. Rows render (no
+ * window cap) in a scrollbox with file/hunk headers and contiguous code chunks.
+ * A chunk draws through the native line-number gutter - custom numbers per row,
+ * the cursor as a gutter sign, annotation markers as line signs - and closes
+ * after an annotated row so the annotation body sits under its line. A
+ * curated-out row renders struck through.
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -23,7 +23,14 @@ import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
 import { intralineRunsByRow, type IntralineRun } from "../diff-intraline";
 import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
-import { colorForSyntaxGroup } from "./syntax-highlight";
+import {
+  annotatedRowsByIndex,
+  coloredRowSpans,
+  rowContentOffsets,
+  rowLine,
+  segmentRows,
+  type DiffSegment,
+} from "./diff-sheet-layout";
 
 /** Shared empty map so an unresolved/stale highlight state is a stable value. */
 const EMPTY_SYNTAX: Map<number, SyntaxSpan[]> = new Map();
@@ -33,52 +40,6 @@ const EMPTY_REJECTED: Set<number> = new Set();
 
 /** A rejected (curated-out) change row renders struck through and dimmed. */
 const REJECTED_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
-
-/**
- * Colored spans for one row, resolved per character: an intra-line changed word
- * keeps the diff color, otherwise the syntax color applies, falling back to the
- * dim token on the unchanged part of a modified line or the row's base color.
- * Adjacent same-color characters coalesce so a row stays a few spans.
- */
-function rowColorSpans(
-  text: string,
-  runs: IntralineRun[] | undefined,
-  syntaxSpans: SyntaxSpan[] | undefined,
-  foreground: string,
-  tokens: Theme,
-): Array<{ text: string; foreground: string }> {
-  const changed: boolean[] = Array.from({ length: text.length }, () => false);
-  if (runs) {
-    let offset = 0;
-    for (const run of runs) {
-      if (run.changed)
-        for (let index = 0; index < run.text.length; index++) changed[offset + index] = true;
-      offset += run.text.length;
-    }
-  }
-  const syntaxColorByColumn: Array<string | undefined> = Array.from(
-    { length: text.length },
-    () => undefined,
-  );
-  for (const span of syntaxSpans ?? []) {
-    const color = colorForSyntaxGroup(span.group, tokens);
-    if (!color) continue;
-    for (let column = span.start; column < span.end && column < text.length; column++) {
-      syntaxColorByColumn[column] = color;
-    }
-  }
-  const modifiedLine = runs !== undefined;
-  const spans: Array<{ text: string; foreground: string }> = [];
-  for (let column = 0; column < text.length; column++) {
-    const color = changed[column]
-      ? foreground
-      : (syntaxColorByColumn[column] ?? (modifiedLine ? tokens.textDim : foreground));
-    const previous = spans[spans.length - 1];
-    if (previous && previous.foreground === color) previous.text += text[column];
-    else spans.push({ text: text[column]!, foreground: color });
-  }
-  return spans;
-}
 
 export interface DiffComposeState {
   kind: "comment" | "suggestion";
@@ -98,50 +59,26 @@ export interface DiffSheetProps {
   theme?: Theme;
 }
 
-type DiffSegment =
-  | { kind: "header"; rowIndex: number; row: DiffRow }
-  | { kind: "chunk"; firstRowIndex: number; rows: DiffRow[]; annotation: Annotation | null };
-
-/** Row text carries the patch's trailing newline; rendering strips it. */
-function rowLine(row: DiffRow): string {
-  return row.text.replace(/\n$/, "");
-}
-
-/** Chunks split after an annotated or composed row so a card can sit below. */
-function segmentRows(
-  rows: DiffRow[],
-  annotatedByRow: Map<number, Annotation>,
-  composeRowIndex?: number,
-): DiffSegment[] {
-  const segments: DiffSegment[] = [];
-  let chunk: DiffRow[] = [];
-  let chunkStart = 0;
-  const closeChunk = (annotation: Annotation | null): void => {
-    if (chunk.length)
-      segments.push({ kind: "chunk", firstRowIndex: chunkStart, rows: chunk, annotation });
-    chunk = [];
-  };
-  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-    const row = rows[rowIndex]!;
-    if (row.kind === "file" || row.kind === "hunk") {
-      closeChunk(null);
-      segments.push({ kind: "header", rowIndex, row });
-      chunkStart = rowIndex + 1;
-      continue;
-    }
-    if (!chunk.length) chunkStart = rowIndex;
-    chunk.push(row);
-    const annotation = annotatedByRow.get(rowIndex);
-    if (annotation) {
-      closeChunk(annotation);
-      chunkStart = rowIndex + 1;
-    } else if (rowIndex === composeRowIndex) {
-      closeChunk(null);
-      chunkStart = rowIndex + 1;
-    }
-  }
-  closeChunk(null);
-  return segments;
+/** The sign, base color, and background a row draws with. */
+function rowStyle(
+  row: DiffRow,
+  isCursorRow: boolean,
+  isAnnotatedRow: boolean,
+  tokens: Theme,
+): { sign: string; baseColor: string; background: string | undefined } {
+  const sign = row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ";
+  const baseColor =
+    row.kind === "add"
+      ? tokens.insertedForeground
+      : row.kind === "del"
+        ? tokens.deletedForeground
+        : tokens.textMuted;
+  const background = isCursorRow
+    ? tokens.cursorBackground
+    : isAnnotatedRow
+      ? tokens.markCommentBackground
+      : undefined;
+  return { sign, baseColor, background };
 }
 
 function DiffChunk({
@@ -203,8 +140,7 @@ function DiffChunk({
     return colors;
   }, [segment, cursorInChunk, tokens]);
 
-  // gutter state flows through the imperative surface: the renderable keeps
-  // no prop setters for these maps, so updates land via effects
+  // the gutter renderable has no prop setters for these maps, so they land via an effect
   useEffect(() => {
     const gutter = gutterRef.current;
     if (!gutter) return;
@@ -227,52 +163,47 @@ function DiffChunk({
       >
         <text style={{ wrapMode: "none" }} selectable={false}>
           {segment.rows.map((row, lineIndex) => {
-            const sign = row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ";
-            const foreground =
-              row.kind === "add"
-                ? tokens.insertedForeground
-                : row.kind === "del"
-                  ? tokens.deletedForeground
-                  : tokens.textMuted;
             const isCursorRow = lineIndex === cursorInChunk;
             const isAnnotatedRow =
               segment.annotation !== null && lineIndex === segment.rows.length - 1;
-            const rowBackground = isCursorRow
-              ? tokens.cursorBackground
-              : isAnnotatedRow
-                ? tokens.markCommentBackground
-                : undefined;
+            const { sign, baseColor, background } = rowStyle(
+              row,
+              isCursorRow,
+              isAnnotatedRow,
+              tokens,
+            );
             const prefix = (lineIndex > 0 ? "\n" : "") + sign;
             const absoluteRowIndex = segment.firstRowIndex + lineIndex;
-            const rejected = rejectedRows.has(absoluteRowIndex);
-            // a rejected change collapses to one struck-through, dimmed span, so
-            // it reads as excluded regardless of its syntax or intra-line colors
-            if (rejected) {
+
+            // A rejected change collapses to one struck-through, dimmed span, so
+            // it reads as excluded regardless of its syntax or intra-line colors.
+            if (rejectedRows.has(absoluteRowIndex)) {
               return (
                 <span
                   key={lineIndex}
                   fg={tokens.textDim}
-                  bg={rowBackground}
+                  bg={background}
                   attributes={REJECTED_ATTRIBUTES}
                 >
                   {prefix + rowLine(row)}
                 </span>
               );
             }
-            const spans = rowColorSpans(
+
+            const spans = coloredRowSpans(
               rowLine(row),
               intralineByRow.get(absoluteRowIndex),
               syntaxByRow.get(absoluteRowIndex),
-              foreground,
+              baseColor,
               tokens,
             );
             return (
               <React.Fragment key={lineIndex}>
-                <span fg={foreground} bg={rowBackground}>
+                <span fg={baseColor} bg={background}>
                   {prefix}
                 </span>
                 {spans.map((span, spanIndex) => (
-                  <span key={spanIndex} fg={span.foreground} bg={rowBackground}>
+                  <span key={spanIndex} fg={span.foreground} bg={background}>
                     {span.text}
                   </span>
                 ))}
@@ -281,6 +212,7 @@ function DiffChunk({
           })}
         </text>
       </line-number>
+
       {segment.annotation ? (
         <text>
           <span fg={tokens.textDim}>{"      "}</span>
@@ -293,42 +225,8 @@ function DiffChunk({
   );
 }
 
-export function DiffSheet({
-  rows,
-  cursor,
-  annotations,
-  focusedAnnotationId,
-  rejectedRows = EMPTY_REJECTED,
-  compose,
-  theme,
-}: DiffSheetProps): React.ReactNode {
-  const tokens = useComponentTheme(theme);
-  const scrollRef = useRef<ScrollBoxRenderable | null>(null);
-
-  const annotatedByRow = useMemo(() => {
-    const byRow = new Map<number, Annotation>();
-    for (const annotation of annotations) {
-      const rowIndex = rows.findIndex(
-        (row) =>
-          row.text === annotation.anchor.quote &&
-          (row.kind === "ctx" || row.kind === "add" || row.kind === "del"),
-      );
-      if (rowIndex !== -1) byRow.set(rowIndex, annotation);
-    }
-    return byRow;
-  }, [rows, annotations]);
-
-  const segments = useMemo(
-    () => segmentRows(rows, annotatedByRow, compose?.rowIndex),
-    [rows, annotatedByRow, compose?.rowIndex],
-  );
-
-  const intralineByRow = useMemo(() => intralineRunsByRow(rows), [rows]);
-
-  // Tree-sitter highlighting resolves off the render path; draw unstyled first,
-  // then apply spans when they arrive. Keying the result to the rows it was
-  // computed for discards stale spans after a rows change without a render-time
-  // state write.
+/** Async tree-sitter highlights, discarded when they belong to superseded rows. */
+function useSyntaxHighlights(rows: DiffRow[]): Map<number, SyntaxSpan[]> {
   const [highlighted, setHighlighted] = useState<{
     rows: DiffRow[];
     byRow: Map<number, SyntaxSpan[]>;
@@ -345,26 +243,34 @@ export function DiffSheet({
       active = false;
     };
   }, [rows]);
-  const syntaxByRow = highlighted.rows === rows ? highlighted.byRow : EMPTY_SYNTAX;
+  return highlighted.rows === rows ? highlighted.byRow : EMPTY_SYNTAX;
+}
 
-  // content y offset per row index, for cursor-following scroll
-  const rowOffsets = useMemo(() => {
-    const offsets: number[] = [];
-    let contentY = 0;
-    for (const segment of segments) {
-      if (segment.kind === "header") {
-        offsets[segment.rowIndex] = contentY;
-        contentY += 1;
-      } else {
-        segment.rows.forEach((_, lineIndex) => {
-          offsets[segment.firstRowIndex + lineIndex] = contentY + lineIndex;
-        });
-        contentY += segment.rows.length + (segment.annotation ? 1 : 0);
-      }
-    }
-    return offsets;
-  }, [segments]);
+export function DiffSheet({
+  rows,
+  cursor,
+  annotations,
+  focusedAnnotationId,
+  rejectedRows = EMPTY_REJECTED,
+  compose,
+  theme,
+}: DiffSheetProps): React.ReactNode {
+  const tokens = useComponentTheme(theme);
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null);
 
+  const annotatedByRow = useMemo(
+    () => annotatedRowsByIndex(rows, annotations),
+    [rows, annotations],
+  );
+  const segments = useMemo(
+    () => segmentRows(rows, annotatedByRow, compose?.rowIndex),
+    [rows, annotatedByRow, compose?.rowIndex],
+  );
+  const intralineByRow = useMemo(() => intralineRunsByRow(rows), [rows]);
+  const syntaxByRow = useSyntaxHighlights(rows);
+  const rowOffsets = useMemo(() => rowContentOffsets(segments), [segments]);
+
+  // follow the cursor: keep it a couple of rows inside the viewport
   useEffect(() => {
     const scrollbox = scrollRef.current;
     const cursorOffset = rowOffsets[cursor];
@@ -415,6 +321,7 @@ export function DiffSheet({
               </text>
             );
           }
+
           const lastRowIndex = segment.firstRowIndex + segment.rows.length - 1;
           return (
             <React.Fragment key={segmentIndex}>
