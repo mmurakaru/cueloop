@@ -12,6 +12,9 @@
     "test": "bun test --timeout 60000 ./packages ./test",
     "test:pty": "CUELOOP_RUN_PTY=1 bun test ./test/pty",
     "typecheck": "bunx tsc --noEmit",
+    "lint": "oxlint",
+    "format": "oxfmt packages test scripts",
+    "format:check": "oxfmt --check packages test scripts",
     "changeset": "changeset",
     "version": "changeset version && bun run scripts/rewrite-internal-deps.ts && bun run scripts/sync-plugin-version.ts",
     "ci:publish": "bun run check:publish && changeset publish",
@@ -21,6 +24,8 @@
     "sync:dist-tags": "bun run scripts/sync-dist-tags.ts"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.0",
     "@cueloop/client": "workspace:*",
     "@cueloop/daemon": "workspace:*",
     "@cueloop/schema": "workspace:*",
@@ -30,9 +35,9 @@
     "@types/react": "^19.2.0",
     "bun-pty": "^0.4.10",
     "cueloop": "workspace:*",
+    "oxfmt": "^0.64.0",
+    "oxlint": "^1.79.0",
     "react": "^19.2.0",
-    "typescript": "^7.0.2",
-    "@changesets/cli": "^2.31.0",
-    "@changesets/changelog-github": "^0.7.0"
+    "typescript": "^7.0.2"
   }
 }
