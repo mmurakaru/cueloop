@@ -109,7 +109,14 @@ async function getSession(id: string): Promise<ReviewSession> {
 /** Post the resolved session's verdict to the PR: feedback.md is the review body. */
 async function postVerdict(session: ReviewSession, pr: string): Promise<number> {
   const verdict = session.verdict!;
-  const result = await gh(["pr", "review", pr, VERDICT_FLAG[verdict.kind], "--body", verdict.feedback]);
+  const result = await gh([
+    "pr",
+    "review",
+    pr,
+    VERDICT_FLAG[verdict.kind],
+    "--body",
+    verdict.feedback,
+  ]);
   if (result.code !== 0) {
     console.error(result.stderr.trim() || `gh pr review ${pr} failed (exit ${result.code})`);
     return 1;

@@ -6,7 +6,12 @@
  * Share button, so the two share exactly the same path.
  */
 
-import { DEFAULT_SHARE_HOST, DEFAULT_SHARE_PORT, SHARE_UPLOAD_USER, packSessionBlob } from "@cueloop/daemon/share-blob";
+import {
+  DEFAULT_SHARE_HOST,
+  DEFAULT_SHARE_PORT,
+  SHARE_UPLOAD_USER,
+  packSessionBlob,
+} from "@cueloop/daemon/share-blob";
 import type { Annotation, ReviewSession } from "@cueloop/schema";
 import { copyToClipboard } from "./clipboard";
 
@@ -28,9 +33,17 @@ export function shareIdFromLine(line: string): string | undefined {
 }
 
 /** Upload the session to the gateway and copy the resulting ssh line. */
-export async function publishShare(session: ReviewSession, target: ShareTarget = {}): Promise<ShareResult> {
-  const { stdout, stderr, code } = await runShareSsh("cueloop-share", packSessionBlob(session), target);
-  if (code !== 0) throw new Error(`gateway upload failed: ${stderr.trim() || `ssh exited ${code}`}`);
+export async function publishShare(
+  session: ReviewSession,
+  target: ShareTarget = {},
+): Promise<ShareResult> {
+  const { stdout, stderr, code } = await runShareSsh(
+    "cueloop-share",
+    packSessionBlob(session),
+    target,
+  );
+  if (code !== 0)
+    throw new Error(`gateway upload failed: ${stderr.trim() || `ssh exited ${code}`}`);
   const line = stdout.trim();
   if (!line.startsWith("ssh ")) throw new Error(`unexpected gateway reply: ${line || "(empty)"}`);
   const copied = await copyToClipboard(line);
@@ -58,17 +71,37 @@ export function collaboratorAnnotations(session: ReviewSession): Annotation[] {
  * them on their next refresh. Owner-gated at the gateway; the notes stay
  * unauthored (the planner's), unioned by id.
  */
-export async function pushShare(shareId: string, annotations: Array<Omit<Annotation, "createdAt">>, target: ShareTarget = {}): Promise<void> {
-  const { stderr, code } = await runShareSsh("cueloop-push", Buffer.from(JSON.stringify({ shareId, annotations })), target);
+export async function pushShare(
+  shareId: string,
+  annotations: Array<Omit<Annotation, "createdAt">>,
+  target: ShareTarget = {},
+): Promise<void> {
+  const { stderr, code } = await runShareSsh(
+    "cueloop-push",
+    Buffer.from(JSON.stringify({ shareId, annotations })),
+    target,
+  );
   if (code !== 0) throw new Error(`gateway push failed: ${stderr.trim() || `ssh exited ${code}`}`);
 }
 
 /** Run one `share@host:port` ssh command with `stdin`; hand back its streams and exit code. */
-async function runShareSsh(command: string, stdin: Buffer, target: ShareTarget): Promise<{ stdout: string; stderr: string; code: number }> {
+async function runShareSsh(
+  command: string,
+  stdin: Buffer,
+  target: ShareTarget,
+): Promise<{ stdout: string; stderr: string; code: number }> {
   const host = target.host ?? DEFAULT_SHARE_HOST;
   const port = target.port ?? DEFAULT_SHARE_PORT;
   const proc = Bun.spawn(
-    ["ssh", "-p", String(port), "-o", "StrictHostKeyChecking=accept-new", `${SHARE_UPLOAD_USER}@${host}`, command],
+    [
+      "ssh",
+      "-p",
+      String(port),
+      "-o",
+      "StrictHostKeyChecking=accept-new",
+      `${SHARE_UPLOAD_USER}@${host}`,
+      command,
+    ],
     { stdin, stdout: "pipe", stderr: "pipe" },
   );
   const [stdout, stderr, code] = await Promise.all([

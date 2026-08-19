@@ -62,8 +62,12 @@ export function resolveOpenTarget(sessions: ReviewSession[], query: OpenTargetQu
   const scoped = sessions.filter(query.match);
 
   if (query.selector === undefined) {
-    const latestPending = scoped.filter((candidate) => candidate.status === "pending").sort(newestFirst)[0];
-    return latestPending ? { kind: "session", sessionId: latestPending.id } : { kind: "no-pending" };
+    const latestPending = scoped
+      .filter((candidate) => candidate.status === "pending")
+      .sort(newestFirst)[0];
+    return latestPending
+      ? { kind: "session", sessionId: latestPending.id }
+      : { kind: "no-pending" };
   }
 
   const selector = query.selector;
@@ -83,7 +87,11 @@ export function resolveOpenTarget(sessions: ReviewSession[], query: OpenTargetQu
     .sort(newestFirst);
   if (substringMatches.length === 1) return { kind: "session", sessionId: substringMatches[0]!.id };
   if (substringMatches.length === 0) return { kind: "no-match", selector };
-  return { kind: "ambiguous", selector, titles: substringMatches.map((candidate) => candidate.artifact.meta.title!) };
+  return {
+    kind: "ambiguous",
+    selector,
+    titles: substringMatches.map((candidate) => candidate.artifact.meta.title!),
+  };
 }
 
 /**
@@ -91,7 +99,10 @@ export function resolveOpenTarget(sessions: ReviewSession[], query: OpenTargetQu
  * to review" tone. `label` is the human word for the verb's scope ("plan",
  * "diff", "PR"). The "session" outcome has no message - the caller opens it.
  */
-export function openTargetMessage(label: string, target: Exclude<OpenTarget, { kind: "session" }>): string {
+export function openTargetMessage(
+  label: string,
+  target: Exclude<OpenTarget, { kind: "session" }>,
+): string {
   switch (target.kind) {
     case "no-pending":
       return `no pending ${label} review - nothing to open`;

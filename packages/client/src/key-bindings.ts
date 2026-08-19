@@ -24,7 +24,15 @@ export interface KeyLayerContext {
 }
 
 /** Hint templates keyed by the same view states the status line shows. */
-export type HintMode = "normal" | "collaborator" | "card" | "span" | "compose" | "submit" | "walk" | "read-only";
+export type HintMode =
+  | "normal"
+  | "collaborator"
+  | "card"
+  | "span"
+  | "compose"
+  | "submit"
+  | "walk"
+  | "read-only";
 
 export interface CheatsheetEntry {
   keys: string;
@@ -35,9 +43,7 @@ export interface CheatsheetSection {
   entries: CheatsheetEntry[];
 }
 
-type HintEntry =
-  | { text: string }
-  | { commands: string[]; label: string; labelFirst?: boolean };
+type HintEntry = { text: string } | { commands: string[]; label: string; labelFirst?: boolean };
 
 const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
   normal: [
@@ -182,7 +188,10 @@ class HeadlessKeymapHost implements KeymapHost<object, KeymapEvent> {
 function normalizedEvent(key: ResolvableKey): { name: string; shift: boolean } {
   if (key.name.length === 1) {
     if (/[a-zA-Z]/.test(key.name)) {
-      return { name: key.name.toLowerCase(), shift: key.shift || key.name !== key.name.toLowerCase() };
+      return {
+        name: key.name.toLowerCase(),
+        shift: key.shift || key.name !== key.name.toLowerCase(),
+      };
     }
     return { name: key.name, shift: false };
   }
@@ -281,7 +290,13 @@ export class KeyBindings {
         { key: "enter", cmd: "walk_submit" },
         { key: "q", cmd: "quit" },
       ],
-      commands: [record("walk_next"), record("walk_prev"), record("walk_leave"), record("walk_submit"), record("quit")],
+      commands: [
+        record("walk_next"),
+        record("walk_prev"),
+        record("walk_leave"),
+        record("walk_submit"),
+        record("quit"),
+      ],
     });
     this.keymap.registerLayer({
       priority: 20,
@@ -312,7 +327,9 @@ export class KeyBindings {
     });
     this.keymap.registerLayer({
       priority: 20,
-      when: () => this.context.overlay === "completion-prompt" || this.context.overlay === "completion-counting",
+      when: () =>
+        this.context.overlay === "completion-prompt" ||
+        this.context.overlay === "completion-counting",
       bindings: [
         { key: "return", cmd: "finish_review" },
         { key: "enter", cmd: "finish_review" },
@@ -320,7 +337,11 @@ export class KeyBindings {
         { key: "a", cmd: "opt_in_auto_close" },
         { key: "escape", cmd: "dismiss_completion" },
       ],
-      commands: [record("finish_review"), record("opt_in_auto_close"), record("dismiss_completion")],
+      commands: [
+        record("finish_review"),
+        record("opt_in_auto_close"),
+        record("dismiss_completion"),
+      ],
     });
   }
 
@@ -344,7 +365,9 @@ export class KeyBindings {
   private keyDisplayFor(command: string): string | null {
     for (const activeKey of this.keymap.getActiveKeys({ includeBindings: true })) {
       const bindingCommand =
-        typeof activeKey.command === "string" ? activeKey.command : activeKey.bindings?.[0]?.command;
+        typeof activeKey.command === "string"
+          ? activeKey.command
+          : activeKey.bindings?.[0]?.command;
       if (bindingCommand !== command) continue;
       return KEY_GLYPHS[activeKey.stroke.name] ?? activeKey.display;
     }
@@ -365,7 +388,10 @@ export class KeyBindings {
       if (!displays.length) continue;
       const keyPart = displays.join("/");
       if (!entry.label) fragments.push(keyPart);
-      else fragments.push(entry.labelFirst ? `${entry.label} ${keyPart}` : `${keyPart} ${entry.label}`);
+      else
+        fragments.push(
+          entry.labelFirst ? `${entry.label} ${keyPart}` : `${keyPart} ${entry.label}`,
+        );
     }
     return fragments.join(" · ");
   }

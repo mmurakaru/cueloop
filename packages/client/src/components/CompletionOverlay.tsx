@@ -19,7 +19,13 @@ export interface CompletionOverlayProps {
   theme?: Theme;
 }
 
-export function CompletionOverlay({ verdict, completion, status, returnsTo, theme }: CompletionOverlayProps): React.ReactNode {
+export function CompletionOverlay({
+  verdict,
+  completion,
+  status,
+  returnsTo,
+  theme,
+}: CompletionOverlayProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const approved = verdict === "approve";
   return (
@@ -33,9 +39,13 @@ export function CompletionOverlay({ verdict, completion, status, returnsTo, them
         alignItems: "center",
       }}
     >
-      <text fg={approved ? tokens.green : tokens.accent}>{approved ? "review approved" : "feedback sent"}</text>
+      <text fg={approved ? tokens.green : tokens.accent}>
+        {approved ? "review approved" : "feedback sent"}
+      </text>
       <text> </text>
-      <text fg={tokens.text}>The agent has your {approved ? "approval" : "feedback"} and is unblocked.</text>
+      <text fg={tokens.text}>
+        The agent has your {approved ? "approval" : "feedback"} and is unblocked.
+      </text>
       {returnsTo ? <text fg={tokens.textDim}>returning to {returnsTo} on close</text> : null}
       {status ? <text fg={tokens.textDim}>{status}</text> : null}
       <text> </text>

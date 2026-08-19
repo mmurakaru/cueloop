@@ -44,7 +44,8 @@ async function settle(check: () => Promise<string | null>): Promise<string | nul
   }
 }
 
-const fresh = (url: string) => fetch(url, { headers: { "cache-control": "no-cache", pragma: "no-cache" } });
+const fresh = (url: string) =>
+  fetch(url, { headers: { "cache-control": "no-cache", pragma: "no-cache" } });
 
 const problems: string[] = [];
 
@@ -52,8 +53,12 @@ const problems: string[] = [];
 for (const name of new Set(names)) {
   const problem = await settle(async () => {
     const response = await fresh(`https://registry.npmjs.org/${name.replace("/", "%2F")}`);
-    if (!response.ok) return `${name}: not on the registry (HTTP ${response.status}) - the publish did not land`;
-    const doc = (await response.json()) as { versions?: Record<string, unknown>; "dist-tags"?: Record<string, string> };
+    if (!response.ok)
+      return `${name}: not on the registry (HTTP ${response.status}) - the publish did not land`;
+    const doc = (await response.json()) as {
+      versions?: Record<string, unknown>;
+      "dist-tags"?: Record<string, string>;
+    };
     if (!doc.versions?.[version]) {
       return `${name}: registry has no ${version} (tags: ${JSON.stringify(doc["dist-tags"] ?? {})})`;
     }
@@ -82,15 +87,22 @@ if (problems.length === 0) {
   try {
     Bun.spawnSync(["npm", "init", "-y"], { cwd: work });
     // install by TAG: that is the command the docs give a stranger
-    const install = Bun.spawnSync(["npm", "install", `cueloop@${tag}`, "--no-audit", "--no-fund", "--prefer-online"], { cwd: work });
+    const install = Bun.spawnSync(
+      ["npm", "install", `cueloop@${tag}`, "--no-audit", "--no-fund", "--prefer-online"],
+      { cwd: work },
+    );
     if (install.exitCode !== 0) {
-      problems.push(`cueloop@${tag} does not install: ${install.stderr.toString().trim().split("\n").slice(-3).join(" ")}`);
+      problems.push(
+        `cueloop@${tag} does not install: ${install.stderr.toString().trim().split("\n").slice(-3).join(" ")}`,
+      );
     } else {
       const entry = join(work, "node_modules", "cueloop", "src", "main.ts");
       const run = Bun.spawnSync([process.execPath, "run", entry, "help"], { cwd: work });
       const out = run.stdout.toString();
       if (run.exitCode !== 0 || !out.includes("cueloop session")) {
-        problems.push(`the installed CLI does not run: exit ${run.exitCode}, stderr ${run.stderr.toString().trim().slice(0, 200)}`);
+        problems.push(
+          `the installed CLI does not run: exit ${run.exitCode}, stderr ${run.stderr.toString().trim().slice(0, 200)}`,
+        );
       }
     }
   } finally {

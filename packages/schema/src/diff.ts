@@ -22,12 +22,17 @@ export function lcsDiff<T>(
 ): DiffOp<T>[] {
   const oldCount = oldItems.length;
   const newCount = newItems.length;
-  const longestCommon: number[][] = Array.from({ length: oldCount + 1 }, () => new Array<number>(newCount + 1).fill(0));
+  const longestCommon: number[][] = Array.from({ length: oldCount + 1 }, () =>
+    Array.from({ length: newCount + 1 }, () => 0),
+  );
   for (let oldIndex = oldCount - 1; oldIndex >= 0; oldIndex--) {
     for (let newIndex = newCount - 1; newIndex >= 0; newIndex--) {
       longestCommon[oldIndex]![newIndex] = equals(oldItems[oldIndex]!, newItems[newIndex]!)
         ? longestCommon[oldIndex + 1]![newIndex + 1]! + 1
-        : Math.max(longestCommon[oldIndex + 1]![newIndex]!, longestCommon[oldIndex]![newIndex + 1]!);
+        : Math.max(
+            longestCommon[oldIndex + 1]![newIndex]!,
+            longestCommon[oldIndex]![newIndex + 1]!,
+          );
     }
   }
   const ops: DiffOp<T>[] = [];
@@ -76,7 +81,7 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
     if (op.kind !== "del") newLineNumber++;
     return row;
   });
-  const keep = new Array<boolean>(rows.length).fill(false);
+  const keep = Array.from({ length: rows.length }, () => false);
   rows.forEach((row, rowIndex) => {
     if (row.kind !== "ctx") {
       for (
@@ -109,14 +114,22 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
     const newCount = hunk.rows.filter((row) => row.kind !== "del").length;
     lines.push({ kind: "hunk", text: `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@` });
     for (const row of hunk.rows) {
-      lines.push({ kind: row.kind, text: (row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ") + row.text });
+      lines.push({
+        kind: row.kind,
+        text: (row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ") + row.text,
+      });
     }
   }
   return lines;
 }
 
 /** Render a unified diff as text with file headers. */
-export function unifiedDiffText(oldText: string, newText: string, path = "plan.md", context = 3): string | null {
+export function unifiedDiffText(
+  oldText: string,
+  newText: string,
+  path = "plan.md",
+  context = 3,
+): string | null {
   const lines = unifiedDiff(oldText, newText, context);
   if (!lines) return null;
   return [`--- a/${path}`, `+++ b/${path}`, ...lines.map((line) => line.text)].join("\n");
@@ -134,10 +147,4 @@ export function editStats(oldText: string, newText: string): EditStats {
     added: lines.filter((line) => line.kind === "add").length,
     removed: lines.filter((line) => line.kind === "del").length,
   };
-}
-
-/** Word-level diff ops for tracked-changes rendering. Whitespace-preserving. */
-export function wordDiff(oldText: string, newText: string): DiffOp[] {
-  const tokenize = (text: string) => text.split(/(\s+)/).filter((token) => token !== "");
-  return lcsDiff(tokenize(oldText), tokenize(newText));
 }

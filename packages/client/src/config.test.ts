@@ -2,7 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_KEYS, actionFor, loadConfig, persistAuthorName, persistReviewState, persistReviewWidth } from "./config";
+import {
+  DEFAULT_KEYS,
+  actionFor,
+  loadConfig,
+  persistAuthorName,
+  persistReviewState,
+  persistReviewWidth,
+} from "./config";
 import { REVIEW_DEFAULT_WIDTH, REVIEW_MAX_WIDTH } from "./review-panel";
 import { DARK } from "./theme";
 
@@ -226,7 +233,10 @@ describe("integrations.obsidian config", () => {
     const repoRoot = join(dir, "repo");
     writeFileSync(user, `[integrations.obsidian]\nvault = "/user/vault"\nexportOn = "resolve"\n`);
     Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
-    writeFileSync(join(repoRoot, ".cueloop", "config.toml"), `[integrations.obsidian]\nfolder = "repo-plans"\n`);
+    writeFileSync(
+      join(repoRoot, ".cueloop", "config.toml"),
+      `[integrations.obsidian]\nfolder = "repo-plans"\n`,
+    );
 
     try {
       // Act

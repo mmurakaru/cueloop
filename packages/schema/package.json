@@ -1,7 +1,21 @@
 {
   "name": "@cueloop/schema",
   "version": "0.1.0-alpha.33",
+  "description": "The ReviewSession primitive: types, markdown block model, quote-primary anchors, feedback serialization",
+  "homepage": "https://github.com/mmurakaru/cueloop#readme",
+  "bugs": {
+    "url": "https://github.com/mmurakaru/cueloop/issues"
+  },
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmurakaru/cueloop.git",
+    "directory": "packages/schema"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -9,21 +23,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "files": [
-    "src",
-    "README.md"
-  ],
   "engines": {
     "bun": ">=1.3.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mmurakaru/cueloop.git",
-    "directory": "packages/schema"
-  },
-  "homepage": "https://github.com/mmurakaru/cueloop#readme",
-  "bugs": {
-    "url": "https://github.com/mmurakaru/cueloop/issues"
-  },
-  "description": "The ReviewSession primitive: types, markdown block model, quote-primary anchors, feedback serialization"
+  }
 }

@@ -113,7 +113,7 @@ async function waitForFramePredicate(
     if (predicate(frame)) return frame;
     const now = Date.now();
     if (now > deadline) {
-      const frozen = frameChanges <= 1 ? " — render never advanced (frozen)" : "";
+      const frozen = frameChanges <= 1 ? " - render never advanced (frozen)" : "";
       throw new Error(
         `waitFor ${label} timed out after ${now - start}ms (${polls} polls, ${frameChanges} frame changes${frozen}).\nlast frame:\n${frame}`,
       );
@@ -121,7 +121,7 @@ async function waitForFramePredicate(
     if (now - lastLog >= PROGRESS_LOG_MS) {
       lastLog = now;
       console.error(
-        `[waitFor] still waiting for ${label} — ${now - start}ms, ${polls} polls, ${frameChanges} frame changes\n${frameTail(frame)}`,
+        `[waitFor] still waiting for ${label} - ${now - start}ms, ${polls} polls, ${frameChanges} frame changes\n${frameTail(frame)}`,
       );
     }
     await yieldEventLoop();
@@ -153,14 +153,16 @@ export async function waitForState(
     if (predicate()) return;
     const now = Date.now();
     if (now > deadline) {
-      const frozen = frameChanges <= 1 ? " — render never advanced (frozen)" : "";
+      const frozen = frameChanges <= 1 ? " - render never advanced (frozen)" : "";
       throw new Error(
         `waitForState ${label} timed out after ${now - start}ms (${polls} polls, ${frameChanges} frame changes${frozen}).\nlast frame:\n${frame}`,
       );
     }
     if (now - lastLog >= PROGRESS_LOG_MS) {
       lastLog = now;
-      console.error(`[waitForState] still waiting for ${label} — ${now - start}ms, ${polls} polls, ${frameChanges} frame changes`);
+      console.error(
+        `[waitForState] still waiting for ${label} - ${now - start}ms, ${polls} polls, ${frameChanges} frame changes`,
+      );
     }
     await yieldEventLoop();
   }
@@ -168,10 +170,18 @@ export async function waitForState(
 
 /** Wait until the frame contains the needle (daemon round-trips included). */
 export async function waitForText(setup: TestRendererSetup, needle: string): Promise<string> {
-  return waitForFramePredicate(setup, (frame) => frame.includes(needle), `text ${JSON.stringify(needle)}`);
+  return waitForFramePredicate(
+    setup,
+    (frame) => frame.includes(needle),
+    `text ${JSON.stringify(needle)}`,
+  );
 }
 
 /** Wait until the frame no longer contains the needle. */
 export async function waitForTextGone(setup: TestRendererSetup, needle: string): Promise<string> {
-  return waitForFramePredicate(setup, (frame) => !frame.includes(needle), `text-gone ${JSON.stringify(needle)}`);
+  return waitForFramePredicate(
+    setup,
+    (frame) => !frame.includes(needle),
+    `text-gone ${JSON.stringify(needle)}`,
+  );
 }

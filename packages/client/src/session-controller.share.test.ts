@@ -8,13 +8,16 @@ import type { SessionClient } from "@cueloop/daemon/client";
 const publishShare = mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: true }));
 let remote: ReviewSession;
 const pullShare = mock(async () => remote);
-const pushShare = mock(async (_shareId: string, _annotations: Array<Omit<Annotation, "createdAt">>) => {});
+const pushShare = mock(
+  async (_shareId: string, _annotations: Array<Omit<Annotation, "createdAt">>) => {},
+);
 mock.module("./share", () => ({
   publishShare,
   pullShare,
   pushShare,
   shareIdFromLine: (line: string) => line.match(/^ssh (\S+)@/)?.[1],
-  collaboratorAnnotations: (session: ReviewSession) => session.annotations.filter((annotation) => annotation.author),
+  collaboratorAnnotations: (session: ReviewSession) =>
+    session.annotations.filter((annotation) => annotation.author),
 }));
 
 const { createReviewController, SHARE_POLL_MS } = await import("./session-controller");
@@ -35,7 +38,14 @@ function sessionFixture(overrides: Partial<ReviewSession> = {}): ReviewSession {
 }
 
 function annotation(id: string, author: string): Annotation {
-  return { id, kind: "comment", anchor: { quote: "Plan", prefix: "", suffix: "" }, body: "note", author, createdAt: "2026-01-01T00:00:00.000Z" };
+  return {
+    id,
+    kind: "comment",
+    anchor: { quote: "Plan", prefix: "", suffix: "" },
+    body: "note",
+    author,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
 }
 
 function fakeClient(session: ReviewSession): SessionClient {
@@ -45,10 +55,13 @@ function fakeClient(session: ReviewSession): SessionClient {
     sessionGet: async () => session,
     sessionList: async () => [session],
     sessionAnnotate: mock(async () => session),
-    sessionSetShareId: mock(async (_id: string, shareId: string) => ((session.shareId = shareId), session)),
+    sessionSetShareId: mock(
+      async (_id: string, shareId: string) => ((session.shareId = shareId), session),
+    ),
     sessionMergeShared: mock(async (_id: string, incoming: { annotations: Annotation[] }) => {
       const known = new Set(session.annotations.map((existing) => existing.id));
-      for (const note of incoming.annotations) if (!known.has(note.id)) session.annotations.push(note);
+      for (const note of incoming.annotations)
+        if (!known.has(note.id)) session.annotations.push(note);
       return session;
     }),
     close: () => {},
@@ -62,7 +75,11 @@ async function connectedController(
   clock?: ManualClock,
 ): Promise<{ controller: ReturnType<typeof createReviewController>; client: SessionClient }> {
   const client = fakeClient(session);
-  const controller = createReviewController({ sessionId: session.id, openClient: async () => client, clock });
+  const controller = createReviewController({
+    sessionId: session.id,
+    openClient: async () => client,
+    clock,
+  });
   controller.connect();
   await tick();
   return { controller, client };
@@ -90,7 +107,10 @@ describe("share", () => {
     await tick();
 
     // Assert
-    expect(controller.getSnapshot().toast).toEqual({ body: "ssh p_abc123xy@cueloop.dev", title: "share link copied" });
+    expect(controller.getSnapshot().toast).toEqual({
+      body: "ssh p_abc123xy@cueloop.dev",
+      title: "share link copied",
+    });
     expect(controller.getSnapshot().status).not.toContain("ssh p_abc123xy@cueloop.dev");
   });
 });
@@ -102,7 +122,9 @@ describe("pullShared", () => {
       annotations: [annotation("a1", "SHA256:mate")],
       participants: [{ id: "SHA256:mate", provider: "ssh", name: "Sam" }],
     });
-    const { controller, client } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }));
+    const { controller, client } = await connectedController(
+      sessionFixture({ shareId: "p_abc123xy" }),
+    );
 
     // Act
     controller.pullShared();
@@ -135,7 +157,9 @@ describe("mirror on annotate", () => {
   test("pushes an edited note up when the plan is shared", async () => {
     // Arrange
     pushShare.mockClear();
-    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }));
+    const { controller } = await connectedController(
+      sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }),
+    );
 
     // Act
     controller.updateAnnotation("a1", "revised body");
@@ -144,13 +168,22 @@ describe("mirror on annotate", () => {
     // Assert
     expect(pushShare).toHaveBeenCalledTimes(1);
     expect(pushShare.mock.calls[0]?.[0]).toBe("p_abc123xy");
-    expect(pushShare.mock.calls[0]?.[1]).toEqual([{ id: "a1", kind: "comment", anchor: { quote: "Plan", prefix: "", suffix: "" }, body: "revised body" }]);
+    expect(pushShare.mock.calls[0]?.[1]).toEqual([
+      {
+        id: "a1",
+        kind: "comment",
+        anchor: { quote: "Plan", prefix: "", suffix: "" },
+        body: "revised body",
+      },
+    ]);
   });
 
   test("does not push when the plan was never shared", async () => {
     // Arrange
     pushShare.mockClear();
-    const { controller } = await connectedController(sessionFixture({ annotations: [annotation("a1", "SHA256:me")] }));
+    const { controller } = await connectedController(
+      sessionFixture({ annotations: [annotation("a1", "SHA256:me")] }),
+    );
 
     // Act
     controller.updateAnnotation("a1", "revised body");
@@ -163,7 +196,9 @@ describe("mirror on annotate", () => {
   test("does not push when the local write is rejected", async () => {
     // Arrange - the daemon write fails (e.g. a resolved session)
     pushShare.mockClear();
-    const { controller, client } = await connectedController(sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }));
+    const { controller, client } = await connectedController(
+      sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }),
+    );
     (client.sessionAnnotate as ReturnType<typeof mock>).mockImplementationOnce(async () => {
       throw new Error("session is resolved");
     });
@@ -183,7 +218,10 @@ describe("startSharePoll", () => {
     pullShare.mockClear();
     remote = sessionFixture({ annotations: [] });
     const clock = new ManualClock();
-    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }), clock);
+    const { controller } = await connectedController(
+      sessionFixture({ shareId: "p_abc123xy" }),
+      clock,
+    );
 
     // Act - immediate pull
     const stop = controller.startSharePoll();
@@ -213,9 +251,14 @@ describe("startSharePoll", () => {
     pullShare.mockClear();
     remote = sessionFixture({ annotations: [] });
     let release: () => void = () => {};
-    pullShare.mockImplementationOnce(() => new Promise<ReviewSession>((resolve) => (release = () => resolve(remote))));
+    pullShare.mockImplementationOnce(
+      () => new Promise<ReviewSession>((resolve) => (release = () => resolve(remote))),
+    );
     const clock = new ManualClock();
-    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }), clock);
+    const { controller } = await connectedController(
+      sessionFixture({ shareId: "p_abc123xy" }),
+      clock,
+    );
 
     // Act - start (pull is in flight), leave, then let the pull settle
     const stop = controller.startSharePoll();
@@ -236,9 +279,14 @@ describe("startSharePoll", () => {
     pullShare.mockClear();
     remote = sessionFixture({ annotations: [] });
     let release: () => void = () => {};
-    pullShare.mockImplementationOnce(() => new Promise<ReviewSession>((resolve) => (release = () => resolve(remote))));
+    pullShare.mockImplementationOnce(
+      () => new Promise<ReviewSession>((resolve) => (release = () => resolve(remote))),
+    );
     const clock = new ManualClock();
-    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }), clock);
+    const { controller } = await connectedController(
+      sessionFixture({ shareId: "p_abc123xy" }),
+      clock,
+    );
 
     // Act - run A starts (pull hangs), then run B restarts while A is in flight
     controller.startSharePoll();

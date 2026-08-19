@@ -38,11 +38,15 @@ describe("titleFrom", () => {
 
 describe("formatFilename", () => {
   test("renders date tokens and the title with the space separator", () => {
-    expect(formatFilename("{YYYY}-{MM}-{DD} - {title}", "My Plan", DATE, "space")).toBe("2026-08-07 - My Plan");
+    expect(formatFilename("{YYYY}-{MM}-{DD} - {title}", "My Plan", DATE, "space")).toBe(
+      "2026-08-07 - My Plan",
+    );
   });
 
   test("dash and underscore separators replace whitespace runs", () => {
-    expect(formatFilename("{YYYY}-{MM}-{DD} - {title}", "My Plan", DATE, "dash")).toBe("2026-08-07---My-Plan");
+    expect(formatFilename("{YYYY}-{MM}-{DD} - {title}", "My Plan", DATE, "dash")).toBe(
+      "2026-08-07---My-Plan",
+    );
     expect(formatFilename("{title}", "My Plan", DATE, "underscore")).toBe("My_Plan");
   });
 });

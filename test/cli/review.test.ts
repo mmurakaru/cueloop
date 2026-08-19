@@ -86,9 +86,23 @@ afterAll(async () => {
 });
 
 /** Create a PR diff session non-interactively and resolve it with one verdict. */
-async function createResolvedSession(pr: string, verdict: string, summary: string): Promise<ReviewSession> {
-  const created = cliJson<ReviewSession>(await runCli(home, ["review", pr, "--no-tui"], undefined, ghEnv()));
-  const runResult = await runCli(home, ["session", "resolve", created.id, "--verdict", verdict, "--summary", summary]);
+async function createResolvedSession(
+  pr: string,
+  verdict: string,
+  summary: string,
+): Promise<ReviewSession> {
+  const created = cliJson<ReviewSession>(
+    await runCli(home, ["review", pr, "--no-tui"], undefined, ghEnv()),
+  );
+  const runResult = await runCli(home, [
+    "session",
+    "resolve",
+    created.id,
+    "--verdict",
+    verdict,
+    "--summary",
+    summary,
+  ]);
   expect(runResult.code).toBe(0);
   return cliJson<ReviewSession>(runResult);
 }
@@ -195,7 +209,9 @@ describe("cueloop review-post (black box)", () => {
 
   test("annotations flow into the posted body through feedback.md", async () => {
     // Arrange
-    const created = cliJson<ReviewSession>(await runCli(home, ["review", "45", "--no-tui"], undefined, ghEnv()));
+    const created = cliJson<ReviewSession>(
+      await runCli(home, ["review", "45", "--no-tui"], undefined, ghEnv()),
+    );
 
     // Act
     const a = await runCli(home, [
@@ -212,7 +228,15 @@ describe("cueloop review-post (black box)", () => {
     expect(a.code).toBe(0);
 
     // Act
-    const parsed = await runCli(home, ["session", "resolve", created.id, "--verdict", "request_changes", "--summary", "Explain the bump."]);
+    const parsed = await runCli(home, [
+      "session",
+      "resolve",
+      created.id,
+      "--verdict",
+      "request_changes",
+      "--summary",
+      "Explain the bump.",
+    ]);
 
     // Assert
     expect(parsed.code).toBe(0);
@@ -229,7 +253,9 @@ describe("cueloop review-post (black box)", () => {
 
   test("unresolved session posts nothing and exits 1", async () => {
     // Arrange
-    const created = cliJson<ReviewSession>(await runCli(home, ["review", "46", "--no-tui"], undefined, ghEnv()));
+    const created = cliJson<ReviewSession>(
+      await runCli(home, ["review", "46", "--no-tui"], undefined, ghEnv()),
+    );
     const before = ghCalls().length;
 
     // Act
@@ -246,7 +272,12 @@ describe("cueloop review-post (black box)", () => {
     const session = await createResolvedSession("47", "approve", "Fine.");
 
     // Act
-    const runResult = await runCli(home, ["review-post", session.id, "GH_FAIL"], undefined, ghEnv());
+    const runResult = await runCli(
+      home,
+      ["review-post", session.id, "GH_FAIL"],
+      undefined,
+      ghEnv(),
+    );
 
     // Assert
     expect(runResult.code).toBe(1);

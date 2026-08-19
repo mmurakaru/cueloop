@@ -9,7 +9,13 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, press, typeText as type, waitForState, waitForText } from "./test-support";
+import {
+  isolateUserConfig,
+  press,
+  typeText as type,
+  waitForState,
+  waitForText,
+} from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -35,7 +41,11 @@ beforeEach(() => {
   server.start();
   session = server.core.sessionCreate({
     workspace: { repoRoot: "/repo", branch: "main" },
-    artifact: { type: "plan", content: PLAN, meta: { title: "Migration Plan", planPath: "plan.md" } },
+    artifact: {
+      type: "plan",
+      content: PLAN,
+      meta: { title: "Migration Plan", planPath: "plan.md" },
+    },
   });
 });
 afterEach(() => {

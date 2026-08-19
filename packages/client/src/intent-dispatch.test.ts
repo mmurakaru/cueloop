@@ -88,7 +88,9 @@ describe("move", () => {
     dispatch({ type: "move", to: "down" });
 
     // Assert
-    const advance = (deps.setCursor as ReturnType<typeof mock>).mock.calls[0]![0] as (current: number) => number;
+    const advance = (deps.setCursor as ReturnType<typeof mock>).mock.calls[0]![0] as (
+      current: number,
+    ) => number;
     expect(advance(2)).toBe(2); // already at the end, stays
     expect(advance(0)).toBe(1);
   });
@@ -134,7 +136,10 @@ describe("annotation navigation", () => {
   test("cycling skips annotations a revision already addressed", () => {
     // Arrange: a2 is addressed, so next from a1 lands on a3
     const session = sessionWith(["a1", "a2", "a3"]);
-    (session.annotations[1] as { resolution?: object }).resolution = { revision: 2, source: "agent" };
+    (session.annotations[1] as { resolution?: object }).resolution = {
+      revision: 2,
+      source: "agent",
+    };
     const deps = makeDeps({ session, focusedAnnotationId: "a1" });
     const dispatch = createIntentDispatch(deps);
 
@@ -156,7 +161,11 @@ describe("cycleVerdict", () => {
     dispatch({ type: "cycleVerdict", direction: 1 });
 
     // Assert
-    expect(deps.setMode).toHaveBeenCalledWith({ type: "submit", verdict: "request_changes", summary: "" });
+    expect(deps.setMode).toHaveBeenCalledWith({
+      type: "submit",
+      verdict: "request_changes",
+      summary: "",
+    });
   });
 });
 
@@ -226,7 +235,11 @@ describe("inbox delete", () => {
     createIntentDispatch(deps)({ type: "requestDeleteSession" });
 
     // Assert
-    expect(deps.setMode).toHaveBeenCalledWith({ type: "confirmDelete", sessionId: "ses_1", title: "Plan A" });
+    expect(deps.setMode).toHaveBeenCalledWith({
+      type: "confirmDelete",
+      sessionId: "ses_1",
+      title: "Plan A",
+    });
   });
 
   test("confirmDialog deletes the session and closes", () => {
@@ -246,13 +259,21 @@ describe("rename author", () => {
   test("openRename seeds the prompt with the author's current local name", () => {
     // Arrange
     const session = { annotations: [{ id: "a1", author: "SHA256:x" }] } as never;
-    const deps = makeDeps({ session, focusedAnnotationId: "a1", authorNames: { "SHA256:x": "Alex" } });
+    const deps = makeDeps({
+      session,
+      focusedAnnotationId: "a1",
+      authorNames: { "SHA256:x": "Alex" },
+    });
 
     // Act
     createIntentDispatch(deps)({ type: "openRename" });
 
     // Assert
-    expect(deps.setMode).toHaveBeenCalledWith({ type: "rename", authorId: "SHA256:x", text: "Alex" });
+    expect(deps.setMode).toHaveBeenCalledWith({
+      type: "rename",
+      authorId: "SHA256:x",
+      text: "Alex",
+    });
   });
 
   test("openRename on your own note does nothing but explain", () => {

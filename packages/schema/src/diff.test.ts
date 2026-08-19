@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { lcsDiff, unifiedDiff, unifiedDiffText, editStats, wordDiff } from "./diff";
+import { lcsDiff, unifiedDiff, unifiedDiffText, editStats } from "./diff";
 
 describe("unifiedDiff", () => {
   test("equal inputs return null, not an empty diff", () => {
@@ -72,23 +72,14 @@ describe("editStats", () => {
   });
 });
 
-describe("wordDiff", () => {
-  test("preserves whitespace tokens and reconstructs both sides", () => {
-    // Act
-    const ops = wordDiff("the quick brown fox", "the slow brown foxes");
-
-    // Assert
-    const oldSide = ops.filter((op) => op.kind !== "add").map((op) => op.oldValue).join("");
-    const newSide = ops.filter((op) => op.kind !== "del").map((op) => op.newValue).join("");
-    expect(oldSide).toBe("the quick brown fox");
-    expect(newSide).toBe("the slow brown foxes");
-  });
-});
-
 describe("lcsDiff", () => {
   test("custom equality", () => {
     // Act
-    const ops = lcsDiff([{ v: 1 }, { v: 2 }], [{ v: 2 }, { v: 3 }], (oldItem, newItem) => oldItem.v === newItem.v);
+    const ops = lcsDiff(
+      [{ v: 1 }, { v: 2 }],
+      [{ v: 2 }, { v: 3 }],
+      (oldItem, newItem) => oldItem.v === newItem.v,
+    );
 
     // Assert
     expect(ops.map((op) => op.kind)).toEqual(["del", "ctx", "add"]);

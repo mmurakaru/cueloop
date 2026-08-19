@@ -70,7 +70,10 @@ interface BlockRef {
 }
 
 /** Screen position of a rendered-text offset inside a wrapped text. */
-function positionOfRenderedOffset(renderable: TextRenderable, renderedOffset: number): { x: number; y: number } {
+function positionOfRenderedOffset(
+  renderable: TextRenderable,
+  renderedOffset: number,
+): { x: number; y: number } {
   const info = renderable.lineInfo;
   let lineIndex = 0;
   for (let index = 0; index < info.lineStartCols.length; index++) {
@@ -85,7 +88,6 @@ function positionOfRenderedOffset(renderable: TextRenderable, renderedOffset: nu
 
 export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function PlanSheet(
   {
-    session,
     display,
     marks,
     cursor,
@@ -138,7 +140,11 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     },
   }));
 
-  const registerBlock = (displayIndex: number, renderable: TextRenderable | null, runs: StyleRun[]): void => {
+  const registerBlock = (
+    displayIndex: number,
+    renderable: TextRenderable | null,
+    runs: StyleRun[],
+  ): void => {
     if (renderable) blockRefs.current.set(displayIndex, { renderable, runs });
     else blockRefs.current.delete(displayIndex);
   };
@@ -176,9 +182,15 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
       const runs = overlayMarks(blockRuns(block, true), blockMarks);
       // the change tag participates in the rendered text but carries no offsets
       const mappedRuns: StyleRun[] =
-        block.type !== "same" ? [...runs, { text: ` [${tagLabel(block)}]`, role: "plain", start: null }] : runs;
+        block.type !== "same"
+          ? [...runs, { text: ` [${tagLabel(block)}]`, role: "plain", start: null }]
+          : runs;
       children.push(
-        <box key={displayIndex} id={`plan-block-${displayIndex}`} style={{ flexDirection: "row", marginTop: gap }}>
+        <box
+          key={displayIndex}
+          id={`plan-block-${displayIndex}`}
+          style={{ flexDirection: "row", marginTop: gap }}
+        >
           <text selectable={false}>
             <span fg={isCursor ? tokens.accent : tokens.textDim}>{isCursor ? "▎ " : "  "}</span>
             <span fg={tokens.textDim}>{marker(block)}</span>
@@ -189,7 +201,9 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
             selectionBg={tokens.accent}
             selectionFg={tokens.accentInk}
             style={{ wrapMode: "word", flexGrow: 1, flexShrink: 1 }}
-            ref={(renderable: TextRenderable | null) => registerBlock(displayIndex, renderable, mappedRuns)}
+            ref={(renderable: TextRenderable | null) =>
+              registerBlock(displayIndex, renderable, mappedRuns)
+            }
             onMouseUp={() => onLineActivate(displayIndex)}
           >
             {runs.map((run, runIndex) => (
@@ -197,14 +211,22 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
                 {run.text}
               </span>
             ))}
-            {block.type !== "same" ? <span fg={tagColor(block, tokens)}> [{tagLabel(block)}]</span> : null}
+            {block.type !== "same" ? (
+              <span fg={tagColor(block, tokens)}> [{tagLabel(block)}]</span>
+            ) : null}
           </text>
         </box>,
       );
     }
     if (compose && compose.displayIndex === displayIndex) {
       children.push(
-        <AnnotationCard key={`compose-${displayIndex}`} kind={compose.kind} quote={compose.quote} draft={compose.draft} theme={theme} />,
+        <AnnotationCard
+          key={`compose-${displayIndex}`}
+          kind={compose.kind}
+          quote={compose.quote}
+          draft={compose.draft}
+          theme={theme}
+        />,
       );
     }
   }
@@ -223,11 +245,16 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
         {editOrphanCount > 0 ? (
           <box style={{ height: 1, backgroundColor: tokens.markCommentBackground, paddingLeft: 1 }}>
             <text fg={tokens.red}>
-              {editOrphanCount} annotation{editOrphanCount === 1 ? "" : "s"} no longer match - the passage was removed.
+              {editOrphanCount} annotation{editOrphanCount === 1 ? "" : "s"} no longer match - the
+              passage was removed.
             </text>
           </box>
         ) : null}
-        <scrollbox ref={scrollRef} style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 0 }} focused={false}>
+        <scrollbox
+          ref={scrollRef}
+          style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 0 }}
+          focused={false}
+        >
           {children}
         </scrollbox>
       </box>
@@ -239,7 +266,8 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
 function topGap(previous: DisplayBlock | undefined, current: DisplayBlock): number {
   if (!previous) return 0;
   const tightPair =
-    (current.kind === "li" && previous.kind === "li") || (current.kind === "oli" && previous.kind === "oli");
+    (current.kind === "li" && previous.kind === "li") ||
+    (current.kind === "oli" && previous.kind === "oli");
   return tightPair ? 0 : 1;
 }
 
@@ -259,7 +287,12 @@ function tagColor(block: DisplayBlock, tokens: Theme): string {
 }
 
 function runStyle(run: StyleRun, block: DisplayBlock, tokens: Theme): { fg?: string; bg?: string } {
-  const headingFg = block.kind === "h1" ? tokens.text : block.kind === "h2" || block.kind === "h3" ? tokens.accent : undefined;
+  const headingFg =
+    block.kind === "h1"
+      ? tokens.text
+      : block.kind === "h2" || block.kind === "h3"
+        ? tokens.accent
+        : undefined;
   const struck = block.type === "del";
   switch (run.role) {
     case "ins":

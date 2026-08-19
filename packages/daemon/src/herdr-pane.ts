@@ -47,13 +47,18 @@ export interface OpenHerdrPaneOptions {
 export function openHerdrPane(options: OpenHerdrPaneOptions): boolean {
   const { sessionId, cwd, binPath, label } = options;
   try {
-    const created = Bun.spawnSync([binPath, "tab", "create", "--cwd", cwd, "--label", label, "--focus"], {
-      stdout: "pipe",
-      stderr: "ignore",
-      timeout: HERDR_SPAWN_TIMEOUT_MS,
-    });
+    const created = Bun.spawnSync(
+      [binPath, "tab", "create", "--cwd", cwd, "--label", label, "--focus"],
+      {
+        stdout: "pipe",
+        stderr: "ignore",
+        timeout: HERDR_SPAWN_TIMEOUT_MS,
+      },
+    );
     if (created.exitCode !== 0) return false;
-    const parsed = JSON.parse(created.stdout.toString()) as { result?: { root_pane?: { pane_id?: string } } };
+    const parsed = JSON.parse(created.stdout.toString()) as {
+      result?: { root_pane?: { pane_id?: string } };
+    };
     const paneId = parsed.result?.root_pane?.pane_id;
     if (!paneId) return false;
     // A fresh tab hosts a plain shell, so the review is typed in like a human.

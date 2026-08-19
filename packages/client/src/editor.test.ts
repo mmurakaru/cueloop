@@ -12,7 +12,9 @@ describe("resolveEditor", () => {
 
   test("the environment chain wins in order: CUELOOP_EDITOR, VISUAL, EDITOR", () => {
     // Assert
-    expect(resolveEditor(undefined, { EDITOR: "vim", VISUAL: "code", CUELOOP_EDITOR: "hx" })).toBe("hx");
+    expect(resolveEditor(undefined, { EDITOR: "vim", VISUAL: "code", CUELOOP_EDITOR: "hx" })).toBe(
+      "hx",
+    );
     expect(resolveEditor(undefined, { EDITOR: "vim", VISUAL: "code" })).toBe("code");
     expect(resolveEditor(undefined, { EDITOR: "vim" })).toBe("vim");
   });
@@ -27,7 +29,10 @@ describe("resolveEditorCommand", () => {
   test("a known GUI editor gets its wait flag appended and is trusted to wait", () => {
     // Assert
     expect(resolveEditorCommand("code")).toEqual({ argv: ["code", "--wait"], waits: true });
-    expect(resolveEditorCommand("subl")).toEqual({ argv: ["subl", "--new-window", "--wait"], waits: true });
+    expect(resolveEditorCommand("subl")).toEqual({
+      argv: ["subl", "--new-window", "--wait"],
+      waits: true,
+    });
   });
 
   test("an existing wait flag is not duplicated", () => {
@@ -70,7 +75,9 @@ describe("editInEditor", () => {
 
   test("an editor that changes the file reports the new content", () => {
     // Act
-    const result = editInEditor("old", "plan.md", { editor: stubEditor("writer.sh", `printf 'new' > "$1"`) });
+    const result = editInEditor("old", "plan.md", {
+      editor: stubEditor("writer.sh", `printf 'new' > "$1"`),
+    });
 
     // Assert
     expect(result).toEqual({ content: "new", changed: true });
@@ -129,6 +136,8 @@ describe("editInEditor", () => {
 
   test("a nonzero editor exit throws", () => {
     // Assert
-    expect(() => editInEditor("x", "plan.md", { editor: stubEditor("fail.sh", "exit 3") })).toThrow("editor exited 3");
+    expect(() => editInEditor("x", "plan.md", { editor: stubEditor("fail.sh", "exit 3") })).toThrow(
+      "editor exited 3",
+    );
   });
 });

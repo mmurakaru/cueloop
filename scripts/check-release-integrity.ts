@@ -13,13 +13,17 @@ for (const name of REQUIRED_SCRIPTS) {
   if (!root.scripts?.[name]) problems.push(`package.json is missing the "${name}" script`);
 }
 if (root.scripts?.test && !root.scripts.test.includes("./test")) {
-  problems.push('the "test" script must cover ./test (the integration and e2e tiers), not just ./packages');
+  problems.push(
+    'the "test" script must cover ./test (the integration and e2e tiers), not just ./packages',
+  );
 }
 for (const dep of ["@changesets/cli", "@changesets/changelog-github"]) {
-  if (!root.devDependencies?.[dep]) problems.push(`package.json is missing the ${dep} devDependency`);
+  if (!root.devDependencies?.[dep])
+    problems.push(`package.json is missing the ${dep} devDependency`);
 }
 
-if (!(await Bun.file(".changeset/config.json").exists())) problems.push(".changeset/config.json is missing");
+if (!(await Bun.file(".changeset/config.json").exists()))
+  problems.push(".changeset/config.json is missing");
 if (!(await Bun.file("scripts/sync-plugin-version.ts").exists())) {
   problems.push("scripts/sync-plugin-version.ts is missing (the version step calls it)");
 }
@@ -27,16 +31,20 @@ if (!(await Bun.file("scripts/sync-plugin-version.ts").exists())) {
 // every publishable workspace package needs publish metadata
 const paths: string[] = [];
 for await (const path of new Bun.Glob("packages/*/package.json").scan(".")) paths.push(path);
-for await (const path of new Bun.Glob("packages/integrations/*/package.json").scan(".")) paths.push(path);
+for await (const path of new Bun.Glob("packages/integrations/*/package.json").scan("."))
+  paths.push(path);
 for (const path of paths) {
   const pkg = await Bun.file(path).json();
   if (pkg.private) continue;
-  if (pkg.publishConfig?.access !== "public") problems.push(`${path}: publishConfig.access must be "public"`);
-  if (!Array.isArray(pkg.files) || pkg.files.length === 0) problems.push(`${path}: files[] must list what ships`);
+  if (pkg.publishConfig?.access !== "public")
+    problems.push(`${path}: publishConfig.access must be "public"`);
+  if (!Array.isArray(pkg.files) || pkg.files.length === 0)
+    problems.push(`${path}: files[] must list what ships`);
   // npm renders these on the package page; without them a reader cannot get
   // back to the source or file an issue
   for (const field of ["description", "homepage", "bugs", "repository"]) {
-    if (!pkg[field]) problems.push(`${path}: ${field} is missing (npm shows it on the package page)`);
+    if (!pkg[field])
+      problems.push(`${path}: ${field} is missing (npm shows it on the package page)`);
   }
 }
 

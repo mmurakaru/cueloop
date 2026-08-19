@@ -1,7 +1,7 @@
 /** The review panel end to end: the b key cycles expanded -> compact -> hidden -> expanded on the live App, and the collapse mode persists to the user config so it survives a restart. Rendering details are locked by the ReviewPanel stories; this suite proves the App wiring and the persistence. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
@@ -38,7 +38,10 @@ afterEach(() => {
 });
 
 async function renderApp() {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 30 });
+  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+    width: 120,
+    height: 30,
+  });
   await waitForText(setup, "Review");
   return setup;
 }
@@ -49,7 +52,12 @@ describe("review panel", () => {
     const setup = await renderApp();
     // the plan frame widens as the rail shrinks: expanded < compact < hidden.
     // its width is the column of its top-right corner (the first ╮ on the row).
-    const planWidth = () => setup.captureCharFrame().split("\n").find((line) => line.includes("╮"))?.indexOf("╮") ?? 0;
+    const planWidth = () =>
+      setup
+        .captureCharFrame()
+        .split("\n")
+        .find((line) => line.includes("╮"))
+        ?.indexOf("╮") ?? 0;
 
     // Assert: expanded shows the submit button and leaves room for the rail
     expect(setup.captureCharFrame()).toContain("Submit review");

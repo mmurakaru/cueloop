@@ -11,7 +11,9 @@
 import type { ReviewSession } from "@cueloop/schema";
 
 /** Exporters ship resolved sessions somewhere (notes vaults, forges). */
-export type Exporter = (session: ReviewSession) => Promise<{ success: boolean; path?: string; error?: string }>;
+export type Exporter = (
+  session: ReviewSession,
+) => Promise<{ success: boolean; path?: string; error?: string }>;
 
 export interface ExtensionAPI {
   registerExporter(name: string, exporter: Exporter): void;

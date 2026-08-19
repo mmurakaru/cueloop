@@ -54,7 +54,9 @@ describe("anchor cascade", () => {
     const blocks = blocksOf(DOC);
     const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("Review sessions"));
     const anchor = makeAnchor(blocks, contextBlockIndex, 0, 15);
-    const edited = blocksOf(DOC.replace("Review sessions currently", "PREFIX. Review sessions now"));
+    const edited = blocksOf(
+      DOC.replace("Review sessions currently", "PREFIX. Review sessions now"),
+    );
 
     // Act
     const resolved = resolveAnchor(anchor, edited)!;
@@ -62,7 +64,9 @@ describe("anchor cascade", () => {
     // Assert
     const editedBlockIndex = edited.findIndex((block) => block.text.includes("Review sessions"));
     expect(resolved.blockIndex).toBe(editedBlockIndex);
-    expect(edited[resolved.blockIndex]!.text.slice(resolved.start, resolved.end)).toBe("Review sessions");
+    expect(edited[resolved.blockIndex]!.text.slice(resolved.start, resolved.end)).toBe(
+      "Review sessions",
+    );
   });
 
   test("prefix/suffix selectors disambiguate repeated quotes", () => {
@@ -72,7 +76,12 @@ describe("anchor cascade", () => {
     // anchor on the SECOND "Sessions are written" occurrence
     const text = blocks[storageBlockIndex]!.text;
     const second = text.indexOf("Sessions are written", text.indexOf("Sessions are written") + 1);
-    const anchor = makeAnchor(blocks, storageBlockIndex, second, second + "Sessions are written".length);
+    const anchor = makeAnchor(
+      blocks,
+      storageBlockIndex,
+      second,
+      second + "Sessions are written".length,
+    );
 
     // Act
     const resolved = resolveAnchor(anchor, blocks)!;
@@ -96,8 +105,14 @@ describe("anchor cascade", () => {
 
   test("trimmed-quote fallback marks the resolution approximate", () => {
     // Arrange
-    const blocks = blocksOf("some text here");
-    const anchor = { quote: " text ", prefix: "some", suffix: "here", blockIndex: 0, start: 4, end: 10 };
+    const anchor = {
+      quote: " text ",
+      prefix: "some",
+      suffix: "here",
+      blockIndex: 0,
+      start: 4,
+      end: 10,
+    };
     const edited = blocksOf("some\ntext\nhere");
     // " text " (with spaces) is gone, "text" survives
 
@@ -114,7 +129,9 @@ describe("anchor cascade", () => {
     const blocks = blocksOf(DOC);
     const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("Review sessions"));
     const anchor = makeAnchor(blocks, contextBlockIndex, 0, 15);
-    const edited = blocksOf(DOC.replace(/Review sessions[^\n]*\n[^\n]*/, "Completely different text."));
+    const edited = blocksOf(
+      DOC.replace(/Review sessions[^\n]*\n[^\n]*/, "Completely different text."),
+    );
 
     // Assert
     expect(resolveAnchor(anchor, edited)).toBeNull();

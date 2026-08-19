@@ -106,9 +106,11 @@ export function WalkWizard({
               <text fg={tokens.text}>{currentFile.path}</text>
               <text>
                 <span fg={tokens.green}>{`+${currentFile.added}`}</span>
-                <span fg={tokens.textDim}>{" "}</span>
+                <span fg={tokens.textDim}> </span>
                 <span fg={tokens.red}>{`-${currentFile.removed}`}</span>
-                <span fg={tokens.textDim}>{viewedPaths.has(currentFile.path) ? " · viewed" : ""}</span>
+                <span fg={tokens.textDim}>
+                  {viewedPaths.has(currentFile.path) ? " · viewed" : ""}
+                </span>
               </text>
               <box style={{ height: 1 }} />
               {currentFile.preview.length === 0 ? (
@@ -118,7 +120,11 @@ export function WalkWizard({
                   <text
                     key={previewIndex}
                     style={{ wrapMode: "none" }}
-                    fg={previewLine.sign === "+" ? tokens.insertedForeground : tokens.deletedForeground}
+                    fg={
+                      previewLine.sign === "+"
+                        ? tokens.insertedForeground
+                        : tokens.deletedForeground
+                    }
                   >
                     {previewLine.sign + previewLine.text}
                   </text>

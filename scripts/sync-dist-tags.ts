@@ -28,13 +28,18 @@ let failures = 0;
 for (const name of new Set(names)) {
   const result = Bun.spawnSync(["npm", "dist-tag", "add", `${name}@${version}`, preTag]);
   const succeeded = result.exitCode === 0;
-  console.log(`${succeeded ? "retagged" : "FAILED"} ${name}@${version} as ${preTag}${succeeded ? "" : ": " + result.stderr.toString().trim().split("\n").pop()}`);
+  console.log(
+    `${succeeded ? "retagged" : "FAILED"} ${name}@${version} as ${preTag}${succeeded ? "" : ": " + result.stderr.toString().trim().split("\n").pop()}`,
+  );
   if (!succeeded) failures++;
 }
 
 /** Versions that shipped broken; nobody should resolve to them. */
 const DEPRECATED: [string, string][] = [
-  ["cueloop@0.1.0-alpha.0", "unusable: internal dependencies shipped as an unresolvable workspace protocol - install cueloop@alpha instead"],
+  [
+    "cueloop@0.1.0-alpha.0",
+    "unusable: internal dependencies shipped as an unresolvable workspace protocol - install cueloop@alpha instead",
+  ],
 ];
 for (const [spec, message] of DEPRECATED) {
   const result = Bun.spawnSync(["npm", "deprecate", spec, message]);

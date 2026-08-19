@@ -9,12 +9,18 @@
 /** Focus the tab holding the target pane. Synchronous: runs just before exit. */
 export function focusHerdrPane(binPath: string, paneId: string): boolean {
   try {
-    const got = Bun.spawnSync([binPath, "pane", "get", paneId], { stdout: "pipe", stderr: "ignore" });
+    const got = Bun.spawnSync([binPath, "pane", "get", paneId], {
+      stdout: "pipe",
+      stderr: "ignore",
+    });
     if (got.exitCode !== 0) return false;
     const parsed = JSON.parse(got.stdout.toString()) as { result?: { pane?: { tab_id?: string } } };
     const tab = parsed.result?.pane?.tab_id;
     if (!tab) return false;
-    return Bun.spawnSync([binPath, "tab", "focus", tab], { stdout: "ignore", stderr: "ignore" }).exitCode === 0;
+    return (
+      Bun.spawnSync([binPath, "tab", "focus", tab], { stdout: "ignore", stderr: "ignore" })
+        .exitCode === 0
+    );
   } catch {
     return false;
   }

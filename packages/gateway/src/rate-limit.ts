@@ -17,7 +17,10 @@ export class TokenBucket {
   take(key: string): boolean {
     const at = this.now();
     const bucket = this.buckets.get(key) ?? { tokens: this.capacity, updatedAt: at };
-    const refilled = Math.min(this.capacity, bucket.tokens + ((at - bucket.updatedAt) / 1000) * this.refillPerSecond);
+    const refilled = Math.min(
+      this.capacity,
+      bucket.tokens + ((at - bucket.updatedAt) / 1000) * this.refillPerSecond,
+    );
     if (refilled < 1) {
       this.buckets.set(key, { tokens: refilled, updatedAt: at });
       return false;

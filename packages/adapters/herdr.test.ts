@@ -99,7 +99,11 @@ describe("report helpers", () => {
     // Act
     reportState("blocked", { HERDR_PANE_ID: "p", HERDR_BIN_PATH: stub.binPath });
     reportLabel("x", { HERDR_PANE_ID: "p", HERDR_BIN_PATH: stub.binPath });
-    reportState("blocked", { HERDR_ENV: "1", HERDR_PANE_ID: "p", HERDR_BIN_PATH: join(dir, "missing-bin") });
+    reportState("blocked", {
+      HERDR_ENV: "1",
+      HERDR_PANE_ID: "p",
+      HERDR_BIN_PATH: join(dir, "missing-bin"),
+    });
     await Bun.sleep(150);
 
     // Assert
@@ -117,7 +121,11 @@ function hookEvent(sessionId: string, plan: string) {
   };
 }
 
-async function resolvePending(marker: string, kind: "approve" | "request_changes", summary: string): Promise<void> {
+async function resolvePending(
+  marker: string,
+  kind: "approve" | "request_changes",
+  summary: string,
+): Promise<void> {
   const client = await DaemonClient.connect({ home });
   try {
     for (let i = 0; i < 100; i++) {
@@ -139,7 +147,12 @@ describe("hook flow inside herdr", () => {
   test("reports blocked + label on submit, working + outcome label on verdict", async () => {
     // Arrange
     const stub = makeStub("verdict");
-    setHookEnv({ HERDR_ENV: "1", HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath, CUELOOP_WAIT_MS: "10000" });
+    setHookEnv({
+      HERDR_ENV: "1",
+      HERDR_PANE_ID: "pane-7",
+      HERDR_BIN_PATH: stub.binPath,
+      CUELOOP_WAIT_MS: "10000",
+    });
 
     // Act
     const run = runHook(hookEvent("herdr-hook-1", "# Rollout Plan\n\nShip it slowly.\n"), home);
@@ -148,7 +161,9 @@ describe("hook flow inside herdr", () => {
     // creating a new review inside herdr opens a tab that launches the review,
     // then the pane reports blocked + label before the verdict lands
     const before = await waitForLines(stub.logPath, 5);
-    const paneLines = before.filter((line) => line.startsWith("tab ") || line.startsWith("pane send-"));
+    const paneLines = before.filter(
+      (line) => line.startsWith("tab ") || line.startsWith("pane send-"),
+    );
     expect(paneLines[0]).toBe(`tab create --cwd ${home} --label Rollout Plan --focus`);
     expect(paneLines[1]).toMatch(/^pane send-text w1:p2 cueloop ses_[a-z0-9_]+$/i);
     expect(paneLines[2]).toBe("pane send-keys w1:p2 enter");
@@ -181,7 +196,12 @@ describe("hook flow inside herdr", () => {
   test("pending timeout leaves the pane blocked - no working report", async () => {
     // Arrange
     const stub = makeStub("timeout");
-    setHookEnv({ HERDR_ENV: "1", HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath, CUELOOP_WAIT_MS: "200" });
+    setHookEnv({
+      HERDR_ENV: "1",
+      HERDR_PANE_ID: "pane-7",
+      HERDR_BIN_PATH: stub.binPath,
+      CUELOOP_WAIT_MS: "200",
+    });
 
     // Act
     const decision = await runHook(hookEvent("herdr-hook-2", "# Late Plan\n\nSlow.\n"), home);
@@ -193,7 +213,9 @@ describe("hook flow inside herdr", () => {
     await Bun.sleep(150); // give any stray report time to land
     // pane auto-open (3 lines) + blocked report + label = 5; never a working report
     const lines = await waitForLines(stub.logPath, 5);
-    expect(lines.some((line) => line === `tab create --cwd ${home} --label Late Plan --focus`)).toBeTrue();
+    expect(
+      lines.some((line) => line === `tab create --cwd ${home} --label Late Plan --focus`),
+    ).toBeTrue();
     expect(lines.join("\n")).not.toContain("--state working");
     expect(lines.join("\n")).toContain("--state blocked");
   }, 15_000);

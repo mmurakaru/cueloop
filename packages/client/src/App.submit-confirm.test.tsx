@@ -35,7 +35,11 @@ beforeEach(() => {
   server.start();
   session = server.core.sessionCreate({
     workspace: { repoRoot: "/repo", branch: "main" },
-    artifact: { type: "plan", content: PLAN, meta: { title: "Migration Plan", planPath: "plan.md" } },
+    artifact: {
+      type: "plan",
+      content: PLAN,
+      meta: { title: "Migration Plan", planPath: "plan.md" },
+    },
   });
 });
 afterEach(() => {
@@ -45,15 +49,16 @@ afterEach(() => {
 });
 
 async function renderApp(options: { readOnly?: boolean } = {}) {
-  const setup = await testRender(<App home={home} sessionId={session.id} readOnly={options.readOnly ?? false} />, {
-    width: 120,
-    height: 32,
-  });
+  const setup = await testRender(
+    <App home={home} sessionId={session.id} readOnly={options.readOnly ?? false} />,
+    {
+      width: 120,
+      height: 32,
+    },
+  );
   await waitForText(setup, "cueloop");
   return setup;
 }
-
-type Setup = Awaited<ReturnType<typeof renderApp>>;
 
 /** Seed annotations directly through the daemon core (all on one block). */
 function seedAnnotations(count: number): void {

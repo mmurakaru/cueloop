@@ -22,7 +22,9 @@ describe("GatewayMetrics.render", () => {
     expect(text).toContain('cueloop_share_op_duration_seconds_bucket{verb="pull",le="0.25"} 2');
     expect(text).toContain('cueloop_share_op_duration_seconds_bucket{verb="pull",le="+Inf"} 3');
     expect(text).toContain('cueloop_share_op_duration_seconds_count{verb="pull"} 3');
-    const sum = Number(text.match(/cueloop_share_op_duration_seconds_sum\{verb="pull"\} ([\d.]+)/)![1]);
+    const sum = Number(
+      text.match(/cueloop_share_op_duration_seconds_sum\{verb="pull"\} ([\d.]+)/)![1],
+    );
     expect(sum).toBeCloseTo(3.22, 5);
     expect(text).toContain('cueloop_r2_ops_total{op="get",outcome="ok"} 1');
     expect(text).toContain('cueloop_r2_ops_total{op="put",outcome="error"} 1');

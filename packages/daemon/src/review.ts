@@ -7,7 +7,12 @@
  * serializing the decision in its host's contract.
  */
 
-import { newAnnotationId, type ArtifactType, type ReviewSession, type WorkspaceKey } from "@cueloop/schema";
+import {
+  newAnnotationId,
+  type ArtifactType,
+  type ReviewSession,
+  type WorkspaceKey,
+} from "@cueloop/schema";
 import { verdictResponse } from "./api";
 import type { DaemonClient } from "./client";
 
@@ -69,7 +74,11 @@ export interface ReviewNote {
 }
 
 /** Anchor a note at its file: quote = the path, no context selectors. */
-async function attachNotes(client: DaemonClient, sessionId: string, notes: ReviewNote[]): Promise<void> {
+async function attachNotes(
+  client: DaemonClient,
+  sessionId: string,
+  notes: ReviewNote[],
+): Promise<void> {
   for (const note of notes) {
     await client.sessionAnnotate(sessionId, {
       id: newAnnotationId(),
@@ -100,7 +109,10 @@ export interface VerdictOutcome {
 /** Sentinel distinguishing an abort from any daemon response. */
 const ABORTED = Symbol("aborted");
 
-function raceAbort<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T | typeof ABORTED> {
+function raceAbort<T>(
+  promise: Promise<T>,
+  signal: AbortSignal | undefined,
+): Promise<T | typeof ABORTED> {
   if (!signal) return promise;
   if (signal.aborted) {
     promise.catch(() => {});
@@ -170,7 +182,10 @@ function outcome(session: ReviewSession): VerdictOutcome {
 }
 
 /** Open a review session (or revise the agent session's existing one) and hand back the wait surface. */
-export async function openReview(client: DaemonClient, options: OpenReviewOptions): Promise<ReviewHandle> {
+export async function openReview(
+  client: DaemonClient,
+  options: OpenReviewOptions,
+): Promise<ReviewHandle> {
   const cwd = options.cwd ?? process.cwd();
   const workspace = options.workspace ?? (await resolveWorkspace(cwd));
   // Resubmits from the same agent session become revisions, not new sessions.

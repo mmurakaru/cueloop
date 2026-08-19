@@ -16,6 +16,7 @@ import { useComponentTheme } from "./theme-context";
 import { truncateToSingleLine } from "./truncate-text";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
+import { intralineRunsByRow, type IntralineRun } from "../diff-intraline";
 
 export interface DiffComposeState {
   kind: "comment" | "suggestion";
@@ -43,12 +44,17 @@ function rowLine(row: DiffRow): string {
 }
 
 /** Chunks split after an annotated or composed row so a card can sit below. */
-function segmentRows(rows: DiffRow[], annotatedByRow: Map<number, Annotation>, composeRowIndex?: number): DiffSegment[] {
+function segmentRows(
+  rows: DiffRow[],
+  annotatedByRow: Map<number, Annotation>,
+  composeRowIndex?: number,
+): DiffSegment[] {
   const segments: DiffSegment[] = [];
   let chunk: DiffRow[] = [];
   let chunkStart = 0;
   const closeChunk = (annotation: Annotation | null): void => {
-    if (chunk.length) segments.push({ kind: "chunk", firstRowIndex: chunkStart, rows: chunk, annotation });
+    if (chunk.length)
+      segments.push({ kind: "chunk", firstRowIndex: chunkStart, rows: chunk, annotation });
     chunk = [];
   };
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
@@ -78,11 +84,13 @@ function DiffChunk({
   segment,
   cursor,
   focusedAnnotationId,
+  intralineByRow,
   theme,
 }: {
   segment: Extract<DiffSegment, { kind: "chunk" }>;
   cursor: number;
   focusedAnnotationId?: string;
+  intralineByRow: Map<number, IntralineRun[]>;
   theme?: Theme;
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -113,10 +121,16 @@ function DiffChunk({
     // the renderable's config parser requires the gutter key to be present
     const colors = new Map<number, { gutter: string | undefined; content: string }>();
     if (segment.annotation) {
-      colors.set(segment.rows.length - 1, { gutter: undefined, content: tokens.markCommentBackground });
+      colors.set(segment.rows.length - 1, {
+        gutter: undefined,
+        content: tokens.markCommentBackground,
+      });
     }
     if (cursorInChunk >= 0 && cursorInChunk < segment.rows.length) {
-      colors.set(cursorInChunk, { gutter: tokens.cursorBackground, content: tokens.cursorBackground });
+      colors.set(cursorInChunk, {
+        gutter: tokens.cursorBackground,
+        content: tokens.cursorBackground,
+      });
     }
     return colors;
   }, [segment, cursorInChunk, tokens]);
@@ -146,17 +160,45 @@ function DiffChunk({
         <text style={{ wrapMode: "none" }} selectable={false}>
           {segment.rows.map((row, lineIndex) => {
             const sign = row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ";
-            const foreground = row.kind === "add" ? tokens.insertedForeground : row.kind === "del" ? tokens.deletedForeground : tokens.textMuted;
+            const foreground =
+              row.kind === "add"
+                ? tokens.insertedForeground
+                : row.kind === "del"
+                  ? tokens.deletedForeground
+                  : tokens.textMuted;
             const isCursorRow = lineIndex === cursorInChunk;
-            const isAnnotatedRow = segment.annotation !== null && lineIndex === segment.rows.length - 1;
+            const isAnnotatedRow =
+              segment.annotation !== null && lineIndex === segment.rows.length - 1;
+            const rowBackground = isCursorRow
+              ? tokens.cursorBackground
+              : isAnnotatedRow
+                ? tokens.markCommentBackground
+                : undefined;
+            const prefix = (lineIndex > 0 ? "\n" : "") + sign;
+            // Paired lines dim context and color the changed words; unpaired stay one span.
+            const runs = intralineByRow.get(segment.firstRowIndex + lineIndex);
+            if (!runs) {
+              return (
+                <span key={lineIndex} fg={foreground} bg={rowBackground}>
+                  {prefix + rowLine(row)}
+                </span>
+              );
+            }
             return (
-              <span
-                key={lineIndex}
-                fg={foreground}
-                bg={isCursorRow ? tokens.cursorBackground : isAnnotatedRow ? tokens.markCommentBackground : undefined}
-              >
-                {(lineIndex > 0 ? "\n" : "") + sign + rowLine(row)}
-              </span>
+              <React.Fragment key={lineIndex}>
+                <span fg={foreground} bg={rowBackground}>
+                  {prefix}
+                </span>
+                {runs.map((run, runIndex) => (
+                  <span
+                    key={runIndex}
+                    fg={run.changed ? foreground : tokens.textDim}
+                    bg={rowBackground}
+                  >
+                    {run.text}
+                  </span>
+                ))}
+              </React.Fragment>
             );
           })}
         </text>
@@ -173,7 +215,14 @@ function DiffChunk({
   );
 }
 
-export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, compose, theme }: DiffSheetProps): React.ReactNode {
+export function DiffSheet({
+  rows,
+  cursor,
+  annotations,
+  focusedAnnotationId,
+  compose,
+  theme,
+}: DiffSheetProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
 
@@ -181,7 +230,9 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, comp
     const byRow = new Map<number, Annotation>();
     for (const annotation of annotations) {
       const rowIndex = rows.findIndex(
-        (row) => row.text === annotation.anchor.quote && (row.kind === "ctx" || row.kind === "add" || row.kind === "del"),
+        (row) =>
+          row.text === annotation.anchor.quote &&
+          (row.kind === "ctx" || row.kind === "add" || row.kind === "del"),
       );
       if (rowIndex !== -1) byRow.set(rowIndex, annotation);
     }
@@ -192,6 +243,8 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, comp
     () => segmentRows(rows, annotatedByRow, compose?.rowIndex),
     [rows, annotatedByRow, compose?.rowIndex],
   );
+
+  const intralineByRow = useMemo(() => intralineRunsByRow(rows), [rows]);
 
   // content y offset per row index, for cursor-following scroll
   const rowOffsets = useMemo(() => {
@@ -241,13 +294,21 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, comp
             const isCursor = segment.rowIndex === cursor;
             if (segment.row.kind === "file") {
               return (
-                <text key={segmentIndex} fg={tokens.text} bg={isCursor ? tokens.cursorBackground : tokens.panel}>
+                <text
+                  key={segmentIndex}
+                  fg={tokens.text}
+                  bg={isCursor ? tokens.cursorBackground : tokens.panel}
+                >
                   {isCursor ? "▎" : " "}■ {rowLine(segment.row)}
                 </text>
               );
             }
             return (
-              <text key={segmentIndex} fg={tokens.blue} bg={isCursor ? tokens.cursorBackground : undefined}>
+              <text
+                key={segmentIndex}
+                fg={tokens.blue}
+                bg={isCursor ? tokens.cursorBackground : undefined}
+              >
                 {isCursor ? "▎" : " "}
                 {rowLine(segment.row)}
               </text>
@@ -256,9 +317,20 @@ export function DiffSheet({ rows, cursor, annotations, focusedAnnotationId, comp
           const lastRowIndex = segment.firstRowIndex + segment.rows.length - 1;
           return (
             <React.Fragment key={segmentIndex}>
-              <DiffChunk segment={segment} cursor={cursor} focusedAnnotationId={focusedAnnotationId} theme={theme} />
+              <DiffChunk
+                segment={segment}
+                cursor={cursor}
+                focusedAnnotationId={focusedAnnotationId}
+                intralineByRow={intralineByRow}
+                theme={theme}
+              />
               {compose && compose.rowIndex === lastRowIndex ? (
-                <AnnotationCard kind={compose.kind} quote={compose.quote} draft={compose.draft} theme={theme} />
+                <AnnotationCard
+                  kind={compose.kind}
+                  quote={compose.quote}
+                  draft={compose.draft}
+                  theme={theme}
+                />
               ) : null}
             </React.Fragment>
           );

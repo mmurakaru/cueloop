@@ -13,14 +13,17 @@ import { MemoryShareStore, r2StoreFromEnv, type ShareStore } from "./store";
 
 function loadMasterKey(path: string): Buffer {
   const key = readFileSync(path);
-  if (key.length !== KEY_BYTES) throw new Error(`master key at ${path} must be exactly ${KEY_BYTES} bytes`);
+  if (key.length !== KEY_BYTES)
+    throw new Error(`master key at ${path} must be exactly ${KEY_BYTES} bytes`);
   return key;
 }
 
 async function main(): Promise<void> {
   const useMemory = process.env.CUELOOP_STORE === "memory";
   const store: ShareStore = useMemory ? new MemoryShareStore() : r2StoreFromEnv();
-  const masterKey = useMemory ? generateMasterKey() : loadMasterKey(process.env.CUELOOP_MASTER_KEY_PATH ?? "/etc/cueloop/master.key");
+  const masterKey = useMemory
+    ? generateMasterKey()
+    : loadMasterKey(process.env.CUELOOP_MASTER_KEY_PATH ?? "/etc/cueloop/master.key");
 
   const handle = await startGateway({
     store,
@@ -30,12 +33,18 @@ async function main(): Promise<void> {
     host: process.env.CUELOOP_GATEWAY_HOST,
     publicHost: process.env.CUELOOP_PUBLIC_HOST,
     // Off unless CUELOOP_METRICS_PORT is set; binds loopback so it never faces the internet.
-    metricsPort: process.env.CUELOOP_METRICS_PORT ? Number(process.env.CUELOOP_METRICS_PORT) : undefined,
+    metricsPort: process.env.CUELOOP_METRICS_PORT
+      ? Number(process.env.CUELOOP_METRICS_PORT)
+      : undefined,
     metricsHost: process.env.CUELOOP_METRICS_HOST,
   });
 
-  const metricsNote = process.env.CUELOOP_METRICS_PORT ? `, metrics on ${process.env.CUELOOP_METRICS_HOST ?? "127.0.0.1"}:${process.env.CUELOOP_METRICS_PORT}` : "";
-  console.log(`cueloop gateway listening on ${handle.host}:${handle.port}${useMemory ? " (memory store, ephemeral key)" : ""}${metricsNote}`);
+  const metricsNote = process.env.CUELOOP_METRICS_PORT
+    ? `, metrics on ${process.env.CUELOOP_METRICS_HOST ?? "127.0.0.1"}:${process.env.CUELOOP_METRICS_PORT}`
+    : "";
+  console.log(
+    `cueloop gateway listening on ${handle.host}:${handle.port}${useMemory ? " (memory store, ephemeral key)" : ""}${metricsNote}`,
+  );
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
     process.on(signal, () => void handle.close().then(() => process.exit(0)));
   }

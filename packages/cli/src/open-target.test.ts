@@ -30,7 +30,10 @@ function session(overrides: {
     },
     revisions: [],
     annotations: [],
-    verdict: overrides.status === "resolved" ? { kind: "approve", summary: "", feedback: "", resolvedAt: "" } : null,
+    verdict:
+      overrides.status === "resolved"
+        ? { kind: "approve", summary: "", feedback: "", resolvedAt: "" }
+        : null,
     status: overrides.status ?? "pending",
     createdAt: overrides.createdAt ?? "2026-01-01T00:00:00.000Z",
   };
@@ -84,7 +87,10 @@ describe("resolveOpenTarget: latest pending default", () => {
     ];
 
     // Assert
-    expect(resolveOpenTarget(sessions, { match: isPlan })).toEqual({ kind: "session", sessionId: "ses_new" });
+    expect(resolveOpenTarget(sessions, { match: isPlan })).toEqual({
+      kind: "session",
+      sessionId: "ses_new",
+    });
   });
 
   test("ignores resolved sessions and other artifact types", () => {
@@ -96,7 +102,10 @@ describe("resolveOpenTarget: latest pending default", () => {
     ];
 
     // Assert
-    expect(resolveOpenTarget(sessions, { match: isPlan })).toEqual({ kind: "session", sessionId: "ses_plan" });
+    expect(resolveOpenTarget(sessions, { match: isPlan })).toEqual({
+      kind: "session",
+      sessionId: "ses_plan",
+    });
   });
 
   test("no pending session in scope reports no-pending", () => {
@@ -111,10 +120,7 @@ describe("resolveOpenTarget: latest pending default", () => {
 describe("resolveOpenTarget: by id", () => {
   test("an exact session id in scope opens that session, pending or not", () => {
     // Arrange
-    const sessions = [
-      session({ id: "ses_a" }),
-      session({ id: "ses_b", status: "resolved" }),
-    ];
+    const sessions = [session({ id: "ses_a" }), session({ id: "ses_b", status: "resolved" })];
 
     // Assert
     expect(resolveOpenTarget(sessions, { match: isPlan, selector: "ses_b" })).toEqual({
@@ -193,7 +199,9 @@ describe("resolveOpenTarget: fuzzy by title", () => {
 
 describe("openTargetMessage", () => {
   test("no-pending mirrors the clean-tree tone", () => {
-    expect(openTargetMessage("plan", { kind: "no-pending" })).toBe("no pending plan review - nothing to open");
+    expect(openTargetMessage("plan", { kind: "no-pending" })).toBe(
+      "no pending plan review - nothing to open",
+    );
   });
 
   test("no-match names the selector", () => {
@@ -204,7 +212,11 @@ describe("openTargetMessage", () => {
 
   test("ambiguous lists the candidate titles", () => {
     // Act
-    const message = openTargetMessage("plan", { kind: "ambiguous", selector: "rollout", titles: ["A", "B"] });
+    const message = openTargetMessage("plan", {
+      kind: "ambiguous",
+      selector: "rollout",
+      titles: ["A", "B"],
+    });
 
     // Assert
     expect(message).toContain('"rollout" matches several plan reviews');

@@ -27,7 +27,14 @@ const panelCallbacks = { onDividerGrab: () => {}, onToggle: () => {} };
 /** The plan area to the left of the divider, so the layout reads in context. */
 function PanelFrame({ children }: { children: React.ReactNode }): React.ReactNode {
   return (
-    <box style={{ flexDirection: "row", width: "100%", height: "100%", backgroundColor: DARK.background }}>
+    <box
+      style={{
+        flexDirection: "row",
+        width: "100%",
+        height: "100%",
+        backgroundColor: DARK.background,
+      }}
+    >
       <box style={{ flexGrow: 1, paddingLeft: 1 }}>
         <text fg={DARK.textMuted}>The plan takes the width the panel hands back.</text>
       </box>

@@ -132,8 +132,21 @@ describe("socket round-trip", () => {
     // When a pull merges an update to the known id, a new collaborator note, and the collaborator's identity
     const merged = await client.sessionMergeShared(session.id, {
       annotations: [
-        { id: "a1", kind: "comment", anchor, body: "should not overwrite", createdAt: "2026-01-01T00:00:00.000Z" },
-        { id: "a2", kind: "comment", anchor, body: "theirs", author: "SHA256:mate", createdAt: "2026-01-01T00:00:00.000Z" },
+        {
+          id: "a1",
+          kind: "comment",
+          anchor,
+          body: "should not overwrite",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          id: "a2",
+          kind: "comment",
+          anchor,
+          body: "theirs",
+          author: "SHA256:mate",
+          createdAt: "2026-01-01T00:00:00.000Z",
+        },
       ],
       participants: [{ id: "SHA256:mate", provider: "ssh", name: "Sam" }],
     });
@@ -141,7 +154,9 @@ describe("socket round-trip", () => {
     // Then notes union by id (existing a1 kept), and the participant registry carries the collaborator's name
     expect(merged.annotations.map((annotation) => annotation.id).sort()).toEqual(["a1", "a2"]);
     expect(merged.annotations.find((annotation) => annotation.id === "a1")!.body).toBe("mine");
-    expect(merged.annotations.find((annotation) => annotation.id === "a2")!.author).toBe("SHA256:mate");
+    expect(merged.annotations.find((annotation) => annotation.id === "a2")!.author).toBe(
+      "SHA256:mate",
+    );
     expect(merged.participants).toEqual([{ id: "SHA256:mate", provider: "ssh", name: "Sam" }]);
   });
 
@@ -196,7 +211,8 @@ describe("large payloads survive socket backpressure", () => {
     // mid-line because the write return value was ignored, so the client
     // never saw the frame's newline and every later request wedged too.
     // Arrange
-    const bigContent = "# Big plan\n" + "lorem ipsum dolor sit amet, consectetur adipiscing elit\n".repeat(4000);
+    const bigContent =
+      "# Big plan\n" + "lorem ipsum dolor sit amet, consectetur adipiscing elit\n".repeat(4000);
 
     // Act
     const created = await client.sessionCreate(

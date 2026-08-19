@@ -64,7 +64,15 @@ export interface KeyState {
   /** Owner-only: publish the plan as a share. A collaborator never re-shares. */
   canShare?: boolean;
   /** Layer that owns keys before the grammar runs. */
-  overlay: "none" | "walk" | "compose" | "submit" | "confirm" | "prompt" | "completion-prompt" | "completion-counting";
+  overlay:
+    | "none"
+    | "walk"
+    | "compose"
+    | "submit"
+    | "confirm"
+    | "prompt"
+    | "completion-prompt"
+    | "completion-counting";
   view: "inbox" | "plan" | "diff";
   /** Plan-only span selection sub-mode. */
   spanMode: boolean;
@@ -79,9 +87,18 @@ export interface KeyState {
 }
 
 /** Verbs that write session state; an observer never reaches their handlers. */
-const MUTATING_ACTIONS = new Set(["comment", "suggest", "cut", "edit", "delete_annotation", "submit", "walk", "share"]);
+const MUTATING_ACTIONS = new Set([
+  "comment",
+  "suggest",
+  "cut",
+  "edit",
+  "delete_annotation",
+  "submit",
+  "walk",
+  "share",
+]);
 
-const SPAN_KEYS = ["l", "h", "w", "b", "$", "0"];
+const SPAN_KEYS = new Set(["l", "h", "w", "b", "$", "0"]);
 
 function status(message: string): Intent[] {
   return [{ type: "status", message }];
@@ -149,7 +166,8 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   if (action === "quit") return [{ type: "exit" }];
   // the ONE read-only rule: any mutating attempt answers instead of acting
   // (span-mode c/s are hardwired keys, so they gate by name as well)
-  const mutating = MUTATING_ACTIONS.has(action ?? "") || (state.spanMode && (name === "c" || name === "s"));
+  const mutating =
+    MUTATING_ACTIONS.has(action ?? "") || (state.spanMode && (name === "c" || name === "s"));
   if (state.readOnly && mutating) return status("observer - read-only");
 
   // share is a session-level verb: it works from any view, owner only
@@ -210,7 +228,7 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 
 function spanGrammar(name: string): Intent[] {
   if (name === "escape") return [{ type: "closeOverlay" }];
-  if (SPAN_KEYS.includes(name)) return [{ type: "spanKey", name }];
+  if (SPAN_KEYS.has(name)) return [{ type: "spanKey", name }];
   if (name === "c" || name === "s") {
     return [{ type: "openCompose", kind: name === "s" ? "suggestion" : "comment", from: "span" }];
   }
@@ -226,13 +244,20 @@ function planGrammar(state: KeyState, action: string | undefined, name: string):
   if (action === "comment" || action === "suggest") {
     if (state.resolved) return status("review submitted - read-only");
     if (!state.cursorAnnotatable) return status("text is cut - restore it first");
-    return [{ type: "openCompose", kind: action === "suggest" ? "suggestion" : "comment", from: "cursor" }];
+    return [
+      {
+        type: "openCompose",
+        kind: action === "suggest" ? "suggestion" : "comment",
+        from: "cursor",
+      },
+    ];
   }
   if (action === "cut" || action === "edit") {
     if (state.resolved) return status("review submitted - read-only");
     // the document selects, the rail edits: with a card selected, Cut deletes
     // the annotation and edit rewrites the card body in place
-    if (state.hasFocusedAnnotation) return [action === "cut" ? { type: "removeAnnotation" } : { type: "editCard" }];
+    if (state.hasFocusedAnnotation)
+      return [action === "cut" ? { type: "removeAnnotation" } : { type: "editCard" }];
     // editing the plan itself is the owner's verb; a share viewer only annotates,
     // and has no edit affordance, so the key is silent rather than a nag
     if (state.canEditPlan === false) return [];
@@ -265,7 +290,8 @@ function annotationCluster(state: KeyState, action: string | undefined): Intent[
   }
   if (action === "submit") {
     // a collaborator's notes union back as they go; there is no verdict to submit
-    if (state.canSubmitVerdict === false) return status("shared view - your notes save as you go; q to leave");
+    if (state.canSubmitVerdict === false)
+      return status("shared view - your notes save as you go; q to leave");
     return state.resolved ? [] : [{ type: "openSubmit" }];
   }
   return null;

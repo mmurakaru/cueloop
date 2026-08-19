@@ -12,7 +12,13 @@ import { DARK, type Theme } from "../theme";
 
 const ThemeContext = createContext<Theme>(DARK);
 
-export function ThemeProvider({ theme, children }: { theme: Theme; children: React.ReactNode }): React.ReactNode {
+export function ThemeProvider({
+  theme,
+  children,
+}: {
+  theme: Theme;
+  children: React.ReactNode;
+}): React.ReactNode {
   return <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>;
 }
 

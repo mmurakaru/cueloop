@@ -35,7 +35,11 @@ beforeEach(() => {
   server.start();
   session = server.core.sessionCreate({
     workspace: { repoRoot: "/repo", branch: "main" },
-    artifact: { type: "plan", content: PLAN, meta: { title: "Migration Plan", planPath: "plan.md" } },
+    artifact: {
+      type: "plan",
+      content: PLAN,
+      meta: { title: "Migration Plan", planPath: "plan.md" },
+    },
   });
 });
 afterEach(() => {
@@ -56,7 +60,11 @@ async function renderObserver() {
 /** Session state that any mutating verb would change. */
 function snapshot() {
   const stored = server.core.sessionGet(session.id);
-  return { annotations: stored.annotations.length, workingCopy: stored.workingCopy, status: stored.status };
+  return {
+    annotations: stored.annotations.length,
+    workingCopy: stored.workingCopy,
+    status: stored.status,
+  };
 }
 
 describe("observer rendering", () => {

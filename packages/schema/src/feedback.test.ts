@@ -13,7 +13,9 @@ Review sessions live only in daemon memory today.
 Sessions are written as one JSON document per session.
 `;
 
-function makeAnnotation(partial: Partial<Annotation> & { anchor: Annotation["anchor"] }): Annotation {
+function makeAnnotation(
+  partial: Partial<Annotation> & { anchor: Annotation["anchor"] },
+): Annotation {
   return {
     id: "a1",
     kind: "comment",
@@ -92,7 +94,9 @@ describe("renderFeedback", () => {
       verdictKind: "comment",
       summary: "",
       artifactContent: PLAN,
-      annotations: [makeAnnotation({ anchor: { quote: "text that is gone", prefix: "", suffix: "" } })],
+      annotations: [
+        makeAnnotation({ anchor: { quote: "text that is gone", prefix: "", suffix: "" } }),
+      ],
     });
 
     // Assert
@@ -122,7 +126,12 @@ describe("renderFeedback", () => {
     });
 
     // Act
-    const noteOnly = renderFeedback({ verdictKind: "approve", summary: "", artifactContent: PLAN, annotations: [note] });
+    const noteOnly = renderFeedback({
+      verdictKind: "approve",
+      summary: "",
+      artifactContent: PLAN,
+      annotations: [note],
+    });
 
     // Assert
     expect(noteOnly).toContain("_No edits or annotations._");
@@ -131,7 +140,12 @@ describe("renderFeedback", () => {
       verdictKind: "request_changes",
       summary: "",
       artifactContent: PLAN,
-      annotations: [note, makeAnnotation({ anchor: { quote: "one JSON document", prefix: "written as ", suffix: " per session." } })],
+      annotations: [
+        note,
+        makeAnnotation({
+          anchor: { quote: "one JSON document", prefix: "written as ", suffix: " per session." },
+        }),
+      ],
     });
     expect(mixed).toContain("## Annotations (1)");
     expect(mixed).not.toContain("The agent's own explanation of the change.");
@@ -149,7 +163,9 @@ describe("renderFeedback", () => {
       artifactContent: PLAN,
       workingCopy: working,
       annotations: [
-        makeAnnotation({ anchor: { quote: "one JSON document", prefix: "written as ", suffix: " per session." } }),
+        makeAnnotation({
+          anchor: { quote: "one JSON document", prefix: "written as ", suffix: " per session." },
+        }),
       ],
     });
 

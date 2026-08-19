@@ -1,7 +1,15 @@
 /** Tier-2 wiring for the notes-vault export: with [integrations.obsidian] set to export on resolve, submitting a review writes the note into the vault and surfaces the path in the status line. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
@@ -27,13 +35,20 @@ beforeEach(() => {
   vault = join(home, "vault");
   mkdirSync(vault);
   const configPath = join(home, "config.toml");
-  writeFileSync(configPath, `[integrations.obsidian]\nvault = ${JSON.stringify(vault)}\nexportOn = "resolve"\n`);
+  writeFileSync(
+    configPath,
+    `[integrations.obsidian]\nvault = ${JSON.stringify(vault)}\nexportOn = "resolve"\n`,
+  );
   restoreUserConfig = isolateUserConfig(home, "config.toml");
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
   session = server.core.sessionCreate({
     workspace: { repoRoot: "/repo", branch: "main" },
-    artifact: { type: "plan", content: PLAN, meta: { title: "Migration Plan", planPath: "plan.md" } },
+    artifact: {
+      type: "plan",
+      content: PLAN,
+      meta: { title: "Migration Plan", planPath: "plan.md" },
+    },
   });
 });
 afterEach(() => {
@@ -45,7 +60,10 @@ afterEach(() => {
 describe("obsidian export on resolve", () => {
   test("submitting a review writes the plan into the vault and shows the path", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 32 });
+    const setup = await testRender(<App home={home} sessionId={session.id} />, {
+      width: 120,
+      height: 32,
+    });
     await waitForText(setup, "cueloop");
 
     // Act

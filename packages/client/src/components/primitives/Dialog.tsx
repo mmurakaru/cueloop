@@ -21,7 +21,15 @@ export interface DialogProps {
   children: React.ReactNode;
 }
 
-export function Dialog({ isOpen, title, width, height, background, theme, children }: DialogProps): React.ReactNode {
+export function Dialog({
+  isOpen,
+  title,
+  width,
+  height,
+  background,
+  theme,
+  children,
+}: DialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   if (!isOpen) return null;
   return (

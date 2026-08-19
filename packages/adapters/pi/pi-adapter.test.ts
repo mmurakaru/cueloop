@@ -123,7 +123,13 @@ describe("pi adapter: request_review round-trip", () => {
     const updates: PiToolResult<ReviewDetails>[] = [];
 
     // Act
-    const pendingResult = tool.execute("t-changes", { plan }, undefined, (update) => updates.push(update), makeContext());
+    const pendingResult = tool.execute(
+      "t-changes",
+      { plan },
+      undefined,
+      (update) => updates.push(update),
+      makeContext(),
+    );
     const sessionId = await waitForPendingSession("Changes Plan");
     const client = await DaemonClient.connect({ home });
     await client.sessionAnnotate(sessionId, {
@@ -135,7 +141,11 @@ describe("pi adapter: request_review round-trip", () => {
 
     // Assert
     // the next poll chunk re-reads the session and streams the new count
-    for (let i = 0; i < 100 && !updates.some((update) => update.details.annotationCount === 1); i++) {
+    for (
+      let i = 0;
+      i < 100 && !updates.some((update) => update.details.annotationCount === 1);
+      i++
+    ) {
       await Bun.sleep(50);
     }
     expect(updates.some((update) => update.details.annotationCount === 1)).toBe(true);
@@ -163,7 +173,13 @@ describe("pi adapter: request_review round-trip", () => {
     const plan = "# Abort Plan\n\nSomething slow.\n";
 
     // Act
-    const pendingResult = tool.execute("t-abort", { plan }, controller.signal, undefined, makeContext());
+    const pendingResult = tool.execute(
+      "t-abort",
+      { plan },
+      controller.signal,
+      undefined,
+      makeContext(),
+    );
     const sessionId = await waitForPendingSession("Abort Plan");
 
     // Assert

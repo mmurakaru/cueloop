@@ -31,7 +31,12 @@ export function titleFrom(content: string, fallback?: string): string {
  * Render the filename pattern ({YYYY}, {MM}, {DD}, {title}); each whitespace
  * run in the result becomes the configured separator.
  */
-export function formatFilename(format: string, title: string, date: Date, separator: Separator = "space"): string {
+export function formatFilename(
+  format: string,
+  title: string,
+  date: Date,
+  separator: Separator = "space",
+): string {
   const pad = (value: number) => String(value).padStart(2, "0");
   const name = format
     .replaceAll("{YYYY}", String(date.getFullYear()))

@@ -14,9 +14,17 @@ export function obsidianConfigPath(platform: NodeJS.Platform = process.platform)
     return join(homedir(), "Library", "Application Support", "obsidian", "obsidian.json");
   }
   if (platform === "win32") {
-    return join(process.env.APPDATA ?? join(homedir(), "AppData", "Roaming"), "obsidian", "obsidian.json");
+    return join(
+      process.env.APPDATA ?? join(homedir(), "AppData", "Roaming"),
+      "obsidian",
+      "obsidian.json",
+    );
   }
-  return join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "obsidian", "obsidian.json");
+  return join(
+    process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"),
+    "obsidian",
+    "obsidian.json",
+  );
 }
 
 /** Vault paths registered with Obsidian that exist on disk. */

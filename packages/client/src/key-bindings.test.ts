@@ -4,7 +4,9 @@ import { describe, expect, test } from "bun:test";
 import { DEFAULT_KEYS } from "./config";
 import { KeyBindings } from "./key-bindings";
 
-function bindings(context: { overlay?: "none" | "walk" | "compose" | "submit"; spanMode?: boolean } = {}): KeyBindings {
+function bindings(
+  context: { overlay?: "none" | "walk" | "compose" | "submit"; spanMode?: boolean } = {},
+): KeyBindings {
   const resolver = new KeyBindings(DEFAULT_KEYS);
   resolver.setContext({ overlay: context.overlay ?? "none", spanMode: context.spanMode ?? false });
   return resolver;
@@ -91,7 +93,9 @@ describe("getActiveKeys-generated status hints", () => {
   });
 
   test("card-selected hint keeps the locked Cut label", () => {
-    expect(bindings().statusHint("card")).toBe("card · e edit · x Cut · n/p cards · esc deselect · enter submit");
+    expect(bindings().statusHint("card")).toBe(
+      "card · e edit · x Cut · n/p cards · esc deselect · enter submit",
+    );
   });
 
   test("span hint", () => {
@@ -101,11 +105,15 @@ describe("getActiveKeys-generated status hints", () => {
   });
 
   test("compose hint", () => {
-    expect(bindings({ overlay: "compose" }).statusHint("compose")).toBe("typing · enter save · esc cancel");
+    expect(bindings({ overlay: "compose" }).statusHint("compose")).toBe(
+      "typing · enter save · esc cancel",
+    );
   });
 
   test("submit hint", () => {
-    expect(bindings({ overlay: "submit" }).statusHint("submit")).toBe("verdict ←/→ · enter submit · esc cancel");
+    expect(bindings({ overlay: "submit" }).statusHint("submit")).toBe(
+      "verdict ←/→ · enter submit · esc cancel",
+    );
   });
 
   test("walk hint", () => {
@@ -115,7 +123,9 @@ describe("getActiveKeys-generated status hints", () => {
   });
 
   test("read-only hint", () => {
-    expect(bindings().statusHint("read-only")).toBe("observer - read-only · j/k move · n/p annotations · q quit");
+    expect(bindings().statusHint("read-only")).toBe(
+      "observer - read-only · j/k move · n/p annotations · q quit",
+    );
   });
 
   test("collaborator hint annotates but shows no plan edit or submit", () => {
@@ -123,7 +133,9 @@ describe("getActiveKeys-generated status hints", () => {
     const hint = bindings().statusHint("collaborator");
 
     // Assert
-    expect(hint).toBe("j/k move · v span · drag selects · c comment · s suggest · n/p annotations · q quit");
+    expect(hint).toBe(
+      "j/k move · v span · drag selects · c comment · s suggest · n/p annotations · q quit",
+    );
     expect(hint).not.toContain("cut");
     expect(hint).not.toContain("edit");
     expect(hint).not.toContain("submit");

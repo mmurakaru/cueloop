@@ -49,7 +49,9 @@ export class SessionStore {
   }
 
   list(): ReviewSession[] {
-    return [...this.sessions.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    return [...this.sessions.values()].sort((left, right) =>
+      left.createdAt.localeCompare(right.createdAt),
+    );
   }
 
   upsert(session: ReviewSession): void {

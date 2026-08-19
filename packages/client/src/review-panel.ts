@@ -26,7 +26,11 @@ export const REVIEW_COMPACT_WIDTH = 6;
 export const REVIEW_RESIZE_STEP = 2;
 
 /** Round a desired width to a whole column and clamp it to the bounds. */
-export function clampWidth(desiredWidth: number, min = REVIEW_MIN_WIDTH, max = REVIEW_MAX_WIDTH): number {
+export function clampWidth(
+  desiredWidth: number,
+  min = REVIEW_MIN_WIDTH,
+  max = REVIEW_MAX_WIDTH,
+): number {
   return Math.max(min, Math.min(max, Math.round(desiredWidth)));
 }
 
@@ -36,7 +40,10 @@ export function clampWidth(desiredWidth: number, min = REVIEW_MIN_WIDTH, max = R
  * (an extremely narrow terminal is the auto-collapse case, handled elsewhere).
  */
 export function maxWidthForTerminal(terminalWidth: number): number {
-  return Math.max(REVIEW_MIN_WIDTH, Math.min(REVIEW_MAX_WIDTH, terminalWidth - REVIEW_PLAN_MIN_WIDTH - 1));
+  return Math.max(
+    REVIEW_MIN_WIDTH,
+    Math.min(REVIEW_MAX_WIDTH, terminalWidth - REVIEW_PLAN_MIN_WIDTH - 1),
+  );
 }
 
 /** Clamp a desired rail width to the bounds AND the terminal, so the plan keeps its room. */

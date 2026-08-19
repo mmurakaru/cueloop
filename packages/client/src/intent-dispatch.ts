@@ -15,13 +15,25 @@ import type { ReviewController } from "./session-controller";
 import type { Intent } from "./keymap";
 import type { PlanSheetHandle } from "./components/PlanSheet";
 import { VERDICTS } from "./components/ConfirmCard";
-import { REVIEW_RESIZE_STEP, cycleReviewPanelMode, resolveReviewWidth, type ReviewPanelMode } from "./review-panel";
+import {
+  REVIEW_RESIZE_STEP,
+  cycleReviewPanelMode,
+  resolveReviewWidth,
+  type ReviewPanelMode,
+} from "./review-panel";
 
 /** The one overlay/mode the TUI is in; every compose/submit/edit flow is a variant. */
 export type Mode =
   | { type: "normal" }
   | { type: "span"; span: SpanState }
-  | { type: "compose"; kind: "comment" | "suggestion"; displayIndex: number; start: number; end: number; text: string }
+  | {
+      type: "compose";
+      kind: "comment" | "suggestion";
+      displayIndex: number;
+      start: number;
+      end: number;
+      text: string;
+    }
   | { type: "railEdit"; id: string; text: string }
   | { type: "submit"; verdict: VerdictKind; summary: string }
   | { type: "confirmDelete"; sessionId: string; title: string }
@@ -34,11 +46,15 @@ export type Mode =
  * verdict default nor re-enters the next feedback document.
  */
 export function reviewerAnnotations(session: ReviewSession) {
-  return session.annotations.filter((annotation) => !isAgentNote(annotation) && !isAddressed(annotation));
+  return session.annotations.filter(
+    (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
+  );
 }
 
 export function defaultVerdict(session: ReviewSession): VerdictKind {
-  return reviewerAnnotations(session).length || session.workingCopy !== undefined ? "request_changes" : "approve";
+  return reviewerAnnotations(session).length || session.workingCopy !== undefined
+    ? "request_changes"
+    : "approve";
 }
 
 /**
@@ -137,7 +153,11 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
       }
       case "inboxMove": {
         const navigableCount = inbox?.length ?? 0;
-        setInboxCursor((current) => (intent.to === "down" ? Math.min(navigableCount - 1, current + 1) : Math.max(0, current - 1)));
+        setInboxCursor((current) =>
+          intent.to === "down"
+            ? Math.min(navigableCount - 1, current + 1)
+            : Math.max(0, current - 1),
+        );
         return;
       }
       case "openSession": {
@@ -147,13 +167,25 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
       }
       case "requestDeleteSession": {
         const selected = inbox?.[inboxCursor];
-        if (selected) setMode({ type: "confirmDelete", sessionId: selected.id, title: selected.artifact.meta.title ?? selected.id });
+        if (selected)
+          setMode({
+            type: "confirmDelete",
+            sessionId: selected.id,
+            title: selected.artifact.meta.title ?? selected.id,
+          });
         return;
       }
       case "openRename": {
-        const focused = session?.annotations.find((annotation) => annotation.id === focusedAnnotationId);
-        if (!focused?.author) return void controller.setStatus("that is your own note - nothing to rename");
-        return void setMode({ type: "rename", authorId: focused.author, text: authorNames[focused.author] ?? "" });
+        const focused = session?.annotations.find(
+          (annotation) => annotation.id === focusedAnnotationId,
+        );
+        if (!focused?.author)
+          return void controller.setStatus("that is your own note - nothing to rename");
+        return void setMode({
+          type: "rename",
+          authorId: focused.author,
+          text: authorNames[focused.author] ?? "",
+        });
       }
       case "confirmDialog": {
         if (mode.type === "confirmDelete") controller.deleteSession(mode.sessionId);
@@ -170,7 +202,11 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
       }
       case "spanKey":
         if (mode.type === "span") {
-          const span = spanKey(mode.span, intent.name, displayText(display[mode.span.displayIndex]!));
+          const span = spanKey(
+            mode.span,
+            intent.name,
+            displayText(display[mode.span.displayIndex]!),
+          );
           setMode({ type: "span", span });
         }
         return;
@@ -187,7 +223,15 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
           });
         } else if (isDiff) {
           const row = rows[cursor];
-          if (row) setMode({ type: "compose", kind: intent.kind, displayIndex: cursor, start: 0, end: row.text.length, text: "" });
+          if (row)
+            setMode({
+              type: "compose",
+              kind: intent.kind,
+              displayIndex: cursor,
+              start: 0,
+              end: row.text.length,
+              text: "",
+            });
         } else {
           // a mouse drag leaves a native selection; it wins over the cursor block
           const native = planSheetRef.current?.readSelection() ?? null;
@@ -195,7 +239,15 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
             setMode({ type: "compose", kind: intent.kind, ...native, text: "" });
           } else {
             const block = display[cursor];
-            if (block) setMode({ type: "compose", kind: intent.kind, displayIndex: cursor, start: 0, end: displayText(block).length, text: "" });
+            if (block)
+              setMode({
+                type: "compose",
+                kind: intent.kind,
+                displayIndex: cursor,
+                start: 0,
+                end: displayText(block).length,
+                text: "",
+              });
           }
         }
         return;
@@ -221,13 +273,18 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
       case "nextAnnotation":
       case "prevAnnotation": {
         // cycle open cards only - addressed ones are out of the rail
-        const annotations = (session?.annotations ?? []).filter((annotation) => !isAddressed(annotation));
+        const annotations = (session?.annotations ?? []).filter(
+          (annotation) => !isAddressed(annotation),
+        );
         if (!annotations.length) return;
-        const focusedIndex = annotations.findIndex((annotation) => annotation.id === focusedAnnotationId);
+        const focusedIndex = annotations.findIndex(
+          (annotation) => annotation.id === focusedAnnotationId,
+        );
         const nextIndex =
           focusedIndex === -1
             ? 0
-            : (focusedIndex + (intent.type === "nextAnnotation" ? 1 : -1) + annotations.length) % annotations.length;
+            : (focusedIndex + (intent.type === "nextAnnotation" ? 1 : -1) + annotations.length) %
+              annotations.length;
         return void selectCardFromDocument(annotations[nextIndex]!.id);
       }
       case "walkStart":
@@ -259,7 +316,13 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
         }
         if (mode.type !== "compose") return;
         if (session && body) {
-          const annotationId = controller.annotate(mode.kind, mode.displayIndex, mode.start, mode.end, body);
+          const annotationId = controller.annotate(
+            mode.kind,
+            mode.displayIndex,
+            mode.start,
+            mode.end,
+            body,
+          );
           if (annotationId) setFocusedAnnotationId(annotationId);
         }
         return void setMode({ type: "normal" });
@@ -269,7 +332,8 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
         return void setMode({ type: "normal" });
       case "cycleVerdict": {
         if (mode.type !== "submit") return;
-        const verdictIndex = (VERDICTS.indexOf(mode.verdict) + intent.direction + VERDICTS.length) % VERDICTS.length;
+        const verdictIndex =
+          (VERDICTS.indexOf(mode.verdict) + intent.direction + VERDICTS.length) % VERDICTS.length;
         return void setMode({ ...mode, verdict: VERDICTS[verdictIndex]! });
       }
       case "finishReview":
@@ -285,7 +349,10 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
       }
       case "resizeReviewPanel": {
         if (reviewMode !== "expanded") return;
-        const next = resolveReviewWidth(reviewWidth + intent.direction * REVIEW_RESIZE_STEP, terminalWidth);
+        const next = resolveReviewWidth(
+          reviewWidth + intent.direction * REVIEW_RESIZE_STEP,
+          terminalWidth,
+        );
         reviewWidthRef.current = next;
         setReviewWidth(next);
         return controller.saveReviewPanel({ width: next });

@@ -7,7 +7,14 @@
  */
 
 import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
-import { collaboratorAnnotations, publishShare, pullShare, shareIdFromLine, type ShareResult, type ShareTarget } from "@cueloop/client";
+import {
+  collaboratorAnnotations,
+  publishShare,
+  pullShare,
+  shareIdFromLine,
+  type ShareResult,
+  type ShareTarget,
+} from "@cueloop/client";
 import type { ReviewSession } from "@cueloop/schema";
 
 export interface ShareParams {
@@ -31,7 +38,10 @@ const defaultDeps: ShareDeps = { publish: publishShare, out: (message) => consol
 const defaultPullDeps: PullDeps = { pull: pullShare, out: (message) => console.log(message) };
 
 /** Connect to the local daemon, then share the chosen session. */
-export async function shareCommand(params: ShareParams, deps: ShareDeps = defaultDeps): Promise<number> {
+export async function shareCommand(
+  params: ShareParams,
+  deps: ShareDeps = defaultDeps,
+): Promise<number> {
   const client = await DaemonClient.connect({ home: params.home, autostart: true });
   try {
     return await shareSession(client, params, deps);
@@ -41,7 +51,10 @@ export async function shareCommand(params: ShareParams, deps: ShareDeps = defaul
 }
 
 /** Connect to the local daemon, then pull collaborator notes for the plan. */
-export async function sharePullCommand(params: ShareParams, deps: PullDeps = defaultPullDeps): Promise<number> {
+export async function sharePullCommand(
+  params: ShareParams,
+  deps: PullDeps = defaultPullDeps,
+): Promise<number> {
   const client = await DaemonClient.connect({ home: params.home, autostart: true });
   try {
     return await pullSession(client, params, deps);
@@ -51,7 +64,11 @@ export async function sharePullCommand(params: ShareParams, deps: PullDeps = def
 }
 
 /** The share orchestration, over any SessionClient - the seam the tests drive. */
-export async function shareSession(client: SessionClient, params: ShareParams, deps: ShareDeps): Promise<number> {
+export async function shareSession(
+  client: SessionClient,
+  params: ShareParams,
+  deps: ShareDeps,
+): Promise<number> {
   const session = await pickSession(client, params.sessionId);
   if (!session) {
     deps.out("no plan to share - open a review first");
@@ -69,7 +86,11 @@ export async function shareSession(client: SessionClient, params: ShareParams, d
  * plan. Union-by-id keeps the planner's own notes; only collaborators' new
  * ones land. The gateway lets only the fingerprint that shared it pull.
  */
-export async function pullSession(client: SessionClient, params: ShareParams, deps: PullDeps): Promise<number> {
+export async function pullSession(
+  client: SessionClient,
+  params: ShareParams,
+  deps: PullDeps,
+): Promise<number> {
   const session = await pickSharedSession(client, params.sessionId);
   if (!session) {
     deps.out("no shared plan to pull - run `cueloop share` first");
@@ -82,19 +103,27 @@ export async function pullSession(client: SessionClient, params: ShareParams, de
     participants: remote.participants,
   });
   const added = merged.annotations.length - before;
-  deps.out(added > 0 ? `pulled ${added} new annotation${added === 1 ? "" : "s"}` : "no new annotations");
+  deps.out(
+    added > 0 ? `pulled ${added} new annotation${added === 1 ? "" : "s"}` : "no new annotations",
+  );
   return 0;
 }
 
 /** The named session, or the most recent one when no id is given. */
-async function pickSession(client: SessionClient, sessionId?: string): Promise<ReviewSession | null> {
+async function pickSession(
+  client: SessionClient,
+  sessionId?: string,
+): Promise<ReviewSession | null> {
   if (sessionId) return client.sessionGet(sessionId);
   const sessions = await client.sessionList();
   return sessions.at(-1) ?? null;
 }
 
 /** The named session (if shared), or the most recent shared one. */
-async function pickSharedSession(client: SessionClient, sessionId?: string): Promise<ReviewSession | null> {
+async function pickSharedSession(
+  client: SessionClient,
+  sessionId?: string,
+): Promise<ReviewSession | null> {
   if (sessionId) {
     const session = await client.sessionGet(sessionId);
     return session.shareId ? session : null;

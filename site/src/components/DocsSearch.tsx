@@ -25,6 +25,7 @@ export default function DocsSearch() {
     setActive(0);
   }
 
+  // oxlint-disable-next-line react/set-state-in-effect -- reset highlight when the query changes; deriving in render is not worth the churn
   useEffect(() => setActive(0), [query]);
 
   useEffect(() => {

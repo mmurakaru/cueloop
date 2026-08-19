@@ -51,7 +51,10 @@ afterEach(() => {
 });
 
 async function frame(): Promise<string> {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 36 });
+  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+    width: 120,
+    height: 36,
+  });
   await waitForText(setup, "Render Plan");
   // async highlights settle within the visual-idle wait
   await setup.waitForVisualIdle();
@@ -112,11 +115,17 @@ describe("block spacing", () => {
       workspace: { repoRoot: "/repo", branch: "main" },
       artifact: { type: "plan", content: listPlan, meta: {} },
     });
-    const setup = await testRender(<App home={home} sessionId={s2.id} />, { width: 120, height: 30 });
+    const setup = await testRender(<App home={home} sessionId={s2.id} />, {
+      width: 120,
+      height: 30,
+    });
     await waitForText(setup, "one");
 
     // Assert
-    const lines = setup.captureCharFrame().split("\n").map((line) => line.trimEnd());
+    const lines = setup
+      .captureCharFrame()
+      .split("\n")
+      .map((line) => line.trimEnd());
     const one = lines.findIndex((line) => line.includes("- one"));
     expect(lines[one + 1]).toContain("- two");
   });

@@ -1,18 +1,16 @@
 {
   "name": "@cueloop/adapters",
   "version": "0.1.0-alpha.33",
+  "description": "cueloop adapters for coding agents: Claude Code and pi (Codex planned)",
+  "homepage": "https://github.com/mmurakaru/cueloop#readme",
+  "bugs": {
+    "url": "https://github.com/mmurakaru/cueloop/issues"
+  },
   "license": "Apache-2.0",
-  "type": "module",
-  "exports": {
-    "./claude-code/hook": "./claude-code/hook.ts",
-    "./pi": "./pi/index.ts"
-  },
-  "dependencies": {
-    "@cueloop/schema": "0.1.0-alpha.33",
-    "@cueloop/daemon": "0.1.0-alpha.33"
-  },
-  "publishConfig": {
-    "access": "public"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmurakaru/cueloop.git",
+    "directory": "packages/adapters"
   },
   "files": [
     "claude-code",
@@ -20,17 +18,19 @@
     "src",
     "README.md"
   ],
+  "type": "module",
+  "exports": {
+    "./claude-code/hook": "./claude-code/hook.ts",
+    "./pi": "./pi/index.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@cueloop/daemon": "0.1.0-alpha.33",
+    "@cueloop/schema": "0.1.0-alpha.33"
+  },
   "engines": {
     "bun": ">=1.3.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mmurakaru/cueloop.git",
-    "directory": "packages/adapters"
-  },
-  "homepage": "https://github.com/mmurakaru/cueloop#readme",
-  "bugs": {
-    "url": "https://github.com/mmurakaru/cueloop/issues"
-  },
-  "description": "cueloop adapters for coding agents: Claude Code and pi (Codex planned)"
+  }
 }

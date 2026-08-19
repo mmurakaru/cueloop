@@ -16,10 +16,21 @@ export const Typescript: Story = {
 };
 
 export const CursorAnnotatedEdited: Story = {
-  render: () => <CodeBlock language="ts" content={SNIPPET} isCursor isAnnotated changeTag="edited" marginTop={1} />,
+  render: () => (
+    <CodeBlock
+      language="ts"
+      content={SNIPPET}
+      isCursor
+      isAnnotated
+      changeTag="edited"
+      marginTop={1}
+    />
+  ),
   expectedColors: [DARK.accent],
 };
 
 export const UnknownLanguage: Story = {
-  render: () => <CodeBlock language="brainfog" content={"plain verbatim lines\n  with indentation"} />,
+  render: () => (
+    <CodeBlock language="brainfog" content={"plain verbatim lines\n  with indentation"} />
+  ),
 };

@@ -10,7 +10,15 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { DARK as T } from "./theme";
-import { isolateUserConfig, press, settle, typeText as type, waitForState, waitForText, waitForTextGone } from "./test-support";
+import {
+  isolateUserConfig,
+  press,
+  settle,
+  typeText as type,
+  waitForState,
+  waitForText,
+  waitForTextGone,
+} from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -36,7 +44,11 @@ beforeEach(() => {
   server.start();
   session = server.core.sessionCreate({
     workspace: { repoRoot: "/repo", branch: "main" },
-    artifact: { type: "plan", content: PLAN, meta: { title: "Migration Plan", planPath: "plan.md", agent: "agent/worker-3" } },
+    artifact: {
+      type: "plan",
+      content: PLAN,
+      meta: { title: "Migration Plan", planPath: "plan.md", agent: "agent/worker-3" },
+    },
   });
 });
 afterEach(() => {
@@ -66,7 +78,9 @@ function backgroundsOf(setup: Setup, needle: string): string[] {
     for (const span of line.spans) {
       if (!span.text.includes(needle)) continue;
       const [red, green, blue] = span.bg.toInts();
-      backgrounds.push("#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""));
+      backgrounds.push(
+        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""),
+      );
     }
   }
   return backgrounds;
@@ -85,14 +99,20 @@ describe("share button", () => {
 
     // Assert
     // both word-buttons ride the same header row, so Share sits next to Edit
-    const headerLine = setup.captureCharFrame().split("\n").find((line) => line.includes("submitted by"));
+    const headerLine = setup
+      .captureCharFrame()
+      .split("\n")
+      .find((line) => line.includes("submitted by"));
     expect(headerLine).toContain("Edit");
     expect(headerLine).toContain("Share");
   });
 
   test("a read-only viewer (a plan shared over ssh) never sees the Share button", async () => {
     // Arrange / Act
-    const viewer = await testRender(<App home={home} sessionId={session.id} readOnly />, { width: 120, height: 32 });
+    const viewer = await testRender(<App home={home} sessionId={session.id} readOnly />, {
+      width: 120,
+      height: 32,
+    });
     await waitForText(viewer, "cueloop");
 
     // Assert
@@ -108,7 +128,10 @@ describe("share button", () => {
     await waitForText(setup, "submitted by");
 
     // Assert - the owner toolbar is gone once the review is resolved
-    const headerLine = setup.captureCharFrame().split("\n").find((line) => line.includes("submitted by"));
+    const headerLine = setup
+      .captureCharFrame()
+      .split("\n")
+      .find((line) => line.includes("submitted by"));
     expect(headerLine).not.toContain("Edit");
     expect(headerLine).not.toContain("Share");
   });
@@ -125,7 +148,10 @@ describe("edit affordance", () => {
 
   test("a read-only viewer (a plan shared over ssh) never sees the Edit button", async () => {
     // Arrange / Act
-    const viewer = await testRender(<App home={home} sessionId={session.id} readOnly />, { width: 120, height: 32 });
+    const viewer = await testRender(<App home={home} sessionId={session.id} readOnly />, {
+      width: 120,
+      height: 32,
+    });
     await waitForText(viewer, "cueloop");
 
     // Assert
@@ -138,7 +164,9 @@ describe("attribution", () => {
     // Arrange - a pulled collaborator note carries an author fingerprint
     const { makeAnchor, parseBlocks } = await import("@cueloop/schema");
     const blocks = parseBlocks(PLAN);
-    const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("The daemon persists"));
+    const contextBlockIndex = blocks.findIndex((block) =>
+      block.text.startsWith("The daemon persists"),
+    );
     server.core.sessionAnnotate(session.id, {
       id: "collab-1",
       kind: "comment",
@@ -246,7 +274,9 @@ describe("inline compose keeps the anchor painted", () => {
     // the whole cursor block is the anchor here; check the highlight landed
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations.length).toBe(1);
-    expect(backgroundsOf(setup, stored.annotations[0]!.anchor.quote.slice(0, 20))).toContain(T.markCommentBackground);
+    expect(backgroundsOf(setup, stored.annotations[0]!.anchor.quote.slice(0, 20))).toContain(
+      T.markCommentBackground,
+    );
     // renderApp plus this many frame-waits grazes the 5s default on a loaded CI
     // runner, and the whole-suite publish lane has timed even 15s out; give the
     // heaviest frame-wait chain generous headroom so runner load cannot flake it.
@@ -267,7 +297,10 @@ describe("compose newline convention", () => {
     return setup;
   }
 
-  async function pressReturnWith(setup: Setup, modifiers: { shift?: boolean; meta?: boolean }): Promise<void> {
+  async function pressReturnWith(
+    setup: Setup,
+    modifiers: { shift?: boolean; meta?: boolean },
+  ): Promise<void> {
     setup.mockInput.pressKey("RETURN", modifiers);
     await settle(setup);
   }
@@ -356,7 +389,8 @@ describe("the document selects, the rail edits", () => {
     // Assert
     await waitForState(
       setup,
-      () => server.core.sessionGet(session.id).annotations[0]!.body === "Needs a citation. And a link.",
+      () =>
+        server.core.sessionGet(session.id).annotations[0]!.body === "Needs a citation. And a link.",
     );
   });
 
@@ -364,7 +398,9 @@ describe("the document selects, the rail edits", () => {
     // Arrange - a pulled collaborator note carries an author fingerprint
     const { makeAnchor, parseBlocks } = await import("@cueloop/schema");
     const blocks = parseBlocks(PLAN);
-    const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("The daemon persists"));
+    const contextBlockIndex = blocks.findIndex((block) =>
+      block.text.startsWith("The daemon persists"),
+    );
     server.core.sessionAnnotate(session.id, {
       id: "collab-1",
       kind: "comment",
@@ -409,7 +445,9 @@ describe("addressed annotations leave the open list", () => {
     // Arrange: two annotations through the daemon, then a revision addressing one
     const { makeAnchor, parseBlocks } = await import("@cueloop/schema");
     const blocks = parseBlocks(PLAN);
-    const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("The daemon persists"));
+    const contextBlockIndex = blocks.findIndex((block) =>
+      block.text.startsWith("The daemon persists"),
+    );
     server.core.sessionAnnotate(session.id, {
       id: "a_settled",
       kind: "comment",

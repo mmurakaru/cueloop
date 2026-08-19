@@ -23,7 +23,12 @@ const FILES: WalkFile[] = [
     removed: 0,
     preview: [{ sign: "+", text: "export function firstUnviewedIndex(files, viewed) {" }],
   },
-  { path: "packages/schema/src/types.ts", added: 3, removed: 0, preview: [{ sign: "+", text: "viewedPaths?: string[];" }] },
+  {
+    path: "packages/schema/src/types.ts",
+    added: 3,
+    removed: 0,
+    preview: [{ sign: "+", text: "viewedPaths?: string[];" }],
+  },
 ];
 
 const noop = (): void => {};
@@ -40,7 +45,13 @@ export const FirstFile: Story = {
     />
   ),
   // the main card wears the accent border; stats carry the +/- colors
-  expectedColors: [DARK.accent, DARK.green, DARK.red, DARK.insertedForeground, DARK.deletedForeground],
+  expectedColors: [
+    DARK.accent,
+    DARK.green,
+    DARK.red,
+    DARK.insertedForeground,
+    DARK.deletedForeground,
+  ],
 };
 
 export const WithAgentNote: Story = {

@@ -8,12 +8,7 @@
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openReview } from "@cueloop/daemon/review";
 import type { ReviewSession } from "@cueloop/schema";
-import type {
-  PiContext,
-  PiExtensionAPI,
-  PiToolDefinition,
-  PiToolResult,
-} from "./pi-types";
+import type { PiExtensionAPI, PiToolDefinition, PiToolResult } from "./pi-types";
 
 const REVIEW_TOOL = "request_review";
 
@@ -43,10 +38,17 @@ export interface CueloopExtensionOptions {
   pollMs?: number;
 }
 
-const text = (message: string): PiToolResult<ReviewDetails>["content"] => [{ type: "text", text: message }];
+const text = (message: string): PiToolResult<ReviewDetails>["content"] => [
+  { type: "text", text: message },
+];
 
-function cancelledResult(sessionId: string | undefined, annotationCount: number): PiToolResult<ReviewDetails> {
-  const suffix = sessionId ? ` Session ${sessionId} stays pending; the verdict is collectable later.` : "";
+function cancelledResult(
+  sessionId: string | undefined,
+  annotationCount: number,
+): PiToolResult<ReviewDetails> {
+  const suffix = sessionId
+    ? ` Session ${sessionId} stays pending; the verdict is collectable later.`
+    : "";
   return {
     content: text(`cueloop review cancelled.${suffix}`),
     details: { sessionId, status: "cancelled", annotationCount },
@@ -72,7 +74,10 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       type: "object",
       properties: {
         plan: { type: "string", description: "The full plan as markdown." },
-        title: { type: "string", description: "Session title; defaults to the plan's first heading." },
+        title: {
+          type: "string",
+          description: "Session title; defaults to the plan's first heading.",
+        },
       },
       required: ["plan"],
     },
@@ -97,8 +102,14 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
           if (progress.annotations.length === reportedCount) return;
           reportedCount = progress.annotations.length;
           onUpdate?.({
-            content: text(`cueloop review ${progress.id} pending - ${progress.annotations.length} annotation(s) so far`),
-            details: { sessionId: progress.id, status: "pending", annotationCount: progress.annotations.length },
+            content: text(
+              `cueloop review ${progress.id} pending - ${progress.annotations.length} annotation(s) so far`,
+            ),
+            details: {
+              sessionId: progress.id,
+              status: "pending",
+              annotationCount: progress.annotations.length,
+            },
           });
         };
         report(review.session);
@@ -134,7 +145,10 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       if (pendingSessions.size === 0) return undefined;
       if (event.toolName === REVIEW_TOOL || READ_ONLY_TOOLS.has(event.toolName)) return undefined;
       const ids = [...pendingSessions].join(", ");
-      return { block: true, reason: `cueloop review pending (session ${ids}) - wait for the verdict before writing` };
+      return {
+        block: true,
+        reason: `cueloop review pending (session ${ids}) - wait for the verdict before writing`,
+      };
     });
 
     pi.registerCommand("review", {

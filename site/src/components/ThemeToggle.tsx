@@ -27,7 +27,17 @@ function isPref(value: string | null): value is Pref {
 
 function MonitorIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <rect x="3" y="4" width="18" height="12" rx="1.5" />
       <path d="M8 20h8M12 16v4" />
     </svg>
@@ -36,7 +46,16 @@ function MonitorIcon() {
 
 function SunIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
       <circle cx="12" cy="12" r="4" />
       <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
     </svg>
@@ -55,7 +74,9 @@ export default function ThemeToggle() {
   const [pref, setPref] = useState<Pref>("system");
 
   useEffect(() => {
-    const stored = typeof localStorage !== "undefined" ? localStorage.getItem("cueloop-theme") : null;
+    const stored =
+      typeof localStorage !== "undefined" ? localStorage.getItem("cueloop-theme") : null;
+    // oxlint-disable-next-line react/set-state-in-effect -- localStorage is unavailable during SSR, so read the stored pref after hydration
     setPref(isPref(stored) ? stored : "system");
   }, []);
 

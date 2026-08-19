@@ -19,7 +19,13 @@ function sessionFixture(id: string, overrides: Partial<ReviewSession> = {}): Rev
 }
 
 function annotationFixture(id: string, author?: string): Annotation {
-  const base: Annotation = { id, kind: "comment", anchor: { quote: "Plan", prefix: "", suffix: "" }, body: "note", createdAt: "2026-01-01T00:00:00.000Z" };
+  const base: Annotation = {
+    id,
+    kind: "comment",
+    anchor: { quote: "Plan", prefix: "", suffix: "" },
+    body: "note",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  };
   return author ? { ...base, author } : base;
 }
 
@@ -36,7 +42,8 @@ function fakeClient(sessions: ReviewSession[]): SessionClient {
     sessionMergeShared: mock(async (id: string, incoming: { annotations: Annotation[] }) => {
       const session = sessions.find((candidate) => candidate.id === id)!;
       const known = new Set(session.annotations.map((annotation) => annotation.id));
-      for (const annotation of incoming.annotations) if (!known.has(annotation.id)) session.annotations.push(annotation);
+      for (const annotation of incoming.annotations)
+        if (!known.has(annotation.id)) session.annotations.push(annotation);
       return session;
     }),
   } as unknown as SessionClient;
@@ -55,11 +62,20 @@ function depsSpy(overrides: Partial<ShareDeps> = {}): ShareDeps & { lines: strin
 describe(shareSession, () => {
   test("publishes the named session and reports the copied ssh line", async () => {
     // Arrange
-    const publish = mock(async (session: ReviewSession) => (expect(session.id).toBe("ses_2"), { line: "ssh p_abc123xy@cueloop.dev", copied: true }));
+    const publish = mock(
+      async (session: ReviewSession) => (
+        expect(session.id).toBe("ses_2"),
+        { line: "ssh p_abc123xy@cueloop.dev", copied: true }
+      ),
+    );
     const deps = depsSpy({ publish });
 
     // Act
-    const code = await shareSession(fakeClient([sessionFixture("ses_1"), sessionFixture("ses_2")]), { sessionId: "ses_2" }, deps);
+    const code = await shareSession(
+      fakeClient([sessionFixture("ses_1"), sessionFixture("ses_2")]),
+      { sessionId: "ses_2" },
+      deps,
+    );
 
     // Assert
     expect(code).toBe(0);
@@ -68,7 +84,12 @@ describe(shareSession, () => {
 
   test("without an id, shares the most recent session", async () => {
     // Arrange
-    const publish = mock(async (session: ReviewSession) => (expect(session.id).toBe("ses_2"), { line: "ssh p_zzzzzzzz@cueloop.dev", copied: true }));
+    const publish = mock(
+      async (session: ReviewSession) => (
+        expect(session.id).toBe("ses_2"),
+        { line: "ssh p_zzzzzzzz@cueloop.dev", copied: true }
+      ),
+    );
     const deps = depsSpy({ publish });
 
     // Act
@@ -80,7 +101,9 @@ describe(shareSession, () => {
 
   test("prints the bare line when the clipboard is unavailable", async () => {
     // Arrange
-    const deps = depsSpy({ publish: mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: false })) });
+    const deps = depsSpy({
+      publish: mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: false })),
+    });
 
     // Act
     await shareSession(fakeClient([sessionFixture("ses_1")]), { sessionId: "ses_1" }, deps);
@@ -118,15 +141,24 @@ describe(shareSession, () => {
 
 function pullDepsSpy(remote: ReviewSession): PullDeps & { lines: string[] } {
   const lines: string[] = [];
-  return { pull: mock(async () => remote), out: (message: string) => void lines.push(message), lines };
+  return {
+    pull: mock(async () => remote),
+    out: (message: string) => void lines.push(message),
+    lines,
+  };
 }
 
 describe(pullSession, () => {
   test("unions collaborator notes in, ignoring the planner's own unauthored notes", async () => {
     // Arrange - the planner's own note carries no author; the collaborator's does
-    const local = sessionFixture("ses_1", { shareId: "p_abc123xy", annotations: [annotationFixture("mine")] });
+    const local = sessionFixture("ses_1", {
+      shareId: "p_abc123xy",
+      annotations: [annotationFixture("mine")],
+    });
     const client = fakeClient([local]);
-    const remote = sessionFixture("ses_1", { annotations: [annotationFixture("mine"), annotationFixture("theirs", "SHA256:mate")] });
+    const remote = sessionFixture("ses_1", {
+      annotations: [annotationFixture("mine"), annotationFixture("theirs", "SHA256:mate")],
+    });
     const deps = pullDepsSpy(remote);
 
     // Act
@@ -154,8 +186,13 @@ describe(pullSession, () => {
 
   test("reports when nothing new came back", async () => {
     // Arrange
-    const local = sessionFixture("ses_1", { shareId: "p_abc123xy", annotations: [annotationFixture("theirs", "SHA256:mate")] });
-    const deps = pullDepsSpy(sessionFixture("ses_1", { annotations: [annotationFixture("theirs", "SHA256:mate")] }));
+    const local = sessionFixture("ses_1", {
+      shareId: "p_abc123xy",
+      annotations: [annotationFixture("theirs", "SHA256:mate")],
+    });
+    const deps = pullDepsSpy(
+      sessionFixture("ses_1", { annotations: [annotationFixture("theirs", "SHA256:mate")] }),
+    );
 
     // Act
     await pullSession(fakeClient([local]), { sessionId: "ses_1" }, deps);
@@ -169,7 +206,11 @@ describe(pullSession, () => {
     const deps = pullDepsSpy(sessionFixture("ses_1"));
 
     // Act
-    const code = await pullSession(fakeClient([sessionFixture("ses_1")]), { sessionId: "ses_1" }, deps);
+    const code = await pullSession(
+      fakeClient([sessionFixture("ses_1")]),
+      { sessionId: "ses_1" },
+      deps,
+    );
 
     // Assert
     expect(code).toBe(1);

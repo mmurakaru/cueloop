@@ -83,7 +83,11 @@ function channelStreams(channel: ServerChannel, size: PtySize) {
 }
 
 /** Render `element` onto the ssh2 channel and return its resize/teardown handle. */
-export async function renderOverChannel(channel: ServerChannel, size: PtySize, element: ReactElement): Promise<ChannelRender> {
+export async function renderOverChannel(
+  channel: ServerChannel,
+  size: PtySize,
+  element: ReactElement,
+): Promise<ChannelRender> {
   const { stdin, stdout, detach } = channelStreams(channel, size);
   const renderer = await createCliRenderer({
     // The renderer only touches the read/write subset these streams provide;

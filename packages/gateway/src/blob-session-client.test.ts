@@ -19,7 +19,9 @@ function sessionWith(annotations: Annotation[]): ReviewSession {
     id: "ses_1",
     workspace: { repoRoot: "/repo", branch: "main" },
     artifact: { type: "plan", content: "# Plan\n\nthing\n", meta: {} },
-    revisions: [{ revision: 1, content: "# Plan\n\nthing\n", submittedAt: "2026-01-01T00:00:00.000Z" }],
+    revisions: [
+      { revision: 1, content: "# Plan\n\nthing\n", submittedAt: "2026-01-01T00:00:00.000Z" },
+    ],
     annotations,
     verdict: null,
     status: "pending",
@@ -57,12 +59,23 @@ describe("collaborator write-back", () => {
     const masterKey = generateMasterKey();
     store = new MemoryShareStore();
     // seed the store with the planner's blob, as an upload would have
-    await store.put("p_abc123xy", sealBlob(masterKey, "p_abc123xy", packSessionBlob(sessionWith([PLANNER_NOTE]))));
-    writeBack = { store, masterKey, shareId: "p_abc123xy", author: "SHA256:collab", now: () => "2026-02-02T00:00:00.000Z" };
+    await store.put(
+      "p_abc123xy",
+      sealBlob(masterKey, "p_abc123xy", packSessionBlob(sessionWith([PLANNER_NOTE]))),
+    );
+    writeBack = {
+      store,
+      masterKey,
+      shareId: "p_abc123xy",
+      author: "SHA256:collab",
+      now: () => "2026-02-02T00:00:00.000Z",
+    };
   });
 
   async function storedSession(): Promise<ReviewSession> {
-    return unpackSessionBlob(openBlob(writeBack.masterKey, "p_abc123xy", (await store.get("p_abc123xy"))!));
+    return unpackSessionBlob(
+      openBlob(writeBack.masterKey, "p_abc123xy", (await store.get("p_abc123xy"))!),
+    );
   }
 
   test("a new note unions in, stamped with the author, planner's untouched", async () => {
@@ -74,10 +87,17 @@ describe("collaborator write-back", () => {
 
     // Assert
     expect(after.annotations.map((annotation) => annotation.id)).toEqual(["a_planner", "a_collab"]);
-    expect(after.annotations.find((annotation) => annotation.id === "a_collab")?.author).toBe("SHA256:collab");
-    expect(after.annotations.find((annotation) => annotation.id === "a_planner")?.author).toBeUndefined();
+    expect(after.annotations.find((annotation) => annotation.id === "a_collab")?.author).toBe(
+      "SHA256:collab",
+    );
+    expect(
+      after.annotations.find((annotation) => annotation.id === "a_planner")?.author,
+    ).toBeUndefined();
     // persisted, not just in memory
-    expect((await storedSession()).annotations.map((annotation) => annotation.id)).toEqual(["a_planner", "a_collab"]);
+    expect((await storedSession()).annotations.map((annotation) => annotation.id)).toEqual([
+      "a_planner",
+      "a_collab",
+    ]);
   });
 
   test("editing their own note rewrites it in place", async () => {
@@ -89,7 +109,9 @@ describe("collaborator write-back", () => {
     const after = await client.sessionAnnotate("ses_1", NOTE("a_collab", "second"));
 
     // Assert
-    expect(after.annotations.find((annotation) => annotation.id === "a_collab")?.body).toBe("second");
+    expect(after.annotations.find((annotation) => annotation.id === "a_collab")?.body).toBe(
+      "second",
+    );
   });
 
   test("cannot change or delete the planner's note", async () => {
@@ -97,8 +119,12 @@ describe("collaborator write-back", () => {
     const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     // Act / Assert
-    await expect(client.sessionAnnotate("ses_1", NOTE("a_planner", "hijack"))).rejects.toThrow(/another author/);
-    await expect(client.sessionRemoveAnnotation("ses_1", "a_planner")).rejects.toThrow(/another author/);
+    await expect(client.sessionAnnotate("ses_1", NOTE("a_planner", "hijack"))).rejects.toThrow(
+      /another author/,
+    );
+    await expect(client.sessionRemoveAnnotation("ses_1", "a_planner")).rejects.toThrow(
+      /another author/,
+    );
   });
 
   test("can delete their own note", async () => {
@@ -122,7 +148,9 @@ describe("collaborator write-back", () => {
 
     // Assert
     expect(after.participants).toEqual([{ id: "SHA256:collab", provider: "ssh", name: "Robin" }]);
-    expect((await storedSession()).participants).toEqual([{ id: "SHA256:collab", provider: "ssh", name: "Robin" }]);
+    expect((await storedSession()).participants).toEqual([
+      { id: "SHA256:collab", provider: "ssh", name: "Robin" },
+    ]);
   });
 
   test("leaving a note registers the author anonymously so they never read as a raw fingerprint", async () => {
@@ -169,7 +197,9 @@ describe("collaborator write-back", () => {
     const after = await client.sessionSetSelfName("ses_1", "Robin H.");
 
     // Assert
-    expect(after.participants).toEqual([{ id: "SHA256:collab", provider: "ssh", name: "Robin H." }]);
+    expect(after.participants).toEqual([
+      { id: "SHA256:collab", provider: "ssh", name: "Robin H." },
+    ]);
   });
 
   test("an empty name registers the fingerprint without a name - anonymous", async () => {

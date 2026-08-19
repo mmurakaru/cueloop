@@ -1,10 +1,10 @@
 {
   "name": "cueloop-site",
-  "type": "module",
   "version": "0.0.0",
   "private": true,
-  "license": "Apache-2.0",
   "description": "Marketing and docs site for cueloop. Not part of the published cueloop npm package.",
+  "license": "Apache-2.0",
+  "type": "module",
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",

@@ -77,8 +77,12 @@ async function main(): Promise<number> {
       const { positional, flags } = parseArgs(argv.slice(1));
       const { shareCommand, sharePullCommand } = await import("./share-command");
       const port = stringFlag(flags, "port");
-      const target = { host: stringFlag(flags, "host"), port: port !== undefined ? Number(port) : undefined };
-      if (positional[0] === "pull") return sharePullCommand({ ...target, sessionId: positional[1] });
+      const target = {
+        host: stringFlag(flags, "host"),
+        port: port !== undefined ? Number(port) : undefined,
+      };
+      if (positional[0] === "pull")
+        return sharePullCommand({ ...target, sessionId: positional[1] });
       return shareCommand({ ...target, sessionId: positional[0] });
     }
     case "review":
@@ -115,7 +119,9 @@ async function main(): Promise<number> {
  * latest pending review.
  */
 function openSelector(parsed: ParsedArgs): string | undefined {
-  return parsed.positional[0] ?? stringFlag(parsed.flags, "open") ?? stringFlag(parsed.flags, "latest");
+  return (
+    parsed.positional[0] ?? stringFlag(parsed.flags, "open") ?? stringFlag(parsed.flags, "latest")
+  );
 }
 
 /**
@@ -202,7 +208,11 @@ async function reviewEntry(argv: string[]): Promise<number> {
     const { reviewCommand } = await import("./pr");
     return reviewCommand(argv);
   }
-  return openReviewOfKind(isPrReview, "PR", explicitOpen || looksLikeSessionId ? selector : undefined);
+  return openReviewOfKind(
+    isPrReview,
+    "PR",
+    explicitOpen || looksLikeSessionId ? selector : undefined,
+  );
 }
 
 async function runTui(sessionId?: string): Promise<number> {

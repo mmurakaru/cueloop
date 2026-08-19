@@ -5,7 +5,13 @@
  * by quoted text.
  */
 
-import { isAddressed, isAgentNote, type Annotation, type ReviewSession, type VerdictKind } from "./types";
+import {
+  isAddressed,
+  isAgentNote,
+  type Annotation,
+  type ReviewSession,
+  type VerdictKind,
+} from "./types";
 import { parseBlocks, sectionOf } from "./markdown";
 import { resolveAnchor } from "./anchor";
 import { unifiedDiffText } from "./diff";
@@ -31,7 +37,9 @@ export function renderFeedback(input: FeedbackInput): string {
   // agent notes are the submitter's own context - never echoed back as
   // feedback - and annotations a previous revision already addressed stay out
   // of the next document, so the agent only ever sees the open items
-  const annotations = input.annotations.filter((annotation) => !isAgentNote(annotation) && !isAddressed(annotation));
+  const annotations = input.annotations.filter(
+    (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
+  );
   const blocks = parseBlocks(input.workingCopy ?? input.artifactContent);
   const lines: string[] = [];
   lines.push("# Review: " + input.verdictKind.replace("_", " "));
@@ -42,7 +50,9 @@ export function renderFeedback(input: FeedbackInput): string {
   }
 
   const diff =
-    input.workingCopy !== undefined ? unifiedDiffText(input.artifactContent, input.workingCopy, path) : null;
+    input.workingCopy !== undefined
+      ? unifiedDiffText(input.artifactContent, input.workingCopy, path)
+      : null;
   if (diff) {
     lines.push("## Plan edits");
     lines.push("");
@@ -64,7 +74,8 @@ export function renderFeedback(input: FeedbackInput): string {
       const resolved = resolveAnchor(annotation.anchor, blocks);
       const sectionTitle = resolved ? sectionOf(blocks, resolved.blockIndex) : "";
       const location = sectionTitle ? ` (§ ${sectionTitle})` : "";
-      const orphanFlag = resolved === null ? " [orphaned anchor: the quoted text is no longer present]" : "";
+      const orphanFlag =
+        resolved === null ? " [orphaned anchor: the quoted text is no longer present]" : "";
       if (annotation.kind === "suggestion") {
         lines.push(`### ${annotationIndex + 1}. Suggested change${location}${orphanFlag}`);
         lines.push("");
@@ -73,7 +84,9 @@ export function renderFeedback(input: FeedbackInput): string {
         lines.push("With:");
         lines.push(quoteLines(annotation.body));
       } else {
-        lines.push(`### ${annotationIndex + 1}. ${capitalize(annotation.kind)}${location}${orphanFlag}`);
+        lines.push(
+          `### ${annotationIndex + 1}. ${capitalize(annotation.kind)}${location}${orphanFlag}`,
+        );
         lines.push("");
         lines.push(quoteLines(annotation.anchor.quote));
         lines.push("");
@@ -90,7 +103,9 @@ export function renderFeedback(input: FeedbackInput): string {
       lines.push("they are marked addressed for the reviewer and leave the open list:");
       lines.push("");
       lines.push("```sh");
-      lines.push(`cueloop session submit-revision ${input.sessionId} --content-file ${path} --addressed <id,id,...>`);
+      lines.push(
+        `cueloop session submit-revision ${input.sessionId} --content-file ${path} --addressed <id,id,...>`,
+      );
       lines.push("```");
       lines.push("");
     }
@@ -103,7 +118,11 @@ export function renderFeedback(input: FeedbackInput): string {
   return lines.join("\n");
 }
 
-export function feedbackForSession(session: ReviewSession, verdictKind: VerdictKind, summary: string): string {
+export function feedbackForSession(
+  session: ReviewSession,
+  verdictKind: VerdictKind,
+  summary: string,
+): string {
   return renderFeedback({
     verdictKind,
     summary,

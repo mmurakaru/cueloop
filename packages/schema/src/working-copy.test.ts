@@ -25,11 +25,15 @@ function block(markdown: string, text: string): Block {
 describe("sourceChunk", () => {
   test("returns the exact source lines a block occupies", () => {
     expect(sourceChunk(BASE, block(BASE, "first item"))).toBe("- first item");
-    expect(sourceChunk(BASE, block(BASE, "spans two lines"))).toBe("A paragraph that\nspans two lines.");
+    expect(sourceChunk(BASE, block(BASE, "spans two lines"))).toBe(
+      "A paragraph that\nspans two lines.",
+    );
   });
 
   test("code block chunk includes both fence lines", () => {
-    expect(sourceChunk(BASE, block(BASE, "const x"))).toBe("```ts\nconst x = 1;\nconst y = 2;\n```");
+    expect(sourceChunk(BASE, block(BASE, "const x"))).toBe(
+      "```ts\nconst x = 1;\nconst y = 2;\n```",
+    );
   });
 });
 
@@ -84,7 +88,12 @@ describe("restoreBlock", () => {
     const next = parseBlocks(edited).find((candidate) => candidate.kind === "code");
 
     // Act
-    const restored = restoreBlock(BASE, edited, listItem, restoreLine(next, edited.split("\n").length));
+    const restored = restoreBlock(
+      BASE,
+      edited,
+      listItem,
+      restoreLine(next, edited.split("\n").length),
+    );
 
     // Assert
     expect(restored).toContain("- second item");
@@ -125,7 +134,9 @@ describe("restoreBlock", () => {
 
     // Assert
     // extra blank lines elsewhere do not block pristine detection
-    expect(restoreBlock(BASE, cut.replace("## Context", "## Context\n"), listItem, line)).toBeUndefined();
+    expect(
+      restoreBlock(BASE, cut.replace("## Context", "## Context\n"), listItem, line),
+    ).toBeUndefined();
     // a real text change keeps the working copy alive
     const changed = restoreBlock(BASE, cut.replace("first", "1st"), listItem, line);
     expect(changed).toContain("1st item");

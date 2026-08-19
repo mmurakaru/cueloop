@@ -93,13 +93,19 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
     | undefined;
   if (ui && ui.auto_close !== undefined) {
     if (ui.auto_close === "off") out.ui.autoClose = "off";
-    else if (typeof ui.auto_close === "number" && ui.auto_close >= 0) out.ui.autoClose = ui.auto_close;
+    else if (typeof ui.auto_close === "number" && ui.auto_close >= 0)
+      out.ui.autoClose = ui.auto_close;
   }
   if (ui && typeof ui.editor === "string" && ui.editor.trim()) out.ui.editor = ui.editor.trim();
   if (ui && typeof ui.review_width === "number" && Number.isFinite(ui.review_width)) {
     out.ui.reviewWidth = clampWidth(ui.review_width);
   }
-  if (ui && (ui.review_state === "expanded" || ui.review_state === "compact" || ui.review_state === "hidden")) {
+  if (
+    ui &&
+    (ui.review_state === "expanded" ||
+      ui.review_state === "compact" ||
+      ui.review_state === "hidden")
+  ) {
     out.ui.reviewState = ui.review_state;
   }
   const theme = raw["theme"] as Partial<Record<keyof Theme, string>> | undefined;
@@ -116,16 +122,21 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
     const obsidianConfig = out.integrations.obsidian;
     if (typeof obsidian["vault"] === "string") obsidianConfig.vault = obsidian["vault"];
     if (typeof obsidian["folder"] === "string") obsidianConfig.folder = obsidian["folder"];
-    if (typeof obsidian["filenameFormat"] === "string") obsidianConfig.filenameFormat = obsidian["filenameFormat"];
+    if (typeof obsidian["filenameFormat"] === "string")
+      obsidianConfig.filenameFormat = obsidian["filenameFormat"];
     const separator = obsidian["separator"];
-    if (separator === "space" || separator === "dash" || separator === "underscore") obsidianConfig.separator = separator;
+    if (separator === "space" || separator === "dash" || separator === "underscore")
+      obsidianConfig.separator = separator;
     const exportOn = obsidian["exportOn"];
-    if (exportOn === "approve" || exportOn === "resolve" || exportOn === "manual") obsidianConfig.exportOn = exportOn;
+    if (exportOn === "approve" || exportOn === "resolve" || exportOn === "manual")
+      obsidianConfig.exportOn = exportOn;
   }
   return out;
 }
 
-export function loadConfig(options: { repoRoot?: string; userConfigPath?: string } = {}): CueloopConfig {
+export function loadConfig(
+  options: { repoRoot?: string; userConfigPath?: string } = {},
+): CueloopConfig {
   let config: CueloopConfig = {
     keys: { ...DEFAULT_KEYS },
     theme: { ...DARK },
@@ -134,7 +145,10 @@ export function loadConfig(options: { repoRoot?: string; userConfigPath?: string
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
   };
   const userPath = userConfigPathFrom(options.userConfigPath);
-  for (const path of [userPath, options.repoRoot ? join(options.repoRoot, ".cueloop", "config.toml") : undefined]) {
+  for (const path of [
+    userPath,
+    options.repoRoot ? join(options.repoRoot, ".cueloop", "config.toml") : undefined,
+  ]) {
     if (!path || !existsSync(path)) continue;
     try {
       config = layer(config, parseToml(readFileSync(path, "utf8")));
@@ -146,7 +160,11 @@ export function loadConfig(options: { repoRoot?: string; userConfigPath?: string
 }
 
 /** Reverse lookup: key name (+shift) → action, per the loaded keymap. */
-export function actionFor(keys: Record<string, string[]>, name: string, shift: boolean): string | undefined {
+export function actionFor(
+  keys: Record<string, string[]>,
+  name: string,
+  shift: boolean,
+): string | undefined {
   const wanted = shift && name.length === 1 ? name.toUpperCase() : name;
   for (const [action, combos] of Object.entries(keys)) {
     if (combos.includes(wanted)) return action;

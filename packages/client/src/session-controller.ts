@@ -24,13 +24,25 @@ import {
   type VerdictKind,
 } from "@cueloop/schema";
 import { loadBundledExporters, type BundledExporter } from "./integrations";
-import { collaboratorAnnotations, publishShare, pullShare, pushShare, shareIdFromLine } from "./share";
+import {
+  collaboratorAnnotations,
+  publishShare,
+  pullShare,
+  pushShare,
+  shareIdFromLine,
+} from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
 import { editInEditor } from "./editor";
 import { focusHerdrPane } from "./herdr";
-import { persistAutoClose, persistReviewState, persistReviewWidth, type AutoClose, type CueloopConfig } from "./config";
+import {
+  persistAutoClose,
+  persistReviewState,
+  persistReviewWidth,
+  type AutoClose,
+  type CueloopConfig,
+} from "./config";
 import type { ReviewPanelMode } from "./review-panel";
 
 /**
@@ -124,7 +136,13 @@ export interface ReviewController {
    * Anchor and store an annotation; both plan and diff anchor constructions.
    * Returns the minted annotation id so the view can select the new card.
    */
-  annotate(kind: "comment" | "suggestion", displayIndex: number, start: number, end: number, body: string): string | undefined;
+  annotate(
+    kind: "comment" | "suggestion",
+    displayIndex: number,
+    start: number,
+    end: number,
+    body: string,
+  ): string | undefined;
   /** Rewrite a stored annotation's body in place (the rail-card edit). */
   updateAnnotation(id: string, body: string): void;
   removeAnnotation(id: string): void;
@@ -211,7 +229,9 @@ class Controller implements ReviewController {
   connect(): void {
     void (async () => {
       try {
-        const openClient = this.options.openClient ?? (() => DaemonClient.connect({ home: this.options.home, autostart: true }));
+        const openClient =
+          this.options.openClient ??
+          (() => DaemonClient.connect({ home: this.options.home, autostart: true }));
         const client = await openClient();
         if (this.closed) return void client.close();
         this.client = client;
@@ -270,7 +290,8 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
     if (this.derivedFor === session) return;
     this.derivedFor = session;
-    const rows = session && session.artifact.type === "diff" ? diffRows(session.artifact.content) : [];
+    const rows =
+      session && session.artifact.type === "diff" ? diffRows(session.artifact.content) : [];
     this.derived = {
       display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
       rows,
@@ -319,9 +340,11 @@ class Controller implements ReviewController {
 
   /** Optimistic apply: the daemon response is the next session snapshot. */
   private apply(mutation: Promise<ReviewSession>): void {
-    mutation.then((session) => this.update({ session })).catch((error: unknown) =>
-      this.setStatus(String(error instanceof Error ? error.message : error)),
-    );
+    mutation
+      .then((session) => this.update({ session }))
+      .catch((error: unknown) =>
+        this.setStatus(String(error instanceof Error ? error.message : error)),
+      );
   }
 
   // ── verbs ───────────────────────────────────
@@ -336,7 +359,9 @@ class Controller implements ReviewController {
     this.client
       ?.sessionDelete(id)
       .then(() => this.setStatus("plan deleted"))
-      .catch((error: unknown) => this.setStatus(`delete failed: ${error instanceof Error ? error.message : String(error)}`));
+      .catch((error: unknown) =>
+        this.setStatus(`delete failed: ${error instanceof Error ? error.message : String(error)}`),
+      );
   }
 
   setSelfName(name: string): void {
@@ -352,7 +377,10 @@ class Controller implements ReviewController {
     if (!block) return;
     const working = this.working();
     if (block.type === "del") {
-      const line = restoreLine(nextWorkBlock(this.display(), displayIndex), working.split("\n").length);
+      const line = restoreLine(
+        nextWorkBlock(this.display(), displayIndex),
+        working.split("\n").length,
+      );
       // restoreBlock returns undefined when the block structure round-trips
       // to the submitted revision - the working copy is gone
       const restored = restoreBlock(session.artifact.content, working, block.base!, line);
@@ -408,14 +436,17 @@ class Controller implements ReviewController {
     } else {
       const display = this.display();
       const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);
-      const workBlockIndex = display.slice(0, displayIndex + 1).filter((entry) => entry.work).length - 1;
+      const workBlockIndex =
+        display.slice(0, displayIndex + 1).filter((entry) => entry.work).length - 1;
       anchor = makeAnchor(workBlocks, workBlockIndex, start, end);
     }
     const wire = { id: newAnnotationId(), kind, anchor, body };
     const persisted = this.client!.sessionAnnotate(session.id, wire);
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
-    this.setStatus(kind === "suggestion" ? "suggestion added - the agent applies it" : "comment added");
+    this.setStatus(
+      kind === "suggestion" ? "suggestion added - the agent applies it" : "comment added",
+    );
     return wire.id;
   }
 
@@ -433,7 +464,10 @@ class Controller implements ReviewController {
   }
 
   // push only after the local write lands, so a rejected write never leaks to the share
-  private mirrorAnnotation(persisted: Promise<ReviewSession>, annotation: Omit<Annotation, "createdAt">): void {
+  private mirrorAnnotation(
+    persisted: Promise<ReviewSession>,
+    annotation: Omit<Annotation, "createdAt">,
+  ): void {
     const shareId = this.snapshot.session?.shareId;
     if (!shareId) return;
     void persisted.then(() => pushShare(shareId, [annotation])).catch(() => {});
@@ -509,7 +543,11 @@ class Controller implements ReviewController {
         for (const exporter of this.exporters) {
           if (!exporter.runsOn(verdict)) continue;
           void exporter.run(resolved).then((exportResult) => {
-            this.setStatus(exportResult.success && exportResult.path ? `exported to ${exportResult.path}` : `export failed: ${exportResult.error ?? "unknown"}`);
+            this.setStatus(
+              exportResult.success && exportResult.path
+                ? `exported to ${exportResult.path}`
+                : `export failed: ${exportResult.error ?? "unknown"}`,
+            );
           });
         }
         // Hand the reviewer back to the agent. The default is a visible
@@ -520,7 +558,9 @@ class Controller implements ReviewController {
         else if (typeof delay === "number") this.startCounting(delay);
         else this.startCounting(DEFAULT_AUTO_CLOSE);
       })
-      .catch((error: unknown) => this.setStatus(String(error instanceof Error ? error.message : error)));
+      .catch((error: unknown) =>
+        this.setStatus(String(error instanceof Error ? error.message : error)),
+      );
   }
 
   share(): void {
@@ -535,7 +575,9 @@ class Controller implements ReviewController {
         this.setStatus("");
         this.showToast(line, copied ? "share link copied" : "share link");
       })
-      .catch((error: unknown) => this.setStatus(`share failed: ${error instanceof Error ? error.message : String(error)}`));
+      .catch((error: unknown) =>
+        this.setStatus(`share failed: ${error instanceof Error ? error.message : String(error)}`),
+      );
   }
 
   /**
@@ -550,7 +592,10 @@ class Controller implements ReviewController {
     const client = this.client;
     return pullShare(session.shareId)
       .then((remote) =>
-        client.sessionMergeShared(session.id, { annotations: collaboratorAnnotations(remote), participants: remote.participants }),
+        client.sessionMergeShared(session.id, {
+          annotations: collaboratorAnnotations(remote),
+          participants: remote.participants,
+        }),
       )
       .then(() => {})
       .catch(() => {});
@@ -568,7 +613,8 @@ class Controller implements ReviewController {
     this.shareRun = run;
     const tick = (): void => {
       void this.pullShared().finally(() => {
-        if (this.shareRun === run && !this.closed) this.sharePoll = this.clock.setTimeout(tick, SHARE_POLL_MS);
+        if (this.shareRun === run && !this.closed)
+          this.sharePoll = this.clock.setTimeout(tick, SHARE_POLL_MS);
       });
     };
     tick();

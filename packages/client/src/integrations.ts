@@ -18,7 +18,9 @@ export interface BundledExporter {
 }
 
 /** Load the bundled integrations from config as generic exporters. */
-export async function loadBundledExporters(integrations: IntegrationsConfig): Promise<BundledExporter[]> {
+export async function loadBundledExporters(
+  integrations: IntegrationsConfig,
+): Promise<BundledExporter[]> {
   const registry = new Registry();
   const obsidian = integrations.obsidian;
   const record = await registry.load("obsidian", createObsidianExtension(obsidian));

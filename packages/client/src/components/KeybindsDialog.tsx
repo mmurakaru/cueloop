@@ -13,12 +13,28 @@ export interface KeybindsDialogProps {
 export function KeybindsDialog({ sections, theme }: KeybindsDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
-  const contentRows = sections.reduce((sum, section) => sum + 1 + section.entries.length + 1, 0) + 1;
+  const contentRows =
+    sections.reduce((sum, section) => sum + 1 + section.entries.length + 1, 0) + 1;
   const width = Math.min(52, terminalWidth - 6);
   const height = Math.min(terminalHeight - 4, contentRows + 3);
   return (
-    <Dialog isOpen title=" keybinds " width={width} height={height} background={tokens.elevated} theme={theme}>
-      <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 1, paddingRight: 1, paddingTop: 1 }}>
+    <Dialog
+      isOpen
+      title=" keybinds "
+      width={width}
+      height={height}
+      background={tokens.elevated}
+      theme={theme}
+    >
+      <box
+        style={{
+          flexDirection: "column",
+          flexGrow: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 1,
+        }}
+      >
         {sections.map((section) => (
           <box key={section.title} style={{ flexDirection: "column" }}>
             <text fg={tokens.accent}>{section.title}</text>

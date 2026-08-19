@@ -13,17 +13,20 @@
 
 const paths = ["packages/cli/package.json"];
 for await (const path of new Bun.Glob("packages/*/package.json").scan(".")) paths.push(path);
-for await (const path of new Bun.Glob("packages/integrations/*/package.json").scan(".")) paths.push(path);
+for await (const path of new Bun.Glob("packages/integrations/*/package.json").scan("."))
+  paths.push(path);
 
 const version = (await Bun.file("packages/cli/package.json").json()).version as string;
 const internal = new Set<string>();
-for (const path of [...new Set(paths)]) {
+for (const path of new Set(paths)) {
   internal.add((await Bun.file(path).json()).name as string);
 }
 
 let rewrites = 0;
-for (const path of [...new Set(paths)]) {
-  const pkg = (await Bun.file(path).json()) as Record<string, Record<string, string>> & { name: string };
+for (const path of new Set(paths)) {
+  const pkg = (await Bun.file(path).json()) as Record<string, Record<string, string>> & {
+    name: string;
+  };
   let touched = false;
   for (const field of ["dependencies", "devDependencies", "peerDependencies"]) {
     const deps = pkg[field];

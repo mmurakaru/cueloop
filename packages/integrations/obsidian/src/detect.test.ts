@@ -47,7 +47,9 @@ describe("detectVaults", () => {
 
 describe("obsidianConfigPath", () => {
   test("resolves per platform", () => {
-    expect(obsidianConfigPath("darwin")).toContain(join("Library", "Application Support", "obsidian", "obsidian.json"));
+    expect(obsidianConfigPath("darwin")).toContain(
+      join("Library", "Application Support", "obsidian", "obsidian.json"),
+    );
     expect(obsidianConfigPath("linux")).toContain(join("obsidian", "obsidian.json"));
     expect(obsidianConfigPath("win32")).toContain(join("obsidian", "obsidian.json"));
   });

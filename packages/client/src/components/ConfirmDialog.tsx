@@ -39,7 +39,15 @@ export function ConfirmDialog({
   if (!isOpen) return null;
   return (
     <Dialog isOpen title={title} width={Math.min(54, terminalWidth - 6)} height={7} theme={theme}>
-      <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 1, paddingRight: 1, paddingTop: 1 }}>
+      <box
+        style={{
+          flexDirection: "column",
+          flexGrow: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 1,
+        }}
+      >
         <text fg={tokens.text}>{message}</text>
         <box style={{ flexGrow: 1 }} />
         <Toolbar>

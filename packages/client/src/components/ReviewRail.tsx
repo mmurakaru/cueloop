@@ -65,7 +65,6 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
     selectedId,
     resolvedIds,
     railTab,
-    pendingCount,
     cardEdit,
     submitConfirm,
     onTabChange,
@@ -96,8 +95,20 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
   }));
 
   return (
-    <box style={{ width, backgroundColor: tokens.panel, flexDirection: "column", paddingLeft: 1, paddingBottom: 1 }}>
-      <Tabs selectedKey={railTab} onSelectionChange={(key) => onTabChange(key as RailTab)} theme={theme}>
+    <box
+      style={{
+        width,
+        backgroundColor: tokens.panel,
+        flexDirection: "column",
+        paddingLeft: 1,
+        paddingBottom: 1,
+      }}
+    >
+      <Tabs
+        selectedKey={railTab}
+        onSelectionChange={(key) => onTabChange(key as RailTab)}
+        theme={theme}
+      >
         <TabList>
           <Tab id="review">Review</Tab>
           <Tab id="agent">Agent</Tab>
@@ -110,12 +121,18 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
         </box>
       ) : openAnnotations.length === 0 ? (
         <box style={{ flexGrow: 1, alignItems: "center", justifyContent: "center" }}>
-          <text fg={tokens.textDim}>{session.annotations.length === 0 ? "no annotations yet" : "all annotations addressed"}</text>
+          <text fg={tokens.textDim}>
+            {session.annotations.length === 0 ? "no annotations yet" : "all annotations addressed"}
+          </text>
         </box>
       ) : (
         <box style={{ flexGrow: 1, flexDirection: "column" }}>
-          {session.workingCopy !== undefined ? <text fg={tokens.textDim}>± plan edits → one diff</text> : null}
-          {addressedCount > 0 ? <text fg={tokens.textDim}>✓ {addressedCount} addressed by revision</text> : null}
+          {session.workingCopy !== undefined ? (
+            <text fg={tokens.textDim}>± plan edits → one diff</text>
+          ) : null}
+          {addressedCount > 0 ? (
+            <text fg={tokens.textDim}>✓ {addressedCount} addressed by revision</text>
+          ) : null}
           <scrollbox ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
             {openAnnotations.map((annotation) => (
               <AnnotationCard
@@ -129,8 +146,13 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
                   isSelected: annotation.id === selectedId,
                   isOrphan: resolvedIds !== null && !resolvedIds.has(annotation.id),
                   isBlocking: annotationBlocking(annotation),
-                  authorLabel: annotation.author ? resolveDisplayName(annotation.author, session.participants, authorNames) : undefined,
-                  selfLabel: !annotation.author && !isAgentNote(annotation) && collaboratorsPresent ? "me" : undefined,
+                  authorLabel: annotation.author
+                    ? resolveDisplayName(annotation.author, session.participants, authorNames)
+                    : undefined,
+                  selfLabel:
+                    !annotation.author && !isAgentNote(annotation) && collaboratorsPresent
+                      ? "me"
+                      : undefined,
                   editing:
                     cardEdit && cardEdit.id === annotation.id
                       ? {
@@ -141,7 +163,9 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
                         }
                       : null,
                   onPress: () =>
-                    annotation.id === selectedId ? onActivateCard(annotation.id) : onSelectCard(annotation.id),
+                    annotation.id === selectedId
+                      ? onActivateCard(annotation.id)
+                      : onSelectCard(annotation.id),
                 }}
               />
             ))}
@@ -149,7 +173,9 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
         </box>
       )}
       {/* the confirm card keeps full width, above the footer row */}
-      {railTab !== "agent" && submitConfirm ? <ConfirmCard {...submitConfirm} theme={theme} /> : null}
+      {railTab !== "agent" && submitConfirm ? (
+        <ConfirmCard {...submitConfirm} theme={theme} />
+      ) : null}
       {/* footer row: collapse chevron left-bound, the submit affordance inline
           beside it, both on the rail's last row (the plan's bottom-border height) */}
       <box style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>

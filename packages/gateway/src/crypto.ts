@@ -54,11 +54,15 @@ export function openBlob(master: Buffer, shareId: string, stored: Uint8Array): B
   } catch {
     throw new Error("stored blob is not a valid envelope");
   }
-  if (envelope.v !== ENVELOPE_VERSION) throw new Error(`unsupported envelope version ${envelope.v}`);
+  if (envelope.v !== ENVELOPE_VERSION)
+    throw new Error(`unsupported envelope version ${envelope.v}`);
   const key = deriveBlobKey(master, shareId);
   const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(envelope.nonce, "base64"));
   decipher.setAuthTag(Buffer.from(envelope.tag, "base64"));
-  return Buffer.concat([decipher.update(Buffer.from(envelope.ciphertext, "base64")), decipher.final()]);
+  return Buffer.concat([
+    decipher.update(Buffer.from(envelope.ciphertext, "base64")),
+    decipher.final(),
+  ]);
 }
 
 /** Mint a fresh master key for provisioning a new gateway. */
