@@ -7,7 +7,7 @@
  * so the annotation body renders directly under its line.
  */
 
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { LineNumberRenderable, LineSign, ScrollBoxRenderable } from "@opentui/core";
 import type { Annotation } from "@cueloop/schema";
 import type { DiffRow } from "../view-diff";
@@ -17,6 +17,57 @@ import { truncateToSingleLine } from "./truncate-text";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
 import { intralineRunsByRow, type IntralineRun } from "../diff-intraline";
+import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
+import { colorForSyntaxGroup } from "./syntax-highlight";
+
+/** Shared empty map so an unresolved/stale highlight state is a stable value. */
+const EMPTY_SYNTAX: Map<number, SyntaxSpan[]> = new Map();
+
+/**
+ * Colored spans for one row, resolved per character: an intra-line changed word
+ * keeps the diff color, otherwise the syntax color applies, falling back to the
+ * dim token on the unchanged part of a modified line or the row's base color.
+ * Adjacent same-color characters coalesce so a row stays a few spans.
+ */
+function rowColorSpans(
+  text: string,
+  runs: IntralineRun[] | undefined,
+  syntaxSpans: SyntaxSpan[] | undefined,
+  foreground: string,
+  tokens: Theme,
+): Array<{ text: string; foreground: string }> {
+  const changed: boolean[] = Array.from({ length: text.length }, () => false);
+  if (runs) {
+    let offset = 0;
+    for (const run of runs) {
+      if (run.changed)
+        for (let index = 0; index < run.text.length; index++) changed[offset + index] = true;
+      offset += run.text.length;
+    }
+  }
+  const syntaxColorByColumn: Array<string | undefined> = Array.from(
+    { length: text.length },
+    () => undefined,
+  );
+  for (const span of syntaxSpans ?? []) {
+    const color = colorForSyntaxGroup(span.group, tokens);
+    if (!color) continue;
+    for (let column = span.start; column < span.end && column < text.length; column++) {
+      syntaxColorByColumn[column] = color;
+    }
+  }
+  const modifiedLine = runs !== undefined;
+  const spans: Array<{ text: string; foreground: string }> = [];
+  for (let column = 0; column < text.length; column++) {
+    const color = changed[column]
+      ? foreground
+      : (syntaxColorByColumn[column] ?? (modifiedLine ? tokens.textDim : foreground));
+    const previous = spans[spans.length - 1];
+    if (previous && previous.foreground === color) previous.text += text[column];
+    else spans.push({ text: text[column]!, foreground: color });
+  }
+  return spans;
+}
 
 export interface DiffComposeState {
   kind: "comment" | "suggestion";
@@ -85,12 +136,14 @@ function DiffChunk({
   cursor,
   focusedAnnotationId,
   intralineByRow,
+  syntaxByRow,
   theme,
 }: {
   segment: Extract<DiffSegment, { kind: "chunk" }>;
   cursor: number;
   focusedAnnotationId?: string;
   intralineByRow: Map<number, IntralineRun[]>;
+  syntaxByRow: Map<number, SyntaxSpan[]>;
   theme?: Theme;
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -175,27 +228,22 @@ function DiffChunk({
                 ? tokens.markCommentBackground
                 : undefined;
             const prefix = (lineIndex > 0 ? "\n" : "") + sign;
-            // Paired lines dim context and color the changed words; unpaired stay one span.
-            const runs = intralineByRow.get(segment.firstRowIndex + lineIndex);
-            if (!runs) {
-              return (
-                <span key={lineIndex} fg={foreground} bg={rowBackground}>
-                  {prefix + rowLine(row)}
-                </span>
-              );
-            }
+            const absoluteRowIndex = segment.firstRowIndex + lineIndex;
+            const spans = rowColorSpans(
+              rowLine(row),
+              intralineByRow.get(absoluteRowIndex),
+              syntaxByRow.get(absoluteRowIndex),
+              foreground,
+              tokens,
+            );
             return (
               <React.Fragment key={lineIndex}>
                 <span fg={foreground} bg={rowBackground}>
                   {prefix}
                 </span>
-                {runs.map((run, runIndex) => (
-                  <span
-                    key={runIndex}
-                    fg={run.changed ? foreground : tokens.textDim}
-                    bg={rowBackground}
-                  >
-                    {run.text}
+                {spans.map((span, spanIndex) => (
+                  <span key={spanIndex} fg={span.foreground} bg={rowBackground}>
+                    {span.text}
                   </span>
                 ))}
               </React.Fragment>
@@ -245,6 +293,28 @@ export function DiffSheet({
   );
 
   const intralineByRow = useMemo(() => intralineRunsByRow(rows), [rows]);
+
+  // Tree-sitter highlighting resolves off the render path; draw unstyled first,
+  // then apply spans when they arrive. Keying the result to the rows it was
+  // computed for discards stale spans after a rows change without a render-time
+  // state write.
+  const [highlighted, setHighlighted] = useState<{
+    rows: DiffRow[];
+    byRow: Map<number, SyntaxSpan[]>;
+  }>({
+    rows,
+    byRow: EMPTY_SYNTAX,
+  });
+  useEffect(() => {
+    let active = true;
+    void highlightDiffRows(rows).then((byRow) => {
+      if (active) setHighlighted({ rows, byRow });
+    });
+    return () => {
+      active = false;
+    };
+  }, [rows]);
+  const syntaxByRow = highlighted.rows === rows ? highlighted.byRow : EMPTY_SYNTAX;
 
   // content y offset per row index, for cursor-following scroll
   const rowOffsets = useMemo(() => {
@@ -322,6 +392,7 @@ export function DiffSheet({
                 cursor={cursor}
                 focusedAnnotationId={focusedAnnotationId}
                 intralineByRow={intralineByRow}
+                syntaxByRow={syntaxByRow}
                 theme={theme}
               />
               {compose && compose.rowIndex === lastRowIndex ? (

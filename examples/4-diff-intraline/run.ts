@@ -6,10 +6,12 @@
  * Uses an isolated home under /tmp so it never touches your real inbox.
  *
  * What to look for:
- * - "maxRequests = 100" -> "= 250": only "100"/"250" wear the diff color; the
- *   rest of the line dims.
- * - the new "burstAllowance" line is a plain full-color add, not a bogus
- *   word-diff against the modified line above it (alignment, not position).
+ * - syntax highlighting: keywords, types, and strings wear their tree-sitter
+ *   colors across context, added, and deleted lines.
+ * - "maxRequests = 100" -> "= 250": only "100"/"250" wear the diff color on top
+ *   of the syntax colors; the rest of the line keeps its highlighting.
+ * - the new "burstAllowance" line is a plain add, not a bogus word-diff against
+ *   the modified line above it (alignment, not position).
  * - "this.counts" -> "this.counters": a char-level change on one identifier.
  */
 
