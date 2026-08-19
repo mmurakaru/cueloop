@@ -29,7 +29,13 @@ export interface TabsProps {
   children: React.ReactNode;
 }
 
-export function Tabs({ selectedKey, onSelectionChange, selectedColor, theme, children }: TabsProps): React.ReactNode {
+export function Tabs({
+  selectedKey,
+  onSelectionChange,
+  selectedColor,
+  theme,
+  children,
+}: TabsProps): React.ReactNode {
   return (
     <TabsContext.Provider value={{ selectedKey, onSelectionChange, selectedColor, theme }}>
       {children}
@@ -63,13 +69,27 @@ export function TabList({ children }: TabListProps): React.ReactNode {
   });
   return (
     <box
-      style={{ width: "100%", height: 3, border: true, borderStyle: FRAME_BORDER_STYLE, borderColor: tokens.text, flexDirection: "row", paddingLeft: 1 }}
+      style={{
+        width: "100%",
+        height: 3,
+        border: true,
+        borderStyle: FRAME_BORDER_STYLE,
+        borderColor: tokens.text,
+        flexDirection: "row",
+        paddingLeft: 1,
+      }}
     >
       {items.map((item) => {
         const selected = item.id === tabs.selectedKey;
         return (
-          <box key={item.id} style={{ marginRight: 2 }} onMouseUp={() => tabs.onSelectionChange(item.id)}>
-            <text fg={selected ? (tabs.selectedColor ?? tokens.accent) : tokens.textDim}>{item.label}</text>
+          <box
+            key={item.id}
+            style={{ marginRight: 2 }}
+            onMouseUp={() => tabs.onSelectionChange(item.id)}
+          >
+            <text fg={selected ? (tabs.selectedColor ?? tokens.accent) : tokens.textDim}>
+              {item.label}
+            </text>
           </box>
         );
       })}

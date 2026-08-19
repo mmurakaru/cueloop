@@ -13,8 +13,17 @@ import { ThemeProvider } from "./theme-context";
 import { loadStories, type LoadedStory } from "./story";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
 
-function StoriesApp({ stories, onExit }: { stories: LoadedStory[]; onExit: () => void }): React.ReactNode {
-  const moduleTitles = useMemo(() => [...new Set(stories.map((story) => story.moduleTitle))], [stories]);
+function StoriesApp({
+  stories,
+  onExit,
+}: {
+  stories: LoadedStory[];
+  onExit: () => void;
+}): React.ReactNode {
+  const moduleTitles = useMemo(
+    () => [...new Set(stories.map((story) => story.moduleTitle))],
+    [stories],
+  );
   const [moduleIndex, setModuleIndex] = useState(0);
   const [storyIndex, setStoryIndex] = useState(0);
   const moduleTitle = moduleTitles[moduleIndex]!;
@@ -38,17 +47,33 @@ function StoriesApp({ stories, onExit }: { stories: LoadedStory[]; onExit: () =>
 
   return (
     <ThemeProvider theme={DARK}>
-      <box style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: DARK.background }}>
+      <box
+        style={{
+          flexDirection: "column",
+          width: "100%",
+          height: "100%",
+          backgroundColor: DARK.background,
+        }}
+      >
         <box style={{ height: 1, backgroundColor: DARK.panel, paddingLeft: 1 }}>
           <text fg={DARK.text}>
             <span fg={DARK.accent}>cueloop stories</span>
             <span fg={DARK.textDim}>
-              {" "}· {moduleTitle} / {current.storyName}
+              {" "}
+              · {moduleTitle} / {current.storyName}
             </span>
           </text>
         </box>
         <box style={{ flexDirection: "row", flexGrow: 1 }}>
-          <box style={{ width: 28, backgroundColor: DARK.panel, flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
+          <box
+            style={{
+              width: 28,
+              backgroundColor: DARK.panel,
+              flexDirection: "column",
+              paddingLeft: 1,
+              paddingTop: 1,
+            }}
+          >
             {moduleTitles.map((title, index) => (
               <text key={title} fg={index === moduleIndex ? DARK.accent : DARK.textMuted}>
                 {index === moduleIndex ? "▸ " : "  "}
@@ -67,7 +92,10 @@ function StoriesApp({ stories, onExit }: { stories: LoadedStory[]; onExit: () =>
             title={` ${current.storyName} (${moduleStories.indexOf(current) + 1}/${moduleStories.length}) `}
           >
             {/* remount per story so component-local state never leaks across */}
-            <box key={`${moduleTitle}/${current.storyName}`} style={{ flexGrow: 1, flexDirection: "column" }}>
+            <box
+              key={`${moduleTitle}/${current.storyName}`}
+              style={{ flexGrow: 1, flexDirection: "column" }}
+            >
               {current.story.render()}
             </box>
           </box>

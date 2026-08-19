@@ -9,7 +9,11 @@ const callbacks = { onToggle: () => {}, onSettings: () => {}, onKeybinds: () => 
 
 function BottomFrame({ children }: { children: React.ReactNode }): React.ReactNode {
   return (
-    <box style={{ flexDirection: "column", width: "100%", height: "100%", justifyContent: "flex-end" }}>{children}</box>
+    <box
+      style={{ flexDirection: "column", width: "100%", height: "100%", justifyContent: "flex-end" }}
+    >
+      {children}
+    </box>
   );
 }
 

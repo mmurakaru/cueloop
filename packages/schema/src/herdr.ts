@@ -36,7 +36,10 @@ export function insideHerdr(env: HerdrEnv = process.env): boolean {
  * CUELOOP_RETURN_PANE, or the session's recorded pane, but never this pane
  * itself. Undefined outside herdr or when the only candidate is our own pane.
  */
-export function returnPaneFor(sessionHerdrPane?: string, env: HerdrEnv = process.env): string | undefined {
+export function returnPaneFor(
+  sessionHerdrPane?: string,
+  env: HerdrEnv = process.env,
+): string | undefined {
   if (!insideHerdr(env)) return undefined;
   const pane = env.CUELOOP_RETURN_PANE ?? sessionHerdrPane;
   return pane && pane !== env.HERDR_PANE_ID ? pane : undefined;

@@ -22,7 +22,12 @@ export interface ResolvedAnchor {
   approximate: boolean;
 }
 
-export function makeAnchor(blocks: Block[], blockIndex: number, start: number, end: number): Anchor {
+export function makeAnchor(
+  blocks: Block[],
+  blockIndex: number,
+  start: number,
+  end: number,
+): Anchor {
   const blockText = blocks[blockIndex]?.text ?? "";
   return {
     quote: blockText.slice(start, end),
@@ -42,15 +47,28 @@ function findCandidates(anchor: Anchor, blocks: Block[], quote: string): Candida
   const candidates: Candidate[] = [];
   blocks.forEach((block, blockIndex) => {
     const text = block.text;
-    for (let matchStart = text.indexOf(quote); matchStart !== -1; matchStart = text.indexOf(quote, matchStart + 1)) {
+    for (
+      let matchStart = text.indexOf(quote);
+      matchStart !== -1;
+      matchStart = text.indexOf(quote, matchStart + 1)
+    ) {
       const prefix = text.slice(Math.max(0, matchStart - ANCHOR_CONTEXT_CHARS), matchStart);
-      const suffix = text.slice(matchStart + quote.length, matchStart + quote.length + ANCHOR_CONTEXT_CHARS);
+      const suffix = text.slice(
+        matchStart + quote.length,
+        matchStart + quote.length + ANCHOR_CONTEXT_CHARS,
+      );
       let score = 0;
       if (prefix === anchor.prefix) score += 2;
       if (suffix === anchor.suffix) score += 2;
       if (anchor.blockIndex === blockIndex) score += 1;
       if (anchor.blockIndex === blockIndex && anchor.start === matchStart) score += 1;
-      candidates.push({ blockIndex, start: matchStart, end: matchStart + quote.length, approximate: false, score });
+      candidates.push({
+        blockIndex,
+        start: matchStart,
+        end: matchStart + quote.length,
+        approximate: false,
+        score,
+      });
     }
   });
   return candidates;

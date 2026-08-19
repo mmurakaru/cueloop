@@ -29,7 +29,9 @@ export async function sessionCommand(argv: string[]): Promise<number> {
         const content = contentFile ? await Bun.file(contentFile).text() : await readStdin();
         // per-file agent notes for diff sessions: a JSON array of { path, body }
         const notesFile = stringFlag(flags, "notes-file");
-        const notes = notesFile ? (JSON.parse(await Bun.file(notesFile).text()) as ReviewNote[]) : undefined;
+        const notes = notesFile
+          ? (JSON.parse(await Bun.file(notesFile).text()) as ReviewNote[])
+          : undefined;
         const review = await openReview(client, {
           type: (stringFlag(flags, "type") ?? "plan") as ArtifactType,
           content,

@@ -66,4 +66,4 @@ export const DARK: Theme = {
   insertedForeground: "#62d96b",
   deletedForeground: "#ff6b6b",
   backdrop: "transparent",
-}
+};

@@ -64,18 +64,29 @@ export function diffRows(patchText: string): DiffRow[] {
 }
 
 function fileLabel(file: FileDiffMetadata): string {
-  return file.prevName && file.prevName !== file.name ? `${file.prevName} → ${file.name}` : file.name;
+  return file.prevName && file.prevName !== file.name
+    ? `${file.prevName} → ${file.name}`
+    : file.name;
 }
 
 /** Quote-primary anchor for a diff row: neighbors as context selectors. */
-export function diffRowAnchor(rows: DiffRow[], rowIndex: number): { quote: string; prefix: string; suffix: string } {
+export function diffRowAnchor(
+  rows: DiffRow[],
+  rowIndex: number,
+): { quote: string; prefix: string; suffix: string } {
   const row = rows[rowIndex]!;
   const prev = rows[rowIndex - 1];
   const next = rows[rowIndex + 1];
   return {
     quote: row.text,
-    prefix: prev && (prev.kind === "ctx" || prev.kind === "add" || prev.kind === "del") ? prev.text.slice(-24) : "",
-    suffix: next && (next.kind === "ctx" || next.kind === "add" || next.kind === "del") ? next.text.slice(0, 24) : "",
+    prefix:
+      prev && (prev.kind === "ctx" || prev.kind === "add" || prev.kind === "del")
+        ? prev.text.slice(-24)
+        : "",
+    suffix:
+      next && (next.kind === "ctx" || next.kind === "add" || next.kind === "del")
+        ? next.text.slice(0, 24)
+        : "",
   };
 }
 

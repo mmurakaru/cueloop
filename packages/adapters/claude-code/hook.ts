@@ -92,7 +92,9 @@ export function hookOutput(event: HookEvent, decision: HookDecision): unknown {
   }
   // PermissionRequest shape
   return {
-    decision: decision.allow ? { behavior: "allow", updatedInput: event.tool_input } : { behavior: "deny", message: decision.reason },
+    decision: decision.allow
+      ? { behavior: "allow", updatedInput: event.tool_input }
+      : { behavior: "deny", message: decision.reason },
   };
 }
 
@@ -103,7 +105,9 @@ if (import.meta.main) {
     event = JSON.parse(raw) as HookEvent;
   } catch {
     // no payload: allow rather than wedge the agent on adapter failure
-    console.log(JSON.stringify(hookOutput({}, { allow: true, reason: "unparseable hook payload" })));
+    console.log(
+      JSON.stringify(hookOutput({}, { allow: true, reason: "unparseable hook payload" })),
+    );
     process.exit(0);
   }
   // An adapter failure must never wedge the agent: emit a valid hook response

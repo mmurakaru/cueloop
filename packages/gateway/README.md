@@ -19,15 +19,15 @@ via HKDF from one master key), and decrypts only to render server-side. See
 
 ## Configuration (environment)
 
-| Variable | Purpose | Default |
-|---|---|---|
-| `CUELOOP_STORE` | `memory` for a throwaway local run; otherwise R2 | R2 |
-| `CUELOOP_MASTER_KEY_PATH` | 32-byte master key (0600, VM-only) | `/etc/cueloop/master.key` |
-| `CUELOOP_HOST_KEY_PATH` | persisted SSH host key | `/etc/cueloop/host_key` |
-| `CUELOOP_GATEWAY_PORT` | listen port | `22` |
-| `CUELOOP_GATEWAY_HOST` | bind address | `0.0.0.0` |
-| `CUELOOP_PUBLIC_HOST` | host printed in the ssh line | `cueloop.dev` |
-| `CUELOOP_R2_ENDPOINT` / `_ACCESS_KEY_ID` / `_SECRET_ACCESS_KEY` / `_BUCKET` | R2 credentials | bucket `cueloop-shares` |
+| Variable                                                                    | Purpose                                          | Default                   |
+| --------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------- |
+| `CUELOOP_STORE`                                                             | `memory` for a throwaway local run; otherwise R2 | R2                        |
+| `CUELOOP_MASTER_KEY_PATH`                                                   | 32-byte master key (0600, VM-only)               | `/etc/cueloop/master.key` |
+| `CUELOOP_HOST_KEY_PATH`                                                     | persisted SSH host key                           | `/etc/cueloop/host_key`   |
+| `CUELOOP_GATEWAY_PORT`                                                      | listen port                                      | `22`                      |
+| `CUELOOP_GATEWAY_HOST`                                                      | bind address                                     | `0.0.0.0`                 |
+| `CUELOOP_PUBLIC_HOST`                                                       | host printed in the ssh line                     | `cueloop.dev`             |
+| `CUELOOP_R2_ENDPOINT` / `_ACCESS_KEY_ID` / `_SECRET_ACCESS_KEY` / `_BUCKET` | R2 credentials                                   | bucket `cueloop-shares`   |
 
 ## Manual verification (fully local, no R2, no VM)
 

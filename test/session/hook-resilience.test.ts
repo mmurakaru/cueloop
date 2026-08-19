@@ -9,7 +9,10 @@ import { join } from "node:path";
 
 const HOOK = join(import.meta.dir, "..", "..", "packages", "adapters", "claude-code", "hook.ts");
 
-async function runHookProcess(env: Record<string, string>, payload: string): Promise<{ out: string; code: number }> {
+async function runHookProcess(
+  env: Record<string, string>,
+  payload: string,
+): Promise<{ out: string; code: number }> {
   const proc = Bun.spawn([process.execPath, "run", HOOK], {
     env: { ...process.env, ...env },
     stdin: new TextEncoder().encode(payload),

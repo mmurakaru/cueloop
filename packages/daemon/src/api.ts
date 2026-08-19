@@ -88,11 +88,16 @@ export class DaemonCore {
     return session;
   }
 
-  sessionList(filter?: { status?: "pending" | "resolved"; workspace?: Partial<WorkspaceKey> }): ReviewSession[] {
+  sessionList(filter?: {
+    status?: "pending" | "resolved";
+    workspace?: Partial<WorkspaceKey>;
+  }): ReviewSession[] {
     return this.store.list().filter((session) => {
       if (filter?.status && session.status !== filter.status) return false;
-      if (filter?.workspace?.repoRoot && session.workspace.repoRoot !== filter.workspace.repoRoot) return false;
-      if (filter?.workspace?.branch && session.workspace.branch !== filter.workspace.branch) return false;
+      if (filter?.workspace?.repoRoot && session.workspace.repoRoot !== filter.workspace.repoRoot)
+        return false;
+      if (filter?.workspace?.branch && session.workspace.branch !== filter.workspace.branch)
+        return false;
       return true;
     });
   }
@@ -131,7 +136,11 @@ export class DaemonCore {
     const existing = session.annotations.findIndex((candidate) => candidate.id === annotation.id);
     const full: Annotation = { ...annotation, createdAt: new Date().toISOString() };
     if (existing === -1) session.annotations.push(full);
-    else session.annotations[existing] = { ...full, createdAt: session.annotations[existing]!.createdAt };
+    else
+      session.annotations[existing] = {
+        ...full,
+        createdAt: session.annotations[existing]!.createdAt,
+      };
     this.store.upsert(session);
     this.emit("session.updated", id);
     return session;
@@ -148,7 +157,8 @@ export class DaemonCore {
   /** The reviewer's working copy; undefined clears it (revert all edits). */
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): ReviewSession {
     const session = this.mutable(id);
-    if (workingCopy === undefined || workingCopy === session.artifact.content) delete session.workingCopy;
+    if (workingCopy === undefined || workingCopy === session.artifact.content)
+      delete session.workingCopy;
     else session.workingCopy = workingCopy;
     this.store.upsert(session);
     this.emit("session.updated", id);
@@ -190,12 +200,18 @@ export class DaemonCore {
    * the authority on their own name). This is how a teammate's name reaches the
    * planner after a pull, alongside their notes.
    */
-  sessionMergeShared(id: string, incoming: { annotations: Annotation[]; participants?: Identity[] }): ReviewSession {
+  sessionMergeShared(
+    id: string,
+    incoming: { annotations: Annotation[]; participants?: Identity[] },
+  ): ReviewSession {
     const session = this.mutable(id);
     const known = new Set(session.annotations.map((annotation) => annotation.id));
-    for (const annotation of incoming.annotations) if (!known.has(annotation.id)) session.annotations.push(annotation);
+    for (const annotation of incoming.annotations)
+      if (!known.has(annotation.id)) session.annotations.push(annotation);
     if (incoming.participants?.length) {
-      const registry = new Map((session.participants ?? []).map((participant) => [participant.id, participant]));
+      const registry = new Map(
+        (session.participants ?? []).map((participant) => [participant.id, participant]),
+      );
       for (const participant of incoming.participants) registry.set(participant.id, participant);
       session.participants = [...registry.values()];
     }
@@ -233,7 +249,11 @@ export class DaemonCore {
    * Unknown ids are ignored, so a stale id in the agent's list never fails
    * the resubmit.
    */
-  sessionSubmitRevision(id: string, content: string, addressedAnnotationIds: string[] = []): ReviewSession {
+  sessionSubmitRevision(
+    id: string,
+    content: string,
+    addressedAnnotationIds: string[] = [],
+  ): ReviewSession {
     const session = this.sessionGet(id);
     const now = new Date().toISOString();
     const revisionNumber = session.revisions.length + 1;
@@ -251,7 +271,10 @@ export class DaemonCore {
       if (isAddressed(annotation) || isAgentNote(annotation)) continue;
       if (reportedIds.has(annotation.id)) {
         annotation.resolution = { revision: revisionNumber, source: "agent" };
-      } else if (revisedBlocks !== null && resolveAnchor(annotation.anchor, revisedBlocks) === null) {
+      } else if (
+        revisedBlocks !== null &&
+        resolveAnchor(annotation.anchor, revisedBlocks) === null
+      ) {
         annotation.resolution = { revision: revisionNumber, source: "drift" };
       }
     }
@@ -264,7 +287,8 @@ export class DaemonCore {
 
   private mutable(id: string): ReviewSession {
     const session = this.sessionGet(id);
-    if (session.status === "resolved") throw new DaemonError("resolved", `session ${id} is already resolved`);
+    if (session.status === "resolved")
+      throw new DaemonError("resolved", `session ${id} is already resolved`);
     return session;
   }
 }

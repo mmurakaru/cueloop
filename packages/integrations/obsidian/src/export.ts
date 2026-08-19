@@ -43,7 +43,11 @@ export interface ExportResult {
   error?: string;
 }
 
-export function exportSession(session: ReviewSession, config: ObsidianConfig, now: Date = new Date()): ExportResult {
+export function exportSession(
+  session: ReviewSession,
+  config: ObsidianConfig,
+  now: Date = new Date(),
+): ExportResult {
   const vault = config.vault ?? detectVaults(config.obsidianConfigPath)[0];
   if (!vault) return { success: false, error: "no Obsidian vault configured or detected" };
   if (!existsSync(vault)) return { success: false, error: `vault not found: ${vault}` };

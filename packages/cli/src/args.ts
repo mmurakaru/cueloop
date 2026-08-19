@@ -31,7 +31,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
   return { positional, flags };
 }
 
-export function stringFlag(flags: Record<string, string | boolean>, key: string): string | undefined {
+export function stringFlag(
+  flags: Record<string, string | boolean>,
+  key: string,
+): string | undefined {
   const value = flags[key];
   return typeof value === "string" ? value : undefined;
 }

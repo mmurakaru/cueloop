@@ -160,7 +160,9 @@ export async function waitForState(
     }
     if (now - lastLog >= PROGRESS_LOG_MS) {
       lastLog = now;
-      console.error(`[waitForState] still waiting for ${label} — ${now - start}ms, ${polls} polls, ${frameChanges} frame changes`);
+      console.error(
+        `[waitForState] still waiting for ${label} — ${now - start}ms, ${polls} polls, ${frameChanges} frame changes`,
+      );
     }
     await yieldEventLoop();
   }
@@ -168,10 +170,18 @@ export async function waitForState(
 
 /** Wait until the frame contains the needle (daemon round-trips included). */
 export async function waitForText(setup: TestRendererSetup, needle: string): Promise<string> {
-  return waitForFramePredicate(setup, (frame) => frame.includes(needle), `text ${JSON.stringify(needle)}`);
+  return waitForFramePredicate(
+    setup,
+    (frame) => frame.includes(needle),
+    `text ${JSON.stringify(needle)}`,
+  );
 }
 
 /** Wait until the frame no longer contains the needle. */
 export async function waitForTextGone(setup: TestRendererSetup, needle: string): Promise<string> {
-  return waitForFramePredicate(setup, (frame) => !frame.includes(needle), `text-gone ${JSON.stringify(needle)}`);
+  return waitForFramePredicate(
+    setup,
+    (frame) => !frame.includes(needle),
+    `text-gone ${JSON.stringify(needle)}`,
+  );
 }

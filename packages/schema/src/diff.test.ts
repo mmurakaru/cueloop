@@ -75,7 +75,11 @@ describe("editStats", () => {
 describe("lcsDiff", () => {
   test("custom equality", () => {
     // Act
-    const ops = lcsDiff([{ v: 1 }, { v: 2 }], [{ v: 2 }, { v: 3 }], (oldItem, newItem) => oldItem.v === newItem.v);
+    const ops = lcsDiff(
+      [{ v: 1 }, { v: 2 }],
+      [{ v: 2 }, { v: 3 }],
+      (oldItem, newItem) => oldItem.v === newItem.v,
+    );
 
     // Assert
     expect(ops.map((op) => op.kind)).toEqual(["del", "ctx", "add"]);

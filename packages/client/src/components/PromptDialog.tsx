@@ -25,7 +25,15 @@ export interface PromptDialogProps {
   theme?: Theme;
 }
 
-export function PromptDialog({ isOpen, title, label, value, placeholder, onInput, theme }: PromptDialogProps): React.ReactNode {
+export function PromptDialog({
+  isOpen,
+  title,
+  label,
+  value,
+  placeholder,
+  onInput,
+  theme,
+}: PromptDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth } = useTerminalDimensions();
   const inputRef = useRef<TextareaRenderable | null>(null);
@@ -37,7 +45,15 @@ export function PromptDialog({ isOpen, title, label, value, placeholder, onInput
   if (!isOpen) return null;
   return (
     <Dialog isOpen title={title} width={Math.min(54, terminalWidth - 6)} height={7} theme={theme}>
-      <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 1, paddingRight: 1, paddingTop: 1 }}>
+      <box
+        style={{
+          flexDirection: "column",
+          flexGrow: 1,
+          paddingLeft: 1,
+          paddingRight: 1,
+          paddingTop: 1,
+        }}
+      >
         <text fg={tokens.textDim}>{label}</text>
         <textarea
           ref={inputRef}

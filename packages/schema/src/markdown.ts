@@ -26,7 +26,7 @@ function isMarkerLine(line: string): boolean {
     line.startsWith("## ") ||
     line.startsWith("### ") ||
     line.startsWith("> ") ||
-    line.startsWith('- ') ||
+    line.startsWith("- ") ||
     /^\d+\. /.test(line) ||
     /^(---|\*\*\*|___)\s*$/.test(line)
   );
@@ -73,17 +73,31 @@ export function parseBlocks(markdown: string): Block[] {
         body.push(lines[lineIndex]!.slice(2));
         lineIndex++;
       }
-      blocks.push({ kind: "quote", text: body.join("\n"), lineStart: start, lineEnd: lineIndex - 1 });
-    } else if (line.startsWith('- ')) {
+      blocks.push({
+        kind: "quote",
+        text: body.join("\n"),
+        lineStart: start,
+        lineEnd: lineIndex - 1,
+      });
+    } else if (line.startsWith("- ")) {
       blocks.push({ kind: "li", text: line.slice(2), lineStart: lineIndex, lineEnd: lineIndex });
       lineIndex++;
     } else if (/^\d+\. /.test(line)) {
-      blocks.push({ kind: "oli", text: line.replace(/^\d+\. /, ""), lineStart: lineIndex, lineEnd: lineIndex });
+      blocks.push({
+        kind: "oli",
+        text: line.replace(/^\d+\. /, ""),
+        lineStart: lineIndex,
+        lineEnd: lineIndex,
+      });
       lineIndex++;
     } else {
       const start = lineIndex;
       const body: string[] = [];
-      while (lineIndex < lines.length && lines[lineIndex]!.trim() !== "" && !isMarkerLine(lines[lineIndex]!)) {
+      while (
+        lineIndex < lines.length &&
+        lines[lineIndex]!.trim() !== "" &&
+        !isMarkerLine(lines[lineIndex]!)
+      ) {
         body.push(lines[lineIndex]!);
         lineIndex++;
       }
@@ -125,7 +139,8 @@ export function sectionOf(blocks: Block[], index: number): string {
   let sectionTitle = "";
   for (let blockIndex = 0; blockIndex <= index && blockIndex < blocks.length; blockIndex++) {
     const block = blocks[blockIndex]!;
-    if (block.kind === "h1" || block.kind === "h2" || block.kind === "h3") sectionTitle = block.text;
+    if (block.kind === "h1" || block.kind === "h2" || block.kind === "h3")
+      sectionTitle = block.text;
   }
   return sectionTitle;
 }

@@ -1,7 +1,21 @@
 {
   "name": "@cueloop/daemon",
   "version": "0.1.0-alpha.33",
+  "description": "The cueloop session daemon and its client: socket protocol, atomic store, resumable waits",
+  "homepage": "https://github.com/mmurakaru/cueloop#readme",
+  "bugs": {
+    "url": "https://github.com/mmurakaru/cueloop/issues"
+  },
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmurakaru/cueloop.git",
+    "directory": "packages/daemon"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -10,28 +24,14 @@
     "./herdr-pane": "./src/herdr-pane.ts",
     "./share-blob": "./src/share-blob.ts"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@cueloop/schema": "0.1.0-alpha.33",
     "valibot": "^1.4.2"
   },
-  "publishConfig": {
-    "access": "public"
-  },
-  "files": [
-    "src",
-    "README.md"
-  ],
   "engines": {
     "bun": ">=1.3.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mmurakaru/cueloop.git",
-    "directory": "packages/daemon"
-  },
-  "homepage": "https://github.com/mmurakaru/cueloop#readme",
-  "bugs": {
-    "url": "https://github.com/mmurakaru/cueloop/issues"
-  },
-  "description": "The cueloop session daemon and its client: socket protocol, atomic store, resumable waits"
+  }
 }

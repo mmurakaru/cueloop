@@ -5,7 +5,14 @@
  */
 
 import { existsSync, rmSync } from "node:fs";
-import type { Annotation, Artifact, Identity, ReviewSession, VerdictKind, WorkspaceKey } from "@cueloop/schema";
+import type {
+  Annotation,
+  Artifact,
+  Identity,
+  ReviewSession,
+  VerdictKind,
+  WorkspaceKey,
+} from "@cueloop/schema";
 import { BackpressureWriter, LineBuffer, type EventFrame, type Response } from "./protocol";
 import { cueloopHome, socketPath } from "./paths";
 
@@ -35,7 +42,10 @@ export interface SessionClient {
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
-  sessionMergeShared(id: string, incoming: { annotations: Annotation[]; participants?: Identity[] }): Promise<ReviewSession>;
+  sessionMergeShared(
+    id: string,
+    incoming: { annotations: Annotation[]; participants?: Identity[] },
+  ): Promise<ReviewSession>;
   sessionDelete(id: string): Promise<void>;
   /** Record the caller's own identity name (collaborator self-naming on a share). */
   sessionSetSelfName(id: string, name: string): Promise<ReviewSession>;
@@ -93,7 +103,8 @@ export class DaemonClient implements SessionClient {
         },
         close: () => {
           this.closed = true;
-          for (const pendingRequest of this.pending.values()) pendingRequest.reject(new Error("daemon connection closed"));
+          for (const pendingRequest of this.pending.values())
+            pendingRequest.reject(new Error("daemon connection closed"));
           this.pending.clear();
         },
         error() {},
@@ -124,7 +135,8 @@ export class DaemonClient implements SessionClient {
     const pendingRequest = this.pending.get(frame.id);
     if (!pendingRequest) return;
     this.pending.delete(frame.id);
-    if (frame.error) pendingRequest.reject(new DaemonClientError(frame.error.code, frame.error.message));
+    if (frame.error)
+      pendingRequest.reject(new DaemonClientError(frame.error.code, frame.error.message));
     else pendingRequest.resolve(frame.result);
   }
 
@@ -190,7 +202,10 @@ export class DaemonClient implements SessionClient {
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession> {
     return this.request("session.setShareId", { id, shareId });
   }
-  sessionMergeShared(id: string, incoming: { annotations: Annotation[]; participants?: Identity[] }): Promise<ReviewSession> {
+  sessionMergeShared(
+    id: string,
+    incoming: { annotations: Annotation[]; participants?: Identity[] },
+  ): Promise<ReviewSession> {
     return this.request("session.mergeShared", { id, ...incoming });
   }
   sessionDelete(id: string): Promise<void> {
@@ -203,7 +218,11 @@ export class DaemonClient implements SessionClient {
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession> {
     return this.request("session.resolve", { id, verdictKind, summary });
   }
-  sessionSubmitRevision(id: string, content: string, addressedAnnotationIds: string[] = []): Promise<ReviewSession> {
+  sessionSubmitRevision(
+    id: string,
+    content: string,
+    addressedAnnotationIds: string[] = [],
+  ): Promise<ReviewSession> {
     return this.request("session.submitRevision", { id, content, addressedAnnotationIds });
   }
   shutdown(): Promise<void> {

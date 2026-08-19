@@ -66,7 +66,12 @@ describe("resolveWorkspace", () => {
 describe("openReview", () => {
   test("shapes the artifact: agent, derived title, cwd", async () => {
     // Act
-    const review = await openReview(client, { type: "plan", content: PLAN, cwd: home, agent: "test-agent" });
+    const review = await openReview(client, {
+      type: "plan",
+      content: PLAN,
+      cwd: home,
+      agent: "test-agent",
+    });
 
     // Assert
     const session = review.session;
@@ -80,13 +85,22 @@ describe("openReview", () => {
 
   test("an explicit title wins; diffs never derive one from content", async () => {
     // Act
-    const titled = await openReview(client, { type: "plan", content: PLAN, cwd: home, title: "Custom" });
+    const titled = await openReview(client, {
+      type: "plan",
+      content: PLAN,
+      cwd: home,
+      title: "Custom",
+    });
 
     // Assert
     expect(titled.session.artifact.meta.title).toBe("Custom");
 
     // Act
-    const diff = await openReview(client, { type: "diff", content: "# not a heading\n", cwd: home });
+    const diff = await openReview(client, {
+      type: "diff",
+      content: "# not a heading\n",
+      cwd: home,
+    });
 
     // Assert
     expect(diff.session.artifact.meta.title).toBeUndefined();
@@ -97,7 +111,12 @@ describe("openReview", () => {
     const ws = { repoRoot: "/elsewhere", branch: "feature" };
 
     // Act
-    const review = await openReview(client, { type: "diff", content: "d", cwd: home, workspace: ws });
+    const review = await openReview(client, {
+      type: "diff",
+      content: "d",
+      cwd: home,
+      workspace: ws,
+    });
 
     // Assert
     expect(review.session.workspace).toEqual(ws);
@@ -105,7 +124,12 @@ describe("openReview", () => {
 
   test("the same agentSessionId revises instead of opening a new session", async () => {
     // Arrange
-    const first = await openReview(client, { type: "plan", content: PLAN, cwd: home, agentSessionId: "agent-1" });
+    const first = await openReview(client, {
+      type: "plan",
+      content: PLAN,
+      cwd: home,
+      agentSessionId: "agent-1",
+    });
 
     // Act
     const second = await openReview(client, {
@@ -121,7 +145,12 @@ describe("openReview", () => {
     expect(second.session.status).toBe("pending");
 
     // Act
-    const other = await openReview(client, { type: "plan", content: PLAN, cwd: home, agentSessionId: "agent-2" });
+    const other = await openReview(client, {
+      type: "plan",
+      content: PLAN,
+      cwd: home,
+      agentSessionId: "agent-2",
+    });
 
     // Assert
     expect(other.id).not.toBe(first.id);
@@ -206,7 +235,8 @@ describe("awaitVerdict: chunked loop (the pi shape)", () => {
 
     // Assert
     // give the loop a chunk to observe the annotation before resolving
-    for (let i = 0; i < 100 && !seen.some((snapshot) => snapshot.annotations.length === 1); i++) await Bun.sleep(20);
+    for (let i = 0; i < 100 && !seen.some((snapshot) => snapshot.annotations.length === 1); i++)
+      await Bun.sleep(20);
     expect(seen.some((snapshot) => snapshot.annotations.length === 1)).toBe(true);
 
     // Act
@@ -223,7 +253,11 @@ describe("awaitVerdict: chunked loop (the pi shape)", () => {
     // Arrange
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
     const controller = new AbortController();
-    const waiting = review.awaitVerdict({ timeoutMs: Infinity, pollMs: 100, signal: controller.signal });
+    const waiting = review.awaitVerdict({
+      timeoutMs: Infinity,
+      pollMs: 100,
+      signal: controller.signal,
+    });
 
     // Act
     controller.abort();

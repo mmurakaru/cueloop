@@ -85,7 +85,10 @@ export const AnnotationSchema = v.object({
 const SessionId = NonEmpty;
 
 /** A stored annotation: the wire shape plus the daemon-stamped createdAt. */
-export const FullAnnotationSchema = v.object({ ...AnnotationSchema.entries, createdAt: v.string() } satisfies EntriesOf<Annotation>);
+export const FullAnnotationSchema = v.object({
+  ...AnnotationSchema.entries,
+  createdAt: v.string(),
+} satisfies EntriesOf<Annotation>);
 
 export const IdentitySchema = v.object({
   id: NonEmpty,
@@ -108,7 +111,10 @@ export const Params = {
   "session.wait": v.object({
     id: SessionId,
     // clamped: a negative or absurd timeout is a client bug, not a daemon one
-    timeoutMs: v.optional(v.pipe(v.number(), v.minValue(0), v.maxValue(24 * 60 * 60 * 1000)), 60_000),
+    timeoutMs: v.optional(
+      v.pipe(v.number(), v.minValue(0), v.maxValue(24 * 60 * 60 * 1000)),
+      60_000,
+    ),
   }),
   "session.annotate": v.object({ id: SessionId, annotation: AnnotationSchema }),
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
@@ -144,12 +150,18 @@ export function isKnownMethod(method: string): method is MethodName {
 }
 
 /** Validate params for a method, or throw a DaemonError the client can read. */
-export function parseParams<M extends MethodName>(method: M, params: unknown): v.InferOutput<(typeof Params)[M]> {
+export function parseParams<M extends MethodName>(
+  method: M,
+  params: unknown,
+): v.InferOutput<(typeof Params)[M]> {
   const result = v.safeParse(Params[method], params ?? {});
   if (!result.success) {
     const issue = result.issues[0]!;
     const path = issue.path?.map((pathSegment) => String(pathSegment.key)).join(".") ?? "";
-    throw new DaemonError("invalid_params", `${method}: ${path ? path + " - " : ""}${issue.message}`);
+    throw new DaemonError(
+      "invalid_params",
+      `${method}: ${path ? path + " - " : ""}${issue.message}`,
+    );
   }
   return result.output;
 }
@@ -185,7 +197,9 @@ export const SessionRecordSchema = v.object({
   participants: v.optional(v.array(IdentitySchema)),
 } satisfies EntriesOf<ReviewSession>);
 
-export function validateSessionRecord(raw: unknown): { ok: true; value: v.InferOutput<typeof SessionRecordSchema> } | { ok: false; error: string } {
+export function validateSessionRecord(
+  raw: unknown,
+): { ok: true; value: v.InferOutput<typeof SessionRecordSchema> } | { ok: false; error: string } {
   const result = v.safeParse(SessionRecordSchema, raw);
   if (result.success) return { ok: true, value: result.output };
   const issue = result.issues[0]!;

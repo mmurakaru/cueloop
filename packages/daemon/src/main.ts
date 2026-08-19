@@ -2,7 +2,9 @@
 
 import { DaemonServer } from "./server";
 
-const idleExitMs = process.env.CUELOOP_IDLE_EXIT_MS ? Number(process.env.CUELOOP_IDLE_EXIT_MS) : undefined;
+const idleExitMs = process.env.CUELOOP_IDLE_EXIT_MS
+  ? Number(process.env.CUELOOP_IDLE_EXIT_MS)
+  : undefined;
 const server = new DaemonServer({ idleExitMs });
 const path = server.start();
 if (path === null) {

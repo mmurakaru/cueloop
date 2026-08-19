@@ -72,7 +72,9 @@ describe("firstUnviewedIndex", () => {
   });
 
   test("all viewed resumes on the end card, not the first file", () => {
-    expect(firstUnviewedIndex(files, new Set(["src/a.ts", "src/b.ts", "src/c.ts"]))).toBe(files.length);
+    expect(firstUnviewedIndex(files, new Set(["src/a.ts", "src/b.ts", "src/c.ts"]))).toBe(
+      files.length,
+    );
   });
 });
 
@@ -93,7 +95,10 @@ describe("noteForFile", () => {
 
   test("finds the note anchored at the file path", () => {
     // Arrange
-    const annotations = [note("src/a.ts", "Renames b and adds c."), note("src/b.ts", "Swaps the line.")];
+    const annotations = [
+      note("src/a.ts", "Renames b and adds c."),
+      note("src/b.ts", "Swaps the line."),
+    ];
 
     // Assert
     expect(noteForFile(annotations, "src/b.ts")).toBe("Swaps the line.");

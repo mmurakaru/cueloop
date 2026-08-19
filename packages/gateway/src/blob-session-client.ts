@@ -53,14 +53,19 @@ export class BlobSessionClient implements SessionClient {
     return [this.session];
   }
 
-  async sessionAnnotate(_id: string, annotation: Omit<Annotation, "createdAt">): Promise<ReviewSession> {
+  async sessionAnnotate(
+    _id: string,
+    annotation: Omit<Annotation, "createdAt">,
+  ): Promise<ReviewSession> {
     const writeBack = this.requireWriteBack();
     return this.commit(writeBack, (session) => upsertAnnotation(session, annotation, writeBack));
   }
 
   async sessionRemoveAnnotation(_id: string, annotationId: string): Promise<ReviewSession> {
     const writeBack = this.requireWriteBack();
-    return this.commit(writeBack, (session) => removeOwnAnnotation(session, annotationId, writeBack.author));
+    return this.commit(writeBack, (session) =>
+      removeOwnAnnotation(session, annotationId, writeBack.author),
+    );
   }
 
   sessionSetWorkingCopy(): Promise<ReviewSession> {
@@ -108,27 +113,42 @@ export class BlobSessionClient implements SessionClient {
    * single-owner scale; a conditional put (R2 ETag) is the fix if it ever bites.
    * The updated session becomes the render source.
    */
-  private async commit(writeBack: ShareWriteBack, change: (session: ReviewSession) => ReviewSession): Promise<ReviewSession> {
+  private async commit(
+    writeBack: ShareWriteBack,
+    change: (session: ReviewSession) => ReviewSession,
+  ): Promise<ReviewSession> {
     const stored = await writeBack.store.get(writeBack.shareId);
-    const current = stored ? unpackSessionBlob(openBlob(writeBack.masterKey, writeBack.shareId, stored)) : this.session;
+    const current = stored
+      ? unpackSessionBlob(openBlob(writeBack.masterKey, writeBack.shareId, stored))
+      : this.session;
     const next = change(current);
-    await writeBack.store.put(writeBack.shareId, sealBlob(writeBack.masterKey, writeBack.shareId, packSessionBlob(next)));
+    await writeBack.store.put(
+      writeBack.shareId,
+      sealBlob(writeBack.masterKey, writeBack.shareId, packSessionBlob(next)),
+    );
     this.session = next;
     return next;
   }
 }
 
 /** Union a collaborator's annotation in by id, guarding others' notes. */
-function upsertAnnotation(session: ReviewSession, incoming: Omit<Annotation, "createdAt">, writeBack: ShareWriteBack): ReviewSession {
+function upsertAnnotation(
+  session: ReviewSession,
+  incoming: Omit<Annotation, "createdAt">,
+  writeBack: ShareWriteBack,
+): ReviewSession {
   const existing = session.annotations.find((annotation) => annotation.id === incoming.id);
-  if (existing && existing.author !== writeBack.author) throw new Error("cannot change another author's note");
+  if (existing && existing.author !== writeBack.author)
+    throw new Error("cannot change another author's note");
   const stamped: Annotation = {
     ...incoming,
     author: writeBack.author,
-    createdAt: existing?.createdAt ?? (writeBack.now?.() ?? new Date().toISOString()),
+    createdAt: existing?.createdAt ?? writeBack.now?.() ?? new Date().toISOString(),
   };
   const annotations = existing
-    ? session.annotations.map((annotation) => (annotation.id === incoming.id ? stamped : annotation))
+    ? session.annotations.map((annotation) =>
+        annotation.id === incoming.id ? stamped : annotation,
+      )
     : [...session.annotations, stamped];
   // Leaving a note registers the author in the participant registry, so a
   // collaborator who skipped naming resolves to anonymous, not a raw fingerprint.
@@ -145,7 +165,11 @@ function withParticipant(session: ReviewSession, author: string, name?: string):
   const existing = participants.find((participant) => participant.id === author);
   const trimmed = name?.trim();
   if (existing && !trimmed) return session;
-  const next: Identity = { id: author, provider: "ssh", ...(trimmed ? { name: trimmed } : existing?.name ? { name: existing.name } : {}) };
+  const next: Identity = {
+    id: author,
+    provider: "ssh",
+    ...(trimmed ? { name: trimmed } : existing?.name ? { name: existing.name } : {}),
+  };
   return {
     ...session,
     participants: existing
@@ -155,12 +179,22 @@ function withParticipant(session: ReviewSession, author: string, name?: string):
 }
 
 /** Remove an annotation only when it is the collaborator's own. */
-function removeOwnAnnotation(session: ReviewSession, annotationId: string, author: string): ReviewSession {
+function removeOwnAnnotation(
+  session: ReviewSession,
+  annotationId: string,
+  author: string,
+): ReviewSession {
   const existing = session.annotations.find((annotation) => annotation.id === annotationId);
-  if (existing && existing.author !== author) throw new Error("cannot delete another author's note");
-  return { ...session, annotations: session.annotations.filter((annotation) => annotation.id !== annotationId) };
+  if (existing && existing.author !== author)
+    throw new Error("cannot delete another author's note");
+  return {
+    ...session,
+    annotations: session.annotations.filter((annotation) => annotation.id !== annotationId),
+  };
 }
 
 function rejectReadOnly(): Promise<never> {
-  return Promise.reject(new Error("a shared plan takes annotations only - no plan edits or verdicts"));
+  return Promise.reject(
+    new Error("a shared plan takes annotations only - no plan edits or verdicts"),
+  );
 }

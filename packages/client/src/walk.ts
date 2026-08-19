@@ -35,7 +35,10 @@ export function walkFiles(rows: DiffRow[]): WalkFile[] {
     if (row.kind === "add") file.added += 1;
     else file.removed += 1;
     if (file.preview.length < WALK_PREVIEW_ROWS) {
-      file.preview.push({ sign: row.kind === "add" ? "+" : "-", text: row.text.replace(/\n$/, "") });
+      file.preview.push({
+        sign: row.kind === "add" ? "+" : "-",
+        text: row.text.replace(/\n$/, ""),
+      });
     }
   }
   return files;
@@ -61,5 +64,7 @@ export function viewedCount(files: WalkFile[], viewedPaths: ReadonlySet<string>)
  * quote is the file path (the note contract in the shared review core).
  */
 export function noteForFile(annotations: Annotation[], path: string): string | undefined {
-  return annotations.find((annotation) => annotation.kind === "note" && annotation.anchor.quote === path)?.body;
+  return annotations.find(
+    (annotation) => annotation.kind === "note" && annotation.anchor.quote === path,
+  )?.body;
 }

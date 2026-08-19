@@ -2,13 +2,14 @@
   "name": "@cueloop/gateway",
   "version": "0.1.0-alpha.33",
   "private": true,
+  "description": "The cueloop sharing gateway: raw ssh2 front door - shell renders a shared plan, exec receives an upload",
   "license": "Apache-2.0",
+  "bin": {
+    "cueloop-gateway": "./src/main.ts"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
-  },
-  "bin": {
-    "cueloop-gateway": "./src/main.ts"
   },
   "dependencies": {
     "@cueloop/client": "0.1.0-alpha.33",
@@ -24,6 +25,5 @@
   },
   "engines": {
     "bun": ">=1.3.0"
-  },
-  "description": "The cueloop sharing gateway: raw ssh2 front door - shell renders a shared plan, exec receives an upload"
+  }
 }

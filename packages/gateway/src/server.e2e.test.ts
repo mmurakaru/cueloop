@@ -144,7 +144,10 @@ function viewThenQuit(port: number, shareId: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let frames = "";
-    const timer = setTimeout(() => (conn.end(), reject(new Error(`quit timed out; frames:\n${frames}`))), 35000);
+    const timer = setTimeout(
+      () => (conn.end(), reject(new Error(`quit timed out; frames:\n${frames}`))),
+      35000,
+    );
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const until = async (needle: string, ms = 20000) => {
       const deadline = Date.now() + ms;
@@ -163,10 +166,14 @@ function viewThenQuit(port: number, shareId: string): Promise<string> {
           stream.stderr.on("data", collect);
           // the channel closing on the app's graceful exit is the resolve signal
           stream.on("close", () => (clearTimeout(timer), conn.end(), resolve(frames)));
-          if (!(await until("Welcome"))) return (clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`)));
+          if (!(await until("Welcome")))
+            return (
+              clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
+            );
           await wait(300);
           stream.write("\x1b"); // skip naming
-          if (!(await until("Rollout Plan"))) return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
+          if (!(await until("Rollout Plan")))
+            return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
           await wait(400);
           stream.write("q"); // graceful quit -> restore the terminal, then close
         }),
@@ -238,7 +245,9 @@ describe("share upload then view", () => {
     try {
       // Act - one upload, then scrape /metrics
       await shareUpload(metricsGateway.port, packSessionBlob(SESSION));
-      const body = await (await fetch(`http://127.0.0.1:${metricsGateway.metricsPort}/metrics`)).text();
+      const body = await (
+        await fetch(`http://127.0.0.1:${metricsGateway.metricsPort}/metrics`)
+      ).text();
 
       // Assert - the create verb and the R2 put both counted
       expect(body).toContain('cueloop_share_ops_total{verb="create",outcome="ok"} 1');
@@ -267,7 +276,10 @@ function annotateOverShell(port: number, shareId: string, body: string): Promise
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let frames = "";
-    const timer = setTimeout(() => (conn.end(), reject(new Error(`annotate timed out; frames:\n${frames}`))), 35000);
+    const timer = setTimeout(
+      () => (conn.end(), reject(new Error(`annotate timed out; frames:\n${frames}`))),
+      35000,
+    );
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const until = async (needle: string, ms = 20000) => {
       const deadline = Date.now() + ms;
@@ -286,10 +298,14 @@ function annotateOverShell(port: number, shareId: string, body: string): Promise
           stream.stderr.on("data", collect);
           // first open opens the name prompt over the plan; esc skips it (their
           // notes read anonymous) and reveals the plan the keys below drive
-          if (!(await until("Welcome"))) return (clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`)));
+          if (!(await until("Welcome")))
+            return (
+              clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
+            );
           await wait(300);
           stream.write("\x1b");
-          if (!(await until("Rollout Plan"))) return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
+          if (!(await until("Rollout Plan")))
+            return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
           await wait(400);
           stream.write("c"); // comment on the cursor line
           await wait(700);
@@ -312,7 +328,10 @@ function nameSelfOverShell(port: number, shareId: string, name: string): Promise
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let frames = "";
-    const timer = setTimeout(() => (conn.end(), reject(new Error(`name timed out; frames:\n${frames}`))), 35000);
+    const timer = setTimeout(
+      () => (conn.end(), reject(new Error(`name timed out; frames:\n${frames}`))),
+      35000,
+    );
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const until = async (needle: string, ms = 20000) => {
       const deadline = Date.now() + ms;
@@ -329,7 +348,10 @@ function nameSelfOverShell(port: number, shareId: string, name: string): Promise
           const collect = (chunk: Buffer) => (frames += chunk.toString("utf8"));
           stream.on("data", collect);
           stream.stderr.on("data", collect);
-          if (!(await until("Welcome"))) return (clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`)));
+          if (!(await until("Welcome")))
+            return (
+              clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
+            );
           await wait(400);
           stream.write(name);
           await wait(400);
@@ -377,7 +399,11 @@ describe("collaborator write-back", () => {
 });
 
 /** Exec `cueloop-pull` with `privateKey`, streaming the share id; capture stdout/stderr/exit. */
-function sharePull(port: number, shareId: string, privateKey: string): Promise<{ out: string; err: string; code: number | null }> {
+function sharePull(
+  port: number,
+  shareId: string,
+  privateKey: string,
+): Promise<{ out: string; err: string; code: number | null }> {
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let out = "";
@@ -416,7 +442,9 @@ describe("planner pull", () => {
 
     // Assert
     expect(result.code).toBe(0);
-    expect(pulled.annotations.some((annotation) => annotation.body.includes("pull me back"))).toBe(true);
+    expect(pulled.annotations.some((annotation) => annotation.body.includes("pull me back"))).toBe(
+      true,
+    );
   });
 
   test("a fingerprint that did not share it is refused", async () => {
@@ -433,7 +461,12 @@ describe("planner pull", () => {
 });
 
 /** Exec `cueloop-push` with `privateKey`, streaming {shareId, annotations}; capture stderr/exit. */
-function sharePush(port: number, shareId: string, annotations: object[], privateKey: string): Promise<{ err: string; code: number | null }> {
+function sharePush(
+  port: number,
+  shareId: string,
+  annotations: object[],
+  privateKey: string,
+): Promise<{ err: string; code: number | null }> {
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let err = "";
@@ -463,7 +496,12 @@ describe("planner push", () => {
   test("the owner mirrors a note up and it lands in the blob, unauthored and stamped", async () => {
     // Arrange
     const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
-    const note = { id: "planner-1", kind: "comment", anchor: { quote: "Rollout", prefix: "", suffix: "" }, body: "from the planner" };
+    const note = {
+      id: "planner-1",
+      kind: "comment",
+      anchor: { quote: "Rollout", prefix: "", suffix: "" },
+      body: "from the planner",
+    };
 
     // Act
     const result = await sharePush(handle.port, id, [note], CLIENT_KEY);
@@ -480,7 +518,12 @@ describe("planner push", () => {
   test("a fingerprint that did not share it is refused", async () => {
     // Arrange
     const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
-    const note = { id: "x", kind: "comment", anchor: { quote: "Rollout", prefix: "", suffix: "" }, body: "nope" };
+    const note = {
+      id: "x",
+      kind: "comment",
+      anchor: { quote: "Rollout", prefix: "", suffix: "" },
+      body: "nope",
+    };
 
     // Act
     const result = await sharePush(handle.port, id, [note], OTHER_KEY);
@@ -493,14 +536,22 @@ describe("planner push", () => {
   test("strips a spoofed author off a pushed note", async () => {
     // Arrange
     const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
-    const note = { id: "spoof-1", kind: "comment", anchor: { quote: "Rollout", prefix: "", suffix: "" }, body: "not really theirs", author: "SHA256:someone-else" };
+    const note = {
+      id: "spoof-1",
+      kind: "comment",
+      anchor: { quote: "Rollout", prefix: "", suffix: "" },
+      body: "not really theirs",
+      author: "SHA256:someone-else",
+    };
 
     // Act
     await sharePush(handle.port, id, [note], CLIENT_KEY);
     const stored = unpackSessionBlob(openBlob(MASTER, id, (await store.get(id))!));
 
     // Assert
-    expect(stored.annotations.find((annotation) => annotation.id === "spoof-1")?.author).toBeUndefined();
+    expect(
+      stored.annotations.find((annotation) => annotation.id === "spoof-1")?.author,
+    ).toBeUndefined();
   });
 });
 
@@ -522,7 +573,9 @@ describe("upload hygiene", () => {
 describe("viewing an unknown id", () => {
   test("fails with a readable message instead of hanging", async () => {
     // Act
-    const frames = await shellCapture(handle.port, "p_zzzzzzzz", (frame) => frame.includes("not found"));
+    const frames = await shellCapture(handle.port, "p_zzzzzzzz", (frame) =>
+      frame.includes("not found"),
+    );
 
     // Assert
     expect(frames).toContain("not found or has expired");

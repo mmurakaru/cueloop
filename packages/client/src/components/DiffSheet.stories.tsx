@@ -36,7 +36,12 @@ export const ComposingOnLine: Story = {
         kind: "comment",
         rowIndex: 4,
         quote: "  private items = new Map();",
-        draft: { text: "Map needs an eviction story.", onInput: () => {}, onSave: () => {}, onCancel: () => {} },
+        draft: {
+          text: "Map needs an eviction story.",
+          onInput: () => {},
+          onSave: () => {},
+          onCancel: () => {},
+        },
       }}
     />
   ),
@@ -55,7 +60,10 @@ export const AnnotatedLine: Story = {
           kind: "comment",
           anchor: {
             // diff anchors quote the row text verbatim, trailing newline included
-            quote: FIXTURE_PATCH.split("\n").find((line) => line.startsWith("+  "))!.slice(1) + "\n",
+            quote:
+              FIXTURE_PATCH.split("\n")
+                .find((line) => line.startsWith("+  "))!
+                .slice(1) + "\n",
             prefix: "",
             suffix: "",
           },

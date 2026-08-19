@@ -38,7 +38,10 @@ afterEach(() => {
 });
 
 async function renderApp() {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 30 });
+  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+    width: 120,
+    height: 30,
+  });
   await waitForText(setup, "Review");
   return setup;
 }
@@ -49,7 +52,12 @@ describe("review panel", () => {
     const setup = await renderApp();
     // the plan frame widens as the rail shrinks: expanded < compact < hidden.
     // its width is the column of its top-right corner (the first ╮ on the row).
-    const planWidth = () => setup.captureCharFrame().split("\n").find((line) => line.includes("╮"))?.indexOf("╮") ?? 0;
+    const planWidth = () =>
+      setup
+        .captureCharFrame()
+        .split("\n")
+        .find((line) => line.includes("╮"))
+        ?.indexOf("╮") ?? 0;
 
     // Assert: expanded shows the submit button and leaves room for the rail
     expect(setup.captureCharFrame()).toContain("Submit review");

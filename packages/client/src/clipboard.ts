@@ -16,7 +16,11 @@ export function clipboardCommands(platform: NodeJS.Platform = process.platform):
 export async function copyToClipboard(text: string): Promise<boolean> {
   for (const command of clipboardCommands()) {
     try {
-      const proc = Bun.spawn(command, { stdin: Buffer.from(text), stdout: "ignore", stderr: "ignore" });
+      const proc = Bun.spawn(command, {
+        stdin: Buffer.from(text),
+        stdout: "ignore",
+        stderr: "ignore",
+      });
       if ((await proc.exited) === 0) return true;
     } catch {
       // tool not installed - try the next one

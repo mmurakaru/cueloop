@@ -35,7 +35,8 @@ export function CodeBlock({
   theme,
 }: CodeBlockProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const tagColor = changeTag === "cut" ? tokens.red : changeTag === "new" ? tokens.green : tokens.accent;
+  const tagColor =
+    changeTag === "cut" ? tokens.red : changeTag === "new" ? tokens.green : tokens.accent;
   return (
     <box id={id} style={{ flexDirection: "column", marginTop }}>
       <text>

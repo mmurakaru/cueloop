@@ -10,7 +10,13 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { DARK } from "./theme";
-import { isolateUserConfig, press, waitForState, waitForText, waitForTextGone } from "./test-support";
+import {
+  isolateUserConfig,
+  press,
+  waitForState,
+  waitForText,
+  waitForTextGone,
+} from "./test-support";
 
 const PATCH = `diff --git a/src/a.ts b/src/a.ts
 index 111..222 100644
@@ -59,7 +65,10 @@ afterEach(() => {
 });
 
 async function renderApp() {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 34 });
+  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+    width: 120,
+    height: 34,
+  });
   // Wait for session content, not just the chrome: pressing w before the diff
   // loads drops the walk intent (no session, no diff view) and hangs the test.
   await waitForText(setup, "src/a.ts");
@@ -75,7 +84,9 @@ function foregroundsOf(setup: Setup, needle: string): string[] {
     for (const span of line.spans) {
       if (!span.text.includes(needle)) continue;
       const [red, green, blue] = span.fg.toInts();
-      foregrounds.push("#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""));
+      foregrounds.push(
+        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""),
+      );
     }
   }
   return foregrounds;
@@ -100,7 +111,9 @@ describe("the guided walk", () => {
     // Assert
     await waitForText(setup, "file 2 of 3 · 1 viewed");
     // the viewed mark rides the session record, not the client
-    await waitForState(setup, () => (server.core.sessionGet(session.id).viewedPaths ?? []).includes("src/a.ts"));
+    await waitForState(setup, () =>
+      (server.core.sessionGet(session.id).viewedPaths ?? []).includes("src/a.ts"),
+    );
 
     // Act
     // [ steps back; the revisited card shows its viewed marker
@@ -128,7 +141,11 @@ describe("the guided walk", () => {
     // Assert
     await waitForText(setup, "walk complete");
     expect(setup.captureCharFrame()).toContain("every file viewed (3/3)");
-    expect(server.core.sessionGet(session.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts", "src/c.ts"]);
+    expect(server.core.sessionGet(session.id).viewedPaths).toEqual([
+      "src/a.ts",
+      "src/b.ts",
+      "src/c.ts",
+    ]);
 
     // Act
     // the end card's return leaves the walk and opens the rail confirm
@@ -176,7 +193,10 @@ describe("the guided walk", () => {
     await press(first, "]");
     await press(first, "]");
     await waitForText(first, "file 3 of 3 · 2 viewed");
-    await waitForState(first, () => (server.core.sessionGet(session.id).viewedPaths ?? []).length === 2);
+    await waitForState(
+      first,
+      () => (server.core.sessionGet(session.id).viewedPaths ?? []).length === 2,
+    );
     first.renderer.destroy();
 
     // Act

@@ -76,7 +76,11 @@ export const COMPOSE_MAX_ROWS = 4;
  * newlines only. Beyond the cap the textarea scrolls internally and keeps the
  * caret line in view.
  */
-export function composeRowCount(text: string, contentWidth: number, cap: number = COMPOSE_MAX_ROWS): number {
+export function composeRowCount(
+  text: string,
+  contentWidth: number,
+  cap: number = COMPOSE_MAX_ROWS,
+): number {
   const usableWidth = contentWidth > 0 ? contentWidth : Number.MAX_SAFE_INTEGER;
   let visualRowCount = 0;
   for (const line of text.split("\n")) {
@@ -142,7 +146,14 @@ function DraftEditor({
   );
 }
 
-export function AnnotationCard({ id, kind, quote, draft, saved, theme }: AnnotationCardProps): React.ReactNode {
+export function AnnotationCard({
+  id,
+  kind,
+  quote,
+  draft,
+  saved,
+  theme,
+}: AnnotationCardProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const kindColor = kind === "suggestion" ? tokens.green : tokens.accent;
   const activeDraft = draft ?? saved?.editing ?? null;
@@ -167,12 +178,18 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
         marginRight={2}
         theme={theme}
       >
-        <DraftEditor draft={draft} rows={editorRowCount} onRowsChange={setEditorRowCount} theme={theme} />
+        <DraftEditor
+          draft={draft}
+          rows={editorRowCount}
+          onRowsChange={setEditorRowCount}
+          theme={theme}
+        />
       </Card>
     );
   }
   const card = saved!;
-  const collaboratorName = card.authorLabel !== undefined && card.authorLabel !== "" ? card.authorLabel : undefined;
+  const collaboratorName =
+    card.authorLabel !== undefined && card.authorLabel !== "" ? card.authorLabel : undefined;
   const ownTag = card.selfLabel !== undefined && card.selfLabel !== "" ? card.selfLabel : undefined;
   const borderLabel = collaboratorName ?? ownTag;
   const borderColor = ownTag ? tokens.accent : tokens.blue;
@@ -191,7 +208,14 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
         marginBottom: 0,
         backgroundColor: card.isSelected && !card.editing ? tokens.elevated : undefined,
         ...(borderLabel
-          ? { height: cardHeight(contentRows), border: true, borderStyle: FRAME_BORDER_STYLE, borderColor, paddingLeft: 1, paddingRight: 1 }
+          ? {
+              height: cardHeight(contentRows),
+              border: true,
+              borderStyle: FRAME_BORDER_STYLE,
+              borderColor,
+              paddingLeft: 1,
+              paddingRight: 1,
+            }
           : {}),
       }}
       onMouseUp={card.onPress}
@@ -202,11 +226,21 @@ export function AnnotationCard({ id, kind, quote, draft, saved, theme }: Annotat
         {card.isBlocking ? <span fg={tokens.red}> · BLOCKING</span> : null}
         <span fg={tokens.textDim}>{card.isOrphan ? " · ORPHANED" : " · pending"}</span>
       </text>
-      <text fg={tokens.textDim}>{indent}"{truncateToSingleLine(quote, 26 - borderInset)}"</text>
+      <text fg={tokens.textDim}>
+        {indent}"{truncateToSingleLine(quote, 26 - borderInset)}"
+      </text>
       {card.editing ? (
-        <DraftEditor draft={card.editing} rows={editorRowCount} onRowsChange={setEditorRowCount} theme={theme} />
+        <DraftEditor
+          draft={card.editing}
+          rows={editorRowCount}
+          onRowsChange={setEditorRowCount}
+          theme={theme}
+        />
       ) : (
-        <text fg={card.isOrphan ? tokens.textDim : tokens.textMuted}>{indent}{truncateToSingleLine(card.body, 28 - borderInset)}</text>
+        <text fg={card.isOrphan ? tokens.textDim : tokens.textMuted}>
+          {indent}
+          {truncateToSingleLine(card.body, 28 - borderInset)}
+        </text>
       )}
     </box>
   );

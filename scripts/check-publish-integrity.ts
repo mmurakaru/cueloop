@@ -20,7 +20,8 @@ const devMode = process.argv.includes("--dev");
 const problems: string[] = [];
 const paths: string[] = [];
 for await (const path of new Bun.Glob("packages/*/package.json").scan(".")) paths.push(path);
-for await (const path of new Bun.Glob("packages/integrations/*/package.json").scan(".")) paths.push(path);
+for await (const path of new Bun.Glob("packages/integrations/*/package.json").scan("."))
+  paths.push(path);
 
 const work = mkdtempSync(join(tmpdir(), "cueloop-pack-"));
 try {
@@ -39,16 +40,22 @@ try {
     // 1. no package-manager-only protocols may reach the registry
     for (const [dep, range] of devMode ? [] : Object.entries(pkg.dependencies ?? {})) {
       if (/^(workspace|link|file|portal):/.test(range)) {
-        problems.push(`${pkg.name}: dependency ${dep} uses "${range}", which no npm client can resolve`);
+        problems.push(
+          `${pkg.name}: dependency ${dep} uses "${range}", which no npm client can resolve`,
+        );
       }
     }
 
     // 2. the tarball must contain whatever the manifest points at.
     // Read the tarball itself rather than `npm pack --json`: that JSON shape
     // has changed between npm majors, and the archive is the ground truth.
-    const packed = Bun.spawnSync(["npm", "pack", "--pack-destination", work, "--silent"], { cwd: dir });
+    const packed = Bun.spawnSync(["npm", "pack", "--pack-destination", work, "--silent"], {
+      cwd: dir,
+    });
     if (packed.exitCode !== 0) {
-      problems.push(`${pkg.name}: npm pack failed - ${packed.stderr.toString().trim().split("\n").pop()}`);
+      problems.push(
+        `${pkg.name}: npm pack failed - ${packed.stderr.toString().trim().split("\n").pop()}`,
+      );
       continue;
     }
     const tarball = packed.stdout
@@ -59,7 +66,9 @@ try {
       .filter((line) => line.endsWith(".tgz"))
       .pop();
     if (!tarball) {
-      problems.push(`${pkg.name}: npm pack named no tarball (stdout: ${packed.stdout.toString().trim().slice(0, 120)})`);
+      problems.push(
+        `${pkg.name}: npm pack named no tarball (stdout: ${packed.stdout.toString().trim().slice(0, 120)})`,
+      );
       continue;
     }
     const listed = Bun.spawnSync(["tar", "-tzf", join(work, tarball)]);
@@ -86,7 +95,8 @@ try {
     if (pkg.main) targets.push(pkg.main);
     for (const target of targets) {
       const rel = target.replace(/^\.\//, "");
-      if (!shipped.has(rel)) problems.push(`${pkg.name}: ships no ${rel}, but the manifest points at it`);
+      if (!shipped.has(rel))
+        problems.push(`${pkg.name}: ships no ${rel}, but the manifest points at it`);
     }
   }
 } finally {

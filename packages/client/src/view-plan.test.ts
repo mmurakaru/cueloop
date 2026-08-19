@@ -53,8 +53,12 @@ describe("buildDisplay reconciliation", () => {
     const display = buildDisplay(BASE, working);
 
     // Assert
-    expect(display.some((block) => block.type === "del" && block.base!.text === "second item")).toBe(true);
-    expect(display.some((block) => block.type === "add" && block.work!.text.includes("closing note"))).toBe(true);
+    expect(
+      display.some((block) => block.type === "del" && block.base!.text === "second item"),
+    ).toBe(true);
+    expect(
+      display.some((block) => block.type === "add" && block.work!.text.includes("closing note")),
+    ).toBe(true);
     expect(display.some((block) => block.type === "mod")).toBe(false);
   });
 
@@ -76,8 +80,14 @@ describe("blockRuns + overlayMarks", () => {
     const runs = blockRuns(block, true);
 
     // Assert
-    const oldSide = runs.filter((run) => run.role !== "ins").map((run) => run.text).join("");
-    const newSide = runs.filter((run) => run.role !== "del").map((run) => run.text).join("");
+    const oldSide = runs
+      .filter((run) => run.role !== "ins")
+      .map((run) => run.text)
+      .join("");
+    const newSide = runs
+      .filter((run) => run.role !== "del")
+      .map((run) => run.text)
+      .join("");
     expect(oldSide).toBe("plain old text here");
     expect(newSide).toBe("plain new text here");
   });
@@ -91,7 +101,10 @@ describe("blockRuns + overlayMarks", () => {
     const marked = overlayMarks(runs, [{ start: 4, end: 9, role: "mark-comment" }]); // "words"
 
     // Assert
-    const markedText = marked.filter((run) => run.role === "mark-comment").map((run) => run.text).join("");
+    const markedText = marked
+      .filter((run) => run.role === "mark-comment")
+      .map((run) => run.text)
+      .join("");
     expect(markedText).toBe("words");
     // del run text untouched
     expect(marked.some((run) => run.role === "del" && run.text === "old")).toBe(true);
@@ -102,7 +115,9 @@ describe("blockRuns + overlayMarks", () => {
     const block = buildDisplay("keep\n", "keep added\n")[0]!;
 
     // Act
-    const runs = overlayMarks(blockRuns(block, true), [{ start: 0, end: 10, role: "mark-comment" }]);
+    const runs = overlayMarks(blockRuns(block, true), [
+      { start: 0, end: 10, role: "mark-comment" },
+    ]);
 
     // Assert
     expect(runs.some((run) => run.role === "ins")).toBe(true);

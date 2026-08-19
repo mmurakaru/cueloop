@@ -62,7 +62,11 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
   }
   const workBlocks = parseBlocks(workingContent);
   const signature = (block: Block) => block.kind + "\0" + block.text;
-  const ops = lcsDiff(baseBlocks, workBlocks, (baseBlock, workBlock) => signature(baseBlock) === signature(workBlock));
+  const ops = lcsDiff(
+    baseBlocks,
+    workBlocks,
+    (baseBlock, workBlock) => signature(baseBlock) === signature(workBlock),
+  );
   const display: DisplayBlock[] = [];
   let opIndex = 0;
   while (opIndex < ops.length) {
@@ -93,18 +97,34 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
         deletedIndex++;
         addedIndex++;
       } else if (deletedBlocks.length - deletedIndex >= addedBlocks.length - addedIndex) {
-        display.push({ type: "del", kind: deletedBlocks[deletedIndex]!.kind, base: deletedBlocks[deletedIndex]! });
+        display.push({
+          type: "del",
+          kind: deletedBlocks[deletedIndex]!.kind,
+          base: deletedBlocks[deletedIndex]!,
+        });
         deletedIndex++;
       } else {
-        display.push({ type: "add", kind: addedBlocks[addedIndex]!.kind, work: addedBlocks[addedIndex]! });
+        display.push({
+          type: "add",
+          kind: addedBlocks[addedIndex]!.kind,
+          work: addedBlocks[addedIndex]!,
+        });
         addedIndex++;
       }
     }
     while (deletedIndex < deletedBlocks.length) {
-      display.push({ type: "del", kind: deletedBlocks[deletedIndex]!.kind, base: deletedBlocks[deletedIndex++]! });
+      display.push({
+        type: "del",
+        kind: deletedBlocks[deletedIndex]!.kind,
+        base: deletedBlocks[deletedIndex++]!,
+      });
     }
     while (addedIndex < addedBlocks.length) {
-      display.push({ type: "add", kind: addedBlocks[addedIndex]!.kind, work: addedBlocks[addedIndex++]! });
+      display.push({
+        type: "add",
+        kind: addedBlocks[addedIndex]!.kind,
+        work: addedBlocks[addedIndex++]!,
+      });
     }
   }
   numberOrderedListItems(display);
@@ -195,7 +215,11 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
       if (change.kind === "removed") {
         runs.push({ text: change.text, role: "del", start: null });
       } else {
-        runs.push({ text: change.text, role: change.kind === "added" ? "ins" : "plain", start: workOffset });
+        runs.push({
+          text: change.text,
+          role: change.kind === "added" ? "ins" : "plain",
+          start: workOffset,
+        });
         workOffset += change.text.length;
       }
     }
@@ -294,7 +318,10 @@ export function workRangeForRendered(
 }
 
 /** Line delta between two revision contents, for the sheet-header summary. */
-export function revisionDelta(previousContent: string, nextContent: string): { added: number; removed: number } {
+export function revisionDelta(
+  previousContent: string,
+  nextContent: string,
+): { added: number; removed: number } {
   const ops = lcsDiff(previousContent.split("\n"), nextContent.split("\n"));
   let added = 0;
   let removed = 0;
@@ -319,7 +346,8 @@ export function wordRanges(text: string): [number, number][] {
   const ranges: [number, number][] = [];
   const wordPattern = /\S+/g;
   let match: RegExpExecArray | null;
-  while ((match = wordPattern.exec(text))) ranges.push([match.index, match.index + match[0]!.length]);
+  while ((match = wordPattern.exec(text)))
+    ranges.push([match.index, match.index + match[0]!.length]);
   return ranges;
 }
 

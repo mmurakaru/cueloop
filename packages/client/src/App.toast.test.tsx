@@ -36,7 +36,11 @@ beforeEach(() => {
   server.start();
   session = server.core.sessionCreate({
     workspace: { repoRoot: "/repo", branch: "main" },
-    artifact: { type: "plan", content: PLAN, meta: { title: "Migration Plan", planPath: "plan.md" } },
+    artifact: {
+      type: "plan",
+      content: PLAN,
+      meta: { title: "Migration Plan", planPath: "plan.md" },
+    },
   });
 });
 afterEach(() => {
@@ -48,7 +52,10 @@ afterEach(() => {
 describe("share toast", () => {
   test("escape cancels an open composer even while the toast is up", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 32 });
+    const setup = await testRender(<App home={home} sessionId={session.id} />, {
+      width: 120,
+      height: 32,
+    });
     await waitForText(setup, "cueloop");
 
     // Act: share raises the toast, then open a composer under it

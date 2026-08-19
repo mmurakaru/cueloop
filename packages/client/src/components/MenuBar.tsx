@@ -17,7 +17,15 @@ export interface MenuBarProps {
 
 const DROPUP_OPTION_ROWS = 2;
 
-export function MenuBar({ open, version, status, onToggle, onSettings, onKeybinds, theme }: MenuBarProps): React.ReactNode {
+export function MenuBar({
+  open,
+  version,
+  status,
+  onToggle,
+  onSettings,
+  onKeybinds,
+  theme,
+}: MenuBarProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const { height: terminalHeight } = useTerminalDimensions();
   const dropupHeight = DROPUP_OPTION_ROWS + 2;
@@ -45,7 +53,15 @@ export function MenuBar({ open, version, status, onToggle, onSettings, onKeybind
           </box>
         </box>
       ) : null}
-      <box style={{ flexDirection: "row", height: 1, backgroundColor: tokens.panel, paddingLeft: 1, paddingRight: 1 }}>
+      <box
+        style={{
+          flexDirection: "row",
+          height: 1,
+          backgroundColor: tokens.panel,
+          paddingLeft: 1,
+          paddingRight: 1,
+        }}
+      >
         <box onMouseUp={onToggle}>
           <text fg={tokens.textDim}>menu</text>
         </box>

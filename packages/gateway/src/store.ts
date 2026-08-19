@@ -30,7 +30,12 @@ export class MemoryShareStore implements ShareStore {
 export class R2ShareStore implements ShareStore {
   private readonly client: S3Client;
 
-  constructor(options: { endpoint: string; bucket: string; accessKeyId: string; secretAccessKey: string }) {
+  constructor(options: {
+    endpoint: string;
+    bucket: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+  }) {
     this.client = new S3Client({ ...options, region: "auto" });
   }
 

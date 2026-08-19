@@ -54,7 +54,12 @@ describe("openHerdrPane", () => {
     const stub = makeStub("open");
 
     // Act
-    const ok = openHerdrPane({ sessionId: "ses_abc", cwd: "/repo/work", binPath: stub.binPath, label: "Rollout Plan" });
+    const ok = openHerdrPane({
+      sessionId: "ses_abc",
+      cwd: "/repo/work",
+      binPath: stub.binPath,
+      label: "Rollout Plan",
+    });
 
     // Assert
     expect(ok).toBeTrue();
@@ -82,7 +87,10 @@ describe("openHerdrPane", () => {
     // Arrange
     const logPath = join(dir, "nopane.log");
     const binPath = join(dir, "nopane.sh");
-    writeFileSync(binPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nprintf '{"result":{}}'\n`);
+    writeFileSync(
+      binPath,
+      `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nprintf '{"result":{}}'\n`,
+    );
     chmodSync(binPath, 0o755);
 
     // Act

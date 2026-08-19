@@ -44,7 +44,10 @@ afterEach(() => {
 });
 
 async function renderApp() {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, { width: 120, height: 30 });
+  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+    width: 120,
+    height: 30,
+  });
   await waitForText(setup, "cueloop");
   return setup;
 }

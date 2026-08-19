@@ -29,7 +29,10 @@ export function lcsDiff<T>(
     for (let newIndex = newCount - 1; newIndex >= 0; newIndex--) {
       longestCommon[oldIndex]![newIndex] = equals(oldItems[oldIndex]!, newItems[newIndex]!)
         ? longestCommon[oldIndex + 1]![newIndex + 1]! + 1
-        : Math.max(longestCommon[oldIndex + 1]![newIndex]!, longestCommon[oldIndex]![newIndex + 1]!);
+        : Math.max(
+            longestCommon[oldIndex + 1]![newIndex]!,
+            longestCommon[oldIndex]![newIndex + 1]!,
+          );
     }
   }
   const ops: DiffOp<T>[] = [];
@@ -111,14 +114,22 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
     const newCount = hunk.rows.filter((row) => row.kind !== "del").length;
     lines.push({ kind: "hunk", text: `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@` });
     for (const row of hunk.rows) {
-      lines.push({ kind: row.kind, text: (row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ") + row.text });
+      lines.push({
+        kind: row.kind,
+        text: (row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ") + row.text,
+      });
     }
   }
   return lines;
 }
 
 /** Render a unified diff as text with file headers. */
-export function unifiedDiffText(oldText: string, newText: string, path = "plan.md", context = 3): string | null {
+export function unifiedDiffText(
+  oldText: string,
+  newText: string,
+  path = "plan.md",
+  context = 3,
+): string | null {
   const lines = unifiedDiff(oldText, newText, context);
   if (!lines) return null;
   return [`--- a/${path}`, `+++ b/${path}`, ...lines.map((line) => line.text)].join("\n");

@@ -44,7 +44,11 @@ export interface ConfirmCardProps {
 const CONFIRM_CONTENT_ROWS = 7;
 
 export function verdictColor(verdict: VerdictKind, tokens: Theme): string {
-  return verdict === "approve" ? tokens.green : verdict === "request_changes" ? tokens.red : tokens.blue;
+  return verdict === "approve"
+    ? tokens.green
+    : verdict === "request_changes"
+      ? tokens.red
+      : tokens.blue;
 }
 
 /**
@@ -66,9 +70,15 @@ function VerdictSelector({
   return (
     <box style={{ flexDirection: "row", height: 1 }}>
       {VERDICTS.map((candidate) => (
-        <box key={candidate} style={{ paddingRight: 1 }} onMouseUp={() => onSelectVerdict(candidate)}>
+        <box
+          key={candidate}
+          style={{ paddingRight: 1 }}
+          onMouseUp={() => onSelectVerdict(candidate)}
+        >
           <text fg={candidate === verdict ? verdictColor(candidate, tokens) : tokens.textDim}>
-            {candidate === verdict ? `[${VERDICT_LABEL[candidate]}]` : ` ${VERDICT_LABEL[candidate]} `}
+            {candidate === verdict
+              ? `[${VERDICT_LABEL[candidate]}]`
+              : ` ${VERDICT_LABEL[candidate]} `}
           </text>
         </box>
       ))}
@@ -98,12 +108,19 @@ export function ConfirmCard({
       marginRight={1}
       theme={theme}
     >
-      <text fg={tokens.textDim}>{`${annotationCount} annotations · ${blockingCount} blocking`}</text>
+      <text
+        fg={tokens.textDim}
+      >{`${annotationCount} annotations · ${blockingCount} blocking`}</text>
       {viewedSummary !== undefined ? <text fg={tokens.textDim}>{viewedSummary}</text> : null}
       <box style={{ height: 1 }} />
       <VerdictSelector verdict={verdict} onSelectVerdict={onSelectVerdict} theme={theme} />
       <box style={{ height: 1 }} />
-      <input focused value={summary} onInput={onInput} placeholder="summary for the agent (optional)" />
+      <input
+        focused
+        value={summary}
+        onInput={onInput}
+        placeholder="summary for the agent (optional)"
+      />
       <box style={{ height: 1 }} />
       <Toolbar>
         <Button variant="solid" marginRight={2} onPress={onSubmit} theme={theme}>

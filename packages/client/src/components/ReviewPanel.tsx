@@ -53,7 +53,13 @@ function CompactRail({
     annotation.kind === "suggestion" ? tokens.green : tokens.accent;
   return (
     <box
-      style={{ width: REVIEW_COMPACT_WIDTH, backgroundColor: tokens.panel, flexDirection: "column", paddingTop: 1, paddingBottom: 1 }}
+      style={{
+        width: REVIEW_COMPACT_WIDTH,
+        backgroundColor: tokens.panel,
+        flexDirection: "column",
+        paddingTop: 1,
+        paddingBottom: 1,
+      }}
     >
       <box style={{ alignItems: "center" }}>
         <text fg={tokens.accent}>{String(annotations.length)}</text>

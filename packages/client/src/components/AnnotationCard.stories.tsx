@@ -9,14 +9,22 @@ const draftCallbacks = { onInput: () => {}, onSave: () => {}, onCancel: () => {}
 
 export const CommentDraft: Story = {
   render: () => (
-    <AnnotationCard kind="comment" quote="persists sessions" draft={{ text: "Which daemon?", ...draftCallbacks }} />
+    <AnnotationCard
+      kind="comment"
+      quote="persists sessions"
+      draft={{ text: "Which daemon?", ...draftCallbacks }}
+    />
   ),
   expectedColors: [DARK.accent],
 };
 
 export const SuggestionDraft: Story = {
   render: () => (
-    <AnnotationCard kind="suggestion" quote="move the store" draft={{ text: "", ...draftCallbacks }} />
+    <AnnotationCard
+      kind="suggestion"
+      quote="move the store"
+      draft={{ text: "", ...draftCallbacks }}
+    />
   ),
   expectedColors: [DARK.green],
 };

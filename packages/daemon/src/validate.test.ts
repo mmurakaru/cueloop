@@ -77,12 +77,16 @@ describe("parseParams", () => {
   test("defaults and clamps the wait timeout", () => {
     expect(parseParams("session.wait", { id: "ses_1" }).timeoutMs).toBe(60_000);
     expect(() => parseParams("session.wait", { id: "ses_1", timeoutMs: -5 })).toThrow();
-    expect(() => parseParams("session.wait", { id: "ses_1", timeoutMs: 99 * 60 * 60 * 1000 })).toThrow();
+    expect(() =>
+      parseParams("session.wait", { id: "ses_1", timeoutMs: 99 * 60 * 60 * 1000 }),
+    ).toThrow();
   });
 
   test("verdict kinds are closed", () => {
     expect(parseParams("session.resolve", { id: "s", verdictKind: "approve" }).summary).toBe("");
-    expect(() => parseParams("session.resolve", { id: "s", verdictKind: "lgtm" })).toThrow(/verdictKind/);
+    expect(() => parseParams("session.resolve", { id: "s", verdictKind: "lgtm" })).toThrow(
+      /verdictKind/,
+    );
   });
 
   test("annotation kinds stay open (extension kinds are allowed)", () => {
@@ -98,12 +102,14 @@ describe("parseParams", () => {
   });
 
   test("setViewed takes a full path list and rejects non-string entries", () => {
-    expect(parseParams("session.setViewed", { id: "s", viewedPaths: ["src/a.ts", "src/b.ts"] }).viewedPaths).toEqual([
-      "src/a.ts",
-      "src/b.ts",
-    ]);
+    expect(
+      parseParams("session.setViewed", { id: "s", viewedPaths: ["src/a.ts", "src/b.ts"] })
+        .viewedPaths,
+    ).toEqual(["src/a.ts", "src/b.ts"]);
     expect(parseParams("session.setViewed", { id: "s", viewedPaths: [] }).viewedPaths).toEqual([]);
-    expect(() => parseParams("session.setViewed", { id: "s", viewedPaths: [1] })).toThrow(/viewedPaths/);
+    expect(() => parseParams("session.setViewed", { id: "s", viewedPaths: [1] })).toThrow(
+      /viewedPaths/,
+    );
     expect(() => parseParams("session.setViewed", { id: "s" })).toThrow(/viewedPaths/);
   });
 
@@ -166,7 +172,14 @@ describe("wire pins", () => {
     herdrPane: "%7",
     title: "Plan",
   };
-  const fullAnchor: Required<Anchor> = { quote: "q", prefix: "p", suffix: "s", blockIndex: 0, start: 0, end: 1 };
+  const fullAnchor: Required<Anchor> = {
+    quote: "q",
+    prefix: "p",
+    suffix: "s",
+    blockIndex: 0,
+    start: 0,
+    end: 1,
+  };
   const fullAnnotation: Required<Annotation> = {
     id: "a1",
     kind: "comment",
@@ -178,10 +191,20 @@ describe("wire pins", () => {
     createdAt: "now",
   };
   const fullArtifact: Required<Artifact> = { type: "plan", content: "# P", meta: fullMeta };
-  const fullVerdict: Required<Verdict> = { kind: "approve", summary: "", feedback: "", resolvedAt: "now" };
+  const fullVerdict: Required<Verdict> = {
+    kind: "approve",
+    summary: "",
+    feedback: "",
+    resolvedAt: "now",
+  };
   const fullRevision: Required<Revision> = { revision: 1, content: "# P", submittedAt: "now" };
   const fullWorkspace: Required<WorkspaceKey> = { repoRoot: "/repo", branch: "main" };
-  const fullIdentity: Required<Identity> = { id: "SHA256:abc", provider: "ssh", name: "Al", handle: "abc" };
+  const fullIdentity: Required<Identity> = {
+    id: "SHA256:abc",
+    provider: "ssh",
+    name: "Al",
+    handle: "abc",
+  };
   const fullSession: Required<ReviewSession> = {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",

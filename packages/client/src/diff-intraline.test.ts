@@ -27,19 +27,48 @@ describe("wordLevelChanges", () => {
     const changes = wordLevelChanges(oldText, newText);
 
     // Assert
-    expect(changes.filter((change) => change.kind === "common").map((change) => change.text).join("")).toBe("const foo = ");
-    expect(changes.filter((change) => change.kind === "removed").map((change) => change.text).join("")).toBe("1");
-    expect(changes.filter((change) => change.kind === "added").map((change) => change.text).join("")).toBe("2");
+    expect(
+      changes
+        .filter((change) => change.kind === "common")
+        .map((change) => change.text)
+        .join(""),
+    ).toBe("const foo = ");
+    expect(
+      changes
+        .filter((change) => change.kind === "removed")
+        .map((change) => change.text)
+        .join(""),
+    ).toBe("1");
+    expect(
+      changes
+        .filter((change) => change.kind === "added")
+        .map((change) => change.text)
+        .join(""),
+    ).toBe("2");
     // old text reconstructs from common + removed, new text from common + added
-    expect(changes.filter((change) => change.kind !== "added").map((change) => change.text).join("")).toBe(oldText);
-    expect(changes.filter((change) => change.kind !== "removed").map((change) => change.text).join("")).toBe(newText);
+    expect(
+      changes
+        .filter((change) => change.kind !== "added")
+        .map((change) => change.text)
+        .join(""),
+    ).toBe(oldText);
+    expect(
+      changes
+        .filter((change) => change.kind !== "removed")
+        .map((change) => change.text)
+        .join(""),
+    ).toBe(newText);
   });
 });
 
 describe("intralineRunsByRow", () => {
   test("pairs a deletion with its addition and highlights the changed word on each side", () => {
     // Arrange
-    const rows = [line("ctx", "unchanged"), line("del", "const foo = 1"), line("add", "const foo = 2")];
+    const rows = [
+      line("ctx", "unchanged"),
+      line("del", "const foo = 1"),
+      line("add", "const foo = 2"),
+    ];
 
     // Act
     const runsByRow = intralineRunsByRow(rows);

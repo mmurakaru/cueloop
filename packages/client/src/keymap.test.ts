@@ -21,7 +21,11 @@ function state(patch: Partial<KeyState> = {}): KeyState {
   };
 }
 
-function key(name: string, shift = false, meta = false): { name: string; shift: boolean; meta: boolean } {
+function key(
+  name: string,
+  shift = false,
+  meta = false,
+): { name: string; shift: boolean; meta: boolean } {
   return { name, shift, meta };
 }
 
@@ -133,7 +137,9 @@ describe("collaborator (share) capabilities", () => {
     const collab = state({ canEditPlan: false, canSubmitVerdict: false });
 
     // Act / Assert
-    expect(reduceKey(collab, key("c"), "comment")).toEqual([{ type: "openCompose", kind: "comment", from: "cursor" }]);
+    expect(reduceKey(collab, key("c"), "comment")).toEqual([
+      { type: "openCompose", kind: "comment", from: "cursor" },
+    ]);
   });
 
   test("can edit their own card: edit with a focused annotation rewrites it", () => {
@@ -158,7 +164,9 @@ describe("collaborator (share) capabilities", () => {
     const collab = state({ canSubmitVerdict: false });
 
     // Act / Assert
-    expect(reduceKey(collab, key("x"), "submit")).toEqual([{ type: "status", message: "shared view - your notes save as you go; q to leave" }]);
+    expect(reduceKey(collab, key("x"), "submit")).toEqual([
+      { type: "status", message: "shared view - your notes save as you go; q to leave" },
+    ]);
   });
 
   test("cannot re-share: only the owner shares", () => {
@@ -166,7 +174,9 @@ describe("collaborator (share) capabilities", () => {
     const collab = state({ canShare: false });
 
     // Act / Assert
-    expect(reduceKey(collab, key("S", true), "share")).toEqual([{ type: "status", message: "only the plan owner can share" }]);
+    expect(reduceKey(collab, key("S", true), "share")).toEqual([
+      { type: "status", message: "only the plan owner can share" },
+    ]);
   });
 });
 
@@ -178,7 +188,9 @@ describe("share", () => {
 
   test("an observer cannot share", () => {
     // Act / Assert
-    expect(reduceKey(state({ readOnly: true }), key("S", true), "share")).toEqual([{ type: "status", message: "observer - read-only" }]);
+    expect(reduceKey(state({ readOnly: true }), key("S", true), "share")).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
   });
 });
 
@@ -218,7 +230,9 @@ describe("plan normal mode", () => {
 
     // Assert
     for (const name of ["c", "s", "x", "e"]) {
-      expect(reduceKey(resolvedState, key(name))).toEqual([{ type: "status", message: "review submitted - read-only" }]);
+      expect(reduceKey(resolvedState, key(name))).toEqual([
+        { type: "status", message: "review submitted - read-only" },
+      ]);
     }
     expect(reduceKey(resolvedState, key("return"))).toEqual([]);
     expect(reduceKey(resolvedState, key("backspace"))).toEqual([]);
@@ -229,8 +243,12 @@ describe("plan normal mode", () => {
     const cut = state({ cursorAnnotatable: false });
 
     // Assert
-    expect(reduceKey(cut, key("c"))).toEqual([{ type: "status", message: "text is cut - restore it first" }]);
-    expect(reduceKey(cut, key("s"))).toEqual([{ type: "status", message: "text is cut - restore it first" }]);
+    expect(reduceKey(cut, key("c"))).toEqual([
+      { type: "status", message: "text is cut - restore it first" },
+    ]);
+    expect(reduceKey(cut, key("s"))).toEqual([
+      { type: "status", message: "text is cut - restore it first" },
+    ]);
     expect(reduceKey(cut, key("v"))).toEqual([]);
   });
 
@@ -322,7 +340,9 @@ describe("guided walk", () => {
     expect(reduceKey(state({ view: "diff", readOnly: true }), key("w"))).toEqual([
       { type: "status", message: "observer - read-only" },
     ]);
-    expect(reduceKey(state(), key("w"))).toEqual([{ type: "status", message: "the guided walk is a diff-review mode" }]);
+    expect(reduceKey(state(), key("w"))).toEqual([
+      { type: "status", message: "the guided walk is a diff-review mode" },
+    ]);
   });
 
   // Arrange
@@ -348,7 +368,10 @@ describe("guided walk", () => {
     const atEnd = state({ view: "diff", overlay: "walk", walkAtEnd: true });
 
     // Assert
-    expect(reduceKey(atEnd, key("return"))).toEqual([{ type: "walkLeave" }, { type: "openSubmit" }]);
+    expect(reduceKey(atEnd, key("return"))).toEqual([
+      { type: "walkLeave" },
+      { type: "openSubmit" },
+    ]);
     expect(reduceKey(atEnd, key("enter"))).toEqual([{ type: "walkLeave" }, { type: "openSubmit" }]);
   });
 });
@@ -378,7 +401,9 @@ describe("review panel controls", () => {
 
   test("span mode still owns b as a span verb, not a panel cycle", () => {
     // Assert
-    expect(reduceKey(state({ spanMode: true }), key("b"))).toEqual([{ type: "spanKey", name: "b" }]);
+    expect(reduceKey(state({ spanMode: true }), key("b"))).toEqual([
+      { type: "spanKey", name: "b" },
+    ]);
   });
 
   test("the walk overlay keeps the brackets for stepping", () => {
@@ -412,7 +437,9 @@ describe("read-only filter", () => {
     for (const view of ["plan", "diff"] as const) {
       const keyState = state({ view, readOnly: true });
       for (const name of ["c", "s", "x", "e", "backspace", "return", "enter"]) {
-        expect(reduceKey(keyState, key(name))).toEqual([{ type: "status", message: "observer - read-only" }]);
+        expect(reduceKey(keyState, key(name))).toEqual([
+          { type: "status", message: "observer - read-only" },
+        ]);
       }
     }
   });
@@ -433,15 +460,21 @@ describe("read-only filter", () => {
     const keyState = state({ spanMode: true, readOnly: true, keys: rebound });
 
     // Assert
-    expect(reduceKey(keyState, key("c"))).toEqual([{ type: "status", message: "observer - read-only" }]);
-    expect(reduceKey(keyState, key("s"))).toEqual([{ type: "status", message: "observer - read-only" }]);
+    expect(reduceKey(keyState, key("c"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+    expect(reduceKey(keyState, key("s"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
   });
 });
 
 describe("inbox delete", () => {
   test("d on a session requests delete", () => {
     // Arrange / Act / Assert
-    expect(reduceKey(state({ view: "inbox" }), key("d"))).toEqual([{ type: "requestDeleteSession" }]);
+    expect(reduceKey(state({ view: "inbox" }), key("d"))).toEqual([
+      { type: "requestDeleteSession" },
+    ]);
   });
 });
 
@@ -465,13 +498,19 @@ describe("confirm overlay", () => {
 describe("rename grammar", () => {
   test("r on a focused note opens rename", () => {
     // Arrange / Act / Assert
-    expect(reduceKey(state({ hasFocusedAnnotation: true }), key("r"))).toEqual([{ type: "openRename" }]);
+    expect(reduceKey(state({ hasFocusedAnnotation: true }), key("r"))).toEqual([
+      { type: "openRename" },
+    ]);
   });
 
   test("prompt overlay routes ⏎ to confirm and esc to cancel", () => {
     // Arrange / Act / Assert
-    expect(reduceKey(state({ overlay: "prompt" }), key("return"))).toEqual([{ type: "confirmDialog" }]);
-    expect(reduceKey(state({ overlay: "prompt" }), key("escape"))).toEqual([{ type: "closeOverlay" }]);
+    expect(reduceKey(state({ overlay: "prompt" }), key("return"))).toEqual([
+      { type: "confirmDialog" },
+    ]);
+    expect(reduceKey(state({ overlay: "prompt" }), key("escape"))).toEqual([
+      { type: "closeOverlay" },
+    ]);
     expect(reduceKey(state({ overlay: "prompt" }), key("a"))).toEqual([]);
   });
 });

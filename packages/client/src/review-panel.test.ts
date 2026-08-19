@@ -68,7 +68,9 @@ describe("widthFromMouseColumn", () => {
   });
 
   test("the resize step widens and narrows within the clamp", () => {
-    expect(clampWidth(REVIEW_DEFAULT_WIDTH + REVIEW_RESIZE_STEP)).toBe(REVIEW_DEFAULT_WIDTH + REVIEW_RESIZE_STEP);
+    expect(clampWidth(REVIEW_DEFAULT_WIDTH + REVIEW_RESIZE_STEP)).toBe(
+      REVIEW_DEFAULT_WIDTH + REVIEW_RESIZE_STEP,
+    );
     expect(clampWidth(REVIEW_MIN_WIDTH - REVIEW_RESIZE_STEP)).toBe(REVIEW_MIN_WIDTH);
   });
 });

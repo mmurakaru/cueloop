@@ -40,7 +40,20 @@ const GUI_WAIT_FLAGS: Record<string, string[]> = {
 
 /** Editors that hold the terminal themselves - never GUI, never a wait gate. */
 const TERMINAL_EDITORS = new Set([
-  "vi", "vim", "nvim", "nano", "pico", "emacs", "emacsclient", "micro", "hx", "helix", "kak", "ed", "joe", "mcedit",
+  "vi",
+  "vim",
+  "nvim",
+  "nano",
+  "pico",
+  "emacs",
+  "emacsclient",
+  "micro",
+  "hx",
+  "helix",
+  "kak",
+  "ed",
+  "joe",
+  "mcedit",
 ]);
 
 export interface ResolvedEditor {
@@ -51,7 +64,10 @@ export interface ResolvedEditor {
 }
 
 /** The editor to run: [ui] editor, then the environment chain, then nano. */
-export function resolveEditor(configuredEditor: string | undefined, env: Record<string, string | undefined> = process.env): string {
+export function resolveEditor(
+  configuredEditor: string | undefined,
+  env: Record<string, string | undefined> = process.env,
+): string {
   const candidates = [configuredEditor, env.CUELOOP_EDITOR, env.VISUAL, env.EDITOR];
   return candidates.find((candidate) => candidate && candidate.trim())?.trim() ?? DEFAULT_EDITOR;
 }
@@ -67,7 +83,9 @@ export function resolveEditorCommand(rawEditor: string): ResolvedEditor {
   if (TERMINAL_EDITORS.has(base)) return { argv: parts, waits: true };
   const waitFlags = GUI_WAIT_FLAGS[base];
   if (waitFlags) {
-    const alreadyWaits = parts.some((part) => part === "--wait" || part === "-w" || part === "--block");
+    const alreadyWaits = parts.some(
+      (part) => part === "--wait" || part === "-w" || part === "--block",
+    );
     return { argv: alreadyWaits ? parts : [...parts, ...waitFlags], waits: true };
   }
   return { argv: parts, waits: false };
@@ -99,7 +117,11 @@ function promptSaved(editorLabel: string, path: string): boolean {
   return answer !== null && answer.trim().toLowerCase() !== "n";
 }
 
-export function editInEditor(content: string, filename = "plan.md", handOff: EditHandOff = {}): EditResult {
+export function editInEditor(
+  content: string,
+  filename = "plan.md",
+  handOff: EditHandOff = {},
+): EditResult {
   const env = handOff.env ?? process.env;
   const now = handOff.now ?? Date.now;
   const resolved = resolveEditorCommand(resolveEditor(handOff.editor, env));
@@ -108,7 +130,11 @@ export function editInEditor(content: string, filename = "plan.md", handOff: Edi
   writeFileSync(path, content);
   try {
     const startedAt = now();
-    const editorProcess = Bun.spawnSync([...resolved.argv, path], { stdin: "inherit", stdout: "inherit", stderr: "inherit" });
+    const editorProcess = Bun.spawnSync([...resolved.argv, path], {
+      stdin: "inherit",
+      stdout: "inherit",
+      stderr: "inherit",
+    });
     if (editorProcess.exitCode !== 0) throw new Error(`editor exited ${editorProcess.exitCode}`);
     let next = readFileSync(path, "utf8");
     if (suspectsNoWait(resolved, now() - startedAt, next === content)) {

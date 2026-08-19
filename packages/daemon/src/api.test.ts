@@ -79,7 +79,10 @@ describe("session lifecycle", () => {
     // Assert
     expect(resolved.verdict!.feedback).toContain("# Review: request changes");
     expect(resolved.verdict!.feedback).toContain("> carefully");
-    expect(verdictResponse(resolved)).toEqual({ allow: false, feedback: resolved.verdict!.feedback });
+    expect(verdictResponse(resolved)).toEqual({
+      allow: false,
+      feedback: resolved.verdict!.feedback,
+    });
 
     // Arrange
     const approved = core.sessionCreate({ workspace: WS, artifact: PLAN });
@@ -98,7 +101,12 @@ describe("session lifecycle", () => {
 
     // Assert
     expect(() =>
-      core.sessionAnnotate(session.id, { id: "a1", kind: "comment", anchor: { quote: "x", prefix: "", suffix: "" }, body: "b" }),
+      core.sessionAnnotate(session.id, {
+        id: "a1",
+        kind: "comment",
+        anchor: { quote: "x", prefix: "", suffix: "" },
+        body: "b",
+      }),
     ).toThrow("already resolved");
   });
 
@@ -166,7 +174,12 @@ describe("session lifecycle", () => {
 
 describe("revision marks addressed annotations", () => {
   const annotate = (sessionId: string, id: string, quote: string, body = "note") =>
-    core.sessionAnnotate(sessionId, { id, kind: "comment", anchor: { quote, prefix: "", suffix: "" }, body });
+    core.sessionAnnotate(sessionId, {
+      id,
+      kind: "comment",
+      anchor: { quote, prefix: "", suffix: "" },
+      body,
+    });
 
   test("ids the agent reports are marked addressed by that revision", () => {
     // Arrange
@@ -190,10 +203,16 @@ describe("revision marks addressed annotations", () => {
     annotate(session.id, "kept", "Context");
 
     // Act: the revision rewrites the "carefully" sentence but keeps the Context heading
-    const revised = core.sessionSubmitRevision(session.id, "# Plan\n\n## Context\n\nDo the thing with tests.\n");
+    const revised = core.sessionSubmitRevision(
+      session.id,
+      "# Plan\n\n## Context\n\nDo the thing with tests.\n",
+    );
 
     // Assert
-    expect(revised.annotations.find((a) => a.id === "gone")!.resolution).toEqual({ revision: 2, source: "drift" });
+    expect(revised.annotations.find((a) => a.id === "gone")!.resolution).toEqual({
+      revision: 2,
+      source: "drift",
+    });
     expect(revised.annotations.find((a) => a.id === "kept")!.resolution).toBeUndefined();
   });
 
@@ -326,10 +345,21 @@ describe("events", () => {
 
     // Act
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
-    core.sessionAnnotate(session.id, { id: "a1", kind: "comment", anchor: { quote: "thing", prefix: "", suffix: "" }, body: "b" });
+    core.sessionAnnotate(session.id, {
+      id: "a1",
+      kind: "comment",
+      anchor: { quote: "thing", prefix: "", suffix: "" },
+      body: "b",
+    });
     core.sessionResolve(session.id, "approve", "");
 
     // Assert
-    expect(seen).toEqual(["session.created", "inbox.changed", "session.updated", "session.resolved", "inbox.changed"]);
+    expect(seen).toEqual([
+      "session.created",
+      "inbox.changed",
+      "session.updated",
+      "session.resolved",
+      "inbox.changed",
+    ]);
   });
 });

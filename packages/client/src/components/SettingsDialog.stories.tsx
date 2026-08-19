@@ -12,7 +12,12 @@ const CATEGORIES: SettingsCategory[] = [
     description: "identity and submission",
     rows: [
       { key: "displayName", label: "Display name", kind: "text" },
-      { key: "autoClose", label: "Auto-close on submit", kind: "cycle", options: ["off", "3s", "on"] },
+      {
+        key: "autoClose",
+        label: "Auto-close on submit",
+        kind: "cycle",
+        options: ["off", "3s", "on"],
+      },
     ],
   },
   {
@@ -20,13 +25,23 @@ const CATEGORIES: SettingsCategory[] = [
     name: "Display",
     description: "plan width and chrome",
     rows: [
-      { key: "planWidth", label: "Plan width", kind: "cycle", options: ["default", "wide", "full"] },
+      {
+        key: "planWidth",
+        label: "Plan width",
+        kind: "cycle",
+        options: ["default", "wide", "full"],
+      },
       { key: "showLineNumbers", label: "Line numbers", kind: "toggle" },
     ],
   },
 ];
 
-const VALUES = { displayName: "amber-heron", autoClose: "3s", planWidth: "default", showLineNumbers: true };
+const VALUES = {
+  displayName: "amber-heron",
+  autoClose: "3s",
+  planWidth: "default",
+  showLineNumbers: true,
+};
 
 export const NavZone: Story = {
   render: () => (

@@ -59,7 +59,10 @@ export function intralineRunsByRow(rows: DiffRow[]): Map<number, IntralineRun[]>
     for (let offset = 0; offset < pairCount; offset++) {
       const deletionRow = rows[deletionStart + offset]!;
       const additionRow = rows[additionStart + offset]!;
-      const changes = wordLevelChanges(stripTrailingNewline(deletionRow.text), stripTrailingNewline(additionRow.text));
+      const changes = wordLevelChanges(
+        stripTrailingNewline(deletionRow.text),
+        stripTrailingNewline(additionRow.text),
+      );
       runsByRow.set(deletionStart + offset, sideRuns(changes, "removed"));
       runsByRow.set(additionStart + offset, sideRuns(changes, "added"));
     }

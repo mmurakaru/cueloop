@@ -32,7 +32,12 @@ export const ProviderSwap: Story = {
 export const PropOverride: Story = {
   render: () => (
     <ThemeProvider theme={DARK}>
-      <Card title=" prop-overridden theme " contentRows={1} theme={HIGH_CONTRAST} borderColor={HIGH_CONTRAST.accent}>
+      <Card
+        title=" prop-overridden theme "
+        contentRows={1}
+        theme={HIGH_CONTRAST}
+        borderColor={HIGH_CONTRAST.accent}
+      >
         <text>the theme prop beats the context</text>
       </Card>
     </ThemeProvider>

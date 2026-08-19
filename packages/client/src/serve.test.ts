@@ -38,7 +38,11 @@ afterEach(async () => {
 });
 
 /** Connect, open a PTY shell, resolve with the bytes seen until `until` matches. */
-function sshCapture(port: number, until: (frame: string) => boolean, timeoutMs = 8000): Promise<string> {
+function sshCapture(
+  port: number,
+  until: (frame: string) => boolean,
+  timeoutMs = 8000,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const conn = new Client();
     let out = "";
@@ -81,7 +85,10 @@ describe("cueloop serve", () => {
 
   test("an anonymous ssh client gets the observer TUI for the session", async () => {
     // Act
-    const bytes = await sshCapture(handle.port, (frame) => frame.includes("Rollout Plan") && frame.includes("observer"));
+    const bytes = await sshCapture(
+      handle.port,
+      (frame) => frame.includes("Rollout Plan") && frame.includes("observer"),
+    );
 
     // Assert
     expect(bytes).toContain("cueloop");

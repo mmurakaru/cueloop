@@ -13,7 +13,9 @@ export const ANONYMOUS_LABEL = "-- anonymous --";
 
 /** A short, stable handle from a raw author id when no name is known. */
 export function shortHandle(authorId: string): string {
-  const base = authorId.startsWith(FINGERPRINT_PREFIX) ? authorId.slice(FINGERPRINT_PREFIX.length) : authorId;
+  const base = authorId.startsWith(FINGERPRINT_PREFIX)
+    ? authorId.slice(FINGERPRINT_PREFIX.length)
+    : authorId;
   return base.slice(0, 8) || authorId;
 }
 
@@ -22,7 +24,11 @@ export function shortHandle(authorId: string): string {
  * own name, then anonymous for a known-but-unnamed participant, then a short
  * handle for an id we hold no identity for.
  */
-export function resolveDisplayName(authorId: string, participants: Identity[] | undefined, overrides: Record<string, string>): string {
+export function resolveDisplayName(
+  authorId: string,
+  participants: Identity[] | undefined,
+  overrides: Record<string, string>,
+): string {
   const override = overrides[authorId];
   if (override) return override;
   const identity = participants?.find((participant) => participant.id === authorId);

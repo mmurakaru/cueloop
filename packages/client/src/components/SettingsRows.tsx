@@ -29,7 +29,11 @@ function RowShell({ label, isActive, onPress, theme, children }: RowShellProps):
   const tokens = useComponentTheme(theme);
   return (
     <box
-      style={{ flexDirection: "row", height: 1, backgroundColor: isActive ? tokens.border : undefined }}
+      style={{
+        flexDirection: "row",
+        height: 1,
+        backgroundColor: isActive ? tokens.border : undefined,
+      }}
       onMouseUp={onPress}
     >
       <box style={{ width: 26, paddingLeft: 1 }}>
@@ -48,7 +52,13 @@ export interface ToggleRowProps {
   theme?: Theme;
 }
 
-export function ToggleRow({ label, value, isActive, onPress, theme }: ToggleRowProps): React.ReactNode {
+export function ToggleRow({
+  label,
+  value,
+  isActive,
+  onPress,
+  theme,
+}: ToggleRowProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   return (
     <RowShell label={label} isActive={isActive} onPress={onPress} theme={theme}>
@@ -65,7 +75,13 @@ export interface CycleRowProps {
   theme?: Theme;
 }
 
-export function CycleRow({ label, value, isActive, onPress, theme }: CycleRowProps): React.ReactNode {
+export function CycleRow({
+  label,
+  value,
+  isActive,
+  onPress,
+  theme,
+}: CycleRowProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   return (
     <RowShell label={label} isActive={isActive} onPress={onPress} theme={theme}>

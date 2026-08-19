@@ -31,7 +31,9 @@ export interface LoadedStory {
 }
 
 export function isStory(value: unknown): value is Story {
-  return typeof value === "object" && value !== null && typeof (value as Story).render === "function";
+  return (
+    typeof value === "object" && value !== null && typeof (value as Story).render === "function"
+  );
 }
 
 /** Import every *.stories.tsx next to the components and flatten the exports. */

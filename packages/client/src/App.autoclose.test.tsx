@@ -40,10 +40,13 @@ afterEach(() => {
 });
 
 async function renderApp(onExit?: (code: number) => void) {
-  const setup = await testRender(<App home={home} sessionId={session.id} onExit={onExit} clock={clock} />, {
-    width: 120,
-    height: 30,
-  });
+  const setup = await testRender(
+    <App home={home} sessionId={session.id} onExit={onExit} clock={clock} />,
+    {
+      width: 120,
+      height: 30,
+    },
+  );
   await waitForText(setup, "cueloop");
   return setup;
 }

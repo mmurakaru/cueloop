@@ -49,7 +49,8 @@ export function SettingsDialog({
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
   if (!isOpen) return null;
-  const category = categories.find((candidate) => candidate.id === activeCategoryId) ?? categories[0];
+  const category =
+    categories.find((candidate) => candidate.id === activeCategoryId) ?? categories[0];
   if (!category) return null;
   return (
     <Dialog
@@ -68,10 +69,14 @@ export function SettingsDialog({
             return (
               <box
                 key={candidate.id}
-                style={{ backgroundColor: isActive && activeZone === "nav" ? tokens.border : undefined }}
+                style={{
+                  backgroundColor: isActive && activeZone === "nav" ? tokens.border : undefined,
+                }}
                 onMouseUp={() => onCategorySelect(candidate.id)}
               >
-                <text fg={isActive ? tokens.accent : tokens.textMuted}>{`${isActive ? "› " : "  "}${candidate.name}`}</text>
+                <text
+                  fg={isActive ? tokens.accent : tokens.textMuted}
+                >{`${isActive ? "› " : "  "}${candidate.name}`}</text>
               </box>
             );
           })}

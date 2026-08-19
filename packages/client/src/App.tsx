@@ -16,7 +16,13 @@ import { type VerdictKind } from "@cueloop/schema";
 import { displayText, marksByDisplay, type Mark } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
-import { DEFAULT_KEYS, loadConfig, persistAuthorName, persistAutoClose, type AutoClose } from "./config";
+import {
+  DEFAULT_KEYS,
+  loadConfig,
+  persistAuthorName,
+  persistAutoClose,
+  type AutoClose,
+} from "./config";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
@@ -79,7 +85,16 @@ export interface AppProps {
   selfAuthor?: string;
 }
 
-export function App({ home, sessionId, readOnly = false, onExit, clock, openClient, role = "owner", selfAuthor }: AppProps): React.ReactNode {
+export function App({
+  home,
+  sessionId,
+  readOnly = false,
+  onExit,
+  clock,
+  openClient,
+  role = "owner",
+  selfAuthor,
+}: AppProps): React.ReactNode {
   // Observer stays fully read-only; a collaborator writes annotations but not
   // the plan or a verdict. `observer` is what the controller and every write
   // gate key off; the two capability flags carve out the collaborator's middle.
@@ -89,7 +104,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   // feeds all three; split it the day a collaborator earns one of them.
   const isOwner = !observer && role === "owner";
   const controller = useMemo(
-    () => createReviewController({ home, sessionId, readOnly: observer, onExit, clock, openClient }),
+    () =>
+      createReviewController({ home, sessionId, readOnly: observer, onExit, clock, openClient }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home, sessionId],
   );
@@ -97,11 +113,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     controller.connect();
     return () => controller.close();
   }, [controller]);
-  const { session, inbox, status, toast, error, completion, editOrphanCount, walk } = useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
-    controller.getSnapshot,
-  );
+  const { session, inbox, status, toast, error, completion, editOrphanCount, walk } =
+    useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   // A shared plan you own polls for collaborator notes while it is open; the
   // merge refreshes through the normal event path. Stops on leave.
   useEffect(() => {
@@ -119,7 +132,11 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
-  const [settingsNav, setSettingsNav] = useState<{ categoryId: string; rowIndex: number; zone: "nav" | "body" }>({
+  const [settingsNav, setSettingsNav] = useState<{
+    categoryId: string;
+    rowIndex: number;
+    zone: "nav" | "body";
+  }>({
     categoryId: "general",
     rowIndex: 0,
     zone: "body",
@@ -185,7 +202,10 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   const display = controller.display();
   const rows = controller.rows();
   const marks = useMemo(
-    () => (session ? marksByDisplay(session.annotations, display, pulsedAnnotationId ?? undefined) : new Map<number, Mark[]>()),
+    () =>
+      session
+        ? marksByDisplay(session.annotations, display, pulsedAnnotationId ?? undefined)
+        : new Map<number, Mark[]>(),
     [session, display, pulsedAnnotationId],
   );
   /** Annotation ids whose anchor resolved against the working copy. */
@@ -248,7 +268,11 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     // the author rather than editing the body the planner does not own
     if (annotation.author) {
       setFocusedAnnotationId(annotationId);
-      return void setMode({ type: "rename", authorId: annotation.author, text: authorNames[annotation.author] ?? "" });
+      return void setMode({
+        type: "rename",
+        authorId: annotation.author,
+        text: authorNames[annotation.author] ?? "",
+      });
     }
     if (resolved) return controller.setStatus("review submitted - read-only");
     liveInput.current = annotation.body;
@@ -309,15 +333,15 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
         ? "submit"
         : mode.type === "confirmDelete"
           ? "confirm"
-        : mode.type === "rename" || mode.type === "nameSelf"
-          ? "prompt"
-        : completion.phase === "prompt"
-          ? "completion-prompt"
-          : completion.phase === "counting"
-            ? "completion-counting"
-            : walking
-              ? "walk"
-              : "none";
+          : mode.type === "rename" || mode.type === "nameSelf"
+            ? "prompt"
+            : completion.phase === "prompt"
+              ? "completion-prompt"
+              : completion.phase === "counting"
+                ? "completion-counting"
+                : walking
+                  ? "walk"
+                  : "none";
 
   // ── settings dialog: config-backed model, navigation, persistence ──
   const settingsCategories: SettingsCategory[] = [
@@ -325,16 +349,33 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
       id: "general",
       name: "General",
       description: "submission behaviour",
-      rows: [{ key: "autoClose", label: "Auto-close on submit", kind: "cycle", options: ["off", "3s", "10s"] }],
+      rows: [
+        {
+          key: "autoClose",
+          label: "Auto-close on submit",
+          kind: "cycle",
+          options: ["off", "3s", "10s"],
+        },
+      ],
     },
     {
       id: "display",
       name: "Display",
       description: "the review panel",
-      rows: [{ key: "reviewPanel", label: "Review panel", kind: "cycle", options: ["expanded", "compact", "hidden"] }],
+      rows: [
+        {
+          key: "reviewPanel",
+          label: "Review panel",
+          kind: "cycle",
+          options: ["expanded", "compact", "hidden"],
+        },
+      ],
     },
   ];
-  const settingsValues = { autoClose: autoClose === "off" ? "off" : `${autoClose}s`, reviewPanel: reviewMode };
+  const settingsValues = {
+    autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
+    reviewPanel: reviewMode,
+  };
   const cycleSetting = (rowKey: string): void => {
     if (rowKey === "autoClose") {
       const next: AutoClose = autoClose === "off" ? 3 : autoClose === 3 ? 10 : "off";
@@ -349,18 +390,38 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   };
   const handleSettingsKey = (name: string): void => {
     if (name === "escape") return void setMenuDialog(null);
-    const categoryIndex = settingsCategories.findIndex((category) => category.id === settingsNav.categoryId);
+    const categoryIndex = settingsCategories.findIndex(
+      (category) => category.id === settingsNav.categoryId,
+    );
     const category = settingsCategories[categoryIndex]!;
     if (settingsNav.zone === "nav") {
-      if (name === "j" || name === "down") setSettingsNav({ categoryId: settingsCategories[Math.min(settingsCategories.length - 1, categoryIndex + 1)]!.id, rowIndex: 0, zone: "nav" });
-      else if (name === "k" || name === "up") setSettingsNav({ categoryId: settingsCategories[Math.max(0, categoryIndex - 1)]!.id, rowIndex: 0, zone: "nav" });
-      else if (name === "l" || name === "tab" || name === "return") setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: 0 }));
+      if (name === "j" || name === "down")
+        setSettingsNav({
+          categoryId:
+            settingsCategories[Math.min(settingsCategories.length - 1, categoryIndex + 1)]!.id,
+          rowIndex: 0,
+          zone: "nav",
+        });
+      else if (name === "k" || name === "up")
+        setSettingsNav({
+          categoryId: settingsCategories[Math.max(0, categoryIndex - 1)]!.id,
+          rowIndex: 0,
+          zone: "nav",
+        });
+      else if (name === "l" || name === "tab" || name === "return")
+        setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: 0 }));
       return;
     }
-    if (name === "j" || name === "down") setSettingsNav((state) => ({ ...state, rowIndex: Math.min(category.rows.length - 1, state.rowIndex + 1) }));
-    else if (name === "k" || name === "up") setSettingsNav((state) => ({ ...state, rowIndex: Math.max(0, state.rowIndex - 1) }));
+    if (name === "j" || name === "down")
+      setSettingsNav((state) => ({
+        ...state,
+        rowIndex: Math.min(category.rows.length - 1, state.rowIndex + 1),
+      }));
+    else if (name === "k" || name === "up")
+      setSettingsNav((state) => ({ ...state, rowIndex: Math.max(0, state.rowIndex - 1) }));
     else if (name === "h" || name === "tab") setSettingsNav((state) => ({ ...state, zone: "nav" }));
-    else if (name === "return" || name === "space") cycleSetting(category.rows[settingsNav.rowIndex]!.key);
+    else if (name === "return" || name === "space")
+      cycleSetting(category.rows[settingsNav.rowIndex]!.key);
   };
 
   useKeyboard((key) => {
@@ -369,7 +430,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
     if (menuOpen) return void (key.name === "escape" && setMenuOpen(false));
     // the toast is non-modal: escape only dismisses it when nothing else owns
     // escape, so an open overlay (compose, submit, prompt, walk) still cancels
-    if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span") return controller.dismissToast();
+    if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span")
+      return controller.dismissToast();
     const state: KeyState = {
       keys: keysRef.current,
       readOnly: observer,
@@ -385,12 +447,18 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
       hasFocusedAnnotation: focusedAnnotationId !== undefined,
       walkAtEnd: walk !== null && walk.index >= walkFileList.length,
       cursorAnnotatable: isDiff
-        ? rows[cursor] !== undefined && rows[cursor]!.kind !== "file" && rows[cursor]!.kind !== "hunk"
+        ? rows[cursor] !== undefined &&
+          rows[cursor]!.kind !== "file" &&
+          rows[cursor]!.kind !== "hunk"
         : !!display[cursor]?.work,
     };
     keyBindings.setContext({ overlay: state.overlay, spanMode: state.spanMode });
     const action = keyBindings.resolveAction({ name: key.name, shift: !!key.shift });
-    for (const intent of reduceKey(state, { name: key.name, shift: !!key.shift, meta: !!key.meta }, action))
+    for (const intent of reduceKey(
+      state,
+      { name: key.name, shift: !!key.shift, meta: !!key.meta },
+      action,
+    ))
       dispatch(intent);
   });
 
@@ -421,7 +489,9 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
         <ConfirmDialog
           isOpen={confirming !== null}
           title=" Delete plan "
-          message={confirming ? `Delete "${confirming.title}"? This removes the plan and its review.` : ""}
+          message={
+            confirming ? `Delete "${confirming.title}"? This removes the plan and its review.` : ""
+          }
           onConfirm={() => {
             if (confirming) controller.deleteSession(confirming.sessionId);
             setMode({ type: "normal" });
@@ -434,7 +504,8 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   }
 
   const activeSession = session!;
-  const pendingCount = reviewerAnnotations(activeSession).length + (activeSession.workingCopy !== undefined ? 1 : 0);
+  const pendingCount =
+    reviewerAnnotations(activeSession).length + (activeSession.workingCopy !== undefined ? 1 : 0);
 
   if ((completion.phase === "prompt" || completion.phase === "counting") && activeSession.verdict) {
     return (
@@ -443,7 +514,11 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
           verdict={activeSession.verdict.kind}
           completion={completion}
           status={status}
-          returnsTo={returnPaneFor(activeSession.artifact.meta.herdrPane) ? (activeSession.artifact.meta.agent ?? "the agent") : undefined}
+          returnsTo={
+            returnPaneFor(activeSession.artifact.meta.herdrPane)
+              ? (activeSession.artifact.meta.agent ?? "the agent")
+              : undefined
+          }
         />
       </ThemeProvider>
     );
@@ -576,23 +651,43 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
   const railFootprint =
     reviewMode === "hidden"
       ? 0
-      : 1 + (reviewMode === "compact" ? REVIEW_COMPACT_WIDTH : resolveReviewWidth(reviewWidth, terminalWidth));
+      : 1 +
+        (reviewMode === "compact"
+          ? REVIEW_COMPACT_WIDTH
+          : resolveReviewWidth(reviewWidth, terminalWidth));
 
   // status badges sit right after the product word so they survive a header
   // that is too narrow for the whole trail (the rail can eat the width)
   const headerItems: BreadcrumbItem[] = [
     { label: "cueloop", tone: "accent" },
-    ...(resolved ? [{ label: `resolved: ${activeSession.verdict!.kind.replace("_", " ")}`, tone: "green" as const }] : []),
+    ...(resolved
+      ? [
+          {
+            label: `resolved: ${activeSession.verdict!.kind.replace("_", " ")}`,
+            tone: "green" as const,
+          },
+        ]
+      : []),
     ...(observer ? [{ label: "observer", tone: "dim" as const }] : []),
-    ...(role === "collaborator" ? [{ label: "shared · your notes save as you go", tone: "dim" as const }] : []),
-    { label: `${activeSession.artifact.meta.title ?? activeSession.artifact.meta.planPath ?? activeSession.id} · rev ${activeSession.revisions.length}`, tone: "dim" },
+    ...(role === "collaborator"
+      ? [{ label: "shared · your notes save as you go", tone: "dim" as const }]
+      : []),
+    {
+      label: `${activeSession.artifact.meta.title ?? activeSession.artifact.meta.planPath ?? activeSession.id} · rev ${activeSession.revisions.length}`,
+      tone: "dim",
+    },
     { label: `submitted by ${activeSession.artifact.meta.agent ?? "unknown"}`, tone: "dim" },
   ];
 
   return (
     <ThemeProvider theme={theme}>
       <box
-        style={{ flexDirection: "column", width: "100%", height: "100%", backgroundColor: theme.background }}
+        style={{
+          flexDirection: "column",
+          width: "100%",
+          height: "100%",
+          backgroundColor: theme.background,
+        }}
         onMouseDrag={(event: MouseEvent) => {
           if (!dividerDragging || reviewMode !== "expanded") return;
           const next = widthFromMouseColumn(event.x, terminalWidth);
@@ -605,14 +700,20 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
           controller.saveReviewPanel({ width: reviewWidthRef.current });
         }}
       >
-        <box style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}>
+        <box
+          style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}
+        >
           <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
             <Breadcrumb items={headerItems} />
             <box style={{ flexGrow: 1 }} />
             {isOwner && !isDiff && !resolved ? (
               <Toolbar>
-                <Button onPress={onEditRequest} theme={theme}>{" Edit "}</Button>
-                <Button onPress={onShareRequest} theme={theme}>{" Share "}</Button>
+                <Button onPress={onEditRequest} theme={theme}>
+                  {" Edit "}
+                </Button>
+                <Button onPress={onShareRequest} theme={theme}>
+                  {" Share "}
+                </Button>
               </Toolbar>
             ) : null}
           </box>
@@ -720,7 +821,9 @@ export function App({ home, sessionId, readOnly = false, onExit, clock, openClie
           />
         ) : null}
         {toast ? <Toast title={toast.title} body={toast.body} theme={theme} /> : null}
-        {menuDialog === "keybinds" ? <KeybindsDialog sections={keyBindings.cheatsheet()} theme={theme} /> : null}
+        {menuDialog === "keybinds" ? (
+          <KeybindsDialog sections={keyBindings.cheatsheet()} theme={theme} />
+        ) : null}
         {menuDialog === "settings" ? (
           <SettingsDialog
             isOpen

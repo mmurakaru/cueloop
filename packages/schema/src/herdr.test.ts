@@ -5,7 +5,9 @@ describe("detectHerdr", () => {
   test("null outside herdr, context inside", () => {
     expect(detectHerdr({})).toBeNull();
     expect(detectHerdr({ HERDR_ENV: "1", HERDR_PANE_ID: "p1" })).toBeNull();
-    expect(detectHerdr({ HERDR_ENV: "1", HERDR_PANE_ID: "p1", HERDR_BIN_PATH: "/x/herdr" })).toEqual({
+    expect(
+      detectHerdr({ HERDR_ENV: "1", HERDR_PANE_ID: "p1", HERDR_BIN_PATH: "/x/herdr" }),
+    ).toEqual({
       paneId: "p1",
       binPath: "/x/herdr",
     });

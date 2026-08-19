@@ -20,7 +20,13 @@ function resolvedSession(overrides: Partial<ReviewSession> = {}): ReviewSession 
       content: "# Migration Plan\n\nMove the store.\n",
       meta: { title: "Migration Plan" },
     },
-    revisions: [{ revision: 1, content: "# Migration Plan\n\nMove the store.\n", submittedAt: NOW.toISOString() }],
+    revisions: [
+      {
+        revision: 1,
+        content: "# Migration Plan\n\nMove the store.\n",
+        submittedAt: NOW.toISOString(),
+      },
+    ],
     annotations: [],
     verdict: { kind: "approve", summary: "ship it", feedback: "", resolvedAt: NOW.toISOString() },
     status: "resolved",
@@ -63,7 +69,9 @@ describe("exportSession", () => {
 
   test("the working copy wins over the submitted content", () => {
     // Arrange
-    const session = resolvedSession({ workingCopy: "# Migration Plan\n\nMove the store carefully.\n" });
+    const session = resolvedSession({
+      workingCopy: "# Migration Plan\n\nMove the store carefully.\n",
+    });
 
     // Act
     const result = exportSession(session, config(), NOW);
@@ -92,7 +100,11 @@ describe("exportSession", () => {
     const emptyConfigPath = join(vault, "obsidian.json");
 
     // Act
-    const result = exportSession(resolvedSession(), config({ vault: undefined, obsidianConfigPath: emptyConfigPath }), NOW);
+    const result = exportSession(
+      resolvedSession(),
+      config({ vault: undefined, obsidianConfigPath: emptyConfigPath }),
+      NOW,
+    );
 
     // Assert
     expect(result.success).toBe(false);
@@ -116,7 +128,11 @@ describe("exportSession", () => {
     writeFileSync(obsidianJson, JSON.stringify({ vaults: { v1: { path: detected } } }));
 
     // Act
-    const result = exportSession(resolvedSession(), config({ vault: undefined, obsidianConfigPath: obsidianJson }), NOW);
+    const result = exportSession(
+      resolvedSession(),
+      config({ vault: undefined, obsidianConfigPath: obsidianJson }),
+      NOW,
+    );
 
     // Assert
     expect(result.success).toBe(true);

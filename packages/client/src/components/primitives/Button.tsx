@@ -30,7 +30,11 @@ export function Button({
   const tokens = useComponentTheme(theme);
   const backgroundColor = variant === "solid" ? tokens.accent : undefined;
   const foreground =
-    variant === "solid" ? tokens.accentInk : variant === "accent-text" ? tokens.accent : tokens.textDim;
+    variant === "solid"
+      ? tokens.accentInk
+      : variant === "accent-text"
+        ? tokens.accent
+        : tokens.textDim;
   return (
     <box
       style={{ backgroundColor, marginRight }}

@@ -93,7 +93,9 @@ describe("parseBlocks", () => {
     const again = parseBlocks(rebuilt);
 
     // Assert
-    expect(again.map((block) => [block.kind, block.text])).toEqual(blocks.map((block) => [block.kind, block.text]));
+    expect(again.map((block) => [block.kind, block.text])).toEqual(
+      blocks.map((block) => [block.kind, block.text]),
+    );
   });
 
   test("unknown constructs degrade to paragraphs, no content lost", () => {

@@ -23,7 +23,13 @@ export interface BreadcrumbProps {
 export function Breadcrumb({ items, theme }: BreadcrumbProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const toneColor = (tone?: BreadcrumbTone): string =>
-    tone === "accent" ? tokens.accent : tone === "green" ? tokens.green : tone === "text" ? tokens.text : tokens.textDim;
+    tone === "accent"
+      ? tokens.accent
+      : tone === "green"
+        ? tokens.green
+        : tone === "text"
+          ? tokens.text
+          : tokens.textDim;
   return (
     <box style={{ height: 1, backgroundColor: tokens.panel, paddingLeft: 1, flexDirection: "row" }}>
       <text fg={tokens.text}>

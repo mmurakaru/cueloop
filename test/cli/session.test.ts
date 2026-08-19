@@ -35,7 +35,11 @@ describe("cueloop session (black box)", () => {
 
   test("create autostarts the daemon and prints the session", async () => {
     // Act
-    const created = await runCli(home, ["session", "create", "--type", "plan", "--title", "Migration", "--agent", "test"], PLAN);
+    const created = await runCli(
+      home,
+      ["session", "create", "--type", "plan", "--title", "Migration", "--agent", "test"],
+      PLAN,
+    );
 
     // Assert
     expect(created.code).toBe(0);
@@ -48,7 +52,9 @@ describe("cueloop session (black box)", () => {
 
   test("list and get see the session from a fresh process", async () => {
     // Act
-    const list = cliJson<ReviewSession[]>(await runCli(home, ["session", "list", "--status", "pending"]));
+    const list = cliJson<ReviewSession[]>(
+      await runCli(home, ["session", "list", "--status", "pending"]),
+    );
 
     // Assert
     expect(list.some((candidate) => candidate.id === sessionId)).toBe(true);
@@ -88,7 +94,15 @@ describe("cueloop session (black box)", () => {
     expect(annotated.code).toBe(0);
 
     // Act
-    const resolved = await runCli(home, ["session", "resolve", sessionId, "--verdict", "request_changes", "--summary", "Phase names please."]);
+    const resolved = await runCli(home, [
+      "session",
+      "resolve",
+      sessionId,
+      "--verdict",
+      "request_changes",
+      "--summary",
+      "Phase names please.",
+    ]);
 
     // Assert
     expect(resolved.code).toBe(0);
@@ -108,7 +122,11 @@ describe("cueloop session (black box)", () => {
   test("revision reopens through the CLI", async () => {
     // Act
     const revised = cliJson<ReviewSession>(
-      await runCli(home, ["session", "submit-revision", sessionId], PLAN + "\n## Phase names\n\nAlpha, beta.\n"),
+      await runCli(
+        home,
+        ["session", "submit-revision", sessionId],
+        PLAN + "\n## Phase names\n\nAlpha, beta.\n",
+      ),
     );
 
     // Assert
@@ -173,11 +191,16 @@ describe("cueloop session (black box)", () => {
 
     // Act
     // HERDR_ENV off: the bin path alone must not open a pane
-    const created = await runCli(home, ["session", "create", "--type", "plan", "--title", "No Pane"], PLAN, {
-      HERDR_ENV: "0",
-      HERDR_PANE_ID: "w1:p1",
-      HERDR_BIN_PATH: binPath,
-    });
+    const created = await runCli(
+      home,
+      ["session", "create", "--type", "plan", "--title", "No Pane"],
+      PLAN,
+      {
+        HERDR_ENV: "0",
+        HERDR_PANE_ID: "w1:p1",
+        HERDR_BIN_PATH: binPath,
+      },
+    );
 
     // Assert
     expect(created.code).toBe(0);
