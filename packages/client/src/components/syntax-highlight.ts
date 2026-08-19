@@ -1,12 +1,17 @@
 /**
- * Code highlighting tokens: the theme's named tokens projected onto
- * tree-sitter capture names for the native code renderable. One SyntaxStyle
- * per theme object, cached, so every code block on screen shares a handle.
- * Unknown languages simply render unstyled - highlighting is an enhancement,
- * never a blocker.
+ * Code highlighting tokens: the theme's named colors projected onto tree-sitter
+ * capture names. One group -> color map is the single source of truth, feeding
+ * both the native code renderable (via a cached SyntaxStyle per theme) and the
+ * diff sheet's per-row spans. Unknown languages simply render unstyled -
+ * highlighting is an enhancement, never a blocker.
  */
 
-import { SyntaxStyle, infoStringToFiletype } from "@opentui/core";
+import {
+  SyntaxStyle,
+  infoStringToFiletype,
+  extensionToFiletype,
+  basenameToFiletype,
+} from "@opentui/core";
 import type { Theme } from "../theme";
 
 /** Markdown fence info -> tree-sitter filetype, with the aliases we accept. */
@@ -27,12 +32,24 @@ export function filetypeFor(language?: string): string | undefined {
   return infoStringToFiletype(aliases[info] ?? info) ?? aliases[info] ?? info;
 }
 
-const syntaxStyleCache = new WeakMap<Theme, SyntaxStyle>();
+/** A diff/code file path -> tree-sitter filetype, by basename then extension. */
+export function filetypeForPath(path: string): string | undefined {
+  const basename = path.split("/").pop() ?? path;
+  const byBasename = basenameToFiletype.get(basename);
+  if (byBasename) return byBasename;
+  const dotIndex = basename.lastIndexOf(".");
+  if (dotIndex <= 0) return undefined;
+  return extensionToFiletype.get(basename.slice(dotIndex + 1).toLowerCase());
+}
 
-export function syntaxStyleFor(theme: Theme): SyntaxStyle {
-  const cached = syntaxStyleCache.get(theme);
-  if (cached) return cached;
-  const style = SyntaxStyle.fromStyles({
+interface SyntaxGroupStyle {
+  fg: string;
+  italic?: boolean;
+}
+
+/** The one group -> style map, keyed by tree-sitter capture name. */
+function syntaxGroupStyles(theme: Theme): Record<string, SyntaxGroupStyle> {
+  return {
     default: { fg: theme.textMuted },
     comment: { fg: theme.textDim, italic: true },
     string: { fg: theme.green },
@@ -51,7 +68,25 @@ export function syntaxStyleFor(theme: Theme): SyntaxStyle {
     parameter: { fg: theme.textMuted },
     tag: { fg: theme.accent },
     attribute: { fg: theme.blue },
-  });
+  };
+}
+
+const syntaxStyleCache = new WeakMap<Theme, SyntaxStyle>();
+
+export function syntaxStyleFor(theme: Theme): SyntaxStyle {
+  const cached = syntaxStyleCache.get(theme);
+  if (cached) return cached;
+  const style = SyntaxStyle.fromStyles(syntaxGroupStyles(theme));
   syntaxStyleCache.set(theme, style);
   return style;
+}
+
+/** The foreground for a tree-sitter capture group; undefined when unstyled. */
+export function colorForSyntaxGroup(group: string, theme: Theme): string | undefined {
+  const styles = syntaxGroupStyles(theme);
+  const direct = styles[group];
+  if (direct) return direct.fg;
+  // capture names are dotted (e.g. "keyword.control"); match the broadest prefix
+  const base = group.split(".")[0]!;
+  return styles[base]?.fg;
 }
