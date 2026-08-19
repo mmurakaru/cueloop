@@ -47,6 +47,55 @@ describe("renderFeedback", () => {
     expect(feedback).toContain("+Sessions are written as one JSON record per session.");
   });
 
+  test("a diff working copy is handed back as the curated patch, not a diff of diffs", () => {
+    // Arrange
+    const submittedPatch = `--- a/src/x.ts
++++ b/src/x.ts
+@@ -1,1 +1,1 @@
+-const limit = 100;
++const limit = 250;
+`;
+    const curatedPatch = `--- a/src/x.ts
++++ b/src/x.ts
+@@ -1,1 +1,1 @@
+-const limit = 100;
++const limit = 175;
+`;
+
+    // Act
+    const feedback = renderFeedback({
+      verdictKind: "request_changes",
+      summary: "",
+      artifactContent: submittedPatch,
+      workingCopy: curatedPatch,
+      artifactType: "diff",
+      annotations: [],
+    });
+
+    // Assert
+    expect(feedback).toContain("## Curated changes");
+    expect(feedback).toContain("+const limit = 175;");
+    // the submitted patch is not re-diffed against the curated one
+    expect(feedback).not.toContain("Plan edits");
+    expect(feedback).not.toContain("++const");
+  });
+
+  test("a diff working copy that rejected everything says so", () => {
+    // Act
+    const feedback = renderFeedback({
+      verdictKind: "request_changes",
+      summary: "",
+      artifactContent: "--- a/x\n+++ b/x\n@@ -1 +1 @@\n-a\n+b\n",
+      workingCopy: "",
+      artifactType: "diff",
+      annotations: [],
+    });
+
+    // Assert
+    expect(feedback).toContain("## Curated changes");
+    expect(feedback).toContain("rejected all of your proposed changes");
+  });
+
   test("annotations are located by quote and section", () => {
     // Act
     const feedback = renderFeedback({

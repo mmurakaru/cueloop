@@ -308,7 +308,7 @@ describe("diff mode", () => {
     ["backspace", [{ type: "removeAnnotation" }]],
     ["return", [{ type: "openSubmit" }]],
     ["v", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
-    ["x", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
+    ["x", [{ type: "rejectChange" }]],
     ["e", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
     ["s", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
     ["q", [{ type: "exit" }]],
@@ -318,6 +318,26 @@ describe("diff mode", () => {
       expect(reduceKey(keyState, key(name))).toEqual(expected);
     });
   }
+
+  test("shift+x rejects the whole hunk under the cursor", () => {
+    // Assert
+    expect(reduceKey(keyState, key("x", true))).toEqual([{ type: "rejectHunk" }]);
+  });
+
+  test("curation is owner-only and locked once resolved", () => {
+    // Assert - a resolved diff answers before curating
+    expect(reduceKey(state({ view: "diff", resolved: true }), key("x"))).toEqual([
+      { type: "status", message: "review submitted - read-only" },
+    ]);
+    // a collaborator (canEditPlan false) cannot curate hunks
+    expect(reduceKey(state({ view: "diff", canEditPlan: false }), key("x"))).toEqual([
+      { type: "status", message: "only the diff owner can curate hunks" },
+    ]);
+    // an observer's mutating attempt is stopped by the read-only gate
+    expect(reduceKey(state({ view: "diff", readOnly: true }), key("x"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+  });
 
   test("comment guards: resolved first, then non-code rows", () => {
     // Assert

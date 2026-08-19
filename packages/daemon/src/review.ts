@@ -10,6 +10,7 @@
 import {
   newAnnotationId,
   type ArtifactType,
+  type DiffFileContents,
   type ReviewSession,
   type WorkspaceKey,
 } from "@cueloop/schema";
@@ -56,6 +57,11 @@ export interface OpenReviewOptions {
   planPath?: string;
   pr?: string;
   herdrPane?: string;
+  /**
+   * Full file contents per changed file for a working-tree diff, carried onto
+   * the artifact so hunk curation produces an exactly applyable patch.
+   */
+  files?: DiffFileContents[];
   /** Defaults to the plan's first markdown heading; diffs get no derived title. */
   title?: string;
   /**
@@ -205,6 +211,7 @@ export async function openReview(
   let session = await client.sessionCreate(workspace, {
     type: options.type,
     content: options.content,
+    files: options.files,
     meta: {
       agent: options.agent,
       agentSessionId: options.agentSessionId,

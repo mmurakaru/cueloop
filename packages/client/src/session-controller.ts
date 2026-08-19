@@ -33,6 +33,17 @@ import {
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
+import {
+  changeRejectionForRow,
+  curateDiff,
+  hunkRejectionForRow,
+  isRowRejected,
+  parseFileDiff,
+  rejectsWholeHunk,
+  sameRejection,
+  type HunkRejection,
+} from "./diff-hunk-curate";
+import type { FileDiffMetadata } from "@pierre/diffs";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
 import { editInEditor } from "./editor";
 import { focusHerdrPane } from "./herdr";
@@ -61,6 +72,9 @@ export const DEFAULT_AUTO_CLOSE = 5;
 
 /** How often an open shared plan re-pulls collaborator notes (ADR 0005 stage 2). */
 export const SHARE_POLL_MS = 4000;
+
+/** Shared empty set so "nothing rejected" is a stable identity for renders. */
+const EMPTY_REJECTED_ROWS: Set<number> = new Set();
 
 export interface ToastState {
   title?: string;
@@ -130,6 +144,12 @@ export interface ReviewController {
   setSelfName(name: string): void;
   /** Cut the block under the cursor, or restore a cut one. */
   cut(displayIndex: number): void;
+  /** Toggle rejection of the whole hunk under the diff cursor (owner curation). */
+  toggleRejectHunk(rowIndex: number): void;
+  /** Toggle rejection of the single change under the diff cursor (owner curation). */
+  toggleRejectChange(rowIndex: number): void;
+  /** Rendered row indices dropped by the current reject decisions (for dimming). */
+  rejectedRows(): Set<number>;
   /** The $EDITOR hand-off on the working copy. */
   edit(): void;
   /**
@@ -203,11 +223,20 @@ class Controller implements ReviewController {
   private shareRun: object | null = null;
   /** Projections keyed by session identity so renders reuse one computation. */
   private derivedFor: ReviewSession | null = null;
-  private derived: { display: DisplayBlock[]; rows: DiffRow[]; files: WalkFile[] } = {
+  private derived: {
+    display: DisplayBlock[];
+    rows: DiffRow[];
+    files: WalkFile[];
+    /** Per-path parsed diff models, for hunk curation; empty when files absent. */
+    models: Map<string, FileDiffMetadata>;
+  } = {
     display: [],
     rows: [],
     files: [],
+    models: new Map(),
   };
+  /** The owner's per-hunk/change reject decisions for the open diff session. */
+  private rejections: HunkRejection[] = [];
 
   constructor(private readonly options: ReviewControllerOptions) {
     this.readOnly = options.readOnly ?? false;
@@ -292,10 +321,13 @@ class Controller implements ReviewController {
     this.derivedFor = session;
     const rows =
       session && session.artifact.type === "diff" ? diffRows(session.artifact.content) : [];
+    const models = new Map<string, FileDiffMetadata>();
+    for (const file of session?.artifact.files ?? []) models.set(file.path, parseFileDiff(file));
     this.derived = {
       display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
       rows,
       files: walkFiles(rows),
+      models,
     };
   }
 
@@ -350,6 +382,7 @@ class Controller implements ReviewController {
   // ── verbs ───────────────────────────────────
   open(id: string): void {
     this.locallyViewed.clear();
+    this.rejections = [];
     const cached = this.snapshot.inbox?.find((candidate) => candidate.id === id);
     if (cached) this.update({ session: cached });
     else void this.refreshSession(id);
@@ -390,6 +423,86 @@ class Controller implements ReviewController {
       this.setWorkingCopy(cutBlock(working, block.work));
       this.setStatus("block cut - it serializes into the diff");
     }
+  }
+
+  // ── diff hunk curation ──────────────────────
+  /** The parsed model and row for a curation action, or null with a status set. */
+  private curationRow(rowIndex: number): { row: DiffRow; model: FileDiffMetadata } | null {
+    const session = this.snapshot.session;
+    if (!session || session.status === "resolved") return null;
+    if (!session.artifact.files) {
+      this.setStatus("hunk curation needs full file contents (PR diffs cannot be curated)");
+      return null;
+    }
+    const row = this.rows()[rowIndex];
+    if (!row || row.kind === "file" || row.kind === "hunk") {
+      this.setStatus("move to a code line to curate");
+      return null;
+    }
+    const model = this.derived.models.get(row.file);
+    if (!model) return null;
+    return { row, model };
+  }
+
+  toggleRejectHunk(rowIndex: number): void {
+    const located = this.curationRow(rowIndex);
+    if (!located) return;
+    const target = hunkRejectionForRow(located.row.file, located.model, located.row);
+    if (!target) return this.setStatus("no hunk under the cursor");
+    const wholeHunk = (rejection: HunkRejection): boolean => rejectsWholeHunk(rejection, target);
+    if (this.rejections.some(wholeHunk)) {
+      this.rejections = this.rejections.filter((rejection) => !wholeHunk(rejection));
+      this.setStatus("hunk restored");
+    } else {
+      // a whole-hunk reject supersedes any change-level rejects inside it
+      this.rejections = this.rejections.filter(
+        (rejection) =>
+          !(rejection.path === target.path && rejection.hunkIndex === target.hunkIndex),
+      );
+      this.rejections.push(target);
+      this.setStatus("hunk rejected - dropped from the working copy");
+    }
+    this.recomputeCuration();
+  }
+
+  toggleRejectChange(rowIndex: number): void {
+    const located = this.curationRow(rowIndex);
+    if (!located) return;
+    if (located.row.kind !== "add" && located.row.kind !== "del")
+      return this.setStatus("move to a changed line to reject a change");
+    const target = changeRejectionForRow(located.row.file, located.model, located.row);
+    if (!target) return this.setStatus("no change under the cursor");
+    const wholeCovers = this.rejections.some((rejection) => rejectsWholeHunk(rejection, target));
+    if (wholeCovers) return this.setStatus("the whole hunk is rejected - restore it first");
+    if (this.rejections.some((rejection) => sameRejection(rejection, target))) {
+      this.rejections = this.rejections.filter((rejection) => !sameRejection(rejection, target));
+      this.setStatus("change restored");
+    } else {
+      this.rejections.push(target);
+      this.setStatus("change rejected - dropped from the working copy");
+    }
+    this.recomputeCuration();
+  }
+
+  /** Recompute the curated patch and push it as the working copy (or clear it). */
+  private recomputeCuration(): void {
+    const files = this.snapshot.session?.artifact.files;
+    if (!files) return;
+    // no decisions left = the working copy reverts to the full submitted diff
+    this.setWorkingCopy(this.rejections.length ? curateDiff(files, this.rejections) : undefined);
+    // dimming reads `rejections` directly; a bare update forces the re-read
+    this.update({});
+  }
+
+  rejectedRows(): Set<number> {
+    this.ensureDerived();
+    if (!this.rejections.length) return EMPTY_REJECTED_ROWS;
+    const rejected = new Set<number>();
+    this.derived.rows.forEach((row, index) => {
+      const model = this.derived.models.get(row.file);
+      if (model && isRowRejected(row.file, model, row, this.rejections)) rejected.add(index);
+    });
+    return rejected;
   }
 
   edit(): void {

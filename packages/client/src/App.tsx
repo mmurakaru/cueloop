@@ -201,6 +201,7 @@ export function App({
   // ── derived view model ──────────────────────
   const display = controller.display();
   const rows = controller.rows();
+  const rejectedRows = controller.rejectedRows();
   const marks = useMemo(
     () =>
       session
@@ -727,6 +728,7 @@ export function App({
               cursor={cursor}
               annotations={activeSession.annotations}
               focusedAnnotationId={focusedAnnotationId}
+              rejectedRows={rejectedRows}
               compose={diffComposeState}
               theme={walking ? dimmedTheme(theme) : undefined}
             />

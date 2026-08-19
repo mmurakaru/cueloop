@@ -28,11 +28,29 @@ export interface ArtifactMeta {
   title?: string;
 }
 
+/** Full old/new contents of one changed file, keyed by its repo-relative path. */
+/** How a file changed, so curation emits the right create/delete headers. */
+export type DiffFileStatus = "added" | "modified" | "deleted";
+
+export interface DiffFileContents {
+  path: string;
+  oldContents: string;
+  newContents: string;
+  /** git's own classification - not inferred from empty contents, so an
+   *  existing-empty-file edit is a modify, not a create/delete. */
+  status: DiffFileStatus;
+}
+
 export interface Artifact {
   type: ArtifactType;
   /** Markdown source for plans; unified-diff text for diffs. */
   content: string;
   meta: ArtifactMeta;
+  /**
+   * Full file contents for a diff artifact, so hunk curation produces an
+   * exactly applyable patch; absent for legacy or partial (PR) diffs.
+   */
+  files?: DiffFileContents[];
 }
 
 /**
