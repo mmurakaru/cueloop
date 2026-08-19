@@ -135,9 +135,3 @@ export function editStats(oldText: string, newText: string): EditStats {
     removed: lines.filter((line) => line.kind === "del").length,
   };
 }
-
-/** Word-level diff ops for tracked-changes rendering. Whitespace-preserving. */
-export function wordDiff(oldText: string, newText: string): DiffOp[] {
-  const tokenize = (text: string) => text.split(/(\s+)/).filter((token) => token !== "");
-  return lcsDiff(tokenize(oldText), tokenize(newText));
-}

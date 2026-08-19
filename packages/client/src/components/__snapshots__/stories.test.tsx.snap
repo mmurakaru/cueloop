@@ -1549,3 +1549,23 @@ exports[`stories catalog theme-context/ProviderSwap renders, snapshots, and carr
                                                                                 
 "
 `;
+
+exports[`stories catalog DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: DiffSheet/IntralineWordDiff 1`] = `
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│ ▎■ src/store.ts                                                                        │
+│  @@ -1,4 +1,4 @@                                                                       │
+│   1  export class Store {                                                              │
+│   2 -  private items = [];                                                             │
+│   2 +  private items = new Map();                                                      │
+│   3  }                                                                                 │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+"
+`;

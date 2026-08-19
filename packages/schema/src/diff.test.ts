@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { lcsDiff, unifiedDiff, unifiedDiffText, editStats, wordDiff } from "./diff";
+import { lcsDiff, unifiedDiff, unifiedDiffText, editStats } from "./diff";
 
 describe("unifiedDiff", () => {
   test("equal inputs return null, not an empty diff", () => {
@@ -69,19 +69,6 @@ describe("unifiedDiff", () => {
 describe("editStats", () => {
   test("counts added and removed lines", () => {
     expect(editStats("a\nb\nc", "a\nx\nc\nd")).toEqual({ added: 2, removed: 1 });
-  });
-});
-
-describe("wordDiff", () => {
-  test("preserves whitespace tokens and reconstructs both sides", () => {
-    // Act
-    const ops = wordDiff("the quick brown fox", "the slow brown foxes");
-
-    // Assert
-    const oldSide = ops.filter((op) => op.kind !== "add").map((op) => op.oldValue).join("");
-    const newSide = ops.filter((op) => op.kind !== "del").map((op) => op.newValue).join("");
-    expect(oldSide).toBe("the quick brown fox");
-    expect(newSide).toBe("the slow brown foxes");
   });
 });
 

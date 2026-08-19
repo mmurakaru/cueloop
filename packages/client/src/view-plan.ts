@@ -12,10 +12,10 @@ import {
   lcsDiff,
   parseBlocks,
   resolveAnchor,
-  wordDiff,
   type Annotation,
   type Block,
 } from "@cueloop/schema";
+import { wordLevelChanges } from "./diff-intraline";
 
 // ── display model ─────────────────────────────
 
@@ -188,15 +188,15 @@ export function marksByDisplay(
 /** Base runs for a display block: plain text, or word-diff for mod blocks. */
 export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
   if (block.type === "mod" && markup) {
-    const ops = wordDiff(block.base!.text, block.work!.text);
+    const changes = wordLevelChanges(block.base!.text, block.work!.text);
     const runs: StyleRun[] = [];
     let workOffset = 0;
-    for (const op of ops) {
-      if (op.kind === "del") {
-        runs.push({ text: op.oldValue!, role: "del", start: null });
+    for (const change of changes) {
+      if (change.kind === "removed") {
+        runs.push({ text: change.text, role: "del", start: null });
       } else {
-        runs.push({ text: op.newValue!, role: op.kind === "add" ? "ins" : "plain", start: workOffset });
-        workOffset += op.newValue!.length;
+        runs.push({ text: change.text, role: change.kind === "added" ? "ins" : "plain", start: workOffset });
+        workOffset += change.text.length;
       }
     }
     return runs;

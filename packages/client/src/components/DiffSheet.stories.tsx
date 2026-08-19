@@ -12,6 +12,14 @@ export const SignedRows: Story = {
   size: { width: 90, height: 16 },
 };
 
+// A modified line keeps the diff color on the changed words and dims the
+// unchanged prefix to the dim token, so the intra-line change stands out.
+export const IntralineWordDiff: Story = {
+  render: () => <DiffSheet rows={fixtureDiffRows()} cursor={0} annotations={[]} />,
+  expectedColors: [DARK.insertedForeground, DARK.deletedForeground, DARK.textDim],
+  size: { width: 90, height: 16 },
+};
+
 export const CursorOnAddedLine: Story = {
   render: () => <DiffSheet rows={fixtureDiffRows()} cursor={4} annotations={[]} />,
   expectedColors: [DARK.cursorBackground],
