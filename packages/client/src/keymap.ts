@@ -221,8 +221,8 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
     if (!state.cursorAnnotatable) return status("move to a code line to comment");
     return [{ type: "openCompose", kind: "comment", from: "cursor" }];
   }
-  // curation: cut rejects the change under the cursor, reject_hunk the whole
-  // hunk; both write the working copy, so they gate on owner like a plan edit
+  // cut rejects the change under the cursor, reject_hunk the whole hunk; both
+  // write the working copy, so they gate on owner like a plan edit.
   if (action === "cut" || action === "reject_hunk") {
     if (state.resolved) return status("review submitted - read-only");
     if (state.canEditPlan === false) return status("only the diff owner can curate hunks");

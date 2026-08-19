@@ -39,6 +39,7 @@ import {
   hunkRejectionForRow,
   isRowRejected,
   parseFileDiff,
+  rejectsWholeHunk,
   sameRejection,
   type HunkRejection,
 } from "./diff-hunk-curate";
@@ -448,10 +449,7 @@ class Controller implements ReviewController {
     if (!located) return;
     const target = hunkRejectionForRow(located.row.file, located.model, located.row);
     if (!target) return this.setStatus("no hunk under the cursor");
-    const wholeHunk = (rejection: HunkRejection): boolean =>
-      rejection.path === target.path &&
-      rejection.hunkIndex === target.hunkIndex &&
-      rejection.changeIndex === undefined;
+    const wholeHunk = (rejection: HunkRejection): boolean => rejectsWholeHunk(rejection, target);
     if (this.rejections.some(wholeHunk)) {
       this.rejections = this.rejections.filter((rejection) => !wholeHunk(rejection));
       this.setStatus("hunk restored");
@@ -474,12 +472,7 @@ class Controller implements ReviewController {
       return this.setStatus("move to a changed line to reject a change");
     const target = changeRejectionForRow(located.row.file, located.model, located.row);
     if (!target) return this.setStatus("no change under the cursor");
-    const wholeCovers = this.rejections.some(
-      (rejection) =>
-        rejection.path === target.path &&
-        rejection.hunkIndex === target.hunkIndex &&
-        rejection.changeIndex === undefined,
-    );
+    const wholeCovers = this.rejections.some((rejection) => rejectsWholeHunk(rejection, target));
     if (wholeCovers) return this.setStatus("the whole hunk is rejected - restore it first");
     if (this.rejections.some((rejection) => sameRejection(rejection, target))) {
       this.rejections = this.rejections.filter((rejection) => !sameRejection(rejection, target));

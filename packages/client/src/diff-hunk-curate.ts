@@ -36,8 +36,10 @@ export interface LocatedLine {
 
 /**
  * Context lines around each change. Matching git's default (3) makes the model
- * split hunks exactly as the rendered working-tree patch does, so a cursor row
- * maps to the same hunk the reviewer sees.
+ * split hunks like the rendered working-tree patch does; git's coalescing can
+ * still merge adjacent hunks differently, but the row is mapped by absolute line
+ * number (not by counting hunks), so a whole-hunk reject can only ever span the
+ * model hunk it lands in - never the wrong file or a crash.
  */
 const DIFF_CONTEXT = 3;
 
@@ -133,6 +135,15 @@ export function sameRejection(left: HunkRejection, right: HunkRejection): boolea
   );
 }
 
+/** Whether `rejection` drops the whole hunk that `target` sits in. */
+export function rejectsWholeHunk(rejection: HunkRejection, target: HunkRejection): boolean {
+  return (
+    rejection.path === target.path &&
+    rejection.hunkIndex === target.hunkIndex &&
+    rejection.changeIndex === undefined
+  );
+}
+
 /** Whether a change row is dropped by the current decisions (for dimming). */
 export function isRowRejected(
   path: string,
@@ -163,7 +174,9 @@ export function isRowRejected(
 function curateFilePatch(file: DiffFileContents, rejections: HunkRejection[]): string | null {
   let model = parseFileDiff(file);
   const wholeHunks = new Set(
-    rejections.filter((rejection) => rejection.changeIndex === undefined).map((r) => r.hunkIndex),
+    rejections
+      .filter((rejection) => rejection.changeIndex === undefined)
+      .map((rejection) => rejection.hunkIndex),
   );
   for (const hunkIndex of [...wholeHunks].sort((a, b) => b - a)) {
     model = diffAcceptRejectHunk(model, hunkIndex, "reject");
@@ -181,7 +194,26 @@ function curateFilePatch(file: DiffFileContents, rejections: HunkRejection[]): s
   }
   const curatedNew = model.additionLines.join("");
   if (curatedNew === file.oldContents) return null;
-  return unifiedDiffText(file.oldContents, curatedNew, file.path);
+  const patch = unifiedDiffText(file.oldContents, curatedNew, file.path);
+  if (patch === null) return null;
+  return withFileStateHeaders(patch, file.path, file.oldContents, curatedNew);
+}
+
+/**
+ * Point the diff headers at /dev/null for a created or deleted file so the
+ * curated patch applies. A rename is not represented (DiffFileContents carries
+ * no previous name); it degrades to a created file at the new path.
+ */
+function withFileStateHeaders(
+  patch: string,
+  path: string,
+  oldContents: string,
+  newContents: string,
+): string {
+  let headed = patch;
+  if (oldContents === "") headed = headed.replace(`--- a/${path}`, "--- /dev/null");
+  if (newContents === "") headed = headed.replace(`+++ b/${path}`, "+++ /dev/null");
+  return headed;
 }
 
 /**

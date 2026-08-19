@@ -269,3 +269,39 @@ describe("isRowRejected", () => {
     expect(rejected).toBe(false);
   });
 });
+
+describe("curateDiff file-state headers", () => {
+  test("an accepted created file points its old side at /dev/null", () => {
+    // Arrange - a new file has empty old contents
+    const created: DiffFileContents = {
+      path: "src/new.ts",
+      oldContents: "",
+      newContents: "one\ntwo\n",
+    };
+
+    // Act
+    const patch = curateDiff([created], []);
+
+    // Assert
+    expect(patch).toContain("--- /dev/null");
+    expect(patch).toContain("+++ b/src/new.ts");
+    expect(patch).toContain("+one");
+  });
+
+  test("an accepted deleted file points its new side at /dev/null", () => {
+    // Arrange - a deleted file has empty new contents
+    const deleted: DiffFileContents = {
+      path: "src/gone.ts",
+      oldContents: "one\ntwo\n",
+      newContents: "",
+    };
+
+    // Act
+    const patch = curateDiff([deleted], []);
+
+    // Assert
+    expect(patch).toContain("--- a/src/gone.ts");
+    expect(patch).toContain("+++ /dev/null");
+    expect(patch).toContain("-one");
+  });
+});
