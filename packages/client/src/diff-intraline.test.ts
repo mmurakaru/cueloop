@@ -108,8 +108,8 @@ describe("intralineRunsByRow", () => {
     expect(changedText(runsByRow.get(2)!)).toBe("ONE");
   });
 
-  test("a fully rewritten line marks the whole line changed on both sides", () => {
-    // Arrange
+  test("a fully rewritten single line marks the whole line changed on both sides", () => {
+    // Arrange - a lone deletion opposite a lone addition is unambiguously one edit
     const rows = [line("del", "aaa"), line("add", "zzz")];
 
     // Act
@@ -118,5 +118,47 @@ describe("intralineRunsByRow", () => {
     // Assert
     expect(changedText(runsByRow.get(0)!)).toBe("aaa");
     expect(changedText(runsByRow.get(1)!)).toBe("zzz");
+  });
+
+  test("in a shifted block, alignment matches the real counterpart, not by position", () => {
+    // Arrange - "beta gamma" is modified and an unrelated line sits at each end;
+    // positional pairing would word-diff "alpha" against "beta gamma delta"
+    const rows = [
+      line("del", "alpha"),
+      line("del", "beta gamma"),
+      line("add", "beta gamma delta"),
+      line("add", "zulu"),
+    ];
+
+    // Act
+    const runsByRow = intralineRunsByRow(rows);
+
+    // Assert
+    // the modified pair is found and word-diffed
+    expect(runsByRow.has(1)).toBe(true); // "beta gamma"
+    expect(runsByRow.has(2)).toBe(true); // "beta gamma delta"
+    expect(changedText(runsByRow.get(2)!).trim()).toBe("delta");
+    // the genuinely unrelated lines stay whole-line
+    expect(runsByRow.has(0)).toBe(false); // "alpha"
+    expect(runsByRow.has(3)).toBe(false); // "zulu"
+  });
+
+  test("in a multi-line block, related positional pairs still highlight the changed word", () => {
+    // Arrange - a same-shape 2x2 edit: each row lines up with its counterpart
+    const rows = [
+      line("del", "one two"),
+      line("del", "three four"),
+      line("add", "one TWO"),
+      line("add", "three FOUR"),
+    ];
+
+    // Act
+    const runsByRow = intralineRunsByRow(rows);
+
+    // Assert
+    expect(changedText(runsByRow.get(0)!)).toBe("two");
+    expect(changedText(runsByRow.get(1)!)).toBe("four");
+    expect(changedText(runsByRow.get(2)!)).toBe("TWO");
+    expect(changedText(runsByRow.get(3)!)).toBe("FOUR");
   });
 });
