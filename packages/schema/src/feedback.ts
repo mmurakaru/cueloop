@@ -9,6 +9,7 @@ import {
   isAddressed,
   isAgentNote,
   type Annotation,
+  type ArtifactType,
   type ReviewSession,
   type VerdictKind,
 } from "./types";
@@ -21,8 +22,11 @@ export interface FeedbackInput {
   summary: string;
   /** The submitted artifact content (latest revision). */
   artifactContent: string;
-  /** The reviewer's working copy; undefined = no direct edits. */
+  /** The reviewer's working copy; undefined = no direct edits. For a diff it is
+   *  the curated patch (accepted hunks); for a plan it is the edited source. */
   workingCopy?: string;
+  /** Artifact kind; defaults to "plan". A diff working copy is already a patch. */
+  artifactType?: ArtifactType;
   annotations: Annotation[];
   /** Path the agent knows the plan by, for direct reference. */
   planPath?: string;
@@ -40,7 +44,12 @@ export function renderFeedback(input: FeedbackInput): string {
   const annotations = input.annotations.filter(
     (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
   );
-  const blocks = parseBlocks(input.workingCopy ?? input.artifactContent);
+  const isDiff = input.artifactType === "diff";
+  // A diff's annotations anchor to the submitted patch rows; resolve against it,
+  // not the curated working copy (which may drop the rejected rows).
+  const blocks = parseBlocks(
+    isDiff ? input.artifactContent : (input.workingCopy ?? input.artifactContent),
+  );
   const lines: string[] = [];
   lines.push("# Review: " + input.verdictKind.replace("_", " "));
   lines.push("");
@@ -49,20 +58,41 @@ export function renderFeedback(input: FeedbackInput): string {
     lines.push("");
   }
 
-  const diff =
-    input.workingCopy !== undefined
-      ? unifiedDiffText(input.artifactContent, input.workingCopy, path)
-      : null;
-  if (diff) {
-    lines.push("## Plan edits");
+  let hasEdits = false;
+  if (isDiff && input.workingCopy !== undefined) {
+    // The diff working copy is already the curated patch - the accepted subset
+    // of the submitted changes - so hand it back verbatim, not a diff of diffs.
+    hasEdits = true;
+    lines.push("## Curated changes");
     lines.push("");
-    lines.push(`The reviewer edited ${path} directly. Apply this exact diff first;`);
-    lines.push("it is a unified diff against the version you submitted.");
+    if (input.workingCopy.trim()) {
+      lines.push("The reviewer accepted a subset of your proposed changes. Apply this");
+      lines.push("exact unified diff; it replaces what you submitted.");
+      lines.push("");
+      lines.push("```diff");
+      lines.push(input.workingCopy);
+      lines.push("```");
+    } else {
+      lines.push("The reviewer rejected all of your proposed changes.");
+    }
     lines.push("");
-    lines.push("```diff");
-    lines.push(diff);
-    lines.push("```");
-    lines.push("");
+  } else {
+    const diff =
+      input.workingCopy !== undefined
+        ? unifiedDiffText(input.artifactContent, input.workingCopy, path)
+        : null;
+    if (diff) {
+      hasEdits = true;
+      lines.push("## Plan edits");
+      lines.push("");
+      lines.push(`The reviewer edited ${path} directly. Apply this exact diff first;`);
+      lines.push("it is a unified diff against the version you submitted.");
+      lines.push("");
+      lines.push("```diff");
+      lines.push(diff);
+      lines.push("```");
+      lines.push("");
+    }
   }
 
   if (annotations.length) {
@@ -111,7 +141,7 @@ export function renderFeedback(input: FeedbackInput): string {
     }
   }
 
-  if (!diff && !annotations.length) {
+  if (!hasEdits && !annotations.length) {
     lines.push("_No edits or annotations._");
     lines.push("");
   }
@@ -128,6 +158,7 @@ export function feedbackForSession(
     summary,
     artifactContent: session.artifact.content,
     workingCopy: session.workingCopy,
+    artifactType: session.artifact.type,
     annotations: session.annotations,
     planPath: session.artifact.meta.planPath,
     sessionId: session.id,
