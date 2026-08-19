@@ -7,17 +7,17 @@ next: { title: "Install & quickstart", href: "/docs/install/" }
 ---
 
 Coding agents move fast. cueloop puts a deliberate human gate between what the
-agent *proposes* and what it *does*. Instead of skimming a wall of text and
+agent _proposes_ and what it _does_. Instead of skimming a wall of text and
 hitting "yes", you open the plan or the diff in a real terminal UI, mark up the
 parts that matter, and hand back a structured verdict the agent can act on.
 
 ## The shape of it
 
-- **One primitive - the review session.** A review session pairs an *artifact*
-  (a plan, a working-tree diff, or a pull request) with *annotations* anchored
+- **One primitive - the review session.** A review session pairs an _artifact_
+  (a plan, a working-tree diff, or a pull request) with _annotations_ anchored
   to the exact text they discuss. Everything else is built on it.
 - **Two directions of feedback.** You review your agent's work and send a
-  verdict back to the agent. Separately, you can *share* a plan with a teammate
+  verdict back to the agent. Separately, you can _share_ a plan with a teammate
   over SSH and merge their annotations back into yours.
 - **No browser, no account.** A local daemon speaks over a unix socket; the UI
   is an [OpenTUI](https://github.com/sst/opentui) React app. Sharing runs over
@@ -32,6 +32,6 @@ parts that matter, and hand back a structured verdict the agent can act on.
 
 <div class="callout">
   <div class="callout__label">Terminal-first</div>
-  cueloop never opens a browser. If it happens in cueloop, it happens in a
-  terminal - locally, or over SSH on someone else's.
+  cueloop never opens a browser. If it happens in cueloop, it happens in a terminal - locally, or
+  over SSH on someone else's.
 </div>

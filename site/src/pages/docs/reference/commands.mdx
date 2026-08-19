@@ -26,7 +26,7 @@ cueloop review <pr>     # pull a pull request in and review it
 - **`cueloop plan`** opens the latest pending plan review. Pass an id or title to
   address a specific one.
 - **`cueloop diff`** is dual-mode: on a dirty working tree with no argument it
-  *creates* a review from the current changes (untracked files included); with a
+  _creates_ a review from the current changes (untracked files included); with a
   selector, or on a clean tree, it opens the latest pending diff review.
 - **`cueloop review <pr>`** is dual-mode too: a bare `review` (or `--latest` /
   `--open` / a `ses_…` id) opens a pending pull-request review, while any other
@@ -95,7 +95,6 @@ the daemon on demand.
 
 <div class="callout">
   <div class="callout__label">Exit codes</div>
-  <code>0</code> success · <code>1</code> a runtime failure (no pending review,
-  a <code>gh</code> error, nothing to share) · <code>2</code> a usage error (a
-  missing argument or unknown command).
+  <code>0</code> success · <code>1</code> a runtime failure (no pending review, a <code>gh</code>{" "}
+  error, nothing to share) · <code>2</code> a usage error (a missing argument or unknown command).
 </div>

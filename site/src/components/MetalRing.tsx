@@ -273,11 +273,7 @@ export default function MetalRing({
     // One shared fullscreen triangle.
     const buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    gl.bufferData(
-      gl.ARRAY_BUFFER,
-      new Float32Array([-1, -1, 3, -1, -1, 3]),
-      gl.STATIC_DRAW,
-    );
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     for (const program of [plasmaProgram, compositeProgram]) {
       const position = gl.getAttribLocation(program, "a_position");
       gl.enableVertexAttribArray(position);
@@ -288,8 +284,15 @@ export default function MetalRing({
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(
-      gl.TEXTURE_2D, 0, gl.RGBA, PLASMA_SIZE, PLASMA_SIZE, 0,
-      gl.RGBA, gl.UNSIGNED_BYTE, null,
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      PLASMA_SIZE,
+      PLASMA_SIZE,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      null,
     );
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -297,11 +300,8 @@ export default function MetalRing({
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     const framebuffer = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    gl.framebufferTexture2D(
-      gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0,
-    );
-    const complete =
-      gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+    const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     if (!complete) return;
 
@@ -317,8 +317,7 @@ export default function MetalRing({
       complexity: plasmaUniform("u_complexity"),
       blur: plasmaUniform("u_blur"),
     };
-    const compositeUniform = (name: string) =>
-      gl!.getUniformLocation(compositeProgram, name);
+    const compositeUniform = (name: string) => gl!.getUniformLocation(compositeProgram, name);
     const compositeLocations = {
       plasma: compositeUniform("u_plasma"),
       resolution: compositeUniform("u_resolution"),
@@ -373,10 +372,7 @@ export default function MetalRing({
       const preset = CHROMATIC[themeRef.current];
 
       gl!.useProgram(plasmaProgram);
-      gl!.uniform1f(
-        plasmaLocations.time,
-        ((performance.now() - start) / 1000) * preset.speed,
-      );
+      gl!.uniform1f(plasmaLocations.time, ((performance.now() - start) / 1000) * preset.speed);
       gl!.bindFramebuffer(gl!.FRAMEBUFFER, framebuffer);
       gl!.viewport(0, 0, PLASMA_SIZE, PLASMA_SIZE);
       gl!.drawArrays(gl!.TRIANGLES, 0, 3);

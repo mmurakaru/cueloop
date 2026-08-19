@@ -154,7 +154,9 @@ body {
   background-image: radial-gradient(var(--dot-grid) 1px, transparent 1px);
   background-size: 22px 22px;
   background-position: -1px -1px;
-  transition: background-color 0.3s var(--ease), color 0.3s var(--ease);
+  transition:
+    background-color 0.3s var(--ease),
+    color 0.3s var(--ease);
 }
 
 h1,
@@ -237,16 +239,30 @@ pre {
 .crop {
   --m: 7px;
   --mc: var(--hairline-strong);
-  background-image: linear-gradient(var(--mc), var(--mc)),
+  background-image:
     linear-gradient(var(--mc), var(--mc)), linear-gradient(var(--mc), var(--mc)),
     linear-gradient(var(--mc), var(--mc)), linear-gradient(var(--mc), var(--mc)),
     linear-gradient(var(--mc), var(--mc)), linear-gradient(var(--mc), var(--mc)),
-    linear-gradient(var(--mc), var(--mc));
+    linear-gradient(var(--mc), var(--mc)), linear-gradient(var(--mc), var(--mc));
   background-repeat: no-repeat;
-  background-size: var(--m) 1px, 1px var(--m), var(--m) 1px, 1px var(--m),
-    var(--m) 1px, 1px var(--m), var(--m) 1px, 1px var(--m);
-  background-position: top left, top left, top right, top right, bottom left,
-    bottom left, bottom right, bottom right;
+  background-size:
+    var(--m) 1px,
+    1px var(--m),
+    var(--m) 1px,
+    1px var(--m),
+    var(--m) 1px,
+    1px var(--m),
+    var(--m) 1px,
+    1px var(--m);
+  background-position:
+    top left,
+    top left,
+    top right,
+    top right,
+    bottom left,
+    bottom left,
+    bottom right,
+    bottom right;
 }
 
 /* ---- Mono eyebrow, framed by crop-marks ---- */
@@ -286,7 +302,9 @@ pre {
   color: var(--btn-fg);
   text-decoration: none;
   cursor: pointer;
-  transition: transform 0.15s var(--ease), background-color 0.2s var(--ease),
+  transition:
+    transform 0.15s var(--ease),
+    background-color 0.2s var(--ease),
     border-color 0.2s var(--ease);
 }
 
@@ -324,7 +342,8 @@ pre {
   border: 1px solid var(--hairline-strong);
   overflow: hidden;
   text-align: left;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
     0 24px 60px -30px rgba(20, 18, 12, 0.55);
   font-family: var(--font-mono);
   color: var(--term-ink);
@@ -768,7 +787,9 @@ pre {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
+  transition:
+    border-color 0.15s var(--ease),
+    color 0.15s var(--ease);
 }
 
 .theme-toggle[data-hovered] {
@@ -873,9 +894,21 @@ pre {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(38% 52% at 22% 28%, color-mix(in srgb, var(--accent) 62%, transparent), transparent 72%),
-    radial-gradient(42% 48% at 82% 22%, color-mix(in srgb, #f4f2ec 40%, transparent), transparent 72%),
-    radial-gradient(52% 60% at 62% 96%, color-mix(in srgb, var(--accent) 48%, transparent), transparent 74%);
+    radial-gradient(
+      38% 52% at 22% 28%,
+      color-mix(in srgb, var(--accent) 62%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      42% 48% at 82% 22%,
+      color-mix(in srgb, #f4f2ec 40%, transparent),
+      transparent 72%
+    ),
+    radial-gradient(
+      52% 60% at 62% 96%,
+      color-mix(in srgb, var(--accent) 48%, transparent),
+      transparent 74%
+    );
   filter: blur(38px) saturate(125%);
   opacity: 0.85;
 }
@@ -1060,7 +1093,9 @@ pre {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: color 0.15s var(--ease), border-color 0.15s var(--ease);
+  transition:
+    color 0.15s var(--ease),
+    border-color 0.15s var(--ease);
 }
 .copy-command__btn[data-hovered] {
   color: var(--accent);
@@ -1093,7 +1128,9 @@ pre {
   cursor: pointer;
   outline: none;
   white-space: nowrap;
-  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+  transition:
+    color 0.15s var(--ease),
+    background 0.15s var(--ease);
 }
 .install__tab[data-hovered] {
   color: var(--ink);
@@ -1159,7 +1196,9 @@ pre {
   text-transform: uppercase;
   cursor: pointer;
   flex-shrink: 0;
-  transition: color 0.15s var(--ease), border-color 0.15s var(--ease);
+  transition:
+    color 0.15s var(--ease),
+    border-color 0.15s var(--ease);
 }
 .install__copy[data-hovered] {
   color: var(--accent);
@@ -1320,13 +1359,30 @@ pre {
   }
   @keyframes docs-nav-fade {
     0% {
-      -webkit-mask-image: linear-gradient(to bottom, #000, #000 calc(100% - var(--fade)), transparent);
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        #000,
+        #000 calc(100% - var(--fade)),
+        transparent
+      );
       mask-image: linear-gradient(to bottom, #000, #000 calc(100% - var(--fade)), transparent);
     }
     2%,
     98% {
-      -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
-      mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000 calc(100% - var(--fade)), transparent);
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        #000 var(--fade),
+        #000 calc(100% - var(--fade)),
+        transparent
+      );
+      mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        #000 var(--fade),
+        #000 calc(100% - var(--fade)),
+        transparent
+      );
     }
     100% {
       -webkit-mask-image: linear-gradient(to bottom, transparent, #000 var(--fade), #000);
@@ -1433,7 +1489,9 @@ pre {
   text-decoration: none;
   font-size: 0.875rem;
   line-height: 1.35;
-  transition: color 0.12s var(--ease), background 0.12s var(--ease);
+  transition:
+    color 0.12s var(--ease),
+    background 0.12s var(--ease);
 }
 .docs-link:hover {
   color: var(--ink);
@@ -1477,7 +1535,9 @@ pre {
   text-decoration: none;
   font-size: var(--step--1);
   line-height: 1.35;
-  transition: color 0.12s var(--ease), border-color 0.12s var(--ease);
+  transition:
+    color 0.12s var(--ease),
+    border-color 0.12s var(--ease);
 }
 .toc__link:hover {
   color: var(--ink-soft);
@@ -1504,7 +1564,9 @@ pre {
   border: 1px solid transparent;
   border-radius: 10px;
   background: transparent;
-  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+  transition:
+    border-color 0.2s var(--ease),
+    background 0.2s var(--ease);
 }
 /* Expanded: the wrapper becomes the field chip. It stays the icon's height
  * (no vertical padding) so the row never grows taller than the icon. */
@@ -1526,7 +1588,9 @@ pre {
   background: var(--paper-raised);
   color: var(--ink-soft);
   cursor: pointer;
-  transition: border-color 0.15s var(--ease), color 0.15s var(--ease);
+  transition:
+    border-color 0.15s var(--ease),
+    color 0.15s var(--ease);
 }
 .search-box:not(.is-expanded) .search-box__icon:hover {
   border-color: var(--hairline-strong);
@@ -1549,7 +1613,9 @@ pre {
   font-size: var(--step--1);
   color: var(--ink);
   pointer-events: none;
-  transition: width 0.28s var(--ease), opacity 0.18s var(--ease);
+  transition:
+    width 0.28s var(--ease),
+    opacity 0.18s var(--ease);
 }
 .search-box.is-expanded .search-box__input {
   width: 15rem;
@@ -1583,7 +1649,9 @@ pre {
   box-shadow: 0 24px 60px -30px rgba(20, 18, 12, 0.45);
   overflow: hidden;
   z-index: 60;
-  transition: opacity 0.16s var(--ease), transform 0.16s var(--ease);
+  transition:
+    opacity 0.16s var(--ease),
+    transform 0.16s var(--ease);
 }
 @starting-style {
   .search-pop {
@@ -1823,7 +1891,9 @@ pre {
   background: var(--paper-raised);
   color: var(--ink-soft);
   cursor: pointer;
-  transition: color 0.12s var(--ease), background 0.12s var(--ease);
+  transition:
+    color 0.12s var(--ease),
+    background 0.12s var(--ease);
 }
 .copypage__toggle {
   display: inline-flex;
@@ -1834,7 +1904,9 @@ pre {
   background: var(--paper-raised);
   color: var(--ink-faint);
   cursor: pointer;
-  transition: color 0.12s var(--ease), background 0.12s var(--ease);
+  transition:
+    color 0.12s var(--ease),
+    background 0.12s var(--ease);
 }
 .copypage__main[data-hovered],
 .copypage__toggle[data-hovered] {
@@ -1894,7 +1966,9 @@ pre {
   background: transparent;
   color: var(--ink-faint);
   cursor: pointer;
-  transition: color 0.12s var(--ease), background 0.12s var(--ease);
+  transition:
+    color 0.12s var(--ease),
+    background 0.12s var(--ease);
 }
 .docs-nav-trigger::before {
   content: "";
@@ -1908,7 +1982,9 @@ pre {
 
 .docs-aside {
   overflow-x: hidden;
-  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease),
+  transition:
+    opacity 0.25s var(--ease),
+    transform 0.25s var(--ease),
     display 0.25s allow-discrete;
 }
 .docs-shell.is-nav-collapsed {
@@ -2089,7 +2165,9 @@ pre {
   text-transform: uppercase;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.12s var(--ease), color 0.12s var(--ease);
+  transition:
+    opacity 0.12s var(--ease),
+    color 0.12s var(--ease);
 }
 .docs-content .prose pre:hover .code-copy,
 .code-copy:focus-visible {

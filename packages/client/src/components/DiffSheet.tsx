@@ -175,8 +175,7 @@ function DiffChunk({
                 ? tokens.markCommentBackground
                 : undefined;
             const prefix = (lineIndex > 0 ? "\n" : "") + sign;
-            // A paired add/del line dims its context and keeps full color on the
-            // changed words; unpaired lines stay a single full-color span.
+            // Paired lines dim context and color the changed words; unpaired stay one span.
             const runs = intralineByRow.get(segment.firstRowIndex + lineIndex);
             if (!runs) {
               return (
