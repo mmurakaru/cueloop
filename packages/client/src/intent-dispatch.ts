@@ -265,6 +265,10 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
         return controller.share();
       case "cut":
         return controller.cut(cursor);
+      case "rejectHunk":
+        return controller.toggleRejectHunk(cursor);
+      case "rejectChange":
+        return controller.toggleRejectChange(cursor);
       case "edit":
         return runEditorHandOff();
       case "editCard":

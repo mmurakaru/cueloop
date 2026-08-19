@@ -99,14 +99,59 @@ describe("diff review", () => {
     expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
   });
 
-  test("plan verbs are guarded in diff sessions", async () => {
+  test("suggest stays a plan-only verb in diff sessions", async () => {
     // Arrange
+    const setup = await renderApp();
+
+    // Act
+    await press(setup, "s");
+
+    // Assert
+    await waitForText(setup, "plan-only verb");
+  });
+
+  test("curation needs full file contents; a legacy diff answers", async () => {
+    // Arrange - the session carries no artifact.files
     const setup = await renderApp();
 
     // Act
     await press(setup, "x");
 
     // Assert
-    await waitForText(setup, "plan-only verb");
+    await waitForText(setup, "hunk curation needs full file contents");
+  });
+
+  test("rejecting the only change empties the curated working copy", async () => {
+    // Arrange - a diff session that carries full file contents
+    const withFiles = server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: {
+        type: "diff",
+        content: PATCH,
+        meta: { title: "working tree" },
+        files: [
+          {
+            path: "src/store.ts",
+            oldContents: "export class Store {\n  private items = [];\n}\n",
+            newContents: "export class Store {\n  private items = new Map();\n}\n",
+          },
+        ],
+      },
+    });
+    const setup = await testRender(<App home={home} sessionId={withFiles.id} />, {
+      width: 120,
+      height: 30,
+    });
+    await waitForText(setup, "cueloop");
+
+    // Act - move to the added line and reject its change
+    // rows: file(0), hunk(1), ctx(2), del(3), add(4)
+    for (let i = 0; i < 4; i++) await press(setup, "j");
+    await press(setup, "x");
+
+    // Assert - the single change is gone, so the curated working copy is empty
+    await waitForText(setup, "change rejected");
+    const stored = server.core.sessionGet(withFiles.id);
+    expect(stored.workingCopy).toBe("");
   });
 });

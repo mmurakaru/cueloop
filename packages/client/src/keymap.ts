@@ -25,6 +25,8 @@ export type Intent =
   | { type: "cut" }
   | { type: "edit" }
   | { type: "editCard" }
+  | { type: "rejectHunk" }
+  | { type: "rejectChange" }
   | { type: "nextAnnotation" }
   | { type: "prevAnnotation" }
   | { type: "walkStart" }
@@ -96,6 +98,7 @@ const MUTATING_ACTIONS = new Set([
   "submit",
   "walk",
   "share",
+  "reject_hunk",
 ]);
 
 const SPAN_KEYS = new Set(["l", "h", "w", "b", "$", "0"]);
@@ -218,9 +221,16 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
     if (!state.cursorAnnotatable) return status("move to a code line to comment");
     return [{ type: "openCompose", kind: "comment", from: "cursor" }];
   }
+  // curation: cut rejects the change under the cursor, reject_hunk the whole
+  // hunk; both write the working copy, so they gate on owner like a plan edit
+  if (action === "cut" || action === "reject_hunk") {
+    if (state.resolved) return status("review submitted - read-only");
+    if (state.canEditPlan === false) return status("only the diff owner can curate hunks");
+    return [{ type: action === "reject_hunk" ? "rejectHunk" : "rejectChange" }];
+  }
   const shared = annotationCluster(state, action);
   if (shared) return shared;
-  if (action === "span" || action === "cut" || action === "edit" || action === "suggest") {
+  if (action === "span" || action === "edit" || action === "suggest") {
     return status("plan-only verb - diff review uses c on a line");
   }
   return [];

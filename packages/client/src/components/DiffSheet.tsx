@@ -8,7 +8,12 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import type { LineNumberRenderable, LineSign, ScrollBoxRenderable } from "@opentui/core";
+import {
+  createTextAttributes,
+  type LineNumberRenderable,
+  type LineSign,
+  type ScrollBoxRenderable,
+} from "@opentui/core";
 import type { Annotation } from "@cueloop/schema";
 import type { DiffRow } from "../view-diff";
 import type { Theme } from "../theme";
@@ -22,6 +27,12 @@ import { colorForSyntaxGroup } from "./syntax-highlight";
 
 /** Shared empty map so an unresolved/stale highlight state is a stable value. */
 const EMPTY_SYNTAX: Map<number, SyntaxSpan[]> = new Map();
+
+/** Shared empty set so "nothing rejected" is a stable identity for renders. */
+const EMPTY_REJECTED: Set<number> = new Set();
+
+/** A rejected (curated-out) change row renders struck through and dimmed. */
+const REJECTED_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
 
 /**
  * Colored spans for one row, resolved per character: an intra-line changed word
@@ -81,6 +92,8 @@ export interface DiffSheetProps {
   cursor: number;
   annotations: Annotation[];
   focusedAnnotationId?: string;
+  /** Row indices the owner rejected during curation; drawn struck through. */
+  rejectedRows?: Set<number>;
   compose?: DiffComposeState | null;
   theme?: Theme;
 }
@@ -137,6 +150,7 @@ function DiffChunk({
   focusedAnnotationId,
   intralineByRow,
   syntaxByRow,
+  rejectedRows,
   theme,
 }: {
   segment: Extract<DiffSegment, { kind: "chunk" }>;
@@ -144,6 +158,7 @@ function DiffChunk({
   focusedAnnotationId?: string;
   intralineByRow: Map<number, IntralineRun[]>;
   syntaxByRow: Map<number, SyntaxSpan[]>;
+  rejectedRows: Set<number>;
   theme?: Theme;
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -229,6 +244,21 @@ function DiffChunk({
                 : undefined;
             const prefix = (lineIndex > 0 ? "\n" : "") + sign;
             const absoluteRowIndex = segment.firstRowIndex + lineIndex;
+            const rejected = rejectedRows.has(absoluteRowIndex);
+            // a rejected change collapses to one struck-through, dimmed span, so
+            // it reads as excluded regardless of its syntax or intra-line colors
+            if (rejected) {
+              return (
+                <span
+                  key={lineIndex}
+                  fg={tokens.textDim}
+                  bg={rowBackground}
+                  attributes={REJECTED_ATTRIBUTES}
+                >
+                  {prefix + rowLine(row)}
+                </span>
+              );
+            }
             const spans = rowColorSpans(
               rowLine(row),
               intralineByRow.get(absoluteRowIndex),
@@ -268,6 +298,7 @@ export function DiffSheet({
   cursor,
   annotations,
   focusedAnnotationId,
+  rejectedRows = EMPTY_REJECTED,
   compose,
   theme,
 }: DiffSheetProps): React.ReactNode {
@@ -393,6 +424,7 @@ export function DiffSheet({
                 focusedAnnotationId={focusedAnnotationId}
                 intralineByRow={intralineByRow}
                 syntaxByRow={syntaxByRow}
+                rejectedRows={rejectedRows}
                 theme={theme}
               />
               {compose && compose.rowIndex === lastRowIndex ? (

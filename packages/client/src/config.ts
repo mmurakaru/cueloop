@@ -49,6 +49,7 @@ export const DEFAULT_KEYS: Record<string, string[]> = {
   comment: ["c"],
   suggest: ["s"],
   cut: ["x"],
+  reject_hunk: ["X"],
   edit: ["e"],
   next_annotation: ["n"],
   prev_annotation: ["p"],
