@@ -95,6 +95,8 @@ review. See `AGENTS.md` for dev-loop conventions and the test pyramid.
 | [`@cueloop/client`](https://www.npmjs.com/package/@cueloop/client) | the review UI |
 | [`@cueloop/extension-api`](https://www.npmjs.com/package/@cueloop/extension-api) | the typed extension contract |
 | [`@cueloop/adapters`](https://www.npmjs.com/package/@cueloop/adapters) | Claude Code and pi adapters (Codex planned) |
+| [`@cueloop/integration-obsidian`](https://www.npmjs.com/package/@cueloop/integration-obsidian) | the Obsidian vault export integration |
+| [`@cueloop/gateway`](./packages/gateway) | the SSH sharing gateway (internal, not published) |
 
 Apache-2.0. Contributions: every PR ships a changeset (`bunx changeset`) - see
 [AGENTS.md](./AGENTS.md). The design
