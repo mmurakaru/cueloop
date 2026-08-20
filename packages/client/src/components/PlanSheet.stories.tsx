@@ -95,6 +95,7 @@ export const MarkerToolbar: Story = {
         view: "toolbar",
         actions: DEFAULT_QUICK_ACTIONS,
         actionIndex: 0,
+        canCut: true,
         ...popoverCallbacks,
       }}
       editOrphanCount={0}
@@ -120,6 +121,7 @@ export const MarkerActionsList: Story = {
         view: "actions",
         actions: DEFAULT_QUICK_ACTIONS,
         actionIndex: 1,
+        canCut: true,
         ...popoverCallbacks,
       }}
       editOrphanCount={0}

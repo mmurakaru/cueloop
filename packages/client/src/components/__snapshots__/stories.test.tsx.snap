@@ -586,6 +586,14 @@ exports[`stories catalog MarkerPopover/Toolbar renders, snapshots, and carries i
 "
 `;
 
+exports[`stories catalog MarkerPopover/ToolbarNoCut renders, snapshots, and carries its colors: MarkerPopover/ToolbarNoCut 1`] = `
+"  comment · actions · [x]                                   
+                                                            
+                                                            
+                                                            
+"
+`;
+
 exports[`stories catalog MenuBar/Closed renders, snapshots, and carries its colors: MenuBar/Closed 1`] = `
 "                                                            
                                                             

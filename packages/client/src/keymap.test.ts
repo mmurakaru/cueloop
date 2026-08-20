@@ -327,14 +327,15 @@ describe("span mode", () => {
     expect(reduceKey(collaborator, key("x"))).toEqual([]);
   });
 
-  test("span-mode cut is blocked once the review is resolved", () => {
+  test("all span-mode mutations are blocked once the review is resolved", () => {
     // Arrange
     const resolved = state({ spanMode: true, resolved: true });
+    const readOnlyStatus: Intent[] = [{ type: "status", message: "review submitted - read-only" }];
 
-    // Assert
-    expect(reduceKey(resolved, key("x"))).toEqual([
-      { type: "status", message: "review submitted - read-only" },
-    ]);
+    // Assert - comment, cut, and quick-actions all answer read-only
+    expect(reduceKey(resolved, key("x"))).toEqual(readOnlyStatus);
+    expect(reduceKey(resolved, key("c"))).toEqual(readOnlyStatus);
+    expect(reduceKey(resolved, key("a"))).toEqual(readOnlyStatus);
   });
 
   test("span-mode cut gates for an observer even when cut is rebound off x", () => {

@@ -33,7 +33,7 @@ export interface QuickAction {
   metadata?: string;
 }
 
-/** The `a` quick-actions list when no `[[actions]]` are configured (XP/Fowler prompts). */
+/** The built-in quick-actions for the marker popover when no `[[actions]]` are configured. */
 export const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
   { prompt: "Needs a test" },
   { prompt: "YAGNI - needed now?" },

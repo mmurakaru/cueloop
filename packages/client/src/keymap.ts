@@ -262,17 +262,17 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 function spanGrammar(state: KeyState, name: string): Intent[] {
   if (name === "escape") return [{ type: "closeOverlay" }];
   if (SPAN_KEYS.has(name)) return [{ type: "spanKey", name }];
-  if (name === "c") {
-    return [{ type: "openCompose", kind: "comment", from: "span" }];
-  }
-  // partial-span cut is not in the working-copy model, so cut removes the whole
-  // block the span sits in; owner-only and blocked once resolved, like plan cut
-  if (name === "x") {
+  // c comments, x cuts, a opens quick-actions - all mutate, so a resolved
+  // review is read-only, like the plan grammar
+  if (name === "c" || name === "x" || name === "a") {
     if (state.resolved) return status("review submitted - read-only");
+    if (name === "c") return [{ type: "openCompose", kind: "comment", from: "span" }];
+    if (name === "a") return [{ type: "openSpanActions" }];
+    // partial-span cut is not in the working-copy model, so cut removes the
+    // whole block the span sits in; owner-only, like plan cut
     if (state.canEditPlan === false) return [];
     return [{ type: "spanCut" }];
   }
-  if (name === "a") return [{ type: "openSpanActions" }];
   return [];
 }
 

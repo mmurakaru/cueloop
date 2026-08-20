@@ -729,9 +729,14 @@ export function App({
         { displayIndex: mode.displayIndex, start: mode.start, end: mode.end }
       : null;
 
+  // mouse mutations bypass reduceKey, so they replay its gates: an observer or a
+  // resolved review is read-only. Returns the status to answer with, or null.
+  const spanMutationBlock = (): string | null =>
+    observer ? "observer - read-only" : resolved ? "review submitted - read-only" : null;
+
   // the marker-actions popover is span mode made visible: an inline toolbar at
-  // the marked block, or its quick-actions list. Mutating clicks answer
-  // read-only for an observer, mirroring the keyboard gate in reduceKey.
+  // the marked block, or its quick-actions list. Cut is owner-only (hidden for a
+  // collaborator, like every other plan-edit affordance).
   const popoverState =
     markedSpan && !isDiff
       ? {
@@ -739,21 +744,27 @@ export function App({
           view: mode.type === "spanActions" ? ("actions" as const) : ("toolbar" as const),
           actions: quickActions,
           actionIndex: mode.type === "spanActions" ? mode.index : 0,
+          canCut: isOwner,
           onComment: () => {
-            if (observer) return controller.setStatus("observer - read-only");
+            const blocked = spanMutationBlock();
+            if (blocked) return controller.setStatus(blocked);
             dispatch({ type: "openCompose", kind: "comment", from: "span" });
           },
           onCut: () => {
-            if (observer) return controller.setStatus("observer - read-only");
+            const blocked = spanMutationBlock();
+            if (blocked) return controller.setStatus(blocked);
+            if (!isOwner) return;
             dispatch({ type: "spanCut" });
           },
           onOpenActions: () => {
-            if (observer) return controller.setStatus("observer - read-only");
+            const blocked = spanMutationBlock();
+            if (blocked) return controller.setStatus(blocked);
             dispatch({ type: "openSpanActions" });
           },
           onClose: () => dispatch({ type: "closeOverlay" }),
           onPickAction: (index: number) => {
-            if (observer) return controller.setStatus("observer - read-only");
+            const blocked = spanMutationBlock();
+            if (blocked) return controller.setStatus(blocked);
             dispatch({ type: "pickSpanAction", index });
           },
           onBack: () => dispatch({ type: "closeSpanActions" }),

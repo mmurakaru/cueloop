@@ -17,15 +17,41 @@ const callbacks = {
 
 export const Toolbar: Story = {
   render: () => (
-    <MarkerPopover view="toolbar" actions={DEFAULT_QUICK_ACTIONS} actionIndex={0} {...callbacks} />
+    <MarkerPopover
+      view="toolbar"
+      actions={DEFAULT_QUICK_ACTIONS}
+      actionIndex={0}
+      canCut
+      {...callbacks}
+    />
   ),
   expectedColors: [DARK.accent, DARK.red, DARK.textMuted, DARK.textDim],
   size: { width: 60, height: 4 },
 };
 
+export const ToolbarNoCut: Story = {
+  render: () => (
+    <MarkerPopover
+      view="toolbar"
+      actions={DEFAULT_QUICK_ACTIONS}
+      actionIndex={0}
+      canCut={false}
+      {...callbacks}
+    />
+  ),
+  expectedColors: [DARK.accent, DARK.textMuted, DARK.textDim],
+  size: { width: 60, height: 4 },
+};
+
 export const ActionsList: Story = {
   render: () => (
-    <MarkerPopover view="actions" actions={DEFAULT_QUICK_ACTIONS} actionIndex={2} {...callbacks} />
+    <MarkerPopover
+      view="actions"
+      actions={DEFAULT_QUICK_ACTIONS}
+      actionIndex={2}
+      canCut
+      {...callbacks}
+    />
   ),
   expectedColors: [DARK.accent, DARK.textMuted, DARK.textDim],
   size: { width: 60, height: 8 },

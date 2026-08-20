@@ -18,6 +18,8 @@ export interface MarkerPopoverProps {
   actions: QuickAction[];
   /** Highlighted action in the list (accent); ignored in toolbar view. */
   actionIndex: number;
+  /** Show the cut affordance: owner-only, like every other plan-edit control. */
+  canCut: boolean;
   onComment: () => void;
   onCut: () => void;
   onOpenActions: () => void;
@@ -31,6 +33,7 @@ export function MarkerPopover({
   view,
   actions,
   actionIndex,
+  canCut,
   onComment,
   onCut,
   onOpenActions,
@@ -47,10 +50,14 @@ export function MarkerPopover({
           comment
         </text>
         <text fg={tokens.textDim}> · </text>
-        <text fg={tokens.red} onMouseUp={onCut}>
-          cut
-        </text>
-        <text fg={tokens.textDim}> · </text>
+        {canCut ? (
+          <>
+            <text fg={tokens.red} onMouseUp={onCut}>
+              cut
+            </text>
+            <text fg={tokens.textDim}> · </text>
+          </>
+        ) : null}
         <text fg={tokens.textMuted} onMouseUp={onOpenActions}>
           actions
         </text>
