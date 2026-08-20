@@ -59,6 +59,7 @@ auto_close = "off"        # "off", 0 (instant), or N seconds
 editor = "nvim"           # overrides $EDITOR for the edit action
 review_width = 34          # review panel width in columns (24-50)
 review_state = "expanded" # "expanded", "compact", or "hidden"
+theme = "cueloop"         # a built-in theme preset (see below)
 ```
 
 | Key            | Type                                | Default    | Meaning                                                                         |
@@ -67,11 +68,19 @@ review_state = "expanded" # "expanded", "compact", or "hidden"
 | `editor`       | string                              | `$EDITOR`  | editor for long annotation bodies                                               |
 | `review_width` | number, clamped 24-50               | `34`       | width of the expanded review panel                                              |
 | `review_state` | `expanded` \| `compact` \| `hidden` | `expanded` | review panel mode                                                               |
+| `theme`        | a preset name (see `[theme]`)       | `cueloop`  | the built-in color theme; also settable in Settings › Appearance                |
 
 `review_width` and `review_state` also persist as you adjust them in the UI, so
 your last layout carries over between runs.
 
 ## `[theme]`
+
+Pick a built-in theme with `[ui] theme`, then override individual tokens here.
+The presets are `cueloop` (the branded default, transparent so your terminal
+background shows through), `rose-pine-moon`, `catppuccin-mocha`, `tokyo-night`,
+`gruvbox-dark`, and `nord` (each paints its own opaque background). A `[theme]`
+override layers on top of the chosen preset, so a hand-tuned token survives a
+theme switch.
 
 Override any theme token with a colour string. Unset tokens keep their default.
 
