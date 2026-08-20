@@ -238,6 +238,18 @@ describe("plan normal mode", () => {
     expect(reduceKey(resolvedState, key("backspace"))).toEqual([]);
   });
 
+  test("u restores a rail removal (a cut block); a share viewer's is silent", () => {
+    // Assert - the undo intent leaves the target to the dispatcher
+    expect(reduceKey(state(), key("u"))).toEqual([{ type: "restoreCuration" }]);
+    expect(reduceKey(state({ resolved: true }), key("u"))).toEqual([
+      { type: "status", message: "review submitted - read-only" },
+    ]);
+    expect(reduceKey(state({ canEditPlan: false }), key("u"))).toEqual([]);
+    expect(reduceKey(state({ readOnly: true }), key("u"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+  });
+
   test("cut text cannot host a comment or a span", () => {
     // Arrange
     const cut = state({ cursorAnnotatable: false });
@@ -335,6 +347,20 @@ describe("diff mode", () => {
     ]);
     // an observer's mutating attempt is stopped by the read-only gate
     expect(reduceKey(state({ view: "diff", readOnly: true }), key("x"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+  });
+
+  test("u restores a curated-out item, owner-only and locked once resolved", () => {
+    // Assert - the undo intent leaves the target to the dispatcher
+    expect(reduceKey(keyState, key("u"))).toEqual([{ type: "restoreCuration" }]);
+    expect(reduceKey(state({ view: "diff", resolved: true }), key("u"))).toEqual([
+      { type: "status", message: "review submitted - read-only" },
+    ]);
+    expect(reduceKey(state({ view: "diff", canEditPlan: false }), key("u"))).toEqual([
+      { type: "status", message: "only the diff owner can curate hunks" },
+    ]);
+    expect(reduceKey(state({ view: "diff", readOnly: true }), key("u"))).toEqual([
       { type: "status", message: "observer - read-only" },
     ]);
   });

@@ -34,3 +34,9 @@ export const UnknownLanguage: Story = {
     <CodeBlock language="brainfog" content={"plain verbatim lines\n  with indentation"} />
   ),
 };
+
+/** A cut code block: struck-through gray content, no [cut] tag. */
+export const Cut: Story = {
+  render: () => <CodeBlock language="ts" content={SNIPPET} cut />,
+  expectedColors: [DARK.elevated],
+};

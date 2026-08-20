@@ -1,10 +1,38 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
 exports[`stories catalog AnnotationCard/CommentDraft renders, snapshots, and carries its colors: AnnotationCard/CommentDraft 1`] = `
-"  ╭─ comment on "persists sessions" ─────────────────────────────────────────╮  
-  │ Which daemon?                                                            │  
-  │  Save    Cancel esc                                                      │  
-  ╰──────────────────────────────────────────────────────────────────────────╯  
+"╭─ comment on "persists sessions" ─────────────────────────────────────────────╮
+│ Which daemon?                                                                │
+│  Save    Cancel                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog AnnotationCard/SavedCollaborator renders, snapshots, and carries its colors: AnnotationCard/SavedCollaborator 1`] = `
+"╭─ COMMENT · Priya ────────────────────────────────────────────────────────────╮
+│ "persists sessions"                                                          │
+│ Which daemon owns this?                                                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
                                                                                 
                                                                                 
                                                                                 
@@ -29,11 +57,11 @@ exports[`stories catalog AnnotationCard/CommentDraft renders, snapshots, and car
 `;
 
 exports[`stories catalog AnnotationCard/SavedEditing renders, snapshots, and carries its colors: AnnotationCard/SavedEditing 1`] = `
-"▸ SUGGESTION · pending                                                          
-  "move the store"                                                              
-new body                                                                        
- Save    Cancel esc                                                             
-                                                                                
+"╭─ SUGGESTION · me ────────────────────────────────────────────────────────────╮
+│ "move the store"                                                             │
+│ new body                                                                     │
+│  Save    Cancel                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
                                                                                 
                                                                                 
                                                                                 
@@ -57,10 +85,10 @@ new body
 `;
 
 exports[`stories catalog AnnotationCard/SavedOrphanBlocking renders, snapshots, and carries its colors: AnnotationCard/SavedOrphanBlocking 1`] = `
-"  COMMENT · BLOCKING · ORPHANED                                                 
-  "a removed passage"                                                           
-  The passage is gone.                                                          
-                                                                                
+"╭─ COMMENT · me · BLOCKING · ORPHANED ─────────────────────────────────────────╮
+│ "a removed passage"                                                          │
+│ The passage is gone.                                                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
                                                                                 
                                                                                 
                                                                                 
@@ -85,10 +113,10 @@ exports[`stories catalog AnnotationCard/SavedOrphanBlocking renders, snapshots, 
 `;
 
 exports[`stories catalog AnnotationCard/SavedSelected renders, snapshots, and carries its colors: AnnotationCard/SavedSelected 1`] = `
-"▸ COMMENT · pending                                                             
-  "persists sessions"                                                           
-  Which daemon owns this?                                                       
-                                                                                
+"╭─ COMMENT · me ───────────────────────────────────────────────────────────────╮
+│ "persists sessions"                                                          │
+│ Which daemon owns this?                                                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
                                                                                 
                                                                                 
                                                                                 
@@ -113,10 +141,10 @@ exports[`stories catalog AnnotationCard/SavedSelected renders, snapshots, and ca
 `;
 
 exports[`stories catalog AnnotationCard/SuggestionDraft renders, snapshots, and carries its colors: AnnotationCard/SuggestionDraft 1`] = `
-"  ╭─ suggest replacement for "move the store" ───────────────────────────────╮  
-  │ write a note...                                                          │  
-  │  Save    Cancel esc                                                      │  
-  ╰──────────────────────────────────────────────────────────────────────────╯  
+"╭─ suggest replacement for "move the store" ───────────────────────────────────╮
+│ write a note...                                                              │
+│  Save    Cancel                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
                                                                                 
                                                                                 
                                                                                 
@@ -176,6 +204,34 @@ exports[`stories catalog CodeBlock/CursorAnnotatedEdited renders, snapshots, and
       // threshold                                                              
       return full < 0.6 ? "blocked" : "clear";                                  
     }                                                                           
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog CodeBlock/Cut renders, snapshots, and carries its colors: CodeBlock/Cut 1`] = `
+"  ts                                                                            
+                                                                                
+    export function gate(full: number) {                                        
+      // threshold                                                              
+      return full < 0.6 ? "blocked" : "clear";                                  
+    }                                                                           
+                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -409,10 +465,10 @@ exports[`stories catalog DiffSheet/ComposingOnLine renders, snapshots, and carri
 │    1  export class Store {                                                             │
 │    2 -  private items = [];                                                            │
 │ ▎  2 +  private items = new Map();                                                     │
-│   ╭─ comment on "  private items = new Map();" ─────────────────────────────────────╮  │
-│   │ Map needs an eviction story.                                                    │  │
-│   │  Save    Cancel esc                                                             │  │
-│   ╰─────────────────────────────────────────────────────────────────────────────────╯  │
+│ ╭─ comment on "  private items = new Map();" ─────────────────────────────────────────╮│
+│ │ Map needs an eviction story.                                                        ││
+│ │  Save    Cancel                                                                     ││
+│ ╰─────────────────────────────────────────────────────────────────────────────────────╯│
 │   3  }                                                                                 │
 │                                                                                        │
 │                                                                                        │
@@ -430,6 +486,26 @@ exports[`stories catalog DiffSheet/CursorOnAddedLine renders, snapshots, and car
 │    2 -  private items = [];                                                            │
 │ ▎  2 +  private items = new Map();                                                     │
 │    3  }                                                                                │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+"
+`;
+
+exports[`stories catalog DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: DiffSheet/IntralineWordDiff 1`] = `
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│ ▎■ src/store.ts                                                                        │
+│  @@ -1,4 +1,4 @@                                                                       │
+│   1  export class Store {                                                              │
+│   2 -  private items = [];                                                             │
+│   2 +  private items = new Map();                                                      │
+│   3  }                                                                                 │
 │                                                                                        │
 │                                                                                        │
 │                                                                                        │
@@ -464,28 +540,28 @@ exports[`stories catalog DiffSheet/SignedRows renders, snapshots, and carries it
 
 exports[`stories catalog InboxList/Empty renders, snapshots, and carries its colors: InboxList/Empty 1`] = `
 "                                                                                
- cueloop · inbox (0 pending)                                                    
-                                                                                
  nothing waiting for review                                                     
                                                                                 
                                                                                 
-  j/k move · enter open · d delete · q quit                                     
+                                                                                
+                                                                                
+                                                                                
                                                                                 
 "
 `;
 
 exports[`stories catalog InboxList/TwoPending renders, snapshots, and carries its colors: InboxList/TwoPending 1`] = `
 "                                                                                
- cueloop · inbox (2 pending)                                                    
-                                                                                
- ▸ Migration Plan · main · plan                                                 
+ > Migration Plan · main · plan                                                 
    working tree · main · diff                                                   
                                                                                 
                                                                                 
                                                                                 
                                                                                 
                                                                                 
-  j/k move · enter open · d delete · q quit                                     
+                                                                                
+                                                                                
+                                                                                
                                                                                 
 "
 `;
@@ -581,10 +657,10 @@ exports[`stories catalog PlanSheet/InlineCompose renders, snapshots, and carries
 │   Context                                                                              │
 │                                                                                        │
 │ ▎ The daemon persists sessions to disk atomically.                                     │
-│   ╭─ comment on "The daemon" ───────────────────────────────────────────────────────╮  │
-│   │ Which daemon?                                                                   │  │
-│   │  Save    Cancel esc                                                             │  │
-│   ╰─────────────────────────────────────────────────────────────────────────────────╯  │
+│ ╭─ comment on "The daemon" ───────────────────────────────────────────────────────────╮│
+│ │ Which daemon?                                                                       ││
+│ │  Save    Cancel                                                                     ││
+│ ╰─────────────────────────────────────────────────────────────────────────────────────╯│
 │                                                                                        │
 │   Steps                                                                                │
 │                                                                                        │
@@ -647,6 +723,38 @@ exports[`stories catalog PlanSheet/SpanSelection renders, snapshots, and carries
 │   Context                                                                              │
 │                                                                                        │
 │ ▎ The daemon persists sessions to disk atomically.                                     │
+│                                                                                        │
+│   Steps                                                                                │
+│                                                                                        │
+│   - move the store                                                                     │
+│   - add recovery                                                                       │
+│                                                                                        │
+│   ts                                                                                   │
+│                                                                                        │
+│     export function persist(session: Session): void {                                  │
+│       // one JSON document per session                                                 │
+│       writeAtomically(pathFor(session.id), serialize(session));                        │
+│     }                                                                                  │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+"
+`;
+
+exports[`stories catalog PlanSheet/WithCutBlock renders, snapshots, and carries its colors: PlanSheet/WithCutBlock 1`] = `
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│ ▎ Migration Plan                                                                       │
+│                                                                                        │
+│   Context                                                                              │
+│                                                                                        │
+│   The daemon persists sessions to disk atomically.                                     │
 │                                                                                        │
 │   Steps                                                                                │
 │                                                                                        │
@@ -744,14 +852,14 @@ exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carr
 " The plan takes the width the panel hands back.          ╭─────────────────────╮
                                                          │ Review  Agent       │
                                                          ╰─────────────────────╯
-                                                         ▸ COMMENT · pending    
-                                                           "persists sessions"  
-                                                           Which daemon owns    
-                                                         this?                  
-                                                           SUGGESTION · pending 
-                                                           "move the store"     
-                                                           move the store       
-                                                         behind one i…          
+                                                         ╭─ COMMENT · me ──────╮
+                                                         │ Whichidaemonsownss" │
+                                                         │ this?               │
+                                                         ╰─────────────────────╯
+                                                         ╭─ SUGGESTION · me ───╮
+                                                         │ moveetheestoree"    │
+                                                         │ behind o…           │
+                                                         ╰─────────────────────╯
                                                                                 
                                                                                 
                                                                                 
@@ -772,14 +880,14 @@ exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carrie
 " The plan takes the width the panel      ╭───────────────────────────────────────────────╮
  hands back.                             │ Review  Agent                                 │
                                          ╰───────────────────────────────────────────────╯
-                                         ▸ COMMENT · pending                              
-                                           "persists sessions"                            
-                                           Which daemon owns this?                        
-                                           SUGGESTION · pending                           
-                                           "move the store"                               
-                                           move the store behind one i…                   
-                                                                                          
-                                                                                          
+                                         ╭─ COMMENT · me ────────────────────────────────╮
+                                         │ "persists sessions"                           │
+                                         │ Which daemon owns this?                       │
+                                         ╰───────────────────────────────────────────────╯
+                                         ╭─ SUGGESTION · me ─────────────────────────────╮
+                                         │ "move the store"                              │
+                                         │ move the store behind o…                      │
+                                         ╰───────────────────────────────────────────────╯
                                                                                           
                                                                                           
                                                                                           
@@ -856,17 +964,45 @@ exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carr
 " ╭───────────────────────────────╮      
  │ Review  Agent                 │      
  ╰───────────────────────────────╯      
- ▸ COMMENT · pending                    
-   "persists sessions"                  
-   Which daemon owns this?              
-   SUGGESTION · pending                 
-   "move the store"                     
-   move the store behind one i…         
+ ╭─ COMMENT · me ────────────────╮      
+ │ "persists sessions"           │      
+ │ Which daemon owns this?       │      
+ ╰───────────────────────────────╯      
+ ╭─ SUGGESTION · me ─────────────╮      
+ │ "move the store"              │      
+ │ move the store behind o…      │      
+ ╰───────────────────────────────╯      
                                         
                                         
                                         
                                         
                                         
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+ Submit review                          
+                                        
+"
+`;
+
+exports[`stories catalog ReviewRail/InterleavedStack renders, snapshots, and carries its colors: ReviewRail/InterleavedStack 1`] = `
+" ╭───────────────────────────────╮      
+ │ Review  Agent                 │      
+ ╰───────────────────────────────╯      
+ ╭─ CUT · me ────────────────────╮      
+ │ - add recovery                │      
+ ╰───────────────────────────────╯      
+ ╭─ COMMENT · me ────────────────╮      
+ │ "persists sessions"           │      
+ │ Which daemon owns this?       │      
+ ╰───────────────────────────────╯      
+ ╭─ SUGGESTION · me ─────────────╮      
+ │ "move the store"              │      
+ │ move the store behind o…      │      
+ ╰───────────────────────────────╯      
                                         
                                         
                                         
@@ -884,15 +1020,43 @@ exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and 
 " ╭───────────────────────────────╮      
  │ Review  Agent                 │      
  ╰───────────────────────────────╯      
- ╭─ me ──────────────────────────╮      
- │ ▸ COMMENT · pending           │      
+ ╭─ COMMENT · me ────────────────╮      
  │ "persists sessions"           │      
  │ Which daemon owns this?       │      
  ╰───────────────────────────────╯      
- ╭─ Priya ───────────────────────╮      
- │ SUGGESTION · pending          │      
+ ╭─ SUGGESTION · Priya ──────────╮      
  │ "move the store"              │      
  │ move it behind one inte…      │      
+ ╰───────────────────────────────╯      
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+ Submit review                          
+                                        
+"
+`;
+
+exports[`stories catalog ReviewRail/Removals renders, snapshots, and carries its colors: ReviewRail/Removals 1`] = `
+" ╭───────────────────────────────╮      
+ │ Review  Agent                 │      
+ ╰───────────────────────────────╯      
+ ╭─ REJECT · me ─────────────────╮      
+ │ -   private items = [];       │      
+ │ +   private items = new…      │      
+ │  undo                         │      
+ ╰───────────────────────────────╯      
+ ╭─ REJECT · me ─────────────────╮      
+ │ -   return null;              │      
+ │ +   return fallback();        │      
+ │ +   log(fallback);            │      
  ╰───────────────────────────────╯      
                                         
                                         
@@ -912,14 +1076,14 @@ exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its
 " ╭───────────────────────────────╮      
  │ Review  Agent                 │      
  ╰───────────────────────────────╯      
-   COMMENT · ORPHANED                   
-   "persists sessions"                  
-   Which daemon owns this?              
-   SUGGESTION · ORPHANED                
-   "move the store"                     
-   move the store behind one i…         
-                                        
-                                        
+ ╭─ COMMENT · me · ORPHANED ─────╮      
+ │ "persists sessions"           │      
+ │ Which daemon owns this?       │      
+ ╰───────────────────────────────╯      
+ ╭─ SUGGESTION · me · ORPHANED ──╮      
+ │ "move the store"              │      
+ │ move the store behind o…      │      
+ ╰───────────────────────────────╯      
                                         
                                         
                                         
@@ -940,14 +1104,14 @@ exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and ca
 " ╭───────────────────────────────╮      
  │ Review  Agent                 │      
  ╰───────────────────────────────╯      
-   COMMENT · ORPHANED                   
-   "persists sessions"                  
-   Which daemon owns this?              
-   SUGGESTION · ORPHANED                
-   "move the store"                     
-   move the store behind one i…         
-                                        
-                                        
+ ╭─ COMMENT · me · ORPHANED ─────╮      
+ │ "persists sessions"           │      
+ │ Which daemon owns this?       │      
+ ╰───────────────────────────────╯      
+ ╭─ SUGGESTION · me · ORPHANED ──╮      
+ │ "move the store"              │      
+ │ move the store behind o…      │      
+ ╰───────────────────────────────╯      
                                         
                                         
                                         
@@ -970,6 +1134,40 @@ exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and ca
 "
 `;
 
+exports[`stories catalog SettingsDialog/AppearanceThemed renders, snapshots, and carries its colors: SettingsDialog/AppearanceThemed 1`] = `
+"                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+            ╭─ Settings ───────────────────────────────────────────────────────────────╮            
+            │ SETTINGS            Appearance                                           │            
+            │   General           the color theme                                      │            
+            │   Display                                                                │            
+            │ › Appearance         Theme                    Rosé Pine Moon             │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │                                                                          │            
+            │ j/k row · l/space change · h back · esc close                            │            
+            ╰──────────────────────────────────────────────────────────────────────────╯            
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+"
+`;
+
 exports[`stories catalog SettingsDialog/BodyZone renders, snapshots, and carries its colors: SettingsDialog/BodyZone 1`] = `
 "                                                                                                    
                                                                                                     
@@ -979,7 +1177,7 @@ exports[`stories catalog SettingsDialog/BodyZone renders, snapshots, and carries
             │ SETTINGS            Display                                              │            
             │   General           plan width and chrome                                │            
             │ › Display                                                                │            
-            │                      Plan width               default                    │            
+            │   Appearance         Plan width               default                    │            
             │                      Line numbers             on                         │            
             │                                                                          │            
             │                                                                          │            
@@ -1013,7 +1211,7 @@ exports[`stories catalog SettingsDialog/NavZone renders, snapshots, and carries 
             │ SETTINGS            General                                              │            
             │ › General           identity and submission                              │            
             │   Display                                                                │            
-            │                      Display name             amber-heron                │            
+            │   Appearance         Display name             amber-heron                │            
             │                      Auto-close on submit     3s                         │            
             │                                                                          │            
             │                                                                          │            
@@ -1547,25 +1745,5 @@ exports[`stories catalog theme-context/ProviderSwap renders, snapshots, and carr
                                                                                 
                                                                                 
                                                                                 
-"
-`;
-
-exports[`stories catalog DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: DiffSheet/IntralineWordDiff 1`] = `
-"╭────────────────────────────────────────────────────────────────────────────────────────╮
-│ ▎■ src/store.ts                                                                        │
-│  @@ -1,4 +1,4 @@                                                                       │
-│   1  export class Store {                                                              │
-│   2 -  private items = [];                                                             │
-│   2 +  private items = new Map();                                                      │
-│   3  }                                                                                 │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
 "
 `;

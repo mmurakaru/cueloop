@@ -1,9 +1,9 @@
 /**
  * Layered TOML config: built-in defaults → user config → trusted repo
  * config → env. Sections: [keys] action = "combo" (every action rebindable),
- * [theme] per-token overrides, [ui] auto_close + editor + the review-panel
- * layout (review_width + review_state), [integrations.obsidian] notes-vault
- * export.
+ * [theme] per-token overrides, [ui] auto_close + editor + theme (a named
+ * preset) + the review-panel layout (review_width + review_state),
+ * [integrations.obsidian] notes-vault export.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -13,6 +13,7 @@ import { OBSIDIAN_DEFAULTS, type ObsidianConfig } from "@cueloop/integration-obs
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DARK, type Theme } from "./theme";
+import { DEFAULT_THEME_NAME, isThemeName, themeForName, type ThemeName } from "./theme-presets";
 import { REVIEW_DEFAULT_WIDTH, clampWidth, type ReviewPanelMode } from "./review-panel";
 
 export interface KeymapConfig {
@@ -33,7 +34,14 @@ export interface CueloopConfig {
    * ui.reviewState / ui.reviewWidth are CLIENT VIEW STATE: the review panel's
    * collapse mode and expanded-rail width, persisted so they survive restarts.
    */
-  ui: { autoClose: AutoClose; editor?: string; reviewState: ReviewPanelMode; reviewWidth: number };
+  ui: {
+    autoClose: AutoClose;
+    editor?: string;
+    reviewState: ReviewPanelMode;
+    reviewWidth: number;
+    /** The selected theme preset name; its tokens are the base for `theme`, before any `[theme]` overrides. */
+    theme: ThemeName;
+  };
   /** Planner-local author renames: identity id → display name ([authors] table). */
   authors: Record<string, string>;
   integrations: IntegrationsConfig;
@@ -50,6 +58,7 @@ export const DEFAULT_KEYS: Record<string, string[]> = {
   suggest: ["s"],
   cut: ["x"],
   reject_hunk: ["X"],
+  restore_curation: ["u"],
   edit: ["e"],
   next_annotation: ["n"],
   prev_annotation: ["p"],
@@ -90,8 +99,19 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
     }
   }
   const ui = raw["ui"] as
-    | { auto_close?: unknown; editor?: unknown; review_width?: unknown; review_state?: unknown }
+    | {
+        auto_close?: unknown;
+        editor?: unknown;
+        review_width?: unknown;
+        review_state?: unknown;
+        theme?: unknown;
+      }
     | undefined;
+  if (ui && typeof ui.theme === "string" && isThemeName(ui.theme)) {
+    out.ui.theme = ui.theme;
+    // the preset is the new base; this file's [theme] overrides still layer on below
+    out.theme = { ...themeForName(ui.theme) };
+  }
   if (ui && ui.auto_close !== undefined) {
     if (ui.auto_close === "off") out.ui.autoClose = "off";
     else if (typeof ui.auto_close === "number" && ui.auto_close >= 0)
@@ -141,7 +161,12 @@ export function loadConfig(
   let config: CueloopConfig = {
     keys: { ...DEFAULT_KEYS },
     theme: { ...DARK },
-    ui: { autoClose: "off", reviewState: "expanded", reviewWidth: REVIEW_DEFAULT_WIDTH },
+    ui: {
+      autoClose: "off",
+      reviewState: "expanded",
+      reviewWidth: REVIEW_DEFAULT_WIDTH,
+      theme: DEFAULT_THEME_NAME,
+    },
     authors: {},
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
   };
@@ -216,6 +241,11 @@ export function persistReviewWidth(width: number, userConfigPath?: string): void
 /** Persist the review-panel collapse mode (`[ui] review_state`) into the config. */
 export function persistReviewState(state: ReviewPanelMode, userConfigPath?: string): void {
   persistUiSetting("review_state", `"${state}"`, userConfigPath);
+}
+
+/** Persist the selected theme preset (`[ui] theme`) into the user config. */
+export function persistTheme(name: ThemeName, userConfigPath?: string): void {
+  persistUiSetting("theme", `"${name}"`, userConfigPath);
 }
 
 function escapeRegExp(text: string): string {

@@ -122,6 +122,75 @@ describe("diff hunk curation", () => {
     expect(sink.workingCopy).toBe("");
   });
 
+  test("a rejected change becomes a removal card with a change label, id, and preview", async () => {
+    // Arrange
+    const { controller } = await connected(diffSession(FILES));
+
+    // Act
+    controller.toggleRejectChange(4);
+    await tick();
+
+    // Assert - one item: diff source, labelled at the change's line, both lines previewed
+    const items = controller.curationItems();
+    expect(items.length).toBe(1);
+    expect(items[0]!.source).toBe("diff");
+    expect(items[0]!.label).toBe("src/store.ts:2 - change");
+    expect(items[0]!.id).toBe("diff:src/store.ts#0#1");
+    expect(items[0]!.revealIndex).toBe(3);
+    expect(items[0]!.preview).toEqual([
+      "-   private items = [];",
+      "+   private items = new Map();",
+    ]);
+  });
+
+  test("a rejected hunk becomes a removal card labelled at its first changed row", async () => {
+    // Arrange
+    const { controller } = await connected(diffSession(FILES));
+
+    // Act
+    controller.toggleRejectHunk(3);
+    await tick();
+
+    // Assert - the whole hunk, id diff:path#hunk#hunk
+    const items = controller.curationItems();
+    expect(items.length).toBe(1);
+    expect(items[0]!.source).toBe("diff");
+    expect(items[0]!.label).toBe("src/store.ts:2 - hunk");
+    expect(items[0]!.id).toBe("diff:src/store.ts#0#hunk");
+  });
+
+  test("restoreCuration drops the diff removal and reverts the working copy", async () => {
+    // Arrange - one change rejected
+    const { controller, sink } = await connected(diffSession(FILES));
+    controller.toggleRejectChange(4);
+    await tick();
+    const [item] = controller.curationItems();
+
+    // Act
+    controller.restoreCuration(item!.id);
+    await tick();
+
+    // Assert - the list empties and the working copy reverts to the full diff
+    expect(controller.getSnapshot().status).toContain("removal restored");
+    expect(controller.curationItems().length).toBe(0);
+    expect(sink.workingCopy).toBeUndefined();
+    expect(controller.rejectedRows().size).toBe(0);
+  });
+
+  test("restoreCuration ignores an unknown id", async () => {
+    // Arrange - one change rejected
+    const { controller } = await connected(diffSession(FILES));
+    controller.toggleRejectChange(4);
+    await tick();
+
+    // Act
+    controller.restoreCuration("diff:nope#0#0");
+    await tick();
+
+    // Assert - the item stays
+    expect(controller.curationItems().length).toBe(1);
+  });
+
   test("curation is disabled without full file contents", async () => {
     // Arrange - a legacy diff with no artifact.files
     const { controller, sink } = await connected(diffSession(undefined));
@@ -132,6 +201,56 @@ describe("diff hunk curation", () => {
 
     // Assert
     expect(controller.getSnapshot().status).toContain("hunk curation needs full file contents");
+    expect(sink.workingCopy).toBeUndefined();
+  });
+});
+
+const PLAN_CONTENT = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
+// the working copy with the "Second paragraph." block cut out
+const PLAN_CUT = "# Title\n\nFirst paragraph.\n";
+
+function planSession(workingCopy?: string): ReviewSession {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    id: "ses_plan",
+    workspace: { repoRoot: "/repo", branch: "main" },
+    artifact: { type: "plan", content: PLAN_CONTENT, meta: {} },
+    revisions: [{ revision: 1, content: PLAN_CONTENT, submittedAt: "2026-01-01T00:00:00.000Z" }],
+    annotations: [],
+    verdict: null,
+    status: "pending",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    workingCopy,
+  };
+}
+
+describe("plan cut removals", () => {
+  test("a cut block becomes a plan removal card previewing its content", async () => {
+    // Arrange - a plan whose working copy dropped the second paragraph
+    const { controller } = await connected(planSession(PLAN_CUT));
+
+    // Act
+    const items = controller.curationItems();
+
+    // Assert - one plan-source removal, keyed on the base line range, content previewed
+    expect(items.length).toBe(1);
+    expect(items[0]!.source).toBe("plan");
+    expect(items[0]!.id).toBe("plan:4-4");
+    expect(items[0]!.preview).toEqual(["Second paragraph."]);
+    expect(items[0]!.label).toBe("Title");
+  });
+
+  test("restoreCuration re-inserts the cut block and returns to pristine", async () => {
+    // Arrange
+    const { controller, sink } = await connected(planSession(PLAN_CUT));
+    const [item] = controller.curationItems();
+
+    // Act
+    controller.restoreCuration(item!.id);
+    await tick();
+
+    // Assert - restoring the only cut round-trips to the submitted revision
+    expect(controller.getSnapshot().status).toContain("removal restored");
     expect(sink.workingCopy).toBeUndefined();
   });
 });

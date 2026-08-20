@@ -32,7 +32,7 @@ import {
   shareIdFromLine,
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
-import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
+import { diffRowAnchor, diffRowLocation, diffRows, type DiffRow } from "./view-diff";
 import {
   changeRejectionForRow,
   curateDiff,
@@ -76,9 +76,37 @@ export const SHARE_POLL_MS = 4000;
 /** Shared empty set so "nothing rejected" is a stable identity for renders. */
 const EMPTY_REJECTED_ROWS: Set<number> = new Set();
 
+/** Shared empty list so "nothing curated out" is a stable identity for renders. */
+const EMPTY_CURATION_ITEMS: CurationItem[] = [];
+
 export interface ToastState {
   title?: string;
   body: string;
+}
+
+/**
+ * One removed piece projected for the review rail, unified across both review
+ * kinds: a diff hunk/change the owner curated out, or a plan block they cut.
+ * `source` tells restore and reveal which path to take; `preview` is the removed
+ * content (a few lines) the card renders struck through; `revealIndex` is the
+ * diff row (diff) or display block (plan) to scroll to and restore against.
+ */
+export interface CurationItem {
+  id: string;
+  source: "diff" | "plan";
+  label: string;
+  preview: string[];
+  revealIndex: number;
+}
+
+/** Stable id for a rejection's rail item: diff:path#hunk#change (or #hunk for a whole hunk). */
+export function curationItemId(rejection: HunkRejection): string {
+  return `diff:${rejection.path}#${rejection.hunkIndex}#${rejection.changeIndex ?? "hunk"}`;
+}
+
+/** Stable id for a plan cut's rail item, keyed on its fixed base-content line range. */
+function planCutId(base: { lineStart: number; lineEnd: number }): string {
+  return `plan:${base.lineStart}-${base.lineEnd}`;
 }
 
 export interface ControllerSnapshot {
@@ -150,6 +178,10 @@ export interface ReviewController {
   toggleRejectChange(rowIndex: number): void;
   /** Rendered row indices dropped by the current reject decisions (for dimming). */
   rejectedRows(): Set<number>;
+  /** The curated-out rejections as rail items, in the order they were rejected. */
+  curationItems(): CurationItem[];
+  /** Undo one curation item by id: drop the rejection and recompute the working copy. */
+  restoreCuration(id: string): void;
   /** The $EDITOR hand-off on the working copy. */
   edit(): void;
   /**
@@ -410,19 +442,27 @@ class Controller implements ReviewController {
     if (!block) return;
     const working = this.working();
     if (block.type === "del") {
-      const line = restoreLine(
-        nextWorkBlock(this.display(), displayIndex),
-        working.split("\n").length,
-      );
-      // restoreBlock returns undefined when the block structure round-trips
-      // to the submitted revision - the working copy is gone
-      const restored = restoreBlock(session.artifact.content, working, block.base!, line);
-      this.setWorkingCopy(restored);
-      this.setStatus("cut restored");
+      this.restoreDelBlock(block, displayIndex);
     } else if (block.work) {
       this.setWorkingCopy(cutBlock(working, block.work));
       this.setStatus("block cut - it serializes into the diff");
     }
+  }
+
+  /** Re-insert a cut plan block at the next surviving block's line (Cut toggle + rail undo). */
+  private restoreDelBlock(block: DisplayBlock, displayIndex: number): void {
+    const session = this.snapshot.session;
+    if (!session || !block.base) return;
+    const working = this.working();
+    const line = restoreLine(
+      nextWorkBlock(this.display(), displayIndex),
+      working.split("\n").length,
+    );
+    // restoreBlock returns undefined when the block structure round-trips to the
+    // submitted revision - the working copy is back to pristine and is dropped
+    const restored = restoreBlock(session.artifact.content, working, block.base, line);
+    this.setWorkingCopy(restored);
+    this.setStatus("removal restored");
   }
 
   // ── diff hunk curation ──────────────────────
@@ -503,6 +543,100 @@ class Controller implements ReviewController {
       if (model && isRowRejected(row.file, model, row, this.rejections)) rejected.add(index);
     });
     return rejected;
+  }
+
+  curationItems(): CurationItem[] {
+    this.ensureDerived();
+    const session = this.snapshot.session;
+    if (!session) return EMPTY_CURATION_ITEMS;
+    return session.artifact.type === "diff" ? this.diffCurationItems() : this.planCurationItems();
+  }
+
+  restoreCuration(id: string): void {
+    // diff rejections drop from the reject list; a plan cut re-inserts its block
+    if (id.startsWith("diff:")) {
+      const kept = this.rejections.filter((rejection) => curationItemId(rejection) !== id);
+      if (kept.length === this.rejections.length) return;
+      this.rejections = kept;
+      this.setStatus("removal restored");
+      this.recomputeCuration();
+      return;
+    }
+    const display = this.display();
+    const displayIndex = display.findIndex(
+      (block) => block.type === "del" && block.base && planCutId(block.base) === id,
+    );
+    if (displayIndex !== -1) this.restoreDelBlock(display[displayIndex]!, displayIndex);
+  }
+
+  /** The curated-out diff rejections as removal cards (newest decisions last). */
+  private diffCurationItems(): CurationItem[] {
+    if (!this.rejections.length) return EMPTY_CURATION_ITEMS;
+    const items: CurationItem[] = [];
+    for (const rejection of this.rejections) {
+      const rows = this.rowsForRejection(rejection);
+      const firstRow = rows[0];
+      const location = firstRow ? diffRowLocation(firstRow) : rejection.path;
+      const scope = rejection.changeIndex === undefined ? "hunk" : "change";
+      items.push({
+        id: curationItemId(rejection),
+        source: "diff",
+        label: `${location} - ${scope}`,
+        preview: rows.map(
+          (row) => `${row.kind === "add" ? "+" : "-"} ${row.text.replace(/\n$/, "")}`,
+        ),
+        revealIndex: firstRow ? this.derived.rows.indexOf(firstRow) : 0,
+      });
+    }
+    return items;
+  }
+
+  /** The cut plan blocks as removal cards, in document order. */
+  private planCurationItems(): CurationItem[] {
+    const items: CurationItem[] = [];
+    this.derived.display.forEach((block, displayIndex) => {
+      if (block.type !== "del" || !block.base) return;
+      items.push({
+        id: planCutId(block.base),
+        source: "plan",
+        label: this.planSectionLabel(this.derived.display, displayIndex),
+        preview: block.base.text.split("\n"),
+        revealIndex: displayIndex,
+      });
+    });
+    return items.length ? items : EMPTY_CURATION_ITEMS;
+  }
+
+  /** The change/deletion rows a rejection covers, for its preview and reveal row. */
+  private rowsForRejection(rejection: HunkRejection): DiffRow[] {
+    const model = this.derived.models.get(rejection.path);
+    if (!model) return [];
+    const rows: DiffRow[] = [];
+    for (const row of this.derived.rows) {
+      if (row.file !== rejection.path || (row.kind !== "add" && row.kind !== "del")) continue;
+      if (rejection.changeIndex === undefined) {
+        const target = hunkRejectionForRow(rejection.path, model, row);
+        if (target && target.hunkIndex === rejection.hunkIndex) rows.push(row);
+      } else {
+        const target = changeRejectionForRow(rejection.path, model, row);
+        if (target && sameRejection(target, rejection)) rows.push(row);
+      }
+    }
+    return rows;
+  }
+
+  /** The nearest heading above a cut block (or its own text when it is a heading). */
+  private planSectionLabel(display: DisplayBlock[], displayIndex: number): string {
+    const firstLine = (text: string): string => text.split("\n")[0] ?? "";
+    const isHeading = (kind: DisplayBlock["kind"]): boolean =>
+      kind === "h1" || kind === "h2" || kind === "h3";
+    const block = display[displayIndex]!;
+    if (isHeading(block.kind)) return firstLine((block.base ?? block.work)!.text);
+    for (let index = displayIndex - 1; index >= 0; index--) {
+      const candidate = display[index]!;
+      if (isHeading(candidate.kind)) return firstLine((candidate.work ?? candidate.base)!.text);
+    }
+    return "plan";
   }
 
   edit(): void {

@@ -214,7 +214,9 @@ function DiffChunk({
       </line-number>
 
       {segment.annotation ? (
-        <text>
+        // one row exactly: wrapMode none keeps the model's 1-line-per-card offset
+        // honest, so the cursor-follow scroll never drifts past a wrapped card
+        <text style={{ wrapMode: "none" }}>
           <span fg={tokens.textDim}>{"      "}</span>
           <span fg={segment.annotation.id === focusedAnnotationId ? tokens.text : tokens.accent}>
             ◆ {truncateToSingleLine(segment.annotation.body, 70)}
@@ -295,7 +297,7 @@ export function DiffSheet({
         paddingTop: 0,
       }}
     >
-      <scrollbox ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
+      <scrollbox id="diff-scroll" ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
         {segments.map((segment, segmentIndex) => {
           if (segment.kind === "header") {
             const isCursor = segment.rowIndex === cursor;
@@ -305,6 +307,7 @@ export function DiffSheet({
                   key={segmentIndex}
                   fg={tokens.text}
                   bg={isCursor ? tokens.cursorBackground : tokens.panel}
+                  style={{ wrapMode: "none" }}
                 >
                   {isCursor ? "▎" : " "}■ {rowLine(segment.row)}
                 </text>
@@ -315,6 +318,7 @@ export function DiffSheet({
                 key={segmentIndex}
                 fg={tokens.blue}
                 bg={isCursor ? tokens.cursorBackground : undefined}
+                style={{ wrapMode: "none" }}
               >
                 {isCursor ? "▎" : " "}
                 {rowLine(segment.row)}
