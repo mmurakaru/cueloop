@@ -8,7 +8,7 @@
  * which keeps quote anchors char-precise.
  */
 
-import React, { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useRenderer } from "@opentui/react";
 import { createTextAttributes, type ScrollBoxRenderable, type TextRenderable } from "@opentui/core";
 import type { ReviewSession } from "@cueloop/schema";
@@ -166,6 +166,26 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     },
   }));
 
+  // the popover floats above its block, anchored to the selection start; flip
+  // below when the block sits too near the viewport top to fit above it
+  const [popoverFlipBelow, setPopoverFlipBelow] = useState(false);
+  const [popoverLeft, setPopoverLeft] = useState(2);
+  useEffect(() => {
+    if (!popover) return;
+    const blockRef = blockRefs.current.get(popover.displayIndex);
+    const scrollbox = scrollRef.current;
+    if (!blockRef || !scrollbox) return;
+    // toolbar card (3 rows) + gap, plus the dropdown card when actions are open
+    const neededRows = 4 + (popover.view === "actions" ? popover.actions.length + 3 : 0);
+    setPopoverFlipBelow(blockRef.renderable.y - scrollbox.y < neededRows);
+    // left-anchor to the start of the selection: gutter width + its column
+    const startColumn =
+      activeSpan && activeSpan.displayIndex === popover.displayIndex
+        ? (renderedOffsetFor(blockRef.runs, activeSpan.start) ?? 0)
+        : 0;
+    setPopoverLeft(2 + startColumn);
+  }, [popover, activeSpan, display, cursor]);
+
   const registerBlock = (
     displayIndex: number,
     renderable: TextRenderable | null,
@@ -242,6 +262,21 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
               <span fg={tagColor(block, tokens)}> [{tagLabel(block)}]</span>
             ) : null}
           </text>
+          {popover && popover.displayIndex === displayIndex ? (
+            // float the card over the block, centered, with a one-row gap; flip
+            // below only when there is no room above (near the viewport top)
+            <box
+              style={{
+                position: "absolute",
+                left: popoverLeft,
+                ...(popoverFlipBelow ? { top: "100%" } : { bottom: "100%" }),
+                ...(popoverFlipBelow ? { marginTop: 1 } : { marginBottom: 1 }),
+                flexDirection: "column",
+              }}
+            >
+              <MarkerPopover {...popover} theme={theme} />
+            </box>
+          ) : null}
         </box>,
       );
     }
@@ -255,9 +290,6 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
           theme={theme}
         />,
       );
-    }
-    if (popover && popover.displayIndex === displayIndex) {
-      children.push(<MarkerPopover key={`popover-${displayIndex}`} {...popover} theme={theme} />);
     }
   }
 

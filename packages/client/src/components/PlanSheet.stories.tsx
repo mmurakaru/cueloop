@@ -4,20 +4,10 @@ import type { Story, StoryMeta } from "./story";
 import { buildDisplay } from "../view-plan";
 import { PlanSheet } from "./PlanSheet";
 import { FIXTURE_PLAN, fixtureDisplay, fixtureMarks, fixturePlanSession } from "./story-fixtures";
-import { DEFAULT_QUICK_ACTIONS } from "../config";
 
 export const meta: StoryMeta = { title: "PlanSheet" };
 
 const callbacks = { onLineActivate: () => {} };
-
-const popoverCallbacks = {
-  onComment: () => {},
-  onCut: () => {},
-  onOpenActions: () => {},
-  onClose: () => {},
-  onPickAction: () => {},
-  onBack: () => {},
-};
 
 // a working copy with the context paragraph cut, so it renders as a del block
 const CUT_WORKING = FIXTURE_PLAN.replace("The daemon persists sessions to disk atomically.\n", "");
@@ -81,56 +71,9 @@ export const InlineCompose: Story = {
 };
 
 /** Span mode shows the marker-actions toolbar inline below the marked block. */
-export const MarkerToolbar: Story = {
-  render: () => (
-    <PlanSheet
-      session={fixturePlanSession({ annotations: [] })}
-      display={fixtureDisplay()}
-      marks={new Map()}
-      cursor={2}
-      activeSpan={{ displayIndex: 2, start: 0, end: 10 }}
-      compose={null}
-      popover={{
-        displayIndex: 2,
-        view: "toolbar",
-        actions: DEFAULT_QUICK_ACTIONS,
-        actionIndex: 0,
-        canCut: true,
-        ...popoverCallbacks,
-      }}
-      editOrphanCount={0}
-      {...callbacks}
-    />
-  ),
-  expectedColors: [DARK.accent, DARK.red, DARK.textMuted],
-  size: { width: 90, height: 28 },
-};
-
-/** `a` opens the quick-actions list inline, one action highlighted. */
-export const MarkerActionsList: Story = {
-  render: () => (
-    <PlanSheet
-      session={fixturePlanSession({ annotations: [] })}
-      display={fixtureDisplay()}
-      marks={new Map()}
-      cursor={2}
-      activeSpan={{ displayIndex: 2, start: 0, end: 10 }}
-      compose={null}
-      popover={{
-        displayIndex: 2,
-        view: "actions",
-        actions: DEFAULT_QUICK_ACTIONS,
-        actionIndex: 1,
-        canCut: true,
-        ...popoverCallbacks,
-      }}
-      editOrphanCount={0}
-      {...callbacks}
-    />
-  ),
-  expectedColors: [DARK.accent, DARK.textMuted],
-  size: { width: 90, height: 30 },
-};
+// The marker popover floats as an absolute overlay; the virtual terminal used
+// for story snapshots cannot composite it, so it is covered by the standalone
+// MarkerPopover stories and a functional App test rather than a PlanSheet snapshot.
 
 /** A cut block renders struck-through and grayed inline - no red, no [cut] tag. */
 export const WithCutBlock: Story = {

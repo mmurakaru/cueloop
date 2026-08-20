@@ -567,29 +567,29 @@ exports[`stories catalog KeybindsDialog/Cheatsheet renders, snapshots, and carri
 `;
 
 exports[`stories catalog MarkerPopover/ActionsList renders, snapshots, and carries its colors: MarkerPopover/ActionsList 1`] = `
-"    Zoom out, research in depth                             
-    Restate simplified                                      
-  › Out of scope                                            
-    Let's chat about this                                   
-    Prototype this                                          
-    Ensure 0 regressions                                    
-    Consider existing repo patterns                         
-    ‹ back                                                  
+"╭───────────────────────────────╮                           
+│ comment · cut · actions · [x] │                           
+╰───────────────────────────────╯                           
+╭───────────────────────────────────╮                       
+│   Zoom out, research in depth     │                       
+│   Restate simplified              │                       
+│ › Out of scope                    │                       
+│   Let's chat about this           │                       
 "
 `;
 
 exports[`stories catalog MarkerPopover/Toolbar renders, snapshots, and carries its colors: MarkerPopover/Toolbar 1`] = `
-"  comment · cut · actions · [x]                             
-                                                            
-                                                            
+"╭───────────────────────────────╮                           
+│ comment · cut · actions · [x] │                           
+╰───────────────────────────────╯                           
                                                             
 "
 `;
 
 exports[`stories catalog MarkerPopover/ToolbarNoCut renders, snapshots, and carries its colors: MarkerPopover/ToolbarNoCut 1`] = `
-"  comment · actions · [x]                                   
-                                                            
-                                                            
+"╭─────────────────────────╮                                 
+│ comment · actions · [x] │                                 
+╰─────────────────────────╯                                 
                                                             
 "
 `;
@@ -673,72 +673,6 @@ exports[`stories catalog PlanSheet/InlineCompose renders, snapshots, and carries
 │       // one JSON document per session                                                 │
 │       writeAtomically(pathFor(session.id), serialize(session));                        │
 │     }                                                                                  │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
-"
-`;
-
-exports[`stories catalog PlanSheet/MarkerActionsList renders, snapshots, and carries its colors: PlanSheet/MarkerActionsList 1`] = `
-"╭────────────────────────────────────────────────────────────────────────────────────────╮
-│   Migration Plan                                                                       │
-│                                                                                        │
-│   Context                                                                              │
-│                                                                                        │
-│ ▎ The daemon persists sessions to disk atomically.                                     │
-│     Zoom out, research in depth                                                        │
-│   › Restate simplified                                                                 │
-│     Out of scope                                                                       │
-│     Let's chat about this                                                              │
-│     Prototype this                                                                     │
-│     Ensure 0 regressions                                                               │
-│     Consider existing repo patterns                                                    │
-│     ‹ back                                                                             │
-│                                                                                        │
-│   Steps                                                                                │
-│                                                                                        │
-│   - move the store                                                                     │
-│   - add recovery                                                                       │
-│                                                                                        │
-│   ts                                                                                   │
-│                                                                                        │
-│     export function persist(session: Session): void {                                  │
-│       // one JSON document per session                                                 │
-│       writeAtomically(pathFor(session.id), serialize(session));                        │
-│     }                                                                                  │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
-"
-`;
-
-exports[`stories catalog PlanSheet/MarkerToolbar renders, snapshots, and carries its colors: PlanSheet/MarkerToolbar 1`] = `
-"╭────────────────────────────────────────────────────────────────────────────────────────╮
-│   Migration Plan                                                                       │
-│                                                                                        │
-│   Context                                                                              │
-│                                                                                        │
-│ ▎ The daemon persists sessions to disk atomically.                                     │
-│   comment · cut · actions · [x]                                                        │
-│                                                                                        │
-│   Steps                                                                                │
-│                                                                                        │
-│   - move the store                                                                     │
-│   - add recovery                                                                       │
-│                                                                                        │
-│   ts                                                                                   │
-│                                                                                        │
-│     export function persist(session: Session): void {                                  │
-│       // one JSON document per session                                                 │
-│       writeAtomically(pathFor(session.id), serialize(session));                        │
-│     }                                                                                  │
-│                                                                                        │
 │                                                                                        │
 │                                                                                        │
 │                                                                                        │

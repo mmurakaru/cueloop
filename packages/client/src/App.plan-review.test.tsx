@@ -587,13 +587,14 @@ describe("marker-actions popover", () => {
     await press(setup, "v");
     await waitForText(setup, "actions");
 
-    // open the quick-actions list; step to the second default and pick it
+    // open the quick-actions list; step to the second default and pick it. The
+    // list renders as a floating overlay the virtual terminal cannot composite,
+    // so drive the grammar directly rather than waiting on its painted text.
     await press(setup, "a");
-    await waitForText(setup, "Zoom out, research in depth");
     await press(setup, "j");
     await press(setup, "enter");
 
-    // Assert - a comment annotation was created with the preset body
+    // Assert - a comment annotation was created with the second default's body
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations[0]!.kind).toBe("comment");
