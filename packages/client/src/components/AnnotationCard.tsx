@@ -32,10 +32,8 @@ export interface AnnotationSaved {
   isSelected: boolean;
   isOrphan: boolean;
   isBlocking: boolean;
-  /** A collaborator's resolved display name; own notes carry none. Set = name-in-border, blue. */
-  authorLabel?: string;
-  /** The viewer's own note when collaborators are also present (e.g. "me"). Set = tag-in-border, accent. */
-  selfLabel?: string;
+  /** Border-title author: a collaborator's display name, or "me" for the reviewer's own note. */
+  author: string;
   /** Non-null while the card body is being rewritten in place. */
   editing: AnnotationDraft | null;
   onPress: () => void;
@@ -139,7 +137,7 @@ function DraftEditor({
           {" Save "}
         </Button>
         <Button onPress={draft.onCancel} theme={theme}>
-          {" Cancel esc "}
+          {" Cancel "}
         </Button>
       </Toolbar>
     </>
@@ -174,8 +172,6 @@ export function AnnotationCard({
         contentRows={editorRowCount + 1}
         borderColor={kindColor}
         backgroundColor="transparent"
-        marginLeft={2}
-        marginRight={2}
         theme={theme}
       >
         <DraftEditor
@@ -188,47 +184,33 @@ export function AnnotationCard({
     );
   }
   const card = saved!;
-  const collaboratorName =
-    card.authorLabel !== undefined && card.authorLabel !== "" ? card.authorLabel : undefined;
-  const ownTag = card.selfLabel !== undefined && card.selfLabel !== "" ? card.selfLabel : undefined;
-  const borderLabel = collaboratorName ?? ownTag;
-  const borderColor = ownTag ? tokens.accent : tokens.blue;
-  const indent = borderLabel ? "" : "  ";
-  const marker = card.isSelected ? "▸ " : indent;
-  // Fixed content rows (a bordered box must declare a height or it collapses): header + quote + body, or the editor.
-  const contentRows = card.editing ? editorRowCount + 3 : 3;
-  // The border + its side padding eat this much content width, so text truncates shorter.
-  const borderInset = borderLabel ? 4 : 0;
+  // border = "what + who" (+ any exceptional flag); body = the content only
+  const flags = [card.isBlocking ? "BLOCKING" : null, card.isOrphan ? "ORPHANED" : null].filter(
+    (flag): flag is string => flag !== null,
+  );
+  const title = ` ${[kind.toUpperCase(), card.author, ...flags].join(" · ")} `;
+  // every saved card is bordered, so the border + side padding always eat this width
+  const borderInset = 4;
+  // a bordered box must declare a height or it collapses: quote + body, or the editor
+  const contentRows = card.editing ? editorRowCount + 2 : 2;
   return (
     <box
       id={id}
-      title={borderLabel ? ` ${borderLabel} ` : undefined}
+      title={title}
       style={{
         flexDirection: "column",
-        marginBottom: 0,
+        height: cardHeight(contentRows),
+        border: true,
+        borderStyle: FRAME_BORDER_STYLE,
+        borderColor: kindColor,
+        // selection reads from the elevated fill alone - no marker glyph
         backgroundColor: card.isSelected && !card.editing ? tokens.elevated : undefined,
-        ...(borderLabel
-          ? {
-              height: cardHeight(contentRows),
-              border: true,
-              borderStyle: FRAME_BORDER_STYLE,
-              borderColor,
-              paddingLeft: 1,
-              paddingRight: 1,
-            }
-          : {}),
+        paddingLeft: 1,
+        paddingRight: 1,
       }}
       onMouseUp={card.onPress}
     >
-      <text fg={card.isSelected ? tokens.text : kindColor}>
-        {marker}
-        {kind.toUpperCase()}
-        {card.isBlocking ? <span fg={tokens.red}> · BLOCKING</span> : null}
-        <span fg={tokens.textDim}>{card.isOrphan ? " · ORPHANED" : " · pending"}</span>
-      </text>
-      <text fg={tokens.textDim}>
-        {indent}"{truncateToSingleLine(quote, 26 - borderInset)}"
-      </text>
+      <text fg={tokens.textDim}>"{truncateToSingleLine(quote, 26 - borderInset)}"</text>
       {card.editing ? (
         <DraftEditor
           draft={card.editing}
@@ -238,7 +220,6 @@ export function AnnotationCard({
         />
       ) : (
         <text fg={card.isOrphan ? tokens.textDim : tokens.textMuted}>
-          {indent}
           {truncateToSingleLine(card.body, 28 - borderInset)}
         </text>
       )}

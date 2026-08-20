@@ -9,9 +9,11 @@ import {
   persistAuthorName,
   persistReviewState,
   persistReviewWidth,
+  persistTheme,
 } from "./config";
 import { REVIEW_DEFAULT_WIDTH, REVIEW_MAX_WIDTH } from "./review-panel";
 import { DARK } from "./theme";
+import { themeForName } from "./theme-presets";
 
 describe("loadConfig", () => {
   test("defaults when no file exists", () => {
@@ -157,6 +159,115 @@ describe("loadConfig", () => {
       // Assert
       expect(config.ui.reviewWidth).toBe(REVIEW_DEFAULT_WIDTH);
       expect(config.ui.reviewState).toBe("expanded");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("[ui] theme defaults to the branded cueloop preset", () => {
+    // Act
+    const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
+
+    // Assert
+    expect(config.ui.theme).toBe("cueloop");
+    expect(config.theme.accent).toBe(DARK.accent);
+  });
+
+  test("[ui] theme selects a named preset as the token base", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(path, `[ui]\ntheme = "nord"\n`);
+
+    try {
+      // Act
+      const config = loadConfig({ userConfigPath: path });
+
+      // Assert
+      expect(config.ui.theme).toBe("nord");
+      expect(config.theme).toEqual(themeForName("nord"));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("[theme] token overrides layer on top of the selected preset", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme2-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(path, `[ui]\ntheme = "nord"\n\n[theme]\naccent = "#ff0000"\n`);
+
+    try {
+      // Act
+      const config = loadConfig({ userConfigPath: path });
+
+      // Assert
+      expect(config.theme.accent).toBe("#ff0000"); // override wins
+      expect(config.theme.background).toBe(themeForName("nord").background); // preset base survives
+      expect(config.themeOverrides).toEqual({ accent: "#ff0000" }); // deltas exposed for live re-compose
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("a later file's preset keeps an earlier file's [theme] override", () => {
+    // Arrange - user overrides accent; repo picks a preset in a separate file
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme-x-"));
+    const user = join(dir, "user.toml");
+    const repoRoot = join(dir, "repo");
+    writeFileSync(user, `[theme]\naccent = "#ff0000"\n`);
+    Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
+    writeFileSync(join(repoRoot, ".cueloop", "config.toml"), `[ui]\ntheme = "nord"\n`);
+
+    try {
+      // Act
+      const config = loadConfig({ userConfigPath: user, repoRoot });
+
+      // Assert - the preset is the base, but the earlier override still wins its token
+      expect(config.ui.theme).toBe("nord");
+      expect(config.theme.background).toBe(themeForName("nord").background);
+      expect(config.theme.accent).toBe("#ff0000");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("[ui] ignores an unknown theme name and keeps the default", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme3-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(path, `[ui]\ntheme = "solarized-galaxy"\n`);
+
+    try {
+      // Act
+      const config = loadConfig({ userConfigPath: path });
+
+      // Assert
+      expect(config.ui.theme).toBe("cueloop");
+      expect(config.theme.accent).toBe(DARK.accent);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("persistTheme round-trips through the config file", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme4-"));
+    const path = join(dir, "config.toml");
+
+    try {
+      // Act
+      persistTheme("tokyo-night", path);
+
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.theme).toBe("tokyo-night");
+
+      // a second write replaces the key in place
+      // Act
+      persistTheme("gruvbox-dark", path);
+
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.theme).toBe("gruvbox-dark");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

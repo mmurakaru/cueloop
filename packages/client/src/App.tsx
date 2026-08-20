@@ -21,8 +21,17 @@ import {
   loadConfig,
   persistAuthorName,
   persistAutoClose,
+  persistTheme,
   type AutoClose,
 } from "./config";
+import {
+  composeTheme,
+  DEFAULT_THEME_NAME,
+  THEME_LABELS,
+  THEME_NAMES,
+  type ThemeName,
+} from "./theme-presets";
+import type { Theme } from "./theme";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
@@ -142,6 +151,7 @@ export function App({
     zone: "body",
   });
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
+  const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<"review" | "agent">("review");
   // review panel layout: mode + expanded width are client view state, loaded
   // from and persisted to the user config so they survive a restart. The ref
@@ -162,12 +172,16 @@ export function App({
   const keysRef = useRef(DEFAULT_KEYS);
   const keyBindings = useMemo(() => new KeyBindings(DEFAULT_KEYS), []);
   const [theme, setTheme] = useState(DARK);
+  const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME_NAME);
+  const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
     keysRef.current = config.keys;
     keyBindings.setKeys(config.keys);
     setTheme(config.theme);
+    setThemeName(config.ui.theme);
+    setThemeOverrides(config.themeOverrides);
     setReviewMode(config.ui.reviewState);
     setReviewWidth(config.ui.reviewWidth);
     reviewWidthRef.current = config.ui.reviewWidth;
@@ -202,6 +216,7 @@ export function App({
   const display = controller.display();
   const rows = controller.rows();
   const rejectedRows = controller.rejectedRows();
+  const curationItems = controller.curationItems();
   const marks = useMemo(
     () =>
       session
@@ -219,6 +234,25 @@ export function App({
   }, [marks]);
   const resolved = session?.status === "resolved";
   const isDiff = session?.artifact.type === "diff";
+  // sort position per annotation so the rail interleaves annotation and removal
+  // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
+  // annotation resolves to the display index it marked
+  const annotationPositions = useMemo(() => {
+    const positions = new Map<string, number>();
+    if (!session) return positions;
+    if (isDiff) {
+      for (const annotation of session.annotations) {
+        const blockIndex = (annotation.anchor as { blockIndex?: number }).blockIndex;
+        if (blockIndex !== undefined) positions.set(annotation.id, blockIndex);
+      }
+    } else {
+      for (const [displayIndex, blockMarks] of marks) {
+        for (const mark of blockMarks)
+          if (mark.annotationId) positions.set(mark.annotationId, displayIndex);
+      }
+    }
+    return positions;
+  }, [session, isDiff, marks]);
 
   // ── the guided walk's view model ────────────
   const walkFileList = controller.files();
@@ -259,6 +293,25 @@ export function App({
     setFocusedAnnotationId(annotationId);
     pulse(annotationId);
     revealAnchor(annotationId);
+  };
+
+  // selecting a removal reveals its source line, so the reader sees what the
+  // pending undo would bring back: the diff sheet follows the cursor; the plan
+  // sheet also needs an explicit scroll to the cut block
+  const selectCurationFromRail = (curationId: string): void => {
+    setSelectedCurationId(curationId);
+    const item = curationItems.find((candidate) => candidate.id === curationId);
+    if (!item) return;
+    setCursor(item.revealIndex);
+    if (item.source === "plan") planSheetRef.current?.revealBlock(item.revealIndex);
+  };
+
+  // the selected removal card's undo button: same restore path as the u key,
+  // including the observer read-only guard the keyboard path gets via reduceKey
+  const undoCurationFromRail = (curationId: string): void => {
+    if (observer) return controller.setStatus("observer - read-only");
+    controller.restoreCuration(curationId);
+    setSelectedCurationId(undefined);
   };
 
   const openCardEdit = (annotationId: string): void => {
@@ -306,6 +359,7 @@ export function App({
     reviewWidth,
     terminalWidth,
     focusedAnnotationId,
+    selectedCurationId,
     authorNames,
     renameAuthor: (id: string, name: string) => {
       persistAuthorName(id, name);
@@ -321,6 +375,7 @@ export function App({
     setReviewWidth,
     setRailTab,
     setFocusedAnnotationId,
+    setSelectedCurationId,
     setPulsedAnnotationId,
     selectCardFromDocument,
     runEditorHandOff,
@@ -372,10 +427,24 @@ export function App({
         },
       ],
     },
+    {
+      id: "appearance",
+      name: "Appearance",
+      description: "the color theme",
+      rows: [
+        {
+          key: "theme",
+          label: "Theme",
+          kind: "cycle",
+          options: THEME_NAMES.map((name) => THEME_LABELS[name]),
+        },
+      ],
+    },
   ];
   const settingsValues = {
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
     reviewPanel: reviewMode,
+    theme: THEME_LABELS[themeName],
   };
   const cycleSetting = (rowKey: string): void => {
     if (rowKey === "autoClose") {
@@ -387,6 +456,11 @@ export function App({
       const next = order[(order.indexOf(reviewMode) + 1) % order.length]!;
       setReviewMode(next);
       controller.saveReviewPanel({ mode: next });
+    } else if (rowKey === "theme") {
+      const next = THEME_NAMES[(THEME_NAMES.indexOf(themeName) + 1) % THEME_NAMES.length]!;
+      setThemeName(next);
+      setTheme(composeTheme(next, themeOverrides));
+      persistTheme(next);
     }
   };
   const handleSettingsKey = (name: string): void => {
@@ -463,6 +537,44 @@ export function App({
       dispatch(intent);
   });
 
+  // ── shared bottom chrome: the menu bar and its drop-up dialogs, one render
+  // reused by the inbox and by plan/diff review so the two never drift ──
+  const menuChrome = (
+    <>
+      <MenuBar
+        open={menuOpen}
+        version={CLIENT_VERSION}
+        status={status}
+        onToggle={() => setMenuOpen((isOpen) => !isOpen)}
+        onSettings={() => {
+          setMenuOpen(false);
+          setMenuDialog("settings");
+        }}
+        onKeybinds={() => {
+          setMenuOpen(false);
+          setMenuDialog("keybinds");
+        }}
+        theme={theme}
+      />
+      {menuDialog === "keybinds" ? (
+        <KeybindsDialog sections={keyBindings.cheatsheet()} theme={theme} />
+      ) : null}
+      {menuDialog === "settings" ? (
+        <SettingsDialog
+          isOpen
+          categories={settingsCategories}
+          values={settingsValues}
+          activeCategoryId={settingsNav.categoryId}
+          activeRowIndex={settingsNav.rowIndex}
+          activeZone={settingsNav.zone}
+          onCategorySelect={(id) => setSettingsNav({ categoryId: id, rowIndex: 0, zone: "body" })}
+          onRowActivate={(row) => cycleSetting(row.key)}
+          theme={theme}
+        />
+      ) : null}
+    </>
+  );
+
   // ── render ──────────────────────────────────
   if (error) {
     return (
@@ -482,24 +594,58 @@ export function App({
     const confirming = mode.type === "confirmDelete" ? mode : null;
     return (
       <ThemeProvider theme={theme}>
-        <InboxList
-          inbox={inbox}
-          cursor={inboxCursor}
-          onRequestDelete={(id, title) => setMode({ type: "confirmDelete", sessionId: id, title })}
-        />
-        <ConfirmDialog
-          isOpen={confirming !== null}
-          title=" Delete plan "
-          message={
-            confirming ? `Delete "${confirming.title}"? This removes the plan and its review.` : ""
-          }
-          onConfirm={() => {
-            if (confirming) controller.deleteSession(confirming.sessionId);
-            setMode({ type: "normal" });
+        <box
+          style={{
+            flexDirection: "column",
+            width: "100%",
+            height: "100%",
+            backgroundColor: theme.background,
           }}
-          onCancel={() => setMode({ type: "normal" })}
-          theme={theme}
-        />
+        >
+          {/* mirrors the review header row: same box, position, and accent product
+              word, with a " · resume" separator and no Edit/Share toolbar */}
+          <box
+            style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}
+          >
+            <box
+              style={{
+                height: 1,
+                backgroundColor: theme.panel,
+                paddingLeft: 1,
+                flexDirection: "row",
+              }}
+            >
+              <text>
+                <span fg={theme.accent}>cueloop</span>
+                <span fg={theme.textDim}> · resume</span>
+              </text>
+            </box>
+            <box style={{ flexGrow: 1 }} />
+          </box>
+          <InboxList
+            inbox={inbox}
+            cursor={inboxCursor}
+            onRequestDelete={(id, title) =>
+              setMode({ type: "confirmDelete", sessionId: id, title })
+            }
+          />
+          {menuChrome}
+          <ConfirmDialog
+            isOpen={confirming !== null}
+            title=" Delete plan "
+            message={
+              confirming
+                ? `Delete "${confirming.title}"? This removes the plan and its review.`
+                : ""
+            }
+            onConfirm={() => {
+              if (confirming) controller.deleteSession(confirming.sessionId);
+              setMode({ type: "normal" });
+            }}
+            onCancel={() => setMode({ type: "normal" })}
+            theme={theme}
+          />
+        </box>
       </ThemeProvider>
     );
   }
@@ -756,6 +902,9 @@ export function App({
               authorNames,
               selectedId: focusedAnnotationId,
               resolvedIds: isDiff ? null : resolvedIds,
+              curationItems,
+              selectedCurationId,
+              annotationPositions,
               railTab,
               pendingCount,
               cardEdit: cardEditState,
@@ -763,25 +912,12 @@ export function App({
               onTabChange: setRailTab,
               onSelectCard: selectCardFromRail,
               onActivateCard: openCardEdit,
+              onSelectCuration: selectCurationFromRail,
+              onUndoCuration: undoCurationFromRail,
               onSubmitRequest,
             }}
           />
         </box>
-        <MenuBar
-          open={menuOpen}
-          version={CLIENT_VERSION}
-          status={status}
-          onToggle={() => setMenuOpen((isOpen) => !isOpen)}
-          onSettings={() => {
-            setMenuOpen(false);
-            setMenuDialog("settings");
-          }}
-          onKeybinds={() => {
-            setMenuOpen(false);
-            setMenuDialog("keybinds");
-          }}
-          theme={theme}
-        />
         {walking && walk !== null ? (
           <WalkWizard
             files={walkFileList}
@@ -823,22 +959,7 @@ export function App({
           />
         ) : null}
         {toast ? <Toast title={toast.title} body={toast.body} theme={theme} /> : null}
-        {menuDialog === "keybinds" ? (
-          <KeybindsDialog sections={keyBindings.cheatsheet()} theme={theme} />
-        ) : null}
-        {menuDialog === "settings" ? (
-          <SettingsDialog
-            isOpen
-            categories={settingsCategories}
-            values={settingsValues}
-            activeCategoryId={settingsNav.categoryId}
-            activeRowIndex={settingsNav.rowIndex}
-            activeZone={settingsNav.zone}
-            onCategorySelect={(id) => setSettingsNav({ categoryId: id, rowIndex: 0, zone: "body" })}
-            onRowActivate={(row) => cycleSetting(row.key)}
-            theme={theme}
-          />
-        ) : null}
+        {menuChrome}
       </box>
     </ThemeProvider>
   );

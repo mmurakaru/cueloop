@@ -2,14 +2,14 @@
  * The pending-review inbox: a cursor-driven session list. Selection stays with
  * the keyboard grammar; the list only renders the snapshot. The selected row
  * carries a [delete] word-button (click, or `d` in the grammar) that asks the
- * caller to confirm removal.
+ * caller to confirm removal. App supplies the surrounding header and MenuBar
+ * chrome (the same as plan/diff review); this is the flex-growing body.
  */
 
 import React from "react";
 import type { ReviewSession } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
-import { StatusBar } from "./primitives/StatusBar";
 import { Button } from "./primitives/Button";
 
 export interface InboxListProps {
@@ -28,17 +28,7 @@ export function InboxList({
 }: InboxListProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   return (
-    <box
-      style={{
-        flexDirection: "column",
-        width: "100%",
-        height: "100%",
-        backgroundColor: tokens.background,
-        padding: 1,
-      }}
-    >
-      <text fg={tokens.accent}>cueloop · inbox ({inbox.length} pending)</text>
-      <text> </text>
+    <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
       {inbox.length === 0 ? (
         <text fg={tokens.textDim}>nothing waiting for review</text>
       ) : (
@@ -54,7 +44,7 @@ export function InboxList({
               }}
             >
               <text fg={selected ? tokens.text : tokens.textMuted}>
-                {selected ? "▸ " : "  "}
+                {selected ? "> " : "  "}
                 {title} · {session.workspace.branch} · {session.artifact.type}
               </text>
               <box style={{ flexGrow: 1 }} />
@@ -67,8 +57,6 @@ export function InboxList({
           );
         })
       )}
-      <box style={{ flexGrow: 1 }} />
-      <StatusBar theme={theme}>j/k move · enter open · d delete · q quit</StatusBar>
     </box>
   );
 }

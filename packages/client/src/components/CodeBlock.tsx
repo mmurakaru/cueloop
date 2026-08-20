@@ -6,9 +6,13 @@
  */
 
 import React from "react";
+import { createTextAttributes } from "@opentui/core";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { filetypeFor, syntaxStyleFor } from "./syntax-highlight";
+
+/** A cut code block reads as removed: struck through and grayed, never red. */
+const CUT_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
 
 export interface CodeBlockProps {
   id?: string;
@@ -20,7 +24,9 @@ export interface CodeBlockProps {
   marginTop?: number;
   isAnnotated?: boolean;
   /** Working-copy change tag rendered after the language label. */
-  changeTag?: "cut" | "new" | "edited";
+  changeTag?: "new" | "edited";
+  /** A cut (removed) block: struck-through gray content, no tag. */
+  cut?: boolean;
   theme?: Theme;
 }
 
@@ -32,11 +38,11 @@ export function CodeBlock({
   marginTop = 0,
   isAnnotated = false,
   changeTag,
+  cut = false,
   theme,
 }: CodeBlockProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const tagColor =
-    changeTag === "cut" ? tokens.red : changeTag === "new" ? tokens.green : tokens.accent;
+  const tagColor = changeTag === "new" ? tokens.green : tokens.accent;
   return (
     <box id={id} style={{ flexDirection: "column", marginTop }}>
       <text>
@@ -56,13 +62,21 @@ export function CodeBlock({
           marginLeft: 2,
         }}
       >
-        <code
-          content={content}
-          filetype={filetypeFor(language)}
-          syntaxStyle={syntaxStyleFor(tokens)}
-          selectable={false}
-          style={{ wrapMode: "none", fg: tokens.textMuted, bg: tokens.elevated }}
-        />
+        {cut ? (
+          <text style={{ wrapMode: "none" }} selectable={false}>
+            <span fg={tokens.textDim} attributes={CUT_ATTRIBUTES}>
+              {content}
+            </span>
+          </text>
+        ) : (
+          <code
+            content={content}
+            filetype={filetypeFor(language)}
+            syntaxStyle={syntaxStyleFor(tokens)}
+            selectable={false}
+            style={{ wrapMode: "none", fg: tokens.textMuted, bg: tokens.elevated }}
+          />
+        )}
       </box>
     </box>
   );

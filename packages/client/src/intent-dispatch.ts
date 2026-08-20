@@ -79,6 +79,8 @@ export interface IntentDispatchDeps {
   reviewWidth: number;
   terminalWidth: number;
   focusedAnnotationId: string | undefined;
+  /** The curation item selected in the rail, if any; the undo target when set. */
+  selectedCurationId: string | undefined;
   /** Planner-local author renames, for seeding the rename prompt. */
   authorNames: Record<string, string>;
   /** Persist an author rename and update the live overrides (App-owned). */
@@ -95,6 +97,7 @@ export interface IntentDispatchDeps {
   setReviewWidth: Dispatch<SetStateAction<number>>;
   setRailTab: Dispatch<SetStateAction<"review" | "agent">>;
   setFocusedAnnotationId: Dispatch<SetStateAction<string | undefined>>;
+  setSelectedCurationId: Dispatch<SetStateAction<string | undefined>>;
   setPulsedAnnotationId: Dispatch<SetStateAction<string | null>>;
 
   selectCardFromDocument: (annotationId: string) => void;
@@ -119,6 +122,7 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
     reviewWidth,
     terminalWidth,
     focusedAnnotationId,
+    selectedCurationId,
     authorNames,
     renameAuthor,
     liveInput,
@@ -131,6 +135,7 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
     setReviewWidth,
     setRailTab,
     setFocusedAnnotationId,
+    setSelectedCurationId,
     setPulsedAnnotationId,
     selectCardFromDocument,
     runEditorHandOff,
@@ -269,6 +274,15 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
         return controller.toggleRejectHunk(cursor);
       case "rejectChange":
         return controller.toggleRejectChange(cursor);
+      case "restoreCuration": {
+        // undo the selected curated-out item, or the last rejected when none is
+        // selected, so a bare `u` reads as "undo my last curation"
+        const items = controller.curationItems();
+        if (!items.length) return;
+        const targetId = selectedCurationId ?? items[items.length - 1]!.id;
+        controller.restoreCuration(targetId);
+        return void setSelectedCurationId(undefined);
+      }
       case "edit":
         return runEditorHandOff();
       case "editCard":

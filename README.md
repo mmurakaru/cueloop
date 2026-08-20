@@ -67,7 +67,9 @@ Or wire the hook by hand (blocks the plan gate on your review):
 `s` suggest · `x` cut (serializes into the one plan.md diff) · `e` edit the
 whole file in `$EDITOR` · `n/p` annotations · `⏎` submit (verdict ←/→) ·
 `q` quit. Every action is rebindable in `~/.config/cueloop/config.toml`
-(`[keys]`), theme tokens override under `[theme]`.
+(`[keys]`). Pick a built-in theme in Settings or with `[ui] theme` (`cueloop`,
+`rose-pine-moon`, `catppuccin-mocha`, `tokyo-night`, `gruvbox-dark`, `nord`);
+individual tokens override under `[theme]`.
 
 ## Architecture
 

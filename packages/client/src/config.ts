@@ -1,9 +1,9 @@
 /**
  * Layered TOML config: built-in defaults → user config → trusted repo
  * config → env. Sections: [keys] action = "combo" (every action rebindable),
- * [theme] per-token overrides, [ui] auto_close + editor + the review-panel
- * layout (review_width + review_state), [integrations.obsidian] notes-vault
- * export.
+ * [theme] per-token overrides, [ui] auto_close + editor + theme (a named
+ * preset) + the review-panel layout (review_width + review_state),
+ * [integrations.obsidian] notes-vault export.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -13,6 +13,7 @@ import { OBSIDIAN_DEFAULTS, type ObsidianConfig } from "@cueloop/integration-obs
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DARK, type Theme } from "./theme";
+import { DEFAULT_THEME_NAME, isThemeName, themeForName, type ThemeName } from "./theme-presets";
 import { REVIEW_DEFAULT_WIDTH, clampWidth, type ReviewPanelMode } from "./review-panel";
 
 export interface KeymapConfig {
@@ -29,11 +30,20 @@ export type AutoClose = "off" | number;
 export interface CueloopConfig {
   keys: Record<string, string[]>;
   theme: Theme;
+  /** The `[theme]` per-token overrides alone, so a live theme switch can re-compose them onto a new preset. */
+  themeOverrides: Partial<Theme>;
   /**
    * ui.reviewState / ui.reviewWidth are CLIENT VIEW STATE: the review panel's
    * collapse mode and expanded-rail width, persisted so they survive restarts.
    */
-  ui: { autoClose: AutoClose; editor?: string; reviewState: ReviewPanelMode; reviewWidth: number };
+  ui: {
+    autoClose: AutoClose;
+    editor?: string;
+    reviewState: ReviewPanelMode;
+    reviewWidth: number;
+    /** The selected theme preset name; its tokens are the base for `theme`, before any `[theme]` overrides. */
+    theme: ThemeName;
+  };
   /** Planner-local author renames: identity id → display name ([authors] table). */
   authors: Record<string, string>;
   integrations: IntegrationsConfig;
@@ -50,6 +60,7 @@ export const DEFAULT_KEYS: Record<string, string[]> = {
   suggest: ["s"],
   cut: ["x"],
   reject_hunk: ["X"],
+  restore_curation: ["u"],
   edit: ["e"],
   next_annotation: ["n"],
   prev_annotation: ["p"],
@@ -73,6 +84,7 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
   const out: CueloopConfig = {
     keys: { ...base.keys },
     theme: { ...base.theme },
+    themeOverrides: { ...base.themeOverrides },
     ui: { ...base.ui },
     authors: { ...base.authors },
     integrations: { obsidian: { ...base.integrations.obsidian } },
@@ -109,14 +121,6 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
   ) {
     out.ui.reviewState = ui.review_state;
   }
-  const theme = raw["theme"] as Partial<Record<keyof Theme, string>> | undefined;
-  if (theme) {
-    for (const [token, value] of Object.entries(theme)) {
-      if (token in out.theme && typeof value === "string") {
-        (out.theme as unknown as Record<string, string>)[token] = value;
-      }
-    }
-  }
   const integrations = raw["integrations"] as Record<string, unknown> | undefined;
   const obsidian = integrations?.["obsidian"] as Record<string, unknown> | undefined;
   if (obsidian) {
@@ -141,10 +145,22 @@ export function loadConfig(
   let config: CueloopConfig = {
     keys: { ...DEFAULT_KEYS },
     theme: { ...DARK },
-    ui: { autoClose: "off", reviewState: "expanded", reviewWidth: REVIEW_DEFAULT_WIDTH },
+    themeOverrides: {},
+    ui: {
+      autoClose: "off",
+      reviewState: "expanded",
+      reviewWidth: REVIEW_DEFAULT_WIDTH,
+      theme: DEFAULT_THEME_NAME,
+    },
     authors: {},
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
   };
+  // Theme name and per-token overrides are separate concerns, composed once
+  // after all layers: the last file to set [ui] theme wins, and every [theme]
+  // override from every file lands on top - so a later preset never discards an
+  // earlier file's token overrides.
+  let themeName = DEFAULT_THEME_NAME;
+  const themeOverrides: Partial<Record<keyof Theme, string>> = {};
   const userPath = userConfigPathFrom(options.userConfigPath);
   for (const path of [
     userPath,
@@ -152,12 +168,27 @@ export function loadConfig(
   ]) {
     if (!path || !existsSync(path)) continue;
     try {
-      config = layer(config, parseToml(readFileSync(path, "utf8")));
+      const raw = parseToml(readFileSync(path, "utf8"));
+      config = layer(config, raw);
+      const rawTheme = (raw["ui"] as { theme?: unknown } | undefined)?.theme;
+      if (typeof rawTheme === "string" && isThemeName(rawTheme)) themeName = rawTheme;
+      collectThemeOverrides(raw["theme"], themeOverrides);
     } catch {
       // a broken config never blocks a review; defaults win
     }
   }
+  config.ui.theme = themeName;
+  config.themeOverrides = themeOverrides;
+  config.theme = { ...themeForName(themeName), ...themeOverrides };
   return config;
+}
+
+/** Merge a raw `[theme]` table's known string tokens into the accumulated overrides. */
+function collectThemeOverrides(raw: unknown, into: Partial<Record<keyof Theme, string>>): void {
+  if (!raw || typeof raw !== "object") return;
+  for (const [token, value] of Object.entries(raw)) {
+    if (token in DARK && typeof value === "string") into[token as keyof Theme] = value;
+  }
 }
 
 /** Reverse lookup: key name (+shift) → action, per the loaded keymap. */
@@ -216,6 +247,11 @@ export function persistReviewWidth(width: number, userConfigPath?: string): void
 /** Persist the review-panel collapse mode (`[ui] review_state`) into the config. */
 export function persistReviewState(state: ReviewPanelMode, userConfigPath?: string): void {
   persistUiSetting("review_state", `"${state}"`, userConfigPath);
+}
+
+/** Persist the selected theme preset (`[ui] theme`) into the user config. */
+export function persistTheme(name: ThemeName, userConfigPath?: string): void {
+  persistUiSetting("theme", `"${name}"`, userConfigPath);
 }
 
 function escapeRegExp(text: string): string {

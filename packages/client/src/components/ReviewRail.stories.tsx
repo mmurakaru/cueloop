@@ -2,14 +2,17 @@ import React from "react";
 import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { ReviewRail } from "./ReviewRail";
-import { FIXTURE_ANNOTATIONS, fixturePlanSession } from "./story-fixtures";
+import { FIXTURE_ANNOTATIONS, fixtureDiffSession, fixturePlanSession } from "./story-fixtures";
 
 export const meta: StoryMeta = { title: "ReviewRail" };
 
 const callbacks = {
+  curationItems: [],
   onTabChange: () => {},
   onSelectCard: () => {},
   onActivateCard: () => {},
+  onSelectCuration: () => {},
+  onUndoCuration: () => {},
   onSubmitRequest: () => {},
 };
 
@@ -73,7 +76,72 @@ export const MixedOwnershipStack: Story = {
       />
     </RailFrame>
   ),
-  expectedColors: [DARK.accent, DARK.blue],
+  // borders are kind-colored now: the own comment = accent, the suggestion = green
+  expectedColors: [DARK.accent, DARK.green],
+  size: { width: 40, height: 24 },
+};
+
+export const Removals: Story = {
+  render: () => (
+    <RailFrame>
+      <ReviewRail
+        session={fixtureDiffSession()}
+        authorNames={{}}
+        resolvedIds={null}
+        railTab="review"
+        pendingCount={0}
+        cardEdit={null}
+        submitConfirm={null}
+        {...callbacks}
+        curationItems={[
+          {
+            id: "diff:src/store.ts#0#1",
+            source: "diff",
+            preview: ["-   private items = [];", "+   private items = new Map();"],
+            revealIndex: 3,
+          },
+          {
+            id: "diff:src/store.ts#1#hunk",
+            source: "diff",
+            preview: ["-   return null;", "+   return fallback();", "+   log(fallback);"],
+            revealIndex: 9,
+          },
+        ]}
+        selectedCurationId="diff:src/store.ts#0#1"
+      />
+    </RailFrame>
+  ),
+  expectedColors: [DARK.red],
+  size: { width: 40, height: 24 },
+};
+
+/** A plan cut and an annotation interleave in one line-ordered stack. */
+export const InterleavedStack: Story = {
+  render: () => (
+    <RailFrame>
+      <ReviewRail
+        session={fixturePlanSession()}
+        authorNames={{}}
+        selectedId={FIXTURE_ANNOTATIONS[0]!.id}
+        resolvedIds={new Set(FIXTURE_ANNOTATIONS.map((annotation) => annotation.id))}
+        railTab="review"
+        pendingCount={2}
+        cardEdit={null}
+        submitConfirm={null}
+        {...callbacks}
+        curationItems={[
+          {
+            id: "plan:6-6",
+            source: "plan",
+            preview: ["- add recovery"],
+            revealIndex: 1,
+          },
+        ]}
+        annotationPositions={new Map([[FIXTURE_ANNOTATIONS[0]!.id, 5]])}
+      />
+    </RailFrame>
+  ),
+  expectedColors: [DARK.red],
   size: { width: 40, height: 24 },
 };
 

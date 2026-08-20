@@ -10,7 +10,7 @@
 
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { useRenderer } from "@opentui/react";
-import type { ScrollBoxRenderable, TextRenderable } from "@opentui/core";
+import { createTextAttributes, type ScrollBoxRenderable, type TextRenderable } from "@opentui/core";
 import type { ReviewSession } from "@cueloop/schema";
 import {
   blockRuns,
@@ -28,6 +28,9 @@ import { useComponentTheme } from "./theme-context";
 import { CodeBlock } from "./CodeBlock";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
+
+/** A cut block reads as removed: struck through and grayed, never red. */
+const CUT_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
 
 export interface PlanSelection {
   displayIndex: number;
@@ -170,7 +173,8 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
           isCursor={isCursor}
           marginTop={gap}
           isAnnotated={(marks.get(displayIndex) ?? []).length > 0}
-          changeTag={block.type !== "same" ? tagLabel(block) : undefined}
+          changeTag={showsChangeTag(block) ? tagLabel(block) : undefined}
+          cut={block.type === "del"}
           theme={theme}
         />,
       );
@@ -180,11 +184,11 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
         blockMarks.push({ start: activeSpan.start, end: activeSpan.end, role: "kspan" });
       }
       const runs = overlayMarks(blockRuns(block, true), blockMarks);
-      // the change tag participates in the rendered text but carries no offsets
-      const mappedRuns: StyleRun[] =
-        block.type !== "same"
-          ? [...runs, { text: ` [${tagLabel(block)}]`, role: "plain", start: null }]
-          : runs;
+      // the change tag participates in the rendered text but carries no offsets;
+      // a cut block shows no tag (its strikethrough already reads as removed)
+      const mappedRuns: StyleRun[] = showsChangeTag(block)
+        ? [...runs, { text: ` [${tagLabel(block)}]`, role: "plain", start: null }]
+        : runs;
       children.push(
         <box
           key={displayIndex}
@@ -211,7 +215,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
                 {run.text}
               </span>
             ))}
-            {block.type !== "same" ? (
+            {showsChangeTag(block) ? (
               <span fg={tagColor(block, tokens)}> [{tagLabel(block)}]</span>
             ) : null}
           </text>
@@ -278,22 +282,32 @@ function marker(block: DisplayBlock): string {
   return "";
 }
 
-function tagLabel(block: DisplayBlock): "cut" | "new" | "edited" {
-  return block.type === "del" ? "cut" : block.type === "add" ? "new" : "edited";
+/** An added or edited block earns a tag; a cut block relies on its strikethrough. */
+function showsChangeTag(block: DisplayBlock): boolean {
+  return block.type === "add" || block.type === "mod";
+}
+
+function tagLabel(block: DisplayBlock): "new" | "edited" {
+  return block.type === "add" ? "new" : "edited";
 }
 
 function tagColor(block: DisplayBlock, tokens: Theme): string {
-  return block.type === "del" ? tokens.red : block.type === "add" ? tokens.green : tokens.accent;
+  return block.type === "add" ? tokens.green : tokens.accent;
 }
 
-function runStyle(run: StyleRun, block: DisplayBlock, tokens: Theme): { fg?: string; bg?: string } {
+function runStyle(
+  run: StyleRun,
+  block: DisplayBlock,
+  tokens: Theme,
+): { fg?: string; bg?: string; attributes?: number } {
+  // a cut block reads as removed: every run struck through and grayed, never red
+  if (block.type === "del") return { fg: tokens.textDim, attributes: CUT_ATTRIBUTES };
   const headingFg =
     block.kind === "h1"
       ? tokens.text
       : block.kind === "h2" || block.kind === "h3"
         ? tokens.accent
         : undefined;
-  const struck = block.type === "del";
   switch (run.role) {
     case "ins":
       return { fg: tokens.insertedForeground };
@@ -308,6 +322,6 @@ function runStyle(run: StyleRun, block: DisplayBlock, tokens: Theme): { fg?: str
     case "kspan":
       return { fg: tokens.accentInk, bg: tokens.accent };
     default:
-      return { fg: struck ? tokens.red : (headingFg ?? tokens.text) };
+      return { fg: headingFg ?? tokens.text };
   }
 }

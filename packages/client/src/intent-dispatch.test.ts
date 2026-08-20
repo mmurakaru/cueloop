@@ -29,6 +29,8 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     deleteSession: mock(),
     setSelfName: mock(),
     cut: mock(),
+    curationItems: mock(() => []),
+    restoreCuration: mock(),
     annotate: mock(),
     updateAnnotation: mock(),
     removeAnnotation: mock(),
@@ -58,6 +60,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     reviewWidth: 34,
     terminalWidth: 120,
     focusedAnnotationId: undefined,
+    selectedCurationId: undefined,
     authorNames: {},
     renameAuthor: mock(),
     liveInput: { current: "" },
@@ -70,6 +73,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     setReviewWidth: mock(),
     setRailTab: mock(),
     setFocusedAnnotationId: mock(),
+    setSelectedCurationId: mock(),
     setPulsedAnnotationId: mock(),
     selectCardFromDocument: mock(),
     runEditorHandOff: mock(),
@@ -208,6 +212,65 @@ describe("share", () => {
 
     // Assert
     expect(deps.controller.share).toHaveBeenCalled();
+  });
+});
+
+describe("restoreCuration", () => {
+  const items = [
+    {
+      id: "diff:f#0#hunk",
+      source: "diff" as const,
+      label: "f:1 - hunk",
+      preview: [],
+      revealIndex: 1,
+    },
+    {
+      id: "diff:f#1#2",
+      source: "diff" as const,
+      label: "f:9 - change",
+      preview: [],
+      revealIndex: 9,
+    },
+  ];
+
+  test("restores the selected item and clears the selection", () => {
+    // Arrange
+    const deps = makeDeps({ selectedCurationId: "diff:f#1#2" });
+    (deps.controller.curationItems as ReturnType<typeof mock>).mockReturnValue(items);
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "restoreCuration" });
+
+    // Assert
+    expect(deps.controller.restoreCuration).toHaveBeenCalledWith("diff:f#1#2");
+    expect(deps.setSelectedCurationId).toHaveBeenCalledWith(undefined);
+  });
+
+  test("with nothing selected, undoes the last removal", () => {
+    // Arrange
+    const deps = makeDeps({ selectedCurationId: undefined });
+    (deps.controller.curationItems as ReturnType<typeof mock>).mockReturnValue(items);
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "restoreCuration" });
+
+    // Assert
+    expect(deps.controller.restoreCuration).toHaveBeenCalledWith("diff:f#1#2");
+  });
+
+  test("does nothing when there is nothing curated out", () => {
+    // Arrange
+    const deps = makeDeps();
+    (deps.controller.curationItems as ReturnType<typeof mock>).mockReturnValue([]);
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "restoreCuration" });
+
+    // Assert
+    expect(deps.controller.restoreCuration).not.toHaveBeenCalled();
   });
 });
 

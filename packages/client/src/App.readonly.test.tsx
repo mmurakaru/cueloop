@@ -9,7 +9,8 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, press, waitForText } from "./test-support";
+import { DARK } from "./theme";
+import { isolateUserConfig, press, waitForState, waitForText } from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -151,7 +152,21 @@ describe("observer navigation still works", () => {
     await press(setup, "n");
     await setup.renderOnce();
 
-    // Assert
-    await waitForText(setup, "▸ COMMENT");
+    // Assert - focus shows as the card's elevated selection fill (no marker glyph)
+    await waitForText(setup, "COMMENT · me");
+    await waitForState(setup, () => hasBackground(setup, DARK.elevated));
   });
 });
+
+/** Whether any styled span in the frame paints the given background hex. */
+function hasBackground(setup: Awaited<ReturnType<typeof renderObserver>>, hex: string): boolean {
+  for (const line of setup.captureSpans().lines) {
+    for (const span of line.spans) {
+      const [red, green, blue] = span.bg.toInts();
+      const rendered =
+        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
+      if (rendered === hex) return true;
+    }
+  }
+  return false;
+}

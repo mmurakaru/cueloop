@@ -169,7 +169,7 @@ describe("slice 1: Claude Code plan round-trip", () => {
       await typeText(setup, "Stage the rollout: 5% then 50% then 100%.");
       await press(setup, "enter");
       // wait until the annotate round-trip lands in the rail before submitting
-      await waitForText(setup, "COMMENT · pending");
+      await waitForText(setup, "COMMENT · me");
       await press(setup, "enter"); // open submit (request_changes default with pending item)
 
       // Assert

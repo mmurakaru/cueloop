@@ -27,6 +27,7 @@ export type Intent =
   | { type: "editCard" }
   | { type: "rejectHunk" }
   | { type: "rejectChange" }
+  | { type: "restoreCuration" }
   | { type: "nextAnnotation" }
   | { type: "prevAnnotation" }
   | { type: "walkStart" }
@@ -99,6 +100,7 @@ const MUTATING_ACTIONS = new Set([
   "walk",
   "share",
   "reject_hunk",
+  "restore_curation",
 ]);
 
 const SPAN_KEYS = new Set(["l", "h", "w", "b", "$", "0"]);
@@ -228,6 +230,12 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
     if (state.canEditPlan === false) return status("only the diff owner can curate hunks");
     return [{ type: action === "reject_hunk" ? "rejectHunk" : "rejectChange" }];
   }
+  // restore un-does a curated-out rejection from the rail; same owner gate as reject
+  if (action === "restore_curation") {
+    if (state.resolved) return status("review submitted - read-only");
+    if (state.canEditPlan === false) return status("only the diff owner can curate hunks");
+    return [{ type: "restoreCuration" }];
+  }
   const shared = annotationCluster(state, action);
   if (shared) return shared;
   if (action === "span" || action === "edit" || action === "suggest") {
@@ -261,6 +269,12 @@ function planGrammar(state: KeyState, action: string | undefined, name: string):
         from: "cursor",
       },
     ];
+  }
+  // restore un-does a rail removal (a cut block); a plan edit, so owner-only
+  if (action === "restore_curation") {
+    if (state.resolved) return status("review submitted - read-only");
+    if (state.canEditPlan === false) return [];
+    return [{ type: "restoreCuration" }];
   }
   if (action === "cut" || action === "edit") {
     if (state.resolved) return status("review submitted - read-only");

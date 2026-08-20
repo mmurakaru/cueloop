@@ -1,5 +1,6 @@
 import React from "react";
 import { DARK } from "../theme";
+import { THEME_PRESETS } from "../theme-presets";
 import type { Story, StoryMeta } from "./story";
 import { SettingsDialog, type SettingsCategory } from "./SettingsDialog";
 
@@ -34,6 +35,19 @@ const CATEGORIES: SettingsCategory[] = [
       { key: "showLineNumbers", label: "Line numbers", kind: "toggle" },
     ],
   },
+  {
+    id: "appearance",
+    name: "Appearance",
+    description: "the color theme",
+    rows: [
+      {
+        key: "theme",
+        label: "Theme",
+        kind: "cycle",
+        options: ["cueloop", "Rosé Pine Moon", "Nord"],
+      },
+    ],
+  },
 ];
 
 const VALUES = {
@@ -41,6 +55,7 @@ const VALUES = {
   autoClose: "3s",
   planWidth: "default",
   showLineNumbers: true,
+  theme: "Rosé Pine Moon",
 };
 
 export const NavZone: Story = {
@@ -74,5 +89,23 @@ export const BodyZone: Story = {
     />
   ),
   expectedColors: [DARK.green],
+  size: { width: 100, height: 30 },
+};
+
+export const AppearanceThemed: Story = {
+  render: () => (
+    <SettingsDialog
+      isOpen
+      categories={CATEGORIES}
+      values={VALUES}
+      activeCategoryId="appearance"
+      activeRowIndex={0}
+      activeZone="body"
+      onCategorySelect={() => {}}
+      onRowActivate={() => {}}
+      theme={THEME_PRESETS["rose-pine-moon"]}
+    />
+  ),
+  expectedColors: [THEME_PRESETS["rose-pine-moon"].accent],
   size: { width: 100, height: 30 },
 };

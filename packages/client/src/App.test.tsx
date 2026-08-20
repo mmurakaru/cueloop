@@ -148,8 +148,8 @@ describe("keyboard grammar", () => {
     // Act
     await press(setup, "x");
 
-    // Assert
-    await waitForText(setup, "[cut]");
+    // Assert - the rail shows the cut as a removal card titled CUT · me
+    await waitForText(setup, "CUT · me");
     expect(server.core.sessionGet(session.id).workingCopy).not.toContain("move the store");
 
     // Act
@@ -231,16 +231,43 @@ describe("submit", () => {
 });
 
 describe("inbox", () => {
-  test("inbox mode renders and opens a session", async () => {
+  test("inbox mode wears the review chrome (header + menu bar) and opens a session", async () => {
     // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
-    await waitForText(setup, "inbox");
+    await waitForText(setup, "cueloop");
 
-    // Assert
-    expect(setup.captureCharFrame()).toContain("inbox (1 pending)");
-    expect(setup.captureCharFrame()).toContain("Migration Plan");
+    // Assert - the same header/menu chrome as review, plus the session row
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("cueloop · resume");
+    expect(frame).toContain("Migration Plan");
+    expect(frame).toContain("menu"); // the shared MenuBar sits at the bottom
+    expect(frame).not.toContain("inbox ("); // the old inline header is gone
 
     // Act
+    await press(setup, "enter");
+
+    // Assert
+    await waitForText(setup, "Submit review");
+  });
+
+  test("the menu opens from the inbox and escape is not a trap", async () => {
+    // Arrange
+    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    await waitForText(setup, "cueloop · resume");
+    const lines = setup.captureCharFrame().split("\n");
+    const menuRow = lines.findIndex((line) => line.includes("menu"));
+    const menuColumn = lines[menuRow]!.indexOf("menu");
+
+    // Act - open the drop-up from the shared menu bar
+    await setup.mockMouse.click(menuColumn + 1, menuRow);
+
+    // Assert - the drop-up options appear
+    await waitForText(setup, "Keybinds");
+    expect(setup.captureCharFrame()).toContain("Settings");
+
+    // Act - escape closes the menu (not a trap), and the inbox nav still works
+    await press(setup, "escape");
+    await waitForState(setup, () => !setup.captureCharFrame().includes("Keybinds"));
     await press(setup, "enter");
 
     // Assert

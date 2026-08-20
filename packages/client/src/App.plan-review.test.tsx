@@ -9,7 +9,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { DARK as T } from "./theme";
+import { DARK } from "./theme";
 import {
   isolateUserConfig,
   press,
@@ -84,6 +84,19 @@ function backgroundsOf(setup: Setup, needle: string): string[] {
     }
   }
   return backgrounds;
+}
+
+/** Whether any styled span in the frame paints the given background hex. */
+function hasBackground(setup: Setup, hex: string): boolean {
+  for (const line of setup.captureSpans().lines) {
+    for (const span of line.spans) {
+      const [red, green, blue] = span.bg.toInts();
+      const rendered =
+        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
+      if (rendered === hex) return true;
+    }
+  }
+  return false;
 }
 
 /** Move the cursor to "The daemon persists sessions to disk atomically." */
@@ -250,9 +263,9 @@ describe("inline compose keeps the anchor painted", () => {
     // compose open: the anchor is painted selection-style. The box can render
     // a frame before the anchor repaint settles, so wait on the color itself.
     await waitForText(setup, "Save");
-    expect(setup.captureCharFrame()).toContain("Cancel esc");
-    await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(T.accent));
-    expect(backgroundsOf(setup, "The daemon")).toContain(T.accent);
+    expect(setup.captureCharFrame()).toContain("Cancel");
+    await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(DARK.accent));
+    expect(backgroundsOf(setup, "The daemon")).toContain(DARK.accent);
 
     // Act
     // cancel un-paints (a bare ESC settles after the parser's escape window)
@@ -260,7 +273,7 @@ describe("inline compose keeps the anchor painted", () => {
 
     // Assert
     await waitForTextGone(setup, 'comment on "');
-    expect(backgroundsOf(setup, "The daemon")).not.toContain(T.accent);
+    expect(backgroundsOf(setup, "The daemon")).not.toContain(DARK.accent);
 
     // Act
     // save converts the paint to the kind-colored annotation highlight
@@ -275,7 +288,7 @@ describe("inline compose keeps the anchor painted", () => {
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations.length).toBe(1);
     expect(backgroundsOf(setup, stored.annotations[0]!.anchor.quote.slice(0, 20))).toContain(
-      T.markCommentBackground,
+      DARK.markCommentBackground,
     );
     // renderApp plus this many frame-waits grazes the 5s default on a loaded CI
     // runner, and the whole-suite publish lane has timed even 15s out; give the
@@ -378,7 +391,7 @@ describe("the document selects, the rail edits", () => {
     await press(setup, "c");
     await type(setup, "Needs a citation.");
     await press(setup, "enter");
-    await waitForText(setup, "COMMENT · pending");
+    await waitForText(setup, "COMMENT · me");
 
     // Act
     // the saved card is selected; e turns its body into an input in place
@@ -426,17 +439,39 @@ describe("the document selects, the rail edits", () => {
     await press(setup, "c");
     await type(setup, "Delete me.");
     await press(setup, "enter");
-    await waitForText(setup, "COMMENT · pending");
+    await waitForText(setup, "COMMENT · me");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
-    expect(backgroundsOf(setup, "persists sessions")).toContain(T.markCommentBackground);
+    expect(backgroundsOf(setup, "persists sessions")).toContain(DARK.markCommentBackground);
 
     // Act
     await press(setup, "x");
 
     // Assert
-    await waitForTextGone(setup, "COMMENT · pending");
+    await waitForTextGone(setup, "COMMENT · me");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
-    expect(backgroundsOf(setup, "persists sessions")).not.toContain(T.markCommentBackground);
+    expect(backgroundsOf(setup, "persists sessions")).not.toContain(DARK.markCommentBackground);
+  });
+});
+
+describe("plan cut removals", () => {
+  test("a cut block becomes a rail removal card and u restores it", async () => {
+    // Arrange
+    const setup = await renderApp();
+    await toContextParagraph(setup);
+
+    // Act - no card is selected, so x cuts the block under the cursor
+    await press(setup, "x");
+
+    // Assert - the rail shows a removal card titled CUT · me for the cut block
+    await waitForText(setup, "CUT · me");
+    await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy !== undefined);
+
+    // Act - undo restores it (no selection, so the last removal)
+    await press(setup, "u");
+
+    // Assert - the block returns and the working copy is pristine again
+    await waitForText(setup, "removal restored");
+    await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
   });
 });
 
@@ -471,7 +506,7 @@ describe("addressed annotations leave the open list", () => {
     expect(frame).toContain("✓ 1 addressed by revision");
     expect(frame).not.toContain("settled note");
     expect(frame).toContain("still open note"); // the open card survives; the addressed one does not
-    expect(backgroundsOf(setup, "The daemon")).not.toContain(T.markCommentBackground); // no highlight paint
+    expect(backgroundsOf(setup, "The daemon")).not.toContain(DARK.markCommentBackground); // no highlight paint
   });
 });
 
@@ -521,12 +556,13 @@ describe("edit-exit reconciliation", () => {
       await press(setup, "c");
       await type(setup, "Anchor me to the doomed passage.");
       await press(setup, "enter");
-      await waitForText(setup, "· pending");
+      await waitForText(setup, "COMMENT · me");
 
       // Act
-      // deselect the card so e reaches the editor hand-off, then edit
+      // deselect the card so e reaches the editor hand-off, then edit; deselection
+      // shows as the selected card's elevated fill leaving the frame (no marker glyph)
       await press(setup, "escape");
-      await waitForTextGone(setup, "▸ COMMENT");
+      await waitForState(setup, () => !hasBackground(setup, DARK.elevated));
       await press(setup, "e");
 
       // Assert

@@ -39,12 +39,32 @@ export const SavedSelected: Story = {
         isSelected: true,
         isOrphan: false,
         isBlocking: false,
+        author: "me",
         editing: null,
         onPress: () => {},
       }}
     />
   ),
   expectedColors: [DARK.elevated],
+};
+
+export const SavedCollaborator: Story = {
+  render: () => (
+    <AnnotationCard
+      kind="comment"
+      quote="persists sessions"
+      saved={{
+        body: "Which daemon owns this?",
+        isSelected: false,
+        isOrphan: false,
+        isBlocking: false,
+        author: "Priya",
+        editing: null,
+        onPress: () => {},
+      }}
+    />
+  ),
+  expectedColors: [DARK.accent],
 };
 
 export const SavedOrphanBlocking: Story = {
@@ -57,12 +77,13 @@ export const SavedOrphanBlocking: Story = {
         isSelected: false,
         isOrphan: true,
         isBlocking: true,
+        author: "me",
         editing: null,
         onPress: () => {},
       }}
     />
   ),
-  expectedColors: [DARK.red],
+  expectedColors: [DARK.accent],
 };
 
 export const SavedEditing: Story = {
@@ -75,6 +96,7 @@ export const SavedEditing: Story = {
         isSelected: true,
         isOrphan: false,
         isBlocking: false,
+        author: "me",
         editing: { text: "new body", ...draftCallbacks },
         onPress: () => {},
       }}

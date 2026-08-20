@@ -12,6 +12,7 @@ const rail = {
   authorNames: {},
   selectedId: FIXTURE_ANNOTATIONS[0]!.id,
   resolvedIds: new Set(FIXTURE_ANNOTATIONS.map((annotation) => annotation.id)),
+  curationItems: [],
   railTab: "review" as const,
   pendingCount: 2,
   cardEdit: null,
@@ -19,6 +20,8 @@ const rail = {
   onTabChange: () => {},
   onSelectCard: () => {},
   onActivateCard: () => {},
+  onSelectCuration: () => {},
+  onUndoCuration: () => {},
   onSubmitRequest: () => {},
 };
 
