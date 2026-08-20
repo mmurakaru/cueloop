@@ -175,9 +175,8 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     const blockRef = blockRefs.current.get(popover.displayIndex);
     const scrollbox = scrollRef.current;
     if (!blockRef || !scrollbox) return;
-    // toolbar card (3 rows) + gap, plus the dropdown card when actions are open
-    const neededRows = 4 + (popover.view === "actions" ? popover.actions.length + 3 : 0);
-    setPopoverFlipBelow(blockRef.renderable.y - scrollbox.y < neededRows);
+    // only the toolbar (3 rows) + gap must fit above; the dropdown flows down
+    setPopoverFlipBelow(blockRef.renderable.y - scrollbox.y < 4);
     // left-anchor to the start of the selection: gutter width + its column
     const startColumn =
       activeSpan && activeSpan.displayIndex === popover.displayIndex
@@ -236,7 +235,13 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
         <box
           key={displayIndex}
           id={`plan-block-${displayIndex}`}
-          style={{ flexDirection: "row", marginTop: gap }}
+          // raise the block holding the popover so its overlay paints over the
+          // later blocks it floats across (siblings paint in z-index order)
+          style={{
+            flexDirection: "row",
+            marginTop: gap,
+            zIndex: popover?.displayIndex === displayIndex ? 10 : undefined,
+          }}
         >
           <text selectable={false}>
             <span fg={isCursor ? tokens.accent : tokens.textDim}>{isCursor ? "▎ " : "  "}</span>
@@ -269,8 +274,9 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
               style={{
                 position: "absolute",
                 left: popoverLeft,
-                ...(popoverFlipBelow ? { top: "100%" } : { bottom: "100%" }),
-                ...(popoverFlipBelow ? { marginTop: 1 } : { marginBottom: 1 }),
+                // fixed offset: the toolbar sits one row above the selection and
+                // stays put; the dropdown flows down from it, over the selection
+                top: popoverFlipBelow ? 1 : -4,
                 flexDirection: "column",
               }}
             >
