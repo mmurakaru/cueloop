@@ -83,7 +83,6 @@ describe("observer rendering", () => {
 describe("observer verbs are blocked", () => {
   for (const [key, verb] of [
     ["c", "comment"],
-    ["s", "suggest"],
     ["x", "cut"],
     ["e", "edit"],
     ["enter", "submit"],
@@ -97,13 +96,12 @@ describe("observer verbs are blocked", () => {
       const frame = await waitForText(setup, "observer - read-only");
       // no overlay opened: compose/submit bars never appear
       expect(frame).not.toContain('comment on "');
-      expect(frame).not.toContain('suggest replacement for "');
       expect(frame).not.toContain("verdict ←/→");
       expect(snapshot()).toEqual(before);
     });
   }
 
-  test("span mode c/s is blocked too", async () => {
+  test("span mode c is blocked too", async () => {
     // Arrange
     const setup = await renderObserver();
 

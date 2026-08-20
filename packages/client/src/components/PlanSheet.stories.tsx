@@ -25,11 +25,7 @@ export const AnnotatedPlan: Story = {
       {...callbacks}
     />
   ),
-  expectedColors: [
-    DARK.markCommentBackground,
-    DARK.markSuggestionBackground,
-    DARK.cursorBackground,
-  ],
+  expectedColors: [DARK.markCommentBackground, DARK.cursorBackground],
   size: { width: 90, height: 28 },
 };
 

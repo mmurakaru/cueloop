@@ -37,7 +37,7 @@ export const AnnotationStack: Story = {
       />
     </RailFrame>
   ),
-  expectedColors: [DARK.green],
+  expectedColors: [DARK.accent],
   size: { width: 40, height: 24 },
 };
 
@@ -57,7 +57,7 @@ export const MixedOwnershipStack: Story = {
             },
             {
               id: "collab_note",
-              kind: "suggestion",
+              kind: "comment",
               anchor: { quote: "move the store", prefix: "", suffix: "" },
               body: "move it behind one interface",
               author: "SHA256:collab1",
@@ -76,8 +76,8 @@ export const MixedOwnershipStack: Story = {
       />
     </RailFrame>
   ),
-  // borders are kind-colored now: the own comment = accent, the suggestion = green
-  expectedColors: [DARK.accent, DARK.green],
+  // every annotation border is accent now
+  expectedColors: [DARK.accent],
   size: { width: 40, height: 24 },
 };
 

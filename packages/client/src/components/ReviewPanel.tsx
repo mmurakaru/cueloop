@@ -49,8 +49,6 @@ function CompactRail({
   theme?: Theme;
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const dotColor = (annotation: Annotation): string =>
-    annotation.kind === "suggestion" ? tokens.green : tokens.accent;
   return (
     <box
       style={{
@@ -67,7 +65,7 @@ function CompactRail({
       <box style={{ height: 1 }} />
       <box style={{ flexDirection: "column", alignItems: "center" }}>
         {annotations.map((annotation) => (
-          <text key={annotation.id} fg={dotColor(annotation)}>
+          <text key={annotation.id} fg={tokens.accent}>
             ●
           </text>
         ))}

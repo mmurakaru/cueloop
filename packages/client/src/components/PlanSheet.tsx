@@ -48,7 +48,7 @@ export interface PlanSheetHandle {
 }
 
 export interface PlanComposeState {
-  kind: "comment" | "suggestion";
+  kind: "comment";
   displayIndex: number;
   quote: string;
   draft: AnnotationDraft;
@@ -315,8 +315,6 @@ function runStyle(
       return { fg: tokens.deletedForeground };
     case "mark-comment":
       return { fg: tokens.text, bg: tokens.markCommentBackground };
-    case "mark-suggestion":
-      return { fg: tokens.text, bg: tokens.markSuggestionBackground };
     case "mark-focus":
       return { fg: tokens.accentInk, bg: tokens.accent };
     case "kspan":

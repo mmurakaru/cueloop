@@ -77,7 +77,7 @@ export const AnchorSchema = v.object({
 /** Wire annotations arrive without createdAt - the daemon stamps it. */
 export const AnnotationSchema = v.object({
   id: NonEmpty,
-  /** Open kind set: built-ins are comment and suggestion. */
+  /** Open kind set: the built-in is comment. */
   kind: NonEmpty,
   anchor: AnchorSchema,
   body: v.string(),

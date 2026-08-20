@@ -57,7 +57,7 @@ exports[`stories catalog AnnotationCard/SavedCollaborator renders, snapshots, an
 `;
 
 exports[`stories catalog AnnotationCard/SavedEditing renders, snapshots, and carries its colors: AnnotationCard/SavedEditing 1`] = `
-"╭─ SUGGESTION · me ────────────────────────────────────────────────────────────╮
+"╭─ COMMENT · me ───────────────────────────────────────────────────────────────╮
 │ "move the store"                                                             │
 │ new body                                                                     │
 │  Save    Cancel                                                              │
@@ -116,34 +116,6 @@ exports[`stories catalog AnnotationCard/SavedSelected renders, snapshots, and ca
 "╭─ COMMENT · me ───────────────────────────────────────────────────────────────╮
 │ "persists sessions"                                                          │
 │ Which daemon owns this?                                                      │
-╰──────────────────────────────────────────────────────────────────────────────╯
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog AnnotationCard/SuggestionDraft renders, snapshots, and carries its colors: AnnotationCard/SuggestionDraft 1`] = `
-"╭─ suggest replacement for "move the store" ───────────────────────────────────╮
-│ write a note...                                                              │
-│  Save    Cancel                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
                                                                                 
                                                                                 
@@ -856,7 +828,7 @@ exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carr
                                                          │ Whichidaemonsownss" │
                                                          │ this?               │
                                                          ╰─────────────────────╯
-                                                         ╭─ SUGGESTION · me ───╮
+                                                         ╭─ COMMENT · me ──────╮
                                                          │ moveetheestoree"    │
                                                          │ behind o…           │
                                                          ╰─────────────────────╯
@@ -884,7 +856,7 @@ exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carrie
                                          │ "persists sessions"                           │
                                          │ Which daemon owns this?                       │
                                          ╰───────────────────────────────────────────────╯
-                                         ╭─ SUGGESTION · me ─────────────────────────────╮
+                                         ╭─ COMMENT · me ────────────────────────────────╮
                                          │ "move the store"                              │
                                          │ move the store behind o…                      │
                                          ╰───────────────────────────────────────────────╯
@@ -968,7 +940,7 @@ exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carr
  │ "persists sessions"           │      
  │ Which daemon owns this?       │      
  ╰───────────────────────────────╯      
- ╭─ SUGGESTION · me ─────────────╮      
+ ╭─ COMMENT · me ────────────────╮      
  │ "move the store"              │      
  │ move the store behind o…      │      
  ╰───────────────────────────────╯      
@@ -999,7 +971,7 @@ exports[`stories catalog ReviewRail/InterleavedStack renders, snapshots, and car
  │ "persists sessions"           │      
  │ Which daemon owns this?       │      
  ╰───────────────────────────────╯      
- ╭─ SUGGESTION · me ─────────────╮      
+ ╭─ COMMENT · me ────────────────╮      
  │ "move the store"              │      
  │ move the store behind o…      │      
  ╰───────────────────────────────╯      
@@ -1024,7 +996,7 @@ exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and 
  │ "persists sessions"           │      
  │ Which daemon owns this?       │      
  ╰───────────────────────────────╯      
- ╭─ SUGGESTION · Priya ──────────╮      
+ ╭─ COMMENT · Priya ─────────────╮      
  │ "move the store"              │      
  │ move it behind one inte…      │      
  ╰───────────────────────────────╯      
@@ -1080,7 +1052,7 @@ exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its
  │ "persists sessions"           │      
  │ Which daemon owns this?       │      
  ╰───────────────────────────────╯      
- ╭─ SUGGESTION · me · ORPHANED ──╮      
+ ╭─ COMMENT · me · ORPHANED ─────╮      
  │ "move the store"              │      
  │ move the store behind o…      │      
  ╰───────────────────────────────╯      
@@ -1108,7 +1080,7 @@ exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and ca
  │ "persists sessions"           │      
  │ Which daemon owns this?       │      
  ╰───────────────────────────────╯      
- ╭─ SUGGESTION · me · ORPHANED ──╮      
+ ╭─ COMMENT · me · ORPHANED ─────╮      
  │ "move the store"              │      
  │ move the store behind o…      │      
  ╰───────────────────────────────╯      

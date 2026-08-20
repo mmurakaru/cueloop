@@ -57,7 +57,6 @@ export const DEFAULT_KEYS: Record<string, string[]> = {
   bottom: ["G"],
   span: ["v"],
   comment: ["c"],
-  suggest: ["s"],
   cut: ["x"],
   reject_hunk: ["X"],
   restore_curation: ["u"],

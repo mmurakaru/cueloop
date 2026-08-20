@@ -64,7 +64,7 @@ Or wire the hook by hand (blocks the plan gate on your review):
 ## Grammar
 
 `j/k` move · `v` span (`l/h` grow/shrink, `w/b` slide, `$` end) · `c` comment ·
-`s` suggest · `x` cut (serializes into the one plan.md diff) · `e` edit the
+`x` cut (serializes into the one plan.md diff) · `e` edit the
 whole file in `$EDITOR` · `n/p` annotations · `⏎` submit (verdict ←/→) ·
 `q` quit. Every action is rebindable in `~/.config/cueloop/config.toml`
 (`[keys]`). Pick a built-in theme in Settings or with `[ui] theme` (`cueloop`,

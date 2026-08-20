@@ -70,7 +70,7 @@ export interface Anchor {
 }
 
 /** The annotation kind set is open; these are the built-ins. */
-export type AnnotationKind = "comment" | "suggestion" | (string & {});
+export type AnnotationKind = "comment" | (string & {});
 
 /**
  * Agent-authored context, not reviewer feedback: the guided walk's per-file
@@ -86,7 +86,7 @@ export interface Annotation {
   id: string;
   kind: AnnotationKind;
   anchor: Anchor;
-  /** Comment body, or the replacement text for suggestions. */
+  /** Comment body. */
   body: string;
   /** Set by resolution when the quote can no longer be found. */
   orphan?: boolean;

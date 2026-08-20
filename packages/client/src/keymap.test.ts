@@ -206,7 +206,6 @@ describe("plan normal mode", () => {
     ["g", true, [{ type: "move", to: "bottom" }]],
     ["v", false, [{ type: "startSpan" }]],
     ["c", false, [{ type: "openCompose", kind: "comment", from: "cursor" }]],
-    ["s", false, [{ type: "openCompose", kind: "suggestion", from: "cursor" }]],
     // the default state has a selected card, so Cut and edit act on the card
     ["x", false, [{ type: "removeAnnotation" }]],
     ["e", false, [{ type: "editCard" }]],
@@ -229,7 +228,7 @@ describe("plan normal mode", () => {
     const resolvedState = state({ resolved: true });
 
     // Assert
-    for (const name of ["c", "s", "x", "e"]) {
+    for (const name of ["c", "x", "e"]) {
       expect(reduceKey(resolvedState, key(name))).toEqual([
         { type: "status", message: "review submitted - read-only" },
       ]);
@@ -256,9 +255,6 @@ describe("plan normal mode", () => {
 
     // Assert
     expect(reduceKey(cut, key("c"))).toEqual([
-      { type: "status", message: "text is cut - restore it first" },
-    ]);
-    expect(reduceKey(cut, key("s"))).toEqual([
       { type: "status", message: "text is cut - restore it first" },
     ]);
     expect(reduceKey(cut, key("v"))).toEqual([]);
@@ -295,7 +291,6 @@ describe("span mode", () => {
     ["$", [{ type: "spanKey", name: "$" }]],
     ["0", [{ type: "spanKey", name: "0" }]],
     ["c", [{ type: "openCompose", kind: "comment", from: "span" }]],
-    ["s", [{ type: "openCompose", kind: "suggestion", from: "span" }]],
     ["escape", [{ type: "closeOverlay" }]],
     ["q", [{ type: "exit" }]],
     ["j", []],
@@ -322,7 +317,6 @@ describe("diff mode", () => {
     ["v", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
     ["x", [{ type: "rejectChange" }]],
     ["e", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
-    ["s", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
     ["q", [{ type: "exit" }]],
   ];
   for (const [name, expected] of table) {
@@ -482,7 +476,7 @@ describe("read-only filter", () => {
   test("every mutating key answers observer - read-only, in plan and diff", () => {
     for (const view of ["plan", "diff"] as const) {
       const keyState = state({ view, readOnly: true });
-      for (const name of ["c", "s", "x", "e", "backspace", "return", "enter"]) {
+      for (const name of ["c", "x", "e", "backspace", "return", "enter"]) {
         expect(reduceKey(keyState, key(name))).toEqual([
           { type: "status", message: "observer - read-only" },
         ]);
@@ -500,16 +494,13 @@ describe("read-only filter", () => {
     expect(reduceKey(keyState, key("q"))).toEqual([{ type: "exit" }]);
   });
 
-  test("span-mode c/s are gated by key name even under a rebound keymap", () => {
+  test("span-mode c is gated by key name even under a rebound keymap", () => {
     // Arrange
-    const rebound = { ...DEFAULT_KEYS, comment: ["m"], suggest: ["t"] };
+    const rebound = { ...DEFAULT_KEYS, comment: ["m"] };
     const keyState = state({ spanMode: true, readOnly: true, keys: rebound });
 
     // Assert
     expect(reduceKey(keyState, key("c"))).toEqual([
-      { type: "status", message: "observer - read-only" },
-    ]);
-    expect(reduceKey(keyState, key("s"))).toEqual([
       { type: "status", message: "observer - read-only" },
     ]);
   });

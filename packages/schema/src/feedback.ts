@@ -106,22 +106,13 @@ export function renderFeedback(input: FeedbackInput): string {
       const location = sectionTitle ? ` (§ ${sectionTitle})` : "";
       const orphanFlag =
         resolved === null ? " [orphaned anchor: the quoted text is no longer present]" : "";
-      if (annotation.kind === "suggestion") {
-        lines.push(`### ${annotationIndex + 1}. Suggested change${location}${orphanFlag}`);
-        lines.push("");
-        lines.push("Replace:");
-        lines.push(quoteLines(annotation.anchor.quote));
-        lines.push("With:");
-        lines.push(quoteLines(annotation.body));
-      } else {
-        lines.push(
-          `### ${annotationIndex + 1}. ${capitalize(annotation.kind)}${location}${orphanFlag}`,
-        );
-        lines.push("");
-        lines.push(quoteLines(annotation.anchor.quote));
-        lines.push("");
-        lines.push(annotation.body);
-      }
+      lines.push(
+        `### ${annotationIndex + 1}. ${capitalize(annotation.kind)}${location}${orphanFlag}`,
+      );
+      lines.push("");
+      lines.push(quoteLines(annotation.anchor.quote));
+      lines.push("");
+      lines.push(annotation.body);
       lines.push("");
       lines.push(`annotation id: \`${annotation.id}\``);
       lines.push("");

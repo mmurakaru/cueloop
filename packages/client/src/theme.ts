@@ -20,7 +20,6 @@ export interface Theme {
   blue: string;
   cursorBackground: string;
   markCommentBackground: string;
-  markSuggestionBackground: string;
   insertedForeground: string;
   deletedForeground: string;
   /** Layer behind centered dialogs; transparent keeps the session visible. */
@@ -62,7 +61,6 @@ export const DARK: Theme = {
   blue: "#84a6e8",
   cursorBackground: "#33262a",
   markCommentBackground: "#3d2a2e",
-  markSuggestionBackground: "#20351f",
   insertedForeground: "#62d96b",
   deletedForeground: "#ff6b6b",
   backdrop: "transparent",

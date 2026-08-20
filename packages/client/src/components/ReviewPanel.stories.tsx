@@ -61,7 +61,7 @@ export const ExpandedWide: Story = {
       <ReviewPanel mode="expanded" width={REVIEW_MAX_WIDTH} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
-  expectedColors: [DARK.green],
+  expectedColors: [DARK.accent],
   size: { width: 90, height: 24 },
 };
 
@@ -71,7 +71,7 @@ export const Compact: Story = {
       <ReviewPanel mode="compact" width={34} rail={rail} {...panelCallbacks} />
     </PanelFrame>
   ),
-  expectedColors: [DARK.accent, DARK.green],
+  expectedColors: [DARK.accent],
   size: { width: 60, height: 24 },
 };
 
