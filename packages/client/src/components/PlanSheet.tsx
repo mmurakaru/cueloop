@@ -8,7 +8,7 @@
  * which keeps quote anchors char-precise.
  */
 
-import React, { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useRenderer } from "@opentui/react";
 import { createTextAttributes, type ScrollBoxRenderable, type TextRenderable } from "@opentui/core";
 import type { ReviewSession } from "@cueloop/schema";
@@ -27,6 +27,7 @@ import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { CodeBlock } from "./CodeBlock";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
+import { MarkerPopover, type MarkerPopoverProps } from "./MarkerPopover";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
 
 /** A cut block reads as removed: struck through and grayed, never red. */
@@ -40,7 +41,8 @@ export interface PlanSelection {
 
 export interface PlanSheetHandle {
   /** Work-text range of the current native (mouse) selection, if any. */
-  readSelection(): PlanSelection | null;
+  /** The current native selection; `preferredIndex` (the mouse-up block) re-anchors a fresh drag. */
+  readSelection(preferredIndex?: number): PlanSelection | null;
   /** Anchor/extend the renderer's native selection from keyboard span offsets. */
   driveSpanSelection(span: SpanState): void;
   clearSelection(): void;
@@ -54,6 +56,11 @@ export interface PlanComposeState {
   draft: AnnotationDraft;
 }
 
+/** The marker-actions popover, rendered inline at its block while span mode is live. */
+export interface PlanPopoverState extends MarkerPopoverProps {
+  displayIndex: number;
+}
+
 export interface PlanSheetProps {
   session: ReviewSession;
   display: DisplayBlock[];
@@ -62,6 +69,8 @@ export interface PlanSheetProps {
   /** Extra selection-style paint on one block (keyboard span or compose anchor). */
   activeSpan: { displayIndex: number; start: number; end: number } | null;
   compose: PlanComposeState | null;
+  /** The marker-actions popover for the span's block; null when not in span mode. */
+  popover: PlanPopoverState | null;
   editOrphanCount: number;
   onLineActivate: (displayIndex: number) => void;
   theme?: Theme;
@@ -96,6 +105,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     cursor,
     activeSpan,
     compose,
+    popover,
     editOrphanCount,
     onLineActivate,
     theme,
@@ -108,14 +118,27 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
 
   useImperativeHandle(handleRef, () => ({
-    readSelection: (): PlanSelection | null => {
+    readSelection: (preferredIndex?: number): PlanSelection | null => {
       if (!renderer?.hasSelection) return null;
-      const ordered = [...blockRefs.current.entries()].sort(([a], [b]) => a - b);
-      for (const [displayIndex, blockRef] of ordered) {
+      const readBlock = (displayIndex: number): PlanSelection | null => {
+        const blockRef = blockRefs.current.get(displayIndex);
+        if (!blockRef) return null;
         const selection = blockRef.renderable.getSelection();
-        if (!selection || selection.end <= selection.start) continue;
+        if (!selection || selection.end <= selection.start) return null;
         const range = workRangeForRendered(blockRef.runs, selection.start, selection.end);
-        if (range) return { displayIndex, ...range };
+        return range ? { displayIndex, ...range } : null;
+      };
+      // the block the mouse released on wins, so a fresh drag re-anchors the span
+      // (one marker at a time) instead of sticking to the topmost prior selection
+      if (preferredIndex !== undefined) {
+        const preferred = readBlock(preferredIndex);
+        if (preferred) return preferred;
+      }
+      for (const displayIndex of [...blockRefs.current.keys()].sort(
+        (left, right) => left - right,
+      )) {
+        const found = readBlock(displayIndex);
+        if (found) return found;
       }
       return null;
     },
@@ -142,6 +165,25 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
       }
     },
   }));
+
+  // the popover floats above its block, anchored to the selection start; flip
+  // below when the block sits too near the viewport top to fit above it
+  const [popoverFlipBelow, setPopoverFlipBelow] = useState(false);
+  const [popoverLeft, setPopoverLeft] = useState(2);
+  useEffect(() => {
+    if (!popover) return;
+    const blockRef = blockRefs.current.get(popover.displayIndex);
+    const scrollbox = scrollRef.current;
+    if (!blockRef || !scrollbox) return;
+    // only the toolbar (3 rows) + gap must fit above; the dropdown flows down
+    setPopoverFlipBelow(blockRef.renderable.y - scrollbox.y < 4);
+    // left-anchor to the start of the selection: gutter width + its column
+    const startColumn =
+      activeSpan && activeSpan.displayIndex === popover.displayIndex
+        ? (renderedOffsetFor(blockRef.runs, activeSpan.start) ?? 0)
+        : 0;
+    setPopoverLeft(2 + startColumn);
+  }, [popover, activeSpan, display, cursor]);
 
   const registerBlock = (
     displayIndex: number,
@@ -193,7 +235,13 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
         <box
           key={displayIndex}
           id={`plan-block-${displayIndex}`}
-          style={{ flexDirection: "row", marginTop: gap }}
+          // raise the block holding the popover so its overlay paints over the
+          // later blocks it floats across (siblings paint in z-index order)
+          style={{
+            flexDirection: "row",
+            marginTop: gap,
+            zIndex: popover?.displayIndex === displayIndex ? 10 : undefined,
+          }}
         >
           <text selectable={false}>
             <span fg={isCursor ? tokens.accent : tokens.textDim}>{isCursor ? "▎ " : "  "}</span>
@@ -219,6 +267,22 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
               <span fg={tagColor(block, tokens)}> [{tagLabel(block)}]</span>
             ) : null}
           </text>
+          {popover && popover.displayIndex === displayIndex ? (
+            // float the card over the block, centered, with a one-row gap; flip
+            // below only when there is no room above (near the viewport top)
+            <box
+              style={{
+                position: "absolute",
+                left: popoverLeft,
+                // fixed offset: the toolbar sits one row above the selection and
+                // stays put; the dropdown flows down from it, over the selection
+                top: popoverFlipBelow ? 1 : -4,
+                flexDirection: "column",
+              }}
+            >
+              <MarkerPopover {...popover} theme={theme} />
+            </box>
+          ) : null}
         </box>,
       );
     }

@@ -345,6 +345,33 @@ export function startSpan(displayIndex: number, text: string): SpanState | null 
   return { displayIndex, wordIndex: 0, wordEnd: 0, start: words[0]![0], end: words[0]![1] };
 }
 
+/**
+ * Build a word-granular span from a raw char range (a mouse drag-selection),
+ * snapping to every word the range overlaps so w/b/l/h keep working after. Null
+ * when the range covers no word.
+ */
+export function spanFromRange(
+  displayIndex: number,
+  text: string,
+  start: number,
+  end: number,
+): SpanState | null {
+  const words = wordRanges(text);
+  const wordIndex = words.findIndex((word) => word[1] > start);
+  if (wordIndex === -1) return null;
+  let wordEnd = wordIndex;
+  for (let index = wordIndex; index < words.length && words[index]![0] < end; index++) {
+    wordEnd = index;
+  }
+  return {
+    displayIndex,
+    wordIndex,
+    wordEnd,
+    start: words[wordIndex]![0],
+    end: words[wordEnd]![1],
+  };
+}
+
 export function spanKey(span: SpanState, key: string, text: string): SpanState {
   const words = wordRanges(text);
   const nextSpan = { ...span };

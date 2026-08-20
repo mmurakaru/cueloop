@@ -86,11 +86,12 @@ function backgroundsOf(setup: Setup, needle: string): string[] {
   return backgrounds;
 }
 
-/** Whether any styled span in the frame paints the given background hex. */
-function hasBackground(setup: Setup, hex: string): boolean {
+/** Whether any border character (box-drawing) is painted in the given foreground hex. */
+function hasBorderColor(setup: Setup, hex: string): boolean {
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
-      const [red, green, blue] = span.bg.toInts();
+      if (!/[╭╮╰╯│─┌┐└┘]/.test(span.text)) continue;
+      const [red, green, blue] = span.fg.toInts();
       const rendered =
         "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
       if (rendered === hex) return true;
@@ -560,9 +561,9 @@ describe("edit-exit reconciliation", () => {
 
       // Act
       // deselect the card so e reaches the editor hand-off, then edit; deselection
-      // shows as the selected card's elevated fill leaving the frame (no marker glyph)
+      // shows as the card's accent border fading to a dim border (transparent fill)
       await press(setup, "escape");
-      await waitForState(setup, () => !hasBackground(setup, DARK.elevated));
+      await waitForState(setup, () => !hasBorderColor(setup, DARK.accent));
       await press(setup, "e");
 
       // Assert
@@ -574,5 +575,30 @@ describe("edit-exit reconciliation", () => {
     } finally {
       delete process.env.CUELOOP_EDITOR;
     }
+  });
+});
+
+describe("marker-actions popover", () => {
+  test("v shows the toolbar, a opens quick-actions, enter inserts the preset comment", async () => {
+    // Arrange
+    const setup = await renderApp();
+    await toContextParagraph(setup);
+
+    // Act - marking a span reveals the inline toolbar
+    await press(setup, "v");
+    await waitForText(setup, "actions");
+
+    // open the quick-actions list; step to the second default and pick it. The
+    // list renders as a floating overlay the virtual terminal cannot composite,
+    // so drive the grammar directly rather than waiting on its painted text.
+    await press(setup, "a");
+    await press(setup, "j");
+    await press(setup, "enter");
+
+    // Assert - a comment annotation was created with the second default's body
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    const stored = server.core.sessionGet(session.id);
+    expect(stored.annotations[0]!.kind).toBe("comment");
+    expect(stored.annotations[0]!.body).toBe("Restate simplified");
   });
 });

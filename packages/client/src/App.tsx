@@ -13,16 +13,18 @@ import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } fro
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock, MouseEvent } from "@opentui/core";
 import { type VerdictKind } from "@cueloop/schema";
-import { displayText, marksByDisplay, type Mark } from "./view-plan";
+import { displayText, marksByDisplay, spanFromRange, type Mark } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
 import {
   DEFAULT_KEYS,
+  DEFAULT_QUICK_ACTIONS,
   loadConfig,
   persistAuthorName,
   persistAutoClose,
   persistTheme,
   type AutoClose,
+  type QuickAction,
 } from "./config";
 import {
   composeTheme,
@@ -35,7 +37,12 @@ import type { Theme } from "./theme";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
-import { createIntentDispatch, reviewerAnnotations, type Mode } from "./intent-dispatch";
+import {
+  activeSpanState,
+  createIntentDispatch,
+  reviewerAnnotations,
+  type Mode,
+} from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
@@ -175,6 +182,7 @@ export function App({
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME_NAME);
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
+  const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
     keysRef.current = config.keys;
@@ -186,6 +194,7 @@ export function App({
     setReviewWidth(config.ui.reviewWidth);
     reviewWidthRef.current = config.ui.reviewWidth;
     setAuthorNames(config.authors);
+    setQuickActions(config.actions);
     setAutoClose(config.ui.autoClose);
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings]);
@@ -263,8 +272,11 @@ export function App({
   // out of span mode clears the renderer selection (compose paints its own
   // mark, and a mouse drag never changes the mode, so it survives)
   useEffect(() => {
-    if (mode.type === "span") planSheetRef.current?.driveSpanSelection(mode.span);
-    else planSheetRef.current?.clearSelection();
+    // one marker at a time: clear any prior selection, then paint the current
+    // span (span and its quick-actions sub-mode both keep it painted)
+    const span = activeSpanState(mode);
+    planSheetRef.current?.clearSelection();
+    if (span) planSheetRef.current?.driveSpanSelection(span);
   }, [mode]);
 
   // ── selection symmetry: one selected id, both sides ──
@@ -361,6 +373,7 @@ export function App({
     focusedAnnotationId,
     selectedCurationId,
     authorNames,
+    quickActions,
     renameAuthor: (id: string, name: string) => {
       persistAuthorName(id, name);
       setAuthorNames((prev) => ({ ...prev, [id]: name }));
@@ -391,13 +404,15 @@ export function App({
           ? "confirm"
           : mode.type === "rename" || mode.type === "nameSelf"
             ? "prompt"
-            : completion.phase === "prompt"
-              ? "completion-prompt"
-              : completion.phase === "counting"
-                ? "completion-counting"
-                : walking
-                  ? "walk"
-                  : "none";
+            : mode.type === "spanActions"
+              ? "spanActions"
+              : completion.phase === "prompt"
+                ? "completion-prompt"
+                : completion.phase === "counting"
+                  ? "completion-counting"
+                  : walking
+                    ? "walk"
+                    : "none";
 
   // ── settings dialog: config-backed model, navigation, persistence ──
   const settingsCategories: SettingsCategory[] = [
@@ -707,17 +722,75 @@ export function App({
         }
       : null;
 
-  const activeSpan =
-    mode.type === "span"
-      ? { displayIndex: mode.span.displayIndex, start: mode.span.start, end: mode.span.end }
-      : mode.type === "compose" && !isDiff
-        ? // the compose anchor stays painted selection-style while the box is open
-          { displayIndex: mode.displayIndex, start: mode.start, end: mode.end }
-        : null;
+  const markedSpan = activeSpanState(mode);
+  const activeSpan = markedSpan
+    ? { displayIndex: markedSpan.displayIndex, start: markedSpan.start, end: markedSpan.end }
+    : mode.type === "compose" && !isDiff
+      ? // the compose anchor stays painted selection-style while the box is open
+        { displayIndex: mode.displayIndex, start: mode.start, end: mode.end }
+      : null;
+
+  // mouse mutations bypass reduceKey, so they replay its gates: an observer or a
+  // resolved review is read-only. Returns the status to answer with, or null.
+  const spanMutationBlock = (): string | null =>
+    observer ? "observer - read-only" : resolved ? "review submitted - read-only" : null;
+
+  // the marker-actions popover is span mode made visible: an inline toolbar at
+  // the marked block, or its quick-actions list. Cut is owner-only (hidden for a
+  // collaborator, like every other plan-edit affordance).
+  const popoverState =
+    markedSpan && !isDiff
+      ? {
+          displayIndex: markedSpan.displayIndex,
+          view: mode.type === "spanActions" ? ("actions" as const) : ("toolbar" as const),
+          actions: quickActions,
+          actionIndex: mode.type === "spanActions" ? mode.index : 0,
+          canCut: isOwner,
+          onComment: () => {
+            const blocked = spanMutationBlock();
+            if (blocked) return controller.setStatus(blocked);
+            dispatch({ type: "openCompose", kind: "comment", from: "span" });
+          },
+          onCut: () => {
+            const blocked = spanMutationBlock();
+            if (blocked) return controller.setStatus(blocked);
+            if (!isOwner) return;
+            dispatch({ type: "spanCut" });
+          },
+          onOpenActions: () => {
+            const blocked = spanMutationBlock();
+            if (blocked) return controller.setStatus(blocked);
+            dispatch({ type: "openSpanActions" });
+          },
+          onClose: () => dispatch({ type: "closeOverlay" }),
+          onPickAction: (index: number) => {
+            const blocked = spanMutationBlock();
+            if (blocked) return controller.setStatus(blocked);
+            dispatch({ type: "pickSpanAction", index });
+          },
+          onBack: () => dispatch({ type: "closeSpanActions" }),
+        }
+      : null;
 
   const onLineActivate = (displayIndex: number): void => {
-    // releasing a drag-selection lands here too; a live selection is not a click
-    if (renderer?.hasSelection) return;
+    // a mouse drag leaves a native selection: turn it into a word span so the
+    // marker popover opens at the dragged range, mirroring the `v` grammar
+    if (renderer?.hasSelection) {
+      // the release block re-anchors the span, so each drag replaces the last
+      const selection = planSheetRef.current?.readSelection(displayIndex);
+      const block = selection ? display[selection.displayIndex] : undefined;
+      const span =
+        selection && block
+          ? spanFromRange(
+              selection.displayIndex,
+              displayText(block),
+              selection.start,
+              selection.end,
+            )
+          : null;
+      if (span) setMode({ type: "span", span });
+      return;
+    }
     setCursor(displayIndex);
     const annotationId = marks.get(displayIndex)?.[0]?.annotationId;
     if (annotationId) selectCardFromDocument(annotationId);
@@ -887,6 +960,7 @@ export function App({
               cursor={cursor}
               activeSpan={activeSpan}
               compose={composeState}
+              popover={popoverState}
               editOrphanCount={editOrphanCount}
               onLineActivate={onLineActivate}
             />

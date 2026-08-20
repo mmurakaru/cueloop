@@ -566,6 +566,34 @@ exports[`stories catalog KeybindsDialog/Cheatsheet renders, snapshots, and carri
 "
 `;
 
+exports[`stories catalog MarkerPopover/ActionsList renders, snapshots, and carries its colors: MarkerPopover/ActionsList 1`] = `
+"╭───────────────────────────────╮                           
+│ comment · cut · actions · [x] │                           
+╰───────────────────────────────╯                           
+╭───────────────────────────────────╮                       
+│   Zoom out, research in depth     │                       
+│   Restate simplified              │                       
+│ › Out of scope                    │                       
+│   Let's chat about this           │                       
+"
+`;
+
+exports[`stories catalog MarkerPopover/Toolbar renders, snapshots, and carries its colors: MarkerPopover/Toolbar 1`] = `
+"╭───────────────────────────────╮                           
+│ comment · cut · actions · [x] │                           
+╰───────────────────────────────╯                           
+                                                            
+"
+`;
+
+exports[`stories catalog MarkerPopover/ToolbarNoCut renders, snapshots, and carries its colors: MarkerPopover/ToolbarNoCut 1`] = `
+"╭─────────────────────────╮                                 
+│ comment · actions · [x] │                                 
+╰─────────────────────────╯                                 
+                                                            
+"
+`;
+
 exports[`stories catalog MenuBar/Closed renders, snapshots, and carries its colors: MenuBar/Closed 1`] = `
 "                                                            
                                                             

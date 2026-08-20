@@ -27,6 +27,23 @@ export interface IntegrationsConfig {
 /** Post-submit behavior: "off" prompts, 0 closes instantly, N counts down. */
 export type AutoClose = "off" | number;
 
+/** One marker-popover quick action: a preset comment body, plus optional extra lines. */
+export interface QuickAction {
+  prompt: string;
+  metadata?: string;
+}
+
+/** The built-in quick-actions for the marker popover when no `[[actions]]` are configured. */
+export const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
+  { prompt: "Zoom out, research in depth" },
+  { prompt: "Restate simplified" },
+  { prompt: "Out of scope" },
+  { prompt: "Let's chat about this" },
+  { prompt: "Prototype this" },
+  { prompt: "Ensure 0 regressions" },
+  { prompt: "Consider existing repo patterns" },
+];
+
 export interface CueloopConfig {
   keys: Record<string, string[]>;
   theme: Theme;
@@ -46,6 +63,8 @@ export interface CueloopConfig {
   };
   /** Planner-local author renames: identity id → display name ([authors] table). */
   authors: Record<string, string>;
+  /** Marker-popover quick actions ([[actions]] tables); the 5 defaults when unset. */
+  actions: QuickAction[];
   integrations: IntegrationsConfig;
 }
 
@@ -79,6 +98,27 @@ function parseToml(text: string): Record<string, unknown> {
   return Bun.TOML.parse(text) as Record<string, unknown>;
 }
 
+/**
+ * Parse a `[[actions]]` array-of-tables. A table without a non-empty `prompt`
+ * is skipped; any valid table REPLACES the defaults (the whole set is the
+ * user's, not merged). Returns undefined when nothing usable is present.
+ */
+function parseActions(raw: unknown): QuickAction[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const actions: QuickAction[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== "object") continue;
+    const table = entry as Record<string, unknown>;
+    const prompt = table["prompt"];
+    if (typeof prompt !== "string" || !prompt.trim()) continue;
+    const metadata = table["metadata"];
+    actions.push(
+      typeof metadata === "string" && metadata.trim() ? { prompt, metadata } : { prompt },
+    );
+  }
+  return actions.length ? actions : undefined;
+}
+
 function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig {
   const out: CueloopConfig = {
     keys: { ...base.keys },
@@ -86,8 +126,11 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
     themeOverrides: { ...base.themeOverrides },
     ui: { ...base.ui },
     authors: { ...base.authors },
+    actions: [...base.actions],
     integrations: { obsidian: { ...base.integrations.obsidian } },
   };
+  const actions = parseActions(raw["actions"]);
+  if (actions) out.actions = actions;
   const authors = raw["authors"] as Record<string, unknown> | undefined;
   if (authors) {
     for (const [id, value] of Object.entries(authors)) {
@@ -152,6 +195,7 @@ export function loadConfig(
       theme: DEFAULT_THEME_NAME,
     },
     authors: {},
+    actions: [...DEFAULT_QUICK_ACTIONS],
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
   };
   // Theme name and per-token overrides are separate concerns, composed once

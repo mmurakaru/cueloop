@@ -141,7 +141,7 @@ export const InterleavedStack: Story = {
       />
     </RailFrame>
   ),
-  expectedColors: [DARK.red],
+  expectedColors: [DARK.accent],
   size: { width: 40, height: 24 },
 };
 

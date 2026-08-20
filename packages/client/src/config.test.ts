@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   DEFAULT_KEYS,
+  DEFAULT_QUICK_ACTIONS,
   actionFor,
   loadConfig,
   persistAuthorName,
@@ -357,6 +358,60 @@ describe("integrations.obsidian config", () => {
       expect(config.integrations.obsidian.vault).toBe("/user/vault"); // user layer survives
       expect(config.integrations.obsidian.exportOn).toBe("resolve");
       expect(config.integrations.obsidian.folder).toBe("repo-plans"); // repo layer wins
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("quick actions ([[actions]])", () => {
+  test("absent config keeps the built-in defaults", () => {
+    // Act
+    const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
+
+    // Assert
+    expect(config.actions).toEqual(DEFAULT_QUICK_ACTIONS);
+    expect(config.actions).toHaveLength(7);
+  });
+
+  test("configured actions replace the defaults, with optional metadata", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-actions-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(
+      path,
+      `[[actions]]\nprompt = "Add a benchmark"\n\n[[actions]]\nprompt = "Guard the edge case"\nmetadata = "null and empty input"\n`,
+    );
+
+    try {
+      // Act
+      const config = loadConfig({ userConfigPath: path });
+
+      // Assert
+      expect(config.actions).toEqual([
+        { prompt: "Add a benchmark" },
+        { prompt: "Guard the edge case", metadata: "null and empty input" },
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("a table missing prompt is skipped; the rest replace the defaults", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-actions2-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(
+      path,
+      `[[actions]]\nmetadata = "orphan without a prompt"\n\n[[actions]]\nprompt = "Keep this one"\n`,
+    );
+
+    try {
+      // Act
+      const config = loadConfig({ userConfigPath: path });
+
+      // Assert
+      expect(config.actions).toEqual([{ prompt: "Keep this one" }]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

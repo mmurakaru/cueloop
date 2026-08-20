@@ -13,6 +13,7 @@ import { displayText, spanKey, startSpan, type DisplayBlock, type SpanState } fr
 import type { DiffRow } from "./view-diff";
 import type { ReviewController } from "./session-controller";
 import type { Intent } from "./keymap";
+import type { QuickAction } from "./config";
 import type { PlanSheetHandle } from "./components/PlanSheet";
 import { VERDICTS } from "./components/ConfirmCard";
 import {
@@ -26,6 +27,7 @@ import {
 export type Mode =
   | { type: "normal" }
   | { type: "span"; span: SpanState }
+  | { type: "spanActions"; span: SpanState; index: number }
   | {
       type: "compose";
       kind: "comment";
@@ -39,6 +41,11 @@ export type Mode =
   | { type: "confirmDelete"; sessionId: string; title: string }
   | { type: "rename"; authorId: string; text: string }
   | { type: "nameSelf"; text: string };
+
+/** The marked span for span mode and its quick-actions sub-mode; null otherwise. */
+export function activeSpanState(mode: Mode): SpanState | null {
+  return mode.type === "span" || mode.type === "spanActions" ? mode.span : null;
+}
 
 /**
  * Annotations that still count as feedback: agent notes never do, and an
@@ -83,6 +90,8 @@ export interface IntentDispatchDeps {
   selectedCurationId: string | undefined;
   /** Planner-local author renames, for seeding the rename prompt. */
   authorNames: Record<string, string>;
+  /** Marker-popover quick actions, in list order; picking one inserts a preset comment. */
+  quickActions: QuickAction[];
   /** Persist an author rename and update the live overrides (App-owned). */
   renameAuthor: (id: string, name: string) => void;
 
@@ -124,6 +133,7 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
     focusedAnnotationId,
     selectedCurationId,
     authorNames,
+    quickActions,
     renameAuthor,
     liveInput,
     reviewWidthRef,
@@ -215,6 +225,44 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
           setMode({ type: "span", span });
         }
         return;
+      case "spanCut":
+        // the block the span sits in, cut whole (partial-span cut is not modeled)
+        if (mode.type === "span") {
+          controller.cut(mode.span.displayIndex);
+          setMode({ type: "normal" });
+        }
+        return;
+      case "openSpanActions":
+        if (mode.type === "span") setMode({ type: "spanActions", span: mode.span, index: 0 });
+        return;
+      case "moveSpanAction":
+        if (mode.type === "spanActions") {
+          const index = Math.max(
+            0,
+            Math.min(quickActions.length - 1, mode.index + intent.direction),
+          );
+          setMode({ ...mode, index });
+        }
+        return;
+      case "closeSpanActions":
+        if (mode.type === "spanActions") setMode({ type: "span", span: mode.span });
+        return;
+      case "pickSpanAction": {
+        if (mode.type !== "spanActions") return;
+        const action = quickActions[intent.index ?? mode.index];
+        if (session && action) {
+          const body = action.metadata ? `${action.prompt}\n\n${action.metadata}` : action.prompt;
+          const annotationId = controller.annotate(
+            "comment",
+            mode.span.displayIndex,
+            mode.span.start,
+            mode.span.end,
+            body,
+          );
+          if (annotationId) setFocusedAnnotationId(annotationId);
+        }
+        return void setMode({ type: "normal" });
+      }
       case "openCompose": {
         liveInput.current = "";
         if (intent.from === "span" && mode.type === "span") {

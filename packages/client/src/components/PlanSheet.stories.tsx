@@ -21,6 +21,7 @@ export const AnnotatedPlan: Story = {
       cursor={2}
       activeSpan={null}
       compose={null}
+      popover={null}
       editOrphanCount={0}
       {...callbacks}
     />
@@ -38,6 +39,7 @@ export const SpanSelection: Story = {
       cursor={2}
       activeSpan={{ displayIndex: 2, start: 0, end: 10 }}
       compose={null}
+      popover={null}
       editOrphanCount={0}
       {...callbacks}
     />
@@ -60,12 +62,18 @@ export const InlineCompose: Story = {
         quote: "The daemon",
         draft: { text: "Which daemon?", onInput: () => {}, onSave: () => {}, onCancel: () => {} },
       }}
+      popover={null}
       editOrphanCount={0}
       {...callbacks}
     />
   ),
   size: { width: 90, height: 30 },
 };
+
+/** Span mode shows the marker-actions toolbar inline below the marked block. */
+// The marker popover floats as an absolute overlay; the virtual terminal used
+// for story snapshots cannot composite it, so it is covered by the standalone
+// MarkerPopover stories and a functional App test rather than a PlanSheet snapshot.
 
 /** A cut block renders struck-through and grayed inline - no red, no [cut] tag. */
 export const WithCutBlock: Story = {
@@ -77,6 +85,7 @@ export const WithCutBlock: Story = {
       cursor={0}
       activeSpan={null}
       compose={null}
+      popover={null}
       editOrphanCount={0}
       {...callbacks}
     />
@@ -94,6 +103,7 @@ export const OrphanBanner: Story = {
       cursor={0}
       activeSpan={null}
       compose={null}
+      popover={null}
       editOrphanCount={1}
       {...callbacks}
     />

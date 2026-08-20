@@ -150,17 +150,19 @@ describe("observer navigation still works", () => {
     await press(setup, "n");
     await setup.renderOnce();
 
-    // Assert - focus shows as the card's elevated selection fill (no marker glyph)
+    // Assert - focus shows as the card's bright kind-colored border (transparent
+    // fill); a selected card is the only accent-colored border in the frame
     await waitForText(setup, "COMMENT · me");
-    await waitForState(setup, () => hasBackground(setup, DARK.elevated));
+    await waitForState(setup, () => hasBorderColor(setup, DARK.accent));
   });
 });
 
-/** Whether any styled span in the frame paints the given background hex. */
-function hasBackground(setup: Awaited<ReturnType<typeof renderObserver>>, hex: string): boolean {
+/** Whether any border character (box-drawing) is painted in the given foreground hex. */
+function hasBorderColor(setup: Awaited<ReturnType<typeof renderObserver>>, hex: string): boolean {
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
-      const [red, green, blue] = span.bg.toInts();
+      if (!/[╭╮╰╯│─┌┐└┘]/.test(span.text)) continue;
+      const [red, green, blue] = span.fg.toInts();
       const rendered =
         "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
       if (rendered === hex) return true;

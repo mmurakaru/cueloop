@@ -291,9 +291,78 @@ describe("span mode", () => {
     ["$", [{ type: "spanKey", name: "$" }]],
     ["0", [{ type: "spanKey", name: "0" }]],
     ["c", [{ type: "openCompose", kind: "comment", from: "span" }]],
+    ["x", [{ type: "spanCut" }]],
+    ["a", [{ type: "openSpanActions" }]],
     ["escape", [{ type: "closeOverlay" }]],
     ["q", [{ type: "exit" }]],
     ["j", []],
+  ];
+  for (const [name, expected] of table) {
+    test(`${name} -> ${JSON.stringify(expected)}`, () => {
+      expect(reduceKey(keyState, key(name))).toEqual(expected);
+    });
+  }
+
+  test("an observer's span-mode mutations answer read-only", () => {
+    // Arrange
+    const observer = state({ spanMode: true, readOnly: true });
+
+    // Assert
+    expect(reduceKey(observer, key("x"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+    expect(reduceKey(observer, key("a"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+    expect(reduceKey(observer, key("c"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+  });
+
+  test("span-mode cut is owner-only, like the normal plan cut", () => {
+    // Arrange
+    const collaborator = state({ spanMode: true, canEditPlan: false });
+
+    // Assert
+    expect(reduceKey(collaborator, key("x"))).toEqual([]);
+  });
+
+  test("all span-mode mutations are blocked once the review is resolved", () => {
+    // Arrange
+    const resolved = state({ spanMode: true, resolved: true });
+    const readOnlyStatus: Intent[] = [{ type: "status", message: "review submitted - read-only" }];
+
+    // Assert - comment, cut, and quick-actions all answer read-only
+    expect(reduceKey(resolved, key("x"))).toEqual(readOnlyStatus);
+    expect(reduceKey(resolved, key("c"))).toEqual(readOnlyStatus);
+    expect(reduceKey(resolved, key("a"))).toEqual(readOnlyStatus);
+  });
+
+  test("span-mode cut gates for an observer even when cut is rebound off x", () => {
+    // Arrange - the span sub-grammar hardwires x, so the read-only gate must catch it by name
+    const rebound = { ...DEFAULT_KEYS, cut: ["d"] };
+    const observer = state({ spanMode: true, readOnly: true, keys: rebound });
+
+    // Assert
+    expect(reduceKey(observer, key("x"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+  });
+});
+
+describe("span actions overlay", () => {
+  // Arrange
+  const keyState = state({ overlay: "spanActions" });
+  const table: [string, Intent[]][] = [
+    ["j", [{ type: "moveSpanAction", direction: 1 }]],
+    ["down", [{ type: "moveSpanAction", direction: 1 }]],
+    ["k", [{ type: "moveSpanAction", direction: -1 }]],
+    ["up", [{ type: "moveSpanAction", direction: -1 }]],
+    ["return", [{ type: "pickSpanAction" }]],
+    ["enter", [{ type: "pickSpanAction" }]],
+    ["escape", [{ type: "closeSpanActions" }]],
+    ["c", []],
+    ["q", []],
   ];
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
