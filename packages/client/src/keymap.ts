@@ -19,7 +19,7 @@ export type Intent =
   | { type: "confirmDialog" }
   | { type: "startSpan" }
   | { type: "spanKey"; name: string }
-  | { type: "openCompose"; kind: "comment" | "suggestion"; from: "cursor" | "span" }
+  | { type: "openCompose"; kind: "comment"; from: "cursor" | "span" }
   | { type: "openSubmit" }
   | { type: "share" }
   | { type: "cut" }
@@ -92,7 +92,6 @@ export interface KeyState {
 /** Verbs that write session state; an observer never reaches their handlers. */
 const MUTATING_ACTIONS = new Set([
   "comment",
-  "suggest",
   "cut",
   "edit",
   "delete_annotation",
@@ -170,9 +169,8 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   const action = resolvedAction ?? actionFor(state.keys, name, key.shift);
   if (action === "quit") return [{ type: "exit" }];
   // the ONE read-only rule: any mutating attempt answers instead of acting
-  // (span-mode c/s are hardwired keys, so they gate by name as well)
-  const mutating =
-    MUTATING_ACTIONS.has(action ?? "") || (state.spanMode && (name === "c" || name === "s"));
+  // (span-mode c is a hardwired key, so it gates by name as well)
+  const mutating = MUTATING_ACTIONS.has(action ?? "") || (state.spanMode && name === "c");
   if (state.readOnly && mutating) return status("observer - read-only");
 
   // share is a session-level verb: it works from any view, owner only
@@ -238,7 +236,7 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
   }
   const shared = annotationCluster(state, action);
   if (shared) return shared;
-  if (action === "span" || action === "edit" || action === "suggest") {
+  if (action === "span" || action === "edit") {
     return status("plan-only verb - diff review uses c on a line");
   }
   return [];
@@ -247,8 +245,8 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 function spanGrammar(name: string): Intent[] {
   if (name === "escape") return [{ type: "closeOverlay" }];
   if (SPAN_KEYS.has(name)) return [{ type: "spanKey", name }];
-  if (name === "c" || name === "s") {
-    return [{ type: "openCompose", kind: name === "s" ? "suggestion" : "comment", from: "span" }];
+  if (name === "c") {
+    return [{ type: "openCompose", kind: "comment", from: "span" }];
   }
   return [];
 }
@@ -259,16 +257,10 @@ function planGrammar(state: KeyState, action: string | undefined, name: string):
   if (action === "walk") return status("the guided walk is a diff-review mode");
   if (name === "escape") return [{ type: "deselect" }];
   if (action === "span") return state.cursorAnnotatable ? [{ type: "startSpan" }] : [];
-  if (action === "comment" || action === "suggest") {
+  if (action === "comment") {
     if (state.resolved) return status("review submitted - read-only");
     if (!state.cursorAnnotatable) return status("text is cut - restore it first");
-    return [
-      {
-        type: "openCompose",
-        kind: action === "suggest" ? "suggestion" : "comment",
-        from: "cursor",
-      },
-    ];
+    return [{ type: "openCompose", kind: "comment", from: "cursor" }];
   }
   // restore un-does a rail removal (a cut block); a plan edit, so owner-only
   if (action === "restore_curation") {

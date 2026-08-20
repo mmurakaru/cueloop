@@ -51,7 +51,6 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
     { commands: ["span"], label: "span" },
     { text: "drag selects" },
     { commands: ["comment"], label: "comment" },
-    { commands: ["suggest"], label: "suggest" },
     { commands: ["cut"], label: "cut" },
     { commands: ["edit"], label: "edit" },
     { commands: ["next_annotation", "prev_annotation"], label: "annotations" },
@@ -64,7 +63,6 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
     { commands: ["span"], label: "span" },
     { text: "drag selects" },
     { commands: ["comment"], label: "comment" },
-    { commands: ["suggest"], label: "suggest" },
     { commands: ["next_annotation", "prev_annotation"], label: "annotations" },
     { commands: ["quit"], label: "quit" },
   ],
@@ -82,7 +80,6 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
     { commands: ["span_slide_forward", "span_slide_back"], label: "slide" },
     { commands: ["span_to_end"], label: "end" },
     { commands: ["span_comment"], label: "comment" },
-    { commands: ["span_suggest"], label: "suggest" },
     { commands: ["span_cancel"], label: "" },
   ],
   compose: [
@@ -213,7 +210,6 @@ const SPAN_COMMANDS: [key: string, command: string][] = [
   ["$", "span_to_end"],
   ["0", "span_to_start"],
   ["c", "span_comment"],
-  ["s", "span_suggest"],
   ["escape", "span_cancel"],
 ];
 

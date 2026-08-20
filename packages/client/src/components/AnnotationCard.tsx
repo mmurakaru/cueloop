@@ -153,7 +153,7 @@ export function AnnotationCard({
   theme,
 }: AnnotationCardProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const kindColor = kind === "suggestion" ? tokens.green : tokens.accent;
+  const kindColor = tokens.accent;
   const activeDraft = draft ?? saved?.editing ?? null;
   // The composer's visible height, grown from the wrapped text. It is shared
   // with the card frame (contentRows) so the border never clips the textarea
@@ -165,7 +165,7 @@ export function AnnotationCard({
     composeRowCount(activeDraft?.text ?? "", 0),
   );
   if (draft) {
-    const verb = kind === "suggestion" ? "suggest replacement for" : "comment on";
+    const verb = "comment on";
     return (
       <Card
         title={` ${verb} "${truncateToSingleLine(quote, 40)}" `}

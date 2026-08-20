@@ -21,7 +21,7 @@ describe("grammar-layer resolution", () => {
     ["g", true, "bottom"],
     ["v", false, "span"],
     ["c", false, "comment"],
-    ["s", false, "suggest"],
+    ["s", false, undefined],
     ["x", false, "cut"],
     ["e", false, "edit"],
     ["n", false, "next_annotation"],
@@ -88,7 +88,7 @@ describe("mode layers own their keys", () => {
 describe("getActiveKeys-generated status hints", () => {
   test("normal mode hint matches the locked string", () => {
     expect(bindings().statusHint("normal")).toBe(
-      "j/k move · v span · drag selects · c comment · s suggest · x cut · e edit · n/p annotations · enter submit · q quit",
+      "j/k move · v span · drag selects · c comment · x cut · e edit · n/p annotations · enter submit · q quit",
     );
   });
 
@@ -100,7 +100,7 @@ describe("getActiveKeys-generated status hints", () => {
 
   test("span hint", () => {
     expect(bindings({ spanMode: true }).statusHint("span")).toBe(
-      "span · l/h grow/shrink · w/b slide · $ end · c comment · s suggest · esc",
+      "span · l/h grow/shrink · w/b slide · $ end · c comment · esc",
     );
   });
 
@@ -133,9 +133,7 @@ describe("getActiveKeys-generated status hints", () => {
     const hint = bindings().statusHint("collaborator");
 
     // Assert
-    expect(hint).toBe(
-      "j/k move · v span · drag selects · c comment · s suggest · n/p annotations · q quit",
-    );
+    expect(hint).toBe("j/k move · v span · drag selects · c comment · n/p annotations · q quit");
     expect(hint).not.toContain("cut");
     expect(hint).not.toContain("edit");
     expect(hint).not.toContain("submit");

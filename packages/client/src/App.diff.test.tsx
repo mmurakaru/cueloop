@@ -99,17 +99,6 @@ describe("diff review", () => {
     expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
   });
 
-  test("suggest stays a plan-only verb in diff sessions", async () => {
-    // Arrange
-    const setup = await renderApp();
-
-    // Act
-    await press(setup, "s");
-
-    // Assert
-    await waitForText(setup, "plan-only verb");
-  });
-
   test("curation needs full file contents; a legacy diff answers", async () => {
     // Arrange - the session carries no artifact.files
     const setup = await renderApp();

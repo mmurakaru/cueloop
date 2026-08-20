@@ -191,7 +191,7 @@ export interface ReviewController {
    * Returns the minted annotation id so the view can select the new card.
    */
   annotate(
-    kind: "comment" | "suggestion",
+    kind: "comment",
     displayIndex: number,
     start: number,
     end: number,
@@ -653,7 +653,7 @@ class Controller implements ReviewController {
   }
 
   annotate(
-    kind: "comment" | "suggestion",
+    kind: "comment",
     displayIndex: number,
     start: number,
     end: number,
@@ -675,9 +675,7 @@ class Controller implements ReviewController {
     const persisted = this.client!.sessionAnnotate(session.id, wire);
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
-    this.setStatus(
-      kind === "suggestion" ? "suggestion added - the agent applies it" : "comment added",
-    );
+    this.setStatus("comment added");
     return wire.id;
   }
 

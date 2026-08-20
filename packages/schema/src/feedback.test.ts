@@ -116,27 +116,6 @@ describe("renderFeedback", () => {
     expect(feedback).toContain("Please clarify.");
   });
 
-  test("suggestions render as replace/with pairs", () => {
-    // Act
-    const feedback = renderFeedback({
-      verdictKind: "request_changes",
-      summary: "",
-      artifactContent: PLAN,
-      annotations: [
-        makeAnnotation({
-          kind: "suggestion",
-          body: "one durable JSON record",
-          anchor: { quote: "one JSON document", prefix: "written as ", suffix: " per session." },
-        }),
-      ],
-    });
-
-    // Assert
-    expect(feedback).toContain("### 1. Suggested change (§ Storage)");
-    expect(feedback).toContain("Replace:\n> one JSON document");
-    expect(feedback).toContain("With:\n> one durable JSON record");
-  });
-
   test("orphaned anchors are flagged, never dropped", () => {
     // Act
     const feedback = renderFeedback({

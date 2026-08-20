@@ -18,17 +18,6 @@ export const CommentDraft: Story = {
   expectedColors: [DARK.accent],
 };
 
-export const SuggestionDraft: Story = {
-  render: () => (
-    <AnnotationCard
-      kind="suggestion"
-      quote="move the store"
-      draft={{ text: "", ...draftCallbacks }}
-    />
-  ),
-  expectedColors: [DARK.green],
-};
-
 export const SavedSelected: Story = {
   render: () => (
     <AnnotationCard
@@ -89,7 +78,7 @@ export const SavedOrphanBlocking: Story = {
 export const SavedEditing: Story = {
   render: () => (
     <AnnotationCard
-      kind="suggestion"
+      kind="comment"
       quote="move the store"
       saved={{
         body: "old body",

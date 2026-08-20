@@ -44,7 +44,7 @@ export const FIXTURE_ANNOTATIONS: Annotation[] = [
   },
   {
     id: "a_story_2",
-    kind: "suggestion",
+    kind: "comment",
     anchor: { quote: "move the store", prefix: "", suffix: "" },
     body: "move the store behind one interface",
     createdAt: "2026-01-01T00:00:01Z",

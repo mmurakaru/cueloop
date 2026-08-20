@@ -141,14 +141,7 @@ function numberOrderedListItems(display: DisplayBlock[]): void {
 
 // ── marks (annotation highlights + keyboard span) ──
 
-export type RunRole =
-  | "plain"
-  | "ins"
-  | "del"
-  | "mark-comment"
-  | "mark-suggestion"
-  | "kspan"
-  | "mark-focus";
+export type RunRole = "plain" | "ins" | "del" | "mark-comment" | "kspan" | "mark-focus";
 
 export interface StyleRun {
   text: string;
@@ -192,12 +185,7 @@ export function marksByDisplay(
     marks.push({
       start: resolved.start,
       end: resolved.end,
-      role:
-        annotation.id === focusedId
-          ? "mark-focus"
-          : annotation.kind === "suggestion"
-            ? "mark-suggestion"
-            : "mark-comment",
+      role: annotation.id === focusedId ? "mark-focus" : "mark-comment",
       annotationId: annotation.id,
     });
     marksByIndex.set(entry.displayIndex, marks);

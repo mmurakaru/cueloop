@@ -42,7 +42,7 @@ const EMPTY_REJECTED: Set<number> = new Set();
 const REJECTED_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
 
 export interface DiffComposeState {
-  kind: "comment" | "suggestion";
+  kind: "comment";
   rowIndex: number;
   quote: string;
   draft: AnnotationDraft;

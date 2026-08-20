@@ -28,7 +28,7 @@ export type Mode =
   | { type: "span"; span: SpanState }
   | {
       type: "compose";
-      kind: "comment" | "suggestion";
+      kind: "comment";
       displayIndex: number;
       start: number;
       end: number;
