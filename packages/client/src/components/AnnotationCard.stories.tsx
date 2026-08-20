@@ -34,7 +34,7 @@ export const SavedSelected: Story = {
       }}
     />
   ),
-  expectedColors: [DARK.elevated],
+  expectedColors: [DARK.accent],
 };
 
 export const SavedCollaborator: Story = {
@@ -53,7 +53,7 @@ export const SavedCollaborator: Story = {
       }}
     />
   ),
-  expectedColors: [DARK.accent],
+  expectedColors: [DARK.border],
 };
 
 export const SavedOrphanBlocking: Story = {
@@ -72,7 +72,7 @@ export const SavedOrphanBlocking: Story = {
       }}
     />
   ),
-  expectedColors: [DARK.accent],
+  expectedColors: [DARK.border],
 };
 
 export const SavedEditing: Story = {

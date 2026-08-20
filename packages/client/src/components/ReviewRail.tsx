@@ -283,8 +283,8 @@ function RemovalCard({
       <Card
         title={title}
         contentRows={contentRows}
-        borderColor={tokens.red}
-        backgroundColor={isSelected ? tokens.elevated : "transparent"}
+        borderColor={isSelected ? tokens.red : tokens.border}
+        backgroundColor="transparent"
         theme={theme}
       >
         {previewLines.length === 0 ? (

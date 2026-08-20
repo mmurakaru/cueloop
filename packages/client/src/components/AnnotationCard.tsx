@@ -202,9 +202,9 @@ export function AnnotationCard({
         height: cardHeight(contentRows),
         border: true,
         borderStyle: FRAME_BORDER_STYLE,
-        borderColor: kindColor,
-        // selection reads from the elevated fill alone - no marker glyph
-        backgroundColor: card.isSelected && !card.editing ? tokens.elevated : undefined,
+        // cards stay transparent in every theme; selection is the bright
+        // kind-colored border, while unselected cards recede to a dim border
+        borderColor: card.isSelected || card.editing ? kindColor : tokens.border,
         paddingLeft: 1,
         paddingRight: 1,
       }}
