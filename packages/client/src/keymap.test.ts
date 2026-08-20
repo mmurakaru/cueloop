@@ -318,6 +318,35 @@ describe("span mode", () => {
       { type: "status", message: "observer - read-only" },
     ]);
   });
+
+  test("span-mode cut is owner-only, like the normal plan cut", () => {
+    // Arrange
+    const collaborator = state({ spanMode: true, canEditPlan: false });
+
+    // Assert
+    expect(reduceKey(collaborator, key("x"))).toEqual([]);
+  });
+
+  test("span-mode cut is blocked once the review is resolved", () => {
+    // Arrange
+    const resolved = state({ spanMode: true, resolved: true });
+
+    // Assert
+    expect(reduceKey(resolved, key("x"))).toEqual([
+      { type: "status", message: "review submitted - read-only" },
+    ]);
+  });
+
+  test("span-mode cut gates for an observer even when cut is rebound off x", () => {
+    // Arrange - the span sub-grammar hardwires x, so the read-only gate must catch it by name
+    const rebound = { ...DEFAULT_KEYS, cut: ["d"] };
+    const observer = state({ spanMode: true, readOnly: true, keys: rebound });
+
+    // Assert
+    expect(reduceKey(observer, key("x"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+  });
 });
 
 describe("span actions overlay", () => {

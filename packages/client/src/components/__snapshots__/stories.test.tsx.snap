@@ -572,7 +572,7 @@ exports[`stories catalog MarkerPopover/ActionsList renders, snapshots, and carri
   › Extract the duplication                                 
     Name doesn't reveal intent                              
     Simplest thing that works?                              
-    [x] back                                                
+    ‹ back                                                  
                                                             
                                                             
 "
@@ -688,7 +688,7 @@ exports[`stories catalog PlanSheet/MarkerActionsList renders, snapshots, and car
 │     Extract the duplication                                                            │
 │     Name doesn't reveal intent                                                         │
 │     Simplest thing that works?                                                         │
-│     [x] back                                                                           │
+│     ‹ back                                                                             │
 │                                                                                        │
 │   Steps                                                                                │
 │                                                                                        │

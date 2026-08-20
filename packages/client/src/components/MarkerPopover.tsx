@@ -74,7 +74,7 @@ export function MarkerPopover({
         </text>
       ))}
       <text fg={tokens.textDim} onMouseUp={onBack}>
-        {"  "}[x] back
+        {"  "}‹ back
       </text>
     </box>
   );

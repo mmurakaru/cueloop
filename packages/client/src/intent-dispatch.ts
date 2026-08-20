@@ -42,6 +42,11 @@ export type Mode =
   | { type: "rename"; authorId: string; text: string }
   | { type: "nameSelf"; text: string };
 
+/** The marked span for span mode and its quick-actions sub-mode; null otherwise. */
+export function activeSpanState(mode: Mode): SpanState | null {
+  return mode.type === "span" || mode.type === "spanActions" ? mode.span : null;
+}
+
 /**
  * Annotations that still count as feedback: agent notes never do, and an
  * annotation a revision already addressed is settled - it neither blocks the

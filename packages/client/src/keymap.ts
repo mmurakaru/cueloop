@@ -184,9 +184,10 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   const action = resolvedAction ?? actionFor(state.keys, name, key.shift);
   if (action === "quit") return [{ type: "exit" }];
   // the ONE read-only rule: any mutating attempt answers instead of acting
-  // (span-mode c and a are hardwired keys, so they gate by name as well)
+  // (span-mode c, x, and a are hardwired keys, so they gate by name as well)
   const mutating =
-    MUTATING_ACTIONS.has(action ?? "") || (state.spanMode && (name === "c" || name === "a"));
+    MUTATING_ACTIONS.has(action ?? "") ||
+    (state.spanMode && (name === "c" || name === "x" || name === "a"));
   if (state.readOnly && mutating) return status("observer - read-only");
 
   // share is a session-level verb: it works from any view, owner only
@@ -198,7 +199,7 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   if (state.view === "inbox") return inboxGrammar(state, name);
   // span mode owns its single-letter keys (b slides the span back) before the
   // review-panel controls claim them
-  if (state.spanMode) return spanGrammar(name);
+  if (state.spanMode) return spanGrammar(state, name);
   // the review panel rides both plan and diff reviews; collapsing and resizing
   // are view state, so the read-only gate above lets them through
   const reviewPanel = reviewPanelGrammar(action);
@@ -258,15 +259,19 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
   return [];
 }
 
-function spanGrammar(name: string): Intent[] {
+function spanGrammar(state: KeyState, name: string): Intent[] {
   if (name === "escape") return [{ type: "closeOverlay" }];
   if (SPAN_KEYS.has(name)) return [{ type: "spanKey", name }];
   if (name === "c") {
     return [{ type: "openCompose", kind: "comment", from: "span" }];
   }
   // partial-span cut is not in the working-copy model, so cut removes the whole
-  // block the span sits in
-  if (name === "x") return [{ type: "spanCut" }];
+  // block the span sits in; owner-only and blocked once resolved, like plan cut
+  if (name === "x") {
+    if (state.resolved) return status("review submitted - read-only");
+    if (state.canEditPlan === false) return [];
+    return [{ type: "spanCut" }];
+  }
   if (name === "a") return [{ type: "openSpanActions" }];
   return [];
 }

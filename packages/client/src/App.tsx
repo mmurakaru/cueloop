@@ -37,7 +37,12 @@ import type { Theme } from "./theme";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
-import { createIntentDispatch, reviewerAnnotations, type Mode } from "./intent-dispatch";
+import {
+  activeSpanState,
+  createIntentDispatch,
+  reviewerAnnotations,
+  type Mode,
+} from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
@@ -268,8 +273,8 @@ export function App({
   // mark, and a mouse drag never changes the mode, so it survives)
   useEffect(() => {
     // span and its quick-actions sub-mode both keep the span painted
-    if (mode.type === "span" || mode.type === "spanActions")
-      planSheetRef.current?.driveSpanSelection(mode.span);
+    const span = activeSpanState(mode);
+    if (span) planSheetRef.current?.driveSpanSelection(span);
     else planSheetRef.current?.clearSelection();
   }, [mode]);
 
@@ -716,21 +721,21 @@ export function App({
         }
       : null;
 
-  const activeSpan =
-    mode.type === "span" || mode.type === "spanActions"
-      ? { displayIndex: mode.span.displayIndex, start: mode.span.start, end: mode.span.end }
-      : mode.type === "compose" && !isDiff
-        ? // the compose anchor stays painted selection-style while the box is open
-          { displayIndex: mode.displayIndex, start: mode.start, end: mode.end }
-        : null;
+  const markedSpan = activeSpanState(mode);
+  const activeSpan = markedSpan
+    ? { displayIndex: markedSpan.displayIndex, start: markedSpan.start, end: markedSpan.end }
+    : mode.type === "compose" && !isDiff
+      ? // the compose anchor stays painted selection-style while the box is open
+        { displayIndex: mode.displayIndex, start: mode.start, end: mode.end }
+      : null;
 
   // the marker-actions popover is span mode made visible: an inline toolbar at
   // the marked block, or its quick-actions list. Mutating clicks answer
   // read-only for an observer, mirroring the keyboard gate in reduceKey.
   const popoverState =
-    (mode.type === "span" || mode.type === "spanActions") && !isDiff
+    markedSpan && !isDiff
       ? {
-          displayIndex: mode.span.displayIndex,
+          displayIndex: markedSpan.displayIndex,
           view: mode.type === "spanActions" ? ("actions" as const) : ("toolbar" as const),
           actions: quickActions,
           actionIndex: mode.type === "spanActions" ? mode.index : 0,
