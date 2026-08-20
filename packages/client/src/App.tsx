@@ -25,12 +25,13 @@ import {
   type AutoClose,
 } from "./config";
 import {
+  composeTheme,
   DEFAULT_THEME_NAME,
   THEME_LABELS,
   THEME_NAMES,
-  themeForName,
   type ThemeName,
 } from "./theme-presets";
+import type { Theme } from "./theme";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
@@ -172,6 +173,7 @@ export function App({
   const keyBindings = useMemo(() => new KeyBindings(DEFAULT_KEYS), []);
   const [theme, setTheme] = useState(DARK);
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME_NAME);
+  const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
@@ -179,6 +181,7 @@ export function App({
     keyBindings.setKeys(config.keys);
     setTheme(config.theme);
     setThemeName(config.ui.theme);
+    setThemeOverrides(config.themeOverrides);
     setReviewMode(config.ui.reviewState);
     setReviewWidth(config.ui.reviewWidth);
     reviewWidthRef.current = config.ui.reviewWidth;
@@ -303,8 +306,10 @@ export function App({
     if (item.source === "plan") planSheetRef.current?.revealBlock(item.revealIndex);
   };
 
-  // the selected removal card's undo button: same restore path as the u key
+  // the selected removal card's undo button: same restore path as the u key,
+  // including the observer read-only guard the keyboard path gets via reduceKey
   const undoCurationFromRail = (curationId: string): void => {
+    if (observer) return controller.setStatus("observer - read-only");
     controller.restoreCuration(curationId);
     setSelectedCurationId(undefined);
   };
@@ -454,7 +459,7 @@ export function App({
     } else if (rowKey === "theme") {
       const next = THEME_NAMES[(THEME_NAMES.indexOf(themeName) + 1) % THEME_NAMES.length]!;
       setThemeName(next);
-      setTheme(themeForName(next));
+      setTheme(composeTheme(next, themeOverrides));
       persistTheme(next);
     }
   };

@@ -204,6 +204,7 @@ describe("loadConfig", () => {
       // Assert
       expect(config.theme.accent).toBe("#ff0000"); // override wins
       expect(config.theme.background).toBe(themeForName("nord").background); // preset base survives
+      expect(config.themeOverrides).toEqual({ accent: "#ff0000" }); // deltas exposed for live re-compose
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -162,6 +162,11 @@ export function themeForName(name: string): Theme {
   return THEME_PRESETS[name as ThemeName] ?? DARK;
 }
 
+/** A preset with the user's `[theme]` per-token overrides layered on top - the live-switch equivalent of config load. */
+export function composeTheme(name: string, overrides: Partial<Theme>): Theme {
+  return { ...themeForName(name), ...overrides };
+}
+
 /** True when the name is a known preset (guards a persisted `[ui] theme` value). */
 export function isThemeName(name: string): name is ThemeName {
   return name in THEME_PRESETS;

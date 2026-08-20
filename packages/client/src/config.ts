@@ -30,6 +30,8 @@ export type AutoClose = "off" | number;
 export interface CueloopConfig {
   keys: Record<string, string[]>;
   theme: Theme;
+  /** The `[theme]` per-token overrides alone, so a live theme switch can re-compose them onto a new preset. */
+  themeOverrides: Partial<Theme>;
   /**
    * ui.reviewState / ui.reviewWidth are CLIENT VIEW STATE: the review panel's
    * collapse mode and expanded-rail width, persisted so they survive restarts.
@@ -82,6 +84,7 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
   const out: CueloopConfig = {
     keys: { ...base.keys },
     theme: { ...base.theme },
+    themeOverrides: { ...base.themeOverrides },
     ui: { ...base.ui },
     authors: { ...base.authors },
     integrations: { obsidian: { ...base.integrations.obsidian } },
@@ -142,6 +145,7 @@ export function loadConfig(
   let config: CueloopConfig = {
     keys: { ...DEFAULT_KEYS },
     theme: { ...DARK },
+    themeOverrides: {},
     ui: {
       autoClose: "off",
       reviewState: "expanded",
@@ -174,6 +178,7 @@ export function loadConfig(
     }
   }
   config.ui.theme = themeName;
+  config.themeOverrides = themeOverrides;
   config.theme = { ...themeForName(themeName), ...themeOverrides };
   return config;
 }

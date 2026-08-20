@@ -9,7 +9,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { DARK as T } from "./theme";
+import { DARK } from "./theme";
 import { isolateUserConfig, press, waitForState, waitForText } from "./test-support";
 
 const PLAN = `# Migration Plan
@@ -154,7 +154,7 @@ describe("observer navigation still works", () => {
 
     // Assert - focus shows as the card's elevated selection fill (no marker glyph)
     await waitForText(setup, "COMMENT · me");
-    await waitForState(setup, () => hasBackground(setup, T.elevated));
+    await waitForState(setup, () => hasBackground(setup, DARK.elevated));
   });
 });
 

@@ -9,7 +9,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { DARK as T } from "./theme";
+import { DARK } from "./theme";
 import {
   isolateUserConfig,
   press,
@@ -264,8 +264,8 @@ describe("inline compose keeps the anchor painted", () => {
     // a frame before the anchor repaint settles, so wait on the color itself.
     await waitForText(setup, "Save");
     expect(setup.captureCharFrame()).toContain("Cancel");
-    await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(T.accent));
-    expect(backgroundsOf(setup, "The daemon")).toContain(T.accent);
+    await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(DARK.accent));
+    expect(backgroundsOf(setup, "The daemon")).toContain(DARK.accent);
 
     // Act
     // cancel un-paints (a bare ESC settles after the parser's escape window)
@@ -273,7 +273,7 @@ describe("inline compose keeps the anchor painted", () => {
 
     // Assert
     await waitForTextGone(setup, 'comment on "');
-    expect(backgroundsOf(setup, "The daemon")).not.toContain(T.accent);
+    expect(backgroundsOf(setup, "The daemon")).not.toContain(DARK.accent);
 
     // Act
     // save converts the paint to the kind-colored annotation highlight
@@ -288,7 +288,7 @@ describe("inline compose keeps the anchor painted", () => {
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations.length).toBe(1);
     expect(backgroundsOf(setup, stored.annotations[0]!.anchor.quote.slice(0, 20))).toContain(
-      T.markCommentBackground,
+      DARK.markCommentBackground,
     );
     // renderApp plus this many frame-waits grazes the 5s default on a loaded CI
     // runner, and the whole-suite publish lane has timed even 15s out; give the
@@ -441,7 +441,7 @@ describe("the document selects, the rail edits", () => {
     await press(setup, "enter");
     await waitForText(setup, "COMMENT · me");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
-    expect(backgroundsOf(setup, "persists sessions")).toContain(T.markCommentBackground);
+    expect(backgroundsOf(setup, "persists sessions")).toContain(DARK.markCommentBackground);
 
     // Act
     await press(setup, "x");
@@ -449,7 +449,7 @@ describe("the document selects, the rail edits", () => {
     // Assert
     await waitForTextGone(setup, "COMMENT · me");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
-    expect(backgroundsOf(setup, "persists sessions")).not.toContain(T.markCommentBackground);
+    expect(backgroundsOf(setup, "persists sessions")).not.toContain(DARK.markCommentBackground);
   });
 });
 
@@ -506,7 +506,7 @@ describe("addressed annotations leave the open list", () => {
     expect(frame).toContain("✓ 1 addressed by revision");
     expect(frame).not.toContain("settled note");
     expect(frame).toContain("still open note"); // the open card survives; the addressed one does not
-    expect(backgroundsOf(setup, "The daemon")).not.toContain(T.markCommentBackground); // no highlight paint
+    expect(backgroundsOf(setup, "The daemon")).not.toContain(DARK.markCommentBackground); // no highlight paint
   });
 });
 
@@ -562,7 +562,7 @@ describe("edit-exit reconciliation", () => {
       // deselect the card so e reaches the editor hand-off, then edit; deselection
       // shows as the selected card's elevated fill leaving the frame (no marker glyph)
       await press(setup, "escape");
-      await waitForState(setup, () => !hasBackground(setup, T.elevated));
+      await waitForState(setup, () => !hasBackground(setup, DARK.elevated));
       await press(setup, "e");
 
       // Assert
