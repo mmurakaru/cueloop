@@ -209,6 +209,28 @@ describe("loadConfig", () => {
     }
   });
 
+  test("a later file's preset keeps an earlier file's [theme] override", () => {
+    // Arrange - user overrides accent; repo picks a preset in a separate file
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme-x-"));
+    const user = join(dir, "user.toml");
+    const repoRoot = join(dir, "repo");
+    writeFileSync(user, `[theme]\naccent = "#ff0000"\n`);
+    Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
+    writeFileSync(join(repoRoot, ".cueloop", "config.toml"), `[ui]\ntheme = "nord"\n`);
+
+    try {
+      // Act
+      const config = loadConfig({ userConfigPath: user, repoRoot });
+
+      // Assert - the preset is the base, but the earlier override still wins its token
+      expect(config.ui.theme).toBe("nord");
+      expect(config.theme.background).toBe(themeForName("nord").background);
+      expect(config.theme.accent).toBe("#ff0000");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("[ui] ignores an unknown theme name and keeps the default", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme3-"));

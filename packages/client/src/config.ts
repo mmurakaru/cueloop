@@ -99,19 +99,8 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
     }
   }
   const ui = raw["ui"] as
-    | {
-        auto_close?: unknown;
-        editor?: unknown;
-        review_width?: unknown;
-        review_state?: unknown;
-        theme?: unknown;
-      }
+    | { auto_close?: unknown; editor?: unknown; review_width?: unknown; review_state?: unknown }
     | undefined;
-  if (ui && typeof ui.theme === "string" && isThemeName(ui.theme)) {
-    out.ui.theme = ui.theme;
-    // the preset is the new base; this file's [theme] overrides still layer on below
-    out.theme = { ...themeForName(ui.theme) };
-  }
   if (ui && ui.auto_close !== undefined) {
     if (ui.auto_close === "off") out.ui.autoClose = "off";
     else if (typeof ui.auto_close === "number" && ui.auto_close >= 0)
@@ -128,14 +117,6 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
       ui.review_state === "hidden")
   ) {
     out.ui.reviewState = ui.review_state;
-  }
-  const theme = raw["theme"] as Partial<Record<keyof Theme, string>> | undefined;
-  if (theme) {
-    for (const [token, value] of Object.entries(theme)) {
-      if (token in out.theme && typeof value === "string") {
-        (out.theme as unknown as Record<string, string>)[token] = value;
-      }
-    }
   }
   const integrations = raw["integrations"] as Record<string, unknown> | undefined;
   const obsidian = integrations?.["obsidian"] as Record<string, unknown> | undefined;
@@ -170,6 +151,12 @@ export function loadConfig(
     authors: {},
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
   };
+  // Theme name and per-token overrides are separate concerns, composed once
+  // after all layers: the last file to set [ui] theme wins, and every [theme]
+  // override from every file lands on top - so a later preset never discards an
+  // earlier file's token overrides.
+  let themeName = DEFAULT_THEME_NAME;
+  const themeOverrides: Partial<Record<keyof Theme, string>> = {};
   const userPath = userConfigPathFrom(options.userConfigPath);
   for (const path of [
     userPath,
@@ -177,12 +164,26 @@ export function loadConfig(
   ]) {
     if (!path || !existsSync(path)) continue;
     try {
-      config = layer(config, parseToml(readFileSync(path, "utf8")));
+      const raw = parseToml(readFileSync(path, "utf8"));
+      config = layer(config, raw);
+      const rawTheme = (raw["ui"] as { theme?: unknown } | undefined)?.theme;
+      if (typeof rawTheme === "string" && isThemeName(rawTheme)) themeName = rawTheme;
+      collectThemeOverrides(raw["theme"], themeOverrides);
     } catch {
       // a broken config never blocks a review; defaults win
     }
   }
+  config.ui.theme = themeName;
+  config.theme = { ...themeForName(themeName), ...themeOverrides };
   return config;
+}
+
+/** Merge a raw `[theme]` table's known string tokens into the accumulated overrides. */
+function collectThemeOverrides(raw: unknown, into: Partial<Record<keyof Theme, string>>): void {
+  if (!raw || typeof raw !== "object") return;
+  for (const [token, value] of Object.entries(raw)) {
+    if (token in DARK && typeof value === "string") into[token as keyof Theme] = value;
+  }
 }
 
 /** Reverse lookup: key name (+shift) → action, per the loaded keymap. */

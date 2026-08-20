@@ -122,7 +122,7 @@ describe("diff hunk curation", () => {
     expect(sink.workingCopy).toBe("");
   });
 
-  test("a rejected change becomes a removal card with a change label, id, and preview", async () => {
+  test("a rejected change becomes a removal card with a source, id, and preview", async () => {
     // Arrange
     const { controller } = await connected(diffSession(FILES));
 
@@ -130,11 +130,10 @@ describe("diff hunk curation", () => {
     controller.toggleRejectChange(4);
     await tick();
 
-    // Assert - one item: diff source, labelled at the change's line, both lines previewed
+    // Assert - one item: diff source, revealing the change's row, both lines previewed
     const items = controller.curationItems();
     expect(items.length).toBe(1);
     expect(items[0]!.source).toBe("diff");
-    expect(items[0]!.label).toBe("src/store.ts:2 - change");
     expect(items[0]!.id).toBe("diff:src/store.ts#0#1");
     expect(items[0]!.revealIndex).toBe(3);
     expect(items[0]!.preview).toEqual([
@@ -143,7 +142,7 @@ describe("diff hunk curation", () => {
     ]);
   });
 
-  test("a rejected hunk becomes a removal card labelled at its first changed row", async () => {
+  test("a rejected hunk becomes a removal card with the whole-hunk id", async () => {
     // Arrange
     const { controller } = await connected(diffSession(FILES));
 
@@ -155,7 +154,6 @@ describe("diff hunk curation", () => {
     const items = controller.curationItems();
     expect(items.length).toBe(1);
     expect(items[0]!.source).toBe("diff");
-    expect(items[0]!.label).toBe("src/store.ts:2 - hunk");
     expect(items[0]!.id).toBe("diff:src/store.ts#0#hunk");
   });
 
@@ -237,7 +235,6 @@ describe("plan cut removals", () => {
     expect(items[0]!.source).toBe("plan");
     expect(items[0]!.id).toBe("plan:4-4");
     expect(items[0]!.preview).toEqual(["Second paragraph."]);
-    expect(items[0]!.label).toBe("Title");
   });
 
   test("restoreCuration re-inserts the cut block and returns to pristine", async () => {

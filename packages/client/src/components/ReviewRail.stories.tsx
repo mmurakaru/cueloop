@@ -97,14 +97,12 @@ export const Removals: Story = {
           {
             id: "diff:src/store.ts#0#1",
             source: "diff",
-            label: "src/store.ts:2 - change",
             preview: ["-   private items = [];", "+   private items = new Map();"],
             revealIndex: 3,
           },
           {
             id: "diff:src/store.ts#1#hunk",
             source: "diff",
-            label: "src/store.ts:8 - hunk",
             preview: ["-   return null;", "+   return fallback();", "+   log(fallback);"],
             revealIndex: 9,
           },
@@ -135,7 +133,6 @@ export const InterleavedStack: Story = {
           {
             id: "plan:6-6",
             source: "plan",
-            label: "Steps",
             preview: ["- add recovery"],
             revealIndex: 1,
           },

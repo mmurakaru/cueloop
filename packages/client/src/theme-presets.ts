@@ -144,15 +144,8 @@ export const THEME_PRESETS: Record<ThemeName, Theme> = {
   nord: NORD,
 };
 
-/** Cycle order for the Settings theme row; the branded default leads. */
-export const THEME_NAMES: ThemeName[] = [
-  "cueloop",
-  "rose-pine-moon",
-  "catppuccin-mocha",
-  "tokyo-night",
-  "gruvbox-dark",
-  "nord",
-];
+/** Cycle order for the Settings theme row; the registry's insertion order, branded default first. */
+export const THEME_NAMES: ThemeName[] = Object.keys(THEME_PRESETS) as ThemeName[];
 
 /** Human labels for the Settings cycle row, keyed by the persisted name. */
 export const THEME_LABELS: Record<ThemeName, string> = {

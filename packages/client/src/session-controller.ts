@@ -32,7 +32,7 @@ import {
   shareIdFromLine,
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
-import { diffRowAnchor, diffRowLocation, diffRows, type DiffRow } from "./view-diff";
+import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import {
   changeRejectionForRow,
   curateDiff,
@@ -79,6 +79,9 @@ const EMPTY_REJECTED_ROWS: Set<number> = new Set();
 /** Shared empty list so "nothing curated out" is a stable identity for renders. */
 const EMPTY_CURATION_ITEMS: CurationItem[] = [];
 
+/** Status shown when a curated-out removal (diff rejection or plan cut) is restored. */
+const REMOVAL_RESTORED_STATUS = "removal restored";
+
 export interface ToastState {
   title?: string;
   body: string;
@@ -94,7 +97,6 @@ export interface ToastState {
 export interface CurationItem {
   id: string;
   source: "diff" | "plan";
-  label: string;
   preview: string[];
   revealIndex: number;
 }
@@ -462,7 +464,7 @@ class Controller implements ReviewController {
     // submitted revision - the working copy is back to pristine and is dropped
     const restored = restoreBlock(session.artifact.content, working, block.base, line);
     this.setWorkingCopy(restored);
-    this.setStatus("removal restored");
+    this.setStatus(REMOVAL_RESTORED_STATUS);
   }
 
   // ── diff hunk curation ──────────────────────
@@ -558,7 +560,7 @@ class Controller implements ReviewController {
       const kept = this.rejections.filter((rejection) => curationItemId(rejection) !== id);
       if (kept.length === this.rejections.length) return;
       this.rejections = kept;
-      this.setStatus("removal restored");
+      this.setStatus(REMOVAL_RESTORED_STATUS);
       this.recomputeCuration();
       return;
     }
@@ -576,12 +578,9 @@ class Controller implements ReviewController {
     for (const rejection of this.rejections) {
       const rows = this.rowsForRejection(rejection);
       const firstRow = rows[0];
-      const location = firstRow ? diffRowLocation(firstRow) : rejection.path;
-      const scope = rejection.changeIndex === undefined ? "hunk" : "change";
       items.push({
         id: curationItemId(rejection),
         source: "diff",
-        label: `${location} - ${scope}`,
         preview: rows.map(
           (row) => `${row.kind === "add" ? "+" : "-"} ${row.text.replace(/\n$/, "")}`,
         ),
@@ -599,7 +598,6 @@ class Controller implements ReviewController {
       items.push({
         id: planCutId(block.base),
         source: "plan",
-        label: this.planSectionLabel(this.derived.display, displayIndex),
         preview: block.base.text.split("\n"),
         revealIndex: displayIndex,
       });
@@ -623,20 +621,6 @@ class Controller implements ReviewController {
       }
     }
     return rows;
-  }
-
-  /** The nearest heading above a cut block (or its own text when it is a heading). */
-  private planSectionLabel(display: DisplayBlock[], displayIndex: number): string {
-    const firstLine = (text: string): string => text.split("\n")[0] ?? "";
-    const isHeading = (kind: DisplayBlock["kind"]): boolean =>
-      kind === "h1" || kind === "h2" || kind === "h3";
-    const block = display[displayIndex]!;
-    if (isHeading(block.kind)) return firstLine((block.base ?? block.work)!.text);
-    for (let index = displayIndex - 1; index >= 0; index--) {
-      const candidate = display[index]!;
-      if (isHeading(candidate.kind)) return firstLine((candidate.work ?? candidate.base)!.text);
-    }
-    return "plan";
   }
 
   edit(): void {
