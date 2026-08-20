@@ -1,5 +1,40 @@
 # cueloop
 
+## 0.1.0-alpha.34
+
+### Minor Changes
+
+- [#195](https://github.com/mmurakaru/cueloop/pull/195) [`7305b22`](https://github.com/mmurakaru/cueloop/commit/7305b2237671cf5be3a8681c67e6c01c2ff8b9fb) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Rejected diff hunks and cut plan blocks now appear in the review rail as their own cards, interleaved with annotation cards in reading order rather than grouped at the bottom. Each removal card previews the removed content struck through and dimmed; selecting one reveals its source line and shows an undo button (the same restore path as the `u` key), so a rejection reads like any other queued item you can take back before you submit. Inline, a cut span is now simply struck through and grayed rather than boxed with a `[cut]` tag, and saved annotation cards carry a uniform bordered frame titled `ACTION · author`. The composer's Cancel button drops its redundant ` esc` hint (esc still cancels).
+
+  Keyboard scrolling in the diff sheet is now smooth: the layout model counted a wrapped annotation body or file header as one row while it rendered as several, so the cursor-follow scroll drifted and shifted the view. Those content lines no longer wrap, so the scroll target matches the real layout and the cursor holds a stable screen row.
+
+- [#196](https://github.com/mmurakaru/cueloop/pull/196) [`b241ac8`](https://github.com/mmurakaru/cueloop/commit/b241ac8398871f67a141e909ad72292a8245cadd) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Annotations collapse to a single `comment` kind. The `s` suggest keybinding is gone (the key is now unbound), and the suggestion "Replace/With" feedback rendering is removed - every annotation serializes as a comment. Working-copy edits and hunk curation already give a stronger, directly-applied way to propose a concrete change, so the suggestion kind was redundant.
+
+  BREAKING (alpha) for `@cueloop/schema`: `AnnotationKind` no longer lists `"suggestion"`. The kind set stays open (`"comment" | (string & {})`) for forward-compat with agent notes and other kinds.
+
+- [#197](https://github.com/mmurakaru/cueloop/pull/197) [`69a7aa1`](https://github.com/mmurakaru/cueloop/commit/69a7aa1a3ef3410ed58167b49ad34954fd2330fa) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add the marker-actions popover to plan review: marking a span (`v`) now shows an inline toolbar at the block - `comment · cut · actions · [x]` - each label keyboard-shortcut-backed and clickable, so span mode is discoverable rather than blind. `a` opens a quick-actions list of preset comments you pick with `j`/`k` and `⏎` (or a click), inserting the prompt as a comment on the span in one step; `x` cuts the whole block the span sits in. The list is configurable through a new `[[actions]]` config section (`prompt` plus optional `metadata`); defining any replaces the built-in review prompts. A mouse drag-select on a plan also opens the popover at the dragged range - one marker at a time.
+
+- [#195](https://github.com/mmurakaru/cueloop/pull/195) [`7305b22`](https://github.com/mmurakaru/cueloop/commit/7305b2237671cf5be3a8681c67e6c01c2ff8b9fb) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Pick a built-in color theme from Settings. A new Appearance tab cycles through the branded `cueloop` default (transparent, so your terminal background shows through) and five well-known palettes rendered from their first-party specs - Rosé Pine Moon, Catppuccin Mocha, Tokyo Night, Gruvbox Dark, and Nord - each painting its own opaque background. The choice applies live and persists to `[ui] theme` in your config; per-token `[theme]` overrides still layer on top of whichever preset you pick, so a hand-tuned accent survives a theme switch.
+
+### Patch Changes
+
+- [#193](https://github.com/mmurakaru/cueloop/pull/193) [`8d8abab`](https://github.com/mmurakaru/cueloop/commit/8d8ababc2c44b3a7352f18c7341af01d23f6042a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Diff hunk curation: while reviewing a working-tree diff, the owner can accept or reject individual hunks and changes in the terminal. `x` rejects (or restores) the change under the cursor, `⇧X` the whole hunk; rejected lines render struck through and dimmed. The curated result - the accepted changes only - becomes the review's working copy and flows to the agent as feedback, serialized as an exactly applyable unified diff.
+
+  To make that exact, `cueloop diff` now captures the full old/new contents of every changed file (new optional `Artifact.files`), and curation re-parses each file with `@pierre/diffs` so a reject reverts precisely the chosen hunk or change. PR reviews carry a partial patch with no file contents, so curation stays disabled there with a clear status message.
+
+- [#191](https://github.com/mmurakaru/cueloop/pull/191) [`36f70b6`](https://github.com/mmurakaru/cueloop/commit/36f70b63a6a441a68013755d5f69c7de00ecf579) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The diff review sheet now syntax-highlights code with tree-sitter: keywords, types, strings, and the rest wear their theme colors across context, added, and deleted lines, resolved off the render path so rows draw unstyled first. It composes with the intra-line word diff - a changed word keeps the diff color on top of its syntax color - and leaves the row-level annotation cards untouched. A hunk is highlighted as a contiguous fragment (so multi-line constructs tokenize correctly) and the filetype comes from the file path.
+
+- [#190](https://github.com/mmurakaru/cueloop/pull/190) [`d5ef124`](https://github.com/mmurakaru/cueloop/commit/d5ef124532a4e5137cc0a6ca8a1bf7b8dee840e1) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The diff review sheet now highlights the change within a modified line, not just the whole line: a deletion paired with its addition is word-diffed so the removed and added words keep the diff color while the unchanged part of the line dims. The plan tracked-changes view shares the same engine. Both are backed by a single whitespace-lossless word-diff (jsdiff diffWordsWithSpace), replacing the coarser home-grown LCS word diff, so quote anchors stay exact. In a multi-line hunk, lines are aligned to their real counterpart by similarity (not by position), so an inserted or removed line never paints a misleading word diff against an unrelated line.
+
+  BREAKING (alpha): `@cueloop/schema` no longer exports `wordDiff` - it is superseded by the client-side word-diff engine and had no other consumer. `lcsDiff` (its building block) stays exported.
+
+- [#188](https://github.com/mmurakaru/cueloop/pull/188) [`467edb7`](https://github.com/mmurakaru/cueloop/commit/467edb741337a871393edb26cac68721d8b173cf) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The share toast now paints on the same solid dark panel as the Settings and Keybinds dialogs, so its text stays legible over the transparent session. Sharing a plan no longer also writes an inline "share link copied" line below the plan sheet - the centered toast is the single notification for the copied ssh line.
+
+- Updated dependencies [[`8d8abab`](https://github.com/mmurakaru/cueloop/commit/8d8ababc2c44b3a7352f18c7341af01d23f6042a), [`b241ac8`](https://github.com/mmurakaru/cueloop/commit/b241ac8398871f67a141e909ad72292a8245cadd), [`d5ef124`](https://github.com/mmurakaru/cueloop/commit/d5ef124532a4e5137cc0a6ca8a1bf7b8dee840e1)]:
+  - @cueloop/schema@0.1.0-alpha.34
+  - @cueloop/client@0.1.0-alpha.34
+  - @cueloop/daemon@0.1.0-alpha.34
+
 ## 0.1.0-alpha.33
 
 ### Patch Changes
