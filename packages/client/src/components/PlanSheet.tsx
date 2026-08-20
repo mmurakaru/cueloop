@@ -41,7 +41,8 @@ export interface PlanSelection {
 
 export interface PlanSheetHandle {
   /** Work-text range of the current native (mouse) selection, if any. */
-  readSelection(): PlanSelection | null;
+  /** The current native selection; `preferredIndex` (the mouse-up block) re-anchors a fresh drag. */
+  readSelection(preferredIndex?: number): PlanSelection | null;
   /** Anchor/extend the renderer's native selection from keyboard span offsets. */
   driveSpanSelection(span: SpanState): void;
   clearSelection(): void;
@@ -117,14 +118,27 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
 
   useImperativeHandle(handleRef, () => ({
-    readSelection: (): PlanSelection | null => {
+    readSelection: (preferredIndex?: number): PlanSelection | null => {
       if (!renderer?.hasSelection) return null;
-      const ordered = [...blockRefs.current.entries()].sort(([a], [b]) => a - b);
-      for (const [displayIndex, blockRef] of ordered) {
+      const readBlock = (displayIndex: number): PlanSelection | null => {
+        const blockRef = blockRefs.current.get(displayIndex);
+        if (!blockRef) return null;
         const selection = blockRef.renderable.getSelection();
-        if (!selection || selection.end <= selection.start) continue;
+        if (!selection || selection.end <= selection.start) return null;
         const range = workRangeForRendered(blockRef.runs, selection.start, selection.end);
-        if (range) return { displayIndex, ...range };
+        return range ? { displayIndex, ...range } : null;
+      };
+      // the block the mouse released on wins, so a fresh drag re-anchors the span
+      // (one marker at a time) instead of sticking to the topmost prior selection
+      if (preferredIndex !== undefined) {
+        const preferred = readBlock(preferredIndex);
+        if (preferred) return preferred;
+      }
+      for (const displayIndex of [...blockRefs.current.keys()].sort(
+        (left, right) => left - right,
+      )) {
+        const found = readBlock(displayIndex);
+        if (found) return found;
       }
       return null;
     },

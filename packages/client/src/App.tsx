@@ -272,10 +272,11 @@ export function App({
   // out of span mode clears the renderer selection (compose paints its own
   // mark, and a mouse drag never changes the mode, so it survives)
   useEffect(() => {
-    // span and its quick-actions sub-mode both keep the span painted
+    // one marker at a time: clear any prior selection, then paint the current
+    // span (span and its quick-actions sub-mode both keep it painted)
     const span = activeSpanState(mode);
+    planSheetRef.current?.clearSelection();
     if (span) planSheetRef.current?.driveSpanSelection(span);
-    else planSheetRef.current?.clearSelection();
   }, [mode]);
 
   // ── selection symmetry: one selected id, both sides ──
@@ -775,7 +776,8 @@ export function App({
     // a mouse drag leaves a native selection: turn it into a word span so the
     // marker popover opens at the dragged range, mirroring the `v` grammar
     if (renderer?.hasSelection) {
-      const selection = planSheetRef.current?.readSelection();
+      // the release block re-anchors the span, so each drag replaces the last
+      const selection = planSheetRef.current?.readSelection(displayIndex);
       const block = selection ? display[selection.displayIndex] : undefined;
       const span =
         selection && block

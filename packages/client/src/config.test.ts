@@ -365,13 +365,13 @@ describe("integrations.obsidian config", () => {
 });
 
 describe("quick actions ([[actions]])", () => {
-  test("absent config keeps the five defaults", () => {
+  test("absent config keeps the built-in defaults", () => {
     // Act
     const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
 
     // Assert
     expect(config.actions).toEqual(DEFAULT_QUICK_ACTIONS);
-    expect(config.actions).toHaveLength(5);
+    expect(config.actions).toHaveLength(7);
   });
 
   test("configured actions replace the defaults, with optional metadata", () => {

@@ -567,14 +567,14 @@ exports[`stories catalog KeybindsDialog/Cheatsheet renders, snapshots, and carri
 `;
 
 exports[`stories catalog MarkerPopover/ActionsList renders, snapshots, and carries its colors: MarkerPopover/ActionsList 1`] = `
-"    Needs a test                                            
-    YAGNI - needed now?                                     
-  › Extract the duplication                                 
-    Name doesn't reveal intent                              
-    Simplest thing that works?                              
+"    Zoom out, research in depth                             
+    Restate simplified                                      
+  › Out of scope                                            
+    Let's chat about this                                   
+    Prototype this                                          
+    Ensure 0 regressions                                    
+    Consider existing repo patterns                         
     ‹ back                                                  
-                                                            
-                                                            
 "
 `;
 
@@ -691,11 +691,13 @@ exports[`stories catalog PlanSheet/MarkerActionsList renders, snapshots, and car
 │   Context                                                                              │
 │                                                                                        │
 │ ▎ The daemon persists sessions to disk atomically.                                     │
-│     Needs a test                                                                       │
-│   › YAGNI - needed now?                                                                │
-│     Extract the duplication                                                            │
-│     Name doesn't reveal intent                                                         │
-│     Simplest thing that works?                                                         │
+│     Zoom out, research in depth                                                        │
+│   › Restate simplified                                                                 │
+│     Out of scope                                                                       │
+│     Let's chat about this                                                              │
+│     Prototype this                                                                     │
+│     Ensure 0 regressions                                                               │
+│     Consider existing repo patterns                                                    │
 │     ‹ back                                                                             │
 │                                                                                        │
 │   Steps                                                                                │
@@ -709,8 +711,6 @@ exports[`stories catalog PlanSheet/MarkerActionsList renders, snapshots, and car
 │       // one JSON document per session                                                 │
 │       writeAtomically(pathFor(session.id), serialize(session));                        │
 │     }                                                                                  │
-│                                                                                        │
-│                                                                                        │
 │                                                                                        │
 │                                                                                        │
 │                                                                                        │

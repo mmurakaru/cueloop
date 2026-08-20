@@ -35,11 +35,13 @@ export interface QuickAction {
 
 /** The built-in quick-actions for the marker popover when no `[[actions]]` are configured. */
 export const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
-  { prompt: "Needs a test" },
-  { prompt: "YAGNI - needed now?" },
-  { prompt: "Extract the duplication" },
-  { prompt: "Name doesn't reveal intent" },
-  { prompt: "Simplest thing that works?" },
+  { prompt: "Zoom out, research in depth" },
+  { prompt: "Restate simplified" },
+  { prompt: "Out of scope" },
+  { prompt: "Let's chat about this" },
+  { prompt: "Prototype this" },
+  { prompt: "Ensure 0 regressions" },
+  { prompt: "Consider existing repo patterns" },
 ];
 
 export interface CueloopConfig {

@@ -589,7 +589,7 @@ describe("marker-actions popover", () => {
 
     // open the quick-actions list; step to the second default and pick it
     await press(setup, "a");
-    await waitForText(setup, "Needs a test");
+    await waitForText(setup, "Zoom out, research in depth");
     await press(setup, "j");
     await press(setup, "enter");
 
@@ -597,6 +597,6 @@ describe("marker-actions popover", () => {
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations[0]!.kind).toBe("comment");
-    expect(stored.annotations[0]!.body).toBe("YAGNI - needed now?");
+    expect(stored.annotations[0]!.body).toBe("Restate simplified");
   });
 });
