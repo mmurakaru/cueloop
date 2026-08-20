@@ -291,9 +291,48 @@ describe("span mode", () => {
     ["$", [{ type: "spanKey", name: "$" }]],
     ["0", [{ type: "spanKey", name: "0" }]],
     ["c", [{ type: "openCompose", kind: "comment", from: "span" }]],
+    ["x", [{ type: "spanCut" }]],
+    ["a", [{ type: "openSpanActions" }]],
     ["escape", [{ type: "closeOverlay" }]],
     ["q", [{ type: "exit" }]],
     ["j", []],
+  ];
+  for (const [name, expected] of table) {
+    test(`${name} -> ${JSON.stringify(expected)}`, () => {
+      expect(reduceKey(keyState, key(name))).toEqual(expected);
+    });
+  }
+
+  test("an observer's span-mode mutations answer read-only", () => {
+    // Arrange
+    const observer = state({ spanMode: true, readOnly: true });
+
+    // Assert
+    expect(reduceKey(observer, key("x"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+    expect(reduceKey(observer, key("a"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+    expect(reduceKey(observer, key("c"))).toEqual([
+      { type: "status", message: "observer - read-only" },
+    ]);
+  });
+});
+
+describe("span actions overlay", () => {
+  // Arrange
+  const keyState = state({ overlay: "spanActions" });
+  const table: [string, Intent[]][] = [
+    ["j", [{ type: "moveSpanAction", direction: 1 }]],
+    ["down", [{ type: "moveSpanAction", direction: 1 }]],
+    ["k", [{ type: "moveSpanAction", direction: -1 }]],
+    ["up", [{ type: "moveSpanAction", direction: -1 }]],
+    ["return", [{ type: "pickSpanAction" }]],
+    ["enter", [{ type: "pickSpanAction" }]],
+    ["escape", [{ type: "closeSpanActions" }]],
+    ["c", []],
+    ["q", []],
   ];
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {

@@ -63,11 +63,13 @@ Or wire the hook by hand (blocks the plan gate on your review):
 
 ## Grammar
 
-`j/k` move · `v` span (`l/h` grow/shrink, `w/b` slide, `$` end) · `c` comment ·
-`x` cut (serializes into the one plan.md diff) · `e` edit the
-whole file in `$EDITOR` · `n/p` annotations · `⏎` submit (verdict ←/→) ·
+`j/k` move · `v` span - shows the marker toolbar (`comment · cut · actions`;
+`l/h` grow/shrink, `w/b` slide, `$` end) · `c` comment · `a` quick-actions (a
+preset-comment list) · `x` cut (serializes into the one plan.md diff) · `e` edit
+the whole file in `$EDITOR` · `n/p` annotations · `⏎` submit (verdict ←/→) ·
 `q` quit. Every action is rebindable in `~/.config/cueloop/config.toml`
-(`[keys]`). Pick a built-in theme in Settings or with `[ui] theme` (`cueloop`,
+(`[keys]`); the quick-actions list is `[[actions]]`. Pick a built-in theme in
+Settings or with `[ui] theme` (`cueloop`,
 `rose-pine-moon`, `catppuccin-mocha`, `tokyo-night`, `gruvbox-dark`, `nord`);
 individual tokens override under `[theme]`.
 

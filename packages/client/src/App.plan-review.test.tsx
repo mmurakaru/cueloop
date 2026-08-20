@@ -576,3 +576,27 @@ describe("edit-exit reconciliation", () => {
     }
   });
 });
+
+describe("marker-actions popover", () => {
+  test("v shows the toolbar, a opens quick-actions, enter inserts the preset comment", async () => {
+    // Arrange
+    const setup = await renderApp();
+    await toContextParagraph(setup);
+
+    // Act - marking a span reveals the inline toolbar
+    await press(setup, "v");
+    await waitForText(setup, "actions");
+
+    // open the quick-actions list; step to the second default and pick it
+    await press(setup, "a");
+    await waitForText(setup, "Needs a test");
+    await press(setup, "j");
+    await press(setup, "enter");
+
+    // Assert - a comment annotation was created with the preset body
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    const stored = server.core.sessionGet(session.id);
+    expect(stored.annotations[0]!.kind).toBe("comment");
+    expect(stored.annotations[0]!.body).toBe("YAGNI - needed now?");
+  });
+});

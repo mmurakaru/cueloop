@@ -21,9 +21,9 @@ function sessionWith(annotationIds: string[]): ReviewSession {
   } as unknown as ReviewSession;
 }
 
-/** A deps bag where every effect is a mock and every read has a plain default. */
-function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDeps {
-  const controller = {
+/** A controller where every verb is a mock; annotate returns undefined by default. */
+function baseController() {
+  return {
     setStatus: mock(),
     open: mock(),
     deleteSession: mock(),
@@ -45,6 +45,11 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     dismissCompletion: mock(),
     saveReviewPanel: mock(),
   };
+}
+
+/** A deps bag where every effect is a mock and every read has a plain default. */
+function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDeps {
+  const controller = baseController();
   return {
     controller: controller as unknown as IntentDispatchDeps["controller"],
     onExit: mock(),
@@ -62,6 +67,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     focusedAnnotationId: undefined,
     selectedCurationId: undefined,
     authorNames: {},
+    quickActions: [],
     renameAuthor: mock(),
     liveInput: { current: "" },
     reviewWidthRef: { current: 34 },
@@ -170,6 +176,100 @@ describe("cycleVerdict", () => {
       verdict: "request_changes",
       summary: "",
     });
+  });
+});
+
+describe("marker-actions popover", () => {
+  const span = { displayIndex: 3, wordIndex: 0, wordEnd: 0, start: 2, end: 9 };
+
+  test("spanCut cuts the span's block and closes the popover", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "span", span } });
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "spanCut" });
+
+    // Assert
+    expect(deps.controller.cut).toHaveBeenCalledWith(3);
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+
+  test("openSpanActions enters the list at index 0", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "span", span } });
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "openSpanActions" });
+
+    // Assert
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "spanActions", span, index: 0 });
+  });
+
+  test("moveSpanAction clamps within the actions list", () => {
+    // Arrange
+    const deps = makeDeps({
+      mode: { type: "spanActions", span, index: 1 },
+      quickActions: [{ prompt: "one" }, { prompt: "two" }],
+    });
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "moveSpanAction", direction: 1 });
+
+    // Assert - already at the last row, so the index holds
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "spanActions", span, index: 1 });
+  });
+
+  test("pickSpanAction inserts the preset comment and returns to normal", () => {
+    // Arrange
+    const annotate = mock(() => "an_new");
+    const deps = makeDeps({
+      mode: { type: "spanActions", span, index: 1 },
+      session: sessionWith([]),
+      quickActions: [{ prompt: "Needs a test" }, { prompt: "YAGNI", metadata: "cut scope" }],
+      controller: { ...baseController(), annotate } as unknown as IntentDispatchDeps["controller"],
+    });
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "pickSpanAction" });
+
+    // Assert - metadata joins the prompt with a blank line
+    expect(annotate).toHaveBeenCalledWith("comment", 3, 2, 9, "YAGNI\n\ncut scope");
+    expect(deps.setFocusedAnnotationId).toHaveBeenCalledWith("an_new");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+
+  test("pickSpanAction honors an explicit index (mouse click)", () => {
+    // Arrange
+    const annotate = mock(() => "an_new");
+    const deps = makeDeps({
+      mode: { type: "spanActions", span, index: 0 },
+      session: sessionWith([]),
+      quickActions: [{ prompt: "Needs a test" }, { prompt: "Extract the duplication" }],
+      controller: { ...baseController(), annotate } as unknown as IntentDispatchDeps["controller"],
+    });
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "pickSpanAction", index: 1 });
+
+    // Assert
+    expect(annotate).toHaveBeenCalledWith("comment", 3, 2, 9, "Extract the duplication");
+  });
+
+  test("closeSpanActions returns to the span toolbar", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "spanActions", span, index: 2 } });
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "closeSpanActions" });
+
+    // Assert
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "span", span });
   });
 });
 

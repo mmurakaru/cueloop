@@ -566,6 +566,26 @@ exports[`stories catalog KeybindsDialog/Cheatsheet renders, snapshots, and carri
 "
 `;
 
+exports[`stories catalog MarkerPopover/ActionsList renders, snapshots, and carries its colors: MarkerPopover/ActionsList 1`] = `
+"    Needs a test                                            
+    YAGNI - needed now?                                     
+  › Extract the duplication                                 
+    Name doesn't reveal intent                              
+    Simplest thing that works?                              
+    [x] back                                                
+                                                            
+                                                            
+"
+`;
+
+exports[`stories catalog MarkerPopover/Toolbar renders, snapshots, and carries its colors: MarkerPopover/Toolbar 1`] = `
+"  comment · cut · actions · [x]                             
+                                                            
+                                                            
+                                                            
+"
+`;
+
 exports[`stories catalog MenuBar/Closed renders, snapshots, and carries its colors: MenuBar/Closed 1`] = `
 "                                                            
                                                             
@@ -645,6 +665,72 @@ exports[`stories catalog PlanSheet/InlineCompose renders, snapshots, and carries
 │       // one JSON document per session                                                 │
 │       writeAtomically(pathFor(session.id), serialize(session));                        │
 │     }                                                                                  │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+"
+`;
+
+exports[`stories catalog PlanSheet/MarkerActionsList renders, snapshots, and carries its colors: PlanSheet/MarkerActionsList 1`] = `
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│   Migration Plan                                                                       │
+│                                                                                        │
+│   Context                                                                              │
+│                                                                                        │
+│ ▎ The daemon persists sessions to disk atomically.                                     │
+│     Needs a test                                                                       │
+│   › YAGNI - needed now?                                                                │
+│     Extract the duplication                                                            │
+│     Name doesn't reveal intent                                                         │
+│     Simplest thing that works?                                                         │
+│     [x] back                                                                           │
+│                                                                                        │
+│   Steps                                                                                │
+│                                                                                        │
+│   - move the store                                                                     │
+│   - add recovery                                                                       │
+│                                                                                        │
+│   ts                                                                                   │
+│                                                                                        │
+│     export function persist(session: Session): void {                                  │
+│       // one JSON document per session                                                 │
+│       writeAtomically(pathFor(session.id), serialize(session));                        │
+│     }                                                                                  │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+│                                                                                        │
+╰────────────────────────────────────────────────────────────────────────────────────────╯
+"
+`;
+
+exports[`stories catalog PlanSheet/MarkerToolbar renders, snapshots, and carries its colors: PlanSheet/MarkerToolbar 1`] = `
+"╭────────────────────────────────────────────────────────────────────────────────────────╮
+│   Migration Plan                                                                       │
+│                                                                                        │
+│   Context                                                                              │
+│                                                                                        │
+│ ▎ The daemon persists sessions to disk atomically.                                     │
+│   comment · cut · actions · [x]                                                        │
+│                                                                                        │
+│   Steps                                                                                │
+│                                                                                        │
+│   - move the store                                                                     │
+│   - add recovery                                                                       │
+│                                                                                        │
+│   ts                                                                                   │
+│                                                                                        │
+│     export function persist(session: Session): void {                                  │
+│       // one JSON document per session                                                 │
+│       writeAtomically(pathFor(session.id), serialize(session));                        │
+│     }                                                                                  │
+│                                                                                        │
 │                                                                                        │
 │                                                                                        │
 │                                                                                        │

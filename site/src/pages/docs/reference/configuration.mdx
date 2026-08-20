@@ -71,6 +71,39 @@ review_state = "expanded" # "expanded", "compact", or "hidden"
 `review_width` and `review_state` also persist as you adjust them in the UI, so
 your last layout carries over between runs.
 
+## `[[actions]]`
+
+On a plan, `v` marks a span and shows the marker toolbar
+(`comment · cut · actions`). Pressing `a` opens the quick-actions list: a set of
+preset comments you pick with `j`/`k` and `⏎`, each inserting its prompt as a
+comment on the span. Every entry is a `[[actions]]` table with a required
+`prompt` and an optional `metadata` block that is appended after a blank line.
+
+```toml
+[[actions]]
+prompt = "Needs a test"
+
+[[actions]]
+prompt = "Extract the duplication"
+metadata = "pull the shared branch into one helper"
+```
+
+| Key        | Type             | Meaning                                            |
+| ---------- | ---------------- | -------------------------------------------------- |
+| `prompt`   | string, required | the comment body inserted when you pick the action |
+| `metadata` | string, optional | extra lines appended after the prompt              |
+
+Defining any `[[actions]]` **replaces** the defaults; a table without a `prompt`
+is ignored. With none configured, the five built-in prompts stand:
+
+| #   | Default prompt               |
+| --- | ---------------------------- |
+| 1   | `Needs a test`               |
+| 2   | `YAGNI - needed now?`        |
+| 3   | `Extract the duplication`    |
+| 4   | `Name doesn't reveal intent` |
+| 5   | `Simplest thing that works?` |
+
 ## `[theme]`
 
 Override any theme token with a colour string. Unset tokens keep their default.

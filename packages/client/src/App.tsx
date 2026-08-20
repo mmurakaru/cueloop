@@ -18,11 +18,13 @@ import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
 import {
   DEFAULT_KEYS,
+  DEFAULT_QUICK_ACTIONS,
   loadConfig,
   persistAuthorName,
   persistAutoClose,
   persistTheme,
   type AutoClose,
+  type QuickAction,
 } from "./config";
 import {
   composeTheme,
@@ -175,6 +177,7 @@ export function App({
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME_NAME);
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
+  const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
     keysRef.current = config.keys;
@@ -186,6 +189,7 @@ export function App({
     setReviewWidth(config.ui.reviewWidth);
     reviewWidthRef.current = config.ui.reviewWidth;
     setAuthorNames(config.authors);
+    setQuickActions(config.actions);
     setAutoClose(config.ui.autoClose);
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings]);
@@ -263,7 +267,9 @@ export function App({
   // out of span mode clears the renderer selection (compose paints its own
   // mark, and a mouse drag never changes the mode, so it survives)
   useEffect(() => {
-    if (mode.type === "span") planSheetRef.current?.driveSpanSelection(mode.span);
+    // span and its quick-actions sub-mode both keep the span painted
+    if (mode.type === "span" || mode.type === "spanActions")
+      planSheetRef.current?.driveSpanSelection(mode.span);
     else planSheetRef.current?.clearSelection();
   }, [mode]);
 
@@ -361,6 +367,7 @@ export function App({
     focusedAnnotationId,
     selectedCurationId,
     authorNames,
+    quickActions,
     renameAuthor: (id: string, name: string) => {
       persistAuthorName(id, name);
       setAuthorNames((prev) => ({ ...prev, [id]: name }));
@@ -391,13 +398,15 @@ export function App({
           ? "confirm"
           : mode.type === "rename" || mode.type === "nameSelf"
             ? "prompt"
-            : completion.phase === "prompt"
-              ? "completion-prompt"
-              : completion.phase === "counting"
-                ? "completion-counting"
-                : walking
-                  ? "walk"
-                  : "none";
+            : mode.type === "spanActions"
+              ? "spanActions"
+              : completion.phase === "prompt"
+                ? "completion-prompt"
+                : completion.phase === "counting"
+                  ? "completion-counting"
+                  : walking
+                    ? "walk"
+                    : "none";
 
   // ── settings dialog: config-backed model, navigation, persistence ──
   const settingsCategories: SettingsCategory[] = [
@@ -708,12 +717,43 @@ export function App({
       : null;
 
   const activeSpan =
-    mode.type === "span"
+    mode.type === "span" || mode.type === "spanActions"
       ? { displayIndex: mode.span.displayIndex, start: mode.span.start, end: mode.span.end }
       : mode.type === "compose" && !isDiff
         ? // the compose anchor stays painted selection-style while the box is open
           { displayIndex: mode.displayIndex, start: mode.start, end: mode.end }
         : null;
+
+  // the marker-actions popover is span mode made visible: an inline toolbar at
+  // the marked block, or its quick-actions list. Mutating clicks answer
+  // read-only for an observer, mirroring the keyboard gate in reduceKey.
+  const popoverState =
+    (mode.type === "span" || mode.type === "spanActions") && !isDiff
+      ? {
+          displayIndex: mode.span.displayIndex,
+          view: mode.type === "spanActions" ? ("actions" as const) : ("toolbar" as const),
+          actions: quickActions,
+          actionIndex: mode.type === "spanActions" ? mode.index : 0,
+          onComment: () => {
+            if (observer) return controller.setStatus("observer - read-only");
+            dispatch({ type: "openCompose", kind: "comment", from: "span" });
+          },
+          onCut: () => {
+            if (observer) return controller.setStatus("observer - read-only");
+            dispatch({ type: "spanCut" });
+          },
+          onOpenActions: () => {
+            if (observer) return controller.setStatus("observer - read-only");
+            dispatch({ type: "openSpanActions" });
+          },
+          onClose: () => dispatch({ type: "closeOverlay" }),
+          onPickAction: (index: number) => {
+            if (observer) return controller.setStatus("observer - read-only");
+            dispatch({ type: "pickSpanAction", index });
+          },
+          onBack: () => dispatch({ type: "closeSpanActions" }),
+        }
+      : null;
 
   const onLineActivate = (displayIndex: number): void => {
     // releasing a drag-selection lands here too; a live selection is not a click
@@ -887,6 +927,7 @@ export function App({
               cursor={cursor}
               activeSpan={activeSpan}
               compose={composeState}
+              popover={popoverState}
               editOrphanCount={editOrphanCount}
               onLineActivate={onLineActivate}
             />

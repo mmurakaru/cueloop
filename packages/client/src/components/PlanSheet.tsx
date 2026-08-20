@@ -27,6 +27,7 @@ import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { CodeBlock } from "./CodeBlock";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
+import { MarkerPopover, type MarkerPopoverProps } from "./MarkerPopover";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
 
 /** A cut block reads as removed: struck through and grayed, never red. */
@@ -54,6 +55,11 @@ export interface PlanComposeState {
   draft: AnnotationDraft;
 }
 
+/** The marker-actions popover, rendered inline at its block while span mode is live. */
+export interface PlanPopoverState extends MarkerPopoverProps {
+  displayIndex: number;
+}
+
 export interface PlanSheetProps {
   session: ReviewSession;
   display: DisplayBlock[];
@@ -62,6 +68,8 @@ export interface PlanSheetProps {
   /** Extra selection-style paint on one block (keyboard span or compose anchor). */
   activeSpan: { displayIndex: number; start: number; end: number } | null;
   compose: PlanComposeState | null;
+  /** The marker-actions popover for the span's block; null when not in span mode. */
+  popover: PlanPopoverState | null;
   editOrphanCount: number;
   onLineActivate: (displayIndex: number) => void;
   theme?: Theme;
@@ -96,6 +104,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     cursor,
     activeSpan,
     compose,
+    popover,
     editOrphanCount,
     onLineActivate,
     theme,
@@ -232,6 +241,9 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
           theme={theme}
         />,
       );
+    }
+    if (popover && popover.displayIndex === displayIndex) {
+      children.push(<MarkerPopover key={`popover-${displayIndex}`} {...popover} theme={theme} />);
     }
   }
 

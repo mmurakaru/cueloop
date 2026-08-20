@@ -19,6 +19,11 @@ export type Intent =
   | { type: "confirmDialog" }
   | { type: "startSpan" }
   | { type: "spanKey"; name: string }
+  | { type: "spanCut" }
+  | { type: "openSpanActions" }
+  | { type: "moveSpanAction"; direction: -1 | 1 }
+  | { type: "pickSpanAction"; index?: number }
+  | { type: "closeSpanActions" }
   | { type: "openCompose"; kind: "comment"; from: "cursor" | "span" }
   | { type: "openSubmit" }
   | { type: "share" }
@@ -74,6 +79,7 @@ export interface KeyState {
     | "submit"
     | "confirm"
     | "prompt"
+    | "spanActions"
     | "completion-prompt"
     | "completion-counting";
   view: "inbox" | "plan" | "diff";
@@ -147,6 +153,15 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
     if (name === "escape") return [{ type: "closeOverlay" }];
     return [];
   }
+  // the quick-actions list owns its keys: j/k move, ⏎ picks the highlighted
+  // action (inserting its preset comment), escape returns to the span toolbar
+  if (state.overlay === "spanActions") {
+    if (name === "j" || name === "down") return [{ type: "moveSpanAction", direction: 1 }];
+    if (name === "k" || name === "up") return [{ type: "moveSpanAction", direction: -1 }];
+    if (name === "return" || name === "enter") return [{ type: "pickSpanAction" }];
+    if (name === "escape") return [{ type: "closeSpanActions" }];
+    return [];
+  }
   if (state.overlay === "completion-prompt" || state.overlay === "completion-counting") {
     if (name === "return" || name === "enter" || name === "q") return [{ type: "finishReview" }];
     if (name === "a") return [{ type: "optInAutoClose" }];
@@ -169,8 +184,9 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   const action = resolvedAction ?? actionFor(state.keys, name, key.shift);
   if (action === "quit") return [{ type: "exit" }];
   // the ONE read-only rule: any mutating attempt answers instead of acting
-  // (span-mode c is a hardwired key, so it gates by name as well)
-  const mutating = MUTATING_ACTIONS.has(action ?? "") || (state.spanMode && name === "c");
+  // (span-mode c and a are hardwired keys, so they gate by name as well)
+  const mutating =
+    MUTATING_ACTIONS.has(action ?? "") || (state.spanMode && (name === "c" || name === "a"));
   if (state.readOnly && mutating) return status("observer - read-only");
 
   // share is a session-level verb: it works from any view, owner only
@@ -248,6 +264,10 @@ function spanGrammar(name: string): Intent[] {
   if (name === "c") {
     return [{ type: "openCompose", kind: "comment", from: "span" }];
   }
+  // partial-span cut is not in the working-copy model, so cut removes the whole
+  // block the span sits in
+  if (name === "x") return [{ type: "spanCut" }];
+  if (name === "a") return [{ type: "openSpanActions" }];
   return [];
 }
 
