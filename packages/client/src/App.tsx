@@ -13,7 +13,7 @@ import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } fro
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock, MouseEvent } from "@opentui/core";
 import { type VerdictKind } from "@cueloop/schema";
-import { displayText, marksByDisplay, type Mark } from "./view-plan";
+import { displayText, marksByDisplay, spanFromRange, type Mark } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
 import { DARK, dimmedTheme } from "./theme";
 import {
@@ -772,8 +772,23 @@ export function App({
       : null;
 
   const onLineActivate = (displayIndex: number): void => {
-    // releasing a drag-selection lands here too; a live selection is not a click
-    if (renderer?.hasSelection) return;
+    // a mouse drag leaves a native selection: turn it into a word span so the
+    // marker popover opens at the dragged range, mirroring the `v` grammar
+    if (renderer?.hasSelection) {
+      const selection = planSheetRef.current?.readSelection();
+      const block = selection ? display[selection.displayIndex] : undefined;
+      const span =
+        selection && block
+          ? spanFromRange(
+              selection.displayIndex,
+              displayText(block),
+              selection.start,
+              selection.end,
+            )
+          : null;
+      if (span) setMode({ type: "span", span });
+      return;
+    }
     setCursor(displayIndex);
     const annotationId = marks.get(displayIndex)?.[0]?.annotationId;
     if (annotationId) selectCardFromDocument(annotationId);

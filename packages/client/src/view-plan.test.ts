@@ -7,6 +7,7 @@ import {
   nextWorkBlock,
   overlayMarks,
   renderedOffsetFor,
+  spanFromRange,
   spanKey,
   startSpan,
   workRangeForRendered,
@@ -244,6 +245,24 @@ describe("span mode", () => {
 
     // Assert
     expect(text.slice(span.start, span.end)).toBe("two three four");
+  });
+
+  test("spanFromRange snaps a mid-word mouse drag to whole words", () => {
+    // Arrange - a drag from inside "two" to inside "three"
+    const dragStart = text.indexOf("two") + 1;
+    const dragEnd = text.indexOf("three") + 2;
+
+    // Act
+    const span = spanFromRange(0, text, dragStart, dragEnd)!;
+
+    // Assert - snaps outward to cover both touched words, ready for w/b/l/h
+    expect(text.slice(span.start, span.end)).toBe("two three");
+    expect(spanKey(span, "l", text)).toMatchObject({ wordEnd: 3 });
+  });
+
+  test("spanFromRange returns null when the range covers no word", () => {
+    // Assert - a range past the last word has nothing to select
+    expect(spanFromRange(0, text, text.length, text.length)).toBeNull();
   });
 });
 
