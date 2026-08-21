@@ -4,7 +4,15 @@ import { detectHerdr, insideHerdr, returnPaneFor } from "./herdr";
 describe("detectHerdr", () => {
   test("null outside herdr, context inside", () => {
     expect(detectHerdr({})).toBeNull();
-    expect(detectHerdr({ HERDR_ENV: "1", HERDR_PANE_ID: "p1" })).toBeNull();
+    // no HERDR_ENV or no pane id means we are not in a usable herdr pane
+    expect(detectHerdr({ HERDR_PANE_ID: "p1" })).toBeNull();
+    expect(detectHerdr({ HERDR_ENV: "1" })).toBeNull();
+    // herdr 0.8.0 sets no HERDR_BIN_PATH: the binary defaults to `herdr` on PATH
+    expect(detectHerdr({ HERDR_ENV: "1", HERDR_PANE_ID: "p1" })).toEqual({
+      paneId: "p1",
+      binPath: "herdr",
+    });
+    // an explicit HERDR_BIN_PATH (tests, or a pinned install) still wins
     expect(
       detectHerdr({ HERDR_ENV: "1", HERDR_PANE_ID: "p1", HERDR_BIN_PATH: "/x/herdr" }),
     ).toEqual({
