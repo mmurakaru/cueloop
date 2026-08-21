@@ -1,13 +1,21 @@
 /**
- * pi adapter: a pi extension factory. Registers the request_review
- * tool (submit a plan, block on the cueloop verdict), a tool_call gate that
- * holds write-capable tools while a review this extension opened is still
- * pending, and a /review command that reports session status.
+ * pi adapter: a pi extension factory. Registers the request_review tool
+ * (submit a plan, return immediately with the session id), a background waiter
+ * per open review that injects the reviewer's verdict back into the live session
+ * with pi.sendUserMessage once it resolves, a tool_call gate that holds
+ * write-capable tools while a review this extension opened is still pending, and
+ * a /review command that reports session status.
+ *
+ * Non-blocking by design (ADR 0008): the tool call does not sit inside the
+ * verdict wait, so the human keeps chatting with the agent while the plan is
+ * open. Each review spawns a detached waiter that parks on awaitResolve and
+ * wakes the turn with a followUp message; session_shutdown aborts any waiter
+ * still parked so a closed pi session never injects into a dead turn.
  */
 
 import { DaemonClient } from "@cueloop/daemon/client";
-import { openReview } from "@cueloop/daemon/review";
-import type { ReviewSession } from "@cueloop/schema";
+import { awaitResolve, openReview } from "@cueloop/daemon/review";
+import { wakeMessage } from "../wake-message";
 import type { PiExtensionAPI, PiToolDefinition, PiToolResult } from "./pi-types";
 
 const REVIEW_TOOL = "request_review";
@@ -34,7 +42,7 @@ export interface ReviewDetails {
 export interface CueloopExtensionOptions {
   /** State-dir override; the default resolves CUELOOP_HOME from the environment. */
   home?: string;
-  /** Long-poll chunk length; between chunks the session is re-read to report progress. */
+  /** Long-poll chunk length for the background waiter's awaitResolve loop. */
   pollMs?: number;
 }
 
@@ -42,34 +50,53 @@ const text = (message: string): PiToolResult<ReviewDetails>["content"] => [
   { type: "text", text: message },
 ];
 
-function cancelledResult(
-  sessionId: string | undefined,
-  annotationCount: number,
-): PiToolResult<ReviewDetails> {
-  const suffix = sessionId
-    ? ` Session ${sessionId} stays pending; the verdict is collectable later.`
-    : "";
-  return {
-    content: text(`cueloop review cancelled.${suffix}`),
-    details: { sessionId, status: "cancelled", annotationCount },
-    isError: true,
-  };
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
   const pollMs = options.pollMs ?? 10_000;
-  /** Session ids this extension created and is still blocking on. */
-  const pendingSessions = new Set<string>();
+  /** Session ids this extension opened whose verdict is still outstanding, each with its waiter's abort. */
+  const pendingWaiters = new Map<string, AbortController>();
   /** Most recent session this extension created, for /review. */
   let lastSessionId: string | undefined;
+
+  /**
+   * The detached waiter: park on the verdict, then wake the live pi turn with a
+   * followUp message. Owns the daemon connection for the whole wait, so the held
+   * connection also keeps the daemon off its idle-exit path. Never throws into
+   * the background: a dropped daemon or a vanished session is reported to the
+   * turn once, not left to crash the session.
+   */
+  async function wakeOnResolve(
+    pi: PiExtensionAPI,
+    client: DaemonClient,
+    sessionId: string,
+    controller: AbortController,
+  ): Promise<void> {
+    try {
+      const verdict = await awaitResolve(client, sessionId, { pollMs, signal: controller.signal });
+      if (verdict === null) return; // session_shutdown aborted the wait
+      pi.sendUserMessage(wakeMessage(sessionId, verdict), { deliverAs: "followUp" });
+    } catch (error) {
+      pi.sendUserMessage(
+        `cueloop could not collect the verdict for review ${sessionId}: ${errorMessage(error)}`,
+        { deliverAs: "followUp" },
+      );
+    } finally {
+      pendingWaiters.delete(sessionId);
+      client.close();
+    }
+  }
 
   const requestReview: PiToolDefinition<RequestReviewParams, ReviewDetails> = {
     name: REVIEW_TOOL,
     label: "Request review",
     description:
-      "Submit a plan for human review in cueloop and block until the reviewer returns a verdict. " +
-      "An approve verdict returns the reviewer's feedback; any other verdict is an error result " +
-      "carrying structured feedback that must be addressed before proceeding.",
+      "Submit a plan for human review in cueloop and return immediately with the session id. " +
+      "Do not block: end your turn and keep helping the user. When the reviewer returns a verdict " +
+      "cueloop wakes this session with a follow-up message carrying the outcome - an approval to " +
+      "proceed, or structured feedback to address before continuing.",
     parameters: {
       type: "object",
       properties: {
@@ -81,10 +108,8 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       },
       required: ["plan"],
     },
-    async execute(_toolCallId, params, signal, onUpdate, context) {
-      if (signal?.aborted) return cancelledResult(undefined, 0);
+    async execute(_toolCallId, params, _signal, _onUpdate, context) {
       const client = await DaemonClient.connect({ home: options.home, autostart: true });
-      let sessionId: string | undefined;
       try {
         const review = await openReview(client, {
           type: "plan",
@@ -93,62 +118,47 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
           agent: "pi",
           title: params.title,
         });
-        sessionId = review.id;
         lastSessionId = review.id;
-        pendingSessions.add(review.id);
-
-        let reportedCount = -1;
-        const report = (progress: ReviewSession) => {
-          if (progress.annotations.length === reportedCount) return;
-          reportedCount = progress.annotations.length;
-          onUpdate?.({
-            content: text(
-              `cueloop review ${progress.id} pending - ${progress.annotations.length} annotation(s) so far`,
-            ),
-            details: {
-              sessionId: progress.id,
-              status: "pending",
-              annotationCount: progress.annotations.length,
-            },
-          });
+        const controller = new AbortController();
+        pendingWaiters.set(review.id, controller);
+        // Hand the connection to the waiter; it closes the client when done.
+        void wakeOnResolve(pi, client, review.id, controller);
+        return {
+          content: text(
+            `cueloop review opened (session ${review.id}). Keep working; I will deliver the ` +
+              `reviewer's verdict as a follow-up when it lands.`,
+          ),
+          details: { sessionId: review.id, status: "pending", annotationCount: 0 },
         };
-        report(review.session);
-
-        // No total budget: the loop runs until the verdict lands or the host
-        // aborts, and only an abort surfaces as "pending" here.
-        const verdict = await review.awaitVerdict({
-          timeoutMs: Infinity,
-          pollMs,
-          onProgress: report,
-          signal,
-        });
-        if (verdict === "pending") return cancelledResult(sessionId, Math.max(reportedCount, 0));
-        const details: ReviewDetails = {
-          sessionId: review.id,
-          status: "resolved",
-          annotationCount: verdict.session.annotations.length,
-          verdictKind: verdict.session.verdict!.kind,
-        };
-        if (verdict.allow) return { content: text(verdict.feedback), details };
-        return { content: text(verdict.feedback), details, isError: true };
-      } finally {
-        if (sessionId !== undefined) pendingSessions.delete(sessionId);
+      } catch (error) {
         client.close();
+        return {
+          content: text(`cueloop could not open the review: ${errorMessage(error)}`),
+          details: { status: "cancelled", annotationCount: 0 },
+          isError: true,
+        };
       }
     },
   };
 
-  return function cueloopExtension(pi: PiExtensionAPI): void {
+  let pi: PiExtensionAPI;
+
+  return function cueloopExtension(api: PiExtensionAPI): void {
+    pi = api;
     pi.registerTool(requestReview);
 
     pi.on("tool_call", (event) => {
-      if (pendingSessions.size === 0) return undefined;
+      if (pendingWaiters.size === 0) return undefined;
       if (event.toolName === REVIEW_TOOL || READ_ONLY_TOOLS.has(event.toolName)) return undefined;
-      const ids = [...pendingSessions].join(", ");
+      const ids = [...pendingWaiters.keys()].join(", ");
       return {
         block: true,
         reason: `cueloop review pending (session ${ids}) - wait for the verdict before writing`,
       };
+    });
+
+    pi.on("session_shutdown", () => {
+      for (const controller of pendingWaiters.values()) controller.abort();
     });
 
     pi.registerCommand("review", {

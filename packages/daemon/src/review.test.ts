@@ -7,7 +7,7 @@ import { join } from "node:path";
 import type { ReviewSession } from "@cueloop/schema";
 import { DaemonServer } from "./server";
 import { DaemonClient } from "./client";
-import { openReview, resolveWorkspace } from "./review";
+import { awaitResolve, openReview, resolveWorkspace } from "./review";
 
 const PLAN = "# Rollout Plan\n\nShip it in two stages.\n";
 
@@ -274,4 +274,89 @@ describe("awaitVerdict: chunked loop (the pi shape)", () => {
     // Assert
     expect(await review.awaitVerdict({ timeoutMs: 120, pollMs: 50 })).toBe("pending");
   });
+});
+
+describe("awaitResolve: the adapter wake seam (session id only)", () => {
+  test("resolves to the outcome when the verdict lands during the wait", async () => {
+    // Arrange
+    const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
+    const waiting = awaitResolve(client, review.id, { pollMs: 100 });
+
+    // Act
+    await client.sessionResolve(review.id, "approve", "Ship it.");
+    const verdict = await waiting;
+
+    // Assert
+    expect(verdict).not.toBeNull();
+    expect(verdict!.allow).toBe(true);
+    expect(verdict!.feedback).toContain("Ship it.");
+    expect(verdict!.session.verdict!.kind).toBe("approve");
+  });
+
+  test("returns the stored verdict immediately when the session already resolved", async () => {
+    // Arrange - a detached waiter that only attaches after the human decided
+    const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
+    await client.sessionResolve(review.id, "request_changes", "One stage only.");
+
+    // Act
+    const verdict = await awaitResolve(client, review.id);
+
+    // Assert
+    expect(verdict).not.toBeNull();
+    expect(verdict!.allow).toBe(false);
+    expect(verdict!.feedback).toContain("One stage only.");
+  });
+
+  test("returns null when the signal aborts first", async () => {
+    // Arrange
+    const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
+    const controller = new AbortController();
+    const waiting = awaitResolve(client, review.id, { pollMs: 100, signal: controller.signal });
+
+    // Act
+    controller.abort();
+
+    // Assert
+    expect(await waiting).toBeNull();
+    expect((await client.sessionGet(review.id)).status).toBe("pending");
+  });
+});
+
+describe("awaitResolve: the held wait keeps the daemon alive", () => {
+  test("a pending session does not idle-exit while a waiter is parked, then the verdict lands", async () => {
+    // Arrange - a daemon with an aggressive idle timer and its own home
+    const idleHome = mkdtempSync(join(tmpdir(), "cueloop-idle-"));
+    let idleExits = 0;
+    const idleServer = new DaemonServer({
+      home: idleHome,
+      idleExitMs: 30,
+      onIdleExit: () => idleExits++,
+    });
+    idleServer.start();
+    const waiterClient = await DaemonClient.connect({ home: idleHome });
+    try {
+      const review = await openReview(waiterClient, { type: "plan", content: PLAN, cwd: idleHome });
+      const waiting = awaitResolve(waiterClient, review.id, { pollMs: 40 });
+
+      // Act - wait well past the idle window while the review is still pending
+      await Bun.sleep(120);
+
+      // Assert - the parked waiter and the pending session both keep it alive
+      expect(idleExits).toBe(0);
+      expect((await waiterClient.ping()).pid).toBe(process.pid);
+
+      // Act - the human returns a verdict; the parked wait collects it
+      const resolver = await DaemonClient.connect({ home: idleHome });
+      await resolver.sessionResolve(review.id, "approve", "Good to go.");
+      resolver.close();
+      const verdict = await waiting;
+
+      // Assert
+      expect(verdict!.allow).toBe(true);
+    } finally {
+      waiterClient.close();
+      idleServer.stop();
+      rmSync(idleHome, { recursive: true, force: true });
+    }
+  }, 15_000);
 });
