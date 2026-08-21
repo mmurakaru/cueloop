@@ -3,7 +3,8 @@
  * pi is an integration target, not a dependency: the real API object arrives
  * at the factory when pi loads the extension, so these shapes only need to be
  * structurally compatible with pi's - registerTool, registerCommand,
- * on("tool_call"), and context.ui.notify.
+ * on("tool_call" | "session_shutdown"), sendUserMessage (the wake path), and
+ * context.ui.notify.
  */
 
 export interface TextContent {
@@ -75,8 +76,27 @@ export interface PiCommandOptions {
   handler(args: string, context: PiContext): Promise<void> | void;
 }
 
+/** Fired once as the pi session tears down; the adapter aborts in-flight waiters here. */
+export interface PiSessionEvent {
+  type: "session_start" | "session_shutdown";
+}
+
+export type PiSessionHandler = (event: PiSessionEvent) => void | Promise<void>;
+
+/**
+ * How an injected message reaches the live turn: "followUp" queues it for after
+ * the current turn ends, "steer" interrupts the running turn. cueloop wakes with
+ * "followUp" so a returning verdict never cuts off work the human is mid-request.
+ */
+export interface PiSendMessageOptions {
+  deliverAs?: "followUp" | "steer";
+}
+
 export interface PiExtensionAPI {
   registerTool(tool: PiToolDefinition<any, any>): void;
   registerCommand(name: string, options: PiCommandOptions): void;
   on(event: "tool_call", handler: PiToolCallHandler): void;
+  on(event: "session_start" | "session_shutdown", handler: PiSessionHandler): void;
+  /** Inject a message into the live session - the non-blocking wake path. */
+  sendUserMessage(content: string, options?: PiSendMessageOptions): void;
 }

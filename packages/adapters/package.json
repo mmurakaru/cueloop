@@ -1,7 +1,7 @@
 {
   "name": "@cueloop/adapters",
   "version": "0.1.0-alpha.34",
-  "description": "cueloop adapters for coding agents: Claude Code and pi (Codex planned)",
+  "description": "cueloop adapters for coding agents: Claude Code, pi, and Codex",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
     "url": "https://github.com/mmurakaru/cueloop/issues"
@@ -14,14 +14,23 @@
   },
   "files": [
     "claude-code",
+    "codex",
     "pi",
     "src",
+    "wake-message.ts",
+    "wake-waiter.ts",
     "README.md"
   ],
   "type": "module",
   "exports": {
     "./claude-code/hook": "./claude-code/hook.ts",
-    "./pi": "./pi/index.ts"
+    "./claude-code/inbox": "./claude-code/inbox.ts",
+    "./claude-code/wake": "./claude-code/wake.ts",
+    "./codex/queue": "./codex/queue.ts",
+    "./codex/wake": "./codex/wake.ts",
+    "./pi": "./pi/index.ts",
+    "./wake-message": "./wake-message.ts",
+    "./wake-waiter": "./wake-waiter.ts"
   },
   "publishConfig": {
     "access": "public"

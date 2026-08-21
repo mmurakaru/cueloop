@@ -187,6 +187,39 @@ function outcome(session: ReviewSession): VerdictOutcome {
   return { ...verdictResponse(session), session };
 }
 
+export interface AwaitResolveOptions {
+  /** Long-poll chunk length; the wait re-arms each chunk until resolved or aborted. Default 30s. */
+  pollMs?: number;
+  /** Abort the wait (the harness session shut down); resolves to null. */
+  signal?: AbortSignal;
+}
+
+/**
+ * Park until a review session resolves, then return the verdict outcome; null
+ * when the signal aborts first. Where ReviewHandle.awaitVerdict needs the handle
+ * that opened the review, this needs only a session id - so a background waiter
+ * that woke on a session it did not open (a detached Claude Code / Codex waiter,
+ * or pi's session_start listener) can collect the same verdict. This is the
+ * wake seam every non-blocking adapter builds on. Loops the daemon long-poll, so
+ * a verdict that lands between chunks is never missed and a session already
+ * resolved returns on the first chunk. The held connection also keeps the daemon
+ * off its idle-exit path for the whole wait.
+ */
+export async function awaitResolve(
+  client: DaemonClient,
+  sessionId: string,
+  options: AwaitResolveOptions = {},
+): Promise<VerdictOutcome | null> {
+  const chunkMs = options.pollMs ?? 30_000;
+  const { signal } = options;
+  for (;;) {
+    if (signal?.aborted) return null;
+    const resolved = await raceAbort(client.sessionWait(sessionId, chunkMs), signal);
+    if (resolved === ABORTED) return null;
+    if (resolved !== null) return outcome(resolved);
+  }
+}
+
 /** Open a review session (or revise the agent session's existing one) and hand back the wait surface. */
 export async function openReview(
   client: DaemonClient,
