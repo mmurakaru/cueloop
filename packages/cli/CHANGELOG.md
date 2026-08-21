@@ -1,5 +1,26 @@
 # cueloop
 
+## 0.1.0-alpha.35
+
+### Minor Changes
+
+- [#203](https://github.com/mmurakaru/cueloop/pull/203) [`607dfee`](https://github.com/mmurakaru/cueloop/commit/607dfee539e8a216e610a68d467d54d0fa1a09a3) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Non-blocking review with a per-harness wake (ADR 0008). A plan can now be submitted without freezing the agent's turn: the human keeps chatting while the plan is open, and when they return a verdict cueloop resumes the driving agent with the feedback instead of relying on the harness to re-poll a blocked tool.
+
+  - daemon: a new `awaitResolve(client, sessionId)` seam parks on one session's verdict from a session id alone (no ReviewHandle needed), so any background waiter can collect the outcome; the held connection and the pending session both keep the daemon off its idle-exit path for the whole wait.
+  - pi: the `request_review` tool returns immediately with the session id and a background waiter injects the verdict with `sendUserMessage(deliverAs: "followUp")` when it lands; the pending-review write gate still holds mutating tools, and session shutdown aborts any waiter still parked.
+  - Claude Code: a detached inbox waiter posts the verdict into the live session over `CLAUDE_CODE_MESSAGING_SOCKET` (the frame matched to Claude Code's own example), which Claude reads between tool calls or as a fresh turn when idle. The blocking ExitPlanMode gate is unchanged.
+  - Codex: a detached waiter queues the verdict into the running thread via `codex queue` (app-server `thread/queue/add`), which auto-submits when the thread next goes idle. Weakest of the three paths - it needs Codex under the shared app-server daemon and still wants live-codex QA.
+
+### Patch Changes
+
+- [#202](https://github.com/mmurakaru/cueloop/pull/202) [`53f0805`](https://github.com/mmurakaru/cueloop/commit/53f080504a57c7f00bfa1b0f6a13ee11e155436c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Fix herdr tab auto-open: a review created inside a herdr pane now opens a new tab rendering it, as intended. `detectHerdr` required `HERDR_BIN_PATH`, which herdr 0.8+ does not set - it exposes `HERDR_SOCKET_PATH` and the `herdr` CLI on PATH - so detection silently failed and the auto-open (and agent-state reporting) no-op'd. `detectHerdr` now needs only `HERDR_ENV=1` + `HERDR_PANE_ID` and defaults the binary to `herdr` on PATH; an explicit `HERDR_BIN_PATH` still wins.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.35
+  - @cueloop/client@0.1.0-alpha.35
+  - @cueloop/daemon@0.1.0-alpha.35
+  - @cueloop/schema@0.1.0-alpha.35
+
 ## 0.1.0-alpha.34
 
 ### Minor Changes
