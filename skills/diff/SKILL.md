@@ -35,9 +35,20 @@ actual changes line by line.
 
 2. Tell the user to review: `cueloop <id>` (they can also just run
    `cueloop diff` themselves to capture and open in one step).
-3. Arm the wake and keep working exactly as in the plan skill (step 4) -
-   non-blocking: `nohup ... main.ts wake <id> >/dev/null 2>&1 & disown`, with
-   the inline `session wait` fallback when `$CLAUDE_CODE_MESSAGING_SOCKET` is
-   unset. cueloop delivers the verdict as a follow-up message.
+3. Arm the wake, then **end your turn and keep helping the user** - do NOT sit
+   on a blocking wait. cueloop injects the verdict as a follow-up message when
+   the reviewer submits:
+
+   ```bash
+   if [ -n "$CLAUDE_CODE_MESSAGING_SOCKET" ]; then
+     nohup bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts wake <id> \
+       >/dev/null 2>&1 &
+     disown 2>/dev/null || true
+   else
+     bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session wait <id> \
+       --timeout-ms 540000
+   fi
+   ```
+
 4. On denial, the feedback quotes the exact code lines with the reviewer's
    comments - fix each one, then show a fresh diff review if asked.

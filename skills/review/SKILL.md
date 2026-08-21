@@ -24,10 +24,21 @@ back to the forge as a real PR review.
    gh pr diff <pr> > /tmp/cueloop-pr.patch
    bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session create \
      --type diff --title "PR <pr>" --content-file /tmp/cueloop-pr.patch
-   # then arm the wake as in the plan skill (non-blocking): keep working while
-   # the review is open and cueloop injects the verdict as a follow-up:
-   #   nohup ... main.ts wake <id> >/dev/null 2>&1 & disown
-   # (inline `session wait <id>` fallback when $CLAUDE_CODE_MESSAGING_SOCKET is unset)
+   ```
+
+   Then arm the wake and **end your turn** - non-blocking, so you keep helping
+   the user while the review is open; cueloop injects the verdict as a
+   follow-up message:
+
+   ```bash
+   if [ -n "$CLAUDE_CODE_MESSAGING_SOCKET" ]; then
+     nohup bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts wake <id> \
+       >/dev/null 2>&1 &
+     disown 2>/dev/null || true
+   else
+     bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session wait <id> \
+       --timeout-ms 540000
+   fi
    ```
 
 3. Requires the `gh` CLI authenticated (`gh auth status`); cueloop delegates
