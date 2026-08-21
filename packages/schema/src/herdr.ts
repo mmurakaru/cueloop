@@ -1,10 +1,12 @@
 /**
  * The herdr ambient env contract, single-sourced. A process running inside a
- * herdr pane sees HERDR_ENV=1 plus the pane id and the herdr binary path.
- * Both the agent-side reporter (adapters) and the reviewer-side return-focus
- * (client) read this contract; decoding it in one place stops the two sides
- * drifting on which vars are required. Pure: no IO, env is only the default
- * argument so callers can pass a fixture.
+ * herdr pane sees HERDR_ENV=1 plus the pane id; the herdr CLI itself reaches
+ * the app over HERDR_SOCKET_PATH (which the spawned `herdr` reads from the
+ * inherited env), so the binary is just `herdr` on PATH. Both the agent-side
+ * reporter (adapters) and the reviewer-side return-focus (client) read this
+ * contract; decoding it in one place stops the two sides drifting on which
+ * vars are required. Pure: no IO, env is only the default argument so callers
+ * can pass a fixture.
  */
 
 export interface HerdrContext {
@@ -21,8 +23,11 @@ export type HerdrEnv = Record<string, string | undefined>;
 export function detectHerdr(env: HerdrEnv = process.env): HerdrContext | null {
   if (env.HERDR_ENV !== "1") return null;
   const paneId = env.HERDR_PANE_ID;
-  const binPath = env.HERDR_BIN_PATH;
-  if (!paneId || !binPath) return null;
+  if (!paneId) return null;
+  // herdr 0.8.0 exposes no HERDR_BIN_PATH; the CLI is `herdr` on PATH and finds
+  // the app over HERDR_SOCKET_PATH from the inherited env. Tests still override
+  // HERDR_BIN_PATH to point the spawn at a stub script.
+  const binPath = env.HERDR_BIN_PATH ?? "herdr";
   return { paneId, binPath };
 }
 
