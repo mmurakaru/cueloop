@@ -76,9 +76,12 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
   ): Promise<void> {
     try {
       const verdict = await awaitResolve(client, sessionId, { pollMs, signal: controller.signal });
-      if (verdict === null) return; // session_shutdown aborted the wait
+      // A verdict can win the race with a shutdown abort; recheck before injecting
+      // so a follow-up never lands in a pi session that has already torn down.
+      if (verdict === null || controller.signal.aborted) return;
       pi.sendUserMessage(wakeMessage(sessionId, verdict), { deliverAs: "followUp" });
     } catch (error) {
+      if (controller.signal.aborted) return;
       pi.sendUserMessage(
         `cueloop could not collect the verdict for review ${sessionId}: ${errorMessage(error)}`,
         { deliverAs: "followUp" },
@@ -108,7 +111,14 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       },
       required: ["plan"],
     },
-    async execute(_toolCallId, params, _signal, _onUpdate, context) {
+    async execute(_toolCallId, params, signal, _onUpdate, context) {
+      if (signal?.aborted) {
+        return {
+          content: text("cueloop review cancelled before it opened."),
+          details: { status: "cancelled", annotationCount: 0 },
+          isError: true,
+        };
+      }
       const client = await DaemonClient.connect({ home: options.home, autostart: true });
       try {
         const review = await openReview(client, {
@@ -121,6 +131,9 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
         lastSessionId = review.id;
         const controller = new AbortController();
         pendingWaiters.set(review.id, controller);
+        // A host abort of this (already-returned) call still tears the waiter down,
+        // releasing the write gate and connection instead of leaking a live wait.
+        signal?.addEventListener("abort", () => controller.abort(), { once: true });
         // Hand the connection to the waiter; it closes the client when done.
         void wakeOnResolve(pi, client, review.id, controller);
         return {

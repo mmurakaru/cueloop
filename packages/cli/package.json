@@ -27,6 +27,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@cueloop/adapters": "0.1.0-alpha.34",
     "@cueloop/client": "0.1.0-alpha.34",
     "@cueloop/daemon": "0.1.0-alpha.34",
     "@cueloop/schema": "0.1.0-alpha.34"

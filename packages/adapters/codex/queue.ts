@@ -31,10 +31,10 @@ export interface CodexQueueResult {
 
 /** Shell out to `codex queue`; resolves ok=false with the stderr tail on any non-zero exit. */
 export async function queueCodexMessage(options: CodexQueueOptions): Promise<CodexQueueResult> {
-  const bin = options.codexBin ?? "codex";
+  const codexBinary = options.codexBin ?? "codex";
   try {
     const proc = Bun.spawn(
-      [bin, "queue", "--thread", options.threadId, "--message", options.message],
+      [codexBinary, "queue", "--thread", options.threadId, "--message", options.message],
       { cwd: options.cwd, stdout: "pipe", stderr: "pipe" },
     );
     const [exitCode, stderr] = await Promise.all([proc.exited, new Response(proc.stderr).text()]);

@@ -150,6 +150,28 @@ describe("pi adapter: non-blocking request_review", () => {
     expect(wakes[0]!.content).toContain("Looks good.");
   }, 15_000);
 
+  test("a pre-aborted tool call returns cancelled without opening a review", async () => {
+    // Arrange
+    const fake = loadExtension();
+    const tool = fake.tools.get("request_review")!;
+    const controller = new AbortController();
+    controller.abort();
+
+    // Act
+    const result = (await tool.execute(
+      "t-pre",
+      { plan: "# Never Opens\n\nDo not create a session.\n" },
+      controller.signal,
+      undefined,
+      makeContext(),
+    )) as PiToolResult<ReviewDetails>;
+
+    // Assert
+    expect(result.isError).toBe(true);
+    expect(result.details.status).toBe("cancelled");
+    expect(result.details.sessionId).toBeUndefined();
+  });
+
   test("wakes with feedback.md carrying the annotations on request_changes", async () => {
     // Arrange
     const fake = loadExtension();

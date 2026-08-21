@@ -60,15 +60,15 @@ describe("claudeInboxFromEnv", () => {
 });
 
 describe("postToInbox", () => {
-  let dir: string;
+  let tempDir: string;
   afterEach(() => {
-    if (dir) rmSync(dir, { recursive: true, force: true });
+    if (tempDir) rmSync(tempDir, { recursive: true, force: true });
   });
 
   test("writes the auth and user frames to the session's own socket, then closes", async () => {
     // Arrange - a fake inbox server captures every byte it receives
-    dir = mkdtempSync(join(tmpdir(), "cc-inbox-"));
-    const socketPath = join(dir, "s.sock");
+    tempDir = mkdtempSync(join(tmpdir(), "cc-inbox-"));
+    const socketPath = join(tempDir, "s.sock");
     let received = "";
     const closed = Promise.withResolvers<void>();
     const server = Bun.listen({
@@ -95,8 +95,8 @@ describe("postToInbox", () => {
   });
 
   test("rejects when the socket is dead (the session is gone)", async () => {
-    dir = mkdtempSync(join(tmpdir(), "cc-inbox-dead-"));
-    const socketPath = join(dir, "nope.sock");
+    tempDir = mkdtempSync(join(tmpdir(), "cc-inbox-dead-"));
+    const socketPath = join(tempDir, "nope.sock");
     await expect(postToInbox({ socketPath }, "x")).rejects.toBeDefined();
   });
 });

@@ -29,11 +29,15 @@ export interface ClaudeInbox {
  * socket path env var is the bare filesystem path; the `uds:` prefix only ever
  * appears in `/status`, but strip it defensively in case a caller passes that.
  */
-export function claudeInboxFromEnv(env: NodeJS.ProcessEnv = process.env): ClaudeInbox | null {
-  const raw = env.CLAUDE_CODE_MESSAGING_SOCKET;
-  if (!raw) return null;
-  const socketPath = raw.startsWith("uds:") ? raw.slice("uds:".length) : raw;
-  return { socketPath, token: env.CLAUDE_CODE_MESSAGING_TOKEN };
+export function claudeInboxFromEnv(
+  environment: NodeJS.ProcessEnv = process.env,
+): ClaudeInbox | null {
+  const rawSocketPath = environment.CLAUDE_CODE_MESSAGING_SOCKET;
+  if (!rawSocketPath) return null;
+  const socketPath = rawSocketPath.startsWith("uds:")
+    ? rawSocketPath.slice("uds:".length)
+    : rawSocketPath;
+  return { socketPath, token: environment.CLAUDE_CODE_MESSAGING_TOKEN };
 }
 
 /** The two newline-delimited frames a post sends, in order. */

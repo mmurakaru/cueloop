@@ -11,7 +11,7 @@ import { runCodexWake } from "./wake";
 const PLAN = "# Codex Wake Plan\n\nShip the daemon behind a flag.\n";
 
 let home: string;
-let dir: string;
+let tempDir: string;
 
 beforeAll(() => {
   home = mkdtempSync(join(tmpdir(), "codex-wake-"));
@@ -27,14 +27,14 @@ afterAll(async () => {
   rmSync(home, { recursive: true, force: true });
 });
 afterEach(() => {
-  if (dir) rmSync(dir, { recursive: true, force: true });
+  if (tempDir) rmSync(tempDir, { recursive: true, force: true });
 });
 
 function writeFakeCodex(fail = false): string {
-  dir = mkdtempSync(join(tmpdir(), "codex-wake-bin-"));
-  const bin = join(dir, "codex");
+  tempDir = mkdtempSync(join(tmpdir(), "codex-wake-fake-"));
+  const codexPath = join(tempDir, "codex");
   writeFileSync(
-    bin,
+    codexPath,
     [
       "#!/bin/sh",
       'printf "%s" "$3" > thread.txt',
@@ -42,8 +42,8 @@ function writeFakeCodex(fail = false): string {
       fail ? "exit 1" : "exit 0",
     ].join("\n"),
   );
-  chmodSync(bin, 0o755);
-  return bin;
+  chmodSync(codexPath, 0o755);
+  return codexPath;
 }
 
 describe("runCodexWake", () => {
@@ -52,7 +52,7 @@ describe("runCodexWake", () => {
     const codexBin = writeFakeCodex();
     const client = await DaemonClient.connect({ home, autostart: true });
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
-    const waiting = runCodexWake(review.id, "thr_9", { home, pollMs: 100, codexBin, cwd: dir });
+    const waiting = runCodexWake(review.id, "thr_9", { home, pollMs: 100, codexBin, cwd: tempDir });
 
     // Act
     await client.sessionResolve(review.id, "request_changes", "Stage it.");
@@ -61,8 +61,8 @@ describe("runCodexWake", () => {
 
     // Assert
     expect(delivered).toBe(true);
-    expect(readFileSync(join(dir, "thread.txt"), "utf8")).toBe("thr_9");
-    const message = readFileSync(join(dir, "msg.txt"), "utf8");
+    expect(readFileSync(join(tempDir, "thread.txt"), "utf8")).toBe("thr_9");
+    const message = readFileSync(join(tempDir, "msg.txt"), "utf8");
     expect(message).toContain("returned changes");
     expect(message).toContain("# Review: request changes");
     expect(message).toContain("Stage it.");
@@ -73,7 +73,7 @@ describe("runCodexWake", () => {
     const codexBin = writeFakeCodex(true);
     const client = await DaemonClient.connect({ home, autostart: true });
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
-    const waiting = runCodexWake(review.id, "thr_x", { home, pollMs: 100, codexBin, cwd: dir });
+    const waiting = runCodexWake(review.id, "thr_x", { home, pollMs: 100, codexBin, cwd: tempDir });
 
     // Act
     await client.sessionResolve(review.id, "approve", "ok");
