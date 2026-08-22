@@ -35,14 +35,55 @@ export interface QuickAction {
 
 /** The built-in quick-actions for the marker popover when no `[[actions]]` are configured. */
 export const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
-  { prompt: "Zoom out, research in depth" },
-  { prompt: "Restate simplified" },
-  { prompt: "Out of scope" },
-  { prompt: "Let's chat about this" },
-  { prompt: "Prototype this" },
-  { prompt: "Ensure 0 regressions" },
-  { prompt: "Consider existing repo patterns" },
+  {
+    prompt: "Zoom out, research in depth",
+    metadata: "Research the broader problem, prior art, and alternatives before changing anything.",
+  },
+  {
+    prompt: "Restate simplified",
+    metadata: "Restate this as the simplest thing that works and cut the incidental complexity.",
+  },
+  {
+    prompt: "Out of scope",
+    metadata:
+      "This is out of scope for the task, so capture it as a follow-up instead of doing it now.",
+  },
+  {
+    prompt: "Let's chat about this",
+    metadata:
+      "Do not implement yet, and surface the open questions and trade-offs so we decide together.",
+  },
+  {
+    prompt: "Prototype this",
+    metadata: "Build a throwaway prototype to answer the question, skipping tests and polish.",
+  },
+  {
+    prompt: "Ensure 0 regressions",
+    metadata:
+      "Characterize the current behavior with tests first, then keep them green through the change.",
+  },
+  {
+    prompt: "Consider existing repo patterns",
+    metadata:
+      "Follow the nearest existing pattern in this codebase rather than introducing a new one.",
+  },
 ];
+
+/** The comment body a quick action expands to: the prompt, then its system prompt when set. */
+export function quickActionBody(action: QuickAction): string {
+  return action.metadata ? `${action.prompt}\n\n${action.metadata}` : action.prompt;
+}
+
+/** Resolve a quick action by 1-based index or case-insensitive prompt; undefined when no match. */
+export function resolveQuickAction(
+  actions: QuickAction[],
+  actionRef: string,
+): QuickAction | undefined {
+  const index = Number(actionRef);
+  if (Number.isInteger(index) && index >= 1 && index <= actions.length) return actions[index - 1];
+  const wanted = actionRef.trim().toLowerCase();
+  return actions.find((action) => action.prompt.toLowerCase() === wanted);
+}
 
 export interface CueloopConfig {
   keys: Record<string, string[]>;

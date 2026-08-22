@@ -38,7 +38,11 @@ export interface SessionClient {
   subscribe(): Promise<void>;
   sessionGet(id: string): Promise<ReviewSession>;
   sessionList(filter?: { status?: "pending" | "resolved" }): Promise<ReviewSession[]>;
-  sessionAnnotate(id: string, annotation: Omit<Annotation, "createdAt">): Promise<ReviewSession>;
+  sessionAnnotate(
+    id: string,
+    annotation: Omit<Annotation, "createdAt">,
+    authorName?: string,
+  ): Promise<ReviewSession>;
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession>;
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
@@ -188,8 +192,12 @@ export class DaemonClient implements SessionClient {
   sessionWait(id: string, timeoutMs: number): Promise<ReviewSession | null> {
     return this.request("session.wait", { id, timeoutMs }, timeoutMs + 10_000);
   }
-  sessionAnnotate(id: string, annotation: Omit<Annotation, "createdAt">): Promise<ReviewSession> {
-    return this.request("session.annotate", { id, annotation });
+  sessionAnnotate(
+    id: string,
+    annotation: Omit<Annotation, "createdAt">,
+    authorName?: string,
+  ): Promise<ReviewSession> {
+    return this.request("session.annotate", { id, annotation, authorName });
   }
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession> {
     return this.request("session.removeAnnotation", { id, annotationId });

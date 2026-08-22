@@ -9,6 +9,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
+import { DEFAULT_QUICK_ACTIONS, quickActionBody } from "./config";
 import { DARK } from "./theme";
 import {
   isolateUserConfig,
@@ -599,6 +600,6 @@ describe("marker-actions popover", () => {
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
     expect(stored.annotations[0]!.kind).toBe("comment");
-    expect(stored.annotations[0]!.body).toBe("Restate simplified");
+    expect(stored.annotations[0]!.body).toBe(quickActionBody(DEFAULT_QUICK_ACTIONS[1]!));
   });
 });
