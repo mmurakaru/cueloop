@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { runHook } from "./hook";
+import { hookOutput, runHook } from "./hook";
 
 let home: string;
 
@@ -124,5 +124,46 @@ describe("runHook: non-blocking plan gate", () => {
     expect(decision.allow).toBe(false);
     expect(decision.reason).toContain("opened for human review");
     expect(armed.length).toBe(1);
+  });
+});
+
+describe("hookOutput: cueloop is the sole approval", () => {
+  test("a PermissionRequest decision is wrapped in hookSpecificOutput so the native dialog is suppressed", () => {
+    // Arrange - a PermissionRequest event carries no PreToolUse marker
+    const event = { session_id: "s", tool_name: "ExitPlanMode", tool_input: { plan: "# P\n" } };
+
+    // Act
+    const denied = hookOutput(event, { allow: false, reason: "review opened" }) as {
+      hookSpecificOutput?: {
+        hookEventName?: string;
+        decision?: { behavior?: string; message?: string };
+      };
+      decision?: unknown;
+    };
+
+    // Assert - the wrapped shape, not a bare top-level decision
+    expect(denied.decision).toBeUndefined();
+    expect(denied.hookSpecificOutput?.hookEventName).toBe("PermissionRequest");
+    expect(denied.hookSpecificOutput?.decision?.behavior).toBe("deny");
+
+    // Act
+    const allowed = hookOutput(event, { allow: true, reason: "ok" }) as {
+      hookSpecificOutput?: { decision?: { behavior?: string } };
+    };
+
+    // Assert
+    expect(allowed.hookSpecificOutput?.decision?.behavior).toBe("allow");
+  });
+
+  test("a PreToolUse event still uses the PreToolUse permissionDecision shape", () => {
+    // Act
+    const output = hookOutput(
+      { hook_event_name: "PreToolUse", tool_input: { plan: "# P\n" } },
+      { allow: false, reason: "nope" },
+    ) as { hookSpecificOutput?: { hookEventName?: string; permissionDecision?: string } };
+
+    // Assert
+    expect(output.hookSpecificOutput?.hookEventName).toBe("PreToolUse");
+    expect(output.hookSpecificOutput?.permissionDecision).toBe("deny");
   });
 });

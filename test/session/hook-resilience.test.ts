@@ -55,8 +55,10 @@ describe("hook resilience", () => {
     // Assert
     expect(code).toBe(0);
     // no event name in the payload, so the answer uses the PermissionRequest shape
-    const parsed = JSON.parse(out.trim()) as { decision?: { behavior?: string } };
-    expect(parsed.decision?.behavior).toBe("allow");
+    const parsed = JSON.parse(out.trim()) as {
+      hookSpecificOutput?: { decision?: { behavior?: string } };
+    };
+    expect(parsed.hookSpecificOutput?.decision?.behavior).toBe("allow");
   }, 60_000);
 
   test("an event without a plan passes through untouched", async () => {

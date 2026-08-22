@@ -126,11 +126,18 @@ export function hookOutput(event: HookEvent, decision: HookDecision): unknown {
       },
     };
   }
-  // PermissionRequest shape
+  // PermissionRequest shape. The decision MUST be wrapped in hookSpecificOutput
+  // with hookEventName; a bare top-level `decision` is not recognized, so Claude
+  // Code falls through to its native plan-approval dialog and the human approves
+  // twice. Wrapped, cueloop is the sole gate and the native dialog is suppressed.
+  // A bare allow exits plan mode in the default mode (no auto-accept prompt).
   return {
-    decision: decision.allow
-      ? { behavior: "allow", updatedInput: event.tool_input }
-      : { behavior: "deny", message: decision.reason },
+    hookSpecificOutput: {
+      hookEventName: "PermissionRequest",
+      decision: decision.allow
+        ? { behavior: "allow" }
+        : { behavior: "deny", message: decision.reason },
+    },
   };
 }
 
