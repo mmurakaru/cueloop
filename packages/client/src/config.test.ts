@@ -11,6 +11,8 @@ import {
   persistReviewState,
   persistReviewWidth,
   persistTheme,
+  quickActionBody,
+  resolveQuickAction,
 } from "./config";
 import { REVIEW_DEFAULT_WIDTH, REVIEW_MAX_WIDTH } from "./review-panel";
 import { DARK } from "./theme";
@@ -415,6 +417,33 @@ describe("quick actions ([[actions]])", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("quickActionBody", () => {
+  test("appends the system prompt below the prompt when set", () => {
+    // Assert
+    expect(quickActionBody({ prompt: "Prototype this", metadata: "skip tests" })).toBe(
+      "Prototype this\n\nskip tests",
+    );
+    expect(quickActionBody({ prompt: "Out of scope" })).toBe("Out of scope");
+  });
+});
+
+describe("resolveQuickAction", () => {
+  test("resolves by 1-based index and by case-insensitive prompt", () => {
+    // Assert
+    expect(resolveQuickAction(DEFAULT_QUICK_ACTIONS, "1")).toEqual(DEFAULT_QUICK_ACTIONS[0]!);
+    expect(resolveQuickAction(DEFAULT_QUICK_ACTIONS, "out of scope")).toEqual(
+      DEFAULT_QUICK_ACTIONS[2]!,
+    );
+  });
+
+  test("returns undefined for an out-of-range index or an unknown name", () => {
+    // Assert
+    expect(resolveQuickAction(DEFAULT_QUICK_ACTIONS, "0")).toBeUndefined();
+    expect(resolveQuickAction(DEFAULT_QUICK_ACTIONS, "99")).toBeUndefined();
+    expect(resolveQuickAction(DEFAULT_QUICK_ACTIONS, "no such action")).toBeUndefined();
   });
 });
 

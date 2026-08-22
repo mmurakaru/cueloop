@@ -207,6 +207,66 @@ describe("cueloop session (black box)", () => {
     expect(existsSync(logPath)).toBe(false);
   });
 
+  test("annotate --author registers the collaborator in the participant registry", async () => {
+    // Act
+    const annotated = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--quote",
+        "two phases",
+        "--author",
+        "SHA256:ana",
+        "--author-name",
+        "Ana",
+        "--body",
+        "Whose phases?",
+      ]),
+    );
+
+    // Assert
+    const note = annotated.annotations.find((candidate) => candidate.body === "Whose phases?")!;
+    expect(note.author).toBe("SHA256:ana");
+    expect(annotated.participants).toContainEqual({
+      id: "SHA256:ana",
+      provider: "ssh",
+      name: "Ana",
+    });
+  });
+
+  test("annotate --action expands the quick-action into the body", async () => {
+    // Act
+    const annotated = cliJson<ReviewSession>(
+      await runCli(
+        home,
+        ["session", "annotate", sessionId, "--quote", "two phases", "--action", "Out of scope"],
+        undefined,
+        { CUELOOP_CONFIG: join(home, "no-such-config.toml") },
+      ),
+    );
+
+    // Assert
+    const note = annotated.annotations.find((candidate) =>
+      candidate.body.startsWith("Out of scope"),
+    )!;
+    expect(note.body).toContain("capture it as a follow-up");
+  });
+
+  test("actions list prints the numbered quick-action vocabulary", async () => {
+    // Act
+    const actions = cliJson<{ index: number; prompt: string; metadata?: string }[]>(
+      await runCli(home, ["actions", "list"], undefined, {
+        CUELOOP_CONFIG: join(home, "no-such-config.toml"),
+      }),
+    );
+
+    // Assert
+    expect(actions).toHaveLength(7);
+    expect(actions[0]).toMatchObject({ index: 1, prompt: "Zoom out, research in depth" });
+    expect(actions[2]).toMatchObject({ index: 3, prompt: "Out of scope" });
+  });
+
   test("help output and unknown verbs", async () => {
     // Act
     const help = await runCli(home, ["help"]);

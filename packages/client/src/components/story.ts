@@ -53,13 +53,15 @@ export async function loadStories(): Promise<LoadedStory[]> {
   return loaded;
 }
 
-/** Component files that must carry stories: every .tsx that is not a story/test. */
+/** Component files that must carry stories: every .tsx that is not a story/test/prototype. */
 export function componentFilesMissingStories(): string[] {
   const componentGlob = new Bun.Glob("**/*.tsx");
   const files = [...componentGlob.scanSync({ cwd: import.meta.dir })];
   const missing: string[] = [];
   for (const file of files) {
     if (file.endsWith(".stories.tsx") || file.endsWith(".test.tsx")) continue;
+    // *.prototype.tsx are throwaway design spikes, exempt from the catalog.
+    if (file.endsWith(".prototype.tsx")) continue;
     if (file === "stories-app.tsx") continue;
     const storiesSibling = file.replace(/\.tsx$/, ".stories.tsx");
     if (!files.includes(storiesSibling)) missing.push(file);

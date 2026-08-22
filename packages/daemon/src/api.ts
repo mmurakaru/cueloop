@@ -11,6 +11,7 @@ import {
   isAddressed,
   isAgentNote,
   parseBlocks,
+  registerParticipant,
   resolveAnchor,
   verdictAllows,
   type Annotation,
@@ -143,7 +144,12 @@ export class DaemonCore {
     });
   }
 
-  sessionAnnotate(id: string, annotation: Omit<Annotation, "createdAt">): ReviewSession {
+  /** `authorName` registers the annotation's author in the participant registry (display name). */
+  sessionAnnotate(
+    id: string,
+    annotation: Omit<Annotation, "createdAt">,
+    authorName?: string,
+  ): ReviewSession {
     const session = this.mutable(id);
     const existing = session.annotations.findIndex((candidate) => candidate.id === annotation.id);
     const full: Annotation = { ...annotation, createdAt: new Date().toISOString() };
@@ -153,6 +159,13 @@ export class DaemonCore {
         ...full,
         createdAt: session.annotations[existing]!.createdAt,
       };
+    // Register only with a name; a bare author id keeps its short-handle fallback.
+    if (annotation.author && authorName)
+      session.participants = registerParticipant(
+        session,
+        annotation.author,
+        authorName,
+      ).participants;
     this.store.upsert(session);
     this.emit("session.updated", id);
     return session;

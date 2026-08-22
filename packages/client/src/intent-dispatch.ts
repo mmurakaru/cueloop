@@ -13,7 +13,7 @@ import { displayText, spanKey, startSpan, type DisplayBlock, type SpanState } fr
 import type { DiffRow } from "./view-diff";
 import type { ReviewController } from "./session-controller";
 import type { Intent } from "./keymap";
-import type { QuickAction } from "./config";
+import { quickActionBody, type QuickAction } from "./config";
 import type { PlanSheetHandle } from "./components/PlanSheet";
 import { VERDICTS } from "./components/ConfirmCard";
 import {
@@ -251,7 +251,7 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
         if (mode.type !== "spanActions") return;
         const action = quickActions[intent.index ?? mode.index];
         if (session && action) {
-          const body = action.metadata ? `${action.prompt}\n\n${action.metadata}` : action.prompt;
+          const body = quickActionBody(action);
           const annotationId = controller.annotate(
             "comment",
             mode.span.displayIndex,

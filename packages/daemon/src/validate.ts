@@ -125,7 +125,11 @@ export const Params = {
       60_000,
     ),
   }),
-  "session.annotate": v.object({ id: SessionId, annotation: AnnotationSchema }),
+  "session.annotate": v.object({
+    id: SessionId,
+    annotation: AnnotationSchema,
+    authorName: v.optional(v.string()),
+  }),
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
   "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),

@@ -63,6 +63,29 @@ describe("session lifecycle", () => {
     expect(core.sessionGet(session.id).annotations.length).toBe(0);
   });
 
+  test("annotate with an author registers them in the participant registry", () => {
+    // Arrange
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
+    core.sessionAnnotate(
+      session.id,
+      {
+        id: "a1",
+        kind: "comment",
+        anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
+        body: "A collaborator's note.",
+        author: "SHA256:ana",
+      },
+      "Ana",
+    );
+
+    // Assert
+    const stored = core.sessionGet(session.id);
+    expect(stored.annotations[0]!.author).toBe("SHA256:ana");
+    expect(stored.participants).toEqual([{ id: "SHA256:ana", provider: "ssh", name: "Ana" }]);
+  });
+
   test("resolve produces feedback.md and maps to the agent contract", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });

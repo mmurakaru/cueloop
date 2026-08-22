@@ -246,7 +246,7 @@ export class DaemonServer {
       }
       case "session.annotate": {
         const params = parseParams("session.annotate", request.params);
-        return core.sessionAnnotate(params.id, params.annotation);
+        return core.sessionAnnotate(params.id, params.annotation, params.authorName);
       }
       case "session.removeAnnotation": {
         const params = parseParams("session.removeAnnotation", request.params);

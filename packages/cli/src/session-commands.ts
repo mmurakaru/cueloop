@@ -8,6 +8,7 @@ import { newAnnotationId, type ArtifactType, type VerdictKind } from "@cueloop/s
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
 import { openReview, verdictResponse, type ReviewNote } from "@cueloop/daemon/review";
+import { loadConfig, quickActionBody, resolveQuickAction } from "@cueloop/client/config";
 import { parseArgs, stringFlag } from "./args";
 
 async function readStdin(): Promise<string> {
@@ -70,19 +71,25 @@ export async function sessionCommand(argv: string[]): Promise<number> {
       }
       case "annotate": {
         const id = required(positional[1], "session id");
-        const body = stringFlag(flags, "body") ?? "";
         const quote = required(stringFlag(flags, "quote"), "--quote");
+        const author = stringFlag(flags, "author");
+        const body = annotateBody(flags);
         out(
-          await client.sessionAnnotate(id, {
-            id: stringFlag(flags, "annotation-id") ?? newAnnotationId(),
-            kind: stringFlag(flags, "kind") ?? "comment",
-            anchor: {
-              quote,
-              prefix: stringFlag(flags, "prefix") ?? "",
-              suffix: stringFlag(flags, "suffix") ?? "",
+          await client.sessionAnnotate(
+            id,
+            {
+              id: stringFlag(flags, "annotation-id") ?? newAnnotationId(),
+              kind: stringFlag(flags, "kind") ?? "comment",
+              anchor: {
+                quote,
+                prefix: stringFlag(flags, "prefix") ?? "",
+                suffix: stringFlag(flags, "suffix") ?? "",
+              },
+              body,
+              ...(author ? { author } : {}),
             },
-            body,
-          }),
+            stringFlag(flags, "author-name"),
+          ),
         );
         return 0;
       }
@@ -118,4 +125,19 @@ export async function sessionCommand(argv: string[]): Promise<number> {
 function required<T>(value: T | undefined, description: string): T {
   if (value === undefined) throw new Error(`missing ${description}`);
   return value;
+}
+
+/**
+ * The annotation body: an explicit `--body`, else the `--action <index|name>`
+ * quick-action expanded through the shared vocabulary, else empty.
+ */
+function annotateBody(flags: Record<string, string | boolean>): string {
+  const explicit = stringFlag(flags, "body");
+  if (explicit !== undefined) return explicit;
+  const actionRef = stringFlag(flags, "action");
+  if (actionRef === undefined) return "";
+  const actions = loadConfig({ repoRoot: process.cwd() }).actions;
+  const action = resolveQuickAction(actions, actionRef);
+  if (!action) throw new Error(`no quick action ${actionRef} - see: cueloop actions list`);
+  return quickActionBody(action);
 }

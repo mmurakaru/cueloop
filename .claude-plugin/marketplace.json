@@ -11,7 +11,7 @@
         "source": "github",
         "repo": "mmurakaru/cueloop"
       },
-      "description": "Review surface for coding agents: the plan gate hook plus /cueloop:plan, /cueloop:diff, /cueloop:review skills",
+      "description": "Review surface for coding agents: the plan gate hook plus /cueloop:plan, /cueloop:diff, /cueloop:review, /cueloop:annotate skills",
       "author": {
         "name": "mmurakaru"
       },
