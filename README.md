@@ -15,7 +15,7 @@ A terminal-first self-extensible review surface for coding agents.
 One loop: 
 
 ```bash
-agent > annotate > agent
+agent > artifact > annotate > agent
 ```
 
 ## The primitives
