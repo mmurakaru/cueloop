@@ -1,5 +1,19 @@
 # cueloop
 
+## 0.1.0-alpha.39
+
+### Minor Changes
+
+- [#217](https://github.com/mmurakaru/cueloop/pull/217) [`29bc936`](https://github.com/mmurakaru/cueloop/commit/29bc936be4e6b78985c77ccfe2368539b67e1196) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Widen the annotation surface so review-side agents write the same authored, span-anchored comment a human does. `session annotate` now takes `--author` (and `--author-name`, which registers the collaborator's display name in the participant registry) and `--action <index|name>`, which expands a shared quick-action preset into the comment body. A new `cueloop actions list` prints that vocabulary so an agent can reference a preset by name. The built-in quick actions now ship with a system-prompt sentence each. A new `cueloop:annotate` skill wraps read-plus-comment for any bring-your-own harness, documenting the quote-exact anchor contract and the annotate-only rights boundary.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.39
+  - @cueloop/client@0.1.0-alpha.39
+  - @cueloop/daemon@0.1.0-alpha.39
+  - @cueloop/schema@0.1.0-alpha.39
+
 ## 0.1.0-alpha.38
 
 ### Patch Changes
