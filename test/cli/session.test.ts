@@ -159,7 +159,7 @@ describe("cueloop session (black box)", () => {
     const binPath = join(home, "herdr-cli.sh");
     writeFileSync(
       binPath,
-      `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "tab" ] && [ "$2" = "create" ]; then\n  printf '{"result":{"root_pane":{"pane_id":"w1:p2"}}}'\nfi\n`,
+      `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "tab" ] && [ "$2" = "create" ]; then\n  printf '{"result":{"root_pane":{"pane_id":"w1:p2","tab_id":"w1:t2"}}}'\nfi\n`,
     );
     chmodSync(binPath, 0o755);
 

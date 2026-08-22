@@ -42,10 +42,8 @@ export async function sessionCommand(argv: string[]): Promise<number> {
           title: stringFlag(flags, "title"),
           notes,
         });
-        // herdr auto-open: a review created from inside herdr spawns a new tab
-        // that renders it. Guarded to genuinely new sessions and no-op outside
-        // herdr; a broken binary never blocks the create.
-        openHerdrPaneForReview(review.session);
+        // herdr auto-open: render the review in a tab (no-op outside herdr).
+        await openHerdrPaneForReview(review.session, client);
         out(review.session);
         return 0;
       }

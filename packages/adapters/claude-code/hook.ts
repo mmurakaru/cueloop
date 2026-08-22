@@ -93,9 +93,9 @@ export async function runHook(
       herdrPane: process.env.HERDR_ENV === "1" ? process.env.HERDR_PANE_ID : undefined,
     });
 
-    // herdr auto-open: a review created from inside herdr spawns a new tab that
-    // renders it. Guarded to genuinely new sessions and no-op outside herdr.
-    openHerdrPaneForReview(review.session);
+    // herdr auto-open: render the review in a tab, reopening only if the recorded
+    // one is gone. No-op outside herdr.
+    await openHerdrPaneForReview(review.session, client);
     // herdr tier 1: the pane shows blocked + "plan ready for review" while the
     // reviewer works; no-ops outside herdr.
     reportState("blocked");

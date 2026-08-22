@@ -283,6 +283,13 @@ export class DaemonServer {
         const params = parseParams("session.submitRevision", request.params);
         return core.sessionSubmitRevision(params.id, params.content, params.addressedAnnotationIds);
       }
+      case "herdr.getTab":
+        return core.herdrGetTab(parseParams("herdr.getTab", request.params).id);
+      case "herdr.setTab": {
+        const params = parseParams("herdr.setTab", request.params);
+        core.herdrSetTab(params.id, { tabId: params.tabId, paneId: params.paneId });
+        return {};
+      }
       default:
         throw new DaemonError("unknown_method", `unknown method ${request.method}`);
     }

@@ -22,6 +22,7 @@ import {
   type WorkspaceKey,
 } from "@cueloop/schema";
 import { SessionStore } from "./store";
+import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
 import { DaemonError } from "./errors";
 
 export type EventName =
@@ -40,6 +41,7 @@ type EventListener = (event: DaemonEvent) => void;
 
 export class DaemonCore {
   readonly store: SessionStore;
+  readonly herdrTabs: HerdrTabStore;
   private waiters = new Map<string, ((session: ReviewSession) => void)[]>();
   private listeners = new Set<EventListener>();
   private seq = 0;
@@ -47,6 +49,16 @@ export class DaemonCore {
   constructor(home: string) {
     this.store = new SessionStore(home);
     this.store.recover();
+    this.herdrTabs = new HerdrTabStore(home);
+  }
+
+  /** The herdr tab opened for a review, if any (adapter scratch, not on the session). */
+  herdrGetTab(sessionId: string): HerdrTabHandle | null {
+    return this.herdrTabs.get(sessionId);
+  }
+
+  herdrSetTab(sessionId: string, handle: HerdrTabHandle): void {
+    this.herdrTabs.set(sessionId, handle);
   }
 
   onEvent(listener: EventListener): () => void {
@@ -190,6 +202,7 @@ export class DaemonCore {
   /** Remove a session for good (inbox delete); resolved or pending, both go. */
   sessionDelete(id: string): void {
     if (!this.store.delete(id)) throw new DaemonError("not_found", `no session ${id}`);
+    this.herdrTabs.delete(id);
     this.emit("inbox.changed", id);
   }
 
