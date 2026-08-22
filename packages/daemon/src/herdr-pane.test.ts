@@ -192,6 +192,28 @@ describe("openHerdrPaneForReview", () => {
     expect(readLines(stub.logPath).some((line) => line.startsWith("tab create"))).toBeTrue();
   });
 
+  test("a recall failure (stale daemon) still opens a fresh tab", async () => {
+    // Arrange - a daemon predating the herdr-tab verbs rejects the recall
+    const stub = makeStub("gated-recall-fail");
+    const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };
+    const persistence: HerdrTabPersistence = {
+      herdrGetTab: async () => {
+        throw new Error("unknown method herdr.getTab");
+      },
+      herdrSetTab: async () => {},
+    };
+
+    // Act
+    await openHerdrPaneForReview(newSession({ id: "ses_stale" }), persistence, env);
+
+    // Assert - the recall throwing must not abort the open
+    expect(readLines(stub.logPath)).toEqual([
+      "tab create --cwd /repo/work --label Rollout Plan --focus",
+      "pane send-text w1:p2 cueloop ses_stale",
+      "pane send-keys w1:p2 enter",
+    ]);
+  });
+
   test("reopens and re-records when the recorded pane is dead", async () => {
     // Arrange
     const stub = makeStub("gated-dead", false);
