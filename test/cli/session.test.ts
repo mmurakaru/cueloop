@@ -5,7 +5,15 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
@@ -265,6 +273,45 @@ describe("cueloop session (black box)", () => {
     expect(actions).toHaveLength(7);
     expect(actions[0]).toMatchObject({ index: 1, prompt: "Zoom out, research in depth" });
     expect(actions[2]).toMatchObject({ index: 3, prompt: "Out of scope" });
+  });
+
+  test("actions resolve from the session's repo, not the caller's cwd", async () => {
+    // Arrange - a repo whose .cueloop config defines its own quick action
+    const repo = mkdtempSync(join(tmpdir(), "cueloop-repo-"));
+    mkdirSync(join(repo, ".cueloop"));
+    writeFileSync(
+      join(repo, ".cueloop", "config.toml"),
+      `[[actions]]\nprompt = "Repo special"\nmetadata = "the repo-local system prompt"\n`,
+    );
+    const scoped = cliJson<ReviewSession>(
+      await runCli(
+        home,
+        ["session", "create", "--type", "plan", "--title", "Scoped", "--cwd", repo],
+        PLAN,
+      ),
+    );
+
+    // Act - listing and expanding both key off the session's repo, run from elsewhere
+    const listed = cliJson<{ index: number; prompt: string; metadata?: string }[]>(
+      await runCli(home, ["actions", "list", "--session", scoped.id], undefined, {
+        CUELOOP_CONFIG: join(home, "no-such-config.toml"),
+      }),
+    );
+    const annotated = cliJson<ReviewSession>(
+      await runCli(
+        home,
+        ["session", "annotate", scoped.id, "--quote", "two phases", "--action", "Repo special"],
+        undefined,
+        { CUELOOP_CONFIG: join(home, "no-such-config.toml") },
+      ),
+    );
+
+    // Assert
+    expect(listed).toEqual([
+      { index: 1, prompt: "Repo special", metadata: "the repo-local system prompt" },
+    ]);
+    expect(annotated.annotations[0]!.body).toBe("Repo special\n\nthe repo-local system prompt");
+    rmSync(repo, { recursive: true, force: true });
   });
 
   test("help output and unknown verbs", async () => {

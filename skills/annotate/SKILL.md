@@ -25,10 +25,11 @@ single-writer: you annotate, the human curates, the verdict carries it back.
    bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session get <id>
    ```
 
-2. See the shared quick-action vocabulary (the same presets the human picks):
+2. See the shared quick-action vocabulary for this session (the same presets the
+   human picks); `--session` reads the reviewed session's own repo:
 
    ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts actions list
+   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts actions list --session <id>
    ```
 
 3. Comment on a span. **Anchor contract: `--quote` is the exact text from the

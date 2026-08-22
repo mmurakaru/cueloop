@@ -73,7 +73,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
         const id = required(positional[1], "session id");
         const quote = required(stringFlag(flags, "quote"), "--quote");
         const author = stringFlag(flags, "author");
-        const body = annotateBody(flags);
+        const body = await annotateBody(flags, client, id);
         out(
           await client.sessionAnnotate(
             id,
@@ -129,14 +129,21 @@ function required<T>(value: T | undefined, description: string): T {
 
 /**
  * The annotation body: an explicit `--body`, else the `--action <index|name>`
- * quick-action expanded through the shared vocabulary, else empty.
+ * quick-action expanded through the shared vocabulary. The vocabulary is loaded
+ * from the reviewed session's own repo, not the caller's cwd, so an agent
+ * annotating from elsewhere still sees that session's actions.
  */
-function annotateBody(flags: Record<string, string | boolean>): string {
+async function annotateBody(
+  flags: Record<string, string | boolean>,
+  client: DaemonClient,
+  id: string,
+): Promise<string> {
   const explicit = stringFlag(flags, "body");
   if (explicit !== undefined) return explicit;
   const actionRef = stringFlag(flags, "action");
   if (actionRef === undefined) return "";
-  const actions = loadConfig({ repoRoot: process.cwd() }).actions;
+  const session = await client.sessionGet(id);
+  const actions = loadConfig({ repoRoot: session.workspace.repoRoot }).actions;
   const action = resolveQuickAction(actions, actionRef);
   if (!action) throw new Error(`no quick action ${actionRef} - see: cueloop actions list`);
   return quickActionBody(action);

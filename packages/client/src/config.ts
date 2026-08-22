@@ -75,10 +75,13 @@ export function quickActionBody(action: QuickAction): string {
 }
 
 /** Resolve a quick action by 1-based index or case-insensitive prompt; undefined when no match. */
-export function resolveQuickAction(actions: QuickAction[], ref: string): QuickAction | undefined {
-  const index = Number(ref);
+export function resolveQuickAction(
+  actions: QuickAction[],
+  actionRef: string,
+): QuickAction | undefined {
+  const index = Number(actionRef);
   if (Number.isInteger(index) && index >= 1 && index <= actions.length) return actions[index - 1];
-  const wanted = ref.trim().toLowerCase();
+  const wanted = actionRef.trim().toLowerCase();
   return actions.find((action) => action.prompt.toLowerCase() === wanted);
 }
 

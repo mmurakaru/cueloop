@@ -60,7 +60,6 @@ export function componentFilesMissingStories(): string[] {
   const missing: string[] = [];
   for (const file of files) {
     if (file.endsWith(".stories.tsx") || file.endsWith(".test.tsx")) continue;
-    // *.prototype.tsx are throwaway design spikes, exempt from the catalog.
     if (file.endsWith(".prototype.tsx")) continue;
     if (file === "stories-app.tsx") continue;
     const storiesSibling = file.replace(/\.tsx$/, ".stories.tsx");

@@ -144,7 +144,10 @@ export class DaemonCore {
     });
   }
 
-  /** `authorName` registers the annotation's author in the participant registry (display name). */
+  /**
+   * `authorName` registers the annotation's author in the participant registry;
+   * a bare author id (no name) keeps its short-handle fallback instead.
+   */
   sessionAnnotate(
     id: string,
     annotation: Omit<Annotation, "createdAt">,
@@ -159,7 +162,6 @@ export class DaemonCore {
         ...full,
         createdAt: session.annotations[existing]!.createdAt,
       };
-    // Register only with a name; a bare author id keeps its short-handle fallback.
     if (annotation.author && authorName)
       session.participants = registerParticipant(
         session,
