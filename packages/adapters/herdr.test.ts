@@ -53,7 +53,7 @@ async function waitForLines(logPath: string, count: number): Promise<string[]> {
   throw new Error(`stub log ${logPath} never reached ${count} lines`);
 }
 
-const ENV_KEYS = ["HERDR_ENV", "HERDR_PANE_ID", "HERDR_BIN_PATH", "CUELOOP_WAIT_MS"] as const;
+const ENV_KEYS = ["HERDR_ENV", "HERDR_PANE_ID", "HERDR_BIN_PATH"] as const;
 const saved = new Map<string, string | undefined>();
 
 function setHookEnv(vars: Partial<Record<(typeof ENV_KEYS)[number], string>>): void {
@@ -144,22 +144,19 @@ async function resolvePending(
 }
 
 describe("hook flow inside herdr", () => {
-  test("reports blocked + label on submit, working + outcome label on verdict", async () => {
+  test("reports blocked on submit, then working when the approved plan is presented again", async () => {
     // Arrange
     const stub = makeStub("verdict");
-    setHookEnv({
-      HERDR_ENV: "1",
-      HERDR_PANE_ID: "pane-7",
-      HERDR_BIN_PATH: stub.binPath,
-      CUELOOP_WAIT_MS: "10000",
-    });
+    setHookEnv({ HERDR_ENV: "1", HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath });
+    const event = hookEvent("herdr-hook-1", "# Rollout Plan\n\nShip it slowly.\n");
+    const noWake = () => {};
 
-    // Act
-    const run = runHook(hookEvent("herdr-hook-1", "# Rollout Plan\n\nShip it slowly.\n"), home);
+    // Act - first pass: opens the review + tab, reports blocked, denies immediately
+    const first = await runHook(event, { home, armWake: noWake });
 
     // Assert
-    // creating a new review inside herdr opens a tab that launches the review,
-    // then the pane reports blocked + label before the verdict lands
+    expect(first.allow).toBeFalse();
+    expect(first.reason).toContain("opened for human review");
     const before = await waitForLines(stub.logPath, 5);
     const paneLines = before.filter(
       (line) => line.startsWith("tab ") || line.startsWith("pane send-"),
@@ -173,17 +170,14 @@ describe("hook flow inside herdr", () => {
       "pane report-metadata pane-7 --source custom:cueloop --token summary=plan ready for review: Rollout Plan --ttl-ms 3600000",
     ]);
 
-    // Act
+    // Act - the reviewer approves, then the agent presents the same plan again
     await resolvePending("Rollout Plan", "approve", "Looks right.");
-    const decision = await run;
+    const second = await runHook(event, { home, armWake: noWake });
 
     // Assert
-    expect(decision.allow).toBeTrue();
-
-    // Act
+    expect(second.allow).toBeTrue();
+    expect(second.reason).toContain("Looks right.");
     const after = await waitForLines(stub.logPath, 7);
-
-    // Assert
     const outcomeLines = after.filter(
       (line) => line.includes("--state working") || line.includes("summary=review done"),
     );
@@ -193,23 +187,20 @@ describe("hook flow inside herdr", () => {
     ]);
   }, 15_000);
 
-  test("pending timeout leaves the pane blocked - no working report", async () => {
+  test("opening denies immediately and leaves the pane blocked - never a working report", async () => {
     // Arrange
-    const stub = makeStub("timeout");
-    setHookEnv({
-      HERDR_ENV: "1",
-      HERDR_PANE_ID: "pane-7",
-      HERDR_BIN_PATH: stub.binPath,
-      CUELOOP_WAIT_MS: "200",
-    });
+    const stub = makeStub("noblock");
+    setHookEnv({ HERDR_ENV: "1", HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath });
 
     // Act
-    const decision = await runHook(hookEvent("herdr-hook-2", "# Late Plan\n\nSlow.\n"), home);
+    const decision = await runHook(hookEvent("herdr-hook-2", "# Late Plan\n\nSlow.\n"), {
+      home,
+      armWake: () => {},
+    });
 
     // Assert
     expect(decision.allow).toBeFalse();
-    expect(decision.reason).toContain("still pending");
-
+    expect(decision.reason).toContain("opened for human review");
     await Bun.sleep(150); // give any stray report time to land
     // pane auto-open (3 lines) + blocked report + label = 5; never a working report
     const lines = await waitForLines(stub.logPath, 5);
@@ -226,16 +217,16 @@ describe("hook flow outside herdr", () => {
     // Arrange
     const stub = makeStub("silence");
     // HERDR_ENV deliberately absent; the bin path alone must not activate anything
-    setHookEnv({ HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath, CUELOOP_WAIT_MS: "10000" });
+    setHookEnv({ HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath });
 
     // Act
-    const run = runHook(hookEvent("herdr-hook-3", "# Quiet Plan\n\nNo pane.\n"), home);
-    await resolvePending("Quiet Plan", "request_changes", "Tighten it.");
-    const decision = await run;
+    const decision = await runHook(hookEvent("herdr-hook-3", "# Quiet Plan\n\nNo pane.\n"), {
+      home,
+      armWake: () => {},
+    });
 
     // Assert
     expect(decision.allow).toBeFalse();
-
     await Bun.sleep(200); // window for any stray fire-and-forget spawn
     expect(existsSync(stub.logPath)).toBeFalse();
   }, 15_000);

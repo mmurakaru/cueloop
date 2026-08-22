@@ -1,21 +1,24 @@
 #!/usr/bin/env bun
 /**
- * Claude Code adapter: intercept the plan gate, block on the
- * cueloop verdict, answer in the hook's native contract.
+ * Claude Code adapter: the ExitPlanMode plan gate, non-blocking (ADR 0008).
+ * Instead of freezing the turn inside the tool call until the reviewer decides,
+ * the hook opens the review, arms a detached inbox waiter, and denies the exit
+ * right away - so the agent ends its turn and the human keeps chatting. When the
+ * reviewer submits, the waiter injects the verdict into the live session over
+ * the inbox socket. The agent then presents the plan again: an approved plan
+ * whose content matches the verdict is allowed through; anything else (a pending
+ * review, or one that came back with changes) opens a fresh review round.
  *
  * Wire into ~/.claude/settings.json:
  *   { "hooks": { "PermissionRequest": [ { "matcher": "ExitPlanMode",
- *       "hooks": [{ "type": "command", "command": "bun run .../hook.ts", "timeout": 600 }] } ] } }
+ *       "hooks": [{ "type": "command", "command": "bun run .../hook.ts" }] } ] } }
  * (PreToolUse works identically for headless runs.)
- *
- * The wait contract: if the hook's window closes before the reviewer
- * finishes, the answer is a denial-shaped "review pending" and the stored
- * verdict is delivered when the agent retries - a review is never lost.
  */
 
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
 import { openReview } from "@cueloop/daemon/review";
+import { verdictAllows } from "@cueloop/schema";
 import { reportLabel, reportState } from "../herdr";
 
 interface HookEvent {
@@ -31,13 +34,55 @@ interface HookDecision {
   reason: string;
 }
 
-export async function runHook(event: HookEvent, home?: string): Promise<HookDecision> {
+/**
+ * Arm the detached inbox waiter that resumes this Claude Code session when the
+ * verdict lands. A child of the hook (itself a child of the session) inherits
+ * the inbox socket env, and unref lets the hook exit while the waiter parks.
+ */
+function spawnDetachedWake(sessionId: string, home?: string): void {
+  const entry = new URL("./wake.ts", import.meta.url).pathname;
+  Bun.spawn([process.execPath, "run", entry, sessionId], {
+    env: home === undefined ? process.env : { ...process.env, CUELOOP_HOME: home },
+    stdio: ["ignore", "ignore", "ignore"],
+  }).unref();
+}
+
+export interface RunHookOptions {
+  home?: string;
+  /** Arm the wake; injectable so tests do not spawn a real waiter process. */
+  armWake?: (sessionId: string, home?: string) => void;
+}
+
+export async function runHook(
+  event: HookEvent,
+  options: RunHookOptions = {},
+): Promise<HookDecision> {
   const plan = event.tool_input?.plan;
   if (!plan) return { allow: true, reason: "no plan payload - not a plan gate" };
+  const armWake = options.armWake ?? spawnDetachedWake;
 
-  const client = await DaemonClient.connect({ home, autostart: true });
+  const client = await DaemonClient.connect({ home: options.home, autostart: true });
   try {
-    // The core opens-or-revises by agentSessionId and derives the title.
+    // Second pass: this exact plan already came back approved, so let the agent
+    // exit plan mode and proceed. Any other state falls through to a review round.
+    const existing = event.session_id
+      ? (await client.sessionList()).find(
+          (candidate) => candidate.artifact.meta.agentSessionId === event.session_id,
+        )
+      : undefined;
+    if (
+      existing?.status === "resolved" &&
+      existing.verdict !== null &&
+      verdictAllows(existing.verdict.kind) &&
+      existing.artifact.content === plan
+    ) {
+      reportState("working");
+      reportLabel(`review done: ${existing.verdict.kind}`);
+      return { allow: true, reason: existing.verdict.feedback };
+    }
+
+    // First pass (or a revised plan): open-or-revise the review by agent session,
+    // arm the wake, and deny now so the agent ends its turn instead of blocking.
     const review = await openReview(client, {
       type: "plan",
       content: plan,
@@ -48,32 +93,23 @@ export async function runHook(event: HookEvent, home?: string): Promise<HookDeci
       herdrPane: process.env.HERDR_ENV === "1" ? process.env.HERDR_PANE_ID : undefined,
     });
 
-    // herdr auto-open: a review created from inside herdr spawns a new tab
-    // that renders it, so the human does not run a command by hand. Guarded to
-    // genuinely new sessions and no-op outside herdr.
+    // herdr auto-open: a review created from inside herdr spawns a new tab that
+    // renders it. Guarded to genuinely new sessions and no-op outside herdr.
     openHerdrPaneForReview(review.session);
-
-    // herdr tier 1: the pane shows blocked + "plan ready for review"
-    // while the reviewer works; no-ops outside herdr.
+    // herdr tier 1: the pane shows blocked + "plan ready for review" while the
+    // reviewer works; no-ops outside herdr.
     reportState("blocked");
     reportLabel(`plan ready for review: ${review.session.artifact.meta.title ?? review.id}`);
 
-    const timeoutMs = Number(process.env.CUELOOP_WAIT_MS ?? 9 * 60 * 1000);
-    const verdict = await review.awaitVerdict({ timeoutMs });
-    if (verdict === "pending") {
-      // still pending: the pane stays blocked - the review is not done.
-      return {
-        allow: false,
-        reason:
-          `cueloop review ${review.id} is still pending. The reviewer has not finished. ` +
-          `Do not proceed; present the plan again (or wait) to collect the verdict.`,
-      };
-    }
-    // verdict in hand: the agent goes back to work; replace the label so the
-    // sidebar reflects the outcome instead of a stale "ready for review".
-    reportState("working");
-    reportLabel(`review done: ${verdict.session.verdict!.kind}`);
-    return { allow: verdict.allow, reason: verdict.feedback };
+    armWake(review.id, options.home);
+    return {
+      allow: false,
+      reason:
+        `cueloop review ${review.id} opened for human review. Do not proceed and do not wait - ` +
+        `end your turn and keep helping the user. cueloop delivers the reviewer's verdict to this ` +
+        `session as a follow-up: on approval, present this same plan again to proceed; on changes, ` +
+        `apply the feedback and present the revised plan.`,
+    };
   } finally {
     client.close();
   }
