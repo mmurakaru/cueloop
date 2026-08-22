@@ -150,6 +150,9 @@ export const Params = {
   "events.subscribe": v.object({}),
   "daemon.ping": v.object({}),
   "daemon.shutdown": v.object({}),
+  // herdr adapter scratch: the review's opened tab, kept off the session record.
+  "herdr.getTab": v.object({ id: SessionId }),
+  "herdr.setTab": v.object({ id: SessionId, tabId: NonEmpty, paneId: NonEmpty }),
 } as const;
 
 export type MethodName = keyof typeof Params;

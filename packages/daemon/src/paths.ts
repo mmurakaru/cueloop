@@ -25,3 +25,8 @@ export function pidPath(home = cueloopHome()): string {
 export function lockPath(home = cueloopHome()): string {
   return join(home, "cueloop.lock");
 }
+
+/** Adapter scratch: herdr tab handles keyed by session id, kept out of the core session record. */
+export function herdrTabsPath(home = cueloopHome()): string {
+  return join(home, "herdr-tabs.json");
+}

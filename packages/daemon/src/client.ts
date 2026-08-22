@@ -14,6 +14,7 @@ import type {
   WorkspaceKey,
 } from "@cueloop/schema";
 import { BackpressureWriter, LineBuffer, type EventFrame, type Response } from "./protocol";
+import type { HerdrTabHandle } from "./herdr-tab-store";
 import { cueloopHome, socketPath } from "./paths";
 
 export type { EventFrame } from "./protocol";
@@ -224,6 +225,13 @@ export class DaemonClient implements SessionClient {
     addressedAnnotationIds: string[] = [],
   ): Promise<ReviewSession> {
     return this.request("session.submitRevision", { id, content, addressedAnnotationIds });
+  }
+  /** herdr adapter scratch: the tab opened for a review; local-only, off the SessionClient contract. */
+  herdrGetTab(id: string): Promise<HerdrTabHandle | null> {
+    return this.request("herdr.getTab", { id });
+  }
+  async herdrSetTab(id: string, handle: HerdrTabHandle): Promise<void> {
+    await this.request("herdr.setTab", { id, ...handle });
   }
   shutdown(): Promise<void> {
     return this.request("daemon.shutdown", {});
