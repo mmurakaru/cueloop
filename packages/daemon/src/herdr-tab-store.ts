@@ -14,6 +14,16 @@ export interface HerdrTabHandle {
   paneId: string;
 }
 
+/** Guard a persisted entry - both ids must be present strings, or it is dropped. */
+function isHerdrTabHandle(value: unknown): value is HerdrTabHandle {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as HerdrTabHandle).tabId === "string" &&
+    typeof (value as HerdrTabHandle).paneId === "string"
+  );
+}
+
 export class HerdrTabStore {
   private tabs = new Map<string, HerdrTabHandle>();
   private readonly path: string;
@@ -25,12 +35,14 @@ export class HerdrTabStore {
 
   private load(): void {
     try {
-      const parsed = JSON.parse(readFileSync(this.path, "utf8")) as Record<string, HerdrTabHandle>;
-      for (const [sessionId, handle] of Object.entries(parsed)) {
-        if (handle?.tabId && handle?.paneId) this.tabs.set(sessionId, handle);
+      const parsed: unknown = JSON.parse(readFileSync(this.path, "utf8"));
+      if (typeof parsed !== "object" || parsed === null) return;
+      for (const [sessionId, value] of Object.entries(parsed)) {
+        if (isHerdrTabHandle(value))
+          this.tabs.set(sessionId, { tabId: value.tabId, paneId: value.paneId });
       }
     } catch {
-      // absent or unreadable: start empty - a stale tab just reopens on resubmit
+      // absent, unreadable, or malformed: start empty - a stale tab just reopens on resubmit
     }
   }
 

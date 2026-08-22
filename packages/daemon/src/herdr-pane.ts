@@ -103,16 +103,20 @@ export async function openHerdrPaneForReview(
 ): Promise<void> {
   const herdr = detectHerdr(env);
   if (!herdr) return;
-  const recorded = await persistence.herdrGetTab(session.id);
-  if (recorded && herdrPaneAlive(herdr.binPath, recorded.paneId)) {
-    focusHerdrTab(herdr.binPath, recorded.tabId);
-    return;
+  try {
+    const recorded = await persistence.herdrGetTab(session.id);
+    if (recorded && herdrPaneAlive(herdr.binPath, recorded.paneId)) {
+      focusHerdrTab(herdr.binPath, recorded.tabId);
+      return;
+    }
+    const opened = openHerdrPane({
+      sessionId: session.id,
+      cwd: session.artifact.meta.cwd ?? process.cwd(),
+      binPath: herdr.binPath,
+      label: session.artifact.meta.title ?? session.id,
+    });
+    if (opened) await persistence.herdrSetTab(session.id, opened);
+  } catch {
+    // best-effort: a herdr spawn or a daemon persistence hiccup never blocks review creation
   }
-  const opened = openHerdrPane({
-    sessionId: session.id,
-    cwd: session.artifact.meta.cwd ?? process.cwd(),
-    binPath: herdr.binPath,
-    label: session.artifact.meta.title ?? session.id,
-  });
-  if (opened) await persistence.herdrSetTab(session.id, opened);
 }

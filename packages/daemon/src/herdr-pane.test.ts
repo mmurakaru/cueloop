@@ -176,6 +176,22 @@ describe("openHerdrPaneForReview", () => {
     expect(store.saved()).toEqual({ tabId: "w9:t9", paneId: "w9:p9" });
   });
 
+  test("a persistence failure never escapes - review creation stays best-effort", async () => {
+    // Arrange - the daemon store rejects; the opener must still resolve quietly
+    const stub = makeStub("gated-persist-fail");
+    const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };
+    const persistence: HerdrTabPersistence = {
+      herdrGetTab: async () => null,
+      herdrSetTab: async () => {
+        throw new Error("disk full");
+      },
+    };
+
+    // Act & Assert - no throw
+    await openHerdrPaneForReview(newSession(), persistence, env);
+    expect(readLines(stub.logPath).some((line) => line.startsWith("tab create"))).toBeTrue();
+  });
+
   test("reopens and re-records when the recorded pane is dead", async () => {
     // Arrange
     const stub = makeStub("gated-dead", false);

@@ -62,4 +62,34 @@ describe("HerdrTabStore", () => {
     // Assert
     expect(store.get("ses_1")).toBeNull();
   });
+
+  test("malformed entries are dropped, well-formed ones survive", () => {
+    // Arrange - valid JSON, but entries with the wrong shape
+    writeFileSync(
+      herdrTabsPath(home),
+      JSON.stringify({
+        ses_ok: { tabId: "w1:t2", paneId: "w1:p2" },
+        ses_partial: { tabId: "w1:t2" },
+        ses_typed: { tabId: 1, paneId: 2 },
+        ses_null: null,
+      }),
+    );
+
+    // Act
+    const store = new HerdrTabStore(home);
+
+    // Assert
+    expect(store.get("ses_ok")).toEqual({ tabId: "w1:t2", paneId: "w1:p2" });
+    expect(store.get("ses_partial")).toBeNull();
+    expect(store.get("ses_typed")).toBeNull();
+    expect(store.get("ses_null")).toBeNull();
+  });
+
+  test("a non-object top level starts empty", () => {
+    // Arrange
+    writeFileSync(herdrTabsPath(home), JSON.stringify(["not", "a", "map"]));
+
+    // Act & Assert
+    expect(new HerdrTabStore(home).get("ses_1")).toBeNull();
+  });
 });
