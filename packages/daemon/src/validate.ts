@@ -153,6 +153,7 @@ export const Params = {
   }),
   "events.subscribe": v.object({}),
   "daemon.ping": v.object({}),
+  "daemon.hello": v.object({ role: v.picklist(["owner", "collaborator", "agent"]) }),
   "daemon.shutdown": v.object({}),
   // herdr adapter scratch: the review's opened tab, kept off the session record.
   "herdr.getTab": v.object({ id: SessionId }),

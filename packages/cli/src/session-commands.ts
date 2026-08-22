@@ -22,7 +22,10 @@ function out(value: unknown): void {
 export async function sessionCommand(argv: string[]): Promise<number> {
   const { positional, flags } = parseArgs(argv);
   const verb = positional[0];
-  const client = await DaemonClient.connect({ autostart: true });
+  // --role agent (or collaborator) caps this connection to read + annotate; a
+  // review-side agent passes it so the daemon rejects any escalation attempt.
+  const role = stringFlag(flags, "role") === "agent" ? "agent" : undefined;
+  const client = await DaemonClient.connect({ autostart: true, role });
   try {
     switch (verb) {
       case "create": {

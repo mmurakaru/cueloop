@@ -17,7 +17,8 @@ export async function actionsCommand(argv: string[]): Promise<number> {
     console.error("usage: cueloop actions list [--session <id>]");
     return 2;
   }
-  const repoRoot = await repoRootForSession(stringFlag(flags, "session"));
+  const role = stringFlag(flags, "role") === "agent" ? "agent" : undefined;
+  const repoRoot = await repoRootForSession(stringFlag(flags, "session"), role);
   const actions = loadConfig({ repoRoot }).actions;
   const numbered = actions.map((action, index) => ({
     index: index + 1,
@@ -29,9 +30,12 @@ export async function actionsCommand(argv: string[]): Promise<number> {
 }
 
 /** The repo the given session lives in, or the caller's cwd when no session is named. */
-async function repoRootForSession(sessionId: string | undefined): Promise<string> {
+async function repoRootForSession(
+  sessionId: string | undefined,
+  role: "agent" | undefined,
+): Promise<string> {
   if (sessionId === undefined) return process.cwd();
-  const client = await DaemonClient.connect({ autostart: true });
+  const client = await DaemonClient.connect({ autostart: true, role });
   try {
     return (await client.sessionGet(sessionId)).workspace.repoRoot;
   } finally {
