@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.38
+
+### Patch Changes
+
+- [#209](https://github.com/mmurakaru/cueloop/pull/209) [`0425979`](https://github.com/mmurakaru/cueloop/commit/04259795106ebbb80ed96fb93a0e14eaee9ed82e) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Re-planning in the same session now reliably shows the review in a herdr tab. Before, the auto-tab opened only for a brand-new review, so a resubmit whose original tab had been closed left an orphaned pending review with nothing on screen. cueloop now records the exact tab it opened (tab id + root pane id) in a herdr-namespaced daemon side-store - the core session model stays herdr-free - and on a resubmit checks that pane's liveness by id: a still-open tab is focused, a closed one is reopened, so there is never a duplicate and never a missing tab. Collision-free because it tracks the real ids, not a label.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.38
+  - @cueloop/client@0.1.0-alpha.38
+  - @cueloop/daemon@0.1.0-alpha.38
+  - @cueloop/schema@0.1.0-alpha.38
+
 ## 0.1.0-alpha.37
 
 ### Patch Changes
