@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.37
+
+### Patch Changes
+
+- [#207](https://github.com/mmurakaru/cueloop/pull/207) [`5e48c65`](https://github.com/mmurakaru/cueloop/commit/5e48c65036769f1f919ad6059ecf17b19902aef0) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The plan-mode gate is now the sole approval - no more double dialog. The `ExitPlanMode` hook was emitting a bare top-level `decision`, a shape Claude Code no longer recognizes, so it fell through to the native plan-approval dialog and you approved twice (once in cc's "approve / auto-accept" prompt, once in cueloop). The hook now returns the documented `hookSpecificOutput` PermissionRequest shape, which suppresses the native dialog: cueloop is the only place a plan is approved. To use vanilla plan mode, disable the plugin (`/plugin`, or `enabledPlugins: { "cueloop@cueloop": false }`).
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.37
+  - @cueloop/client@0.1.0-alpha.37
+  - @cueloop/daemon@0.1.0-alpha.37
+  - @cueloop/schema@0.1.0-alpha.37
+
 ## 0.1.0-alpha.36
 
 ### Minor Changes
