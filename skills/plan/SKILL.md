@@ -52,9 +52,11 @@ feedback to apply) when the reviewer is done.
        --content-file <path>
      # then repeat step 4 to wake on the next verdict
      ```
+
    - `"status": "pending"` (inline fallback only) - the reviewer is not done;
      wait again with the same command. The verdict is never lost.
 
 Note: the plan gate also fires automatically through the plugin hook when you
-use plan mode - that gate stays blocking (it must decide in-line). This skill is
-the explicit, non-blocking path.
+use plan mode - it is non-blocking too now (it opens the review, denies the exit
+so your turn ends, and cueloop wakes you with the verdict; on approval you
+present the same plan again to proceed). This skill is the explicit path.
