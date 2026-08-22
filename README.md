@@ -4,22 +4,21 @@
 [![ci](https://github.com/mmurakaru/cueloop/actions/workflows/ci.yml/badge.svg)](https://github.com/mmurakaru/cueloop/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
-A terminal-first review surface for coding agents. The product is the
-primitive: a **ReviewSession** anyone can render, annotate, and extend.
+A terminal-first self-extensible review surface for coding agents.  
 
-One loop: an agent submits an artifact and blocks · you annotate and return a
-verdict · annotations serialize into structured feedback the agent acts on.
+One loop: an agent submits an artifact, you annotate and return a
+verdict - annotations serialize into structured feedback the agent acts on.
 
 ```
-agent → daemon → your terminal → verdict → agent
+agent > daemon > your terminal > verdict > agent
 ```
 
-## The trio
+## The primitives
 
-- **plan** - an agent (Claude Code and pi today; Codex planned) submits its plan
-  and blocks on your verdict through a hook.
-- **diff** - `cueloop diff` reviews your working tree, untracked files included.
-- **review** - pull-request review (coming: `cueloop review <pr>`).
+- **plan**
+- **diff**
+- **review**
+- **prototype** (coming soon)
 
 ## Install
 
