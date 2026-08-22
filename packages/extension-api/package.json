@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/extension-api",
-  "version": "0.1.0-alpha.35",
+  "version": "0.1.0-alpha.36",
   "description": "The typed contract for extending cueloop: renderers, commands, keybindings, exporters",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -24,7 +24,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@cueloop/schema": "0.1.0-alpha.35"
+    "@cueloop/schema": "0.1.0-alpha.36"
   },
   "engines": {
     "bun": ">=1.3.0"
