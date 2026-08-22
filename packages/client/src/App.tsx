@@ -20,6 +20,7 @@ import {
   DEFAULT_KEYS,
   DEFAULT_QUICK_ACTIONS,
   loadConfig,
+  persistActions,
   persistAuthorName,
   persistAutoClose,
   persistTheme,
@@ -52,6 +53,7 @@ import { Toolbar } from "./components/primitives/Toolbar";
 import { MenuBar } from "./components/MenuBar";
 import { KeybindsDialog } from "./components/KeybindsDialog";
 import { SettingsDialog, type SettingsCategory } from "./components/SettingsDialog";
+import { QuickActionsEditor } from "./components/quick-actions-editor";
 import { CLIENT_VERSION } from "./version";
 import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
@@ -184,6 +186,8 @@ export function App({
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
   const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
+  // the quick-action row whose system-prompt input is open in Settings, or null
+  const [actionsExpandedIndex, setActionsExpandedIndex] = useState<number | null>(null);
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
     keysRef.current = config.keys;
@@ -416,6 +420,26 @@ export function App({
                     : "none";
 
   // ── settings dialog: config-backed model, navigation, persistence ──
+  const commitActions = (next: QuickAction[]): void => {
+    setQuickActions(next);
+    persistActions(next);
+  };
+  const editActionMetadata = (index: number, metadata: string): void =>
+    commitActions(
+      quickActions.map((action, actionIndex) =>
+        actionIndex === index
+          ? { ...action, metadata: metadata.trim() ? metadata : undefined }
+          : action,
+      ),
+    );
+  const resetActions = (): void => {
+    setActionsExpandedIndex(null);
+    commitActions(DEFAULT_QUICK_ACTIONS.map((action) => ({ ...action })));
+  };
+  const addAction = (): void => {
+    setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: quickActions.length }));
+    commitActions([...quickActions, { prompt: "New action" }]);
+  };
   const settingsCategories: SettingsCategory[] = [
     {
       id: "general",
@@ -456,6 +480,27 @@ export function App({
         },
       ],
     },
+    {
+      id: "actions",
+      name: "Actions",
+      description: "quick-action comments",
+      rows: [],
+      customBody: (
+        <QuickActionsEditor
+          actions={quickActions}
+          selectedIndex={settingsNav.categoryId === "actions" ? settingsNav.rowIndex : -1}
+          expandedIndex={actionsExpandedIndex}
+          onToggleExpand={(index) => {
+            setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: index }));
+            setActionsExpandedIndex((current) => (current === index ? null : index));
+          }}
+          onEditMetadata={editActionMetadata}
+          onReset={resetActions}
+          onAdd={addAction}
+          theme={theme}
+        />
+      ),
+    },
   ];
   const settingsValues = {
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
@@ -480,6 +525,11 @@ export function App({
     }
   };
   const handleSettingsKey = (name: string): void => {
+    // an open system-prompt input owns typing; only esc (close it) escapes here
+    if (actionsExpandedIndex !== null) {
+      if (name === "escape") setActionsExpandedIndex(null);
+      return;
+    }
     if (name === "escape") return void setMenuDialog(null);
     const categoryIndex = settingsCategories.findIndex(
       (category) => category.id === settingsNav.categoryId,
@@ -501,6 +551,24 @@ export function App({
         });
       else if (name === "l" || name === "tab" || name === "return")
         setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: 0 }));
+      return;
+    }
+    // the Actions category is a list of quick actions plus a trailing "add" row
+    if (category.id === "actions") {
+      const rowCount = quickActions.length + 1;
+      if (name === "j" || name === "down")
+        setSettingsNav((state) => ({
+          ...state,
+          rowIndex: Math.min(rowCount - 1, state.rowIndex + 1),
+        }));
+      else if (name === "k" || name === "up")
+        setSettingsNav((state) => ({ ...state, rowIndex: Math.max(0, state.rowIndex - 1) }));
+      else if (name === "h" || name === "tab")
+        setSettingsNav((state) => ({ ...state, zone: "nav" }));
+      else if (name === "return" || name === "space" || name === "l") {
+        if (settingsNav.rowIndex === quickActions.length) addAction();
+        else setActionsExpandedIndex(settingsNav.rowIndex);
+      }
       return;
     }
     if (name === "j" || name === "down")
@@ -583,7 +651,10 @@ export function App({
           activeCategoryId={settingsNav.categoryId}
           activeRowIndex={settingsNav.rowIndex}
           activeZone={settingsNav.zone}
-          onCategorySelect={(id) => setSettingsNav({ categoryId: id, rowIndex: 0, zone: "body" })}
+          onCategorySelect={(id) => {
+            setActionsExpandedIndex(null);
+            setSettingsNav({ categoryId: id, rowIndex: 0, zone: "body" });
+          }}
           onRowActivate={(row) => cycleSetting(row.key)}
           theme={theme}
         />
