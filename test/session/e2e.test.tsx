@@ -69,10 +69,16 @@ interface HookRun {
   exited: Promise<number>;
 }
 
-function spawnHook(plan: string, waitMs: number): HookRun {
+interface SpawnHookOptions {
+  sessionId?: string;
+  /** When set, the detached wake posts here; otherwise the wake is a no-op. */
+  inboxSocket?: string;
+}
+
+function spawnHook(plan: string, options: SpawnHookOptions = {}): HookRun {
   const event = {
     hook_event_name: "PreToolUse",
-    session_id: "cc-session-1",
+    session_id: options.sessionId ?? "cc-session-1",
     cwd: home,
     tool_name: "ExitPlanMode",
     tool_input: { plan },
@@ -81,8 +87,11 @@ function spawnHook(plan: string, waitMs: number): HookRun {
     env: {
       ...process.env,
       CUELOOP_HOME: home,
-      CUELOOP_WAIT_MS: String(waitMs),
       CUELOOP_IDLE_EXIT_MS: "0",
+      // Explicit so a test running inside a real Claude Code session never leaks
+      // its own inbox into the hook: empty is treated as no inbox.
+      CLAUDE_CODE_MESSAGING_SOCKET: options.inboxSocket ?? "",
+      CLAUDE_CODE_MESSAGING_TOKEN: options.inboxSocket ? "e2e-token" : "",
     },
     stdin: new TextEncoder().encode(JSON.stringify(event)),
     stdout: "pipe",
@@ -143,110 +152,132 @@ async function waitForPendingSession(
   }
 }
 
-describe("slice 1: Claude Code plan round-trip", () => {
-  test(
-    "deny path: reviewer annotates and requests changes; hook relays feedback.md",
-    async () => {
-      // Arrange
-      const hook = spawnHook(PLAN, 30_000);
-      const sessionId = await waitForPendingSession(hook);
+/** A fake Claude Code inbox: capture the frames the detached wake posts, then resolve. */
+function fakeInbox(): { socketPath: string; frames: Promise<string>; stop: () => void } {
+  const inboxHome = mkdtempSync(join(tmpdir(), "cueloop-e2e-inbox-"));
+  const socketPath = join(inboxHome, "s.sock");
+  let received = "";
+  const gotFrames = Promise.withResolvers<string>();
+  const server = Bun.listen({
+    unix: socketPath,
+    socket: {
+      data: (_socket, data) => {
+        received += data.toString();
+      },
+      close: () => gotFrames.resolve(received),
+      open: () => {},
+    },
+  });
+  return {
+    socketPath,
+    frames: gotFrames.promise,
+    stop: () => {
+      server.stop();
+      rmSync(inboxHome, { recursive: true, force: true });
+    },
+  };
+}
 
-      // Act
-      // the reviewer opens the session in the real TUI
+describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
+  test(
+    "opening denies immediately; the reviewer's changes reach the session via the wake",
+    async () => {
+      // Arrange - the hook arms a real detached wake pointed at a fake inbox
+      const inbox = fakeInbox();
+      const hook = spawnHook(PLAN, { sessionId: "cc-deny", inboxSocket: inbox.socketPath });
+
+      // Assert - the gate does not block: it opens the review and denies at once
+      const out = await hook.result;
+      expect(out.decision).toBe("deny");
+      expect(out.reason).toContain("opened for human review");
+
+      // Act - the reviewer opens the pending session in the real TUI
+      const sessionId = await waitForPendingSession(
+        undefined,
+        (candidate) => candidate.artifact.meta.agentSessionId === "cc-deny",
+      );
       const setup = await testRender(<App home={home} sessionId={sessionId} />, {
         width: 120,
         height: 30,
       });
       await waitForText(setup, "Rollout Plan");
-
-      // Assert
       expect(setup.captureCharFrame()).toContain("Enable it for everyone immediately.");
 
-      // Act
-      // annotate the risky paragraph, then submit request_changes
+      // Act - annotate the risky paragraph, then submit request_changes
       for (let i = 0; i < 6; i++) await press(setup, "j"); // to the Phase 2 paragraph
       await press(setup, "c");
       await typeText(setup, "Stage the rollout: 5% then 50% then 100%.");
       await press(setup, "enter");
-      // wait until the annotate round-trip lands in the rail before submitting
       await waitForText(setup, "COMMENT · me");
       await press(setup, "enter"); // open submit (request_changes default with pending item)
-
-      // Assert
       expect(setup.captureCharFrame()).toContain("[Changes]");
-
-      // Act
       await typeText(setup, "Too aggressive.");
       await press(setup, "enter");
 
-      // Assert
-      const out = await hook.result;
-      expect(out.decision).toBe("deny");
-      expect(out.reason).toContain("# Review: request changes");
-      expect(out.reason).toContain("Too aggressive.");
-      expect(out.reason).toContain("Stage the rollout: 5% then 50% then 100%.");
-      expect(out.reason).toContain("> Enable it for everyone immediately.");
+      // Assert - the detached wake injects feedback.md into the inbox
+      const frames = await inbox.frames;
+      const content = JSON.parse(frames.trim().split("\n").at(-1)!).message.content as string;
+      expect(content).toContain("# Review: request changes");
+      expect(content).toContain("Too aggressive.");
+      expect(content).toContain("Stage the rollout: 5% then 50% then 100%.");
+      expect(content).toContain("> Enable it for everyone immediately.");
+      inbox.stop();
     },
     TEST_TIMEOUT_MS,
   );
 
   test(
-    "revision path: resubmit becomes revision 2 of the same session; approve allows",
+    "approve then re-present: the same plan is allowed through carrying the verdict",
     async () => {
-      // Arrange
+      // Arrange - first pass opens the review and denies
+      const first = await spawnHook(PLAN, { sessionId: "cc-approve" }).result;
+      expect(first.decision).toBe("deny");
+      const sessionId = await waitForPendingSession(
+        undefined,
+        (candidate) => candidate.artifact.meta.agentSessionId === "cc-approve",
+      );
+
+      // Act - reviewer approves, then the agent presents the same plan again
+      const client = await DaemonClient.connect({ home });
+      await client.sessionResolve(sessionId, "approve", "Staged rollout looks right.");
+      client.close();
+      const second = await spawnHook(PLAN, { sessionId: "cc-approve" }).result;
+
+      // Assert
+      expect(second.decision).toBe("allow");
+      expect(second.reason).toContain("# Review: approve");
+      expect(second.reason).toContain("Staged rollout looks right.");
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  test(
+    "a revised plan after changes opens a fresh review round, not an allow",
+    async () => {
+      // Arrange - open, then the reviewer requests changes
+      await spawnHook(PLAN, { sessionId: "cc-revise" }).result;
+      const sessionId = await waitForPendingSession(
+        undefined,
+        (candidate) => candidate.artifact.meta.agentSessionId === "cc-revise",
+      );
+      const client = await DaemonClient.connect({ home });
+      await client.sessionResolve(sessionId, "request_changes", "Too aggressive.");
+
+      // Act - the agent revises and presents the new plan
       const revised = PLAN.replace(
         "Enable it for everyone immediately.",
         "Enable it at 5%, then 50%, then 100%.",
       );
-      const hook = spawnHook(revised, 30_000);
-      // wait for the revision to land (same session reopens as pending)
-      const sessionId = await waitForPendingSession(
-        hook,
-        (candidate) => candidate.revisions.length >= 2,
-      );
-      const client = await DaemonClient.connect({ home });
-      const session = await client.sessionGet(sessionId);
+      const out = await spawnHook(revised, { sessionId: "cc-revise" }).result;
 
-      // Assert
+      // Assert - denied again (new round), and the session is revision 2 pending
+      expect(out.decision).toBe("deny");
+      expect(out.reason).toContain("opened for human review");
+      const session = await client.sessionGet(sessionId);
+      client.close();
       expect(session.revisions.length).toBe(2);
       expect(session.artifact.content).toContain("at 5%, then 50%");
-
-      // Act
-      await client.sessionResolve(sessionId, "approve", "Staged rollout looks right.");
-      client.close();
-
-      // Assert
-      const out = await hook.result;
-      expect(out.decision).toBe("allow");
-      expect(out.reason).toContain("# Review: approve");
-    },
-    TEST_TIMEOUT_MS,
-  );
-
-  test(
-    "timeout path: the verdict outlives the hook window",
-    async () => {
-      // Arrange
-      const hook = spawnHook("# Late Plan\n\nSomething slow.\n", 300);
-
-      // Act
-      const out = await hook.result;
-
-      // Assert
-      expect(out.decision).toBe("deny");
-      expect(out.reason).toContain("still pending");
-
-      // Act
-      // reviewer resolves after the hook gave up; the verdict is collectable
-      const client = await DaemonClient.connect({ home });
-      const pending = await client.sessionList({ status: "pending" });
-      const late = pending.find((candidate) => candidate.artifact.content.includes("Late Plan"))!;
-      await client.sessionResolve(late.id, "approve", "");
-      const collected = await client.sessionWait(late.id, 1000);
-
-      // Assert
-      expect(collected!.verdict!.kind).toBe("approve");
-      client.close();
+      expect(session.status).toBe("pending");
     },
     TEST_TIMEOUT_MS,
   );

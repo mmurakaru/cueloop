@@ -53,7 +53,7 @@ async function waitForLines(logPath: string, count: number): Promise<string[]> {
   throw new Error(`stub log ${logPath} never reached ${count} lines`);
 }
 
-const ENV_KEYS = ["HERDR_ENV", "HERDR_PANE_ID", "HERDR_BIN_PATH", "CUELOOP_WAIT_MS"] as const;
+const ENV_KEYS = ["HERDR_ENV", "HERDR_PANE_ID", "HERDR_BIN_PATH"] as const;
 const saved = new Map<string, string | undefined>();
 
 function setHookEnv(vars: Partial<Record<(typeof ENV_KEYS)[number], string>>): void {
