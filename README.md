@@ -28,7 +28,7 @@ agent > annotate > agent
 ## Install
 
 ```bash
-npm i -g cueloop@alpha      # the CLI
+npm i -g cueloop@alpha
 cueloop --help
 ```
 
@@ -51,6 +51,6 @@ Claude Code plugin (`/cueloop:plan`, `/cueloop:diff`, `/cueloop:review`):
 | [`@cueloop/daemon`](https://www.npmjs.com/package/@cueloop/daemon) | the session daemon and its client |
 | [`@cueloop/client`](https://www.npmjs.com/package/@cueloop/client) | the review UI |
 | [`@cueloop/extension-api`](https://www.npmjs.com/package/@cueloop/extension-api) | the typed extension contract |
-| [`@cueloop/adapters`](https://www.npmjs.com/package/@cueloop/adapters) | Claude Code and pi adapters (Codex planned) |
+| [`@cueloop/adapters`](https://www.npmjs.com/package/@cueloop/adapters) | Claude Code, pi and codex adapters |
 | [`@cueloop/integration-obsidian`](https://www.npmjs.com/package/@cueloop/integration-obsidian) | the Obsidian vault export integration |
-| [`@cueloop/gateway`](./packages/gateway) | the SSH sharing gateway (internal, not published) |
+| [`@cueloop/gateway`](./packages/gateway) | the SSH sharing gateway |
