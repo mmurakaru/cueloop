@@ -17,6 +17,7 @@ import { Button } from "./primitives/Button";
 import { Toolbar } from "./primitives/Toolbar";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { ConfirmCard, type ConfirmCardProps } from "./ConfirmCard";
+import { AgentLauncher } from "./agent-launcher";
 import { Card } from "./primitives/Card";
 import { truncateToSingleLine } from "./truncate-text";
 import { resolveDisplayName } from "../attribution";
@@ -60,6 +61,8 @@ export interface ReviewRailProps {
   /** Restore a curation item (the selected card's undo button, same as the u key). */
   onUndoCuration: (id: string) => void;
   onSubmitRequest: () => void;
+  /** Launch a bring-your-own harness in the rail (Agent tab); seedText is the plan-context briefing. */
+  onLaunchHarness: (command: string, seedText?: string) => void;
   /** Rail column width; the app derives it from the persisted review layout. */
   width?: number;
   /**
@@ -93,6 +96,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
     onSelectCuration,
     onUndoCuration,
     onSubmitRequest,
+    onLaunchHarness,
     width = 34,
     onCollapse,
     theme,
@@ -197,7 +201,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
       {railTab === "agent" ? (
         <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 2 }}>
           <text> </text>
-          <AgentTab session={session} theme={theme} />
+          <AgentLauncher session={session} onLaunchHarness={onLaunchHarness} theme={theme} />
         </box>
       ) : openAnnotations.length === 0 && curationItems.length === 0 ? (
         <box style={{ flexGrow: 1, alignItems: "center", justifyContent: "center" }}>
@@ -307,18 +311,6 @@ function RemovalCard({
           </Toolbar>
         ) : null}
       </Card>
-    </box>
-  );
-}
-
-/** Agent tab: who submitted, where the session stands, which revision. */
-function AgentTab({ session, theme }: { session: ReviewSession; theme?: Theme }): React.ReactNode {
-  const tokens = useComponentTheme(theme);
-  return (
-    <box style={{ flexDirection: "column", flexGrow: 1 }}>
-      <text fg={tokens.textMuted}>{session.artifact.meta.agent ?? "unknown"}</text>
-      <text fg={tokens.textDim}>status: {session.status}</text>
-      <text fg={tokens.textDim}>revision {session.revisions.length}</text>
     </box>
   );
 }

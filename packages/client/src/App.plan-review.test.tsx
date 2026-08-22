@@ -525,7 +525,7 @@ describe("sheet header", () => {
     expect(frame).toContain("Share");
   });
 
-  test("the Agent tab shows the submitter, status, and revision", async () => {
+  test("the Agent tab shows the harness launcher and a compact status footer", async () => {
     // Arrange
     const setup = await renderApp();
     const lines = setup.captureCharFrame().split("\n");
@@ -536,12 +536,12 @@ describe("sheet header", () => {
     await setup.mockMouse.click(tabColumn + 1, tabRow);
     await setup.renderOnce();
 
-    // Assert
-    await waitForText(setup, "status: pending");
+    // Assert - branded launcher cards, and the submitter kept in the footer
+    await waitForText(setup, "claude code");
     const frame = setup.captureCharFrame();
+    expect(frame).toContain("Ask an agent about this plan");
+    expect(frame).toContain("codex");
     expect(frame).toContain("agent/worker-3");
-    expect(frame).toContain("status: pending");
-    expect(frame).toContain("revision 1");
   });
 });
 

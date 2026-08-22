@@ -23,6 +23,7 @@ const rail = {
   onSelectCuration: () => {},
   onUndoCuration: () => {},
   onSubmitRequest: () => {},
+  onLaunchHarness: () => {},
 };
 
 const panelCallbacks = { onDividerGrab: () => {}, onToggle: () => {} };
