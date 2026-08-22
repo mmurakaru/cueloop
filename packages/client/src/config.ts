@@ -318,6 +318,33 @@ function persistUiSetting(key: string, rendered: string, userConfigPath?: string
   writeFileSync(path, text);
 }
 
+/** A double-quoted TOML basic string with the quote-breaking characters escaped. */
+function tomlString(value: string): string {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
+}
+
+/**
+ * Persist the whole quick-action set as `[[actions]]` tables, replacing any
+ * existing ones. The set is the user's entire vocabulary (not merged), so the
+ * old blocks are stripped and the new ones appended. An empty set clears them.
+ */
+export function persistActions(actions: QuickAction[], userConfigPath?: string): void {
+  const path = userConfigPathFrom(userConfigPath);
+  let text = existsSync(path) ? readFileSync(path, "utf8") : "";
+  // strip every existing [[actions]] block (header through its key lines)
+  text = text.replace(/^\[\[actions\]\][^[]*/gm, "").trimEnd();
+  const blocks = actions
+    .map((action) => {
+      const lines = [`[[actions]]`, `prompt = ${tomlString(action.prompt)}`];
+      if (action.metadata) lines.push(`metadata = ${tomlString(action.metadata)}`);
+      return lines.join("\n");
+    })
+    .join("\n\n");
+  text = blocks ? `${text ? `${text}\n\n` : ""}${blocks}\n` : `${text}\n`;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, text);
+}
+
 /** Persist the auto-close choice (`[ui] auto_close`) into the user config. */
 export function persistAutoClose(value: AutoClose, userConfigPath?: string): void {
   persistUiSetting("auto_close", value === "off" ? '"off"' : String(value), userConfigPath);

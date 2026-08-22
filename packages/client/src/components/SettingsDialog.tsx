@@ -19,6 +19,8 @@ export interface SettingsCategory {
   name: string;
   description: string;
   rows: SettingsRowDescriptor[];
+  /** A bespoke body (e.g. the quick-actions editor) rendered instead of typed rows. */
+  customBody?: React.ReactNode;
 }
 
 export type SettingsValues = Record<string, string | boolean>;
@@ -86,6 +88,7 @@ export function SettingsDialog({
           <text fg={tokens.text}>{category.name}</text>
           <text fg={tokens.textDim}>{category.description}</text>
           <box style={{ height: 1 }} />
+          {category.customBody}
           {category.rows.map((row, rowIndex) => {
             const isActive = activeZone === "body" && rowIndex === activeRowIndex;
             const value = values[row.key];

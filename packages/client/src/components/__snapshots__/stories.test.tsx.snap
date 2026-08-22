@@ -1,61 +1,5 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its colors: ReviewRail/AgentTab 1`] = `
-" ╭───────────────────────────────╮      
- │ Review  Agent                 │      
- ╰───────────────────────────────╯      
-                                        
-   Ask an agent about this plan         
-   ╭─────────────────────────────╮      
-   │  ▛████▜   claude code       │      
-   │ ▜██████▛  launch in rail ▸  │      
-   │  ▝▝  ▝▝                     │      
-   ╰─────────────────────────────╯      
-                                        
-   ╭─────────────────────────────╮      
-   │ ███       pi                │      
-   │ █ █       launch in rail ▸  │      
-   │ ██ █                        │      
-   │ █  █                        │      
-   ╰─────────────────────────────╯      
-                                        
-   ╭─────────────────────────────╮      
-   │ ┌───┐     codex             │      
-   │ │>_ │     launch in rail ▸  │      
-   │ └───┘                       │      
-   ╰─────────────────────────────╯      
-                                        
-"
-`;
-
-exports[`stories catalog AgentLauncher/Launcher renders, snapshots, and carries its colors: AgentLauncher/Launcher 1`] = `
-"  Ask an agent about this plan          
-                                        
-  ╭────────────────────────────────────╮
-  │  ▛████▜   claude code              │
-  │ ▜██████▛  launch in rail ▸         │
-  │  ▝▝  ▝▝                            │
-  ╰────────────────────────────────────╯
-                                        
-  ╭────────────────────────────────────╮
-  │ ███       pi                       │
-  │ █ █       launch in rail ▸         │
-  │ ██ █                               │
-  │ █  █                               │
-  ╰────────────────────────────────────╯
-                                        
-  ╭────────────────────────────────────╮
-  │ ┌───┐     codex                    │
-  │ │>_ │     launch in rail ▸         │
-  │ └───┘                              │
-  ╰────────────────────────────────────╯
-                                        
-  plan context: seed the plan ▸         
-                                        
-  agent/worker-3 · pending · rev 1      
-"
-`;
-
 exports[`stories catalog AnnotationCard/CommentDraft renders, snapshots, and carries its colors: AnnotationCard/CommentDraft 1`] = `
 "╭─ comment on "persists sessions" ─────────────────────────────────────────────╮
 │ Which daemon?                                                                │
@@ -988,6 +932,34 @@ exports[`stories catalog ReviewPanel/Hidden renders, snapshots, and carries its 
 "
 `;
 
+exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its colors: ReviewRail/AgentTab 1`] = `
+" ╭───────────────────────────────╮      
+ │ Review  Agent                 │      
+ ╰───────────────────────────────╯      
+                                        
+   Ask an agent about this plan         
+   ╭─────────────────────────────╮      
+   │  ▛████▜   claude code       │      
+   │ ▜██████▛  launch in rail ▸  │      
+   │  ▝▝  ▝▝                     │      
+   ╰─────────────────────────────╯      
+                                        
+   ╭─────────────────────────────╮      
+   │ ███       pi                │      
+   │ █ █       launch in rail ▸  │      
+   │ ██ █                        │      
+   │ █  █                        │      
+   ╰─────────────────────────────╯      
+                                        
+   ╭─────────────────────────────╮      
+   │ ┌───┐     codex             │      
+   │ │>_ │     launch in rail ▸  │      
+   │ └───┘                       │      
+   ╰─────────────────────────────╯      
+                                        
+"
+`;
+
 exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carries its colors: ReviewRail/AnnotationStack 1`] = `
 " ╭───────────────────────────────╮      
  │ Review  Agent                 │      
@@ -1420,6 +1392,34 @@ exports[`stories catalog WalkWizard/WithAgentNote renders, snapshots, and carrie
 "
 `;
 
+exports[`stories catalog AgentLauncher/Launcher renders, snapshots, and carries its colors: AgentLauncher/Launcher 1`] = `
+"  Ask an agent about this plan          
+                                        
+  ╭────────────────────────────────────╮
+  │  ▛████▜   claude code              │
+  │ ▜██████▛  launch in rail ▸         │
+  │  ▝▝  ▝▝                            │
+  ╰────────────────────────────────────╯
+                                        
+  ╭────────────────────────────────────╮
+  │ ███       pi                       │
+  │ █ █       launch in rail ▸         │
+  │ ██ █                               │
+  │ █  █                               │
+  ╰────────────────────────────────────╯
+                                        
+  ╭────────────────────────────────────╮
+  │ ┌───┐     codex                    │
+  │ │>_ │     launch in rail ▸         │
+  │ └───┘                              │
+  ╰────────────────────────────────────╯
+                                        
+  plan context: seed the plan ▸         
+                                        
+  agent/worker-3 · pending · rev 1      
+"
+`;
+
 exports[`stories catalog primitives/Button/Disabled renders, snapshots, and carries its colors: primitives/Button/Disabled 1`] = `
 " Edit                                                                           
                                                                                 
@@ -1689,6 +1689,58 @@ exports[`stories catalog primitives/Toolbar/ActionRow renders, snapshots, and ca
                                                                                 
                                                                                 
                                                                                 
+"
+`;
+
+exports[`stories catalog QuickActionsEditor/Collapsed renders, snapshots, and carries its colors: QuickActionsEditor/Collapsed 1`] = `
+"  click a prompt to edit its system  reset to         
+  prompt                             defaults ▸       
+                                                      
+  ▸ Zoom out, research in depth                       
+    Research the broader problem, prior art, an…      
+  ▸ Restate simplified                                
+    Restate this as the simplest thing that wor…      
+  ▸ Out of scope                                      
+    This is out of scope for the task, so captu…      
+  ▸ Let's chat about this                             
+    Do not implement yet, and surface the open …      
+  ▸ Prototype this                                    
+    Build a throwaway prototype to answer the q…      
+  ▸ Ensure 0 regressions                              
+    Characterize the current behavior with test…      
+  ▸ Consider existing repo patterns                   
+    Follow the nearest existing pattern in this…      
+  + Add action                                        
+                                                      
+                                                      
+                                                      
+                                                      
+"
+`;
+
+exports[`stories catalog QuickActionsEditor/RowExpanded renders, snapshots, and carries its colors: QuickActionsEditor/RowExpanded 1`] = `
+"  click a prompt to edit its system  reset to         
+  prompt                             defaults ▸       
+                                                      
+  ▸ Zoom out, research in depth                       
+    Research the broader problem, prior art, an…      
+  ▾ Restate simplified                                
+    > Restate this as the simplest thing that works an
+  ▸ Out of scope                                      
+    This is out of scope for the task, so captu…      
+  ▸ Let's chat about this                             
+    Do not implement yet, and surface the open …      
+  ▸ Prototype this                                    
+    Build a throwaway prototype to answer the q…      
+  ▸ Ensure 0 regressions                              
+    Characterize the current behavior with test…      
+  ▸ Consider existing repo patterns                   
+    Follow the nearest existing pattern in this…      
+  + Add action                                        
+                                                      
+                                                      
+                                                      
+                                                      
 "
 `;
 

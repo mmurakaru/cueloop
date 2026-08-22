@@ -1,7 +1,7 @@
 /** The plan review surface v2: native selection feeds the annotation quote, the inline compose box keeps its anchor painted, the rail edits what the document selects, and edit-exit reconciliation orphans annotations whose passage was removed. Char-frame + styled-span assertions over the real App and a real in-process daemon. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
@@ -542,6 +542,33 @@ describe("sheet header", () => {
     expect(frame).toContain("Ask an agent about this plan");
     expect(frame).toContain("codex");
     expect(frame).toContain("agent/worker-3");
+  });
+});
+
+describe("quick-actions settings editor", () => {
+  test("expanding an action edits its system prompt inline and persists it", async () => {
+    // Arrange
+    const setup = await renderApp();
+    const clickText = async (needle: string): Promise<void> => {
+      const lines = setup.captureCharFrame().split("\n");
+      const row = lines.findIndex((line) => line.includes(needle));
+      await setup.mockMouse.click(lines[row]!.indexOf(needle) + 1, row);
+      await setup.renderOnce();
+    };
+
+    // Act - open Settings, enter Actions, expand the first action, type into its input
+    await clickText("menu");
+    await clickText("Settings");
+    await clickText("Actions");
+    await clickText("Zoom out, research in depth");
+    await type(setup, "CUSTOM");
+    await setup.renderOnce();
+
+    // Assert - the keystrokes reached the focused input (not swallowed by nav) and persisted
+    expect(setup.captureCharFrame()).toContain("CUSTOM");
+    await waitForState(setup, () =>
+      readFileSync(join(home, "no-config.toml"), "utf8").includes("CUSTOM"),
+    );
   });
 });
 

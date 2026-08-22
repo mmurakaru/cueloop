@@ -9,6 +9,7 @@ import {
   loadConfig,
   persistAuthorName,
   persistReviewState,
+  persistActions,
   persistReviewWidth,
   persistTheme,
   quickActionBody,
@@ -414,6 +415,33 @@ describe("quick actions ([[actions]])", () => {
 
       // Assert
       expect(config.actions).toEqual([{ prompt: "Keep this one" }]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("persistActions", () => {
+  test("round-trips the action set through [[actions]] and replaces prior ones", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-persist-actions-"));
+    const path = join(dir, "config.toml");
+    writeFileSync(path, `[[actions]]\nprompt = "old one"\n\n[ui]\nauto_close = 3\n`);
+
+    try {
+      // Act
+      persistActions(
+        [{ prompt: "Zoom out" }, { prompt: "Prototype", metadata: "skip tests and polish" }],
+        path,
+      );
+      const config = loadConfig({ userConfigPath: path });
+
+      // Assert - the old action is gone, the new set is read back, and [ui] survives
+      expect(config.actions).toEqual([
+        { prompt: "Zoom out" },
+        { prompt: "Prototype", metadata: "skip tests and polish" },
+      ]);
+      expect(config.ui.autoClose).toBe(3);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
