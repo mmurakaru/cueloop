@@ -1,5 +1,61 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
+exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its colors: ReviewRail/AgentTab 1`] = `
+" ╭───────────────────────────────╮      
+ │ Review  Agent                 │      
+ ╰───────────────────────────────╯      
+                                        
+   Ask an agent about this plan         
+   ╭─────────────────────────────╮      
+   │  ▛████▜   claude code       │      
+   │ ▜██████▛  launch in rail ▸  │      
+   │  ▝▝  ▝▝                     │      
+   ╰─────────────────────────────╯      
+                                        
+   ╭─────────────────────────────╮      
+   │ ███       pi                │      
+   │ █ █       launch in rail ▸  │      
+   │ ██ █                        │      
+   │ █  █                        │      
+   ╰─────────────────────────────╯      
+                                        
+   ╭─────────────────────────────╮      
+   │ ┌───┐     codex             │      
+   │ │>_ │     launch in rail ▸  │      
+   │ └───┘                       │      
+   ╰─────────────────────────────╯      
+                                        
+"
+`;
+
+exports[`stories catalog AgentLauncher/Launcher renders, snapshots, and carries its colors: AgentLauncher/Launcher 1`] = `
+"  Ask an agent about this plan          
+                                        
+  ╭────────────────────────────────────╮
+  │  ▛████▜   claude code              │
+  │ ▜██████▛  launch in rail ▸         │
+  │  ▝▝  ▝▝                            │
+  ╰────────────────────────────────────╯
+                                        
+  ╭────────────────────────────────────╮
+  │ ███       pi                       │
+  │ █ █       launch in rail ▸         │
+  │ ██ █                               │
+  │ █  █                               │
+  ╰────────────────────────────────────╯
+                                        
+  ╭────────────────────────────────────╮
+  │ ┌───┐     codex                    │
+  │ │>_ │     launch in rail ▸         │
+  │ └───┘                              │
+  ╰────────────────────────────────────╯
+                                        
+  plan context: seed the plan ▸         
+                                        
+  agent/worker-3 · pending · rev 1      
+"
+`;
+
 exports[`stories catalog AnnotationCard/CommentDraft renders, snapshots, and carries its colors: AnnotationCard/CommentDraft 1`] = `
 "╭─ comment on "persists sessions" ─────────────────────────────────────────────╮
 │ Which daemon?                                                                │
@@ -929,34 +985,6 @@ exports[`stories catalog ReviewPanel/Hidden renders, snapshots, and carries its 
                                                             
                                                             
                                                             
-"
-`;
-
-exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its colors: ReviewRail/AgentTab 1`] = `
-" ╭───────────────────────────────╮      
- │ Review  Agent                 │      
- ╰───────────────────────────────╯      
-                                        
-   agent/worker-3                       
-   status: pending                      
-   revision 1                           
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
 "
 `;
 

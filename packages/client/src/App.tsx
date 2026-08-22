@@ -37,6 +37,7 @@ import type { Theme } from "./theme";
 import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
+import { launchHarnessInSplit } from "@cueloop/daemon/herdr-split";
 import {
   activeSpanState,
   createIntentDispatch,
@@ -989,6 +990,12 @@ export function App({
               onSelectCuration: selectCurationFromRail,
               onUndoCuration: undoCurationFromRail,
               onSubmitRequest,
+              onLaunchHarness: (command, seedText) =>
+                launchHarnessInSplit({
+                  command,
+                  cwd: activeSession.artifact.meta.cwd ?? process.cwd(),
+                  seedText,
+                }),
             }}
           />
         </box>

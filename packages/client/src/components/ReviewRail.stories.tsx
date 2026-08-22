@@ -14,6 +14,7 @@ const callbacks = {
   onSelectCuration: () => {},
   onUndoCuration: () => {},
   onSubmitRequest: () => {},
+  onLaunchHarness: () => {},
 };
 
 /** The rail expects a height-constrained parent, like the app's main row. */
