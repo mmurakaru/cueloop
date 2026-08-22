@@ -1,5 +1,25 @@
 # cueloop
 
+## 0.1.0-alpha.40
+
+### Minor Changes
+
+- [#221](https://github.com/mmurakaru/cueloop/pull/221) [`0c26b3f`](https://github.com/mmurakaru/cueloop/commit/0c26b3f8f164b6a89ce56108cf5de88118e751e4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Turn the review rail's Agent tab into a bring-your-own-harness launcher. It now shows branded claude code / pi / codex cards; clicking one runs that harness in a herdr split beside the review, so a reviewer can ask an agent about the plan without leaving the tab. A plan-context toggle seeds a briefing (read the plan, comment via `session annotate`, do not rewrite) into the launched split. The old dead agent/status/revision placeholder becomes a compact footer line.
+
+- [#223](https://github.com/mmurakaru/cueloop/pull/223) [`778f601`](https://github.com/mmurakaru/cueloop/commit/778f601fce1633acf3a7e9b5896d45ec59385984) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Enforce owner / collaborator / agent roles at the daemon socket. A connection is the owner by default (local single-user is unchanged); a review-side agent connects with `--role agent` (a `daemon.hello` handshake), and the daemon then caps it to reading the session and adding annotations - any attempt to resolve, submit a revision, edit, cut, share, or delete is refused. The capability map is one source of truth (`capabilities.ts`). The `cueloop:annotate` skill now passes `--role agent`, so a bring-your-own agent literally cannot escalate.
+
+- [#222](https://github.com/mmurakaru/cueloop/pull/222) [`d740fd2`](https://github.com/mmurakaru/cueloop/commit/d740fd2f7077b81b0dd4ec1e02df82d4e54d1819) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add a Settings "Actions" category to edit the quick-action vocabulary. Each quick action is a row whose prompt, when clicked, expands a focused input for its system prompt (the guidance appended when the action is used); a reset-to-defaults control and an add-action row bracket the list. Edits persist to `[[actions]]` in the user config, so the presets a human picks and the ones an agent references via `annotate --action` stay one shared, editable set.
+
+### Patch Changes
+
+- [#219](https://github.com/mmurakaru/cueloop/pull/219) [`af1f33c`](https://github.com/mmurakaru/cueloop/commit/af1f33cfcbb4a0dbaa0fac9d9cbaccbb4107ca1c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Fix the plan-gate review opening no herdr tab when the daemon is stale. Recalling the recorded tab handle from the daemon is now isolated from the tab-open flow, so a daemon that predates the herdr-tab verbs (or any recall failure) degrades to opening a fresh tab instead of silently opening nothing. The store write is likewise best-effort: a failure loses only the liveness-dedup handle, never the already-open tab.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.40
+  - @cueloop/client@0.1.0-alpha.40
+  - @cueloop/daemon@0.1.0-alpha.40
+  - @cueloop/schema@0.1.0-alpha.40
+
 ## 0.1.0-alpha.39
 
 ### Minor Changes
