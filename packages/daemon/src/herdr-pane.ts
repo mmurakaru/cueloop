@@ -103,20 +103,41 @@ export async function openHerdrPaneForReview(
 ): Promise<void> {
   const herdr = detectHerdr(env);
   if (!herdr) return;
+  const recorded = await recallHerdrTab(persistence, session.id);
+  if (recorded && herdrPaneAlive(herdr.binPath, recorded.paneId)) {
+    focusHerdrTab(herdr.binPath, recorded.tabId);
+    return;
+  }
+  const opened = openHerdrPane({
+    sessionId: session.id,
+    cwd: session.artifact.meta.cwd ?? process.cwd(),
+    binPath: herdr.binPath,
+    label: session.artifact.meta.title ?? session.id,
+  });
+  if (opened) await rememberHerdrTab(persistence, session.id, opened);
+}
+
+/** The recorded handle, or null on any recall failure - a stale daemon must still open a fresh tab, not abort. */
+async function recallHerdrTab(
+  persistence: HerdrTabPersistence,
+  sessionId: string,
+): Promise<HerdrTabHandle | null> {
   try {
-    const recorded = await persistence.herdrGetTab(session.id);
-    if (recorded && herdrPaneAlive(herdr.binPath, recorded.paneId)) {
-      focusHerdrTab(herdr.binPath, recorded.tabId);
-      return;
-    }
-    const opened = openHerdrPane({
-      sessionId: session.id,
-      cwd: session.artifact.meta.cwd ?? process.cwd(),
-      binPath: herdr.binPath,
-      label: session.artifact.meta.title ?? session.id,
-    });
-    if (opened) await persistence.herdrSetTab(session.id, opened);
+    return await persistence.herdrGetTab(sessionId);
   } catch {
-    // best-effort: a herdr spawn or a daemon persistence hiccup never blocks review creation
+    return null;
+  }
+}
+
+/** Record the handle for later liveness checks; a store failure loses dedup, never the already-open tab. */
+async function rememberHerdrTab(
+  persistence: HerdrTabPersistence,
+  sessionId: string,
+  handle: HerdrTabHandle,
+): Promise<void> {
+  try {
+    await persistence.herdrSetTab(sessionId, handle);
+  } catch {
+    // stale daemon: the tab is already shown; only the liveness-dedup handle is lost
   }
 }
