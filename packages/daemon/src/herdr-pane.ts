@@ -117,11 +117,7 @@ export async function openHerdrPaneForReview(
   if (opened) await rememberHerdrTab(persistence, session.id, opened);
 }
 
-/**
- * The recorded handle, or null when it cannot be recalled. A daemon that predates
- * the herdr-tab verbs rejects the call; recalling nothing still opens a fresh tab
- * rather than aborting the open (the stale-daemon trap).
- */
+/** The recorded handle, or null on any recall failure - a stale daemon must still open a fresh tab, not abort. */
 async function recallHerdrTab(
   persistence: HerdrTabPersistence,
   sessionId: string,
