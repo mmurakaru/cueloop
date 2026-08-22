@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/schema",
-  "version": "0.1.0-alpha.35",
+  "version": "0.1.0-alpha.36",
   "description": "The ReviewSession primitive: types, markdown block model, quote-primary anchors, feedback serialization",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {

@@ -1,5 +1,21 @@
 # cueloop
 
+## 0.1.0-alpha.36
+
+### Minor Changes
+
+- [#205](https://github.com/mmurakaru/cueloop/pull/205) [`93386e6`](https://github.com/mmurakaru/cueloop/commit/93386e68611a2b94e1a17b3810ba44fd7ad41069) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The automatic plan-mode gate (the `ExitPlanMode` hook) is now non-blocking. Instead of freezing the turn until the reviewer decides, it opens the review, arms a detached inbox waiter, and denies the exit immediately - so the agent ends its turn and you keep chatting while the plan is open. When you submit a verdict cueloop injects it into the live session; on approval the agent presents the same plan again and is allowed through. This closes the last place plan review still blocked the agent.
+
+### Patch Changes
+
+- [#205](https://github.com/mmurakaru/cueloop/pull/205) [`7b6bf93`](https://github.com/mmurakaru/cueloop/commit/7b6bf934b86a8fd4ba57b0bf874c27040eaf9fca) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The plan, diff, and review skills no longer block the agent on `session wait`. They submit the review, arm a detached `cueloop wake` that injects the verdict into the live session over the inbox socket, and end the turn - so the human keeps chatting while the review is open and the agent resumes itself when the verdict lands. A `session wait` fallback stays for sessions with no messaging inbox.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.36
+  - @cueloop/client@0.1.0-alpha.36
+  - @cueloop/daemon@0.1.0-alpha.36
+  - @cueloop/schema@0.1.0-alpha.36
+
 ## 0.1.0-alpha.35
 
 ### Minor Changes

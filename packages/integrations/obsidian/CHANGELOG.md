@@ -1,5 +1,13 @@
 # @cueloop/integration-obsidian
 
+## 0.1.0-alpha.36
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.36
+  - @cueloop/schema@0.1.0-alpha.36
+
 ## 0.1.0-alpha.35
 
 ### Patch Changes
