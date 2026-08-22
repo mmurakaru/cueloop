@@ -17,19 +17,23 @@ You may **read** and **comment** only. You may not rewrite the plan
 the human's alone), or cut / edit / share (owner-only). The plan stays
 single-writer: you annotate, the human curates, the verdict carries it back.
 
+Pass `--role agent` on every command below. The daemon then caps this connection
+to read + annotate and rejects any escalation - the boundary is enforced, not
+just documented.
+
 ## Steps
 
 1. Read the artifact and its existing annotations:
 
    ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session get <id>
+   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session get <id> --role agent
    ```
 
 2. See the shared quick-action vocabulary for this session (the same presets the
    human picks); `--session` reads the reviewed session's own repo:
 
    ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts actions list --session <id>
+   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts actions list --session <id> --role agent
    ```
 
 3. Comment on a span. **Anchor contract: `--quote` is the exact text from the
@@ -39,7 +43,7 @@ single-writer: you annotate, the human curates, the verdict carries it back.
    `--author` (and `--author-name` on the first comment so the rail shows a name):
 
    ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session annotate <id> \
+   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session annotate <id> --role agent \
      --author <collaborator-id> --author-name "<display name>" \
      --quote "<exact span from the plan>" \
      --body "<your comment>"
@@ -49,7 +53,7 @@ single-writer: you annotate, the human curates, the verdict carries it back.
    name from `actions list`:
 
    ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session annotate <id> \
+   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session annotate <id> --role agent \
      --author <collaborator-id> --quote "<exact span>" --action "Out of scope"
    ```
 

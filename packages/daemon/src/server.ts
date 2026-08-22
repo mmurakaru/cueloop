@@ -16,6 +16,7 @@ import {
 } from "node:fs";
 import { DaemonCore, type DaemonEvent } from "./api";
 import { DaemonError } from "./errors";
+import { roleAllowsMethod, type DaemonRole } from "./capabilities";
 import { isKnownMethod, parseParams } from "./validate";
 import { BackpressureWriter, LineBuffer, type Request } from "./protocol";
 import { cueloopHome, lockPath, pidPath, socketPath } from "./paths";
@@ -23,6 +24,8 @@ import { cueloopHome, lockPath, pidPath, socketPath } from "./paths";
 interface Connection {
   write(data: string): void;
   subscribed: boolean;
+  /** Capability role for this connection; the owner until a daemon.hello caps it. */
+  role: DaemonRole;
 }
 
 export interface DaemonOptions {
@@ -136,7 +139,11 @@ export class DaemonServer {
       socket: {
         open: (socket) => {
           const writer = new BackpressureWriter(socket);
-          const connection: Connection = { write: (data) => writer.write(data), subscribed: false };
+          const connection: Connection = {
+            write: (data) => writer.write(data),
+            subscribed: false,
+            role: "owner",
+          };
           socket.data = { buffer: new LineBuffer(), connection, writer };
           this.connections.add(connection);
           this.scheduleIdleCheck();
@@ -219,10 +226,18 @@ export class DaemonServer {
     if (typeof request.method !== "string" || !isKnownMethod(request.method)) {
       throw new DaemonError("unknown_method", `unknown method ${String(request.method)}`);
     }
+    // Capability gate: a capped role (a review-side agent) cannot escalate past
+    // read + annotate, whatever verb it sends.
+    if (!roleAllowsMethod(connection.role, request.method)) {
+      throw new DaemonError("forbidden", `role ${connection.role} cannot call ${request.method}`);
+    }
     const core = this.core;
     switch (request.method) {
       case "daemon.ping":
         return { pid: process.pid };
+      case "daemon.hello":
+        connection.role = parseParams("daemon.hello", request.params).role;
+        return {};
       case "daemon.shutdown":
         setTimeout(() => {
           this.stop();

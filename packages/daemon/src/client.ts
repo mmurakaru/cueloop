@@ -14,6 +14,7 @@ import type {
   WorkspaceKey,
 } from "@cueloop/schema";
 import { BackpressureWriter, LineBuffer, type EventFrame, type Response } from "./protocol";
+import type { DaemonRole } from "./capabilities";
 import type { HerdrTabHandle } from "./herdr-tab-store";
 import { cueloopHome, socketPath } from "./paths";
 
@@ -23,6 +24,8 @@ export interface ConnectOptions {
   home?: string;
   /** Spawn the daemon when the socket is not alive. */
   autostart?: boolean;
+  /** Capability role for this connection; a review-side agent connects capped. Defaults to owner. */
+  role?: DaemonRole;
 }
 
 type PendingRequest = { resolve: (value: unknown) => void; reject: (error: Error) => void };
@@ -65,11 +68,13 @@ export class DaemonClient implements SessionClient {
   private nextId = 1;
   private eventListeners = new Set<(event: EventFrame) => void>();
   private closed = false;
+  private role: DaemonRole = "owner";
 
   static async connect(options: ConnectOptions = {}): Promise<DaemonClient> {
     const home = options.home ?? cueloopHome();
     const path = socketPath(home);
     const client = new DaemonClient();
+    client.role = options.role ?? "owner";
     try {
       await client.dial(path);
       return client;
@@ -119,6 +124,8 @@ export class DaemonClient implements SessionClient {
     // Verify liveness: a dead socket file accepts connects on some platforms
     // only to fail later, so a ping is the actual handshake.
     await this.request("daemon.ping", {}, 2_000);
+    // Cap this connection's role for the daemon's capability gate (owner is the default).
+    if (this.role !== "owner") await this.request("daemon.hello", { role: this.role }, 2_000);
   }
 
   onEvent(listener: (event: EventFrame) => void): () => void {

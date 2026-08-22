@@ -314,6 +314,50 @@ describe("cueloop session (black box)", () => {
     rmSync(repo, { recursive: true, force: true });
   });
 
+  test("--role agent is capped at the daemon: annotate allowed, resolve forbidden", async () => {
+    // Arrange
+    const capped = cliJson<ReviewSession>(
+      await runCli(
+        home,
+        ["session", "create", "--type", "plan", "--title", "Capped"],
+        "# Plan\n\n## Steps\n\nGuard the boundary.\n",
+      ),
+    );
+
+    // Act - a review-side agent annotates (allowed)
+    const annotated = await runCli(home, [
+      "session",
+      "annotate",
+      capped.id,
+      "--role",
+      "agent",
+      "--quote",
+      "boundary",
+      "--author",
+      "SHA256:agent",
+      "--body",
+      "which boundary?",
+    ]);
+
+    // Assert
+    expect(annotated.code).toBe(0);
+
+    // Act - the same agent tries to resolve (owner-only)
+    const resolved = await runCli(home, [
+      "session",
+      "resolve",
+      capped.id,
+      "--role",
+      "agent",
+      "--verdict",
+      "approve",
+    ]);
+
+    // Assert - the daemon refuses the escalation
+    expect(resolved.code).not.toBe(0);
+    expect(resolved.stderr).toContain("cannot call session.resolve");
+  });
+
   test("help output and unknown verbs", async () => {
     // Act
     const help = await runCli(home, ["help"]);
