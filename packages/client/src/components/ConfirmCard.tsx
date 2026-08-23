@@ -103,7 +103,7 @@ export function ConfirmCard({
     <Card
       title=" submit review "
       contentRows={CONFIRM_CONTENT_ROWS + (viewedSummary !== undefined ? 1 : 0)}
-      borderColor={tokens.accent}
+      borderColor={tokens.text}
       backgroundColor="transparent"
       marginRight={1}
       theme={theme}
