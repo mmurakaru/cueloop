@@ -87,6 +87,20 @@ function backgroundsOf(setup: Setup, needle: string): string[] {
   return backgrounds;
 }
 
+function foregroundsOf(setup: Setup, needle: string): string[] {
+  const foregrounds: string[] = [];
+  for (const line of setup.captureSpans().lines) {
+    for (const span of line.spans) {
+      if (!span.text.includes(needle)) continue;
+      const [red, green, blue] = span.fg.toInts();
+      foregrounds.push(
+        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""),
+      );
+    }
+  }
+  return foregrounds;
+}
+
 /** Move the cursor to "The daemon persists sessions to disk atomically." */
 async function toContextParagraph(setup: Setup): Promise<void> {
   await press(setup, "j");
@@ -615,9 +629,9 @@ describe("edit-exit reconciliation", () => {
 
       // Act
       // deselect the card so e reaches the editor hand-off, then edit; deselection
-      // shows as the card's selected fill (elevated) clearing to a transparent card
+      // shows as the card's quote line dropping the selection tone (accent)
       await press(setup, "escape");
-      await waitForState(setup, () => !backgroundsOf(setup, "Anchor me").includes(DARK.elevated));
+      await waitForState(setup, () => !foregroundsOf(setup, "The daemon").includes(DARK.accent));
       await press(setup, "e");
 
       // Assert

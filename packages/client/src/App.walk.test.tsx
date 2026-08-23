@@ -242,7 +242,8 @@ describe("the guided walk", () => {
     await press(setup, "escape");
     await waitForTextGone(setup, "agent note");
     await press(setup, "enter");
-    await waitForText(setup, "0 annotations");
+    // nothing pending despite the note, so the confirm card defaults to approve
+    await waitForText(setup, "[Approve]");
     await press(setup, "enter");
 
     // Assert

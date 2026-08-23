@@ -43,6 +43,11 @@ const LINK_ATTRIBUTES = createTextAttributes({ underline: true });
 const HEADING_ATTRIBUTES = createTextAttributes({ bold: true });
 const QUOTE_ATTRIBUTES = createTextAttributes({ italic: true });
 
+/** The popover toolbar card is 3 rows tall; +1 keeps a gap over the marked words. */
+const POPOVER_ROWS_ABOVE = 4;
+/** Widest toolbar row ("comment · cut · actions · [x]") plus border and padding. */
+const POPOVER_TOOLBAR_COLUMNS = 33;
+
 export interface PlanSelection {
   displayIndex: number;
   start: number;
@@ -83,6 +88,13 @@ export interface PlanSheetProps {
   popover: PlanPopoverState | null;
   editOrphanCount: number;
   onLineActivate: (displayIndex: number) => void;
+  /**
+   * Fires on any mouse release inside the sheet. A drag released outside a
+   * block's text (the gutter, past a line end, a gap between blocks) never
+   * reaches a block's own handler, so this fallback lets the app still turn
+   * the finished drag's native selection into a span.
+   */
+  onSelectionRelease?: () => void;
   theme?: Theme;
 }
 
@@ -118,6 +130,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     popover,
     editOrphanCount,
     onLineActivate,
+    onSelectionRelease,
     theme,
   }: PlanSheetProps,
   handleRef,
@@ -176,23 +189,33 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     },
   }));
 
-  // the popover floats above its block, anchored to the selection start; flip
-  // below when the block sits too near the viewport top to fit above it
-  const [popoverFlipBelow, setPopoverFlipBelow] = useState(false);
+  // the popover floats one row above the marked words, anchored to the
+  // selection start mapped through the wrap geometry (line + column, not the
+  // block's linear offset). It renders as the LAST child of the scrollbox in
+  // content coordinates: content coordinates are scroll-invariant so the card
+  // tracks its block, and the last sibling paints over every block it floats
+  // across. Flips below when the line sits too near the viewport top.
+  const [popoverTop, setPopoverTop] = useState(0);
   const [popoverLeft, setPopoverLeft] = useState(2);
   useEffect(() => {
     if (!popover) return;
     const blockRef = blockRefs.current.get(popover.displayIndex);
     const scrollbox = scrollRef.current;
     if (!blockRef || !scrollbox) return;
-    // only the toolbar (3 rows) + gap must fit above; the dropdown flows down
-    setPopoverFlipBelow(blockRef.renderable.y - scrollbox.y < 4);
-    // left-anchor to the start of the selection: gutter width + its column
-    const startColumn =
+    const renderedStart =
       activeSpan && activeSpan.displayIndex === popover.displayIndex
         ? (renderedOffsetFor(blockRef.runs, activeSpan.start) ?? 0)
         : 0;
-    setPopoverLeft(2 + startColumn);
+    const startPosition = positionOfRenderedOffset(blockRef.renderable, renderedStart);
+    const content = scrollbox.content;
+    const anchorLeft = startPosition.x - content.x;
+    const anchorTop = startPosition.y - content.y;
+    // clamp so the toolbar card never runs past the content's right edge
+    const maxLeft = Math.max(0, content.width - POPOVER_TOOLBAR_COLUMNS);
+    setPopoverLeft(Math.min(anchorLeft, maxLeft));
+    // only the toolbar (3 rows) + gap must fit above; the dropdown flows down
+    const lineViewportRow = startPosition.y - scrollbox.y;
+    setPopoverTop(anchorTop + (lineViewportRow < POPOVER_ROWS_ABOVE ? 1 : -POPOVER_ROWS_ABOVE));
   }, [popover, activeSpan, display, cursor]);
 
   const registerBlock = (
@@ -245,13 +268,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
         <box
           key={displayIndex}
           id={`plan-block-${displayIndex}`}
-          // raise the block holding the popover so its overlay paints over the
-          // later blocks it floats across (siblings paint in z-index order)
-          style={{
-            flexDirection: "row",
-            marginTop: gap,
-            zIndex: popover?.displayIndex === displayIndex ? 10 : undefined,
-          }}
+          style={{ flexDirection: "row", marginTop: gap }}
         >
           <text selectable={false}>
             <span fg={isCursor ? tokens.accent : tokens.textDim}>{isCursor ? "▎ " : "  "}</span>
@@ -284,22 +301,6 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
               <span fg={tagColor(block, tokens)}> [{tagLabel(block)}]</span>
             ) : null}
           </text>
-          {popover && popover.displayIndex === displayIndex ? (
-            // float the card over the block, centered, with a one-row gap; flip
-            // below only when there is no room above (near the viewport top)
-            <box
-              style={{
-                position: "absolute",
-                left: popoverLeft,
-                // fixed offset: the toolbar sits one row above the selection and
-                // stays put; the dropdown flows down from it, over the selection
-                top: popoverFlipBelow ? 1 : -4,
-                flexDirection: "column",
-              }}
-            >
-              <MarkerPopover {...popover} theme={theme} />
-            </box>
-          ) : null}
         </box>,
       );
     }
@@ -315,9 +316,26 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
       );
     }
   }
+  if (popover) {
+    // last child on purpose: later siblings paint on top, so the floating card
+    // covers every block it overlaps regardless of scroll position
+    children.push(
+      <box
+        key="marker-popover"
+        style={{
+          position: "absolute",
+          left: popoverLeft,
+          top: popoverTop,
+          flexDirection: "column",
+        }}
+      >
+        <MarkerPopover {...popover} theme={theme} />
+      </box>,
+    );
+  }
 
   return (
-    <box style={{ flexGrow: 1, flexDirection: "column" }}>
+    <box style={{ flexGrow: 1, flexDirection: "column" }} onMouseUp={onSelectionRelease}>
       <box
         style={{
           flexGrow: 1,

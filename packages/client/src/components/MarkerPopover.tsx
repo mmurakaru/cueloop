@@ -8,6 +8,7 @@
  */
 
 import React from "react";
+import type { MouseEvent } from "@opentui/core";
 import type { Theme } from "../theme";
 import type { QuickAction } from "../config";
 import { useComponentTheme } from "./theme-context";
@@ -56,7 +57,12 @@ export function MarkerPopover({
   };
   const open = view === "actions";
   return (
-    <box style={{ flexDirection: "column", alignItems: "flex-start" }}>
+    <box
+      style={{ flexDirection: "column", alignItems: "flex-start" }}
+      // a release on the popover is the popover's own click; it must never
+      // bubble to the sheet's selection-release fallback and re-enter span mode
+      onMouseUp={(event: MouseEvent) => event.stopPropagation()}
+    >
       <box style={{ ...cardStyle, height: cardHeight(1) }}>
         <box style={{ flexDirection: "row" }}>
           <text fg={tokens.accent} onMouseUp={onComment}>
