@@ -6,6 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+import { HERMETIC_HERDR_ENV } from "../helpers/env";
 
 const HOOK = join(import.meta.dir, "..", "..", "packages", "adapters", "claude-code", "hook.ts");
 
@@ -14,7 +15,7 @@ async function runHookProcess(
   payload: string,
 ): Promise<{ out: string; code: number }> {
   const proc = Bun.spawn([process.execPath, "run", HOOK], {
-    env: { ...process.env, ...env },
+    env: { ...process.env, ...HERMETIC_HERDR_ENV, ...env },
     stdin: new TextEncoder().encode(payload),
     stdout: "pipe",
     stderr: "pipe",

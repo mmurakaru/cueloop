@@ -849,17 +849,17 @@ exports[`stories catalog ReviewPanel/Compact renders, snapshots, and carries its
 `;
 
 exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carries its colors: ReviewPanel/ExpandedNarrow 1`] = `
-" The plan takes the width the panel hands back.          ╭─────────────────────╮
-                                                         │ Review  Agent       │
-                                                         ╰─────────────────────╯
-                                                         ╭─ COMMENT · me ──────╮
-                                                         │ Whichidaemonsownss" │
-                                                         │ this?               │
-                                                         ╰─────────────────────╯
-                                                         ╭─ COMMENT · me ──────╮
-                                                         │ moveetheestoree"    │
-                                                         │ behind o…           │
-                                                         ╰─────────────────────╯
+" The plan takes the width the panel hands back.         ╭──────────────────────╮
+                                                        │ Review  Agent        │
+                                                        ╰──────────────────────╯
+                                                        ╭─ COMMENT · me ───────╮
+                                                        │ Whichidaemonsownss"  │
+                                                        │ this?                │
+                                                        ╰──────────────────────╯
+                                                        ╭─ COMMENT · me ───────╮
+                                                        │ moveetheestoree"     │
+                                                        │ behind o…            │
+                                                        ╰──────────────────────╯
                                                                                 
                                                                                 
                                                                                 
@@ -871,23 +871,23 @@ exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carr
                                                                                 
                                                                                 
                                                                                 
-                                                         >         Submit review
+                                                        >          Submit review
                                                                                 
 "
 `;
 
 exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carries its colors: ReviewPanel/ExpandedWide 1`] = `
-" The plan takes the width the panel      ╭───────────────────────────────────────────────╮
- hands back.                             │ Review  Agent                                 │
-                                         ╰───────────────────────────────────────────────╯
-                                         ╭─ COMMENT · me ────────────────────────────────╮
-                                         │ "persists sessions"                           │
-                                         │ Which daemon owns this?                       │
-                                         ╰───────────────────────────────────────────────╯
-                                         ╭─ COMMENT · me ────────────────────────────────╮
-                                         │ "move the store"                              │
-                                         │ move the store behind o…                      │
-                                         ╰───────────────────────────────────────────────╯
+" The plan takes the width the panel     ╭────────────────────────────────────────────────╮
+ hands back.                            │ Review  Agent                                  │
+                                        ╰────────────────────────────────────────────────╯
+                                        ╭─ COMMENT · me ─────────────────────────────────╮
+                                        │ "persists sessions"                            │
+                                        │ Which daemon owns this?                        │
+                                        ╰────────────────────────────────────────────────╯
+                                        ╭─ COMMENT · me ─────────────────────────────────╮
+                                        │ "move the store"                               │
+                                        │ move the store behind o…                       │
+                                        ╰────────────────────────────────────────────────╯
                                                                                           
                                                                                           
                                                                                           
@@ -899,7 +899,7 @@ exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carrie
                                                                                           
                                                                                           
                                                                                           
-                                         >                                   Submit review
+                                        >                                    Submit review
                                                                                           
 "
 `;
@@ -933,45 +933,45 @@ exports[`stories catalog ReviewPanel/Hidden renders, snapshots, and carries its 
 `;
 
 exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its colors: ReviewRail/AgentTab 1`] = `
-" ╭───────────────────────────────╮      
- │ Review  Agent                 │      
- ╰───────────────────────────────╯      
+"╭────────────────────────────────╮      
+│ Review  Agent                  │      
+╰────────────────────────────────╯      
+╭────────────────────────────────╮      
+│ Claude Code                    │      
+╰────────────────────────────────╯      
+╭────────────────────────────────╮      
+│ Pi                             │      
+╰────────────────────────────────╯      
+╭────────────────────────────────╮      
+│ OpenAI Codex                   │      
+╰────────────────────────────────╯      
+plan context: seed the plan             
                                         
-   Ask an agent about this plan         
-   ╭─────────────────────────────╮      
-   │  ▛████▜   claude code       │      
-   │ ▜██████▛  launch in rail ▸  │      
-   │  ▝▝  ▝▝                     │      
-   ╰─────────────────────────────╯      
                                         
-   ╭─────────────────────────────╮      
-   │ ███       pi                │      
-   │ █ █       launch in rail ▸  │      
-   │ ██ █                        │      
-   │ █  █                        │      
-   ╰─────────────────────────────╯      
                                         
-   ╭─────────────────────────────╮      
-   │ ┌───┐     codex             │      
-   │ │>_ │     launch in rail ▸  │      
-   │ └───┘                       │      
-   ╰─────────────────────────────╯      
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
                                         
 "
 `;
 
 exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carries its colors: ReviewRail/AnnotationStack 1`] = `
-" ╭───────────────────────────────╮      
- │ Review  Agent                 │      
- ╰───────────────────────────────╯      
- ╭─ COMMENT · me ────────────────╮      
- │ "persists sessions"           │      
- │ Which daemon owns this?       │      
- ╰───────────────────────────────╯      
- ╭─ COMMENT · me ────────────────╮      
- │ "move the store"              │      
- │ move the store behind o…      │      
- ╰───────────────────────────────╯      
+"╭────────────────────────────────╮      
+│ Review  Agent                  │      
+╰────────────────────────────────╯      
+╭─ COMMENT · me ─────────────────╮      
+│ "persists sessions"            │      
+│ Which daemon owns this?        │      
+╰────────────────────────────────╯      
+╭─ COMMENT · me ─────────────────╮      
+│ "move the store"               │      
+│ move the store behind o…       │      
+╰────────────────────────────────╯      
                                         
                                         
                                         
@@ -983,26 +983,26 @@ exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carr
                                         
                                         
                                         
- Submit review                          
+Submit review                           
                                         
 "
 `;
 
 exports[`stories catalog ReviewRail/InterleavedStack renders, snapshots, and carries its colors: ReviewRail/InterleavedStack 1`] = `
-" ╭───────────────────────────────╮      
- │ Review  Agent                 │      
- ╰───────────────────────────────╯      
- ╭─ CUT · me ────────────────────╮      
- │ - add recovery                │      
- ╰───────────────────────────────╯      
- ╭─ COMMENT · me ────────────────╮      
- │ "persists sessions"           │      
- │ Which daemon owns this?       │      
- ╰───────────────────────────────╯      
- ╭─ COMMENT · me ────────────────╮      
- │ "move the store"              │      
- │ move the store behind o…      │      
- ╰───────────────────────────────╯      
+"╭────────────────────────────────╮      
+│ Review  Agent                  │      
+╰────────────────────────────────╯      
+╭─ CUT · me ─────────────────────╮      
+│ - add recovery                 │      
+╰────────────────────────────────╯      
+╭─ COMMENT · me ─────────────────╮      
+│ "persists sessions"            │      
+│ Which daemon owns this?        │      
+╰────────────────────────────────╯      
+╭─ COMMENT · me ─────────────────╮      
+│ "move the store"               │      
+│ move the store behind o…       │      
+╰────────────────────────────────╯      
                                         
                                         
                                         
@@ -1011,23 +1011,23 @@ exports[`stories catalog ReviewRail/InterleavedStack renders, snapshots, and car
                                         
                                         
                                         
- Submit review                          
+Submit review                           
                                         
 "
 `;
 
 exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and carries its colors: ReviewRail/MixedOwnershipStack 1`] = `
-" ╭───────────────────────────────╮      
- │ Review  Agent                 │      
- ╰───────────────────────────────╯      
- ╭─ COMMENT · me ────────────────╮      
- │ "persists sessions"           │      
- │ Which daemon owns this?       │      
- ╰───────────────────────────────╯      
- ╭─ COMMENT · Priya ─────────────╮      
- │ "move the store"              │      
- │ move it behind one inte…      │      
- ╰───────────────────────────────╯      
+"╭────────────────────────────────╮      
+│ Review  Agent                  │      
+╰────────────────────────────────╯      
+╭─ COMMENT · me ─────────────────╮      
+│ "persists sessions"            │      
+│ Which daemon owns this?        │      
+╰────────────────────────────────╯      
+╭─ COMMENT · Priya ──────────────╮      
+│ "move the store"               │      
+│ move it behind one inte…       │      
+╰────────────────────────────────╯      
                                         
                                         
                                         
@@ -1039,25 +1039,25 @@ exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and 
                                         
                                         
                                         
- Submit review                          
+Submit review                           
                                         
 "
 `;
 
 exports[`stories catalog ReviewRail/Removals renders, snapshots, and carries its colors: ReviewRail/Removals 1`] = `
-" ╭───────────────────────────────╮      
- │ Review  Agent                 │      
- ╰───────────────────────────────╯      
- ╭─ REJECT · me ─────────────────╮      
- │ -   private items = [];       │      
- │ +   private items = new…      │      
- │  undo                         │      
- ╰───────────────────────────────╯      
- ╭─ REJECT · me ─────────────────╮      
- │ -   return null;              │      
- │ +   return fallback();        │      
- │ +   log(fallback);            │      
- ╰───────────────────────────────╯      
+"╭────────────────────────────────╮      
+│ Review  Agent                  │      
+╰────────────────────────────────╯      
+╭─ REJECT · me ──────────────────╮      
+│ -   private items = [];        │      
+│ +   private items = new…       │      
+│  undo                          │      
+╰────────────────────────────────╯      
+╭─ REJECT · me ──────────────────╮      
+│ -   return null;               │      
+│ +   return fallback();         │      
+│ +   log(fallback);             │      
+╰────────────────────────────────╯      
                                         
                                         
                                         
@@ -1067,23 +1067,23 @@ exports[`stories catalog ReviewRail/Removals renders, snapshots, and carries its
                                         
                                         
                                         
- Submit review                          
+Submit review                           
                                         
 "
 `;
 
 exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its colors: ReviewRail/Resolved 1`] = `
-" ╭───────────────────────────────╮      
- │ Review  Agent                 │      
- ╰───────────────────────────────╯      
- ╭─ COMMENT · me · ORPHANED ─────╮      
- │ "persists sessions"           │      
- │ Which daemon owns this?       │      
- ╰───────────────────────────────╯      
- ╭─ COMMENT · me · ORPHANED ─────╮      
- │ "move the store"              │      
- │ move the store behind o…      │      
- ╰───────────────────────────────╯      
+"╭────────────────────────────────╮      
+│ Review  Agent                  │      
+╰────────────────────────────────╯      
+╭─ COMMENT · me · ORPHANED ──────╮      
+│ "persists sessions"            │      
+│ Which daemon owns this?        │      
+╰────────────────────────────────╯      
+╭─ COMMENT · me · ORPHANED ──────╮      
+│ "move the store"               │      
+│ move the store behind o…       │      
+╰────────────────────────────────╯      
                                         
                                         
                                         
@@ -1095,23 +1095,23 @@ exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its
                                         
                                         
                                         
- resolved: approve                      
+resolved: approve                       
                                         
 "
 `;
 
 exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and carries its colors: ReviewRail/SubmitConfirmOpen 1`] = `
-" ╭───────────────────────────────╮      
- │ Review  Agent                 │      
- ╰───────────────────────────────╯      
- ╭─ COMMENT · me · ORPHANED ─────╮      
- │ "persists sessions"           │      
- │ Which daemon owns this?       │      
- ╰───────────────────────────────╯      
- ╭─ COMMENT · me · ORPHANED ─────╮      
- │ "move the store"              │      
- │ move the store behind o…      │      
- ╰───────────────────────────────╯      
+"╭────────────────────────────────╮      
+│ Review  Agent                  │      
+╰────────────────────────────────╯      
+╭─ COMMENT · me · ORPHANED ──────╮      
+│ "persists sessions"            │      
+│ Which daemon owns this?        │      
+╰────────────────────────────────╯      
+╭─ COMMENT · me · ORPHANED ──────╮      
+│ "move the store"               │      
+│ move the store behind o…       │      
+╰────────────────────────────────╯      
                                         
                                         
                                         
@@ -1121,15 +1121,15 @@ exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and ca
                                         
                                         
                                         
- ╭─ submit review ──────────────╮       
- │ 2 annotations · 0 blocking   │       
- │                              │       
- │  Comment   Approve [Changes] │       
- │                              │       
- │ summary for the agent (option│       
- │                              │       
- │  Submit    Cancel            │       
- ╰──────────────────────────────╯       
+╭─ submit review ───────────────╮       
+│ 2 annotations · 0 blocking    │       
+│                               │       
+│  Comment   Approve  [Changes] │       
+│                               │       
+│ summary for the agent (optiona│       
+│                               │       
+│  Submit    Cancel             │       
+╰───────────────────────────────╯       
                                         
 "
 `;
@@ -1393,30 +1393,30 @@ exports[`stories catalog WalkWizard/WithAgentNote renders, snapshots, and carrie
 `;
 
 exports[`stories catalog AgentLauncher/Launcher renders, snapshots, and carries its colors: AgentLauncher/Launcher 1`] = `
-"  Ask an agent about this plan          
-                                        
-  ╭────────────────────────────────────╮
-  │  ▛████▜   claude code              │
-  │ ▜██████▛  launch in rail ▸         │
-  │  ▝▝  ▝▝                            │
+"  ╭────────────────────────────────────╮
+  │ Claude Code                        │
   ╰────────────────────────────────────╯
-                                        
   ╭────────────────────────────────────╮
-  │ ███       pi                       │
-  │ █ █       launch in rail ▸         │
-  │ ██ █                               │
-  │ █  █                               │
+  │ Pi                                 │
   ╰────────────────────────────────────╯
-                                        
   ╭────────────────────────────────────╮
-  │ ┌───┐     codex                    │
-  │ │>_ │     launch in rail ▸         │
-  │ └───┘                              │
+  │ OpenAI Codex                       │
   ╰────────────────────────────────────╯
+  plan context: seed the plan           
                                         
-  plan context: seed the plan ▸         
                                         
-  agent/worker-3 · pending · rev 1      
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
 "
 `;
 

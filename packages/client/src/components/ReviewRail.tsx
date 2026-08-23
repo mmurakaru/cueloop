@@ -187,7 +187,6 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
         width,
         backgroundColor: tokens.panel,
         flexDirection: "column",
-        paddingLeft: 1,
         paddingBottom: 1,
       }}
     >
@@ -202,8 +201,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
         </TabList>
       </Tabs>
       {railTab === "agent" ? (
-        <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 2 }}>
-          <text> </text>
+        <box style={{ flexGrow: 1, flexDirection: "column" }}>
           <AgentLauncher
             session={session}
             onLaunchHarness={onLaunchHarness}

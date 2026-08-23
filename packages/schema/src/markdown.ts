@@ -19,16 +19,21 @@ export interface Block {
   lineEnd: number;
 }
 
+/**
+ * The leading block markers the parser strips from a line: headings (h1-h3),
+ * bullet list, ordered list, and blockquote. Single source of truth so the
+ * anchor resolver strips exactly the same set and the two never drift.
+ */
+export const LEADING_BLOCK_MARKER = /^(?:#{1,3} |- |\d+\. |> )/;
+
+/** Remove one leading markdown block marker, or return the line unchanged. */
+export function stripLeadingBlockMarker(line: string): string {
+  return line.replace(LEADING_BLOCK_MARKER, "");
+}
+
 function isMarkerLine(line: string): boolean {
   return (
-    line.startsWith("```") ||
-    line.startsWith("# ") ||
-    line.startsWith("## ") ||
-    line.startsWith("### ") ||
-    line.startsWith("> ") ||
-    line.startsWith("- ") ||
-    /^\d+\. /.test(line) ||
-    /^(---|\*\*\*|___)\s*$/.test(line)
+    line.startsWith("```") || LEADING_BLOCK_MARKER.test(line) || /^(---|\*\*\*|___)\s*$/.test(line)
   );
 }
 
@@ -55,13 +60,28 @@ export function parseBlocks(markdown: string): Block[] {
       lineIndex++;
       blocks.push({ kind: "code", text: body.join("\n"), lang, lineStart: start, lineEnd: end });
     } else if (line.startsWith("### ")) {
-      blocks.push({ kind: "h3", text: line.slice(4), lineStart: lineIndex, lineEnd: lineIndex });
+      blocks.push({
+        kind: "h3",
+        text: stripLeadingBlockMarker(line),
+        lineStart: lineIndex,
+        lineEnd: lineIndex,
+      });
       lineIndex++;
     } else if (line.startsWith("## ")) {
-      blocks.push({ kind: "h2", text: line.slice(3), lineStart: lineIndex, lineEnd: lineIndex });
+      blocks.push({
+        kind: "h2",
+        text: stripLeadingBlockMarker(line),
+        lineStart: lineIndex,
+        lineEnd: lineIndex,
+      });
       lineIndex++;
     } else if (line.startsWith("# ")) {
-      blocks.push({ kind: "h1", text: line.slice(2), lineStart: lineIndex, lineEnd: lineIndex });
+      blocks.push({
+        kind: "h1",
+        text: stripLeadingBlockMarker(line),
+        lineStart: lineIndex,
+        lineEnd: lineIndex,
+      });
       lineIndex++;
     } else if (/^(---|\*\*\*|___)\s*$/.test(line)) {
       blocks.push({ kind: "hr", text: "", lineStart: lineIndex, lineEnd: lineIndex });
@@ -70,7 +90,7 @@ export function parseBlocks(markdown: string): Block[] {
       const start = lineIndex;
       const body: string[] = [];
       while (lineIndex < lines.length && lines[lineIndex]!.startsWith("> ")) {
-        body.push(lines[lineIndex]!.slice(2));
+        body.push(stripLeadingBlockMarker(lines[lineIndex]!));
         lineIndex++;
       }
       blocks.push({
@@ -80,12 +100,17 @@ export function parseBlocks(markdown: string): Block[] {
         lineEnd: lineIndex - 1,
       });
     } else if (line.startsWith("- ")) {
-      blocks.push({ kind: "li", text: line.slice(2), lineStart: lineIndex, lineEnd: lineIndex });
+      blocks.push({
+        kind: "li",
+        text: stripLeadingBlockMarker(line),
+        lineStart: lineIndex,
+        lineEnd: lineIndex,
+      });
       lineIndex++;
     } else if (/^\d+\. /.test(line)) {
       blocks.push({
         kind: "oli",
-        text: line.replace(/^\d+\. /, ""),
+        text: stripLeadingBlockMarker(line),
         lineStart: lineIndex,
         lineEnd: lineIndex,
       });

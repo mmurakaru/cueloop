@@ -107,6 +107,14 @@ async function toContextParagraph(setup: Setup): Promise<void> {
   await press(setup, "j");
 }
 
+/** Click the first on-screen occurrence of a string, by its char-frame position. */
+async function clickText(setup: Setup, needle: string): Promise<void> {
+  const lines = setup.captureCharFrame().split("\n");
+  const row = lines.findIndex((line) => line.includes(needle));
+  await setup.mockMouse.click(lines[row]!.indexOf(needle) + 1, row);
+  await setup.renderOnce();
+}
+
 describe("share button", () => {
   test("the owner's plan header shows the Share button next to Edit", async () => {
     // Arrange / Act
@@ -296,6 +304,45 @@ describe("inline compose keeps the anchor painted", () => {
     // runner, and the whole-suite publish lane has timed even 15s out; give the
     // heaviest frame-wait chain generous headroom so runner load cannot flake it.
   }, 60_000);
+
+  test("clicking the Cancel word-button closes the compose box", async () => {
+    // Arrange
+    const setup = await renderApp();
+    await toContextParagraph(setup);
+    await press(setup, "v");
+    await press(setup, "l");
+    await press(setup, "c");
+    await waitForText(setup, "Cancel");
+
+    // Act
+    await clickText(setup, "Cancel");
+
+    // Assert
+    await waitForTextGone(setup, 'comment on "');
+  });
+
+  test("clicking Cancel in a saved card's edit composer closes it", async () => {
+    // Arrange
+    const setup = await renderApp();
+    await toContextParagraph(setup);
+    await press(setup, "v");
+    await press(setup, "l");
+    await press(setup, "c");
+    await waitForText(setup, "Cancel");
+    await type(setup, "note body");
+    await press(setup, "enter");
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    // select the saved card, then activate it to open the in-place editor
+    await clickText(setup, "note body");
+    await clickText(setup, "note body");
+    await waitForText(setup, "Cancel");
+
+    // Act
+    await clickText(setup, "Cancel");
+
+    // Assert - the editor closes back to the plain saved card
+    await waitForTextGone(setup, "Cancel");
+  });
 });
 
 describe("compose newline convention", () => {
@@ -525,7 +572,7 @@ describe("sheet header", () => {
     expect(frame).toContain("Share");
   });
 
-  test("the Agent tab shows the harness launcher and a compact status footer", async () => {
+  test("the Agent tab shows the text-only harness launcher buttons", async () => {
     // Arrange
     const setup = await renderApp();
     const lines = setup.captureCharFrame().split("\n");
@@ -536,12 +583,11 @@ describe("sheet header", () => {
     await setup.mockMouse.click(tabColumn + 1, tabRow);
     await setup.renderOnce();
 
-    // Assert - branded launcher cards, and the submitter kept in the footer
-    await waitForText(setup, "claude code");
+    // Assert - the three launcher buttons, in order
+    await waitForText(setup, "Claude Code");
     const frame = setup.captureCharFrame();
-    expect(frame).toContain("Ask an agent about this plan");
-    expect(frame).toContain("codex");
-    expect(frame).toContain("agent/worker-3");
+    expect(frame).toContain("Pi");
+    expect(frame).toContain("OpenAI Codex");
   });
 });
 
@@ -549,18 +595,12 @@ describe("quick-actions settings editor", () => {
   test("expanding an action edits its system prompt inline and persists it", async () => {
     // Arrange
     const setup = await renderApp();
-    const clickText = async (needle: string): Promise<void> => {
-      const lines = setup.captureCharFrame().split("\n");
-      const row = lines.findIndex((line) => line.includes(needle));
-      await setup.mockMouse.click(lines[row]!.indexOf(needle) + 1, row);
-      await setup.renderOnce();
-    };
 
     // Act - open Settings, enter Actions, expand the first action, type into its input
-    await clickText("menu");
-    await clickText("Settings");
-    await clickText("Actions");
-    await clickText("Zoom out, research in depth");
+    await clickText(setup, "menu");
+    await clickText(setup, "Settings");
+    await clickText(setup, "Actions");
+    await clickText(setup, "Zoom out, research in depth");
     await type(setup, "CUSTOM");
     await setup.renderOnce();
 

@@ -4,5 +4,6 @@ export * from "./markdown";
 export * from "./working-copy";
 export * from "./diff";
 export * from "./anchor";
+export * from "./fuzzy";
 export * from "./feedback";
 export * from "./herdr";

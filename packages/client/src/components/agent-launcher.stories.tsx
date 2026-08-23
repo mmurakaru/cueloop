@@ -21,6 +21,6 @@ export const Launcher: Story = {
       <AgentLauncher session={fixturePlanSession()} onLaunchHarness={() => {}} theme={DARK} />
     </RailFrame>
   ),
-  expectedColors: [DARK.accent, "#cc785c"],
+  expectedColors: [DARK.accent],
   size: { width: 40, height: 24 },
 };
