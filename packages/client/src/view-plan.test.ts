@@ -125,6 +125,57 @@ describe("blockRuns + overlayMarks", () => {
   });
 });
 
+describe("M3: inline emphasis composes with word-diff (#235)", () => {
+  test("context emphasis survives; added text keeps the green diff role; markers concealed", () => {
+    // Arrange - "**this**" is unchanged (context, stays emphasized); "safe"->"sound" is the edit
+    const block = buildDisplay("keep **this** safe\n", "keep **this** sound\n")[0]!;
+
+    // Act
+    const runs = blockRuns(block, true);
+
+    // Assert - no marker text renders anywhere
+    expect(runs.every((run) => !run.text.includes("*"))).toBe(true);
+    // the unchanged emphasized word keeps its strong role (context, not diffed)
+    expect(runs.find((run) => run.text === "this")!.role).toBe("strong");
+    // the added word is green (ins wins over any emphasis), the removed one opaque
+    expect(runs.find((run) => run.text.includes("sound"))!.role).toBe("ins");
+    expect(runs.some((run) => run.role === "del" && run.start === null)).toBe(true);
+  });
+
+  test("markers inside added text conceal while the run stays a positioned ins", () => {
+    // Arrange - an emphasized word is added into an otherwise unchanged line
+    const block = buildDisplay("keep it safe\n", "keep it **very** safe\n")[0]!;
+
+    // Act
+    const runs = blockRuns(block, true);
+    const added = runs.find((run) => run.text === "very")!;
+
+    // Assert - concealed markers, green role, and an exact work offset back into work text
+    expect(added.role).toBe("ins");
+    expect(added.start).not.toBeNull();
+    expect(block.work!.text.slice(added.start!, added.start! + "very".length)).toBe("very");
+    expect(runs.every((run) => !run.text.includes("*"))).toBe(true);
+  });
+
+  test("an anchor over an emphasized context word round-trips to its work offsets", () => {
+    // Arrange
+    const block = buildDisplay("hold **steady** now\n", "hold **steady** later\n")[0]!;
+    const runs = blockRuns(block, true);
+    const work = block.work!.text;
+    const start = work.indexOf("steady");
+
+    // Act
+    const rendered = renderedOffsetFor(runs, start);
+
+    // Assert
+    expect(rendered).not.toBeNull();
+    expect(workRangeForRendered(runs, rendered!, rendered! + "steady".length)).toEqual({
+      start,
+      end: start + "steady".length,
+    });
+  });
+});
+
 describe("marksByDisplay", () => {
   test("annotations resolve into display coordinates", () => {
     // Arrange

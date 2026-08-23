@@ -209,6 +209,7 @@ export function marksByDisplay(
 
 /** Base runs for a display block: plain text, or word-diff for mod blocks. */
 export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
+  const literal = block.kind === "code" || block.kind === "hr";
   if (block.type === "mod" && markup) {
     const changes = wordLevelChanges(block.base!.text, block.work!.text);
     const runs: StyleRun[] = [];
@@ -216,21 +217,25 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
     for (const change of changes) {
       if (change.kind === "removed") {
         runs.push({ text: change.text, role: "del", start: null });
-      } else {
-        runs.push({
-          text: change.text,
-          role: change.kind === "added" ? "ins" : "plain",
-          start: workOffset,
-        });
-        workOffset += change.text.length;
+        continue;
       }
+      // A code/rule block stays literal; prose segments inline-tokenize so their
+      // markers conceal while their work offsets stay intact. Added text keeps
+      // the green diff role (it wins over emphasis); context text shows emphasis.
+      const segment = literal
+        ? [{ text: change.text, role: "plain" as const, start: workOffset }]
+        : inlineStyleRuns(change.text, workOffset);
+      for (const run of segment) {
+        runs.push(change.kind === "added" ? { ...run, role: "ins" } : run);
+      }
+      workOffset += change.text.length;
     }
     return runs;
   }
   const text = displayText(block);
   // Prose carries inline markup; code fences and rules are literal. Concealed
   // markers are dropped, so every rendered cell still maps to a work offset.
-  if (markup && block.kind !== "code" && block.kind !== "hr") {
+  if (markup && !literal) {
     return inlineStyleRuns(text, 0);
   }
   return [{ text, role: "plain", start: 0 }];
