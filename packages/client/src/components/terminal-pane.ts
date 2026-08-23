@@ -1,7 +1,7 @@
 /**
  * An OpenTUI renderable that runs a real child process (a shell, cc, pi, codex)
  * on a PTY and paints its live screen into the box - the terminal-in-the-rail
- * primitive. It wires bun-pty (the child + tty) to a Ghostty VT emulator
+ * primitive. It wires the forkpty shim (child + tty, ../pty) to a Ghostty VT emulator
  * (ghostty-terminal.ts) and blits the emulator's cell grid every frame via
  * OptimizedBuffer.setCell. Register once with `registerTerminalPane`, then use
  * `<terminalPane command="claude" ... />` in the OpenTUI React tree.
@@ -11,7 +11,7 @@ import { Renderable, RGBA, createTextAttributes, type RenderContext } from "@ope
 import type { OptimizedBuffer } from "@opentui/core";
 import type { RenderableOptions } from "@opentui/core";
 import { extend } from "@opentui/react";
-import { spawn, type IPty } from "bun-pty";
+import { spawn, ptyAvailable, type IPty } from "../pty";
 import {
   loadGhosttyTerminals,
   type GhosttyColor,
@@ -26,9 +26,10 @@ function factory(): GhosttyTerminalFactory | null {
   return ghosttyFactory;
 }
 
-/** Whether the embedded terminal can run here (the platform dylib is present). */
+/** Whether the embedded terminal can run here: both native shims ship for this
+ *  platform (the Ghostty VT renderer and the forkpty PTY). */
 export function embeddedTerminalAvailable(): boolean {
-  return factory() !== null;
+  return factory() !== null && ptyAvailable();
 }
 
 /** Props for `<terminalPane>`: the child to run plus its cwd/env and a plan-context seed. */
@@ -85,7 +86,7 @@ export class TerminalPaneRenderable extends Renderable {
       env: (this.opts.env ?? process.env) as Record<string, string>,
     });
     this.pty.onData((data) => {
-      // bun-pty streams a UTF-8-decoded string (split multibyte is handled); a
+      // the shim streams a UTF-8-decoded string (split multibyte is handled); a
       // rare non-UTF-8 byte arrives as U+FFFD - acceptable for agent TUIs.
       this.vt?.write(encoder.encode(data));
       if (this.pendingSeed !== undefined) {

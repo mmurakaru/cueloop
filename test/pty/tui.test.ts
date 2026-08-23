@@ -2,8 +2,9 @@
  * PTY tests: the real `cueloop` TUI binary in a pseudo-terminal, asserting
  * what the virtual-terminal tier cannot prove - alternate-screen render, key
  * routing through a raw tty, SIGWINCH resize, and the process exit code.
- * bun-pty is the backend because node-pty's native spawn silently kills the
- * Bun process on macOS arm64. Env-gated behind CUELOOP_RUN_PTY (`bun run
+ * The backend is cueloop's own forkpty FFI shim (packages/client/src/pty.ts);
+ * node-pty's native spawn silently kills Bun on macOS arm64. Env-gated behind
+ * CUELOOP_RUN_PTY (`bun run
  * test:pty`). The tests share one PTY session and run in file order; OpenTUI
  * repaints only changed cells, so assertions read the stripped output delta.
  */
@@ -12,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { spawn, type IPty } from "bun-pty";
+import { spawn, type IPty } from "../../packages/client/src/pty";
 import { DaemonServer } from "@cueloop/daemon";
 import { HERMETIC_HERDR_ENV } from "../helpers/env";
 
