@@ -6,6 +6,8 @@ import {
   marksByDisplay,
   nextWorkBlock,
   overlayMarks,
+  renderedOffsetAtOrAfter,
+  renderedOffsetAtOrBefore,
   renderedOffsetFor,
   safeLinkHref,
   spanFromRange,
@@ -135,6 +137,13 @@ describe("M4: link hrefs are scheme-validated for OSC 8 (#236)", () => {
     expect(safeLinkHref("javascript:alert(1)")).toBeUndefined();
     expect(safeLinkHref("./relative/path")).toBeUndefined();
     expect(safeLinkHref(undefined)).toBeUndefined();
+  });
+
+  test("a control byte or space in the target drops the link", () => {
+    // Assert - ESC and BEL could splice into the OSC 8 escape stream
+    expect(safeLinkHref("https://x\x1b]8;;evil\x07")).toBeUndefined();
+    expect(safeLinkHref("https://x\x07")).toBeUndefined();
+    expect(safeLinkHref("https://x y")).toBeUndefined();
   });
 
   test("blockRuns carries the link href through to the link run", () => {
@@ -290,6 +299,28 @@ describe("rendered/work offset mapping", () => {
     // Assert
     expect(renderedOffsetFor(runs, 99)).toBeNull();
     expect(workRangeForRendered(runs, 90, 99)).toBeNull();
+  });
+
+  test("a span starting/ending on concealed markers snaps to the visible word", () => {
+    // Arrange - the word span over "**very**" covers the markers, which have
+    // no rendered cells; the clamped lookups land on "very" itself
+    const text = "keep it **very** safe\n";
+    const runs = blockRuns(buildDisplay(text)[0]!, true);
+    const spanStart = text.indexOf("**very**");
+    const spanEnd = spanStart + "**very**".length;
+
+    // Act
+    const renderedStart = renderedOffsetAtOrAfter(runs, spanStart)!;
+    const renderedEnd = renderedOffsetAtOrBefore(runs, spanEnd - 1)!;
+
+    // Assert
+    const renderedText = runs.map((run) => run.text).join("");
+    expect(renderedText.slice(renderedStart, renderedEnd + 1)).toBe("very");
+    // exact hits behave like renderedOffsetFor
+    expect(renderedOffsetAtOrAfter(runs, 0)).toBe(0);
+    expect(renderedOffsetAtOrBefore(runs, 0)).toBe(0);
+    // nothing positioned beyond the text end
+    expect(renderedOffsetAtOrAfter(runs, 99)).toBeNull();
   });
 });
 

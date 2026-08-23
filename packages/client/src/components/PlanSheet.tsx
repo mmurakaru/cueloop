@@ -16,7 +16,8 @@ import {
   blockRuns,
   displayText,
   overlayMarks,
-  renderedOffsetFor,
+  renderedOffsetAtOrAfter,
+  renderedOffsetAtOrBefore,
   safeLinkHref,
   workRangeForRendered,
   type DisplayBlock,
@@ -169,9 +170,11 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
       if (!renderer) return;
       const blockRef = blockRefs.current.get(span.displayIndex);
       if (!blockRef) return;
-      const renderedStart = renderedOffsetFor(blockRef.runs, span.start);
-      const renderedEnd = renderedOffsetFor(blockRef.runs, span.end - 1);
-      if (renderedStart === null || renderedEnd === null) return;
+      // a span over an emphasized word starts/ends on concealed markers with
+      // no rendered cell; snap to the visible characters inside them
+      const renderedStart = renderedOffsetAtOrAfter(blockRef.runs, span.start);
+      const renderedEnd = renderedOffsetAtOrBefore(blockRef.runs, span.end - 1);
+      if (renderedStart === null || renderedEnd === null || renderedEnd < renderedStart) return;
       const startPosition = positionOfRenderedOffset(blockRef.renderable, renderedStart);
       const endPosition = positionOfRenderedOffset(blockRef.renderable, renderedEnd);
       renderer.startSelection(blockRef.renderable, startPosition.x, startPosition.y);
@@ -197,6 +200,15 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
   // across. Flips below when the line sits too near the viewport top.
   const [popoverTop, setPopoverTop] = useState(0);
   const [popoverLeft, setPopoverLeft] = useState(2);
+  // a terminal resize rewraps every block; re-run the anchor math against the
+  // new geometry instead of leaving the card at its pre-resize cell
+  const [resizeEpoch, setResizeEpoch] = useState(0);
+  useEffect(() => {
+    if (!renderer) return;
+    const onResize = (): void => setResizeEpoch((epoch) => epoch + 1);
+    renderer.on("resize", onResize);
+    return () => void renderer.off("resize", onResize);
+  }, [renderer]);
   useEffect(() => {
     if (!popover) return;
     const blockRef = blockRefs.current.get(popover.displayIndex);
@@ -204,7 +216,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     if (!blockRef || !scrollbox) return;
     const renderedStart =
       activeSpan && activeSpan.displayIndex === popover.displayIndex
-        ? (renderedOffsetFor(blockRef.runs, activeSpan.start) ?? 0)
+        ? (renderedOffsetAtOrAfter(blockRef.runs, activeSpan.start) ?? 0)
         : 0;
     const startPosition = positionOfRenderedOffset(blockRef.renderable, renderedStart);
     const content = scrollbox.content;
@@ -216,7 +228,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     // only the toolbar (3 rows) + gap must fit above; the dropdown flows down
     const lineViewportRow = startPosition.y - scrollbox.y;
     setPopoverTop(anchorTop + (lineViewportRow < POPOVER_ROWS_ABOVE ? 1 : -POPOVER_ROWS_ABOVE));
-  }, [popover, activeSpan, display, cursor]);
+  }, [popover, activeSpan, display, cursor, resizeEpoch]);
 
   const registerBlock = (
     displayIndex: number,

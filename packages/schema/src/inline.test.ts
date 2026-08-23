@@ -98,6 +98,31 @@ describe("inlineRuns", () => {
     expect(visible(runs).some((run) => run.text.includes("https"))).toBe(false);
   });
 
+  test("links: a destination with balanced parentheses stays whole", () => {
+    // Arrange
+    const source = "see [foo](https://en.wikipedia.org/wiki/Foo_(bar)) here";
+
+    // Act
+    const runs = inlineRuns(source);
+    const label = runs.find((run) => run.role === "link")!;
+
+    // Assert
+    expect(label.href).toBe("https://en.wikipedia.org/wiki/Foo_(bar)");
+    expect(reconstruct(runs)).toBe(source);
+  });
+
+  test("links: an unclosed destination never becomes a link", () => {
+    // Arrange
+    const source = "see [foo](https://example.com/(open here";
+
+    // Act
+    const runs = inlineRuns(source);
+
+    // Assert
+    expect(runs.some((run) => run.role === "link")).toBe(false);
+    expect(reconstruct(runs)).toBe(source);
+  });
+
   test("nested emphasis: inner marker wins, both markers concealed", () => {
     // Act
     const runs = inlineRuns("**a *b* c**");

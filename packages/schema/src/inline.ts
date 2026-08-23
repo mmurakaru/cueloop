@@ -148,9 +148,22 @@ function matchLink(
   if (labelEnd < 0 || labelEnd === labelStart) return null;
   if (text[labelEnd + 1] !== "(") return null;
   const hrefStart = labelEnd + 2;
-  const hrefEnd = text.indexOf(")", hrefStart);
-  if (hrefEnd < 0 || hrefEnd === hrefStart) return null;
-  return { labelStart, labelEnd, hrefStart, hrefEnd, end: hrefEnd + 1 };
+  // the destination may carry balanced parentheses (wiki URLs); the span ends
+  // at the first unmatched closer
+  let depth = 0;
+  for (let scan = hrefStart; scan < text.length; scan++) {
+    const character = text[scan];
+    if (character === "(") depth++;
+    else if (character === ")") {
+      if (depth > 0) {
+        depth--;
+        continue;
+      }
+      if (scan === hrefStart) return null;
+      return { labelStart, labelEnd, hrefStart, hrefEnd: scan, end: scan + 1 };
+    }
+  }
+  return null;
 }
 
 /** A `` `code` `` span at `index` (n backticks .. n backticks), or null. */

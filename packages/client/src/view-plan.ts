@@ -242,9 +242,13 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
 }
 
 /** A link href safe to hand a terminal as an OSC 8 target, or undefined. Only
- *  http(s) and mailto are trusted; a scheme like javascript: is dropped. */
+ *  http(s) and mailto are trusted; a scheme like javascript: is dropped. The
+ *  target must stay printable ASCII: a control byte (ESC, BEL) in a reviewed
+ *  document could otherwise splice into the terminal escape stream. */
 export function safeLinkHref(href: string | undefined): string | undefined {
-  return href !== undefined && /^(https?:|mailto:)/i.test(href) ? href : undefined;
+  if (href === undefined) return undefined;
+  if (!/^(https?:|mailto:)/i.test(href)) return undefined;
+  return /^[\x21-\x7e]+$/.test(href) ? href : undefined;
 }
 
 /**
@@ -322,6 +326,39 @@ export function renderedOffsetFor(runs: StyleRun[], workOffset: number): number 
     rendered += run.text.length;
   }
   return null;
+}
+
+/**
+ * Rendered offset of the first positioned character at or after `workOffset`.
+ * A word span may start on a concealed marker (the `**` of an emphasized
+ * word), which has no rendered cell; the span visuals snap to the first
+ * character that does. Positioned runs appear in ascending work order.
+ */
+export function renderedOffsetAtOrAfter(runs: StyleRun[], workOffset: number): number | null {
+  let rendered = 0;
+  for (const run of runs) {
+    if (run.start !== null && run.start + run.text.length > workOffset) {
+      return rendered + Math.max(0, workOffset - run.start);
+    }
+    rendered += run.text.length;
+  }
+  return null;
+}
+
+/**
+ * Rendered offset of the last positioned character at or before `workOffset` -
+ * the closing-marker counterpart of `renderedOffsetAtOrAfter`.
+ */
+export function renderedOffsetAtOrBefore(runs: StyleRun[], workOffset: number): number | null {
+  let rendered = 0;
+  let best: number | null = null;
+  for (const run of runs) {
+    if (run.start !== null && run.start <= workOffset) {
+      best = rendered + Math.min(workOffset - run.start, run.text.length - 1);
+    }
+    rendered += run.text.length;
+  }
+  return best;
 }
 
 /**
