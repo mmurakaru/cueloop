@@ -385,7 +385,16 @@ function runStyle(
   if (block.type === "del") return { fg: tokens.textDim, attributes: CUT_ATTRIBUTES };
   const isHeading = block.kind === "h1" || block.kind === "h2" || block.kind === "h3";
   const isQuote = block.kind === "quote";
-  const headingFg = block.kind === "h1" ? tokens.text : isHeading ? tokens.accent : undefined;
+  // headings are all bold; level reads from descending brightness alone (a
+  // terminal cannot scale font size), leaving the salmon accent to annotations
+  const headingFg =
+    block.kind === "h1"
+      ? tokens.text
+      : block.kind === "h2"
+        ? tokens.textMuted
+        : block.kind === "h3"
+          ? tokens.textDim
+          : undefined;
   // block-level base: headings bold, quotes muted italic; inline roles compose on top
   const baseFg = headingFg ?? (isQuote ? tokens.textMuted : tokens.text);
   const baseAttributes = (isHeading ? HEADING_ATTRIBUTES : 0) | (isQuote ? QUOTE_ATTRIBUTES : 0);
