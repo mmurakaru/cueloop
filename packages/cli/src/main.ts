@@ -19,8 +19,8 @@ import {
 } from "./open-target";
 import { sessionCommand } from "./session-commands";
 import { CLI_VERSION } from "./version";
-import { workingTreeDiff } from "./working-tree";
 import { DaemonClient } from "@cueloop/daemon/client";
+import { workingTreeDiff } from "@cueloop/daemon/working-tree";
 import type { ReviewSession } from "@cueloop/schema";
 import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
 
