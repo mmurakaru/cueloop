@@ -1,5 +1,21 @@
 # cueloop
 
+## 0.1.0-alpha.45
+
+### Patch Changes
+
+- [#242](https://github.com/mmurakaru/cueloop/pull/242) [`311633c`](https://github.com/mmurakaru/cueloop/commit/311633c003680f757ec32dee8e2945ecca8694fc) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Render inline Markdown in the review surface. Prose now shows real emphasis - **strong**, _emphasis_, `code`, ~~strikethrough~~, and [links](url) - with the markup markers concealed, blockquotes muted, and headings bold with the level (h1/h2/h3) shown by descending brightness (a terminal cannot scale font size), leaving the salmon accent to annotations. Links become clickable OSC 8 terminal hyperlinks (http(s)/mailto only). The styling is produced by a new pure inline tokenizer in `@cueloop/schema` that emits each visible span at its exact source offset and drops the markers, so quote anchors, mouse selection, and keyboard-span selection stay character-precise - annotations resolve against the same text as before, and emphasis composes with word-diff on edited blocks.
+
+- [#242](https://github.com/mmurakaru/cueloop/pull/242) [`311633c`](https://github.com/mmurakaru/cueloop/commit/311633c003680f757ec32dee8e2945ecca8694fc) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The marker popover now floats one row above the marked words, mapped through the word-wrap geometry, instead of drifting to the block's linear character offset; it paints over neighboring blocks and tracks the content when scrolled. A drag released outside a block's text (the gutter, past a line end, a gap between blocks) now still opens the span popover.
+
+- [#242](https://github.com/mmurakaru/cueloop/pull/242) [`311633c`](https://github.com/mmurakaru/cueloop/commit/311633c003680f757ec32dee8e2945ecca8694fc) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Annotation and removal cards keep a transparent background when selected, so they sit flat on the transparent theme instead of painting an elevated fill. Selection now reads from the quote line taking the card's tone plus the matching document highlight. The submit-review card also drops its "N annotations · N blocking" line: the blocking count was always zero because nothing set an annotation's blocking flag, so the count and its plumbing are removed.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.45
+  - @cueloop/client@0.1.0-alpha.45
+  - @cueloop/daemon@0.1.0-alpha.45
+  - @cueloop/schema@0.1.0-alpha.45
+
 ## 0.1.0-alpha.44
 
 ### Patch Changes
