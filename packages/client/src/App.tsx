@@ -1040,6 +1040,7 @@ export function App({
                 controller.annotatePrototype(element.selector, element.quote, body)
               }
               onComposingChange={setPrototypeComposing}
+              hidden={menuOpen || menuDialog !== null}
             />
           ) : isDiff ? (
             // the sheet dims to reading-quiet colors while the wizard has focus

@@ -21,6 +21,7 @@ import {
   typeText,
   waitForState,
   waitForText,
+  waitForTextGone,
 } from "./test-support";
 
 const HTML = "<main><div class='card'><h2>Pro</h2><p>$24/mo</p></div></main>";
@@ -33,6 +34,7 @@ const FAKE_ELEMENT: PrototypeElement = {
 };
 
 let rendered = false;
+let scrollDeltas: number[] = [];
 const fakeRenderer: PrototypeRenderer = {
   viewport: { width: 1280, height: 800 },
   screenshot: async () => {
@@ -41,6 +43,10 @@ const fakeRenderer: PrototypeRenderer = {
   },
   elementAt: async () => FAKE_ELEMENT,
   highlight: async () => undefined,
+  scrollBy: async (deltaY) => {
+    scrollDeltas.push(deltaY);
+    return true;
+  },
   close: async () => undefined,
 };
 
@@ -63,6 +69,7 @@ beforeEach(() => {
     },
   });
   rendered = false;
+  scrollDeltas = [];
   setPrototypeRendererFactory(async () => fakeRenderer);
 });
 afterEach(() => {
@@ -121,5 +128,28 @@ describe("prototype review", () => {
     const frame = setup.captureCharFrame();
     expect(frame).toContain("tighten the padding");
     expect(frame).toContain("COMMENT");
+  });
+
+  test("wheel over the preview scrolls the page down, then up, and clears a selection", async () => {
+    // Arrange
+    const setup = await renderApp();
+    await waitForState(setup, () => rendered);
+    await settle(setup);
+
+    // open a selection, then scroll: the scroll drops it (it would drift once
+    // the page moves under it)
+    await setup.mockMouse.click(6, 6);
+    await waitForText(setup, "comment");
+    await setup.mockMouse.scroll(6, 6, "down");
+    await waitForState(setup, () => scrollDeltas.length === 1);
+    await waitForTextGone(setup, "comment");
+
+    // Act - scroll back up
+    await setup.mockMouse.scroll(6, 6, "up");
+    await waitForState(setup, () => scrollDeltas.length === 2);
+
+    // Assert - down was a positive delta, up was negative
+    expect(scrollDeltas[0]!).toBeGreaterThan(0);
+    expect(scrollDeltas[1]!).toBeLessThan(0);
   });
 });

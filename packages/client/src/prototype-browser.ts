@@ -31,6 +31,8 @@ export interface PrototypeRenderer {
   screenshot(): Promise<Uint8Array>;
   elementAt(cssX: number, cssY: number): Promise<PrototypeElement | null>;
   highlight(selector: string | null): Promise<void>;
+  /** Scroll the page by a pixel delta; returns whether the scroll position moved. */
+  scrollBy(deltaY: number): Promise<boolean>;
   close(): Promise<void>;
 }
 
@@ -130,6 +132,9 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
     async highlight(selector) {
       await page.evaluate(highlightScript, selector);
     },
+    async scrollBy(deltaY) {
+      return (await page.evaluate(scrollByScript, deltaY)) as boolean;
+    },
     async close() {
       await browser.close();
     },
@@ -199,6 +204,12 @@ function elementAtScript(x: number, y: number): unknown {
         : tag;
   const rect = node.getBoundingClientRect();
   return { selector, quote, box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } };
+}
+
+function scrollByScript(deltaY: number): boolean {
+  const before = window.scrollY;
+  window.scrollBy(0, deltaY);
+  return window.scrollY !== before;
 }
 
 function highlightScript(selector: string | null): void {
