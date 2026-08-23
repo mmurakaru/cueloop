@@ -92,22 +92,18 @@ async function clickText(setup: Setup, needle: string): Promise<void> {
 
 describe("prototype review", () => {
   test("click an element, comment on it, and it lands in the rail", async () => {
-    // Arrange - wait until the fake browser has produced its first screenshot,
-    // so the sheet is interactive before the click
+    // Arrange - wait until the fake browser produced its first screenshot, so
+    // the sheet is interactive before the click
     const setup = await renderApp();
-    // wait until the fake browser produced its first screenshot: the sheet is now interactive
     await waitForState(setup, () => rendered);
     await settle(setup);
 
-    // Act - click inside the rendered region to select the card element; the
-    // popover anchors to the element's box (mid-page), away from this click
+    // Act
     await setup.mockMouse.click(6, 6);
     await waitForText(setup, "comment");
-
-    // open the compose card from the actions bar and write a note
     await clickText(setup, "comment");
     await waitForText(setup, "write a note");
-    // let the keymap-suppression flag propagate before typing so keys reach the
+    // the keymap-suppression flag must propagate before typing so keys reach the
     // textarea, not the global keymap
     await settle(setup);
     await typeText(setup, "tighten the padding");

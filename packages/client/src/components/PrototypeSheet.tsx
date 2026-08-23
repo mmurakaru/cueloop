@@ -143,8 +143,10 @@ export function PrototypeSheet({
     onComposingChange?.(composing);
   }, [composing, onComposingChange]);
 
+  const unmountedRef = useRef(false);
   useEffect(() => {
     return () => {
+      unmountedRef.current = true;
       void browserRef.current?.close();
     };
   }, []);
@@ -168,6 +170,12 @@ export function PrototypeSheet({
     void (async () => {
       try {
         const browser = await prototypeRendererFactory()({ filePath: prototypePath, viewport });
+        // the sheet may have unmounted while Chromium was launching; close the
+        // late arrival instead of leaking the process
+        if (unmountedRef.current) {
+          void browser.close();
+          return;
+        }
         browserRef.current = browser;
         setPng(await browser.screenshot());
         setStatus("ready");
