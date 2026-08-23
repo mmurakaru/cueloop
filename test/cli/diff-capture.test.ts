@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { resolveWorkspace } from "@cueloop/daemon/review";
-import { workingTreeDiff } from "../../packages/cli/src/working-tree";
+import { workingTreeDiff } from "@cueloop/daemon/working-tree";
 
 function sh(args: string[], cwd: string): void {
   const gitResult = Bun.spawnSync(args, { cwd, stdout: "ignore", stderr: "ignore" });

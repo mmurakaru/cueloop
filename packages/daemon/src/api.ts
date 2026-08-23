@@ -24,6 +24,8 @@ import {
 } from "@cueloop/schema";
 import { SessionStore } from "./store";
 import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
+import { DiffWatcher } from "./diff-watcher";
+import { workingTreeDiff } from "./working-tree";
 import { DaemonError } from "./errors";
 
 export type EventName =
@@ -46,11 +48,27 @@ export class DaemonCore {
   private waiters = new Map<string, ((session: ReviewSession) => void)[]>();
   private listeners = new Set<EventListener>();
   private seq = 0;
+  /** Drives diff hot-reload: watches each live diff session's repo for working-tree changes. */
+  private readonly diffWatcher: DiffWatcher;
+  /**
+   * Per-diff-session capture generation. Bumped when a refresh begins; a
+   * capture whose generation is stale by the time it finishes discards its
+   * result, so overlapping captures never write an older patch over a newer one.
+   */
+  private readonly diffRefreshGenerations = new Map<string, number>();
 
   constructor(home: string) {
     this.store = new SessionStore(home);
     this.store.recover();
     this.herdrTabs = new HerdrTabStore(home);
+    this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
+    // resume hot-reload for diff sessions that survived a daemon restart
+    for (const session of this.store.list()) this.watchIfDiffSession(session);
+  }
+
+  /** Release the fs watchers behind diff hot-reload; call on daemon shutdown. */
+  dispose(): void {
+    this.diffWatcher.close();
   }
 
   /** The herdr tab opened for a review, if any (adapter scratch, not on the session). */
@@ -90,6 +108,7 @@ export class DaemonCore {
       createdAt: now,
     };
     this.store.upsert(session);
+    this.watchIfDiffSession(session);
     this.emit("session.created", session.id);
     this.emit("inbox.changed", session.id);
     return session;
@@ -216,7 +235,10 @@ export class DaemonCore {
 
   /** Remove a session for good (inbox delete); resolved or pending, both go. */
   sessionDelete(id: string): void {
+    const session = this.store.get(id);
     if (!this.store.delete(id)) throw new DaemonError("not_found", `no session ${id}`);
+    if (session) this.unwatchIfDiffSession(session);
+    this.diffRefreshGenerations.delete(id);
     this.herdrTabs.delete(id);
     this.emit("inbox.changed", id);
   }
@@ -259,6 +281,8 @@ export class DaemonCore {
     session.verdict = verdict;
     session.status = "resolved";
     this.store.upsert(session);
+    // a resolved diff review is frozen; stop hot-reloading its working tree
+    this.unwatchIfDiffSession(session);
     const parked = this.waiters.get(id) ?? [];
     this.waiters.delete(id);
     for (const parkedWaiter of parked) parkedWaiter(session);
@@ -313,6 +337,53 @@ export class DaemonCore {
     return session;
   }
 
+  /** Re-capture a diff session's working tree; broadcasts session.updated only when the patch moved. */
+  async sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
+    const session = this.mutable(id);
+    if (session.artifact.type !== "diff") return { changed: false };
+    const generation = (this.diffRefreshGenerations.get(id) ?? 0) + 1;
+    this.diffRefreshGenerations.set(id, generation);
+    const diff = await workingTreeDiff(session.workspace.repoRoot);
+    // The capture yields the event loop: a newer refresh may have started, or a
+    // concurrent resolve/delete may have closed the session. Discard a stale
+    // capture, and re-read so a resolved review is never mutated and a deleted
+    // one is never revived by this upsert.
+    if (this.diffRefreshGenerations.get(id) !== generation) return { changed: false };
+    const current = this.store.get(id);
+    if (!current || current.status !== "pending" || current.artifact.type !== "diff")
+      return { changed: false };
+    if (diff.patch === current.artifact.content) return { changed: false };
+    current.artifact = { ...current.artifact, content: diff.patch, files: diff.files };
+    this.store.upsert(current);
+    this.emit("session.updated", id);
+    return { changed: true };
+  }
+
+  /** Re-capture every live diff session sharing a repo root (one debounced fs change). */
+  private async refreshDiffsForRepo(repoRoot: string): Promise<void> {
+    const live = this.store
+      .list()
+      .filter((session) => isLiveDiffSession(session) && session.workspace.repoRoot === repoRoot);
+    for (const session of live) {
+      // a session resolved or deleted between the change and this tick just skips
+      try {
+        await this.sessionRefreshDiff(session.id);
+      } catch {
+        // no-op: the session is gone or already resolved
+      }
+    }
+  }
+
+  private watchIfDiffSession(session: ReviewSession): void {
+    if (isLiveDiffSession(session))
+      this.diffWatcher.trackDiffRepo(session.workspace.repoRoot, session.id);
+  }
+
+  private unwatchIfDiffSession(session: ReviewSession): void {
+    if (session.artifact.type === "diff")
+      this.diffWatcher.untrackDiffRepo(session.workspace.repoRoot, session.id);
+  }
+
   private mutable(id: string): ReviewSession {
     const session = this.sessionGet(id);
     if (session.status === "resolved")
@@ -322,6 +393,11 @@ export class DaemonCore {
 }
 
 export { DaemonError };
+
+/** A pending diff session: the state that warrants hot-reload watching of its working tree. */
+function isLiveDiffSession(session: ReviewSession): boolean {
+  return session.status === "pending" && session.artifact.type === "diff";
+}
 
 /** Convenience for adapters: map a resolved session to the agent contract. */
 export function verdictResponse(session: ReviewSession): { allow: boolean; feedback: string } {

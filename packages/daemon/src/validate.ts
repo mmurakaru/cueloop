@@ -133,6 +133,7 @@ export const Params = {
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
   "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
+  "session.refreshDiff": v.object({ id: SessionId }),
   "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
   "session.delete": v.object({ id: SessionId }),
   "session.mergeShared": v.object({

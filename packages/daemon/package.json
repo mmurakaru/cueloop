@@ -21,6 +21,7 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./review": "./src/review.ts",
+    "./working-tree": "./src/working-tree.ts",
     "./herdr-pane": "./src/herdr-pane.ts",
     "./herdr-split": "./src/herdr-split.ts",
     "./share-blob": "./src/share-blob.ts"

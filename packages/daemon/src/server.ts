@@ -172,6 +172,7 @@ export class DaemonServer {
   }
 
   stop(): void {
+    this.core.dispose();
     this.server?.stop(true);
     this.server = null;
     rmSync(socketPath(this.home), { force: true });
@@ -274,6 +275,10 @@ export class DaemonServer {
       case "session.setViewed": {
         const params = parseParams("session.setViewed", request.params);
         return core.sessionSetViewed(params.id, params.viewedPaths);
+      }
+      case "session.refreshDiff": {
+        const params = parseParams("session.refreshDiff", request.params);
+        return core.sessionRefreshDiff(params.id);
       }
       case "session.setShareId": {
         const params = parseParams("session.setShareId", request.params);
