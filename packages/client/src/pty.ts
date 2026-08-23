@@ -202,15 +202,15 @@ class Pty implements IPty {
         // Stream mode buffers a multibyte char split across reads (box-drawing etc.).
         const text = this.decoder.decode(buffer.subarray(0, count), { stream: true });
         if (text) this.dataEvent.fire(text);
-      } else if (count === CHILD_EXITED) {
+      } else if (count === CHILD_EXITED || count < 0) {
+        // Both the drained-exit sentinel and a hard read error end the session:
+        // flush the decoder, reap for the code, close, and fire the exit once.
         const tail = this.decoder.decode();
         if (tail) this.dataEvent.fire(tail);
         const exitCode = this.lib.cueloop_pty_get_exit_code(this.handle);
         this.lib.cueloop_pty_close(this.handle);
         this.closing = true;
         this.exitEvent.fire({ exitCode });
-      } else if (count < 0) {
-        this.closing = true;
       } else {
         await new Promise((resolve) => setTimeout(resolve, READ_IDLE_MS));
       }

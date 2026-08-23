@@ -150,11 +150,17 @@ export class TerminalPaneRenderable extends Renderable {
     }
   }
 
-  protected destroySelf(): void {
+  /** Kill the child and free the VT. Idempotent - the detach path calls this
+   *  directly because the React reconciler removes a child without destroying it. */
+  shutdown(): void {
     this.pty?.kill();
     this.vt?.free();
     this.pty = null;
     this.vt = null;
+  }
+
+  protected destroySelf(): void {
+    this.shutdown();
     super.destroySelf();
   }
 }

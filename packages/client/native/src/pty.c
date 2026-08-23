@@ -57,15 +57,15 @@ static int split_packed(char *packed, char **out, int max) {
 }
 
 // Reap the child once, recording its exit status. WNOHANG unless `block`.
-static void reap_session(PtySession *s, int block) {
-  if (s->reaped) return;
+static void reap_session(PtySession *session, int block) {
+  if (session->reaped) return;
   int status = 0;
-  pid_t result = waitpid(s->pid, &status, block ? 0 : WNOHANG);
-  if (result != s->pid) return;
-  s->reaped = 1;
-  if (WIFEXITED(status)) s->exit_code = WEXITSTATUS(status);
-  else if (WIFSIGNALED(status)) s->exit_code = 128 + WTERMSIG(status);
-  else s->exit_code = -1;
+  pid_t result = waitpid(session->pid, &status, block ? 0 : WNOHANG);
+  if (result != session->pid) return;
+  session->reaped = 1;
+  if (WIFEXITED(status)) session->exit_code = WEXITSTATUS(status);
+  else if (WIFSIGNALED(status)) session->exit_code = 128 + WTERMSIG(status);
+  else session->exit_code = -1;
 }
 
 // Spawn `argv_packed` on a fresh PTY sized cols x rows, in cwd, with env_packed
@@ -94,8 +94,7 @@ int cueloop_pty_spawn(char *argv_packed, const char *cwd, char *env_packed,
   if (pid < 0) return -1;
 
   if (pid == 0) {
-    // Child: adopt the requested cwd/env, then become the target program. On any
-    // failure exec never returns, so _exit keeps a broken child from running JS.
+    // Child: adopt cwd/env then exec; _exit on any failure so a broken child never runs JS.
     if (cwd && cwd[0] != '\0') { if (chdir(cwd) != 0) _exit(127); }
     if (have_env) environ = envp;  // execvp resolves PATH from environ
     execvp(argv[0], argv);
@@ -120,60 +119,63 @@ static PtySession *session_of(int handle) {
 }
 
 int cueloop_pty_write(int handle, const uint8_t *data, int len) {
-  PtySession *s = session_of(handle);
-  if (!s) return -1;
-  ssize_t written = write(s->master_fd, data, (size_t)len);
+  PtySession *session = session_of(handle);
+  if (!session) return -1;
+  ssize_t written = write(session->master_fd, data, (size_t)len);
   return (int)written;
 }
 
 // Non-blocking read of child output. Returns bytes read (>0), 0 when nothing is
 // available yet, -2 once the child has exited and its output is drained, or -1.
 int cueloop_pty_read(int handle, uint8_t *buf, int len) {
-  PtySession *s = session_of(handle);
-  if (!s) return -1;
-  ssize_t n = read(s->master_fd, buf, (size_t)len);
-  if (n > 0) return (int)n;
-  if (n == 0) { reap_session(s, 1); return -2; }  // EOF: slave closed
+  PtySession *session = session_of(handle);
+  if (!session) return -1;
+  ssize_t bytesRead = read(session->master_fd, buf, (size_t)len);
+  if (bytesRead > 0) return (int)bytesRead;
+  if (bytesRead == 0) { reap_session(session, 1); return -2; }  // EOF: slave closed
   if (errno == EAGAIN || errno == EWOULDBLOCK) {
-    reap_session(s, 0);
-    return s->reaped ? -2 : 0;  // exited with no more output vs still running
+    reap_session(session, 0);
+    return session->reaped ? -2 : 0;  // exited with no more output vs still running
   }
-  if (errno == EIO) { reap_session(s, 1); return -2; }  // Linux: slave gone
+  if (errno == EIO) { reap_session(session, 1); return -2; }  // Linux: slave gone
   return -1;
 }
 
 int cueloop_pty_resize(int handle, int cols, int rows) {
-  PtySession *s = session_of(handle);
-  if (!s) return -1;
+  PtySession *session = session_of(handle);
+  if (!session) return -1;
   struct winsize ws = {0};
   ws.ws_col = (unsigned short)cols;
   ws.ws_row = (unsigned short)rows;
-  return ioctl(s->master_fd, TIOCSWINSZ, &ws);
+  return ioctl(session->master_fd, TIOCSWINSZ, &ws);
 }
 
 int cueloop_pty_kill(int handle) {
-  PtySession *s = session_of(handle);
-  if (!s) return -1;
-  return kill(s->pid, SIGTERM);
+  PtySession *session = session_of(handle);
+  if (!session) return -1;
+  return kill(session->pid, SIGTERM);
 }
 
 int cueloop_pty_get_pid(int handle) {
-  PtySession *s = session_of(handle);
-  return s ? (int)s->pid : -1;
+  PtySession *session = session_of(handle);
+  return session ? (int)session->pid : -1;
 }
 
 int cueloop_pty_get_exit_code(int handle) {
-  PtySession *s = session_of(handle);
-  if (!s) return -1;
-  reap_session(s, 1);
-  return s->exit_code;
+  PtySession *session = session_of(handle);
+  if (!session) return -1;
+  reap_session(session, 1);
+  return session->exit_code;
 }
 
 void cueloop_pty_close(int handle) {
-  PtySession *s = session_of(handle);
-  if (!s) return;
-  if (s->master_fd >= 0) close(s->master_fd);
-  reap_session(s, 0);
-  s->in_use = 0;
-  s->master_fd = -1;
+  PtySession *session = session_of(handle);
+  if (!session) return;
+  // Close the master first (hangs up the child), then block to reap it: after the
+  // SIGTERM from kill() plus this SIGHUP a well-behaved child exits at once, so the
+  // wait returns promptly and never leaves a zombie.
+  if (session->master_fd >= 0) close(session->master_fd);
+  reap_session(session, 1);
+  session->in_use = 0;
+  session->master_fd = -1;
 }

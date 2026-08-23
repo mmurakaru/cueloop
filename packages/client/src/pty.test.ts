@@ -61,14 +61,14 @@ describe("pty", () => {
         name: "xterm-256color",
         env: { ...process.env, CUELOOP_PTY_MARKER: "marker-value" },
       });
-      let out = "";
+      let collected = "";
       const timeout = setTimeout(() => reject(new Error("no exit")), 5000);
       pty.onData((chunk) => {
-        out += chunk;
+        collected += chunk;
       });
       pty.onExit(() => {
         clearTimeout(timeout);
-        resolve(out);
+        resolve(collected);
       });
     });
 

@@ -90,7 +90,7 @@ export function parseBlocks(markdown: string): Block[] {
       const start = lineIndex;
       const body: string[] = [];
       while (lineIndex < lines.length && lines[lineIndex]!.startsWith("> ")) {
-        body.push(lines[lineIndex]!.slice(2));
+        body.push(stripLeadingBlockMarker(lines[lineIndex]!));
         lineIndex++;
       }
       blocks.push({

@@ -40,9 +40,7 @@ export function Button({
     <box
       style={{ backgroundColor, marginRight }}
       onMouseUp={(event: MouseEvent) => {
-        // Consume the press so it never bubbles to an ancestor's onMouseUp: a
-        // Button inside a clickable card (e.g. a saved annotation's edit
-        // composer) would otherwise re-trigger the card and undo the action.
+        // Consume the press so it never bubbles to an ancestor's onMouseUp (e.g. a card).
         event.stopPropagation();
         if (!isDisabled) onPress();
       }}

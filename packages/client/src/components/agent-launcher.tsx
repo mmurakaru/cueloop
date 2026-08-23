@@ -24,26 +24,24 @@ export interface AgentTerminalHandle {
   detach: () => void;
 }
 
-/** One launchable harness: its display name, rail command, and brand color. */
+/** One launchable harness: its display name and the rail command. */
 export interface HarnessLauncher {
   id: string;
   name: string;
   /** The shell command that starts the harness, run in the split. */
   command: string;
-  /** Brand color for the running-terminal header. */
-  color: string;
 }
 
-/** Shared off-white for every harness's running-terminal header. */
+/** Off-white for the running-terminal header, shared by every harness. */
 const HARNESS_HEADER_COLOR = "#e4e6ec";
 
 /** The bring-your-own harnesses, in launch order. The command is the real binary
  *  name spawned on a PTY (not a shell alias, so `claude` - never `cc`, which is
  *  the system C compiler). */
 export const HARNESS_LAUNCHERS: HarnessLauncher[] = [
-  { id: "claude", name: "Claude Code", command: "claude", color: HARNESS_HEADER_COLOR },
-  { id: "pi", name: "Pi", command: "pi", color: HARNESS_HEADER_COLOR },
-  { id: "codex", name: "OpenAI Codex", command: "codex", color: HARNESS_HEADER_COLOR },
+  { id: "claude", name: "Claude Code", command: "claude" },
+  { id: "pi", name: "Pi", command: "pi" },
+  { id: "codex", name: "OpenAI Codex", command: "codex" },
 ];
 
 /** The briefing typed into a launched harness when the plan-context toggle is on. */
@@ -86,7 +84,12 @@ export function AgentLauncher({
     if (embeddedTerminalAvailable()) setRunning({ harness, seed });
     else onLaunchHarness(harness.command, seed);
   };
-  const detach = (): void => setRunning(null);
+  const detach = (): void => {
+    // The reconciler's removeChild detaches the pane without destroying it, so
+    // kill the child + free the VT here or they leak. shutdown() is idempotent.
+    paneRef.current?.shutdown();
+    setRunning(null);
+  };
 
   useEffect(() => {
     if (!running) return onAgentTerminal?.(null);
@@ -99,7 +102,7 @@ export function AgentLauncher({
     return (
       <box style={{ flexDirection: "column", flexGrow: 1 }}>
         <box style={{ flexDirection: "row" }} onMouseUp={detach}>
-          <text fg={running.harness.color}>{running.harness.name}</text>
+          <text fg={HARNESS_HEADER_COLOR}>{running.harness.name}</text>
           <box style={{ flexGrow: 1 }} />
           <text fg={tokens.textDim}>✕ detach</text>
         </box>
