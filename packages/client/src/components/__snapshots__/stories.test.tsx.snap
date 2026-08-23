@@ -820,6 +820,34 @@ exports[`stories catalog PromptDialog/RenameAuthor renders, snapshots, and carri
 "
 `;
 
+exports[`stories catalog PrototypeSheet/Unsupported renders, snapshots, and carries its colors: PrototypeSheet/Unsupported 1`] = `
+"╭──────────────────────────────────────────────────────────────────────────────╮
+│                                                                              │
+│  rendering prototype…                                                        │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+"
+`;
+
 exports[`stories catalog ReviewPanel/Compact renders, snapshots, and carries its colors: ReviewPanel/Compact 1`] = `
 " The plan takes the width the panel hands back.             
                                                         2   
@@ -1825,33 +1853,5 @@ exports[`stories catalog theme-context/ProviderSwap renders, snapshots, and carr
                                                                                 
                                                                                 
                                                                                 
-"
-`;
-
-exports[`stories catalog PrototypeSheet/Unsupported renders, snapshots, and carries its colors: PrototypeSheet/Unsupported 1`] = `
-"╭──────────────────────────────────────────────────────────────────────────────╮
-│                                                                              │
-│  rendering prototype…                                                        │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
 "
 `;

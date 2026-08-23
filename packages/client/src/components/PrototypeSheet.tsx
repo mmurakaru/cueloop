@@ -1,11 +1,15 @@
 /**
- * Prototype review surface: renders the HTML as an image and turns a click into
- * a DOM-element selection, so the shared marker actions bar and compose card
- * annotate an element rather than a text span.
+ * Prototype review surface: renders the HTML screenshot into a reserved cell
+ * region via the kitty graphics protocol, and turns a click into a DOM-element
+ * selection, so the shared marker actions bar and compose card annotate an
+ * element rather than a text span. The image is painted directly (not through
+ * OpenTUI's ImageRenderable, which does not display in every terminal): the
+ * region's cells are never repainted, and the picture is re-placed after each
+ * frame so it survives OpenTUI's own draws.
  */
 
 import React, { useEffect, useRef, useState } from "react";
-import type { ImageRenderable } from "@opentui/core";
+import type { BoxRenderable } from "@opentui/core";
 import { useRenderer } from "@opentui/react";
 import type { Theme } from "../theme";
 import { quickActionBody, type QuickAction } from "../config";
@@ -16,79 +20,162 @@ import { AnnotationCard } from "./AnnotationCard";
 import {
   cssBoxToCell,
   imageCellToCss,
-  launchPrototypeRenderer,
+  prototypeRendererFactory,
   type PrototypeElement,
   type PrototypeRenderer,
   type PrototypeViewport,
 } from "../prototype-browser";
+import {
+  deleteKittyImage,
+  placeKittyImage,
+  transmitKittyImage,
+  type CellRegion,
+} from "../kitty-image";
 
 export interface PrototypeSheetProps {
   prototypePath: string;
   quickActions: QuickAction[];
   canComment: boolean;
   onCommentElement: (element: PrototypeElement, body: string) => void;
+  /** Signals when the inline compose owns the keyboard, so the app suppresses
+   *  its global keymap and the compose textarea receives the typed note. */
+  onComposingChange?: (active: boolean) => void;
   theme?: Theme;
 }
 
 type SheetStatus = "loading" | "ready" | "unsupported" | "error";
 
-const DEFAULT_CELL_ASPECT = 2;
 const POPOVER_ROWS = 3;
+const PROTOTYPE_IMAGE_ID = 811;
+// The capture viewport width in CSS pixels; its height matches the region's
+// cell aspect so the rendered image fills the box instead of letterboxing. The
+// aspect comes from the terminal's reported cell pixels, falling back to a
+// typical monospace ratio when the terminal never reports one.
+const CAPTURE_WIDTH = 1280;
+const FALLBACK_CELL_HEIGHT_OVER_WIDTH = 2.18;
+
+function cellHeightOverWidth(renderer: {
+  resolution: { width: number; height: number } | null;
+  terminalWidth: number;
+  terminalHeight: number;
+}): number {
+  const resolution = renderer.resolution;
+  if (!resolution || renderer.terminalWidth < 1 || renderer.terminalHeight < 1) {
+    return FALLBACK_CELL_HEIGHT_OVER_WIDTH;
+  }
+  return resolution.height / renderer.terminalHeight / (resolution.width / renderer.terminalWidth);
+}
+
+function regionOf(box: BoxRenderable | null): CellRegion | null {
+  if (!box || box.width < 1 || box.height < 1) return null;
+  return { column: box.x, row: box.y, columns: box.width, rows: box.height };
+}
 
 export function PrototypeSheet({
   prototypePath,
   quickActions,
   canComment,
   onCommentElement,
+  onComposingChange,
   theme,
 }: PrototypeSheetProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const renderer = useRenderer();
-  const imageRef = useRef<ImageRenderable | null>(null);
+  const regionRef = useRef<BoxRenderable | null>(null);
   const browserRef = useRef<PrototypeRenderer | null>(null);
   const launchedRef = useRef(false);
-  const viewportRef = useRef<PrototypeViewport>({ width: 1280, height: 800 });
+  const viewportRef = useRef<PrototypeViewport>({ width: CAPTURE_WIDTH, height: 800 });
+  const pngRef = useRef<Uint8Array | null>(null);
+  const transmittedRef = useRef<Uint8Array | null>(null);
+  const paintRef = useRef<() => void>(() => undefined);
+  const launchRef = useRef<() => void>(() => undefined);
 
   const [status, setStatus] = useState<SheetStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [png, setPng] = useState<Uint8Array | null>(null);
   const [selected, setSelected] = useState<PrototypeElement | null>(null);
   const [overlayCell, setOverlayCell] = useState<{ left: number; top: number } | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [composing, setComposing] = useState(false);
   const [draftText, setDraftText] = useState("");
 
+  const setPng = (png: Uint8Array): void => {
+    pngRef.current = png;
+    transmittedRef.current = null;
+    paintRef.current();
+  };
+
+  // Every frame: start the browser once layout is known, then keep the picture
+  // asserted over its cells. The kitty emission (transmit once, cheap re-place
+  // after) is skipped when the renderer has no raw writeOut channel (the test
+  // harness), but the launch trigger still runs.
+  useEffect(() => {
+    if (!renderer) return;
+    // writeOut is the renderer's raw output channel, ordered against its frame
+    // bytes; it is private, so reach it through one narrow cast
+    const rawWrite = (renderer as unknown as { writeOut?: (data: string) => void }).writeOut;
+    const write =
+      typeof rawWrite === "function" ? (chunk: string) => rawWrite.call(renderer, chunk) : null;
+    const paint = (): void => {
+      if (!write) return;
+      const region = regionOf(regionRef.current);
+      const png = pngRef.current;
+      if (!region || !png) return;
+      if (transmittedRef.current !== png) {
+        transmitKittyImage(write, png, region, PROTOTYPE_IMAGE_ID);
+        transmittedRef.current = png;
+      } else {
+        placeKittyImage(write, region, PROTOTYPE_IMAGE_ID);
+      }
+    };
+    paintRef.current = paint;
+    const onFrame = (): void => {
+      launchRef.current();
+      paint();
+    };
+    renderer.on("frame", onFrame);
+    return () => {
+      renderer.off("frame", onFrame);
+      if (write) deleteKittyImage(write, PROTOTYPE_IMAGE_ID);
+    };
+  }, [renderer]);
+
+  useEffect(() => {
+    onComposingChange?.(composing);
+  }, [composing, onComposingChange]);
+
+  const unmountedRef = useRef(false);
   useEffect(() => {
     return () => {
+      unmountedRef.current = true;
       void browserRef.current?.close();
     };
   }, []);
 
-  const viewportFor = (columns: number, rows: number): PrototypeViewport => {
-    const resolution = renderer?.resolution ?? null;
-    const cellWidth = resolution ? resolution.width / renderer!.terminalWidth : 1;
-    const cellHeight = resolution
-      ? resolution.height / renderer!.terminalHeight
-      : DEFAULT_CELL_ASPECT;
-    return {
-      width: Math.max(320, Math.round(columns * cellWidth)),
-      height: Math.max(240, Math.round(rows * cellHeight)),
-    };
-  };
-
   const launch = (): void => {
-    const image = imageRef.current;
-    if (launchedRef.current || !image || image.width < 1 || image.height < 1) return;
-    if (renderer?.capabilities && renderer.capabilities.kitty_graphics === false) {
+    const region = regionOf(regionRef.current);
+    const caps = renderer?.capabilities;
+    if (launchedRef.current || !region) return;
+    if (caps && caps.kitty_graphics === false) {
       setStatus("unsupported");
       return;
     }
     launchedRef.current = true;
-    const viewport = viewportFor(image.width, image.height);
+    const viewport = {
+      width: CAPTURE_WIDTH,
+      height: Math.round(
+        (CAPTURE_WIDTH * region.rows * cellHeightOverWidth(renderer!)) / region.columns,
+      ),
+    };
     viewportRef.current = viewport;
     void (async () => {
       try {
-        const browser = await launchPrototypeRenderer({ filePath: prototypePath, viewport });
+        const browser = await prototypeRendererFactory()({ filePath: prototypePath, viewport });
+        // the sheet may have unmounted while Chromium was launching; close the
+        // late arrival instead of leaking the process
+        if (unmountedRef.current) {
+          void browser.close();
+          return;
+        }
         browserRef.current = browser;
         setPng(await browser.screenshot());
         setStatus("ready");
@@ -98,6 +185,9 @@ export function PrototypeSheet({
       }
     })();
   };
+  useEffect(() => {
+    launchRef.current = launch;
+  });
 
   const refresh = async (): Promise<void> => {
     const browser = browserRef.current;
@@ -116,11 +206,16 @@ export function PrototypeSheet({
       .catch(() => undefined);
   };
 
-  const onImageMouseDown = (event: { x: number; y: number }): void => {
+  const onRegionMouseDown = (event: { x: number; y: number }): void => {
     const browser = browserRef.current;
-    const image = imageRef.current;
-    if (status !== "ready" || !browser || !image) return;
-    const geometry = { x: image.x, y: image.y, width: image.width, height: image.height };
+    const region = regionOf(regionRef.current);
+    if (status !== "ready" || !browser || !region) return;
+    const geometry = {
+      x: region.column,
+      y: region.row,
+      width: region.columns,
+      height: region.rows,
+    };
     const cssPoint = imageCellToCss(event, geometry, viewportRef.current);
     if (!cssPoint) return;
     void (async () => {
@@ -149,12 +244,10 @@ export function PrototypeSheet({
     clearSelection();
   };
 
-  const overlayLeft = overlayCell?.left ?? 0;
-  const overlayTop = Math.max(0, overlayCell?.top ?? 0);
   const overlayStyle = {
     position: "absolute" as const,
-    left: overlayLeft,
-    top: overlayTop,
+    left: overlayCell?.left ?? 0,
+    top: Math.max(0, overlayCell?.top ?? 0),
     flexDirection: "column" as const,
   };
 
@@ -168,16 +261,13 @@ export function PrototypeSheet({
         borderColor: tokens.text,
       }}
     >
-      <image
-        ref={(instance: ImageRenderable | null) => {
-          imageRef.current = instance;
+      <box
+        ref={(instance: BoxRenderable | null) => {
+          regionRef.current = instance;
         }}
-        {...(png ? { source: png } : {})}
-        fit="fill"
-        protocol="auto"
         style={{ flexGrow: 1 }}
         onSizeChange={launch}
-        onMouseDown={onImageMouseDown}
+        onMouseDown={onRegionMouseDown}
       />
       {status !== "ready" ? (
         <box style={{ position: "absolute", left: 2, top: 1 }}>
@@ -191,7 +281,11 @@ export function PrototypeSheet({
             actions={quickActions}
             actionIndex={0}
             canCut={false}
-            onComment={() => (canComment ? setComposing(true) : undefined)}
+            onComment={() => {
+              if (!canComment) return;
+              onComposingChange?.(true);
+              setComposing(true);
+            }}
             onCut={() => undefined}
             onOpenActions={() => setActionsOpen(true)}
             onClose={clearSelection}
@@ -210,6 +304,7 @@ export function PrototypeSheet({
               text: draftText,
               onInput: setDraftText,
               onSave: () => commit(draftText),
+              onSubmit: () => commit(draftText),
               onCancel: clearSelection,
             }}
             theme={theme}

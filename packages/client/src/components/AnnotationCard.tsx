@@ -25,6 +25,12 @@ export interface AnnotationDraft {
   onInput: (text: string) => void;
   onSave: () => void;
   onCancel: () => void;
+  /**
+   * When set, ⏎ in the textarea saves through this handler. The plan and diff
+   * composers leave it unset because the app keymap owns ⏎ there; the prototype
+   * composer sets it because the app keymap is suppressed while it is open.
+   */
+  onSubmit?: () => void;
 }
 
 export interface AnnotationSaved {
@@ -119,6 +125,7 @@ function DraftEditor({
         initialValue={draft.text}
         placeholder="write a note..."
         keyBindings={COMPOSE_KEY_BINDINGS}
+        {...(draft.onSubmit ? { onSubmit: draft.onSubmit } : {})}
         onContentChange={() => {
           const editor = editorRef.current;
           if (!editor) return;
