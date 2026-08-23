@@ -34,6 +34,9 @@ export type HintMode =
   | "walk"
   | "read-only";
 
+/** Display glyph for the Agent-tab terminal detach chord (ctrl+], App-owned). */
+export const AGENT_DETACH_HINT = "⌃]";
+
 export interface CheatsheetEntry {
   keys: string;
   label: string;
@@ -417,6 +420,9 @@ export class KeyBindings {
       build({ overlay: "none", spanMode: true }, "span", "Selection"),
       build({ overlay: "submit", spanMode: false }, "submit", "Submit"),
       build({ overlay: "walk", spanMode: false }, "walk", "Walk"),
+      // The Agent-tab terminal chord is owned by App (not the rebindable keymap),
+      // so it is listed statically rather than resolved from the active keys.
+      { title: "Agent terminal", entries: [{ keys: AGENT_DETACH_HINT, label: "detach" }] },
     ];
     this.context = saved;
     return sections.filter((section) => section.entries.length > 0);

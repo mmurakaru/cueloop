@@ -4,7 +4,7 @@
  * primitive. It wires bun-pty (the child + tty) to a Ghostty VT emulator
  * (ghostty-terminal.ts) and blits the emulator's cell grid every frame via
  * OptimizedBuffer.setCell. Register once with `registerTerminalPane`, then use
- * `<terminalPane command="cc" ... />` in the OpenTUI React tree.
+ * `<terminalPane command="claude" ... />` in the OpenTUI React tree.
  */
 
 import { Renderable, RGBA, createTextAttributes, type RenderContext } from "@opentui/core";
@@ -33,7 +33,7 @@ export function embeddedTerminalAvailable(): boolean {
 
 /** Props for `<terminalPane>`: the child to run plus its cwd/env and a plan-context seed. */
 export interface TerminalPaneOptions extends RenderableOptions {
-  /** The program to run, e.g. "cc" / "pi" / "codex" / a shell. */
+  /** The program to run, e.g. "claude" / "pi" / "codex" / a shell. */
   command?: string;
   args?: string[];
   cwd?: string;

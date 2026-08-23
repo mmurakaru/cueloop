@@ -937,15 +937,15 @@ exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its
 │ Review  Agent                  │      
 ╰────────────────────────────────╯      
 ╭────────────────────────────────╮      
-│ Claude Code                  ▸ │      
+│ Claude Code                    │      
 ╰────────────────────────────────╯      
 ╭────────────────────────────────╮      
-│ Pi                           ▸ │      
+│ Pi                             │      
 ╰────────────────────────────────╯      
 ╭────────────────────────────────╮      
-│ OpenAI Codex                 ▸ │      
+│ OpenAI Codex                   │      
 ╰────────────────────────────────╯      
-plan context: seed the plan ▸           
+plan context: seed the plan             
                                         
                                         
                                         
@@ -1394,15 +1394,15 @@ exports[`stories catalog WalkWizard/WithAgentNote renders, snapshots, and carrie
 
 exports[`stories catalog AgentLauncher/Launcher renders, snapshots, and carries its colors: AgentLauncher/Launcher 1`] = `
 "  ╭────────────────────────────────────╮
-  │ Claude Code                      ▸ │
+  │ Claude Code                        │
   ╰────────────────────────────────────╯
   ╭────────────────────────────────────╮
-  │ Pi                               ▸ │
+  │ Pi                                 │
   ╰────────────────────────────────────╯
   ╭────────────────────────────────────╮
-  │ OpenAI Codex                     ▸ │
+  │ OpenAI Codex                       │
   ╰────────────────────────────────────╯
-  plan context: seed the plan ▸         
+  plan context: seed the plan           
                                         
                                         
                                         

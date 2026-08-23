@@ -37,9 +37,11 @@ export interface HarnessLauncher {
 /** Shared off-white for every harness's running-terminal header. */
 const HARNESS_HEADER_COLOR = "#e4e6ec";
 
-/** The bring-your-own harnesses, in launch order. */
+/** The bring-your-own harnesses, in launch order. The command is the real binary
+ *  name spawned on a PTY (not a shell alias, so `claude` - never `cc`, which is
+ *  the system C compiler). */
 export const HARNESS_LAUNCHERS: HarnessLauncher[] = [
-  { id: "claude", name: "Claude Code", command: "cc", color: HARNESS_HEADER_COLOR },
+  { id: "claude", name: "Claude Code", command: "claude", color: HARNESS_HEADER_COLOR },
   { id: "pi", name: "Pi", command: "pi", color: HARNESS_HEADER_COLOR },
   { id: "codex", name: "OpenAI Codex", command: "codex", color: HARNESS_HEADER_COLOR },
 ];
@@ -99,7 +101,7 @@ export function AgentLauncher({
         <box style={{ flexDirection: "row" }} onMouseUp={detach}>
           <text fg={running.harness.color}>{running.harness.name}</text>
           <box style={{ flexGrow: 1 }} />
-          <text fg={tokens.textDim}>✕ detach (⌃])</text>
+          <text fg={tokens.textDim}>✕ detach</text>
         </box>
         {React.createElement("terminalPane", {
           ref: paneRef,
@@ -131,13 +133,11 @@ export function AgentLauncher({
           onMouseUp={() => launch(harness)}
         >
           <text fg={tokens.textMuted}>{harness.name}</text>
-          <box style={{ flexGrow: 1 }} />
-          <text fg={tokens.textDim}>▸</text>
         </box>
       ))}
       <box style={{ flexDirection: "row" }} onMouseUp={() => setSeedContext((on) => !on)}>
         <text fg={tokens.textDim}>plan context: </text>
-        <text fg={tokens.accent}>{seedContext ? "seed the plan ▸" : "none ▸"}</text>
+        <text fg={tokens.accent}>{seedContext ? "seed the plan" : "none"}</text>
       </box>
     </box>
   );
