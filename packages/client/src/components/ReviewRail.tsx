@@ -17,7 +17,7 @@ import { Button } from "./primitives/Button";
 import { Toolbar } from "./primitives/Toolbar";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { ConfirmCard, type ConfirmCardProps } from "./ConfirmCard";
-import { AgentLauncher } from "./agent-launcher";
+import { AgentLauncher, type AgentTerminalHandle } from "./agent-launcher";
 import { Card } from "./primitives/Card";
 import { truncateToSingleLine } from "./truncate-text";
 import { resolveDisplayName } from "../attribution";
@@ -63,6 +63,8 @@ export interface ReviewRailProps {
   onSubmitRequest: () => void;
   /** Launch a bring-your-own harness in the rail (Agent tab); seedText is the plan-context briefing. */
   onLaunchHarness: (command: string, seedText?: string) => void;
+  /** In-tab agent terminal handle (embedded path); null when detached. Lets the app route keys to it. */
+  onAgentTerminal?: (handle: AgentTerminalHandle | null) => void;
   /** Rail column width; the app derives it from the persisted review layout. */
   width?: number;
   /**
@@ -97,6 +99,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
     onUndoCuration,
     onSubmitRequest,
     onLaunchHarness,
+    onAgentTerminal,
     width = 34,
     onCollapse,
     theme,
@@ -201,7 +204,12 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
       {railTab === "agent" ? (
         <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 2 }}>
           <text> </text>
-          <AgentLauncher session={session} onLaunchHarness={onLaunchHarness} theme={theme} />
+          <AgentLauncher
+            session={session}
+            onLaunchHarness={onLaunchHarness}
+            onAgentTerminal={onAgentTerminal}
+            theme={theme}
+          />
         </box>
       ) : openAnnotations.length === 0 && curationItems.length === 0 ? (
         <box style={{ flexGrow: 1, alignItems: "center", justifyContent: "center" }}>

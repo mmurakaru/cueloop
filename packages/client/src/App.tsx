@@ -59,6 +59,7 @@ import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { DiffSheet } from "./components/DiffSheet";
 import { annotationBlocking, type ReviewRailHandle } from "./components/ReviewRail";
+import type { AgentTerminalHandle } from "./components/agent-launcher";
 import { ReviewPanel } from "./components/ReviewPanel";
 import {
   REVIEW_COMPACT_WIDTH,
@@ -163,6 +164,8 @@ export function App({
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<"review" | "agent">("review");
+  // A running in-tab agent terminal (embedded harness); while set, keys route to it.
+  const [agentTerminal, setAgentTerminal] = useState<AgentTerminalHandle | null>(null);
   // review panel layout: mode + expanded width are client view state, loaded
   // from and persisted to the user config so they survive a restart. The ref
   // mirrors the width so the drag-end persist reads the latest value.
@@ -584,6 +587,12 @@ export function App({
   };
 
   useKeyboard((key) => {
+    // A running in-tab agent terminal owns the keyboard: forward every key to it,
+    // with ctrl+] as the detach chord back to the review.
+    if (agentTerminal) {
+      if (key.ctrl && key.name === "]") return void agentTerminal.detach();
+      return void agentTerminal.write(key.sequence);
+    }
     if (menuDialog === "settings") return void handleSettingsKey(key.name);
     if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
     if (menuOpen) return void (key.name === "escape" && setMenuOpen(false));
@@ -1067,6 +1076,7 @@ export function App({
                   cwd: activeSession.artifact.meta.cwd ?? process.cwd(),
                   seedText,
                 }),
+              onAgentTerminal: setAgentTerminal,
             }}
           />
         </box>
