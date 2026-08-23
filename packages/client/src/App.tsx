@@ -253,6 +253,7 @@ export function App({
   const resolved = session?.status === "resolved";
   const isDiff = session?.artifact.type === "diff";
   const isPrototype = session?.artifact.type === "prototype";
+  const [prototypeComposing, setPrototypeComposing] = useState(false);
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
   // annotation resolves to the display index it marked
@@ -589,6 +590,9 @@ export function App({
   };
 
   useKeyboard((key) => {
+    // The prototype compose textarea owns the keyboard while open: let it receive
+    // the typed note instead of the global keymap acting on each letter.
+    if (prototypeComposing) return;
     // A running in-tab agent terminal owns the keyboard: forward every key to it,
     // with ctrl+] as the detach chord back to the review.
     if (agentTerminal) {
@@ -1035,6 +1039,7 @@ export function App({
               onCommentElement={(element, body) =>
                 controller.annotatePrototype(element.selector, element.quote, body)
               }
+              onComposingChange={setPrototypeComposing}
             />
           ) : isDiff ? (
             // the sheet dims to reading-quiet colors while the wizard has focus
