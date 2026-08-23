@@ -79,6 +79,20 @@ export function cssBoxToCell(
   };
 }
 
+export type PrototypeRendererFactory = (options: LaunchOptions) => Promise<PrototypeRenderer>;
+
+let rendererFactory: PrototypeRendererFactory | null = null;
+
+/** Override the renderer factory so tests can inject a browserless fake. */
+export function setPrototypeRendererFactory(factory: PrototypeRendererFactory | null): void {
+  rendererFactory = factory;
+}
+
+/** The active factory - the injected fake in tests, else real headless Chromium. */
+export function prototypeRendererFactory(): PrototypeRendererFactory {
+  return rendererFactory ?? launchPrototypeRenderer;
+}
+
 export async function launchPrototypeRenderer(options: LaunchOptions): Promise<PrototypeRenderer> {
   const puppeteer = (await import("puppeteer-core")).default;
   const { pathToFileURL } = await import("node:url");
