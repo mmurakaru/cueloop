@@ -55,6 +55,7 @@ export interface OpenReviewOptions {
   /** When set, a resubmit from the same agent session becomes a revision, not a new session. */
   agentSessionId?: string;
   planPath?: string;
+  prototypePath?: string;
   pr?: string;
   herdrPane?: string;
   /**
@@ -249,6 +250,7 @@ export async function openReview(
       agent: options.agent,
       agentSessionId: options.agentSessionId,
       planPath: options.planPath,
+      prototypePath: options.prototypePath,
       pr: options.pr,
       herdrPane: options.herdrPane,
       title: options.title ?? (options.type === "plan" ? firstHeading(options.content) : undefined),

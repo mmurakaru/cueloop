@@ -5,6 +5,7 @@ import type { ArtifactType, ReviewSession } from "@cueloop/schema";
 import {
   isDiffReview,
   isPlanReview,
+  isPrototypeReview,
   isPrReview,
   isSessionId,
   openTargetMessage,
@@ -57,6 +58,12 @@ describe("verb scope predicates are disjoint", () => {
     expect(isPrReview(session({ id: "ses_pr", type: "diff", pr: "42" }))).toBe(true);
     expect(isPrReview(session({ id: "ses_d", type: "diff" }))).toBe(false);
     expect(isPrReview(session({ id: "ses_p", type: "plan" }))).toBe(false);
+  });
+
+  test("isPrototypeReview matches only prototype artifacts", () => {
+    expect(isPrototypeReview(session({ id: "ses_x", type: "prototype" }))).toBe(true);
+    expect(isPrototypeReview(session({ id: "ses_p", type: "plan" }))).toBe(false);
+    expect(isPrototypeReview(session({ id: "ses_d", type: "diff" }))).toBe(false);
   });
 
   test("a PR review resolves under exactly one scope - never both diff and review", () => {
