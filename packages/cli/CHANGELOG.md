@@ -1,5 +1,19 @@
 # cueloop
 
+## 0.1.0-alpha.47
+
+### Patch Changes
+
+- [#248](https://github.com/mmurakaru/cueloop/pull/248) [`83e597b`](https://github.com/mmurakaru/cueloop/commit/83e597b47e7898e95e360b554ce13c440a98cf08) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Prototype review now renders the page. The screenshot is painted directly through the kitty graphics protocol into a reserved cell region (transmit once, re-place after each frame, beneath the text layer) rather than OpenTUI's image renderable, which stayed blank in some terminals; the capture viewport matches the box's cell aspect so the image fills it. Typing a comment no longer leaks to the global keymap - the compose textarea owns the keyboard while open and Enter saves. Adds an end-to-end test covering click -> actions bar -> comment -> save -> rail.
+
+- [#246](https://github.com/mmurakaru/cueloop/pull/246) [`e0c77be`](https://github.com/mmurakaru/cueloop/commit/e0c77be42ebdd3b1160d9c1be6a736da2b37c487) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Advertise the prototype review skill in the plugin: `/cueloop:prototype` now appears in the plugin and marketplace descriptions alongside plan, diff, review, and annotate.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.47
+  - @cueloop/client@0.1.0-alpha.47
+  - @cueloop/daemon@0.1.0-alpha.47
+  - @cueloop/schema@0.1.0-alpha.47
+
 ## 0.1.0-alpha.46
 
 ### Patch Changes
