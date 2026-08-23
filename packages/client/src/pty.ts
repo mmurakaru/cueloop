@@ -1,14 +1,10 @@
 /**
- * A pseudo-terminal for Bun, over cueloop's own forkpty(3) FFI shim
- * (native/src/pty.c) - the in-house replacement for the third-party bun-pty
- * package. Node-pty's N-API addon crashes Bun on macOS arm64, so the embedded
- * Agent-tab terminal needs an FFI-based PTY; owning the ~150-line C shim removes
- * a low-adoption native dependency from the supply chain.
- *
- * The API mirrors node-pty/bun-pty just enough for `terminal-pane.ts`: `spawn`
- * returns a `Pty` with `onData`/`onExit` events and `write`/`resize`/`kill`.
- * `ptyAvailable()` returns false when no prebuilt shim ships for this platform,
- * so callers fall back to a herdr split, exactly like the Ghostty VT loader.
+ * A pseudo-terminal for the embedded Agent-tab terminal, over cueloop's own
+ * forkpty(3) FFI shim (native/src/pty.zig). `spawn` returns a `Pty` with
+ * `onData`/`onExit` events and `write`/`resize`/`kill`; a poll loop drains the
+ * child's output and decodes it as streaming UTF-8. `ptyAvailable()` returns
+ * false when no prebuilt shim ships for this platform, so callers fall back to a
+ * herdr split, exactly like the Ghostty VT loader.
  */
 
 import { dlopen, FFIType, ptr } from "bun:ffi";
@@ -39,7 +35,7 @@ export interface Disposable {
   dispose(): void;
 }
 
-/** The subset of node-pty's IPty that cueloop consumes. */
+/** The pseudo-terminal surface the embedded terminal consumes. */
 export interface IPty {
   readonly pid: number;
   readonly cols: number;

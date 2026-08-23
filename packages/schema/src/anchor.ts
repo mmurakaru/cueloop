@@ -99,7 +99,15 @@ function findExactCandidates(anchor: Anchor, blocks: Block[], quote: string): Ca
   return candidates;
 }
 
-/** The best fuzzy window per block, scored by similarity plus context. */
+/**
+ * How much a full context agreement (0-6) may nudge the fuzzy ranking. Kept far
+ * below any real similarity gap so text quality always leads and context only
+ * breaks near-ties - a stale position hint must never pull the anchor onto a
+ * meaningfully less-similar passage.
+ */
+const FUZZY_CONTEXT_TIE_BREAK = 0.01;
+
+/** The best fuzzy window per block, ranked by similarity with context as a tiebreak. */
 function findFuzzyCandidates(
   anchor: Anchor,
   blocks: Block[],
@@ -111,7 +119,8 @@ function findFuzzyCandidates(
     const match = fuzzyFindBestMatch(needle, block.text, minimumSimilarity);
     if (match === null) return;
     const score =
-      match.similarity + contextScore(anchor, blockIndex, block, match.start, match.end);
+      match.similarity +
+      contextScore(anchor, blockIndex, block, match.start, match.end) * FUZZY_CONTEXT_TIE_BREAK;
     candidates.push({ blockIndex, start: match.start, end: match.end, score });
   });
   return candidates;

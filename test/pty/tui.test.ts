@@ -2,9 +2,8 @@
  * PTY tests: the real `cueloop` TUI binary in a pseudo-terminal, asserting
  * what the virtual-terminal tier cannot prove - alternate-screen render, key
  * routing through a raw tty, SIGWINCH resize, and the process exit code.
- * The backend is cueloop's own forkpty FFI shim (packages/client/src/pty.ts);
- * node-pty's native spawn silently kills Bun on macOS arm64. Env-gated behind
- * CUELOOP_RUN_PTY (`bun run
+ * The backend is cueloop's own forkpty FFI shim (packages/client/src/pty.ts).
+ * Env-gated behind CUELOOP_RUN_PTY (`bun run
  * test:pty`). The tests share one PTY session and run in file order; OpenTUI
  * repaints only changed cells, so assertions read the stripped output delta.
  */
