@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.46
+
+### Patch Changes
+
+- [#244](https://github.com/mmurakaru/cueloop/pull/244) [`2d98a49`](https://github.com/mmurakaru/cueloop/commit/2d98a49188060e38baca5fcc9933bde99e739c06) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add prototype review: `cueloop prototype <file.html>` renders an HTML prototype with headless Chromium and shows it as an image in the review sheet. Click a rendered element - a design-system card, say - to select it (the click resolves to the nearest component element), and the marker actions bar and compose card annotate that element by CSS selector. The verdict feedback locates each comment by its selector. Needs a graphics-capable terminal (kitty or ghostty) and an installed Google Chrome; other terminals show a capability notice. A new `prototype` skill lets an agent submit a prototype for non-blocking review.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.46
+  - @cueloop/client@0.1.0-alpha.46
+  - @cueloop/daemon@0.1.0-alpha.46
+  - @cueloop/schema@0.1.0-alpha.46
+
 ## 0.1.0-alpha.45
 
 ### Patch Changes
