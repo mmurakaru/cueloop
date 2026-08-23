@@ -103,6 +103,67 @@ describe("anchor cascade", () => {
     expect(resolved.start).toBe(5);
   });
 
+  test("binds a quote that still carries its leading list marker", () => {
+    // Arrange
+    // an agent copied the source line verbatim, including the "- " bullet, but
+    // the parsed list block strips the marker from its text
+    const blocks = blocksOf("## Notes\n\n- This is a dummy plan - confirm the item");
+    const anchor = { quote: "- This is a dummy plan", prefix: "", suffix: "" };
+
+    // Act
+    const resolved = resolveAnchor(anchor, blocks)!;
+
+    // Assert
+    expect(resolved).not.toBeNull();
+    expect(resolved.strategy).toBe("normalized");
+    expect(blocks[resolved.blockIndex]!.text.slice(resolved.start, resolved.end)).toBe(
+      "This is a dummy plan",
+    );
+  });
+
+  test("binds a heading quote that still carries its leading hashes", () => {
+    // Arrange
+    const blocks = blocksOf(DOC);
+    const anchor = { quote: "## Storage", prefix: "", suffix: "" };
+
+    // Act
+    const resolved = resolveAnchor(anchor, blocks)!;
+
+    // Assert
+    expect(resolved.strategy).toBe("normalized");
+    expect(blocks[resolved.blockIndex]!.text).toBe("Storage");
+  });
+
+  test("fuzzy tier binds a lightly edited quote", () => {
+    // Arrange
+    const blocks = blocksOf(DOC);
+    const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("Review sessions"));
+    // a typo the reviewer never saw: "sesssions"
+    const anchor = { quote: "Review sesssions currently live", prefix: "", suffix: "" };
+
+    // Act
+    const resolved = resolveAnchor(anchor, blocks)!;
+
+    // Assert
+    expect(resolved.strategy).toBe("fuzzy");
+    expect(resolved.blockIndex).toBe(contextBlockIndex);
+    expect(resolved.approximate).toBe(true);
+  });
+
+  test("exact matches report the exact strategy", () => {
+    // Arrange
+    const blocks = blocksOf(DOC);
+    const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("Review sessions"));
+    const anchor = makeAnchor(blocks, contextBlockIndex, 0, 15);
+
+    // Act
+    const resolved = resolveAnchor(anchor, blocks)!;
+
+    // Assert
+    expect(resolved.strategy).toBe("exact");
+    expect(resolved.approximate).toBe(false);
+  });
+
   test("trimmed-quote fallback marks the resolution approximate", () => {
     // Arrange
     const anchor = {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseBlocks, blockToMd, sectionOf } from "./markdown";
+import { parseBlocks, blockToMd, sectionOf, stripLeadingBlockMarker } from "./markdown";
 
 const SAMPLE = `# Title
 
@@ -120,5 +120,32 @@ describe("sectionOf", () => {
     expect(sectionOf(blocks, orderedItemIndex)).toBe("Steps");
     const paragraphIndex = blocks.findIndex((block) => block.kind === "p");
     expect(sectionOf(blocks, paragraphIndex)).toBe("Context");
+  });
+});
+
+describe("stripLeadingBlockMarker", () => {
+  test("strips the marker the parser strips for every marked block kind", () => {
+    // Assert
+    expect(stripLeadingBlockMarker("# Heading")).toBe("Heading");
+    expect(stripLeadingBlockMarker("### Heading")).toBe("Heading");
+    expect(stripLeadingBlockMarker("- bullet item")).toBe("bullet item");
+    expect(stripLeadingBlockMarker("3. ordered item")).toBe("ordered item");
+    expect(stripLeadingBlockMarker("> quoted line")).toBe("quoted line");
+  });
+
+  test("agrees with the text the parser produces", () => {
+    // Arrange
+    const source = "- This is a dummy plan - confirm the item";
+
+    // Act
+    const [listBlock] = parseBlocks(source);
+
+    // Assert
+    expect(stripLeadingBlockMarker(source)).toBe(listBlock!.text);
+  });
+
+  test("leaves an unmarked line untouched", () => {
+    // Assert
+    expect(stripLeadingBlockMarker("a plain paragraph")).toBe("a plain paragraph");
   });
 });
