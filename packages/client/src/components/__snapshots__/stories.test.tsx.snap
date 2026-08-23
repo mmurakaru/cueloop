@@ -936,8 +936,6 @@ exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its
 "╭────────────────────────────────╮      
 │ Review  Agent                  │      
 ╰────────────────────────────────╯      
-Ask an agent about this plan            
-                                        
 ╭────────────────────────────────╮      
 │ Claude Code                  ▸ │      
 ╰────────────────────────────────╯      
@@ -955,7 +953,9 @@ plan context: seed the plan ▸
                                         
                                         
                                         
-agent/worker-3 · pending · rev 1        
+                                        
+                                        
+                                        
                                         
 "
 `;
@@ -1393,9 +1393,7 @@ exports[`stories catalog WalkWizard/WithAgentNote renders, snapshots, and carrie
 `;
 
 exports[`stories catalog AgentLauncher/Launcher renders, snapshots, and carries its colors: AgentLauncher/Launcher 1`] = `
-"  Ask an agent about this plan          
-                                        
-  ╭────────────────────────────────────╮
+"  ╭────────────────────────────────────╮
   │ Claude Code                      ▸ │
   ╰────────────────────────────────────╯
   ╭────────────────────────────────────╮
@@ -1416,7 +1414,9 @@ exports[`stories catalog AgentLauncher/Launcher renders, snapshots, and carries 
                                         
                                         
                                         
-  agent/worker-3 · pending · rev 1      
+                                        
+                                        
+                                        
 "
 `;
 

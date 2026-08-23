@@ -115,8 +115,6 @@ export function AgentLauncher({
 
   return (
     <box style={{ flexDirection: "column", flexGrow: 1 }}>
-      <text fg={tokens.text}>Ask an agent about this plan</text>
-      <box style={{ height: 1 }} />
       {HARNESS_LAUNCHERS.map((harness) => (
         <box
           key={harness.id}
@@ -141,11 +139,6 @@ export function AgentLauncher({
         <text fg={tokens.textDim}>plan context: </text>
         <text fg={tokens.accent}>{seedContext ? "seed the plan ▸" : "none ▸"}</text>
       </box>
-      <box style={{ flexGrow: 1 }} />
-      <text fg={tokens.textDim}>
-        {session.artifact.meta.agent ?? "unknown"} · {session.status} · rev{" "}
-        {session.revisions.length}
-      </text>
     </box>
   );
 }

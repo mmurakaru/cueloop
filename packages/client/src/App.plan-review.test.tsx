@@ -572,7 +572,7 @@ describe("sheet header", () => {
     expect(frame).toContain("Share");
   });
 
-  test("the Agent tab shows the harness launcher and a compact status footer", async () => {
+  test("the Agent tab shows the text-only harness launcher buttons", async () => {
     // Arrange
     const setup = await renderApp();
     const lines = setup.captureCharFrame().split("\n");
@@ -583,12 +583,11 @@ describe("sheet header", () => {
     await setup.mockMouse.click(tabColumn + 1, tabRow);
     await setup.renderOnce();
 
-    // Assert - text-only launcher buttons, and the submitter kept in the footer
+    // Assert - the three launcher buttons, in order
     await waitForText(setup, "Claude Code");
     const frame = setup.captureCharFrame();
-    expect(frame).toContain("Ask an agent about this plan");
+    expect(frame).toContain("Pi");
     expect(frame).toContain("OpenAI Codex");
-    expect(frame).toContain("agent/worker-3");
   });
 });
 
