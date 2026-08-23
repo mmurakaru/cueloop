@@ -1,5 +1,25 @@
 # cueloop
 
+## 0.1.0-alpha.43
+
+### Patch Changes
+
+- [#228](https://github.com/mmurakaru/cueloop/pull/228) [`1c2cbc1`](https://github.com/mmurakaru/cueloop/commit/1c2cbc141e40f9202e5480313572f6a9b054d309) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Fix the Claude harness never launching from the Agent tab. Its command was `cc`, which is a personal shell alias for `claude` - but the embedded terminal spawns the binary directly on a PTY, where `cc` resolves to the system C compiler, so the pane ran the compiler instead of Claude Code (`pi` and `codex` are real binaries, so they worked). The command is now `claude`. Also strips the `▸` glyphs from the launcher buttons and plan-context toggle, and removes the inline `(⌃])` detach hint from the running-terminal header - the detach chord is now listed in the Keybinds cheatsheet (Settings) under "Agent terminal" instead. Detaching now tears the terminal down explicitly (the React reconciler detaches a child without destroying it), so the agent's child process no longer leaks after ctrl+].
+
+- [#228](https://github.com/mmurakaru/cueloop/pull/228) [`1c2cbc1`](https://github.com/mmurakaru/cueloop/commit/1c2cbc141e40f9202e5480313572f6a9b054d309) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Tidy the Agent tab and rail width. The launcher is now three text-only buttons - "Claude Code", "Pi", "OpenAI Codex" - stacked tight without the ASCII logos, and all sharing one neutral color. Dropped the "Ask an agent about this plan" header and the bottom "<agent> · <status> · rev N" line (both redundant with the plan sheet header), so the buttons sit directly under the tabs. The rail also no longer indents its content: the tab body dropped a stray left padding (the Agent tab was indented two columns deeper than the Review tab) and the rail's own left padding, so annotation cards and the launcher buttons run full width from the divider seam.
+
+- [#228](https://github.com/mmurakaru/cueloop/pull/228) [`1c2cbc1`](https://github.com/mmurakaru/cueloop/commit/1c2cbc141e40f9202e5480313572f6a9b054d309) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Stop annotations from orphaning when their quote carries a leading markdown marker, and re-bind lightly edited quotes. The parser strips block markers (`- `, `## `, `1. `, `> `) from block text, so a quote copied verbatim from the source - bullet and all - never matched the exact/trimmed lookup and dropped straight to an orphaned anchor. The anchor resolver now runs a longer cascade: exact -> trimmed -> marker-normalized -> fuzzy -> orphan. Marker stripping shares one `stripLeadingBlockMarker` utility with the parser so the two cannot drift, and the fuzzy tier (`levenshteinDistance` / `similarityRatio` / `fuzzyFindBestMatch`, standalone in `@cueloop/schema`) re-anchors a quote after a small edit, gated by a high similarity floor so it never binds to the wrong text. Fixing this in the resolver heals anchors already stored in a session and covers every author path (local, agent, gateway).
+
+- [#228](https://github.com/mmurakaru/cueloop/pull/228) [`1c2cbc1`](https://github.com/mmurakaru/cueloop/commit/1c2cbc141e40f9202e5480313572f6a9b054d309) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Fix the Save and Cancel buttons in a saved annotation card's edit composer, which did nothing when clicked. The card is wrapped in a clickable box (`onMouseUp` selects/activates it), and a button press bubbled up to that box after firing, so activating the card immediately re-opened the editor and undid the action. Word-buttons now stop propagation on press, so a button inside any clickable surface consumes its own click instead of double-firing the ancestor.
+
+- [#228](https://github.com/mmurakaru/cueloop/pull/228) [`1c2cbc1`](https://github.com/mmurakaru/cueloop/commit/1c2cbc141e40f9202e5480313572f6a9b054d309) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The embedded Agent-tab terminal now drives its child through cueloop's own forkpty(3) FFI shim. The shim is a small `native/src/pty.zig` (spawn / non-blocking read / write / resize / reap) built by `build-pty.sh` with the same pinned Zig toolchain as the VT shim, loaded over `bun:ffi` from `packages/client/src/pty.ts`. This drops the last external native dependency, so all native code the client loads is now built and owned in-tree. Same graceful fallback as before: where no prebuilt shim ships for the platform, the launcher degrades to a herdr split. Verified end-to-end via the PTY e2e suite (alternate-screen render, raw-tty key routing, SIGWINCH resize, exit code).
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.43
+  - @cueloop/client@0.1.0-alpha.43
+  - @cueloop/daemon@0.1.0-alpha.43
+  - @cueloop/schema@0.1.0-alpha.43
+
 ## 0.1.0-alpha.42
 
 ### Patch Changes
