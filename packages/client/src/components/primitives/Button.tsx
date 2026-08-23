@@ -5,6 +5,7 @@
  */
 
 import React from "react";
+import type { MouseEvent } from "@opentui/core";
 import type { Theme } from "../../theme";
 import { useComponentTheme } from "../theme-context";
 
@@ -38,7 +39,11 @@ export function Button({
   return (
     <box
       style={{ backgroundColor, marginRight }}
-      onMouseUp={() => {
+      onMouseUp={(event: MouseEvent) => {
+        // Consume the press so it never bubbles to an ancestor's onMouseUp: a
+        // Button inside a clickable card (e.g. a saved annotation's edit
+        // composer) would otherwise re-trigger the card and undo the action.
+        event.stopPropagation();
         if (!isDisabled) onPress();
       }}
     >
