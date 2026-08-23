@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.48
+
+### Patch Changes
+
+- [#249](https://github.com/mmurakaru/cueloop/pull/249) [`18d908e`](https://github.com/mmurakaru/cueloop/commit/18d908e1c5daa5c0c4736de89387a1cc21f398a4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Prototype review polish: the preview scrolls with the mouse wheel when the page overflows the box (the page scrolls and re-renders), the marker actions bar and compose card now sit on an opaque fill so they read as solid cards over the image, and the image is pulled while an app menu or settings overlay is open so those overlays no longer show through the graphics layer.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.48
+  - @cueloop/client@0.1.0-alpha.48
+  - @cueloop/daemon@0.1.0-alpha.48
+  - @cueloop/schema@0.1.0-alpha.48
+
 ## 0.1.0-alpha.47
 
 ### Patch Changes
