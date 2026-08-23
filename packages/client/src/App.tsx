@@ -58,6 +58,7 @@ import { CLIENT_VERSION } from "./version";
 import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { DiffSheet } from "./components/DiffSheet";
+import { PrototypeSheet } from "./components/PrototypeSheet";
 import { type ReviewRailHandle } from "./components/ReviewRail";
 import type { AgentTerminalHandle } from "./components/agent-launcher";
 import { ReviewPanel } from "./components/ReviewPanel";
@@ -251,6 +252,7 @@ export function App({
   }, [marks]);
   const resolved = session?.status === "resolved";
   const isDiff = session?.artifact.type === "diff";
+  const isPrototype = session?.artifact.type === "prototype";
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
   // annotation resolves to the display index it marked
@@ -1025,7 +1027,16 @@ export function App({
           <box style={{ width: railFootprint }} />
         </box>
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
-          {isDiff ? (
+          {isPrototype ? (
+            <PrototypeSheet
+              prototypePath={activeSession.artifact.meta.prototypePath ?? ""}
+              quickActions={quickActions}
+              canComment={isOwner && !resolved}
+              onCommentElement={(element, body) =>
+                controller.annotatePrototype(element.selector, element.quote, body)
+              }
+            />
+          ) : isDiff ? (
             // the sheet dims to reading-quiet colors while the wizard has focus
             <DiffSheet
               rows={rows}
@@ -1061,7 +1072,7 @@ export function App({
               session: activeSession,
               authorNames,
               selectedId: focusedAnnotationId,
-              resolvedIds: isDiff ? null : resolvedIds,
+              resolvedIds: isDiff || isPrototype ? null : resolvedIds,
               curationItems,
               selectedCurationId,
               annotationPositions,

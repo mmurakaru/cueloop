@@ -45,6 +45,7 @@ export function renderFeedback(input: FeedbackInput): string {
     (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
   );
   const isDiff = input.artifactType === "diff";
+  const isPrototype = input.artifactType === "prototype";
   // A diff's annotations anchor to the submitted patch rows; resolve against it,
   // not the curated working copy (which may drop the rejected rows).
   const blocks = parseBlocks(
@@ -98,14 +99,23 @@ export function renderFeedback(input: FeedbackInput): string {
   if (annotations.length) {
     lines.push(`## Annotations (${annotations.length})`);
     lines.push("");
-    lines.push(`Address every item. Locate each one in ${path} by its quoted text.`);
+    lines.push(
+      isPrototype
+        ? `Address every item. Locate each one in ${path} by its CSS selector.`
+        : `Address every item. Locate each one in ${path} by its quoted text.`,
+    );
     lines.push("");
     annotations.forEach((annotation, annotationIndex) => {
-      const resolved = resolveAnchor(annotation.anchor, blocks);
+      // prototype anchors are DOM selectors, not block text - never resolved or
+      // orphan-flagged against parsed blocks
+      const selector = annotation.anchor.selector;
+      const resolved = selector ? null : resolveAnchor(annotation.anchor, blocks);
       const sectionTitle = resolved ? sectionOf(blocks, resolved.blockIndex) : "";
-      const location = sectionTitle ? ` (§ ${sectionTitle})` : "";
+      const location = selector ? ` (${selector})` : sectionTitle ? ` (§ ${sectionTitle})` : "";
       const orphanFlag =
-        resolved === null ? " [orphaned anchor: the quoted text is no longer present]" : "";
+        !selector && resolved === null
+          ? " [orphaned anchor: the quoted text is no longer present]"
+          : "";
       lines.push(
         `### ${annotationIndex + 1}. ${capitalize(annotation.kind)}${location}${orphanFlag}`,
       );
@@ -151,7 +161,7 @@ export function feedbackForSession(
     workingCopy: session.workingCopy,
     artifactType: session.artifact.type,
     annotations: session.annotations,
-    planPath: session.artifact.meta.planPath,
+    planPath: session.artifact.meta.prototypePath ?? session.artifact.meta.planPath,
     sessionId: session.id,
   });
 }

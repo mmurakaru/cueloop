@@ -178,11 +178,15 @@ async function prototypeCommand(argv: string[]): Promise<number> {
   const parsed = parseArgs(argv);
   const selector = openSelector(parsed);
   const wantsOpen = "open" in parsed.flags || "latest" in parsed.flags;
-  const looksLikeFile = selector !== undefined && !isSessionId(selector) && selector.endsWith(".html");
-  if (wantsOpen || !looksLikeFile) return openReviewOfKind(isPrototypeReview, "prototype", selector);
+  const looksLikeFile =
+    selector !== undefined && !isSessionId(selector) && selector.endsWith(".html");
+  if (wantsOpen || !looksLikeFile)
+    return openReviewOfKind(isPrototypeReview, "prototype", selector);
 
   const path = resolve(selector);
-  const html = await Bun.file(path).text().catch(() => undefined);
+  const html = await Bun.file(path)
+    .text()
+    .catch(() => undefined);
   if (html === undefined) {
     console.error(`prototype: cannot read ${path}`);
     return 1;

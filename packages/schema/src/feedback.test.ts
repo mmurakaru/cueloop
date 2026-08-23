@@ -200,4 +200,27 @@ describe("renderFeedback", () => {
     // Assert
     expect(feedback).toContain("(§ Persistence)");
   });
+
+  test("a prototype annotation locates by its selector and is never orphan-flagged", () => {
+    // Act
+    const feedback = renderFeedback({
+      verdictKind: "request_changes",
+      summary: "",
+      artifactType: "prototype",
+      artifactContent: "<main><div class='card'>Pricing</div></main>",
+      annotations: [
+        makeAnnotation({
+          body: "Tighten the padding.",
+          anchor: { quote: "Pricing", prefix: "", suffix: "", selector: "main > div.card" },
+        }),
+      ],
+      planPath: "proto.html",
+    });
+
+    // Assert
+    expect(feedback).toContain("(main > div.card)");
+    expect(feedback).toContain("Tighten the padding.");
+    expect(feedback).toContain("by its CSS selector");
+    expect(feedback).not.toContain("orphaned anchor");
+  });
 });
