@@ -7,6 +7,7 @@ import {
   nextWorkBlock,
   overlayMarks,
   renderedOffsetFor,
+  safeLinkHref,
   spanFromRange,
   spanKey,
   startSpan,
@@ -122,6 +123,28 @@ describe("blockRuns + overlayMarks", () => {
 
     // Assert
     expect(runs.some((run) => run.role === "ins")).toBe(true);
+  });
+});
+
+describe("M4: link hrefs are scheme-validated for OSC 8 (#236)", () => {
+  test("trusts http(s) and mailto, drops everything else", () => {
+    // Assert
+    expect(safeLinkHref("https://example.com")).toBe("https://example.com");
+    expect(safeLinkHref("http://x")).toBe("http://x");
+    expect(safeLinkHref("mailto:a@b.c")).toBe("mailto:a@b.c");
+    expect(safeLinkHref("javascript:alert(1)")).toBeUndefined();
+    expect(safeLinkHref("./relative/path")).toBeUndefined();
+    expect(safeLinkHref(undefined)).toBeUndefined();
+  });
+
+  test("blockRuns carries the link href through to the link run", () => {
+    // Act
+    const block = buildDisplay("see [docs](https://example.com) now\n")[0]!;
+    const link = blockRuns(block, true).find((run) => run.role === "link")!;
+
+    // Assert
+    expect(link.text).toBe("docs");
+    expect(link.href).toBe("https://example.com");
   });
 });
 

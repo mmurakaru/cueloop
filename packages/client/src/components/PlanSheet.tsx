@@ -17,6 +17,7 @@ import {
   displayText,
   overlayMarks,
   renderedOffsetFor,
+  safeLinkHref,
   workRangeForRendered,
   type DisplayBlock,
   type Mark,
@@ -264,11 +265,18 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
             }
             onMouseUp={() => onLineActivate(displayIndex)}
           >
-            {runs.map((run, runIndex) => (
-              <span key={runIndex} {...runStyle(run, block, tokens)}>
-                {run.text}
-              </span>
-            ))}
+            {runs.map((run, runIndex) => {
+              const url = run.role === "link" ? safeLinkHref(run.href) : undefined;
+              return (
+                <span
+                  key={runIndex}
+                  {...runStyle(run, block, tokens)}
+                  {...(url ? { link: { url } } : {})}
+                >
+                  {run.text}
+                </span>
+              );
+            })}
             {showsChangeTag(block) ? (
               <span fg={tagColor(block, tokens)}> [{tagLabel(block)}]</span>
             ) : null}

@@ -241,6 +241,12 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
   return [{ text, role: "plain", start: 0 }];
 }
 
+/** A link href safe to hand a terminal as an OSC 8 target, or undefined. Only
+ *  http(s) and mailto are trusted; a scheme like javascript: is dropped. */
+export function safeLinkHref(href: string | undefined): string | undefined {
+  return href !== undefined && /^(https?:|mailto:)/i.test(href) ? href : undefined;
+}
+
 /**
  * Map the schema inline tokens to positioned StyleRuns, dropping the concealed
  * markers. `base` is the run's offset within the block's working text (0 for a
