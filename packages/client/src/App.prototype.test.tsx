@@ -41,6 +41,7 @@ const fakeRenderer: PrototypeRenderer = {
   },
   elementAt: async () => FAKE_ELEMENT,
   highlight: async () => undefined,
+  scrollBy: async () => true,
   close: async () => undefined,
 };
 

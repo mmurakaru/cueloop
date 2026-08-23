@@ -40,6 +40,9 @@ export interface PrototypeSheetProps {
   /** Signals when the inline compose owns the keyboard, so the app suppresses
    *  its global keymap and the compose textarea receives the typed note. */
   onComposingChange?: (active: boolean) => void;
+  /** True while an app overlay (menu, settings) covers the sheet; the image is
+   *  removed so those overlays are not shown through the graphics layer. */
+  hidden?: boolean;
   theme?: Theme;
 }
 
@@ -47,6 +50,8 @@ type SheetStatus = "loading" | "ready" | "unsupported" | "error";
 
 const POPOVER_ROWS = 3;
 const PROTOTYPE_IMAGE_ID = 811;
+/** Page pixels scrolled per wheel notch. */
+const SCROLL_STEP = 240;
 // The capture viewport width in CSS pixels; its height matches the region's
 // cell aspect so the rendered image fills the box instead of letterboxing. The
 // aspect comes from the terminal's reported cell pixels, falling back to a
@@ -77,6 +82,7 @@ export function PrototypeSheet({
   canComment,
   onCommentElement,
   onComposingChange,
+  hidden = false,
   theme,
 }: PrototypeSheetProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -89,6 +95,10 @@ export function PrototypeSheet({
   const transmittedRef = useRef<Uint8Array | null>(null);
   const paintRef = useRef<() => void>(() => undefined);
   const launchRef = useRef<() => void>(() => undefined);
+  const hiddenRef = useRef(hidden);
+  useEffect(() => {
+    hiddenRef.current = hidden;
+  });
 
   const [status, setStatus] = useState<SheetStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
@@ -117,6 +127,15 @@ export function PrototypeSheet({
       typeof rawWrite === "function" ? (chunk: string) => rawWrite.call(renderer, chunk) : null;
     const paint = (): void => {
       if (!write) return;
+      // an app overlay is covering the sheet: pull the image so it does not show
+      // through the overlay's cells, and re-transmit once the overlay closes
+      if (hiddenRef.current) {
+        if (transmittedRef.current !== null) {
+          deleteKittyImage(write, PROTOTYPE_IMAGE_ID);
+          transmittedRef.current = null;
+        }
+        return;
+      }
       const region = regionOf(regionRef.current);
       const png = pngRef.current;
       if (!region || !png) return;
@@ -238,17 +257,32 @@ export function PrototypeSheet({
     });
   };
 
+  const onRegionScroll = (event: { scroll?: { direction: string } }): void => {
+    const browser = browserRef.current;
+    if (status !== "ready" || !browser) return;
+    const delta = event.scroll?.direction === "up" ? -SCROLL_STEP : SCROLL_STEP;
+    // a selection would drift once the page scrolls under it, so drop it
+    clearSelection();
+    void browser
+      .scrollBy(delta)
+      .then(() => refresh())
+      .catch(() => undefined);
+  };
+
   const commit = (body: string): void => {
     if (!canComment) return;
     if (selected && body.trim()) onCommentElement(selected, body.trim());
     clearSelection();
   };
 
+  // the overlay carries an opaque fill so the popover and compose card read as
+  // solid cards over the image, matching the plan surface
   const overlayStyle = {
     position: "absolute" as const,
     left: overlayCell?.left ?? 0,
     top: Math.max(0, overlayCell?.top ?? 0),
     flexDirection: "column" as const,
+    backgroundColor: tokens.elevated,
   };
 
   return (
@@ -268,6 +302,7 @@ export function PrototypeSheet({
         style={{ flexGrow: 1 }}
         onSizeChange={launch}
         onMouseDown={onRegionMouseDown}
+        onMouseScroll={onRegionScroll}
       />
       {status !== "ready" ? (
         <box style={{ position: "absolute", left: 2, top: 1 }}>
