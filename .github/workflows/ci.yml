@@ -32,6 +32,47 @@ jobs:
           done
           exit 1
 
+  native:
+    name: Native shim
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Detect native changes
+        id: native-changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if git diff --quiet "$BASE_SHA" "$GITHUB_SHA" -- \
+            packages/client/native \
+            packages/client/src/ghostty-terminal.test.ts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/cache@v5
+        if: steps.native-changes.outputs.changed == 'true'
+        with:
+          path: |
+            ${{ runner.temp }}/cueloop-libghostty-build/ghostty
+            ${{ runner.temp }}/cueloop-libghostty-build/zig-*.tar.xz
+            ${{ runner.temp }}/cueloop-libghostty-build/zig-gcache
+            ${{ runner.temp }}/cueloop-libghostty-build/zig-lcache
+          key: native-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packages/client/native/build.sh') }}
+          restore-keys: |
+            native-v1-${{ runner.os }}-${{ runner.arch }}-
+      - uses: oven-sh/setup-bun@v2
+        if: steps.native-changes.outputs.changed == 'true'
+        with:
+          bun-version: 1.3.14
+      - name: Build native terminal shim
+        if: steps.native-changes.outputs.changed == 'true'
+        run: sh packages/client/native/build.sh
+      - name: Test native terminal ABI
+        if: steps.native-changes.outputs.changed == 'true'
+        run: bun test packages/client/src/ghostty-terminal.test.ts
+
   changeset:
     # Every PR ships a changeset (empty is fine for docs/CI-only changes:
     # `bunx changeset --empty`). Release PRs are exempt.

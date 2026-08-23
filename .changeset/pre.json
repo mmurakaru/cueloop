@@ -39,6 +39,7 @@
     "dull-camels-live",
     "e2e-stability",
     "edit-mode",
+    "embedded-agent-terminal",
     "favicon",
     "gateway-connlog-classify",
     "gateway-metrics",
@@ -121,6 +122,7 @@
     "verify-published",
     "wide-rules-heal",
     "wire-schema-drift-guard",
-    "working-copy-module"
+    "working-copy-module",
+    "zig-native-shim"
   ]
 }
