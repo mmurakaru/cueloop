@@ -50,6 +50,12 @@ export class DaemonCore {
   private seq = 0;
   /** Drives diff hot-reload: watches each live diff session's repo for working-tree changes. */
   private readonly diffWatcher: DiffWatcher;
+  /**
+   * Per-diff-session capture generation. Bumped when a refresh begins; a
+   * capture whose generation is stale by the time it finishes discards its
+   * result, so overlapping captures never write an older patch over a newer one.
+   */
+  private readonly diffRefreshGenerations = new Map<string, number>();
 
   constructor(home: string) {
     this.store = new SessionStore(home);
@@ -232,6 +238,7 @@ export class DaemonCore {
     const session = this.store.get(id);
     if (!this.store.delete(id)) throw new DaemonError("not_found", `no session ${id}`);
     if (session) this.unwatchIfDiffSession(session);
+    this.diffRefreshGenerations.delete(id);
     this.herdrTabs.delete(id);
     this.emit("inbox.changed", id);
   }
@@ -334,10 +341,20 @@ export class DaemonCore {
   async sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
     const session = this.mutable(id);
     if (session.artifact.type !== "diff") return { changed: false };
+    const generation = (this.diffRefreshGenerations.get(id) ?? 0) + 1;
+    this.diffRefreshGenerations.set(id, generation);
     const diff = await workingTreeDiff(session.workspace.repoRoot);
-    if (diff.patch === session.artifact.content) return { changed: false };
-    session.artifact = { ...session.artifact, content: diff.patch, files: diff.files };
-    this.store.upsert(session);
+    // The capture yields the event loop: a newer refresh may have started, or a
+    // concurrent resolve/delete may have closed the session. Discard a stale
+    // capture, and re-read so a resolved review is never mutated and a deleted
+    // one is never revived by this upsert.
+    if (this.diffRefreshGenerations.get(id) !== generation) return { changed: false };
+    const current = this.store.get(id);
+    if (!current || current.status !== "pending" || current.artifact.type !== "diff")
+      return { changed: false };
+    if (diff.patch === current.artifact.content) return { changed: false };
+    current.artifact = { ...current.artifact, content: diff.patch, files: diff.files };
+    this.store.upsert(current);
     this.emit("session.updated", id);
     return { changed: true };
   }

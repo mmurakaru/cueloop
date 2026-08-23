@@ -106,6 +106,36 @@ describe("session.refreshDiff", () => {
     expect(result.changed).toBe(false);
     expect(core.sessionGet(session.id).artifact.content).toBe("# Plan\n\nBody.\n");
   });
+
+  test("refusing a resolved diff session never mutates it (no revive of a closed review)", async () => {
+    // Given a diff session that has been resolved
+    const session = await openDiffSession();
+    core.sessionResolve(session.id, "approve", "");
+    const resolvedContent = core.sessionGet(session.id).artifact.content;
+    writeFileSync(join(repo, "a.ts"), "export const a = 99;\n");
+
+    // When a refresh is attempted on the resolved session
+    // Then it is rejected and the frozen artifact is untouched
+    expect(core.sessionRefreshDiff(session.id)).rejects.toThrow(/resolved/);
+    expect(core.sessionGet(session.id).artifact.content).toBe(resolvedContent);
+  });
+
+  test("overlapping refreshes settle to one coherent artifact without error", async () => {
+    // Given a live diff session with a fresh working-tree change
+    const session = await openDiffSession();
+    writeFileSync(join(repo, "a.ts"), "export const a = 7;\n");
+
+    // When two refreshes run concurrently over the same session
+    const [first, second] = await Promise.all([
+      core.sessionRefreshDiff(session.id),
+      core.sessionRefreshDiff(session.id),
+    ]);
+
+    // Then both settle and the stored artifact reflects the current tree exactly
+    // once - the generation guard keeps the older capture from regressing it
+    expect(first.changed || second.changed).toBe(true);
+    expect(core.sessionGet(session.id).artifact.content).toContain("+export const a = 7;");
+  });
 });
 
 describe("the fs watcher drives hot-reload", () => {
