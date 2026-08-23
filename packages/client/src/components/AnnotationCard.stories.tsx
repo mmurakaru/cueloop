@@ -27,7 +27,6 @@ export const SavedSelected: Story = {
         body: "Which daemon owns this?",
         isSelected: true,
         isOrphan: false,
-        isBlocking: false,
         author: "me",
         tone: DARK.accent,
         editing: null,
@@ -47,7 +46,6 @@ export const SavedCollaborator: Story = {
         body: "Which daemon owns this?",
         isSelected: false,
         isOrphan: false,
-        isBlocking: false,
         author: "Priya",
         tone: DARK.blue,
         editing: null,
@@ -58,7 +56,7 @@ export const SavedCollaborator: Story = {
   expectedColors: [DARK.blue],
 };
 
-export const SavedOrphanBlocking: Story = {
+export const SavedOrphan: Story = {
   render: () => (
     <AnnotationCard
       kind="comment"
@@ -67,7 +65,6 @@ export const SavedOrphanBlocking: Story = {
         body: "The passage is gone.",
         isSelected: false,
         isOrphan: true,
-        isBlocking: true,
         author: "me",
         tone: DARK.accent,
         editing: null,
@@ -87,7 +84,6 @@ export const SavedEditing: Story = {
         body: "old body",
         isSelected: true,
         isOrphan: false,
-        isBlocking: false,
         author: "me",
         tone: DARK.accent,
         editing: { text: "new body", ...draftCallbacks },

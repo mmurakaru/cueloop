@@ -84,8 +84,8 @@ exports[`stories catalog AnnotationCard/SavedEditing renders, snapshots, and car
 "
 `;
 
-exports[`stories catalog AnnotationCard/SavedOrphanBlocking renders, snapshots, and carries its colors: AnnotationCard/SavedOrphanBlocking 1`] = `
-"╭─ COMMENT · me · BLOCKING · ORPHANED ─────────────────────────────────────────╮
+exports[`stories catalog AnnotationCard/SavedOrphan renders, snapshots, and carries its colors: AnnotationCard/SavedOrphan 1`] = `
+"╭─ COMMENT · me · ORPHANED ────────────────────────────────────────────────────╮
 │ "a removed passage"                                                          │
 │ The passage is gone.                                                         │
 ╰──────────────────────────────────────────────────────────────────────────────╯
@@ -338,8 +338,6 @@ exports[`stories catalog CompletionOverlay/FeedbackCounting renders, snapshots, 
 
 exports[`stories catalog ConfirmCard/ApproveDefault renders, snapshots, and carries its colors: ConfirmCard/ApproveDefault 1`] = `
 "╭─ submit review ─────────────────────╮ 
-│ 0 annotations · 0 blocking          │ 
-│                                     │ 
 │  Comment  [Approve]  Changes        │ 
 │                                     │ 
 │ summary for the agent (optional)    │ 
@@ -351,13 +349,13 @@ exports[`stories catalog ConfirmCard/ApproveDefault renders, snapshots, and carr
                                         
                                         
                                         
+                                        
+                                        
 "
 `;
 
 exports[`stories catalog ConfirmCard/RequestChanges renders, snapshots, and carries its colors: ConfirmCard/RequestChanges 1`] = `
 "╭─ submit review ─────────────────────╮ 
-│ 3 annotations · 1 blocking          │ 
-│                                     │ 
 │  Comment   Approve  [Changes]       │ 
 │                                     │ 
 │ Tighten the steps.                  │ 
@@ -369,12 +367,13 @@ exports[`stories catalog ConfirmCard/RequestChanges renders, snapshots, and carr
                                         
                                         
                                         
+                                        
+                                        
 "
 `;
 
 exports[`stories catalog ConfirmCard/WithViewedSummary renders, snapshots, and carries its colors: ConfirmCard/WithViewedSummary 1`] = `
 "╭─ submit review ─────────────────────╮ 
-│ 1 annotations · 0 blocking          │ 
 │ 2/3 files viewed                    │ 
 │                                     │ 
 │  Comment  [Approve]  Changes        │ 
@@ -383,6 +382,7 @@ exports[`stories catalog ConfirmCard/WithViewedSummary renders, snapshots, and c
 │                                     │ 
 │  Submit    Cancel                   │ 
 ╰─────────────────────────────────────╯ 
+                                        
                                         
                                         
                                         
@@ -1121,9 +1121,9 @@ exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and ca
                                         
                                         
                                         
+                                        
+                                        
 ╭─ submit review ───────────────╮       
-│ 2 annotations · 0 blocking    │       
-│                               │       
 │  Comment   Approve  [Changes] │       
 │                               │       
 │ summary for the agent (optiona│       

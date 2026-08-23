@@ -75,11 +75,6 @@ export interface ReviewRailProps {
   theme?: Theme;
 }
 
-/** Forward-compatible: open annotation kinds may carry a blocking flag. */
-export function annotationBlocking(annotation: Annotation): boolean {
-  return (annotation as Annotation & { blocking?: boolean }).blocking === true;
-}
-
 export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function ReviewRail(
   {
     session,
@@ -133,7 +128,6 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
         body: annotation.body,
         isSelected: annotation.id === selectedId,
         isOrphan: resolvedIds !== null && !resolvedIds.has(annotation.id),
-        isBlocking: annotationBlocking(annotation),
         // border-title author: a collaborator's name, "agent" for agent notes, else "me"
         author: annotation.author
           ? resolveDisplayName(annotation.author, session.participants, authorNames)
@@ -296,7 +290,7 @@ function RemovalCard({
         title={title}
         contentRows={contentRows}
         borderColor={tokens.red}
-        backgroundColor={isSelected ? tokens.elevated : "transparent"}
+        backgroundColor="transparent"
         theme={theme}
       >
         {previewLines.length === 0 ? (

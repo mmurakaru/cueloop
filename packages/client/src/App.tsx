@@ -58,7 +58,7 @@ import { CLIENT_VERSION } from "./version";
 import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { DiffSheet } from "./components/DiffSheet";
-import { annotationBlocking, type ReviewRailHandle } from "./components/ReviewRail";
+import { type ReviewRailHandle } from "./components/ReviewRail";
 import type { AgentTerminalHandle } from "./components/agent-launcher";
 import { ReviewPanel } from "./components/ReviewPanel";
 import {
@@ -916,8 +916,6 @@ export function App({
       ? {
           verdict: mode.verdict,
           summary: mode.summary,
-          annotationCount: reviewerAnnotations(activeSession).length,
-          blockingCount: reviewerAnnotations(activeSession).filter(annotationBlocking).length,
           // walk coverage keeps partial passes honest at the verdict
           viewedSummary:
             isDiff && activeSession.viewedPaths !== undefined

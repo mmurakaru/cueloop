@@ -177,8 +177,6 @@ export const SubmitConfirmOpen: Story = {
         submitConfirm={{
           verdict: "request_changes",
           summary: "",
-          annotationCount: 2,
-          blockingCount: 0,
           onInput: () => {},
           onSelectVerdict: () => {},
           onSubmit: () => {},
