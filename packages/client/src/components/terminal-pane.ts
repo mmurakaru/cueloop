@@ -9,7 +9,7 @@
 
 import { Renderable, RGBA, createTextAttributes, type RenderContext } from "@opentui/core";
 import type { OptimizedBuffer } from "@opentui/core";
-import type { KeyEvent, RenderableOptions } from "@opentui/core";
+import type { RenderableOptions } from "@opentui/core";
 import { extend } from "@opentui/react";
 import { spawn, type IPty } from "bun-pty";
 import {
@@ -31,6 +31,7 @@ export function embeddedTerminalAvailable(): boolean {
   return factory() !== null;
 }
 
+/** Props for `<terminalPane>`: the child to run plus its cwd/env and a plan-context seed. */
 export interface TerminalPaneOptions extends RenderableOptions {
   /** The program to run, e.g. "cc" / "pi" / "codex" / a shell. */
   command?: string;
@@ -55,6 +56,9 @@ export class TerminalPaneRenderable extends Renderable {
   private vt: GhosttyTerminal | null = null;
   private cols = 0;
   private rows = 0;
+  // The seed is held until the child's first output, so it lands in a ready
+  // prompt rather than racing the harness's startup (readline/TUI not up yet).
+  private pendingSeed: string | undefined;
   private readonly opts: TerminalPaneOptions;
 
   constructor(ctx: RenderContext, options: TerminalPaneOptions) {
@@ -65,11 +69,14 @@ export class TerminalPaneRenderable extends Renderable {
 
   /** Start the child + emulator once real layout dimensions are known. */
   private start(cols: number, rows: number): void {
-    const made = factory();
-    if (!made) return;
+    const terminals = factory();
+    if (!terminals) return;
+    const vt = terminals.create(cols, rows);
+    if (!vt) return; // no emulator, no visible screen - do not spawn a blind child
+    this.vt = vt;
     this.cols = cols;
     this.rows = rows;
-    this.vt = made.create(cols, rows);
+    this.pendingSeed = this.opts.seedText;
     this.pty = spawn(this.opts.command ?? process.env.SHELL ?? "/bin/sh", this.opts.args ?? [], {
       name: "xterm-256color",
       cols,
@@ -78,23 +85,21 @@ export class TerminalPaneRenderable extends Renderable {
       env: (this.opts.env ?? process.env) as Record<string, string>,
     });
     this.pty.onData((data) => {
+      // bun-pty streams a UTF-8-decoded string (split multibyte is handled); a
+      // rare non-UTF-8 byte arrives as U+FFFD - acceptable for agent TUIs.
       this.vt?.write(encoder.encode(data));
+      if (this.pendingSeed !== undefined) {
+        this.pty?.write(this.pendingSeed);
+        this.pendingSeed = undefined;
+      }
       this.requestRender();
     });
     this.pty.onExit(({ exitCode }) => this.opts.onExit?.(exitCode));
-    if (this.opts.seedText) this.pty.write(this.opts.seedText);
   }
 
   /** Send raw bytes to the child (a key's escape sequence, or pasted text). */
   write(data: string): void {
     this.pty?.write(data);
-  }
-
-  /** Forward a keystroke's raw byte sequence to the child while focused. */
-  handleKeyPress(key: KeyEvent): boolean {
-    if (!this.focused || !this.pty) return false;
-    this.pty.write(key.sequence);
-    return true;
   }
 
   protected onResize(width: number, height: number): void {
@@ -115,6 +120,8 @@ export class TerminalPaneRenderable extends Renderable {
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const cell = this.vt.readCell(x, y);
+        // width 0 = the trailing half of a wide glyph already painted at x-1: skip it.
+        if (cell && cell.width === 0 && cell.codepoint === 0) continue;
         const char = cell && cell.codepoint ? String.fromCodePoint(cell.codepoint) : " ";
         let fg = cell ? resolveColor(cell.fg, DEFAULT_FG) : DEFAULT_FG;
         let bg = cell ? resolveColor(cell.bg, TRANSPARENT) : TRANSPARENT;
@@ -131,6 +138,8 @@ export class TerminalPaneRenderable extends Renderable {
         buffer.setCell(this.x + x, this.y + y, char, fg, bg, attributes);
       }
     }
+    // cursor is active-area coords; equal to viewport at the bottom (the live
+    // typing case). It can drift if the child scrolls the viewport back.
     const cursor = this.vt.readCursor();
     if (cursor.visible && cursor.x < this.width && cursor.y < this.height) {
       const under = this.vt.readCell(cursor.x, cursor.y);

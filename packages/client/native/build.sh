@@ -35,13 +35,22 @@ fi
 
 echo "== building libghostty-vt (ReleaseFast) =="
 cd ghostty
+# The final xcframework packaging step can fail while the .a we need is produced,
+# so tolerate a non-zero exit here but assert the static lib exists below.
 ZIG_GLOBAL_CACHE_DIR="$work/zig-gcache" ZIG_LOCAL_CACHE_DIR="$work/zig-lcache" \
   "$zig" build -Demit-lib-vt -Doptimize=ReleaseFast --prefix "$work/vt-install" || true
 cd ..
+staticlib="$work/vt-install/lib/libghostty-vt.a"
+[ -f "$staticlib" ] || { echo "build failed: $staticlib not produced" >&2; exit 1; }
 
 echo "== linking shim -> $outdir/$dylib =="
 mkdir -p "$outdir"
-clang -O2 -dynamiclib -o "$outdir/$dylib" "$here/src/shim.c" \
-  -I"$work/vt-install/include" "$work/vt-install/lib/libghostty-vt.a" \
-  -framework CoreFoundation -framework CoreText -framework CoreGraphics
+if [ "$os" = "darwin" ]; then
+  clang -O2 -dynamiclib -o "$outdir/$dylib" "$here/src/shim.c" \
+    -I"$work/vt-install/include" "$staticlib" \
+    -framework CoreFoundation -framework CoreText -framework CoreGraphics
+else
+  clang -O2 -shared -fPIC -o "$outdir/$dylib" "$here/src/shim.c" \
+    -I"$work/vt-install/include" "$staticlib" -lm -lpthread
+fi
 echo "== done: $outdir/$dylib =="

@@ -75,6 +75,7 @@ function LogoMark({ harness }: { harness: HarnessLauncher }): React.ReactNode {
   );
 }
 
+/** Props for the Agent tab body: the session under review plus the launch callbacks. */
 export interface AgentLauncherProps {
   session: ReviewSession;
   /**

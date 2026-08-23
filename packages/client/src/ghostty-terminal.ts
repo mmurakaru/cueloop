@@ -69,7 +69,10 @@ export function loadGhosttyTerminals(): GhosttyTerminalFactory | null {
   try {
     const lib = dlopen(path, CVT_SYMBOLS);
     return new GhosttyTerminalFactory(lib.symbols);
-  } catch {
+  } catch (error) {
+    // The file exists but failed to load (bad arch, missing symbol) - a real
+    // fault, not the expected no-prebuilt case; surface it, then degrade.
+    console.error(`cueloop: failed to load ${path}:`, error);
     return null;
   }
 }
@@ -112,6 +115,7 @@ export class GhosttyTerminal {
     this.lib.cvt_write(this.handle, ptr(bytes), BigInt(bytes.length));
   }
 
+  /** Resize the screen (and the child's tty, via the caller) to cols x rows. */
   resize(cols: number, rows: number): void {
     if (this.freed) return;
     this.lib.cvt_resize(this.handle, cols, rows);
@@ -140,10 +144,15 @@ export class GhosttyTerminal {
   readCursor(): GhosttyCursor {
     if (this.freed) return { x: 0, y: 0, visible: false };
     this.lib.cvt_cursor(this.handle, ptr(this.cursorOut));
-    const dv = new DataView(this.cursorOut.buffer);
-    return { x: dv.getUint16(0, true), y: dv.getUint16(2, true), visible: this.cursorOut[4] === 1 };
+    const view = new DataView(this.cursorOut.buffer);
+    return {
+      x: view.getUint16(0, true),
+      y: view.getUint16(2, true),
+      visible: this.cursorOut[4] === 1,
+    };
   }
 
+  /** Release the terminal; further calls are no-ops. Call once on teardown. */
   free(): void {
     if (this.freed) return;
     this.freed = true;
