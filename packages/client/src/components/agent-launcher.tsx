@@ -5,11 +5,24 @@
  * without leaving the tab. A plan-context toggle seeds a briefing into the split.
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { ReviewSession } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
+import {
+  embeddedTerminalAvailable,
+  registerTerminalPane,
+  type TerminalPaneRenderable,
+} from "./terminal-pane";
+
+registerTerminalPane();
+
+/** A running in-tab agent terminal, handed to the app so it can route keys and detach. */
+export interface AgentTerminalHandle {
+  write: (data: string) => void;
+  detach: () => void;
+}
 
 /** One launchable harness: its rail command and the real logo, rendered as colored rows. */
 export interface HarnessLauncher {
@@ -62,26 +75,70 @@ function LogoMark({ harness }: { harness: HarnessLauncher }): React.ReactNode {
   );
 }
 
+/** Props for the Agent tab body: the session under review plus the launch callbacks. */
 export interface AgentLauncherProps {
   session: ReviewSession;
-  /** Launch a harness in the rail; seedText is the plan-context briefing when the toggle is on. */
+  /**
+   * Fallback launch when no embedded terminal ships for this platform: run the
+   * harness in a herdr split. seedText is the plan-context briefing.
+   */
   onLaunchHarness: (command: string, seedText?: string) => void;
+  /** Notifies the app of the in-tab terminal handle (or null when detached) so it can route keys. */
+  onAgentTerminal?: (handle: AgentTerminalHandle | null) => void;
   theme?: Theme;
 }
 
 /**
  * The Agent tab body: branded launcher cards plus a plan-context toggle. Replaces
- * the old dead agent/status/revision placeholder (now a dim footer line).
+ * the old dead agent/status/revision placeholder (now a dim footer line). When a
+ * prebuilt libghostty-vt ships for the platform, a picked harness runs embedded
+ * inside this tab; otherwise it falls back to a herdr split.
  */
 export function AgentLauncher({
   session,
   onLaunchHarness,
+  onAgentTerminal,
   theme,
 }: AgentLauncherProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const [seedContext, setSeedContext] = useState(true);
-  const launch = (harness: HarnessLauncher): void =>
-    onLaunchHarness(harness.command, seedContext ? planHandoffBriefing(session.id) : undefined);
+  const [running, setRunning] = useState<{ harness: HarnessLauncher; seed?: string } | null>(null);
+  const paneRef = useRef<TerminalPaneRenderable | null>(null);
+
+  const launch = (harness: HarnessLauncher): void => {
+    const seed = seedContext ? planHandoffBriefing(session.id) : undefined;
+    if (embeddedTerminalAvailable()) setRunning({ harness, seed });
+    else onLaunchHarness(harness.command, seed);
+  };
+  const detach = (): void => setRunning(null);
+
+  useEffect(() => {
+    if (!running) return onAgentTerminal?.(null);
+    onAgentTerminal?.({ write: (data) => paneRef.current?.write(data), detach });
+    return () => onAgentTerminal?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running]);
+
+  if (running) {
+    return (
+      <box style={{ flexDirection: "column", flexGrow: 1 }}>
+        <box style={{ flexDirection: "row" }} onMouseUp={detach}>
+          <text fg={running.harness.color}>{running.harness.name}</text>
+          <box style={{ flexGrow: 1 }} />
+          <text fg={tokens.textDim}>✕ detach (⌃])</text>
+        </box>
+        {React.createElement("terminalPane", {
+          ref: paneRef,
+          command: running.harness.command,
+          cwd: session.artifact.meta.cwd ?? process.cwd(),
+          seedText: running.seed,
+          onExit: detach,
+          style: { flexGrow: 1 },
+        })}
+      </box>
+    );
+  }
+
   return (
     <box style={{ flexDirection: "column", flexGrow: 1 }}>
       <text fg={tokens.text}>Ask an agent about this plan</text>
