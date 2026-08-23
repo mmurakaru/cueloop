@@ -39,6 +39,9 @@ const STRONG_ATTRIBUTES = createTextAttributes({ bold: true });
 const EM_ATTRIBUTES = createTextAttributes({ italic: true });
 const STRIKE_ATTRIBUTES = createTextAttributes({ strikethrough: true });
 const LINK_ATTRIBUTES = createTextAttributes({ underline: true });
+/** Block-level base attributes: headings read bold, blockquotes read italic. */
+const HEADING_ATTRIBUTES = createTextAttributes({ bold: true });
+const QUOTE_ATTRIBUTES = createTextAttributes({ italic: true });
 
 export interface PlanSelection {
   displayIndex: number;
@@ -380,15 +383,16 @@ function runStyle(
 ): { fg?: string; bg?: string; attributes?: number } {
   // a cut block reads as removed: every run struck through and grayed, never red
   if (block.type === "del") return { fg: tokens.textDim, attributes: CUT_ATTRIBUTES };
-  const headingFg =
-    block.kind === "h1"
-      ? tokens.text
-      : block.kind === "h2" || block.kind === "h3"
-        ? tokens.accent
-        : undefined;
+  const isHeading = block.kind === "h1" || block.kind === "h2" || block.kind === "h3";
+  const isQuote = block.kind === "quote";
+  const headingFg = block.kind === "h1" ? tokens.text : isHeading ? tokens.accent : undefined;
+  // block-level base: headings bold, quotes muted italic; inline roles compose on top
+  const baseFg = headingFg ?? (isQuote ? tokens.textMuted : tokens.text);
+  const baseAttributes = (isHeading ? HEADING_ATTRIBUTES : 0) | (isQuote ? QUOTE_ATTRIBUTES : 0);
+  const withBase = (roleAttributes: number): number => baseAttributes | roleAttributes;
   switch (run.role) {
     case "ins":
-      return { fg: tokens.insertedForeground };
+      return { fg: tokens.insertedForeground, attributes: baseAttributes || undefined };
     case "del":
       return { fg: tokens.deletedForeground };
     case "mark-comment":
@@ -398,16 +402,16 @@ function runStyle(
     case "kspan":
       return { fg: tokens.accentInk, bg: tokens.accent };
     case "strong":
-      return { fg: headingFg ?? tokens.text, attributes: STRONG_ATTRIBUTES };
+      return { fg: baseFg, attributes: withBase(STRONG_ATTRIBUTES) };
     case "em":
-      return { fg: headingFg ?? tokens.text, attributes: EM_ATTRIBUTES };
+      return { fg: baseFg, attributes: withBase(EM_ATTRIBUTES) };
     case "code":
       return { fg: tokens.text, bg: tokens.elevated };
     case "strike":
-      return { fg: tokens.textMuted, attributes: STRIKE_ATTRIBUTES };
+      return { fg: tokens.textMuted, attributes: withBase(STRIKE_ATTRIBUTES) };
     case "link":
-      return { fg: tokens.blue, attributes: LINK_ATTRIBUTES };
+      return { fg: tokens.blue, attributes: withBase(LINK_ATTRIBUTES) };
     default:
-      return { fg: headingFg ?? tokens.text };
+      return { fg: baseFg, attributes: baseAttributes || undefined };
   }
 }
