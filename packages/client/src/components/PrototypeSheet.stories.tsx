@@ -5,8 +5,7 @@ import { PrototypeSheet } from "./PrototypeSheet";
 
 export const meta: StoryMeta = { title: "PrototypeSheet" };
 
-// Under the story renderer kitty graphics is unavailable, so the sheet shows its
-// terminal-capability fallback rather than launching a real headless browser.
+// The story renderer reports no kitty graphics, so the sheet shows its fallback.
 export const Unsupported: Story = {
   render: () => (
     <PrototypeSheet

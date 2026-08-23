@@ -28,8 +28,8 @@ export interface FeedbackInput {
   /** Artifact kind; defaults to "plan". A diff working copy is already a patch. */
   artifactType?: ArtifactType;
   annotations: Annotation[];
-  /** Path the agent knows the plan by, for direct reference. */
-  planPath?: string;
+  /** Path the agent knows the artifact by (plan or prototype), for direct reference. */
+  artifactPath?: string;
   /** Session id, so the document can teach the addressed-ids resubmit call. */
   sessionId?: string;
 }
@@ -37,7 +37,7 @@ export interface FeedbackInput {
 const quoteLines = (text: string) => "> " + text.replace(/\n/g, "\n> ");
 
 export function renderFeedback(input: FeedbackInput): string {
-  const path = input.planPath ?? "plan.md";
+  const path = input.artifactPath ?? "plan.md";
   // agent notes are the submitter's own context - never echoed back as
   // feedback - and annotations a previous revision already addressed stay out
   // of the next document, so the agent only ever sees the open items
@@ -106,8 +106,7 @@ export function renderFeedback(input: FeedbackInput): string {
     );
     lines.push("");
     annotations.forEach((annotation, annotationIndex) => {
-      // prototype anchors are DOM selectors, not block text - never resolved or
-      // orphan-flagged against parsed blocks
+      // a prototype selector anchor is never resolved or orphaned against blocks
       const selector = annotation.anchor.selector;
       const resolved = selector ? null : resolveAnchor(annotation.anchor, blocks);
       const sectionTitle = resolved ? sectionOf(blocks, resolved.blockIndex) : "";
@@ -161,7 +160,7 @@ export function feedbackForSession(
     workingCopy: session.workingCopy,
     artifactType: session.artifact.type,
     annotations: session.annotations,
-    planPath: session.artifact.meta.prototypePath ?? session.artifact.meta.planPath,
+    artifactPath: session.artifact.meta.prototypePath ?? session.artifact.meta.planPath,
     sessionId: session.id,
   });
 }

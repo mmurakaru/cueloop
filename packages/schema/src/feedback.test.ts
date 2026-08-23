@@ -34,7 +34,7 @@ describe("renderFeedback", () => {
       artifactContent: PLAN,
       workingCopy: PLAN.replace("one JSON document", "one JSON record"),
       annotations: [],
-      planPath: "docs/plan.md",
+      artifactPath: "docs/plan.md",
     });
 
     // Assert
@@ -214,7 +214,7 @@ describe("renderFeedback", () => {
           anchor: { quote: "Pricing", prefix: "", suffix: "", selector: "main > div.card" },
         }),
       ],
-      planPath: "proto.html",
+      artifactPath: "proto.html",
     });
 
     // Assert

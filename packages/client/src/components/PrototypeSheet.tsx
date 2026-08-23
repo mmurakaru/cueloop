@@ -1,9 +1,7 @@
 /**
- * Prototype review surface: renders an HTML file as a kitty-graphics image in
- * the sheet frame and turns a click into a DOM-element selection, so the
- * marker actions bar and the compose card - the same components the plan
- * surface uses - annotate a chosen element (a design-system card, say) rather
- * than a text span.
+ * Prototype review surface: renders the HTML as an image and turns a click into
+ * a DOM-element selection, so the shared marker actions bar and compose card
+ * annotate an element rather than a text span.
  */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -112,7 +110,10 @@ export function PrototypeSheet({
     setActionsOpen(false);
     setComposing(false);
     setDraftText("");
-    void browserRef.current?.highlight(null).then(refresh);
+    void browserRef.current
+      ?.highlight(null)
+      .then(refresh)
+      .catch(() => undefined);
   };
 
   const onImageMouseDown = (event: { x: number; y: number }): void => {
@@ -120,10 +121,10 @@ export function PrototypeSheet({
     const image = imageRef.current;
     if (status !== "ready" || !browser || !image) return;
     const geometry = { x: image.x, y: image.y, width: image.width, height: image.height };
-    const css = imageCellToCss(event, geometry, viewportRef.current);
-    if (!css) return;
+    const cssPoint = imageCellToCss(event, geometry, viewportRef.current);
+    if (!cssPoint) return;
     void (async () => {
-      const element = await browser.elementAt(css.x, css.y);
+      const element = await browser.elementAt(cssPoint.x, cssPoint.y);
       if (!element) return;
       const cell = cssBoxToCell(element.box, geometry, viewportRef.current);
       const topRaw = cell.row - geometry.y;
@@ -136,16 +137,26 @@ export function PrototypeSheet({
       setComposing(false);
       await browser.highlight(element.selector);
       await refresh();
-    })();
+    })().catch((error) => {
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+      setStatus("error");
+    });
   };
 
   const commit = (body: string): void => {
+    if (!canComment) return;
     if (selected && body.trim()) onCommentElement(selected, body.trim());
     clearSelection();
   };
 
   const overlayLeft = overlayCell?.left ?? 0;
-  const overlayTop = overlayCell?.top ?? 0;
+  const overlayTop = Math.max(0, overlayCell?.top ?? 0);
+  const overlayStyle = {
+    position: "absolute" as const,
+    left: overlayLeft,
+    top: overlayTop,
+    flexDirection: "column" as const,
+  };
 
   return (
     <box
@@ -174,14 +185,7 @@ export function PrototypeSheet({
         </box>
       ) : null}
       {selected && !composing ? (
-        <box
-          style={{
-            position: "absolute",
-            left: overlayLeft,
-            top: Math.max(0, overlayTop),
-            flexDirection: "column",
-          }}
-        >
+        <box style={overlayStyle}>
           <MarkerPopover
             view={actionsOpen ? "actions" : "toolbar"}
             actions={quickActions}
@@ -198,14 +202,7 @@ export function PrototypeSheet({
         </box>
       ) : null}
       {selected && composing ? (
-        <box
-          style={{
-            position: "absolute",
-            left: overlayLeft,
-            top: Math.max(0, overlayTop),
-            flexDirection: "column",
-          }}
-        >
+        <box style={overlayStyle}>
           <AnnotationCard
             kind="comment"
             quote={selected.quote}

@@ -1,11 +1,8 @@
 /// <reference lib="dom" />
 /**
- * Headless-Chromium backing for prototype review: it renders an HTML file to a
- * PNG the TUI shows as a kitty-graphics image, and answers the two spatial
- * questions the review surface asks - which element is under a click, and where
- * a selector's element sits - so a terminal click resolves to a DOM element.
- * puppeteer-core is imported lazily so plan/diff review and the test suite
- * never load it.
+ * Headless-Chromium backing for prototype review: render an HTML file to a PNG
+ * and resolve a click coordinate to a DOM element. puppeteer-core is imported
+ * lazily so plan/diff review and the test suite never load it.
  */
 
 export interface PrototypeElement {
@@ -33,7 +30,6 @@ export interface PrototypeRenderer {
   readonly viewport: PrototypeViewport;
   screenshot(): Promise<Uint8Array>;
   elementAt(cssX: number, cssY: number): Promise<PrototypeElement | null>;
-  boxFor(selector: string): Promise<ElementBox | null>;
   highlight(selector: string | null): Promise<void>;
   close(): Promise<void>;
 }
@@ -107,9 +103,6 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
     async elementAt(cssX, cssY) {
       return (await page.evaluate(elementAtScript, cssX, cssY)) as PrototypeElement | null;
     },
-    async boxFor(selector) {
-      return (await page.evaluate(boxForScript, selector)) as ElementBox | null;
-    },
     async highlight(selector) {
       await page.evaluate(highlightScript, selector);
     },
@@ -119,11 +112,7 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
   };
 }
 
-/**
- * Serialized into the page: the clicked leaf climbs to the nearest classed or
- * semantic ancestor, so a click inside a design-system card selects the card,
- * not its inner text. Self-contained (no page globals) for puppeteer transport.
- */
+/** Serialized into the page (self-contained for puppeteer): resolve the click to a component element. */
 function elementAtScript(x: number, y: number): unknown {
   const SEMANTIC = new Set([
     "SECTION",
@@ -135,32 +124,38 @@ function elementAtScript(x: number, y: number): unknown {
     "ASIDE",
     "FORM",
   ]);
+  const isNamed = (element: Element): boolean =>
+    element.classList.length > 0 || SEMANTIC.has(element.tagName);
+  // a card wraps several children: climb to the nearest named container holding
+  // more than one child, else the nearest named ancestor, else the clicked leaf
   const componentRoot = (start: Element): Element => {
-    let node: Element = start;
-    let el: Element | null = start;
-    while (el && el.parentElement && el !== document.body) {
-      if (el.classList.length > 0 || SEMANTIC.has(el.tagName)) return el;
-      node = el;
-      el = el.parentElement;
+    let namedFallback: Element | null = null;
+    let current: Element | null = start;
+    while (current && current !== document.body) {
+      if (isNamed(current)) {
+        if (current.childElementCount > 1) return current;
+        namedFallback = namedFallback ?? current;
+      }
+      current = current.parentElement;
     }
-    return node;
+    return namedFallback ?? start;
   };
   const selectorFor = (start: Element): string => {
     const parts: string[] = [];
-    let el: Element | null = start;
-    while (el && el.nodeType === 1 && el !== document.documentElement) {
-      let part = el.tagName.toLowerCase();
-      if (el.id) {
-        parts.unshift(part + "#" + CSS.escape(el.id));
+    let current: Element | null = start;
+    while (current && current.nodeType === 1 && current !== document.documentElement) {
+      let part = current.tagName.toLowerCase();
+      if (current.id) {
+        parts.unshift(part + "#" + CSS.escape(current.id));
         break;
       }
-      const parent: Element | null = el.parentElement;
+      const parent: Element | null = current.parentElement;
       if (parent) {
-        const twins = [...parent.children].filter((child) => child.tagName === el!.tagName);
-        if (twins.length > 1) part += ":nth-of-type(" + (twins.indexOf(el) + 1) + ")";
+        const twins = [...parent.children].filter((child) => child.tagName === current!.tagName);
+        if (twins.length > 1) part += ":nth-of-type(" + (twins.indexOf(current) + 1) + ")";
       }
       parts.unshift(part);
-      el = el.parentElement;
+      current = current.parentElement;
     }
     return parts.join(" > ");
   };
@@ -180,13 +175,6 @@ function elementAtScript(x: number, y: number): unknown {
         : tag;
   const rect = node.getBoundingClientRect();
   return { selector, quote, box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } };
-}
-
-function boxForScript(selector: string): unknown {
-  const node = document.querySelector(selector);
-  if (!node) return null;
-  const rect = node.getBoundingClientRect();
-  return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
 }
 
 function highlightScript(selector: string | null): void {
