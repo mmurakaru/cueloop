@@ -43,8 +43,8 @@ const LINK_ATTRIBUTES = createTextAttributes({ underline: true });
 const HEADING_ATTRIBUTES = createTextAttributes({ bold: true });
 const QUOTE_ATTRIBUTES = createTextAttributes({ italic: true });
 
-/** The popover toolbar card is 3 rows tall; +1 keeps a gap over the marked words. */
-const POPOVER_ROWS_ABOVE = 4;
+/** The popover toolbar card is 3 rows tall and sits flush above the marked words. */
+const POPOVER_ROWS_ABOVE = 3;
 /** Widest toolbar row ("comment · cut · actions · [x]") plus border and padding. */
 const POPOVER_TOOLBAR_COLUMNS = 33;
 
@@ -189,7 +189,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     },
   }));
 
-  // the popover floats one row above the marked words, anchored to the
+  // the popover sits flush above the marked words, anchored to the
   // selection start mapped through the wrap geometry (line + column, not the
   // block's linear offset). It renders as the LAST child of the scrollbox in
   // content coordinates: content coordinates are scroll-invariant so the card
