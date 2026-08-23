@@ -1,6 +1,6 @@
 /**
  * A live in-process terminal emulator backed by Ghostty's VT core (libghostty-vt)
- * through a flat FFI shim (native/src/shim.c). Feed it a child process's PTY
+ * through a flat FFI shim (native/src/shim.zig). Feed it a child process's PTY
  * output with `write`, then read the rendered screen cell-by-cell with `readCell`
  * to paint it anywhere - this is what lets a real `cc`/shell render inside an
  * OpenTUI box. Load with `loadGhosttyTerminals`, which returns null when no
@@ -30,7 +30,7 @@ export interface GhosttyCell {
   codepoint: number;
   fg: GhosttyColor;
   bg: GhosttyColor;
-  /** 0 = wide-char trailing cell (skip it), 1 = normal, 2 = double-width lead. */
+  /** Ghostty width tag: 0 = normal, 1 = double-width lead, 2 = trailing cell. */
   width: number;
   bold: boolean;
   italic: boolean;

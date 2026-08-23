@@ -120,7 +120,7 @@ export class TerminalPaneRenderable extends Renderable {
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const cell = this.vt.readCell(x, y);
-        // width 0 = the trailing half of a wide glyph already painted at x-1: skip it.
+        // Skip an empty normal-width cell; the buffer already starts blank.
         if (cell && cell.width === 0 && cell.codepoint === 0) continue;
         const char = cell && cell.codepoint ? String.fromCodePoint(cell.codepoint) : " ";
         let fg = cell ? resolveColor(cell.fg, DEFAULT_FG) : DEFAULT_FG;
