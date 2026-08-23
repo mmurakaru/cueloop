@@ -8,6 +8,7 @@
  */
 
 import {
+  inlineRuns,
   isAddressed,
   lcsDiff,
   parseBlocks,
@@ -141,7 +142,18 @@ function numberOrderedListItems(display: DisplayBlock[]): void {
 
 // ── marks (annotation highlights + keyboard span) ──
 
-export type RunRole = "plain" | "ins" | "del" | "mark-comment" | "kspan" | "mark-focus";
+export type RunRole =
+  | "plain"
+  | "ins"
+  | "del"
+  | "mark-comment"
+  | "kspan"
+  | "mark-focus"
+  | "strong"
+  | "em"
+  | "code"
+  | "strike"
+  | "link";
 
 export interface StyleRun {
   text: string;
@@ -149,6 +161,8 @@ export interface StyleRun {
   /** Offset of this run in the block's working text; null for del runs. */
   start: number | null;
   annotationId?: string;
+  /** Link target for `link` runs. */
+  href?: string;
 }
 
 export interface Mark {
@@ -213,7 +227,32 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
     }
     return runs;
   }
-  return [{ text: displayText(block), role: "plain", start: 0 }];
+  const text = displayText(block);
+  // Prose carries inline markup; code fences and rules are literal. Concealed
+  // markers are dropped, so every rendered cell still maps to a work offset.
+  if (markup && block.kind !== "code" && block.kind !== "hr") {
+    return inlineStyleRuns(text, 0);
+  }
+  return [{ text, role: "plain", start: 0 }];
+}
+
+/**
+ * Map the schema inline tokens to positioned StyleRuns, dropping the concealed
+ * markers. `base` is the run's offset within the block's working text (0 for a
+ * whole prose block; a segment's start for a word-diff piece).
+ */
+export function inlineStyleRuns(text: string, base: number): StyleRun[] {
+  const runs: StyleRun[] = [];
+  for (const run of inlineRuns(text)) {
+    if (run.role === "marker" || run.start === null) continue;
+    runs.push({
+      text: run.text,
+      role: run.role === "text" ? "plain" : run.role,
+      start: base + run.start,
+      ...(run.href !== undefined ? { href: run.href } : {}),
+    });
+  }
+  return runs;
 }
 
 /** Split runs at mark boundaries; marks only bind to runs with offsets. */

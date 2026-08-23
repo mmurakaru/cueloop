@@ -33,6 +33,12 @@ import { FRAME_BORDER_STYLE } from "./primitives/frame";
 /** A cut block reads as removed: struck through and grayed, never red. */
 const CUT_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
 
+/** Inline-emphasis attributes, reused per run so the render loop allocates none. */
+const STRONG_ATTRIBUTES = createTextAttributes({ bold: true });
+const EM_ATTRIBUTES = createTextAttributes({ italic: true });
+const STRIKE_ATTRIBUTES = createTextAttributes({ strikethrough: true });
+const LINK_ATTRIBUTES = createTextAttributes({ underline: true });
+
 export interface PlanSelection {
   displayIndex: number;
   start: number;
@@ -383,6 +389,16 @@ function runStyle(
       return { fg: tokens.accentInk, bg: tokens.accent };
     case "kspan":
       return { fg: tokens.accentInk, bg: tokens.accent };
+    case "strong":
+      return { fg: headingFg ?? tokens.text, attributes: STRONG_ATTRIBUTES };
+    case "em":
+      return { fg: headingFg ?? tokens.text, attributes: EM_ATTRIBUTES };
+    case "code":
+      return { fg: tokens.text, bg: tokens.elevated };
+    case "strike":
+      return { fg: tokens.textMuted, attributes: STRIKE_ATTRIBUTES };
+    case "link":
+      return { fg: tokens.blue, attributes: LINK_ATTRIBUTES };
     default:
       return { fg: headingFg ?? tokens.text };
   }
