@@ -122,6 +122,7 @@
     "verify-published",
     "wide-rules-heal",
     "wire-schema-drift-guard",
-    "working-copy-module"
+    "working-copy-module",
+    "zig-native-shim"
   ]
 }

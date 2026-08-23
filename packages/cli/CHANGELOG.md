@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.42
+
+### Patch Changes
+
+- [#226](https://github.com/mmurakaru/cueloop/pull/226) [`4718977`](https://github.com/mmurakaru/cueloop/commit/471897715447959b746cfe4eb0278dcacf5c544b) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Build the embedded terminal FFI shim with a verified Zig toolchain and test its complete cell contract from source.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.42
+  - @cueloop/client@0.1.0-alpha.42
+  - @cueloop/daemon@0.1.0-alpha.42
+  - @cueloop/schema@0.1.0-alpha.42
+
 ## 0.1.0-alpha.41
 
 ### Minor Changes
