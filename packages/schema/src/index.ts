@@ -1,6 +1,7 @@
 export * from "./types";
 export * from "./participants";
 export * from "./markdown";
+export * from "./inline";
 export * from "./working-copy";
 export * from "./diff";
 export * from "./anchor";

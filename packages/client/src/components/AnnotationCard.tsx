@@ -31,10 +31,9 @@ export interface AnnotationSaved {
   body: string;
   isSelected: boolean;
   isOrphan: boolean;
-  isBlocking: boolean;
   /** Border-title author: a collaborator's display name, or "me" for the reviewer's own note. */
   author: string;
-  /** Border + title color for this card (own = salmon, collaborator = blue). */
+  /** Border + title color for this card (comment cards read blue). */
   tone: string;
   /** Non-null while the card body is being rewritten in place. */
   editing: AnnotationDraft | null;
@@ -155,7 +154,8 @@ export function AnnotationCard({
   theme,
 }: AnnotationCardProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const kindColor = tokens.accent;
+  // the composer wears the same blue as the saved comment card it becomes
+  const kindColor = tokens.blue;
   const activeDraft = draft ?? saved?.editing ?? null;
   // The composer's visible height, grown from the wrapped text. It is shared
   // with the card frame (contentRows) so the border never clips the textarea
@@ -186,10 +186,8 @@ export function AnnotationCard({
     );
   }
   const card = saved!;
-  // border = "what + who" (+ any exceptional flag); body = the content only
-  const flags = [card.isBlocking ? "BLOCKING" : null, card.isOrphan ? "ORPHANED" : null].filter(
-    (flag): flag is string => flag !== null,
-  );
+  // border = "what + who" (+ an orphaned flag when the anchor no longer resolves)
+  const flags = card.isOrphan ? ["ORPHANED"] : [];
   const title = ` ${[kind.toUpperCase(), card.author, ...flags].join(" · ")} `;
   // every saved card is bordered, so the border + side padding always eat this width
   const borderInset = 4;
@@ -205,16 +203,20 @@ export function AnnotationCard({
         border: true,
         borderStyle: FRAME_BORDER_STYLE,
         // the border (and its title) always wears the card's tone - salmon for
-        // own notes, blue for a collaborator's; selection reads from a filled
-        // background so the color stays put whether or not the card is active
+        // own notes, blue for a collaborator's; the card background stays
+        // transparent so it sits flat on the terminal theme. Selection reads
+        // from the quote line taking the card's tone (below) and from the
+        // matching text highlight in the document.
         borderColor: card.tone,
-        backgroundColor: card.isSelected || card.editing ? tokens.elevated : "transparent",
+        backgroundColor: "transparent",
         paddingLeft: 1,
         paddingRight: 1,
       }}
       onMouseUp={card.onPress}
     >
-      <text fg={tokens.textDim}>"{truncateToSingleLine(quote, 26 - borderInset)}"</text>
+      <text
+        fg={card.isSelected ? card.tone : tokens.textDim}
+      >{`"${truncateToSingleLine(quote, 26 - borderInset)}"`}</text>
       {card.editing ? (
         <DraftEditor
           draft={card.editing}
