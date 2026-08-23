@@ -330,13 +330,7 @@ export class DaemonCore {
     return session;
   }
 
-  /**
-   * Re-capture a diff session's working tree and, when the patch changed,
-   * update its artifact (content + files) and emit session.updated so every
-   * attached client refreshes in place. The testable seam behind hot-reload:
-   * the fs watcher calls it on a debounced change, and it is a no-op returning
-   * changed=false for a non-diff session or when the working tree is unchanged.
-   */
+  /** Re-capture a diff session's working tree; broadcasts session.updated only when the patch moved. */
   async sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
     const session = this.mutable(id);
     if (session.artifact.type !== "diff") return { changed: false };
@@ -352,12 +346,7 @@ export class DaemonCore {
   private async refreshDiffsForRepo(repoRoot: string): Promise<void> {
     const live = this.store
       .list()
-      .filter(
-        (session) =>
-          session.status === "pending" &&
-          session.artifact.type === "diff" &&
-          session.workspace.repoRoot === repoRoot,
-      );
+      .filter((session) => isLiveDiffSession(session) && session.workspace.repoRoot === repoRoot);
     for (const session of live) {
       // a session resolved or deleted between the change and this tick just skips
       try {
@@ -369,7 +358,7 @@ export class DaemonCore {
   }
 
   private watchIfDiffSession(session: ReviewSession): void {
-    if (session.status === "pending" && session.artifact.type === "diff")
+    if (isLiveDiffSession(session))
       this.diffWatcher.trackDiffRepo(session.workspace.repoRoot, session.id);
   }
 
@@ -387,6 +376,11 @@ export class DaemonCore {
 }
 
 export { DaemonError };
+
+/** A pending diff session: the state that warrants hot-reload watching of its working tree. */
+function isLiveDiffSession(session: ReviewSession): boolean {
+  return session.status === "pending" && session.artifact.type === "diff";
+}
 
 /** Convenience for adapters: map a resolved session to the agent contract. */
 export function verdictResponse(session: ReviewSession): { allow: boolean; feedback: string } {
