@@ -34,6 +34,8 @@ export interface AnnotationSaved {
   isBlocking: boolean;
   /** Border-title author: a collaborator's display name, or "me" for the reviewer's own note. */
   author: string;
+  /** Border + title color for this card (own = salmon, collaborator = blue). */
+  tone: string;
   /** Non-null while the card body is being rewritten in place. */
   editing: AnnotationDraft | null;
   onPress: () => void;
@@ -202,9 +204,11 @@ export function AnnotationCard({
         height: cardHeight(contentRows),
         border: true,
         borderStyle: FRAME_BORDER_STYLE,
-        // cards stay transparent in every theme; selection is the bright
-        // kind-colored border, while unselected cards recede to a dim border
-        borderColor: card.isSelected || card.editing ? kindColor : tokens.border,
+        // the border (and its title) always wears the card's tone - salmon for
+        // own notes, blue for a collaborator's; selection reads from a filled
+        // background so the color stays put whether or not the card is active
+        borderColor: card.tone,
+        backgroundColor: card.isSelected || card.editing ? tokens.elevated : "transparent",
         paddingLeft: 1,
         paddingRight: 1,
       }}

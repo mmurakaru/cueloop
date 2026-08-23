@@ -140,6 +140,8 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
           : isAgentNote(annotation)
             ? "agent"
             : "me",
+        // own + agent notes read as salmon; a share collaborator's note as blue
+        tone: annotation.author && !isAgentNote(annotation) ? tokens.blue : tokens.accent,
         editing:
           cardEdit && cardEdit.id === annotation.id
             ? {
@@ -293,8 +295,8 @@ function RemovalCard({
       <Card
         title={title}
         contentRows={contentRows}
-        borderColor={isSelected ? tokens.red : tokens.border}
-        backgroundColor="transparent"
+        borderColor={tokens.red}
+        backgroundColor={isSelected ? tokens.elevated : "transparent"}
         theme={theme}
       >
         {previewLines.length === 0 ? (

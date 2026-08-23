@@ -87,20 +87,6 @@ function backgroundsOf(setup: Setup, needle: string): string[] {
   return backgrounds;
 }
 
-/** Whether any border character (box-drawing) is painted in the given foreground hex. */
-function hasBorderColor(setup: Setup, hex: string): boolean {
-  for (const line of setup.captureSpans().lines) {
-    for (const span of line.spans) {
-      if (!/[╭╮╰╯│─┌┐└┘]/.test(span.text)) continue;
-      const [red, green, blue] = span.fg.toInts();
-      const rendered =
-        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
-      if (rendered === hex) return true;
-    }
-  }
-  return false;
-}
-
 /** Move the cursor to "The daemon persists sessions to disk atomically." */
 async function toContextParagraph(setup: Setup): Promise<void> {
   await press(setup, "j");
@@ -629,9 +615,9 @@ describe("edit-exit reconciliation", () => {
 
       // Act
       // deselect the card so e reaches the editor hand-off, then edit; deselection
-      // shows as the card's accent border fading to a dim border (transparent fill)
+      // shows as the card's selected fill (elevated) clearing to a transparent card
       await press(setup, "escape");
-      await waitForState(setup, () => !hasBorderColor(setup, DARK.accent));
+      await waitForState(setup, () => !backgroundsOf(setup, "Anchor me").includes(DARK.elevated));
       await press(setup, "e");
 
       // Assert

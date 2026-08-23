@@ -129,7 +129,7 @@ export function AgentLauncher({
             border: true,
             borderStyle: FRAME_BORDER_STYLE,
             backgroundColor: "transparent",
-            borderColor: tokens.border,
+            borderColor: tokens.text,
             paddingLeft: 1,
             paddingRight: 1,
           }}

@@ -29,6 +29,7 @@ export const SavedSelected: Story = {
         isOrphan: false,
         isBlocking: false,
         author: "me",
+        tone: DARK.accent,
         editing: null,
         onPress: () => {},
       }}
@@ -48,12 +49,13 @@ export const SavedCollaborator: Story = {
         isOrphan: false,
         isBlocking: false,
         author: "Priya",
+        tone: DARK.blue,
         editing: null,
         onPress: () => {},
       }}
     />
   ),
-  expectedColors: [DARK.border],
+  expectedColors: [DARK.blue],
 };
 
 export const SavedOrphanBlocking: Story = {
@@ -67,12 +69,13 @@ export const SavedOrphanBlocking: Story = {
         isOrphan: true,
         isBlocking: true,
         author: "me",
+        tone: DARK.accent,
         editing: null,
         onPress: () => {},
       }}
     />
   ),
-  expectedColors: [DARK.border],
+  expectedColors: [DARK.accent],
 };
 
 export const SavedEditing: Story = {
@@ -86,6 +89,7 @@ export const SavedEditing: Story = {
         isOrphan: false,
         isBlocking: false,
         author: "me",
+        tone: DARK.accent,
         editing: { text: "new body", ...draftCallbacks },
         onPress: () => {},
       }}
