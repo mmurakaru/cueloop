@@ -81,6 +81,7 @@ export function cssBoxToCell(
 
 export async function launchPrototypeRenderer(options: LaunchOptions): Promise<PrototypeRenderer> {
   const puppeteer = (await import("puppeteer-core")).default;
+  const { pathToFileURL } = await import("node:url");
   const browser = await puppeteer.launch({
     executablePath: options.executablePath ?? chromeExecutable(),
     headless: true,
@@ -91,8 +92,17 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
       deviceScaleFactor: 2,
     },
   });
-  const page = await browser.newPage();
-  await page.goto(`file://${options.filePath}`, { waitUntil: "networkidle0" });
+  // close the browser if page setup fails, so a launch error never leaks Chromium
+  const page = await browser.newPage().catch(async (error) => {
+    await browser.close();
+    throw error;
+  });
+  await page
+    .goto(pathToFileURL(options.filePath).href, { waitUntil: "networkidle0" })
+    .catch(async (error) => {
+      await browser.close();
+      throw error;
+    });
 
   return {
     viewport: options.viewport,
