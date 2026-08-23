@@ -43,6 +43,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
           agent: stringFlag(flags, "agent"),
           agentSessionId: stringFlag(flags, "agent-session-id"),
           planPath: stringFlag(flags, "plan-path"),
+          prototypePath: stringFlag(flags, "prototype-path"),
           title: stringFlag(flags, "title"),
           notes,
         });

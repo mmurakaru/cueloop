@@ -8,10 +8,12 @@
  * observers), `cueloop daemon` runs the daemon in the foreground.
  */
 
+import { basename, resolve } from "node:path";
 import { parseArgs, stringFlag, type ParsedArgs } from "./args";
 import {
   isDiffReview,
   isPlanReview,
+  isPrototypeReview,
   isPrReview,
   isSessionId,
   openTargetMessage,
@@ -47,6 +49,8 @@ async function main(): Promise<number> {
       return planCommand(argv.slice(1));
     case "diff":
       return diffCommand(argv.slice(1));
+    case "prototype":
+      return prototypeCommand(argv.slice(1));
     case "serve": {
       const { positional, flags } = parseArgs(argv.slice(1));
       const port = stringFlag(flags, "port");
@@ -166,6 +170,39 @@ async function planCommand(argv: string[]): Promise<number> {
 }
 
 /**
+ * `cueloop prototype <file.html>` creates a review of a rendered HTML file;
+ * a selector or `--open`/`--latest` (or a bare call with no file) opens the
+ * latest pending prototype review instead.
+ */
+async function prototypeCommand(argv: string[]): Promise<number> {
+  const parsed = parseArgs(argv);
+  const selector = openSelector(parsed);
+  const wantsOpen = "open" in parsed.flags || "latest" in parsed.flags;
+  const looksLikeFile =
+    selector !== undefined && !isSessionId(selector) && selector.endsWith(".html");
+  if (wantsOpen || !looksLikeFile)
+    return openReviewOfKind(isPrototypeReview, "prototype", selector);
+
+  const path = resolve(selector);
+  const html = await Bun.file(path)
+    .text()
+    .catch(() => undefined);
+  if (html === undefined) {
+    console.error(`prototype: cannot read ${path}`);
+    return 1;
+  }
+  const client = await DaemonClient.connect({ autostart: true });
+  const review = await openReview(client, {
+    type: "prototype",
+    content: html,
+    prototypePath: path,
+    title: basename(path),
+  });
+  client.close();
+  return runTui(review.id);
+}
+
+/**
  * `cueloop diff` disambiguates create from open by intent:
  *   - a selector (`cueloop diff <id|title>`) or an explicit `--open`/`--latest`
  *     opens a pending diff review;
@@ -242,6 +279,7 @@ function printHelp(): void {
       "  cueloop diff [id|title]          review your working tree (untracked files included);",
       "                                   with a clean tree, open the latest pending diff review",
       "  cueloop review <pr>              review a pull request (--no-tui prints the session)",
+      "  cueloop prototype <file.html>    review a rendered HTML prototype (or open the latest by id/title)",
       "",
       "share:",
       "  cueloop serve [session-id]       share over ssh: observers are read-only,",
