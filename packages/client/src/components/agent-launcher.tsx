@@ -24,55 +24,29 @@ export interface AgentTerminalHandle {
   detach: () => void;
 }
 
-/** One launchable harness: its rail command and the real logo, rendered as colored rows. */
+/** One launchable harness: its display name, rail command, and brand color. */
 export interface HarnessLauncher {
   id: string;
   name: string;
   /** The shell command that starts the harness, run in the split. */
   command: string;
-  /** Brand color for the mark. */
+  /** Brand color for the running-terminal header. */
   color: string;
-  /** Multi-row mark rendered from the real logo. */
-  logo: string[];
 }
 
-/** Claude Code's brand coral - not a theme token, the mark keeps its own color. */
-const CLAUDE_CORAL = "#CC785C";
+/** Shared off-white for every harness's running-terminal header. */
+const HARNESS_HEADER_COLOR = "#e4e6ec";
 
-/** The bring-your-own harnesses, with their real marks (finalized in the prototype). */
+/** The bring-your-own harnesses, in launch order. */
 export const HARNESS_LAUNCHERS: HarnessLauncher[] = [
-  {
-    id: "claude",
-    name: "claude code",
-    command: "cc",
-    color: CLAUDE_CORAL,
-    logo: [" ▛████▜", "▜██████▛", " ▝▝  ▝▝"],
-  },
-  { id: "pi", name: "pi", command: "pi", color: "#e4e6ec", logo: ["███ ", "█ █ ", "██ █", "█  █"] },
-  {
-    id: "codex",
-    name: "codex",
-    command: "codex",
-    color: "#e4e6ec",
-    logo: ["┌───┐", "│>_ │", "└───┘"],
-  },
+  { id: "claude", name: "Claude Code", command: "cc", color: HARNESS_HEADER_COLOR },
+  { id: "pi", name: "Pi", command: "pi", color: HARNESS_HEADER_COLOR },
+  { id: "codex", name: "OpenAI Codex", command: "codex", color: HARNESS_HEADER_COLOR },
 ];
 
 /** The briefing typed into a launched harness when the plan-context toggle is on. */
 export function planHandoffBriefing(sessionId: string): string {
   return `Review this cueloop plan: read it with 'cueloop session get ${sessionId}', then comment with 'cueloop session annotate ${sessionId} --author me --quote "<exact span>" --body "<comment>"'. Do not rewrite the plan.`;
-}
-
-function LogoMark({ harness }: { harness: HarnessLauncher }): React.ReactNode {
-  return (
-    <box style={{ width: 9, flexShrink: 0, flexDirection: "column", alignItems: "flex-start" }}>
-      {harness.logo.map((row) => (
-        <text key={row} fg={harness.color}>
-          {row}
-        </text>
-      ))}
-    </box>
-  );
 }
 
 /** Props for the Agent tab body: the session under review plus the launch callbacks. */
@@ -148,22 +122,19 @@ export function AgentLauncher({
           key={harness.id}
           style={{
             flexDirection: "row",
-            height: harness.logo.length + 2,
+            height: 3,
             border: true,
             borderStyle: FRAME_BORDER_STYLE,
             backgroundColor: "transparent",
             borderColor: tokens.border,
-            marginBottom: 1,
             paddingLeft: 1,
             paddingRight: 1,
           }}
           onMouseUp={() => launch(harness)}
         >
-          <LogoMark harness={harness} />
-          <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 1 }}>
-            <text fg={tokens.textMuted}>{harness.name}</text>
-            <text fg={tokens.textDim}>launch in rail ▸</text>
-          </box>
+          <text fg={tokens.textMuted}>{harness.name}</text>
+          <box style={{ flexGrow: 1 }} />
+          <text fg={tokens.textDim}>▸</text>
         </box>
       ))}
       <box style={{ flexDirection: "row" }} onMouseUp={() => setSeedContext((on) => !on)}>

@@ -583,11 +583,11 @@ describe("sheet header", () => {
     await setup.mockMouse.click(tabColumn + 1, tabRow);
     await setup.renderOnce();
 
-    // Assert - branded launcher cards, and the submitter kept in the footer
-    await waitForText(setup, "claude code");
+    // Assert - text-only launcher buttons, and the submitter kept in the footer
+    await waitForText(setup, "Claude Code");
     const frame = setup.captureCharFrame();
     expect(frame).toContain("Ask an agent about this plan");
-    expect(frame).toContain("codex");
+    expect(frame).toContain("OpenAI Codex");
     expect(frame).toContain("agent/worker-3");
   });
 });
