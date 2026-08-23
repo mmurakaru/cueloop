@@ -1,5 +1,19 @@
 # cueloop
 
+## 0.1.0-alpha.41
+
+### Minor Changes
+
+- [#224](https://github.com/mmurakaru/cueloop/pull/224) [`a7c7ebe`](https://github.com/mmurakaru/cueloop/commit/a7c7ebe4fb4e584064704bf38994706e44773cc1) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Run the review agent inside the Agent tab, not a separate pane. Picking claude code / pi / codex now embeds a real terminal in the rail: the harness runs on a PTY (bun-pty) through Ghostty's own VT core (libghostty-vt via a small FFI shim) and paints into the OpenTUI canvas cell-by-cell, with colors, text attributes, and a live cursor. While it is focused the keyboard routes to the agent; ctrl+] detaches back to the review. Where no prebuilt libghostty-vt ships for the platform, it falls back to the previous herdr-split launch, so nothing breaks. Ships a darwin-arm64 prebuilt today; other platforms use the split until their prebuilts land.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.41
+  - @cueloop/client@0.1.0-alpha.41
+  - @cueloop/daemon@0.1.0-alpha.41
+  - @cueloop/schema@0.1.0-alpha.41
+
 ## 0.1.0-alpha.40
 
 ### Minor Changes
