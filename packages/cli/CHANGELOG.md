@@ -1,5 +1,19 @@
 # cueloop
 
+## 0.1.0-alpha.44
+
+### Patch Changes
+
+- [#238](https://github.com/mmurakaru/cueloop/pull/238) [`8711792`](https://github.com/mmurakaru/cueloop/commit/8711792baf193a956878155adb0936597f365196) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A working-tree diff review now hot-reloads: while you have a `cueloop diff` session open, the daemon watches its repository and re-captures the diff whenever the working tree changes, so the review updates in place with no manual reload and no remount. Your annotations re-anchor across the refreshed patch through the usual anchor cascade. The daemon runs one recursive watcher per repository shared by its live diff sessions, debounces bursts of file writes into a single re-capture, ignores churn under `.git/` and `node_modules/`, and only broadcasts when the patch actually moved. A new owner-only `session.refreshDiff` verb is the seam the watcher drives and is scriptable on its own. Watching starts when a diff session is created (or recovered after a daemon restart) and stops when it resolves, is deleted, or the daemon shuts down.
+
+- [#239](https://github.com/mmurakaru/cueloop/pull/239) [`0a97234`](https://github.com/mmurakaru/cueloop/commit/0a97234143a856c42d93877db44d7bd179241e01) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Bring color back to the review rail cards. A prior change had made a card's border wear its tone only while selected, so every unselected card faded to one dim gray - the rail read as colorless. Cards now always carry their color and selection reads from a filled background instead: your own comments are salmon, a share collaborator's comments are blue (matching the Comment verdict), and cuts are red. Blue and red are softened to pastels that sit with the salmon accent. The submit-review box wears a white border and title (its Submit button stays salmon), and the Agent-tab launcher buttons get white borders so they read against the transparent session.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.44
+  - @cueloop/client@0.1.0-alpha.44
+  - @cueloop/daemon@0.1.0-alpha.44
+  - @cueloop/schema@0.1.0-alpha.44
+
 ## 0.1.0-alpha.43
 
 ### Patch Changes
