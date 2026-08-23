@@ -14,6 +14,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { App } from "../../packages/client/src/App";
 import { press, typeText, waitForText } from "../../packages/client/src/test-support";
+import { HERMETIC_HERDR_ENV } from "../helpers/env";
 
 /** Generous on purpose: these spawn real subprocesses on shared CI runners. */
 const POLL_TIMEOUT_MS = 60_000;
@@ -86,6 +87,7 @@ function spawnHook(plan: string, options: SpawnHookOptions = {}): HookRun {
   const proc = Bun.spawn([process.execPath, "run", HOOK], {
     env: {
       ...process.env,
+      ...HERMETIC_HERDR_ENV,
       CUELOOP_HOME: home,
       CUELOOP_IDLE_EXIT_MS: "0",
       // Explicit so a test running inside a real Claude Code session never leaks

@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, type IPty } from "bun-pty";
 import { DaemonServer } from "@cueloop/daemon";
+import { HERMETIC_HERDR_ENV } from "../helpers/env";
 
 const RUN = !!process.env.CUELOOP_RUN_PTY;
 const ptyTest = RUN ? test : test.skip;
@@ -81,10 +82,12 @@ beforeAll(async () => {
     cols: 120,
     rows: 30,
     cwd: ROOT,
-    env: { ...process.env, CUELOOP_HOME: home, CUELOOP_EDITOR: editorScript } as Record<
-      string,
-      string
-    >,
+    env: {
+      ...process.env,
+      ...HERMETIC_HERDR_ENV,
+      CUELOOP_HOME: home,
+      CUELOOP_EDITOR: editorScript,
+    } as Record<string, string>,
   });
   pty.onData((chunk) => {
     ptyOutput += chunk;
