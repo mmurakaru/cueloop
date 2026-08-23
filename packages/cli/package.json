@@ -1,6 +1,6 @@
 {
   "name": "cueloop",
-  "version": "0.1.0-alpha.46",
+  "version": "0.1.0-alpha.47",
   "description": "Terminal review surface for coding agents: annotate plans and diffs, return a verdict, send structured feedback back",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -27,10 +27,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@cueloop/adapters": "0.1.0-alpha.46",
-    "@cueloop/client": "0.1.0-alpha.46",
-    "@cueloop/daemon": "0.1.0-alpha.46",
-    "@cueloop/schema": "0.1.0-alpha.46"
+    "@cueloop/adapters": "0.1.0-alpha.47",
+    "@cueloop/client": "0.1.0-alpha.47",
+    "@cueloop/daemon": "0.1.0-alpha.47",
+    "@cueloop/schema": "0.1.0-alpha.47"
   },
   "engines": {
     "bun": ">=1.3.0"
