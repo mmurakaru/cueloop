@@ -15,7 +15,7 @@ export const CommentDraft: Story = {
       draft={{ text: "Which daemon?", ...draftCallbacks }}
     />
   ),
-  expectedColors: [DARK.accent],
+  expectedColors: [DARK.blue],
 };
 
 export const SavedSelected: Story = {
@@ -28,13 +28,13 @@ export const SavedSelected: Story = {
         isSelected: true,
         isOrphan: false,
         author: "me",
-        tone: DARK.accent,
+        tone: DARK.blue,
         editing: null,
         onPress: () => {},
       }}
     />
   ),
-  expectedColors: [DARK.accent],
+  expectedColors: [DARK.blue],
 };
 
 export const SavedCollaborator: Story = {
@@ -66,13 +66,13 @@ export const SavedOrphan: Story = {
         isSelected: false,
         isOrphan: true,
         author: "me",
-        tone: DARK.accent,
+        tone: DARK.blue,
         editing: null,
         onPress: () => {},
       }}
     />
   ),
-  expectedColors: [DARK.accent],
+  expectedColors: [DARK.blue],
 };
 
 export const SavedEditing: Story = {
@@ -85,7 +85,7 @@ export const SavedEditing: Story = {
         isSelected: true,
         isOrphan: false,
         author: "me",
-        tone: DARK.accent,
+        tone: DARK.blue,
         editing: { text: "new body", ...draftCallbacks },
         onPress: () => {},
       }}

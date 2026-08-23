@@ -629,9 +629,9 @@ describe("edit-exit reconciliation", () => {
 
       // Act
       // deselect the card so e reaches the editor hand-off, then edit; deselection
-      // shows as the card's quote line dropping the selection tone (accent)
+      // shows as the card's quote line dropping the selection tone (blue)
       await press(setup, "escape");
-      await waitForState(setup, () => !foregroundsOf(setup, "The daemon").includes(DARK.accent));
+      await waitForState(setup, () => !foregroundsOf(setup, "The daemon").includes(DARK.blue));
       await press(setup, "e");
 
       // Assert

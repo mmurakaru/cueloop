@@ -33,7 +33,7 @@ export interface AnnotationSaved {
   isOrphan: boolean;
   /** Border-title author: a collaborator's display name, or "me" for the reviewer's own note. */
   author: string;
-  /** Border + title color for this card (own = salmon, collaborator = blue). */
+  /** Border + title color for this card (comment cards read blue). */
   tone: string;
   /** Non-null while the card body is being rewritten in place. */
   editing: AnnotationDraft | null;
@@ -154,7 +154,8 @@ export function AnnotationCard({
   theme,
 }: AnnotationCardProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const kindColor = tokens.accent;
+  // the composer wears the same blue as the saved comment card it becomes
+  const kindColor = tokens.blue;
   const activeDraft = draft ?? saved?.editing ?? null;
   // The composer's visible height, grown from the wrapped text. It is shared
   // with the card frame (contentRows) so the border never clips the textarea

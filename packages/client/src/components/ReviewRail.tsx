@@ -134,8 +134,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
           : isAgentNote(annotation)
             ? "agent"
             : "me",
-        // own + agent notes read as salmon; a share collaborator's note as blue
-        tone: annotation.author && !isAgentNote(annotation) ? tokens.blue : tokens.accent,
+        tone: tokens.blue,
         editing:
           cardEdit && cardEdit.id === annotation.id
             ? {
