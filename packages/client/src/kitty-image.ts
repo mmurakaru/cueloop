@@ -19,6 +19,9 @@ export type OrderedWrite = (chunk: string) => void;
 
 const ESCAPE_STRING_TERMINATOR = "\x1b\\";
 const CHUNK_BYTES = 4096;
+// The protocol reserves values below INT32_MIN/2 for images that must sit
+// beneath cells with painted backgrounds, such as the marker popover.
+const IMAGE_Z_INDEX = -1_073_741_825;
 
 /** Save the cursor, run the placement at the region's corner, restore it. */
 function atRegion(region: CellRegion, body: string): string {
@@ -43,9 +46,7 @@ export function transmitKittyImage(
 ): void {
   if (region.columns < 1 || region.rows < 1) return;
   const base64 = Buffer.from(png).toString("base64");
-  // z<0 places the image beneath the text layer, so the marker popover and
-  // compose card (ordinary cells) still paint over it
-  const controlKeys = `a=T,f=100,i=${imageId},q=2,C=1,z=-1,c=${region.columns},r=${region.rows}`;
+  const controlKeys = `a=T,f=100,i=${imageId},q=2,C=1,z=${IMAGE_Z_INDEX},c=${region.columns},r=${region.rows}`;
   let sequence = "";
   for (let offset = 0; offset < base64.length; offset += CHUNK_BYTES) {
     const chunk = base64.slice(offset, offset + CHUNK_BYTES);
@@ -62,7 +63,7 @@ export function transmitKittyImage(
 export function placeKittyImage(write: OrderedWrite, region: CellRegion, imageId: number): void {
   if (region.columns < 1 || region.rows < 1) return;
   const command = graphicsCommand(
-    `a=p,i=${imageId},q=2,C=1,z=-1,c=${region.columns},r=${region.rows}`,
+    `a=p,i=${imageId},q=2,C=1,z=${IMAGE_Z_INDEX},c=${region.columns},r=${region.rows}`,
     "",
   );
   write(atRegion(region, command));
