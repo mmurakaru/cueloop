@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.49
+
+### Patch Changes
+
+- [`d029093`](https://github.com/mmurakaru/cueloop/commit/d02909301792e446d878cfaa823336a4795ee434) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Prototype review action popovers now paint their standard opaque background over the rendered page instead of letting the page show through.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.49
+  - @cueloop/client@0.1.0-alpha.49
+  - @cueloop/daemon@0.1.0-alpha.49
+  - @cueloop/schema@0.1.0-alpha.49
+
 ## 0.1.0-alpha.48
 
 ### Patch Changes
