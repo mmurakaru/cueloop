@@ -44,7 +44,9 @@ export async function refineCommand(argv: string[]): Promise<number> {
   writeFileSync(latestPath, markdown);
   writeFileSync(timestampedPath, markdown);
 
-  for (const session of consumedThisRun(fresh, analyzed)) seen.add(session.id);
+  for (const session of analyzed) {
+    if (session.status === "resolved") seen.add(session.id);
+  }
   writeSeen(home, seen);
 
   console.log(
@@ -133,11 +135,6 @@ function hasReviewSignal(session: ReviewSession): boolean {
   );
 }
 
-function consumedThisRun(fresh: ReviewSession[], analyzed: ReviewSession[]): ReviewSession[] {
-  const analyzedIds = new Set(analyzed.map((session) => session.id));
-  return fresh.filter((session) => analyzedIds.has(session.id) || !hasReviewSignal(session));
-}
-
 function flattenReviewAnnotations(sessions: ReviewSession[]): AnnotatedEntry[] {
   const entries: AnnotatedEntry[] = [];
   for (const session of sessions) {
@@ -155,19 +152,21 @@ function groupByKind(entries: AnnotatedEntry[]): [string, AnnotatedEntry[]][] {
     group.push(entry);
     groups.set(entry.annotation.kind, group);
   }
-  return [...groups.entries()].sort(
+  return [...groups.entries()].toSorted(
     (left, right) => right[1].length - left[1].length || left[0].localeCompare(right[0]),
   );
 }
 
 function byCount<T>(items: T[], keyOf: (item: T) => string): [string, number][] {
-  return [...tally(items, keyOf).entries()].sort(
+  return [...tally(items, keyOf).entries()].toSorted(
     (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
   );
 }
 
 function byKey<T>(items: T[], keyOf: (item: T) => string): [string, number][] {
-  return [...tally(items, keyOf).entries()].sort((left, right) => left[0].localeCompare(right[0]));
+  return [...tally(items, keyOf).entries()].toSorted((left, right) =>
+    left[0].localeCompare(right[0]),
+  );
 }
 
 function tally<T>(items: T[], keyOf: (item: T) => string): Map<string, number> {
@@ -228,8 +227,9 @@ function statePath(home: string): string {
 
 function readSeen(home: string): Set<string> {
   try {
-    const parsed = JSON.parse(readFileSync(statePath(home), "utf8")) as RefineState;
-    return new Set(Array.isArray(parsed.seenSessionIds) ? parsed.seenSessionIds : []);
+    const parsed = JSON.parse(readFileSync(statePath(home), "utf8")) as Partial<RefineState>;
+    const ids = Array.isArray(parsed.seenSessionIds) ? parsed.seenSessionIds : [];
+    return new Set(ids.filter((id): id is string => typeof id === "string"));
   } catch {
     return new Set();
   }

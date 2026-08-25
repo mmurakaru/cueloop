@@ -48,6 +48,7 @@ export function pruneExpiredSessions(
   if (periodDays <= 0) return [];
   const pruned: string[] = [];
   for (const session of store.list()) {
+    if (session.status !== "resolved") continue;
     if (isExpired(session.createdAt, periodDays, nowMs) && store.delete(session.id)) {
       pruned.push(session.id);
     }

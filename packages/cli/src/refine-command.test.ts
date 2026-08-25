@@ -83,13 +83,20 @@ describe("buildRefineReport", () => {
 });
 
 describe("refineCommand", () => {
-  test("writes a report, skips signal-free sessions, and does not re-analyze on a second run", async () => {
+  test("writes a report, skips signal-free sessions, and consumes only resolved sessions", async () => {
     // Arrange
     const home = tempHome();
     const store = new SessionStore(home);
     store.upsert(session("ses_a", { verdict: verdict("approve"), status: "resolved" }));
     store.upsert(
-      session("ses_b", { annotations: [annotation("wrong file", "this belongs in store.ts")] }),
+      session("ses_b", {
+        verdict: verdict("request_changes"),
+        status: "resolved",
+        annotations: [annotation("wrong file", "this belongs in store.ts")],
+      }),
+    );
+    store.upsert(
+      session("ses_pending", { annotations: [annotation("open point", "still deciding")] }),
     );
     store.upsert(session("ses_empty"));
     const reportPath = join(reportsDir(home), "report.md");
@@ -99,12 +106,12 @@ describe("refineCommand", () => {
 
     // Assert
     expect(firstCode).toBe(0);
-    expect(readFileSync(reportPath, "utf8")).toContain("2 sessions analyzed (3 total).");
+    expect(readFileSync(reportPath, "utf8")).toContain("3 sessions analyzed (4 total).");
 
     // Act
     await refineCommand(["--home", home]);
 
     // Assert
-    expect(readFileSync(reportPath, "utf8")).toContain("0 sessions analyzed (3 total).");
+    expect(readFileSync(reportPath, "utf8")).toContain("1 sessions analyzed (4 total).");
   });
 });
