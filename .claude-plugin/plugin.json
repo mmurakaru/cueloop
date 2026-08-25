@@ -1,6 +1,6 @@
 {
   "name": "cueloop",
-  "description": "Review surface for coding agents: plan gate, diff review, PR review, prototype review - /cueloop:plan, /cueloop:diff, /cueloop:review, /cueloop:prototype, /cueloop:annotate",
+  "description": "Review surface for coding agents: plan gate, diff review, PR review, prototype review, corpus refine - /cueloop:plan, /cueloop:diff, /cueloop:review, /cueloop:prototype, /cueloop:annotate, /cueloop:refine",
   "version": "0.1.0-alpha.48",
   "author": {
     "name": "cueloop"
