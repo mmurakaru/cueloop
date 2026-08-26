@@ -1,5 +1,19 @@
 # cueloop
 
+## 0.1.0-alpha.52
+
+### Patch Changes
+
+- [#231](https://github.com/mmurakaru/cueloop/pull/231) [`d08e286`](https://github.com/mmurakaru/cueloop/commit/d08e286d823a85bb61325337518d7f0d319b0819) Thanks [@dependabot](https://github.com/apps/dependabot)! - Bump `diff` from 8.0.4 to 9.0.0. The client's intraline word-diff (`diffWordsWithSpace`) is unchanged and its tests plus the full suite pass; this also aligns the direct dependency with the `diff@9` that `@opentui/core` already resolves.
+
+- [#230](https://github.com/mmurakaru/cueloop/pull/230) [`853e7ce`](https://github.com/mmurakaru/cueloop/commit/853e7ce0a0028d3bc85f6efd0e1f2f2f32fe4777) Thanks [@dependabot](https://github.com/apps/dependabot)! - Bump the `@opentui/*` group (core, react, keymap, ssh) to 0.5.8, aligned across the client and gateway. Keeping the whole group on one version collapses to a single `@opentui/core`, avoiding a dual-renderer install. Typecheck, the full test suite, and all render snapshots pass unchanged.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.52
+  - @cueloop/client@0.1.0-alpha.52
+  - @cueloop/daemon@0.1.0-alpha.52
+  - @cueloop/schema@0.1.0-alpha.52
+
 ## 0.1.0-alpha.51
 
 ### Patch Changes
