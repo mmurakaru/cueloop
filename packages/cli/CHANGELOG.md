@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.51
+
+### Patch Changes
+
+- [#255](https://github.com/mmurakaru/cueloop/pull/255) [`f9f1acb`](https://github.com/mmurakaru/cueloop/commit/f9f1acb03cf22268a2a1cbf9c7d3b34338a44375) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Harden refine's persisted state and skip-seen. `refine-state.json` and the `[cleanup] period_days` config value are now parsed with valibot instead of ad-hoc casts, so malformed state or a mistyped config value falls back cleanly. refine keys its skip-seen state on a per-session fingerprint (revision count, annotation count, resolved timestamp) rather than a bare id set, so a resolved session that is reopened and resolved again with new feedback is re-analyzed instead of being skipped forever.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.51
+  - @cueloop/client@0.1.0-alpha.51
+  - @cueloop/daemon@0.1.0-alpha.51
+  - @cueloop/schema@0.1.0-alpha.51
+
 ## 0.1.0-alpha.50
 
 ### Minor Changes
