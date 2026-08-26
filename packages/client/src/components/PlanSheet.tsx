@@ -16,7 +16,9 @@ import {
   blockRuns,
   displayText,
   overlayMarks,
-  renderedOffsetFor,
+  renderedOffsetAtOrAfter,
+  renderedOffsetAtOrBefore,
+  safeLinkHref,
   workRangeForRendered,
   type DisplayBlock,
   type Mark,
@@ -32,6 +34,20 @@ import { FRAME_BORDER_STYLE } from "./primitives/frame";
 
 /** A cut block reads as removed: struck through and grayed, never red. */
 const CUT_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
+
+/** Inline-emphasis attributes, reused per run so the render loop allocates none. */
+const STRONG_ATTRIBUTES = createTextAttributes({ bold: true });
+const EM_ATTRIBUTES = createTextAttributes({ italic: true });
+const STRIKE_ATTRIBUTES = createTextAttributes({ strikethrough: true });
+const LINK_ATTRIBUTES = createTextAttributes({ underline: true });
+/** Block-level base attributes: headings read bold, blockquotes read italic. */
+const HEADING_ATTRIBUTES = createTextAttributes({ bold: true });
+const QUOTE_ATTRIBUTES = createTextAttributes({ italic: true });
+
+/** The popover toolbar card is 3 rows tall and sits flush above the marked words. */
+const POPOVER_ROWS_ABOVE = 3;
+/** Widest toolbar row ("comment · cut · actions · [x]") plus border and padding. */
+const POPOVER_TOOLBAR_COLUMNS = 33;
 
 export interface PlanSelection {
   displayIndex: number;
@@ -73,6 +89,13 @@ export interface PlanSheetProps {
   popover: PlanPopoverState | null;
   editOrphanCount: number;
   onLineActivate: (displayIndex: number) => void;
+  /**
+   * Fires on any mouse release inside the sheet. A drag released outside a
+   * block's text (the gutter, past a line end, a gap between blocks) never
+   * reaches a block's own handler, so this fallback lets the app still turn
+   * the finished drag's native selection into a span.
+   */
+  onSelectionRelease?: () => void;
   theme?: Theme;
 }
 
@@ -108,6 +131,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     popover,
     editOrphanCount,
     onLineActivate,
+    onSelectionRelease,
     theme,
   }: PlanSheetProps,
   handleRef,
@@ -146,9 +170,11 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
       if (!renderer) return;
       const blockRef = blockRefs.current.get(span.displayIndex);
       if (!blockRef) return;
-      const renderedStart = renderedOffsetFor(blockRef.runs, span.start);
-      const renderedEnd = renderedOffsetFor(blockRef.runs, span.end - 1);
-      if (renderedStart === null || renderedEnd === null) return;
+      // a span over an emphasized word starts/ends on concealed markers with
+      // no rendered cell; snap to the visible characters inside them
+      const renderedStart = renderedOffsetAtOrAfter(blockRef.runs, span.start);
+      const renderedEnd = renderedOffsetAtOrBefore(blockRef.runs, span.end - 1);
+      if (renderedStart === null || renderedEnd === null || renderedEnd < renderedStart) return;
       const startPosition = positionOfRenderedOffset(blockRef.renderable, renderedStart);
       const endPosition = positionOfRenderedOffset(blockRef.renderable, renderedEnd);
       renderer.startSelection(blockRef.renderable, startPosition.x, startPosition.y);
@@ -166,24 +192,43 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     },
   }));
 
-  // the popover floats above its block, anchored to the selection start; flip
-  // below when the block sits too near the viewport top to fit above it
-  const [popoverFlipBelow, setPopoverFlipBelow] = useState(false);
+  // the popover sits flush above the marked words, anchored to the
+  // selection start mapped through the wrap geometry (line + column, not the
+  // block's linear offset). It renders as the LAST child of the scrollbox in
+  // content coordinates: content coordinates are scroll-invariant so the card
+  // tracks its block, and the last sibling paints over every block it floats
+  // across. Flips below when the line sits too near the viewport top.
+  const [popoverTop, setPopoverTop] = useState(0);
   const [popoverLeft, setPopoverLeft] = useState(2);
+  // a terminal resize rewraps every block; re-run the anchor math against the
+  // new geometry instead of leaving the card at its pre-resize cell
+  const [resizeEpoch, setResizeEpoch] = useState(0);
+  useEffect(() => {
+    if (!renderer) return;
+    const onResize = (): void => setResizeEpoch((epoch) => epoch + 1);
+    renderer.on("resize", onResize);
+    return () => void renderer.off("resize", onResize);
+  }, [renderer]);
   useEffect(() => {
     if (!popover) return;
     const blockRef = blockRefs.current.get(popover.displayIndex);
     const scrollbox = scrollRef.current;
     if (!blockRef || !scrollbox) return;
-    // only the toolbar (3 rows) + gap must fit above; the dropdown flows down
-    setPopoverFlipBelow(blockRef.renderable.y - scrollbox.y < 4);
-    // left-anchor to the start of the selection: gutter width + its column
-    const startColumn =
+    const renderedStart =
       activeSpan && activeSpan.displayIndex === popover.displayIndex
-        ? (renderedOffsetFor(blockRef.runs, activeSpan.start) ?? 0)
+        ? (renderedOffsetAtOrAfter(blockRef.runs, activeSpan.start) ?? 0)
         : 0;
-    setPopoverLeft(2 + startColumn);
-  }, [popover, activeSpan, display, cursor]);
+    const startPosition = positionOfRenderedOffset(blockRef.renderable, renderedStart);
+    const content = scrollbox.content;
+    const anchorLeft = startPosition.x - content.x;
+    const anchorTop = startPosition.y - content.y;
+    // clamp so the toolbar card never runs past the content's right edge
+    const maxLeft = Math.max(0, content.width - POPOVER_TOOLBAR_COLUMNS);
+    setPopoverLeft(Math.min(anchorLeft, maxLeft));
+    // only the toolbar (3 rows) + gap must fit above; the dropdown flows down
+    const lineViewportRow = startPosition.y - scrollbox.y;
+    setPopoverTop(anchorTop + (lineViewportRow < POPOVER_ROWS_ABOVE ? 1 : -POPOVER_ROWS_ABOVE));
+  }, [popover, activeSpan, display, cursor, resizeEpoch]);
 
   const registerBlock = (
     displayIndex: number,
@@ -235,13 +280,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
         <box
           key={displayIndex}
           id={`plan-block-${displayIndex}`}
-          // raise the block holding the popover so its overlay paints over the
-          // later blocks it floats across (siblings paint in z-index order)
-          style={{
-            flexDirection: "row",
-            marginTop: gap,
-            zIndex: popover?.displayIndex === displayIndex ? 10 : undefined,
-          }}
+          style={{ flexDirection: "row", marginTop: gap }}
         >
           <text selectable={false}>
             <span fg={isCursor ? tokens.accent : tokens.textDim}>{isCursor ? "▎ " : "  "}</span>
@@ -258,31 +297,22 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
             }
             onMouseUp={() => onLineActivate(displayIndex)}
           >
-            {runs.map((run, runIndex) => (
-              <span key={runIndex} {...runStyle(run, block, tokens)}>
-                {run.text}
-              </span>
-            ))}
+            {runs.map((run, runIndex) => {
+              const url = run.role === "link" ? safeLinkHref(run.href) : undefined;
+              return (
+                <span
+                  key={runIndex}
+                  {...runStyle(run, block, tokens)}
+                  {...(url ? { link: { url } } : {})}
+                >
+                  {run.text}
+                </span>
+              );
+            })}
             {showsChangeTag(block) ? (
               <span fg={tagColor(block, tokens)}> [{tagLabel(block)}]</span>
             ) : null}
           </text>
-          {popover && popover.displayIndex === displayIndex ? (
-            // float the card over the block, centered, with a one-row gap; flip
-            // below only when there is no room above (near the viewport top)
-            <box
-              style={{
-                position: "absolute",
-                left: popoverLeft,
-                // fixed offset: the toolbar sits one row above the selection and
-                // stays put; the dropdown flows down from it, over the selection
-                top: popoverFlipBelow ? 1 : -4,
-                flexDirection: "column",
-              }}
-            >
-              <MarkerPopover {...popover} theme={theme} />
-            </box>
-          ) : null}
         </box>,
       );
     }
@@ -298,9 +328,26 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
       );
     }
   }
+  if (popover) {
+    // last child on purpose: later siblings paint on top, so the floating card
+    // covers every block it overlaps regardless of scroll position
+    children.push(
+      <box
+        key="marker-popover"
+        style={{
+          position: "absolute",
+          left: popoverLeft,
+          top: popoverTop,
+          flexDirection: "column",
+        }}
+      >
+        <MarkerPopover {...popover} theme={theme} />
+      </box>,
+    );
+  }
 
   return (
-    <box style={{ flexGrow: 1, flexDirection: "column" }}>
+    <box style={{ flexGrow: 1, flexDirection: "column" }} onMouseUp={onSelectionRelease}>
       <box
         style={{
           flexGrow: 1,
@@ -366,15 +413,25 @@ function runStyle(
 ): { fg?: string; bg?: string; attributes?: number } {
   // a cut block reads as removed: every run struck through and grayed, never red
   if (block.type === "del") return { fg: tokens.textDim, attributes: CUT_ATTRIBUTES };
+  const isHeading = block.kind === "h1" || block.kind === "h2" || block.kind === "h3";
+  const isQuote = block.kind === "quote";
+  // headings are all bold; level reads from descending brightness alone (a
+  // terminal cannot scale font size), leaving the salmon accent to annotations
   const headingFg =
     block.kind === "h1"
       ? tokens.text
-      : block.kind === "h2" || block.kind === "h3"
-        ? tokens.accent
-        : undefined;
+      : block.kind === "h2"
+        ? tokens.textMuted
+        : block.kind === "h3"
+          ? tokens.textDim
+          : undefined;
+  // block-level base: headings bold, quotes muted italic; inline roles compose on top
+  const baseFg = headingFg ?? (isQuote ? tokens.textMuted : tokens.text);
+  const baseAttributes = (isHeading ? HEADING_ATTRIBUTES : 0) | (isQuote ? QUOTE_ATTRIBUTES : 0);
+  const withBase = (roleAttributes: number): number => baseAttributes | roleAttributes;
   switch (run.role) {
     case "ins":
-      return { fg: tokens.insertedForeground };
+      return { fg: tokens.insertedForeground, attributes: baseAttributes || undefined };
     case "del":
       return { fg: tokens.deletedForeground };
     case "mark-comment":
@@ -383,7 +440,17 @@ function runStyle(
       return { fg: tokens.accentInk, bg: tokens.accent };
     case "kspan":
       return { fg: tokens.accentInk, bg: tokens.accent };
+    case "strong":
+      return { fg: baseFg, attributes: withBase(STRONG_ATTRIBUTES) };
+    case "em":
+      return { fg: baseFg, attributes: withBase(EM_ATTRIBUTES) };
+    case "code":
+      return { fg: tokens.text, bg: tokens.elevated };
+    case "strike":
+      return { fg: tokens.textMuted, attributes: withBase(STRIKE_ATTRIBUTES) };
+    case "link":
+      return { fg: tokens.blue, attributes: withBase(LINK_ATTRIBUTES) };
     default:
-      return { fg: headingFg ?? tokens.text };
+      return { fg: baseFg, attributes: baseAttributes || undefined };
   }
 }

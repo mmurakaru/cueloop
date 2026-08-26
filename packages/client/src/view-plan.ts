@@ -8,6 +8,7 @@
  */
 
 import {
+  inlineRuns,
   isAddressed,
   lcsDiff,
   parseBlocks,
@@ -141,7 +142,18 @@ function numberOrderedListItems(display: DisplayBlock[]): void {
 
 // ── marks (annotation highlights + keyboard span) ──
 
-export type RunRole = "plain" | "ins" | "del" | "mark-comment" | "kspan" | "mark-focus";
+export type RunRole =
+  | "plain"
+  | "ins"
+  | "del"
+  | "mark-comment"
+  | "kspan"
+  | "mark-focus"
+  | "strong"
+  | "em"
+  | "code"
+  | "strike"
+  | "link";
 
 export interface StyleRun {
   text: string;
@@ -149,6 +161,8 @@ export interface StyleRun {
   /** Offset of this run in the block's working text; null for del runs. */
   start: number | null;
   annotationId?: string;
+  /** Link target for `link` runs. */
+  href?: string;
 }
 
 export interface Mark {
@@ -195,6 +209,7 @@ export function marksByDisplay(
 
 /** Base runs for a display block: plain text, or word-diff for mod blocks. */
 export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
+  const literal = block.kind === "code" || block.kind === "hr";
   if (block.type === "mod" && markup) {
     const changes = wordLevelChanges(block.base!.text, block.work!.text);
     const runs: StyleRun[] = [];
@@ -202,18 +217,57 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
     for (const change of changes) {
       if (change.kind === "removed") {
         runs.push({ text: change.text, role: "del", start: null });
-      } else {
-        runs.push({
-          text: change.text,
-          role: change.kind === "added" ? "ins" : "plain",
-          start: workOffset,
-        });
-        workOffset += change.text.length;
+        continue;
       }
+      // A code/rule block stays literal; prose segments inline-tokenize so their
+      // markers conceal while their work offsets stay intact. Added text keeps
+      // the green diff role (it wins over emphasis); context text shows emphasis.
+      const segment = literal
+        ? [{ text: change.text, role: "plain" as const, start: workOffset }]
+        : inlineStyleRuns(change.text, workOffset);
+      for (const run of segment) {
+        runs.push(change.kind === "added" ? { ...run, role: "ins" } : run);
+      }
+      workOffset += change.text.length;
     }
     return runs;
   }
-  return [{ text: displayText(block), role: "plain", start: 0 }];
+  const text = displayText(block);
+  // Prose carries inline markup; code fences and rules are literal. Concealed
+  // markers are dropped, so every rendered cell still maps to a work offset.
+  if (markup && !literal) {
+    return inlineStyleRuns(text, 0);
+  }
+  return [{ text, role: "plain", start: 0 }];
+}
+
+/** A link href safe to hand a terminal as an OSC 8 target, or undefined. Only
+ *  http(s) and mailto are trusted; a scheme like javascript: is dropped. The
+ *  target must stay printable ASCII: a control byte (ESC, BEL) in a reviewed
+ *  document could otherwise splice into the terminal escape stream. */
+export function safeLinkHref(href: string | undefined): string | undefined {
+  if (href === undefined) return undefined;
+  if (!/^(https?:|mailto:)/i.test(href)) return undefined;
+  return /^[\x21-\x7e]+$/.test(href) ? href : undefined;
+}
+
+/**
+ * Map the schema inline tokens to positioned StyleRuns, dropping the concealed
+ * markers. `base` is the run's offset within the block's working text (0 for a
+ * whole prose block; a segment's start for a word-diff piece).
+ */
+export function inlineStyleRuns(text: string, base: number): StyleRun[] {
+  const runs: StyleRun[] = [];
+  for (const run of inlineRuns(text)) {
+    if (run.role === "marker" || run.start === null) continue;
+    runs.push({
+      text: run.text,
+      role: run.role === "text" ? "plain" : run.role,
+      start: base + run.start,
+      ...(run.href !== undefined ? { href: run.href } : {}),
+    });
+  }
+  return runs;
 }
 
 /** Split runs at mark boundaries; marks only bind to runs with offsets. */
@@ -272,6 +326,39 @@ export function renderedOffsetFor(runs: StyleRun[], workOffset: number): number 
     rendered += run.text.length;
   }
   return null;
+}
+
+/**
+ * Rendered offset of the first positioned character at or after `workOffset`.
+ * A word span may start on a concealed marker (the `**` of an emphasized
+ * word), which has no rendered cell; the span visuals snap to the first
+ * character that does. Positioned runs appear in ascending work order.
+ */
+export function renderedOffsetAtOrAfter(runs: StyleRun[], workOffset: number): number | null {
+  let rendered = 0;
+  for (const run of runs) {
+    if (run.start !== null && run.start + run.text.length > workOffset) {
+      return rendered + Math.max(0, workOffset - run.start);
+    }
+    rendered += run.text.length;
+  }
+  return null;
+}
+
+/**
+ * Rendered offset of the last positioned character at or before `workOffset` -
+ * the closing-marker counterpart of `renderedOffsetAtOrAfter`.
+ */
+export function renderedOffsetAtOrBefore(runs: StyleRun[], workOffset: number): number | null {
+  let rendered = 0;
+  let best: number | null = null;
+  for (const run of runs) {
+    if (run.start !== null && run.start <= workOffset) {
+      best = rendered + Math.min(workOffset - run.start, run.text.length - 1);
+    }
+    rendered += run.text.length;
+  }
+  return best;
 }
 
 /**

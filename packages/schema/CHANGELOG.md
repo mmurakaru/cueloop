@@ -1,5 +1,21 @@
 # @cueloop/schema
 
+## 0.1.0-alpha.51
+
+## 0.1.0-alpha.50
+
+## 0.1.0-alpha.49
+
+## 0.1.0-alpha.48
+
+## 0.1.0-alpha.47
+
+## 0.1.0-alpha.46
+
+## 0.1.0-alpha.45
+
+## 0.1.0-alpha.44
+
 ## 0.1.0-alpha.43
 
 ## 0.1.0-alpha.42

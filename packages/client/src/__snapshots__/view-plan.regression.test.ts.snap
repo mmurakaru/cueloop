@@ -1,0 +1,100 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`view-plan regression harness (M0) blockRuns output is stable across the representative blocks 1`] = `
+[
+  {
+    "runs": [
+      {
+        "role": "plain",
+        "start": 0,
+        "text": "Heading with ",
+      },
+      {
+        "role": "strong",
+        "start": 15,
+        "text": "bold",
+      },
+    ],
+    "text": "Heading with **bold**",
+    "type": "same",
+  },
+  {
+    "runs": [
+      {
+        "role": "plain",
+        "start": 0,
+        "text": "A paragraph with ",
+      },
+      {
+        "role": "strong",
+        "start": 19,
+        "text": "strong",
+      },
+      {
+        "role": "plain",
+        "start": 27,
+        "text": ", ",
+      },
+      {
+        "role": "em",
+        "start": 30,
+        "text": "em",
+      },
+      {
+        "role": "plain",
+        "start": 33,
+        "text": ", ",
+      },
+      {
+        "role": "code",
+        "start": 36,
+        "text": "code",
+      },
+      {
+        "role": "plain",
+        "start": 41,
+        "text": ", ",
+      },
+      {
+        "role": "strike",
+        "start": 45,
+        "text": "strike",
+      },
+      {
+        "role": "plain",
+        "start": 53,
+        "text": " and a ",
+      },
+      {
+        "href": "https://example.com",
+        "role": "link",
+        "start": 61,
+        "text": "label",
+      },
+      {
+        "role": "plain",
+        "start": 88,
+        "text": ".",
+      },
+    ],
+    "text": "A paragraph with **strong**, *em*, \`code\`, ~~strike~~ and a [label](https://example.com).",
+    "type": "same",
+  },
+  {
+    "runs": [
+      {
+        "role": "plain",
+        "start": 0,
+        "text": "a list item with ",
+      },
+      {
+        "role": "em",
+        "start": 18,
+        "text": "emphasis",
+      },
+    ],
+    "text": "a list item with *emphasis*",
+    "type": "same",
+  },
+]
+`;

@@ -1,5 +1,111 @@
 # cueloop
 
+## 0.1.0-alpha.51
+
+### Patch Changes
+
+- [#255](https://github.com/mmurakaru/cueloop/pull/255) [`f9f1acb`](https://github.com/mmurakaru/cueloop/commit/f9f1acb03cf22268a2a1cbf9c7d3b34338a44375) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Harden refine's persisted state and skip-seen. `refine-state.json` and the `[cleanup] period_days` config value are now parsed with valibot instead of ad-hoc casts, so malformed state or a mistyped config value falls back cleanly. refine keys its skip-seen state on a per-session fingerprint (revision count, annotation count, resolved timestamp) rather than a bare id set, so a resolved session that is reopened and resolved again with new feedback is re-analyzed instead of being skipped forever.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.51
+  - @cueloop/client@0.1.0-alpha.51
+  - @cueloop/daemon@0.1.0-alpha.51
+  - @cueloop/schema@0.1.0-alpha.51
+
+## 0.1.0-alpha.50
+
+### Minor Changes
+
+- [#253](https://github.com/mmurakaru/cueloop/pull/253) [`bc73fa8`](https://github.com/mmurakaru/cueloop/commit/bc73fa83774d2a7ed59ee174c691e76c79e0184a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add the `refine` primitive: `cueloop refine` reads the corpus of past review sessions and writes a Markdown report to `~/.cueloop/reports/` (latest `report.md` plus a timestamped copy). The report gives corpus stats, reviewer annotations grouped by kind with their session/primitive/verdict/week, and weekly volume; a run analyzes up to 200 unseen sessions and skips sessions with no annotation and no verdict. The `/cueloop:refine` skill drives the agent to group the annotations into named patterns and propose writebacks (to a skill, `AGENTS.md`, `CLAUDE.md`, or memory) for human approval via a plan review. Adds a `cleanupPeriodDays` retention window (default 30) read from `[cleanup] period_days`: the daemon prunes sessions past the window on startup, and `refine` prunes old reports.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.50
+  - @cueloop/client@0.1.0-alpha.50
+  - @cueloop/daemon@0.1.0-alpha.50
+  - @cueloop/schema@0.1.0-alpha.50
+
+## 0.1.0-alpha.49
+
+### Patch Changes
+
+- [`d029093`](https://github.com/mmurakaru/cueloop/commit/d02909301792e446d878cfaa823336a4795ee434) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Prototype review action popovers now paint their standard opaque background over the rendered page instead of letting the page show through.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.49
+  - @cueloop/client@0.1.0-alpha.49
+  - @cueloop/daemon@0.1.0-alpha.49
+  - @cueloop/schema@0.1.0-alpha.49
+
+## 0.1.0-alpha.48
+
+### Patch Changes
+
+- [#249](https://github.com/mmurakaru/cueloop/pull/249) [`18d908e`](https://github.com/mmurakaru/cueloop/commit/18d908e1c5daa5c0c4736de89387a1cc21f398a4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Prototype review polish: the preview scrolls with the mouse wheel when the page overflows the box (the page scrolls and re-renders), the marker actions bar and compose card now sit on an opaque fill so they read as solid cards over the image, and the image is pulled while an app menu or settings overlay is open so those overlays no longer show through the graphics layer.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.48
+  - @cueloop/client@0.1.0-alpha.48
+  - @cueloop/daemon@0.1.0-alpha.48
+  - @cueloop/schema@0.1.0-alpha.48
+
+## 0.1.0-alpha.47
+
+### Patch Changes
+
+- [#248](https://github.com/mmurakaru/cueloop/pull/248) [`83e597b`](https://github.com/mmurakaru/cueloop/commit/83e597b47e7898e95e360b554ce13c440a98cf08) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Prototype review now renders the page. The screenshot is painted directly through the kitty graphics protocol into a reserved cell region (transmit once, re-place after each frame, beneath the text layer) rather than OpenTUI's image renderable, which stayed blank in some terminals; the capture viewport matches the box's cell aspect so the image fills it. Typing a comment no longer leaks to the global keymap - the compose textarea owns the keyboard while open and Enter saves. Adds an end-to-end test covering click -> actions bar -> comment -> save -> rail.
+
+- [#246](https://github.com/mmurakaru/cueloop/pull/246) [`e0c77be`](https://github.com/mmurakaru/cueloop/commit/e0c77be42ebdd3b1160d9c1be6a736da2b37c487) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Advertise the prototype review skill in the plugin: `/cueloop:prototype` now appears in the plugin and marketplace descriptions alongside plan, diff, review, and annotate.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.47
+  - @cueloop/client@0.1.0-alpha.47
+  - @cueloop/daemon@0.1.0-alpha.47
+  - @cueloop/schema@0.1.0-alpha.47
+
+## 0.1.0-alpha.46
+
+### Patch Changes
+
+- [#244](https://github.com/mmurakaru/cueloop/pull/244) [`2d98a49`](https://github.com/mmurakaru/cueloop/commit/2d98a49188060e38baca5fcc9933bde99e739c06) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add prototype review: `cueloop prototype <file.html>` renders an HTML prototype with headless Chromium and shows it as an image in the review sheet. Click a rendered element - a design-system card, say - to select it (the click resolves to the nearest component element), and the marker actions bar and compose card annotate that element by CSS selector. The verdict feedback locates each comment by its selector. Needs a graphics-capable terminal (kitty or ghostty) and an installed Google Chrome; other terminals show a capability notice. A new `prototype` skill lets an agent submit a prototype for non-blocking review.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.46
+  - @cueloop/client@0.1.0-alpha.46
+  - @cueloop/daemon@0.1.0-alpha.46
+  - @cueloop/schema@0.1.0-alpha.46
+
+## 0.1.0-alpha.45
+
+### Patch Changes
+
+- [#242](https://github.com/mmurakaru/cueloop/pull/242) [`311633c`](https://github.com/mmurakaru/cueloop/commit/311633c003680f757ec32dee8e2945ecca8694fc) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Render inline Markdown in the review surface. Prose now shows real emphasis - **strong**, _emphasis_, `code`, ~~strikethrough~~, and [links](url) - with the markup markers concealed, blockquotes muted, and headings bold with the level (h1/h2/h3) shown by descending brightness (a terminal cannot scale font size), leaving the salmon accent to annotations. Links become clickable OSC 8 terminal hyperlinks (http(s)/mailto only). The styling is produced by a new pure inline tokenizer in `@cueloop/schema` that emits each visible span at its exact source offset and drops the markers, so quote anchors, mouse selection, and keyboard-span selection stay character-precise - annotations resolve against the same text as before, and emphasis composes with word-diff on edited blocks.
+
+- [#242](https://github.com/mmurakaru/cueloop/pull/242) [`311633c`](https://github.com/mmurakaru/cueloop/commit/311633c003680f757ec32dee8e2945ecca8694fc) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The marker popover now floats one row above the marked words, mapped through the word-wrap geometry, instead of drifting to the block's linear character offset; it paints over neighboring blocks and tracks the content when scrolled. A drag released outside a block's text (the gutter, past a line end, a gap between blocks) now still opens the span popover.
+
+- [#242](https://github.com/mmurakaru/cueloop/pull/242) [`311633c`](https://github.com/mmurakaru/cueloop/commit/311633c003680f757ec32dee8e2945ecca8694fc) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Annotation and removal cards keep a transparent background when selected, so they sit flat on the transparent theme instead of painting an elevated fill. Selection now reads from the quote line taking the card's tone plus the matching document highlight. The submit-review card also drops its "N annotations · N blocking" line: the blocking count was always zero because nothing set an annotation's blocking flag, so the count and its plumbing are removed.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.45
+  - @cueloop/client@0.1.0-alpha.45
+  - @cueloop/daemon@0.1.0-alpha.45
+  - @cueloop/schema@0.1.0-alpha.45
+
+## 0.1.0-alpha.44
+
+### Patch Changes
+
+- [#238](https://github.com/mmurakaru/cueloop/pull/238) [`8711792`](https://github.com/mmurakaru/cueloop/commit/8711792baf193a956878155adb0936597f365196) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A working-tree diff review now hot-reloads: while you have a `cueloop diff` session open, the daemon watches its repository and re-captures the diff whenever the working tree changes, so the review updates in place with no manual reload and no remount. Your annotations re-anchor across the refreshed patch through the usual anchor cascade. The daemon runs one recursive watcher per repository shared by its live diff sessions, debounces bursts of file writes into a single re-capture, ignores churn under `.git/` and `node_modules/`, and only broadcasts when the patch actually moved. A new owner-only `session.refreshDiff` verb is the seam the watcher drives and is scriptable on its own. Watching starts when a diff session is created (or recovered after a daemon restart) and stops when it resolves, is deleted, or the daemon shuts down.
+
+- [#239](https://github.com/mmurakaru/cueloop/pull/239) [`0a97234`](https://github.com/mmurakaru/cueloop/commit/0a97234143a856c42d93877db44d7bd179241e01) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Bring color back to the review rail cards. A prior change had made a card's border wear its tone only while selected, so every unselected card faded to one dim gray - the rail read as colorless. Cards now always carry their color and selection reads from a filled background instead: your own comments are salmon, a share collaborator's comments are blue (matching the Comment verdict), and cuts are red. Blue and red are softened to pastels that sit with the salmon accent. The submit-review box wears a white border and title (its Submit button stays salmon), and the Agent-tab launcher buttons get white borders so they read against the transparent session.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.44
+  - @cueloop/client@0.1.0-alpha.44
+  - @cueloop/daemon@0.1.0-alpha.44
+  - @cueloop/schema@0.1.0-alpha.44
+
 ## 0.1.0-alpha.43
 
 ### Patch Changes

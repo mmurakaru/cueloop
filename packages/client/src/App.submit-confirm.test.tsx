@@ -87,9 +87,8 @@ describe("rail submit confirm", () => {
     // Assert
     await waitForText(setup, "submit review");
     const frame = setup.captureCharFrame();
-    // the card: title, honest counts, verdict selector, word-buttons
+    // the card: title, verdict selector, word-buttons
     expect(frame).toContain("submit review");
-    expect(frame).toContain("0 annotations · 0 blocking");
     expect(frame).toContain("[Approve]"); // nothing pending: approve default
     expect(frame).toContain(" Submit ");
     expect(frame).toContain(" Cancel ");
@@ -136,7 +135,7 @@ describe("rail submit confirm", () => {
     // Assert
     // a bare ESC settles after the parser's escape-sequence window
     const frame = await waitForTextGone(setup, "[Approve]");
-    expect(frame).not.toContain("0 annotations");
+    expect(frame).not.toContain("submit review");
     expect(frame).toContain("Submit review");
   });
 
@@ -149,10 +148,9 @@ describe("rail submit confirm", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "1 annotations · 0 blocking");
+    await waitForText(setup, "[Changes]"); // pending items: request changes default
     const frame = setup.captureCharFrame();
-    expect(frame).toContain("1 annotations · 0 blocking");
-    expect(frame).toContain("[Changes]"); // pending items: request changes default
+    expect(frame).toContain("submit review");
 
     // Act
     await setup.mockInput.typeText("Tighten the steps.");
@@ -183,7 +181,7 @@ describe("rail submit confirm", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "12 annotations · 0 blocking");
+    await waitForText(setup, "[Changes]");
     // the card is pinned outside the scrollbox; the stack stays scrolled off the top
     expect(setup.captureCharFrame()).not.toContain("note 01");
 
@@ -196,7 +194,7 @@ describe("rail submit confirm", () => {
     // Assert
     await waitForText(setup, "note 12");
     const scrolledWithCard = setup.captureCharFrame();
-    expect(scrolledWithCard).toContain("12 annotations · 0 blocking");
+    expect(scrolledWithCard).toContain("submit review");
     expect(scrolledWithCard).not.toContain("note 01");
   });
 

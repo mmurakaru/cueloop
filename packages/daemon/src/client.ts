@@ -215,6 +215,10 @@ export class DaemonClient implements SessionClient {
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession> {
     return this.request("session.setViewed", { id, viewedPaths });
   }
+  /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
+  sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
+    return this.request("session.refreshDiff", { id });
+  }
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession> {
     return this.request("session.setShareId", { id, shareId });
   }

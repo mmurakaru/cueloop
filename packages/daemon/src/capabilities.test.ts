@@ -19,6 +19,7 @@ describe("roleAllowsMethod", () => {
       "session.setWorkingCopy",
       "session.delete",
       "session.setShareId",
+      "session.refreshDiff",
     ])
       expect(roleAllowsMethod("agent", method)).toBe(false);
     expect(roleAllowsMethod("collaborator", "session.resolve")).toBe(false);

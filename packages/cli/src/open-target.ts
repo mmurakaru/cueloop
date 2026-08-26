@@ -28,6 +28,9 @@ import type { ReviewSession } from "@cueloop/schema";
 export function isPlanReview(session: ReviewSession): boolean {
   return session.artifact.type === "plan";
 }
+export function isPrototypeReview(session: ReviewSession): boolean {
+  return session.artifact.type === "prototype";
+}
 export function isDiffReview(session: ReviewSession): boolean {
   return session.artifact.type === "diff" && session.artifact.meta.pr === undefined;
 }

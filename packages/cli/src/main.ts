@@ -8,10 +8,12 @@
  * observers), `cueloop daemon` runs the daemon in the foreground.
  */
 
+import { basename, resolve } from "node:path";
 import { parseArgs, stringFlag, type ParsedArgs } from "./args";
 import {
   isDiffReview,
   isPlanReview,
+  isPrototypeReview,
   isPrReview,
   isSessionId,
   openTargetMessage,
@@ -19,8 +21,8 @@ import {
 } from "./open-target";
 import { sessionCommand } from "./session-commands";
 import { CLI_VERSION } from "./version";
-import { workingTreeDiff } from "./working-tree";
 import { DaemonClient } from "@cueloop/daemon/client";
+import { workingTreeDiff } from "@cueloop/daemon/working-tree";
 import type { ReviewSession } from "@cueloop/schema";
 import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
 
@@ -47,6 +49,8 @@ async function main(): Promise<number> {
       return planCommand(argv.slice(1));
     case "diff":
       return diffCommand(argv.slice(1));
+    case "prototype":
+      return prototypeCommand(argv.slice(1));
     case "serve": {
       const { positional, flags } = parseArgs(argv.slice(1));
       const port = stringFlag(flags, "port");
@@ -92,6 +96,10 @@ async function main(): Promise<number> {
     case "actions": {
       const { actionsCommand } = await import("./actions-command");
       return actionsCommand(argv.slice(1));
+    }
+    case "refine": {
+      const { refineCommand } = await import("./refine-command");
+      return refineCommand(argv.slice(1));
     }
     case "review":
       return reviewEntry(argv.slice(1));
@@ -163,6 +171,39 @@ async function openReviewOfKind(
 /** `cueloop plan [id|title]` - open the latest pending plan, or address one. */
 async function planCommand(argv: string[]): Promise<number> {
   return openReviewOfKind(isPlanReview, "plan", openSelector(parseArgs(argv)));
+}
+
+/**
+ * `cueloop prototype <file.html>` creates a review of a rendered HTML file;
+ * a selector or `--open`/`--latest` (or a bare call with no file) opens the
+ * latest pending prototype review instead.
+ */
+async function prototypeCommand(argv: string[]): Promise<number> {
+  const parsed = parseArgs(argv);
+  const selector = openSelector(parsed);
+  const wantsOpen = "open" in parsed.flags || "latest" in parsed.flags;
+  const looksLikeFile =
+    selector !== undefined && !isSessionId(selector) && selector.endsWith(".html");
+  if (wantsOpen || !looksLikeFile)
+    return openReviewOfKind(isPrototypeReview, "prototype", selector);
+
+  const path = resolve(selector);
+  const html = await Bun.file(path)
+    .text()
+    .catch(() => undefined);
+  if (html === undefined) {
+    console.error(`prototype: cannot read ${path}`);
+    return 1;
+  }
+  const client = await DaemonClient.connect({ autostart: true });
+  const review = await openReview(client, {
+    type: "prototype",
+    content: html,
+    prototypePath: path,
+    title: basename(path),
+  });
+  client.close();
+  return runTui(review.id);
 }
 
 /**
@@ -242,6 +283,7 @@ function printHelp(): void {
       "  cueloop diff [id|title]          review your working tree (untracked files included);",
       "                                   with a clean tree, open the latest pending diff review",
       "  cueloop review <pr>              review a pull request (--no-tui prints the session)",
+      "  cueloop prototype <file.html>    review a rendered HTML prototype (or open the latest by id/title)",
       "",
       "share:",
       "  cueloop serve [session-id]       share over ssh: observers are read-only,",
@@ -259,6 +301,7 @@ function printHelp(): void {
       "scripting:",
       "  cueloop session <verb> [flags]   script the daemon (create|get|list|wait|annotate|resolve|submit-revision)",
       "  cueloop actions list             list the quick-action vocabulary (for annotate --action)",
+      "  cueloop refine                   mine past reviews into a markdown report + writeback proposals",
       "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the verdict (spawn detached)",
       "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
       "  cueloop daemon                   run the daemon in the foreground",
