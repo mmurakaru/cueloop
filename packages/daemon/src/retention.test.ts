@@ -11,6 +11,7 @@ import {
   DEFAULT_CLEANUP_PERIOD_DAYS,
   LATEST_REPORT_FILENAME,
   isExpired,
+  parseRefineState,
   pruneExpiredReports,
   pruneExpiredSessions,
   resolveCleanupPeriodDays,
@@ -75,6 +76,20 @@ describe("resolveCleanupPeriodDays", () => {
 
     // Assert
     expect(days).toBe(DEFAULT_CLEANUP_PERIOD_DAYS);
+  });
+});
+
+describe("parseRefineState", () => {
+  test("reads the analyzed fingerprint map", () => {
+    // Assert
+    expect([...parseRefineState({ analyzed: { ses_a: "1:2:x" } })]).toEqual([["ses_a", "1:2:x"]]);
+  });
+
+  test("returns an empty map for the legacy or malformed shape", () => {
+    // Assert
+    expect(parseRefineState({ seenSessionIds: ["ses_a"] }).size).toBe(0);
+    expect(parseRefineState({ analyzed: { ses_a: 5 } }).size).toBe(0);
+    expect(parseRefineState(null).size).toBe(0);
   });
 });
 

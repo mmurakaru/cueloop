@@ -114,4 +114,41 @@ describe("refineCommand", () => {
     // Assert
     expect(readFileSync(reportPath, "utf8")).toContain("1 sessions analyzed (4 total).");
   });
+
+  test("re-analyzes a resolved session that is reopened and resolved again with new feedback", async () => {
+    // Arrange
+    const home = tempHome();
+    const store = new SessionStore(home);
+    store.upsert(
+      session("ses_x", {
+        verdict: verdict("approve"),
+        status: "resolved",
+        annotations: [annotation("first", "one")],
+      }),
+    );
+    const reportPath = join(reportsDir(home), "report.md");
+
+    // Act
+    await refineCommand(["--home", home]);
+
+    // Assert
+    expect(readFileSync(reportPath, "utf8")).toContain("1 sessions analyzed (1 total).");
+
+    // Arrange
+    store.upsert(
+      session("ses_x", {
+        verdict: { ...verdict("request_changes"), resolvedAt: "2026-08-21T09:00:00Z" },
+        status: "resolved",
+        annotations: [annotation("first", "one"), annotation("second", "two")],
+      }),
+    );
+
+    // Act
+    await refineCommand(["--home", home]);
+
+    // Assert
+    const secondReport = readFileSync(reportPath, "utf8");
+    expect(secondReport).toContain("1 sessions analyzed (1 total).");
+    expect(secondReport).toContain("two");
+  });
 });
