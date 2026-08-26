@@ -34,15 +34,16 @@ const FAKE_ELEMENT: PrototypeElement = {
 };
 
 let rendered = false;
+let screenshotCount = 0;
 let scrollDeltas: number[] = [];
 const fakeRenderer: PrototypeRenderer = {
   viewport: { width: 1280, height: 800 },
   screenshot: async () => {
     rendered = true;
+    screenshotCount += 1;
     return new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
   },
   elementAt: async () => FAKE_ELEMENT,
-  highlight: async () => undefined,
   scrollBy: async (deltaY) => {
     scrollDeltas.push(deltaY);
     return true;
@@ -69,6 +70,7 @@ beforeEach(() => {
     },
   });
   rendered = false;
+  screenshotCount = 0;
   scrollDeltas = [];
   setPrototypeRendererFactory(async () => fakeRenderer);
 });
@@ -104,10 +106,14 @@ describe("prototype review", () => {
     const setup = await renderApp();
     await waitForState(setup, () => rendered);
     await settle(setup);
+    // selecting an element must not re-screenshot the page (the popover-click
+    // lag regression): the highlight is the popover, not a fresh Chromium capture
+    const screenshotsAfterLoad = screenshotCount;
 
     // Act
     await setup.mockMouse.click(6, 6);
     await waitForText(setup, "comment");
+    expect(screenshotCount).toBe(screenshotsAfterLoad);
     await clickText(setup, "comment");
     await waitForText(setup, "write a note");
     // the keymap-suppression flag must propagate before typing so keys reach the
@@ -130,6 +136,25 @@ describe("prototype review", () => {
     expect(frame).toContain("COMMENT");
   });
 
+  test("escape cancels the compose, matching the plan composer", async () => {
+    // Arrange
+    const setup = await renderApp();
+    await waitForState(setup, () => rendered);
+    await settle(setup);
+    await setup.mockMouse.click(6, 6);
+    await waitForText(setup, "comment");
+    await clickText(setup, "comment");
+    await waitForText(setup, "write a note");
+    await settle(setup);
+
+    // Act
+    await press(setup, "escape");
+
+    // Assert - the composer closes and nothing was saved
+    await waitForTextGone(setup, "write a note");
+    expect(server.core.sessionGet(session.id).annotations).toHaveLength(0);
+  });
+
   test("wheel over the preview scrolls the page down, then up, and clears a selection", async () => {
     // Arrange
     const setup = await renderApp();
@@ -140,9 +165,12 @@ describe("prototype review", () => {
     // the page moves under it)
     await setup.mockMouse.click(6, 6);
     await waitForText(setup, "comment");
+    // scrolling moves the page, so it DOES re-screenshot (unlike a click)
+    const screenshotsBeforeScroll = screenshotCount;
     await setup.mockMouse.scroll(6, 6, "down");
     await waitForState(setup, () => scrollDeltas.length === 1);
     await waitForTextGone(setup, "comment");
+    await waitForState(setup, () => screenshotCount > screenshotsBeforeScroll);
 
     // Act - scroll back up
     await setup.mockMouse.scroll(6, 6, "up");
