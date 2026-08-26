@@ -13,28 +13,14 @@ const callbacks = {
 };
 
 export const ApproveDefault: Story = {
-  render: () => (
-    <ConfirmCard
-      verdict="approve"
-      summary=""
-      annotationCount={0}
-      blockingCount={0}
-      {...callbacks}
-    />
-  ),
+  render: () => <ConfirmCard verdict="approve" summary="" {...callbacks} />,
   expectedColors: [DARK.green, DARK.accent],
   size: { width: 40, height: 14 },
 };
 
 export const RequestChanges: Story = {
   render: () => (
-    <ConfirmCard
-      verdict="request_changes"
-      summary="Tighten the steps."
-      annotationCount={3}
-      blockingCount={1}
-      {...callbacks}
-    />
+    <ConfirmCard verdict="request_changes" summary="Tighten the steps." {...callbacks} />
   ),
   expectedColors: [DARK.red],
   size: { width: 40, height: 14 },
@@ -42,14 +28,7 @@ export const RequestChanges: Story = {
 
 export const WithViewedSummary: Story = {
   render: () => (
-    <ConfirmCard
-      verdict="approve"
-      summary=""
-      annotationCount={1}
-      blockingCount={0}
-      viewedSummary="2/3 files viewed"
-      {...callbacks}
-    />
+    <ConfirmCard verdict="approve" summary="" viewedSummary="2/3 files viewed" {...callbacks} />
   ),
   expectedColors: [DARK.green, DARK.textDim],
   size: { width: 40, height: 14 },

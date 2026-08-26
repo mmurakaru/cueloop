@@ -1,0 +1,4 @@
+[test]
+# Neutralize the developer's ambient herdr session for every test process so
+# in-process code never leaks real herdr tabs. See test/preload.ts.
+preload = ["./test/preload.ts"]

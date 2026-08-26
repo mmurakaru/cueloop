@@ -28,8 +28,8 @@ export interface FeedbackInput {
   /** Artifact kind; defaults to "plan". A diff working copy is already a patch. */
   artifactType?: ArtifactType;
   annotations: Annotation[];
-  /** Path the agent knows the plan by, for direct reference. */
-  planPath?: string;
+  /** Path the agent knows the artifact by (plan or prototype), for direct reference. */
+  artifactPath?: string;
   /** Session id, so the document can teach the addressed-ids resubmit call. */
   sessionId?: string;
 }
@@ -37,7 +37,7 @@ export interface FeedbackInput {
 const quoteLines = (text: string) => "> " + text.replace(/\n/g, "\n> ");
 
 export function renderFeedback(input: FeedbackInput): string {
-  const path = input.planPath ?? "plan.md";
+  const path = input.artifactPath ?? "plan.md";
   // agent notes are the submitter's own context - never echoed back as
   // feedback - and annotations a previous revision already addressed stay out
   // of the next document, so the agent only ever sees the open items
@@ -45,6 +45,7 @@ export function renderFeedback(input: FeedbackInput): string {
     (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
   );
   const isDiff = input.artifactType === "diff";
+  const isPrototype = input.artifactType === "prototype";
   // A diff's annotations anchor to the submitted patch rows; resolve against it,
   // not the curated working copy (which may drop the rejected rows).
   const blocks = parseBlocks(
@@ -98,14 +99,22 @@ export function renderFeedback(input: FeedbackInput): string {
   if (annotations.length) {
     lines.push(`## Annotations (${annotations.length})`);
     lines.push("");
-    lines.push(`Address every item. Locate each one in ${path} by its quoted text.`);
+    lines.push(
+      isPrototype
+        ? `Address every item. Locate each one in ${path} by its CSS selector.`
+        : `Address every item. Locate each one in ${path} by its quoted text.`,
+    );
     lines.push("");
     annotations.forEach((annotation, annotationIndex) => {
-      const resolved = resolveAnchor(annotation.anchor, blocks);
+      // a prototype selector anchor is never resolved or orphaned against blocks
+      const selector = annotation.anchor.selector;
+      const resolved = selector ? null : resolveAnchor(annotation.anchor, blocks);
       const sectionTitle = resolved ? sectionOf(blocks, resolved.blockIndex) : "";
-      const location = sectionTitle ? ` (§ ${sectionTitle})` : "";
+      const location = selector ? ` (${selector})` : sectionTitle ? ` (§ ${sectionTitle})` : "";
       const orphanFlag =
-        resolved === null ? " [orphaned anchor: the quoted text is no longer present]" : "";
+        !selector && resolved === null
+          ? " [orphaned anchor: the quoted text is no longer present]"
+          : "";
       lines.push(
         `### ${annotationIndex + 1}. ${capitalize(annotation.kind)}${location}${orphanFlag}`,
       );
@@ -151,7 +160,7 @@ export function feedbackForSession(
     workingCopy: session.workingCopy,
     artifactType: session.artifact.type,
     annotations: session.annotations,
-    planPath: session.artifact.meta.planPath,
+    artifactPath: session.artifact.meta.prototypePath ?? session.artifact.meta.planPath,
     sessionId: session.id,
   });
 }

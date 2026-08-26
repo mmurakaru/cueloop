@@ -12,7 +12,7 @@ export interface WorkspaceKey {
   branch: string;
 }
 
-export type ArtifactType = "plan" | "diff";
+export type ArtifactType = "plan" | "diff" | "prototype";
 
 export interface ArtifactMeta {
   cwd?: string;
@@ -21,6 +21,8 @@ export interface ArtifactMeta {
   agentSessionId?: string;
   /** Path to the plan file on disk, so feedback can reference it. */
   planPath?: string;
+  /** Path to the prototype's entry HTML file on disk. */
+  prototypePath?: string;
   /** Pull request reference the diff came from, so the verdict can be posted back. */
   pr?: string;
   /** herdr pane the submitting agent runs in - the review returns focus there. */
@@ -67,6 +69,8 @@ export interface Anchor {
   /** Character offsets within that block's text (hint). */
   start?: number;
   end?: number;
+  /** Prototype anchors: the CSS selector of the annotated element (authority). */
+  selector?: string;
 }
 
 /** The annotation kind set is open; these are the built-ins. */

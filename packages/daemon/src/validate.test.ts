@@ -168,6 +168,7 @@ describe("wire pins", () => {
     agent: "claude-code",
     agentSessionId: "sess-1",
     planPath: "/repo/plan.md",
+    prototypePath: "/repo/proto.html",
     pr: "org/repo#1",
     herdrPane: "%7",
     title: "Plan",
@@ -179,6 +180,7 @@ describe("wire pins", () => {
     blockIndex: 0,
     start: 0,
     end: 1,
+    selector: "div.card",
   };
   const fullAnnotation: Required<Annotation> = {
     id: "a1",

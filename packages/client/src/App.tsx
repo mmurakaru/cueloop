@@ -58,7 +58,8 @@ import { CLIENT_VERSION } from "./version";
 import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { DiffSheet } from "./components/DiffSheet";
-import { annotationBlocking, type ReviewRailHandle } from "./components/ReviewRail";
+import { PrototypeSheet } from "./components/PrototypeSheet";
+import { type ReviewRailHandle } from "./components/ReviewRail";
 import type { AgentTerminalHandle } from "./components/agent-launcher";
 import { ReviewPanel } from "./components/ReviewPanel";
 import {
@@ -251,6 +252,8 @@ export function App({
   }, [marks]);
   const resolved = session?.status === "resolved";
   const isDiff = session?.artifact.type === "diff";
+  const isPrototype = session?.artifact.type === "prototype";
+  const [prototypeComposing, setPrototypeComposing] = useState(false);
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
   // annotation resolves to the display index it marked
@@ -587,6 +590,9 @@ export function App({
   };
 
   useKeyboard((key) => {
+    // The prototype compose textarea owns the keyboard while open: let it receive
+    // the typed note instead of the global keymap acting on each letter.
+    if (prototypeComposing) return;
     // A running in-tab agent terminal owns the keyboard: forward every key to it,
     // with ctrl+] as the detach chord back to the review.
     if (agentTerminal) {
@@ -853,28 +859,34 @@ export function App({
         }
       : null;
 
+  // a mouse drag leaves a native selection: turn it into a word span so the
+  // marker popover opens at the dragged range, mirroring the `v` grammar.
+  // Returns whether a native selection existed (the release ended a drag).
+  const activateSpanFromSelection = (preferredIndex?: number): boolean => {
+    if (!renderer?.hasSelection) return false;
+    // the release block re-anchors the span, so each drag replaces the last
+    const selection = planSheetRef.current?.readSelection(preferredIndex);
+    const block = selection ? display[selection.displayIndex] : undefined;
+    const span =
+      selection && block
+        ? spanFromRange(selection.displayIndex, displayText(block), selection.start, selection.end)
+        : null;
+    if (span) setMode({ type: "span", span });
+    return true;
+  };
+
   const onLineActivate = (displayIndex: number): void => {
-    // a mouse drag leaves a native selection: turn it into a word span so the
-    // marker popover opens at the dragged range, mirroring the `v` grammar
-    if (renderer?.hasSelection) {
-      // the release block re-anchors the span, so each drag replaces the last
-      const selection = planSheetRef.current?.readSelection(displayIndex);
-      const block = selection ? display[selection.displayIndex] : undefined;
-      const span =
-        selection && block
-          ? spanFromRange(
-              selection.displayIndex,
-              displayText(block),
-              selection.start,
-              selection.end,
-            )
-          : null;
-      if (span) setMode({ type: "span", span });
-      return;
-    }
+    if (activateSpanFromSelection(displayIndex)) return;
     setCursor(displayIndex);
     const annotationId = marks.get(displayIndex)?.[0]?.annotationId;
     if (annotationId) selectCardFromDocument(annotationId);
+  };
+
+  // a drag released outside any block's text (the gutter, past a line end, a
+  // gap between blocks) never reaches a block handler; the sheet-level release
+  // still turns the finished drag into a span
+  const onSelectionRelease = (): void => {
+    activateSpanFromSelection();
   };
 
   const onEditRequest = (): void => {
@@ -916,8 +928,6 @@ export function App({
       ? {
           verdict: mode.verdict,
           summary: mode.summary,
-          annotationCount: reviewerAnnotations(activeSession).length,
-          blockingCount: reviewerAnnotations(activeSession).filter(annotationBlocking).length,
           // walk coverage keeps partial passes honest at the verdict
           viewedSummary:
             isDiff && activeSession.viewedPaths !== undefined
@@ -1021,7 +1031,18 @@ export function App({
           <box style={{ width: railFootprint }} />
         </box>
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
-          {isDiff ? (
+          {isPrototype ? (
+            <PrototypeSheet
+              prototypePath={activeSession.artifact.meta.prototypePath ?? ""}
+              quickActions={quickActions}
+              canComment={isOwner && !resolved}
+              onCommentElement={(element, body) =>
+                controller.annotatePrototype(element.selector, element.quote, body)
+              }
+              onComposingChange={setPrototypeComposing}
+              hidden={menuOpen || menuDialog !== null}
+            />
+          ) : isDiff ? (
             // the sheet dims to reading-quiet colors while the wizard has focus
             <DiffSheet
               rows={rows}
@@ -1044,6 +1065,7 @@ export function App({
               popover={popoverState}
               editOrphanCount={editOrphanCount}
               onLineActivate={onLineActivate}
+              onSelectionRelease={onSelectionRelease}
             />
           )}
           <ReviewPanel
@@ -1056,7 +1078,7 @@ export function App({
               session: activeSession,
               authorNames,
               selectedId: focusedAnnotationId,
-              resolvedIds: isDiff ? null : resolvedIds,
+              resolvedIds: isDiff || isPrototype ? null : resolvedIds,
               curationItems,
               selectedCurationId,
               annotationPositions,

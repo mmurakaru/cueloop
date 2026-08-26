@@ -46,6 +46,7 @@ export const ArtifactMetaSchema = v.object({
   agent: v.optional(v.string()),
   agentSessionId: v.optional(v.string()),
   planPath: v.optional(v.string()),
+  prototypePath: v.optional(v.string()),
   pr: v.optional(v.string()),
   herdrPane: v.optional(v.string()),
   title: v.optional(v.string()),
@@ -59,7 +60,7 @@ export const DiffFileContentsSchema = v.object({
 } satisfies EntriesOf<DiffFileContents>);
 
 export const ArtifactSchema = v.object({
-  type: v.picklist(["plan", "diff"]),
+  type: v.picklist(["plan", "diff", "prototype"]),
   content: v.string(),
   meta: v.optional(ArtifactMetaSchema, {}),
   files: v.optional(v.array(DiffFileContentsSchema)),
@@ -72,6 +73,7 @@ export const AnchorSchema = v.object({
   blockIndex: v.optional(v.number()),
   start: v.optional(v.number()),
   end: v.optional(v.number()),
+  selector: v.optional(v.string()),
 } satisfies EntriesOf<Anchor>);
 
 /** Wire annotations arrive without createdAt - the daemon stamps it. */
@@ -133,6 +135,7 @@ export const Params = {
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
   "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
+  "session.refreshDiff": v.object({ id: SessionId }),
   "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
   "session.delete": v.object({ id: SessionId }),
   "session.mergeShared": v.object({

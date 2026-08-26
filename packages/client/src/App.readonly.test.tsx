@@ -150,10 +150,10 @@ describe("observer navigation still works", () => {
     await press(setup, "n");
     await setup.renderOnce();
 
-    // Assert - focus shows as the card's bright kind-colored border (transparent
-    // fill); a selected card is the only accent-colored border in the frame
+    // Assert - focus shows as the card's blue border (transparent fill); a
+    // comment card is the only blue-bordered box in the frame
     await waitForText(setup, "COMMENT · me");
-    await waitForState(setup, () => hasBorderColor(setup, DARK.accent));
+    await waitForState(setup, () => hasBorderColor(setup, DARK.blue));
   });
 });
 

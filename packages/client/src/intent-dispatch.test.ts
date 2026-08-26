@@ -32,6 +32,7 @@ function baseController() {
     curationItems: mock(() => []),
     restoreCuration: mock(),
     annotate: mock(),
+    annotatePrototype: mock(),
     updateAnnotation: mock(),
     removeAnnotation: mock(),
     walkStart: mock(),

@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/gateway",
-  "version": "0.1.0-alpha.43",
+  "version": "0.1.0-alpha.51",
   "private": true,
   "description": "The cueloop sharing gateway: raw ssh2 front door - shell renders a shared plan, exec receives an upload",
   "license": "Apache-2.0",
@@ -12,9 +12,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@cueloop/client": "0.1.0-alpha.43",
-    "@cueloop/daemon": "0.1.0-alpha.43",
-    "@cueloop/schema": "0.1.0-alpha.43",
+    "@cueloop/client": "0.1.0-alpha.51",
+    "@cueloop/daemon": "0.1.0-alpha.51",
+    "@cueloop/schema": "0.1.0-alpha.51",
     "@opentui/core": "^0.5.2",
     "@opentui/react": "^0.5.2",
     "react": "^19.2.0",

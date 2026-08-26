@@ -197,6 +197,8 @@ export interface ReviewController {
     end: number,
     body: string,
   ): string | undefined;
+  /** Anchor a prototype comment to a DOM element by its selector. */
+  annotatePrototype(selector: string, quote: string, body: string): string | undefined;
   /** Rewrite a stored annotation's body in place (the rail-card edit). */
   updateAnnotation(id: string, body: string): void;
   removeAnnotation(id: string): void;
@@ -672,6 +674,18 @@ class Controller implements ReviewController {
       anchor = makeAnchor(workBlocks, workBlockIndex, start, end);
     }
     const wire = { id: newAnnotationId(), kind, anchor, body };
+    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    this.apply(persisted);
+    this.mirrorAnnotation(persisted, wire);
+    this.setStatus("comment added");
+    return wire.id;
+  }
+
+  annotatePrototype(selector: string, quote: string, body: string): string | undefined {
+    const session = this.snapshot.session;
+    if (!session) return undefined;
+    const anchor = { quote, prefix: "", suffix: "", selector };
+    const wire = { id: newAnnotationId(), kind: "comment", anchor, body };
     const persisted = this.client!.sessionAnnotate(session.id, wire);
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);

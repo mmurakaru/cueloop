@@ -1,9 +1,8 @@
 /**
  * The Submit button expanded into a bordered confirm card at the rail bottom:
- * honest counts, the verdict selector (arrow keys or click), the optional
- * summary, and plain word-buttons - key hints live in the status line only.
- * The bordered height derives from the content rows through Card, so layout
- * and render never drift.
+ * the verdict selector (arrow keys or click), the optional summary, and plain
+ * word-buttons - key hints live in the status line only. The bordered height
+ * derives from the content rows through Card, so layout and render never drift.
  */
 
 import React from "react";
@@ -26,8 +25,6 @@ export const VERDICT_LABEL: Record<VerdictKind, string> = {
 export interface ConfirmCardProps {
   verdict: VerdictKind;
   summary: string;
-  annotationCount: number;
-  blockingCount: number;
   /**
    * The guided walk's honest coverage line for diff sessions, e.g.
    * "2/3 files viewed". Undefined = no walk data, the row does not render.
@@ -40,8 +37,8 @@ export interface ConfirmCardProps {
   theme?: Theme;
 }
 
-/** Counts, spacer, 1-row verdict selector, spacer, summary input, spacer, buttons. */
-const CONFIRM_CONTENT_ROWS = 7;
+/** 1-row verdict selector, spacer, summary input, spacer, buttons. */
+const CONFIRM_CONTENT_ROWS = 5;
 
 export function verdictColor(verdict: VerdictKind, tokens: Theme): string {
   return verdict === "approve"
@@ -89,8 +86,6 @@ function VerdictSelector({
 export function ConfirmCard({
   verdict,
   summary,
-  annotationCount,
-  blockingCount,
   viewedSummary,
   onInput,
   onSelectVerdict,
@@ -102,17 +97,14 @@ export function ConfirmCard({
   return (
     <Card
       title=" submit review "
-      contentRows={CONFIRM_CONTENT_ROWS + (viewedSummary !== undefined ? 1 : 0)}
-      borderColor={tokens.accent}
+      contentRows={CONFIRM_CONTENT_ROWS + (viewedSummary !== undefined ? 2 : 0)}
+      borderColor={tokens.text}
       backgroundColor="transparent"
       marginRight={1}
       theme={theme}
     >
-      <text
-        fg={tokens.textDim}
-      >{`${annotationCount} annotations · ${blockingCount} blocking`}</text>
       {viewedSummary !== undefined ? <text fg={tokens.textDim}>{viewedSummary}</text> : null}
-      <box style={{ height: 1 }} />
+      {viewedSummary !== undefined ? <box style={{ height: 1 }} /> : null}
       <VerdictSelector verdict={verdict} onSelectVerdict={onSelectVerdict} theme={theme} />
       <box style={{ height: 1 }} />
       <input

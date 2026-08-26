@@ -1,5 +1,69 @@
 # @cueloop/adapters
 
+## 0.1.0-alpha.51
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.51
+  - @cueloop/schema@0.1.0-alpha.51
+
+## 0.1.0-alpha.50
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.50
+  - @cueloop/schema@0.1.0-alpha.50
+
+## 0.1.0-alpha.49
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.49
+  - @cueloop/schema@0.1.0-alpha.49
+
+## 0.1.0-alpha.48
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.48
+  - @cueloop/schema@0.1.0-alpha.48
+
+## 0.1.0-alpha.47
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.47
+  - @cueloop/schema@0.1.0-alpha.47
+
+## 0.1.0-alpha.46
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.46
+  - @cueloop/schema@0.1.0-alpha.46
+
+## 0.1.0-alpha.45
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.45
+  - @cueloop/schema@0.1.0-alpha.45
+
+## 0.1.0-alpha.44
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.44
+  - @cueloop/schema@0.1.0-alpha.44
+
 ## 0.1.0-alpha.43
 
 ### Patch Changes

@@ -18,6 +18,10 @@ export function sessionsDir(home = cueloopHome()): string {
   return join(home, "sessions");
 }
 
+export function reportsDir(home = cueloopHome()): string {
+  return join(home, "reports");
+}
+
 export function pidPath(home = cueloopHome()): string {
   return join(home, "cueloop.pid");
 }

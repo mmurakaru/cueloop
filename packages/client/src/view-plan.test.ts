@@ -6,7 +6,10 @@ import {
   marksByDisplay,
   nextWorkBlock,
   overlayMarks,
+  renderedOffsetAtOrAfter,
+  renderedOffsetAtOrBefore,
   renderedOffsetFor,
+  safeLinkHref,
   spanFromRange,
   spanKey,
   startSpan,
@@ -125,6 +128,86 @@ describe("blockRuns + overlayMarks", () => {
   });
 });
 
+describe("M4: link hrefs are scheme-validated for OSC 8 (#236)", () => {
+  test("trusts http(s) and mailto, drops everything else", () => {
+    // Assert
+    expect(safeLinkHref("https://example.com")).toBe("https://example.com");
+    expect(safeLinkHref("http://x")).toBe("http://x");
+    expect(safeLinkHref("mailto:a@b.c")).toBe("mailto:a@b.c");
+    expect(safeLinkHref("javascript:alert(1)")).toBeUndefined();
+    expect(safeLinkHref("./relative/path")).toBeUndefined();
+    expect(safeLinkHref(undefined)).toBeUndefined();
+  });
+
+  test("a control byte or space in the target drops the link", () => {
+    // Assert - ESC and BEL could splice into the OSC 8 escape stream
+    expect(safeLinkHref("https://x\x1b]8;;evil\x07")).toBeUndefined();
+    expect(safeLinkHref("https://x\x07")).toBeUndefined();
+    expect(safeLinkHref("https://x y")).toBeUndefined();
+  });
+
+  test("blockRuns carries the link href through to the link run", () => {
+    // Act
+    const block = buildDisplay("see [docs](https://example.com) now\n")[0]!;
+    const link = blockRuns(block, true).find((run) => run.role === "link")!;
+
+    // Assert
+    expect(link.text).toBe("docs");
+    expect(link.href).toBe("https://example.com");
+  });
+});
+
+describe("M3: inline emphasis composes with word-diff (#235)", () => {
+  test("context emphasis survives; added text keeps the green diff role; markers concealed", () => {
+    // Arrange - "**this**" is unchanged (context, stays emphasized); "safe"->"sound" is the edit
+    const block = buildDisplay("keep **this** safe\n", "keep **this** sound\n")[0]!;
+
+    // Act
+    const runs = blockRuns(block, true);
+
+    // Assert - no marker text renders anywhere
+    expect(runs.every((run) => !run.text.includes("*"))).toBe(true);
+    // the unchanged emphasized word keeps its strong role (context, not diffed)
+    expect(runs.find((run) => run.text === "this")!.role).toBe("strong");
+    // the added word is green (ins wins over any emphasis), the removed one opaque
+    expect(runs.find((run) => run.text.includes("sound"))!.role).toBe("ins");
+    expect(runs.some((run) => run.role === "del" && run.start === null)).toBe(true);
+  });
+
+  test("markers inside added text conceal while the run stays a positioned ins", () => {
+    // Arrange - an emphasized word is added into an otherwise unchanged line
+    const block = buildDisplay("keep it safe\n", "keep it **very** safe\n")[0]!;
+
+    // Act
+    const runs = blockRuns(block, true);
+    const added = runs.find((run) => run.text === "very")!;
+
+    // Assert - concealed markers, green role, and an exact work offset back into work text
+    expect(added.role).toBe("ins");
+    expect(added.start).not.toBeNull();
+    expect(block.work!.text.slice(added.start!, added.start! + "very".length)).toBe("very");
+    expect(runs.every((run) => !run.text.includes("*"))).toBe(true);
+  });
+
+  test("an anchor over an emphasized context word round-trips to its work offsets", () => {
+    // Arrange
+    const block = buildDisplay("hold **steady** now\n", "hold **steady** later\n")[0]!;
+    const runs = blockRuns(block, true);
+    const work = block.work!.text;
+    const start = work.indexOf("steady");
+
+    // Act
+    const rendered = renderedOffsetFor(runs, start);
+
+    // Assert
+    expect(rendered).not.toBeNull();
+    expect(workRangeForRendered(runs, rendered!, rendered! + "steady".length)).toEqual({
+      start,
+      end: start + "steady".length,
+    });
+  });
+});
+
 describe("marksByDisplay", () => {
   test("annotations resolve into display coordinates", () => {
     // Arrange
@@ -216,6 +299,28 @@ describe("rendered/work offset mapping", () => {
     // Assert
     expect(renderedOffsetFor(runs, 99)).toBeNull();
     expect(workRangeForRendered(runs, 90, 99)).toBeNull();
+  });
+
+  test("a span starting/ending on concealed markers snaps to the visible word", () => {
+    // Arrange - the word span over "**very**" covers the markers, which have
+    // no rendered cells; the clamped lookups land on "very" itself
+    const text = "keep it **very** safe\n";
+    const runs = blockRuns(buildDisplay(text)[0]!, true);
+    const spanStart = text.indexOf("**very**");
+    const spanEnd = spanStart + "**very**".length;
+
+    // Act
+    const renderedStart = renderedOffsetAtOrAfter(runs, spanStart)!;
+    const renderedEnd = renderedOffsetAtOrBefore(runs, spanEnd - 1)!;
+
+    // Assert
+    const renderedText = runs.map((run) => run.text).join("");
+    expect(renderedText.slice(renderedStart, renderedEnd + 1)).toBe("very");
+    // exact hits behave like renderedOffsetFor
+    expect(renderedOffsetAtOrAfter(runs, 0)).toBe(0);
+    expect(renderedOffsetAtOrBefore(runs, 0)).toBe(0);
+    // nothing positioned beyond the text end
+    expect(renderedOffsetAtOrAfter(runs, 99)).toBeNull();
   });
 });
 
