@@ -4,6 +4,7 @@ import { cueloopHome, reportsDir } from "@cueloop/daemon/paths";
 import { SessionStore } from "@cueloop/daemon/store";
 import {
   LATEST_REPORT_FILENAME,
+  parseRefineState,
   pruneExpiredReports,
   resolveCleanupPeriodDays,
   timestampedReportFilename,
@@ -30,8 +31,10 @@ export async function refineCommand(argv: string[]): Promise<number> {
   store.recover();
   const all = store.list();
 
-  const seen = readSeen(home);
-  const fresh = all.filter((session) => !seen.has(session.id));
+  const analyzedState = readState(home);
+  const fresh = all.filter(
+    (session) => analyzedState.get(session.id) !== analysisFingerprint(session),
+  );
   const analyzed = fresh.filter(hasReviewSignal).slice(0, limit);
 
   const markdown = buildRefineReport(analyzed, all.length, new Date(nowMs).toISOString());
@@ -45,9 +48,9 @@ export async function refineCommand(argv: string[]): Promise<number> {
   writeFileSync(timestampedPath, markdown);
 
   for (const session of analyzed) {
-    if (session.status === "resolved") seen.add(session.id);
+    if (session.status === "resolved") analyzedState.set(session.id, analysisFingerprint(session));
   }
-  writeSeen(home, seen);
+  writeState(home, analyzedState);
 
   console.log(
     JSON.stringify(
@@ -217,25 +220,23 @@ function parseLimit(raw: string | undefined): number {
   return Number.isInteger(value) && value > 0 ? value : DEFAULT_SESSION_LIMIT;
 }
 
-interface RefineState {
-  seenSessionIds: string[];
+function analysisFingerprint(session: ReviewSession): string {
+  return `${session.revisions.length}:${session.annotations.length}:${session.verdict?.resolvedAt ?? "pending"}`;
 }
 
 function statePath(home: string): string {
   return join(home, "refine-state.json");
 }
 
-function readSeen(home: string): Set<string> {
+function readState(home: string): Map<string, string> {
   try {
-    const parsed = JSON.parse(readFileSync(statePath(home), "utf8")) as Partial<RefineState>;
-    const ids = Array.isArray(parsed.seenSessionIds) ? parsed.seenSessionIds : [];
-    return new Set(ids.filter((id): id is string => typeof id === "string"));
+    return parseRefineState(JSON.parse(readFileSync(statePath(home), "utf8")));
   } catch {
-    return new Set();
+    return new Map();
   }
 }
 
-function writeSeen(home: string, seen: Set<string>): void {
-  const state: RefineState = { seenSessionIds: [...seen] };
+function writeState(home: string, analyzed: Map<string, string>): void {
+  const state = { analyzed: Object.fromEntries(analyzed) };
   writeFileSync(statePath(home), JSON.stringify(state, null, 2));
 }

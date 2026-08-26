@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import * as v from "valibot";
 import type { SessionStore } from "./store";
 
 export const DEFAULT_CLEANUP_PERIOD_DAYS = 30;
@@ -8,6 +9,22 @@ export const LATEST_REPORT_FILENAME = "report.md";
 export const TIMESTAMPED_REPORT_PREFIX = "refine-";
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const CleanupConfigSchema = v.object({
+  cleanup: v.optional(v.object({ period_days: v.optional(v.number()) })),
+});
+
+const RefineStateSchema = v.object({
+  analyzed: v.optional(v.record(v.string(), v.string()), {}),
+});
+
+export type RefineState = v.InferOutput<typeof RefineStateSchema>;
+
+export function parseRefineState(raw: unknown): Map<string, string> {
+  const parsed = v.safeParse(RefineStateSchema, raw);
+  if (!parsed.success) return new Map();
+  return new Map(Object.entries(parsed.output.analyzed));
+}
 
 function userConfigPath(env: NodeJS.ProcessEnv): string {
   const explicit = env.CUELOOP_CONFIG;
@@ -18,15 +35,16 @@ function userConfigPath(env: NodeJS.ProcessEnv): string {
 }
 
 function readConfiguredPeriodDays(path: string): number | undefined {
-  let raw: Record<string, unknown>;
+  let raw: unknown;
   try {
-    raw = Bun.TOML.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    raw = Bun.TOML.parse(readFileSync(path, "utf8"));
   } catch {
     return undefined;
   }
-  const cleanup = raw["cleanup"] as Record<string, unknown> | undefined;
-  const value = cleanup?.["period_days"];
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+  const parsed = v.safeParse(CleanupConfigSchema, raw);
+  if (!parsed.success) return undefined;
+  const value = parsed.output.cleanup?.period_days;
+  return value !== undefined && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 export function resolveCleanupPeriodDays(env: NodeJS.ProcessEnv = process.env): number {
