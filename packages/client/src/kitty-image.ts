@@ -10,7 +10,7 @@
  * ssh sharing path where no shared filesystem exists.
  */
 
-import { writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -39,6 +39,7 @@ const SYNCHRONIZED_UPDATE_START = "\x1b[?2026h";
 const SYNCHRONIZED_UPDATE_END = "\x1b[?2026l";
 
 let tempFileCounter = 0;
+let privateTempDir: string | null = null;
 
 /**
  * base64 is the safe default: it works over the pty everywhere, including the
@@ -65,9 +66,12 @@ function placementKeys(imageId: number, region: CellRegion): string {
   return `i=${imageId},p=${PLACEMENT_ID},q=2,C=1,z=${IMAGE_Z_INDEX},c=${region.columns},r=${region.rows}`;
 }
 
+// A per-process 0700 directory with an unpredictable name, so a local attacker
+// cannot pre-place a symlink at the screenshot path and redirect the write.
 function writeTempPng(png: Uint8Array): string {
-  const path = join(tmpdir(), `cueloop-prototype-${process.pid}-${tempFileCounter++}.png`);
-  writeFileSync(path, png);
+  if (!privateTempDir) privateTempDir = mkdtempSync(join(tmpdir(), "cueloop-prototype-"));
+  const path = join(privateTempDir, `${tempFileCounter++}.png`);
+  writeFileSync(path, png, { flag: "wx" });
   return path;
 }
 

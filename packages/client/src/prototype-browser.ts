@@ -103,20 +103,26 @@ type PuppeteerBrowser = Awaited<ReturnType<typeof import("puppeteer-core").defau
 let sharedBrowser: Promise<PuppeteerBrowser> | null = null;
 
 async function warmBrowser(executablePath: string | undefined): Promise<PuppeteerBrowser> {
-  if (!sharedBrowser) {
-    const puppeteer = (await import("puppeteer-core")).default;
-    sharedBrowser = puppeteer
-      .launch({
-        executablePath: executablePath ?? chromeExecutable(),
-        headless: true,
-        args: ["--no-sandbox", "--hide-scrollbars", "--force-color-profile=srgb"],
-      })
-      .catch((error) => {
-        sharedBrowser = null;
-        throw error;
-      });
-  }
-  return sharedBrowser;
+  // reuse the warm browser only while it is still connected; a crashed or
+  // disconnected Chromium is dropped so the next open relaunches instead of
+  // calling newPage on a dead process forever
+  const cached = sharedBrowser ? await sharedBrowser.catch(() => null) : null;
+  if (cached && cached.connected) return cached;
+  const puppeteer = (await import("puppeteer-core")).default;
+  const launched = puppeteer.launch({
+    executablePath: executablePath ?? chromeExecutable(),
+    headless: true,
+    args: ["--no-sandbox", "--hide-scrollbars", "--force-color-profile=srgb"],
+  });
+  sharedBrowser = launched;
+  const browser = await launched.catch((error) => {
+    if (sharedBrowser === launched) sharedBrowser = null;
+    throw error;
+  });
+  browser.once("disconnected", () => {
+    if (sharedBrowser === launched) sharedBrowser = null;
+  });
+  return browser;
 }
 
 export async function launchPrototypeRenderer(options: LaunchOptions): Promise<PrototypeRenderer> {
