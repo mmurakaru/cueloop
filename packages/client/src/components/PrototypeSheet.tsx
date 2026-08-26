@@ -10,7 +10,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import type { BoxRenderable } from "@opentui/core";
-import { useRenderer } from "@opentui/react";
+import { useKeyboard, useRenderer } from "@opentui/react";
 import type { Theme } from "../theme";
 import { quickActionBody, type QuickAction } from "../config";
 import { useComponentTheme } from "./theme-context";
@@ -28,6 +28,7 @@ import {
 import {
   deleteKittyImage,
   placeKittyImage,
+  resolveTransmitMedium,
   transmitKittyImage,
   type CellRegion,
 } from "../kitty-image";
@@ -76,7 +77,46 @@ function regionOf(box: BoxRenderable | null): CellRegion | null {
   return { column: box.x, row: box.y, columns: box.width, rows: box.height };
 }
 
-export function PrototypeSheet({
+type CaptureRenderer = {
+  resolution: { width: number; height: number } | null;
+  terminalWidth: number;
+  terminalHeight: number;
+};
+
+/**
+ * Capture at the region's own pixel size when the terminal reports its cell
+ * pixels, so the terminal never downscales an oversized image (less Chromium
+ * raster and fewer bytes). Without a resolution report, fall back to a fixed
+ * width at 2x and derive the height from the cell aspect.
+ */
+function captureConfig(
+  region: CellRegion,
+  renderer: CaptureRenderer,
+): { viewport: PrototypeViewport; deviceScaleFactor: number } {
+  const resolution = renderer.resolution;
+  if (resolution && renderer.terminalWidth >= 1 && renderer.terminalHeight >= 1) {
+    const cellWidth = resolution.width / renderer.terminalWidth;
+    const cellHeight = resolution.height / renderer.terminalHeight;
+    return {
+      viewport: {
+        width: Math.max(1, Math.round(region.columns * cellWidth)),
+        height: Math.max(1, Math.round(region.rows * cellHeight)),
+      },
+      deviceScaleFactor: 1,
+    };
+  }
+  return {
+    viewport: {
+      width: CAPTURE_WIDTH,
+      height: Math.round(
+        (CAPTURE_WIDTH * region.rows * cellHeightOverWidth(renderer)) / region.columns,
+      ),
+    },
+    deviceScaleFactor: 2,
+  };
+}
+
+function PrototypeSheetImpl({
   prototypePath,
   quickActions,
   canComment,
@@ -125,6 +165,7 @@ export function PrototypeSheet({
     const rawWrite = (renderer as unknown as { writeOut?: (data: string) => void }).writeOut;
     const write =
       typeof rawWrite === "function" ? (chunk: string) => rawWrite.call(renderer, chunk) : null;
+    const medium = resolveTransmitMedium();
     const paint = (): void => {
       if (!write) return;
       // an app overlay is covering the sheet: pull the image so it does not show
@@ -140,7 +181,7 @@ export function PrototypeSheet({
       const png = pngRef.current;
       if (!region || !png) return;
       if (transmittedRef.current !== png) {
-        transmitKittyImage(write, png, region, PROTOTYPE_IMAGE_ID);
+        transmitKittyImage(write, png, region, PROTOTYPE_IMAGE_ID, medium);
         transmittedRef.current = png;
       } else {
         placeKittyImage(write, region, PROTOTYPE_IMAGE_ID);
@@ -179,16 +220,15 @@ export function PrototypeSheet({
       return;
     }
     launchedRef.current = true;
-    const viewport = {
-      width: CAPTURE_WIDTH,
-      height: Math.round(
-        (CAPTURE_WIDTH * region.rows * cellHeightOverWidth(renderer!)) / region.columns,
-      ),
-    };
-    viewportRef.current = viewport;
+    const capture = captureConfig(region, renderer!);
+    viewportRef.current = capture.viewport;
     void (async () => {
       try {
-        const browser = await prototypeRendererFactory()({ filePath: prototypePath, viewport });
+        const browser = await prototypeRendererFactory()({
+          filePath: prototypePath,
+          viewport: capture.viewport,
+          deviceScaleFactor: capture.deviceScaleFactor,
+        });
         // the sheet may have unmounted while Chromium was launching; close the
         // late arrival instead of leaking the process
         if (unmountedRef.current) {
@@ -219,11 +259,14 @@ export function PrototypeSheet({
     setActionsOpen(false);
     setComposing(false);
     setDraftText("");
-    void browserRef.current
-      ?.highlight(null)
-      .then(refresh)
-      .catch(() => undefined);
   };
+
+  // While the compose textarea owns the keyboard, the global keymap is
+  // suppressed, so escape-to-cancel is handled here - matching the plan
+  // composer, where escape closes the overlay.
+  useKeyboard((key) => {
+    if (composing && key.name === "escape") clearSelection();
+  });
 
   const onRegionMouseDown = (event: { x: number; y: number }): void => {
     const browser = browserRef.current;
@@ -249,8 +292,6 @@ export function PrototypeSheet({
       });
       setActionsOpen(false);
       setComposing(false);
-      await browser.highlight(element.selector);
-      await refresh();
     })().catch((error) => {
       setErrorMessage(error instanceof Error ? error.message : String(error));
       setStatus("error");
@@ -349,6 +390,13 @@ export function PrototypeSheet({
     </box>
   );
 }
+
+/**
+ * Memoized so an unrelated App re-render (status ticks, a rail-width drag) does
+ * not re-render the sheet; the parent passes a stable onCommentElement so the
+ * shallow prop compare holds.
+ */
+export const PrototypeSheet = React.memo(PrototypeSheetImpl);
 
 function statusLine(status: SheetStatus, errorMessage: string): string {
   if (status === "loading") return "rendering prototype…";

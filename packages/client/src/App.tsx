@@ -9,7 +9,14 @@
  * both sides.
  */
 
-import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock, MouseEvent } from "@opentui/core";
 import { type VerdictKind } from "@cueloop/schema";
@@ -59,6 +66,7 @@ import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { DiffSheet } from "./components/DiffSheet";
 import { PrototypeSheet } from "./components/PrototypeSheet";
+import type { PrototypeElement } from "./prototype-browser";
 import { type ReviewRailHandle } from "./components/ReviewRail";
 import type { AgentTerminalHandle } from "./components/agent-launcher";
 import { ReviewPanel } from "./components/ReviewPanel";
@@ -134,6 +142,13 @@ export function App({
     controller.connect();
     return () => controller.close();
   }, [controller]);
+  // stable across renders so the memoized PrototypeSheet is not re-rendered by
+  // unrelated App state (status ticks, a rail-width drag)
+  const onCommentPrototype = useCallback(
+    (element: PrototypeElement, body: string) =>
+      controller.annotatePrototype(element.selector, element.quote, body),
+    [controller],
+  );
   const { session, inbox, status, toast, error, completion, editOrphanCount, walk } =
     useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   // A shared plan you own polls for collaborator notes while it is open; the
@@ -1002,6 +1017,9 @@ export function App({
         onMouseDrag={(event: MouseEvent) => {
           if (!dividerDragging || reviewMode !== "expanded") return;
           const next = widthFromMouseColumn(event.x, terminalWidth);
+          // many raw mouse-moves land in the same column: only re-render when the
+          // width actually changes, so the drag does not reconcile per pixel
+          if (next === reviewWidthRef.current) return;
           reviewWidthRef.current = next;
           setReviewWidth(next);
         }}
@@ -1036,9 +1054,7 @@ export function App({
               prototypePath={activeSession.artifact.meta.prototypePath ?? ""}
               quickActions={quickActions}
               canComment={isOwner && !resolved}
-              onCommentElement={(element, body) =>
-                controller.annotatePrototype(element.selector, element.quote, body)
-              }
+              onCommentElement={onCommentPrototype}
               onComposingChange={setPrototypeComposing}
               hidden={menuOpen || menuDialog !== null}
             />

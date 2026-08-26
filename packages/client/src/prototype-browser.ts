@@ -30,7 +30,6 @@ export interface PrototypeRenderer {
   readonly viewport: PrototypeViewport;
   screenshot(): Promise<Uint8Array>;
   elementAt(cssX: number, cssY: number): Promise<PrototypeElement | null>;
-  highlight(selector: string | null): Promise<void>;
   /** Scroll the page by a pixel delta; returns whether the scroll position moved. */
   scrollBy(deltaY: number): Promise<boolean>;
   close(): Promise<void>;
@@ -39,6 +38,8 @@ export interface PrototypeRenderer {
 export interface LaunchOptions {
   filePath: string;
   viewport: PrototypeViewport;
+  /** Capture density; 1 when the viewport already matches the region's pixels. */
+  deviceScaleFactor?: number;
   /** Absolute path to a Chrome/Chromium binary; falls back to the channel. */
   executablePath?: string;
 }
@@ -95,30 +96,48 @@ export function prototypeRendererFactory(): PrototypeRendererFactory {
   return rendererFactory ?? launchPrototypeRenderer;
 }
 
+type PuppeteerBrowser = Awaited<ReturnType<typeof import("puppeteer-core").default.launch>>;
+
+// One Chromium per process, kept warm and reused across prototype opens: the
+// launch is the dominant load cost, so each open only spawns a fresh page.
+let sharedBrowser: Promise<PuppeteerBrowser> | null = null;
+
+async function warmBrowser(executablePath: string | undefined): Promise<PuppeteerBrowser> {
+  if (!sharedBrowser) {
+    const puppeteer = (await import("puppeteer-core")).default;
+    sharedBrowser = puppeteer
+      .launch({
+        executablePath: executablePath ?? chromeExecutable(),
+        headless: true,
+        args: ["--no-sandbox", "--hide-scrollbars", "--force-color-profile=srgb"],
+      })
+      .catch((error) => {
+        sharedBrowser = null;
+        throw error;
+      });
+  }
+  return sharedBrowser;
+}
+
 export async function launchPrototypeRenderer(options: LaunchOptions): Promise<PrototypeRenderer> {
-  const puppeteer = (await import("puppeteer-core")).default;
   const { pathToFileURL } = await import("node:url");
-  const browser = await puppeteer.launch({
-    executablePath: options.executablePath ?? chromeExecutable(),
-    headless: true,
-    args: ["--no-sandbox", "--hide-scrollbars", "--force-color-profile=srgb"],
-    defaultViewport: {
+  const browser = await warmBrowser(options.executablePath);
+  // close only the page on teardown, never the shared browser, so the next open
+  // reuses the warm Chromium
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({
       width: options.viewport.width,
       height: options.viewport.height,
-      deviceScaleFactor: 2,
-    },
-  });
-  // close the browser if page setup fails, so a launch error never leaks Chromium
-  const page = await browser.newPage().catch(async (error) => {
-    await browser.close();
-    throw error;
-  });
-  await page
-    .goto(pathToFileURL(options.filePath).href, { waitUntil: "networkidle0" })
-    .catch(async (error) => {
-      await browser.close();
-      throw error;
+      deviceScaleFactor: options.deviceScaleFactor ?? 2,
     });
+    // `load` waits for images and styles but skips networkidle0's fixed 500ms
+    // idle window, which a static local file would otherwise always pay
+    await page.goto(pathToFileURL(options.filePath).href, { waitUntil: "load" });
+  } catch (error) {
+    await page.close().catch(() => undefined);
+    throw error;
+  }
 
   return {
     viewport: options.viewport,
@@ -129,14 +148,11 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
     async elementAt(cssX, cssY) {
       return (await page.evaluate(elementAtScript, cssX, cssY)) as PrototypeElement | null;
     },
-    async highlight(selector) {
-      await page.evaluate(highlightScript, selector);
-    },
     async scrollBy(deltaY) {
       return (await page.evaluate(scrollByScript, deltaY)) as boolean;
     },
     async close() {
-      await browser.close();
+      await page.close().catch(() => undefined);
     },
   };
 }
@@ -210,25 +226,6 @@ function scrollByScript(deltaY: number): boolean {
   const before = window.scrollY;
   window.scrollBy(0, deltaY);
   return window.scrollY !== before;
-}
-
-function highlightScript(selector: string | null): void {
-  const ATTRIBUTE = "data-cueloop-selected";
-  const STYLE_ID = "cueloop-highlight-style";
-  document
-    .querySelectorAll("[" + ATTRIBUTE + "]")
-    .forEach((node) => node.removeAttribute(ATTRIBUTE));
-  if (!document.getElementById(STYLE_ID)) {
-    const style = document.createElement("style");
-    style.id = STYLE_ID;
-    style.textContent =
-      "[" + ATTRIBUTE + "]{outline:2px solid #f38ba8 !important;outline-offset:2px;}";
-    document.head.appendChild(style);
-  }
-  if (selector) {
-    const node = document.querySelector(selector);
-    if (node) node.setAttribute(ATTRIBUTE, "");
-  }
 }
 
 /** Standard Chrome install locations by platform; puppeteer-core ships no browser. */
