@@ -22,6 +22,9 @@
     "./client": "./src/client.ts",
     "./review": "./src/review.ts",
     "./working-tree": "./src/working-tree.ts",
+    "./store": "./src/store.ts",
+    "./paths": "./src/paths.ts",
+    "./retention": "./src/retention.ts",
     "./herdr-pane": "./src/herdr-pane.ts",
     "./herdr-split": "./src/herdr-split.ts",
     "./share-blob": "./src/share-blob.ts"

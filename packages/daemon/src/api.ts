@@ -23,6 +23,7 @@ import {
   type WorkspaceKey,
 } from "@cueloop/schema";
 import { SessionStore } from "./store";
+import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
 import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
 import { DiffWatcher } from "./diff-watcher";
 import { workingTreeDiff } from "./working-tree";
@@ -60,6 +61,7 @@ export class DaemonCore {
   constructor(home: string) {
     this.store = new SessionStore(home);
     this.store.recover();
+    pruneExpiredSessions(this.store, resolveCleanupPeriodDays(), Date.now());
     this.herdrTabs = new HerdrTabStore(home);
     this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
     // resume hot-reload for diff sessions that survived a daemon restart

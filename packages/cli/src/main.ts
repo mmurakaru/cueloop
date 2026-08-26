@@ -97,6 +97,10 @@ async function main(): Promise<number> {
       const { actionsCommand } = await import("./actions-command");
       return actionsCommand(argv.slice(1));
     }
+    case "refine": {
+      const { refineCommand } = await import("./refine-command");
+      return refineCommand(argv.slice(1));
+    }
     case "review":
       return reviewEntry(argv.slice(1));
     case "review-post": {
@@ -297,6 +301,7 @@ function printHelp(): void {
       "scripting:",
       "  cueloop session <verb> [flags]   script the daemon (create|get|list|wait|annotate|resolve|submit-revision)",
       "  cueloop actions list             list the quick-action vocabulary (for annotate --action)",
+      "  cueloop refine                   mine past reviews into a markdown report + writeback proposals",
       "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the verdict (spawn detached)",
       "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
       "  cueloop daemon                   run the daemon in the foreground",
