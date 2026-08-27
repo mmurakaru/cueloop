@@ -1,47 +1,15 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import Terminal from "../components/Terminal.astro";
+import ShareDiagram from "../components/ShareDiagram.astro";
 import CopyCommand from "../components/CopyCommand.tsx";
 import InstallTabs from "../components/InstallTabs.tsx";
 
-const planBody = `<span class="t-accent">»</span> <span class="t-dim">cueloop plan</span>
+const shot = {
+  plan: "/landing/plan.png",
+  diff: "/landing/diff.png",
+  prototype: "/landing/prototype.png",
+};
 
-  Add rate limiting to the API              <span class="t-dim">plan · pending</span>
-
-  <span class="t-dim">1</span>  Add a token-bucket limiter in middleware/ratelimit.ts
-  <span class="t-dim">2</span>  Return 429 with Retry-After on overflow
-  <span class="t-dim">3</span>  Store counters in Redis (a new dependency)
-
-     <span class="t-accent">▌ alex</span>
-     <span class="t-accent">▌</span> per key or per IP? keys rotate, so IP is
-     <span class="t-accent">▌</span> the safer limit against abuse.
-
-  <span class="t-dim">[</span> comment <span class="t-dim">]</span>   <span class="t-green">approve</span>   request changes           <span class="t-dim">q · quit</span>`;
-
-const diffBody = `<span class="t-accent">»</span> <span class="t-dim">cueloop diff</span>
-
- <span class="t-dim">M</span> ratelimit.ts   <span class="t-green">+42</span> <span class="t-accent">-3</span>
- <span class="t-dim">M</span> server.ts      <span class="t-green">+8</span>  <span class="t-accent">-1</span>
-
- <span class="t-green">+  limiter = tokenBucket(100)</span>   <span class="t-dim">// per key / min</span>
- <span class="t-green">+  return 429 on overflow</span>
- <span class="t-green">+  store counts in redis</span>
- <span class="t-accent">-  // TODO: rate limiting</span>
-
- <span class="t-dim">[</span> comment <span class="t-dim">]</span>  <span class="t-green">approve</span>  request changes`;
-
-const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
-
- <span class="t-dim">the plan opens in your terminal,</span>
- <span class="t-dim">annotations already in place.</span>
-
- Add rate limiting to the API      <span class="t-dim">shared</span>
-
-    <span class="t-blue">▌ alex</span>  per key or per IP?
-    <span class="t-blue">▌</span>       keys rotate.
-    <span class="t-green">▌ you</span>   good catch, let's key on IP.
-
- <span class="t-dim">[</span> comment <span class="t-dim">]</span>   submit annotations`;
 ---
 
 <BaseLayout>
@@ -94,8 +62,14 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
         <a class="btn btn--ghost" href="/docs/">Read the docs</a>
       </div>
 
-      <div class="hero__showcase crop">
-        <Terminal title="cueloop plan" body={planBody} />
+      <div class="hero__showcase">
+        <img
+          class="shot"
+          src={shot.plan}
+          width="1600"
+          height="986"
+          alt="A cueloop plan review in the terminal: a sync-engine plan with the marker popover open on a line, and reviewer comments from you and a teammate in the side rail."
+        />
       </div>
     </div>
   </section>
@@ -163,7 +137,43 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
           </div>
         </div>
         <div class="split__media">
-          <Terminal title="cueloop diff" body={diffBody} />
+          <img
+            class="shot"
+            src={shot.diff}
+            width="1600"
+            height="732"
+            alt="A cueloop diff review of an Effect-TS error-handling change: the compose card open on a line, with comments from you and a teammate anchored inline and in the rail."
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Prototype review -->
+  <section class="section">
+    <div class="container">
+      <div class="split split--reverse reveal">
+        <div>
+          <span class="eyebrow eyebrow--index">03 &middot; Prototype review</span>
+          <h2 style="margin-top:0.9rem">Review the UI, not just the code.</h2>
+          <p style="margin-top:1rem;color:var(--ink-soft);max-width:46ch">
+            <code>cueloop prototype</code> renders an HTML mockup right in the
+            terminal. Click an element to comment on it - the button, the
+            state, the spacing - and your notes anchor to it, same as a
+            line in a diff.
+          </p>
+          <div style="margin-top:1.5rem">
+            <a class="btn btn--ghost" href="/docs/concepts/plan-diff-review/">The prototype verb</a>
+          </div>
+        </div>
+        <div class="split__media">
+          <img
+            class="shot"
+            src={shot.prototype}
+            width="1600"
+            height="1034"
+            alt="A cueloop prototype review: a rendered buttons component in the terminal with reviewer comments from you and two teammates in the side rail."
+          />
         </div>
       </div>
     </div>
@@ -172,9 +182,9 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
   <!-- Sharing teaser -->
   <section class="section">
     <div class="container">
-      <div class="split split--reverse reveal">
+      <div class="split reveal">
         <div>
-          <span class="eyebrow eyebrow--index">03 &middot; Share it</span>
+          <span class="eyebrow eyebrow--index">04 &middot; Share it</span>
           <h2 style="margin-top:0.9rem">
             Hand a plan to a teammate over <em style="font-style:italic;color:var(--accent)"
               >SSH</em
@@ -192,7 +202,7 @@ const shareBody = `<span class="t-accent">»</span> ssh p_7f3k9x2q@cueloop.dev
           </div>
         </div>
         <div class="split__media">
-          <Terminal title="ssh p_7f3k9x2q@cueloop.dev" body={shareBody} />
+          <ShareDiagram />
         </div>
       </div>
     </div>
