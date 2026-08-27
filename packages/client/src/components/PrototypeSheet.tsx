@@ -50,6 +50,9 @@ export interface PrototypeSheetProps {
 type SheetStatus = "loading" | "ready" | "unsupported" | "error";
 
 const POPOVER_ROWS = 3;
+/** Compose-card width, so the floating composer reads like the plan/diff one
+ *  instead of shrinking to its content. */
+const COMPOSE_COLS = 46;
 const PROTOTYPE_IMAGE_ID = 811;
 /** Page pixels scrolled per wheel notch. */
 const SCROLL_STEP = 240;
@@ -325,6 +328,17 @@ function PrototypeSheetImpl({
     flexDirection: "column" as const,
     backgroundColor: tokens.elevated,
   };
+  // the composer carries a fixed width so it reads like the plan/diff card; keep
+  // it inside the region when the clicked element sits near the right edge
+  const regionColumns = regionRef.current?.width ?? 0;
+  const composeStyle = {
+    ...overlayStyle,
+    left:
+      regionColumns > COMPOSE_COLS
+        ? Math.min(overlayStyle.left, regionColumns - COMPOSE_COLS)
+        : overlayStyle.left,
+    width: COMPOSE_COLS,
+  };
 
   return (
     <box
@@ -372,7 +386,7 @@ function PrototypeSheetImpl({
         </box>
       ) : null}
       {selected && composing ? (
-        <box style={overlayStyle}>
+        <box style={composeStyle}>
           <AnnotationCard
             kind="comment"
             quote={selected.quote}
