@@ -48,8 +48,8 @@ server.core.sessionMergeShared(session.id, {
     {
       id: "collab_dana",
       kind: "comment",
-      anchor: { quote: "Learn more", prefix: "", suffix: "", selector: "button.link" },
-      body: "Out of scope - is the link variant still used anywhere?",
+      anchor: { quote: "Cancel", prefix: "", suffix: "", selector: "button.outline" },
+      body: "outline + ghost read almost the same at a glance - pick one.",
       author: "dana",
       createdAt: "2026-01-01T00:00:01Z",
     },

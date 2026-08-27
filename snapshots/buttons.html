@@ -8,11 +8,10 @@
       :root {
         --ink: #1c1d24;
         --soft: #5b6172;
-        --line: #e5e6ec;
+        --line: #e6e6ec;
         --accent: #5b3ea6;
-        --accent-ink: #ffffff;
         --danger: #c0392b;
-        --bg: #f4f4f8;
+        --bg: #f2f2f7;
         --card: #ffffff;
       }
       * { box-sizing: border-box; }
@@ -22,129 +21,73 @@
         font-family: "Inter", -apple-system, "Segoe UI", system-ui, sans-serif;
         background: var(--bg);
         color: var(--ink);
-        padding: 40px 46px;
         display: flex;
-        flex-direction: column;
-      }
-      .head { margin-bottom: 26px; }
-      .head h1 { font-size: 26px; margin: 0 0 5px; letter-spacing: -0.01em; }
-      .head p { margin: 0; color: var(--soft); font-size: 15px; }
-      .cols {
-        flex: 1;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 26px;
-      }
-      .card {
-        background: var(--card);
-        border: 1px solid var(--line);
-        border-radius: 18px;
-        padding: 26px 30px;
-        box-shadow: 0 1px 2px rgba(20, 18, 30, 0.05);
-        display: flex;
-        flex-direction: column;
-      }
-      .card h2 {
-        font-size: 13px; text-transform: uppercase; letter-spacing: 0.07em;
-        color: var(--soft); margin: 0 0 22px; font-weight: 600;
-      }
-      .grid {
-        flex: 1;
-        display: grid;
-        grid-template-columns: 90px repeat(3, 1fr);
-        gap: 22px 20px;
         align-items: center;
-        align-content: space-around;
+        justify-content: center;
+        padding: 40px 48px;
       }
-      .col { font-size: 11px; color: var(--soft); text-transform: uppercase; letter-spacing: 0.06em; }
-      .rowlabel { font-size: 14px; color: var(--soft); font-weight: 500; }
+      /* card + grid are intentionally class-less below so cueloop's element
+         resolver anchors a click on the <button>, not a named container. */
+      .col { font-size: 15px; color: var(--soft); text-transform: uppercase; letter-spacing: 0.08em; }
+      .rowlabel { font-size: 23px; color: var(--ink); font-weight: 600; }
       button {
         font: inherit;
-        font-size: 15px;
-        font-weight: 500;
-        padding: 12px 18px;
-        border-radius: 11px;
-        border: 1px solid transparent;
+        font-size: 22px;
+        font-weight: 600;
+        padding: 22px 34px;
+        border-radius: 18px;
+        border: 2px solid transparent;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
-        gap: 9px;
+        gap: 12px;
         justify-content: center;
         width: 100%;
       }
-      .primary { background: var(--accent); color: var(--accent-ink); }
+      .primary { background: var(--accent); color: #fff; }
       .secondary { background: #ece6f8; color: var(--accent); }
       .outline { background: transparent; color: var(--ink); border-color: var(--line); }
-      .ghost { background: transparent; color: var(--soft); }
       .danger { background: var(--danger); color: #fff; }
-      .link { background: transparent; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
-      .is-hover.primary { background: #4b3090; }
+      .is-hover.primary { background: #4a2f8c; box-shadow: 0 8px 20px -8px rgba(91, 62, 166, 0.6); }
       .is-hover.secondary { background: #e0d5f4; }
       .is-hover.outline { border-color: var(--accent); color: var(--accent); }
-      .is-hover.danger { background: #a93125; }
-      .is-hover.ghost { background: #eef0f4; color: var(--ink); }
-      .is-disabled { opacity: 0.42; cursor: not-allowed; }
+      .is-hover.danger { background: #a63024; box-shadow: 0 8px 20px -8px rgba(192, 57, 43, 0.55); }
       .spinner {
-        width: 14px; height: 14px; border-radius: 50%;
-        border: 2px solid rgba(255, 255, 255, 0.5); border-top-color: #fff;
+        width: 17px; height: 17px; border-radius: 50%;
+        border: 2.5px solid rgba(255, 255, 255, 0.5); border-top-color: #fff;
       }
-      .outline .spinner, .ghost .spinner, .link .spinner { border-color: rgba(91, 62, 166, 0.35); border-top-color: var(--accent); }
+      .outline .spinner { border-color: rgba(91, 62, 166, 0.3); border-top-color: var(--accent); }
     </style>
   </head>
   <body>
-    <div class="head">
-      <h1>Button</h1>
-      <p>Six variants across default, hover, and loading states.</p>
-    </div>
-    <div class="cols">
-      <div class="card">
-        <h2>Solid</h2>
-        <div class="grid">
-          <div class="col"></div>
-          <div class="col">Default</div>
-          <div class="col">Hover</div>
-          <div class="col">Loading</div>
+    <div style="background:#fff;border:1px solid var(--line);border-radius:28px;padding:64px 76px 72px;box-shadow:0 30px 70px -34px rgba(20,18,30,0.38);width:100%;">
+      <div style="font-size:42px;font-weight:700;letter-spacing:-0.02em;margin:0 0 8px;">Button</div>
+      <div style="margin:0 0 60px;color:var(--soft);font-size:21px;">Four variants across default, hover, and loading states.</div>
+      <div style="display:grid;grid-template-columns:200px repeat(3,1fr);gap:50px 42px;align-items:center;">
+        <div class="col"></div>
+        <div class="col">Default</div>
+        <div class="col">Hover</div>
+        <div class="col">Loading</div>
 
-          <div class="rowlabel">Primary</div>
-          <button class="primary">Save changes</button>
-          <button class="primary is-hover">Save changes</button>
-          <button class="primary"><span class="spinner"></span>Saving…</button>
+        <div class="rowlabel">Primary</div>
+        <button class="primary">Save changes</button>
+        <button class="primary is-hover">Save changes</button>
+        <button class="primary"><span class="spinner"></span>Saving…</button>
 
-          <div class="rowlabel">Secondary</div>
-          <button class="secondary">Preview</button>
-          <button class="secondary is-hover">Preview</button>
-          <button class="secondary"><span class="spinner"></span>Loading</button>
+        <div class="rowlabel">Secondary</div>
+        <button class="secondary">Preview</button>
+        <button class="secondary is-hover">Preview</button>
+        <button class="secondary"><span class="spinner"></span>Loading</button>
 
-          <div class="rowlabel">Danger</div>
-          <button class="danger">Delete</button>
-          <button class="danger is-hover">Delete</button>
-          <button class="danger"><span class="spinner"></span>Deleting…</button>
-        </div>
-      </div>
+        <div class="rowlabel">Outline</div>
+        <button class="outline">Cancel</button>
+        <button class="outline is-hover">Cancel</button>
+        <button class="outline"><span class="spinner"></span>Working</button>
 
-      <div class="card">
-        <h2>Quiet</h2>
-        <div class="grid">
-          <div class="col"></div>
-          <div class="col">Default</div>
-          <div class="col">Hover</div>
-          <div class="col">Disabled</div>
-
-          <div class="rowlabel">Outline</div>
-          <button class="outline">Cancel</button>
-          <button class="outline is-hover">Cancel</button>
-          <button class="outline is-disabled">Cancel</button>
-
-          <div class="rowlabel">Ghost</div>
-          <button class="ghost">Dismiss</button>
-          <button class="ghost is-hover">Dismiss</button>
-          <button class="ghost is-disabled">Dismiss</button>
-
-          <div class="rowlabel">Link</div>
-          <button class="link">Learn more</button>
-          <button class="link is-hover">Learn more</button>
-          <button class="link is-disabled">Learn more</button>
-        </div>
+        <div class="rowlabel">Danger</div>
+        <button class="danger">Delete</button>
+        <button class="danger is-hover">Delete</button>
+        <button class="danger"><span class="spinner"></span>Deleting…</button>
       </div>
     </div>
   </body>
