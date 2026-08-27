@@ -1,5 +1,7 @@
 # @cueloop/schema
 
+## 0.1.0-alpha.57
+
 ## 0.1.0-alpha.56
 
 ## 0.1.0-alpha.55

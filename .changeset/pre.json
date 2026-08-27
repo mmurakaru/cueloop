@@ -91,6 +91,7 @@
     "planner-pull",
     "plugin-marketplace",
     "pr-review",
+    "prototype-element-resolver",
     "prototype-kitty-render",
     "prototype-popover-background",
     "prototype-render-perf",
