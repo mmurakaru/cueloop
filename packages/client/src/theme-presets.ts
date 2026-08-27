@@ -10,7 +10,15 @@
  * by that palette's own convention.
  */
 
-import { DARK, type Theme } from "./theme";
+import { DARK, LIGHT, type Theme } from "./theme";
+
+/** Terminal background appearance, reported by the terminal (OSC) or assumed dark. */
+export type Appearance = "dark" | "light";
+
+/** The branded transparent theme's variant for the detected terminal background. */
+function brandedTheme(appearance: Appearance): Theme {
+  return appearance === "light" ? LIGHT : DARK;
+}
 
 /** Selectable theme name; the persisted `[ui] theme` value and cycle key. */
 export type ThemeName =
@@ -152,14 +160,24 @@ export const THEME_LABELS: Record<ThemeName, string> = {
   nord: "Nord",
 };
 
-/** Resolve a persisted theme name to its token set; unknown names fall back to the branded default. */
-export function themeForName(name: string): Theme {
-  return THEME_PRESETS[name as ThemeName] ?? DARK;
+/**
+ * Resolve a persisted theme name to its token set. The branded "cueloop" theme
+ * (and any unknown name that falls back to it) adapts to the terminal
+ * background; the explicit palette presets paint their own opaque background, so
+ * they read the same on a light or dark terminal and ignore `appearance`.
+ */
+export function themeForName(name: string, appearance: Appearance = "dark"): Theme {
+  if (name === "cueloop") return brandedTheme(appearance);
+  return THEME_PRESETS[name as ThemeName] ?? brandedTheme(appearance);
 }
 
 /** A preset with the user's `[theme]` per-token overrides layered on top - the live-switch equivalent of config load. */
-export function composeTheme(name: string, overrides: Partial<Theme>): Theme {
-  return { ...themeForName(name), ...overrides };
+export function composeTheme(
+  name: string,
+  overrides: Partial<Theme>,
+  appearance: Appearance = "dark",
+): Theme {
+  return { ...themeForName(name, appearance), ...overrides };
 }
 
 /** True when the name is a known preset (guards a persisted `[ui] theme` value). */

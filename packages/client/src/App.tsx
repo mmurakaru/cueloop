@@ -22,7 +22,7 @@ import type { Clock, MouseEvent } from "@opentui/core";
 import { type VerdictKind } from "@cueloop/schema";
 import { displayText, marksByDisplay, spanFromRange, type Mark } from "./view-plan";
 import { noteForFile, viewedCount } from "./walk";
-import { DARK, dimmedTheme } from "./theme";
+import { dimmedTheme } from "./theme";
 import {
   DEFAULT_KEYS,
   DEFAULT_QUICK_ACTIONS,
@@ -39,6 +39,8 @@ import {
   DEFAULT_THEME_NAME,
   THEME_LABELS,
   THEME_NAMES,
+  themeForName,
+  type Appearance,
   type ThemeName,
 } from "./theme-presets";
 import type { Theme } from "./theme";
@@ -112,6 +114,12 @@ export interface AppProps {
    * name prompt so their notes attribute to a name, not a fingerprint.
    */
   selfAuthor?: string;
+  /**
+   * The terminal's background appearance (from an OSC query at startup). The
+   * branded transparent theme darkens its text on a light terminal so it is not
+   * light-on-light. Defaults to dark - the historical assumption.
+   */
+  appearance?: Appearance;
 }
 
 export function App({
@@ -123,6 +131,7 @@ export function App({
   openClient,
   role = "owner",
   selfAuthor,
+  appearance = "dark",
 }: AppProps): React.ReactNode {
   // Observer stays fully read-only; a collaborator writes annotations but not
   // the plan or a verdict. `observer` is what the controller and every write
@@ -200,7 +209,7 @@ export function App({
   // keymap from layered config; the loaded theme swaps the provider value
   const keysRef = useRef(DEFAULT_KEYS);
   const keyBindings = useMemo(() => new KeyBindings(DEFAULT_KEYS), []);
-  const [theme, setTheme] = useState(DARK);
+  const [theme, setTheme] = useState(() => themeForName(DEFAULT_THEME_NAME, appearance));
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME_NAME);
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
@@ -211,7 +220,7 @@ export function App({
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
     keysRef.current = config.keys;
     keyBindings.setKeys(config.keys);
-    setTheme(config.theme);
+    setTheme(composeTheme(config.ui.theme, config.themeOverrides, appearance));
     setThemeName(config.ui.theme);
     setThemeOverrides(config.themeOverrides);
     setReviewMode(config.ui.reviewState);
@@ -221,7 +230,7 @@ export function App({
     setQuickActions(config.actions);
     setAutoClose(config.ui.autoClose);
     controller.applyConfig(config);
-  }, [session?.workspace.repoRoot, controller, keyBindings]);
+  }, [session?.workspace.repoRoot, controller, keyBindings, appearance]);
   useEffect(
     () => () => {
       if (pulseTimer.current) clearTimeout(pulseTimer.current);
@@ -541,7 +550,7 @@ export function App({
     } else if (rowKey === "theme") {
       const next = THEME_NAMES[(THEME_NAMES.indexOf(themeName) + 1) % THEME_NAMES.length]!;
       setThemeName(next);
-      setTheme(composeTheme(next, themeOverrides));
+      setTheme(composeTheme(next, themeOverrides, appearance));
       persistTheme(next);
     }
   };
