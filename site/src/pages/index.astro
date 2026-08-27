@@ -1,15 +1,12 @@
 ---
+import { Image } from "astro:assets";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ShareDiagram from "../components/ShareDiagram.astro";
 import CopyCommand from "../components/CopyCommand.tsx";
 import InstallTabs from "../components/InstallTabs.tsx";
-
-const shot = {
-  plan: "/landing/plan.png",
-  diff: "/landing/diff.png",
-  prototype: "/landing/prototype.png",
-};
-
+import planShot from "../assets/landing/plan.png";
+import diffShot from "../assets/landing/diff.png";
+import prototypeShot from "../assets/landing/prototype.png";
 ---
 
 <BaseLayout>
@@ -63,11 +60,13 @@ const shot = {
       </div>
 
       <div class="hero__showcase">
-        <img
+        <Image
           class="shot"
-          src={shot.plan}
-          width="1600"
-          height="986"
+          src={planShot}
+          widths={[720, 1040, 1440, 1600]}
+          sizes="(min-width: 900px) 1040px, 92vw"
+          loading="eager"
+          fetchpriority="high"
           alt="A cueloop plan review in the terminal: a sync-engine plan with the marker popover open on a line, and reviewer comments from you and a teammate in the side rail."
         />
       </div>
@@ -137,12 +136,14 @@ const shot = {
           </div>
         </div>
         <div class="split__media">
-          <img
+          <Image
             class="shot"
-            src={shot.diff}
-            width="1600"
-            height="732"
-            alt="A cueloop diff review of an Effect-TS error-handling change: the compose card open on a line, with comments from you and a teammate anchored inline and in the rail."
+            src={diffShot}
+            widths={[520, 780, 1040, 1600]}
+            sizes="(min-width: 900px) 520px, 92vw"
+            loading="lazy"
+            decoding="async"
+            alt="A cueloop diff review of an error-handling change: the compose card open on a line, with comments from you and a teammate anchored inline and in the rail."
           />
         </div>
       </div>
@@ -163,15 +164,17 @@ const shot = {
             line in a diff.
           </p>
           <div style="margin-top:1.5rem">
-            <a class="btn btn--ghost" href="/docs/concepts/plan-diff-review/">The prototype verb</a>
+            <a class="btn btn--ghost" href="/docs/reference/commands/#open-a-review">The prototype verb</a>
           </div>
         </div>
         <div class="split__media">
-          <img
+          <Image
             class="shot"
-            src={shot.prototype}
-            width="1600"
-            height="1034"
+            src={prototypeShot}
+            widths={[520, 780, 1040, 1600]}
+            sizes="(min-width: 900px) 520px, 92vw"
+            loading="lazy"
+            decoding="async"
             alt="A cueloop prototype review: a rendered buttons component in the terminal with reviewer comments from you and two teammates in the side rail."
           />
         </div>
