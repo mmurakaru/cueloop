@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.55
+
+### Patch Changes
+
+- [#265](https://github.com/mmurakaru/cueloop/pull/265) [`e5e3a9e`](https://github.com/mmurakaru/cueloop/commit/e5e3a9ee28f8fc6158d9eccb81b1a9afb2f95eb5) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Render prototype mockups on the terminal's own surface. The mockup page's root background is no longer painted as an opaque box; the render is captured with an alpha channel, so a prototype emerges into whatever theme the terminal is running - its own components composited over the active surface - instead of floating in a fixed grey card.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.55
+  - @cueloop/client@0.1.0-alpha.55
+  - @cueloop/daemon@0.1.0-alpha.55
+  - @cueloop/schema@0.1.0-alpha.55
+
 ## 0.1.0-alpha.54
 
 ### Patch Changes
