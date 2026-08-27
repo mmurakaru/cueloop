@@ -160,7 +160,11 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
     async screenshot() {
       // omitBackground keeps the alpha from the stripped page background, so the
       // terminal composites the mockup over its own theme surface.
-      const buffer = await page.screenshot({ type: "png", encoding: "binary", omitBackground: true });
+      const buffer = await page.screenshot({
+        type: "png",
+        encoding: "binary",
+        omitBackground: true,
+      });
       return new Uint8Array(buffer as Buffer);
     },
     async elementAt(cssX, cssY) {
