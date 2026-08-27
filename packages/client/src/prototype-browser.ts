@@ -212,7 +212,12 @@ function elementAtScript(x: number, y: number): unknown {
   };
   const hit = document.elementFromPoint(x, y);
   if (!(hit instanceof Element)) return null;
-  const node = componentRoot(hit);
+  // A click on an interactive control anchors to that control - a button in a
+  // grid is the target, not the grid. Everything else climbs to its component.
+  const control = hit.closest(
+    "button, a, [role='button'], input, select, textarea, label, summary",
+  );
+  const node = control ?? componentRoot(hit);
   const selector = selectorFor(node);
   if (!selector) return null;
   const text = (node.textContent || "").replace(/\s+/g, " ").trim();
