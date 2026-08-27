@@ -22,11 +22,13 @@ BINARY="cueloop"
 RED=''
 BOLD=''
 DIM=''
+ACCENT=''
 RESET=''
 if [ -t 2 ]; then
   RED="$(printf '\033[31m')"
   BOLD="$(printf '\033[1m')"
   DIM="$(printf '\033[2m')"
+  ACCENT="$(printf '\033[38;5;141m')"
   RESET="$(printf '\033[0m')"
 fi
 
@@ -34,6 +36,32 @@ info() { printf '%s\n' "${DIM}cueloop:${RESET} $*" >&2; }
 error() {
   printf '%s\n' "${RED}${BOLD}cueloop install failed:${RESET} $*" >&2
   exit 1
+}
+
+# The cueloop mark, rendered from the logo, revealed a line at a time in the
+# accent colour. Purely cosmetic: skipped when stderr is not a terminal (piped
+# or logged output) or when CUELOOP_NO_BANNER is set, so it never garbles logs.
+LOGO='     .-=++***+=.
+  .-*#%%%%%%%%%*:
+ :*%%%########%%#.
+ *@%###########%%=
+ %@%###########%%*
+ *@%###########%%+
+ :#%%%########%%%:
+  .=*#%%%%%%%%%#-
+     .-=++++++-.'
+
+banner() {
+  [ -t 2 ] || return 0
+  [ "${CUELOOP_NO_BANNER:-}" = "" ] || return 0
+  case "${TERM:-}" in dumb) return 0 ;; esac
+  printf '\n' >&2
+  printf '%s\n' "$LOGO" | while IFS= read -r line; do
+    printf '  %s%s%s\n' "$ACCENT" "$line" "$RESET" >&2
+    sleep 0.02 2>/dev/null || true
+  done
+  printf '\n  %s%scueloop%s  %sreview surface for coding agents%s\n\n' \
+    "$BOLD" "$ACCENT" "$RESET" "$DIM" "$RESET" >&2
 }
 
 # --- prerequisites --------------------------------------------------------
@@ -62,6 +90,8 @@ fetch_to() {
     wget -qO "$2" "$1"
   fi
 }
+
+banner
 
 # --- detect platform ------------------------------------------------------
 os="$(uname -s)"
