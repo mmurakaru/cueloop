@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.57
+
+### Patch Changes
+
+- [#264](https://github.com/mmurakaru/cueloop/pull/264) [`8184f77`](https://github.com/mmurakaru/cueloop/commit/8184f772f94c39fd2341f58c5e0de3d42ac624a1) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Anchor a prototype click on the interactive control it lands on. Clicking a button, link, or input inside a container (e.g. a button in a design-system grid) previously resolved to the nearest multi-child named container, so the marker popover floated over the container instead of the control. The resolver now returns the closest `button`/`a`/`[role=button]`/`input`/`select`/`textarea`/`label`/`summary` when the click is on one, falling back to the component-climb for generic content.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.57
+  - @cueloop/client@0.1.0-alpha.57
+  - @cueloop/daemon@0.1.0-alpha.57
+  - @cueloop/schema@0.1.0-alpha.57
+
 ## 0.1.0-alpha.56
 
 ### Patch Changes
