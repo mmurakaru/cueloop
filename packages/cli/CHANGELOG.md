@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.58
+
+### Patch Changes
+
+- [#263](https://github.com/mmurakaru/cueloop/pull/263) [`d21e00c`](https://github.com/mmurakaru/cueloop/commit/d21e00c0a17fc1ba0712e4dcb077723d5cca04a0) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Give the prototype comment composer a fixed width so it reads like the plan and diff composers instead of shrinking to its content. The floating card previously sized to the clicked element; it now uses a set width and stays inside the preview region when the element sits near the right edge.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.58
+  - @cueloop/client@0.1.0-alpha.58
+  - @cueloop/daemon@0.1.0-alpha.58
+  - @cueloop/schema@0.1.0-alpha.58
+
 ## 0.1.0-alpha.57
 
 ### Patch Changes
