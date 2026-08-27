@@ -22,6 +22,9 @@ import { createServer } from "@opentui/ssh";
 import { cueloopHome } from "@cueloop/daemon";
 import { App } from "./App";
 
+/** OSC background query budget: brief so a terminal that never answers falls back to dark. */
+const THEME_QUERY_TIMEOUT_MS = 200;
+
 export interface ServeOptions {
   /** TCP port for the SSH listener; 0 picks an ephemeral port. Default 2222. */
   port?: number;
@@ -56,13 +59,18 @@ export async function serveClient(options: ServeOptions = {}): Promise<ServeHand
     startupBanner: options.banner ?? true,
     idleTimeout: "2h",
     onError: options.onError,
-  }).serve((session) => {
+  }).serve(async (session) => {
+    // the observer's terminal reports its own background, so a light-terminal
+    // watcher gets the readable variant too
+    const appearance =
+      (await session.renderer.waitForThemeMode(THEME_QUERY_TIMEOUT_MS).catch(() => null)) ?? "dark";
     const root = createRoot(session.renderer);
     root.render(
       React.createElement(App, {
         home,
         sessionId: options.sessionId,
         readOnly: true,
+        appearance,
         // q disconnects only this observer, never the server
         onExit: () => session.end(),
       }),

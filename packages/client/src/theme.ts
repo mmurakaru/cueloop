@@ -65,3 +65,29 @@ export const DARK: Theme = {
   deletedForeground: "#ff6b6b",
   backdrop: "transparent",
 };
+
+/**
+ * The branded transparent theme for a LIGHT terminal: same unpainted
+ * background, but every reading color darkens so text is legible on a white
+ * terminal instead of light-on-light. Chosen when the terminal reports a light
+ * background; the dark variant above is the default and the fallback.
+ */
+export const LIGHT: Theme = {
+  background: "transparent",
+  panel: "transparent",
+  elevated: "#ececf2",
+  border: "#c7c7d2",
+  text: "#1c1d24",
+  textMuted: "#4b5162",
+  textDim: "#868c9c",
+  accent: "#b5495b",
+  accentInk: "#ffffff",
+  green: "#2f8a3e",
+  red: "#c0392b",
+  blue: "#2f6fb0",
+  cursorBackground: "#e6e2ea",
+  markCommentBackground: "#f2e2e8",
+  insertedForeground: "#2f8a3e",
+  deletedForeground: "#c0392b",
+  backdrop: "transparent",
+};
