@@ -1,15 +1,11 @@
 ---
-import { Image } from "astro:assets";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import ShareDiagram from "../components/ShareDiagram.astro";
 import CopyCommand from "../components/CopyCommand.tsx";
 import InstallTabs from "../components/InstallTabs.tsx";
-import planDark from "../assets/landing/plan-dark.webp";
-import planLight from "../assets/landing/plan-light.webp";
-import diffDark from "../assets/landing/diff-dark.webp";
-import diffLight from "../assets/landing/diff-light.webp";
-import prototypeDark from "../assets/landing/prototype-dark.webp";
-import prototypeLight from "../assets/landing/prototype-light.webp";
+
+// Captures are pre-rendered lossless webp in /public/landing (zero re-encode),
+// two widths each for hi-DPI, one variant per theme. See snapshots/*.ts.
 ---
 
 <BaseLayout>
@@ -63,22 +59,24 @@ import prototypeLight from "../assets/landing/prototype-light.webp";
       </div>
 
       <div class="hero__showcase">
-        <Image
+        <img
           class="shot shot--dark"
-          src={planDark}
-          widths={[760, 1080, 1620, 2160, 2880, 3240]}
-          sizes="(min-width: 900px) 1080px, 92vw"
-          quality={100}
-          loading="lazy"
+          srcset="/landing/plan-dark-1240.webp 1240w, /landing/plan-dark-2480.webp 2480w"
+          sizes="(min-width: 900px) 1104px, 92vw"
+          src="/landing/plan-dark-2480.webp"
+          width="2480"
+          height="1275"
+          decoding="async"
           alt="A cueloop plan review in the terminal: a sync-engine plan with the marker popover open on a line, and reviewer comments from you and a teammate in the side rail."
         />
-        <Image
+        <img
           class="shot shot--light"
-          src={planLight}
-          widths={[760, 1080, 1620, 2160, 2880, 3240]}
-          sizes="(min-width: 900px) 1080px, 92vw"
-          quality={100}
-          loading="lazy"
+          srcset="/landing/plan-light-1240.webp 1240w, /landing/plan-light-2480.webp 2480w"
+          sizes="(min-width: 900px) 1104px, 92vw"
+          src="/landing/plan-light-2480.webp"
+          width="2480"
+          height="1275"
+          decoding="async"
           alt="A cueloop plan review in the terminal: a sync-engine plan with the marker popover open on a line, and reviewer comments from you and a teammate in the side rail."
         />
       </div>
@@ -148,22 +146,24 @@ import prototypeLight from "../assets/landing/prototype-light.webp";
           </div>
         </div>
         <div class="split__media">
-          <Image
+          <img
             class="shot shot--dark"
-            src={diffDark}
-            widths={[520, 780, 1040, 1560, 2080, 2600]}
+            srcset="/landing/diff-dark-700.webp 700w, /landing/diff-dark-1400.webp 1400w"
             sizes="(min-width: 900px) 520px, 92vw"
-            quality={100}
+            src="/landing/diff-dark-1400.webp"
+            width="1400"
+            height="936"
             loading="lazy"
             decoding="async"
             alt="A cueloop diff review of an error-handling change: the compose card open on a line, with comments from you and a teammate anchored inline and in the rail."
           />
-          <Image
+          <img
             class="shot shot--light"
-            src={diffLight}
-            widths={[520, 780, 1040, 1560, 2080, 2600]}
+            srcset="/landing/diff-light-700.webp 700w, /landing/diff-light-1400.webp 1400w"
             sizes="(min-width: 900px) 520px, 92vw"
-            quality={100}
+            src="/landing/diff-light-1400.webp"
+            width="1400"
+            height="936"
             loading="lazy"
             decoding="async"
             alt="A cueloop diff review of an error-handling change: the compose card open on a line, with comments from you and a teammate anchored inline and in the rail."
@@ -191,25 +191,27 @@ import prototypeLight from "../assets/landing/prototype-light.webp";
           </div>
         </div>
         <div class="split__media">
-          <Image
+          <img
             class="shot shot--dark"
-            src={prototypeDark}
-            widths={[520, 780, 1040, 1560, 2080, 2600]}
+            srcset="/landing/prototype-dark-700.webp 700w, /landing/prototype-dark-1400.webp 1400w"
             sizes="(min-width: 900px) 520px, 92vw"
-            quality={100}
+            src="/landing/prototype-dark-1400.webp"
+            width="1400"
+            height="853"
             loading="lazy"
             decoding="async"
-            alt="A cueloop prototype review: a rendered buttons component in the terminal with reviewer comments from you and two teammates in the side rail."
+            alt="A cueloop prototype review: a rendered buttons component that emerges into the terminal theme, with reviewer comments from you and two teammates in the side rail."
           />
-          <Image
+          <img
             class="shot shot--light"
-            src={prototypeLight}
-            widths={[520, 780, 1040, 1560, 2080, 2600]}
+            srcset="/landing/prototype-light-700.webp 700w, /landing/prototype-light-1400.webp 1400w"
             sizes="(min-width: 900px) 520px, 92vw"
-            quality={100}
+            src="/landing/prototype-light-1400.webp"
+            width="1400"
+            height="853"
             loading="lazy"
             decoding="async"
-            alt="A cueloop prototype review: a rendered buttons component in the terminal with reviewer comments from you and two teammates in the side rail."
+            alt="A cueloop prototype review: a rendered buttons component that emerges into the terminal theme, with reviewer comments from you and two teammates in the side rail."
           />
         </div>
       </div>
