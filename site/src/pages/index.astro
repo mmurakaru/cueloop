@@ -4,9 +4,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 import ShareDiagram from "../components/ShareDiagram.astro";
 import CopyCommand from "../components/CopyCommand.tsx";
 import InstallTabs from "../components/InstallTabs.tsx";
-import planShot from "../assets/landing/plan.png";
-import diffShot from "../assets/landing/diff.png";
-import prototypeShot from "../assets/landing/prototype.png";
+import planDark from "../assets/landing/plan-dark.webp";
+import planLight from "../assets/landing/plan-light.webp";
+import diffDark from "../assets/landing/diff-dark.webp";
+import diffLight from "../assets/landing/diff-light.webp";
+import prototypeDark from "../assets/landing/prototype-dark.webp";
+import prototypeLight from "../assets/landing/prototype-light.webp";
 ---
 
 <BaseLayout>
@@ -61,12 +64,19 @@ import prototypeShot from "../assets/landing/prototype.png";
 
       <div class="hero__showcase">
         <Image
-          class="shot"
-          src={planShot}
+          class="shot shot--dark"
+          src={planDark}
           widths={[720, 1040, 1440, 1600]}
           sizes="(min-width: 900px) 1040px, 92vw"
-          loading="eager"
-          fetchpriority="high"
+          loading="lazy"
+          alt="A cueloop plan review in the terminal: a sync-engine plan with the marker popover open on a line, and reviewer comments from you and a teammate in the side rail."
+        />
+        <Image
+          class="shot shot--light"
+          src={planLight}
+          widths={[720, 1040, 1440, 1600]}
+          sizes="(min-width: 900px) 1040px, 92vw"
+          loading="lazy"
           alt="A cueloop plan review in the terminal: a sync-engine plan with the marker popover open on a line, and reviewer comments from you and a teammate in the side rail."
         />
       </div>
@@ -137,8 +147,17 @@ import prototypeShot from "../assets/landing/prototype.png";
         </div>
         <div class="split__media">
           <Image
-            class="shot"
-            src={diffShot}
+            class="shot shot--dark"
+            src={diffDark}
+            widths={[520, 780, 1040, 1600]}
+            sizes="(min-width: 900px) 520px, 92vw"
+            loading="lazy"
+            decoding="async"
+            alt="A cueloop diff review of an error-handling change: the compose card open on a line, with comments from you and a teammate anchored inline and in the rail."
+          />
+          <Image
+            class="shot shot--light"
+            src={diffLight}
             widths={[520, 780, 1040, 1600]}
             sizes="(min-width: 900px) 520px, 92vw"
             loading="lazy"
@@ -169,8 +188,17 @@ import prototypeShot from "../assets/landing/prototype.png";
         </div>
         <div class="split__media">
           <Image
-            class="shot"
-            src={prototypeShot}
+            class="shot shot--dark"
+            src={prototypeDark}
+            widths={[520, 780, 1040, 1600]}
+            sizes="(min-width: 900px) 520px, 92vw"
+            loading="lazy"
+            decoding="async"
+            alt="A cueloop prototype review: a rendered buttons component in the terminal with reviewer comments from you and two teammates in the side rail."
+          />
+          <Image
+            class="shot shot--light"
+            src={prototypeLight}
             widths={[520, 780, 1040, 1600]}
             sizes="(min-width: 900px) 520px, 92vw"
             loading="lazy"
