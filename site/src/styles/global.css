@@ -1036,6 +1036,25 @@ pre {
   --m: 12px;
 }
 
+/* Product snapshot images (plan / diff / prototype): the shadow + rounded
+   corners are baked into the transparent PNG, so the element only needs to
+   scale down responsively and never overflow its column on mobile. */
+.shot {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+
+/* One capture per theme: show the variant that matches the active theme. The
+   hidden one is display:none, so its lazy <img> is never fetched until shown. */
+html[data-theme="light"] .shot--dark {
+  display: none;
+}
+html[data-theme="dark"] .shot--light {
+  display: none;
+}
+
 /* Mobile hero: left-aligned with full-width stacked buttons. */
 @media (max-width: 640px) {
   .hero {

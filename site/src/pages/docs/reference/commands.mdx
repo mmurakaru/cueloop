@@ -15,11 +15,12 @@ is the reference; for the ideas behind the verbs, read
 ## Open a review
 
 ```bash
-cueloop                 # open the inbox (every pending review)
-cueloop <session-id>    # open one session by its ses_… id
-cueloop plan [id|title] # latest pending plan, or one you name
-cueloop diff [id|title] # working-tree diff review
-cueloop review <pr>     # pull a pull request in and review it
+cueloop                     # open the inbox (every pending review)
+cueloop <session-id>        # open one session by its ses_… id
+cueloop plan [id|title]     # latest pending plan, or one you name
+cueloop diff [id|title]     # working-tree diff review
+cueloop prototype [file]    # review a rendered HTML mockup
+cueloop review <pr>         # pull a pull request in and review it
 ```
 
 - **`cueloop`** with no arguments opens the inbox across all types.
@@ -28,11 +29,15 @@ cueloop review <pr>     # pull a pull request in and review it
 - **`cueloop diff`** is dual-mode: on a dirty working tree with no argument it
   _creates_ a review from the current changes (untracked files included); with a
   selector, or on a clean tree, it opens the latest pending diff review.
+- **`cueloop prototype`** is dual-mode: with an HTML file it renders the mockup
+  in the terminal and _creates_ a review you annotate by clicking an element;
+  with no file (or `--latest` / `--open`) it opens the latest pending prototype
+  review.
 - **`cueloop review <pr>`** is dual-mode too: a bare `review` (or `--latest` /
   `--open` / a `ses_…` id) opens a pending pull-request review, while any other
   value is treated as a PR reference and pulls that PR in via `gh`.
 
-**Flags** (on `plan`, `diff`, `review`):
+**Flags** (on `plan`, `diff`, `prototype`, `review`):
 
 - `--latest` - open the latest pending review of that type.
 - `--open [id|title]` - open a pending review, optionally by id or title.
