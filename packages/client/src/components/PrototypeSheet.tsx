@@ -50,6 +50,9 @@ export interface PrototypeSheetProps {
 type SheetStatus = "loading" | "ready" | "unsupported" | "error";
 
 const POPOVER_ROWS = 3;
+/** Compose-card width, so the floating composer reads like the plan/diff one
+ *  instead of shrinking to its content. */
+const COMPOSE_COLS = 46;
 const PROTOTYPE_IMAGE_ID = 811;
 /** Page pixels scrolled per wheel notch. */
 const SCROLL_STEP = 240;
@@ -143,7 +146,11 @@ function PrototypeSheetImpl({
   const [status, setStatus] = useState<SheetStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [selected, setSelected] = useState<PrototypeElement | null>(null);
-  const [overlayCell, setOverlayCell] = useState<{ left: number; top: number } | null>(null);
+  const [overlayCell, setOverlayCell] = useState<{
+    left: number;
+    top: number;
+    regionColumns: number;
+  } | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [composing, setComposing] = useState(false);
   const [draftText, setDraftText] = useState("");
@@ -289,6 +296,7 @@ function PrototypeSheetImpl({
       setOverlayCell({
         left: Math.max(0, cell.column - geometry.x),
         top: Math.max(0, topRaw < POPOVER_ROWS ? topRaw + 1 : topRaw - POPOVER_ROWS),
+        regionColumns: geometry.width,
       });
       setActionsOpen(false);
       setComposing(false);
@@ -324,6 +332,15 @@ function PrototypeSheetImpl({
     top: Math.max(0, overlayCell?.top ?? 0),
     flexDirection: "column" as const,
     backgroundColor: tokens.elevated,
+  };
+  // keep the composer inside the region: never wider than the region, and
+  // clamped so it cannot run off either edge on a narrow preview
+  const regionColumns = overlayCell?.regionColumns ?? 0;
+  const composeWidth = regionColumns > 0 ? Math.min(COMPOSE_COLS, regionColumns) : COMPOSE_COLS;
+  const composeStyle = {
+    ...overlayStyle,
+    left: Math.max(0, Math.min(overlayStyle.left, regionColumns - composeWidth)),
+    width: composeWidth,
   };
 
   return (
@@ -372,7 +389,7 @@ function PrototypeSheetImpl({
         </box>
       ) : null}
       {selected && composing ? (
-        <box style={overlayStyle}>
+        <box style={composeStyle}>
           <AnnotationCard
             kind="comment"
             quote={selected.quote}
