@@ -1109,9 +1109,9 @@ pre {
 
 /* ---- Install tabs (React Aria Tabs) ---- */
 .install {
-  /* Fixed width sized to the longest command (nix), so switching tabs never
-   * reflows the widget. Caps to the container on narrow screens. */
-  width: 32rem;
+  /* Fixed width sized to the longest command (the curl one-liner), so switching
+   * tabs never reflows the widget. Caps to the container on narrow screens. */
+  width: 40rem;
   max-width: 100%;
   display: flex;
   flex-direction: column;

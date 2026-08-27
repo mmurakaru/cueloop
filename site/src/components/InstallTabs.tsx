@@ -1,8 +1,10 @@
 /*
- * Install-method picker: a React Aria Tabs widget over the ways to get cueloop
- * (npm, bun, pnpm, brew, mise, nix). Each panel shows one command with its own
- * copy affordance. Keyboard + ARIA come from react-aria-components; the visual
- * is a bordered terminal-style field with crop-marks.
+ * Install-method picker: a React Aria Tabs widget over the ways to get cueloop.
+ * The native paths lead - a curl one-liner and Homebrew, both node-version
+ * independent - with the package managers (npm, bun, pnpm, mise, nix) after.
+ * Each panel shows one command with its own copy affordance. Keyboard + ARIA
+ * come from react-aria-components; the visual is a bordered terminal-style
+ * field with crop-marks.
  */
 import { Tabs, TabList, Tab, TabPanel, Button } from "react-aria-components";
 import { useEffect, useState } from "react";
@@ -33,10 +35,11 @@ interface Method {
 }
 
 const METHODS: Method[] = [
+  { id: "curl", label: "curl", command: "curl -fsSL https://cueloop.dev/install.sh | sh" },
+  { id: "brew", label: "brew", command: "brew install cueloop" },
   { id: "npm", label: "npm", command: "npm i -g cueloop" },
   { id: "bun", label: "bun", command: "bun add -g cueloop" },
   { id: "pnpm", label: "pnpm", command: "pnpm add -g cueloop" },
-  { id: "brew", label: "brew", command: "brew install mmurakaru/tap/cueloop" },
   { id: "mise", label: "mise", command: "mise use -g npm:cueloop" },
   { id: "nix", label: "nix", command: "nix run github:mmurakaru/cueloop" },
 ];

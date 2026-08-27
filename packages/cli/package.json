@@ -26,6 +26,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "scripts": {
+    "build:binary": "bun build --compile --external cpu-features ./src/main.ts --outfile dist/cueloop"
+  },
   "dependencies": {
     "@cueloop/adapters": "0.1.0-alpha.54",
     "@cueloop/client": "0.1.0-alpha.54",

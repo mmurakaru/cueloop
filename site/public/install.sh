@@ -1,0 +1,165 @@
+#!/bin/sh
+# cueloop installer. Downloads the self-contained cueloop binary (the Bun
+# runtime is bundled in, so no Node and no separate Bun install are needed) from
+# GitHub Releases and drops it on a stable PATH.
+#
+#   curl -fsSL https://cueloop.dev/install.sh | sh
+#
+# Overrides (environment variables):
+#   CUELOOP_INSTALL_DIR   target directory (default: ~/.local/bin, else a
+#                         writable system dir)
+#   CUELOOP_VERSION       a release tag to pin (default: the newest release)
+#
+# The script is POSIX sh. pipefail is turned on where the shell supports it;
+# every download lands in a temp file first, so a broken pipe cannot pass a
+# truncated binary through undetected.
+set -eu
+if ( set -o pipefail 2>/dev/null ); then set -o pipefail; fi
+
+REPO="mmurakaru/cueloop"
+BINARY="cueloop"
+
+RED=''
+BOLD=''
+DIM=''
+RESET=''
+if [ -t 2 ]; then
+  RED="$(printf '\033[31m')"
+  BOLD="$(printf '\033[1m')"
+  DIM="$(printf '\033[2m')"
+  RESET="$(printf '\033[0m')"
+fi
+
+info() { printf '%s\n' "${DIM}cueloop:${RESET} $*" >&2; }
+error() {
+  printf '%s\n' "${RED}${BOLD}cueloop install failed:${RESET} $*" >&2
+  exit 1
+}
+
+# --- prerequisites --------------------------------------------------------
+if command -v curl >/dev/null 2>&1; then
+  DOWNLOAD="curl -fsSL"
+elif command -v wget >/dev/null 2>&1; then
+  DOWNLOAD="wget -qO-"
+else
+  error "need curl or wget on PATH to download the release."
+fi
+
+fetch() {
+  # fetch <url> -> stdout
+  if [ "$DOWNLOAD" = "curl -fsSL" ]; then
+    curl -fsSL "$1"
+  else
+    wget -qO- "$1"
+  fi
+}
+
+fetch_to() {
+  # fetch_to <url> <file>; fails on any HTTP error
+  if [ "$DOWNLOAD" = "curl -fsSL" ]; then
+    curl -fsSL -o "$2" "$1"
+  else
+    wget -qO "$2" "$1"
+  fi
+}
+
+# --- detect platform ------------------------------------------------------
+os="$(uname -s)"
+arch="$(uname -m)"
+
+case "$os" in
+  Darwin) os="darwin" ;;
+  Linux) os="linux" ;;
+  *) error "unsupported operating system '$os'. Install with npm instead: npm i -g cueloop" ;;
+esac
+
+case "$arch" in
+  x86_64 | amd64) arch="x64" ;;
+  arm64 | aarch64) arch="arm64" ;;
+  *) error "unsupported architecture '$arch'. Install with npm instead: npm i -g cueloop" ;;
+esac
+
+asset="${BINARY}-${os}-${arch}"
+
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/cueloop.XXXXXX")"
+trap 'rm -rf "$tmp"' EXIT INT TERM
+
+# --- resolve the release tag ----------------------------------------------
+# The release train runs prereleases, which GitHub's /releases/latest endpoint
+# skips, so read the releases list and take the newest matching tag unless one
+# is pinned.
+if [ "${CUELOOP_VERSION:-}" != "" ]; then
+  tag="$CUELOOP_VERSION"
+else
+  info "finding the latest release"
+  # The monorepo tags one release per published package; the CLI (with the
+  # binaries attached) is the one tagged `cueloop@<version>`. Take the newest
+  # such tag so a sibling package release never gets picked by mistake.
+  fetch_to "https://api.github.com/repos/${REPO}/releases?per_page=100" "${tmp}/releases.json" ||
+    error "could not reach the GitHub releases API."
+  tag="$(grep -m1 '"tag_name"[[:space:]]*:[[:space:]]*"cueloop@' "${tmp}/releases.json" |
+    sed -e 's/.*"tag_name"[[:space:]]*:[[:space:]]*"//' -e 's/".*//')"
+  [ "$tag" != "" ] || error "no cueloop release found for ${REPO} yet."
+fi
+
+base="https://github.com/${REPO}/releases/download/${tag}"
+
+# --- download -------------------------------------------------------------
+info "downloading ${BOLD}${asset}${RESET} (${tag})"
+fetch_to "${base}/${asset}" "${tmp}/${BINARY}" ||
+  error "no binary '${asset}' in release ${tag}. Your platform may not have a prebuilt binary yet - install with npm instead: npm i -g cueloop"
+
+# --- verify checksum (when the release ships one) -------------------------
+if fetch_to "${base}/checksums.txt" "${tmp}/checksums.txt" 2>/dev/null; then
+  expected="$(grep " ${asset}\$" "${tmp}/checksums.txt" 2>/dev/null | awk '{print $1}' || true)"
+  if [ "$expected" != "" ]; then
+    if command -v sha256sum >/dev/null 2>&1; then
+      actual="$(sha256sum "${tmp}/${BINARY}" | awk '{print $1}')"
+    elif command -v shasum >/dev/null 2>&1; then
+      actual="$(shasum -a 256 "${tmp}/${BINARY}" | awk '{print $1}')"
+    else
+      actual=""
+      info "no sha256 tool found; skipping checksum verification"
+    fi
+    if [ "$actual" != "" ] && [ "$actual" != "$expected" ]; then
+      error "checksum mismatch for ${asset}. Expected ${expected}, got ${actual}."
+    fi
+    [ "$actual" != "" ] && info "checksum verified"
+  fi
+fi
+
+chmod +x "${tmp}/${BINARY}"
+
+# --- choose an install directory ------------------------------------------
+# Prefer a per-user dir that survives Node/Bun version switches. Fall back to a
+# system dir only when it is already writable, so the install stays sudo-free.
+if [ "${CUELOOP_INSTALL_DIR:-}" != "" ]; then
+  install_dir="$CUELOOP_INSTALL_DIR"
+elif [ -w "/usr/local/bin" ] && [ -d "/usr/local/bin" ]; then
+  install_dir="/usr/local/bin"
+else
+  install_dir="${HOME}/.local/bin"
+fi
+
+mkdir -p "$install_dir" || error "cannot create ${install_dir}."
+target="${install_dir}/${BINARY}"
+
+if mv "${tmp}/${BINARY}" "$target" 2>/dev/null; then
+  :
+else
+  error "cannot write ${target}. Re-run with CUELOOP_INSTALL_DIR set to a writable directory."
+fi
+
+info "installed ${BOLD}${target}${RESET}"
+
+# --- PATH hint ------------------------------------------------------------
+case ":${PATH}:" in
+  *":${install_dir}:"*)
+    info "run ${BOLD}cueloop${RESET} to get started"
+    ;;
+  *)
+    info "${install_dir} is not on your PATH. Add it:"
+    printf '\n    export PATH="%s:$PATH"\n\n' "$install_dir" >&2
+    info "then run ${BOLD}cueloop${RESET}"
+    ;;
+esac
