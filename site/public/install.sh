@@ -94,25 +94,25 @@ fetch_to() {
 banner
 
 # --- detect platform ------------------------------------------------------
-os="$(uname -s)"
-arch="$(uname -m)"
+operating_system="$(uname -s)"
+architecture="$(uname -m)"
 
-case "$os" in
-  Darwin) os="darwin" ;;
-  Linux) os="linux" ;;
-  *) error "unsupported operating system '$os'. Install with npm instead: npm i -g cueloop" ;;
+case "$operating_system" in
+  Darwin) operating_system="darwin" ;;
+  Linux) operating_system="linux" ;;
+  *) error "unsupported operating system '$operating_system'. Install with npm instead: npm i -g cueloop" ;;
 esac
 
-case "$arch" in
-  x86_64 | amd64) arch="x64" ;;
-  arm64 | aarch64) arch="arm64" ;;
-  *) error "unsupported architecture '$arch'. Install with npm instead: npm i -g cueloop" ;;
+case "$architecture" in
+  x86_64 | amd64) architecture="x64" ;;
+  arm64 | aarch64) architecture="arm64" ;;
+  *) error "unsupported architecture '$architecture'. Install with npm instead: npm i -g cueloop" ;;
 esac
 
-asset="${BINARY}-${os}-${arch}"
+asset="${BINARY}-${operating_system}-${architecture}"
 
-tmp="$(mktemp -d "${TMPDIR:-/tmp}/cueloop.XXXXXX")"
-trap 'rm -rf "$tmp"' EXIT INT TERM
+temporary_directory="$(mktemp -d "${TMPDIR:-/tmp}/cueloop.XXXXXX")"
+trap 'rm -rf "$temporary_directory"' EXIT INT TERM
 
 # --- resolve the release tag ----------------------------------------------
 # The release train runs prereleases, which GitHub's /releases/latest endpoint
@@ -125,9 +125,9 @@ else
   # The monorepo tags one release per published package; the CLI (with the
   # binaries attached) is the one tagged `cueloop@<version>`. Take the newest
   # such tag so a sibling package release never gets picked by mistake.
-  fetch_to "https://api.github.com/repos/${REPO}/releases?per_page=100" "${tmp}/releases.json" ||
+  fetch_to "https://api.github.com/repos/${REPO}/releases?per_page=100" "${temporary_directory}/releases.json" ||
     error "could not reach the GitHub releases API."
-  tag="$(grep -m1 '"tag_name"[[:space:]]*:[[:space:]]*"cueloop@' "${tmp}/releases.json" |
+  tag="$(grep -m1 '"tag_name"[[:space:]]*:[[:space:]]*"cueloop@' "${temporary_directory}/releases.json" |
     sed -e 's/.*"tag_name"[[:space:]]*:[[:space:]]*"//' -e 's/".*//')"
   [ "$tag" != "" ] || error "no cueloop release found for ${REPO} yet."
 fi
@@ -136,29 +136,31 @@ base="https://github.com/${REPO}/releases/download/${tag}"
 
 # --- download -------------------------------------------------------------
 info "downloading ${BOLD}${asset}${RESET} (${tag})"
-fetch_to "${base}/${asset}" "${tmp}/${BINARY}" ||
+fetch_to "${base}/${asset}" "${temporary_directory}/${BINARY}" ||
   error "no binary '${asset}' in release ${tag}. Your platform may not have a prebuilt binary yet - install with npm instead: npm i -g cueloop"
 
-# --- verify checksum (when the release ships one) -------------------------
-if fetch_to "${base}/checksums.txt" "${tmp}/checksums.txt" 2>/dev/null; then
-  expected="$(grep " ${asset}\$" "${tmp}/checksums.txt" 2>/dev/null | awk '{print $1}' || true)"
-  if [ "$expected" != "" ]; then
-    if command -v sha256sum >/dev/null 2>&1; then
-      actual="$(sha256sum "${tmp}/${BINARY}" | awk '{print $1}')"
-    elif command -v shasum >/dev/null 2>&1; then
-      actual="$(shasum -a 256 "${tmp}/${BINARY}" | awk '{print $1}')"
-    else
-      actual=""
-      info "no sha256 tool found; skipping checksum verification"
-    fi
-    if [ "$actual" != "" ] && [ "$actual" != "$expected" ]; then
-      error "checksum mismatch for ${asset}. Expected ${expected}, got ${actual}."
-    fi
-    [ "$actual" != "" ] && info "checksum verified"
-  fi
+# --- verify checksum (required) -------------------------------------------
+# Our releases always publish checksums.txt. Refuse to install a binary we
+# cannot verify rather than trusting an unchecked `curl | sh` download: a
+# missing checksum file, a missing entry, or the absence of a sha256 tool are
+# all hard failures, not skipped steps.
+fetch_to "${base}/checksums.txt" "${temporary_directory}/checksums.txt" 2>/dev/null ||
+  error "release ${tag} has no checksums.txt; refusing to install an unverified binary."
+expected="$(grep " ${asset}\$" "${temporary_directory}/checksums.txt" 2>/dev/null | awk '{print $1}' || true)"
+[ "$expected" != "" ] ||
+  error "no checksum for ${asset} in release ${tag}; refusing to install an unverified binary."
+if command -v sha256sum >/dev/null 2>&1; then
+  actual="$(sha256sum "${temporary_directory}/${BINARY}" | awk '{print $1}')"
+elif command -v shasum >/dev/null 2>&1; then
+  actual="$(shasum -a 256 "${temporary_directory}/${BINARY}" | awk '{print $1}')"
+else
+  error "need sha256sum or shasum to verify the download; neither is on PATH."
 fi
+[ "$actual" = "$expected" ] ||
+  error "checksum mismatch for ${asset}. Expected ${expected}, got ${actual}."
+info "checksum verified"
 
-chmod +x "${tmp}/${BINARY}"
+chmod +x "${temporary_directory}/${BINARY}"
 
 # --- choose an install directory ------------------------------------------
 # Prefer a per-user dir that survives Node/Bun version switches. Fall back to a
@@ -174,7 +176,7 @@ fi
 mkdir -p "$install_dir" || error "cannot create ${install_dir}."
 target="${install_dir}/${BINARY}"
 
-if mv "${tmp}/${BINARY}" "$target" 2>/dev/null; then
+if mv "${temporary_directory}/${BINARY}" "$target" 2>/dev/null; then
   :
 else
   error "cannot write ${target}. Re-run with CUELOOP_INSTALL_DIR set to a writable directory."
