@@ -146,7 +146,11 @@ function PrototypeSheetImpl({
   const [status, setStatus] = useState<SheetStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [selected, setSelected] = useState<PrototypeElement | null>(null);
-  const [overlayCell, setOverlayCell] = useState<{ left: number; top: number } | null>(null);
+  const [overlayCell, setOverlayCell] = useState<{
+    left: number;
+    top: number;
+    regionColumns: number;
+  } | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [composing, setComposing] = useState(false);
   const [draftText, setDraftText] = useState("");
@@ -292,6 +296,7 @@ function PrototypeSheetImpl({
       setOverlayCell({
         left: Math.max(0, cell.column - geometry.x),
         top: Math.max(0, topRaw < POPOVER_ROWS ? topRaw + 1 : topRaw - POPOVER_ROWS),
+        regionColumns: geometry.width,
       });
       setActionsOpen(false);
       setComposing(false);
@@ -328,16 +333,14 @@ function PrototypeSheetImpl({
     flexDirection: "column" as const,
     backgroundColor: tokens.elevated,
   };
-  // the composer carries a fixed width so it reads like the plan/diff card; keep
-  // it inside the region when the clicked element sits near the right edge
-  const regionColumns = regionRef.current?.width ?? 0;
+  // keep the composer inside the region: never wider than the region, and
+  // clamped so it cannot run off either edge on a narrow preview
+  const regionColumns = overlayCell?.regionColumns ?? 0;
+  const composeWidth = regionColumns > 0 ? Math.min(COMPOSE_COLS, regionColumns) : COMPOSE_COLS;
   const composeStyle = {
     ...overlayStyle,
-    left:
-      regionColumns > COMPOSE_COLS
-        ? Math.min(overlayStyle.left, regionColumns - COMPOSE_COLS)
-        : overlayStyle.left,
-    width: COMPOSE_COLS,
+    left: Math.max(0, Math.min(overlayStyle.left, regionColumns - composeWidth)),
+    width: composeWidth,
   };
 
   return (
