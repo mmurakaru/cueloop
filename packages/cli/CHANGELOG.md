@@ -1,5 +1,41 @@
 # cueloop
 
+## 0.1.0-alpha.56
+
+### Patch Changes
+
+- [#266](https://github.com/mmurakaru/cueloop/pull/266) [`0c8f353`](https://github.com/mmurakaru/cueloop/commit/0c8f3534cd59be2c169d0ebc7cb820a49ff24d6d) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add a `build:binary` script that compiles cueloop into a self-contained executable with `bun build --compile`, bundling the Bun runtime so the binary needs neither Node nor a separate Bun. A release workflow builds one binary per platform (darwin-arm64, darwin-x64, linux-x64, linux-arm64) and attaches them, with a `checksums.txt`, to the GitHub Release. A curl installer served at `cueloop.dev/install.sh` and a Homebrew formula download those binaries, so `curl -fsSL https://cueloop.dev/install.sh | sh` and `brew install cueloop` install onto a stable PATH that survives Node version switches.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.56
+  - @cueloop/client@0.1.0-alpha.56
+  - @cueloop/daemon@0.1.0-alpha.56
+  - @cueloop/schema@0.1.0-alpha.56
+
+## 0.1.0-alpha.55
+
+### Patch Changes
+
+- [#265](https://github.com/mmurakaru/cueloop/pull/265) [`e5e3a9e`](https://github.com/mmurakaru/cueloop/commit/e5e3a9ee28f8fc6158d9eccb81b1a9afb2f95eb5) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Render prototype mockups on the terminal's own surface. The mockup page's root background is no longer painted as an opaque box; the render is captured with an alpha channel, so a prototype emerges into whatever theme the terminal is running - its own components composited over the active surface - instead of floating in a fixed grey card.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.55
+  - @cueloop/client@0.1.0-alpha.55
+  - @cueloop/daemon@0.1.0-alpha.55
+  - @cueloop/schema@0.1.0-alpha.55
+
+## 0.1.0-alpha.54
+
+### Patch Changes
+
+- [#260](https://github.com/mmurakaru/cueloop/pull/260) [`e78fed9`](https://github.com/mmurakaru/cueloop/commit/e78fed908daacec20fefe382db5f980e880fe327) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Make the branded transparent theme readable on a light terminal. The default `cueloop` theme leaves the background unpainted so the terminal shows through, but its text was tuned only for a dark terminal - on a white background it rendered light-on-light (notably for a collaborator opening a shared plan over SSH). cueloop now queries the terminal's background at startup (OpenTUI's OSC theme-mode query, ~200ms budget, falling back to dark) and picks a light transparent variant with dark text when the terminal is light. Applies to both the local TUI and the SSH-served observer view. The opaque palette presets (Catppuccin, Nord, …) are unchanged - they paint their own background and already read the same either way.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.54
+  - @cueloop/client@0.1.0-alpha.54
+  - @cueloop/daemon@0.1.0-alpha.54
+  - @cueloop/schema@0.1.0-alpha.54
+
 ## 0.1.0-alpha.53
 
 ### Patch Changes

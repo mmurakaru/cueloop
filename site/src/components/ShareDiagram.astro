@@ -1,0 +1,126 @@
+---
+/**
+ * The SSH share loop as a theme-adaptive diagram: your terminal mints a link,
+ * cueloop.dev holds an encrypted blob, a teammate opens it over SSH, and their
+ * annotations come back attributed. Replaces the old static share screenshot.
+ * A vertical flow so it reads cleanly inside a narrow half-width column and
+ * never wraps a label mid-word. Colors read from the site tokens (light/dark).
+ */
+---
+
+<figure class="sharemap" aria-label="How sharing works: you share a plan over SSH, a teammate annotates it in their own terminal, and their notes come back attributed to them.">
+  <div class="node">
+    <span class="node__label">you</span>
+    <div class="node__body">
+      <span class="node__title">cueloop share</span>
+      <span class="node__sub">a plan, held locally</span>
+    </div>
+  </div>
+
+  <div class="link">
+    <svg class="link__arrow" width="12" height="30" viewBox="0 0 12 34" aria-hidden="true">
+      <line x1="6" y1="0" x2="6" y2="26" />
+      <polygon points="1,26 11,26 6,34" />
+    </svg>
+    <span class="link__cap">ssh &middot; one encrypted blob</span>
+  </div>
+
+  <div class="node node--hub">
+    <span class="node__label">cueloop.dev</span>
+    <div class="node__body">
+      <span class="node__title">encrypted store</span>
+      <span class="node__sub">reached only by its short, unguessable link</span>
+    </div>
+  </div>
+
+  <div class="link">
+    <svg class="link__arrow" width="12" height="30" viewBox="0 0 12 34" aria-hidden="true">
+      <line x1="6" y1="0" x2="6" y2="26" />
+      <polygon points="1,26 11,26 6,34" />
+    </svg>
+    <span class="link__cap">ssh &lt;id&gt;@cueloop.dev</span>
+  </div>
+
+  <div class="node">
+    <span class="node__label">teammate</span>
+    <div class="node__body">
+      <span class="node__title">opens in their terminal</span>
+      <span class="node__sub">your notes already on it</span>
+    </div>
+  </div>
+
+  <div class="sharemap__return">
+    <svg class="return__arrow" width="12" height="30" viewBox="0 0 12 34" aria-hidden="true">
+      <line x1="6" y1="8" x2="6" y2="34" />
+      <polygon points="1,8 11,8 6,0" />
+    </svg>
+    <span class="return__cap">annotations come back, attributed to them</span>
+  </div>
+</figure>
+
+<style>
+  .sharemap {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 1.75rem 1.5rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--radius, 12px);
+    background: var(--paper-raised);
+    font-family: var(--font-mono);
+  }
+  .node {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 10px;
+    background: var(--paper);
+  }
+  .node--hub {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent) inset;
+  }
+  .node__label {
+    flex: none;
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .node__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .node__title { font-size: 0.88rem; line-height: 1.3; color: var(--ink); }
+  .node__sub { font-size: 0.75rem; line-height: 1.3; color: var(--ink-soft); }
+
+  .link {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem 0 0.35rem 1.4rem;
+  }
+  .link__arrow { width: 12px; height: 30px; flex: none; }
+  .link__cap { font-size: 0.68rem; color: var(--ink-soft); }
+  .link line, .return__arrow line { stroke: var(--hairline-strong); stroke-width: 1.5; }
+  .link polygon, .return__arrow polygon { fill: var(--ink-soft); }
+
+  .sharemap__return {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-top: 1.1rem;
+    padding: 1.1rem 0 0 1.4rem;
+    border-top: 1px dashed var(--hairline);
+  }
+  .return__arrow { width: 12px; height: 30px; flex: none; }
+  .return__arrow polygon { fill: var(--accent); }
+  .return__arrow line { stroke: var(--accent); }
+  .return__cap { font-size: 0.68rem; color: var(--accent); }
+</style>
