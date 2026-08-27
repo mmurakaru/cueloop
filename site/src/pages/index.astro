@@ -5,7 +5,7 @@ import CopyCommand from "../components/CopyCommand.tsx";
 import InstallTabs from "../components/InstallTabs.tsx";
 
 // Captures are pre-rendered lossless webp in /public/landing (zero re-encode),
-// two widths each for hi-DPI, one variant per theme. See snapshots/*.ts.
+// several widths each for hi-DPI displays, one variant per theme. See snapshots/*.ts.
 ---
 
 <BaseLayout>
@@ -61,7 +61,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
       <div class="hero__showcase">
         <img
           class="shot shot--dark"
-          srcset="/landing/plan-dark-1240.webp 1240w, /landing/plan-dark-2480.webp 2480w"
+          srcset="/landing/plan-dark-1240.webp 1240w, /landing/plan-dark-2480.webp 2480w, /landing/plan-dark-3720.webp 3720w, /landing/plan-dark-4960.webp 4960w"
           sizes="(min-width: 900px) 1104px, 92vw"
           src="/landing/plan-dark-2480.webp"
           width="2480"
@@ -71,7 +71,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
         />
         <img
           class="shot shot--light"
-          srcset="/landing/plan-light-1240.webp 1240w, /landing/plan-light-2480.webp 2480w"
+          srcset="/landing/plan-light-1240.webp 1240w, /landing/plan-light-2480.webp 2480w, /landing/plan-light-3720.webp 3720w, /landing/plan-light-4960.webp 4960w"
           sizes="(min-width: 900px) 1104px, 92vw"
           src="/landing/plan-light-2480.webp"
           width="2480"
@@ -148,7 +148,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
         <div class="split__media">
           <img
             class="shot shot--dark"
-            srcset="/landing/diff-dark-700.webp 700w, /landing/diff-dark-1400.webp 1400w"
+            srcset="/landing/diff-dark-700.webp 700w, /landing/diff-dark-1400.webp 1400w, /landing/diff-dark-2100.webp 2100w"
             sizes="(min-width: 900px) 520px, 92vw"
             src="/landing/diff-dark-1400.webp"
             width="1400"
@@ -159,7 +159,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
           />
           <img
             class="shot shot--light"
-            srcset="/landing/diff-light-700.webp 700w, /landing/diff-light-1400.webp 1400w"
+            srcset="/landing/diff-light-700.webp 700w, /landing/diff-light-1400.webp 1400w, /landing/diff-light-2100.webp 2100w"
             sizes="(min-width: 900px) 520px, 92vw"
             src="/landing/diff-light-1400.webp"
             width="1400"
@@ -193,7 +193,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
         <div class="split__media">
           <img
             class="shot shot--dark"
-            srcset="/landing/prototype-dark-700.webp 700w, /landing/prototype-dark-1400.webp 1400w"
+            srcset="/landing/prototype-dark-700.webp 700w, /landing/prototype-dark-1400.webp 1400w, /landing/prototype-dark-2100.webp 2100w"
             sizes="(min-width: 900px) 520px, 92vw"
             src="/landing/prototype-dark-1400.webp"
             width="1400"
@@ -204,7 +204,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
           />
           <img
             class="shot shot--light"
-            srcset="/landing/prototype-light-700.webp 700w, /landing/prototype-light-1400.webp 1400w"
+            srcset="/landing/prototype-light-700.webp 700w, /landing/prototype-light-1400.webp 1400w, /landing/prototype-light-2100.webp 2100w"
             sizes="(min-width: 900px) 520px, 92vw"
             src="/landing/prototype-light-1400.webp"
             width="1400"
