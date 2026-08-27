@@ -9,13 +9,25 @@ next: { title: "The review session", href: "/docs/concepts/review-session/" }
 
 import InstallTabs from "../../components/InstallTabs.tsx";
 
-cueloop is a single command-line tool. Install it globally with whichever
-package manager you already use:
+cueloop is a single command-line tool. The fastest path is the native
+installer - one curl line, or Homebrew - which drops a self-contained binary on
+your PATH and stays there regardless of your Node setup. Package managers work
+too if you already live in one.
 
 <InstallTabs client:load />
 
-All of them install the same `cueloop` binary. The Homebrew formula and the Nix
-flake track the latest published release.
+The curl script detects your OS and architecture, downloads the matching binary
+from GitHub Releases, and installs it to ~/.local/bin (or a writable system
+directory). The binary bundles its own runtime, so it needs neither Node nor a
+separate Bun. Homebrew installs the same binary and keeps it current with a
+plain brew upgrade.
+
+<div class="callout callout--note">
+  <div class="callout__label">Using npm, bun, or pnpm? Pin your Node version</div>A global npm-style
+  install writes the cueloop launcher into the bin directory of the active Node version. Switch Node
+  - an nvm default drift, a new .nvmrc - and that launcher drops off your PATH. Pin the Node version
+  you install under, or use the curl or Homebrew path, which do not depend on Node at all.
+</div>
 
 ## First run
 

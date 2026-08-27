@@ -1,0 +1,91 @@
+name: release-binaries
+
+# Attaches the self-contained cueloop binaries to a GitHub Release. `bun build
+# --compile` bundles the Bun runtime into each binary, so users need neither
+# Node nor a separate Bun install. Each platform compiles on its own runner:
+# `bun install` there pulls the matching @opentui/core-<platform> native package
+# and the compile embeds it, which a single cross-compiling host cannot do.
+#
+# The changesets release step tags one GitHub Release per published package; the
+# CLI is `cueloop@<version>`, and only that release carries binaries. install.sh
+# (served at cueloop.dev/install.sh) and the Homebrew formula download them.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build binaries for (e.g. cueloop@0.1.0-alpha.54)"
+        required: true
+
+concurrency:
+  group: release-binaries-${{ github.event.release.tag_name || github.event.inputs.tag }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  build:
+    # Only the CLI package release carries binaries; skip the sibling-package
+    # release events changesets fires in the same publish run.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.release.tag_name, 'cueloop@')
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write # upload assets to the release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin-arm64
+            runner: macos-15
+          - target: darwin-x64
+            runner: macos-15-intel
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Compile standalone binary
+        run: |
+          cd packages/cli
+          bun run build:binary
+          mv dist/cueloop "dist/cueloop-${{ matrix.target }}"
+      - name: Smoke-test the binary
+        run: packages/cli/dist/cueloop-${{ matrix.target }} --version
+      - name: Upload binary to the release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          files: packages/cli/dist/cueloop-${{ matrix.target }}
+
+  checksums:
+    name: Checksums
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # upload checksums.txt to the release
+    steps:
+      - name: Compute and upload checksums.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: |
+          mkdir -p assets && cd assets
+          for target in darwin-arm64 darwin-x64 linux-x64 linux-arm64; do
+            gh release download "$TAG" --pattern "cueloop-$target" --dir .
+          done
+          sha256sum cueloop-* > checksums.txt
+          cat checksums.txt
+          gh release upload "$TAG" checksums.txt --clobber

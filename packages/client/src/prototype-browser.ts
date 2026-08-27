@@ -140,6 +140,16 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
     // `load` waits for images and styles but skips networkidle0's fixed 500ms
     // idle window, which a static local file would otherwise always pay
     await page.goto(pathToFileURL(options.filePath).href, { waitUntil: "load" });
+    // Render the mockup on the terminal's own surface rather than on an opaque
+    // page: strip the root background so it never paints a square box, and the
+    // capture (taken with alpha, below) lets the active terminal theme show
+    // through around the mockup's own components - the prototype emerges into
+    // whatever theme is running instead of sitting in a grey card.
+    await page.evaluate(() => {
+      for (const element of [document.documentElement, document.body]) {
+        element?.style.setProperty("background", "transparent", "important");
+      }
+    });
   } catch (error) {
     await page.close().catch(() => undefined);
     throw error;
@@ -148,7 +158,13 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
   return {
     viewport: options.viewport,
     async screenshot() {
-      const buffer = await page.screenshot({ type: "png", encoding: "binary" });
+      // omitBackground keeps the alpha from the stripped page background, so the
+      // terminal composites the mockup over its own theme surface.
+      const buffer = await page.screenshot({
+        type: "png",
+        encoding: "binary",
+        omitBackground: true,
+      });
       return new Uint8Array(buffer as Buffer);
     },
     async elementAt(cssX, cssY) {
