@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { MemoryShareStore, r2StoreFromEnv } from "./store";
+import { isExpired, MemoryShareStore, r2StoreFromEnv, SHARE_TTL_MS } from "./store";
 
 describe(MemoryShareStore, () => {
   test("get returns the bytes a matching put stored", async () => {
@@ -17,6 +17,61 @@ describe(MemoryShareStore, () => {
   test("get returns null for an unknown id", async () => {
     // Act / Assert
     expect(await new MemoryShareStore().get("p_missing0")).toBeNull();
+  });
+
+  test("a blob is gone once the TTL has elapsed", async () => {
+    // Arrange
+    let now = 1_000_000;
+    const store = new MemoryShareStore(() => now);
+
+    await store.put("p_expires0", new Uint8Array([9]));
+
+    // Act: jump just past the retention window
+    now += SHARE_TTL_MS;
+
+    // Assert
+    expect(await store.get("p_expires0")).toBeNull();
+  });
+
+  test("a blob just inside the TTL is still returned", async () => {
+    // Arrange
+    let now = 1_000_000;
+    const store = new MemoryShareStore(() => now);
+    const bytes = new Uint8Array([7]);
+
+    await store.put("p_fresh000", bytes);
+
+    // Act: one millisecond short of the window
+    now += SHARE_TTL_MS - 1;
+
+    // Assert
+    expect(await store.get("p_fresh000")).toEqual(bytes);
+  });
+
+  test("a fresh write restarts the retention window", async () => {
+    // Arrange
+    let now = 1_000_000;
+    const store = new MemoryShareStore(() => now);
+
+    await store.put("p_renewed0", new Uint8Array([1]));
+
+    // Act: nearly expire, then rewrite (a revision push)
+    now += SHARE_TTL_MS - 1;
+    const revised = new Uint8Array([2]);
+
+    await store.put("p_renewed0", revised);
+    now += SHARE_TTL_MS - 1;
+
+    // Assert: still reachable because the second write reset the clock
+    expect(await store.get("p_renewed0")).toEqual(revised);
+  });
+});
+
+describe(isExpired, () => {
+  test("is exclusive at the boundary and inclusive past it", () => {
+    // Assert
+    expect(isExpired(0, SHARE_TTL_MS - 1)).toBe(false);
+    expect(isExpired(0, SHARE_TTL_MS)).toBe(true);
   });
 });
 

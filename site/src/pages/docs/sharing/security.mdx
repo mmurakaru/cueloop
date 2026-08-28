@@ -31,9 +31,10 @@ annotations in the clear. The blobs live in Cloudflare R2.
 
 ## Bounded lifetime and size
 
-A shared blob expires after 30 days by default, so a share does not linger
-forever. Blobs are also size-capped, which keeps a single share from growing
-without limit.
+A shared blob expires 30 days after its last update, so a share does not linger
+forever - once that window passes the gateway treats the blob as gone, and a
+revision restarts the clock. Blobs are also size-capped, which keeps a single
+share from growing without limit.
 
 ## A minimal front door
 
