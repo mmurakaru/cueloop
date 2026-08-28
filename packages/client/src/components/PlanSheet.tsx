@@ -10,7 +10,7 @@
 
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useRenderer } from "@opentui/react";
-import { createTextAttributes, type ScrollBoxRenderable, type TextRenderable } from "@opentui/core";
+import { type ScrollBoxRenderable, type TextRenderable } from "@opentui/core";
 import type { ReviewSession } from "@cueloop/schema";
 import {
   blockRuns,
@@ -31,18 +31,7 @@ import { CodeBlock } from "./CodeBlock";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { MarkerPopover, type MarkerPopoverProps } from "./MarkerPopover";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
-
-/** A cut block reads as removed: struck through and grayed, never red. */
-const CUT_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
-
-/** Inline-emphasis attributes, reused per run so the render loop allocates none. */
-const STRONG_ATTRIBUTES = createTextAttributes({ bold: true });
-const EM_ATTRIBUTES = createTextAttributes({ italic: true });
-const STRIKE_ATTRIBUTES = createTextAttributes({ strikethrough: true });
-const LINK_ATTRIBUTES = createTextAttributes({ underline: true });
-/** Block-level base attributes: headings read bold, blockquotes read italic. */
-const HEADING_ATTRIBUTES = createTextAttributes({ bold: true });
-const QUOTE_ATTRIBUTES = createTextAttributes({ italic: true });
+import { runStyle } from "./plan-sheet-run-style";
 
 /** The popover toolbar card is 3 rows tall and sits flush above the marked words. */
 const POPOVER_ROWS_ABOVE = 3;
@@ -404,53 +393,4 @@ function tagLabel(block: DisplayBlock): "new" | "edited" {
 
 function tagColor(block: DisplayBlock, tokens: Theme): string {
   return block.type === "add" ? tokens.green : tokens.accent;
-}
-
-function runStyle(
-  run: StyleRun,
-  block: DisplayBlock,
-  tokens: Theme,
-): { fg?: string; bg?: string; attributes?: number } {
-  // a cut block reads as removed: every run struck through and grayed, never red
-  if (block.type === "del") return { fg: tokens.textDim, attributes: CUT_ATTRIBUTES };
-  const isHeading = block.kind === "h1" || block.kind === "h2" || block.kind === "h3";
-  const isQuote = block.kind === "quote";
-  // headings are all bold; level reads from descending brightness alone (a
-  // terminal cannot scale font size), leaving the salmon accent to annotations
-  const headingFg =
-    block.kind === "h1"
-      ? tokens.text
-      : block.kind === "h2"
-        ? tokens.textMuted
-        : block.kind === "h3"
-          ? tokens.textDim
-          : undefined;
-  // block-level base: headings bold, quotes muted italic; inline roles compose on top
-  const baseFg = headingFg ?? (isQuote ? tokens.textMuted : tokens.text);
-  const baseAttributes = (isHeading ? HEADING_ATTRIBUTES : 0) | (isQuote ? QUOTE_ATTRIBUTES : 0);
-  const withBase = (roleAttributes: number): number => baseAttributes | roleAttributes;
-  switch (run.role) {
-    case "ins":
-      return { fg: tokens.insertedForeground, attributes: baseAttributes || undefined };
-    case "del":
-      return { fg: tokens.deletedForeground };
-    case "mark-comment":
-      return { fg: tokens.text, bg: tokens.markCommentBackground };
-    case "mark-focus":
-      return { fg: tokens.accentInk, bg: tokens.accent };
-    case "kspan":
-      return { fg: tokens.accentInk, bg: tokens.accent };
-    case "strong":
-      return { fg: baseFg, attributes: withBase(STRONG_ATTRIBUTES) };
-    case "em":
-      return { fg: baseFg, attributes: withBase(EM_ATTRIBUTES) };
-    case "code":
-      return { fg: tokens.text, bg: tokens.elevated };
-    case "strike":
-      return { fg: tokens.textMuted, attributes: withBase(STRIKE_ATTRIBUTES) };
-    case "link":
-      return { fg: tokens.blue, attributes: withBase(LINK_ATTRIBUTES) };
-    default:
-      return { fg: baseFg, attributes: baseAttributes || undefined };
-  }
 }
