@@ -19,52 +19,34 @@ import React, {
 } from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock, MouseEvent } from "@opentui/core";
-import { type VerdictKind } from "@cueloop/schema";
 import { displayText, marksByDisplay, spanFromRange, type Mark } from "./view-plan";
-import { noteForFile, viewedCount } from "./walk";
 import { dimmedTheme } from "./theme";
 import {
   DEFAULT_KEYS,
   DEFAULT_QUICK_ACTIONS,
   loadConfig,
-  persistActions,
   persistAuthorName,
-  persistAutoClose,
-  persistTheme,
   type AutoClose,
   type QuickAction,
 } from "./config";
 import {
   composeTheme,
   DEFAULT_THEME_NAME,
-  THEME_LABELS,
-  THEME_NAMES,
   themeForName,
   type Appearance,
   type ThemeName,
 } from "./theme-presets";
 import type { Theme } from "./theme";
-import { returnPaneFor } from "@cueloop/schema";
 import { createReviewController } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { launchHarnessInSplit } from "@cueloop/daemon/herdr-split";
-import {
-  activeSpanState,
-  createIntentDispatch,
-  reviewerAnnotations,
-  type Mode,
-} from "./intent-dispatch";
-import { reduceKey, type KeyState } from "./keymap";
+import { activeSpanState, createIntentDispatch, type Mode } from "./intent-dispatch";
+import { reduceKey } from "./keymap";
 import { KeyBindings } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
-import { MenuBar } from "./components/MenuBar";
-import { KeybindsDialog } from "./components/KeybindsDialog";
-import { SettingsDialog, type SettingsCategory } from "./components/SettingsDialog";
-import { QuickActionsEditor } from "./components/quick-actions-editor";
-import { CLIENT_VERSION } from "./version";
-import { Breadcrumb, type BreadcrumbItem } from "./components/Breadcrumb";
+import { Breadcrumb } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { DiffSheet } from "./components/DiffSheet";
 import { PrototypeSheet } from "./components/PrototypeSheet";
@@ -73,19 +55,39 @@ import { type ReviewRailHandle } from "./components/ReviewRail";
 import type { AgentTerminalHandle } from "./components/agent-launcher";
 import { ReviewPanel } from "./components/ReviewPanel";
 import {
-  REVIEW_COMPACT_WIDTH,
   REVIEW_DEFAULT_WIDTH,
   resolveReviewWidth,
   toggleReviewPanelMode,
   widthFromMouseColumn,
   type ReviewPanelMode,
 } from "./review-panel";
-import { CompletionOverlay } from "./components/CompletionOverlay";
-import { InboxList } from "./components/InboxList";
-import { ConfirmDialog } from "./components/ConfirmDialog";
-import { PromptDialog } from "./components/PromptDialog";
-import { WalkWizard } from "./components/WalkWizard";
-import { Toast } from "./components/Toast";
+import {
+  buildActiveSpan,
+  buildCardEditState,
+  buildComposeState,
+  buildDiffComposeState,
+  buildHeaderItems,
+  buildPopoverState,
+  buildRenderFlags,
+  buildSubmitConfirmState,
+  computePendingCount,
+  computeRailFootprint,
+  computeRoleCapabilities,
+  deriveReviewFlags,
+  isCompletionOverlayPhase,
+  isWalking,
+  resolveOverlay,
+} from "./app-view-model";
+import { buildKeyState } from "./app-key-state";
+import { useSettingsDialog } from "./use-settings-dialog";
+import {
+  CompletionScreen,
+  ConnectingScreen,
+  ErrorScreen,
+  InboxScreen,
+  MenuChrome,
+  TrailingOverlays,
+} from "./app-screens";
 
 /** A toast clears itself after this idle; esc dismisses it sooner. */
 const TOAST_DISMISS_MS = 4000;
@@ -133,14 +135,7 @@ export function App({
   selfAuthor,
   appearance = "dark",
 }: AppProps): React.ReactNode {
-  // Observer stays fully read-only; a collaborator writes annotations but not
-  // the plan or a verdict. `observer` is what the controller and every write
-  // gate key off; the two capability flags carve out the collaborator's middle.
-  const observer = readOnly || role === "observer";
-  // Editing the plan, submitting a verdict, and sharing are all the owner's
-  // alone - a collaborator annotates, an observer only reads. One predicate
-  // feeds all three; split it the day a collaborator earns one of them.
-  const isOwner = !observer && role === "owner";
+  const { observer, isOwner } = computeRoleCapabilities(readOnly, role);
   const controller = useMemo(
     () =>
       createReviewController({ home, sessionId, readOnly: observer, onExit, clock, openClient }),
@@ -177,15 +172,6 @@ export function App({
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
-  const [settingsNav, setSettingsNav] = useState<{
-    categoryId: string;
-    rowIndex: number;
-    zone: "nav" | "body";
-  }>({
-    categoryId: "general",
-    rowIndex: 0,
-    zone: "body",
-  });
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<"review" | "agent">("review");
@@ -214,8 +200,6 @@ export function App({
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
   const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
-  // the quick-action row whose system-prompt input is open in Settings, or null
-  const [actionsExpandedIndex, setActionsExpandedIndex] = useState<number | null>(null);
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
     keysRef.current = config.keys;
@@ -254,6 +238,31 @@ export function App({
     if (!known) setMode({ type: "nameSelf", text: "" });
   }, [role, selfAuthor, session]);
 
+  // ── settings dialog: config-backed model, navigation, persistence ──
+  const {
+    settingsNav,
+    settingsCategories,
+    settingsValues,
+    cycleSetting,
+    handleSettingsKey,
+    onCategorySelect,
+  } = useSettingsDialog({
+    theme,
+    appearance,
+    autoClose,
+    setAutoClose,
+    reviewMode,
+    setReviewMode,
+    themeName,
+    setThemeName,
+    themeOverrides,
+    setTheme,
+    quickActions,
+    setQuickActions,
+    controller,
+    setMenuDialog,
+  });
+
   // ── derived view model ──────────────────────
   const display = controller.display();
   const rows = controller.rows();
@@ -274,9 +283,7 @@ export function App({
     }
     return ids;
   }, [marks]);
-  const resolved = session?.status === "resolved";
-  const isDiff = session?.artifact.type === "diff";
-  const isPrototype = session?.artifact.type === "prototype";
+  const { isDiff, isPrototype, resolved } = deriveReviewFlags(session);
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
@@ -300,7 +307,7 @@ export function App({
 
   // ── the guided walk's view model ────────────
   const walkFileList = controller.files();
-  const walking = isDiff && walk !== null;
+  const walking = isWalking(isDiff, walk);
   const viewedPaths = useMemo(() => new Set(session?.viewedPaths ?? []), [session]);
 
   // driving needs committed layout, so it runs after render; any transition
@@ -430,188 +437,7 @@ export function App({
     openCardEdit,
   });
 
-  const overlay: KeyState["overlay"] =
-    mode.type === "compose" || mode.type === "railEdit"
-      ? "compose"
-      : mode.type === "submit"
-        ? "submit"
-        : mode.type === "confirmDelete"
-          ? "confirm"
-          : mode.type === "rename" || mode.type === "nameSelf"
-            ? "prompt"
-            : mode.type === "spanActions"
-              ? "spanActions"
-              : completion.phase === "prompt"
-                ? "completion-prompt"
-                : completion.phase === "counting"
-                  ? "completion-counting"
-                  : walking
-                    ? "walk"
-                    : "none";
-
-  // ── settings dialog: config-backed model, navigation, persistence ──
-  const commitActions = (next: QuickAction[]): void => {
-    setQuickActions(next);
-    persistActions(next);
-  };
-  const editActionMetadata = (index: number, metadata: string): void =>
-    commitActions(
-      quickActions.map((action, actionIndex) =>
-        actionIndex === index
-          ? { ...action, metadata: metadata.trim() ? metadata : undefined }
-          : action,
-      ),
-    );
-  const resetActions = (): void => {
-    setActionsExpandedIndex(null);
-    commitActions(DEFAULT_QUICK_ACTIONS.map((action) => ({ ...action })));
-  };
-  const addAction = (): void => {
-    setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: quickActions.length }));
-    commitActions([...quickActions, { prompt: "New action" }]);
-  };
-  const settingsCategories: SettingsCategory[] = [
-    {
-      id: "general",
-      name: "General",
-      description: "submission behaviour",
-      rows: [
-        {
-          key: "autoClose",
-          label: "Auto-close on submit",
-          kind: "cycle",
-          options: ["off", "3s", "10s"],
-        },
-      ],
-    },
-    {
-      id: "display",
-      name: "Display",
-      description: "the review panel",
-      rows: [
-        {
-          key: "reviewPanel",
-          label: "Review panel",
-          kind: "cycle",
-          options: ["expanded", "compact", "hidden"],
-        },
-      ],
-    },
-    {
-      id: "appearance",
-      name: "Appearance",
-      description: "the color theme",
-      rows: [
-        {
-          key: "theme",
-          label: "Theme",
-          kind: "cycle",
-          options: THEME_NAMES.map((name) => THEME_LABELS[name]),
-        },
-      ],
-    },
-    {
-      id: "actions",
-      name: "Actions",
-      description: "quick-action comments",
-      rows: [],
-      customBody: (
-        <QuickActionsEditor
-          actions={quickActions}
-          selectedIndex={settingsNav.categoryId === "actions" ? settingsNav.rowIndex : -1}
-          expandedIndex={actionsExpandedIndex}
-          onToggleExpand={(index) => {
-            setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: index }));
-            setActionsExpandedIndex((current) => (current === index ? null : index));
-          }}
-          onEditMetadata={editActionMetadata}
-          onReset={resetActions}
-          onAdd={addAction}
-          theme={theme}
-        />
-      ),
-    },
-  ];
-  const settingsValues = {
-    autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
-    reviewPanel: reviewMode,
-    theme: THEME_LABELS[themeName],
-  };
-  const cycleSetting = (rowKey: string): void => {
-    if (rowKey === "autoClose") {
-      const next: AutoClose = autoClose === "off" ? 3 : autoClose === 3 ? 10 : "off";
-      setAutoClose(next);
-      persistAutoClose(next);
-    } else if (rowKey === "reviewPanel") {
-      const order: ReviewPanelMode[] = ["expanded", "compact", "hidden"];
-      const next = order[(order.indexOf(reviewMode) + 1) % order.length]!;
-      setReviewMode(next);
-      controller.saveReviewPanel({ mode: next });
-    } else if (rowKey === "theme") {
-      const next = THEME_NAMES[(THEME_NAMES.indexOf(themeName) + 1) % THEME_NAMES.length]!;
-      setThemeName(next);
-      setTheme(composeTheme(next, themeOverrides, appearance));
-      persistTheme(next);
-    }
-  };
-  const handleSettingsKey = (name: string): void => {
-    // an open system-prompt input owns typing; only esc (close it) escapes here
-    if (actionsExpandedIndex !== null) {
-      if (name === "escape") setActionsExpandedIndex(null);
-      return;
-    }
-    if (name === "escape") return void setMenuDialog(null);
-    const categoryIndex = settingsCategories.findIndex(
-      (category) => category.id === settingsNav.categoryId,
-    );
-    const category = settingsCategories[categoryIndex]!;
-    if (settingsNav.zone === "nav") {
-      if (name === "j" || name === "down")
-        setSettingsNav({
-          categoryId:
-            settingsCategories[Math.min(settingsCategories.length - 1, categoryIndex + 1)]!.id,
-          rowIndex: 0,
-          zone: "nav",
-        });
-      else if (name === "k" || name === "up")
-        setSettingsNav({
-          categoryId: settingsCategories[Math.max(0, categoryIndex - 1)]!.id,
-          rowIndex: 0,
-          zone: "nav",
-        });
-      else if (name === "l" || name === "tab" || name === "return")
-        setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: 0 }));
-      return;
-    }
-    // the Actions category is a list of quick actions plus a trailing "add" row
-    if (category.id === "actions") {
-      const rowCount = quickActions.length + 1;
-      if (name === "j" || name === "down")
-        setSettingsNav((state) => ({
-          ...state,
-          rowIndex: Math.min(rowCount - 1, state.rowIndex + 1),
-        }));
-      else if (name === "k" || name === "up")
-        setSettingsNav((state) => ({ ...state, rowIndex: Math.max(0, state.rowIndex - 1) }));
-      else if (name === "h" || name === "tab")
-        setSettingsNav((state) => ({ ...state, zone: "nav" }));
-      else if (name === "return" || name === "space" || name === "l") {
-        if (settingsNav.rowIndex === quickActions.length) addAction();
-        else setActionsExpandedIndex(settingsNav.rowIndex);
-      }
-      return;
-    }
-    if (name === "j" || name === "down")
-      setSettingsNav((state) => ({
-        ...state,
-        rowIndex: Math.min(category.rows.length - 1, state.rowIndex + 1),
-      }));
-    else if (name === "k" || name === "up")
-      setSettingsNav((state) => ({ ...state, rowIndex: Math.max(0, state.rowIndex - 1) }));
-    else if (name === "h" || name === "tab") setSettingsNav((state) => ({ ...state, zone: "nav" }));
-    else if (name === "return" || name === "space")
-      cycleSetting(category.rows[settingsNav.rowIndex]!.key);
-  };
+  const overlay = resolveOverlay(mode, completion.phase, walking);
 
   useKeyboard((key) => {
     // The prototype compose textarea owns the keyboard while open: let it receive
@@ -630,26 +456,23 @@ export function App({
     // escape, so an open overlay (compose, submit, prompt, walk) still cancels
     if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span")
       return controller.dismissToast();
-    const state: KeyState = {
+    const state = buildKeyState({
       keys: keysRef.current,
-      readOnly: observer,
-      canEditPlan: isOwner,
-      canSubmitVerdict: isOwner,
-      canShare: isOwner,
+      observer,
+      isOwner,
       overlay,
-      view: !session ? "inbox" : isDiff ? "diff" : "plan",
-      spanMode: mode.type === "span",
-      resolved: !!resolved,
-      hasInboxItems: !!inbox?.length,
-      annotationCount: session?.annotations.length ?? 0,
-      hasFocusedAnnotation: focusedAnnotationId !== undefined,
-      walkAtEnd: walk !== null && walk.index >= walkFileList.length,
-      cursorAnnotatable: isDiff
-        ? rows[cursor] !== undefined &&
-          rows[cursor]!.kind !== "file" &&
-          rows[cursor]!.kind !== "hunk"
-        : !!display[cursor]?.work,
-    };
+      session,
+      isDiff,
+      mode,
+      resolved,
+      inbox,
+      focusedAnnotationId,
+      walk,
+      walkFileList,
+      rows,
+      cursor,
+      display,
+    });
     keyBindings.setContext({ overlay: state.overlay, spanMode: state.spanMode });
     const action = keyBindings.resolveAction({ name: key.name, shift: !!key.shift });
     for (const intent of reduceKey(
@@ -663,225 +486,97 @@ export function App({
   // ── shared bottom chrome: the menu bar and its drop-up dialogs, one render
   // reused by the inbox and by plan/diff review so the two never drift ──
   const menuChrome = (
-    <>
-      <MenuBar
-        open={menuOpen}
-        version={CLIENT_VERSION}
-        status={status}
-        onToggle={() => setMenuOpen((isOpen) => !isOpen)}
-        onSettings={() => {
-          setMenuOpen(false);
-          setMenuDialog("settings");
-        }}
-        onKeybinds={() => {
-          setMenuOpen(false);
-          setMenuDialog("keybinds");
-        }}
-        theme={theme}
-      />
-      {menuDialog === "keybinds" ? (
-        <KeybindsDialog sections={keyBindings.cheatsheet()} theme={theme} />
-      ) : null}
-      {menuDialog === "settings" ? (
-        <SettingsDialog
-          isOpen
-          categories={settingsCategories}
-          values={settingsValues}
-          activeCategoryId={settingsNav.categoryId}
-          activeRowIndex={settingsNav.rowIndex}
-          activeZone={settingsNav.zone}
-          onCategorySelect={(id) => {
-            setActionsExpandedIndex(null);
-            setSettingsNav({ categoryId: id, rowIndex: 0, zone: "body" });
-          }}
-          onRowActivate={(row) => cycleSetting(row.key)}
-          theme={theme}
-        />
-      ) : null}
-    </>
+    <MenuChrome
+      menuOpen={menuOpen}
+      menuDialog={menuDialog}
+      status={status}
+      theme={theme}
+      setMenuOpen={setMenuOpen}
+      setMenuDialog={setMenuDialog}
+      keybindsSections={keyBindings.cheatsheet()}
+      settingsCategories={settingsCategories}
+      settingsValues={settingsValues}
+      settingsNav={settingsNav}
+      onCategorySelect={onCategorySelect}
+      cycleSetting={cycleSetting}
+    />
   );
 
   // ── render ──────────────────────────────────
-  if (error) {
-    return (
-      <ThemeProvider theme={theme}>
-        <text fg={theme.red}>cueloop: {error}</text>
-      </ThemeProvider>
+  if (error) return <ErrorScreen error={error} theme={theme} />;
+  if (!session)
+    return inbox ? (
+      <InboxScreen
+        inbox={inbox}
+        inboxCursor={inboxCursor}
+        mode={mode}
+        theme={theme}
+        controller={controller}
+        setMode={setMode}
+        menuChrome={menuChrome}
+      />
+    ) : (
+      <ConnectingScreen theme={theme} />
     );
-  }
-  if (!session && !inbox) {
+
+  const activeSession = session;
+
+  if (isCompletionOverlayPhase(completion) && activeSession.verdict)
     return (
-      <ThemeProvider theme={theme}>
-        <text fg={theme.textDim}>connecting to the daemon…</text>
-      </ThemeProvider>
+      <CompletionScreen
+        theme={theme}
+        session={activeSession}
+        verdict={activeSession.verdict.kind}
+        completion={completion}
+        status={status}
+      />
     );
-  }
-  if (!session && inbox) {
-    const confirming = mode.type === "confirmDelete" ? mode : null;
-    return (
-      <ThemeProvider theme={theme}>
-        <box
-          style={{
-            flexDirection: "column",
-            width: "100%",
-            height: "100%",
-            backgroundColor: theme.background,
-          }}
-        >
-          {/* mirrors the review header row: same box, position, and accent product
-              word, with a " · resume" separator and no Edit/Share toolbar */}
-          <box
-            style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}
-          >
-            <box
-              style={{
-                height: 1,
-                backgroundColor: theme.panel,
-                paddingLeft: 1,
-                flexDirection: "row",
-              }}
-            >
-              <text>
-                <span fg={theme.accent}>cueloop</span>
-                <span fg={theme.textDim}> · resume</span>
-              </text>
-            </box>
-            <box style={{ flexGrow: 1 }} />
-          </box>
-          <InboxList
-            inbox={inbox}
-            cursor={inboxCursor}
-            onRequestDelete={(id, title) =>
-              setMode({ type: "confirmDelete", sessionId: id, title })
-            }
-          />
-          {menuChrome}
-          <ConfirmDialog
-            isOpen={confirming !== null}
-            title=" Delete plan "
-            message={
-              confirming
-                ? `Delete "${confirming.title}"? This removes the plan and its review.`
-                : ""
-            }
-            onConfirm={() => {
-              if (confirming) controller.deleteSession(confirming.sessionId);
-              setMode({ type: "normal" });
-            }}
-            onCancel={() => setMode({ type: "normal" })}
-            theme={theme}
-          />
-        </box>
-      </ThemeProvider>
-    );
-  }
 
-  const activeSession = session!;
-  const pendingCount =
-    reviewerAnnotations(activeSession).length + (activeSession.workingCopy !== undefined ? 1 : 0);
-
-  if ((completion.phase === "prompt" || completion.phase === "counting") && activeSession.verdict) {
-    return (
-      <ThemeProvider theme={theme}>
-        <CompletionOverlay
-          verdict={activeSession.verdict.kind}
-          completion={completion}
-          status={status}
-          returnsTo={
-            returnPaneFor(activeSession.artifact.meta.herdrPane)
-              ? (activeSession.artifact.meta.agent ?? "the agent")
-              : undefined
-          }
-        />
-      </ThemeProvider>
-    );
-  }
-
-  const composeState =
-    mode.type === "compose" && !isDiff
-      ? {
-          kind: mode.kind,
-          displayIndex: mode.displayIndex,
-          quote: displayText(display[mode.displayIndex]!).slice(mode.start, mode.end),
-          draft: {
-            text: mode.text,
-            onInput: (text: string) => {
-              liveInput.current = text;
-              setMode({ ...mode, text });
-            },
-            onSave: () => dispatch({ type: "saveCompose" }),
-            onCancel: () => dispatch({ type: "closeOverlay" }),
-          },
-        }
-      : null;
-
-  const diffComposeState =
-    mode.type === "compose" && isDiff
-      ? {
-          kind: mode.kind,
-          rowIndex: mode.displayIndex,
-          quote: rows[mode.displayIndex]?.text.replace(/\n$/, "") ?? "",
-          draft: {
-            text: mode.text,
-            onInput: (text: string) => {
-              liveInput.current = text;
-              setMode({ ...mode, text });
-            },
-            onSave: () => dispatch({ type: "saveCompose" }),
-            onCancel: () => dispatch({ type: "closeOverlay" }),
-          },
-        }
-      : null;
-
-  const markedSpan = activeSpanState(mode);
-  const activeSpan = markedSpan
-    ? { displayIndex: markedSpan.displayIndex, start: markedSpan.start, end: markedSpan.end }
-    : mode.type === "compose" && !isDiff
-      ? // the compose anchor stays painted selection-style while the box is open
-        { displayIndex: mode.displayIndex, start: mode.start, end: mode.end }
-      : null;
-
-  // mouse mutations bypass reduceKey, so they replay its gates: an observer or a
-  // resolved review is read-only. Returns the status to answer with, or null.
-  const spanMutationBlock = (): string | null =>
-    observer ? "observer - read-only" : resolved ? "review submitted - read-only" : null;
-
-  // the marker-actions popover is span mode made visible: an inline toolbar at
-  // the marked block, or its quick-actions list. Cut is owner-only (hidden for a
-  // collaborator, like every other plan-edit affordance).
-  const popoverState =
-    markedSpan && !isDiff
-      ? {
-          displayIndex: markedSpan.displayIndex,
-          view: mode.type === "spanActions" ? ("actions" as const) : ("toolbar" as const),
-          actions: quickActions,
-          actionIndex: mode.type === "spanActions" ? mode.index : 0,
-          canCut: isOwner,
-          onComment: () => {
-            const blocked = spanMutationBlock();
-            if (blocked) return controller.setStatus(blocked);
-            dispatch({ type: "openCompose", kind: "comment", from: "span" });
-          },
-          onCut: () => {
-            const blocked = spanMutationBlock();
-            if (blocked) return controller.setStatus(blocked);
-            if (!isOwner) return;
-            dispatch({ type: "spanCut" });
-          },
-          onOpenActions: () => {
-            const blocked = spanMutationBlock();
-            if (blocked) return controller.setStatus(blocked);
-            dispatch({ type: "openSpanActions" });
-          },
-          onClose: () => dispatch({ type: "closeOverlay" }),
-          onPickAction: (index: number) => {
-            const blocked = spanMutationBlock();
-            if (blocked) return controller.setStatus(blocked);
-            dispatch({ type: "pickSpanAction", index });
-          },
-          onBack: () => dispatch({ type: "closeSpanActions" }),
-        }
-      : null;
+  const composeState = buildComposeState({ mode, isDiff, display, liveInput, setMode, dispatch });
+  const diffComposeState = buildDiffComposeState({
+    mode,
+    isDiff,
+    rows,
+    liveInput,
+    setMode,
+    dispatch,
+  });
+  const activeSpan = buildActiveSpan(mode, isDiff);
+  const popoverState = buildPopoverState({
+    mode,
+    isDiff,
+    quickActions,
+    isOwner,
+    observer,
+    resolved,
+    controller,
+    dispatch,
+  });
+  const submitConfirmState = buildSubmitConfirmState({
+    mode,
+    isDiff,
+    session: activeSession,
+    walkFileList,
+    viewedPaths,
+    liveInput,
+    setMode,
+    dispatch,
+  });
+  const cardEditState = buildCardEditState({ mode, liveInput, setMode, dispatch });
+  const pendingCount = computePendingCount(activeSession);
+  const railFootprint = computeRailFootprint(reviewMode, reviewWidth, terminalWidth);
+  const headerItems = buildHeaderItems({ session: activeSession, resolved, observer, role });
+  const { showOwnerActions, prototypeCanComment, chromeHidden, prototypePath, railResolvedIds } =
+    buildRenderFlags({
+      session: activeSession,
+      isOwner,
+      isDiff,
+      isPrototype,
+      resolved,
+      menuOpen,
+      menuDialog,
+      resolvedIds,
+    });
 
   // a mouse drag leaves a native selection: turn it into a word span so the
   // marker popover opens at the dragged range, mirroring the `v` grammar.
@@ -947,73 +642,6 @@ export function App({
     if (reviewMode === "expanded") setDividerDragging(true);
   };
 
-  const submitConfirmState =
-    mode.type === "submit"
-      ? {
-          verdict: mode.verdict,
-          summary: mode.summary,
-          // walk coverage keeps partial passes honest at the verdict
-          viewedSummary:
-            isDiff && activeSession.viewedPaths !== undefined
-              ? `${viewedCount(walkFileList, viewedPaths)}/${walkFileList.length} files viewed`
-              : undefined,
-          onInput: (summary: string) => {
-            liveInput.current = summary;
-            setMode({ ...mode, summary });
-          },
-          onSelectVerdict: (verdict: VerdictKind) => setMode({ ...mode, verdict }),
-          onSubmit: () => dispatch({ type: "submitVerdict" }),
-          onCancel: () => dispatch({ type: "closeOverlay" }),
-        }
-      : null;
-
-  const cardEditState =
-    mode.type === "railEdit"
-      ? {
-          id: mode.id,
-          text: mode.text,
-          onInput: (text: string) => {
-            liveInput.current = text;
-            setMode({ type: "railEdit", id: mode.id, text });
-          },
-          onSave: () => dispatch({ type: "saveCompose" }),
-          onCancel: () => dispatch({ type: "closeOverlay" }),
-        }
-      : null;
-
-  // width the review panel occupies (divider + rail), so the header can reserve
-  // it and keep Edit/Share pinned to the plan sheet's right edge, not the rail's
-  const railFootprint =
-    reviewMode === "hidden"
-      ? 0
-      : 1 +
-        (reviewMode === "compact"
-          ? REVIEW_COMPACT_WIDTH
-          : resolveReviewWidth(reviewWidth, terminalWidth));
-
-  // status badges sit right after the product word so they survive a header
-  // that is too narrow for the whole trail (the rail can eat the width)
-  const headerItems: BreadcrumbItem[] = [
-    { label: "cueloop", tone: "accent" },
-    ...(resolved
-      ? [
-          {
-            label: `resolved: ${activeSession.verdict!.kind.replace("_", " ")}`,
-            tone: "green" as const,
-          },
-        ]
-      : []),
-    ...(observer ? [{ label: "observer", tone: "dim" as const }] : []),
-    ...(role === "collaborator"
-      ? [{ label: "shared · your notes save as you go", tone: "dim" as const }]
-      : []),
-    {
-      label: `${activeSession.artifact.meta.title ?? activeSession.artifact.meta.planPath ?? activeSession.id} · rev ${activeSession.revisions.length}`,
-      tone: "dim",
-    },
-    { label: `submitted by ${activeSession.artifact.meta.agent ?? "unknown"}`, tone: "dim" },
-  ];
-
   return (
     <ThemeProvider theme={theme}>
       <box
@@ -1044,7 +672,7 @@ export function App({
           <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
             <Breadcrumb items={headerItems} />
             <box style={{ flexGrow: 1 }} />
-            {isOwner && !isDiff && !resolved ? (
+            {showOwnerActions ? (
               <Toolbar>
                 <Button onPress={onEditRequest} theme={theme}>
                   {" Edit "}
@@ -1060,12 +688,12 @@ export function App({
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
           {isPrototype ? (
             <PrototypeSheet
-              prototypePath={activeSession.artifact.meta.prototypePath ?? ""}
+              prototypePath={prototypePath}
               quickActions={quickActions}
-              canComment={isOwner && !resolved}
+              canComment={prototypeCanComment}
               onCommentElement={onCommentPrototype}
               onComposingChange={setPrototypeComposing}
-              hidden={menuOpen || menuDialog !== null}
+              hidden={chromeHidden}
             />
           ) : isDiff ? (
             // the sheet dims to reading-quiet colors while the wizard has focus
@@ -1103,7 +731,7 @@ export function App({
               session: activeSession,
               authorNames,
               selectedId: focusedAnnotationId,
-              resolvedIds: isDiff || isPrototype ? null : resolvedIds,
+              resolvedIds: railResolvedIds,
               curationItems,
               selectedCurationId,
               annotationPositions,
@@ -1127,47 +755,19 @@ export function App({
             }}
           />
         </box>
-        {walking && walk !== null ? (
-          <WalkWizard
-            files={walkFileList}
-            index={walk.index}
-            viewedPaths={viewedPaths}
-            note={
-              walkFileList[walk.index] !== undefined
-                ? noteForFile(activeSession.annotations, walkFileList[walk.index]!.path)
-                : undefined
-            }
-            terminalWidth={terminalWidth}
-            onSubmitRequest={() => {
-              dispatch({ type: "walkLeave" });
-              dispatch({ type: "openSubmit" });
-            }}
-            onBack={() => dispatch({ type: "walkBack" })}
-          />
-        ) : null}
-        {mode.type === "rename" ? (
-          <PromptDialog
-            isOpen
-            title=" Rename author "
-            label="Display name for this collaborator:"
-            value={mode.text}
-            placeholder="their name"
-            onInput={(text) => setMode({ ...mode, text })}
-            theme={theme}
-          />
-        ) : null}
-        {mode.type === "nameSelf" ? (
-          <PromptDialog
-            isOpen
-            title=" Welcome "
-            label="Your name (optional) - it attributes the notes you leave:"
-            value={mode.text}
-            placeholder="your name"
-            onInput={(text) => setMode({ ...mode, text })}
-            theme={theme}
-          />
-        ) : null}
-        {toast ? <Toast title={toast.title} body={toast.body} theme={theme} /> : null}
+        <TrailingOverlays
+          walking={walking}
+          walk={walk}
+          walkFileList={walkFileList}
+          viewedPaths={viewedPaths}
+          session={activeSession}
+          terminalWidth={terminalWidth}
+          theme={theme}
+          mode={mode}
+          toast={toast}
+          setMode={setMode}
+          dispatch={dispatch}
+        />
         {menuChrome}
       </box>
     </ThemeProvider>
