@@ -32,8 +32,51 @@ if [ -t 2 ]; then
   RESET="$(printf '\033[0m')"
 fi
 
+# Progress spinner: a braille spinner while a step runs, replaced by a check when
+# it finishes. Same colour as the message text. Only animates on a terminal; when
+# stderr is piped or logged we just print the plain line, so logs stay clean.
+SPINNER_FRAMES='⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏'
+CHECK_MARK='✓'
+spinner_process_id=''
+
 info() { printf '%s\n' "${DIM}cueloop:${RESET} $*" >&2; }
+
+# spinner_start <message>: begin the spinner for a step. Animates only on a
+# capable terminal; otherwise (piped output, or a dumb terminal without
+# cursor control) it just prints the plain line so nothing gets garbled.
+spinner_start() {
+  spinner_message="$1"
+  if [ -t 2 ] && [ "${TERM:-}" != "dumb" ]; then
+    (
+      while :; do
+        for frame in $SPINNER_FRAMES; do
+          printf '\r%scueloop:%s %s %s ' "$DIM" "$RESET" "$spinner_message" "$frame" >&2
+          sleep 0.08 2>/dev/null || true
+        done
+      done
+    ) &
+    spinner_process_id=$!
+  else
+    info "$spinner_message"
+  fi
+}
+
+# spinner_finish: stop the spinner and stamp the line with a check.
+spinner_finish() {
+  [ -n "$spinner_process_id" ] || return 0
+  kill "$spinner_process_id" 2>/dev/null || true
+  wait "$spinner_process_id" 2>/dev/null || true
+  spinner_process_id=''
+  printf '\r\033[K%scueloop:%s %s %s\n' "$DIM" "$RESET" "$spinner_message" "$CHECK_MARK" >&2
+}
+
 error() {
+  if [ -n "${spinner_process_id:-}" ]; then
+    kill "$spinner_process_id" 2>/dev/null || true
+    wait "$spinner_process_id" 2>/dev/null || true
+    spinner_process_id=''
+    printf '\r\033[K' >&2
+  fi
   printf '%s\n' "${RED}${BOLD}cueloop install failed:${RESET} $*" >&2
   exit 1
 }
@@ -41,26 +84,20 @@ error() {
 # The cueloop mark, rendered from the logo, revealed a line at a time in the
 # accent colour. Purely cosmetic: skipped when stderr is not a terminal (piped
 # or logged output) or when CUELOOP_NO_BANNER is set, so it never garbles logs.
-LOGO='⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣀⣀⠀⠰⣿⣷⡶⣤⣀
-⠀⠀⠀⠀⠀⠀⠀⣀⣠⡴⠶⠖⠛⠛⠛⠛⠳⢶⣄⠻⣎⠉⠛⠳⢦⣍⡛⠶⣍⠛⢦⣄
-⠀⠀⠀⠀⢀⡴⠞⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⣧⠹⣆⠀⠀⠀⠈⠙⢶⡌⠳⣄⠉⠳⣄
-⠀⠀⠀⣴⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⣇⢹⡄⠀⠀⠀⠀⠀⠹⣆⠹⡆⠀⠈⢳⣄
-⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢹⡀⣧⠀⠀⠀⠀⠀⠀⠹⡆⢻⡄⠀⠀⠙⣦
-⠀⠀⢸⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⣿⠀⠀⠀⠀⠀⠀⠀⢿⠈⣇⠀⠀⠀⠘⣧
-⠀⠀⢸⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⠇⣿⠀⠀⠀⠀⠀⠀⠀⢸⡆⣿⠀⠀⠀⠀⠸⡆
-⢀⣤⡄⢷⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡿⢠⡇⠀⠀⠀⠀⠀⠀⠀⢸⡇⢸⠀⠀⠀⠀⠀⢿
-⢸⡇⠻⣌⠻⣦⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣼⢃⡾⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇⣼⠀⠀⠀⠀⠀⢸⡄
-⠀⣧⠀⠈⠛⠶⣭⣛⡲⠶⣤⣤⣤⣤⣤⣤⣤⠶⠛⣡⡾⠁⠀⠀⠀⠀⠀⠀⠀⠀⣾⢀⡟⠀⠀⠀⠀⠀⢸⡇
-⠀⠘⢧⡀⠀⠀⠀⠉⠙⠛⠲⠶⠶⠶⠶⠶⠶⠖⠛⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⠃⡼⠁⠀⠀⠀⠀⠀⢸⠃
-⠀⣴⣤⡻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡾⢃⡾⠁⠀⠀⠀⠀⠀⠀⣾
-⠀⢹⡌⠻⣮⡙⢦⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⠟⣠⠟⠀⠀⠀⠀⠀⠀⠀⢰⠇
-⠀⠀⢷⡀⠀⠙⠷⣬⣛⠶⣤⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⡴⠛⣡⠞⠁⠀⠀⠀⠀⠀⠀⠀⢠⡟
-⠀⠀⠈⢳⡄⠀⠀⠀⠙⠳⠶⣭⣝⣛⠲⠶⠶⠶⠴⠶⠶⠞⢛⣩⡴⠛⠁⠀⠀⠀⠀⠀⠀⠀⠀⣠⠟
-⠀⠀⠀⠀⠹⣦⡀⠀⠀⠀⠀⠀⠈⠉⠙⠛⠛⠓⠒⠚⠛⠛⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠋
-⠀⠀⠀⠀⠀⠈⠻⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⠟
-⠀⠀⠀⠀⠀⠀⠀⠈⠙⠶⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⠞⠋
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠙⠛⠶⢦⣤⣄⣀⣀⣀⣀⣀⣀⣠⣤⡴⠶⠛⠉
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠉⠉⠉⠉⠁'
+LOGO='⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⣀⠀⣠⢤⣄⡸⢷⣲⢤⣀
+⠀⠀⢀⡤⠖⠛⠉⠉⠀⠀⠈⠙⢎⢣⠀⠉⠙⠮⡙⢮⠑⢦⡀
+⠀⢰⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⡎⣇⠀⠀⠀⠘⣆⢣⠀⠙⢆
+⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢹⢸⠀⠀⠀⠀⠘⡌⡇⠀⠈⢧
+⠀⢧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⢸⠀⠀⠀⠀⠀⣇⢳⠀⠀⠈⣇
+⡷⣜⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⢠⢇⡏⠀⠀⠀⠀⠀⡕⢸⠀⠀⠀⢸
+⢇⠈⠳⢭⣗⣶⠤⢤⣤⣤⠤⠴⣫⠞⠀⠀⠀⠀⠀⢀⡇⡎⠀⠀⠀⢸
+⣈⢣⡀⠀⠀⠉⠉⠙⠛⠛⠋⠉⠁⠀⠀⠀⠀⠀⢀⠞⡼⠁⠀⠀⠀⢸
+⢻⠓⢝⡢⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⣫⠞⠀⠀⠀⠀⢀⡏
+⠈⢧⠀⠙⠲⢽⣲⠤⣤⣀⣀⣀⣀⣀⣠⠴⣫⠞⠁⠀⠀⠀⠀⢀⡞
+⠀⠀⠳⣄⠀⠀⠈⠉⠓⠒⠺⠿⠿⠖⠒⠋⠀⠀⠀⠀⠀⠀⣠⠎
+⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠞⠁
+⠀⠀⠀⠀⠀⠀⠙⠲⠤⣄⣀⣀⣀⣀⣀⣀⣤⠴⠒⠋
+⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠁'
 
 banner() {
   [ -t 2 ] || return 0
@@ -123,7 +160,7 @@ esac
 asset="${BINARY}-${operating_system}-${architecture}"
 
 temporary_directory="$(mktemp -d "${TMPDIR:-/tmp}/cueloop.XXXXXX")"
-trap 'rm -rf "$temporary_directory"' EXIT INT TERM
+trap 'rm -rf "$temporary_directory"; if [ -n "${spinner_process_id:-}" ]; then kill "$spinner_process_id" 2>/dev/null || true; fi' EXIT INT TERM
 
 # --- resolve the release tag ----------------------------------------------
 # The release train runs prereleases, which GitHub's /releases/latest endpoint
@@ -132,7 +169,7 @@ trap 'rm -rf "$temporary_directory"' EXIT INT TERM
 if [ "${CUELOOP_VERSION:-}" != "" ]; then
   tag="$CUELOOP_VERSION"
 else
-  info "finding the latest release"
+  spinner_start "finding the latest release"
   # The monorepo tags one release per published package; the CLI (with the
   # binaries attached) is the one tagged `cueloop@<version>`. Take the newest
   # such tag so a sibling package release never gets picked by mistake.
@@ -141,20 +178,23 @@ else
   tag="$(grep -m1 '"tag_name"[[:space:]]*:[[:space:]]*"cueloop@' "${temporary_directory}/releases.json" |
     sed -e 's/.*"tag_name"[[:space:]]*:[[:space:]]*"//' -e 's/".*//')"
   [ "$tag" != "" ] || error "no cueloop release found for ${REPO} yet."
+  spinner_finish
 fi
 
 base="https://github.com/${REPO}/releases/download/${tag}"
 
 # --- download -------------------------------------------------------------
-info "downloading ${BOLD}${asset}${RESET} (${tag})"
+spinner_start "downloading ${BOLD}${asset}${RESET} (${tag})"
 fetch_to "${base}/${asset}" "${temporary_directory}/${BINARY}" ||
   error "no binary '${asset}' in release ${tag}. Your platform may not have a prebuilt binary yet - install with npm instead: npm i -g cueloop"
+spinner_finish
 
 # --- verify checksum (required) -------------------------------------------
 # Our releases always publish checksums.txt. Refuse to install a binary we
 # cannot verify rather than trusting an unchecked `curl | sh` download: a
 # missing checksum file, a missing entry, or the absence of a sha256 tool are
 # all hard failures, not skipped steps.
+spinner_start "verifying checksum"
 fetch_to "${base}/checksums.txt" "${temporary_directory}/checksums.txt" 2>/dev/null ||
   error "release ${tag} has no checksums.txt; refusing to install an unverified binary."
 expected="$(grep " ${asset}\$" "${temporary_directory}/checksums.txt" 2>/dev/null | awk '{print $1}' || true)"
@@ -169,8 +209,7 @@ else
 fi
 [ "$actual" = "$expected" ] ||
   error "checksum mismatch for ${asset}. Expected ${expected}, got ${actual}."
-info "checksum verified"
-
+spinner_finish
 chmod +x "${temporary_directory}/${BINARY}"
 
 # --- choose an install directory ------------------------------------------
@@ -184,25 +223,23 @@ else
   install_dir="${HOME}/.local/bin"
 fi
 
-mkdir -p "$install_dir" || error "cannot create ${install_dir}."
 target="${install_dir}/${BINARY}"
-
+spinner_start "installing ${BOLD}${target}${RESET}"
+mkdir -p "$install_dir" || error "cannot create ${install_dir}."
 if mv "${temporary_directory}/${BINARY}" "$target" 2>/dev/null; then
   :
 else
   error "cannot write ${target}. Re-run with CUELOOP_INSTALL_DIR set to a writable directory."
 fi
-
-info "installed ${BOLD}${target}${RESET}"
-
+spinner_finish
 # --- PATH hint ------------------------------------------------------------
 case ":${PATH}:" in
   *":${install_dir}:"*)
-    info "run ${BOLD}cueloop${RESET} to get started"
+    info "Run ${BOLD}cueloop${RESET} to get started"
     ;;
   *)
     info "${install_dir} is not on your PATH. Add it:"
     printf '\n    export PATH="%s:$PATH"\n\n' "$install_dir" >&2
-    info "then run ${BOLD}cueloop${RESET}"
+    info "Then run ${BOLD}cueloop${RESET} to get started"
     ;;
 esac
