@@ -160,6 +160,63 @@ function parseActions(raw: unknown): QuickAction[] | undefined {
   return actions.length ? actions : undefined;
 }
 
+function mergeAuthors(target: Record<string, string>, raw: unknown): void {
+  const authors = raw as Record<string, unknown> | undefined;
+  if (!authors) return;
+  for (const [id, value] of Object.entries(authors)) {
+    if (typeof value === "string") target[id] = value;
+  }
+}
+
+function mergeKeys(target: Record<string, string[]>, raw: unknown): void {
+  const keys = raw as KeymapConfig | undefined;
+  if (!keys) return;
+  for (const [action, combo] of Object.entries(keys)) {
+    target[action] = Array.isArray(combo) ? combo : [combo];
+  }
+}
+
+function mergeAutoClose(target: CueloopConfig["ui"], value: unknown): void {
+  if (value === undefined) return;
+  if (value === "off") target.autoClose = "off";
+  else if (typeof value === "number" && value >= 0) target.autoClose = value;
+}
+
+function mergeUi(target: CueloopConfig["ui"], raw: unknown): void {
+  const ui = raw as
+    | { auto_close?: unknown; editor?: unknown; review_width?: unknown; review_state?: unknown }
+    | undefined;
+  if (!ui) return;
+  mergeAutoClose(target, ui.auto_close);
+  if (typeof ui.editor === "string" && ui.editor.trim()) target.editor = ui.editor.trim();
+  if (typeof ui.review_width === "number" && Number.isFinite(ui.review_width)) {
+    target.reviewWidth = clampWidth(ui.review_width);
+  }
+  if (
+    ui.review_state === "expanded" ||
+    ui.review_state === "compact" ||
+    ui.review_state === "hidden"
+  ) {
+    target.reviewState = ui.review_state;
+  }
+}
+
+function mergeObsidian(target: ObsidianConfig, raw: unknown): void {
+  const integrations = raw as Record<string, unknown> | undefined;
+  const obsidian = integrations?.["obsidian"] as Record<string, unknown> | undefined;
+  if (!obsidian) return;
+  if (typeof obsidian["vault"] === "string") target.vault = obsidian["vault"];
+  if (typeof obsidian["folder"] === "string") target.folder = obsidian["folder"];
+  if (typeof obsidian["filenameFormat"] === "string")
+    target.filenameFormat = obsidian["filenameFormat"];
+  const separator = obsidian["separator"];
+  if (separator === "space" || separator === "dash" || separator === "underscore")
+    target.separator = separator;
+  const exportOn = obsidian["exportOn"];
+  if (exportOn === "approve" || exportOn === "resolve" || exportOn === "manual")
+    target.exportOn = exportOn;
+}
+
 function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig {
   const out: CueloopConfig = {
     keys: { ...base.keys },
@@ -172,53 +229,10 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
   };
   const actions = parseActions(raw["actions"]);
   if (actions) out.actions = actions;
-  const authors = raw["authors"] as Record<string, unknown> | undefined;
-  if (authors) {
-    for (const [id, value] of Object.entries(authors)) {
-      if (typeof value === "string") out.authors[id] = value;
-    }
-  }
-  const keys = raw["keys"] as KeymapConfig | undefined;
-  if (keys) {
-    for (const [action, combo] of Object.entries(keys)) {
-      out.keys[action] = Array.isArray(combo) ? combo : [combo];
-    }
-  }
-  const ui = raw["ui"] as
-    | { auto_close?: unknown; editor?: unknown; review_width?: unknown; review_state?: unknown }
-    | undefined;
-  if (ui && ui.auto_close !== undefined) {
-    if (ui.auto_close === "off") out.ui.autoClose = "off";
-    else if (typeof ui.auto_close === "number" && ui.auto_close >= 0)
-      out.ui.autoClose = ui.auto_close;
-  }
-  if (ui && typeof ui.editor === "string" && ui.editor.trim()) out.ui.editor = ui.editor.trim();
-  if (ui && typeof ui.review_width === "number" && Number.isFinite(ui.review_width)) {
-    out.ui.reviewWidth = clampWidth(ui.review_width);
-  }
-  if (
-    ui &&
-    (ui.review_state === "expanded" ||
-      ui.review_state === "compact" ||
-      ui.review_state === "hidden")
-  ) {
-    out.ui.reviewState = ui.review_state;
-  }
-  const integrations = raw["integrations"] as Record<string, unknown> | undefined;
-  const obsidian = integrations?.["obsidian"] as Record<string, unknown> | undefined;
-  if (obsidian) {
-    const obsidianConfig = out.integrations.obsidian;
-    if (typeof obsidian["vault"] === "string") obsidianConfig.vault = obsidian["vault"];
-    if (typeof obsidian["folder"] === "string") obsidianConfig.folder = obsidian["folder"];
-    if (typeof obsidian["filenameFormat"] === "string")
-      obsidianConfig.filenameFormat = obsidian["filenameFormat"];
-    const separator = obsidian["separator"];
-    if (separator === "space" || separator === "dash" || separator === "underscore")
-      obsidianConfig.separator = separator;
-    const exportOn = obsidian["exportOn"];
-    if (exportOn === "approve" || exportOn === "resolve" || exportOn === "manual")
-      obsidianConfig.exportOn = exportOn;
-  }
+  mergeAuthors(out.authors, raw["authors"]);
+  mergeKeys(out.keys, raw["keys"]);
+  mergeUi(out.ui, raw["ui"]);
+  mergeObsidian(out.integrations.obsidian, raw["integrations"]);
   return out;
 }
 
