@@ -72,18 +72,16 @@ export class R2ShareStore implements ShareStore {
   async get(id: string): Promise<Uint8Array | null> {
     const file = this.client.file(id);
 
-    if (!(await file.exists())) return null;
-
     try {
       const { lastModified } = await file.stat();
 
       if (isExpired(lastModified.getTime(), Date.now())) return null;
 
       return await file.bytes();
-    } catch {
-      // The blob was removed between the existence check and this read - an R2
-      // lifecycle sweep, which is what actually reclaims expired blobs. Reading
-      // it as gone matches an already-expired share.
+    } catch (error) {
+      // A missing object reads as gone; a fault on a still-present object stays loud.
+      if (await file.exists()) throw error;
+
       return null;
     }
   }
