@@ -114,315 +114,435 @@ export interface IntentDispatchDeps {
   openCardEdit: (annotationId: string) => void;
 }
 
+type IntentOfType<Kind extends Intent["type"]> = Extract<Intent, { type: Kind }>;
+
+function handleExit(_intent: IntentOfType<"exit">, deps: IntentDispatchDeps): void {
+  deps.onExit?.(0);
+}
+
+function handleStatus(intent: IntentOfType<"status">, deps: IntentDispatchDeps): void {
+  deps.controller.setStatus(intent.message);
+}
+
+function handleMove(intent: IntentOfType<"move">, deps: IntentDispatchDeps): void {
+  const navigableCount = deps.isDiff ? deps.rows.length : deps.display.length;
+  if (intent.to === "down") deps.setCursor((current) => Math.min(navigableCount - 1, current + 1));
+  else if (intent.to === "up") deps.setCursor((current) => Math.max(0, current - 1));
+  else if (intent.to === "top") deps.setCursor(0);
+  else deps.setCursor(navigableCount - 1);
+}
+
+function handleInboxMove(intent: IntentOfType<"inboxMove">, deps: IntentDispatchDeps): void {
+  const navigableCount = deps.inbox?.length ?? 0;
+  deps.setInboxCursor((current) =>
+    intent.to === "down" ? Math.min(navigableCount - 1, current + 1) : Math.max(0, current - 1),
+  );
+}
+
+function handleOpenSession(_intent: IntentOfType<"openSession">, deps: IntentDispatchDeps): void {
+  const selected = deps.inbox?.[deps.inboxCursor];
+  if (selected) deps.controller.open(selected.id);
+}
+
+function handleRequestDeleteSession(
+  _intent: IntentOfType<"requestDeleteSession">,
+  deps: IntentDispatchDeps,
+): void {
+  const selected = deps.inbox?.[deps.inboxCursor];
+  if (selected)
+    deps.setMode({
+      type: "confirmDelete",
+      sessionId: selected.id,
+      title: selected.artifact.meta.title ?? selected.id,
+    });
+}
+
+function handleOpenRename(_intent: IntentOfType<"openRename">, deps: IntentDispatchDeps): void {
+  const focused = deps.session?.annotations.find(
+    (annotation) => annotation.id === deps.focusedAnnotationId,
+  );
+  if (!focused?.author) {
+    deps.controller.setStatus("that is your own note - nothing to rename");
+    return;
+  }
+  deps.setMode({
+    type: "rename",
+    authorId: focused.author,
+    text: deps.authorNames[focused.author] ?? "",
+  });
+}
+
+function handleConfirmDialog(
+  _intent: IntentOfType<"confirmDialog">,
+  deps: IntentDispatchDeps,
+): void {
+  const { mode, controller } = deps;
+  if (mode.type === "confirmDelete") controller.deleteSession(mode.sessionId);
+  else if (mode.type === "rename") deps.renameAuthor(mode.authorId, mode.text.trim());
+  else if (mode.type === "nameSelf") controller.setSelfName(mode.text.trim());
+  deps.setMode({ type: "normal" });
+}
+
+function handleStartSpan(_intent: IntentOfType<"startSpan">, deps: IntentDispatchDeps): void {
+  const block = deps.display[deps.cursor];
+  if (!block?.work) return;
+  const span = startSpan(deps.cursor, displayText(block));
+  if (span) deps.setMode({ type: "span", span });
+}
+
+function handleSpanKey(intent: IntentOfType<"spanKey">, deps: IntentDispatchDeps): void {
+  const { mode } = deps;
+  if (mode.type === "span") {
+    const span = spanKey(
+      mode.span,
+      intent.name,
+      displayText(deps.display[mode.span.displayIndex]!),
+    );
+    deps.setMode({ type: "span", span });
+  }
+}
+
+function handleSpanCut(_intent: IntentOfType<"spanCut">, deps: IntentDispatchDeps): void {
+  // the block the span sits in, cut whole (partial-span cut is not modeled)
+  const { mode } = deps;
+  if (mode.type === "span") {
+    deps.controller.cut(mode.span.displayIndex);
+    deps.setMode({ type: "normal" });
+  }
+}
+
+function handleOpenSpanActions(
+  _intent: IntentOfType<"openSpanActions">,
+  deps: IntentDispatchDeps,
+): void {
+  const { mode } = deps;
+  if (mode.type === "span") deps.setMode({ type: "spanActions", span: mode.span, index: 0 });
+}
+
+function handleMoveSpanAction(
+  intent: IntentOfType<"moveSpanAction">,
+  deps: IntentDispatchDeps,
+): void {
+  const { mode } = deps;
+  if (mode.type === "spanActions") {
+    const index = Math.max(
+      0,
+      Math.min(deps.quickActions.length - 1, mode.index + intent.direction),
+    );
+    deps.setMode({ ...mode, index });
+  }
+}
+
+function handleCloseSpanActions(
+  _intent: IntentOfType<"closeSpanActions">,
+  deps: IntentDispatchDeps,
+): void {
+  const { mode } = deps;
+  if (mode.type === "spanActions") deps.setMode({ type: "span", span: mode.span });
+}
+
+function handlePickSpanAction(
+  intent: IntentOfType<"pickSpanAction">,
+  deps: IntentDispatchDeps,
+): void {
+  const { mode, session, controller } = deps;
+  if (mode.type !== "spanActions") return;
+  const action = deps.quickActions[intent.index ?? mode.index];
+  if (session && action) {
+    const body = quickActionBody(action);
+    const annotationId = controller.annotate(
+      "comment",
+      mode.span.displayIndex,
+      mode.span.start,
+      mode.span.end,
+      body,
+    );
+    if (annotationId) deps.setFocusedAnnotationId(annotationId);
+  }
+  deps.setMode({ type: "normal" });
+}
+
+function handleOpenCompose(intent: IntentOfType<"openCompose">, deps: IntentDispatchDeps): void {
+  const { mode } = deps;
+  deps.liveInput.current = "";
+  if (intent.from === "span" && mode.type === "span") {
+    deps.setMode({
+      type: "compose",
+      kind: intent.kind,
+      displayIndex: mode.span.displayIndex,
+      start: mode.span.start,
+      end: mode.span.end,
+      text: "",
+    });
+  } else if (deps.isDiff) {
+    const row = deps.rows[deps.cursor];
+    if (row)
+      deps.setMode({
+        type: "compose",
+        kind: intent.kind,
+        displayIndex: deps.cursor,
+        start: 0,
+        end: row.text.length,
+        text: "",
+      });
+  } else {
+    // a mouse drag leaves a native selection; it wins over the cursor block
+    const native = deps.planSheetRef.current?.readSelection() ?? null;
+    if (native) {
+      deps.setMode({ type: "compose", kind: intent.kind, ...native, text: "" });
+    } else {
+      const block = deps.display[deps.cursor];
+      if (block)
+        deps.setMode({
+          type: "compose",
+          kind: intent.kind,
+          displayIndex: deps.cursor,
+          start: 0,
+          end: displayText(block).length,
+          text: "",
+        });
+    }
+  }
+}
+
+function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispatchDeps): void {
+  const { session } = deps;
+  if (!session) return;
+  deps.liveInput.current = "";
+  // the confirm card lives in the expanded review rail; a compact or hidden
+  // panel would swallow the whole submit flow, so force the rail open (live
+  // only - the saved panel preference is left untouched)
+  deps.setReviewMode("expanded");
+  deps.setRailTab("review");
+  deps.setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
+}
+
+function handleShare(_intent: IntentOfType<"share">, deps: IntentDispatchDeps): void {
+  deps.controller.share();
+}
+
+function handleCut(_intent: IntentOfType<"cut">, deps: IntentDispatchDeps): void {
+  deps.controller.cut(deps.cursor);
+}
+
+function handleRejectHunk(_intent: IntentOfType<"rejectHunk">, deps: IntentDispatchDeps): void {
+  deps.controller.toggleRejectHunk(deps.cursor);
+}
+
+function handleRejectChange(_intent: IntentOfType<"rejectChange">, deps: IntentDispatchDeps): void {
+  deps.controller.toggleRejectChange(deps.cursor);
+}
+
+function handleRestoreCuration(
+  _intent: IntentOfType<"restoreCuration">,
+  deps: IntentDispatchDeps,
+): void {
+  // undo the selected curated-out item, or the last rejected when none is
+  // selected, so a bare `u` reads as "undo my last curation"
+  const items = deps.controller.curationItems();
+  if (!items.length) return;
+  const targetId = deps.selectedCurationId ?? items[items.length - 1]!.id;
+  deps.controller.restoreCuration(targetId);
+  deps.setSelectedCurationId(undefined);
+}
+
+function handleEdit(_intent: IntentOfType<"edit">, deps: IntentDispatchDeps): void {
+  deps.runEditorHandOff();
+}
+
+function handleEditCard(_intent: IntentOfType<"editCard">, deps: IntentDispatchDeps): void {
+  if (deps.focusedAnnotationId) deps.openCardEdit(deps.focusedAnnotationId);
+}
+
+function handleAnnotationCycle(
+  intent: IntentOfType<"nextAnnotation" | "prevAnnotation">,
+  deps: IntentDispatchDeps,
+): void {
+  // cycle open cards only - addressed ones are out of the rail
+  const annotations = (deps.session?.annotations ?? []).filter(
+    (annotation) => !isAddressed(annotation),
+  );
+  if (!annotations.length) return;
+  const focusedIndex = annotations.findIndex(
+    (annotation) => annotation.id === deps.focusedAnnotationId,
+  );
+  const nextIndex =
+    focusedIndex === -1
+      ? 0
+      : (focusedIndex + (intent.type === "nextAnnotation" ? 1 : -1) + annotations.length) %
+        annotations.length;
+  deps.selectCardFromDocument(annotations[nextIndex]!.id);
+}
+
+function handleWalkStart(_intent: IntentOfType<"walkStart">, deps: IntentDispatchDeps): void {
+  deps.controller.walkStart();
+}
+
+function handleWalkForward(_intent: IntentOfType<"walkForward">, deps: IntentDispatchDeps): void {
+  deps.controller.walkForward();
+}
+
+function handleWalkBack(_intent: IntentOfType<"walkBack">, deps: IntentDispatchDeps): void {
+  deps.controller.walkBack();
+}
+
+function handleWalkLeave(_intent: IntentOfType<"walkLeave">, deps: IntentDispatchDeps): void {
+  deps.controller.walkLeave();
+}
+
+function handleRemoveAnnotation(
+  _intent: IntentOfType<"removeAnnotation">,
+  deps: IntentDispatchDeps,
+): void {
+  if (deps.focusedAnnotationId) {
+    deps.controller.removeAnnotation(deps.focusedAnnotationId);
+    deps.setFocusedAnnotationId(undefined);
+  }
+}
+
+function handleDeselect(_intent: IntentOfType<"deselect">, deps: IntentDispatchDeps): void {
+  deps.planSheetRef.current?.clearSelection();
+  deps.setFocusedAnnotationId(undefined);
+  deps.setPulsedAnnotationId(null);
+}
+
+function handleCloseOverlay(_intent: IntentOfType<"closeOverlay">, deps: IntentDispatchDeps): void {
+  deps.setMode({ type: "normal" });
+}
+
+function handleSaveCompose(_intent: IntentOfType<"saveCompose">, deps: IntentDispatchDeps): void {
+  const { mode, session, controller } = deps;
+  const body = deps.liveInput.current.trim();
+  if (mode.type === "railEdit") {
+    if (session && body) controller.updateAnnotation(mode.id, body);
+    deps.setMode({ type: "normal" });
+    return;
+  }
+  if (mode.type !== "compose") return;
+  if (session && body) {
+    const annotationId = controller.annotate(
+      mode.kind,
+      mode.displayIndex,
+      mode.start,
+      mode.end,
+      body,
+    );
+    if (annotationId) deps.setFocusedAnnotationId(annotationId);
+  }
+  deps.setMode({ type: "normal" });
+}
+
+function handleSubmitVerdict(
+  _intent: IntentOfType<"submitVerdict">,
+  deps: IntentDispatchDeps,
+): void {
+  const { mode } = deps;
+  if (mode.type === "submit") deps.controller.submit(mode.verdict, deps.liveInput.current);
+  deps.setMode({ type: "normal" });
+}
+
+function handleCycleVerdict(intent: IntentOfType<"cycleVerdict">, deps: IntentDispatchDeps): void {
+  const { mode } = deps;
+  if (mode.type !== "submit") return;
+  const verdictIndex =
+    (VERDICTS.indexOf(mode.verdict) + intent.direction + VERDICTS.length) % VERDICTS.length;
+  deps.setMode({ ...mode, verdict: VERDICTS[verdictIndex]! });
+}
+
+function handleFinishReview(_intent: IntentOfType<"finishReview">, deps: IntentDispatchDeps): void {
+  deps.controller.finishReview();
+}
+
+function handleOptInAutoClose(
+  _intent: IntentOfType<"optInAutoClose">,
+  deps: IntentDispatchDeps,
+): void {
+  deps.controller.optInAutoClose();
+}
+
+function handleDismissCompletion(
+  _intent: IntentOfType<"dismissCompletion">,
+  deps: IntentDispatchDeps,
+): void {
+  deps.controller.dismissCompletion();
+}
+
+function handleCycleReviewPanel(
+  _intent: IntentOfType<"cycleReviewPanel">,
+  deps: IntentDispatchDeps,
+): void {
+  const next = cycleReviewPanelMode(deps.reviewMode);
+  deps.setReviewMode(next);
+  deps.controller.saveReviewPanel({ mode: next });
+}
+
+function handleResizeReviewPanel(
+  intent: IntentOfType<"resizeReviewPanel">,
+  deps: IntentDispatchDeps,
+): void {
+  if (deps.reviewMode !== "expanded") return;
+  const next = resolveReviewWidth(
+    deps.reviewWidth + intent.direction * REVIEW_RESIZE_STEP,
+    deps.terminalWidth,
+  );
+  deps.reviewWidthRef.current = next;
+  deps.setReviewWidth(next);
+  deps.controller.saveReviewPanel({ width: next });
+}
+
+const intentHandlers: {
+  [Kind in Intent["type"]]: (intent: IntentOfType<Kind>, deps: IntentDispatchDeps) => void;
+} = {
+  exit: handleExit,
+  status: handleStatus,
+  move: handleMove,
+  inboxMove: handleInboxMove,
+  openSession: handleOpenSession,
+  requestDeleteSession: handleRequestDeleteSession,
+  openRename: handleOpenRename,
+  confirmDialog: handleConfirmDialog,
+  startSpan: handleStartSpan,
+  spanKey: handleSpanKey,
+  spanCut: handleSpanCut,
+  openSpanActions: handleOpenSpanActions,
+  moveSpanAction: handleMoveSpanAction,
+  closeSpanActions: handleCloseSpanActions,
+  pickSpanAction: handlePickSpanAction,
+  openCompose: handleOpenCompose,
+  openSubmit: handleOpenSubmit,
+  share: handleShare,
+  cut: handleCut,
+  rejectHunk: handleRejectHunk,
+  rejectChange: handleRejectChange,
+  restoreCuration: handleRestoreCuration,
+  edit: handleEdit,
+  editCard: handleEditCard,
+  nextAnnotation: handleAnnotationCycle,
+  prevAnnotation: handleAnnotationCycle,
+  walkStart: handleWalkStart,
+  walkForward: handleWalkForward,
+  walkBack: handleWalkBack,
+  walkLeave: handleWalkLeave,
+  removeAnnotation: handleRemoveAnnotation,
+  deselect: handleDeselect,
+  closeOverlay: handleCloseOverlay,
+  saveCompose: handleSaveCompose,
+  submitVerdict: handleSubmitVerdict,
+  cycleVerdict: handleCycleVerdict,
+  finishReview: handleFinishReview,
+  optInAutoClose: handleOptInAutoClose,
+  dismissCompletion: handleDismissCompletion,
+  cycleReviewPanel: handleCycleReviewPanel,
+  resizeReviewPanel: handleResizeReviewPanel,
+};
+
 /** Build the intent handler for one render from its dependency bag. */
 export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent) => void {
-  const {
-    controller,
-    onExit,
-    isDiff,
-    display,
-    rows,
-    cursor,
-    inbox,
-    inboxCursor,
-    mode,
-    session,
-    reviewMode,
-    reviewWidth,
-    terminalWidth,
-    focusedAnnotationId,
-    selectedCurationId,
-    authorNames,
-    quickActions,
-    renameAuthor,
-    liveInput,
-    reviewWidthRef,
-    planSheetRef,
-    setCursor,
-    setInboxCursor,
-    setMode,
-    setReviewMode,
-    setReviewWidth,
-    setRailTab,
-    setFocusedAnnotationId,
-    setSelectedCurationId,
-    setPulsedAnnotationId,
-    selectCardFromDocument,
-    runEditorHandOff,
-    openCardEdit,
-  } = deps;
-
   return (intent: Intent): void => {
-    switch (intent.type) {
-      case "exit":
-        return void onExit?.(0);
-      case "status":
-        return controller.setStatus(intent.message);
-      case "move": {
-        const navigableCount = isDiff ? rows.length : display.length;
-        if (intent.to === "down") setCursor((current) => Math.min(navigableCount - 1, current + 1));
-        else if (intent.to === "up") setCursor((current) => Math.max(0, current - 1));
-        else if (intent.to === "top") setCursor(0);
-        else setCursor(navigableCount - 1);
-        return;
-      }
-      case "inboxMove": {
-        const navigableCount = inbox?.length ?? 0;
-        setInboxCursor((current) =>
-          intent.to === "down"
-            ? Math.min(navigableCount - 1, current + 1)
-            : Math.max(0, current - 1),
-        );
-        return;
-      }
-      case "openSession": {
-        const selected = inbox?.[inboxCursor];
-        if (selected) controller.open(selected.id);
-        return;
-      }
-      case "requestDeleteSession": {
-        const selected = inbox?.[inboxCursor];
-        if (selected)
-          setMode({
-            type: "confirmDelete",
-            sessionId: selected.id,
-            title: selected.artifact.meta.title ?? selected.id,
-          });
-        return;
-      }
-      case "openRename": {
-        const focused = session?.annotations.find(
-          (annotation) => annotation.id === focusedAnnotationId,
-        );
-        if (!focused?.author)
-          return void controller.setStatus("that is your own note - nothing to rename");
-        return void setMode({
-          type: "rename",
-          authorId: focused.author,
-          text: authorNames[focused.author] ?? "",
-        });
-      }
-      case "confirmDialog": {
-        if (mode.type === "confirmDelete") controller.deleteSession(mode.sessionId);
-        else if (mode.type === "rename") renameAuthor(mode.authorId, mode.text.trim());
-        else if (mode.type === "nameSelf") controller.setSelfName(mode.text.trim());
-        return void setMode({ type: "normal" });
-      }
-      case "startSpan": {
-        const block = display[cursor];
-        if (!block?.work) return;
-        const span = startSpan(cursor, displayText(block));
-        if (span) setMode({ type: "span", span });
-        return;
-      }
-      case "spanKey":
-        if (mode.type === "span") {
-          const span = spanKey(
-            mode.span,
-            intent.name,
-            displayText(display[mode.span.displayIndex]!),
-          );
-          setMode({ type: "span", span });
-        }
-        return;
-      case "spanCut":
-        // the block the span sits in, cut whole (partial-span cut is not modeled)
-        if (mode.type === "span") {
-          controller.cut(mode.span.displayIndex);
-          setMode({ type: "normal" });
-        }
-        return;
-      case "openSpanActions":
-        if (mode.type === "span") setMode({ type: "spanActions", span: mode.span, index: 0 });
-        return;
-      case "moveSpanAction":
-        if (mode.type === "spanActions") {
-          const index = Math.max(
-            0,
-            Math.min(quickActions.length - 1, mode.index + intent.direction),
-          );
-          setMode({ ...mode, index });
-        }
-        return;
-      case "closeSpanActions":
-        if (mode.type === "spanActions") setMode({ type: "span", span: mode.span });
-        return;
-      case "pickSpanAction": {
-        if (mode.type !== "spanActions") return;
-        const action = quickActions[intent.index ?? mode.index];
-        if (session && action) {
-          const body = quickActionBody(action);
-          const annotationId = controller.annotate(
-            "comment",
-            mode.span.displayIndex,
-            mode.span.start,
-            mode.span.end,
-            body,
-          );
-          if (annotationId) setFocusedAnnotationId(annotationId);
-        }
-        return void setMode({ type: "normal" });
-      }
-      case "openCompose": {
-        liveInput.current = "";
-        if (intent.from === "span" && mode.type === "span") {
-          setMode({
-            type: "compose",
-            kind: intent.kind,
-            displayIndex: mode.span.displayIndex,
-            start: mode.span.start,
-            end: mode.span.end,
-            text: "",
-          });
-        } else if (isDiff) {
-          const row = rows[cursor];
-          if (row)
-            setMode({
-              type: "compose",
-              kind: intent.kind,
-              displayIndex: cursor,
-              start: 0,
-              end: row.text.length,
-              text: "",
-            });
-        } else {
-          // a mouse drag leaves a native selection; it wins over the cursor block
-          const native = planSheetRef.current?.readSelection() ?? null;
-          if (native) {
-            setMode({ type: "compose", kind: intent.kind, ...native, text: "" });
-          } else {
-            const block = display[cursor];
-            if (block)
-              setMode({
-                type: "compose",
-                kind: intent.kind,
-                displayIndex: cursor,
-                start: 0,
-                end: displayText(block).length,
-                text: "",
-              });
-          }
-        }
-        return;
-      }
-      case "openSubmit":
-        if (!session) return;
-        liveInput.current = "";
-        // the confirm card lives in the expanded review rail; a compact or hidden
-        // panel would swallow the whole submit flow, so force the rail open (live
-        // only - the saved panel preference is left untouched)
-        setReviewMode("expanded");
-        setRailTab("review");
-        return void setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
-      case "share":
-        return controller.share();
-      case "cut":
-        return controller.cut(cursor);
-      case "rejectHunk":
-        return controller.toggleRejectHunk(cursor);
-      case "rejectChange":
-        return controller.toggleRejectChange(cursor);
-      case "restoreCuration": {
-        // undo the selected curated-out item, or the last rejected when none is
-        // selected, so a bare `u` reads as "undo my last curation"
-        const items = controller.curationItems();
-        if (!items.length) return;
-        const targetId = selectedCurationId ?? items[items.length - 1]!.id;
-        controller.restoreCuration(targetId);
-        return void setSelectedCurationId(undefined);
-      }
-      case "edit":
-        return runEditorHandOff();
-      case "editCard":
-        if (focusedAnnotationId) openCardEdit(focusedAnnotationId);
-        return;
-      case "nextAnnotation":
-      case "prevAnnotation": {
-        // cycle open cards only - addressed ones are out of the rail
-        const annotations = (session?.annotations ?? []).filter(
-          (annotation) => !isAddressed(annotation),
-        );
-        if (!annotations.length) return;
-        const focusedIndex = annotations.findIndex(
-          (annotation) => annotation.id === focusedAnnotationId,
-        );
-        const nextIndex =
-          focusedIndex === -1
-            ? 0
-            : (focusedIndex + (intent.type === "nextAnnotation" ? 1 : -1) + annotations.length) %
-              annotations.length;
-        return void selectCardFromDocument(annotations[nextIndex]!.id);
-      }
-      case "walkStart":
-        return controller.walkStart();
-      case "walkForward":
-        return controller.walkForward();
-      case "walkBack":
-        return controller.walkBack();
-      case "walkLeave":
-        return controller.walkLeave();
-      case "removeAnnotation":
-        if (focusedAnnotationId) {
-          controller.removeAnnotation(focusedAnnotationId);
-          setFocusedAnnotationId(undefined);
-        }
-        return;
-      case "deselect":
-        planSheetRef.current?.clearSelection();
-        setFocusedAnnotationId(undefined);
-        setPulsedAnnotationId(null);
-        return;
-      case "closeOverlay":
-        return void setMode({ type: "normal" });
-      case "saveCompose": {
-        const body = liveInput.current.trim();
-        if (mode.type === "railEdit") {
-          if (session && body) controller.updateAnnotation(mode.id, body);
-          return void setMode({ type: "normal" });
-        }
-        if (mode.type !== "compose") return;
-        if (session && body) {
-          const annotationId = controller.annotate(
-            mode.kind,
-            mode.displayIndex,
-            mode.start,
-            mode.end,
-            body,
-          );
-          if (annotationId) setFocusedAnnotationId(annotationId);
-        }
-        return void setMode({ type: "normal" });
-      }
-      case "submitVerdict":
-        if (mode.type === "submit") controller.submit(mode.verdict, liveInput.current);
-        return void setMode({ type: "normal" });
-      case "cycleVerdict": {
-        if (mode.type !== "submit") return;
-        const verdictIndex =
-          (VERDICTS.indexOf(mode.verdict) + intent.direction + VERDICTS.length) % VERDICTS.length;
-        return void setMode({ ...mode, verdict: VERDICTS[verdictIndex]! });
-      }
-      case "finishReview":
-        return controller.finishReview();
-      case "optInAutoClose":
-        return controller.optInAutoClose();
-      case "dismissCompletion":
-        return controller.dismissCompletion();
-      case "cycleReviewPanel": {
-        const next = cycleReviewPanelMode(reviewMode);
-        setReviewMode(next);
-        return controller.saveReviewPanel({ mode: next });
-      }
-      case "resizeReviewPanel": {
-        if (reviewMode !== "expanded") return;
-        const next = resolveReviewWidth(
-          reviewWidth + intent.direction * REVIEW_RESIZE_STEP,
-          terminalWidth,
-        );
-        reviewWidthRef.current = next;
-        setReviewWidth(next);
-        return controller.saveReviewPanel({ width: next });
-      }
-    }
+    const handler = intentHandlers[intent.type] as (
+      intent: Intent,
+      deps: IntentDispatchDeps,
+    ) => void;
+    handler(intent, deps);
   };
 }
