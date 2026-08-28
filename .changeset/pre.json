@@ -47,6 +47,7 @@
     "e2e-stability",
     "edit-mode",
     "embedded-agent-terminal",
+    "enforce-cyclomatic-complexity",
     "favicon",
     "gateway-connlog-classify",
     "gateway-metrics",
