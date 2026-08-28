@@ -17,7 +17,7 @@ import {
 import { DaemonCore, type DaemonEvent } from "./api";
 import { DaemonError } from "./errors";
 import { roleAllowsMethod, type DaemonRole } from "./capabilities";
-import { isKnownMethod, parseParams } from "./validate";
+import { isKnownMethod, parseParams, type MethodName } from "./validate";
 import { BackpressureWriter, LineBuffer, type Request } from "./protocol";
 import { cueloopHome, lockPath, pidPath, socketPath } from "./paths";
 
@@ -27,6 +27,8 @@ interface Connection {
   /** Capability role for this connection; the owner until a daemon.hello caps it. */
   role: DaemonRole;
 }
+
+type MethodHandler = (connection: Connection, request: Request) => unknown;
 
 export interface DaemonOptions {
   home?: string;
@@ -222,6 +224,91 @@ export class DaemonServer {
     }
   }
 
+  private readonly handlers: Record<MethodName, MethodHandler> = {
+    "daemon.ping": () => ({ pid: process.pid }),
+    "daemon.hello": (connection, request) => {
+      connection.role = parseParams("daemon.hello", request.params).role;
+      return {};
+    },
+    "daemon.shutdown": () => {
+      setTimeout(() => {
+        this.stop();
+        this.onIdleExit();
+      }, 10);
+      return {};
+    },
+    "events.subscribe": (connection) => {
+      connection.subscribed = true;
+      return {};
+    },
+    "session.create": (_connection, request) => {
+      const params = parseParams("session.create", request.params);
+      return this.core.sessionCreate({ workspace: params.workspace, artifact: params.artifact });
+    },
+    "session.get": (_connection, request) =>
+      this.core.sessionGet(parseParams("session.get", request.params).id),
+    "session.list": (_connection, request) =>
+      this.core.sessionList(parseParams("session.list", request.params).filter),
+    "session.wait": (_connection, request) => {
+      const params = parseParams("session.wait", request.params);
+      return this.core.sessionWait(params.id, params.timeoutMs);
+    },
+    "session.annotate": (_connection, request) => {
+      const params = parseParams("session.annotate", request.params);
+      return this.core.sessionAnnotate(params.id, params.annotation, params.authorName);
+    },
+    "session.removeAnnotation": (_connection, request) => {
+      const params = parseParams("session.removeAnnotation", request.params);
+      return this.core.sessionRemoveAnnotation(params.id, params.annotationId);
+    },
+    "session.setWorkingCopy": (_connection, request) => {
+      const params = parseParams("session.setWorkingCopy", request.params);
+      return this.core.sessionSetWorkingCopy(params.id, params.workingCopy);
+    },
+    "session.setViewed": (_connection, request) => {
+      const params = parseParams("session.setViewed", request.params);
+      return this.core.sessionSetViewed(params.id, params.viewedPaths);
+    },
+    "session.refreshDiff": (_connection, request) => {
+      const params = parseParams("session.refreshDiff", request.params);
+      return this.core.sessionRefreshDiff(params.id);
+    },
+    "session.setShareId": (_connection, request) => {
+      const params = parseParams("session.setShareId", request.params);
+      return this.core.sessionSetShareId(params.id, params.shareId);
+    },
+    "session.delete": (_connection, request) => {
+      this.core.sessionDelete(parseParams("session.delete", request.params).id);
+      return {};
+    },
+    "session.mergeShared": (_connection, request) => {
+      const params = parseParams("session.mergeShared", request.params);
+      return this.core.sessionMergeShared(params.id, {
+        annotations: params.annotations,
+        participants: params.participants,
+      });
+    },
+    "session.resolve": (_connection, request) => {
+      const params = parseParams("session.resolve", request.params);
+      return this.core.sessionResolve(params.id, params.verdictKind, params.summary);
+    },
+    "session.submitRevision": (_connection, request) => {
+      const params = parseParams("session.submitRevision", request.params);
+      return this.core.sessionSubmitRevision(
+        params.id,
+        params.content,
+        params.addressedAnnotationIds,
+      );
+    },
+    "herdr.getTab": (_connection, request) =>
+      this.core.herdrGetTab(parseParams("herdr.getTab", request.params).id),
+    "herdr.setTab": (_connection, request) => {
+      const params = parseParams("herdr.setTab", request.params);
+      this.core.herdrSetTab(params.id, { tabId: params.tabId, paneId: params.paneId });
+      return {};
+    },
+  };
+
   private async dispatch(connection: Connection, request: Request): Promise<unknown> {
     // The wire is untrusted JSON: validate before DaemonCore sees anything.
     if (typeof request.method !== "string" || !isKnownMethod(request.method)) {
@@ -232,86 +319,6 @@ export class DaemonServer {
     if (!roleAllowsMethod(connection.role, request.method)) {
       throw new DaemonError("forbidden", `role ${connection.role} cannot call ${request.method}`);
     }
-    const core = this.core;
-    switch (request.method) {
-      case "daemon.ping":
-        return { pid: process.pid };
-      case "daemon.hello":
-        connection.role = parseParams("daemon.hello", request.params).role;
-        return {};
-      case "daemon.shutdown":
-        setTimeout(() => {
-          this.stop();
-          this.onIdleExit();
-        }, 10);
-        return {};
-      case "events.subscribe":
-        connection.subscribed = true;
-        return {};
-      case "session.create": {
-        const params = parseParams("session.create", request.params);
-        return core.sessionCreate({ workspace: params.workspace, artifact: params.artifact });
-      }
-      case "session.get":
-        return core.sessionGet(parseParams("session.get", request.params).id);
-      case "session.list":
-        return core.sessionList(parseParams("session.list", request.params).filter);
-      case "session.wait": {
-        const params = parseParams("session.wait", request.params);
-        return core.sessionWait(params.id, params.timeoutMs);
-      }
-      case "session.annotate": {
-        const params = parseParams("session.annotate", request.params);
-        return core.sessionAnnotate(params.id, params.annotation, params.authorName);
-      }
-      case "session.removeAnnotation": {
-        const params = parseParams("session.removeAnnotation", request.params);
-        return core.sessionRemoveAnnotation(params.id, params.annotationId);
-      }
-      case "session.setWorkingCopy": {
-        const params = parseParams("session.setWorkingCopy", request.params);
-        return core.sessionSetWorkingCopy(params.id, params.workingCopy);
-      }
-      case "session.setViewed": {
-        const params = parseParams("session.setViewed", request.params);
-        return core.sessionSetViewed(params.id, params.viewedPaths);
-      }
-      case "session.refreshDiff": {
-        const params = parseParams("session.refreshDiff", request.params);
-        return core.sessionRefreshDiff(params.id);
-      }
-      case "session.setShareId": {
-        const params = parseParams("session.setShareId", request.params);
-        return core.sessionSetShareId(params.id, params.shareId);
-      }
-      case "session.delete": {
-        core.sessionDelete(parseParams("session.delete", request.params).id);
-        return {};
-      }
-      case "session.mergeShared": {
-        const params = parseParams("session.mergeShared", request.params);
-        return core.sessionMergeShared(params.id, {
-          annotations: params.annotations,
-          participants: params.participants,
-        });
-      }
-      case "session.resolve": {
-        const params = parseParams("session.resolve", request.params);
-        return core.sessionResolve(params.id, params.verdictKind, params.summary);
-      }
-      case "session.submitRevision": {
-        const params = parseParams("session.submitRevision", request.params);
-        return core.sessionSubmitRevision(params.id, params.content, params.addressedAnnotationIds);
-      }
-      case "herdr.getTab":
-        return core.herdrGetTab(parseParams("herdr.getTab", request.params).id);
-      case "herdr.setTab": {
-        const params = parseParams("herdr.setTab", request.params);
-        core.herdrSetTab(params.id, { tabId: params.tabId, paneId: params.paneId });
-        return {};
-      }
-      default:
-        throw new DaemonError("unknown_method", `unknown method ${request.method}`);
-    }
+    return this.handlers[request.method](connection, request);
   }
 }
