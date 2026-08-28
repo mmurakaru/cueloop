@@ -29,103 +29,93 @@ import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
 const argv = process.argv.slice(2);
 const cmd = argv[0];
 
-async function main(): Promise<number> {
-  switch (cmd) {
-    case "session":
-      return sessionCommand(argv.slice(1));
-    case "daemon": {
-      const { DaemonServer } = await import("@cueloop/daemon");
-      const server = new DaemonServer({ idleExitMs: 0 });
-      const path = server.start();
-      if (path === null) {
-        console.error("a cueloop daemon already owns this home - nothing to do");
-        return 1;
-      }
-      console.log(`cueloop daemon (foreground) on ${path}`);
-      await new Promise(() => {}); // run until signalled
-      return 0;
-    }
-    case "plan":
-      return planCommand(argv.slice(1));
-    case "diff":
-      return diffCommand(argv.slice(1));
-    case "prototype":
-      return prototypeCommand(argv.slice(1));
-    case "serve": {
-      const { positional, flags } = parseArgs(argv.slice(1));
-      const port = stringFlag(flags, "port");
-      const { serveClient } = await import("@cueloop/client");
-      const handle = await serveClient({
-        port: port !== undefined ? Number(port) : undefined,
-        host: stringFlag(flags, "host"),
-        sessionId: positional[0],
-      });
-      console.log(
-        [
-          "",
-          `observers join with:  ssh -p ${handle.port} ${handle.host === "0.0.0.0" || handle.host === "::" ? "<this-host>" : handle.host}`,
-          "",
-          "no passwords, no keys: anyone who can reach this address can watch.",
-          "share the address deliberately (SSH tunnel, tailnet). observers are",
-          "read-only; you stay the one writable controller via `cueloop` locally.",
-          "ctrl-c stops serving.",
-        ].join("\n"),
-      );
-      const stop = () => void handle.close().finally(() => process.exit(0));
-      process.on("SIGINT", stop);
-      process.on("SIGTERM", stop);
-      await new Promise(() => {}); // serve until signalled
-      return 0;
-    }
-    case "share": {
-      const { positional, flags } = parseArgs(argv.slice(1));
-      const { shareCommand, sharePullCommand } = await import("./share-command");
-      const port = stringFlag(flags, "port");
-      const target = {
-        host: stringFlag(flags, "host"),
-        port: port !== undefined ? Number(port) : undefined,
-      };
-      if (positional[0] === "pull")
-        return sharePullCommand({ ...target, sessionId: positional[1] });
-      return shareCommand({ ...target, sessionId: positional[0] });
-    }
-    case "wake": {
-      const { wakeCommand } = await import("./wake-command");
-      return wakeCommand(argv.slice(1));
-    }
-    case "actions": {
-      const { actionsCommand } = await import("./actions-command");
-      return actionsCommand(argv.slice(1));
-    }
-    case "refine": {
-      const { refineCommand } = await import("./refine-command");
-      return refineCommand(argv.slice(1));
-    }
-    case "review":
-      return reviewEntry(argv.slice(1));
-    case "review-post": {
-      const { reviewPostCommand } = await import("./pr");
-      return reviewPostCommand(argv.slice(1));
-    }
-    case "-v":
-    case "--version":
-    case "version":
-      console.log(CLI_VERSION);
-      return 0;
-    case "-h":
-    case "--help":
-    case "help":
-      printHelp();
-      return 0;
-    case undefined:
-      return runTui();
-    default: {
-      // `cueloop <session-id>` opens the TUI on that session
-      if (cmd.startsWith("ses_")) return runTui(cmd);
-      printHelp();
-      return 2;
-    }
+async function daemonCommand(): Promise<number> {
+  const { DaemonServer } = await import("@cueloop/daemon");
+  const server = new DaemonServer({ idleExitMs: 0 });
+  const path = server.start();
+  if (path === null) {
+    console.error("a cueloop daemon already owns this home - nothing to do");
+    return 1;
   }
+  console.log(`cueloop daemon (foreground) on ${path}`);
+  await new Promise(() => {}); // run until signalled
+  return 0;
+}
+
+async function serveEntry(rest: string[]): Promise<number> {
+  const { positional, flags } = parseArgs(rest);
+  const port = stringFlag(flags, "port");
+  const { serveClient } = await import("@cueloop/client");
+  const handle = await serveClient({
+    port: port !== undefined ? Number(port) : undefined,
+    host: stringFlag(flags, "host"),
+    sessionId: positional[0],
+  });
+  console.log(
+    [
+      "",
+      `observers join with:  ssh -p ${handle.port} ${handle.host === "0.0.0.0" || handle.host === "::" ? "<this-host>" : handle.host}`,
+      "",
+      "no passwords, no keys: anyone who can reach this address can watch.",
+      "share the address deliberately (SSH tunnel, tailnet). observers are",
+      "read-only; you stay the one writable controller via `cueloop` locally.",
+      "ctrl-c stops serving.",
+    ].join("\n"),
+  );
+  const stop = () => void handle.close().finally(() => process.exit(0));
+  process.on("SIGINT", stop);
+  process.on("SIGTERM", stop);
+  await new Promise(() => {}); // serve until signalled
+  return 0;
+}
+
+async function shareEntry(rest: string[]): Promise<number> {
+  const { positional, flags } = parseArgs(rest);
+  const { shareCommand, sharePullCommand } = await import("./share-command");
+  const port = stringFlag(flags, "port");
+  const target = {
+    host: stringFlag(flags, "host"),
+    port: port !== undefined ? Number(port) : undefined,
+  };
+  if (positional[0] === "pull") return sharePullCommand({ ...target, sessionId: positional[1] });
+  return shareCommand({ ...target, sessionId: positional[0] });
+}
+
+type CommandHandler = (rest: string[]) => number | Promise<number>;
+
+const commandHandlers: Record<string, CommandHandler> = {
+  session: (rest) => sessionCommand(rest),
+  daemon: () => daemonCommand(),
+  plan: (rest) => planCommand(rest),
+  diff: (rest) => diffCommand(rest),
+  prototype: (rest) => prototypeCommand(rest),
+  serve: (rest) => serveEntry(rest),
+  share: (rest) => shareEntry(rest),
+  wake: async (rest) => (await import("./wake-command")).wakeCommand(rest),
+  actions: async (rest) => (await import("./actions-command")).actionsCommand(rest),
+  refine: async (rest) => (await import("./refine-command")).refineCommand(rest),
+  review: (rest) => reviewEntry(rest),
+  "review-post": async (rest) => (await import("./pr")).reviewPostCommand(rest),
+};
+
+const versionAliases = new Set(["-v", "--version", "version"]);
+const helpAliases = new Set(["-h", "--help", "help"]);
+
+async function main(): Promise<number> {
+  if (cmd === undefined) return runTui();
+  const handler = commandHandlers[cmd];
+  if (handler !== undefined) return handler(argv.slice(1));
+  if (versionAliases.has(cmd)) {
+    console.log(CLI_VERSION);
+    return 0;
+  }
+  if (helpAliases.has(cmd)) {
+    printHelp();
+    return 0;
+  }
+  if (cmd.startsWith("ses_")) return runTui(cmd);
+  printHelp();
+  return 2;
 }
 
 /**
