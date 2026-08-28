@@ -73,17 +73,19 @@ export class R2ShareStore implements ShareStore {
     const file = this.client.file(id);
 
     if (!(await file.exists())) return null;
-    const { lastModified } = await file.stat();
 
-    if (isExpired(lastModified.getTime(), Date.now())) {
-      // Best-effort sweep so a read of an expired share also reclaims it; an R2
-      // lifecycle rule is the backstop for blobs that are never read again.
-      await file.delete().catch(() => {});
+    try {
+      const { lastModified } = await file.stat();
 
+      if (isExpired(lastModified.getTime(), Date.now())) return null;
+
+      return await file.bytes();
+    } catch {
+      // The blob was removed between the existence check and this read - an R2
+      // lifecycle sweep, which is what actually reclaims expired blobs. Reading
+      // it as gone matches an already-expired share.
       return null;
     }
-
-    return file.bytes();
   }
 }
 
