@@ -122,65 +122,8 @@ function status(message: string): Intent[] {
  */
 export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: string): Intent[] {
   const name = key.name;
-  // compose/submit overlays own the keys via focused inputs; only escape,
-  // return, and verdict arrows route through the grammar
-  if (state.overlay === "compose" || state.overlay === "submit") {
-    if (name === "escape") return [{ type: "closeOverlay" }];
-    if (name === "return" || name === "enter") {
-      // In the composer, ⌥/Alt+⏎ (meta) and shift+⏎ insert a newline - the
-      // focused textarea owns that; only a bare ⏎ saves. The submit overlay
-      // keeps its plain ⏎ submit.
-      if (state.overlay === "compose") {
-        if (key.shift || key.meta) return [];
-        return [{ type: "saveCompose" }];
-      }
-      return [{ type: "submitVerdict" }];
-    }
-    if (state.overlay === "submit" && (name === "left" || name === "right")) {
-      return [{ type: "cycleVerdict", direction: name === "left" ? -1 : 1 }];
-    }
-    return [];
-  }
-  // a modal confirm owns the keys: ⏎ commits the action, escape backs out
-  if (state.overlay === "confirm") {
-    if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
-    if (name === "escape") return [{ type: "closeOverlay" }];
-    return [];
-  }
-  // a text prompt: the focused input owns typing; only ⏎ save and esc route here
-  if (state.overlay === "prompt") {
-    if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
-    if (name === "escape") return [{ type: "closeOverlay" }];
-    return [];
-  }
-  // the quick-actions list owns its keys: j/k move, ⏎ picks the highlighted
-  // action (inserting its preset comment), escape returns to the span toolbar
-  if (state.overlay === "spanActions") {
-    if (name === "j" || name === "down") return [{ type: "moveSpanAction", direction: 1 }];
-    if (name === "k" || name === "up") return [{ type: "moveSpanAction", direction: -1 }];
-    if (name === "return" || name === "enter") return [{ type: "pickSpanAction" }];
-    if (name === "escape") return [{ type: "closeSpanActions" }];
-    return [];
-  }
-  if (state.overlay === "completion-prompt" || state.overlay === "completion-counting") {
-    if (name === "return" || name === "enter" || name === "q") return [{ type: "finishReview" }];
-    if (name === "a") return [{ type: "optInAutoClose" }];
-    if (name === "escape") return [{ type: "dismissCompletion" }];
-    return [];
-  }
-  // the walk wizard owns its keys while active: ] advances (marking the
-  // current file viewed), [ steps back, escape leaves keeping progress, and
-  // return on the end card hands over to the submit confirm
-  if (state.overlay === "walk") {
-    if (name === "]") return [{ type: "walkForward" }];
-    if (name === "[") return [{ type: "walkBack" }];
-    if (name === "escape") return [{ type: "walkLeave" }];
-    if ((name === "return" || name === "enter") && state.walkAtEnd) {
-      return [{ type: "walkLeave" }, { type: "openSubmit" }];
-    }
-    if (name === "q") return [{ type: "exit" }];
-    return [];
-  }
+  const overlayGrammar = overlayGrammars[state.overlay];
+  if (overlayGrammar) return overlayGrammar(state, key);
   const action = resolvedAction ?? actionFor(state.keys, name, key.shift);
   if (action === "quit") return [{ type: "exit" }];
   // the ONE read-only rule: any mutating attempt answers instead of acting
@@ -206,6 +149,94 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   if (reviewPanel) return reviewPanel;
   if (state.view === "diff") return diffGrammar(state, action);
   return planGrammar(state, action, name);
+}
+
+type OverlayGrammar = (state: KeyState, key: KeyInput) => Intent[];
+
+const overlayGrammars: Partial<Record<KeyState["overlay"], OverlayGrammar>> = {
+  compose: composeOverlayGrammar,
+  submit: submitOverlayGrammar,
+  confirm: confirmOverlayGrammar,
+  prompt: promptOverlayGrammar,
+  spanActions: spanActionsOverlayGrammar,
+  "completion-prompt": completionOverlayGrammar,
+  "completion-counting": completionOverlayGrammar,
+  walk: walkOverlayGrammar,
+};
+
+// compose/submit overlays own the keys via focused inputs; only escape,
+// return, and verdict arrows route through the grammar
+function composeOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+  if (name === "escape") return [{ type: "closeOverlay" }];
+  if (name === "return" || name === "enter") {
+    // In the composer, ⌥/Alt+⏎ (meta) and shift+⏎ insert a newline - the
+    // focused textarea owns that; only a bare ⏎ saves. The submit overlay
+    // keeps its plain ⏎ submit.
+    if (key.shift || key.meta) return [];
+    return [{ type: "saveCompose" }];
+  }
+  return [];
+}
+
+function submitOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+  if (name === "escape") return [{ type: "closeOverlay" }];
+  if (name === "return" || name === "enter") return [{ type: "submitVerdict" }];
+  if (name === "left" || name === "right") {
+    return [{ type: "cycleVerdict", direction: name === "left" ? -1 : 1 }];
+  }
+  return [];
+}
+
+// a modal confirm owns the keys: ⏎ commits the action, escape backs out
+function confirmOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+  if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
+  if (name === "escape") return [{ type: "closeOverlay" }];
+  return [];
+}
+
+// a text prompt: the focused input owns typing; only ⏎ save and esc route here
+function promptOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+  if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
+  if (name === "escape") return [{ type: "closeOverlay" }];
+  return [];
+}
+
+// the quick-actions list owns its keys: j/k move, ⏎ picks the highlighted
+// action (inserting its preset comment), escape returns to the span toolbar
+function spanActionsOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+  if (name === "j" || name === "down") return [{ type: "moveSpanAction", direction: 1 }];
+  if (name === "k" || name === "up") return [{ type: "moveSpanAction", direction: -1 }];
+  if (name === "return" || name === "enter") return [{ type: "pickSpanAction" }];
+  if (name === "escape") return [{ type: "closeSpanActions" }];
+  return [];
+}
+
+function completionOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+  if (name === "return" || name === "enter" || name === "q") return [{ type: "finishReview" }];
+  if (name === "a") return [{ type: "optInAutoClose" }];
+  if (name === "escape") return [{ type: "dismissCompletion" }];
+  return [];
+}
+
+// the walk wizard owns its keys while active: ] advances (marking the
+// current file viewed), [ steps back, escape leaves keeping progress, and
+// return on the end card hands over to the submit confirm
+function walkOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
+  const name = key.name;
+  if (name === "]") return [{ type: "walkForward" }];
+  if (name === "[") return [{ type: "walkBack" }];
+  if (name === "escape") return [{ type: "walkLeave" }];
+  if ((name === "return" || name === "enter") && state.walkAtEnd) {
+    return [{ type: "walkLeave" }, { type: "openSubmit" }];
+  }
+  if (name === "q") return [{ type: "exit" }];
+  return [];
 }
 
 /** The review-panel controls: cycle the mode, widen and narrow the rail. */
