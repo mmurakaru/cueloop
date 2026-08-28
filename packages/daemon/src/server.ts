@@ -319,6 +319,9 @@ export class DaemonServer {
     if (!roleAllowsMethod(connection.role, request.method)) {
       throw new DaemonError("forbidden", `role ${connection.role} cannot call ${request.method}`);
     }
+    if (!Object.hasOwn(this.handlers, request.method)) {
+      throw new DaemonError("unknown_method", `unknown method ${request.method}`);
+    }
     return this.handlers[request.method](connection, request);
   }
 }
