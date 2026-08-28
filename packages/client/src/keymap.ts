@@ -164,8 +164,6 @@ const overlayGrammars: Partial<Record<KeyState["overlay"], OverlayGrammar>> = {
   walk: walkOverlayGrammar,
 };
 
-// compose/submit overlays own the keys via focused inputs; only escape,
-// return, and verdict arrows route through the grammar
 function composeOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
   if (name === "escape") return [{ type: "closeOverlay" }];
@@ -189,7 +187,6 @@ function submitOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   return [];
 }
 
-// a modal confirm owns the keys: ⏎ commits the action, escape backs out
 function confirmOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
   if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
@@ -197,7 +194,6 @@ function confirmOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   return [];
 }
 
-// a text prompt: the focused input owns typing; only ⏎ save and esc route here
 function promptOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
   if (name === "return" || name === "enter") return [{ type: "confirmDialog" }];
@@ -205,8 +201,6 @@ function promptOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   return [];
 }
 
-// the quick-actions list owns its keys: j/k move, ⏎ picks the highlighted
-// action (inserting its preset comment), escape returns to the span toolbar
 function spanActionsOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
   if (name === "j" || name === "down") return [{ type: "moveSpanAction", direction: 1 }];
@@ -224,9 +218,6 @@ function completionOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   return [];
 }
 
-// the walk wizard owns its keys while active: ] advances (marking the
-// current file viewed), [ steps back, escape leaves keeping progress, and
-// return on the end card hands over to the submit confirm
 function walkOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
   if (name === "]") return [{ type: "walkForward" }];
