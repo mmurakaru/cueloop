@@ -102,6 +102,17 @@ describe("socket round-trip", () => {
     } catch (error) {
       expect((error as DaemonClientError).code).toBe("unknown_method");
     }
+    const prototypeMethods = await Promise.allSettled([
+      client.request("__proto__", {}),
+      client.request("toString", {}),
+      client.request("constructor", {}),
+    ]);
+    for (const result of prototypeMethods) {
+      expect(result.status).toBe("rejected");
+      expect(((result as PromiseRejectedResult).reason as DaemonClientError).code).toBe(
+        "unknown_method",
+      );
+    }
     // the daemon is still fully alive afterwards
     const session = await client.sessionCreate(WS, PLAN);
     expect((await client.sessionGet(session.id)).id).toBe(session.id);
