@@ -1,5 +1,14 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.59
+
+### Patch Changes
+
+- [#278](https://github.com/mmurakaru/cueloop/pull/278) [`8523940`](https://github.com/mmurakaru/cueloop/commit/852394000ba356c159b21097e46cf8036a6ebf21) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Enforce a cyclomatic complexity limit of 20 (oxlint) and refactor the functions that exceeded it - the intent dispatcher, keymap reducer, config layering, App, plan-sheet run-style, the CLI command routers, and the daemon dispatch - into small, table-driven units. Behavior and public APIs are unchanged.
+
+- Updated dependencies []:
+  - @cueloop/schema@0.1.0-alpha.59
+
 ## 0.1.0-alpha.58
 
 ### Patch Changes
