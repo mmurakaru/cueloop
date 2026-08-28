@@ -31,7 +31,9 @@ export function Dialog({
   children,
 }: DialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   if (!isOpen) return null;
+
   return (
     <box
       style={{

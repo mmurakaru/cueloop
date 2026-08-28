@@ -17,9 +17,11 @@ const version = (await Bun.file("packages/cli/package.json").json()).version as 
 const tag = version.includes("-") ? (version.split("-")[1] ?? "").split(".")[0] : "latest";
 
 const names: string[] = [];
+
 for (const glob of ["packages/*/package.json", "packages/integrations/*/package.json"]) {
   for await (const path of new Bun.Glob(glob).scan(".")) {
     const pkg = (await Bun.file(path).json()) as { name: string; private?: boolean };
+
     if (!pkg.private) names.push(pkg.name);
   }
 }
@@ -36,8 +38,10 @@ const POLL_INTERVAL_MS = 5_000;
 
 async function settle(check: () => Promise<string | null>): Promise<string | null> {
   const deadline = Date.now() + PROPAGATION_TIMEOUT_MS;
+
   for (;;) {
     const problem = await check();
+
     if (problem === null) return null;
     if (Date.now() >= deadline) return problem;
     await Bun.sleep(POLL_INTERVAL_MS);
@@ -53,17 +57,21 @@ const problems: string[] = [];
 for (const name of new Set(names)) {
   const problem = await settle(async () => {
     const response = await fresh(`https://registry.npmjs.org/${name.replace("/", "%2F")}`);
+
     if (!response.ok)
       return `${name}: not on the registry (HTTP ${response.status}) - the publish did not land`;
     const doc = (await response.json()) as {
       versions?: Record<string, unknown>;
       "dist-tags"?: Record<string, string>;
     };
+
     if (!doc.versions?.[version]) {
       return `${name}: registry has no ${version} (tags: ${JSON.stringify(doc["dist-tags"] ?? {})})`;
     }
+
     return null;
   });
+
   if (problem) problems.push(problem);
 }
 
@@ -74,16 +82,19 @@ if (problems.length === 0) {
     const response = await fresh("https://registry.npmjs.org/-/package/cueloop/dist-tags");
     const tags = response.ok ? ((await response.json()) as Record<string, string>) : {};
     const tagged = tags[tag];
+
     return tagged === version
       ? null
       : `the "${tag}" dist-tag points at ${tagged ?? "nothing"}, not ${version} - "npm i cueloop@${tag}" would serve the wrong build`;
   });
+
   if (problem) problems.push(problem);
 }
 
 // 3. the CLI must install from the registry, by tag, and run
 if (problems.length === 0) {
   const work = mkdtempSync(join(tmpdir(), "cueloop-verify-"));
+
   try {
     Bun.spawnSync(["npm", "init", "-y"], { cwd: work });
     // install by TAG: that is the command the docs give a stranger
@@ -91,6 +102,7 @@ if (problems.length === 0) {
       ["npm", "install", `cueloop@${tag}`, "--no-audit", "--no-fund", "--prefer-online"],
       { cwd: work },
     );
+
     if (install.exitCode !== 0) {
       problems.push(
         `cueloop@${tag} does not install: ${install.stderr.toString().trim().split("\n").slice(-3).join(" ")}`,
@@ -99,6 +111,7 @@ if (problems.length === 0) {
       const entry = join(work, "node_modules", "cueloop", "src", "main.ts");
       const run = Bun.spawnSync([process.execPath, "run", entry, "help"], { cwd: work });
       const out = run.stdout.toString();
+
       if (run.exitCode !== 0 || !out.includes("cueloop session")) {
         problems.push(
           `the installed CLI does not run: exit ${run.exitCode}, stderr ${run.stderr.toString().trim().slice(0, 200)}`,

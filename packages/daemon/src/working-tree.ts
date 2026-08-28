@@ -6,7 +6,9 @@ import type { DiffFileContents } from "@cueloop/schema";
 async function git(args: string[], cwd: string): Promise<string | null> {
   const gitProcess = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "ignore" });
   const stdout = await new Response(gitProcess.stdout).text();
+
   if ((await gitProcess.exited) !== 0) return null;
+
   return stdout.trim();
 }
 
@@ -18,6 +20,7 @@ async function headContents(path: string, cwd: string): Promise<string> {
     stderr: "ignore",
   });
   const stdout = await new Response(gitProcess.stdout).text();
+
   return (await gitProcess.exited) === 0 ? stdout : "";
 }
 
@@ -35,6 +38,7 @@ function looksBinary(text: string): boolean {
   for (let index = 0; index < text.length; index++) {
     if (text.charCodeAt(index) === 0) return true;
   }
+
   return false;
 }
 
@@ -51,8 +55,10 @@ async function trackedFileContents(cwd: string): Promise<DiffFileContents[]> {
   const tokens = nameStatus.split("\0").filter((token) => token.length > 0);
   const files: DiffFileContents[] = [];
   let cursor = 0;
+
   while (cursor < tokens.length) {
     const code = tokens[cursor++]![0];
+
     if (code === "R" || code === "C") {
       cursor += 2;
       continue;
@@ -60,10 +66,13 @@ async function trackedFileContents(cwd: string): Promise<DiffFileContents[]> {
     const path = tokens[cursor++]!;
     const oldContents = code === "A" ? "" : await headContents(path, cwd);
     const newContents = code === "D" ? "" : await workingContents(path, cwd);
+
     if (looksBinary(oldContents) || looksBinary(newContents)) continue;
     const status = code === "A" ? "added" : code === "D" ? "deleted" : "modified";
+
     files.push({ path, oldContents, newContents, status });
   }
+
   return files;
 }
 
@@ -79,6 +88,7 @@ export async function workingTreeDiff(cwd = process.cwd()): Promise<WorkingTreeD
   // untracked files included by default
   const untrackedList = (await git(["ls-files", "--others", "--exclude-standard"], cwd)) ?? "";
   let untracked = "";
+
   for (const file of untrackedList.split("\n").filter(Boolean)) {
     // `git diff --no-index` exits 1 when the files differ - that is success here
     const gitProcess = Bun.spawn(["git", "diff", "--no-index", "--", "/dev/null", file], {
@@ -88,13 +98,16 @@ export async function workingTreeDiff(cwd = process.cwd()): Promise<WorkingTreeD
     });
     const stdout = await new Response(gitProcess.stdout).text();
     const code = await gitProcess.exited;
+
     if ((code === 0 || code === 1) && stdout.trim()) {
       untracked += stdout.trim() + "\n";
       const newContents = await workingContents(file, cwd);
+
       if (!looksBinary(newContents)) {
         files.push({ path: file, oldContents: "", newContents, status: "added" });
       }
     }
   }
+
   return { patch: [tracked, untracked].filter(Boolean).join("\n"), files };
 }

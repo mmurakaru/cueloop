@@ -49,12 +49,14 @@ let privateTempDir: string | null = null;
  */
 export function resolveTransmitMedium(env: NodeJS.ProcessEnv = process.env): TransmitMedium {
   if (env.CUELOOP_KITTY_FILE === "1" && !env.SSH_CONNECTION && !env.SSH_TTY) return "file";
+
   return "base64";
 }
 
 /** Save the cursor, run the placement at the region's corner, restore it. */
 function atRegion(region: CellRegion, body: string): string {
   const moveToCorner = `\x1b[${region.row + 1};${region.column + 1}H`;
+
   return `\x1b7${moveToCorner}${body}\x1b8`;
 }
 
@@ -71,7 +73,9 @@ function placementKeys(imageId: number, region: CellRegion): string {
 function writeTempPng(png: Uint8Array): string {
   if (!privateTempDir) privateTempDir = mkdtempSync(join(tmpdir(), "cueloop-prototype-"));
   const path = join(privateTempDir, `${tempFileCounter++}.png`);
+
   writeFileSync(path, png, { flag: "wx" });
+
   return path;
 }
 
@@ -79,20 +83,24 @@ function base64Transmit(png: Uint8Array, region: CellRegion, imageId: number): s
   const base64 = Buffer.from(png).toString("base64");
   const controlKeys = `a=T,f=100,${placementKeys(imageId, region)}`;
   let sequence = "";
+
   for (let offset = 0; offset < base64.length; offset += CHUNK_BYTES) {
     const chunk = base64.slice(offset, offset + CHUNK_BYTES);
     const isMore = offset + CHUNK_BYTES < base64.length ? 1 : 0;
+
     sequence +=
       offset === 0
         ? graphicsCommand(`${controlKeys},m=${isMore}`, chunk)
         : graphicsCommand(`m=${isMore}`, chunk);
   }
+
   return sequence;
 }
 
 function fileTransmit(png: Uint8Array, region: CellRegion, imageId: number): string {
   const path = writeTempPng(png);
   const payload = Buffer.from(path).toString("base64");
+
   return graphicsCommand(`a=T,f=100,t=t,${placementKeys(imageId, region)}`, payload);
 }
 
@@ -114,6 +122,7 @@ export function transmitKittyImage(
   if (region.columns < 1 || region.rows < 1) return;
   const body =
     medium === "file" ? fileTransmit(png, region, imageId) : base64Transmit(png, region, imageId);
+
   write(SYNCHRONIZED_UPDATE_START + atRegion(region, body) + SYNCHRONIZED_UPDATE_END);
 }
 

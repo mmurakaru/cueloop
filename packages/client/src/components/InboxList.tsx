@@ -27,6 +27,7 @@ export function InboxList({
   theme,
 }: InboxListProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
       {inbox.length === 0 ? (
@@ -35,6 +36,7 @@ export function InboxList({
         inbox.map((session, index) => {
           const selected = index === cursor;
           const title = session.artifact.meta.title ?? session.id;
+
           return (
             <box
               key={session.id}

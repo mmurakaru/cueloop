@@ -13,10 +13,13 @@ export function focusHerdrPane(binPath: string, paneId: string): boolean {
       stdout: "pipe",
       stderr: "ignore",
     });
+
     if (got.exitCode !== 0) return false;
     const parsed = JSON.parse(got.stdout.toString()) as { result?: { pane?: { tab_id?: string } } };
     const tab = parsed.result?.pane?.tab_id;
+
     if (!tab) return false;
+
     return (
       Bun.spawnSync([binPath, "tab", "focus", tab], { stdout: "ignore", stderr: "ignore" })
         .exitCode === 0

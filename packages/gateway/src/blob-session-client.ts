@@ -58,11 +58,13 @@ export class BlobSessionClient implements SessionClient {
     annotation: Omit<Annotation, "createdAt">,
   ): Promise<ReviewSession> {
     const writeBack = this.requireWriteBack();
+
     return this.commit(writeBack, (session) => upsertAnnotation(session, annotation, writeBack));
   }
 
   async sessionRemoveAnnotation(_id: string, annotationId: string): Promise<ReviewSession> {
     const writeBack = this.requireWriteBack();
+
     return this.commit(writeBack, (session) =>
       removeOwnAnnotation(session, annotationId, writeBack.author),
     );
@@ -90,6 +92,7 @@ export class BlobSessionClient implements SessionClient {
 
   async sessionSetSelfName(_id: string, name: string): Promise<ReviewSession> {
     const writeBack = this.requireWriteBack();
+
     return this.commit(writeBack, (session) =>
       registerParticipant(session, writeBack.author, name),
     );
@@ -103,6 +106,7 @@ export class BlobSessionClient implements SessionClient {
 
   private requireWriteBack(): ShareWriteBack {
     if (!this.writeBack) throw new Error("this shared plan is read-only");
+
     return this.writeBack;
   }
 
@@ -124,11 +128,13 @@ export class BlobSessionClient implements SessionClient {
       ? unpackSessionBlob(openBlob(writeBack.masterKey, writeBack.shareId, stored))
       : this.session;
     const next = change(current);
+
     await writeBack.store.put(
       writeBack.shareId,
       sealBlob(writeBack.masterKey, writeBack.shareId, packSessionBlob(next)),
     );
     this.session = next;
+
     return next;
   }
 }
@@ -140,6 +146,7 @@ function upsertAnnotation(
   writeBack: ShareWriteBack,
 ): ReviewSession {
   const existing = session.annotations.find((annotation) => annotation.id === incoming.id);
+
   if (existing && existing.author !== writeBack.author)
     throw new Error("cannot change another author's note");
   const stamped: Annotation = {
@@ -152,6 +159,7 @@ function upsertAnnotation(
         annotation.id === incoming.id ? stamped : annotation,
       )
     : [...session.annotations, stamped];
+
   // Leaving a note registers the author in the participant registry, so a
   // collaborator who skipped naming resolves to anonymous, not a raw fingerprint.
   return registerParticipant({ ...session, annotations }, writeBack.author);
@@ -164,8 +172,10 @@ function removeOwnAnnotation(
   author: string,
 ): ReviewSession {
   const existing = session.annotations.find((annotation) => annotation.id === annotationId);
+
   if (existing && existing.author !== author)
     throw new Error("cannot delete another author's note");
+
   return {
     ...session,
     annotations: session.annotations.filter((annotation) => annotation.id !== annotationId),

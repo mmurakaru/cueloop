@@ -31,8 +31,10 @@ export class LineBuffer {
     this.buffered += chunk;
     for (;;) {
       const newlineIndex = this.buffered.indexOf("\n");
+
       if (newlineIndex === -1) return;
       const line = this.buffered.slice(0, newlineIndex).trim();
+
       this.buffered = this.buffered.slice(newlineIndex + 1);
       if (line) onLine(line);
     }
@@ -58,11 +60,14 @@ export class BackpressureWriter {
 
   write(data: string): void {
     const bytes = Buffer.from(data, "utf8");
+
     if (this.pending) {
       this.pending = Buffer.concat([this.pending, bytes]);
+
       return;
     }
     const written = Math.max(0, this.socket.write(bytes));
+
     if (written < bytes.length) this.pending = bytes.subarray(written);
   }
 
@@ -70,8 +75,10 @@ export class BackpressureWriter {
   drain(): void {
     if (!this.pending) return;
     const tail = this.pending;
+
     this.pending = null;
     const written = Math.max(0, this.socket.write(tail));
+
     if (written < tail.length) this.pending = tail.subarray(written);
   }
 }

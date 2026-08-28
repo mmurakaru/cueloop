@@ -14,6 +14,7 @@ export interface StatusBarProps {
 
 export function StatusBar({ theme, children }: StatusBarProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <box style={{ height: 1, backgroundColor: tokens.panel, paddingLeft: 1 }}>
       <text fg={tokens.textDim}>{children}</text>

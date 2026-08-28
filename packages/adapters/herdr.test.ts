@@ -33,11 +33,13 @@ afterAll(() => {
 function makeStub(name: string): { binPath: string; logPath: string } {
   const logPath = join(dir, `${name}.log`);
   const binPath = join(dir, `${name}.sh`);
+
   writeFileSync(
     binPath,
     `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "tab" ] && [ "$2" = "create" ]; then\n  printf '{"result":{"root_pane":{"pane_id":"w1:p2","tab_id":"w1:t2"}}}'\nfi\n`,
   );
   chmodSync(binPath, 0o755);
+
   return { binPath, logPath };
 }
 
@@ -46,6 +48,7 @@ async function waitForLines(logPath: string, count: number): Promise<string[]> {
   for (let i = 0; i < 100; i++) {
     if (existsSync(logPath)) {
       const lines = readFileSync(logPath, "utf8").split("\n").filter(Boolean);
+
       if (lines.length >= count) return lines;
     }
     await Bun.sleep(25);
@@ -60,6 +63,7 @@ function setHookEnv(vars: Partial<Record<(typeof ENV_KEYS)[number], string>>): v
   for (const key of ENV_KEYS) {
     if (!saved.has(key)) saved.set(key, process.env[key]);
     const value = vars[key];
+
     if (value === undefined) delete process.env[key];
     else process.env[key] = value;
   }
@@ -127,12 +131,15 @@ async function resolvePending(
   summary: string,
 ): Promise<void> {
   const client = await DaemonClient.connect({ home });
+
   try {
     for (let i = 0; i < 100; i++) {
       const pending = await client.sessionList({ status: "pending" });
       const match = pending.find((candidate) => candidate.artifact.content.includes(marker));
+
       if (match) {
         await client.sessionResolve(match.id, kind, summary);
+
         return;
       }
       await Bun.sleep(25);
@@ -147,6 +154,7 @@ describe("hook flow inside herdr", () => {
   test("reports blocked on submit, then working when the approved plan is presented again", async () => {
     // Arrange
     const stub = makeStub("verdict");
+
     setHookEnv({ HERDR_ENV: "1", HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath });
     const event = hookEvent("herdr-hook-1", "# Rollout Plan\n\nShip it slowly.\n");
     const noWake = () => {};
@@ -161,10 +169,12 @@ describe("hook flow inside herdr", () => {
     const paneLines = before.filter(
       (line) => line.startsWith("tab ") || line.startsWith("pane send-"),
     );
+
     expect(paneLines[0]).toBe(`tab create --cwd ${home} --label Rollout Plan --focus`);
     expect(paneLines[1]).toMatch(/^pane send-text w1:p2 cueloop ses_[a-z0-9_]+$/i);
     expect(paneLines[2]).toBe("pane send-keys w1:p2 enter");
     const reportLines = before.filter((line) => line.startsWith("pane report-"));
+
     expect(reportLines.sort()).toEqual([
       "pane report-agent pane-7 --source custom:cueloop --state blocked",
       "pane report-metadata pane-7 --source custom:cueloop --token summary=plan ready for review: Rollout Plan --ttl-ms 3600000",
@@ -181,6 +191,7 @@ describe("hook flow inside herdr", () => {
     const outcomeLines = after.filter(
       (line) => line.includes("--state working") || line.includes("summary=review done"),
     );
+
     expect(outcomeLines.sort()).toEqual([
       "pane report-agent pane-7 --source custom:cueloop --state working",
       "pane report-metadata pane-7 --source custom:cueloop --token summary=review done: approve --ttl-ms 3600000",
@@ -190,6 +201,7 @@ describe("hook flow inside herdr", () => {
   test("opening denies immediately and leaves the pane blocked - never a working report", async () => {
     // Arrange
     const stub = makeStub("noblock");
+
     setHookEnv({ HERDR_ENV: "1", HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath });
 
     // Act
@@ -204,6 +216,7 @@ describe("hook flow inside herdr", () => {
     await Bun.sleep(150); // give any stray report time to land
     // pane auto-open (3 lines) + blocked report + label = 5; never a working report
     const lines = await waitForLines(stub.logPath, 5);
+
     expect(
       lines.some((line) => line === `tab create --cwd ${home} --label Late Plan --focus`),
     ).toBeTrue();
@@ -216,6 +229,7 @@ describe("hook flow outside herdr", () => {
   test("total silence: HERDR_ENV unset means no herdr process is spawned", async () => {
     // Arrange
     const stub = makeStub("silence");
+
     // HERDR_ENV deliberately absent; the bin path alone must not activate anything
     setHookEnv({ HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath });
 

@@ -29,6 +29,7 @@ function headingForeground(block: DisplayBlock, tokens: Theme): string | undefin
   if (block.kind === "h1") return tokens.text;
   if (block.kind === "h2") return tokens.textMuted;
   if (block.kind === "h3") return tokens.textDim;
+
   return undefined;
 }
 
@@ -39,6 +40,7 @@ function blockBaseStyle(block: DisplayBlock, tokens: Theme): BlockBaseStyle {
   // block-level base: headings bold, quotes muted italic; inline roles compose on top
   const baseFg = headingFg ?? (isQuote ? tokens.textMuted : tokens.text);
   const baseAttributes = (isHeading ? HEADING_ATTRIBUTES : 0) | (isQuote ? QUOTE_ATTRIBUTES : 0);
+
   return { baseFg, baseAttributes };
 }
 
@@ -49,6 +51,7 @@ function inlineRoleStyle(
 ): { fg?: string; bg?: string; attributes?: number } {
   const { baseFg, baseAttributes } = base;
   const withBase = (roleAttributes: number): number => baseAttributes | roleAttributes;
+
   switch (run.role) {
     case "ins":
       return { fg: tokens.insertedForeground, attributes: baseAttributes || undefined };
@@ -82,5 +85,6 @@ export function runStyle(
 ): { fg?: string; bg?: string; attributes?: number } {
   // a cut block reads as removed: every run struck through and grayed, never red
   if (block.type === "del") return { fg: tokens.textDim, attributes: CUT_ATTRIBUTES };
+
   return inlineRoleStyle(run, blockBaseStyle(block, tokens), tokens);
 }

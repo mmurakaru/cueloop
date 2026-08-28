@@ -64,6 +64,7 @@ function VerdictSelector({
   theme?: Theme;
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <box style={{ flexDirection: "row", height: 1 }}>
       {VERDICTS.map((candidate) => (
@@ -94,6 +95,7 @@ export function ConfirmCard({
   theme,
 }: ConfirmCardProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <Card
       title=" submit review "

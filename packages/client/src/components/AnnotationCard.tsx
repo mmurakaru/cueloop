@@ -88,9 +88,11 @@ export function composeRowCount(
 ): number {
   const usableWidth = contentWidth > 0 ? contentWidth : Number.MAX_SAFE_INTEGER;
   let visualRowCount = 0;
+
   for (const line of text.split("\n")) {
     visualRowCount += Math.max(1, Math.ceil(line.length / usableWidth));
   }
+
   return Math.min(cap, Math.max(1, visualRowCount));
 }
 
@@ -110,13 +112,16 @@ function DraftEditor({
   const editorRef = useRef<TextareaRenderable | null>(null);
   // re-edit opens with the caret after the existing body, like a text field
   const initialTextLength = useRef(draft.text.length);
+
   useEffect(() => {
     const editor = editorRef.current;
+
     if (!editor) return;
     editor.cursorOffset = initialTextLength.current;
     // the box is laid out now, so its width is known: size to the wrapped body
     onRowsChange(composeRowCount(editor.plainText, editor.width));
   }, [onRowsChange]);
+
   return (
     <>
       <textarea
@@ -128,6 +133,7 @@ function DraftEditor({
         {...(draft.onSubmit ? { onSubmit: draft.onSubmit } : {})}
         onContentChange={() => {
           const editor = editorRef.current;
+
           if (!editor) return;
           draft.onInput(editor.plainText);
           onRowsChange(composeRowCount(editor.plainText, editor.width));
@@ -173,8 +179,10 @@ export function AnnotationCard({
     // until the mounted textarea reports its measured width below.
     composeRowCount(activeDraft?.text ?? "", 0),
   );
+
   if (draft) {
     const verb = "comment on";
+
     return (
       <Card
         title={` ${verb} "${truncateToSingleLine(quote, 40)}" `}
@@ -200,6 +208,7 @@ export function AnnotationCard({
   const borderInset = 4;
   // a bordered box must declare a height or it collapses: quote + body, or the editor
   const contentRows = card.editing ? editorRowCount + 2 : 2;
+
   return (
     <box
       id={id}

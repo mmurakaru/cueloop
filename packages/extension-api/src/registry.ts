@@ -23,12 +23,14 @@ export class Registry {
         record.exporters.set(exporterName, exporter);
       },
     };
+
     try {
       await factory(api);
     } catch (err) {
       record.errors.push(err instanceof Error ? err.message : String(err));
     }
     this.extensions.push(record);
+
     return record;
   }
 }

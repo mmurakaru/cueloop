@@ -13,8 +13,10 @@ import { MemoryShareStore, r2StoreFromEnv, type ShareStore } from "./store";
 
 function loadMasterKey(path: string): Buffer {
   const key = readFileSync(path);
+
   if (key.length !== KEY_BYTES)
     throw new Error(`master key at ${path} must be exactly ${KEY_BYTES} bytes`);
+
   return key;
 }
 
@@ -42,6 +44,7 @@ async function main(): Promise<void> {
   const metricsNote = process.env.CUELOOP_METRICS_PORT
     ? `, metrics on ${process.env.CUELOOP_METRICS_HOST ?? "127.0.0.1"}:${process.env.CUELOOP_METRICS_PORT}`
     : "";
+
   console.log(
     `cueloop gateway listening on ${handle.host}:${handle.port}${useMemory ? " (memory store, ephemeral key)" : ""}${metricsNote}`,
   );

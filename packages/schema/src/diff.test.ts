@@ -30,6 +30,7 @@ describe("unifiedDiff", () => {
     // Arrange
     const oldLines = Array.from({ length: 30 }, (_, i) => `line ${i + 1}`);
     const newLines = [...oldLines];
+
     newLines[1] = "first change";
     newLines[27] = "second change";
 
@@ -50,6 +51,7 @@ describe("unifiedDiff", () => {
 
     // Assert
     const rebuilt: string[] = [];
+
     for (const line of diffLines) {
       if (line.kind === "hunk") continue;
       if (line.kind === "ctx" || line.kind === "add") rebuilt.push(line.text.slice(1));

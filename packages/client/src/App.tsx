@@ -142,8 +142,10 @@ export function App({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home, sessionId],
   );
+
   useEffect(() => {
     controller.connect();
+
     return () => controller.close();
   }, [controller]);
   // stable across renders so the memoized PrototypeSheet is not re-rendered by
@@ -155,10 +157,12 @@ export function App({
   );
   const { session, inbox, status, toast, error, completion, editOrphanCount, walk } =
     useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+
   // A shared plan you own polls for collaborator notes while it is open; the
   // merge refreshes through the normal event path. Stops on leave.
   useEffect(() => {
     if (!isOwner || !session?.shareId) return;
+
     return controller.startSharePoll();
   }, [isOwner, session?.id, session?.shareId, controller]);
   const renderer = useRenderer();
@@ -200,8 +204,10 @@ export function App({
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
   const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
+
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
+
     keysRef.current = config.keys;
     keyBindings.setKeys(config.keys);
     setTheme(composeTheme(config.ui.theme, config.themeOverrides, appearance));
@@ -225,16 +231,19 @@ export function App({
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => controller.dismissToast(), TOAST_DISMISS_MS);
+
     return () => clearTimeout(timer);
   }, [toast, controller]);
 
   // First open of a share: ask the collaborator for a display name once, unless
   // a past visit already recorded one. esc skips and their notes read anonymous.
   const promptedSelfRef = useRef(false);
+
   useEffect(() => {
     if (promptedSelfRef.current || role !== "collaborator" || !selfAuthor || !session) return;
     promptedSelfRef.current = true;
     const known = session.participants?.find((participant) => participant.id === selfAuthor)?.name;
+
     if (!known) setMode({ type: "nameSelf", text: "" });
   }, [role, selfAuthor, session]);
 
@@ -278,9 +287,11 @@ export function App({
   /** Annotation ids whose anchor resolved against the working copy. */
   const resolvedIds = useMemo(() => {
     const ids = new Set<string>();
+
     for (const blockMarks of marks.values()) {
       for (const mark of blockMarks) if (mark.annotationId) ids.add(mark.annotationId);
     }
+
     return ids;
   }, [marks]);
   const { isDiff, isPrototype, resolved } = deriveReviewFlags(session);
@@ -290,10 +301,12 @@ export function App({
   // annotation resolves to the display index it marked
   const annotationPositions = useMemo(() => {
     const positions = new Map<string, number>();
+
     if (!session) return positions;
     if (isDiff) {
       for (const annotation of session.annotations) {
         const blockIndex = (annotation.anchor as { blockIndex?: number }).blockIndex;
+
         if (blockIndex !== undefined) positions.set(annotation.id, blockIndex);
       }
     } else {
@@ -302,6 +315,7 @@ export function App({
           if (mark.annotationId) positions.set(mark.annotationId, displayIndex);
       }
     }
+
     return positions;
   }, [session, isDiff, marks]);
 
@@ -317,6 +331,7 @@ export function App({
     // one marker at a time: clear any prior selection, then paint the current
     // span (span and its quick-actions sub-mode both keep it painted)
     const span = activeSpanState(mode);
+
     planSheetRef.current?.clearSelection();
     if (span) planSheetRef.current?.driveSpanSelection(span);
   }, [mode]);
@@ -334,6 +349,7 @@ export function App({
       if (!blockMarks.some((mark) => mark.annotationId === annotationId)) continue;
       setCursor(displayIndex);
       planSheetRef.current?.revealBlock(displayIndex);
+
       return;
     }
   };
@@ -355,6 +371,7 @@ export function App({
   const selectCurationFromRail = (curationId: string): void => {
     setSelectedCurationId(curationId);
     const item = curationItems.find((candidate) => candidate.id === curationId);
+
     if (!item) return;
     setCursor(item.revealIndex);
     if (item.source === "plan") planSheetRef.current?.revealBlock(item.revealIndex);
@@ -371,11 +388,13 @@ export function App({
   const openCardEdit = (annotationId: string): void => {
     if (observer) return controller.setStatus("observer - read-only");
     const annotation = session?.annotations.find((candidate) => candidate.id === annotationId);
+
     if (!annotation) return;
     // a collaborator's note is theirs to word: activating it (click or e) renames
     // the author rather than editing the body the planner does not own
     if (annotation.author) {
       setFocusedAnnotationId(annotationId);
+
       return void setMode({
         type: "rename",
         authorId: annotation.author,
@@ -447,6 +466,7 @@ export function App({
     // with ctrl+] as the detach chord back to the review.
     if (agentTerminal) {
       if (key.ctrl && key.name === "]") return void agentTerminal.detach();
+
       return void agentTerminal.write(key.sequence);
     }
     if (menuDialog === "settings") return void handleSettingsKey(key.name);
@@ -473,8 +493,10 @@ export function App({
       cursor,
       display,
     });
+
     keyBindings.setContext({ overlay: state.overlay, spanMode: state.spanMode });
     const action = keyBindings.resolveAction({ name: key.name, shift: !!key.shift });
+
     for (const intent of reduceKey(
       state,
       { name: key.name, shift: !!key.shift, meta: !!key.meta },
@@ -590,7 +612,9 @@ export function App({
       selection && block
         ? spanFromRange(selection.displayIndex, displayText(block), selection.start, selection.end)
         : null;
+
     if (span) setMode({ type: "span", span });
+
     return true;
   };
 
@@ -598,6 +622,7 @@ export function App({
     if (activateSpanFromSelection(displayIndex)) return;
     setCursor(displayIndex);
     const annotationId = marks.get(displayIndex)?.[0]?.annotationId;
+
     if (annotationId) selectCardFromDocument(annotationId);
   };
 
@@ -634,6 +659,7 @@ export function App({
   // cycles all three including hidden
   const onToggleReviewPanel = (): void => {
     const next = toggleReviewPanelMode(reviewMode);
+
     setReviewMode(next);
     controller.saveReviewPanel({ mode: next });
   };
@@ -654,6 +680,7 @@ export function App({
         onMouseDrag={(event: MouseEvent) => {
           if (!dividerDragging || reviewMode !== "expanded") return;
           const next = widthFromMouseColumn(event.x, terminalWidth);
+
           // many raw mouse-moves land in the same column: only re-render when the
           // width actually changes, so the drag does not reconcile per pixel
           if (next === reviewWidthRef.current) return;

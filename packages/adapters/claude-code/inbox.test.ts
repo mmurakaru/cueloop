@@ -32,6 +32,7 @@ describe("inboxFrames", () => {
 
     // Assert - exactly two physical lines survive; the message newline is escaped inside JSON
     const lines = frames.split("\n").filter((line) => line.length > 0);
+
     expect(lines.length).toBe(2);
     expect(JSON.parse(lines[1]!).message.content).toBe('a "quote"\nand a newline');
   });
@@ -61,6 +62,7 @@ describe("claudeInboxFromEnv", () => {
 
 describe("postToInbox", () => {
   let tempDir: string;
+
   afterEach(() => {
     if (tempDir) rmSync(tempDir, { recursive: true, force: true });
   });
@@ -97,6 +99,7 @@ describe("postToInbox", () => {
   test("rejects when the socket is dead (the session is gone)", async () => {
     tempDir = mkdtempSync(join(tmpdir(), "cc-inbox-dead-"));
     const socketPath = join(tempDir, "nope.sock");
+
     await expect(postToInbox({ socketPath }, "x")).rejects.toBeDefined();
   });
 });

@@ -67,6 +67,7 @@ function shareUpload(port: number, blob: Buffer): Promise<string> {
     const conn = new Client();
     let out = "";
     const timer = setTimeout(() => reject(new Error("upload timed out")), 8000);
+
     conn
       .on("ready", () => {
         conn.exec("cueloop-share", (err, stream) => {
@@ -110,6 +111,7 @@ function shellCapture(
       else resolve(out);
     };
     const timer = setTimeout(() => finish(new Error(`timed out; captured:\n${out}`)), timeoutMs);
+
     conn
       .on("ready", () => {
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, (err, stream) => {
@@ -118,6 +120,7 @@ function shellCapture(
             out += chunk.toString("utf8");
             if (until(out)) finish();
           };
+
           stream.on("data", onChunk);
           stream.stderr.on("data", onChunk);
           stream.on("close", () => finish(new Error(`stream closed early; captured:\n${out}`)));
@@ -132,10 +135,12 @@ function shellCapture(
 /** Wait for `needle` in the frames, up to `ms`. */
 async function pollFrames(getFrames: () => string, needle: string, ms = 20000): Promise<boolean> {
   const deadline = Date.now() + ms;
+
   while (Date.now() < deadline) {
     if (getFrames().includes(needle)) return true;
     await new Promise((r) => setTimeout(r, 100));
   }
+
   return false;
 }
 
@@ -151,17 +156,21 @@ function viewThenQuit(port: number, shareId: string): Promise<string> {
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const until = async (needle: string, ms = 20000) => {
       const deadline = Date.now() + ms;
+
       while (Date.now() < deadline) {
         if (frames.includes(needle)) return true;
         await wait(100);
       }
+
       return false;
     };
+
     conn
       .on("ready", () =>
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, async (err, stream) => {
           if (err) return reject(err);
           const collect = (chunk: Buffer) => (frames += chunk.toString("utf8"));
+
           stream.on("data", collect);
           stream.stderr.on("data", collect);
           // the channel closing on the app's graceful exit is the resolve signal
@@ -185,7 +194,9 @@ function viewThenQuit(port: number, shareId: string): Promise<string> {
 
 function idFrom(sshLine: string): string {
   const match = sshLine.match(/ssh (p_[A-Za-z0-9]{8})@/);
+
   if (!match) throw new Error(`no share id in: ${sshLine}`);
+
   return match[1]!;
 }
 
@@ -242,6 +253,7 @@ describe("share upload then view", () => {
       metricsHost: "127.0.0.1",
       onError: () => {},
     });
+
     try {
       // Act - one upload, then scrape /metrics
       await shareUpload(metricsGateway.port, packSessionBlob(SESSION));
@@ -283,17 +295,21 @@ function annotateOverShell(port: number, shareId: string, body: string): Promise
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const until = async (needle: string, ms = 20000) => {
       const deadline = Date.now() + ms;
+
       while (Date.now() < deadline) {
         if (frames.includes(needle)) return true;
         await wait(100);
       }
+
       return false;
     };
+
     conn
       .on("ready", () =>
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, async (err, stream) => {
           if (err) return reject(err);
           const collect = (chunk: Buffer) => (frames += chunk.toString("utf8"));
+
           stream.on("data", collect);
           stream.stderr.on("data", collect);
           // first open opens the name prompt over the plan; esc skips it (their
@@ -335,17 +351,21 @@ function nameSelfOverShell(port: number, shareId: string, name: string): Promise
     const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
     const until = async (needle: string, ms = 20000) => {
       const deadline = Date.now() + ms;
+
       while (Date.now() < deadline) {
         if (frames.includes(needle)) return true;
         await wait(100);
       }
+
       return false;
     };
+
     conn
       .on("ready", () =>
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, async (err, stream) => {
           if (err) return reject(err);
           const collect = (chunk: Buffer) => (frames += chunk.toString("utf8"));
+
           stream.on("data", collect);
           stream.stderr.on("data", collect);
           if (!(await until("Welcome")))
@@ -378,6 +398,7 @@ describe("collaborator write-back", () => {
 
     // Assert
     const note = stored.annotations.find((annotation) => annotation.body.includes("risky move"));
+
     expect(note).toBeDefined();
     expect(note?.author).toMatch(/^SHA256:/);
   });
@@ -392,6 +413,7 @@ describe("collaborator write-back", () => {
 
     // Assert
     const self = stored.participants?.find((participant) => participant.name === "Robin");
+
     expect(self).toBeDefined();
     expect(self?.provider).toBe("ssh");
     expect(self?.id).toMatch(/^SHA256:/);
@@ -410,6 +432,7 @@ function sharePull(
     let err = "";
     let code: number | null = null;
     const timer = setTimeout(() => reject(new Error("pull timed out")), 8000);
+
     conn
       .on("ready", () => {
         conn.exec("cueloop-pull", (error, stream) => {
@@ -434,6 +457,7 @@ describe("planner pull", () => {
   test("the fingerprint that shared it pulls the session back with collaborator notes", async () => {
     // Arrange
     const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+
     await annotateOverShell(handle.port, id, "pull me back");
 
     // Act
@@ -472,6 +496,7 @@ function sharePush(
     let err = "";
     let code: number | null = null;
     const timer = setTimeout(() => reject(new Error("push timed out")), 8000);
+
     conn
       .on("ready", () => {
         conn.exec("cueloop-push", (error, stream) => {
@@ -510,6 +535,7 @@ describe("planner push", () => {
     // Assert
     expect(result.code).toBe(0);
     const landed = stored.annotations.find((annotation) => annotation.id === "planner-1");
+
     expect(landed?.body).toBe("from the planner");
     expect(landed?.author).toBeUndefined();
     expect(landed?.createdAt).toBeTruthy();

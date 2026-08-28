@@ -17,6 +17,7 @@ export function KeybindsDialog({ sections, theme }: KeybindsDialogProps): React.
     sections.reduce((sum, section) => sum + 1 + section.entries.length + 1, 0) + 1;
   const width = Math.min(52, terminalWidth - 6);
   const height = Math.min(terminalHeight - 4, contentRows + 3);
+
   return (
     <Dialog
       isOpen

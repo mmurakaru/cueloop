@@ -82,6 +82,7 @@ describe("session lifecycle", () => {
 
     // Assert
     const stored = core.sessionGet(session.id);
+
     expect(stored.annotations[0]!.author).toBe("SHA256:ana");
     expect(stored.participants).toEqual([{ id: "SHA256:ana", provider: "ssh", name: "Ana" }]);
   });
@@ -89,6 +90,7 @@ describe("session lifecycle", () => {
   test("resolve produces feedback.md and maps to the agent contract", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
     core.sessionAnnotate(session.id, {
       id: "a1",
       kind: "comment",
@@ -120,6 +122,7 @@ describe("session lifecycle", () => {
   test("mutating a resolved session throws", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
     core.sessionResolve(session.id, "approve", "");
 
     // Assert
@@ -168,6 +171,7 @@ describe("session lifecycle", () => {
     expect(core.sessionGet(session.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts", "src/c.ts"]);
     // a resumed review reads its progress back after a daemon restart
     const reborn = new DaemonCore(home);
+
     expect(reborn.sessionGet(session.id).viewedPaths).toEqual(["src/a.ts", "src/b.ts", "src/c.ts"]);
 
     // Act
@@ -180,6 +184,7 @@ describe("session lifecycle", () => {
   test("revision reopens the session and resets working copy + verdict", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
     core.sessionSetWorkingCopy(session.id, PLAN.content + "\nedit");
     core.sessionResolve(session.id, "request_changes", "redo");
 
@@ -207,6 +212,7 @@ describe("revision marks addressed annotations", () => {
   test("ids the agent reports are marked addressed by that revision", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
     annotate(session.id, "a1", "carefully");
     annotate(session.id, "a2", "Context");
 
@@ -215,6 +221,7 @@ describe("revision marks addressed annotations", () => {
 
     // Assert
     const [first, second] = revised.annotations;
+
     expect(first!.resolution).toEqual({ revision: 2, source: "agent" });
     expect(second!.resolution).toBeUndefined();
   });
@@ -222,6 +229,7 @@ describe("revision marks addressed annotations", () => {
   test("a plan annotation whose quoted text vanished is drift-addressed; a surviving quote stays open", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
     annotate(session.id, "gone", "carefully");
     annotate(session.id, "kept", "Context");
 
@@ -242,6 +250,7 @@ describe("revision marks addressed annotations", () => {
   test("an unknown reported id is ignored, and an already-addressed annotation keeps its first resolution", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
     annotate(session.id, "a1", "carefully");
     core.sessionSubmitRevision(session.id, PLAN.content, ["a1"]);
 
@@ -257,6 +266,7 @@ describe("revision marks addressed annotations", () => {
     // Arrange
     const diffArtifact: Artifact = { type: "diff", content: "+++ b/a.ts\n+new line\n", meta: {} };
     const session = core.sessionCreate({ workspace: WS, artifact: diffArtifact });
+
     annotate(session.id, "d1", "new line");
 
     // Act: the revised patch no longer contains the quoted text
@@ -269,6 +279,7 @@ describe("revision marks addressed annotations", () => {
   test("the next feedback document omits addressed annotations and teaches the addressed-ids call", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
     annotate(session.id, "settled", "carefully");
     annotate(session.id, "open", "Context", "needs a diagram");
     core.sessionSubmitRevision(session.id, PLAN.content, ["settled"]);
@@ -334,6 +345,7 @@ describe("persistence and recovery", () => {
   test("sessions survive a daemon restart", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
     core.sessionResolve(session.id, "approve", "done");
 
     // Act
@@ -364,10 +376,12 @@ describe("events", () => {
   test("lifecycle events fire in order", () => {
     // Arrange
     const seen: string[] = [];
+
     core.onEvent((event) => seen.push(event.event));
 
     // Act
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
     core.sessionAnnotate(session.id, {
       id: "a1",
       kind: "comment",

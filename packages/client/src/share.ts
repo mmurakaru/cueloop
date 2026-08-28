@@ -42,11 +42,14 @@ export async function publishShare(
     packSessionBlob(session),
     target,
   );
+
   if (code !== 0)
     throw new Error(`gateway upload failed: ${stderr.trim() || `ssh exited ${code}`}`);
   const line = stdout.trim();
+
   if (!line.startsWith("ssh ")) throw new Error(`unexpected gateway reply: ${line || "(empty)"}`);
   const copied = await copyToClipboard(line);
+
   return { line, copied };
 }
 
@@ -57,7 +60,9 @@ export async function publishShare(
  */
 export async function pullShare(shareId: string, target: ShareTarget = {}): Promise<ReviewSession> {
   const { stdout, stderr, code } = await runShareSsh("cueloop-pull", Buffer.from(shareId), target);
+
   if (code !== 0) throw new Error(`gateway pull failed: ${stderr.trim() || `ssh exited ${code}`}`);
+
   return JSON.parse(stdout) as ReviewSession;
 }
 
@@ -81,6 +86,7 @@ export async function pushShare(
     Buffer.from(JSON.stringify({ shareId, annotations })),
     target,
   );
+
   if (code !== 0) throw new Error(`gateway push failed: ${stderr.trim() || `ssh exited ${code}`}`);
 }
 
@@ -109,5 +115,6 @@ async function runShareSsh(
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+
   return { stdout, stderr, code };
 }

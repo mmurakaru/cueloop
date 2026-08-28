@@ -42,20 +42,25 @@ async function sessionCreate({ client, flags }: SessionContext): Promise<number>
     title: stringFlag(flags, "title"),
     notes,
   });
+
   // herdr auto-open: render the review in a tab (no-op outside herdr).
   await openHerdrPaneForReview(review.session, client);
   out(review.session);
+
   return 0;
 }
 
 async function sessionGetCommand({ client, positional }: SessionContext): Promise<number> {
   out(await client.sessionGet(required(positional[1], "session id")));
+
   return 0;
 }
 
 async function sessionListCommand({ client, flags }: SessionContext): Promise<number> {
   const status = stringFlag(flags, "status") as "pending" | "resolved" | undefined;
+
   out(await client.sessionList(status ? { status } : undefined));
+
   return 0;
 }
 
@@ -63,12 +68,16 @@ async function sessionWaitCommand({ client, positional, flags }: SessionContext)
   const id = required(positional[1], "session id");
   const timeoutMs = Number(stringFlag(flags, "timeout-ms") ?? "60000");
   const session = await client.sessionWait(id, timeoutMs);
+
   if (session === null) {
     out({ status: "pending" });
+
     return 0;
   }
   const { allow, feedback } = verdictResponse(session);
+
   out({ status: "resolved", allow, verdict: session.verdict!.kind, feedback });
+
   return 0;
 }
 
@@ -81,6 +90,7 @@ async function sessionAnnotateCommand({
   const quote = required(stringFlag(flags, "quote"), "--quote");
   const author = stringFlag(flags, "author");
   const body = await annotateBody(flags, client, id);
+
   out(
     await client.sessionAnnotate(
       id,
@@ -98,6 +108,7 @@ async function sessionAnnotateCommand({
       stringFlag(flags, "author-name"),
     ),
   );
+
   return 0;
 }
 
@@ -108,7 +119,9 @@ async function sessionResolveCommand({
 }: SessionContext): Promise<number> {
   const id = required(positional[1], "session id");
   const kind = required(stringFlag(flags, "verdict"), "--verdict") as VerdictKind;
+
   out(await client.sessionResolve(id, kind, stringFlag(flags, "summary") ?? ""));
+
   return 0;
 }
 
@@ -125,7 +138,9 @@ async function sessionSubmitRevisionCommand({
     .split(",")
     .map((annotationId) => annotationId.trim())
     .filter(Boolean);
+
   out(await client.sessionSubmitRevision(id, content, addressed));
+
   return 0;
 }
 
@@ -146,14 +161,18 @@ export async function sessionCommand(argv: string[]): Promise<number> {
   // review-side agent passes it so the daemon rejects any escalation attempt.
   const role = stringFlag(flags, "role") === "agent" ? "agent" : undefined;
   const client = await DaemonClient.connect({ autostart: true, role });
+
   try {
     const handler = verb !== undefined ? sessionVerbHandlers[verb] : undefined;
+
     if (handler === undefined) {
       console.error(
         "usage: cueloop session <create|get|list|wait|annotate|resolve|submit-revision> [flags]",
       );
+
       return 2;
     }
+
     return await handler({ client, positional, flags });
   } finally {
     client.close();
@@ -162,6 +181,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
 
 function required<T>(value: T | undefined, description: string): T {
   if (value === undefined) throw new Error(`missing ${description}`);
+
   return value;
 }
 
@@ -177,12 +197,16 @@ async function annotateBody(
   id: string,
 ): Promise<string> {
   const explicit = stringFlag(flags, "body");
+
   if (explicit !== undefined) return explicit;
   const actionRef = stringFlag(flags, "action");
+
   if (actionRef === undefined) return "";
   const session = await client.sessionGet(id);
   const actions = loadConfig({ repoRoot: session.workspace.repoRoot }).actions;
   const action = resolveQuickAction(actions, actionRef);
+
   if (!action) throw new Error(`no quick action ${actionRef} - see: cueloop actions list`);
+
   return quickActionBody(action);
 }

@@ -96,6 +96,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   const server = new Server({ hostKeys: [hostKey] }, (client, info) => {
     const remoteIp = info.ip;
     let identity: Identity | null = null;
+
     clients.add(client);
     client.on("close", () => clients.delete(client));
 
@@ -109,6 +110,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       if (ctx.method !== "publickey") return ctx.reject(["publickey"]);
       if (ctx.signature) {
         const key = utils.parseKey(ctx.key.data);
+
         if (
           key instanceof Error ||
           !ctx.blob ||
@@ -151,12 +153,14 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
     session.on("shell", (accept) => {
       const channel = accept();
+
       void handleView(channel, identity, pty, (handle) => (render = handle));
     });
 
     session.on("exec", (accept, reject, info) => {
       if (identity.username !== SHARE_UPLOAD_USER) return reject();
       const channel = accept();
+
       if (info.command === "cueloop-pull") void handlePull(channel, identity);
       else if (info.command === "cueloop-push") void handlePush(channel, identity);
       else void handleUpload(channel, identity, remoteIp);
@@ -171,17 +175,22 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   ): Promise<void> {
     const startedAt = Date.now();
     const shareId = identity.username;
+
     if (!isShareId(shareId)) {
       channel.stderr.write(
         "cueloop: connect as ssh <share-id>@" + publicHost + " to view a shared plan\r\n",
       );
+
       return end(channel, 1);
     }
     let session;
+
     try {
       const stored = await store.get(shareId);
+
       if (!stored) {
         channel.stderr.write("cueloop: this share was not found or has expired\r\n");
+
         return end(channel, 1);
       }
       session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
@@ -189,6 +198,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       onError(err);
       metrics.recordShare("view", "error", elapsed(startedAt));
       channel.stderr.write("cueloop: could not open this share\r\n");
+
       return end(channel, 1);
     }
     try {
@@ -202,6 +212,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         author: identity.fingerprint,
       });
       let handle: ChannelRender | null = null;
+
       handle = await renderOverChannel(
         channel,
         pty,
@@ -231,16 +242,19 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   ): Promise<void> {
     if (!uploadLimiter.take(remoteIp)) {
       channel.stderr.write("cueloop: rate limited, try again shortly\r\n");
+
       return end(channel, 1);
     }
     const startedAt = Date.now();
     let id: string;
+
     try {
       const bytes = await readCapped(channel, maxUploadBytes);
       // shareId is the planner's local marker; it must never live in the blob,
       // or a collaborator's view would try to pull/push against the gateway.
       const { shareId: _local, ...uploaded } = unpackSessionBlob(bytes);
       const session = { ...uploaded, owner: identity.fingerprint };
+
       id = mintShareId();
       await store.put(id, sealBlob(options.masterKey, id, packSessionBlob(session)));
     } catch (err) {
@@ -249,6 +263,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       channel.stderr.write(
         `cueloop: upload rejected - ${err instanceof Error ? err.message : String(err)}\r\n`,
       );
+
       return end(channel, 1);
     }
     channel.write(`ssh ${id}@${publicHost}\n`);
@@ -259,12 +274,16 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   // The owner (the fingerprint that uploaded) pulls the current session back.
   async function handlePull(channel: ServerChannel, identity: Identity): Promise<void> {
     const startedAt = Date.now();
+
     try {
       const shareId = (await readCapped(channel, 256)).toString("utf8").trim();
+
       if (!isShareId(shareId)) return void fail(channel, "not a share id");
       const stored = await store.get(shareId);
+
       if (!stored) return void fail(channel, "this share was not found or has expired");
       const session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
+
       if (session.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can pull it");
       channel.write(JSON.stringify(session));
@@ -280,18 +299,22 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   // The owner mirrors their own annotations into the share (stage 2 push-up).
   async function handlePush(channel: ServerChannel, identity: Identity): Promise<void> {
     const startedAt = Date.now();
+
     try {
       const payload = JSON.parse((await readCapped(channel, maxUploadBytes)).toString("utf8")) as {
         shareId?: unknown;
         annotations?: unknown;
       };
+
       if (typeof payload.shareId !== "string" || !isShareId(payload.shareId))
         return void fail(channel, "not a share id");
       if (!Array.isArray(payload.annotations))
         return void fail(channel, "annotations must be a list");
       const stored = await store.get(payload.shareId);
+
       if (!stored) return void fail(channel, "this share was not found or has expired");
       const session = unpackSessionBlob(openBlob(options.masterKey, payload.shareId, stored));
+
       if (session.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can push to it");
       // Round-trip validates the pushed notes: a malformed one throws here, so the stored blob stays intact.
@@ -303,6 +326,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
           ),
         ),
       );
+
       await store.put(
         payload.shareId,
         sealBlob(options.masterKey, payload.shareId, packSessionBlob(next)),
@@ -323,6 +347,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     server.listen(port, host, function (this: Server) {
       server.off("error", reject);
       const address = this.address();
+
       resolve({ host, port: typeof address === "object" && address ? address.port : port });
     });
   });
@@ -355,7 +380,9 @@ function meterStore(store: ShareStore, metrics: GatewayMetrics): ShareStore {
     async get(id) {
       try {
         const bytes = await store.get(id);
+
         metrics.recordR2("get", "ok");
+
         return bytes;
       } catch (err) {
         metrics.recordR2("get", "error");
@@ -384,11 +411,13 @@ function readCapped(channel: ServerChannel, max: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let total = 0;
+
     channel.on("data", (chunk: Buffer) => {
       total += chunk.length;
       if (total > max) {
         reject(new Error(`upload exceeds ${max} bytes`));
         channel.destroy();
+
         return;
       }
       chunks.push(chunk);
@@ -424,8 +453,10 @@ function fail(channel: ServerChannel, message: string): void {
 /** ssh2 transport failures from the open internet (bad handshake, auth abort, reset) are per-connection and expected - not gateway faults. */
 export function isExpectedTransportError(err: unknown): boolean {
   const level = (err as { level?: unknown })?.level;
+
   if (level === "handshake" || level === "authentication" || level === "protocol") return true;
   const code = (err as { code?: unknown })?.code;
+
   return code === "ECONNRESET" || code === "EPIPE" || code === "ETIMEDOUT";
 }
 
@@ -440,12 +471,16 @@ function mergeOwnerAnnotations(
 ): ReviewSession {
   const byId = new Map(session.annotations.map((annotation) => [annotation.id, annotation]));
   const now = new Date().toISOString();
+
   for (const note of incoming) {
     const existing = byId.get(note.id);
+
     if (existing?.author) continue;
     // the owner's notes stay unauthored: strip any author so the pull filter and the delete guard hold
     const { author: _drop, ...rest } = note;
+
     byId.set(note.id, { ...rest, createdAt: existing?.createdAt ?? now });
   }
+
   return { ...session, annotations: [...byId.values()] };
 }

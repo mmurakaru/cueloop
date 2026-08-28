@@ -68,6 +68,7 @@ export function resolveOpenTarget(sessions: ReviewSession[], query: OpenTargetQu
     const latestPending = scoped
       .filter((candidate) => candidate.status === "pending")
       .sort(newestFirst)[0];
+
     return latestPending
       ? { kind: "session", sessionId: latestPending.id }
       : { kind: "no-pending" };
@@ -75,6 +76,7 @@ export function resolveOpenTarget(sessions: ReviewSession[], query: OpenTargetQu
 
   const selector = query.selector;
   const byId = scoped.find((candidate) => candidate.id === selector);
+
   if (byId) return { kind: "session", sessionId: byId.id };
 
   const loweredSelector = selector.toLowerCase();
@@ -83,13 +85,16 @@ export function resolveOpenTarget(sessions: ReviewSession[], query: OpenTargetQu
   const exactTitle = titled
     .filter((candidate) => candidate.artifact.meta.title!.toLowerCase() === loweredSelector)
     .sort(newestFirst)[0];
+
   if (exactTitle) return { kind: "session", sessionId: exactTitle.id };
 
   const substringMatches = titled
     .filter((candidate) => candidate.artifact.meta.title!.toLowerCase().includes(loweredSelector))
     .sort(newestFirst);
+
   if (substringMatches.length === 1) return { kind: "session", sessionId: substringMatches[0]!.id };
   if (substringMatches.length === 0) return { kind: "no-match", selector };
+
   return {
     kind: "ambiguous",
     selector,

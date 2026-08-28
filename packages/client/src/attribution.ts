@@ -16,6 +16,7 @@ export function shortHandle(authorId: string): string {
   const base = authorId.startsWith(FINGERPRINT_PREFIX)
     ? authorId.slice(FINGERPRINT_PREFIX.length)
     : authorId;
+
   return base.slice(0, 8) || authorId;
 }
 
@@ -30,9 +31,12 @@ export function resolveDisplayName(
   overrides: Record<string, string>,
 ): string {
   const override = overrides[authorId];
+
   if (override) return override;
   const identity = participants?.find((participant) => participant.id === authorId);
+
   if (identity?.name) return identity.name;
   if (identity) return ANONYMOUS_LABEL;
+
   return shortHandle(authorId);
 }

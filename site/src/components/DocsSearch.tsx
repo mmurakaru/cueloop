@@ -36,6 +36,7 @@ export default function DocsSearch() {
       }
     }
     window.addEventListener("keydown", onKey);
+
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
@@ -45,6 +46,7 @@ export default function DocsSearch() {
       if (boxRef.current && !boxRef.current.contains(event.target as Node)) close();
     }
     document.addEventListener("mousedown", onPointerDown);
+
     return () => document.removeEventListener("mousedown", onPointerDown);
   }, [expanded]);
 

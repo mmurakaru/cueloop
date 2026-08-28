@@ -52,6 +52,7 @@ beforeAll(() => {
 afterAll(async () => {
   try {
     const c = await DaemonClient.connect({ home });
+
     await c.shutdown();
     c.close();
   } catch {
@@ -103,17 +104,20 @@ function spawnHook(plan: string, options: SpawnHookOptions = {}): HookRun {
   const exited = proc.exited;
   const result = (async () => {
     const out = await new Response(proc.stdout).text();
+
     if (!out.trim()) {
       throw new Error(`hook produced no output (exit ${await exited}); stderr:\n${await stderr}`);
     }
     const parsed = JSON.parse(out.trim()) as {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
     };
+
     return {
       decision: parsed.hookSpecificOutput.permissionDecision,
       reason: parsed.hookSpecificOutput.permissionDecisionReason,
     };
   })();
+
   return { proc, result, stderr, exited };
 }
 
@@ -130,6 +134,7 @@ async function waitForPendingSession(
   const client = await DaemonClient.connect({ home, autostart: true });
   const deadline = Date.now() + POLL_TIMEOUT_MS;
   let hookDied: string | null = null;
+
   if (hook) {
     void hook.exited.then(async (code) => {
       if (code !== 0) hookDied = `hook exited ${code}; stderr:\n${await hook.stderr}`;
@@ -139,6 +144,7 @@ async function waitForPendingSession(
     while (Date.now() < deadline) {
       const pending = await client.sessionList({ status: "pending" });
       const match = predicate ? pending.find(predicate) : pending[0];
+
       if (match) return match.id;
       if (hookDied) throw new Error(hookDied);
       await Bun.sleep(50);
@@ -170,6 +176,7 @@ function fakeInbox(): { socketPath: string; frames: Promise<string>; stop: () =>
       open: () => {},
     },
   });
+
   return {
     socketPath,
     frames: gotFrames.promise,
@@ -190,6 +197,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
 
       // Assert - the gate does not block: it opens the review and denies at once
       const out = await hook.result;
+
       expect(out.decision).toBe("deny");
       expect(out.reason).toContain("opened for human review");
 
@@ -202,6 +210,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
         width: 120,
         height: 30,
       });
+
       await waitForText(setup, "Rollout Plan");
       expect(setup.captureCharFrame()).toContain("Enable it for everyone immediately.");
 
@@ -219,6 +228,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       // Assert - the detached wake injects feedback.md into the inbox
       const frames = await inbox.frames;
       const content = JSON.parse(frames.trim().split("\n").at(-1)!).message.content as string;
+
       expect(content).toContain("# Review: request changes");
       expect(content).toContain("Too aggressive.");
       expect(content).toContain("Stage the rollout: 5% then 50% then 100%.");
@@ -233,6 +243,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
     async () => {
       // Arrange - first pass opens the review and denies
       const first = await spawnHook(PLAN, { sessionId: "cc-approve" }).result;
+
       expect(first.decision).toBe("deny");
       const sessionId = await waitForPendingSession(
         undefined,
@@ -241,6 +252,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
 
       // Act - reviewer approves, then the agent presents the same plan again
       const client = await DaemonClient.connect({ home });
+
       await client.sessionResolve(sessionId, "approve", "Staged rollout looks right.");
       client.close();
       const second = await spawnHook(PLAN, { sessionId: "cc-approve" }).result;
@@ -263,6 +275,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
         (candidate) => candidate.artifact.meta.agentSessionId === "cc-revise",
       );
       const client = await DaemonClient.connect({ home });
+
       await client.sessionResolve(sessionId, "request_changes", "Too aggressive.");
 
       // Act - the agent revises and presents the new plan
@@ -276,6 +289,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       expect(out.decision).toBe("deny");
       expect(out.reason).toContain("opened for human review");
       const session = await client.sessionGet(sessionId);
+
       client.close();
       expect(session.revisions.length).toBe(2);
       expect(session.artifact.content).toContain("at 5%, then 50%");

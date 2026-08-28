@@ -74,9 +74,11 @@ export class DaemonClient implements SessionClient {
     const home = options.home ?? cueloopHome();
     const path = socketPath(home);
     const client = new DaemonClient();
+
     client.role = options.role ?? "owner";
     try {
       await client.dial(path);
+
       return client;
     } catch (err) {
       if (!options.autostart) throw err;
@@ -88,9 +90,11 @@ export class DaemonClient implements SessionClient {
     // socket exists, and giving up early looks to callers like a broken daemon.
     const deadline = Date.now() + Number(process.env.CUELOOP_START_TIMEOUT_MS ?? 30_000);
     let lastError: unknown;
+
     while (Date.now() < deadline) {
       try {
         await client.dial(path);
+
         return client;
       } catch (err) {
         lastError = err;
@@ -102,6 +106,7 @@ export class DaemonClient implements SessionClient {
 
   private async dial(path: string): Promise<void> {
     const buffer = new LineBuffer();
+
     this.socket = await Bun.connect({
       unix: path,
       socket: {
@@ -130,11 +135,13 @@ export class DaemonClient implements SessionClient {
 
   onEvent(listener: (event: EventFrame) => void): () => void {
     this.eventListeners.add(listener);
+
     return () => this.eventListeners.delete(listener);
   }
 
   private routeInboundFrame(line: string): void {
     let frame: Response | EventFrame;
+
     try {
       frame = JSON.parse(line) as Response | EventFrame;
     } catch {
@@ -142,9 +149,11 @@ export class DaemonClient implements SessionClient {
     }
     if ("event" in frame) {
       for (const listener of this.eventListeners) listener(frame);
+
       return;
     }
     const pendingRequest = this.pending.get(frame.id);
+
     if (!pendingRequest) return;
     this.pending.delete(frame.id);
     if (frame.error)
@@ -155,11 +164,13 @@ export class DaemonClient implements SessionClient {
   request<T = unknown>(method: string, params: unknown, timeoutMs = 30_000): Promise<T> {
     if (this.closed || !this.socket) return Promise.reject(new Error("not connected"));
     const id = this.nextId++;
+
     return new Promise<T>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`request ${method} timed out`));
       }, timeoutMs);
+
       this.pending.set(id, {
         resolve: (value) => {
           clearTimeout(timer);
@@ -268,6 +279,7 @@ export class DaemonClientError extends Error {
 
 function spawnDaemon(home: string): void {
   const entry = new URL("./main.ts", import.meta.url).pathname;
+
   Bun.spawn([process.execPath, "run", entry], {
     env: { ...process.env, CUELOOP_HOME: home },
     stdio: ["ignore", "ignore", "ignore"],

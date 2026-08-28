@@ -21,6 +21,7 @@ afterEach(() => {
  */
 function writeFakeCodex(): string {
   const codexPath = join(tempDir, "codex");
+
   writeFileSync(
     codexPath,
     [
@@ -32,6 +33,7 @@ function writeFakeCodex(): string {
     ].join("\n"),
   );
   chmodSync(codexPath, 0o755);
+
   return codexPath;
 }
 
@@ -71,6 +73,7 @@ describe("queueCodexMessage", () => {
   test("a non-zero exit surfaces the stderr tail", async () => {
     // Arrange
     const codexBin = writeFakeCodex();
+
     writeFileSync(join(tempDir, "fail"), "");
 
     // Act

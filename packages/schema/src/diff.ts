@@ -25,6 +25,7 @@ export function lcsDiff<T>(
   const longestCommon: number[][] = Array.from({ length: oldCount + 1 }, () =>
     Array.from({ length: newCount + 1 }, () => 0),
   );
+
   for (let oldIndex = oldCount - 1; oldIndex >= 0; oldIndex--) {
     for (let newIndex = newCount - 1; newIndex >= 0; newIndex--) {
       longestCommon[oldIndex]![newIndex] = equals(oldItems[oldIndex]!, newItems[newIndex]!)
@@ -38,6 +39,7 @@ export function lcsDiff<T>(
   const ops: DiffOp<T>[] = [];
   let oldIndex = 0;
   let newIndex = 0;
+
   while (oldIndex < oldCount && newIndex < newCount) {
     if (equals(oldItems[oldIndex]!, newItems[newIndex]!)) {
       ops.push({ kind: "ctx", oldValue: oldItems[oldIndex], newValue: newItems[newIndex] });
@@ -53,6 +55,7 @@ export function lcsDiff<T>(
   }
   while (oldIndex < oldCount) ops.push({ kind: "del", oldValue: oldItems[oldIndex++] });
   while (newIndex < newCount) ops.push({ kind: "add", newValue: newItems[newIndex++] });
+
   return ops;
 }
 
@@ -67,6 +70,7 @@ export interface UnifiedLine {
  */
 export function unifiedDiff(oldText: string, newText: string, context = 3): UnifiedLine[] | null {
   const ops = lcsDiff(oldText.split("\n"), newText.split("\n"));
+
   if (!ops.some((op) => op.kind !== "ctx")) return null;
   let oldLineNumber = 1;
   let newLineNumber = 1;
@@ -77,11 +81,14 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
       oldLine: op.kind !== "add" ? oldLineNumber : null,
       newLine: op.kind !== "del" ? newLineNumber : null,
     };
+
     if (op.kind !== "add") oldLineNumber++;
     if (op.kind !== "del") newLineNumber++;
+
     return row;
   });
   const keep = Array.from({ length: rows.length }, () => false);
+
   rows.forEach((row, rowIndex) => {
     if (row.kind !== "ctx") {
       for (
@@ -95,9 +102,11 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
   });
   const hunks: { rows: (typeof rows)[number][] }[] = [];
   let openHunk: { rows: (typeof rows)[number][] } | null = null;
+
   rows.forEach((row, rowIndex) => {
     if (!keep[rowIndex]) {
       openHunk = null;
+
       return;
     }
     if (!openHunk) {
@@ -107,11 +116,13 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
     openHunk.rows.push(row);
   });
   const lines: UnifiedLine[] = [];
+
   for (const hunk of hunks) {
     const oldStart = hunk.rows.find((row) => row.oldLine !== null)?.oldLine ?? 1;
     const newStart = hunk.rows.find((row) => row.newLine !== null)?.newLine ?? 1;
     const oldCount = hunk.rows.filter((row) => row.kind !== "add").length;
     const newCount = hunk.rows.filter((row) => row.kind !== "del").length;
+
     lines.push({ kind: "hunk", text: `@@ -${oldStart},${oldCount} +${newStart},${newCount} @@` });
     for (const row of hunk.rows) {
       lines.push({
@@ -120,6 +131,7 @@ export function unifiedDiff(oldText: string, newText: string, context = 3): Unif
       });
     }
   }
+
   return lines;
 }
 
@@ -131,7 +143,9 @@ export function unifiedDiffText(
   context = 3,
 ): string | null {
   const lines = unifiedDiff(oldText, newText, context);
+
   if (!lines) return null;
+
   return [`--- a/${path}`, `+++ b/${path}`, ...lines.map((line) => line.text)].join("\n");
 }
 
@@ -142,7 +156,9 @@ export interface EditStats {
 
 export function editStats(oldText: string, newText: string): EditStats {
   const lines = unifiedDiff(oldText, newText, 0);
+
   if (!lines) return { added: 0, removed: 0 };
+
   return {
     added: lines.filter((line) => line.kind === "add").length,
     removed: lines.filter((line) => line.kind === "del").length,

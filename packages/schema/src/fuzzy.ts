@@ -33,6 +33,7 @@ export function levenshteinDistance(left: string, right: string): number {
     currentRow[0] = leftIndex;
     for (let rightIndex = 1; rightIndex <= right.length; rightIndex++) {
       const substitutionCost = left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1;
+
       currentRow[rightIndex] = Math.min(
         currentRow[rightIndex - 1]! + 1, // insertion
         previousRow[rightIndex]! + 1, // deletion
@@ -40,6 +41,7 @@ export function levenshteinDistance(left: string, right: string): number {
       );
     }
     const swap = previousRow;
+
     previousRow = currentRow;
     currentRow = swap;
   }
@@ -54,7 +56,9 @@ export function levenshteinDistance(left: string, right: string): number {
  */
 export function similarityRatio(left: string, right: string): number {
   const longestLength = Math.max(left.length, right.length);
+
   if (longestLength === 0) return 1;
+
   return 1 - levenshteinDistance(left, right) / longestLength;
 }
 
@@ -76,6 +80,7 @@ export function fuzzyFindBestMatch(
   const maximumWindowLength = needle.length + lengthTolerance;
 
   let bestMatch: FuzzyMatch | null = null;
+
   for (let start = 0; start < haystack.length; start++) {
     for (
       let windowLength = minimumWindowLength;
@@ -84,11 +89,13 @@ export function fuzzyFindBestMatch(
     ) {
       const window = haystack.slice(start, start + windowLength);
       const similarity = similarityRatio(needle, window);
+
       if (similarity < minimumSimilarity) continue;
       if (bestMatch === null || similarity > bestMatch.similarity) {
         bestMatch = { start, end: start + windowLength, similarity };
       }
     }
   }
+
   return bestMatch;
 }

@@ -29,7 +29,9 @@ afterEach(() => {
 
 function server(): DaemonServer {
   const daemonServer = new DaemonServer({ home, idleExitMs: 0 });
+
   servers.push(daemonServer);
+
   return daemonServer;
 }
 
@@ -38,6 +40,7 @@ describe("one daemon per home", () => {
     // Arrange
     const first = server();
     const path = first.start();
+
     expect(path).toBe(socketPath(home));
     const second = server();
 
@@ -50,8 +53,10 @@ describe("one daemon per home", () => {
   test("clients keep talking to the one live daemon after a refused start", async () => {
     // Arrange
     const first = server();
+
     first.start();
     const created = first.core.sessionCreate({ workspace: WS, artifact: PLAN });
+
     server().start(); // refused
     const client = await DaemonClient.connect({ home });
 
@@ -79,6 +84,7 @@ describe("one daemon per home", () => {
   test("stopping releases the lock so a restart works", () => {
     // Arrange
     const first = server();
+
     first.start();
 
     // Act
@@ -87,6 +93,7 @@ describe("one daemon per home", () => {
     // Assert
     expect(existsSync(lockPath(home))).toBe(false);
     const second = server();
+
     expect(second.start()).toBe(socketPath(home));
   });
 
@@ -103,14 +110,17 @@ describe("one daemon per home", () => {
     try {
       const pids = await Promise.all(clients.map((client) => client.ping()));
       const unique = new Set(pids.map((ping) => ping.pid));
+
       expect(unique.size).toBe(1);
       // and state is shared: one client's session is visible to the others
       const session = await clients[0]!.sessionCreate(WS, PLAN);
+
       expect((await clients[2]!.sessionGet(session.id)).id).toBe(session.id);
     } finally {
       for (const c of clients) c.close();
       // the autostarted daemon is not one of `servers` - shut it down
       const admin = await DaemonClient.connect({ home });
+
       await admin.shutdown();
       admin.close();
     }

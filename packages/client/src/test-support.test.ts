@@ -10,14 +10,17 @@ describe("isolateUserConfig", () => {
     // Arrange
     const home = mkdtempSync(join(tmpdir(), "cueloop-isolate-"));
     const userConfigPath = join(home, "config.toml");
+
     writeFileSync(userConfigPath, '[ui]\nreview_state = "compact"\n');
     const priorEnv = process.env.CUELOOP_CONFIG;
+
     process.env.CUELOOP_CONFIG = userConfigPath;
 
     try {
       // Act
       const restoreUserConfig = isolateUserConfig(home);
       const isolated = loadConfig({ repoRoot: home });
+
       restoreUserConfig();
       const restored = loadConfig({ repoRoot: home });
 
@@ -36,12 +39,14 @@ describe("isolateUserConfig", () => {
     // Arrange
     const home = mkdtempSync(join(tmpdir(), "cueloop-isolate-"));
     const priorEnv = process.env.CUELOOP_CONFIG;
+
     delete process.env.CUELOOP_CONFIG;
 
     try {
       // Act
       const restoreUserConfig = isolateUserConfig(home);
       const pointedAt = process.env.CUELOOP_CONFIG ?? "";
+
       restoreUserConfig();
 
       // Assert

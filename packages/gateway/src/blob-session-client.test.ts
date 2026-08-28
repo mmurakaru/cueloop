@@ -57,6 +57,7 @@ describe("collaborator write-back", () => {
 
   beforeEach(async () => {
     const masterKey = generateMasterKey();
+
     store = new MemoryShareStore();
     // seed the store with the planner's blob, as an upload would have
     await store.put(
@@ -103,6 +104,7 @@ describe("collaborator write-back", () => {
   test("editing their own note rewrites it in place", async () => {
     // Arrange
     const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+
     await client.sessionAnnotate("ses_1", NOTE("a_collab", "first"));
 
     // Act
@@ -130,6 +132,7 @@ describe("collaborator write-back", () => {
   test("can delete their own note", async () => {
     // Arrange
     const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+
     await client.sessionAnnotate("ses_1", NOTE("a_collab", "note"));
 
     // Act
@@ -167,6 +170,7 @@ describe("collaborator write-back", () => {
   test("naming after annotating updates the same participant entry", async () => {
     // Arrange
     const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+
     await client.sessionAnnotate("ses_1", NOTE("a_collab", "note first"));
 
     // Act
@@ -179,6 +183,7 @@ describe("collaborator write-back", () => {
   test("annotating after naming keeps the name, does not reset to anonymous", async () => {
     // Arrange
     const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+
     await client.sessionSetSelfName("ses_1", "Robin");
 
     // Act
@@ -191,6 +196,7 @@ describe("collaborator write-back", () => {
   test("self-naming again updates the existing entry, not a duplicate", async () => {
     // Arrange
     const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+
     await client.sessionSetSelfName("ses_1", "Robin");
 
     // Act

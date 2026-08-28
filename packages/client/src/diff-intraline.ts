@@ -47,14 +47,17 @@ function stripTrailingNewline(text: string): string {
 export function intralineRunsByRow(rows: DiffRow[]): Map<number, IntralineRun[]> {
   const runsByRow = new Map<number, IntralineRun[]>();
   let index = 0;
+
   while (index < rows.length) {
     if (rows[index]!.kind !== "del") {
       index++;
       continue;
     }
     const deletionStart = index;
+
     while (index < rows.length && rows[index]!.kind === "del") index++;
     const additionStart = index;
+
     while (index < rows.length && rows[index]!.kind === "add") index++;
     const deletionTexts = rows
       .slice(deletionStart, additionStart)
@@ -62,15 +65,18 @@ export function intralineRunsByRow(rows: DiffRow[]): Map<number, IntralineRun[]>
     const additionTexts = rows
       .slice(additionStart, index)
       .map((row) => stripTrailingNewline(row.text));
+
     for (const [deletionOffset, additionOffset] of alignedPairs(deletionTexts, additionTexts)) {
       const changes = wordLevelChanges(
         deletionTexts[deletionOffset]!,
         additionTexts[additionOffset]!,
       );
+
       runsByRow.set(deletionStart + deletionOffset, sideRuns(changes, "removed"));
       runsByRow.set(additionStart + additionOffset, sideRuns(changes, "added"));
     }
   }
+
   return runsByRow;
 }
 
@@ -83,10 +89,13 @@ function linesSimilar(oldText: string, newText: string): boolean {
   const words = (text: string) => new Set(text.toLowerCase().split(/\s+/).filter(Boolean));
   const oldWords = words(oldText);
   const newWords = words(newText);
+
   if (oldWords.size === 0 && newWords.size === 0) return true;
   let intersection = 0;
+
   for (const word of oldWords) if (newWords.has(word)) intersection++;
   const union = oldWords.size + newWords.size - intersection;
+
   return union === 0 ? true : intersection / union >= SIMILAR_MIN_WORD_OVERLAP;
 }
 
@@ -103,6 +112,7 @@ function alignedPairs(deletionTexts: string[], additionTexts: string[]): Array<[
   const pairs: Array<[number, number]> = [];
   let deletionOffset = 0;
   let additionOffset = 0;
+
   for (const op of lcsDiff(deletionTexts, additionTexts, linesSimilar)) {
     if (op.kind === "ctx") {
       pairs.push([deletionOffset, additionOffset]);
@@ -114,6 +124,7 @@ function alignedPairs(deletionTexts: string[], additionTexts: string[]): Array<[
       additionOffset++;
     }
   }
+
   return pairs;
 }
 
@@ -121,12 +132,15 @@ function alignedPairs(deletionTexts: string[], additionTexts: string[]): Array<[
  *  runs of equal changed-ness coalesced so highlighting stays as few spans. */
 function sideRuns(changes: WordChange[], side: "added" | "removed"): IntralineRun[] {
   const runs: IntralineRun[] = [];
+
   for (const change of changes) {
     if (change.kind !== "common" && change.kind !== side) continue;
     const changed = change.kind === side;
     const last = runs[runs.length - 1];
+
     if (last && last.changed === changed) last.text += change.text;
     else runs.push({ text: change.text, changed });
   }
+
   return runs;
 }

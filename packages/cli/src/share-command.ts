@@ -43,6 +43,7 @@ export async function shareCommand(
   deps: ShareDeps = defaultDeps,
 ): Promise<number> {
   const client = await DaemonClient.connect({ home: params.home, autostart: true });
+
   try {
     return await shareSession(client, params, deps);
   } finally {
@@ -56,6 +57,7 @@ export async function sharePullCommand(
   deps: PullDeps = defaultPullDeps,
 ): Promise<number> {
   const client = await DaemonClient.connect({ home: params.home, autostart: true });
+
   try {
     return await pullSession(client, params, deps);
   } finally {
@@ -70,14 +72,18 @@ export async function shareSession(
   deps: ShareDeps,
 ): Promise<number> {
   const session = await pickSession(client, params.sessionId);
+
   if (!session) {
     deps.out("no plan to share - open a review first");
+
     return 1;
   }
   const { line, copied } = await deps.publish(session, { host: params.host, port: params.port });
   const shareId = shareIdFromLine(line);
+
   if (shareId) await client.sessionSetShareId(session.id, shareId);
   deps.out(copied ? `share link copied - ${line}` : line);
+
   return 0;
 }
 
@@ -92,8 +98,10 @@ export async function pullSession(
   deps: PullDeps,
 ): Promise<number> {
   const session = await pickSharedSession(client, params.sessionId);
+
   if (!session) {
     deps.out("no shared plan to pull - run `cueloop share` first");
+
     return 1;
   }
   const remote = await deps.pull(session.shareId!, { host: params.host, port: params.port });
@@ -103,9 +111,11 @@ export async function pullSession(
     participants: remote.participants,
   });
   const added = merged.annotations.length - before;
+
   deps.out(
     added > 0 ? `pulled ${added} new annotation${added === 1 ? "" : "s"}` : "no new annotations",
   );
+
   return 0;
 }
 
@@ -116,6 +126,7 @@ async function pickSession(
 ): Promise<ReviewSession | null> {
   if (sessionId) return client.sessionGet(sessionId);
   const sessions = await client.sessionList();
+
   return sessions.at(-1) ?? null;
 }
 
@@ -126,8 +137,10 @@ async function pickSharedSession(
 ): Promise<ReviewSession | null> {
   if (sessionId) {
     const session = await client.sessionGet(sessionId);
+
     return session.shareId ? session : null;
   }
   const sessions = await client.sessionList();
+
   return sessions.filter((session) => session.shareId).at(-1) ?? null;
 }

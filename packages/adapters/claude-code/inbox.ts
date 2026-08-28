@@ -33,10 +33,12 @@ export function claudeInboxFromEnv(
   environment: NodeJS.ProcessEnv = process.env,
 ): ClaudeInbox | null {
   const rawSocketPath = environment.CLAUDE_CODE_MESSAGING_SOCKET;
+
   if (!rawSocketPath) return null;
   const socketPath = rawSocketPath.startsWith("uds:")
     ? rawSocketPath.slice("uds:".length)
     : rawSocketPath;
+
   return { socketPath, token: environment.CLAUDE_CODE_MESSAGING_TOKEN };
 }
 
@@ -44,6 +46,7 @@ export function claudeInboxFromEnv(
 export function inboxFrames(content: string, token?: string): string {
   const authLine = token === undefined ? "" : JSON.stringify({ type: "auth", token }) + "\n";
   const messageLine = JSON.stringify({ type: "user", message: { role: "user", content } }) + "\n";
+
   return authLine + messageLine;
 }
 
@@ -54,8 +57,10 @@ export function inboxFrames(content: string, token?: string): string {
  */
 export async function postToInbox(inbox: ClaudeInbox, content: string): Promise<void> {
   const payload = inboxFrames(content, inbox.token);
+
   await new Promise<void>((resolve, reject) => {
     let settled = false;
+
     connect({
       unix: inbox.socketPath,
       socket: {

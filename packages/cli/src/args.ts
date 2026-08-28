@@ -8,18 +8,22 @@ export interface ParsedArgs {
 export function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];
   const flags: Record<string, string | boolean> = {};
+
   for (let i = 0; i < argv.length; i++) {
     const argument = argv[i]!;
+
     if (!argument.startsWith("--")) {
       positional.push(argument);
       continue;
     }
     const equalsIndex = argument.indexOf("=");
+
     if (equalsIndex !== -1) {
       flags[argument.slice(2, equalsIndex)] = argument.slice(equalsIndex + 1);
     } else {
       const key = argument.slice(2);
       const next = argv[i + 1];
+
       if (next !== undefined && !next.startsWith("--")) {
         flags[key] = next;
         i++;
@@ -28,6 +32,7 @@ export function parseArgs(argv: string[]): ParsedArgs {
       }
     }
   }
+
   return { positional, flags };
 }
 
@@ -36,5 +41,6 @@ export function stringFlag(
   key: string,
 ): string | undefined {
   const value = flags[key];
+
   return typeof value === "string" ? value : undefined;
 }

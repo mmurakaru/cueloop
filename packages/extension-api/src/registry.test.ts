@@ -20,6 +20,7 @@ describe("Registry", () => {
     // Assert
     expect(registry.extensions.map((extension) => extension.name)).toEqual(["obsidian", "bear"]);
     const obsidian = registry.extensions[0]!.exporters.get("obsidian")!;
+
     expect(await obsidian(SESSION)).toEqual({ success: true, path: "/vault/note.md" });
   });
 

@@ -19,6 +19,7 @@ const PATCH = `diff --git a/src/x.ts b/src/x.ts
 
 function hex(color: RGBA): string {
   const [red, green, blue] = color.toInts();
+
   return "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
 }
 
@@ -35,6 +36,7 @@ test("renders tree-sitter colors, with the changed word in the diff color on top
   // Act
   // syntax highlighting resolves off the render path; pump until a keyword paints
   let keywordAccent = false;
+
   for (let attempt = 0; attempt < 60 && !keywordAccent; attempt++) {
     await setup.renderOnce();
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -49,6 +51,7 @@ test("renders tree-sitter colors, with the changed word in the diff color on top
   expect(keywordAccent).toBe(true);
   // the intra-line changed number keeps the diff color over its syntax color
   const changedColors = new Set<string>();
+
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
       if (span.text.includes("250")) changedColors.add(hex(span.fg));

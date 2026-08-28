@@ -46,6 +46,7 @@ function fakeClient(session: ReviewSession, sink: { workingCopy?: string }): Ses
     sessionList: async () => [session],
     sessionSetWorkingCopy: mock(async (_id: string, content: string | undefined) => {
       sink.workingCopy = content;
+
       return { ...session, workingCopy: content };
     }),
     close: () => {},
@@ -61,8 +62,10 @@ async function connected(session: ReviewSession) {
     sessionId: session.id,
     openClient: async () => client,
   });
+
   controller.connect();
   await tick();
+
   return { controller, client, sink };
 }
 
@@ -132,6 +135,7 @@ describe("diff hunk curation", () => {
 
     // Assert - one item: diff source, revealing the change's row, both lines previewed
     const items = controller.curationItems();
+
     expect(items.length).toBe(1);
     expect(items[0]!.source).toBe("diff");
     expect(items[0]!.id).toBe("diff:src/store.ts#0#1");
@@ -152,6 +156,7 @@ describe("diff hunk curation", () => {
 
     // Assert - the whole hunk, id diff:path#hunk#hunk
     const items = controller.curationItems();
+
     expect(items.length).toBe(1);
     expect(items[0]!.source).toBe("diff");
     expect(items[0]!.id).toBe("diff:src/store.ts#0#hunk");
@@ -160,6 +165,7 @@ describe("diff hunk curation", () => {
   test("restoreCuration drops the diff removal and reverts the working copy", async () => {
     // Arrange - one change rejected
     const { controller, sink } = await connected(diffSession(FILES));
+
     controller.toggleRejectChange(4);
     await tick();
     const [item] = controller.curationItems();
@@ -178,6 +184,7 @@ describe("diff hunk curation", () => {
   test("restoreCuration ignores an unknown id", async () => {
     // Arrange - one change rejected
     const { controller } = await connected(diffSession(FILES));
+
     controller.toggleRejectChange(4);
     await tick();
 

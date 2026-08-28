@@ -44,6 +44,7 @@ describe("socket round-trip", () => {
       body: "More detail please.",
     });
     const wait = client.sessionWait(session.id, 5_000);
+
     await client.sessionResolve(session.id, "request_changes", "Expand it.");
     const resolved = (await wait)!;
 
@@ -65,11 +66,13 @@ describe("socket round-trip", () => {
     // Arrange
     const observer = await DaemonClient.connect({ home });
     const seen: string[] = [];
+
     observer.onEvent((event) => seen.push(event.event));
     await observer.subscribe();
 
     // Act
     const session = await client.sessionCreate(WS, PLAN);
+
     await client.sessionResolve(session.id, "approve", "");
 
     // Assert
@@ -107,6 +110,7 @@ describe("socket round-trip", () => {
       client.request("toString", {}),
       client.request("constructor", {}),
     ]);
+
     for (const result of prototypeMethods) {
       expect(result.status).toBe("rejected");
       expect(((result as PromiseRejectedResult).reason as DaemonClientError).code).toBe(
@@ -115,6 +119,7 @@ describe("socket round-trip", () => {
     }
     // the daemon is still fully alive afterwards
     const session = await client.sessionCreate(WS, PLAN);
+
     expect((await client.sessionGet(session.id)).id).toBe(session.id);
   });
 
@@ -136,6 +141,7 @@ describe("socket round-trip", () => {
     // Given a shared session with one local note
     const session = await client.sessionCreate(WS, PLAN);
     const anchor = { quote: "Body text", prefix: "", suffix: "." };
+
     await client.sessionSetShareId(session.id, "p_abc123xy");
     await client.sessionAnnotate(session.id, { id: "a1", kind: "comment", anchor, body: "mine" });
     expect((await client.sessionGet(session.id)).shareId).toBe("p_abc123xy");
@@ -174,6 +180,7 @@ describe("socket round-trip", () => {
   test("mergeShared validates each annotation at the socket boundary", async () => {
     // Given a session
     const session = await client.sessionCreate(WS, PLAN);
+
     try {
       // When a malformed annotation is merged
       // @ts-expect-error intentionally malformed annotation (empty id, missing fields)

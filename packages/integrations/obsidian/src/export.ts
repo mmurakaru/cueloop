@@ -34,6 +34,7 @@ export const OBSIDIAN_DEFAULTS: ObsidianConfig = {
 /** approve exports only approvals; resolve exports any verdict; manual never auto-exports. */
 export function shouldExport(exportOn: ExportOn, verdict: VerdictKind): boolean {
   if (exportOn === "approve") return verdict === "approve";
+
   return exportOn === "resolve";
 }
 
@@ -49,15 +50,19 @@ export function exportSession(
   now: Date = new Date(),
 ): ExportResult {
   const vault = config.vault ?? detectVaults(config.obsidianConfigPath)[0];
+
   if (!vault) return { success: false, error: "no Obsidian vault configured or detected" };
   if (!existsSync(vault)) return { success: false, error: `vault not found: ${vault}` };
 
   const content = session.workingCopy ?? session.artifact.content;
   const title = titleFrom(content, session.artifact.meta.title);
   const dir = join(vault, config.folder);
+
   mkdirSync(dir, { recursive: true });
   const base = formatFilename(config.filenameFormat, title, now, config.separator);
   const path = uniquePath(dir, base);
+
   writeFileSync(path, `${frontmatter(session, now)}\n\n${content}`);
+
   return { success: true, path };
 }

@@ -78,6 +78,7 @@ function rowStyle(
     : isAnnotatedRow
       ? tokens.markCommentBackground
       : undefined;
+
   return { sign, baseColor, background };
 }
 
@@ -104,27 +105,33 @@ function DiffChunk({
 
   const lineNumbers = useMemo(() => {
     const numbers = new Map<number, number>();
+
     segment.rows.forEach((row, lineIndex) => {
       const gutterNumber = row.kind === "del" ? row.oldLine : row.newLine;
+
       if (gutterNumber !== undefined) numbers.set(lineIndex, gutterNumber);
     });
+
     return numbers;
   }, [segment]);
 
   const lineSigns = useMemo(() => {
     const signs = new Map<number, LineSign>();
+
     if (cursorInChunk >= 0 && cursorInChunk < segment.rows.length) {
       signs.set(cursorInChunk, { before: "▎", beforeColor: tokens.accent });
     }
     if (segment.annotation) {
       signs.set(segment.rows.length - 1, { after: "◆", afterColor: tokens.accent });
     }
+
     return signs;
   }, [segment, cursorInChunk, tokens]);
 
   const lineColors = useMemo(() => {
     // the renderable's config parser requires the gutter key to be present
     const colors = new Map<number, { gutter: string | undefined; content: string }>();
+
     if (segment.annotation) {
       colors.set(segment.rows.length - 1, {
         gutter: undefined,
@@ -137,12 +144,14 @@ function DiffChunk({
         content: tokens.cursorBackground,
       });
     }
+
     return colors;
   }, [segment, cursorInChunk, tokens]);
 
   // the gutter renderable has no prop setters for these maps, so they land via an effect
   useEffect(() => {
     const gutter = gutterRef.current;
+
     if (!gutter) return;
     gutter.setLineNumbers(lineNumbers);
     gutter.setLineSigns(lineSigns);
@@ -197,6 +206,7 @@ function DiffChunk({
               baseColor,
               tokens,
             );
+
             return (
               <React.Fragment key={lineIndex}>
                 <span fg={baseColor} bg={background}>
@@ -236,15 +246,19 @@ function useSyntaxHighlights(rows: DiffRow[]): Map<number, SyntaxSpan[]> {
     rows,
     byRow: EMPTY_SYNTAX,
   });
+
   useEffect(() => {
     let active = true;
+
     void highlightDiffRows(rows).then((byRow) => {
       if (active) setHighlighted({ rows, byRow });
     });
+
     return () => {
       active = false;
     };
   }, [rows]);
+
   return highlighted.rows === rows ? highlighted.byRow : EMPTY_SYNTAX;
 }
 
@@ -276,8 +290,10 @@ export function DiffSheet({
   useEffect(() => {
     const scrollbox = scrollRef.current;
     const cursorOffset = rowOffsets[cursor];
+
     if (!scrollbox || cursorOffset === undefined) return;
     const viewportHeight = Math.max(1, scrollbox.height);
+
     if (cursorOffset < scrollbox.scrollTop + 2) {
       scrollbox.scrollTo({ x: 0, y: Math.max(0, cursorOffset - 2) });
     } else if (cursorOffset > scrollbox.scrollTop + viewportHeight - 3) {
@@ -301,6 +317,7 @@ export function DiffSheet({
         {segments.map((segment, segmentIndex) => {
           if (segment.kind === "header") {
             const isCursor = segment.rowIndex === cursor;
+
             if (segment.row.kind === "file") {
               return (
                 <text
@@ -313,6 +330,7 @@ export function DiffSheet({
                 </text>
               );
             }
+
             return (
               <text
                 key={segmentIndex}
@@ -327,6 +345,7 @@ export function DiffSheet({
           }
 
           const lastRowIndex = segment.firstRowIndex + segment.rows.length - 1;
+
           return (
             <React.Fragment key={segmentIndex}>
               <DiffChunk

@@ -12,6 +12,7 @@ interface DocsSidebarProps {
 
 export default function DocsSidebar({ path }: DocsSidebarProps) {
   const current = normalizePath(path);
+
   return (
     <nav className="docs-sidebar" aria-label="Documentation">
       {docsNav.map((group) => (
@@ -20,6 +21,7 @@ export default function DocsSidebar({ path }: DocsSidebarProps) {
           <ul className="docs-group__list">
             {group.items.map((item) => {
               const isCurrent = normalizePath(item.href) === current;
+
               return (
                 <li key={item.href}>
                   <a

@@ -26,6 +26,7 @@ beforeAll(() => {
 afterAll(async () => {
   try {
     const daemonClient = await DaemonClient.connect({ home });
+
     await daemonClient.shutdown();
     daemonClient.close();
   } catch {
@@ -57,9 +58,11 @@ function createFakePi(): FakePi {
   const on = ((event: string, handler: PiToolCallHandler | PiSessionHandler): void => {
     if (event === "tool_call") {
       toolCallHandlers.push(handler as PiToolCallHandler);
+
       return;
     }
     const list = sessionHandlers.get(event) ?? [];
+
     list.push(handler as PiSessionHandler);
     sessionHandlers.set(event, list);
   }) as PiExtensionAPI["on"];
@@ -69,6 +72,7 @@ function createFakePi(): FakePi {
     on,
     sendUserMessage: (content, options) => wakes.push({ content, options }),
   };
+
   return {
     api,
     tools,
@@ -84,7 +88,9 @@ function createFakePi(): FakePi {
 
 function loadExtension(): FakePi {
   const fake = createFakePi();
+
   createCueloopExtension({ home, pollMs: 100 })(fake.api);
+
   return fake;
 }
 
@@ -105,20 +111,24 @@ async function openPending(fake: FakePi, plan: string): Promise<string> {
     undefined,
     makeContext(),
   )) as PiToolResult<ReviewDetails>;
+
   expect(result.isError).toBeFalsy();
   expect(result.details.status).toBe("pending");
   expect(result.details.sessionId).toBeDefined();
+
   return result.details.sessionId!;
 }
 
 /** Park until the extension has woken the turn at least once, then return the wakes. */
 async function waitForWake(fake: FakePi): Promise<WakeMessage[]> {
   for (let i = 0; i < 100 && fake.wakes.length === 0; i++) await Bun.sleep(20);
+
   return fake.wakes;
 }
 
 async function resolve(sessionId: string, kind: "approve" | "request_changes", summary: string) {
   const client = await DaemonClient.connect({ home });
+
   await client.sessionResolve(sessionId, kind, summary);
   client.close();
 }
@@ -134,6 +144,7 @@ describe("pi adapter: non-blocking request_review", () => {
     // Assert - the session is really open and attributed to pi
     const client = await DaemonClient.connect({ home });
     const session = await client.sessionGet(sessionId);
+
     client.close();
     expect(session.artifact.meta.agent).toBe("pi");
     expect(session.artifact.meta.title).toBe("Approve Plan");
@@ -155,6 +166,7 @@ describe("pi adapter: non-blocking request_review", () => {
     const fake = loadExtension();
     const tool = fake.tools.get("request_review")!;
     const controller = new AbortController();
+
     controller.abort();
 
     // Act
@@ -182,6 +194,7 @@ describe("pi adapter: non-blocking request_review", () => {
 
     // Act
     const client = await DaemonClient.connect({ home });
+
     await client.sessionAnnotate(sessionId, {
       id: "ann-1",
       kind: "comment",
@@ -216,6 +229,7 @@ describe("pi adapter: tool_call gate", () => {
     // Assert - writes blocked, reads pass
     for (const name of ["edit", "write", "bash", "some_custom_tool"]) {
       const decision = await fake.toolCallHandler(toolCall(name), context);
+
       expect(decision?.block).toBe(true);
       expect(decision?.reason).toContain("cueloop review pending");
     }
@@ -239,6 +253,7 @@ describe("pi adapter: session_shutdown", () => {
     const fake = loadExtension();
     const context = makeContext();
     const sessionId = await openPending(fake, "# Shutdown Plan\n\nSomething slow.\n");
+
     expect((await fake.toolCallHandler(toolCall("edit"), context))?.block).toBe(true);
 
     // Act - the pi session tears down while the review is still open
@@ -276,6 +291,7 @@ describe("pi adapter: review command", () => {
 
     // Act
     const sessionId = await openPending(fake, "# Status Plan\n\nCheck status reporting.\n");
+
     await command.handler("", context);
 
     // Assert

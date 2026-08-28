@@ -35,14 +35,17 @@ export function annotatedRowsByIndex(
   annotations: Annotation[],
 ): Map<number, Annotation> {
   const byRow = new Map<number, Annotation>();
+
   for (const annotation of annotations) {
     const rowIndex = rows.findIndex(
       (row) =>
         row.text === annotation.anchor.quote &&
         (row.kind === "ctx" || row.kind === "add" || row.kind === "del"),
     );
+
     if (rowIndex !== -1) byRow.set(rowIndex, annotation);
   }
+
   return byRow;
 }
 
@@ -66,6 +69,7 @@ export function segmentRows(
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex]!;
+
     if (row.kind === "file" || row.kind === "hunk") {
       closeChunk(null);
       segments.push({ kind: "header", rowIndex, row });
@@ -76,6 +80,7 @@ export function segmentRows(
     chunk.push(row);
 
     const annotation = annotatedByRow.get(rowIndex);
+
     if (annotation) {
       closeChunk(annotation);
       chunkStart = rowIndex + 1;
@@ -85,6 +90,7 @@ export function segmentRows(
     }
   }
   closeChunk(null);
+
   return segments;
 }
 
@@ -93,6 +99,7 @@ export function segmentRows(
 export function rowContentOffsets(segments: DiffSegment[]): number[] {
   const offsets: number[] = [];
   let contentY = 0;
+
   for (const segment of segments) {
     if (segment.kind === "header") {
       offsets[segment.rowIndex] = contentY;
@@ -104,6 +111,7 @@ export function rowContentOffsets(segments: DiffSegment[]): number[] {
       contentY += segment.rows.length + (segment.annotation ? 1 : 0);
     }
   }
+
   return offsets;
 }
 
@@ -125,27 +133,33 @@ export function coloredRowSpans(
   const isModifiedLine = intralineRuns !== undefined;
 
   const spans: ColoredSpan[] = [];
+
   for (let column = 0; column < text.length; column++) {
     const color = changed[column]
       ? baseColor
       : (syntaxColorByColumn[column] ?? (isModifiedLine ? tokens.textDim : baseColor));
     const previous = spans[spans.length - 1];
+
     if (previous && previous.foreground === color) previous.text += text[column];
     else spans.push({ text: text[column]!, foreground: color });
   }
+
   return spans;
 }
 
 /** Which columns are the intra-line change on a modified line. */
 function changedColumns(length: number, intralineRuns: IntralineRun[] | undefined): boolean[] {
   const changed = Array.from({ length }, () => false);
+
   if (!intralineRuns) return changed;
   let offset = 0;
+
   for (const run of intralineRuns) {
     if (run.changed)
       for (let index = 0; index < run.text.length; index++) changed[offset + index] = true;
     offset += run.text.length;
   }
+
   return changed;
 }
 
@@ -156,12 +170,15 @@ function syntaxColorColumns(
   tokens: Theme,
 ): Array<string | undefined> {
   const colors: Array<string | undefined> = Array.from({ length }, () => undefined);
+
   for (const span of syntaxSpans ?? []) {
     const color = colorForSyntaxGroup(span.group, tokens);
+
     if (!color) continue;
     for (let column = span.start; column < span.end && column < length; column++) {
       colors[column] = color;
     }
   }
+
   return colors;
 }

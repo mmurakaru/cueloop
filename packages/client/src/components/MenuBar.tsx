@@ -29,6 +29,7 @@ export function MenuBar({
   const tokens = useComponentTheme(theme);
   const { height: terminalHeight } = useTerminalDimensions();
   const dropupHeight = DROPUP_OPTION_ROWS + 2;
+
   return (
     <>
       {open ? (

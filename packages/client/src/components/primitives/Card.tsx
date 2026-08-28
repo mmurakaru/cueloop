@@ -38,6 +38,7 @@ export function Card({
   children,
 }: CardProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <box
       style={{

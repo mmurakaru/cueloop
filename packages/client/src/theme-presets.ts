@@ -168,6 +168,7 @@ export const THEME_LABELS: Record<ThemeName, string> = {
  */
 export function themeForName(name: string, appearance: Appearance = "dark"): Theme {
   if (name === "cueloop") return brandedTheme(appearance);
+
   return THEME_PRESETS[name as ThemeName] ?? brandedTheme(appearance);
 }
 

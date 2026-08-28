@@ -14,6 +14,7 @@ export function Toast({ title, body, theme }: ToastProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth } = useTerminalDimensions();
   const width = Math.min(terminalWidth - 6, Math.max(28, body.length + 4));
+
   return (
     <Dialog
       isOpen

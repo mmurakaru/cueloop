@@ -47,7 +47,9 @@ async function renderApp(onExit?: (code: number) => void) {
       height: 30,
     },
   );
+
   await waitForText(setup, "cueloop");
+
   return setup;
 }
 
@@ -70,6 +72,7 @@ describe("completion overlay", () => {
 
     // Assert
     const frame = await waitForText(setup, "closing in 5s");
+
     expect(frame).toContain("review approved");
     expect(frame).toContain("close [return]");
     expect(frame).toContain("return to plan [esc]");
@@ -84,6 +87,7 @@ describe("completion overlay", () => {
   test("a remembers the countdown as the persisted default", async () => {
     // Arrange
     const setup = await renderApp();
+
     await submitApprove(setup);
     await waitForText(setup, "closing in 5s");
 
@@ -105,6 +109,7 @@ describe("completion overlay", () => {
   test("esc dismisses to the resolved read-only view", async () => {
     // Arrange
     const setup = await renderApp();
+
     await submitApprove(setup);
     await waitForText(setup, "closing in 5s");
 
@@ -115,6 +120,7 @@ describe("completion overlay", () => {
 
     // Assert
     const frame = await waitForText(setup, "resolved: approve");
+
     expect(frame).not.toContain("closing in");
   });
 
@@ -123,6 +129,7 @@ describe("completion overlay", () => {
     writeFileSync(configPath, "[ui]\nauto_close = 1\n");
     let exited = -1;
     const setup = await renderApp((code) => (exited = code));
+
     await submitApprove(setup);
     await waitForText(setup, "closing in 1s");
     expect(exited).toBe(-1);

@@ -62,6 +62,7 @@ export function locateLine(
   lineNumber: number,
 ): LocatedLine | null {
   const index = lineNumber - 1;
+
   for (const [hunkIndex, hunk] of model.hunks.entries()) {
     for (const [contentIndex, content] of hunk.hunkContent.entries()) {
       const base = side === "addition" ? content.additionLineIndex : content.deletionLineIndex;
@@ -71,11 +72,13 @@ export function locateLine(
           : side === "addition"
             ? content.additions
             : content.deletions;
+
       if (count > 0 && index >= base && index < base + count) {
         return { hunkIndex, changeIndex: content.type === "change" ? contentIndex : undefined };
       }
     }
   }
+
   return null;
 }
 
@@ -87,6 +90,7 @@ function changeSideLine(
     return { side: "addition", lineNumber: row.newLine };
   if (row.kind === "del" && row.oldLine !== undefined)
     return { side: "deletion", lineNumber: row.oldLine };
+
   return null;
 }
 
@@ -107,6 +111,7 @@ export function hunkRejectionForRow(
       : row.oldLine !== undefined
         ? locateLine(model, "deletion", row.oldLine)
         : null;
+
   return located ? { path, hunkIndex: located.hunkIndex } : null;
 }
 
@@ -120,9 +125,12 @@ export function changeRejectionForRow(
   row: Pick<DiffRow, "kind" | "oldLine" | "newLine">,
 ): HunkRejection | null {
   const change = changeSideLine(row);
+
   if (!change) return null;
   const located = locateLine(model, change.side, change.lineNumber);
+
   if (!located || located.changeIndex === undefined) return null;
+
   return { path, hunkIndex: located.hunkIndex, changeIndex: located.changeIndex };
 }
 
@@ -152,9 +160,12 @@ export function isRowRejected(
   rejections: HunkRejection[],
 ): boolean {
   const change = changeSideLine(row);
+
   if (!change) return false;
   const located = locateLine(model, change.side, change.lineNumber);
+
   if (!located || located.changeIndex === undefined) return false;
+
   return rejections.some(
     (rejection) =>
       rejection.path === path &&
@@ -178,6 +189,7 @@ function curateFilePatch(file: DiffFileContents, rejections: HunkRejection[]): s
       .filter((rejection) => rejection.changeIndex === undefined)
       .map((rejection) => rejection.hunkIndex),
   );
+
   for (const hunkIndex of [...wholeHunks].sort((a, b) => b - a)) {
     model = diffAcceptRejectHunk(model, hunkIndex, "reject");
   }
@@ -186,6 +198,7 @@ function curateFilePatch(file: DiffFileContents, rejections: HunkRejection[]): s
       (rejection) => rejection.changeIndex !== undefined && !wholeHunks.has(rejection.hunkIndex),
     )
     .sort((a, b) => b.hunkIndex - a.hunkIndex || b.changeIndex! - a.changeIndex!);
+
   for (const rejection of changeRejections) {
     model = diffAcceptRejectHunk(model, rejection.hunkIndex, {
       type: "reject",
@@ -193,9 +206,12 @@ function curateFilePatch(file: DiffFileContents, rejections: HunkRejection[]): s
     });
   }
   const curatedNew = model.additionLines.join("");
+
   if (curatedNew === file.oldContents) return null;
   const patch = unifiedDiffText(file.oldContents, curatedNew, file.path);
+
   if (patch === null) return null;
+
   return withFileStateHeaders(patch, file.path, file.status, curatedNew);
 }
 
@@ -215,6 +231,7 @@ function withFileStateHeaders(
   if (status === "deleted" && curatedNew === "") {
     return patch.replace(`+++ b/${path}`, "+++ /dev/null");
   }
+
   return patch;
 }
 
@@ -224,10 +241,13 @@ function withFileStateHeaders(
  */
 export function curateDiff(files: DiffFileContents[], rejections: HunkRejection[]): string {
   const parts: string[] = [];
+
   for (const file of files) {
     const fileRejections = rejections.filter((rejection) => rejection.path === file.path);
     const patch = curateFilePatch(file, fileRejections);
+
     if (patch) parts.push(patch);
   }
+
   return parts.join("\n");
 }

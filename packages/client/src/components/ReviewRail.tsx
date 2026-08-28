@@ -283,6 +283,7 @@ function RemovalCard({
     Math.max(1, previewLines.length) + (overflow > 0 ? 1 : 0) + (isSelected ? 1 : 0);
   // border = "what + who": a diff reject or a plan cut, always the reviewer's own
   const title = ` ${item.source === "diff" ? "REJECT" : "CUT"} · me `;
+
   return (
     <box id={`removal-card-${item.id}`} onMouseUp={() => onSelect(item.id)}>
       <Card

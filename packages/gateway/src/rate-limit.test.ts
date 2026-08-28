@@ -16,6 +16,7 @@ describe(TokenBucket, () => {
     // Arrange
     let clock = 0;
     const bucket = new TokenBucket(1, 1, () => clock);
+
     bucket.take("ip");
 
     // Act: one second later, one token is back

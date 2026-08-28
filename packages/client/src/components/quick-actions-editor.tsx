@@ -40,6 +40,7 @@ export function QuickActionsEditor({
   theme,
 }: QuickActionsEditorProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <box style={{ flexDirection: "column", flexGrow: 1 }}>
       <box style={{ flexDirection: "row" }}>
@@ -89,6 +90,7 @@ function ActionRow({
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const inputRef = useRef<TextareaRenderable | null>(null);
+
   return (
     <box style={{ flexDirection: "column" }}>
       <box

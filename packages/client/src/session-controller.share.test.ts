@@ -11,6 +11,7 @@ const pullShare = mock(async () => remote);
 const pushShare = mock(
   async (_shareId: string, _annotations: Array<Omit<Annotation, "createdAt">>) => {},
 );
+
 mock.module("./share", () => ({
   publishShare,
   pullShare,
@@ -60,8 +61,10 @@ function fakeClient(session: ReviewSession): SessionClient {
     ),
     sessionMergeShared: mock(async (_id: string, incoming: { annotations: Annotation[] }) => {
       const known = new Set(session.annotations.map((existing) => existing.id));
+
       for (const note of incoming.annotations)
         if (!known.has(note.id)) session.annotations.push(note);
+
       return session;
     }),
     close: () => {},
@@ -80,8 +83,10 @@ async function connectedController(
     openClient: async () => client,
     clock,
   });
+
   controller.connect();
   await tick();
+
   return { controller, client };
 }
 
@@ -199,6 +204,7 @@ describe("mirror on annotate", () => {
     const { controller, client } = await connectedController(
       sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }),
     );
+
     (client.sessionAnnotate as ReturnType<typeof mock>).mockImplementationOnce(async () => {
       throw new Error("session is resolved");
     });
@@ -225,6 +231,7 @@ describe("startSharePoll", () => {
 
     // Act - immediate pull
     const stop = controller.startSharePoll();
+
     await tick();
 
     // Assert
@@ -251,6 +258,7 @@ describe("startSharePoll", () => {
     pullShare.mockClear();
     remote = sessionFixture({ annotations: [] });
     let release: () => void = () => {};
+
     pullShare.mockImplementationOnce(
       () => new Promise<ReviewSession>((resolve) => (release = () => resolve(remote))),
     );
@@ -262,6 +270,7 @@ describe("startSharePoll", () => {
 
     // Act - start (pull is in flight), leave, then let the pull settle
     const stop = controller.startSharePoll();
+
     await tick();
     expect(pullShare).toHaveBeenCalledTimes(1);
     stop();
@@ -279,6 +288,7 @@ describe("startSharePoll", () => {
     pullShare.mockClear();
     remote = sessionFixture({ annotations: [] });
     let release: () => void = () => {};
+
     pullShare.mockImplementationOnce(
       () => new Promise<ReviewSession>((resolve) => (release = () => resolve(remote))),
     );
@@ -293,6 +303,7 @@ describe("startSharePoll", () => {
     await tick();
     expect(pullShare).toHaveBeenCalledTimes(1);
     const stopB = controller.startSharePoll();
+
     await tick();
     expect(pullShare).toHaveBeenCalledTimes(2);
 

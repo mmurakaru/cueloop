@@ -56,6 +56,7 @@ function nativeLibraryPath(): string | null {
   const suffix = process.platform === "darwin" ? "dylib" : "so";
   const dir = `${process.platform}-${process.arch}`;
   const path = join(import.meta.dir, "..", "native", dir, `libcueloopvt.${suffix}`);
+
   return existsSync(path) ? path : null;
 }
 
@@ -65,14 +66,17 @@ function nativeLibraryPath(): string | null {
  */
 export function loadGhosttyTerminals(): GhosttyTerminalFactory | null {
   const path = nativeLibraryPath();
+
   if (!path) return null;
   try {
     const lib = dlopen(path, CVT_SYMBOLS);
+
     return new GhosttyTerminalFactory(lib.symbols);
   } catch (error) {
     // The file exists but failed to load (bad arch, missing symbol) - a real
     // fault, not the expected no-prebuilt case; surface it, then degrade.
     console.error(`cueloop: failed to load ${path}:`, error);
+
     return null;
   }
 }
@@ -83,6 +87,7 @@ export class GhosttyTerminalFactory {
   /** A fresh terminal sized to cols x rows, or null if allocation failed. */
   create(cols: number, rows: number): GhosttyTerminal | null {
     const handle = this.lib.cvt_new(cols, rows);
+
     return handle ? new GhosttyTerminal(this.lib, handle) : null;
   }
 }
@@ -126,6 +131,7 @@ export class GhosttyTerminal {
     if (this.freed) return null;
     if (this.lib.cvt_cell(this.handle, x, y, ptr(this.out)) !== 0) return null;
     const flags = this.out[13]!;
+
     return {
       codepoint: this.outView.getUint32(0, true),
       fg: decodeColor(this.out[7]!, this.out[4]!, this.out[5]!, this.out[6]!),
@@ -145,6 +151,7 @@ export class GhosttyTerminal {
     if (this.freed) return { x: 0, y: 0, visible: false };
     this.lib.cvt_cursor(this.handle, ptr(this.cursorOut));
     const view = new DataView(this.cursorOut.buffer);
+
     return {
       x: view.getUint16(0, true),
       y: view.getUint16(2, true),
@@ -164,5 +171,6 @@ export class GhosttyTerminal {
 function decodeColor(kind: number, r: number, g: number, b: number): GhosttyColor {
   if (kind === 2) return { kind: "rgb", r, g, b };
   if (kind === 1) return { kind: "palette", index: r };
+
   return { kind: "default" };
 }

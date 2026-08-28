@@ -161,6 +161,7 @@ class HeadlessKeymapHost implements KeymapHost<object, KeymapEvent> {
   }
   onKeyPress(listener: (event: KeymapEvent) => void): () => void {
     this.pressListeners.add(listener);
+
     return () => this.pressListeners.delete(listener);
   }
   onKeyRelease(): () => void {
@@ -193,14 +194,17 @@ function normalizedEvent(key: ResolvableKey): { name: string; shift: boolean } {
         shift: key.shift || key.name !== key.name.toLowerCase(),
       };
     }
+
     return { name: key.name, shift: false };
   }
+
   return { name: key.name, shift: key.shift };
 }
 
 /** Config combos write shifted letters as uppercase; the parser wants shift+. */
 function bindingKeyFor(combo: string): string {
   if (combo.length === 1 && /[A-Z]/.test(combo)) return `shift+${combo.toLowerCase()}`;
+
   return combo;
 }
 
@@ -242,6 +246,7 @@ export class KeyBindings {
     this.unregisterGrammarLayer?.();
     const bindings: { key: string; cmd: string }[] = [];
     const commandNames = new Set<string>();
+
     for (const [action, combos] of Object.entries(keys)) {
       commandNames.add(action);
       for (const combo of combos) bindings.push({ key: bindingKeyFor(combo), cmd: action });
@@ -257,6 +262,7 @@ export class KeyBindings {
         name,
         run: () => {
           this.resolvedCommand = name;
+
           return true;
         },
       })),
@@ -268,9 +274,11 @@ export class KeyBindings {
       name,
       run: () => {
         this.resolvedCommand = name;
+
         return true;
       },
     });
+
     this.keymap.registerLayer({
       priority: 10,
       when: () => this.context.overlay === "none" && this.context.spanMode,
@@ -355,8 +363,10 @@ export class KeyBindings {
    */
   resolveAction(key: ResolvableKey): string | undefined {
     const normalized = normalizedEvent(key);
+
     this.resolvedCommand = undefined;
     this.host.emitKeyPress(makeKeymapEvent(normalized.name, normalized.shift));
+
     return this.resolvedCommand;
   }
 
@@ -367,15 +377,19 @@ export class KeyBindings {
         typeof activeKey.command === "string"
           ? activeKey.command
           : activeKey.bindings?.[0]?.command;
+
       if (bindingCommand !== command) continue;
+
       return KEY_GLYPHS[activeKey.stroke.name] ?? activeKey.display;
     }
+
     return null;
   }
 
   /** The status-line hint for a view state, generated from the active keys. */
   statusHint(mode: HintMode): string {
     const fragments: string[] = [];
+
     for (const entry of HINT_TEMPLATES[mode]) {
       if ("text" in entry) {
         fragments.push(entry.text);
@@ -384,14 +398,17 @@ export class KeyBindings {
       const displays = entry.commands
         .map((command) => this.keyDisplayFor(command))
         .filter((display): display is string => display !== null);
+
       if (!displays.length) continue;
       const keyPart = displays.join("/");
+
       if (!entry.label) fragments.push(keyPart);
       else
         fragments.push(
           entry.labelFirst ? `${entry.label} ${keyPart}` : `${keyPart} ${entry.label}`,
         );
     }
+
     return fragments.join(" · ");
   }
 
@@ -405,14 +422,17 @@ export class KeyBindings {
     const build = (context: KeyLayerContext, mode: HintMode, title: string): CheatsheetSection => {
       this.context = context;
       const entries: CheatsheetEntry[] = [];
+
       for (const entry of HINT_TEMPLATES[mode]) {
         if ("text" in entry || !entry.label) continue;
         const keys = entry.commands
           .map((command) => this.keyDisplayFor(command))
           .filter((display): display is string => display !== null)
           .join(" / ");
+
         if (keys) entries.push({ keys, label: entry.label });
       }
+
       return { title, entries };
     };
     const sections = [
@@ -424,7 +444,9 @@ export class KeyBindings {
       // so it is listed statically rather than resolved from the active keys.
       { title: "Agent terminal", entries: [{ keys: AGENT_DETACH_HINT, label: "detach" }] },
     ];
+
     this.context = saved;
+
     return sections.filter((section) => section.entries.length > 0);
   }
 }

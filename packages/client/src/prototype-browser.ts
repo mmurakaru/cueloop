@@ -52,6 +52,7 @@ export function imageCellToCss(
 ): { x: number; y: number } | null {
   const columnInImage = event.x - image.x;
   const rowInImage = event.y - image.y;
+
   if (
     columnInImage < 0 ||
     rowInImage < 0 ||
@@ -60,6 +61,7 @@ export function imageCellToCss(
   ) {
     return null;
   }
+
   return {
     x: ((columnInImage + 0.5) / image.width) * viewport.width,
     y: ((rowInImage + 0.5) / image.height) * viewport.height,
@@ -74,6 +76,7 @@ export function cssBoxToCell(
 ): { column: number; row: number; columns: number; rows: number } {
   const scaleColumn = image.width / viewport.width;
   const scaleRow = image.height / viewport.height;
+
   return {
     column: image.x + Math.floor(box.x * scaleColumn),
     row: image.y + Math.floor(box.y * scaleRow),
@@ -107,6 +110,7 @@ async function warmBrowser(executablePath: string | undefined): Promise<Puppetee
   // disconnected Chromium is dropped so the next open relaunches instead of
   // calling newPage on a dead process forever
   const cached = sharedBrowser ? await sharedBrowser.catch(() => null) : null;
+
   if (cached && cached.connected) return cached;
   const puppeteer = (await import("puppeteer-core")).default;
   const launched = puppeteer.launch({
@@ -114,14 +118,17 @@ async function warmBrowser(executablePath: string | undefined): Promise<Puppetee
     headless: true,
     args: ["--no-sandbox", "--hide-scrollbars", "--force-color-profile=srgb"],
   });
+
   sharedBrowser = launched;
   const browser = await launched.catch((error) => {
     if (sharedBrowser === launched) sharedBrowser = null;
     throw error;
   });
+
   browser.once("disconnected", () => {
     if (sharedBrowser === launched) sharedBrowser = null;
   });
+
   return browser;
 }
 
@@ -131,6 +138,7 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
   // close only the page on teardown, never the shared browser, so the next open
   // reuses the warm Chromium
   const page = await browser.newPage();
+
   try {
     await page.setViewport({
       width: options.viewport.width,
@@ -165,6 +173,7 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
         encoding: "binary",
         omitBackground: true,
       });
+
       return new Uint8Array(buffer as Buffer);
     },
     async elementAt(cssX, cssY) {
@@ -198,6 +207,7 @@ function elementAtScript(x: number, y: number): unknown {
   const componentRoot = (start: Element): Element => {
     let namedFallback: Element | null = null;
     let current: Element | null = start;
+
     while (current && current !== document.body) {
       if (isNamed(current)) {
         if (current.childElementCount > 1) return current;
@@ -205,28 +215,35 @@ function elementAtScript(x: number, y: number): unknown {
       }
       current = current.parentElement;
     }
+
     return namedFallback ?? start;
   };
   const selectorFor = (start: Element): string => {
     const parts: string[] = [];
     let current: Element | null = start;
+
     while (current && current.nodeType === 1 && current !== document.documentElement) {
       let part = current.tagName.toLowerCase();
+
       if (current.id) {
         parts.unshift(part + "#" + CSS.escape(current.id));
         break;
       }
       const parent: Element | null = current.parentElement;
+
       if (parent) {
         const twins = [...parent.children].filter((child) => child.tagName === current!.tagName);
+
         if (twins.length > 1) part += ":nth-of-type(" + (twins.indexOf(current) + 1) + ")";
       }
       parts.unshift(part);
       current = current.parentElement;
     }
+
     return parts.join(" > ");
   };
   const hit = document.elementFromPoint(x, y);
+
   if (!(hit instanceof Element)) return null;
   // A click on an interactive control anchors to that control - a button in a
   // grid is the target, not the grid. Everything else climbs to its component.
@@ -235,6 +252,7 @@ function elementAtScript(x: number, y: number): unknown {
   );
   const node = control ?? componentRoot(hit);
   const selector = selectorFor(node);
+
   if (!selector) return null;
   const text = (node.textContent || "").replace(/\s+/g, " ").trim();
   const tag = node.tagName.toLowerCase();
@@ -246,12 +264,15 @@ function elementAtScript(x: number, y: number): unknown {
         ? tag + "." + node.classList[0]
         : tag;
   const rect = node.getBoundingClientRect();
+
   return { selector, quote, box: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } };
 }
 
 function scrollByScript(deltaY: number): boolean {
   const before = window.scrollY;
+
   window.scrollBy(0, deltaY);
+
   return window.scrollY !== before;
 }
 
@@ -263,5 +284,6 @@ function chromeExecutable(): string {
   if (process.platform === "win32") {
     return "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
   }
+
   return "/usr/bin/google-chrome";
 }

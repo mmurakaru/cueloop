@@ -68,14 +68,17 @@ function nativeLibraryPath(): string | null {
   const suffix = process.platform === "darwin" ? "dylib" : "so";
   const dir = `${process.platform}-${process.arch}`;
   const path = join(import.meta.dir, "..", "native", dir, `libcuelooppty.${suffix}`);
+
   return existsSync(path) ? path : null;
 }
 
 /** One shared load of the pty shim; null when no dylib ships for the platform. */
 let ptyLib: PtyLib | null | undefined;
+
 function library(): PtyLib | null {
   if (ptyLib !== undefined) return ptyLib;
   const path = nativeLibraryPath();
+
   if (!path) return (ptyLib = null);
   try {
     ptyLib = dlopen(path, PTY_SYMBOLS).symbols;
@@ -83,6 +86,7 @@ function library(): PtyLib | null {
     console.error(`cueloop: failed to load ${path}:`, error);
     ptyLib = null;
   }
+
   return ptyLib;
 }
 
@@ -95,9 +99,11 @@ class EventEmitter<T> {
   private listeners: ((value: T) => void)[] = [];
   readonly event = (listener: (value: T) => void): Disposable => {
     this.listeners.push(listener);
+
     return {
       dispose: () => {
         const index = this.listeners.indexOf(listener);
+
         if (index !== -1) this.listeners.splice(index, 1);
       },
     };
@@ -138,6 +144,7 @@ class Pty implements IPty {
 
     const argvPacked = packTokens([file, ...args]);
     const envPacked = packTokens(env);
+
     this.handle = lib.cueloop_pty_spawn(
       ptr(argvPacked),
       Buffer.from(`${cwd}\0`, "utf8"),
@@ -170,6 +177,7 @@ class Pty implements IPty {
   write(data: string): void {
     if (this.closing) return;
     const buffer = Buffer.from(data, "utf8");
+
     this.lib.cueloop_pty_write(this.handle, ptr(buffer), buffer.length);
   }
 
@@ -192,18 +200,23 @@ class Pty implements IPty {
     if (this.reading) return;
     this.reading = true;
     const buffer = Buffer.allocUnsafe(READ_BUFFER_BYTES);
+
     while (!this.closing) {
       const count = this.lib.cueloop_pty_read(this.handle, ptr(buffer), buffer.length);
+
       if (count > 0) {
         // Stream mode buffers a multibyte char split across reads (box-drawing etc.).
         const text = this.decoder.decode(buffer.subarray(0, count), { stream: true });
+
         if (text) this.dataEvent.fire(text);
       } else if (count === CHILD_EXITED || count < 0) {
         // Both the drained-exit sentinel and a hard read error end the session:
         // flush the decoder, reap for the code, close, and fire the exit once.
         const tail = this.decoder.decode();
+
         if (tail) this.dataEvent.fire(tail);
         const exitCode = this.lib.cueloop_pty_get_exit_code(this.handle);
+
         this.lib.cueloop_pty_close(this.handle);
         this.closing = true;
         this.exitEvent.fire({ exitCode });
@@ -217,6 +230,8 @@ class Pty implements IPty {
 /** Spawn `file` with `args` on a fresh PTY. Throws when no shim ships (gate on ptyAvailable). */
 export function spawn(file: string, args: string[], options: PtyForkOptions = {}): IPty {
   const lib = library();
+
   if (!lib) throw new Error("cueloop: no pty shim for this platform");
+
   return new Pty(lib, file, args, options);
 }

@@ -14,6 +14,7 @@ describe("ghostty-terminal FFI", () => {
   test.skipIf(!factory)("writes VT bytes and reads back decoded cells", () => {
     // Arrange
     const term = factory!.create(80, 24)!;
+
     expect(term).not.toBeNull();
 
     // Act - plain text then bold + palette-green "GO"
@@ -38,6 +39,7 @@ describe("ghostty-terminal FFI", () => {
 
     // Assert - cursor advanced past the three glyphs on row 0
     const cursor = term.readCursor();
+
     expect(cursor.y).toBe(0);
     expect(cursor.x).toBe(3);
     term.free();

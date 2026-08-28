@@ -33,6 +33,7 @@ export function useDocsSearch(query: string, limit = 8): SearchHit[] {
 
   return useMemo<SearchHit[]>(() => {
     const needle = query.trim().toLowerCase();
+
     if (!needle) {
       return docs.slice(0, 6).map((doc) => ({ doc, titleRanges: [] }));
     }
@@ -40,14 +41,17 @@ export function useDocsSearch(query: string, limit = 8): SearchHit[] {
     // range bolded), then pages whose headings contain the query.
     const titleHits: SearchHit[] = [];
     const headingHits: SearchHit[] = [];
+
     for (const doc of docs) {
       const at = doc.title.toLowerCase().indexOf(needle);
+
       if (at >= 0) {
         titleHits.push({ doc, titleRanges: [[at, at + needle.length - 1]] });
       } else if ((doc.headings ?? []).some((heading) => heading.toLowerCase().includes(needle))) {
         headingHits.push({ doc, titleRanges: [] });
       }
     }
+
     return [...titleHits, ...headingHits].slice(0, limit);
   }, [query, docs, limit]);
 }
@@ -58,6 +62,7 @@ export function highlight(text: string, ranges: readonly [number, number][]): Re
   const ordered = [...ranges].sort((a, b) => a[0] - b[0]);
   const parts: ReactNode[] = [];
   let cursor = 0;
+
   ordered.forEach(([start, end], index) => {
     if (start < cursor) return;
     if (start > cursor) parts.push(text.slice(cursor, start));
@@ -65,6 +70,7 @@ export function highlight(text: string, ranges: readonly [number, number][]): Re
     cursor = end + 1;
   });
   if (cursor < text.length) parts.push(text.slice(cursor));
+
   return parts;
 }
 

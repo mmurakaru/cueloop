@@ -57,6 +57,7 @@ describe("resolveCleanupPeriodDays", () => {
   test("honors [cleanup] period_days", () => {
     // Arrange
     const path = join(tempDir("cueloop-retention-"), "config.toml");
+
     writeFileSync(path, "[cleanup]\nperiod_days = 7\n");
 
     // Act
@@ -69,6 +70,7 @@ describe("resolveCleanupPeriodDays", () => {
   test("falls back to the default when the value is not a number", () => {
     // Arrange
     const path = join(tempDir("cueloop-retention-"), "config.toml");
+
     writeFileSync(path, '[cleanup]\nperiod_days = "soon"\n');
 
     // Act
@@ -111,6 +113,7 @@ describe("pruneExpiredSessions", () => {
     // Arrange
     const home = tempDir("cueloop-retention-home-");
     const store = new SessionStore(home);
+
     store.upsert(session("ses_old", daysAgo(40)));
     store.upsert(session("ses_new", daysAgo(2)));
 
@@ -127,6 +130,7 @@ describe("pruneExpiredSessions", () => {
     // Arrange
     const home = tempDir("cueloop-retention-home-");
     const store = new SessionStore(home);
+
     store.upsert(session("ses_active", daysAgo(400), "pending"));
 
     // Act
@@ -141,6 +145,7 @@ describe("pruneExpiredSessions", () => {
     // Arrange
     const home = tempDir("cueloop-retention-home-");
     const store = new SessionStore(home);
+
     store.upsert(session("ses_old", daysAgo(999)));
 
     // Act
@@ -157,12 +162,15 @@ describe("pruneExpiredReports", () => {
     // Arrange
     const home = tempDir("cueloop-retention-home-");
     const directory = reportsDir(home);
+
     mkdirSync(directory, { recursive: true });
     const latest = join(directory, LATEST_REPORT_FILENAME);
     const stale = join(directory, "refine-2026-06-01T00-00-00-000Z.md");
     const fresh = join(directory, "refine-2026-08-25T00-00-00-000Z.md");
+
     for (const path of [latest, stale, fresh]) writeFileSync(path, "report");
     const staleSeconds = (NOW_MS - 60 * DAY_MS) / 1000;
+
     utimesSync(stale, staleSeconds, staleSeconds);
 
     // Act

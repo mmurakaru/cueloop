@@ -28,9 +28,11 @@ describe("diffRows", () => {
     expect(rows[0]).toMatchObject({ kind: "file", file: "src/store.ts" });
     expect(rows[1]!.kind).toBe("hunk");
     const del = rows.find((row) => row.kind === "del")!;
+
     expect(del.text).toContain("private items = [];");
     expect(del.oldLine).toBe(3);
     const adds = rows.filter((row) => row.kind === "add");
+
     expect(adds[0]!.text).toContain("new Map()");
     expect(adds[0]!.newLine).toBe(3);
     expect(adds[1]!.newLine).toBe(4);
@@ -44,6 +46,7 @@ describe("diffRows", () => {
 
     // Assert
     const ctx = rows.find((row) => row.kind === "ctx")!;
+
     expect(ctx.oldLine).toBe(1);
     expect(ctx.newLine).toBe(1);
   });

@@ -33,6 +33,7 @@ describe("loadConfig", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(
       path,
       `[keys]\ncomment = "a"\nsubmit = ["return", "S"]\n\n[theme]\naccent = "#ff0000"\n`,
@@ -58,6 +59,7 @@ describe("loadConfig", () => {
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg2-"));
     const user = join(dir, "user.toml");
     const repoRoot = join(dir, "repo");
+
     writeFileSync(user, `[keys]\ncomment = "a"\n`);
     Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
     writeFileSync(join(repoRoot, ".cueloop", "config.toml"), `[keys]\ncomment = "z"\n`);
@@ -77,6 +79,7 @@ describe("loadConfig", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg3-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(path, "not [valid toml");
 
     try {
@@ -94,6 +97,7 @@ describe("loadConfig", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg4-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(path, `[ui]\nauto_close = 3\neditor = "code --wait"\n`);
 
     try {
@@ -112,6 +116,7 @@ describe("loadConfig", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg5-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(path, `[ui]\neditor = "   "\n`);
 
     try {
@@ -136,6 +141,7 @@ describe("loadConfig", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg6-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(path, `[ui]\nreview_width = 999\nreview_state = "compact"\n`);
 
     try {
@@ -154,6 +160,7 @@ describe("loadConfig", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg7-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(path, `[ui]\nreview_width = "wide"\nreview_state = "sideways"\n`);
 
     try {
@@ -181,6 +188,7 @@ describe("loadConfig", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(path, `[ui]\ntheme = "nord"\n`);
 
     try {
@@ -199,6 +207,7 @@ describe("loadConfig", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme2-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(path, `[ui]\ntheme = "nord"\n\n[theme]\naccent = "#ff0000"\n`);
 
     try {
@@ -219,6 +228,7 @@ describe("loadConfig", () => {
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme-x-"));
     const user = join(dir, "user.toml");
     const repoRoot = join(dir, "repo");
+
     writeFileSync(user, `[theme]\naccent = "#ff0000"\n`);
     Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
     writeFileSync(join(repoRoot, ".cueloop", "config.toml"), `[ui]\ntheme = "nord"\n`);
@@ -240,6 +250,7 @@ describe("loadConfig", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-theme3-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(path, `[ui]\ntheme = "solarized-galaxy"\n`);
 
     try {
@@ -289,6 +300,7 @@ describe("loadConfig", () => {
 
       // Assert
       const config = loadConfig({ userConfigPath: path });
+
       expect(config.ui.reviewWidth).toBe(42);
       expect(config.ui.reviewState).toBe("hidden");
 
@@ -321,6 +333,7 @@ describe("integrations.obsidian config", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-obs-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(
       path,
       `[integrations.obsidian]\nvault = "/notes/vault"\nfolder = "plans"\nexportOn = "approve"\nseparator = "comma"\n`,
@@ -346,6 +359,7 @@ describe("integrations.obsidian config", () => {
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-obs2-"));
     const user = join(dir, "user.toml");
     const repoRoot = join(dir, "repo");
+
     writeFileSync(user, `[integrations.obsidian]\nvault = "/user/vault"\nexportOn = "resolve"\n`);
     Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
     writeFileSync(
@@ -381,6 +395,7 @@ describe("quick actions ([[actions]])", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-actions-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(
       path,
       `[[actions]]\nprompt = "Add a benchmark"\n\n[[actions]]\nprompt = "Guard the edge case"\nmetadata = "null and empty input"\n`,
@@ -404,6 +419,7 @@ describe("quick actions ([[actions]])", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-actions2-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(
       path,
       `[[actions]]\nmetadata = "orphan without a prompt"\n\n[[actions]]\nprompt = "Keep this one"\n`,
@@ -426,6 +442,7 @@ describe("persistActions", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-persist-actions-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(path, `[[actions]]\nprompt = "old one"\n\n[ui]\nauto_close = 3\n`);
 
     try {
@@ -490,6 +507,7 @@ describe("[authors] rename map", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-authors-"));
     const path = join(dir, "config.toml");
+
     writeFileSync(path, `[authors]\n"SHA256:abc+def/gh" = "Alex"\n`);
 
     // Act

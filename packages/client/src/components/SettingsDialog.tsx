@@ -50,10 +50,13 @@ export function SettingsDialog({
 }: SettingsDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
+
   if (!isOpen) return null;
   const category =
     categories.find((candidate) => candidate.id === activeCategoryId) ?? categories[0];
+
   if (!category) return null;
+
   return (
     <Dialog
       isOpen
@@ -68,6 +71,7 @@ export function SettingsDialog({
           <text fg={tokens.textDim}>SETTINGS</text>
           {categories.map((candidate) => {
             const isActive = candidate.id === category.id;
+
             return (
               <box
                 key={candidate.id}
@@ -92,6 +96,7 @@ export function SettingsDialog({
           {category.rows.map((row, rowIndex) => {
             const isActive = activeZone === "body" && rowIndex === activeRowIndex;
             const value = values[row.key];
+
             if (row.kind === "toggle") {
               return (
                 <ToggleRow
@@ -116,6 +121,7 @@ export function SettingsDialog({
                 />
               );
             }
+
             return (
               <TextRow
                 key={row.key}

@@ -43,6 +43,7 @@ describe("AgentLauncher", () => {
     // Assert - all three launcher names present, in launch order
     const names = HARNESS_LAUNCHERS.map((harness) => harness.name);
     const positions = names.map((name) => frame.indexOf(name));
+
     expect(positions.every((position) => position >= 0)).toBe(true);
     expect(positions).toEqual(positions.toSorted((left, right) => left - right));
   });

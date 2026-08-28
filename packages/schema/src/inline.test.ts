@@ -59,6 +59,7 @@ describe("inlineRuns", () => {
     ] as const) {
       const runs = inlineRuns(source);
       const content = runs.find((run) => run.role === role)!;
+
       expect(content.text).toBe(inner);
       expect(source.slice(content.start!, content.start! + inner.length)).toBe(inner);
       expect(reconstruct(runs)).toBe(source);
@@ -74,6 +75,7 @@ describe("inlineRuns", () => {
 
     // Assert - the backtick content is one literal code run, no strong inside
     const code = runs.find((run) => run.role === "code")!;
+
     expect(code.text).toBe("a**b**c");
     expect(runs.some((run) => run.role === "strong")).toBe(false);
   });
@@ -150,6 +152,7 @@ describe("inlineRuns", () => {
     // Assert
     for (const source of ["**not closed", "a * b", "`open code", "[label](noclose"]) {
       const runs = inlineRuns(source);
+
       expect(reconstruct(runs)).toBe(source);
       expect(runs.every((run) => run.role === "text" || run.role === "marker")).toBe(true);
       expect(offsetsAreExact(source, runs)).toBe(true);
@@ -174,6 +177,7 @@ describe("inlineRuns", () => {
     expect(reconstruct(runs)).toBe("not \\*emph\\* here");
     expect(offsetsAreExact("not \\*emph\\* here", runs)).toBe(true);
     const star = runs.find((run) => run.text === "*" && run.start !== null)!;
+
     expect("not \\*emph\\* here"[star.start!]).toBe("*");
   });
 

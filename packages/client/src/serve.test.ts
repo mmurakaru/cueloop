@@ -56,6 +56,7 @@ function sshCapture(
       else resolve(out);
     };
     const timer = setTimeout(() => finish(new Error(`timed out; captured:\n${out}`)), timeoutMs);
+
     conn
       .on("ready", () => {
         conn.shell({ term: "xterm-256color", cols: 100, rows: 30 }, (err, stream) => {

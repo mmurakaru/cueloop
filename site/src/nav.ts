@@ -56,5 +56,6 @@ export const docsNav: NavGroup[] = [
 /** Normalise a pathname so trailing-slash differences never break matching. */
 export function normalizePath(path: string): string {
   if (path.length > 1 && path.endsWith("/")) return path.slice(0, -1);
+
   return path;
 }

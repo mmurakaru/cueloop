@@ -47,6 +47,7 @@ describe("parseBlocks", () => {
       "hr",
     ]);
     const code = blocks.find((block) => block.kind === "code")!;
+
     expect(code.lang).toBe("ts");
     expect(code.text).toBe("const x = 1;\nconst y = 2;");
     // fence lines included in the source range
@@ -84,6 +85,7 @@ describe("parseBlocks", () => {
     const rebuilt = blocks
       .map((block) => {
         orderedItemCount = block.kind === "oli" ? orderedItemCount + 1 : 0;
+
         return blockToMd(block, orderedItemCount || 1);
       })
       .join("\n\n");
@@ -117,8 +119,10 @@ describe("sectionOf", () => {
 
     // Assert
     const orderedItemIndex = blocks.findIndex((block) => block.kind === "oli");
+
     expect(sectionOf(blocks, orderedItemIndex)).toBe("Steps");
     const paragraphIndex = blocks.findIndex((block) => block.kind === "p");
+
     expect(sectionOf(blocks, paragraphIndex)).toBe("Context");
   });
 });

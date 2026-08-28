@@ -20,6 +20,7 @@ export { SHARE_UPLOAD_USER } from "@cueloop/daemon/share-blob";
 /** Mint an unguessable share id. */
 export function mintShareId(): string {
   let body = "";
+
   while (body.length < ID_LENGTH) {
     for (const byte of randomBytes(ID_LENGTH * 2)) {
       if (byte >= UNBIASED_CEILING) continue;
@@ -27,6 +28,7 @@ export function mintShareId(): string {
       if (body.length === ID_LENGTH) break;
     }
   }
+
   return SHARE_PREFIX + body;
 }
 
@@ -34,5 +36,6 @@ export function mintShareId(): string {
 export function isShareId(value: string): boolean {
   if (!value.startsWith(SHARE_PREFIX)) return false;
   const body = value.slice(SHARE_PREFIX.length);
+
   return body.length === ID_LENGTH && [...body].every((char) => ALPHABET.includes(char));
 }

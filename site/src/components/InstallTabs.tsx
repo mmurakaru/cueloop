@@ -14,17 +14,22 @@ import MetalRing from "./MetalRing.tsx";
 // dark/light preset tuning instead of following the OS.
 function useSiteTheme(): "dark" | "light" {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+
   useEffect(() => {
     const read = () =>
       setTheme(document.documentElement.dataset.theme === "light" ? "light" : "dark");
+
     read();
     const observer = new MutationObserver(read);
+
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["data-theme"],
     });
+
     return () => observer.disconnect();
   }, []);
+
   return theme;
 }
 
@@ -47,6 +52,7 @@ const METHODS: Method[] = [
 function CommandRow({ command, metal }: { command: string; metal?: boolean }) {
   const [copied, setCopied] = useState(false);
   const theme = useSiteTheme();
+
   async function copy() {
     try {
       await navigator.clipboard.writeText(command);
@@ -71,8 +77,10 @@ function CommandRow({ command, metal }: { command: string; metal?: boolean }) {
       </Button>
     </div>
   );
+
   // The metal ring is opt-in (landing hero only).
   if (!metal) return box;
+
   return (
     <MetalRing theme={theme} radius={8} className="install__metal">
       {box}

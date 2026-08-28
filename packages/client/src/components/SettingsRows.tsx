@@ -27,6 +27,7 @@ interface RowShellProps {
 
 function RowShell({ label, isActive, onPress, theme, children }: RowShellProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <box
       style={{
@@ -60,6 +61,7 @@ export function ToggleRow({
   theme,
 }: ToggleRowProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <RowShell label={label} isActive={isActive} onPress={onPress} theme={theme}>
       <text fg={value ? tokens.green : tokens.accent}>{value ? "on" : "off"}</text>
@@ -83,6 +85,7 @@ export function CycleRow({
   theme,
 }: CycleRowProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <RowShell label={label} isActive={isActive} onPress={onPress} theme={theme}>
       <text fg={tokens.accent}>{value}</text>
@@ -100,6 +103,7 @@ export interface TextRowProps {
 
 export function TextRow({ label, value, isActive, onPress, theme }: TextRowProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <RowShell label={label} isActive={isActive} onPress={onPress} theme={theme}>
       <text fg={tokens.accent}>{value}</text>

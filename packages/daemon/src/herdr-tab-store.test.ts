@@ -43,6 +43,7 @@ describe("HerdrTabStore", () => {
   test("delete removes the handle", () => {
     // Arrange
     const store = new HerdrTabStore(home);
+
     store.set("ses_1", { tabId: "w1:t2", paneId: "w1:p2" });
 
     // Act

@@ -23,12 +23,14 @@ export default function DocsToc({ headings }: { headings: Heading[] }) {
         const visible = entries
           .filter((entry) => entry.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+
         if (visible[0]) setActiveSlug(visible[0].target.id);
       },
       { rootMargin: "-84px 0px -68% 0px", threshold: 0 },
     );
 
     elements.forEach((element) => observer.observe(element));
+
     return () => observer.disconnect();
   }, [headings]);
 

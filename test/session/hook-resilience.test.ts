@@ -21,6 +21,7 @@ async function runHookProcess(
     stderr: "pipe",
   });
   const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+
   return { out, code };
 }
 
@@ -45,6 +46,7 @@ describe("hook resilience", () => {
     const parsed = JSON.parse(out.trim()) as {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
     };
+
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("allow");
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain("cueloop unavailable");
   }, 60_000);
@@ -59,6 +61,7 @@ describe("hook resilience", () => {
     const parsed = JSON.parse(out.trim()) as {
       hookSpecificOutput?: { decision?: { behavior?: string } };
     };
+
     expect(parsed.hookSpecificOutput?.decision?.behavior).toBe("allow");
   }, 60_000);
 
@@ -73,6 +76,7 @@ describe("hook resilience", () => {
     const parsed = JSON.parse(out.trim()) as {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
     };
+
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("allow");
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain("no plan payload");
   }, 60_000);

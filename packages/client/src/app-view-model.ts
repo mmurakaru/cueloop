@@ -20,6 +20,7 @@ export function computeRoleCapabilities(
   role: "owner" | "observer" | "collaborator",
 ): { observer: boolean; isOwner: boolean } {
   const observer = readOnly || role === "observer";
+
   return { observer, isOwner: !observer && role === "owner" };
 }
 
@@ -52,6 +53,7 @@ export function resolveOverlay(
   if (completionPhase === "prompt") return "completion-prompt";
   if (completionPhase === "counting") return "completion-counting";
   if (walking) return "walk";
+
   return "none";
 }
 
@@ -71,6 +73,7 @@ export function computeRailFootprint(
   terminalWidth: number,
 ): number {
   if (reviewMode === "hidden") return 0;
+
   return (
     1 +
     (reviewMode === "compact"
@@ -86,6 +89,7 @@ export function buildHeaderItems(params: {
   role: "owner" | "observer" | "collaborator";
 }): BreadcrumbItem[] {
   const { session, resolved, observer, role } = params;
+
   return [
     { label: "cueloop", tone: "accent" },
     ...(resolved
@@ -126,6 +130,7 @@ export function buildRenderFlags(params: {
 } {
   const { session, isOwner, isDiff, isPrototype, resolved, menuOpen, menuDialog, resolvedIds } =
     params;
+
   return {
     showOwnerActions: isOwner && !isDiff && !resolved,
     prototypeCanComment: isOwner && !resolved,
@@ -140,10 +145,12 @@ export function buildActiveSpan(
   isDiff: boolean,
 ): { displayIndex: number; start: number; end: number } | null {
   const markedSpan = activeSpanState(mode);
+
   if (markedSpan)
     return { displayIndex: markedSpan.displayIndex, start: markedSpan.start, end: markedSpan.end };
   if (mode.type === "compose" && !isDiff)
     return { displayIndex: mode.displayIndex, start: mode.start, end: mode.end };
+
   return null;
 }
 
@@ -157,7 +164,9 @@ export function buildComposeState(
   deps: DraftHandlerDeps & { mode: Mode; isDiff: boolean; display: DisplayBlock[] },
 ): PlanComposeState | null {
   const { mode, isDiff, display, liveInput, setMode, dispatch } = deps;
+
   if (mode.type !== "compose" || isDiff) return null;
+
   return {
     kind: mode.kind,
     displayIndex: mode.displayIndex,
@@ -178,7 +187,9 @@ export function buildDiffComposeState(
   deps: DraftHandlerDeps & { mode: Mode; isDiff: boolean; rows: DiffRow[] },
 ): DiffComposeState | null {
   const { mode, isDiff, rows, liveInput, setMode, dispatch } = deps;
+
   if (mode.type !== "compose" || !isDiff) return null;
+
   return {
     kind: mode.kind,
     rowIndex: mode.displayIndex,
@@ -207,9 +218,11 @@ export function buildPopoverState(deps: {
 }): PlanPopoverState | null {
   const { mode, isDiff, quickActions, isOwner, observer, resolved, controller, dispatch } = deps;
   const markedSpan = activeSpanState(mode);
+
   if (!markedSpan || isDiff) return null;
   const spanMutationBlock = (): string | null =>
     observer ? "observer - read-only" : resolved ? "review submitted - read-only" : null;
+
   return {
     displayIndex: markedSpan.displayIndex,
     view: mode.type === "spanActions" ? ("actions" as const) : ("toolbar" as const),
@@ -218,23 +231,27 @@ export function buildPopoverState(deps: {
     canCut: isOwner,
     onComment: () => {
       const blocked = spanMutationBlock();
+
       if (blocked) return controller.setStatus(blocked);
       dispatch({ type: "openCompose", kind: "comment", from: "span" });
     },
     onCut: () => {
       const blocked = spanMutationBlock();
+
       if (blocked) return controller.setStatus(blocked);
       if (!isOwner) return;
       dispatch({ type: "spanCut" });
     },
     onOpenActions: () => {
       const blocked = spanMutationBlock();
+
       if (blocked) return controller.setStatus(blocked);
       dispatch({ type: "openSpanActions" });
     },
     onClose: () => dispatch({ type: "closeOverlay" }),
     onPickAction: (index: number) => {
       const blocked = spanMutationBlock();
+
       if (blocked) return controller.setStatus(blocked);
       dispatch({ type: "pickSpanAction", index });
     },
@@ -252,7 +269,9 @@ export function buildSubmitConfirmState(
   },
 ): Omit<ConfirmCardProps, "theme"> | null {
   const { mode, isDiff, session, walkFileList, viewedPaths, liveInput, setMode, dispatch } = deps;
+
   if (mode.type !== "submit") return null;
+
   return {
     verdict: mode.verdict,
     summary: mode.summary,
@@ -272,7 +291,9 @@ export function buildSubmitConfirmState(
 
 export function buildCardEditState(deps: DraftHandlerDeps & { mode: Mode }): RailCardEdit | null {
   const { mode, liveInput, setMode, dispatch } = deps;
+
   if (mode.type !== "railEdit") return null;
+
   return {
     id: mode.id,
     text: mode.text,

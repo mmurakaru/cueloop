@@ -191,6 +191,7 @@ const CHROMATIC: Record<"dark" | "light", PresetMode> = {
 
 function hexToRgb(hex: string): [number, number, number] {
   const value = hex.replace("#", "");
+
   return [
     parseInt(value.slice(0, 2), 16) / 255,
     parseInt(value.slice(2, 4), 16) / 255,
@@ -200,14 +201,17 @@ function hexToRgb(hex: string): [number, number, number] {
 
 function compileShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type);
+
   if (!shader) throw new Error("MetalRing: createShader failed");
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     const log = gl.getShaderInfoLog(shader);
+
     gl.deleteShader(shader);
     throw new Error(`MetalRing: shader compile failed: ${log}`);
   }
+
   return shader;
 }
 
@@ -220,10 +224,12 @@ function buildProgram(
     const vertex = compileShader(gl, gl.VERTEX_SHADER, vertexSource);
     const fragment = compileShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
     const program = gl.createProgram()!;
+
     gl.attachShader(program, vertex);
     gl.attachShader(program, fragment);
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+
     return program;
   } catch {
     return null;
@@ -250,15 +256,18 @@ export default function MetalRing({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const themeRef = useRef(theme);
+
   // oxlint-disable-next-line react/refs -- latest-value ref read only inside the WebGL loop; render-time sync keeps it current without re-running the effect
   themeRef.current = theme;
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
     const canvas = canvasRef.current;
+
     if (!wrapper || !canvas) return;
 
     let gl: WebGLRenderingContext | null = null;
+
     try {
       gl = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true });
     } catch {
@@ -268,20 +277,24 @@ export default function MetalRing({
 
     const plasmaProgram = buildProgram(gl, VERTEX_SOURCE, PLASMA_SOURCE);
     const compositeProgram = buildProgram(gl, VERTEX_SOURCE, COMPOSITE_SOURCE);
+
     if (!plasmaProgram || !compositeProgram) return;
 
     // One shared fullscreen triangle.
     const buffer = gl.createBuffer();
+
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     for (const program of [plasmaProgram, compositeProgram]) {
       const position = gl.getAttribLocation(program, "a_position");
+
       gl.enableVertexAttribArray(position);
       gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
     }
 
     // Offscreen plasma texture, linearly sampled for the smoothing upscale.
     const texture = gl.createTexture();
+
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.texImage2D(
       gl.TEXTURE_2D,
@@ -299,9 +312,11 @@ export default function MetalRing({
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     const framebuffer = gl.createFramebuffer();
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
     const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     if (!complete) return;
 
@@ -331,8 +346,10 @@ export default function MetalRing({
     gl.uniform1i(compositeLocations.plasma, 0);
 
     let appliedTheme: "dark" | "light" | null = null;
+
     function applyPreset() {
       const preset = CHROMATIC[themeRef.current];
+
       gl!.useProgram(plasmaProgram);
       preset.colors.forEach((hex, index) => {
         gl!.uniform3fv(plasmaLocations.colors[index], hexToRgb(hex));
@@ -351,6 +368,7 @@ export default function MetalRing({
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const width = Math.max(1, Math.round(rect.width * dpr));
       const height = Math.max(1, Math.round(rect.height * dpr));
+
       if (canvas!.width !== width || canvas!.height !== height) {
         canvas!.width = width;
         canvas!.height = height;
@@ -394,12 +412,14 @@ export default function MetalRing({
 
     const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
     const onMotionChange = () => schedule();
+
     reducedMotion.addEventListener("change", onMotionChange);
 
     const resizeObserver = new ResizeObserver(() => {
       resize();
       schedule();
     });
+
     resizeObserver.observe(wrapper);
 
     // Pause the loop while off-screen.
@@ -407,6 +427,7 @@ export default function MetalRing({
       visible = entries[0]?.isIntersecting ?? true;
       if (visible) schedule();
     });
+
     intersectionObserver.observe(wrapper);
 
     applyPreset();

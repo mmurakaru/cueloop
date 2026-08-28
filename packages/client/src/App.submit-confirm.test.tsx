@@ -56,13 +56,16 @@ async function renderApp(options: { readOnly?: boolean } = {}) {
       height: 32,
     },
   );
+
   await waitForText(setup, "cueloop");
+
   return setup;
 }
 
 /** Seed annotations directly through the daemon core (all on one block). */
 function seedAnnotations(count: number): void {
   const blocks = parseBlocks(PLAN);
+
   for (let index = 1; index <= count; index++) {
     server.core.sessionAnnotate(session.id, {
       id: `a_confirm_${index}`,
@@ -87,6 +90,7 @@ describe("rail submit confirm", () => {
     // Assert
     await waitForText(setup, "submit review");
     const frame = setup.captureCharFrame();
+
     // the card: title, verdict selector, word-buttons
     expect(frame).toContain("submit review");
     expect(frame).toContain("[Approve]"); // nothing pending: approve default
@@ -97,6 +101,7 @@ describe("rail submit confirm", () => {
   test("left/right cycles the verdict selector in the card", async () => {
     // Arrange
     const setup = await renderApp();
+
     await press(setup, "enter");
 
     // Assert
@@ -124,6 +129,7 @@ describe("rail submit confirm", () => {
   test("esc cancels the card and restores the plain Submit button", async () => {
     // Arrange
     const setup = await renderApp();
+
     await press(setup, "enter");
 
     // Assert
@@ -135,6 +141,7 @@ describe("rail submit confirm", () => {
     // Assert
     // a bare ESC settles after the parser's escape-sequence window
     const frame = await waitForTextGone(setup, "[Approve]");
+
     expect(frame).not.toContain("submit review");
     expect(frame).toContain("Submit review");
   });
@@ -150,6 +157,7 @@ describe("rail submit confirm", () => {
     // Assert
     await waitForText(setup, "[Changes]"); // pending items: request changes default
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("submit review");
 
     // Act
@@ -160,6 +168,7 @@ describe("rail submit confirm", () => {
     // the completion flow after submit is unchanged
     await waitForText(setup, "feedback sent");
     const stored = server.core.sessionGet(session.id);
+
     expect(stored.status).toBe("resolved");
     expect(stored.verdict!.kind).toBe("request_changes");
   });
@@ -194,6 +203,7 @@ describe("rail submit confirm", () => {
     // Assert
     await waitForText(setup, "note 12");
     const scrolledWithCard = setup.captureCharFrame();
+
     expect(scrolledWithCard).toContain("submit review");
     expect(scrolledWithCard).not.toContain("note 01");
   });
@@ -209,6 +219,7 @@ describe("rail submit confirm", () => {
     // Assert
     await waitForText(setup, "observer - read-only");
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("observer - read-only");
     expect(frame).not.toContain("1 annotations");
     expect(frame).not.toContain("[Changes]");

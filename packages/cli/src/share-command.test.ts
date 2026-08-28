@@ -26,6 +26,7 @@ function annotationFixture(id: string, author?: string): Annotation {
     body: "note",
     createdAt: "2026-01-01T00:00:00.000Z",
   };
+
   return author ? { ...base, author } : base;
 }
 
@@ -36,14 +37,18 @@ function fakeClient(sessions: ReviewSession[]): SessionClient {
     sessionList: async () => sessions,
     sessionSetShareId: mock(async (id: string, shareId: string) => {
       const session = sessions.find((candidate) => candidate.id === id)!;
+
       session.shareId = shareId;
+
       return session;
     }),
     sessionMergeShared: mock(async (id: string, incoming: { annotations: Annotation[] }) => {
       const session = sessions.find((candidate) => candidate.id === id)!;
       const known = new Set(session.annotations.map((annotation) => annotation.id));
+
       for (const annotation of incoming.annotations)
         if (!known.has(annotation.id)) session.annotations.push(annotation);
+
       return session;
     }),
   } as unknown as SessionClient;
@@ -51,6 +56,7 @@ function fakeClient(sessions: ReviewSession[]): SessionClient {
 
 function depsSpy(overrides: Partial<ShareDeps> = {}): ShareDeps & { lines: string[] } {
   const lines: string[] = [];
+
   return {
     publish: mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: true })),
     out: (message: string) => void lines.push(message),
@@ -141,6 +147,7 @@ describe(shareSession, () => {
 
 function pullDepsSpy(remote: ReviewSession): PullDeps & { lines: string[] } {
   const lines: string[] = [];
+
   return {
     pull: mock(async () => remote),
     out: (message: string) => void lines.push(message),

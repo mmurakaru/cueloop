@@ -9,6 +9,7 @@ import { workingTreeDiff } from "@cueloop/daemon/working-tree";
 
 function sh(args: string[], cwd: string): void {
   const gitResult = Bun.spawnSync(args, { cwd, stdout: "ignore", stderr: "ignore" });
+
   if (gitResult.exitCode !== 0) throw new Error(`${args.join(" ")} failed`);
 }
 
@@ -16,6 +17,7 @@ describe("workingTreeDiff", () => {
   test("captures tracked changes and untracked files", () => {
     // Arrange
     const repo = mkdtempSync(join(tmpdir(), "cueloop-git-"));
+
     try {
       sh(["git", "init", "-q", "-b", "main"], repo);
       sh(["git", "config", "user.email", "t@t"], repo);
@@ -43,11 +45,13 @@ describe("workingTreeDiff", () => {
 
         // Assert - full file contents for a tracked modification
         const modified = diff.files.find((file) => file.path === "a.ts")!;
+
         expect(modified.oldContents).toBe("export const a = 1;\n");
         expect(modified.newContents).toBe("export const a = 2;\n");
 
         // Assert - an untracked file carries an empty old side
         const untracked = diff.files.find((file) => file.path === "b.ts")!;
+
         expect(untracked.oldContents).toBe("");
         expect(untracked.newContents).toBe("export const b = 1;\n");
       })();
@@ -60,6 +64,7 @@ describe("workingTreeDiff", () => {
   test("captures new and deleted tracked files as empty sides", () => {
     // Arrange
     const repo = mkdtempSync(join(tmpdir(), "cueloop-git-"));
+
     try {
       sh(["git", "init", "-q", "-b", "main"], repo);
       sh(["git", "config", "user.email", "t@t"], repo);
@@ -77,11 +82,13 @@ describe("workingTreeDiff", () => {
 
         // Assert - deletion keeps its old contents and empties the new side
         const deleted = diff.files.find((file) => file.path === "gone.ts")!;
+
         expect(deleted.oldContents).toBe("old line\n");
         expect(deleted.newContents).toBe("");
 
         // Assert - a staged new file empties the old side
         const added = diff.files.find((file) => file.path === "added.ts")!;
+
         expect(added.oldContents).toBe("");
         expect(added.newContents).toBe("fresh\n");
       })();

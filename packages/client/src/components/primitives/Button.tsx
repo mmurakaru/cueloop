@@ -36,6 +36,7 @@ export function Button({
       : variant === "accent-text"
         ? tokens.accent
         : tokens.textDim;
+
   return (
     <box
       style={{ backgroundColor, marginRight }}

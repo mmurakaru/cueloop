@@ -42,6 +42,7 @@ export function makeAnchor(
   end: number,
 ): Anchor {
   const blockText = blocks[blockIndex]?.text ?? "";
+
   return {
     quote: blockText.slice(start, end),
     prefix: blockText.slice(Math.max(0, start - ANCHOR_CONTEXT_CHARS), start),
@@ -70,24 +71,29 @@ function contextScore(
   const prefix = block.text.slice(Math.max(0, start - ANCHOR_CONTEXT_CHARS), start);
   const suffix = block.text.slice(end, end + ANCHOR_CONTEXT_CHARS);
   let score = 0;
+
   if (prefix === anchor.prefix) score += 2;
   if (suffix === anchor.suffix) score += 2;
   if (anchor.blockIndex === blockIndex) score += 1;
   if (anchor.blockIndex === blockIndex && anchor.start === start) score += 1;
+
   return score;
 }
 
 /** Every verbatim occurrence of `quote` across the blocks, scored by context. */
 function findExactCandidates(anchor: Anchor, blocks: Block[], quote: string): Candidate[] {
   const candidates: Candidate[] = [];
+
   blocks.forEach((block, blockIndex) => {
     const text = block.text;
+
     for (
       let matchStart = text.indexOf(quote);
       matchStart !== -1;
       matchStart = text.indexOf(quote, matchStart + 1)
     ) {
       const matchEnd = matchStart + quote.length;
+
       candidates.push({
         blockIndex,
         start: matchStart,
@@ -96,6 +102,7 @@ function findExactCandidates(anchor: Anchor, blocks: Block[], quote: string): Ca
       });
     }
   });
+
   return candidates;
 }
 
@@ -115,14 +122,18 @@ function findFuzzyCandidates(
   minimumSimilarity: number,
 ): Candidate[] {
   const candidates: Candidate[] = [];
+
   blocks.forEach((block, blockIndex) => {
     const match = fuzzyFindBestMatch(needle, block.text, minimumSimilarity);
+
     if (match === null) return;
     const score =
       match.similarity +
       contextScore(anchor, blockIndex, block, match.start, match.end) * FUZZY_CONTEXT_TIE_BREAK;
+
     candidates.push({ blockIndex, start: match.start, end: match.end, score });
   });
+
   return candidates;
 }
 
@@ -130,6 +141,7 @@ function findFuzzyCandidates(
 function pickBest(candidates: Candidate[]): Candidate | null {
   if (candidates.length === 0) return null;
   candidates.sort((left, right) => right.score - left.score);
+
   return candidates[0]!;
 }
 
@@ -148,25 +160,32 @@ export function resolveAnchor(anchor: Anchor, blocks: Block[]): ResolvedAnchor |
   if (anchor.quote === "") return null;
 
   const exact = pickBest(findExactCandidates(anchor, blocks, anchor.quote));
+
   if (exact) return resolved(exact, "exact");
 
   const trimmedQuote = anchor.quote.trim();
+
   if (trimmedQuote !== "" && trimmedQuote !== anchor.quote) {
     const trimmed = pickBest(findExactCandidates(anchor, blocks, trimmedQuote));
+
     if (trimmed) return resolved(trimmed, "trimmed");
   }
 
   const normalizedQuote = stripLeadingBlockMarker(anchor.quote).trim();
+
   if (normalizedQuote !== "" && normalizedQuote !== trimmedQuote) {
     const normalized = pickBest(findExactCandidates(anchor, blocks, normalizedQuote));
+
     if (normalized) return resolved(normalized, "normalized");
   }
 
   const fuzzyNeedle = normalizedQuote !== "" ? normalizedQuote : trimmedQuote;
+
   if (fuzzyNeedle !== "") {
     const fuzzy = pickBest(
       findFuzzyCandidates(anchor, blocks, fuzzyNeedle, FUZZY_MINIMUM_SIMILARITY),
     );
+
     if (fuzzy) return resolved(fuzzy, "fuzzy");
   }
 

@@ -15,6 +15,7 @@ import type { Artifact } from "@cueloop/schema";
 
 function git(args: string[], cwd: string): void {
   const result = Bun.spawnSync(["git", ...args], { cwd, stdout: "ignore", stderr: "ignore" });
+
   if (result.exitCode !== 0) throw new Error(`git ${args.join(" ")} failed in ${cwd}`);
 }
 
@@ -45,6 +46,7 @@ async function openDiffSession() {
   const workspace = await resolveWorkspace(repo);
   const diff = await workingTreeDiff(repo);
   const artifact: Artifact = { type: "diff", content: diff.patch, files: diff.files, meta: {} };
+
   return core.sessionCreate({ workspace, artifact });
 }
 
@@ -52,6 +54,7 @@ describe("session.refreshDiff", () => {
   test("re-captures the working tree and updates the artifact when the patch changed", async () => {
     // Given an open diff session whose working tree then gains a new change
     const session = await openDiffSession();
+
     writeFileSync(join(repo, "a.ts"), "export const a = 2;\n");
 
     // When the diff is refreshed
@@ -60,8 +63,10 @@ describe("session.refreshDiff", () => {
     // Then the change is reported and the stored artifact carries the fresh patch and files
     expect(result.changed).toBe(true);
     const refreshed = core.sessionGet(session.id);
+
     expect(refreshed.artifact.content).toContain("+export const a = 2;");
     const modified = refreshed.artifact.files!.find((file) => file.path === "a.ts")!;
+
     expect(modified.newContents).toBe("export const a = 2;\n");
   });
 
@@ -69,6 +74,7 @@ describe("session.refreshDiff", () => {
     // Given an open diff session and a listener for session events
     const session = await openDiffSession();
     const events: string[] = [];
+
     core.onEvent((event) => events.push(event.event));
 
     // When the diff is refreshed without any working-tree change
@@ -83,6 +89,7 @@ describe("session.refreshDiff", () => {
     // Given an open diff session, a listener, and a fresh working-tree change
     const session = await openDiffSession();
     const events: string[] = [];
+
     core.onEvent((event) => events.push(event.event));
     writeFileSync(join(repo, "a.ts"), "export const a = 3;\n");
 
@@ -110,8 +117,10 @@ describe("session.refreshDiff", () => {
   test("refusing a resolved diff session never mutates it (no revive of a closed review)", async () => {
     // Given a diff session that has been resolved
     const session = await openDiffSession();
+
     core.sessionResolve(session.id, "approve", "");
     const resolvedContent = core.sessionGet(session.id).artifact.content;
+
     writeFileSync(join(repo, "a.ts"), "export const a = 99;\n");
 
     // When a refresh is attempted on the resolved session
@@ -123,6 +132,7 @@ describe("session.refreshDiff", () => {
   test("overlapping refreshes settle to one coherent artifact without error", async () => {
     // Given a live diff session with a fresh working-tree change
     const session = await openDiffSession();
+
     writeFileSync(join(repo, "a.ts"), "export const a = 7;\n");
 
     // When two refreshes run concurrently over the same session
@@ -150,6 +160,7 @@ describe("the fs watcher drives hot-reload", () => {
     // Watchers can be slow under CI contention, so poll generously.
     const deadline = Date.now() + 8_000;
     let content = core.sessionGet(session.id).artifact.content;
+
     while (!content.includes("+export const a = 42;") && Date.now() < deadline) {
       await Bun.sleep(100);
       content = core.sessionGet(session.id).artifact.content;

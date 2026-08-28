@@ -51,6 +51,7 @@ function baseController() {
 /** A deps bag where every effect is a mock and every read has a plain default. */
 function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDeps {
   const controller = baseController();
+
   return {
     controller: controller as unknown as IntentDispatchDeps["controller"],
     onExit: mock(),
@@ -102,6 +103,7 @@ describe("move", () => {
     const advance = (deps.setCursor as ReturnType<typeof mock>).mock.calls[0]![0] as (
       current: number,
     ) => number;
+
     expect(advance(2)).toBe(2); // already at the end, stays
     expect(advance(0)).toBe(1);
   });
@@ -147,6 +149,7 @@ describe("annotation navigation", () => {
   test("cycling skips annotations a revision already addressed", () => {
     // Arrange: a2 is addressed, so next from a1 lands on a3
     const session = sessionWith(["a1", "a2", "a3"]);
+
     (session.annotations[1] as { resolution?: object }).resolution = {
       revision: 2,
       source: "agent",
@@ -337,6 +340,7 @@ describe("restoreCuration", () => {
   test("restores the selected item and clears the selection", () => {
     // Arrange
     const deps = makeDeps({ selectedCurationId: "diff:f#1#2" });
+
     (deps.controller.curationItems as ReturnType<typeof mock>).mockReturnValue(items);
     const dispatch = createIntentDispatch(deps);
 
@@ -351,6 +355,7 @@ describe("restoreCuration", () => {
   test("with nothing selected, undoes the last removal", () => {
     // Arrange
     const deps = makeDeps({ selectedCurationId: undefined });
+
     (deps.controller.curationItems as ReturnType<typeof mock>).mockReturnValue(items);
     const dispatch = createIntentDispatch(deps);
 
@@ -364,6 +369,7 @@ describe("restoreCuration", () => {
   test("does nothing when there is nothing curated out", () => {
     // Arrange
     const deps = makeDeps();
+
     (deps.controller.curationItems as ReturnType<typeof mock>).mockReturnValue([]);
     const dispatch = createIntentDispatch(deps);
 

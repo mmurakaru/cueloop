@@ -19,6 +19,7 @@ beforeAll(() => {
 afterAll(async () => {
   try {
     const daemonClient = await DaemonClient.connect({ home });
+
     await daemonClient.shutdown();
     daemonClient.close();
   } catch {
@@ -45,6 +46,7 @@ function fakeInbox(): { socketPath: string; frames: Promise<string>; stop: () =>
       open: () => {},
     },
   });
+
   return { socketPath, frames: gotFrames.promise, stop: () => server.stop() };
 }
 
@@ -63,14 +65,17 @@ describe("runInboxWake", () => {
     // Act - the human approves later
     await client.sessionResolve(review.id, "approve", "Looks good.");
     const delivered = await waiting;
+
     client.close();
 
     // Assert
     expect(delivered).toBe(true);
     const frames = await inbox.frames;
+
     expect(frames).toContain('{"type":"auth","token":"tok-1"}');
     const messageLine = frames.trim().split("\n").at(-1)!;
     const content = JSON.parse(messageLine).message.content as string;
+
     expect(content).toContain("approved");
     expect(content).toContain("# Review: approve");
     expect(content).toContain("Looks good.");
@@ -81,6 +86,7 @@ describe("runInboxWake", () => {
     // Arrange
     const client = await DaemonClient.connect({ home, autostart: true });
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
+
     client.close();
 
     // Act - inbox explicitly absent (not a messaging-enabled Claude Code session)

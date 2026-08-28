@@ -28,6 +28,7 @@ export function CompletionOverlay({
 }: CompletionOverlayProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const approved = verdict === "approve";
+
   return (
     <box
       style={{

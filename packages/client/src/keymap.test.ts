@@ -41,6 +41,7 @@ describe("compose overlay", () => {
     ["j", []],
     ["q", []],
   ];
+
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
       expect(reduceKey(keyState, key(name))).toEqual(expected);
@@ -69,6 +70,7 @@ describe("submit overlay", () => {
     ["j", []],
     ["q", []],
   ];
+
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
       expect(reduceKey(keyState, key(name))).toEqual(expected);
@@ -92,6 +94,7 @@ describe("completion overlay", () => {
     [counting, "a", [{ type: "optInAutoClose" }]],
     [counting, "escape", [{ type: "dismissCompletion" }]],
   ];
+
   for (const [overlayState, name, expected] of table) {
     test(`${overlayState.overlay} ${name} -> ${JSON.stringify(expected)}`, () => {
       expect(reduceKey(overlayState, key(name))).toEqual(expected);
@@ -113,6 +116,7 @@ describe("inbox mode", () => {
     ["c", []],
     ["escape", []],
   ];
+
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
       expect(reduceKey(keyState, key(name))).toEqual(expected);
@@ -217,6 +221,7 @@ describe("plan normal mode", () => {
     ["escape", false, [{ type: "deselect" }]],
     ["z", false, []],
   ];
+
   for (const [name, shift, expected] of table) {
     test(`${shift ? "shift+" : ""}${name} -> ${JSON.stringify(expected)}`, () => {
       expect(reduceKey(keyState, key(name, shift))).toEqual(expected);
@@ -297,6 +302,7 @@ describe("span mode", () => {
     ["q", [{ type: "exit" }]],
     ["j", []],
   ];
+
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
       expect(reduceKey(keyState, key(name))).toEqual(expected);
@@ -364,6 +370,7 @@ describe("span actions overlay", () => {
     ["c", []],
     ["q", []],
   ];
+
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
       expect(reduceKey(keyState, key(name))).toEqual(expected);
@@ -388,6 +395,7 @@ describe("diff mode", () => {
     ["e", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
     ["q", [{ type: "exit" }]],
   ];
+
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
       expect(reduceKey(keyState, key(name))).toEqual(expected);
@@ -466,6 +474,7 @@ describe("guided walk", () => {
     ["j", []],
     ["c", []],
   ];
+
   for (const [name, expected] of table) {
     test(`walking ${name} -> ${JSON.stringify(expected)}`, () => {
       expect(reduceKey(walking, key(name))).toEqual(expected);
@@ -491,6 +500,7 @@ describe("review panel controls", () => {
     ["]", [{ type: "resizeReviewPanel", direction: 1 }]],
     ["[", [{ type: "resizeReviewPanel", direction: -1 }]],
   ];
+
   for (const view of ["plan", "diff"] as const) {
     for (const [name, expected] of table) {
       test(`${view} ${name} -> ${JSON.stringify(expected)}`, () => {
@@ -535,6 +545,7 @@ describe("duplicated-branch collapse", () => {
       for (const name of ["n", "p", "backspace", "return"]) {
         const plan = reduceKey(state(patch), key(name));
         const diff = reduceKey(state({ ...patch, view: "diff" }), key(name));
+
         expect(diff).toEqual(plan);
       }
     }
@@ -545,6 +556,7 @@ describe("read-only filter", () => {
   test("every mutating key answers observer - read-only, in plan and diff", () => {
     for (const view of ["plan", "diff"] as const) {
       const keyState = state({ view, readOnly: true });
+
       for (const name of ["c", "x", "e", "backspace", "return", "enter"]) {
         expect(reduceKey(keyState, key(name))).toEqual([
           { type: "status", message: "observer - read-only" },
@@ -594,6 +606,7 @@ describe("confirm overlay", () => {
     ["j", []],
     ["d", []],
   ];
+
   for (const [name, expected] of table) {
     test(`${name} -> ${JSON.stringify(expected)}`, () => {
       expect(reduceKey(keyState, key(name))).toEqual(expected);

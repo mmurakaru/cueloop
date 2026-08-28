@@ -139,6 +139,7 @@ describe("restoreBlock", () => {
     ).toBeUndefined();
     // a real text change keeps the working copy alive
     const changed = restoreBlock(BASE, cut.replace("first", "1st"), listItem, line);
+
     expect(changed).toContain("1st item");
   });
 });

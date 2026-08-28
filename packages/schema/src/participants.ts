@@ -21,12 +21,14 @@ export function registerParticipant(
   const participants = session.participants ?? [];
   const existing = participants.find((participant) => participant.id === author);
   const trimmed = name?.trim();
+
   if (existing && !trimmed) return session;
   const next: Identity = {
     id: author,
     provider: "ssh",
     ...(trimmed ? { name: trimmed } : existing?.name ? { name: existing.name } : {}),
   };
+
   return {
     ...session,
     participants: existing

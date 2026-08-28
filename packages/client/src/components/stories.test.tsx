@@ -17,6 +17,7 @@ const stories = await loadStories();
 function hexOf(color: RGBA | null | undefined): string | undefined {
   if (!color) return undefined;
   const [red, green, blue] = color.toInts();
+
   return "#" + [red, green, blue].map((part) => part!.toString(16).padStart(2, "0")).join("");
 }
 
@@ -36,6 +37,7 @@ describe("stories catalog", () => {
 
       // Act
       const setup = await testRender(story.render(), size);
+
       allowEventLoopUpdates();
       await setup.waitForVisualIdle();
       const frame = setup.captureCharFrame();
@@ -44,10 +46,12 @@ describe("stories catalog", () => {
       expect(frame).toMatchSnapshot(`${moduleTitle}/${storyName}`);
       if (story.expectedColors?.length) {
         const seenColors = new Set<string>();
+
         for (const line of setup.captureSpans().lines) {
           for (const span of line.spans) {
             const foregroundHex = hexOf(span.fg);
             const backgroundHex = hexOf(span.bg);
+
             if (foregroundHex) seenColors.add(foregroundHex);
             if (backgroundHex) seenColors.add(backgroundHex);
           }

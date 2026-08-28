@@ -17,9 +17,11 @@ describe("detectVaults", () => {
   test("returns registered vault paths that exist on disk", () => {
     // Arrange
     const alive = join(dir, "notes");
+
     mkdirSync(alive);
     const gone = join(dir, "deleted-vault");
     const configPath = join(dir, "obsidian.json");
+
     writeFileSync(
       configPath,
       JSON.stringify({
@@ -37,9 +39,11 @@ describe("detectVaults", () => {
   test("missing or malformed config yields no vaults", () => {
     expect(detectVaults(join(dir, "nope.json"))).toEqual([]);
     const broken = join(dir, "broken.json");
+
     writeFileSync(broken, "not json");
     expect(detectVaults(broken)).toEqual([]);
     const empty = join(dir, "empty.json");
+
     writeFileSync(empty, "{}");
     expect(detectVaults(empty)).toEqual([]);
   });

@@ -48,7 +48,9 @@ async function renderApp() {
     width: 120,
     height: 30,
   });
+
   await waitForText(setup, "cueloop");
+
   return setup;
 }
 
@@ -59,6 +61,7 @@ describe("diff review", () => {
 
     // Assert
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("■ src/store.ts");
     expect(frame).toContain("@@ -1,4 +1,4 @@");
     expect(frame).toContain("-  private items = [];");
@@ -85,6 +88,7 @@ describe("diff review", () => {
     // inline annotation card rendered under the line
     await waitForText(setup, "◆ Map needs an eviction story.");
     const stored = server.core.sessionGet(session.id);
+
     expect(stored.annotations.length).toBe(1);
     expect(stored.annotations[0]!.anchor.quote).toContain("new Map()");
 
@@ -95,6 +99,7 @@ describe("diff review", () => {
     // Assert
     await waitForText(setup, "feedback sent");
     const resolved = server.core.sessionGet(session.id);
+
     expect(resolved.verdict!.feedback).toContain("new Map()");
     expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
   });
@@ -132,6 +137,7 @@ describe("diff review", () => {
       width: 120,
       height: 30,
     });
+
     await waitForText(setup, "cueloop");
 
     // Act - move to the added line and reject its change
@@ -142,6 +148,7 @@ describe("diff review", () => {
     // Assert - the single change is gone, so the curated working copy is empty
     await waitForText(setup, "change rejected");
     const stored = server.core.sessionGet(withFiles.id);
+
     expect(stored.workingCopy).toBe("");
   });
 
@@ -167,6 +174,7 @@ describe("diff review", () => {
       width: 120,
       height: 30,
     });
+
     await waitForText(setup, "cueloop");
 
     // Act - reject the change under the added line
@@ -208,6 +216,7 @@ describe("diff review", () => {
       width: 120,
       height: 30,
     });
+
     await waitForText(setup, "cueloop");
 
     // Act - reject the change; the removal card lands unselected (no undo button)
@@ -220,8 +229,10 @@ describe("diff review", () => {
     const clickText = async (needle: string): Promise<void> => {
       const lines = setup.captureCharFrame().split("\n");
       const row = lines.findIndex((line) => line.includes(needle));
+
       await setup.mockMouse.click(lines[row]!.indexOf(needle) + 1, row);
     };
+
     await clickText("REJECT · me");
     await waitForText(setup, "undo");
 

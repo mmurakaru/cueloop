@@ -19,11 +19,13 @@ const devMode = process.argv.includes("--dev");
 
 const problems: string[] = [];
 const paths: string[] = [];
+
 for await (const path of new Bun.Glob("packages/*/package.json").scan(".")) paths.push(path);
 for await (const path of new Bun.Glob("packages/integrations/*/package.json").scan("."))
   paths.push(path);
 
 const work = mkdtempSync(join(tmpdir(), "cueloop-pack-"));
+
 try {
   for (const path of paths) {
     const dir = path.replace(/\/package\.json$/, "");
@@ -35,6 +37,7 @@ try {
       exports?: Record<string, unknown> | string;
       dependencies?: Record<string, string>;
     };
+
     if (pkg.private) continue;
 
     // 1. no package-manager-only protocols may reach the registry
@@ -52,6 +55,7 @@ try {
     const packed = Bun.spawnSync(["npm", "pack", "--pack-destination", work, "--silent"], {
       cwd: dir,
     });
+
     if (packed.exitCode !== 0) {
       problems.push(
         `${pkg.name}: npm pack failed - ${packed.stderr.toString().trim().split("\n").pop()}`,
@@ -65,6 +69,7 @@ try {
       .map((line) => line.trim())
       .filter((line) => line.endsWith(".tgz"))
       .pop();
+
     if (!tarball) {
       problems.push(
         `${pkg.name}: npm pack named no tarball (stdout: ${packed.stdout.toString().trim().slice(0, 120)})`,
@@ -72,6 +77,7 @@ try {
       continue;
     }
     const listed = Bun.spawnSync(["tar", "-tzf", join(work, tarball)]);
+
     if (listed.exitCode !== 0) {
       problems.push(`${pkg.name}: could not read ${tarball}`);
       continue;
@@ -84,6 +90,7 @@ try {
         .filter(Boolean),
     );
     const targets: string[] = [];
+
     if (typeof pkg.exports === "string") targets.push(pkg.exports);
     else if (pkg.exports) {
       for (const value of Object.values(pkg.exports)) {
@@ -95,6 +102,7 @@ try {
     if (pkg.main) targets.push(pkg.main);
     for (const target of targets) {
       const rel = target.replace(/^\.\//, "");
+
       if (!shipped.has(rel))
         problems.push(`${pkg.name}: ships no ${rel}, but the manifest points at it`);
     }

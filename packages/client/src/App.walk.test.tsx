@@ -69,9 +69,11 @@ async function renderApp() {
     width: 120,
     height: 34,
   });
+
   // Wait for session content, not just the chrome: pressing w before the diff
   // loads drops the walk intent (no session, no diff view) and hangs the test.
   await waitForText(setup, "src/a.ts");
+
   return setup;
 }
 
@@ -80,15 +82,18 @@ type Setup = Awaited<ReturnType<typeof renderApp>>;
 /** Foreground colors (hex) of every styled span containing the needle. */
 function foregroundsOf(setup: Setup, needle: string): string[] {
   const foregrounds: string[] = [];
+
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
       if (!span.text.includes(needle)) continue;
       const [red, green, blue] = span.fg.toInts();
+
       foregrounds.push(
         "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""),
       );
     }
   }
+
   return foregrounds;
 }
 
@@ -165,6 +170,7 @@ describe("the guided walk", () => {
   test("esc keeps progress and w resumes at the first unviewed file", async () => {
     // Arrange
     const setup = await renderApp();
+
     await press(setup, "w");
     await waitForText(setup, "file 1 of 3 · 0 viewed");
     await press(setup, "]");
@@ -188,6 +194,7 @@ describe("the guided walk", () => {
   test("a half-walked review resumes across App instances via the daemon", async () => {
     // Arrange
     const first = await renderApp();
+
     await press(first, "w");
     await waitForText(first, "file 1 of 3 · 0 viewed");
     await press(first, "]");
@@ -202,6 +209,7 @@ describe("the guided walk", () => {
     // Act
     // a fresh client reads the viewed set back from the session record
     const second = await renderApp();
+
     await press(second, "w");
 
     // Assert
@@ -249,6 +257,7 @@ describe("the guided walk", () => {
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).status === "resolved");
     const resolved = server.core.sessionGet(session.id);
+
     expect(resolved.verdict!.kind).toBe("approve");
     expect(resolved.verdict!.feedback).not.toContain("Swaps the stale line");
   });
@@ -277,6 +286,7 @@ describe("the guided walk", () => {
     // Arrange
     server.core.sessionResolve(session.id, "approve", "");
     const setup = await renderApp();
+
     await waitForText(setup, "resolved");
 
     // Act
