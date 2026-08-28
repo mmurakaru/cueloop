@@ -49,6 +49,7 @@ describe("cssBoxToCell", () => {
   test("a zero-size rect still reserves at least one cell", () => {
     // Assert
     const cell = cssBoxToCell({ x: 0, y: 0, width: 0, height: 0 }, IMAGE, VIEWPORT);
+
     expect(cell.columns).toBe(1);
     expect(cell.rows).toBe(1);
   });

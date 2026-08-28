@@ -39,6 +39,7 @@ export function buildKeyState(params: {
     cursor,
     display,
   } = params;
+
   return {
     keys,
     readOnly: observer,

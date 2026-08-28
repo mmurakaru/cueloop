@@ -18,6 +18,7 @@ describe("focusHerdrPane", () => {
     // Arrange
     const log = join(dir, "calls.log");
     const stub = join(dir, "herdr");
+
     writeFileSync(
       stub,
       `#!/bin/sh
@@ -30,6 +31,7 @@ if [ "$1" = "pane" ]; then echo '{"result":{"pane":{"tab_id":"w1:t3"}}}'; fi
     // Assert
     expect(focusHerdrPane(stub, "w1:p1")).toBe(true);
     const calls = readFileSync(log, "utf8").trim().split("\n");
+
     expect(calls[0]).toBe("pane get w1:p1");
     expect(calls[1]).toBe("tab focus w1:t3");
   });

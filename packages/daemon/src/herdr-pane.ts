@@ -32,17 +32,20 @@ export interface HerdrTabPersistence {
  */
 export function openHerdrPane(options: OpenHerdrPaneOptions): HerdrTabHandle | null {
   const { sessionId, cwd, binPath, label } = options;
+
   try {
     const created = Bun.spawnSync(
       [binPath, "tab", "create", "--cwd", cwd, "--label", label, "--focus"],
       { stdout: "pipe", stderr: "ignore", timeout: HERDR_SPAWN_TIMEOUT_MS },
     );
+
     if (created.exitCode !== 0) return null;
     const parsed = JSON.parse(created.stdout.toString()) as {
       result?: { root_pane?: { pane_id?: string; tab_id?: string } };
     };
     const paneId = parsed.result?.root_pane?.pane_id;
     const tabId = parsed.result?.root_pane?.tab_id;
+
     if (!paneId || !tabId) return null;
     // A fresh tab hosts a plain shell, so the review is typed in like a human.
     const typed = Bun.spawnSync([binPath, "pane", "send-text", paneId, `cueloop ${sessionId}`], {
@@ -50,12 +53,14 @@ export function openHerdrPane(options: OpenHerdrPaneOptions): HerdrTabHandle | n
       stderr: "ignore",
       timeout: HERDR_SPAWN_TIMEOUT_MS,
     });
+
     if (typed.exitCode !== 0) return null;
     const entered = Bun.spawnSync([binPath, "pane", "send-keys", paneId, "enter"], {
       stdout: "ignore",
       stderr: "ignore",
       timeout: HERDR_SPAWN_TIMEOUT_MS,
     });
+
     return entered.exitCode === 0 ? { tabId, paneId } : null;
   } catch {
     return null;
@@ -70,8 +75,10 @@ function herdrPaneAlive(binPath: string, paneId: string): boolean {
       stderr: "ignore",
       timeout: HERDR_SPAWN_TIMEOUT_MS,
     });
+
     if (got.exitCode !== 0) return false;
     const parsed = JSON.parse(got.stdout.toString()) as { result?: { pane?: unknown } };
+
     return parsed.result?.pane != null;
   } catch {
     return false;
@@ -102,10 +109,13 @@ export async function openHerdrPaneForReview(
   env: HerdrEnv = process.env,
 ): Promise<void> {
   const herdr = detectHerdr(env);
+
   if (!herdr) return;
   const recorded = await recallHerdrTab(persistence, session.id);
+
   if (recorded && herdrPaneAlive(herdr.binPath, recorded.paneId)) {
     focusHerdrTab(herdr.binPath, recorded.tabId);
+
     return;
   }
   const opened = openHerdrPane({
@@ -114,6 +124,7 @@ export async function openHerdrPaneForReview(
     binPath: herdr.binPath,
     label: session.artifact.meta.title ?? session.id,
   });
+
   if (opened) await rememberHerdrTab(persistence, session.id, opened);
 }
 

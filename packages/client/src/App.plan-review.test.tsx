@@ -63,7 +63,9 @@ async function renderApp() {
     width: 120,
     height: 32,
   });
+
   await waitForText(setup, "cueloop");
+
   return setup;
 }
 
@@ -75,29 +77,35 @@ type Setup = Awaited<ReturnType<typeof renderApp>>;
  */
 function backgroundsOf(setup: Setup, needle: string): string[] {
   const backgrounds: string[] = [];
+
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
       if (!span.text.includes(needle)) continue;
       const [red, green, blue] = span.bg.toInts();
+
       backgrounds.push(
         "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""),
       );
     }
   }
+
   return backgrounds;
 }
 
 function foregroundsOf(setup: Setup, needle: string): string[] {
   const foregrounds: string[] = [];
+
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
       if (!span.text.includes(needle)) continue;
       const [red, green, blue] = span.fg.toInts();
+
       foregrounds.push(
         "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""),
       );
     }
   }
+
   return foregrounds;
 }
 
@@ -111,6 +119,7 @@ async function toContextParagraph(setup: Setup): Promise<void> {
 async function clickText(setup: Setup, needle: string): Promise<void> {
   const lines = setup.captureCharFrame().split("\n");
   const row = lines.findIndex((line) => line.includes(needle));
+
   await setup.mockMouse.click(lines[row]!.indexOf(needle) + 1, row);
   await setup.renderOnce();
 }
@@ -126,6 +135,7 @@ describe("share button", () => {
       .captureCharFrame()
       .split("\n")
       .find((line) => line.includes("submitted by"));
+
     expect(headerLine).toContain("Edit");
     expect(headerLine).toContain("Share");
   });
@@ -136,6 +146,7 @@ describe("share button", () => {
       width: 120,
       height: 32,
     });
+
     await waitForText(viewer, "cueloop");
 
     // Assert
@@ -148,6 +159,7 @@ describe("share button", () => {
 
     // Act
     const setup = await renderApp();
+
     await waitForText(setup, "submitted by");
 
     // Assert - the owner toolbar is gone once the review is resolved
@@ -155,6 +167,7 @@ describe("share button", () => {
       .captureCharFrame()
       .split("\n")
       .find((line) => line.includes("submitted by"));
+
     expect(headerLine).not.toContain("Edit");
     expect(headerLine).not.toContain("Share");
   });
@@ -175,6 +188,7 @@ describe("edit affordance", () => {
       width: 120,
       height: 32,
     });
+
     await waitForText(viewer, "cueloop");
 
     // Assert
@@ -190,6 +204,7 @@ describe("attribution", () => {
     const contextBlockIndex = blocks.findIndex((block) =>
       block.text.startsWith("The daemon persists"),
     );
+
     server.core.sessionAnnotate(session.id, {
       id: "collab-1",
       kind: "comment",
@@ -210,6 +225,7 @@ describe("selection feeds the annotation quote", () => {
   test("v anchors, l extends, c composes with the char-precise quote", async () => {
     // Arrange
     const setup = await renderApp();
+
     await toContextParagraph(setup);
 
     // Act
@@ -227,6 +243,7 @@ describe("selection feeds the annotation quote", () => {
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
+
     expect(stored.annotations[0]!.anchor.quote).toBe("The daemon");
   });
 
@@ -236,6 +253,7 @@ describe("selection feeds the annotation quote", () => {
     const lines = setup.captureCharFrame().split("\n");
     const row = lines.findIndex((line) => line.includes("persists sessions"));
     const startColumn = lines[row]!.indexOf("persists");
+
     expect(row).toBeGreaterThan(-1);
 
     // Act
@@ -254,6 +272,7 @@ describe("selection feeds the annotation quote", () => {
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
+
     expect(stored.annotations[0]!.anchor.quote).toBe("persists sessions");
   });
 });
@@ -262,6 +281,7 @@ describe("inline compose keeps the anchor painted", () => {
   test("the selection stays painted while composing; cancel un-paints; save converts to the comment highlight", async () => {
     // Arrange
     const setup = await renderApp();
+
     await toContextParagraph(setup);
 
     // Act
@@ -296,6 +316,7 @@ describe("inline compose keeps the anchor painted", () => {
     await settle(setup);
     // the whole cursor block is the anchor here; check the highlight landed
     const stored = server.core.sessionGet(session.id);
+
     expect(stored.annotations.length).toBe(1);
     expect(backgroundsOf(setup, stored.annotations[0]!.anchor.quote.slice(0, 20))).toContain(
       DARK.markCommentBackground,
@@ -308,6 +329,7 @@ describe("inline compose keeps the anchor painted", () => {
   test("clicking the Cancel word-button closes the compose box", async () => {
     // Arrange
     const setup = await renderApp();
+
     await toContextParagraph(setup);
     await press(setup, "v");
     await press(setup, "l");
@@ -324,6 +346,7 @@ describe("inline compose keeps the anchor painted", () => {
   test("clicking Cancel in a saved card's edit composer closes it", async () => {
     // Arrange
     const setup = await renderApp();
+
     await toContextParagraph(setup);
     await press(setup, "v");
     await press(setup, "l");
@@ -355,7 +378,9 @@ describe("compose newline convention", () => {
       height: 32,
       otherModifiersMode: true,
     });
+
     await waitForText(setup, "cueloop");
+
     return setup;
   }
 
@@ -370,6 +395,7 @@ describe("compose newline convention", () => {
   test("option+return inserts a newline; a bare return submits the multiline body", async () => {
     // Arrange
     const setup = await renderModifierAwareApp();
+
     await toContextParagraph(setup);
     await press(setup, "v");
     await press(setup, "l");
@@ -396,6 +422,7 @@ describe("compose newline convention", () => {
   test("shift+return still inserts a newline (existing muscle memory)", async () => {
     // Arrange
     const setup = await renderModifierAwareApp();
+
     await toContextParagraph(setup);
     await press(setup, "c");
 
@@ -418,6 +445,7 @@ describe("compose newline convention", () => {
   test("escape cancels the composer without saving", async () => {
     // Arrange
     const setup = await renderModifierAwareApp();
+
     await toContextParagraph(setup);
     await press(setup, "c");
     await waitForText(setup, 'comment on "');
@@ -436,6 +464,7 @@ describe("the document selects, the rail edits", () => {
   test("e edits the selected card in place; enter saves through the controller", async () => {
     // Arrange
     const setup = await renderApp();
+
     await toContextParagraph(setup);
     await press(setup, "c");
     await type(setup, "Needs a citation.");
@@ -463,6 +492,7 @@ describe("the document selects, the rail edits", () => {
     const contextBlockIndex = blocks.findIndex((block) =>
       block.text.startsWith("The daemon persists"),
     );
+
     server.core.sessionAnnotate(session.id, {
       id: "collab-1",
       kind: "comment",
@@ -471,6 +501,7 @@ describe("the document selects, the rail edits", () => {
       author: "SHA256:1a2b3c4d5e6f",
     });
     const setup = await renderApp();
+
     await waitForText(setup, "1a2b3c4d");
 
     // Act - focus the collaborator card, then activate it
@@ -484,6 +515,7 @@ describe("the document selects, the rail edits", () => {
   test("x deletes the selected card and un-paints the document highlight", async () => {
     // Arrange
     const setup = await renderApp();
+
     await toContextParagraph(setup);
     await press(setup, "c");
     await type(setup, "Delete me.");
@@ -506,6 +538,7 @@ describe("plan cut removals", () => {
   test("a cut block becomes a rail removal card and u restores it", async () => {
     // Arrange
     const setup = await renderApp();
+
     await toContextParagraph(setup);
 
     // Act - no card is selected, so x cuts the block under the cursor
@@ -532,6 +565,7 @@ describe("addressed annotations leave the open list", () => {
     const contextBlockIndex = blocks.findIndex((block) =>
       block.text.startsWith("The daemon persists"),
     );
+
     server.core.sessionAnnotate(session.id, {
       id: "a_settled",
       kind: "comment",
@@ -548,10 +582,12 @@ describe("addressed annotations leave the open list", () => {
 
     // Act
     const setup = await renderApp();
+
     await waitForText(setup, "still open note");
 
     // Assert: the open card renders, the addressed one is gone behind the count
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("✓ 1 addressed by revision");
     expect(frame).not.toContain("settled note");
     expect(frame).toContain("still open note"); // the open card survives; the addressed one does not
@@ -566,6 +602,7 @@ describe("sheet header", () => {
 
     // Assert
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("submitted by agent/worker-3");
     expect(frame).toContain("rev 1");
     expect(frame).toContain("Edit");
@@ -586,6 +623,7 @@ describe("sheet header", () => {
     // Assert - the three launcher buttons, in order
     await waitForText(setup, "Claude Code");
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("Pi");
     expect(frame).toContain("OpenAI Codex");
   });
@@ -615,12 +653,14 @@ describe("quick-actions settings editor", () => {
 describe("edit-exit reconciliation", () => {
   test("an edit that removes an anchored passage orphans the annotation and shows the banner", async () => {
     const script = join(home, "fake-editor.sh");
+
     await Bun.write(script, `#!/bin/sh\nsed -i '' '/^The daemon persists/d' "$1"\n`);
     Bun.spawnSync(["chmod", "+x", script]);
     process.env.CUELOOP_EDITOR = script;
     try {
       // Arrange
       const setup = await renderApp();
+
       await toContextParagraph(setup);
       await press(setup, "c");
       await type(setup, "Anchor me to the doomed passage.");
@@ -650,6 +690,7 @@ describe("marker-actions popover", () => {
   test("v shows the toolbar, a opens quick-actions, enter inserts the preset comment", async () => {
     // Arrange
     const setup = await renderApp();
+
     await toContextParagraph(setup);
 
     // Act - marking a span reveals the inline toolbar
@@ -666,6 +707,7 @@ describe("marker-actions popover", () => {
     // Assert - a comment annotation was created with the second default's body
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
+
     expect(stored.annotations[0]!.kind).toBe("comment");
     expect(stored.annotations[0]!.body).toBe(quickActionBody(DEFAULT_QUICK_ACTIONS[1]!));
   });

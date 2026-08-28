@@ -20,6 +20,7 @@ const DIFF_REFRESH_DEBOUNCE_MS = 300;
  */
 function isIgnoredWatchPath(relativePath: string): boolean {
   const segments = relativePath.split(sep);
+
   return segments.includes(".git") || segments.includes("node_modules");
 }
 
@@ -44,11 +45,14 @@ export class DiffWatcher {
   /** Start (or join) watching a repo root for one diff session. Idempotent per (root, session). */
   trackDiffRepo(repoRoot: string, sessionId: string): void {
     const existing = this.repoWatches.get(repoRoot);
+
     if (existing) {
       existing.sessionIds.add(sessionId);
+
       return;
     }
     let handle: FSWatcher;
+
     try {
       handle = watch(repoRoot, { recursive: true }, (_event, filename) => {
         if (filename !== null && isIgnoredWatchPath(filename.toString())) return;
@@ -70,6 +74,7 @@ export class DiffWatcher {
   /** Drop one diff session; close the repo watch once no diff session tracks it. */
   untrackDiffRepo(repoRoot: string, sessionId: string): void {
     const repoWatch = this.repoWatches.get(repoRoot);
+
     if (!repoWatch) return;
     repoWatch.sessionIds.delete(sessionId);
     if (repoWatch.sessionIds.size > 0) return;
@@ -80,6 +85,7 @@ export class DiffWatcher {
 
   private scheduleRepoRefresh(repoRoot: string): void {
     const repoWatch = this.repoWatches.get(repoRoot);
+
     if (!repoWatch) return;
     if (repoWatch.debounce !== null) clearTimeout(repoWatch.debounce);
     repoWatch.debounce = setTimeout(() => {

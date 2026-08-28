@@ -63,6 +63,7 @@ describe("segmentRows", () => {
     // Assert
     expect(segments.map((segment) => segment.kind)).toEqual(["header", "header", "chunk"]);
     const chunk = segments[2];
+
     expect(chunk?.kind).toBe("chunk");
     if (chunk?.kind === "chunk") expect(chunk.annotation?.id).toBe("a1");
   });

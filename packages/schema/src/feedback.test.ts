@@ -175,6 +175,7 @@ describe("renderFeedback", () => {
         }),
       ],
     });
+
     expect(mixed).toContain("## Annotations (1)");
     expect(mixed).not.toContain("The agent's own explanation of the change.");
   });

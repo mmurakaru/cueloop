@@ -20,6 +20,7 @@ export function obsidianConfigPath(platform: NodeJS.Platform = process.platform)
       "obsidian.json",
     );
   }
+
   return join(
     process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"),
     "obsidian",
@@ -33,6 +34,7 @@ export function detectVaults(configPath: string = obsidianConfigPath()): string[
     const raw = JSON.parse(readFileSync(configPath, "utf8")) as {
       vaults?: Record<string, { path?: string }>;
     };
+
     return Object.values(raw.vaults ?? {})
       .map((vault) => vault.path)
       .filter((path): path is string => typeof path === "string" && existsSync(path));

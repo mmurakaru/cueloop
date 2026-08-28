@@ -35,6 +35,7 @@ export function launchHarnessInSplit(
   env: HerdrEnv = process.env,
 ): boolean {
   const herdr = detectHerdr(env);
+
   if (!herdr) return false;
   try {
     const split = Bun.spawnSync(
@@ -52,15 +53,18 @@ export function launchHarnessInSplit(
       ],
       { stdout: "pipe", stderr: "ignore", timeout: HERDR_SPAWN_TIMEOUT_MS },
     );
+
     if (split.exitCode !== 0) return false;
     const parsed = JSON.parse(split.stdout.toString()) as {
       result?: { pane?: { pane_id?: string } };
     };
     const paneId = parsed.result?.pane?.pane_id;
+
     if (!paneId) return false;
     sendText(herdr.binPath, paneId, options.command);
     sendKeys(herdr.binPath, paneId, "enter");
     if (options.seedText) sendText(herdr.binPath, paneId, options.seedText);
+
     return true;
   } catch {
     return false;

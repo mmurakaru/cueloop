@@ -18,6 +18,7 @@ const LABEL_TTL_MS = 3_600_000;
 /** Report semantic agent state for this pane. No-op outside herdr. */
 export function reportState(state: HerdrAgentState, env: HerdrEnv = process.env): void {
   const herdr = detectHerdr(env);
+
   if (!herdr) return;
   spawnQuiet([
     herdr.binPath,
@@ -34,6 +35,7 @@ export function reportState(state: HerdrAgentState, env: HerdrEnv = process.env)
 /** Report a sidebar metadata label for this pane. No-op outside herdr. */
 export function reportLabel(text: string, env: HerdrEnv = process.env): void {
   const herdr = detectHerdr(env);
+
   if (!herdr) return;
   spawnQuiet([
     herdr.binPath,

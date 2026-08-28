@@ -41,11 +41,13 @@ const fakeRenderer: PrototypeRenderer = {
   screenshot: async () => {
     rendered = true;
     screenshotCount += 1;
+
     return new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
   },
   elementAt: async () => FAKE_ELEMENT,
   scrollBy: async (deltaY) => {
     scrollDeltas.push(deltaY);
+
     return true;
   },
   close: async () => undefined,
@@ -86,7 +88,9 @@ async function renderApp() {
     width: 120,
     height: 32,
   });
+
   await waitForText(setup, "cueloop");
+
   return setup;
 }
 
@@ -95,6 +99,7 @@ type Setup = Awaited<ReturnType<typeof renderApp>>;
 async function clickText(setup: Setup, needle: string): Promise<void> {
   const lines = setup.captureCharFrame().split("\n");
   const row = lines.findIndex((line) => line.includes(needle));
+
   await setup.mockMouse.click(lines[row]!.indexOf(needle) + 1, row);
   await setup.renderOnce();
 }
@@ -104,6 +109,7 @@ describe("prototype review", () => {
     // Arrange - wait until the fake browser produced its first screenshot, so
     // the sheet is interactive before the click
     const setup = await renderApp();
+
     await waitForState(setup, () => rendered);
     await settle(setup);
     // selecting an element must not re-screenshot the page (the popover-click
@@ -125,6 +131,7 @@ describe("prototype review", () => {
     // Assert - the annotation is stored against the element's selector
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id).annotations[0]!;
+
     expect(stored.kind).toBe("comment");
     expect(stored.body).toBe("tighten the padding");
     expect(stored.anchor.selector).toBe("main > div.card");
@@ -132,6 +139,7 @@ describe("prototype review", () => {
     // and it renders in the rail
     await settle(setup);
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("tighten the padding");
     expect(frame).toContain("COMMENT");
   });
@@ -139,6 +147,7 @@ describe("prototype review", () => {
   test("escape cancels the compose, matching the plan composer", async () => {
     // Arrange
     const setup = await renderApp();
+
     await waitForState(setup, () => rendered);
     await settle(setup);
     await setup.mockMouse.click(6, 6);
@@ -158,6 +167,7 @@ describe("prototype review", () => {
   test("wheel over the preview scrolls the page down, then up, and clears a selection", async () => {
     // Arrange
     const setup = await renderApp();
+
     await waitForState(setup, () => rendered);
     await settle(setup);
 
@@ -167,6 +177,7 @@ describe("prototype review", () => {
     await waitForText(setup, "comment");
     // scrolling moves the page, so it DOES re-screenshot (unlike a click)
     const screenshotsBeforeScroll = screenshotCount;
+
     await setup.mockMouse.scroll(6, 6, "down");
     await waitForState(setup, () => scrollDeltas.length === 1);
     await waitForTextGone(setup, "comment");

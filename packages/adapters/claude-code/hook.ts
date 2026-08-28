@@ -41,6 +41,7 @@ interface HookDecision {
  */
 function spawnDetachedWake(sessionId: string, home?: string): void {
   const entry = new URL("./wake.ts", import.meta.url).pathname;
+
   Bun.spawn([process.execPath, "run", entry, sessionId], {
     env: home === undefined ? process.env : { ...process.env, CUELOOP_HOME: home },
     stdio: ["ignore", "ignore", "ignore"],
@@ -58,10 +59,12 @@ export async function runHook(
   options: RunHookOptions = {},
 ): Promise<HookDecision> {
   const plan = event.tool_input?.plan;
+
   if (!plan) return { allow: true, reason: "no plan payload - not a plan gate" };
   const armWake = options.armWake ?? spawnDetachedWake;
 
   const client = await DaemonClient.connect({ home: options.home, autostart: true });
+
   try {
     // Second pass: this exact plan already came back approved, so let the agent
     // exit plan mode and proceed. Any other state falls through to a review round.
@@ -70,6 +73,7 @@ export async function runHook(
           (candidate) => candidate.artifact.meta.agentSessionId === event.session_id,
         )
       : undefined;
+
     if (
       existing?.status === "resolved" &&
       existing.verdict !== null &&
@@ -78,6 +82,7 @@ export async function runHook(
     ) {
       reportState("working");
       reportLabel(`review done: ${existing.verdict.kind}`);
+
       return { allow: true, reason: existing.verdict.feedback };
     }
 
@@ -102,6 +107,7 @@ export async function runHook(
     reportLabel(`plan ready for review: ${review.session.artifact.meta.title ?? review.id}`);
 
     armWake(review.id, options.home);
+
     return {
       allow: false,
       reason:
@@ -126,6 +132,7 @@ export function hookOutput(event: HookEvent, decision: HookDecision): unknown {
       },
     };
   }
+
   // PermissionRequest shape. The decision MUST be wrapped in hookSpecificOutput
   // with hookEventName; a bare top-level `decision` is not recognized, so Claude
   // Code falls through to its native plan-approval dialog and the human approves
@@ -144,6 +151,7 @@ export function hookOutput(event: HookEvent, decision: HookDecision): unknown {
 if (import.meta.main) {
   const raw = await new Response(Bun.stdin.stream()).text();
   let event: HookEvent = {};
+
   try {
     event = JSON.parse(raw) as HookEvent;
   } catch {
@@ -157,10 +165,12 @@ if (import.meta.main) {
   // carrying the reason instead of dying silently (a crash gives the agent no
   // stdout at all, which reads as a broken gate rather than a skipped review).
   let decision: HookDecision;
+
   try {
     decision = await runHook(event);
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
+
     decision = { allow: true, reason: `cueloop unavailable, review skipped: ${reason}` };
     console.error(`cueloop hook error: ${reason}`);
   }

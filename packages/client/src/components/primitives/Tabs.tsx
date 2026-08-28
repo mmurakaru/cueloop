@@ -59,14 +59,17 @@ export interface TabListProps {
 
 export function TabList({ children }: TabListProps): React.ReactNode {
   const tabs = useContext(TabsContext);
+
   if (!tabs) throw new Error("TabList must render inside Tabs");
   const tokens = useComponentTheme(tabs.theme);
   const items: { id: string; label: string }[] = [];
+
   React.Children.forEach(children, (child) => {
     if (React.isValidElement<TabProps>(child) && typeof child.props.id === "string") {
       items.push({ id: child.props.id, label: child.props.children });
     }
   });
+
   return (
     <box
       style={{
@@ -81,6 +84,7 @@ export function TabList({ children }: TabListProps): React.ReactNode {
     >
       {items.map((item) => {
         const selected = item.id === tabs.selectedKey;
+
         return (
           <box
             key={item.id}

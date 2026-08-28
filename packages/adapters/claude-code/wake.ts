@@ -36,7 +36,9 @@ export async function runInboxWake(
   options: InboxWakeOptions = {},
 ): Promise<boolean> {
   const inbox = options.inbox === undefined ? claudeInboxFromEnv() : options.inbox;
+
   if (!inbox) return false; // not a messaging-enabled Claude Code session
+
   return runWakeWaiter(
     sessionId,
     (verdict) => postToInbox(inbox, wakeMessage(sessionId, verdict)),
@@ -46,10 +48,12 @@ export async function runInboxWake(
 
 if (import.meta.main) {
   const sessionId = process.argv[2];
+
   if (!sessionId) {
     console.error("usage: wake.ts <sessionId>");
     process.exit(2);
   }
   const delivered = await runInboxWake(sessionId);
+
   process.exit(delivered ? 0 : 1);
 }

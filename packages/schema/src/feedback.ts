@@ -52,6 +52,7 @@ export function renderFeedback(input: FeedbackInput): string {
     isDiff ? input.artifactContent : (input.workingCopy ?? input.artifactContent),
   );
   const lines: string[] = [];
+
   lines.push("# Review: " + input.verdictKind.replace("_", " "));
   lines.push("");
   if (input.summary.trim()) {
@@ -60,6 +61,7 @@ export function renderFeedback(input: FeedbackInput): string {
   }
 
   let hasEdits = false;
+
   if (isDiff && input.workingCopy !== undefined) {
     // The diff working copy is already the curated patch - the accepted subset
     // of the submitted changes - so hand it back verbatim, not a diff of diffs.
@@ -82,6 +84,7 @@ export function renderFeedback(input: FeedbackInput): string {
       input.workingCopy !== undefined
         ? unifiedDiffText(input.artifactContent, input.workingCopy, path)
         : null;
+
     if (diff) {
       hasEdits = true;
       lines.push("## Plan edits");
@@ -115,6 +118,7 @@ export function renderFeedback(input: FeedbackInput): string {
         !selector && resolved === null
           ? " [orphaned anchor: the quoted text is no longer present]"
           : "";
+
       lines.push(
         `### ${annotationIndex + 1}. ${capitalize(annotation.kind)}${location}${orphanFlag}`,
       );
@@ -145,6 +149,7 @@ export function renderFeedback(input: FeedbackInput): string {
     lines.push("_No edits or annotations._");
     lines.push("");
   }
+
   return lines.join("\n");
 }
 

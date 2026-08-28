@@ -25,7 +25,9 @@ async function git(args: string[], cwd: string): Promise<string | null> {
   try {
     const proc = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "ignore" });
     const out = await new Response(proc.stdout).text();
+
     if ((await proc.exited) !== 0) return null;
+
     return out.trim();
   } catch {
     return null;
@@ -36,11 +38,13 @@ async function git(args: string[], cwd: string): Promise<string | null> {
 export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKey> {
   const repoRoot = (await git(["rev-parse", "--show-toplevel"], cwd)) ?? cwd;
   const branch = (await git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)) ?? "detached";
+
   return { repoRoot, branch };
 }
 
 function firstHeading(markdown: string): string | undefined {
   const headingMatch = markdown.match(/^#\s+(.+)$/m);
+
   return headingMatch?.[1]?.trim();
 }
 
@@ -123,8 +127,10 @@ function raceAbort<T>(
   if (!signal) return promise;
   if (signal.aborted) {
     promise.catch(() => {});
+
     return Promise.resolve(ABORTED);
   }
+
   return new Promise<T | typeof ABORTED>((resolve, reject) => {
     const onAbort = () => {
       // The daemon request keeps running until the client closes; swallow its
@@ -132,6 +138,7 @@ function raceAbort<T>(
       promise.catch(() => {});
       resolve(ABORTED);
     };
+
     signal.addEventListener("abort", onAbort, { once: true });
     promise.then(
       (value) => {
@@ -164,20 +171,26 @@ export class ReviewHandle {
    */
   async awaitVerdict(options: AwaitVerdictOptions): Promise<VerdictOutcome | "pending"> {
     const { timeoutMs, pollMs, onProgress, signal } = options;
+
     if (pollMs === undefined && onProgress === undefined && signal === undefined) {
       const resolved = await this.client.sessionWait(this.session.id, timeoutMs);
+
       return resolved === null ? "pending" : outcome(resolved);
     }
     const chunkMs = pollMs ?? 10_000;
     const deadline = Number.isFinite(timeoutMs) ? Date.now() + timeoutMs : undefined;
+
     for (;;) {
       const budget = deadline === undefined ? chunkMs : Math.min(chunkMs, deadline - Date.now());
+
       if (budget <= 0 || signal?.aborted) return "pending";
       const resolved = await raceAbort(this.client.sessionWait(this.session.id, budget), signal);
+
       if (resolved === ABORTED) return "pending";
       if (resolved !== null) return outcome(resolved);
       // Still pending after this chunk: re-read to surface reviewer progress.
       const current = await raceAbort(this.client.sessionGet(this.session.id), signal);
+
       if (current === ABORTED) return "pending";
       onProgress?.(current);
     }
@@ -213,9 +226,11 @@ export async function awaitResolve(
 ): Promise<VerdictOutcome | null> {
   const chunkMs = options.pollMs ?? 30_000;
   const { signal } = options;
+
   for (;;) {
     if (signal?.aborted) return null;
     const resolved = await raceAbort(client.sessionWait(sessionId, chunkMs), signal);
+
     if (resolved === ABORTED) return null;
     if (resolved !== null) return outcome(resolved);
   }
@@ -228,17 +243,21 @@ export async function openReview(
 ): Promise<ReviewHandle> {
   const cwd = options.cwd ?? process.cwd();
   const workspace = options.workspace ?? (await resolveWorkspace(cwd));
+
   // Resubmits from the same agent session become revisions, not new sessions.
   if (options.agentSessionId !== undefined) {
     const existing = (await client.sessionList()).find(
       (candidate) => candidate.artifact.meta.agentSessionId === options.agentSessionId,
     );
+
     if (existing !== undefined) {
       let revised = await client.sessionSubmitRevision(existing.id, options.content);
+
       if (options.notes?.length) {
         await attachNotes(client, revised.id, options.notes);
         revised = await client.sessionGet(revised.id);
       }
+
       return new ReviewHandle(client, revised);
     }
   }
@@ -257,9 +276,11 @@ export async function openReview(
       cwd,
     },
   });
+
   if (options.notes?.length) {
     await attachNotes(client, session.id, options.notes);
     session = await client.sessionGet(session.id);
   }
+
   return new ReviewHandle(client, session);
 }

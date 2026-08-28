@@ -36,6 +36,7 @@ export class HerdrTabStore {
   private load(): void {
     try {
       const parsed: unknown = JSON.parse(readFileSync(this.path, "utf8"));
+
       if (typeof parsed !== "object" || parsed === null) return;
       for (const [sessionId, value] of Object.entries(parsed)) {
         if (isHerdrTabHandle(value))
@@ -48,6 +49,7 @@ export class HerdrTabStore {
 
   private persist(): void {
     const tempPath = this.path + ".tmp";
+
     writeFileSync(tempPath, JSON.stringify(Object.fromEntries(this.tabs), null, 2));
     renameSync(tempPath, this.path);
   }

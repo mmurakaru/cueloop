@@ -201,6 +201,7 @@ export function verdictAllows(kind: VerdictKind): boolean {
  * annotators in different processes on the same millisecond.
  */
 let annotationSeq = 0;
+
 export function newAnnotationId(): string {
   return `a_${Date.now().toString(36)}${(annotationSeq++).toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 }

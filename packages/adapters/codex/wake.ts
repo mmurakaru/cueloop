@@ -44,6 +44,7 @@ export async function runCodexWake(
         codexBin: options.codexBin,
         cwd: options.cwd,
       });
+
       if (!result.ok) throw new Error(`codex queue failed: ${result.error}`);
     },
     { home: options.home, pollMs: options.pollMs, signal: options.signal },
@@ -52,10 +53,12 @@ export async function runCodexWake(
 
 if (import.meta.main) {
   const [, , sessionId, threadId] = process.argv;
+
   if (!sessionId || !threadId) {
     console.error("usage: wake.ts <sessionId> <threadId>");
     process.exit(2);
   }
   const delivered = await runCodexWake(sessionId, threadId);
+
   process.exit(delivered ? 0 : 1);
 }

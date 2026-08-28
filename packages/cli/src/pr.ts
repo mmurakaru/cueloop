@@ -29,6 +29,7 @@ async function gh(args: string[]): Promise<GhResult> {
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+
   return { code, stdout, stderr };
 }
 
@@ -42,17 +43,22 @@ const VERDICT_FLAG: Record<VerdictKind, string> = {
 export async function reviewCommand(argv: string[]): Promise<number> {
   const { positional, flags } = parseArgs(argv);
   const pr = positional[0];
+
   if (!pr) {
     console.error("usage: cueloop review <pr> [--no-tui]");
+
     return 2;
   }
   const diff = await gh(["pr", "diff", pr]);
+
   if (diff.code !== 0) {
     console.error(diff.stderr.trim() || `gh pr diff ${pr} failed (exit ${diff.code})`);
+
     return 1;
   }
   if (!diff.stdout.trim()) {
     console.error(`PR ${pr} has an empty diff - nothing to review`);
+
     return 1;
   }
   const client = await DaemonClient.connect({ autostart: true });
@@ -65,21 +71,27 @@ export async function reviewCommand(argv: string[]): Promise<number> {
     pr,
   });
   const session = review.session;
+
   client.close();
 
   if (flags["no-tui"]) {
     console.log(JSON.stringify(session, null, 2));
+
     return 0;
   }
 
   const { runClient } = await import("@cueloop/client");
+
   await runClient({ sessionId: session.id });
 
   const after = await getSession(session.id);
+
   if (after.status !== "resolved" || !after.verdict) {
     console.log(`session ${session.id} is unresolved - nothing was posted to PR ${pr}`);
+
     return 0;
   }
+
   return postVerdict(after, pr);
 }
 
@@ -87,20 +99,26 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
   const { positional } = parseArgs(argv);
   const sessionId = positional[0];
   const pr = positional[1];
+
   if (!sessionId || !pr) {
     console.error("usage: cueloop review-post <session-id> <pr>");
+
     return 2;
   }
   const session = await getSession(sessionId);
+
   if (session.status !== "resolved" || !session.verdict) {
     console.error(`session ${sessionId} is unresolved - nothing was posted to PR ${pr}`);
+
     return 1;
   }
+
   return postVerdict(session, pr);
 }
 
 async function getSession(id: string): Promise<ReviewSession> {
   const client = await DaemonClient.connect({ autostart: true });
+
   try {
     return await client.sessionGet(id);
   } finally {
@@ -119,10 +137,13 @@ async function postVerdict(session: ReviewSession, pr: string): Promise<number> 
     "--body",
     verdict.feedback,
   ]);
+
   if (result.code !== 0) {
     console.error(result.stderr.trim() || `gh pr review ${pr} failed (exit ${result.code})`);
+
     return 1;
   }
   console.log(`posted ${verdict.kind} review to PR ${pr} (session ${session.id})`);
+
   return 0;
 }

@@ -49,6 +49,7 @@ function CompactRail({
   theme?: Theme;
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
+
   return (
     <box
       style={{
@@ -88,6 +89,7 @@ export function ReviewPanel({
   theme,
 }: ReviewPanelProps): React.ReactNode {
   if (mode === "hidden") return null;
+
   return (
     <>
       <ReviewDivider onGrab={onDividerGrab} />

@@ -32,11 +32,13 @@ let ghLog: string;
 /** Args of every stub invocation, one JSON array per call. */
 function ghCalls(): string[][] {
   let raw = "";
+
   try {
     raw = readFileSync(ghLog, "utf8");
   } catch {
     return [];
   }
+
   return raw
     .split("\n")
     .filter(Boolean)
@@ -76,6 +78,7 @@ beforeAll(() => {
 afterAll(async () => {
   try {
     const client = await DaemonClient.connect({ home });
+
     await client.shutdown();
     client.close();
   } catch {
@@ -103,7 +106,9 @@ async function createResolvedSession(
     "--summary",
     summary,
   ]);
+
   expect(runResult.code).toBe(0);
+
   return cliJson<ReviewSession>(runResult);
 }
 
@@ -115,6 +120,7 @@ describe("cueloop review (black box)", () => {
     // Assert
     expect(runResult.code).toBe(0);
     const session = cliJson<ReviewSession>(runResult);
+
     expect(session.id.startsWith("ses_")).toBe(true);
     expect(session.status).toBe("pending");
     expect(session.artifact.type).toBe("diff");
@@ -129,6 +135,7 @@ describe("cueloop review (black box)", () => {
     // A fresh home has no pending PR reviews, so the open path has nothing to
     // launch and must fall through to a plain message without ever calling gh.
     const emptyHome = mkdtempSync(join(tmpdir(), "cueloop-review-empty-"));
+
     try {
       const before = ghCalls().length;
 
@@ -142,6 +149,7 @@ describe("cueloop review (black box)", () => {
     } finally {
       try {
         const client = await DaemonClient.connect({ home: emptyHome });
+
         await client.shutdown();
         client.close();
       } catch {
@@ -173,6 +181,7 @@ describe("cueloop review-post (black box)", () => {
     expect(runResult.code).toBe(0);
     expect(runResult.stdout).toContain("posted approve review to PR 42");
     const call = ghCalls().at(-1)!;
+
     expect(call.slice(0, 4)).toEqual(["pr", "review", "42", "--approve"]);
     expect(call[4]).toBe("--body");
     expect(call[5]).toBe(session.verdict!.feedback);
@@ -189,6 +198,7 @@ describe("cueloop review-post (black box)", () => {
     // Assert
     expect(runResult.code).toBe(0);
     const call = ghCalls().at(-1)!;
+
     expect(call.slice(0, 4)).toEqual(["pr", "review", "43", "--request-changes"]);
     expect(call[5]).toContain("Rename the constant.");
   });
@@ -203,6 +213,7 @@ describe("cueloop review-post (black box)", () => {
     // Assert
     expect(runResult.code).toBe(0);
     const call = ghCalls().at(-1)!;
+
     expect(call.slice(0, 4)).toEqual(["pr", "review", "44", "--comment"]);
     expect(call[5]).toContain("Looks reasonable overall.");
   });
@@ -247,6 +258,7 @@ describe("cueloop review-post (black box)", () => {
     // Assert
     expect(runResult.code).toBe(0);
     const body = ghCalls().at(-1)![5]!;
+
     expect(body).toContain("Why bump to 2?");
     expect(body).toContain("Explain the bump.");
   });

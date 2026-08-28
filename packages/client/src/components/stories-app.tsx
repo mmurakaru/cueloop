@@ -111,6 +111,7 @@ function StoriesApp({
 if (import.meta.main) {
   const stories = await loadStories();
   const renderer = await createCliRenderer();
+
   createRoot(renderer).render(
     <StoriesApp
       stories={stories}

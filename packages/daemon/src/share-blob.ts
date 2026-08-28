@@ -31,6 +31,7 @@ export function packSessionBlob(session: ReviewSession): Buffer {
 /** Decompress + validate an uploaded blob, or throw a precise reason. */
 export function unpackSessionBlob(bytes: Uint8Array): ReviewSession {
   let json: string;
+
   try {
     json = gunzipSync(bytes, { maxOutputLength: MAX_BLOB_BYTES }).toString("utf8");
   } catch (err) {
@@ -40,12 +41,15 @@ export function unpackSessionBlob(bytes: Uint8Array): ReviewSession {
     );
   }
   let raw: unknown;
+
   try {
     raw = JSON.parse(json);
   } catch {
     throw new Error("blob is not valid JSON");
   }
   const parsed = validateSessionRecord(raw);
+
   if (!parsed.ok) throw new Error(`blob is not a valid session: ${parsed.error}`);
+
   return parsed.value as ReviewSession;
 }

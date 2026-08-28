@@ -9,6 +9,7 @@
 export function clipboardCommands(platform: NodeJS.Platform = process.platform): string[][] {
   if (platform === "darwin") return [["pbcopy"]];
   if (platform === "win32") return [["clip.exe"]];
+
   return [["wl-copy"], ["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"]];
 }
 
@@ -21,10 +22,12 @@ export async function copyToClipboard(text: string): Promise<boolean> {
         stdout: "ignore",
         stderr: "ignore",
       });
+
       if ((await proc.exited) === 0) return true;
     } catch {
       // tool not installed - try the next one
     }
   }
+
   return false;
 }

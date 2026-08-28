@@ -80,8 +80,10 @@ export function resolveQuickAction(
   actionRef: string,
 ): QuickAction | undefined {
   const index = Number(actionRef);
+
   if (Number.isInteger(index) && index >= 1 && index <= actions.length) return actions[index - 1];
   const wanted = actionRef.trim().toLowerCase();
+
   return actions.find((action) => action.prompt.toLowerCase() === wanted);
 }
 
@@ -147,21 +149,26 @@ function parseToml(text: string): Record<string, unknown> {
 function parseActions(raw: unknown): QuickAction[] | undefined {
   if (!Array.isArray(raw)) return undefined;
   const actions: QuickAction[] = [];
+
   for (const entry of raw) {
     if (!entry || typeof entry !== "object") continue;
     const table = entry as Record<string, unknown>;
     const prompt = table["prompt"];
+
     if (typeof prompt !== "string" || !prompt.trim()) continue;
     const metadata = table["metadata"];
+
     actions.push(
       typeof metadata === "string" && metadata.trim() ? { prompt, metadata } : { prompt },
     );
   }
+
   return actions.length ? actions : undefined;
 }
 
 function mergeAuthors(target: Record<string, string>, raw: unknown): void {
   const authors = raw as Record<string, unknown> | undefined;
+
   if (!authors) return;
   for (const [id, value] of Object.entries(authors)) {
     if (typeof value === "string") target[id] = value;
@@ -170,6 +177,7 @@ function mergeAuthors(target: Record<string, string>, raw: unknown): void {
 
 function mergeKeys(target: Record<string, string[]>, raw: unknown): void {
   const keys = raw as KeymapConfig | undefined;
+
   if (!keys) return;
   for (const [action, combo] of Object.entries(keys)) {
     target[action] = Array.isArray(combo) ? combo : [combo];
@@ -186,6 +194,7 @@ function mergeUi(target: CueloopConfig["ui"], raw: unknown): void {
   const ui = raw as
     | { auto_close?: unknown; editor?: unknown; review_width?: unknown; review_state?: unknown }
     | undefined;
+
   if (!ui) return;
   mergeAutoClose(target, ui.auto_close);
   if (typeof ui.editor === "string" && ui.editor.trim()) target.editor = ui.editor.trim();
@@ -204,15 +213,18 @@ function mergeUi(target: CueloopConfig["ui"], raw: unknown): void {
 function mergeObsidian(target: ObsidianConfig, raw: unknown): void {
   const integrations = raw as Record<string, unknown> | undefined;
   const obsidian = integrations?.["obsidian"] as Record<string, unknown> | undefined;
+
   if (!obsidian) return;
   if (typeof obsidian["vault"] === "string") target.vault = obsidian["vault"];
   if (typeof obsidian["folder"] === "string") target.folder = obsidian["folder"];
   if (typeof obsidian["filenameFormat"] === "string")
     target.filenameFormat = obsidian["filenameFormat"];
   const separator = obsidian["separator"];
+
   if (separator === "space" || separator === "dash" || separator === "underscore")
     target.separator = separator;
   const exportOn = obsidian["exportOn"];
+
   if (exportOn === "approve" || exportOn === "resolve" || exportOn === "manual")
     target.exportOn = exportOn;
 }
@@ -228,11 +240,13 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
     integrations: { obsidian: { ...base.integrations.obsidian } },
   };
   const actions = parseActions(raw["actions"]);
+
   if (actions) out.actions = actions;
   mergeAuthors(out.authors, raw["authors"]);
   mergeKeys(out.keys, raw["keys"]);
   mergeUi(out.ui, raw["ui"]);
   mergeObsidian(out.integrations.obsidian, raw["integrations"]);
+
   return out;
 }
 
@@ -260,6 +274,7 @@ export function loadConfig(
   let themeName = DEFAULT_THEME_NAME;
   const themeOverrides: Partial<Record<keyof Theme, string>> = {};
   const userPath = userConfigPathFrom(options.userConfigPath);
+
   for (const path of [
     userPath,
     options.repoRoot ? join(options.repoRoot, ".cueloop", "config.toml") : undefined,
@@ -267,8 +282,10 @@ export function loadConfig(
     if (!path || !existsSync(path)) continue;
     try {
       const raw = parseToml(readFileSync(path, "utf8"));
+
       config = layer(config, raw);
       const rawTheme = (raw["ui"] as { theme?: unknown } | undefined)?.theme;
+
       if (typeof rawTheme === "string" && isThemeName(rawTheme)) themeName = rawTheme;
       collectThemeOverrides(raw["theme"], themeOverrides);
     } catch {
@@ -278,6 +295,7 @@ export function loadConfig(
   config.ui.theme = themeName;
   config.themeOverrides = themeOverrides;
   config.theme = { ...themeForName(themeName), ...themeOverrides };
+
   return config;
 }
 
@@ -296,9 +314,11 @@ export function actionFor(
   shift: boolean,
 ): string | undefined {
   const wanted = shift && name.length === 1 ? name.toUpperCase() : name;
+
   for (const [action, combos] of Object.entries(keys)) {
     if (combos.includes(wanted)) return action;
   }
+
   return undefined;
 }
 
@@ -319,8 +339,10 @@ function userConfigPathFrom(userConfigPath?: string): string {
 function persistUiSetting(key: string, rendered: string, userConfigPath?: string): void {
   const path = userConfigPathFrom(userConfigPath);
   let text = "";
+
   if (existsSync(path)) text = readFileSync(path, "utf8");
   const assignment = new RegExp(`^(\\s*)${key}\\s*=.*$`, "m");
+
   if (assignment.test(text)) {
     text = text.replace(assignment, `$1${key} = ${rendered}`);
   } else if (/^\[ui\]/m.test(text)) {
@@ -345,15 +367,19 @@ function tomlString(value: string): string {
 export function persistActions(actions: QuickAction[], userConfigPath?: string): void {
   const path = userConfigPathFrom(userConfigPath);
   let text = existsSync(path) ? readFileSync(path, "utf8") : "";
+
   // strip every existing [[actions]] block (header through its key lines)
   text = text.replace(/^\[\[actions\]\][^[]*/gm, "").trimEnd();
   const blocks = actions
     .map((action) => {
       const lines = [`[[actions]]`, `prompt = ${tomlString(action.prompt)}`];
+
       if (action.metadata) lines.push(`metadata = ${tomlString(action.metadata)}`);
+
       return lines.join("\n");
     })
     .join("\n\n");
+
   text = blocks ? `${text ? `${text}\n\n` : ""}${blocks}\n` : `${text}\n`;
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, text);
@@ -393,6 +419,7 @@ export function persistAuthorName(id: string, name: string, userConfigPath?: str
   const key = `"${id.replace(/"/g, '\\"')}"`;
   const value = `"${name.replace(/"/g, '\\"')}"`;
   const assignment = new RegExp(`^(\\s*)${escapeRegExp(key)}\\s*=.*$`, "m");
+
   if (assignment.test(text)) {
     text = text.replace(assignment, `$1${key} = ${value}`);
   } else if (/^\[authors\]/m.test(text)) {

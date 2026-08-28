@@ -100,10 +100,12 @@ function positionOfRenderedOffset(
 ): { x: number; y: number } {
   const info = renderable.lineInfo;
   let lineIndex = 0;
+
   for (let index = 0; index < info.lineStartCols.length; index++) {
     if (info.lineStartCols[index]! <= renderedOffset) lineIndex = index;
     else break;
   }
+
   return {
     x: renderable.x + renderedOffset - (info.lineStartCols[lineIndex] ?? 0),
     y: renderable.y + lineIndex,
@@ -135,37 +137,47 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
       if (!renderer?.hasSelection) return null;
       const readBlock = (displayIndex: number): PlanSelection | null => {
         const blockRef = blockRefs.current.get(displayIndex);
+
         if (!blockRef) return null;
         const selection = blockRef.renderable.getSelection();
+
         if (!selection || selection.end <= selection.start) return null;
         const range = workRangeForRendered(blockRef.runs, selection.start, selection.end);
+
         return range ? { displayIndex, ...range } : null;
       };
+
       // the block the mouse released on wins, so a fresh drag re-anchors the span
       // (one marker at a time) instead of sticking to the topmost prior selection
       if (preferredIndex !== undefined) {
         const preferred = readBlock(preferredIndex);
+
         if (preferred) return preferred;
       }
       for (const displayIndex of [...blockRefs.current.keys()].sort(
         (left, right) => left - right,
       )) {
         const found = readBlock(displayIndex);
+
         if (found) return found;
       }
+
       return null;
     },
     driveSpanSelection: (span: SpanState): void => {
       if (!renderer) return;
       const blockRef = blockRefs.current.get(span.displayIndex);
+
       if (!blockRef) return;
       // a span over an emphasized word starts/ends on concealed markers with
       // no rendered cell; snap to the visible characters inside them
       const renderedStart = renderedOffsetAtOrAfter(blockRef.runs, span.start);
       const renderedEnd = renderedOffsetAtOrBefore(blockRef.runs, span.end - 1);
+
       if (renderedStart === null || renderedEnd === null || renderedEnd < renderedStart) return;
       const startPosition = positionOfRenderedOffset(blockRef.renderable, renderedStart);
       const endPosition = positionOfRenderedOffset(blockRef.renderable, renderedEnd);
+
       renderer.startSelection(blockRef.renderable, startPosition.x, startPosition.y);
       renderer.updateSelection(blockRef.renderable, endPosition.x + 1, endPosition.y);
     },
@@ -192,16 +204,20 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
   // a terminal resize rewraps every block; re-run the anchor math against the
   // new geometry instead of leaving the card at its pre-resize cell
   const [resizeEpoch, setResizeEpoch] = useState(0);
+
   useEffect(() => {
     if (!renderer) return;
     const onResize = (): void => setResizeEpoch((epoch) => epoch + 1);
+
     renderer.on("resize", onResize);
+
     return () => void renderer.off("resize", onResize);
   }, [renderer]);
   useEffect(() => {
     if (!popover) return;
     const blockRef = blockRefs.current.get(popover.displayIndex);
     const scrollbox = scrollRef.current;
+
     if (!blockRef || !scrollbox) return;
     const renderedStart =
       activeSpan && activeSpan.displayIndex === popover.displayIndex
@@ -213,9 +229,11 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     const anchorTop = startPosition.y - content.y;
     // clamp so the toolbar card never runs past the content's right edge
     const maxLeft = Math.max(0, content.width - POPOVER_TOOLBAR_COLUMNS);
+
     setPopoverLeft(Math.min(anchorLeft, maxLeft));
     // only the toolbar (3 rows) + gap must fit above; the dropdown flows down
     const lineViewportRow = startPosition.y - scrollbox.y;
+
     setPopoverTop(anchorTop + (lineViewportRow < POPOVER_ROWS_ABOVE ? 1 : -POPOVER_ROWS_ABOVE));
   }, [popover, activeSpan, display, cursor, resizeEpoch]);
 
@@ -227,6 +245,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
     if (renderable) blockRefs.current.set(displayIndex, { renderable, runs });
     else blockRefs.current.delete(displayIndex);
   };
+
   // stale refs must not survive a shrinking display list
   useEffect(() => {
     for (const displayIndex of blockRefs.current.keys()) {
@@ -235,10 +254,12 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
   }, [display]);
 
   const children: React.ReactNode[] = [];
+
   for (let displayIndex = 0; displayIndex < display.length; displayIndex++) {
     const block = display[displayIndex]!;
     const isCursor = displayIndex === cursor;
     const gap = topGap(display[displayIndex - 1], block);
+
     if (block.kind === "code") {
       children.push(
         <CodeBlock
@@ -256,6 +277,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
       );
     } else {
       const blockMarks = [...(marks.get(displayIndex) ?? [])];
+
       if (activeSpan && activeSpan.displayIndex === displayIndex) {
         blockMarks.push({ start: activeSpan.start, end: activeSpan.end, role: "kspan" });
       }
@@ -265,6 +287,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
       const mappedRuns: StyleRun[] = showsChangeTag(block)
         ? [...runs, { text: ` [${tagLabel(block)}]`, role: "plain", start: null }]
         : runs;
+
       children.push(
         <box
           key={displayIndex}
@@ -288,6 +311,7 @@ export const PlanSheet = forwardRef<PlanSheetHandle, PlanSheetProps>(function Pl
           >
             {runs.map((run, runIndex) => {
               const url = run.role === "link" ? safeLinkHref(run.href) : undefined;
+
               return (
                 <span
                   key={runIndex}
@@ -372,6 +396,7 @@ function topGap(previous: DisplayBlock | undefined, current: DisplayBlock): numb
   const tightPair =
     (current.kind === "li" && previous.kind === "li") ||
     (current.kind === "oli" && previous.kind === "oli");
+
   return tightPair ? 0 : 1;
 }
 
@@ -379,6 +404,7 @@ function marker(block: DisplayBlock): string {
   if (block.kind === "li") return "- ";
   if (block.kind === "oli") return `${block.orderedItemNumber ?? 1}. `;
   if (block.kind === "quote") return "▏ ";
+
   return "";
 }
 

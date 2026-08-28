@@ -11,6 +11,7 @@ function runOnPty(file: string, args: string[]): Promise<{ output: string; exitC
     const pty = spawn(file, args, { name: "xterm-256color", cols: 80, rows: 24 });
     let output = "";
     const timeout = setTimeout(() => reject(new Error("pty child never exited")), 5000);
+
     pty.onData((chunk) => {
       output += chunk;
     });
@@ -35,6 +36,7 @@ describe("pty", () => {
     // Arrange - `cat` echoes stdin back through the tty until it closes
     const pty = spawn("cat", [], { name: "xterm-256color", cols: 80, rows: 24 });
     let output = "";
+
     pty.onData((chunk) => {
       output += chunk;
     });
@@ -63,6 +65,7 @@ describe("pty", () => {
       });
       let collected = "";
       const timeout = setTimeout(() => reject(new Error("no exit")), 5000);
+
       pty.onData((chunk) => {
         collected += chunk;
       });

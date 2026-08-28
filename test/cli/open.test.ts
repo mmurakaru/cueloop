@@ -20,6 +20,7 @@ beforeEach(() => {
 afterEach(async () => {
   try {
     const client = await DaemonClient.connect({ home });
+
     await client.shutdown();
     client.close();
   } catch {

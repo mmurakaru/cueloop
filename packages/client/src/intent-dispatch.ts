@@ -126,6 +126,7 @@ function handleStatus(intent: IntentOfType<"status">, deps: IntentDispatchDeps):
 
 function handleMove(intent: IntentOfType<"move">, deps: IntentDispatchDeps): void {
   const navigableCount = deps.isDiff ? deps.rows.length : deps.display.length;
+
   if (intent.to === "down") deps.setCursor((current) => Math.min(navigableCount - 1, current + 1));
   else if (intent.to === "up") deps.setCursor((current) => Math.max(0, current - 1));
   else if (intent.to === "top") deps.setCursor(0);
@@ -134,6 +135,7 @@ function handleMove(intent: IntentOfType<"move">, deps: IntentDispatchDeps): voi
 
 function handleInboxMove(intent: IntentOfType<"inboxMove">, deps: IntentDispatchDeps): void {
   const navigableCount = deps.inbox?.length ?? 0;
+
   deps.setInboxCursor((current) =>
     intent.to === "down" ? Math.min(navigableCount - 1, current + 1) : Math.max(0, current - 1),
   );
@@ -141,6 +143,7 @@ function handleInboxMove(intent: IntentOfType<"inboxMove">, deps: IntentDispatch
 
 function handleOpenSession(_intent: IntentOfType<"openSession">, deps: IntentDispatchDeps): void {
   const selected = deps.inbox?.[deps.inboxCursor];
+
   if (selected) deps.controller.open(selected.id);
 }
 
@@ -149,6 +152,7 @@ function handleRequestDeleteSession(
   deps: IntentDispatchDeps,
 ): void {
   const selected = deps.inbox?.[deps.inboxCursor];
+
   if (selected)
     deps.setMode({
       type: "confirmDelete",
@@ -161,8 +165,10 @@ function handleOpenRename(_intent: IntentOfType<"openRename">, deps: IntentDispa
   const focused = deps.session?.annotations.find(
     (annotation) => annotation.id === deps.focusedAnnotationId,
   );
+
   if (!focused?.author) {
     deps.controller.setStatus("that is your own note - nothing to rename");
+
     return;
   }
   deps.setMode({
@@ -177,6 +183,7 @@ function handleConfirmDialog(
   deps: IntentDispatchDeps,
 ): void {
   const { mode, controller } = deps;
+
   if (mode.type === "confirmDelete") controller.deleteSession(mode.sessionId);
   else if (mode.type === "rename") deps.renameAuthor(mode.authorId, mode.text.trim());
   else if (mode.type === "nameSelf") controller.setSelfName(mode.text.trim());
@@ -185,19 +192,23 @@ function handleConfirmDialog(
 
 function handleStartSpan(_intent: IntentOfType<"startSpan">, deps: IntentDispatchDeps): void {
   const block = deps.display[deps.cursor];
+
   if (!block?.work) return;
   const span = startSpan(deps.cursor, displayText(block));
+
   if (span) deps.setMode({ type: "span", span });
 }
 
 function handleSpanKey(intent: IntentOfType<"spanKey">, deps: IntentDispatchDeps): void {
   const { mode } = deps;
+
   if (mode.type === "span") {
     const span = spanKey(
       mode.span,
       intent.name,
       displayText(deps.display[mode.span.displayIndex]!),
     );
+
     deps.setMode({ type: "span", span });
   }
 }
@@ -205,6 +216,7 @@ function handleSpanKey(intent: IntentOfType<"spanKey">, deps: IntentDispatchDeps
 function handleSpanCut(_intent: IntentOfType<"spanCut">, deps: IntentDispatchDeps): void {
   // the block the span sits in, cut whole (partial-span cut is not modeled)
   const { mode } = deps;
+
   if (mode.type === "span") {
     deps.controller.cut(mode.span.displayIndex);
     deps.setMode({ type: "normal" });
@@ -216,6 +228,7 @@ function handleOpenSpanActions(
   deps: IntentDispatchDeps,
 ): void {
   const { mode } = deps;
+
   if (mode.type === "span") deps.setMode({ type: "spanActions", span: mode.span, index: 0 });
 }
 
@@ -224,11 +237,13 @@ function handleMoveSpanAction(
   deps: IntentDispatchDeps,
 ): void {
   const { mode } = deps;
+
   if (mode.type === "spanActions") {
     const index = Math.max(
       0,
       Math.min(deps.quickActions.length - 1, mode.index + intent.direction),
     );
+
     deps.setMode({ ...mode, index });
   }
 }
@@ -238,6 +253,7 @@ function handleCloseSpanActions(
   deps: IntentDispatchDeps,
 ): void {
   const { mode } = deps;
+
   if (mode.type === "spanActions") deps.setMode({ type: "span", span: mode.span });
 }
 
@@ -246,8 +262,10 @@ function handlePickSpanAction(
   deps: IntentDispatchDeps,
 ): void {
   const { mode, session, controller } = deps;
+
   if (mode.type !== "spanActions") return;
   const action = deps.quickActions[intent.index ?? mode.index];
+
   if (session && action) {
     const body = quickActionBody(action);
     const annotationId = controller.annotate(
@@ -257,6 +275,7 @@ function handlePickSpanAction(
       mode.span.end,
       body,
     );
+
     if (annotationId) deps.setFocusedAnnotationId(annotationId);
   }
   deps.setMode({ type: "normal" });
@@ -264,6 +283,7 @@ function handlePickSpanAction(
 
 function handleOpenCompose(intent: IntentOfType<"openCompose">, deps: IntentDispatchDeps): void {
   const { mode } = deps;
+
   deps.liveInput.current = "";
   if (intent.from === "span" && mode.type === "span") {
     deps.setMode({
@@ -276,6 +296,7 @@ function handleOpenCompose(intent: IntentOfType<"openCompose">, deps: IntentDisp
     });
   } else if (deps.isDiff) {
     const row = deps.rows[deps.cursor];
+
     if (row)
       deps.setMode({
         type: "compose",
@@ -288,10 +309,12 @@ function handleOpenCompose(intent: IntentOfType<"openCompose">, deps: IntentDisp
   } else {
     // a mouse drag leaves a native selection; it wins over the cursor block
     const native = deps.planSheetRef.current?.readSelection() ?? null;
+
     if (native) {
       deps.setMode({ type: "compose", kind: intent.kind, ...native, text: "" });
     } else {
       const block = deps.display[deps.cursor];
+
       if (block)
         deps.setMode({
           type: "compose",
@@ -307,6 +330,7 @@ function handleOpenCompose(intent: IntentOfType<"openCompose">, deps: IntentDisp
 
 function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispatchDeps): void {
   const { session } = deps;
+
   if (!session) return;
   deps.liveInput.current = "";
   // the confirm card lives in the expanded review rail; a compact or hidden
@@ -340,8 +364,10 @@ function handleRestoreCuration(
   // undo the selected curated-out item, or the last rejected when none is
   // selected, so a bare `u` reads as "undo my last curation"
   const items = deps.controller.curationItems();
+
   if (!items.length) return;
   const targetId = deps.selectedCurationId ?? items[items.length - 1]!.id;
+
   deps.controller.restoreCuration(targetId);
   deps.setSelectedCurationId(undefined);
 }
@@ -362,6 +388,7 @@ function handleAnnotationCycle(
   const annotations = (deps.session?.annotations ?? []).filter(
     (annotation) => !isAddressed(annotation),
   );
+
   if (!annotations.length) return;
   const focusedIndex = annotations.findIndex(
     (annotation) => annotation.id === deps.focusedAnnotationId,
@@ -371,6 +398,7 @@ function handleAnnotationCycle(
       ? 0
       : (focusedIndex + (intent.type === "nextAnnotation" ? 1 : -1) + annotations.length) %
         annotations.length;
+
   deps.selectCardFromDocument(annotations[nextIndex]!.id);
 }
 
@@ -413,9 +441,11 @@ function handleCloseOverlay(_intent: IntentOfType<"closeOverlay">, deps: IntentD
 function handleSaveCompose(_intent: IntentOfType<"saveCompose">, deps: IntentDispatchDeps): void {
   const { mode, session, controller } = deps;
   const body = deps.liveInput.current.trim();
+
   if (mode.type === "railEdit") {
     if (session && body) controller.updateAnnotation(mode.id, body);
     deps.setMode({ type: "normal" });
+
     return;
   }
   if (mode.type !== "compose") return;
@@ -427,6 +457,7 @@ function handleSaveCompose(_intent: IntentOfType<"saveCompose">, deps: IntentDis
       mode.end,
       body,
     );
+
     if (annotationId) deps.setFocusedAnnotationId(annotationId);
   }
   deps.setMode({ type: "normal" });
@@ -437,15 +468,18 @@ function handleSubmitVerdict(
   deps: IntentDispatchDeps,
 ): void {
   const { mode } = deps;
+
   if (mode.type === "submit") deps.controller.submit(mode.verdict, deps.liveInput.current);
   deps.setMode({ type: "normal" });
 }
 
 function handleCycleVerdict(intent: IntentOfType<"cycleVerdict">, deps: IntentDispatchDeps): void {
   const { mode } = deps;
+
   if (mode.type !== "submit") return;
   const verdictIndex =
     (VERDICTS.indexOf(mode.verdict) + intent.direction + VERDICTS.length) % VERDICTS.length;
+
   deps.setMode({ ...mode, verdict: VERDICTS[verdictIndex]! });
 }
 
@@ -472,6 +506,7 @@ function handleCycleReviewPanel(
   deps: IntentDispatchDeps,
 ): void {
   const next = cycleReviewPanelMode(deps.reviewMode);
+
   deps.setReviewMode(next);
   deps.controller.saveReviewPanel({ mode: next });
 }
@@ -485,6 +520,7 @@ function handleResizeReviewPanel(
     deps.reviewWidth + intent.direction * REVIEW_RESIZE_STEP,
     deps.terminalWidth,
   );
+
   deps.reviewWidthRef.current = next;
   deps.setReviewWidth(next);
   deps.controller.saveReviewPanel({ width: next });
@@ -543,6 +579,7 @@ export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent)
       intent: Intent,
       deps: IntentDispatchDeps,
     ) => void;
+
     handler(intent, deps);
   };
 }

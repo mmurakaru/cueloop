@@ -35,6 +35,7 @@ beforeEach(() => {
   vault = join(home, "vault");
   mkdirSync(vault);
   const configPath = join(home, "config.toml");
+
   writeFileSync(
     configPath,
     `[integrations.obsidian]\nvault = ${JSON.stringify(vault)}\nexportOn = "resolve"\n`,
@@ -64,6 +65,7 @@ describe("obsidian export on resolve", () => {
       width: 120,
       height: 32,
     });
+
     await waitForText(setup, "cueloop");
 
     // Act
@@ -79,13 +81,16 @@ describe("obsidian export on resolve", () => {
     // the export is an async round-trip after resolve; the status line lands
     // on a later render than the file write
     const dir = join(vault, "cueloop");
+
     await waitForState(setup, () => existsSync(dir));
     await waitForText(setup, "exported to");
 
     const notes = readdirSync(dir);
+
     expect(notes.length).toBe(1);
     expect(notes[0]).toMatch(/^\d{4}-\d{2}-\d{2} - Migration Plan\.md$/);
     const written = readFileSync(join(dir, notes[0]!), "utf8");
+
     expect(written).toContain("source: cueloop");
     expect(written).toContain(`session: ${session.id}`);
     expect(written).toContain("verdict: approve");

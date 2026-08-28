@@ -30,6 +30,7 @@ export function Breadcrumb({ items, theme }: BreadcrumbProps): React.ReactNode {
         : tone === "text"
           ? tokens.text
           : tokens.textDim;
+
   return (
     <box style={{ height: 1, backgroundColor: tokens.panel, paddingLeft: 1, flexDirection: "row" }}>
       <text fg={tokens.text}>

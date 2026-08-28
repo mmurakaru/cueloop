@@ -34,6 +34,7 @@ export async function runCli(
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+
   return { code, stdout, stderr };
 }
 

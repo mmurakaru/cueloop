@@ -63,6 +63,7 @@ describe("anchor cascade", () => {
 
     // Assert
     const editedBlockIndex = edited.findIndex((block) => block.text.includes("Review sessions"));
+
     expect(resolved.blockIndex).toBe(editedBlockIndex);
     expect(edited[resolved.blockIndex]!.text.slice(resolved.start, resolved.end)).toBe(
       "Review sessions",

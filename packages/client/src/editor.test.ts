@@ -53,6 +53,7 @@ describe("resolveEditorCommand", () => {
 
 describe("editInEditor", () => {
   let dir: string;
+
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "cueloop-edit-test-"));
   });
@@ -63,13 +64,16 @@ describe("editInEditor", () => {
   /** A runnable editor stub with a chosen base name and body. */
   function stubEditor(name: string, body: string): string {
     const script = join(dir, name);
+
     writeFileSync(script, `#!/bin/sh\n${body}\n`);
     chmodSync(script, 0o755);
+
     return script;
   }
 
   const instant = (): (() => number) => {
     let value = 0;
+
     return () => (value += 5);
   };
 
@@ -94,6 +98,7 @@ describe("editInEditor", () => {
       confirmSaved: (label, path) => {
         askedLabel = label;
         writeFileSync(path, "saved in the GUI");
+
         return true;
       },
     });
@@ -125,6 +130,7 @@ describe("editInEditor", () => {
       now: instant(),
       confirmSaved: () => {
         asked = true;
+
         return true;
       },
     });

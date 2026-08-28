@@ -15,6 +15,7 @@ function makeStub(name: string, splitOk = true): { binPath: string; logPath: str
   const splitResult = splitOk
     ? `printf '{"result":{"pane":{"pane_id":"w1:p9"}}}'`
     : `printf '{"result":{}}'`;
+
   writeFileSync(
     binPath,
     `#!/bin/sh
@@ -24,11 +25,13 @@ exit 0
 `,
   );
   chmodSync(binPath, 0o755);
+
   return { binPath, logPath };
 }
 
 function readLines(logPath: string): string[] {
   if (!existsSync(logPath)) return [];
+
   return readFileSync(logPath, "utf8").split("\n").filter(Boolean);
 }
 

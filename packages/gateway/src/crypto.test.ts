@@ -45,6 +45,7 @@ describe("open fails loudly", () => {
     const sealed = sealBlob(MASTER, "p_abc123xy", PLAINTEXT);
     const envelope = JSON.parse(sealed.toString("utf8")) as { ciphertext: string };
     const bytes = Buffer.from(envelope.ciphertext, "base64");
+
     bytes[0] = bytes[0]! ^ 0xff;
     envelope.ciphertext = bytes.toString("base64");
     const tampered = Buffer.from(JSON.stringify(envelope), "utf8");

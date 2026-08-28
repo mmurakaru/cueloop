@@ -55,9 +55,11 @@ async function frame(): Promise<string> {
     width: 120,
     height: 36,
   });
+
   await waitForText(setup, "Render Plan");
   // async highlights settle within the visual-idle wait
   await setup.waitForVisualIdle();
+
   return setup.captureCharFrame();
 }
 
@@ -119,6 +121,7 @@ describe("block spacing", () => {
       width: 120,
       height: 30,
     });
+
     await waitForText(setup, "one");
 
     // Assert
@@ -127,6 +130,7 @@ describe("block spacing", () => {
       .split("\n")
       .map((line) => line.trimEnd());
     const one = lines.findIndex((line) => line.includes("- one"));
+
     expect(lines[one + 1]).toContain("- two");
   });
 });

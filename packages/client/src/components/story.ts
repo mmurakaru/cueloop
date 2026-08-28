@@ -41,15 +41,18 @@ export async function loadStories(): Promise<LoadedStory[]> {
   const glob = new Bun.Glob("**/*.stories.tsx");
   const files = [...glob.scanSync({ cwd: import.meta.dir })].sort();
   const loaded: LoadedStory[] = [];
+
   for (const file of files) {
     const moduleExports = (await import(`${import.meta.dir}/${file}`)) as Record<string, unknown>;
     const meta = moduleExports["meta"] as StoryMeta | undefined;
     const moduleTitle = meta?.title ?? file.replace(/\.stories\.tsx$/, "");
+
     for (const [exportName, exported] of Object.entries(moduleExports)) {
       if (exportName === "meta" || !isStory(exported)) continue;
       loaded.push({ moduleTitle, storyName: exportName, story: exported });
     }
   }
+
   return loaded;
 }
 
@@ -58,12 +61,15 @@ export function componentFilesMissingStories(): string[] {
   const componentGlob = new Bun.Glob("**/*.tsx");
   const files = [...componentGlob.scanSync({ cwd: import.meta.dir })];
   const missing: string[] = [];
+
   for (const file of files) {
     if (file.endsWith(".stories.tsx") || file.endsWith(".test.tsx")) continue;
     if (file.endsWith(".prototype.tsx")) continue;
     if (file === "stories-app.tsx") continue;
     const storiesSibling = file.replace(/\.tsx$/, ".stories.tsx");
+
     if (!files.includes(storiesSibling)) missing.push(file);
   }
+
   return missing;
 }

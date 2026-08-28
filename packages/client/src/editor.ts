@@ -69,6 +69,7 @@ export function resolveEditor(
   env: Record<string, string | undefined> = process.env,
 ): string {
   const candidates = [configuredEditor, env.CUELOOP_EDITOR, env.VISUAL, env.EDITOR];
+
   return candidates.find((candidate) => candidate && candidate.trim())?.trim() ?? DEFAULT_EDITOR;
 }
 
@@ -80,14 +81,18 @@ function editorBaseName(command: string): string {
 export function resolveEditorCommand(rawEditor: string): ResolvedEditor {
   const parts = rawEditor.trim().split(/\s+/);
   const base = editorBaseName(parts[0] ?? "");
+
   if (TERMINAL_EDITORS.has(base)) return { argv: parts, waits: true };
   const waitFlags = GUI_WAIT_FLAGS[base];
+
   if (waitFlags) {
     const alreadyWaits = parts.some(
       (part) => part === "--wait" || part === "-w" || part === "--block",
     );
+
     return { argv: alreadyWaits ? parts : [...parts, ...waitFlags], waits: true };
   }
+
   return { argv: parts, waits: false };
 }
 
@@ -97,6 +102,7 @@ const NO_WAIT_THRESHOLD_MS = 1000;
 function suspectsNoWait(resolved: ResolvedEditor, elapsedMs: number, unchanged: boolean): boolean {
   if (resolved.waits) return false; // holds the terminal or has a wait flag - trust the exit
   if (!unchanged) return false; // edits landed, so it waited after all
+
   return elapsedMs < NO_WAIT_THRESHOLD_MS;
 }
 
@@ -114,6 +120,7 @@ function promptSaved(editorLabel: string, path: string): boolean {
   const answer = prompt(
     `${editorLabel} returned immediately and the plan is unchanged - a GUI editor needs its wait flag. Save and close ${path}, then press Enter to load your edits (or type n to skip):`,
   );
+
   return answer !== null && answer.trim().toLowerCase() !== "n";
 }
 
@@ -127,6 +134,7 @@ export function editInEditor(
   const resolved = resolveEditorCommand(resolveEditor(handOff.editor, env));
   const dir = mkdtempSync(join(tmpdir(), "cueloop-edit-"));
   const path = join(dir, filename);
+
   writeFileSync(path, content);
   try {
     const startedAt = now();
@@ -135,12 +143,16 @@ export function editInEditor(
       stdout: "inherit",
       stderr: "inherit",
     });
+
     if (editorProcess.exitCode !== 0) throw new Error(`editor exited ${editorProcess.exitCode}`);
     let next = readFileSync(path, "utf8");
+
     if (suspectsNoWait(resolved, now() - startedAt, next === content)) {
       const confirm = handOff.confirmSaved ?? promptSaved;
+
       if (confirm(resolved.argv[0] ?? "the editor", path)) next = readFileSync(path, "utf8");
     }
+
     return { content: next, changed: next !== content };
   } finally {
     rmSync(dir, { recursive: true, force: true });

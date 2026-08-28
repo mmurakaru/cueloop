@@ -236,6 +236,7 @@ describe("wire pins", () => {
     expect(entryKeys(AnchorSchema)).toEqual(keys(fullAnchor));
     // wire annotations arrive without createdAt; the daemon stamps it
     const { createdAt: _stamped, ...wireAnnotation } = fullAnnotation;
+
     expect(entryKeys(AnnotationSchema)).toEqual(keys(wireAnnotation));
     expect(entryKeys(RevisionSchema)).toEqual(keys(fullRevision));
     expect(entryKeys(VerdictSchema)).toEqual(keys(fullVerdict));
@@ -243,11 +244,13 @@ describe("wire pins", () => {
     expect(entryKeys(SessionRecordSchema)).toEqual(keys(fullSession));
     // persisted annotations carry the stamped createdAt
     const stored = SessionRecordSchema.entries.annotations.item;
+
     expect(entryKeys(stored)).toEqual(keys(fullAnnotation));
   });
 
   test("a fully-populated meta survives validation and DaemonCore unchanged", () => {
     const home = mkdtempSync(join(tmpdir(), "cueloop-val-"));
+
     try {
       // Arrange
       const params = parseParams("session.create", {

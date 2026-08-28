@@ -32,5 +32,6 @@ export function useTheme(): Theme {
  */
 export function useComponentTheme(override?: Theme): Theme {
   const contextTheme = useContext(ThemeContext);
+
   return override ?? contextTheme;
 }

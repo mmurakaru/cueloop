@@ -54,13 +54,16 @@ async function renderObserver() {
     width: 120,
     height: 32,
   });
+
   await waitForText(setup, "cueloop");
+
   return setup;
 }
 
 /** Session state that any mutating verb would change. */
 function snapshot() {
   const stored = server.core.sessionGet(session.id);
+
   return {
     annotations: stored.annotations.length,
     workingCopy: stored.workingCopy,
@@ -75,6 +78,7 @@ describe("observer rendering", () => {
 
     // Assert
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("· observer");
     expect(frame).toContain("menu");
   });
@@ -90,10 +94,12 @@ describe("observer verbs are blocked", () => {
     test(`${verb} (${key}) answers observer - read-only and mutates nothing`, async () => {
       const setup = await renderObserver();
       const before = snapshot();
+
       await press(setup, "j");
       await press(setup, "j");
       await press(setup, key);
       const frame = await waitForText(setup, "observer - read-only");
+
       // no overlay opened: compose/submit bars never appear
       expect(frame).not.toContain('comment on "');
       expect(frame).not.toContain("verdict ←/→");
@@ -114,6 +120,7 @@ describe("observer verbs are blocked", () => {
 
     // Assert
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("observer - read-only");
     expect(frame).not.toContain('comment on "');
     expect(snapshot().annotations).toBe(0);
@@ -133,6 +140,7 @@ describe("observer navigation still works", () => {
     // Assert
     const lines = setup.captureCharFrame().split("\n");
     const cursorLine = lines.find((line) => line.includes("▎"))!;
+
     expect(cursorLine).toContain("persists sessions");
   });
 
@@ -165,8 +173,10 @@ function hasBorderColor(setup: Awaited<ReturnType<typeof renderObserver>>, hex: 
       const [red, green, blue] = span.fg.toInts();
       const rendered =
         "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
+
       if (rendered === hex) return true;
     }
   }
+
   return false;
 }

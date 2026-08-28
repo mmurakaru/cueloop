@@ -15,6 +15,7 @@ beforeAll(() => {
 afterAll(async () => {
   try {
     const daemonClient = await DaemonClient.connect({ home });
+
     await daemonClient.shutdown();
     daemonClient.close();
   } catch {
@@ -39,12 +40,15 @@ async function resolvePending(
   summary: string,
 ): Promise<void> {
   const client = await DaemonClient.connect({ home, autostart: true });
+
   try {
     for (let attempt = 0; attempt < 100; attempt++) {
       const pending = await client.sessionList({ status: "pending" });
       const match = pending.find((candidate) => candidate.artifact.content.includes(marker));
+
       if (match) {
         await client.sessionResolve(match.id, kind, summary);
+
         return;
       }
       await Bun.sleep(25);
@@ -82,6 +86,7 @@ describe("runHook: non-blocking plan gate", () => {
     expect(armed.length).toBe(1);
     const client = await DaemonClient.connect({ home });
     const pending = await client.sessionList({ status: "pending" });
+
     client.close();
     expect(pending.some((session) => session.artifact.content === plan)).toBe(true);
   });
@@ -109,6 +114,7 @@ describe("runHook: non-blocking plan gate", () => {
   test("a plan that came back with changes opens a fresh round, not an allow", async () => {
     // Arrange
     const event = planEvent("cc-changes", "# Changes Me\n\nFirst cut.\n");
+
     await runHook(event, { home, armWake: () => {} });
     await resolvePending("Changes Me", "request_changes", "Not yet.");
     const armed: string[] = [];

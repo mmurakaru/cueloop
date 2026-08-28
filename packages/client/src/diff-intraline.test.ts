@@ -76,6 +76,7 @@ describe("intralineRunsByRow", () => {
     // Assert
     const deletionRuns = runsByRow.get(1)!;
     const additionRuns = runsByRow.get(2)!;
+
     expect(joinText(deletionRuns)).toBe("const foo = 1");
     expect(joinText(additionRuns)).toBe("const foo = 2");
     expect(changedText(deletionRuns)).toBe("1");

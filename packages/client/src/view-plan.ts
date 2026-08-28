@@ -43,14 +43,17 @@ function similar(baseBlock: Block, workBlock: Block): boolean {
   const baseWords = words(baseBlock.text);
   const workWords = words(workBlock.text);
   let intersection = 0;
+
   for (const word of baseWords) if (workWords.has(word)) intersection++;
   const union = baseWords.size + workWords.size - intersection;
+
   return union === 0 ? true : intersection / union >= 0.3;
 }
 
 /** Reconcile base blocks vs working blocks into the display list. */
 export function buildDisplay(baseContent: string, workingContent?: string): DisplayBlock[] {
   const baseBlocks = parseBlocks(baseContent);
+
   if (workingContent === undefined) {
     const display: DisplayBlock[] = baseBlocks.map((block) => ({
       type: "same",
@@ -58,7 +61,9 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
       work: block,
       base: block,
     }));
+
     numberOrderedListItems(display);
+
     return display;
   }
   const workBlocks = parseBlocks(workingContent);
@@ -70,8 +75,10 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
   );
   const display: DisplayBlock[] = [];
   let opIndex = 0;
+
   while (opIndex < ops.length) {
     const op = ops[opIndex]!;
+
     if (op.kind === "ctx") {
       display.push({ type: "same", kind: op.newValue!.kind, work: op.newValue, base: op.oldValue });
       opIndex++;
@@ -79,14 +86,17 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
     }
     const deletedBlocks: Block[] = [];
     const addedBlocks: Block[] = [];
+
     while (opIndex < ops.length && ops[opIndex]!.kind !== "ctx") {
       const changeOp = ops[opIndex]!;
+
       if (changeOp.kind === "del") deletedBlocks.push(changeOp.oldValue!);
       else addedBlocks.push(changeOp.newValue!);
       opIndex++;
     }
     let deletedIndex = 0;
     let addedIndex = 0;
+
     while (deletedIndex < deletedBlocks.length && addedIndex < addedBlocks.length) {
       if (similar(deletedBlocks[deletedIndex]!, addedBlocks[addedIndex]!)) {
         display.push({
@@ -129,11 +139,13 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
     }
   }
   numberOrderedListItems(display);
+
   return display;
 }
 
 function numberOrderedListItems(display: DisplayBlock[]): void {
   let runLength = 0;
+
   for (const block of display) {
     if (block.kind === "oli") block.orderedItemNumber = ++runLength;
     else runLength = 0;
@@ -188,14 +200,18 @@ export function marksByDisplay(
     .filter((entry) => entry.block.work !== undefined);
   const workBlocks = workEntries.map((entry) => entry.block.work!);
   const marksByIndex = new Map<number, Mark[]>();
+
   for (const annotation of annotations) {
     // an addressed annotation keeps its record but paints no highlight
     if (isAddressed(annotation)) continue;
     const resolved = resolveAnchor(annotation.anchor, workBlocks);
+
     if (!resolved) continue;
     const entry = workEntries[resolved.blockIndex];
+
     if (!entry) continue;
     const marks = marksByIndex.get(entry.displayIndex) ?? [];
+
     marks.push({
       start: resolved.start,
       end: resolved.end,
@@ -204,16 +220,19 @@ export function marksByDisplay(
     });
     marksByIndex.set(entry.displayIndex, marks);
   }
+
   return marksByIndex;
 }
 
 /** Base runs for a display block: plain text, or word-diff for mod blocks. */
 export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
   const literal = block.kind === "code" || block.kind === "hr";
+
   if (block.type === "mod" && markup) {
     const changes = wordLevelChanges(block.base!.text, block.work!.text);
     const runs: StyleRun[] = [];
     let workOffset = 0;
+
     for (const change of changes) {
       if (change.kind === "removed") {
         runs.push({ text: change.text, role: "del", start: null });
@@ -225,19 +244,23 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
       const segment = literal
         ? [{ text: change.text, role: "plain" as const, start: workOffset }]
         : inlineStyleRuns(change.text, workOffset);
+
       for (const run of segment) {
         runs.push(change.kind === "added" ? { ...run, role: "ins" } : run);
       }
       workOffset += change.text.length;
     }
+
     return runs;
   }
   const text = displayText(block);
+
   // Prose carries inline markup; code fences and rules are literal. Concealed
   // markers are dropped, so every rendered cell still maps to a work offset.
   if (markup && !literal) {
     return inlineStyleRuns(text, 0);
   }
+
   return [{ text, role: "plain", start: 0 }];
 }
 
@@ -248,6 +271,7 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
 export function safeLinkHref(href: string | undefined): string | undefined {
   if (href === undefined) return undefined;
   if (!/^(https?:|mailto:)/i.test(href)) return undefined;
+
   return /^[\x21-\x7e]+$/.test(href) ? href : undefined;
 }
 
@@ -258,6 +282,7 @@ export function safeLinkHref(href: string | undefined): string | undefined {
  */
 export function inlineStyleRuns(text: string, base: number): StyleRun[] {
   const runs: StyleRun[] = [];
+
   for (const run of inlineRuns(text)) {
     if (run.role === "marker" || run.start === null) continue;
     runs.push({
@@ -267,6 +292,7 @@ export function inlineStyleRuns(text: string, base: number): StyleRun[] {
       ...(run.href !== undefined ? { href: run.href } : {}),
     });
   }
+
   return runs;
 }
 
@@ -274,15 +300,18 @@ export function inlineStyleRuns(text: string, base: number): StyleRun[] {
 export function overlayMarks(runs: StyleRun[], marks: Mark[]): StyleRun[] {
   if (!marks.length) return runs;
   const splitRuns: StyleRun[] = [];
+
   for (const run of runs) {
     if (run.start === null) {
       splitRuns.push(run);
       continue;
     }
     const bounds = new Set<number>([0, run.text.length]);
+
     for (const mark of marks) {
       const boundStart = Math.max(0, mark.start - run.start);
       const boundEnd = Math.min(run.text.length, mark.end - run.start);
+
       if (boundStart < boundEnd) {
         bounds.add(boundStart);
         bounds.add(boundEnd);
@@ -290,14 +319,17 @@ export function overlayMarks(runs: StyleRun[], marks: Mark[]): StyleRun[] {
     }
     const runStart = run.start;
     const boundaries = [...bounds].sort((left, right) => left - right);
+
     for (let boundaryIndex = 0; boundaryIndex < boundaries.length - 1; boundaryIndex++) {
       const sliceStart = boundaries[boundaryIndex]!;
       const sliceEnd = boundaries[boundaryIndex + 1]!;
+
       if (sliceStart >= sliceEnd) continue;
       const absoluteStart = runStart + sliceStart;
       const mark = marks.find(
         (candidate) => candidate.start <= absoluteStart && runStart + sliceEnd <= candidate.end,
       );
+
       splitRuns.push({
         text: run.text.slice(sliceStart, sliceEnd),
         // a mark never overrides ins/del emphasis; it rides on plain text
@@ -307,6 +339,7 @@ export function overlayMarks(runs: StyleRun[], marks: Mark[]): StyleRun[] {
       });
     }
   }
+
   return splitRuns;
 }
 
@@ -319,12 +352,14 @@ export function overlayMarks(runs: StyleRun[], marks: Mark[]): StyleRun[] {
  */
 export function renderedOffsetFor(runs: StyleRun[], workOffset: number): number | null {
   let rendered = 0;
+
   for (const run of runs) {
     if (run.start !== null && workOffset >= run.start && workOffset < run.start + run.text.length) {
       return rendered + (workOffset - run.start);
     }
     rendered += run.text.length;
   }
+
   return null;
 }
 
@@ -336,12 +371,14 @@ export function renderedOffsetFor(runs: StyleRun[], workOffset: number): number 
  */
 export function renderedOffsetAtOrAfter(runs: StyleRun[], workOffset: number): number | null {
   let rendered = 0;
+
   for (const run of runs) {
     if (run.start !== null && run.start + run.text.length > workOffset) {
       return rendered + Math.max(0, workOffset - run.start);
     }
     rendered += run.text.length;
   }
+
   return null;
 }
 
@@ -352,12 +389,14 @@ export function renderedOffsetAtOrAfter(runs: StyleRun[], workOffset: number): n
 export function renderedOffsetAtOrBefore(runs: StyleRun[], workOffset: number): number | null {
   let rendered = 0;
   let best: number | null = null;
+
   for (const run of runs) {
     if (run.start !== null && run.start <= workOffset) {
       best = rendered + Math.min(workOffset - run.start, run.text.length - 1);
     }
     rendered += run.text.length;
   }
+
   return best;
 }
 
@@ -373,22 +412,27 @@ export function workRangeForRendered(
 ): { start: number; end: number } | null {
   let rendered = 0;
   let range: { start: number; end: number } | null = null;
+
   for (const run of runs) {
     const runRenderedStart = rendered;
     const runRenderedEnd = rendered + run.text.length;
+
     rendered = runRenderedEnd;
     if (run.start === null) continue;
     const overlapStart = Math.max(renderedStart, runRenderedStart);
     const overlapEnd = Math.min(renderedEnd, runRenderedEnd);
+
     if (overlapEnd <= overlapStart) continue;
     const workStart = run.start + (overlapStart - runRenderedStart);
     const workEnd = run.start + (overlapEnd - runRenderedStart);
+
     if (!range) range = { start: workStart, end: workEnd };
     else {
       range.start = Math.min(range.start, workStart);
       range.end = Math.max(range.end, workEnd);
     }
   }
+
   return range;
 }
 
@@ -400,10 +444,12 @@ export function revisionDelta(
   const ops = lcsDiff(previousContent.split("\n"), nextContent.split("\n"));
   let added = 0;
   let removed = 0;
+
   for (const op of ops) {
     if (op.kind === "add") added++;
     else if (op.kind === "del") removed++;
   }
+
   return { added, removed };
 }
 
@@ -421,14 +467,18 @@ export function wordRanges(text: string): [number, number][] {
   const ranges: [number, number][] = [];
   const wordPattern = /\S+/g;
   let match: RegExpExecArray | null;
+
   while ((match = wordPattern.exec(text)))
     ranges.push([match.index, match.index + match[0]!.length]);
+
   return ranges;
 }
 
 export function startSpan(displayIndex: number, text: string): SpanState | null {
   const words = wordRanges(text);
+
   if (!words.length) return null;
+
   return { displayIndex, wordIndex: 0, wordEnd: 0, start: words[0]![0], end: words[0]![1] };
 }
 
@@ -445,11 +495,14 @@ export function spanFromRange(
 ): SpanState | null {
   const words = wordRanges(text);
   const wordIndex = words.findIndex((word) => word[1] > start);
+
   if (wordIndex === -1) return null;
   let wordEnd = wordIndex;
+
   for (let index = wordIndex; index < words.length && words[index]![0] < end; index++) {
     wordEnd = index;
   }
+
   return {
     displayIndex,
     wordIndex,
@@ -463,14 +516,17 @@ export function spanKey(span: SpanState, key: string, text: string): SpanState {
   const words = wordRanges(text);
   const nextSpan = { ...span };
   const width = nextSpan.wordEnd - nextSpan.wordIndex;
+
   if (key === "l") nextSpan.wordEnd = Math.min(words.length - 1, nextSpan.wordEnd + 1);
   else if (key === "h") nextSpan.wordEnd = Math.max(nextSpan.wordIndex, nextSpan.wordEnd - 1);
   else if (key === "w") {
     const slidTo = Math.min(words.length - 1 - width, nextSpan.wordIndex + 1);
+
     nextSpan.wordIndex = slidTo;
     nextSpan.wordEnd = slidTo + width;
   } else if (key === "b") {
     const slidTo = Math.max(0, nextSpan.wordIndex - 1);
+
     nextSpan.wordIndex = slidTo;
     nextSpan.wordEnd = slidTo + width;
   } else if (key === "$") nextSpan.wordEnd = words.length - 1;
@@ -480,6 +536,7 @@ export function spanKey(span: SpanState, key: string, text: string): SpanState {
   } else return span;
   nextSpan.start = words[nextSpan.wordIndex]![0];
   nextSpan.end = words[nextSpan.wordEnd]![1];
+
   return nextSpan;
 }
 
@@ -489,7 +546,9 @@ export function spanKey(span: SpanState, key: string, text: string): SpanState {
 export function nextWorkBlock(display: DisplayBlock[], displayIndex: number): Block | undefined {
   for (let candidateIndex = displayIndex + 1; candidateIndex < display.length; candidateIndex++) {
     const workBlock = display[candidateIndex]!.work;
+
     if (workBlock) return workBlock;
   }
+
   return undefined;
 }

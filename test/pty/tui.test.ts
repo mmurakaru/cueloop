@@ -52,6 +52,7 @@ let exit: { exitCode: number } | null = null;
 /** PTY output arrives in chunks; poll a predicate against the buffer with a deadline. */
 async function waitFor(predicate: () => boolean, ms: number, what: string): Promise<void> {
   const deadline = Date.now() + ms;
+
   while (Date.now() < deadline) {
     if (predicate()) return;
     await Bun.sleep(50);
@@ -71,10 +72,12 @@ beforeAll(async () => {
     workspace: { repoRoot: "/repo", branch: "main" },
     artifact: { type: "plan", content: PLAN, meta: { title: "Rollout Plan", planPath: "plan.md" } },
   });
+
   sessionId = session.id;
   // A non-interactive editor that appends a marker, so the e hand-off proves
   // the renderer suspends, spawns on the real tty, and resumes.
   const editorScript = join(home, "pty-editor.sh");
+
   writeFileSync(editorScript, `#!/bin/sh\nprintf '\\n\\nEdited via PTY hand-off.\\n' >> "$1"\n`);
   chmodSync(editorScript, 0o755);
   pty = spawn(process.execPath, ["run", CLI, sessionId], {
@@ -121,6 +124,7 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
         "the plan body",
       );
       const frame = stripAnsi(ptyOutput);
+
       expect(frame).toContain("Rollout Plan");
       expect(frame).toContain("Ship the daemon behind a flag.");
       // the cursor glyph starts on the title block

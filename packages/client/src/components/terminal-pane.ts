@@ -21,8 +21,10 @@ import {
 
 /** One shared VT library load; null when this platform ships no prebuilt dylib. */
 let ghosttyFactory: GhosttyTerminalFactory | null | undefined;
+
 function factory(): GhosttyTerminalFactory | null {
   if (ghosttyFactory === undefined) ghosttyFactory = loadGhosttyTerminals();
+
   return ghosttyFactory;
 }
 
@@ -71,8 +73,10 @@ export class TerminalPaneRenderable extends Renderable {
   /** Start the child + emulator once real layout dimensions are known. */
   private start(cols: number, rows: number): void {
     const terminals = factory();
+
     if (!terminals) return;
     const vt = terminals.create(cols, rows);
+
     if (!vt) return; // no emulator, no visible screen - do not spawn a blind child
     this.vt = vt;
     this.cols = cols;
@@ -107,6 +111,7 @@ export class TerminalPaneRenderable extends Renderable {
     if (width <= 0 || height <= 0) return;
     if (!this.pty) {
       this.start(width, height);
+
       return;
     }
     if (width === this.cols && height === this.rows) return;
@@ -121,11 +126,13 @@ export class TerminalPaneRenderable extends Renderable {
     for (let y = 0; y < this.height; y++) {
       for (let x = 0; x < this.width; x++) {
         const cell = this.vt.readCell(x, y);
+
         // Skip an empty normal-width cell; the buffer already starts blank.
         if (cell && cell.width === 0 && cell.codepoint === 0) continue;
         const char = cell && cell.codepoint ? String.fromCodePoint(cell.codepoint) : " ";
         let fg = cell ? resolveColor(cell.fg, DEFAULT_FG) : DEFAULT_FG;
         let bg = cell ? resolveColor(cell.bg, TRANSPARENT) : TRANSPARENT;
+
         if (cell?.inverse) [fg, bg] = [bg, fg];
         const attributes = cell
           ? createTextAttributes({
@@ -136,15 +143,18 @@ export class TerminalPaneRenderable extends Renderable {
               strikethrough: cell.strikethrough,
             })
           : 0;
+
         buffer.setCell(this.x + x, this.y + y, char, fg, bg, attributes);
       }
     }
     // cursor is active-area coords; equal to viewport at the bottom (the live
     // typing case). It can drift if the child scrolls the viewport back.
     const cursor = this.vt.readCursor();
+
     if (cursor.visible && cursor.x < this.width && cursor.y < this.height) {
       const under = this.vt.readCell(cursor.x, cursor.y);
       const char = under && under.codepoint ? String.fromCodePoint(under.codepoint) : " ";
+
       // a block cursor: paint the cell with fg/bg swapped
       buffer.setCell(this.x + cursor.x, this.y + cursor.y, char, CURSOR_INK, DEFAULT_FG, 0);
     }
@@ -169,10 +179,12 @@ export class TerminalPaneRenderable extends Renderable {
 function resolveColor(color: GhosttyColor, fallback: RGBA): RGBA {
   if (color.kind === "rgb") return RGBA.fromInts(color.r, color.g, color.b, 255);
   if (color.kind === "palette") return RGBA.fromIndex(color.index);
+
   return fallback;
 }
 
 let registered = false;
+
 /** Register `<terminalPane>` with the OpenTUI React reconciler (idempotent). */
 export function registerTerminalPane(): void {
   if (registered) return;

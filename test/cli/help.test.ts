@@ -22,6 +22,7 @@ afterEach(() => {
 for (const argument of ["--help", "help"] as const) {
   test(`\`cueloop ${argument}\` prints the catalogue and exits 0`, async () => {
     const result = await runCli(home, [argument]);
+
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("common commands:");
     expect(result.stdout).toContain("share:");
@@ -41,6 +42,7 @@ for (const argument of ["--help", "help"] as const) {
 
 test("an unknown command prints the catalogue and exits nonzero", async () => {
   const result = await runCli(home, ["frobnicate"]);
+
   expect(result.code).toBe(2);
   expect(result.stdout).toContain("common commands:");
 });

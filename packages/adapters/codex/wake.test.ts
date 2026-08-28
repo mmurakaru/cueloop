@@ -19,6 +19,7 @@ beforeAll(() => {
 afterAll(async () => {
   try {
     const daemonClient = await DaemonClient.connect({ home });
+
     await daemonClient.shutdown();
     daemonClient.close();
   } catch {
@@ -33,6 +34,7 @@ afterEach(() => {
 function writeFakeCodex(fail = false): string {
   tempDir = mkdtempSync(join(tmpdir(), "codex-wake-fake-"));
   const codexPath = join(tempDir, "codex");
+
   writeFileSync(
     codexPath,
     [
@@ -43,6 +45,7 @@ function writeFakeCodex(fail = false): string {
     ].join("\n"),
   );
   chmodSync(codexPath, 0o755);
+
   return codexPath;
 }
 
@@ -57,12 +60,14 @@ describe("runCodexWake", () => {
     // Act
     await client.sessionResolve(review.id, "request_changes", "Stage it.");
     const delivered = await waiting;
+
     client.close();
 
     // Assert
     expect(delivered).toBe(true);
     expect(readFileSync(join(tempDir, "thread.txt"), "utf8")).toBe("thr_9");
     const message = readFileSync(join(tempDir, "msg.txt"), "utf8");
+
     expect(message).toContain("returned changes");
     expect(message).toContain("# Review: request changes");
     expect(message).toContain("Stage it.");

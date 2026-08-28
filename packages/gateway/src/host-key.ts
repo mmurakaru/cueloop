@@ -12,6 +12,7 @@ import { utils } from "ssh2";
 export function generateEd25519Key(): string {
   for (let attempt = 0; attempt < 5; attempt++) {
     const key = utils.generateKeyPairSync("ed25519").private;
+
     if (!(utils.parseKey(key) instanceof Error)) return key;
   }
   throw new Error("ssh2 could not generate a parseable ed25519 key");
@@ -22,6 +23,8 @@ export function loadOrCreateHostKey(path: string): string {
   if (existsSync(path)) return readFileSync(path, "utf8");
   mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const key = generateEd25519Key();
+
   writeFileSync(path, key, { mode: 0o600 });
+
   return key;
 }

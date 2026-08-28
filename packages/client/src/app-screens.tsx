@@ -66,6 +66,7 @@ export function MenuChrome(props: {
     onCategorySelect,
     cycleSetting,
   } = props;
+
   return (
     <>
       <MenuBar
@@ -114,6 +115,7 @@ export function InboxScreen(props: {
 }): React.ReactNode {
   const { inbox, inboxCursor, mode, theme, controller, setMode, menuChrome } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
+
   return (
     <ThemeProvider theme={theme}>
       <box
@@ -176,6 +178,7 @@ export function CompletionScreen(props: {
   status: string;
 }): React.ReactNode {
   const { theme, session, verdict, completion, status } = props;
+
   return (
     <ThemeProvider theme={theme}>
       <CompletionOverlay
@@ -218,6 +221,7 @@ export function TrailingOverlays(props: {
     setMode,
     dispatch,
   } = props;
+
   return (
     <>
       {walking && walk !== null ? (

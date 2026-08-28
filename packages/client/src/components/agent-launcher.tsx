@@ -81,6 +81,7 @@ export function AgentLauncher({
 
   const launch = (harness: HarnessLauncher): void => {
     const seed = seedContext ? planHandoffBriefing(session.id) : undefined;
+
     if (embeddedTerminalAvailable()) setRunning({ harness, seed });
     else onLaunchHarness(harness.command, seed);
   };
@@ -94,6 +95,7 @@ export function AgentLauncher({
   useEffect(() => {
     if (!running) return onAgentTerminal?.(null);
     onAgentTerminal?.({ write: (data) => paneRef.current?.write(data), detach });
+
     return () => onAgentTerminal?.(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running]);

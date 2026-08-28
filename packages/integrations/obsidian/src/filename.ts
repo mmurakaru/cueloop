@@ -18,12 +18,14 @@ const FORBIDDEN = /[<>:"/\\|?*(){}[\]#~`]/g;
 export function sanitizeTitle(raw: string): string {
   const clean = raw.replace(FORBIDDEN, "").replace(/\s+/g, " ").trim();
   const capped = clean.slice(0, 50).trim();
+
   return capped || "untitled";
 }
 
 /** Title = first H1 of the content, else the fallback, sanitized. */
 export function titleFrom(content: string, fallback?: string): string {
   const h1 = content.match(/^#[ \t]+(.+)$/m)?.[1];
+
   return sanitizeTitle(h1 ?? fallback ?? "untitled");
 }
 
@@ -43,14 +45,17 @@ export function formatFilename(
     .replaceAll("{MM}", pad(date.getMonth() + 1))
     .replaceAll("{DD}", pad(date.getDate()))
     .replaceAll("{title}", title);
+
   return name.replace(/\s+/g, SEPARATOR_CHAR[separator]);
 }
 
 /** First free path for base.md in dir: base.md, base 2.md, base 3.md, ... */
 export function uniquePath(dir: string, base: string): string {
   let candidate = join(dir, `${base}.md`);
+
   for (let n = 2; existsSync(candidate); n++) {
     candidate = join(dir, `${base} ${n}.md`);
   }
+
   return candidate;
 }

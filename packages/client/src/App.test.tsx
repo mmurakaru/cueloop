@@ -59,8 +59,10 @@ async function renderApp(sessionId?: string) {
     width: 120,
     height: 32,
   });
+
   // the async daemon connect + first fetch land within the frame wait
   await waitForText(setup, "cueloop");
+
   return setup;
 }
 
@@ -71,6 +73,7 @@ describe("plan rendering", () => {
 
     // Assert
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("Migration Plan");
     expect(frame).toContain("Context");
     expect(frame).toContain("persists sessions to disk atomically");
@@ -93,6 +96,7 @@ describe("keyboard grammar", () => {
     // Assert
     const lines = setup.captureCharFrame().split("\n");
     const cursorLine = lines.find((line) => line.includes("▎"))!;
+
     expect(cursorLine).toContain("persists sessions");
   });
 
@@ -116,6 +120,7 @@ describe("keyboard grammar", () => {
     // Assert
     await waitForText(setup, "COMMENT");
     const stored = server.core.sessionGet(session.id);
+
     expect(stored.annotations.length).toBe(1);
     expect(stored.annotations[0]!.body).toBe("Define atomically.");
   });
@@ -136,12 +141,14 @@ describe("keyboard grammar", () => {
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
+
     expect(stored.annotations[0]!.anchor.quote).toBe("The daemon");
   });
 
   test("x cuts a block into the working copy; x restores it", async () => {
     // Arrange
     const setup = await renderApp();
+
     // move to "- move the store" (h1, h2, p, h2 = 4 steps in)
     for (let i = 0; i < 4; i++) await press(setup, "j");
 
@@ -161,6 +168,7 @@ describe("keyboard grammar", () => {
 
   test("e runs $EDITOR on the working copy and tracks the diff", async () => {
     const script = join(home, "fake-editor.sh");
+
     await Bun.write(script, `#!/bin/sh\nsed -i '' 's/atomically/very atomically/' "$1"\n`);
     Bun.spawnSync(["chmod", "+x", script]);
     process.env.CUELOOP_EDITOR = script;
@@ -184,6 +192,7 @@ describe("submit", () => {
   test("⏎ opens the rail confirm card; verdict + summary resolve the session", async () => {
     // Arrange
     const setup = await renderApp();
+
     await press(setup, "j");
     await press(setup, "j");
     await press(setup, "c");
@@ -204,6 +213,7 @@ describe("submit", () => {
     // Assert
     await waitForText(setup, "feedback sent");
     const stored = server.core.sessionGet(session.id);
+
     expect(stored.status).toBe("resolved");
     expect(stored.verdict!.kind).toBe("request_changes");
     expect(stored.verdict!.feedback).toContain("Needs a phase list.");
@@ -234,10 +244,12 @@ describe("inbox", () => {
   test("inbox mode wears the review chrome (header + menu bar) and opens a session", async () => {
     // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+
     await waitForText(setup, "cueloop");
 
     // Assert - the same header/menu chrome as review, plus the session row
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("cueloop · resume");
     expect(frame).toContain("Migration Plan");
     expect(frame).toContain("menu"); // the shared MenuBar sits at the bottom
@@ -253,6 +265,7 @@ describe("inbox", () => {
   test("the menu opens from the inbox and escape is not a trap", async () => {
     // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+
     await waitForText(setup, "cueloop · resume");
     const lines = setup.captureCharFrame().split("\n");
     const menuRow = lines.findIndex((line) => line.includes("menu"));

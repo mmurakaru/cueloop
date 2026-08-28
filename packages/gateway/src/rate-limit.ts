@@ -21,11 +21,14 @@ export class TokenBucket {
       this.capacity,
       bucket.tokens + ((at - bucket.updatedAt) / 1000) * this.refillPerSecond,
     );
+
     if (refilled < 1) {
       this.buckets.set(key, { tokens: refilled, updatedAt: at });
+
       return false;
     }
     this.buckets.set(key, { tokens: refilled - 1, updatedAt: at });
+
     return true;
   }
 }

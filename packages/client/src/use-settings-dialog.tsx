@@ -57,6 +57,7 @@ function moveNavZone(
     return { categoryId: categories[Math.max(0, categoryIndex - 1)]!.id, rowIndex: 0, zone: "nav" };
   if (ENTER_BODY_KEYS.has(name))
     return { categoryId: categories[categoryIndex]!.id, rowIndex: 0, zone: "body" };
+
   return null;
 }
 
@@ -64,6 +65,7 @@ function moveBodyRow(name: string, nav: SettingsNav, rowCount: number): Settings
   if (DOWN_KEYS.has(name)) return { ...nav, rowIndex: Math.min(rowCount - 1, nav.rowIndex + 1) };
   if (UP_KEYS.has(name)) return { ...nav, rowIndex: Math.max(0, nav.rowIndex - 1) };
   if (name === "h" || name === "tab") return { ...nav, zone: "nav" };
+
   return null;
 }
 
@@ -198,15 +200,18 @@ export function useSettingsDialog(params: {
   const cycleSetting = (rowKey: string): void => {
     if (rowKey === "autoClose") {
       const next: AutoClose = autoClose === "off" ? 3 : autoClose === 3 ? 10 : "off";
+
       setAutoClose(next);
       persistAutoClose(next);
     } else if (rowKey === "reviewPanel") {
       const order: ReviewPanelMode[] = ["expanded", "compact", "hidden"];
       const next = order[(order.indexOf(reviewMode) + 1) % order.length]!;
+
       setReviewMode(next);
       controller.saveReviewPanel({ mode: next });
     } else if (rowKey === "theme") {
       const next = THEME_NAMES[(THEME_NAMES.indexOf(themeName) + 1) % THEME_NAMES.length]!;
+
       setThemeName(next);
       setTheme(composeTheme(next, themeOverrides, appearance));
       persistTheme(next);
@@ -222,6 +227,7 @@ export function useSettingsDialog(params: {
     // an open system-prompt input owns typing; only esc (close it) escapes here
     if (actionsExpandedIndex !== null) {
       if (name === "escape") setActionsExpandedIndex(null);
+
       return;
     }
     if (name === "escape") return void setMenuDialog(null);
@@ -229,22 +235,28 @@ export function useSettingsDialog(params: {
       (category) => category.id === settingsNav.categoryId,
     );
     const category = settingsCategories[categoryIndex]!;
+
     if (settingsNav.zone === "nav") {
       const next = moveNavZone(name, categoryIndex, settingsCategories);
+
       if (next) setSettingsNav(next);
+
       return;
     }
     // the Actions category is a list of quick actions plus a trailing "add" row
     if (category.id === "actions") {
       const moved = moveBodyRow(name, settingsNav, quickActions.length + 1);
+
       if (moved) return void setSettingsNav(moved);
       if (ACTIVATE_KEYS.has(name)) {
         if (settingsNav.rowIndex === quickActions.length) addAction();
         else setActionsExpandedIndex(settingsNav.rowIndex);
       }
+
       return;
     }
     const moved = moveBodyRow(name, settingsNav, category.rows.length);
+
     if (moved) return void setSettingsNav(moved);
     if (name === "return" || name === "space")
       cycleSetting(category.rows[settingsNav.rowIndex]!.key);

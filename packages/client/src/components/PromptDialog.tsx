@@ -37,12 +37,14 @@ export function PromptDialog({
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth } = useTerminalDimensions();
   const inputRef = useRef<TextareaRenderable | null>(null);
+
   useEffect(() => {
     // open with the caret after the seeded value, like a text field
     if (inputRef.current) inputRef.current.cursorOffset = value.length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (!isOpen) return null;
+
   return (
     <Dialog isOpen title={title} width={Math.min(54, terminalWidth - 6)} height={7} theme={theme}>
       <box

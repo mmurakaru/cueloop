@@ -76,6 +76,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
   ): Promise<void> {
     try {
       const verdict = await awaitResolve(client, sessionId, { pollMs, signal: controller.signal });
+
       // A verdict can win the race with a shutdown abort; recheck before injecting
       // so a follow-up never lands in a pi session that has already torn down.
       if (verdict === null || controller.signal.aborted) return;
@@ -120,6 +121,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
         };
       }
       const client = await DaemonClient.connect({ home: options.home, autostart: true });
+
       try {
         const review = await openReview(client, {
           type: "plan",
@@ -128,14 +130,17 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
           agent: "pi",
           title: params.title,
         });
+
         lastSessionId = review.id;
         const controller = new AbortController();
+
         pendingWaiters.set(review.id, controller);
         // A host abort of this (already-returned) call still tears the waiter down,
         // releasing the write gate and connection instead of leaking a live wait.
         signal?.addEventListener("abort", () => controller.abort(), { once: true });
         // Hand the connection to the waiter; it closes the client when done.
         void wakeOnResolve(pi, client, review.id, controller);
+
         return {
           content: text(
             `cueloop review opened (session ${review.id}). Keep working; I will deliver the ` +
@@ -145,6 +150,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
         };
       } catch (error) {
         client.close();
+
         return {
           content: text(`cueloop could not open the review: ${errorMessage(error)}`),
           details: { status: "cancelled", annotationCount: 0 },
@@ -164,6 +170,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       if (pendingWaiters.size === 0) return undefined;
       if (event.toolName === REVIEW_TOOL || READ_ONLY_TOOLS.has(event.toolName)) return undefined;
       const ids = [...pendingWaiters.keys()].join(", ");
+
       return {
         block: true,
         reason: `cueloop review pending (session ${ids}) - wait for the verdict before writing`,
@@ -179,23 +186,28 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       handler: async (_args, context) => {
         const notify = (message: string) => context.ui?.notify?.(message, "info");
         let client: DaemonClient;
+
         try {
           client = await DaemonClient.connect({ home: options.home });
         } catch {
           notify("cueloop daemon is not running - no active reviews");
+
           return;
         }
         try {
           if (lastSessionId === undefined) {
             const pending = await client.sessionList({ status: "pending" });
+
             notify(
               pending.length > 0
                 ? `no review opened from this session; ${pending.length} cueloop session(s) pending overall`
                 : "no cueloop review sessions",
             );
+
             return;
           }
           const session = await client.sessionGet(lastSessionId);
+
           notify(
             session.status === "pending"
               ? `cueloop review ${session.id} pending - ${session.annotations.length} annotation(s)`

@@ -31,13 +31,16 @@ export async function runWakeWaiter(
   options: WakeWaiterOptions = {},
 ): Promise<boolean> {
   const client = await DaemonClient.connect({ home: options.home, autostart: true });
+
   try {
     const verdict = await awaitResolve(client, sessionId, {
       pollMs: options.pollMs,
       signal: options.signal,
     });
+
     if (verdict === null) return false;
     await inject(verdict);
+
     return true;
   } finally {
     client.close();

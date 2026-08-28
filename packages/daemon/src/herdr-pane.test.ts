@@ -20,6 +20,7 @@ function makeStub(name: string, paneAlive = false): { binPath: string; logPath: 
   const logPath = join(dir, `${name}.log`);
   const binPath = join(dir, `${name}.sh`);
   const paneGet = paneAlive ? `printf '{"result":{"pane":{"pane_id":"w1:p2"}}}'` : "exit 1";
+
   writeFileSync(
     binPath,
     `#!/bin/sh
@@ -32,11 +33,13 @@ exit 0
 `,
   );
   chmodSync(binPath, 0o755);
+
   return { binPath, logPath };
 }
 
 function readLines(logPath: string): string[] {
   if (!existsSync(logPath)) return [];
+
   return readFileSync(logPath, "utf8").split("\n").filter(Boolean);
 }
 
@@ -46,6 +49,7 @@ function fakePersistence(initial: HerdrTabHandle | null = null): {
   saved: () => HerdrTabHandle | null;
 } {
   let stored = initial;
+
   return {
     persistence: {
       herdrGetTab: async () => stored,
@@ -109,6 +113,7 @@ describe("openHerdrPane", () => {
     // Arrange
     const logPath = join(dir, "nopane.log");
     const binPath = join(dir, "nopane.sh");
+
     writeFileSync(
       binPath,
       `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nprintf '{"result":{}}'\n`,
@@ -170,6 +175,7 @@ describe("openHerdrPaneForReview", () => {
 
     // Assert
     const lines = readLines(stub.logPath);
+
     expect(lines).toContain("pane get w9:p9");
     expect(lines).toContain("tab focus w9:t9");
     expect(lines.some((line) => line.startsWith("tab create"))).toBeFalse();
@@ -225,6 +231,7 @@ describe("openHerdrPaneForReview", () => {
 
     // Assert
     const lines = readLines(stub.logPath);
+
     expect(lines).toContain("pane get old:p");
     expect(lines).toContain("tab create --cwd /repo/work --label Rollout Plan --focus");
     expect(store.saved()).toEqual({ tabId: "w1:t2", paneId: "w1:p2" });

@@ -44,7 +44,9 @@ const PUNCTUATION = new Set(["*", "_", "`", "~", "[", "]", "(", ")", "\\"]);
 /** Tokenize one block's text into visible + concealed-marker runs, in order. */
 export function inlineRuns(text: string): InlineRun[] {
   const runs: InlineRun[] = [];
+
   tokenize(text, 0, "text", runs);
+
   return runs;
 }
 
@@ -76,6 +78,7 @@ function tokenize(source: string, base: number, role: InlineRole, out: InlineRun
     }
 
     const link = matchLink(source, cursor);
+
     if (link) {
       flushPlain(cursor);
       out.push({ text: source.slice(cursor, link.labelStart), role: "marker", start: null });
@@ -92,6 +95,7 @@ function tokenize(source: string, base: number, role: InlineRole, out: InlineRun
     }
 
     const code = matchCode(source, cursor);
+
     if (code) {
       flushPlain(cursor);
       out.push({ text: source.slice(cursor, code.contentStart), role: "marker", start: null });
@@ -107,6 +111,7 @@ function tokenize(source: string, base: number, role: InlineRole, out: InlineRun
     }
 
     const span = matchEmphasis(source, cursor);
+
     if (span) {
       flushPlain(cursor);
       out.push({
@@ -115,6 +120,7 @@ function tokenize(source: string, base: number, role: InlineRole, out: InlineRun
         start: null,
       });
       const contentStart = cursor + span.openLength;
+
       tokenize(source.slice(contentStart, span.closeIndex), base + contentStart, span.role, out);
       out.push({
         text: source.slice(span.closeIndex, span.closeIndex + span.closeLength),
@@ -145,14 +151,17 @@ function matchLink(
   if (text[index] !== "[") return null;
   const labelStart = index + 1;
   const labelEnd = text.indexOf("]", labelStart);
+
   if (labelEnd < 0 || labelEnd === labelStart) return null;
   if (text[labelEnd + 1] !== "(") return null;
   const hrefStart = labelEnd + 2;
   // the destination may carry balanced parentheses (wiki URLs); the span ends
   // at the first unmatched closer
   let depth = 0;
+
   for (let scan = hrefStart; scan < text.length; scan++) {
     const character = text[scan];
+
     if (character === "(") depth++;
     else if (character === ")") {
       if (depth > 0) {
@@ -160,9 +169,11 @@ function matchLink(
         continue;
       }
       if (scan === hrefStart) return null;
+
       return { labelStart, labelEnd, hrefStart, hrefEnd: scan, end: scan + 1 };
     }
   }
+
   return null;
 }
 
@@ -173,20 +184,25 @@ function matchCode(
 ): { contentStart: number; contentEnd: number; end: number } | null {
   if (text[index] !== "`") return null;
   let fence = 0;
+
   while (text[index + fence] === "`") fence++;
   const contentStart = index + fence;
   const closer = "`".repeat(fence);
   const contentEnd = text.indexOf(closer, contentStart);
+
   if (contentEnd < 0 || contentEnd === contentStart) return null;
+
   return { contentStart, contentEnd, end: contentEnd + fence };
 }
 
 /** A `**strong**`, `*em*`, or `~~strike~~` span at `index`, or null. */
 function matchEmphasis(text: string, index: number): Span | null {
   const two = text.slice(index, index + 2);
+
   if (two === "**") return closingSpan(text, index, 2, "strong");
   if (two === "~~") return closingSpan(text, index, 2, "strike");
   if (text[index] === "*") return closingSpan(text, index, 1, "em");
+
   return null;
 }
 
@@ -201,13 +217,16 @@ function closingSpan(
   const contentStart = index + length;
   const closeIndex =
     length === 1 ? findLoneStar(text, contentStart) : text.indexOf(marker, contentStart);
+
   if (closeIndex < 0 || closeIndex === contentStart) return null; // unbalanced or empty
+
   return { openLength: length, closeLength: length, closeIndex, role };
 }
 
 /** Index of the next standalone `*` (not part of a `**` run), or -1. */
 function findLoneStar(text: string, from: number): number {
   let index = from;
+
   while (index < text.length) {
     if (text[index] === "*") {
       if (text[index + 1] !== "*") return index;
@@ -216,5 +235,6 @@ function findLoneStar(text: string, from: number): number {
     }
     index++;
   }
+
   return -1;
 }

@@ -8,7 +8,9 @@ function bindings(
   context: { overlay?: "none" | "walk" | "compose" | "submit"; spanMode?: boolean } = {},
 ): KeyBindings {
   const resolver = new KeyBindings(DEFAULT_KEYS);
+
   resolver.setContext({ overlay: context.overlay ?? "none", spanMode: context.spanMode ?? false });
+
   return resolver;
 }
 
@@ -32,6 +34,7 @@ describe("grammar-layer resolution", () => {
     ["q", false, "quit"],
     ["z", false, undefined],
   ];
+
   for (const [name, shift, action] of table) {
     test(`${shift ? "shift+" : ""}${name} -> ${action}`, () => {
       expect(bindings().resolveAction({ name, shift })).toBe(action!);
@@ -142,6 +145,7 @@ describe("getActiveKeys-generated status hints", () => {
   test("a rebound key shows its real binding in the hint", () => {
     // Arrange
     const resolver = new KeyBindings({ ...DEFAULT_KEYS, comment: ["m"] });
+
     resolver.setContext({ overlay: "none", spanMode: false });
 
     // Assert

@@ -175,14 +175,17 @@ export function parseParams<M extends MethodName>(
   params: unknown,
 ): v.InferOutput<(typeof Params)[M]> {
   const result = v.safeParse(Params[method], params ?? {});
+
   if (!result.success) {
     const issue = result.issues[0]!;
     const path = issue.path?.map((pathSegment) => String(pathSegment.key)).join(".") ?? "";
+
     throw new DaemonError(
       "invalid_params",
       `${method}: ${path ? path + " - " : ""}${issue.message}`,
     );
   }
+
   return result.output;
 }
 
@@ -221,8 +224,10 @@ export function validateSessionRecord(
   raw: unknown,
 ): { ok: true; value: v.InferOutput<typeof SessionRecordSchema> } | { ok: false; error: string } {
   const result = v.safeParse(SessionRecordSchema, raw);
+
   if (result.success) return { ok: true, value: result.output };
   const issue = result.issues[0]!;
   const path = issue.path?.map((pathSegment) => String(pathSegment.key)).join(".") ?? "";
+
   return { ok: false, error: `${path ? path + ": " : ""}${issue.message}` };
 }

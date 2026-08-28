@@ -50,6 +50,7 @@ export interface ServeHandle {
 export async function serveClient(options: ServeOptions = {}): Promise<ServeHandle> {
   const home = options.home ?? cueloopHome();
   const sshDir = join(home, "ssh");
+
   mkdirSync(sshDir, { recursive: true, mode: 0o700 });
 
   const server = createServer({
@@ -65,6 +66,7 @@ export async function serveClient(options: ServeOptions = {}): Promise<ServeHand
     const appearance =
       (await session.renderer.waitForThemeMode(THEME_QUERY_TIMEOUT_MS).catch(() => null)) ?? "dark";
     const root = createRoot(session.renderer);
+
     root.render(
       React.createElement(App, {
         home,
@@ -79,5 +81,6 @@ export async function serveClient(options: ServeOptions = {}): Promise<ServeHand
   });
 
   const info = await server.listen(options.port ?? 2222, options.host ?? "127.0.0.1");
+
   return { ...info, close: () => server.close() };
 }

@@ -18,6 +18,7 @@ function prefersDark(): boolean {
 
 function resolve(pref: Pref): "light" | "dark" {
   if (pref === "system") return prefersDark() ? "dark" : "light";
+
   return pref;
 }
 
@@ -76,6 +77,7 @@ export default function ThemeToggle() {
   useEffect(() => {
     const stored =
       typeof localStorage !== "undefined" ? localStorage.getItem("cueloop-theme") : null;
+
     // oxlint-disable-next-line react/set-state-in-effect -- localStorage is unavailable during SSR, so read the stored pref after hydration
     setPref(isPref(stored) ? stored : "system");
   }, []);
@@ -87,7 +89,9 @@ export default function ThemeToggle() {
     const onChange = () => {
       document.documentElement.dataset.theme = query.matches ? "dark" : "light";
     };
+
     query.addEventListener("change", onChange);
+
     return () => query.removeEventListener("change", onChange);
   }, [pref]);
 

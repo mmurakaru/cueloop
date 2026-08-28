@@ -24,8 +24,10 @@ export const WALK_PREVIEW_ROWS = 5;
 export function walkFiles(rows: DiffRow[]): WalkFile[] {
   const files: WalkFile[] = [];
   const byPath = new Map<string, WalkFile>();
+
   for (const row of rows) {
     let file = byPath.get(row.file);
+
     if (!file) {
       file = { path: row.file, added: 0, removed: 0, preview: [] };
       byPath.set(row.file, file);
@@ -41,6 +43,7 @@ export function walkFiles(rows: DiffRow[]): WalkFile[] {
       });
     }
   }
+
   return files;
 }
 
@@ -51,6 +54,7 @@ export function walkFiles(rows: DiffRow[]): WalkFile[] {
  */
 export function firstUnviewedIndex(files: WalkFile[], viewedPaths: ReadonlySet<string>): number {
   const index = files.findIndex((file) => !viewedPaths.has(file.path));
+
   return index === -1 ? files.length : index;
 }
 

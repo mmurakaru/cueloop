@@ -69,14 +69,17 @@ function cellHeightOverWidth(renderer: {
   terminalHeight: number;
 }): number {
   const resolution = renderer.resolution;
+
   if (!resolution || renderer.terminalWidth < 1 || renderer.terminalHeight < 1) {
     return FALLBACK_CELL_HEIGHT_OVER_WIDTH;
   }
+
   return resolution.height / renderer.terminalHeight / (resolution.width / renderer.terminalWidth);
 }
 
 function regionOf(box: BoxRenderable | null): CellRegion | null {
   if (!box || box.width < 1 || box.height < 1) return null;
+
   return { column: box.x, row: box.y, columns: box.width, rows: box.height };
 }
 
@@ -97,9 +100,11 @@ function captureConfig(
   renderer: CaptureRenderer,
 ): { viewport: PrototypeViewport; deviceScaleFactor: number } {
   const resolution = renderer.resolution;
+
   if (resolution && renderer.terminalWidth >= 1 && renderer.terminalHeight >= 1) {
     const cellWidth = resolution.width / renderer.terminalWidth;
     const cellHeight = resolution.height / renderer.terminalHeight;
+
     return {
       viewport: {
         width: Math.max(1, Math.round(region.columns * cellWidth)),
@@ -108,6 +113,7 @@ function captureConfig(
       deviceScaleFactor: 1,
     };
   }
+
   return {
     viewport: {
       width: CAPTURE_WIDTH,
@@ -139,6 +145,7 @@ function PrototypeSheetImpl({
   const paintRef = useRef<() => void>(() => undefined);
   const launchRef = useRef<() => void>(() => undefined);
   const hiddenRef = useRef(hidden);
+
   useEffect(() => {
     hiddenRef.current = hidden;
   });
@@ -182,10 +189,12 @@ function PrototypeSheetImpl({
           deleteKittyImage(write, PROTOTYPE_IMAGE_ID);
           transmittedRef.current = null;
         }
+
         return;
       }
       const region = regionOf(regionRef.current);
       const png = pngRef.current;
+
       if (!region || !png) return;
       if (transmittedRef.current !== png) {
         transmitKittyImage(write, png, region, PROTOTYPE_IMAGE_ID, medium);
@@ -194,12 +203,15 @@ function PrototypeSheetImpl({
         placeKittyImage(write, region, PROTOTYPE_IMAGE_ID);
       }
     };
+
     paintRef.current = paint;
     const onFrame = (): void => {
       launchRef.current();
       paint();
     };
+
     renderer.on("frame", onFrame);
+
     return () => {
       renderer.off("frame", onFrame);
       if (write) deleteKittyImage(write, PROTOTYPE_IMAGE_ID);
@@ -211,6 +223,7 @@ function PrototypeSheetImpl({
   }, [composing, onComposingChange]);
 
   const unmountedRef = useRef(false);
+
   useEffect(() => {
     return () => {
       unmountedRef.current = true;
@@ -221,13 +234,16 @@ function PrototypeSheetImpl({
   const launch = (): void => {
     const region = regionOf(regionRef.current);
     const caps = renderer?.capabilities;
+
     if (launchedRef.current || !region) return;
     if (caps && caps.kitty_graphics === false) {
       setStatus("unsupported");
+
       return;
     }
     launchedRef.current = true;
     const capture = captureConfig(region, renderer!);
+
     viewportRef.current = capture.viewport;
     void (async () => {
       try {
@@ -236,10 +252,12 @@ function PrototypeSheetImpl({
           viewport: capture.viewport,
           deviceScaleFactor: capture.deviceScaleFactor,
         });
+
         // the sheet may have unmounted while Chromium was launching; close the
         // late arrival instead of leaking the process
         if (unmountedRef.current) {
           void browser.close();
+
           return;
         }
         browserRef.current = browser;
@@ -251,12 +269,14 @@ function PrototypeSheetImpl({
       }
     })();
   };
+
   useEffect(() => {
     launchRef.current = launch;
   });
 
   const refresh = async (): Promise<void> => {
     const browser = browserRef.current;
+
     if (browser) setPng(await browser.screenshot());
   };
 
@@ -278,6 +298,7 @@ function PrototypeSheetImpl({
   const onRegionMouseDown = (event: { x: number; y: number }): void => {
     const browser = browserRef.current;
     const region = regionOf(regionRef.current);
+
     if (status !== "ready" || !browser || !region) return;
     const geometry = {
       x: region.column,
@@ -286,12 +307,15 @@ function PrototypeSheetImpl({
       height: region.rows,
     };
     const cssPoint = imageCellToCss(event, geometry, viewportRef.current);
+
     if (!cssPoint) return;
     void (async () => {
       const element = await browser.elementAt(cssPoint.x, cssPoint.y);
+
       if (!element) return;
       const cell = cssBoxToCell(element.box, geometry, viewportRef.current);
       const topRaw = cell.row - geometry.y;
+
       setSelected(element);
       setOverlayCell({
         left: Math.max(0, cell.column - geometry.x),
@@ -308,8 +332,10 @@ function PrototypeSheetImpl({
 
   const onRegionScroll = (event: { scroll?: { direction: string } }): void => {
     const browser = browserRef.current;
+
     if (status !== "ready" || !browser) return;
     const delta = event.scroll?.direction === "up" ? -SCROLL_STEP : SCROLL_STEP;
+
     // a selection would drift once the page scrolls under it, so drop it
     clearSelection();
     void browser
@@ -419,5 +445,6 @@ function statusLine(status: SheetStatus, errorMessage: string): string {
   if (status === "loading") return "rendering prototype…";
   if (status === "unsupported")
     return "prototype preview needs a graphics terminal (kitty or ghostty)";
+
   return `prototype preview failed: ${errorMessage}`;
 }

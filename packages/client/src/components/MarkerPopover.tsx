@@ -56,6 +56,7 @@ export function MarkerPopover({
     paddingRight: 1,
   };
   const open = view === "actions";
+
   return (
     <box
       style={{ flexDirection: "column", alignItems: "flex-start" }}

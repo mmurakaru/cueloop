@@ -29,12 +29,14 @@ afterEach(() => {
 
 function sh(args: string[], cwd: string): void {
   const gitResult = Bun.spawnSync(args, { cwd, stdout: "ignore", stderr: "ignore" });
+
   if (gitResult.exitCode !== 0) throw new Error(`${args.join(" ")} failed`);
 }
 
 describe("resolveWorkspace", () => {
   test("a git repo resolves to its root and branch", async () => {
     const repo = mkdtempSync(join(tmpdir(), "cueloop-ws-"));
+
     try {
       // Arrange
       sh(["git", "init", "-q", "-b", "main"], repo);
@@ -75,6 +77,7 @@ describe("openReview", () => {
 
     // Assert
     const session = review.session;
+
     expect(session.status).toBe("pending");
     expect(session.artifact.type).toBe("plan");
     expect(session.artifact.meta.agent).toBe("test-agent");
@@ -170,6 +173,7 @@ describe("openReview", () => {
 
     // Assert
     const notes = review.session.annotations;
+
     expect(notes.length).toBe(2);
     expect(notes.every((annotation) => annotation.kind === "note")).toBe(true);
     expect(notes.map((annotation) => annotation.anchor.quote)).toEqual(["src/a.ts", "src/b.ts"]);
@@ -296,6 +300,7 @@ describe("awaitResolve: the adapter wake seam (session id only)", () => {
   test("returns the stored verdict immediately when the session already resolved", async () => {
     // Arrange - a detached waiter that only attaches after the human decided
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
+
     await client.sessionResolve(review.id, "request_changes", "One stage only.");
 
     // Act
@@ -332,8 +337,10 @@ describe("awaitResolve: the held wait keeps the daemon alive", () => {
       idleExitMs: 30,
       onIdleExit: () => idleExits++,
     });
+
     idleServer.start();
     const waiterClient = await DaemonClient.connect({ home: idleHome });
+
     try {
       const review = await openReview(waiterClient, { type: "plan", content: PLAN, cwd: idleHome });
       const waiting = awaitResolve(waiterClient, review.id, { pollMs: 40 });
@@ -347,6 +354,7 @@ describe("awaitResolve: the held wait keeps the daemon alive", () => {
 
       // Act - the human returns a verdict; the parked wait collects it
       const resolver = await DaemonClient.connect({ home: idleHome });
+
       await resolver.sessionResolve(review.id, "approve", "Good to go.");
       resolver.close();
       const verdict = await waiting;

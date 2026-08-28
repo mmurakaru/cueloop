@@ -32,6 +32,7 @@ function session(
   overrides: Partial<ReviewSession> & { type?: ReviewSession["artifact"]["type"] } = {},
 ): ReviewSession {
   const { type, ...rest } = overrides;
+
   return {
     schemaVersion: "1",
     id,
@@ -87,6 +88,7 @@ describe("refineCommand", () => {
     // Arrange
     const home = tempHome();
     const store = new SessionStore(home);
+
     store.upsert(session("ses_a", { verdict: verdict("approve"), status: "resolved" }));
     store.upsert(
       session("ses_b", {
@@ -119,6 +121,7 @@ describe("refineCommand", () => {
     // Arrange
     const home = tempHome();
     const store = new SessionStore(home);
+
     store.upsert(
       session("ses_x", {
         verdict: verdict("approve"),
@@ -148,6 +151,7 @@ describe("refineCommand", () => {
 
     // Assert
     const secondReport = readFileSync(reportPath, "utf8");
+
     expect(secondReport).toContain("1 sessions analyzed (1 total).");
     expect(secondReport).toContain("two");
   });

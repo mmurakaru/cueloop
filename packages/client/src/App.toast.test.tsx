@@ -11,6 +11,7 @@ import type { ReviewSession } from "@cueloop/schema";
 
 // the controller reaches the gateway through "./share"; stub it so `S` yields a toast
 const publishShare = mock(async () => ({ line: "ssh p_share01@cueloop.dev", copied: true }));
+
 mock.module("./share", () => ({
   publishShare,
   pullShare: mock(async () => null),
@@ -56,6 +57,7 @@ describe("share toast", () => {
       width: 120,
       height: 32,
     });
+
     await waitForText(setup, "cueloop");
 
     // Act: share raises the toast, then open a composer under it

@@ -13,8 +13,10 @@ import { parseArgs, stringFlag } from "./args";
 export async function actionsCommand(argv: string[]): Promise<number> {
   const { positional, flags } = parseArgs(argv);
   const verb = positional[0] ?? "list";
+
   if (verb !== "list") {
     console.error("usage: cueloop actions list [--session <id>]");
+
     return 2;
   }
   const role = stringFlag(flags, "role") === "agent" ? "agent" : undefined;
@@ -25,7 +27,9 @@ export async function actionsCommand(argv: string[]): Promise<number> {
     prompt: action.prompt,
     metadata: action.metadata,
   }));
+
   console.log(JSON.stringify(numbered, null, 2));
+
   return 0;
 }
 
@@ -36,6 +40,7 @@ async function repoRootForSession(
 ): Promise<string> {
   if (sessionId === undefined) return process.cwd();
   const client = await DaemonClient.connect({ autostart: true, role });
+
   try {
     return (await client.sessionGet(sessionId)).workspace.repoRoot;
   } finally {

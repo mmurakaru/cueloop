@@ -19,6 +19,7 @@ export async function runClient(options: RunClientOptions): Promise<number> {
   const renderer = await createCliRenderer({ enableMouseMovement: true });
   const appearance =
     (await renderer.waitForThemeMode(THEME_QUERY_TIMEOUT_MS).catch(() => null)) ?? "dark";
+
   return new Promise<number>((resolve) => {
     createRoot(renderer).render(
       React.createElement(App, {

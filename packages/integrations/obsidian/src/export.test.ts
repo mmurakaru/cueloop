@@ -60,6 +60,7 @@ describe("exportSession", () => {
     expect(result.success).toBe(true);
     expect(result.path).toBe(join(vault, "cueloop", "2026-08-07 - Migration Plan.md"));
     const written = readFileSync(result.path!, "utf8");
+
     expect(written).toBe(`${frontmatter(session, NOW)}\n\n# Migration Plan\n\nMove the store.\n`);
     expect(written).toContain("created: 2026-08-07T12:34:56.000Z");
     expect(written).toContain("source: cueloop");
@@ -123,8 +124,10 @@ describe("exportSession", () => {
   test("falls back to the first auto-detected vault", () => {
     // Arrange
     const detected = join(vault, "detected-vault");
+
     mkdirSync(detected);
     const obsidianJson = join(vault, "obsidian.json");
+
     writeFileSync(obsidianJson, JSON.stringify({ vaults: { v1: { path: detected } } }));
 
     // Act
@@ -151,6 +154,7 @@ describe("obsidian extension", () => {
     // Assert
     expect(record.errors).toEqual([]);
     const exporter = record.exporters.get("obsidian");
+
     expect(exporter).toBeDefined();
 
     // Act

@@ -45,6 +45,7 @@ describe("buildDisplay reconciliation", () => {
 
     // Assert
     const mod = display.find((block) => block.type === "mod")!;
+
     expect(mod.base!.text).toContain("persists");
     expect(mod.work!.text).toContain("writes");
   });
@@ -92,6 +93,7 @@ describe("blockRuns + overlayMarks", () => {
       .filter((run) => run.role !== "del")
       .map((run) => run.text)
       .join("");
+
     expect(oldSide).toBe("plain old text here");
     expect(newSide).toBe("plain new text here");
   });
@@ -109,6 +111,7 @@ describe("blockRuns + overlayMarks", () => {
       .filter((run) => run.role === "mark-comment")
       .map((run) => run.text)
       .join("");
+
     expect(markedText).toBe("words");
     // del run text untouched
     expect(marked.some((run) => run.role === "del" && run.text === "old")).toBe(true);
@@ -226,6 +229,7 @@ describe("marksByDisplay", () => {
 
     // Assert
     const [displayIndex, marks] = [...map.entries()][0]!;
+
     expect(displayText(display[displayIndex]!)).toContain("atomically");
     expect(marks[0]!.annotationId).toBe("a1");
   });
@@ -270,6 +274,7 @@ describe("rendered/work offset mapping", () => {
 
     // Assert
     const renderedText = runs.map((run) => run.text).join("");
+
     expect(renderedText.slice(rendered, rendered + "words".length)).toBe("words");
     // reading a rendered selection over "words" recovers the work range
     expect(workRangeForRendered(runs, rendered, rendered + "words".length)).toEqual({
@@ -315,6 +320,7 @@ describe("rendered/work offset mapping", () => {
 
     // Assert
     const renderedText = runs.map((run) => run.text).join("");
+
     expect(renderedText.slice(renderedStart, renderedEnd + 1)).toBe("very");
     // exact hits behave like renderedOffsetFor
     expect(renderedOffsetAtOrAfter(runs, 0)).toBe(0);
@@ -326,6 +332,7 @@ describe("rendered/work offset mapping", () => {
 
 describe("span mode", () => {
   const text = "one two three four";
+
   test("v selects the first word; l grows; w slides; $ to end", () => {
     // Act
     let span = startSpan(0, text)!;

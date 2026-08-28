@@ -33,12 +33,15 @@ async function daemonCommand(): Promise<number> {
   const { DaemonServer } = await import("@cueloop/daemon");
   const server = new DaemonServer({ idleExitMs: 0 });
   const path = server.start();
+
   if (path === null) {
     console.error("a cueloop daemon already owns this home - nothing to do");
+
     return 1;
   }
   console.log(`cueloop daemon (foreground) on ${path}`);
   await new Promise(() => {}); // run until signalled
+
   return 0;
 }
 
@@ -51,6 +54,7 @@ async function serveEntry(rest: string[]): Promise<number> {
     host: stringFlag(flags, "host"),
     sessionId: positional[0],
   });
+
   console.log(
     [
       "",
@@ -63,9 +67,11 @@ async function serveEntry(rest: string[]): Promise<number> {
     ].join("\n"),
   );
   const stop = () => void handle.close().finally(() => process.exit(0));
+
   process.on("SIGINT", stop);
   process.on("SIGTERM", stop);
   await new Promise(() => {}); // serve until signalled
+
   return 0;
 }
 
@@ -77,7 +83,9 @@ async function shareEntry(rest: string[]): Promise<number> {
     host: stringFlag(flags, "host"),
     port: port !== undefined ? Number(port) : undefined,
   };
+
   if (positional[0] === "pull") return sharePullCommand({ ...target, sessionId: positional[1] });
+
   return shareCommand({ ...target, sessionId: positional[0] });
 }
 
@@ -104,17 +112,21 @@ const helpAliases = new Set(["-h", "--help", "help"]);
 async function main(): Promise<number> {
   if (cmd === undefined) return runTui();
   const handler = commandHandlers[cmd];
+
   if (handler !== undefined) return handler(argv.slice(1));
   if (versionAliases.has(cmd)) {
     console.log(CLI_VERSION);
+
     return 0;
   }
   if (helpAliases.has(cmd)) {
     printHelp();
+
     return 0;
   }
   if (cmd.startsWith("ses_")) return runTui(cmd);
   printHelp();
+
   return 2;
 }
 
@@ -143,18 +155,22 @@ async function openReviewOfKind(
 ): Promise<number> {
   const client = await DaemonClient.connect({ autostart: true });
   let sessions: ReviewSession[];
+
   try {
     sessions = await client.sessionList();
   } finally {
     client.close();
   }
   const target = resolveOpenTarget(sessions, { match, selector });
+
   if (target.kind === "session") return runTui(target.sessionId);
   if (target.kind === "no-pending" && emptyMessage !== undefined) {
     console.error(emptyMessage);
+
     return 1;
   }
   console.error(openTargetMessage(label, target));
+
   return 1;
 }
 
@@ -174,6 +190,7 @@ async function prototypeCommand(argv: string[]): Promise<number> {
   const wantsOpen = "open" in parsed.flags || "latest" in parsed.flags;
   const looksLikeFile =
     selector !== undefined && !isSessionId(selector) && selector.endsWith(".html");
+
   if (wantsOpen || !looksLikeFile)
     return openReviewOfKind(isPrototypeReview, "prototype", selector);
 
@@ -181,8 +198,10 @@ async function prototypeCommand(argv: string[]): Promise<number> {
   const html = await Bun.file(path)
     .text()
     .catch(() => undefined);
+
   if (html === undefined) {
     console.error(`prototype: cannot read ${path}`);
+
     return 1;
   }
   const client = await DaemonClient.connect({ autostart: true });
@@ -192,7 +211,9 @@ async function prototypeCommand(argv: string[]): Promise<number> {
     prototypePath: path,
     title: basename(path),
   });
+
   client.close();
+
   return runTui(review.id);
 }
 
@@ -208,10 +229,12 @@ async function diffCommand(argv: string[]): Promise<number> {
   const parsed = parseArgs(argv);
   const selector = openSelector(parsed);
   const wantsOpen = selector !== undefined || "open" in parsed.flags || "latest" in parsed.flags;
+
   if (wantsOpen) return openReviewOfKind(isDiffReview, "diff", selector);
 
   const workspace = await resolveWorkspace();
   const diff = await workingTreeDiff();
+
   if (!diff.patch.trim()) {
     return openReviewOfKind(
       isDiffReview,
@@ -228,7 +251,9 @@ async function diffCommand(argv: string[]): Promise<number> {
     workspace,
     title: `working tree @ ${workspace.branch}`,
   });
+
   client.close();
+
   return runTui(review.id);
 }
 
@@ -244,10 +269,13 @@ async function reviewEntry(argv: string[]): Promise<number> {
   const selector = openSelector(parsed);
   const looksLikeSessionId = selector !== undefined && isSessionId(selector);
   const wantsCreate = !explicitOpen && !looksLikeSessionId && selector !== undefined;
+
   if (wantsCreate) {
     const { reviewCommand } = await import("./pr");
+
     return reviewCommand(argv);
   }
+
   return openReviewOfKind(
     isPrReview,
     "PR",
@@ -257,6 +285,7 @@ async function reviewEntry(argv: string[]): Promise<number> {
 
 async function runTui(sessionId?: string): Promise<number> {
   const { runClient } = await import("@cueloop/client");
+
   return runClient({ sessionId });
 }
 

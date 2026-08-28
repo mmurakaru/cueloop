@@ -58,12 +58,14 @@ export function highlightJobs(rows: DiffRow[]): HighlightJob[] {
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
     const row = rows[rowIndex]!;
+
     if (row.kind === "file" || row.kind === "hunk") {
       flush();
       filetype = row.kind === "file" ? filetypeForPath(row.file) : filetype;
       continue;
     }
     const text = stripTrailingNewline(row.text);
+
     if (row.kind === "ctx" || row.kind === "del") {
       oldLines.push(text);
       oldRowIndexByLine.push(rowIndex);
@@ -74,6 +76,7 @@ export function highlightJobs(rows: DiffRow[]): HighlightJob[] {
     }
   }
   flush();
+
   return jobs;
 }
 
@@ -84,48 +87,61 @@ export function highlightJobs(rows: DiffRow[]): HighlightJob[] {
  */
 export function spansByLine(source: string, highlights: SimpleHighlight[]): SyntaxSpan[][] {
   const lineStarts: number[] = [0];
+
   for (let index = 0; index < source.length; index++) {
     if (source[index] === "\n") lineStarts.push(index + 1);
   }
   const lineOf = (offset: number): number => {
     let low = 0;
     let high = lineStarts.length - 1;
+
     while (low < high) {
       const mid = (low + high + 1) >> 1;
+
       if (lineStarts[mid]! <= offset) low = mid;
       else high = mid - 1;
     }
+
     return low;
   };
   // Per-line char->group, later highlights overriding, then coalesce into spans.
   const groupsByLine: Array<Array<string | undefined>> = lineStarts.map((start, line) => {
     const end = line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : source.length;
+
     return Array.from({ length: Math.max(0, end - start) }, () => undefined);
   });
+
   for (const [start, end, group] of highlights) {
     // A capture can span newlines (block comments, template literals); color the
     // covered columns on every line it crosses, not just the starting line.
     let cursor = start;
+
     while (cursor < end) {
       const line = lineOf(cursor);
       const lineStart = lineStarts[line]!;
       const lineEnd = line + 1 < lineStarts.length ? lineStarts[line + 1]! - 1 : source.length;
       const chars = groupsByLine[line]!;
       const to = Math.min(end, lineEnd) - lineStart;
+
       for (let column = cursor - lineStart; column < to; column++) chars[column] = group;
       cursor = lineEnd + 1;
     }
   }
+
   return groupsByLine.map((chars) => {
     const spans: SyntaxSpan[] = [];
+
     for (let column = 0; column < chars.length; column++) {
       const group = chars[column];
+
       if (group === undefined) continue;
       const previous = spans[spans.length - 1];
+
       if (previous && previous.group === group && previous.end === column)
         previous.end = column + 1;
       else spans.push({ start: column, end: column + 1, group });
     }
+
     return spans;
   });
 }
@@ -138,17 +154,23 @@ export function spansByLine(source: string, highlights: SimpleHighlight[]): Synt
 export async function highlightDiffRows(rows: DiffRow[]): Promise<Map<number, SyntaxSpan[]>> {
   const spansByRow = new Map<number, SyntaxSpan[]>();
   const jobs = highlightJobs(rows);
+
   if (!jobs.length) return spansByRow;
   const client = getTreeSitterClient();
+
   await client.initialize();
   for (const job of jobs) {
     const result = await client.highlightOnce(job.source, job.filetype);
+
     if (!result.highlights) continue;
     const lineSpans = spansByLine(job.source, result.highlights);
+
     job.rowIndexByLine.forEach((rowIndex, line) => {
       const spans = lineSpans[line];
+
       if (spans && spans.length) spansByRow.set(rowIndex, spans);
     });
   }
+
   return spansByRow;
 }

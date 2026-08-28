@@ -41,8 +41,10 @@ export function parseBlocks(markdown: string): Block[] {
   const lines = markdown.split("\n");
   const blocks: Block[] = [];
   let lineIndex = 0;
+
   while (lineIndex < lines.length) {
     const line = lines[lineIndex]!;
+
     if (line.trim() === "") {
       lineIndex++;
       continue;
@@ -50,13 +52,16 @@ export function parseBlocks(markdown: string): Block[] {
     if (line.startsWith("```")) {
       const start = lineIndex;
       const lang = line.slice(3).trim() || undefined;
+
       lineIndex++;
       const body: string[] = [];
+
       while (lineIndex < lines.length && !lines[lineIndex]!.startsWith("```")) {
         body.push(lines[lineIndex]!);
         lineIndex++;
       }
       const end = Math.min(lineIndex, lines.length - 1);
+
       lineIndex++;
       blocks.push({ kind: "code", text: body.join("\n"), lang, lineStart: start, lineEnd: end });
     } else if (line.startsWith("### ")) {
@@ -89,6 +94,7 @@ export function parseBlocks(markdown: string): Block[] {
     } else if (line.startsWith("> ")) {
       const start = lineIndex;
       const body: string[] = [];
+
       while (lineIndex < lines.length && lines[lineIndex]!.startsWith("> ")) {
         body.push(stripLeadingBlockMarker(lines[lineIndex]!));
         lineIndex++;
@@ -118,6 +124,7 @@ export function parseBlocks(markdown: string): Block[] {
     } else {
       const start = lineIndex;
       const body: string[] = [];
+
       while (
         lineIndex < lines.length &&
         lines[lineIndex]!.trim() !== "" &&
@@ -129,6 +136,7 @@ export function parseBlocks(markdown: string): Block[] {
       blocks.push({ kind: "p", text: body.join("\n"), lineStart: start, lineEnd: lineIndex - 1 });
     }
   }
+
   return blocks;
 }
 
@@ -162,10 +170,13 @@ export function blockToMd(block: Block, ordinal = 1): string {
 /** The section (nearest preceding heading) a block belongs to. */
 export function sectionOf(blocks: Block[], index: number): string {
   let sectionTitle = "";
+
   for (let blockIndex = 0; blockIndex <= index && blockIndex < blocks.length; blockIndex++) {
     const block = blocks[blockIndex]!;
+
     if (block.kind === "h1" || block.kind === "h2" || block.kind === "h3")
       sectionTitle = block.text;
   }
+
   return sectionTitle;
 }

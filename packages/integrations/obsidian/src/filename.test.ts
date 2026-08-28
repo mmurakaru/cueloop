@@ -53,6 +53,7 @@ describe("formatFilename", () => {
 
 describe("uniquePath", () => {
   let dir: string;
+
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), "cueloop-obsidian-name-"));
   });

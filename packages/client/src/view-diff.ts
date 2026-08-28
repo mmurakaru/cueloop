@@ -20,6 +20,7 @@ export interface DiffRow {
 export function diffRows(patchText: string): DiffRow[] {
   const rows: DiffRow[] = [];
   const patches = parsePatchFiles(patchText);
+
   for (const patch of patches) {
     for (const file of patch.files) {
       rows.push({ kind: "file", text: fileLabel(file), file: file.name });
@@ -27,6 +28,7 @@ export function diffRows(patchText: string): DiffRow[] {
         rows.push({ kind: "hunk", text: hunk.hunkSpecs ?? "@@", file: file.name });
         let oldLine = hunk.deletionStart;
         let newLine = hunk.additionStart;
+
         for (const segment of hunk.hunkContent) {
           if (segment.type === "context") {
             for (let lineOffset = 0; lineOffset < segment.lines; lineOffset++) {
@@ -60,6 +62,7 @@ export function diffRows(patchText: string): DiffRow[] {
       }
     }
   }
+
   return rows;
 }
 
@@ -77,6 +80,7 @@ export function diffRowAnchor(
   const row = rows[rowIndex]!;
   const prev = rows[rowIndex - 1];
   const next = rows[rowIndex + 1];
+
   return {
     quote: row.text,
     prefix:
@@ -93,5 +97,6 @@ export function diffRowAnchor(
 /** Location label for the rail and feedback: file:newLine (or old for del). */
 export function diffRowLocation(row: DiffRow): string {
   const line = row.newLine ?? row.oldLine;
+
   return line !== undefined ? `${row.file}:${line}` : row.file;
 }

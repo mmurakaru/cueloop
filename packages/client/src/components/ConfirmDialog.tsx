@@ -36,7 +36,9 @@ export function ConfirmDialog({
 }: ConfirmDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth } = useTerminalDimensions();
+
   if (!isOpen) return null;
+
   return (
     <Dialog isOpen title={title} width={Math.min(54, terminalWidth - 6)} height={7} theme={theme}>
       <box

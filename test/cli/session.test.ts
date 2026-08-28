@@ -30,6 +30,7 @@ beforeAll(() => {
 afterAll(async () => {
   try {
     const client = await DaemonClient.connect({ home });
+
     await client.shutdown();
     client.close();
   } catch {
@@ -52,6 +53,7 @@ describe("cueloop session (black box)", () => {
     // Assert
     expect(created.code).toBe(0);
     const session = cliJson<ReviewSession>(created);
+
     expect(session.id.startsWith("ses_")).toBe(true);
     expect(session.artifact.content).toBe(PLAN);
     expect(session.status).toBe("pending");
@@ -146,6 +148,7 @@ describe("cueloop session (black box)", () => {
     // Arrange
     const before = cliJson<ReviewSession>(await runCli(home, ["session", "get", sessionId]));
     const annotationId = before.annotations[0]!.id;
+
     expect(before.annotations[0]!.resolution).toBeUndefined();
 
     // Act
@@ -165,6 +168,7 @@ describe("cueloop session (black box)", () => {
     // Arrange
     const logPath = join(home, "herdr-cli.log");
     const binPath = join(home, "herdr-cli.sh");
+
     writeFileSync(
       binPath,
       `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "tab" ] && [ "$2" = "create" ]; then\n  printf '{"result":{"root_pane":{"pane_id":"w1:p2","tab_id":"w1:t2"}}}'\nfi\n`,
@@ -183,6 +187,7 @@ describe("cueloop session (black box)", () => {
     expect(created.code).toBe(0);
     const session = cliJson<ReviewSession>(created);
     const lines = readFileSync(logPath, "utf8").split("\n").filter(Boolean);
+
     expect(lines).toEqual([
       `tab create --cwd ${home} --label Auto Open --focus`,
       `pane send-text w1:p2 cueloop ${session.id}`,
@@ -194,6 +199,7 @@ describe("cueloop session (black box)", () => {
     // Arrange
     const logPath = join(home, "herdr-none.log");
     const binPath = join(home, "herdr-none.sh");
+
     writeFileSync(binPath, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\n`);
     chmodSync(binPath, 0o755);
 
@@ -235,6 +241,7 @@ describe("cueloop session (black box)", () => {
 
     // Assert
     const note = annotated.annotations.find((candidate) => candidate.body === "Whose phases?")!;
+
     expect(note.author).toBe("SHA256:ana");
     expect(annotated.participants).toContainEqual({
       id: "SHA256:ana",
@@ -258,6 +265,7 @@ describe("cueloop session (black box)", () => {
     const note = annotated.annotations.find((candidate) =>
       candidate.body.startsWith("Out of scope"),
     )!;
+
     expect(note.body).toContain("capture it as a follow-up");
   });
 
@@ -278,6 +286,7 @@ describe("cueloop session (black box)", () => {
   test("actions resolve from the session's repo, not the caller's cwd", async () => {
     // Arrange - a repo whose .cueloop config defines its own quick action
     const repo = mkdtempSync(join(tmpdir(), "cueloop-repo-"));
+
     mkdirSync(join(repo, ".cueloop"));
     writeFileSync(
       join(repo, ".cueloop", "config.toml"),

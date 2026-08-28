@@ -10,6 +10,7 @@ import { parseBlocks, type Block } from "./markdown";
 /** Chunk of the base source a block occupies (for restore and display). */
 export function sourceChunk(base: string, block: Block): string {
   const lines = base.split("\n");
+
   return lines.slice(block.lineStart, block.lineEnd + 1).join("\n");
 }
 
@@ -18,7 +19,9 @@ export function cutBlock(working: string, block: Block): string {
   const lines = working.split("\n");
   const before = lines.slice(0, block.lineStart);
   const after = lines.slice(block.lineEnd + 1);
+
   while (before.length && before[before.length - 1]!.trim() === "") before.pop();
+
   return [...before, ...after].join("\n");
 }
 
@@ -54,8 +57,10 @@ export function restoreBlock(
   const before = lines.slice(0, beforeLine);
   const after = lines.slice(beforeLine);
   const insertedLines = sourceChunk(base, block).split("\n");
+
   if (before.length && before[before.length - 1]!.trim() !== "") insertedLines.unshift("");
   if (after.length && after[0]!.trim() !== "") insertedLines.push("");
   const restored = [...before, ...insertedLines, ...after].join("\n");
+
   return signature(restored) === signature(base) ? undefined : restored;
 }

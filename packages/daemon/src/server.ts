@@ -73,16 +73,20 @@ export class DaemonServer {
   private acquireLock(): boolean {
     if (HELD_HOMES.has(this.home)) return false; // another instance here owns it
     const path = lockPath(this.home);
+
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         // "wx" fails when the file exists - the atomic part of the handshake
         const fd = openSync(path, "wx");
+
         writeFileSync(fd, String(process.pid));
         this.lockFd = fd;
         HELD_HOMES.add(this.home);
+
         return true;
       } catch {
         let ownerPid = 0;
+
         try {
           ownerPid = Number(readFileSync(path, "utf8").trim());
         } catch {
@@ -92,6 +96,7 @@ export class DaemonServer {
         if (ownerPid && ownerPid !== process.pid) {
           try {
             process.kill(ownerPid, 0); // throws when the pid is gone
+
             return false; // a live daemon owns this home
           } catch {
             // stale lock from a crashed daemon
@@ -106,6 +111,7 @@ export class DaemonServer {
         }
       }
     }
+
     return false;
   }
 
@@ -129,6 +135,7 @@ export class DaemonServer {
   start(): string | null {
     if (!this.acquireLock()) return null;
     const path = socketPath(this.home);
+
     // safe now: holding the lock means no live daemon owns this home, so any
     // socket file left behind is stale
     if (existsSync(path)) rmSync(path, { force: true });
@@ -146,6 +153,7 @@ export class DaemonServer {
             subscribed: false,
             role: "owner",
           };
+
           socket.data = { buffer: new LineBuffer(), connection, writer };
           this.connections.add(connection);
           this.scheduleIdleCheck();
@@ -170,6 +178,7 @@ export class DaemonServer {
     chmodSync(path, 0o600);
     writeFileSync(pidPath(this.home), String(process.pid));
     this.scheduleIdleCheck();
+
     return path;
   }
 
@@ -185,6 +194,7 @@ export class DaemonServer {
 
   private broadcast(event: DaemonEvent): void {
     const frame = JSON.stringify(event) + "\n";
+
     for (const connection of this.connections) if (connection.subscribed) connection.write(frame);
     this.scheduleIdleCheck();
   }
@@ -205,6 +215,7 @@ export class DaemonServer {
 
   private async respondToRequestLine(connection: Connection, line: string): Promise<void> {
     let request: Request;
+
     try {
       request = JSON.parse(line) as Request;
     } catch {
@@ -212,14 +223,17 @@ export class DaemonServer {
         JSON.stringify({ id: -1, error: { code: "bad_json", message: "unparseable request" } }) +
           "\n",
       );
+
       return;
     }
     try {
       const result = await this.dispatch(connection, request);
+
       connection.write(JSON.stringify({ id: request.id, result }) + "\n");
     } catch (err) {
       const code = err instanceof DaemonError ? err.code : "internal";
       const message = err instanceof Error ? err.message : String(err);
+
       connection.write(JSON.stringify({ id: request.id, error: { code, message } }) + "\n");
     }
   }
@@ -228,6 +242,7 @@ export class DaemonServer {
     "daemon.ping": () => ({ pid: process.pid }),
     "daemon.hello": (connection, request) => {
       connection.role = parseParams("daemon.hello", request.params).role;
+
       return {};
     },
     "daemon.shutdown": () => {
@@ -235,14 +250,17 @@ export class DaemonServer {
         this.stop();
         this.onIdleExit();
       }, 10);
+
       return {};
     },
     "events.subscribe": (connection) => {
       connection.subscribed = true;
+
       return {};
     },
     "session.create": (_connection, request) => {
       const params = parseParams("session.create", request.params);
+
       return this.core.sessionCreate({ workspace: params.workspace, artifact: params.artifact });
     },
     "session.get": (_connection, request) =>
@@ -251,38 +269,47 @@ export class DaemonServer {
       this.core.sessionList(parseParams("session.list", request.params).filter),
     "session.wait": (_connection, request) => {
       const params = parseParams("session.wait", request.params);
+
       return this.core.sessionWait(params.id, params.timeoutMs);
     },
     "session.annotate": (_connection, request) => {
       const params = parseParams("session.annotate", request.params);
+
       return this.core.sessionAnnotate(params.id, params.annotation, params.authorName);
     },
     "session.removeAnnotation": (_connection, request) => {
       const params = parseParams("session.removeAnnotation", request.params);
+
       return this.core.sessionRemoveAnnotation(params.id, params.annotationId);
     },
     "session.setWorkingCopy": (_connection, request) => {
       const params = parseParams("session.setWorkingCopy", request.params);
+
       return this.core.sessionSetWorkingCopy(params.id, params.workingCopy);
     },
     "session.setViewed": (_connection, request) => {
       const params = parseParams("session.setViewed", request.params);
+
       return this.core.sessionSetViewed(params.id, params.viewedPaths);
     },
     "session.refreshDiff": (_connection, request) => {
       const params = parseParams("session.refreshDiff", request.params);
+
       return this.core.sessionRefreshDiff(params.id);
     },
     "session.setShareId": (_connection, request) => {
       const params = parseParams("session.setShareId", request.params);
+
       return this.core.sessionSetShareId(params.id, params.shareId);
     },
     "session.delete": (_connection, request) => {
       this.core.sessionDelete(parseParams("session.delete", request.params).id);
+
       return {};
     },
     "session.mergeShared": (_connection, request) => {
       const params = parseParams("session.mergeShared", request.params);
+
       return this.core.sessionMergeShared(params.id, {
         annotations: params.annotations,
         participants: params.participants,
@@ -290,10 +317,12 @@ export class DaemonServer {
     },
     "session.resolve": (_connection, request) => {
       const params = parseParams("session.resolve", request.params);
+
       return this.core.sessionResolve(params.id, params.verdictKind, params.summary);
     },
     "session.submitRevision": (_connection, request) => {
       const params = parseParams("session.submitRevision", request.params);
+
       return this.core.sessionSubmitRevision(
         params.id,
         params.content,
@@ -304,7 +333,9 @@ export class DaemonServer {
       this.core.herdrGetTab(parseParams("herdr.getTab", request.params).id),
     "herdr.setTab": (_connection, request) => {
       const params = parseParams("herdr.setTab", request.params);
+
       this.core.herdrSetTab(params.id, { tabId: params.tabId, paneId: params.paneId });
+
       return {};
     },
   };
@@ -322,6 +353,7 @@ export class DaemonServer {
     if (!Object.hasOwn(this.handlers, request.method)) {
       throw new DaemonError("unknown_method", `unknown method ${request.method}`);
     }
+
     return this.handlers[request.method](connection, request);
   }
 }

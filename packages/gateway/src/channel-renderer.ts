@@ -54,15 +54,18 @@ function channelStreams(channel: ServerChannel, size: PtySize) {
       channel.pause();
     }
   };
+
   channel.on("data", onData);
 
   let channelGone = false;
   let pendingDrain: (() => void) | null = null;
   const releaseDrain = () => {
     const done = pendingDrain;
+
     pendingDrain = null;
     done?.();
   };
+
   channel.on("close", () => ((channelGone = true), releaseDrain()));
   channel.on("error", () => ((channelGone = true), releaseDrain()));
 
@@ -70,12 +73,14 @@ function channelStreams(channel: ServerChannel, size: PtySize) {
     write(chunk, _encoding, callback) {
       if (channelGone) return callback();
       const bytes = Buffer.from(chunk);
+
       if (bytes.byteLength === 0) return callback();
       if (channel.write(bytes)) return callback();
       pendingDrain = callback;
       channel.once("drain", releaseDrain);
     },
   }) as Writable & { columns: number; rows: number };
+
   stdout.columns = size.cols;
   stdout.rows = size.rows;
 
@@ -102,6 +107,7 @@ export async function renderOverChannel(
     targetFps: 30,
   });
   const root = createRoot(renderer);
+
   root.render(element);
 
   let destroyed = false;
@@ -115,6 +121,7 @@ export async function renderOverChannel(
       void renderer.destroy();
     }
   };
+
   channel.once("close", destroy);
 
   return {

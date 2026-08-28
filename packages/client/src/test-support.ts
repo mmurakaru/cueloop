@@ -22,7 +22,9 @@ export const WAIT_PASSES = { maxPasses: 400 };
  */
 export function isolateUserConfig(home: string, fileName = "no-config.toml"): () => void {
   const priorUserConfig = process.env.CUELOOP_CONFIG;
+
   process.env.CUELOOP_CONFIG = join(home, fileName);
+
   return () => {
     if (priorUserConfig === undefined) delete process.env.CUELOOP_CONFIG;
     else process.env.CUELOOP_CONFIG = priorUserConfig;
@@ -102,9 +104,11 @@ async function waitForFramePredicate(
   let frameChanges = 0;
   let lastFrame = "";
   let lastLog = start;
+
   for (;;) {
     await setup.renderOnce();
     const frame = setup.captureCharFrame();
+
     polls++;
     if (frame !== lastFrame) {
       frameChanges++;
@@ -112,8 +116,10 @@ async function waitForFramePredicate(
     }
     if (predicate(frame)) return frame;
     const now = Date.now();
+
     if (now > deadline) {
       const frozen = frameChanges <= 1 ? " - render never advanced (frozen)" : "";
+
       throw new Error(
         `waitFor ${label} timed out after ${now - start}ms (${polls} polls, ${frameChanges} frame changes${frozen}).\nlast frame:\n${frame}`,
       );
@@ -141,10 +147,12 @@ export async function waitForState(
   let frameChanges = 0;
   let lastFrame = "";
   let lastLog = start;
+
   for (;;) {
     if (predicate()) return;
     await setup.renderOnce();
     const frame = setup.captureCharFrame();
+
     polls++;
     if (frame !== lastFrame) {
       frameChanges++;
@@ -152,8 +160,10 @@ export async function waitForState(
     }
     if (predicate()) return;
     const now = Date.now();
+
     if (now > deadline) {
       const frozen = frameChanges <= 1 ? " - render never advanced (frozen)" : "";
+
       throw new Error(
         `waitForState ${label} timed out after ${now - start}ms (${polls} polls, ${frameChanges} frame changes${frozen}).\nlast frame:\n${frame}`,
       );

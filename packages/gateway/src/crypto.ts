@@ -43,12 +43,14 @@ export function sealBlob(master: Buffer, shareId: string, plaintext: Uint8Array)
     ciphertext: ciphertext.toString("base64"),
     tag: cipher.getAuthTag().toString("base64"),
   };
+
   return Buffer.from(JSON.stringify(envelope), "utf8");
 }
 
 /** Decrypt a stored blob; throws if the id is wrong or a byte was tampered. */
 export function openBlob(master: Buffer, shareId: string, stored: Uint8Array): Buffer {
   let envelope: Envelope;
+
   try {
     envelope = JSON.parse(Buffer.from(stored).toString("utf8")) as Envelope;
   } catch {
@@ -58,7 +60,9 @@ export function openBlob(master: Buffer, shareId: string, stored: Uint8Array): B
     throw new Error(`unsupported envelope version ${envelope.v}`);
   const key = deriveBlobKey(master, shareId);
   const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(envelope.nonce, "base64"));
+
   decipher.setAuthTag(Buffer.from(envelope.tag, "base64"));
+
   return Buffer.concat([
     decipher.update(Buffer.from(envelope.ciphertext, "base64")),
     decipher.final(),

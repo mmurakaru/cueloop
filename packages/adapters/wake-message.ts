@@ -14,5 +14,6 @@ export function wakeMessage(sessionId: string, verdict: VerdictOutcome): string 
   const lead = verdict.allow
     ? `cueloop review ${sessionId} approved - you may proceed.`
     : `cueloop review ${sessionId} returned changes - address this feedback before proceeding.`;
+
   return `${lead}\n\n${verdict.feedback}`;
 }

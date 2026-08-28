@@ -28,6 +28,7 @@ export async function refineCommand(argv: string[]): Promise<number> {
   const nowMs = Date.now();
 
   const store = new SessionStore(home);
+
   store.recover();
   const all = store.list();
 
@@ -40,10 +41,12 @@ export async function refineCommand(argv: string[]): Promise<number> {
   const markdown = buildRefineReport(analyzed, all.length, new Date(nowMs).toISOString());
 
   const directory = reportsDir(home);
+
   mkdirSync(directory, { recursive: true });
   pruneExpiredReports(directory, resolveCleanupPeriodDays(), nowMs);
   const latestPath = join(directory, LATEST_REPORT_FILENAME);
   const timestampedPath = join(directory, timestampedReportFilename(nowMs));
+
   writeFileSync(latestPath, markdown);
   writeFileSync(timestampedPath, markdown);
 
@@ -64,6 +67,7 @@ export async function refineCommand(argv: string[]): Promise<number> {
       2,
     ),
   );
+
   return 0;
 }
 
@@ -104,6 +108,7 @@ export function buildRefineReport(
           verdictLabel(session),
           isoWeek(annotation.createdAt),
         ].join(" · ");
+
         lines.push(
           `- "${truncate(annotation.anchor.quote, QUOTE_LIMIT)}": ${truncate(annotation.body, BODY_LIMIT)} · ${meta}`,
         );
@@ -140,21 +145,26 @@ function hasReviewSignal(session: ReviewSession): boolean {
 
 function flattenReviewAnnotations(sessions: ReviewSession[]): AnnotatedEntry[] {
   const entries: AnnotatedEntry[] = [];
+
   for (const session of sessions) {
     for (const annotation of session.annotations) {
       if (!isAgentNote(annotation)) entries.push({ annotation, session });
     }
   }
+
   return entries;
 }
 
 function groupByKind(entries: AnnotatedEntry[]): [string, AnnotatedEntry[]][] {
   const groups = new Map<string, AnnotatedEntry[]>();
+
   for (const entry of entries) {
     const group = groups.get(entry.annotation.kind) ?? [];
+
     group.push(entry);
     groups.set(entry.annotation.kind, group);
   }
+
   return [...groups.entries()].toSorted(
     (left, right) => right[1].length - left[1].length || left[0].localeCompare(right[0]),
   );
@@ -174,15 +184,19 @@ function byKey<T>(items: T[], keyOf: (item: T) => string): [string, number][] {
 
 function tally<T>(items: T[], keyOf: (item: T) => string): Map<string, number> {
   const counts = new Map<string, number>();
+
   for (const item of items) {
     const key = keyOf(item);
+
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
+
   return counts;
 }
 
 function primitiveLabel(session: ReviewSession): string {
   if (session.artifact.type === "diff" && session.artifact.meta.pr) return "pull request";
+
   return session.artifact.type;
 }
 
@@ -201,22 +215,27 @@ function verdictLabel(session: ReviewSession): string {
 
 function isoWeek(iso: string): string {
   const date = new Date(iso);
+
   if (Number.isNaN(date.getTime())) return "undated";
   const utc = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const weekday = utc.getUTCDay() || 7;
+
   utc.setUTCDate(utc.getUTCDate() + 4 - weekday);
   const yearStart = new Date(Date.UTC(utc.getUTCFullYear(), 0, 1));
   const week = Math.ceil(((utc.getTime() - yearStart.getTime()) / (24 * 60 * 60 * 1000) + 1) / 7);
+
   return `${utc.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
 function truncate(text: string, max: number): string {
   const collapsed = text.replace(/\s+/g, " ").trim();
+
   return collapsed.length > max ? `${collapsed.slice(0, max - 1)}…` : collapsed;
 }
 
 function parseLimit(raw: string | undefined): number {
   const value = Number(raw);
+
   return Number.isInteger(value) && value > 0 ? value : DEFAULT_SESSION_LIMIT;
 }
 
@@ -238,5 +257,6 @@ function readState(home: string): Map<string, string> {
 
 function writeState(home: string, analyzed: Map<string, string>): void {
   const state = { analyzed: Object.fromEntries(analyzed) };
+
   writeFileSync(statePath(home), JSON.stringify(state, null, 2));
 }

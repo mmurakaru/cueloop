@@ -16,13 +16,16 @@ function findById(node: Renderable, id: string): Renderable | undefined {
   if (node.id === id) return node;
   for (const child of node.getChildren()) {
     const found = findById(child, id);
+
     if (found) return found;
   }
+
   return undefined;
 }
 
 function hex(color: { toInts(): [number, number, number, number] }): string {
   const [red, green, blue] = color.toInts();
+
   return "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
 }
 
@@ -32,6 +35,7 @@ function tallPatch(count: number): string {
     { length: count },
     (_, index) => `+line ${String(index).padStart(2, "0")}`,
   );
+
   return [
     "diff --git a/f.ts b/f.ts",
     "--- a/f.ts",
@@ -51,9 +55,11 @@ function ScrollHarness({
   annotations: Annotation[];
 }): React.ReactNode {
   const [cursor, setCursor] = useState(0);
+
   useKeyboard((key) => {
     if (key.name === "j") setCursor((current) => Math.min(rows.length - 1, current + 1));
   });
+
   return <DiffSheet rows={rows} cursor={cursor} annotations={annotations} />;
 }
 
@@ -74,21 +80,25 @@ test("scrolling down past wrapped annotation cards keeps the cursor pinned and t
     width: 60,
     height: 12,
   });
+
   await setup.waitForVisualIdle();
   const scrollbox = findById(setup.renderer.root, "diff-scroll") as ScrollBoxRenderable;
 
   // the cursor row is the one painted with the cursor background
   const cursorScreenRow = (): number => {
     const lines = setup.captureSpans().lines;
+
     for (let index = 0; index < lines.length; index++) {
       if (lines[index]!.spans.some((span) => hex(span.bg) === DARK.cursorBackground)) return index;
     }
+
     return -1;
   };
 
   // Act - walk the cursor down through the whole diff, sampling the scroll each step
   const scrollTops: number[] = [];
   const screenRows: number[] = [];
+
   for (let step = 0; step < rows.length; step++) {
     scrollTops.push(scrollbox.scrollTop);
     screenRows.push(cursorScreenRow());
@@ -111,10 +121,12 @@ test("scrolling down past wrapped annotation cards keeps the cursor pinned and t
   const steadyRows = screenRows.filter(
     (_, step) => scrollTops[step]! > 0 && scrollTops[step]! < maxScroll,
   );
+
   expect(steadyRows.length).toBeGreaterThan(0);
   expect(new Set(steadyRows).size).toBe(1);
   const pinnedRow = steadyRows[0]!;
   const viewportBottom = scrollbox.height;
+
   // the cursor sits a couple of rows inside the bottom edge, per the follow rule
   expect(viewportBottom - pinnedRow).toBeGreaterThanOrEqual(2);
   expect(viewportBottom - pinnedRow).toBeLessThanOrEqual(3);

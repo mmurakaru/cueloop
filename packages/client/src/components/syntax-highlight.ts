@@ -17,6 +17,7 @@ import type { Theme } from "../theme";
 /** Markdown fence info -> tree-sitter filetype, with the aliases we accept. */
 export function filetypeFor(language?: string): string | undefined {
   const info = (language ?? "").toLowerCase();
+
   if (!info) return undefined;
   const aliases: Record<string, string> = {
     ts: "typescript",
@@ -29,6 +30,7 @@ export function filetypeFor(language?: string): string | undefined {
     zsh: "bash",
     yml: "yaml",
   };
+
   return infoStringToFiletype(aliases[info] ?? info) ?? aliases[info] ?? info;
 }
 
@@ -36,9 +38,12 @@ export function filetypeFor(language?: string): string | undefined {
 export function filetypeForPath(path: string): string | undefined {
   const basename = path.split("/").pop() ?? path;
   const byBasename = basenameToFiletype.get(basename);
+
   if (byBasename) return byBasename;
   const dotIndex = basename.lastIndexOf(".");
+
   if (dotIndex <= 0) return undefined;
+
   return extensionToFiletype.get(basename.slice(dotIndex + 1).toLowerCase());
 }
 
@@ -75,9 +80,12 @@ const syntaxStyleCache = new WeakMap<Theme, SyntaxStyle>();
 
 export function syntaxStyleFor(theme: Theme): SyntaxStyle {
   const cached = syntaxStyleCache.get(theme);
+
   if (cached) return cached;
   const style = SyntaxStyle.fromStyles(syntaxGroupStyles(theme));
+
   syntaxStyleCache.set(theme, style);
+
   return style;
 }
 
@@ -85,8 +93,10 @@ export function syntaxStyleFor(theme: Theme): SyntaxStyle {
 export function colorForSyntaxGroup(group: string, theme: Theme): string | undefined {
   const styles = syntaxGroupStyles(theme);
   const direct = styles[group];
+
   if (direct) return direct.fg;
   // capture names are dotted (e.g. "keyword.control"); match the broadest prefix
   const base = group.split(".")[0]!;
+
   return styles[base]?.fg;
 }

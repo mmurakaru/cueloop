@@ -25,6 +25,8 @@ export async function loadBundledExporters(
   const obsidian = integrations.obsidian;
   const record = await registry.load("obsidian", createObsidianExtension(obsidian));
   const run = record.exporters.get("obsidian");
+
   if (!run) return [];
+
   return [{ name: "obsidian", run, runsOn: (verdict) => shouldExport(obsidian.exportOn, verdict) }];
 }

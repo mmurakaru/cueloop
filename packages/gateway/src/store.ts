@@ -45,7 +45,9 @@ export class R2ShareStore implements ShareStore {
 
   async get(id: string): Promise<Uint8Array | null> {
     const file = this.client.file(id);
+
     if (!(await file.exists())) return null;
+
     return file.bytes();
   }
 }
@@ -60,11 +62,14 @@ export function r2StoreFromEnv(env: NodeJS.ProcessEnv = process.env): R2ShareSto
   const accessKeyId = required(env, "CUELOOP_R2_ACCESS_KEY_ID");
   const secretAccessKey = required(env, "CUELOOP_R2_SECRET_ACCESS_KEY");
   const bucket = env.CUELOOP_R2_BUCKET ?? "cueloop-shares";
+
   return new R2ShareStore({ endpoint, bucket, accessKeyId, secretAccessKey });
 }
 
 function required(env: NodeJS.ProcessEnv, key: string): string {
   const value = env[key];
+
   if (!value) throw new Error(`missing ${key} - the gateway needs R2 credentials to store shares`);
+
   return value;
 }

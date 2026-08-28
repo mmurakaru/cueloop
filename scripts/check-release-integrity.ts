@@ -9,6 +9,7 @@ const problems: string[] = [];
 
 const root = await Bun.file("package.json").json();
 const REQUIRED_SCRIPTS = ["test", "typecheck", "changeset", "version", "ci:publish"];
+
 for (const name of REQUIRED_SCRIPTS) {
   if (!root.scripts?.[name]) problems.push(`package.json is missing the "${name}" script`);
 }
@@ -30,11 +31,13 @@ if (!(await Bun.file("scripts/sync-plugin-version.ts").exists())) {
 
 // every publishable workspace package needs publish metadata
 const paths: string[] = [];
+
 for await (const path of new Bun.Glob("packages/*/package.json").scan(".")) paths.push(path);
 for await (const path of new Bun.Glob("packages/integrations/*/package.json").scan("."))
   paths.push(path);
 for (const path of paths) {
   const pkg = await Bun.file(path).json();
+
   if (pkg.private) continue;
   if (pkg.publishConfig?.access !== "public")
     problems.push(`${path}: publishConfig.access must be "public"`);

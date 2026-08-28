@@ -42,7 +42,9 @@ async function renderApp() {
     width: 120,
     height: 30,
   });
+
   await waitForText(setup, "Review");
+
   return setup;
 }
 
@@ -69,6 +71,7 @@ describe("review panel", () => {
     // Assert: compact drops the submit button and widens the plan (rail is a strip)
     await waitForTextGone(setup, "Submit review");
     const compactWidth = planWidth();
+
     expect(compactWidth).toBeGreaterThan(expandedWidth);
 
     // Act
@@ -77,6 +80,7 @@ describe("review panel", () => {
 
     // Assert: hidden spans the plan full width, no rail column
     const hiddenWidth = planWidth();
+
     expect(hiddenWidth).toBeGreaterThan(compactWidth);
     expect(hiddenWidth).toBeGreaterThan(115);
 
@@ -108,12 +112,14 @@ describe("review panel", () => {
 
     // Assert
     const widened = loadConfig({ userConfigPath: configPath }).ui.reviewWidth;
+
     expect(widened).toBeGreaterThan(startWidth);
   });
 
   test("submitting from a hidden panel force-opens the rail so the confirm card is reachable", async () => {
     // Arrange
     const setup = await renderApp();
+
     await press(setup, "b"); // -> compact
     await press(setup, "b"); // -> hidden
 
@@ -127,6 +133,7 @@ describe("review panel", () => {
     // Assert
     await waitForText(setup, "submit review");
     const frame = setup.captureCharFrame();
+
     expect(frame).toContain("submit review"); // the confirm card is visible again
     expect(frame).toContain("[Approve]");
 

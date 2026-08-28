@@ -281,6 +281,7 @@ class Controller implements ReviewController {
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener);
+
     return () => this.listeners.delete(listener);
   };
 
@@ -298,11 +299,13 @@ class Controller implements ReviewController {
           this.options.openClient ??
           (() => DaemonClient.connect({ home: this.options.home, autostart: true }));
         const client = await openClient();
+
         if (this.closed) return void client.close();
         this.client = client;
         client.onEvent((event) => {
           // another controller/observer changed state: re-fetch
           const session = this.snapshot.session;
+
           if (session && event.sessionId === session.id) void this.refreshSession(session.id);
           if (!this.options.sessionId) void this.refreshInbox();
         });
@@ -353,11 +356,13 @@ class Controller implements ReviewController {
   // ── derived projections ─────────────────────
   private ensureDerived(): void {
     const session = this.snapshot.session;
+
     if (this.derivedFor === session) return;
     this.derivedFor = session;
     const rows =
       session && session.artifact.type === "diff" ? diffRows(session.artifact.content) : [];
     const models = new Map<string, FileDiffMetadata>();
+
     for (const file of session?.artifact.files ?? []) models.set(file.path, parseFileDiff(file));
     this.derived = {
       display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
@@ -369,21 +374,25 @@ class Controller implements ReviewController {
 
   display(): DisplayBlock[] {
     this.ensureDerived();
+
     return this.derived.display;
   }
 
   rows(): DiffRow[] {
     this.ensureDerived();
+
     return this.derived.rows;
   }
 
   files(): WalkFile[] {
     this.ensureDerived();
+
     return this.derived.files;
   }
 
   working(): string {
     const session = this.snapshot.session;
+
     return session ? (session.workingCopy ?? session.artifact.content) : "";
   }
 
@@ -420,6 +429,7 @@ class Controller implements ReviewController {
     this.locallyViewed.clear();
     this.rejections = [];
     const cached = this.snapshot.inbox?.find((candidate) => candidate.id === id);
+
     if (cached) this.update({ session: cached });
     else void this.refreshSession(id);
   }
@@ -435,16 +445,20 @@ class Controller implements ReviewController {
 
   setSelfName(name: string): void {
     const session = this.snapshot.session;
+
     if (!session) return;
     this.apply(this.client!.sessionSetSelfName(session.id, name));
   }
 
   cut(displayIndex: number): void {
     const session = this.snapshot.session;
+
     if (!session || session.status === "resolved") return;
     const block = this.display()[displayIndex];
+
     if (!block) return;
     const working = this.working();
+
     if (block.type === "del") {
       this.restoreDelBlock(block, displayIndex);
     } else if (block.work) {
@@ -456,6 +470,7 @@ class Controller implements ReviewController {
   /** Re-insert a cut plan block at the next surviving block's line (Cut toggle + rail undo). */
   private restoreDelBlock(block: DisplayBlock, displayIndex: number): void {
     const session = this.snapshot.session;
+
     if (!session || !block.base) return;
     const working = this.working();
     const line = restoreLine(
@@ -465,6 +480,7 @@ class Controller implements ReviewController {
     // restoreBlock returns undefined when the block structure round-trips to the
     // submitted revision - the working copy is back to pristine and is dropped
     const restored = restoreBlock(session.artifact.content, working, block.base, line);
+
     this.setWorkingCopy(restored);
     this.setStatus(REMOVAL_RESTORED_STATUS);
   }
@@ -473,27 +489,36 @@ class Controller implements ReviewController {
   /** The parsed model and row for a curation action, or null with a status set. */
   private curationRow(rowIndex: number): { row: DiffRow; model: FileDiffMetadata } | null {
     const session = this.snapshot.session;
+
     if (!session || session.status === "resolved") return null;
     if (!session.artifact.files) {
       this.setStatus("hunk curation needs full file contents (PR diffs cannot be curated)");
+
       return null;
     }
     const row = this.rows()[rowIndex];
+
     if (!row || row.kind === "file" || row.kind === "hunk") {
       this.setStatus("move to a code line to curate");
+
       return null;
     }
     const model = this.derived.models.get(row.file);
+
     if (!model) return null;
+
     return { row, model };
   }
 
   toggleRejectHunk(rowIndex: number): void {
     const located = this.curationRow(rowIndex);
+
     if (!located) return;
     const target = hunkRejectionForRow(located.row.file, located.model, located.row);
+
     if (!target) return this.setStatus("no hunk under the cursor");
     const wholeHunk = (rejection: HunkRejection): boolean => rejectsWholeHunk(rejection, target);
+
     if (this.rejections.some(wholeHunk)) {
       this.rejections = this.rejections.filter((rejection) => !wholeHunk(rejection));
       this.setStatus("hunk restored");
@@ -511,12 +536,15 @@ class Controller implements ReviewController {
 
   toggleRejectChange(rowIndex: number): void {
     const located = this.curationRow(rowIndex);
+
     if (!located) return;
     if (located.row.kind !== "add" && located.row.kind !== "del")
       return this.setStatus("move to a changed line to reject a change");
     const target = changeRejectionForRow(located.row.file, located.model, located.row);
+
     if (!target) return this.setStatus("no change under the cursor");
     const wholeCovers = this.rejections.some((rejection) => rejectsWholeHunk(rejection, target));
+
     if (wholeCovers) return this.setStatus("the whole hunk is rejected - restore it first");
     if (this.rejections.some((rejection) => sameRejection(rejection, target))) {
       this.rejections = this.rejections.filter((rejection) => !sameRejection(rejection, target));
@@ -531,6 +559,7 @@ class Controller implements ReviewController {
   /** Recompute the curated patch and push it as the working copy (or clear it). */
   private recomputeCuration(): void {
     const files = this.snapshot.session?.artifact.files;
+
     if (!files) return;
     // no decisions left = the working copy reverts to the full submitted diff
     this.setWorkingCopy(this.rejections.length ? curateDiff(files, this.rejections) : undefined);
@@ -542,17 +571,22 @@ class Controller implements ReviewController {
     this.ensureDerived();
     if (!this.rejections.length) return EMPTY_REJECTED_ROWS;
     const rejected = new Set<number>();
+
     this.derived.rows.forEach((row, index) => {
       const model = this.derived.models.get(row.file);
+
       if (model && isRowRejected(row.file, model, row, this.rejections)) rejected.add(index);
     });
+
     return rejected;
   }
 
   curationItems(): CurationItem[] {
     this.ensureDerived();
     const session = this.snapshot.session;
+
     if (!session) return EMPTY_CURATION_ITEMS;
+
     return session.artifact.type === "diff" ? this.diffCurationItems() : this.planCurationItems();
   }
 
@@ -560,16 +594,19 @@ class Controller implements ReviewController {
     // diff rejections drop from the reject list; a plan cut re-inserts its block
     if (id.startsWith("diff:")) {
       const kept = this.rejections.filter((rejection) => curationItemId(rejection) !== id);
+
       if (kept.length === this.rejections.length) return;
       this.rejections = kept;
       this.setStatus(REMOVAL_RESTORED_STATUS);
       this.recomputeCuration();
+
       return;
     }
     const display = this.display();
     const displayIndex = display.findIndex(
       (block) => block.type === "del" && block.base && planCutId(block.base) === id,
     );
+
     if (displayIndex !== -1) this.restoreDelBlock(display[displayIndex]!, displayIndex);
   }
 
@@ -577,9 +614,11 @@ class Controller implements ReviewController {
   private diffCurationItems(): CurationItem[] {
     if (!this.rejections.length) return EMPTY_CURATION_ITEMS;
     const items: CurationItem[] = [];
+
     for (const rejection of this.rejections) {
       const rows = this.rowsForRejection(rejection);
       const firstRow = rows[0];
+
       items.push({
         id: curationItemId(rejection),
         source: "diff",
@@ -589,12 +628,14 @@ class Controller implements ReviewController {
         revealIndex: firstRow ? this.derived.rows.indexOf(firstRow) : 0,
       });
     }
+
     return items;
   }
 
   /** The cut plan blocks as removal cards, in document order. */
   private planCurationItems(): CurationItem[] {
     const items: CurationItem[] = [];
+
     this.derived.display.forEach((block, displayIndex) => {
       if (block.type !== "del" || !block.base) return;
       items.push({
@@ -604,32 +645,40 @@ class Controller implements ReviewController {
         revealIndex: displayIndex,
       });
     });
+
     return items.length ? items : EMPTY_CURATION_ITEMS;
   }
 
   /** The change/deletion rows a rejection covers, for its preview and reveal row. */
   private rowsForRejection(rejection: HunkRejection): DiffRow[] {
     const model = this.derived.models.get(rejection.path);
+
     if (!model) return [];
     const rows: DiffRow[] = [];
+
     for (const row of this.derived.rows) {
       if (row.file !== rejection.path || (row.kind !== "add" && row.kind !== "del")) continue;
       if (rejection.changeIndex === undefined) {
         const target = hunkRejectionForRow(rejection.path, model, row);
+
         if (target && target.hunkIndex === rejection.hunkIndex) rows.push(row);
       } else {
         const target = changeRejectionForRow(rejection.path, model, row);
+
         if (target && sameRejection(target, rejection)) rows.push(row);
       }
     }
+
     return rows;
   }
 
   edit(): void {
     const session = this.snapshot.session;
+
     if (!session || session.status === "resolved") return;
     try {
       const result = editInEditor(this.working(), "plan.md", { editor: this.editor });
+
       if (result.changed) {
         this.setWorkingCopy(result.content);
         this.reconcileAnnotations(session, result.content);
@@ -651,6 +700,7 @@ class Controller implements ReviewController {
     const orphanCount = session.annotations.filter(
       (annotation) => resolveAnchor(annotation.anchor, editedBlocks) === null,
     ).length;
+
     this.update({ editOrphanCount: orphanCount });
   }
 
@@ -662,8 +712,10 @@ class Controller implements ReviewController {
     body: string,
   ): string | undefined {
     const session = this.snapshot.session;
+
     if (!session) return undefined;
     let anchor;
+
     if (session.artifact.type === "diff") {
       anchor = { ...diffRowAnchor(this.rows(), displayIndex), blockIndex: displayIndex };
     } else {
@@ -671,36 +723,45 @@ class Controller implements ReviewController {
       const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);
       const workBlockIndex =
         display.slice(0, displayIndex + 1).filter((entry) => entry.work).length - 1;
+
       anchor = makeAnchor(workBlocks, workBlockIndex, start, end);
     }
     const wire = { id: newAnnotationId(), kind, anchor, body };
     const persisted = this.client!.sessionAnnotate(session.id, wire);
+
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
     this.setStatus("comment added");
+
     return wire.id;
   }
 
   annotatePrototype(selector: string, quote: string, body: string): string | undefined {
     const session = this.snapshot.session;
+
     if (!session) return undefined;
     const anchor = { quote, prefix: "", suffix: "", selector };
     const wire = { id: newAnnotationId(), kind: "comment", anchor, body };
     const persisted = this.client!.sessionAnnotate(session.id, wire);
+
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
     this.setStatus("comment added");
+
     return wire.id;
   }
 
   updateAnnotation(id: string, body: string): void {
     const session = this.snapshot.session;
+
     if (!session) return;
     const existing = session.annotations.find((annotation) => annotation.id === id);
+
     if (!existing) return;
     // the daemon's annotate verb upserts by id: same id + anchor, new body
     const wire = { id: existing.id, kind: existing.kind, anchor: existing.anchor, body };
     const persisted = this.client!.sessionAnnotate(session.id, wire);
+
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
     this.setStatus("annotation updated");
@@ -712,12 +773,14 @@ class Controller implements ReviewController {
     annotation: Omit<Annotation, "createdAt">,
   ): void {
     const shareId = this.snapshot.session?.shareId;
+
     if (!shareId) return;
     void persisted.then(() => pushShare(shareId, [annotation])).catch(() => {});
   }
 
   removeAnnotation(id: string): void {
     const session = this.snapshot.session;
+
     if (!session) return;
     this.apply(this.client!.sessionRemoveAnnotation(session.id, id));
     this.setStatus("annotation deleted");
@@ -725,6 +788,7 @@ class Controller implements ReviewController {
 
   setWorkingCopy(content: string | undefined): void {
     const session = this.snapshot.session;
+
     if (!session) return;
     this.apply(this.client!.sessionSetWorkingCopy(session.id, content));
   }
@@ -740,8 +804,10 @@ class Controller implements ReviewController {
 
   walkStart(): void {
     const session = this.snapshot.session;
+
     if (!session || session.artifact.type !== "diff") return;
     const files = this.files();
+
     if (files.length === 0) return this.setStatus("nothing to walk - the diff is empty");
     // resume at the first unviewed file; a finished walk reopens on the end card
     this.update({ walk: { index: firstUnviewedIndex(files, this.viewedSet()) } });
@@ -750,9 +816,11 @@ class Controller implements ReviewController {
   walkForward(): void {
     const walk = this.snapshot.walk;
     const session = this.snapshot.session;
+
     if (!walk || !session) return;
     const files = this.files();
     const current = files[walk.index];
+
     if (!current) return; // already on the end card
     // advancing IS the viewed mark: the step is complete once you move past
     // it; the daemon verb merges, so only the new path travels
@@ -765,6 +833,7 @@ class Controller implements ReviewController {
 
   walkBack(): void {
     const walk = this.snapshot.walk;
+
     if (!walk) return;
     this.update({ walk: { index: Math.max(0, walk.index - 1) } });
   }
@@ -775,6 +844,7 @@ class Controller implements ReviewController {
 
   submit(verdict: VerdictKind, summary: string): void {
     const session = this.snapshot.session;
+
     if (!session) return;
     this.walkLeave();
     this.client!.sessionResolve(session.id, verdict, summary)
@@ -797,6 +867,7 @@ class Controller implements ReviewController {
         // countdown from DEFAULT_AUTO_CLOSE that closes on its own; esc stays,
         // a remembers the choice. A configured delay overrides; 0 closes now.
         const delay = this.autoClose;
+
         if (delay === 0) this.finishReview();
         else if (typeof delay === "number") this.startCounting(delay);
         else this.startCounting(DEFAULT_AUTO_CLOSE);
@@ -808,12 +879,14 @@ class Controller implements ReviewController {
 
   share(): void {
     const session = this.snapshot.session;
+
     if (!session) return;
     this.setStatus("sharing…");
     publishShare(session)
       .then(async ({ line, copied }) => {
         // Stamp the id back so a later pull knows which share to collect from.
         const shareId = shareIdFromLine(line);
+
         if (shareId && this.client) await this.client.sessionSetShareId(session.id, shareId);
         this.setStatus("");
         this.showToast(line, copied ? "share link copied" : "share link");
@@ -831,8 +904,10 @@ class Controller implements ReviewController {
    */
   pullShared(): Promise<void> {
     const session = this.snapshot.session;
+
     if (!session?.shareId || !this.client) return Promise.resolve();
     const client = this.client;
+
     return pullShare(session.shareId)
       .then((remote) =>
         client.sessionMergeShared(session.id, {
@@ -853,6 +928,7 @@ class Controller implements ReviewController {
     this.stopSharePoll();
     // per-run token so a stale run's in-flight pull never re-arms the poll
     const run = {};
+
     this.shareRun = run;
     const tick = (): void => {
       void this.pullShared().finally(() => {
@@ -860,7 +936,9 @@ class Controller implements ReviewController {
           this.sharePoll = this.clock.setTimeout(tick, SHARE_POLL_MS);
       });
     };
+
     tick();
+
     return () => {
       if (this.shareRun === run) this.stopSharePoll();
     };
@@ -883,6 +961,7 @@ class Controller implements ReviewController {
     this.clearCountdown();
     const herdr = detectHerdr();
     const pane = returnPaneFor(this.snapshot.session?.artifact.meta.herdrPane);
+
     if (herdr && pane) focusHerdrPane(herdr.binPath, pane);
     this.options.onExit?.(0);
   }

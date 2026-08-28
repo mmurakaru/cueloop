@@ -23,9 +23,11 @@ const modules = import.meta.glob<MdxModule>("./pages/docs/**/*.mdx", { eager: tr
 
 function groupFor(href: string): string {
   const target = normalizePath(href);
+
   for (const group of docsNav) {
     if (group.items.some((item) => normalizePath(item.href) === target)) return group.title;
   }
+
   return "Docs";
 }
 
@@ -33,11 +35,13 @@ export const searchDocs: SearchDoc[] = Object.values(modules)
   .map((mod): SearchDoc | null => {
     const frontmatter = mod.frontmatter ?? {};
     const rawUrl = mod.url ?? "";
+
     if (!frontmatter.title || !rawUrl) return null;
     const href = rawUrl.endsWith("/") ? rawUrl : `${rawUrl}/`;
     const headings = (mod.getHeadings?.() ?? [])
       .filter((heading) => heading.depth >= 2 && heading.depth <= 3)
       .map((heading) => heading.text);
+
     return {
       title: frontmatter.title,
       description: frontmatter.lede ?? frontmatter.description ?? "",
