@@ -13,10 +13,12 @@
  *      Add --dry-run first to see what it would create.
  */
 
-const API = "https://uptime.betterstack.com/api/v2/monitors";
+import * as v from "valibot";
+
+const MONITORS_ENDPOINT = "https://uptime.betterstack.com/api/v2/monitors";
 const dryRun = process.argv.includes("--dry-run");
 
-interface MonitorSpec {
+interface MonitorSpecification {
   pronounceable_name: string;
   monitor_type: "tcp" | "status";
   url: string;
@@ -27,7 +29,7 @@ interface MonitorSpec {
 // The two Layer 1 signals: the gateway's SSH port answers, and the site serves
 // HTTPS with a certificate that is not about to lapse. The gateway is DNS-only
 // SSH, so it is a plain TCP reachability check with no certificate to inspect.
-const MONITORS: MonitorSpec[] = [
+const MONITORS: MonitorSpecification[] = [
   {
     pronounceable_name: "cueloop gateway (SSH :22)",
     monitor_type: "tcp",
@@ -42,6 +44,12 @@ const MONITORS: MonitorSpec[] = [
   },
 ];
 
+// The API is a network trust boundary, so its shape is validated before use.
+const MonitorListSchema = v.object({
+  data: v.array(v.object({ attributes: v.object({ pronounceable_name: v.string() }) })),
+  pagination: v.optional(v.object({ next: v.nullable(v.string()) })),
+});
+
 function readToken(): string {
   const value = process.env.BETTERSTACK_API_TOKEN;
 
@@ -52,46 +60,47 @@ function readToken(): string {
 
 async function existingNames(bearer: string): Promise<Set<string>> {
   const names = new Set<string>();
-  let next: string | null = API;
+  let next: string | null = MONITORS_ENDPOINT;
 
   while (next) {
     const response = await fetch(next, { headers: { Authorization: `Bearer ${bearer}` } });
 
     if (!response.ok) throw new Error(`listing monitors failed: HTTP ${response.status}`);
-    const body = (await response.json()) as {
-      data: Array<{ attributes: { pronounceable_name: string } }>;
-      pagination?: { next: string | null };
-    };
+    const page = v.parse(MonitorListSchema, await response.json());
 
-    for (const monitor of body.data) names.add(monitor.attributes.pronounceable_name);
-    next = body.pagination?.next ?? null;
+    for (const monitor of page.data) names.add(monitor.attributes.pronounceable_name);
+    next = page.pagination?.next ?? null;
   }
 
   return names;
 }
 
-async function create(bearer: string, spec: MonitorSpec): Promise<void> {
-  const response = await fetch(API, {
+async function create(bearer: string, monitorSpecification: MonitorSpecification): Promise<void> {
+  const response = await fetch(MONITORS_ENDPOINT, {
     method: "POST",
     headers: { Authorization: `Bearer ${bearer}`, "content-type": "application/json" },
     // email: alerts go to the account's configured contact (hello@cueloop.dev),
     // set once in the dashboard. check_frequency is a safe 3 min; the free tier
     // allows down to 30s if tighter detection is wanted later.
-    body: JSON.stringify({ ...spec, email: true, check_frequency: 180 }),
+    body: JSON.stringify({ ...monitorSpecification, email: true, check_frequency: 180 }),
   });
 
   if (!response.ok) {
     const detail = await response.text();
 
     throw new Error(
-      `creating "${spec.pronounceable_name}" failed: HTTP ${response.status} ${detail}`,
+      `creating "${monitorSpecification.pronounceable_name}" failed: HTTP ${response.status} ${detail}`,
     );
   }
 }
 
 if (dryRun) {
   console.log("dry run - would ensure these Better Stack monitors:");
-  for (const spec of MONITORS) console.log(`  - ${spec.pronounceable_name} (${spec.monitor_type})`);
+  for (const monitorSpecification of MONITORS) {
+    console.log(
+      `  - ${monitorSpecification.pronounceable_name} (${monitorSpecification.monitor_type})`,
+    );
+  }
   process.exit(0);
 }
 
@@ -99,14 +108,14 @@ const bearer = readToken();
 const present = await existingNames(bearer);
 let created = 0;
 
-for (const spec of MONITORS) {
-  if (present.has(spec.pronounceable_name)) {
-    console.log(`exists, skipping: ${spec.pronounceable_name}`);
+for (const monitorSpecification of MONITORS) {
+  if (present.has(monitorSpecification.pronounceable_name)) {
+    console.log(`exists, skipping: ${monitorSpecification.pronounceable_name}`);
     continue;
   }
 
-  await create(bearer, spec);
-  console.log(`created: ${spec.pronounceable_name}`);
+  await create(bearer, monitorSpecification);
+  console.log(`created: ${monitorSpecification.pronounceable_name}`);
   created++;
 }
 
