@@ -20,13 +20,16 @@ const checksumsText = process.env.FORMULA_CHECKSUMS
       },
     );
 
-// checksums.txt lines are "<sha256>  cueloop-<target>".
+// checksums.txt lines are "<sha256>  cueloop-<target>"; the value crosses a
+// network trust boundary, so a token that is not a sha256 must stop the run.
 const shaByTarget = new Map<string, string>();
 
 for (const line of checksumsText.trim().split("\n")) {
   const [sha, name] = line.trim().split(/\s+/);
 
-  if (sha && name?.startsWith("cueloop-")) shaByTarget.set(name.replace("cueloop-", ""), sha);
+  if (!sha || !name?.startsWith("cueloop-")) continue;
+  if (!/^[0-9a-f]{64}$/.test(sha)) throw new Error(`invalid sha256 for ${name}: ${sha}`);
+  shaByTarget.set(name.replace("cueloop-", ""), sha);
 }
 
 const targets = ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64"];

@@ -234,11 +234,15 @@ jobs:
         run: gh release edit "$TAG" --draft=false --latest
 
   # Bump the tap formula from the release's checksums.txt and push it to
-  # mmurakaru/homebrew-tap. The push step no-ops until TAP_TOKEN is set.
+  # mmurakaru/homebrew-tap. The push step no-ops until TAP_TOKEN is set. Also
+  # runs on workflow_dispatch, so a failed tap push is retried by re-running.
   homebrew:
     name: Update Homebrew tap
     needs: [guard, finalize]
-    if: needs.guard.outputs.publish == 'true'
+    if: >-
+      always() && needs.guard.result == 'success' &&
+      ((needs.guard.outputs.publish == 'true' && needs.finalize.result == 'success') ||
+      github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
