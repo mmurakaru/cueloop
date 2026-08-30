@@ -1,37 +1,26 @@
 name: release-binaries
 
-# Attaches the self-contained cueloop binaries to a GitHub Release. `bun build
-# --compile` bundles the Bun runtime into each binary, so users need neither
-# Node nor a separate Bun install. Each platform compiles on its own runner:
-# `bun install` there pulls the matching @opentui/core-<platform> native package
-# and the compile embeds it, which a single cross-compiling host cannot do.
-#
-# The changesets release step tags one GitHub Release per published package; the
-# CLI is `cueloop@<version>`, and only that release carries binaries. install.sh
-# (served at cueloop.dev/install.sh) and the Homebrew formula download them.
+# Manual recovery lever: rebuild the binaries and attach them to an existing
+# release when its assets are missing or corrupt. The normal path builds them
+# in release.yml; this only repairs a release without re-running the publish.
+# Each platform compiles on its own runner - the embedded @opentui/core native
+# package is platform-specific, so one host cannot cross-compile the set.
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to build binaries for (e.g. cueloop@0.1.0-alpha.54)"
+        description: "Release tag to build binaries for (cueloop@<version>)"
         required: true
 
 concurrency:
-  group: release-binaries-${{ github.event.release.tag_name || github.event.inputs.tag }}
+  group: release-binaries-${{ github.event.inputs.tag }}
   cancel-in-progress: false
 
 permissions: {}
 
 jobs:
   build:
-    # Only the CLI package release carries binaries; skip the sibling-package
-    # release events changesets fires in the same publish run.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      startsWith(github.event.release.tag_name, 'cueloop@')
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -51,7 +40,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          ref: ${{ github.event.inputs.tag }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
@@ -66,7 +55,7 @@ jobs:
       - name: Upload binary to the release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          tag_name: ${{ github.event.inputs.tag }}
           files: packages/cli/dist/cueloop-${{ matrix.target }}
 
   checksums:
@@ -80,7 +69,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          TAG: ${{ github.event.inputs.tag }}
         run: |
           mkdir -p assets && cd assets
           for target in darwin-arm64 darwin-x64 linux-x64 linux-arm64; do
