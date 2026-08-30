@@ -87,7 +87,9 @@ export function renderFeedback(input: FeedbackInput): string {
 
     if (diff) {
       hasEdits = true;
-      lines.push("## Plan edits");
+      // The edits section names the markdown artifact it edited (plan or reply)
+      // so the directive is not mislabelled when the artifact is not a plan.
+      lines.push(input.artifactType === "reply" ? "## Reply edits" : "## Plan edits");
       lines.push("");
       lines.push(`The reviewer edited ${path} directly. Apply this exact diff first;`);
       lines.push("it is a unified diff against the version you submitted.");
