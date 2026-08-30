@@ -18,9 +18,12 @@ concurrency:
 permissions: {}
 
 jobs:
-  # Collect changesets into the Release Packages PR; never publishes.
+  # Collect changesets into the Release Packages PR; never publishes. Skipped on
+  # the publish push (the Release PR merge) - nothing new to accumulate there.
   version-pr:
     name: Version PR
+    needs: guard
+    if: needs.guard.outputs.publish == 'false'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
