@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 /**
  * cueloop entry points: `cueloop` opens the TUI on the inbox, the verb-first
- * openers `cueloop plan|diff|review` open the latest pending review of that
- * type (or address one by id/title), `cueloop diff`/`cueloop review <pr>` also
+ * openers `cueloop plan|reply|diff|review` open the latest pending review of
+ * that type (or address one by id/title), `cueloop diff`/`cueloop review <pr>` also
  * keep their create paths, `cueloop session *` mirrors the daemon API for
  * agents and scripts, `cueloop serve` shares a session over ssh (read-only
  * observers), `cueloop daemon` runs the daemon in the foreground.
@@ -15,6 +15,7 @@ import {
   isPlanReview,
   isPrototypeReview,
   isPrReview,
+  isReplyReview,
   isSessionId,
   openTargetMessage,
   resolveOpenTarget,
@@ -95,6 +96,7 @@ const commandHandlers: Record<string, CommandHandler> = {
   session: (rest) => sessionCommand(rest),
   daemon: () => daemonCommand(),
   plan: (rest) => planCommand(rest),
+  reply: (rest) => replyCommand(rest),
   diff: (rest) => diffCommand(rest),
   prototype: (rest) => prototypeCommand(rest),
   serve: (rest) => serveEntry(rest),
@@ -177,6 +179,15 @@ async function openReviewOfKind(
 /** `cueloop plan [id|title]` - open the latest pending plan, or address one. */
 async function planCommand(argv: string[]): Promise<number> {
   return openReviewOfKind(isPlanReview, "plan", openSelector(parseArgs(argv)));
+}
+
+/**
+ * `cueloop reply [id|title]` - open the latest pending reply review, or address
+ * one. A reply artifact is the agent's previous message, submitted for review
+ * by the /cueloop:reply skill; the opener is scope-only, like plan.
+ */
+async function replyCommand(argv: string[]): Promise<number> {
+  return openReviewOfKind(isReplyReview, "reply", openSelector(parseArgs(argv)));
 }
 
 /**
@@ -299,6 +310,7 @@ function printHelp(): void {
       "common commands:",
       "  cueloop                          open the inbox",
       "  cueloop plan [id|title]          open the latest pending plan review (or one by id/title)",
+      "  cueloop reply [id|title]         open the latest pending reply review (the agent's previous message)",
       "  cueloop diff [id|title]          review your working tree (untracked files included);",
       "                                   with a clean tree, open the latest pending diff review",
       "  cueloop review <pr>              review a pull request (--no-tui prints the session)",

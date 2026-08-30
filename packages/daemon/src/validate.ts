@@ -60,7 +60,7 @@ export const DiffFileContentsSchema = v.object({
 } satisfies EntriesOf<DiffFileContents>);
 
 export const ArtifactSchema = v.object({
-  type: v.picklist(["plan", "diff", "prototype"]),
+  type: v.picklist(["plan", "diff", "prototype", "reply"]),
   content: v.string(),
   meta: v.optional(ArtifactMetaSchema, {}),
   files: v.optional(v.array(DiffFileContentsSchema)),

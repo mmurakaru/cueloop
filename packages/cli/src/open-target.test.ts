@@ -7,6 +7,7 @@ import {
   isPlanReview,
   isPrototypeReview,
   isPrReview,
+  isReplyReview,
   isSessionId,
   openTargetMessage,
   resolveOpenTarget,
@@ -64,6 +65,13 @@ describe("verb scope predicates are disjoint", () => {
     expect(isPrototypeReview(session({ id: "ses_x", type: "prototype" }))).toBe(true);
     expect(isPrototypeReview(session({ id: "ses_p", type: "plan" }))).toBe(false);
     expect(isPrototypeReview(session({ id: "ses_d", type: "diff" }))).toBe(false);
+  });
+
+  test("isReplyReview matches only reply artifacts, and never a plan", () => {
+    expect(isReplyReview(session({ id: "ses_r", type: "reply" }))).toBe(true);
+    expect(isReplyReview(session({ id: "ses_p", type: "plan" }))).toBe(false);
+    expect(isReplyReview(session({ id: "ses_d", type: "diff" }))).toBe(false);
+    expect(isPlanReview(session({ id: "ses_r", type: "reply" }))).toBe(false);
   });
 
   test("a PR review resolves under exactly one scope - never both diff and review", () => {

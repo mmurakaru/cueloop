@@ -47,6 +47,24 @@ describe("renderFeedback", () => {
     expect(feedback).toContain("+Sessions are written as one JSON record per session.");
   });
 
+  test("reply edits section is labelled for the reply artifact, not a plan", () => {
+    // Act
+    const feedback = renderFeedback({
+      verdictKind: "request_changes",
+      summary: "",
+      artifactContent: PLAN,
+      workingCopy: PLAN.replace("one JSON document", "one JSON record"),
+      artifactType: "reply",
+      annotations: [],
+      artifactPath: "reply.md",
+    });
+
+    // Assert
+    expect(feedback).toContain("## Reply edits");
+    expect(feedback).not.toContain("## Plan edits");
+    expect(feedback).toContain("Apply this exact diff first");
+  });
+
   test("a diff working copy is handed back as the curated patch, not a diff of diffs", () => {
     // Arrange
     const submittedPatch = `--- a/src/x.ts

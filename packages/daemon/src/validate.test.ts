@@ -61,6 +61,15 @@ describe("parseParams", () => {
     }
   });
 
+  test("accepts the reply artifact type", () => {
+    const params = parseParams("session.create", {
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: { type: "reply", content: "# R" },
+    });
+
+    expect(params.artifact.type).toBe("reply");
+  });
+
   test("rejects an unknown artifact type", () => {
     expect(() =>
       parseParams("session.create", {
