@@ -1,16 +1,10 @@
 name: release
 
-# Changesets-driven release (alpha prerelease mode). On every push to main this
-# either opens/updates the "Release Packages" PR (collecting pending changesets
-# into version bumps + changelogs + the plugin.json sync) or, when that PR
-# merges, publishes the workspace to npm under the `alpha` dist-tag.
-#
-# Publishing uses npm trusted publishing (OIDC). The dist-tag sync step is not
-# OIDC-covered, so it reads the NPM_TOKEN secret; publishing carries no token.
-#
-# RELEASE_TOKEN (optional PAT): merges made with the default GITHUB_TOKEN do not
-# trigger workflows (GitHub's anti-recursion rule), so without it the publish
-# run after merging the Release PR must be started via workflow_dispatch.
+# One workflow: build binaries -> stage a draft release -> publish npm -> flip
+# the release live, so npm and the GitHub Release are both-or-neither. It stays
+# one workflow because a `release: published` event from GITHUB_TOKEN cannot
+# trigger a second workflow (anti-recursion). Changesets owns versioning; npm
+# auth is OIDC; only the dist-tag sync needs NPM_TOKEN.
 
 on:
   push:
@@ -24,35 +18,171 @@ concurrency:
 permissions: {}
 
 jobs:
-  release:
-    name: Version / publish
-    runs-on: macos-latest
+  # Collect changesets into the Release Packages PR; never publishes.
+  version-pr:
+    name: Version PR
+    runs-on: ubuntu-24.04
     permissions:
-      contents: write # create the Release PR + push tags
-      pull-requests: write # open/update the Release PR
-      id-token: write # npm trusted publishing (OIDC) + provenance
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
         with:
-          # changesets/action needs push credentials for the Release PR branch.
           token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
-      # changeset publish shells out to the npm CLI, and trusted publishing
-      # requires npm >= 11.5.1 on Node >= 22.14 - neither is the runner default.
-      # Node 24: current npm releases require ^22.22 || ^24.15 || >=26, so the
-      # bare 22.14 floor cannot install them.
+      - run: bun install --frozen-lockfile
+      - uses: changesets/action@v1
+        with:
+          version: bun run version
+          title: "Release: version packages"
+          commit: "Release: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+  # True only on the push that merged the Release PR: a CLI version npm lacks.
+  guard:
+    name: Release guard
+    runs-on: ubuntu-24.04
+    outputs:
+      publish: ${{ steps.check.outputs.publish }}
+      version: ${{ steps.check.outputs.version }}
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: check
+        run: |
+          version=$(jq -r .version packages/cli/package.json)
+          tag="cueloop@${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          # Publish only on a confirmed-absent version; a transient npm error
+          # must not be read as "unpublished" and republish over a live release.
+          set +e
+          lookup=$(npm view "cueloop@${version}" version 2>&1)
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            # exit 0 with output = version is on npm; empty = package exists,
+            # this version does not yet (the normal just-merged-release case).
+            if [ -n "$lookup" ]; then
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "publish=true" >> "$GITHUB_OUTPUT"
+            fi
+          elif printf '%s' "$lookup" | grep -q 'E404'; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm view could not confirm publish state: $lookup" >&2
+            exit 1
+          fi
+
+  # Each platform compiles on its own runner: the embedded @opentui/core native
+  # package is platform-specific, so one host cannot cross-compile the set.
+  build:
+    name: Build ${{ matrix.target }}
+    needs: guard
+    if: needs.guard.outputs.publish == 'true'
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - target: darwin-arm64
+            runner: macos-15
+          - target: darwin-x64
+            runner: macos-15-intel
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Compile standalone binary
+        run: |
+          cd packages/cli
+          bun run build:binary
+          mv dist/cueloop "dist/cueloop-${{ matrix.target }}"
+      - name: Smoke-test the binary
+        run: packages/cli/dist/cueloop-${{ matrix.target }} --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cueloop-${{ matrix.target }}
+          path: packages/cli/dist/cueloop-${{ matrix.target }}
+          if-no-files-found: error
+
+  # A draft is invisible to install.sh / Homebrew until the publish path flips it.
+  stage:
+    name: Stage draft release
+    needs: [guard, build]
+    if: needs.guard.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          pattern: cueloop-*
+          merge-multiple: true
+      - name: Checksums and asset-set check
+        run: |
+          cd assets
+          count=$(ls cueloop-* | wc -l | tr -d ' ')
+          if [ "$count" -ne 4 ]; then
+            echo "expected 4 binaries, found $count" >&2
+            ls -la
+            exit 1
+          fi
+          sha256sum cueloop-* > checksums.txt
+          cat checksums.txt
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.guard.outputs.tag }}
+          RELEASE_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          if gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null | grep -q true; then
+            gh release delete "$TAG" --yes
+          fi
+          # --target pins the tag; changeset publish's local tag never reaches the remote.
+          gh release create "$TAG" \
+            --draft \
+            --target "$RELEASE_COMMIT_SHA" \
+            --title "$TAG" \
+            --notes "cueloop $TAG" \
+            assets/cueloop-* assets/checksums.txt
+
+  # The one irreversible step, isolated so cleanup can key on it alone: once this
+  # job succeeds, npm has the packages and the draft is never deleted. OIDC
+  # trusted publishing, no npm token. typecheck+test guard a Release PR whose own
+  # CI may not have run.
+  publish-npm:
+    name: Publish to npm
+    needs: [guard, stage]
+    if: needs.guard.outputs.publish == 'true'
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
       - uses: actions/setup-node@v7
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
       - run: npm install -g npm@latest
-      # fresh install in the publish lane - tarball contents never come from a cache
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
-      # Retry the suite up to 3x for the low-rate opentui composer flake (green
-      # locally, self-diagnosing via the wait logs). Pass on the first clean run.
       - name: test
         run: |
           for attempt in 1 2 3; do
@@ -62,27 +192,61 @@ jobs:
             echo "test attempt $attempt failed - retrying"
           done
           exit 1
-      - name: Create Release PR or publish
-        id: changesets
-        uses: changesets/action@v1
-        with:
-          version: bun run version
-          publish: bun run ci:publish
-          commit: "Release: version packages"
-          title: "Release: version packages"
+      - name: Publish
+        run: bun run ci:publish
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          # No NODE_AUTH_TOKEN here: publishing uses OIDC (provenance, no token).
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
-      # Point the prerelease dist-tag at this version. `npm dist-tag add` is not
-      # OIDC-covered, so this one step uses the NPM_TOKEN secret.
+
+  # Runs after npm is live: dist-tags, verify, and flipping the draft. A failure
+  # here leaves npm published and the draft kept for a manual flip - never deleted.
+  finalize:
+    name: Finalize release
+    needs: [guard, publish-npm]
+    if: needs.guard.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+      - run: bun install --frozen-lockfile
       - name: Sync prerelease dist-tags
-        if: steps.changesets.outputs.published == 'true'
         run: bun run scripts/sync-dist-tags.ts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      # Success is what a stranger can install. A publish tool reporting success
-      # for a package that never reached the registry must fail the run.
       - name: Verify the published release
-        if: steps.changesets.outputs.published == 'true'
         run: bun run verify:published
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.guard.outputs.tag }}
+        run: gh release edit "$TAG" --draft=false --latest
+
+  # Delete the draft only when npm did not publish, so a live release and its
+  # binaries are never removed; a re-run then starts clean.
+  cleanup:
+    name: Cleanup failed draft
+    needs: [guard, build, stage, publish-npm, finalize]
+    if: >-
+      always() && needs.guard.outputs.publish == 'true' &&
+      contains(needs.*.result, 'failure') && needs.publish-npm.result != 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.guard.outputs.tag }}
+        run: |
+          if gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null | grep -q true; then
+            gh release delete "$TAG" --yes --cleanup-tag
+          fi
