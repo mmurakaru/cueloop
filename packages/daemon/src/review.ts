@@ -8,6 +8,7 @@
  */
 
 import {
+  isMarkdownArtifact,
   newAnnotationId,
   type ArtifactType,
   type DiffFileContents,
@@ -67,7 +68,7 @@ export interface OpenReviewOptions {
    * the artifact so hunk curation produces an exactly applyable patch.
    */
   files?: DiffFileContents[];
-  /** Defaults to the plan's first markdown heading; diffs get no derived title. */
+  /** Defaults to a markdown artifact's first heading (plan, reply); diffs get no derived title. */
   title?: string;
   /**
    * Per-file agent notes for diff sessions: the submitting agent's own
@@ -272,7 +273,9 @@ export async function openReview(
       prototypePath: options.prototypePath,
       pr: options.pr,
       herdrPane: options.herdrPane,
-      title: options.title ?? (options.type === "plan" ? firstHeading(options.content) : undefined),
+      title:
+        options.title ??
+        (isMarkdownArtifact(options.type) ? firstHeading(options.content) : undefined),
       cwd,
     },
   });

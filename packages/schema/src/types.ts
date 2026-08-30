@@ -12,14 +12,30 @@ export interface WorkspaceKey {
   branch: string;
 }
 
-export type ArtifactType = "plan" | "diff" | "prototype";
+/**
+ * What kind of artifact a review session holds. `plan` and `reply` are both
+ * markdown documents (see isMarkdownArtifact) - a plan is a proposal written
+ * forward, a reply is the agent's previous message pulled back for review.
+ * `diff` is a unified-diff patch; `prototype` is a rendered HTML page.
+ */
+export type ArtifactType = "plan" | "diff" | "prototype" | "reply";
+
+/**
+ * Markdown artifacts (plan, reply) are block-parsed and quote-anchored, so they
+ * share the plan render path, first-heading title derivation, and revision
+ * drift-assist. A diff (a patch) and a prototype (HTML/DOM) do not - keep this
+ * the one place that names the set, so a new markdown primitive joins here once.
+ */
+export function isMarkdownArtifact(type: ArtifactType): boolean {
+  return type === "plan" || type === "reply";
+}
 
 export interface ArtifactMeta {
   cwd?: string;
   agent?: string;
   /** Agent-native session id, for resume/fork context. */
   agentSessionId?: string;
-  /** Path to the plan file on disk, so feedback can reference it. */
+  /** Path to the plan or reply markdown file on disk, so feedback can reference it. */
   planPath?: string;
   /** Path to the prototype's entry HTML file on disk. */
   prototypePath?: string;
@@ -45,7 +61,7 @@ export interface DiffFileContents {
 
 export interface Artifact {
   type: ArtifactType;
-  /** Markdown source for plans; unified-diff text for diffs. */
+  /** Markdown source for plans and replies; unified-diff text for diffs. */
   content: string;
   meta: ArtifactMeta;
   /**

@@ -1,11 +1,20 @@
 import { describe, expect, test } from "bun:test";
-import { newAnnotationId, verdictAllows } from "./types";
+import { isMarkdownArtifact, newAnnotationId, verdictAllows } from "./types";
 
 describe("verdictAllows", () => {
   test("only approve maps to allow", () => {
     expect(verdictAllows("approve")).toBe(true);
     expect(verdictAllows("comment")).toBe(false);
     expect(verdictAllows("request_changes")).toBe(false);
+  });
+});
+
+describe("isMarkdownArtifact", () => {
+  test("plan and reply are markdown; diff and prototype are not", () => {
+    expect(isMarkdownArtifact("plan")).toBe(true);
+    expect(isMarkdownArtifact("reply")).toBe(true);
+    expect(isMarkdownArtifact("diff")).toBe(false);
+    expect(isMarkdownArtifact("prototype")).toBe(false);
   });
 });
 

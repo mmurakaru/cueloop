@@ -10,6 +10,7 @@ import {
   feedbackForSession,
   isAddressed,
   isAgentNote,
+  isMarkdownArtifact,
   parseBlocks,
   registerParticipant,
   resolveAnchor,
@@ -346,9 +347,10 @@ export class DaemonCore {
     session.status = "pending";
 
     const reportedIds = new Set(addressedAnnotationIds);
-    // drift assist applies to plans only: a diff revision is a whole new
-    // patch, where a vanished quote says nothing about the feedback
-    const revisedBlocks = session.artifact.type === "plan" ? parseBlocks(content) : null;
+    // drift assist applies to markdown artifacts (plan, reply) only: a diff
+    // revision is a whole new patch, where a vanished quote says nothing about
+    // the feedback
+    const revisedBlocks = isMarkdownArtifact(session.artifact.type) ? parseBlocks(content) : null;
 
     for (const annotation of session.annotations) {
       if (isAddressed(annotation) || isAgentNote(annotation)) continue;
