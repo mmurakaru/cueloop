@@ -55,13 +55,28 @@ jobs:
         run: |
           version=$(jq -r .version packages/cli/package.json)
           tag="cueloop@${version}"
-          if npm view "cueloop@${version}" version >/dev/null 2>&1; then
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          fi
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          # Publish only on a confirmed-absent version; a transient npm error
+          # must not be read as "unpublished" and republish over a live release.
+          set +e
+          lookup=$(npm view "cueloop@${version}" version 2>&1)
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            # exit 0 with output = version is on npm; empty = package exists,
+            # this version does not yet (the normal just-merged-release case).
+            if [ -n "$lookup" ]; then
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "publish=true" >> "$GITHUB_OUTPUT"
+            fi
+          elif printf '%s' "$lookup" | grep -q 'E404'; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm view could not confirm publish state: $lookup" >&2
+            exit 1
+          fi
 
   # Each platform compiles on its own runner: the embedded @opentui/core native
   # package is platform-specific, so one host cannot cross-compile the set.
