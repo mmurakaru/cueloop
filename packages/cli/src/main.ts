@@ -30,9 +30,15 @@ import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
 const argv = process.argv.slice(2);
 const cmd = argv[0];
 
-async function daemonCommand(): Promise<number> {
+async function daemonCommand(argv: string[]): Promise<number> {
   const { DaemonServer } = await import("@cueloop/daemon");
-  const server = new DaemonServer({ idleExitMs: 0 });
+  // Explicit foreground never idle-exits; --autostart (a re-exec from the client)
+  // takes the normal idle-exit, matching the source main.ts entry.
+  const envIdle = process.env.CUELOOP_IDLE_EXIT_MS;
+  let idleExitMs: number | undefined = 0;
+
+  if (argv.includes("--autostart")) idleExitMs = envIdle ? Number(envIdle) : undefined;
+  const server = new DaemonServer({ idleExitMs });
   const path = server.start();
 
   if (path === null) {
@@ -94,7 +100,7 @@ type CommandHandler = (rest: string[]) => number | Promise<number>;
 
 const commandHandlers: Record<string, CommandHandler> = {
   session: (rest) => sessionCommand(rest),
-  daemon: () => daemonCommand(),
+  daemon: (rest) => daemonCommand(rest),
   plan: (rest) => planCommand(rest),
   reply: (rest) => replyCommand(rest),
   diff: (rest) => diffCommand(rest),
