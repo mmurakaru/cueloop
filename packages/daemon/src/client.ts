@@ -277,13 +277,14 @@ export class DaemonClientError extends Error {
   }
 }
 
-// A compiled binary re-execs itself as `cueloop daemon`; from source, bun runs main.ts.
+// A compiled binary re-execs `cueloop daemon --autostart` (idle-exits like main.ts,
+// unlike the never-exiting foreground daemon); from source, bun runs main.ts.
 export function daemonSpawnCommand(execPath: string, moduleUrl: string): string[] {
   const compiled =
     moduleUrl.includes("$bunfs") || moduleUrl.includes("~BUN") || moduleUrl.includes("%7EBUN");
 
   return compiled
-    ? [execPath, "daemon"]
+    ? [execPath, "daemon", "--autostart"]
     : [execPath, "run", new URL("./main.ts", moduleUrl).pathname];
 }
 

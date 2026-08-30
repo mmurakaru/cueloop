@@ -11,6 +11,7 @@ describe("daemonSpawnCommand", () => {
       expect(daemonSpawnCommand("/usr/local/bin/cueloop", moduleUrl)).toEqual([
         "/usr/local/bin/cueloop",
         "daemon",
+        "--autostart",
       ]);
     }
   });
