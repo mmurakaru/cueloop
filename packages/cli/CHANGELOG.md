@@ -1,5 +1,19 @@
 # cueloop
 
+## 0.1.0-alpha.60
+
+### Minor Changes
+
+- [#283](https://github.com/mmurakaru/cueloop/pull/283) [`ce3e837`](https://github.com/mmurakaru/cueloop/commit/ce3e837a52405e6386a140a3f6437ff0b36b76ee) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add the `reply` primitive: `cueloop reply` opens the latest pending reply review (or one by id/title), and the `/cueloop:reply` skill submits the agent's previous message for line-level human review. A reply is a first-class markdown artifact type, so it renders through the plan sheet, derives its title from the first heading, and gets revision drift-assist - the plan-like behaviors now key on the shared `isMarkdownArtifact` predicate in `@cueloop/schema` rather than a `type === "plan"` literal. Content flows through the existing skill path (the agent writes its reply to a file and submits `--type reply`), so there is no transcript reader and no new daemon plumbing. The verdict rides the same non-blocking wake as plan reviews.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.60
+  - @cueloop/client@0.1.0-alpha.60
+  - @cueloop/daemon@0.1.0-alpha.60
+  - @cueloop/schema@0.1.0-alpha.60
+
 ## 0.1.0-alpha.59
 
 ### Patch Changes
