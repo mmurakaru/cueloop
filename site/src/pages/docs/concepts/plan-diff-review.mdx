@@ -1,8 +1,8 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: Plan, diff, review
+title: The review verbs
 eyebrow: Docs · Concepts
-lede: One verb per artifact type. plan for plans, diff for the working tree, review for pull requests - and bare cueloop for the inbox across all three.
+lede: One verb per artifact type. plan for plans, reply for an agent's message, diff for the working tree, prototype for rendered HTML, review for pull requests - and bare cueloop for the inbox across all of them.
 prev: { title: "Annotations", href: "/docs/concepts/annotations/" }
 next: { title: "Commands", href: "/docs/reference/commands/" }
 ---
@@ -25,11 +25,13 @@ of thing you want to review; it then picks the latest pending one of that type,
 or the specific one you name.
 
 ```bash
-cueloop            # open the inbox across all types
-cueloop plan       # latest pending plan review
-cueloop diff       # latest pending diff review
-cueloop review     # latest pending pull-request review
-cueloop review 42  # pull PR 42 in and post the verdict back to it
+cueloop                 # open the inbox across all types
+cueloop plan            # latest pending plan review
+cueloop reply           # latest pending reply review
+cueloop diff            # latest pending diff review
+cueloop prototype       # latest pending prototype review
+cueloop review          # latest pending pull-request review
+cueloop review 42       # pull PR 42 in and post the verdict back to it
 ```
 
 ## plan
@@ -37,6 +39,14 @@ cueloop review 42  # pull PR 42 in and post the verdict back to it
 `cueloop plan` opens the latest pending plan review. You can also address a
 specific plan by its id or by its title, which is handy when several plans are in
 flight at once.
+
+## reply
+
+`cueloop reply` opens the latest pending reply review. A reply is the agent's
+previous message, submitted for review before you act on it. It is a markdown
+artifact, so it renders and behaves exactly like a plan: you select spans,
+comment, edit the wording directly, and cast a verdict that goes back to the
+agent as structured feedback.
 
 ## diff
 
@@ -46,11 +56,27 @@ working tree instead of waiting for one to exist. So on a repo with uncommitted
 changes, `cueloop diff` is the fastest way to put your own work in front of
 yourself.
 
+## prototype
+
+`cueloop prototype` opens the latest pending prototype review. Give it an HTML
+file and `cueloop prototype mockup.html` renders that mockup in the terminal and
+creates a review of it: you click an element in the rendered page and anchor a
+comment to it, the same way a plan anchors comments to sentences.
+
 ## review
 
 `cueloop review` opens the latest pending pull-request review. Give it a PR and
 `cueloop review <pr>` pulls that specific pull request in, lets you annotate it,
 and posts the verdict back to the pull request itself.
+
+## refine - the retrospective
+
+The verbs above are forward-flow: they put one pending artifact in front of you.
+`cueloop refine` looks backward. It reads the stored corpus of past reviews and
+produces a markdown report of every reviewer annotation, grouped and attributed,
+so the feedback that keeps recurring can be turned into concrete edits to how
+your agent plans. See the
+[Command reference](/docs/reference/commands/) for the flags.
 
 ## The inbox and `--latest`
 
@@ -65,6 +91,6 @@ cueloop diff --open
 
 <div class="callout">
   <div class="callout__label">One verb per type</div>
-  plan, diff, review. Each verb owns one artifact type, defaults to the latest pending one, and
-  takes an id or title when you need a specific one.
+  plan, reply, diff, prototype, review. Each verb owns one artifact type, defaults to the latest
+  pending one, and takes an id or title when you need a specific one.
 </div>

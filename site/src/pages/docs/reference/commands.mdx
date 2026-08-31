@@ -3,14 +3,14 @@ layout: ../../../layouts/DocsLayout.astro
 title: Commands
 eyebrow: Docs · Reference
 lede: The full cueloop command surface - opening reviews, sharing over SSH, posting to GitHub, and the scripting API. Every command runs against a local daemon that starts on demand.
-prev: { title: "Plan, diff, review", href: "/docs/concepts/plan-diff-review/" }
+prev: { title: "The review verbs", href: "/docs/concepts/plan-diff-review/" }
 next: { title: "Configuration", href: "/docs/reference/configuration/" }
 ---
 
 cueloop is one binary, `cueloop`, with a small set of subcommands. Most connect
 to a local daemon that starts automatically the first time you run one. This page
 is the reference; for the ideas behind the verbs, read
-[Plan, diff, review](/docs/concepts/plan-diff-review/).
+[The review verbs](/docs/concepts/plan-diff-review/).
 
 ## Open a review
 
@@ -18,6 +18,7 @@ is the reference; for the ideas behind the verbs, read
 cueloop                     # open the inbox (every pending review)
 cueloop <session-id>        # open one session by its ses_… id
 cueloop plan [id|title]     # latest pending plan, or one you name
+cueloop reply [id|title]    # latest pending reply review
 cueloop diff [id|title]     # working-tree diff review
 cueloop prototype [file]    # review a rendered HTML mockup
 cueloop review <pr>         # pull a pull request in and review it
@@ -26,6 +27,9 @@ cueloop review <pr>         # pull a pull request in and review it
 - **`cueloop`** with no arguments opens the inbox across all types.
 - **`cueloop plan`** opens the latest pending plan review. Pass an id or title to
   address a specific one.
+- **`cueloop reply`** opens the latest pending reply review - an agent's message
+  submitted for review before you act on it. It reads like a plan: same
+  annotations, same verdicts.
 - **`cueloop diff`** is dual-mode: on a dirty working tree with no argument it
   _creates_ a review from the current changes (untracked files included); with a
   selector, or on a clean tree, it opens the latest pending diff review.
@@ -37,7 +41,7 @@ cueloop review <pr>         # pull a pull request in and review it
   `--open` / a `ses_…` id) opens a pending pull-request review, while any other
   value is treated as a PR reference and pulls that PR in via `gh`.
 
-**Flags** (on `plan`, `diff`, `prototype`, `review`):
+**Flags** (on `plan`, `reply`, `diff`, `prototype`, `review`):
 
 - `--latest` - open the latest pending review of that type.
 - `--open [id|title]` - open a pending review, optionally by id or title.
@@ -85,6 +89,7 @@ The verdict's feedback becomes the review body.
 
 ```bash
 cueloop session <verb> [flags]   # script the daemon API; JSON on stdout
+cueloop refine                   # mine past reviews into a markdown report
 cueloop daemon                   # run the daemon in the foreground
 cueloop --help                   # print help
 ```
@@ -93,6 +98,14 @@ cueloop --help                   # print help
 Verbs: `create`, `get`, `list`, `wait`, `annotate`, `resolve`,
 `submit-revision`. Each prints JSON, so it composes with other tools. Run
 `cueloop session` with no verb for the flag list.
+
+**`cueloop refine`** reads the stored corpus of past reviews and writes a
+markdown report of every reviewer annotation, grouped by kind with its session,
+primitive, and quote - the raw material for turning recurring feedback into
+better agent plans. It prints JSON with the report path; a timestamped copy is
+kept beside the latest. Each run analyzes up to `--limit` sessions (default
+200), skipping resolved sessions it has already analyzed and sessions with no
+reviewer signal; a still-pending session stays in scope until it resolves.
 
 **`cueloop daemon`** runs the daemon in the foreground and never idle-exits -
 useful under a process manager. Normally you never call it: other commands start

@@ -14,8 +14,9 @@ parts that matter, and hand back a structured verdict the agent can act on.
 ## The shape of it
 
 - **One primitive - the review session.** A review session pairs an _artifact_
-  (a plan, a working-tree diff, or a pull request) with _annotations_ anchored
-  to the exact text they discuss. Everything else is built on it.
+  (a plan, an agent's reply, a working-tree diff, a pull request, or a rendered
+  HTML prototype) with _annotations_ anchored to the relevant text or prototype
+  element. Everything else is built on it.
 - **Two directions of feedback.** You review your agent's work and send a
   verdict back to the agent. Separately, you can _share_ a plan with a teammate
   over SSH and merge their annotations back into yours.
