@@ -1,5 +1,7 @@
 # @cueloop/schema
 
+## 0.1.0-alpha.64
+
 ## 0.1.0-alpha.63
 
 ### Minor Changes

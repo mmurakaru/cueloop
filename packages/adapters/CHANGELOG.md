@@ -1,5 +1,14 @@
 # @cueloop/adapters
 
+## 0.1.0-alpha.64
+
+### Patch Changes
+
+- [#304](https://github.com/mmurakaru/cueloop/pull/304) [`49feedc`](https://github.com/mmurakaru/cueloop/commit/49feedc74de12b677a13455b18c223743d125691) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Parse untrusted JSON (persisted state, registry documents, external configs) with schemas at every I/O boundary, and enforce the new type-evidence lint rules across the workspace.
+- Updated dependencies [[`49feedc`](https://github.com/mmurakaru/cueloop/commit/49feedc74de12b677a13455b18c223743d125691)]:
+  - @cueloop/daemon@0.1.0-alpha.64
+  - @cueloop/schema@0.1.0-alpha.64
+
 ## 0.1.0-alpha.63
 
 ### Minor Changes
