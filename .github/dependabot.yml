@@ -27,6 +27,11 @@ updates:
       semver-patch-days: 3
     # Manual rebase only, so a PR is not re-based on every push to main.
     rebase-strategy: "disabled"
+    ignore:
+      # @changesets/cli 3.x rewrites pre-mode storage and mangles our accumulated
+      # pre.json + changesets; stay on 2.x until the pre-state is migrated.
+      - dependency-name: "@changesets/cli"
+        update-types: ["version-update:semver-major"]
     groups:
       # @opentui/* are pinned in lockstep; a partial bump would break the TUI.
       opentui:
