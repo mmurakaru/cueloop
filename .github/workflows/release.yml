@@ -18,9 +18,12 @@ concurrency:
 permissions: {}
 
 jobs:
-  # Collect changesets into the Release Packages PR; never publishes.
+  # Collect changesets into the Release Packages PR; never publishes. Skipped on
+  # the publish push (the Release PR merge) - nothing new to accumulate there.
   version-pr:
     name: Version PR
+    needs: guard
+    if: needs.guard.outputs.publish == 'false'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -229,6 +232,42 @@ jobs:
           GH_REPO: ${{ github.repository }}
           TAG: ${{ needs.guard.outputs.tag }}
         run: gh release edit "$TAG" --draft=false --latest
+
+  # Bump the tap formula from the release's checksums.txt and push it to
+  # mmurakaru/homebrew-tap. The push step no-ops until TAP_TOKEN is set. Also
+  # runs on workflow_dispatch, so a failed tap push is retried by re-running.
+  homebrew:
+    name: Update Homebrew tap
+    needs: [guard, finalize]
+    if: >-
+      always() && needs.guard.result == 'success' &&
+      ((needs.guard.outputs.publish == 'true' && needs.finalize.result == 'success') ||
+      github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun run scripts/update-formula.ts "${{ needs.guard.outputs.version }}"
+      - name: Push the formula to the tap
+        env:
+          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          TAG: ${{ needs.guard.outputs.tag }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo "TAP_TOKEN unset - skipping tap push"
+            exit 0
+          fi
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/mmurakaru/homebrew-tap.git" tap
+          mkdir -p tap/Formula
+          cp Formula/cueloop.rb tap/Formula/cueloop.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/cueloop.rb
+          git diff --cached --quiet || git commit -m "cueloop ${TAG}"
+          git push
 
   # Delete the draft only when npm did not publish, so a live release and its
   # binaries are never removed; a re-run then starts clean.

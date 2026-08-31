@@ -41,7 +41,7 @@ interface Method {
 
 const METHODS: Method[] = [
   { id: "curl", label: "curl", command: "curl -fsSL https://cueloop.dev/install.sh | sh" },
-  { id: "brew", label: "brew", command: "brew install cueloop" },
+  { id: "brew", label: "brew", command: "brew tap mmurakaru/tap && brew install cueloop" },
   { id: "npm", label: "npm", command: "npm i -g cueloop" },
   { id: "bun", label: "bun", command: "bun add -g cueloop" },
   { id: "pnpm", label: "pnpm", command: "pnpm add -g cueloop" },
