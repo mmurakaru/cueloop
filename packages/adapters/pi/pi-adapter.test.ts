@@ -55,17 +55,24 @@ function createFakePi(): FakePi {
   const toolCallHandlers: PiToolCallHandler[] = [];
   const sessionHandlers = new Map<string, PiSessionHandler[]>();
   const wakes: WakeMessage[] = [];
-  const on = ((event: string, handler: PiToolCallHandler | PiSessionHandler): void => {
-    if (event === "tool_call") {
-      toolCallHandlers.push(handler as PiToolCallHandler);
+  function on(event: "tool_call", handler: PiToolCallHandler): void;
+  function on(event: "session_start" | "session_shutdown", handler: PiSessionHandler): void;
+  function on(
+    ...registration:
+      | ["tool_call", PiToolCallHandler]
+      | ["session_start" | "session_shutdown", PiSessionHandler]
+  ): void {
+    if (registration[0] === "tool_call") {
+      toolCallHandlers.push(registration[1]);
 
       return;
     }
+    const [event, handler] = registration;
     const list = sessionHandlers.get(event) ?? [];
 
-    list.push(handler as PiSessionHandler);
+    list.push(handler);
     sessionHandlers.set(event, list);
-  }) as PiExtensionAPI["on"];
+  }
   const api: PiExtensionAPI = {
     registerTool: (tool) => tools.set(tool.name, tool),
     registerCommand: (name, options) => commands.set(name, options),
@@ -104,13 +111,13 @@ function toolCall(toolName: string): PiToolCallEvent {
 
 async function openPending(fake: FakePi, plan: string): Promise<string> {
   const tool = fake.tools.get("request_review")!;
-  const result = (await tool.execute(
+  const result: PiToolResult<ReviewDetails> = await tool.execute(
     "t-" + plan.length,
     { plan },
     undefined,
     undefined,
     makeContext(),
-  )) as PiToolResult<ReviewDetails>;
+  );
 
   expect(result.isError).toBeFalsy();
   expect(result.details.status).toBe("pending");
@@ -170,13 +177,13 @@ describe("pi adapter: non-blocking request_review", () => {
     controller.abort();
 
     // Act
-    const result = (await tool.execute(
+    const result: PiToolResult<ReviewDetails> = await tool.execute(
       "t-pre",
       { plan: "# Never Opens\n\nDo not create a session.\n" },
       controller.signal,
       undefined,
       makeContext(),
-    )) as PiToolResult<ReviewDetails>;
+    );
 
     // Assert
     expect(result.isError).toBe(true);

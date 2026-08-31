@@ -19,6 +19,7 @@
         "oxlint": "^1.79.0",
         "react": "^19.2.0",
         "typescript": "^7.0.2",
+        "valibot": "^1.4.2",
       },
     },
     "packages/adapters": {

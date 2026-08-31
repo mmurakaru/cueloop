@@ -243,25 +243,13 @@ export class DaemonClient implements SessionClient {
     annotation: Omit<Annotation, "createdAt">,
     authorName?: string,
   ): Promise<ReviewSession> {
-    return this.request(
-      "session.annotate",
-      { id, annotation, authorName },
-      SessionRecordSchema,
-    );
+    return this.request("session.annotate", { id, annotation, authorName }, SessionRecordSchema);
   }
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession> {
-    return this.request(
-      "session.removeAnnotation",
-      { id, annotationId },
-      SessionRecordSchema,
-    );
+    return this.request("session.removeAnnotation", { id, annotationId }, SessionRecordSchema);
   }
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession> {
-    return this.request(
-      "session.setWorkingCopy",
-      { id, workingCopy },
-      SessionRecordSchema,
-    );
+    return this.request("session.setWorkingCopy", { id, workingCopy }, SessionRecordSchema);
   }
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession> {
     return this.request("session.setViewed", { id, viewedPaths }, SessionRecordSchema);
@@ -287,11 +275,7 @@ export class DaemonClient implements SessionClient {
     return this.sessionGet(id);
   }
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession> {
-    return this.request(
-      "session.resolve",
-      { id, verdictKind, summary },
-      SessionRecordSchema,
-    );
+    return this.request("session.resolve", { id, verdictKind, summary }, SessionRecordSchema);
   }
   sessionSubmitRevision(
     id: string,

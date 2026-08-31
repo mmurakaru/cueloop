@@ -9,6 +9,20 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as v from "valibot";
+
+const ManifestSchema = v.object({
+  name: v.string(),
+  private: v.optional(v.boolean()),
+  main: v.optional(v.string()),
+  bin: v.optional(v.union([v.string(), v.record(v.string(), v.string())])),
+  exports: v.optional(v.union([v.string(), v.record(v.string(), v.string())])),
+  dependencies: v.optional(v.record(v.string(), v.string())),
+});
+
+function isSinglePath(value: string | Record<string, string>): value is string {
+  return typeof value === "string";
+}
 
 /**
  * --dev: the pre-merge lane, where `workspace:*` is the correct thing to have
@@ -29,14 +43,7 @@ const work = mkdtempSync(join(tmpdir(), "cueloop-pack-"));
 try {
   for (const path of paths) {
     const dir = path.replace(/\/package\.json$/, "");
-    const pkg: {
-      name: string;
-      private?: boolean;
-      main?: string;
-      bin?: Record<string, string> | string;
-      exports?: Record<string, object> | string;
-      dependencies?: Record<string, string>;
-    } = await Bun.file(path).json();
+    const pkg = v.parse(ManifestSchema, await Bun.file(path).json());
 
     if (pkg.private) continue;
 
@@ -91,14 +98,14 @@ try {
     );
     const targets: string[] = [];
 
-    if (typeof pkg.exports === "string") targets.push(pkg.exports);
-    else if (pkg.exports) {
-      for (const value of Object.values(pkg.exports)) {
-        if (typeof value === "string") targets.push(value);
-      }
+    if (pkg.exports !== undefined) {
+      if (isSinglePath(pkg.exports)) targets.push(pkg.exports);
+      else targets.push(...Object.values(pkg.exports));
     }
-    if (typeof pkg.bin === "string") targets.push(pkg.bin);
-    else if (pkg.bin) targets.push(...Object.values(pkg.bin));
+    if (pkg.bin !== undefined) {
+      if (isSinglePath(pkg.bin)) targets.push(pkg.bin);
+      else targets.push(...Object.values(pkg.bin));
+    }
     if (pkg.main) targets.push(pkg.main);
     for (const target of targets) {
       const rel = target.replace(/^\.\//, "");

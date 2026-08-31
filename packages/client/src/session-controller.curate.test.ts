@@ -41,6 +41,9 @@ interface WorkingCopySink {
   workingCopy?: string;
 }
 
+const unimplemented = (member: string) => () =>
+  Promise.reject(new Error(`fakeClient does not implement ${member}`));
+
 /** A fake client that records the working copy the controller writes. */
 function fakeClient(session: ReviewSession, sink: WorkingCopySink): SessionClient {
   return {
@@ -48,13 +51,21 @@ function fakeClient(session: ReviewSession, sink: WorkingCopySink): SessionClien
     subscribe: async () => {},
     sessionGet: async () => session,
     sessionList: async () => [session],
+    sessionAnnotate: unimplemented("sessionAnnotate"),
+    sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: mock(async (_id: string, content: string | undefined) => {
       sink.workingCopy = content;
 
       return { ...session, workingCopy: content };
     }),
+    sessionSetViewed: unimplemented("sessionSetViewed"),
+    sessionSetShareId: unimplemented("sessionSetShareId"),
+    sessionMergeShared: unimplemented("sessionMergeShared"),
+    sessionDelete: unimplemented("sessionDelete"),
+    sessionSetSelfName: unimplemented("sessionSetSelfName"),
+    sessionResolve: unimplemented("sessionResolve"),
     close: () => {},
-  } as unknown as SessionClient;
+  };
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));

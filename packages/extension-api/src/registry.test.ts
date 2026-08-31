@@ -2,7 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { Registry } from "./registry";
 import type { ReviewSession } from "@cueloop/schema";
 
-const SESSION = { id: "ses_x", annotations: [] } as unknown as ReviewSession;
+const SESSION: ReviewSession = {
+  schemaVersion: "1",
+  id: "ses_x",
+  workspace: { repoRoot: "/repo", branch: "main" },
+  artifact: { type: "plan", content: "# Plan\n", meta: {} },
+  revisions: [],
+  annotations: [],
+  verdict: null,
+  status: "pending",
+  createdAt: "2026-01-01T00:00:00.000Z",
+};
 
 describe("Registry", () => {
   test("captures each extension's exporters, attributed by name", async () => {

@@ -34,7 +34,7 @@ describe("TerminalPaneRenderable", () => {
 
   test("exposes availability + the renderable class", () => {
     // Assert - the module loads and reports platform support honestly
-    expect(typeof embeddedTerminalAvailable()).toBe("boolean");
+    expect([true, false]).toContain(embeddedTerminalAvailable());
     expect(TerminalPaneRenderable).toBeDefined();
   });
 });

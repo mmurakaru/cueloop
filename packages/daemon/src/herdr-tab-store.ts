@@ -19,7 +19,7 @@ const HerdrTabHandleSchema = v.object({
   tabId: v.string(),
   paneId: v.string(),
 });
-const HerdrTabsSchema = v.record(v.string(), HerdrTabHandleSchema);
+const HerdrTabsSchema = v.record(v.string(), v.unknown());
 
 export class HerdrTabStore {
   private tabs = new Map<string, HerdrTabHandle>();
@@ -35,7 +35,9 @@ export class HerdrTabStore {
       const parsed = v.parse(HerdrTabsSchema, JSON.parse(readFileSync(this.path, "utf8")));
 
       for (const [sessionId, value] of Object.entries(parsed)) {
-        this.tabs.set(sessionId, value);
+        const handle = v.safeParse(HerdrTabHandleSchema, value);
+
+        if (handle.success) this.tabs.set(sessionId, handle.output);
       }
     } catch {
       // absent, unreadable, or malformed: start empty - a stale tab just reopens on resubmit

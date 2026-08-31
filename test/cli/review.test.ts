@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import type { ReviewSession } from "@cueloop/schema";
 import { cliJson, runCli } from "../helpers/cli";
@@ -42,7 +43,7 @@ function ghCalls(): string[][] {
   return raw
     .split("\n")
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as string[]);
+    .map((line) => v.parse(v.array(v.string()), JSON.parse(line)));
 }
 
 function ghEnv() {

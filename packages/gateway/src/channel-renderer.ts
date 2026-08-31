@@ -13,7 +13,7 @@
 
 import { Readable, Writable } from "node:stream";
 import type { ReactElement } from "react";
-import { createCliRenderer } from "@opentui/core";
+import { createCliRenderer, type CliRenderer, type CliRendererConfig } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import type { ServerChannel } from "ssh2";
 
@@ -80,12 +80,12 @@ function channelStreams(channel: ServerChannel, size: PtySize) {
 
   const stdout = Object.assign(
     new Writable({
-    write(chunk, _encoding, callback) {
-      if (channelGone) return callback();
-      const bytes = Buffer.from(chunk);
+      write(chunk, _encoding, callback) {
+        if (channelGone) return callback();
+        const bytes = Buffer.from(chunk);
 
-      if (bytes.byteLength === 0) return callback();
-      if (channel.write(bytes)) return callback();
+        if (bytes.byteLength === 0) return callback();
+        if (channel.write(bytes)) return callback();
         pendingDrain = callback;
         channel.once("drain", releaseDrain);
       },

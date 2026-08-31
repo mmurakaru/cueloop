@@ -12,6 +12,12 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as v from "valibot";
+
+const RegistryDocSchema = v.object({
+  versions: v.optional(v.record(v.string(), v.unknown())),
+  "dist-tags": v.optional(v.record(v.string(), v.string())),
+});
 
 const releasePackage: { version: string } = await Bun.file("packages/cli/package.json").json();
 const version = releasePackage.version;
@@ -61,10 +67,7 @@ for (const name of new Set(names)) {
 
     if (!response.ok)
       return `${name}: not on the registry (HTTP ${response.status}) - the publish did not land`;
-    const doc: {
-      versions?: Record<string, object>;
-      "dist-tags"?: Record<string, string>;
-    } = await response.json();
+    const doc = v.parse(RegistryDocSchema, await response.json());
 
     if (!doc.versions?.[version]) {
       return `${name}: registry has no ${version} (tags: ${JSON.stringify(doc["dist-tags"] ?? {})})`;

@@ -888,9 +888,9 @@ class Controller implements ReviewController {
         // a remembers the choice. A configured delay overrides; 0 closes now.
         const delay = this.autoClose;
 
-        if (delay === 0) this.finishReview();
-        else if (typeof delay === "number") this.startCounting(delay);
-        else this.startCounting(DEFAULT_AUTO_CLOSE);
+        if (delay === "off") this.startCounting(DEFAULT_AUTO_CLOSE);
+        else if (delay === 0) this.finishReview();
+        else this.startCounting(delay);
       })
       .catch((cause: unknown) =>
         this.setStatus(String(cause instanceof Error ? cause.message : cause)),

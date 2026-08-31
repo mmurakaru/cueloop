@@ -56,8 +56,10 @@ describe("parseParams", () => {
       throw new Error("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(DaemonError);
-      expect((err as DaemonError).code).toBe("invalid_params");
-      expect((err as DaemonError).message).toContain("session.create: workspace");
+      if (err instanceof DaemonError) {
+        expect(err.code).toBe("invalid_params");
+        expect(err.message).toContain("session.create: workspace");
+      }
     }
   });
 
@@ -169,7 +171,7 @@ describe("validateSessionRecord", () => {
  * @cueloop/schema shows up here too.
  */
 describe("wire pins", () => {
-  const keys = (subject: object) => Object.keys(subject).sort();
+  const keys = <Subject extends object>(subject: Subject) => Object.keys(subject).sort();
   const entryKeys = (schema: { entries: object }) => Object.keys(schema.entries).sort();
 
   const fullMeta: Required<ArtifactMeta> = {

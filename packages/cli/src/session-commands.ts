@@ -125,10 +125,7 @@ async function sessionResolveCommand({
   flags,
 }: SessionContext): Promise<number> {
   const id = required(positional[1], "session id");
-  const kind = v.parse(
-    VerdictKindSchema,
-    required(stringFlag(flags, "verdict"), "--verdict"),
-  );
+  const kind = v.parse(VerdictKindSchema, required(stringFlag(flags, "verdict"), "--verdict"));
 
   out(await client.sessionResolve(id, kind, stringFlag(flags, "summary") ?? ""));
 

@@ -56,7 +56,7 @@ describe("share toast", () => {
     const setup = await testRender(
       <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
       {
-      width: 120,
+        width: 120,
         height: 32,
       },
     );

@@ -41,4 +41,3 @@ export async function runCli(
 
   return { code, stdout, stderr };
 }
-

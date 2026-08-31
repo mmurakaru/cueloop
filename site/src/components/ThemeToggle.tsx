@@ -13,7 +13,7 @@ type Pref = "system" | "light" | "dark";
 const ORDER: Pref[] = ["system", "light", "dark"];
 
 function prefersDark(): boolean {
-  return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches;
+  return typeof matchMedia !== "undefined" && matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 function resolve(pref: Pref): "light" | "dark" {
@@ -84,7 +84,7 @@ export default function ThemeToggle() {
 
   // While on "system", follow OS changes live.
   useEffect(() => {
-    if (pref !== "system" || typeof matchMedia !== "function") return;
+    if (pref !== "system" || typeof matchMedia === "undefined") return;
     const query = matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {
       document.documentElement.dataset.theme = query.matches ? "dark" : "light";

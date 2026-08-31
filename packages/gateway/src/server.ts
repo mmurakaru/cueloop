@@ -331,12 +331,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         return void fail(channel, "only the planner who shared this can push to it");
       // Round-trip validates the pushed notes: a malformed one throws here, so the stored blob stays intact.
       const next = unpackSessionBlob(
-        packSessionBlob(
-          mergeOwnerAnnotations(
-            session,
-            annotations.output,
-          ),
-        ),
+        packSessionBlob(mergeOwnerAnnotations(session, annotations.output)),
       );
 
       await store.put(
@@ -360,7 +355,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       server.off("error", reject);
       const address = this.address();
 
-      resolve({ host, port: typeof address === "object" && address ? address.port : port });
+      resolve({ host, port: address instanceof Object ? address.port : port });
     });
   });
 

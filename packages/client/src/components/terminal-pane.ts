@@ -47,14 +47,10 @@ export interface TerminalPaneOptions extends RenderableOptions {
   onExit?: (exitCode: number) => void;
 }
 
-function terminalEnvironment(env: NodeJS.ProcessEnv): Record<string, string> {
-  const result: Record<string, string> = {};
-
-  for (const [name, value] of Object.entries(env)) {
-    if (value !== undefined) result[name] = value;
-  }
-
-  return result;
+function terminalEnvironment(env: NodeJS.ProcessEnv) {
+  return Object.fromEntries(
+    Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
 }
 
 const encoder = new TextEncoder();

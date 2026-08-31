@@ -31,4 +31,3 @@ export function asDaemonRole(value: Parameters<typeof v.safeParse>[1]): DaemonRo
 
   return result.success ? result.output : "agent";
 }
-

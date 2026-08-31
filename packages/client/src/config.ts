@@ -154,44 +154,34 @@ const QuickActionSchema = v.object({
   metadata: v.optional(v.string()),
 });
 
-const AuthorsSchema = v.record(v.string(), v.string());
-const KeysSchema = v.record(v.string(), v.union([v.string(), v.array(v.string())]));
+const AuthorsSchema = v.record(v.string(), v.unknown());
+const KeysSchema = v.record(v.string(), v.unknown());
+const KeyComboSchema = v.union([v.string(), v.array(v.string())]);
+// Every field falls back to undefined on its own, so one bad value in a
+// section never discards the section's other settings.
 const UiSchema = v.object({
-  auto_close: v.optional(v.union([v.literal("off"), v.pipe(v.number(), v.minValue(0))])),
-  editor: v.optional(v.string()),
-  review_width: v.optional(v.pipe(v.number(), v.finite())),
-  review_state: v.optional(v.picklist(["expanded", "compact", "hidden"])),
-  theme: v.optional(v.string()),
+  auto_close: v.fallback(
+    v.optional(v.union([v.literal("off"), v.pipe(v.number(), v.minValue(0))])),
+    undefined,
+  ),
+  editor: v.fallback(v.optional(v.string()), undefined),
+  review_width: v.fallback(v.optional(v.pipe(v.number(), v.finite())), undefined),
+  review_state: v.fallback(v.optional(v.picklist(["expanded", "compact", "hidden"])), undefined),
+  theme: v.fallback(v.optional(v.string()), undefined),
 });
 const ObsidianSchema = v.object({
-  vault: v.optional(v.string()),
-  folder: v.optional(v.string()),
-  filenameFormat: v.optional(v.string()),
-  separator: v.optional(v.picklist(["space", "dash", "underscore"])),
-  exportOn: v.optional(v.picklist(["approve", "resolve", "manual"])),
+  vault: v.fallback(v.optional(v.string()), undefined),
+  folder: v.fallback(v.optional(v.string()), undefined),
+  filenameFormat: v.fallback(v.optional(v.string()), undefined),
+  separator: v.fallback(v.optional(v.picklist(["space", "dash", "underscore"])), undefined),
+  exportOn: v.fallback(v.optional(v.picklist(["approve", "resolve", "manual"])), undefined),
 });
 const IntegrationsSchema = v.object({ obsidian: v.optional(ObsidianSchema) });
-const ThemeOverridesSchema = v.partial(
-  v.object({
-    background: v.string(),
-    panel: v.string(),
-    elevated: v.string(),
-    border: v.string(),
-    text: v.string(),
-    textMuted: v.string(),
-    textDim: v.string(),
-    accent: v.string(),
-    accentInk: v.string(),
-    green: v.string(),
-    red: v.string(),
-    blue: v.string(),
-    cursorBackground: v.string(),
-    markCommentBackground: v.string(),
-    insertedForeground: v.string(),
-    deletedForeground: v.string(),
-    backdrop: v.string(),
-  }),
-);
+const ThemeOverridesSchema = v.record(v.string(), v.unknown());
+
+function isThemeToken(token: string): token is keyof Theme {
+  return token in DARK;
+}
 
 function parseToml(text: string) {
   return v.parse(ConfigDocumentSchema, Bun.TOML.parse(text));
@@ -213,7 +203,21 @@ function parseActions(entries: readonly unknown[] | undefined): QuickAction[] | 
   return actions.length ? actions : undefined;
 }
 
-function layer(base: CueloopConfig, raw: v.InferOutput<typeof ConfigDocumentSchema>): CueloopConfig {
+function mergeObsidian(
+  target: ObsidianConfig,
+  obsidian: v.InferOutput<typeof ObsidianSchema>,
+): void {
+  if (obsidian.vault !== undefined) target.vault = obsidian.vault;
+  if (obsidian.folder !== undefined) target.folder = obsidian.folder;
+  if (obsidian.filenameFormat !== undefined) target.filenameFormat = obsidian.filenameFormat;
+  if (obsidian.separator !== undefined) target.separator = obsidian.separator;
+  if (obsidian.exportOn !== undefined) target.exportOn = obsidian.exportOn;
+}
+
+function layer(
+  base: CueloopConfig,
+  raw: v.InferOutput<typeof ConfigDocumentSchema>,
+): CueloopConfig {
   const out: CueloopConfig = {
     keys: { ...base.keys },
     theme: { ...base.theme },
@@ -230,20 +234,30 @@ function layer(base: CueloopConfig, raw: v.InferOutput<typeof ConfigDocumentSche
   const integrations = v.safeParse(IntegrationsSchema, raw.integrations);
 
   if (actions) out.actions = actions;
-  if (authors.success) Object.assign(out.authors, authors.output);
+  if (authors.success) {
+    for (const [id, value] of Object.entries(authors.output)) {
+      const name = v.safeParse(v.string(), value);
+
+      if (name.success) out.authors[id] = name.output;
+    }
+  }
   if (keys.success) {
-    for (const [action, combo] of Object.entries(keys.output)) {
-      out.keys[action] = Array.isArray(combo) ? combo : [combo];
+    for (const [action, value] of Object.entries(keys.output)) {
+      const combo = v.safeParse(KeyComboSchema, value);
+
+      if (combo.success)
+        out.keys[action] = Array.isArray(combo.output) ? combo.output : [combo.output];
     }
   }
   if (ui.success) {
     if (ui.output.auto_close !== undefined) out.ui.autoClose = ui.output.auto_close;
     if (ui.output.editor?.trim()) out.ui.editor = ui.output.editor.trim();
-    if (ui.output.review_width !== undefined) out.ui.reviewWidth = clampWidth(ui.output.review_width);
+    if (ui.output.review_width !== undefined)
+      out.ui.reviewWidth = clampWidth(ui.output.review_width);
     if (ui.output.review_state !== undefined) out.ui.reviewState = ui.output.review_state;
   }
   if (integrations.success && integrations.output.obsidian) {
-    Object.assign(out.integrations.obsidian, integrations.output.obsidian);
+    mergeObsidian(out.integrations.obsidian, integrations.output.obsidian);
   }
 
   return out;
@@ -288,7 +302,13 @@ export function loadConfig(
       const parsedThemeOverrides = v.safeParse(ThemeOverridesSchema, raw.theme);
 
       if (rawTheme && isThemeName(rawTheme)) themeName = rawTheme;
-      if (parsedThemeOverrides.success) Object.assign(themeOverrides, parsedThemeOverrides.output);
+      if (parsedThemeOverrides.success) {
+        for (const [token, value] of Object.entries(parsedThemeOverrides.output)) {
+          const override = v.safeParse(v.string(), value);
+
+          if (override.success && isThemeToken(token)) themeOverrides[token] = override.output;
+        }
+      }
     } catch {
       // a broken config never blocks a review; defaults win
     }

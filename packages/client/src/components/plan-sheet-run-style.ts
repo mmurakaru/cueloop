@@ -50,11 +50,7 @@ interface PlanSheetRunStyle {
   attributes?: number;
 }
 
-function inlineRoleStyle(
-  run: StyleRun,
-  base: BlockBaseStyle,
-  tokens: Theme,
-): PlanSheetRunStyle {
+function inlineRoleStyle(run: StyleRun, base: BlockBaseStyle, tokens: Theme): PlanSheetRunStyle {
   const { baseFg, baseAttributes } = base;
   const withBase = (roleAttributes: number): number => baseAttributes | roleAttributes;
 
@@ -84,11 +80,7 @@ function inlineRoleStyle(
   }
 }
 
-export function runStyle(
-  run: StyleRun,
-  block: DisplayBlock,
-  tokens: Theme,
-): PlanSheetRunStyle {
+export function runStyle(run: StyleRun, block: DisplayBlock, tokens: Theme): PlanSheetRunStyle {
   // a cut block reads as removed: every run struck through and grayed, never red
   if (block.type === "del") return { fg: tokens.textDim, attributes: CUT_ATTRIBUTES };
 

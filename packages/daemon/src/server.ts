@@ -346,13 +346,10 @@ export class DaemonServer {
     },
   };
 
-  private async dispatch(
-    connection: Connection,
-    request: Request,
-  ): Promise<Response["result"]> {
+  private async dispatch(connection: Connection, request: Request): Promise<Response["result"]> {
     // The wire is untrusted JSON: validate before DaemonCore sees anything.
-    if (typeof request.method !== "string" || !isKnownMethod(request.method)) {
-      throw new DaemonError("unknown_method", `unknown method ${String(request.method)}`);
+    if (!isKnownMethod(request.method)) {
+      throw new DaemonError("unknown_method", `unknown method ${request.method}`);
     }
     // Capability gate: a capped role (a review-side agent) cannot escalate past
     // read + annotate, whatever verb it sends.

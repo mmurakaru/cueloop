@@ -30,11 +30,20 @@ function annotationFixture(id: string, author?: string): Annotation {
   return author ? { ...base, author } : base;
 }
 
+const unimplemented = (member: string) => () =>
+  Promise.reject(new Error(`fakeClient does not implement ${member}`));
+
 /** A SessionClient that answers get/list from a fixed list and records the share/merge verbs. */
 function fakeClient(sessions: ReviewSession[]): SessionClient {
   return {
+    onEvent: () => () => {},
+    subscribe: async () => {},
     sessionGet: async (id: string) => sessions.find((session) => session.id === id)!,
     sessionList: async () => sessions,
+    sessionAnnotate: unimplemented("sessionAnnotate"),
+    sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
+    sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
+    sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetShareId: mock(async (id: string, shareId: string) => {
       const session = sessions.find((candidate) => candidate.id === id)!;
 
@@ -51,7 +60,11 @@ function fakeClient(sessions: ReviewSession[]): SessionClient {
 
       return session;
     }),
-  } as unknown as SessionClient;
+    sessionDelete: unimplemented("sessionDelete"),
+    sessionSetSelfName: unimplemented("sessionSetSelfName"),
+    sessionResolve: unimplemented("sessionResolve"),
+    close: () => {},
+  };
 }
 
 function depsSpy(overrides: Partial<ShareDeps> = {}): ShareDeps & { lines: string[] } {

@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test, type Mock } from "bun:test";
 import { ManualClock } from "@opentui/core/testing";
 import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
@@ -16,8 +16,7 @@ const shareTransport: ShareTransport = {
   pull: pullShare,
   push: pushShare,
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
-  collaboratorAnnotations: (session) =>
-    session.annotations.filter((entry) => entry.author),
+  collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
 };
 
 function sessionFixture(overrides: Partial<ReviewSession> = {}): ReviewSession {
@@ -46,13 +45,23 @@ function annotation(id: string, author: string): Annotation {
   };
 }
 
-function fakeClient(session: ReviewSession): SessionClient {
+interface FakeSessionClient extends SessionClient {
+  sessionAnnotate: Mock<SessionClient["sessionAnnotate"]>;
+}
+
+const unimplemented = (member: string) => () =>
+  Promise.reject(new Error(`fakeClient does not implement ${member}`));
+
+function fakeClient(session: ReviewSession): FakeSessionClient {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
     sessionGet: async () => session,
     sessionList: async () => [session],
-    sessionAnnotate: mock(async () => session),
+    sessionAnnotate: mock<SessionClient["sessionAnnotate"]>(async () => session),
+    sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
+    sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
+    sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetShareId: mock(
       async (_id: string, shareId: string) => ((session.shareId = shareId), session),
     ),
@@ -64,8 +73,11 @@ function fakeClient(session: ReviewSession): SessionClient {
 
       return session;
     }),
+    sessionDelete: unimplemented("sessionDelete"),
+    sessionSetSelfName: unimplemented("sessionSetSelfName"),
+    sessionResolve: unimplemented("sessionResolve"),
     close: () => {},
-  } as unknown as SessionClient;
+  };
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -73,7 +85,7 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 async function connectedController(
   session: ReviewSession,
   clock?: ManualClock,
-): Promise<{ controller: ReturnType<typeof createReviewController>; client: SessionClient }> {
+): Promise<{ controller: ReturnType<typeof createReviewController>; client: FakeSessionClient }> {
   const client = fakeClient(session);
   const controller = createReviewController({
     sessionId: session.id,
@@ -203,7 +215,7 @@ describe("mirror on annotate", () => {
       sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }),
     );
 
-    (client.sessionAnnotate as ReturnType<typeof mock>).mockImplementationOnce(async () => {
+    client.sessionAnnotate.mockImplementationOnce(async () => {
       throw new Error("session is resolved");
     });
 

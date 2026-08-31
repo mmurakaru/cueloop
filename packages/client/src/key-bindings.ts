@@ -225,6 +225,10 @@ const SPAN_COMMANDS: [key: string, command: string][] = [
   ["escape", "span_cancel"],
 ];
 
+function isConditionMatcher(value: unknown): value is () => boolean {
+  return typeof value === "function";
+}
+
 export class KeyBindings {
   private readonly host = new HeadlessKeymapHost();
   private readonly keymap = new Keymap<object, KeymapEvent>(this.host);
@@ -239,9 +243,7 @@ export class KeyBindings {
     // and dispatch only see the layer that owns the current mode
     this.keymap.registerLayerFields({
       when: (value, fieldContext) => {
-        const condition = v.safeParse(v.function(), value);
-
-        if (condition.success) fieldContext.activeWhen(condition.output);
+        if (isConditionMatcher(value)) fieldContext.activeWhen(value);
       },
     });
     this.registerModeLayers();

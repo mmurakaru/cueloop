@@ -55,12 +55,8 @@ describe("socket round-trip", () => {
   });
 
   test("errors carry codes across the wire", async () => {
-    expect(client.sessionGet("nope")).rejects.toBeInstanceOf(DaemonClientError);
-    try {
-      await client.sessionGet("nope");
-    } catch (error) {
-      expect((error as DaemonClientError).code).toBe("not_found");
-    }
+    await expect(client.sessionGet("nope")).rejects.toBeInstanceOf(DaemonClientError);
+    await expect(client.sessionGet("nope")).rejects.toHaveProperty("code", "not_found");
   });
 
   test("events push to subscribed connections only", async () => {
@@ -86,42 +82,27 @@ describe("socket round-trip", () => {
 
   test("malformed requests get structured errors and never wedge the daemon", async () => {
     // missing required params
-    try {
-      await client.request(
-        "session.create",
-        { artifact: { type: "plan", content: "x" } },
-        v.object({}),
-      );
-      throw new Error("should have thrown");
-    } catch (error) {
-      expect((error as DaemonClientError).code).toBe("invalid_params");
-    }
+    await expect(
+      client.request("session.create", { artifact: { type: "plan", content: "x" } }, v.object({})),
+    ).rejects.toHaveProperty("code", "invalid_params");
     // wrong types
-    try {
-      await client.request("session.wait", { id: 42 }, v.object({}));
-      throw new Error("should have thrown");
-    } catch (error) {
-      expect((error as DaemonClientError).code).toBe("invalid_params");
-    }
+    await expect(client.request("session.wait", { id: 42 }, v.object({}))).rejects.toHaveProperty(
+      "code",
+      "invalid_params",
+    );
     // unknown method
-    try {
-      await client.request("session.nuke", {}, v.object({}));
-      throw new Error("should have thrown");
-    } catch (error) {
-      expect((error as DaemonClientError).code).toBe("unknown_method");
-    }
-    const prototypeMethods = await Promise.allSettled([
-      client.request("__proto__", {}, v.object({})),
-      client.request("toString", {}, v.object({})),
-      client.request("constructor", {}, v.object({})),
-    ]);
-
-    for (const result of prototypeMethods) {
-      expect(result.status).toBe("rejected");
-      expect(((result as PromiseRejectedResult).reason as DaemonClientError).code).toBe(
-        "unknown_method",
-      );
-    }
+    await expect(client.request("session.nuke", {}, v.object({}))).rejects.toHaveProperty(
+      "code",
+      "unknown_method",
+    );
+    await Promise.all(
+      ["__proto__", "toString", "constructor"].map((method) =>
+        expect(client.request(method, {}, v.object({}))).rejects.toHaveProperty(
+          "code",
+          "unknown_method",
+        ),
+      ),
+    );
     // the daemon is still fully alive afterwards
     const session = await client.sessionCreate(WS, PLAN);
 
@@ -186,15 +167,11 @@ describe("socket round-trip", () => {
     // Given a session
     const session = await client.sessionCreate(WS, PLAN);
 
-    try {
-      // When a malformed annotation is merged
-      // @ts-expect-error intentionally malformed annotation (empty id, missing fields)
-      await client.sessionMergeShared(session.id, { annotations: [{ id: "" }] });
-      throw new Error("should have thrown");
-    } catch (error) {
-      // Then it is rejected at the wire boundary
-      expect((error as DaemonClientError).code).toBe("invalid_params");
-    }
+    // When a malformed annotation is merged, it is rejected at the wire boundary
+    // @ts-expect-error intentionally malformed annotation (empty id, missing fields)
+    const merge = client.sessionMergeShared(session.id, { annotations: [{ id: "" }] });
+
+    await expect(merge).rejects.toHaveProperty("code", "invalid_params");
   });
 
   test("session.delete removes a session over the wire", async () => {
@@ -205,13 +182,8 @@ describe("socket round-trip", () => {
     await client.sessionDelete(session.id);
 
     // Then it is gone, and deleting an unknown id is a not_found error
-    expect(client.sessionGet(session.id)).rejects.toBeInstanceOf(DaemonClientError);
-    try {
-      await client.sessionDelete("ses_missing");
-      throw new Error("should have thrown");
-    } catch (error) {
-      expect((error as DaemonClientError).code).toBe("not_found");
-    }
+    await expect(client.sessionGet(session.id)).rejects.toBeInstanceOf(DaemonClientError);
+    await expect(client.sessionDelete("ses_missing")).rejects.toHaveProperty("code", "not_found");
   });
 
   test("two clients see the same state (thin-renderer model)", async () => {

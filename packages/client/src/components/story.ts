@@ -31,11 +31,21 @@ export interface LoadedStory {
 }
 
 export function isStory(value: unknown): value is Story {
-  return typeof value === "object" && value !== null && "render" in value && typeof value.render === "function";
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "render" in value &&
+    typeof value.render === "function"
+  );
 }
 
 function isStoryMeta(value: unknown): value is StoryMeta {
-  return typeof value === "object" && value !== null && "title" in value && typeof value.title === "string";
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "title" in value &&
+    typeof value.title === "string"
+  );
 }
 
 /** Import every *.stories.tsx next to the components and flatten the exports. */
