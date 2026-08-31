@@ -1,5 +1,16 @@
 # @cueloop/client
 
+## 0.1.0-alpha.63
+
+### Patch Changes
+
+- [#299](https://github.com/mmurakaru/cueloop/pull/299) [`3fbe5e8`](https://github.com/mmurakaru/cueloop/commit/3fbe5e8e9d466a72e17bce743ab72f049513dc3e) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Prototype review anchors clicks on focusable controls before falling back to component containers.
+- Updated dependencies [[`17d2789`](https://github.com/mmurakaru/cueloop/commit/17d278988d2c65f7e1e5e635fc103c5de79f961a)]:
+  - @cueloop/schema@0.1.0-alpha.63
+  - @cueloop/daemon@0.1.0-alpha.63
+  - @cueloop/extension-api@0.1.0-alpha.63
+  - @cueloop/integration-obsidian@0.1.0-alpha.63
+
 ## 0.1.0-alpha.62
 
 ### Minor Changes
