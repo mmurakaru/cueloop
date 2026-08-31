@@ -27,7 +27,7 @@ export const docsNav: NavGroup[] = [
     items: [
       { title: "The review session", href: "/docs/concepts/review-session/" },
       { title: "Annotations", href: "/docs/concepts/annotations/" },
-      { title: "Plan, diff, review", href: "/docs/concepts/plan-diff-review/" },
+      { title: "The review verbs", href: "/docs/concepts/plan-diff-review/" },
     ],
   },
   {
