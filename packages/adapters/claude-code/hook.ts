@@ -15,19 +15,22 @@
  * (PreToolUse works identically for headless runs.)
  */
 
+import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
 import { openReview } from "@cueloop/daemon/review";
 import { verdictAllows } from "@cueloop/schema";
 import { reportLabel, reportState } from "../herdr";
 
-interface HookEvent {
-  hook_event_name?: string;
-  session_id?: string;
-  cwd?: string;
-  tool_name?: string;
-  tool_input?: { plan?: string };
-}
+const HookEventSchema = v.object({
+  hook_event_name: v.optional(v.string()),
+  session_id: v.optional(v.string()),
+  cwd: v.optional(v.string()),
+  tool_name: v.optional(v.string()),
+  tool_input: v.optional(v.object({ plan: v.optional(v.string()) })),
+});
+
+type HookEvent = v.InferOutput<typeof HookEventSchema>;
 
 interface HookDecision {
   allow: boolean;
@@ -187,9 +190,10 @@ if (import.meta.main) {
   let event: HookEvent = {};
 
   try {
-    event = JSON.parse(raw);
+    event = v.parse(HookEventSchema, JSON.parse(raw));
   } catch {
-    // no payload: allow rather than wedge the agent on adapter failure
+    // no payload, or one that fails the wire schema: allow rather than wedge
+    // the agent on adapter failure - never gate on input we cannot interpret
     console.log(
       JSON.stringify(hookOutput({}, { allow: true, reason: "unparseable hook payload" })),
     );
