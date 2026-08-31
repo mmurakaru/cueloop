@@ -12,9 +12,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@cueloop/client": "0.1.0-alpha.63",
-    "@cueloop/daemon": "0.1.0-alpha.63",
-    "@cueloop/schema": "0.1.0-alpha.63",
+    "@cueloop/client": "0.1.0-alpha.64",
+    "@cueloop/daemon": "0.1.0-alpha.64",
+    "@cueloop/schema": "0.1.0-alpha.64",
     "@opentui/core": "^0.5.8",
     "@opentui/react": "^0.5.8",
     "react": "^19.2.0",
