@@ -103,8 +103,9 @@ Verbs: `create`, `get`, `list`, `wait`, `annotate`, `resolve`,
 markdown report of every reviewer annotation, grouped by kind with its session,
 primitive, and quote - the raw material for turning recurring feedback into
 better agent plans. It prints JSON with the report path; a timestamped copy is
-kept beside the latest. Each run analyzes sessions it has not seen before
-(up to `--limit`, default 200) and skips sessions with no reviewer signal.
+kept beside the latest. Each run analyzes up to `--limit` sessions (default
+200), skipping resolved sessions it has already analyzed and sessions with no
+reviewer signal; a still-pending session stays in scope until it resolves.
 
 **`cueloop daemon`** runs the daemon in the foreground and never idle-exits -
 useful under a process manager. Normally you never call it: other commands start
