@@ -17,8 +17,19 @@ export interface WorkspaceKey {
  * markdown documents (see isMarkdownArtifact) - a plan is a proposal written
  * forward, a reply is the agent's previous message pulled back for review.
  * `diff` is a unified-diff patch; `prototype` is a rendered HTML page.
+ *
+ * One runtime union: every consumer that names the supported set - daemon
+ * wire validation, CLI flag parsing, adapter tool schemas - derives from this
+ * constant, so a new primitive extends them all without another hardcoded list.
  */
-export type ArtifactType = "plan" | "diff" | "prototype" | "reply";
+export const ARTIFACT_TYPES = ["plan", "diff", "prototype", "reply"] as const;
+
+export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
+
+/** Trust-boundary guard: is this string one of the artifact primitives? */
+export function isArtifactType(value: string): value is ArtifactType {
+  return (ARTIFACT_TYPES as readonly string[]).includes(value);
+}
 
 /**
  * Markdown artifacts (plan, reply) are block-parsed and quote-anchored, so they

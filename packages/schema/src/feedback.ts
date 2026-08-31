@@ -37,7 +37,9 @@ export interface FeedbackInput {
 const quoteLines = (text: string) => "> " + text.replace(/\n/g, "\n> ");
 
 export function renderFeedback(input: FeedbackInput): string {
-  const path = input.artifactPath ?? "plan.md";
+  // The document the agent revises: a reply's feedback references reply.md so
+  // the resubmit instruction never points a reply review at plan.md.
+  const path = input.artifactPath ?? (input.artifactType === "reply" ? "reply.md" : "plan.md");
   // agent notes are the submitter's own context - never echoed back as
   // feedback - and annotations a previous revision already addressed stay out
   // of the next document, so the agent only ever sees the open items

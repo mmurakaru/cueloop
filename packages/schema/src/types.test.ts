@@ -1,5 +1,24 @@
 import { describe, expect, test } from "bun:test";
-import { isMarkdownArtifact, newAnnotationId, verdictAllows } from "./types";
+import {
+  ARTIFACT_TYPES,
+  isArtifactType,
+  isMarkdownArtifact,
+  newAnnotationId,
+  verdictAllows,
+} from "./types";
+
+describe("ARTIFACT_TYPES", () => {
+  test("names every primitive exactly once", () => {
+    expect([...ARTIFACT_TYPES].sort()).toEqual(["diff", "plan", "prototype", "reply"]);
+    expect(new Set(ARTIFACT_TYPES).size).toBe(ARTIFACT_TYPES.length);
+  });
+
+  test("isArtifactType accepts every member and rejects strangers", () => {
+    for (const type of ARTIFACT_TYPES) expect(isArtifactType(type)).toBe(true);
+    expect(isArtifactType("blueprint")).toBe(false);
+    expect(isArtifactType("")).toBe(false);
+  });
+});
 
 describe("verdictAllows", () => {
   test("only approve maps to allow", () => {

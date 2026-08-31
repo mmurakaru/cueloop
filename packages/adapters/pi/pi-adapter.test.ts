@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
+import { ARTIFACT_TYPES, type ArtifactType } from "@cueloop/schema";
 import { createCueloopExtension, type ReviewDetails } from "./index";
 import type {
   PiCommandOptions,
@@ -102,11 +103,11 @@ function toolCall(toolName: string): PiToolCallEvent {
   return { type: "tool_call", toolCallId: "call-" + toolName, toolName, input: {} };
 }
 
-async function openPending(fake: FakePi, plan: string): Promise<string> {
+async function openPending(fake: FakePi, content: string, type?: ArtifactType): Promise<string> {
   const tool = fake.tools.get("request_review")!;
   const result = (await tool.execute(
-    "t-" + plan.length,
-    { plan },
+    "t-" + content.length,
+    { content, ...(type ? { type } : {}) },
     undefined,
     undefined,
     makeContext(),
@@ -172,7 +173,7 @@ describe("pi adapter: non-blocking request_review", () => {
     // Act
     const result = (await tool.execute(
       "t-pre",
-      { plan: "# Never Opens\n\nDo not create a session.\n" },
+      { content: "# Never Opens\n\nDo not create a session.\n" },
       controller.signal,
       undefined,
       makeContext(),
@@ -183,6 +184,71 @@ describe("pi adapter: non-blocking request_review", () => {
     expect(result.details.status).toBe("cancelled");
     expect(result.details.sessionId).toBeUndefined();
   });
+
+  test("the tool's type enum derives from the schema union - every primitive is offered", () => {
+    // Arrange
+    const fake = loadExtension();
+
+    // Act
+    const tool = fake.tools.get("request_review")!;
+
+    // Assert - derived, not hardcoded: the enum IS the schema union
+    expect(tool.parameters.properties.type!.enum).toEqual(ARTIFACT_TYPES);
+    expect(tool.parameters.required).toEqual(["content"]);
+  });
+
+  test("an unknown artifact type is refused without opening a session", async () => {
+    // Arrange
+    const fake = loadExtension();
+    const tool = fake.tools.get("request_review")!;
+
+    // Act
+    const result = (await tool.execute(
+      "t-unknown",
+      { content: "# Nope\n", type: "blueprint" as ArtifactType },
+      undefined,
+      undefined,
+      makeContext(),
+    )) as PiToolResult<ReviewDetails>;
+
+    // Assert
+    expect(result.isError).toBe(true);
+    expect(result.details.sessionId).toBeUndefined();
+    expect(result.content[0]!.text).toContain(ARTIFACT_TYPES.join(", "));
+  });
+
+  test("a reply review wakes the same session on resolve - create, resolve, follow-up", async () => {
+    // Arrange
+    const fake = loadExtension();
+    const context = makeContext();
+
+    // Act - the previous reply goes under review through the same tool
+    const sessionId = await openPending(
+      fake,
+      "# Findings\n\nThe cache invalidation is safe to ship.\n",
+      "reply",
+    );
+
+    // Assert - a real reply session, attributed to pi, gating writes
+    const client = await DaemonClient.connect({ home });
+    const session = await client.sessionGet(sessionId);
+    client.close();
+    expect(session.artifact.type).toBe("reply");
+    expect(session.artifact.meta.agent).toBe("pi");
+    expect(session.artifact.meta.title).toBe("Findings");
+    expect((await fake.toolCallHandler(toolCall("edit"), context))?.block).toBe(true);
+
+    // Act - the reviewer returns the verdict
+    await resolve(sessionId, "request_changes", "Cite the benchmark.");
+    const wakes = await waitForWake(fake);
+
+    // Assert - the same pi session wakes as a follow-up and the gate releases
+    expect(wakes.length).toBe(1);
+    expect(wakes[0]!.options?.deliverAs).toBe("followUp");
+    expect(wakes[0]!.content).toContain(sessionId);
+    expect(wakes[0]!.content).toContain("Cite the benchmark.");
+    expect(await fake.toolCallHandler(toolCall("edit"), context)).toBeUndefined();
+  }, 15_000);
 
   test("wakes with feedback.md carrying the annotations on request_changes", async () => {
     // Arrange

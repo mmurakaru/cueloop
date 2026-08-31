@@ -65,6 +65,25 @@ describe("renderFeedback", () => {
     expect(feedback).toContain("Apply this exact diff first");
   });
 
+  test("a reply review with no artifact path references reply.md, never plan.md", () => {
+    // Act
+    const feedback = renderFeedback({
+      verdictKind: "request_changes",
+      summary: "",
+      artifactContent: "# Findings\n\nThe cache is fine.\n",
+      artifactType: "reply",
+      annotations: [
+        makeAnnotation({ anchor: { quote: "The cache is fine.", prefix: "", suffix: "" } }),
+      ],
+      sessionId: "ses_reply",
+    });
+
+    // Assert
+    expect(feedback).toContain("Locate each one in reply.md");
+    expect(feedback).toContain("submit-revision ses_reply --content-file reply.md");
+    expect(feedback).not.toContain("plan.md");
+  });
+
   test("a diff working copy is handed back as the curated patch, not a diff of diffs", () => {
     // Arrange
     const submittedPatch = `--- a/src/x.ts
