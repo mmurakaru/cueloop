@@ -13,6 +13,8 @@ import {
   packSessionBlob,
 } from "@cueloop/daemon/share-blob";
 import type { Annotation, ReviewSession } from "@cueloop/schema";
+import { SessionRecordSchema } from "@cueloop/daemon/validate";
+import * as v from "valibot";
 import { copyToClipboard } from "./clipboard";
 
 export interface ShareTarget {
@@ -63,7 +65,7 @@ export async function pullShare(shareId: string, target: ShareTarget = {}): Prom
 
   if (code !== 0) throw new Error(`gateway pull failed: ${stderr.trim() || `ssh exited ${code}`}`);
 
-  return JSON.parse(stdout) as ReviewSession;
+  return v.parse(SessionRecordSchema, JSON.parse(stdout));
 }
 
 /** A share's collaborator notes: the ones a viewer authored (author stamped). */

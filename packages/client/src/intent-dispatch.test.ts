@@ -6,54 +6,106 @@
  */
 
 import { describe, expect, mock, test } from "bun:test";
-import type { ReviewSession } from "@cueloop/schema";
+import type { SetStateAction } from "react";
+import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
 import { createIntentDispatch, type IntentDispatchDeps } from "./intent-dispatch";
+import type { ControllerSnapshot, CurationItem, ReviewController } from "./session-controller";
 import type { DisplayBlock } from "./view-plan";
 
 function block(text: string): DisplayBlock {
-  return { text, kind: "text", work: true } as unknown as DisplayBlock;
+  return { type: "same", kind: "p", work: { kind: "p", text, lineStart: 0, lineEnd: 0 } };
 }
 
-function sessionWith(annotationIds: string[]): ReviewSession {
+function annotation(id: string, overrides: Partial<Annotation> = {}): Annotation {
   return {
-    annotations: annotationIds.map((id) => ({ id })),
-    workingCopy: undefined,
-  } as unknown as ReviewSession;
+    id,
+    kind: "comment",
+    anchor: { quote: "", prefix: "", suffix: "" },
+    body: "",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
 }
+
+function sessionWith(
+  annotations: Annotation[],
+  overrides: Partial<ReviewSession> = {},
+): ReviewSession {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    id: "ses_1",
+    workspace: { repoRoot: "/repo", branch: "main" },
+    artifact: { type: "plan", content: "# Plan\n", meta: {} },
+    revisions: [],
+    annotations,
+    verdict: null,
+    status: "pending",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+const EMPTY_SNAPSHOT: ControllerSnapshot = {
+  session: null,
+  inbox: null,
+  status: "",
+  toast: null,
+  error: null,
+  completion: { phase: "idle" },
+  editOrphanCount: 0,
+  walk: null,
+};
 
 /** A controller where every verb is a mock; annotate returns undefined by default. */
-function baseController() {
+function baseController(): ReviewController {
   return {
+    readOnly: false,
+    subscribe: mock(() => () => {}),
+    getSnapshot: mock(() => EMPTY_SNAPSHOT),
+    connect: mock(),
+    close: mock(),
+    applyConfig: mock(),
     setStatus: mock(),
+    showToast: mock(),
+    dismissToast: mock(),
+    display: mock(() => []),
+    rows: mock(() => []),
+    files: mock(() => []),
+    working: mock(() => ""),
     open: mock(),
     deleteSession: mock(),
     setSelfName: mock(),
     cut: mock(),
+    toggleRejectHunk: mock(),
+    toggleRejectChange: mock(),
+    rejectedRows: mock(() => new Set<number>()),
     curationItems: mock(() => []),
     restoreCuration: mock(),
-    annotate: mock(),
-    annotatePrototype: mock(),
+    edit: mock(),
+    annotate: mock(() => undefined),
+    annotatePrototype: mock(() => undefined),
     updateAnnotation: mock(),
     removeAnnotation: mock(),
+    setWorkingCopy: mock(),
     walkStart: mock(),
     walkForward: mock(),
     walkBack: mock(),
     walkLeave: mock(),
     submit: mock(),
     share: mock(),
+    pullShared: mock(() => Promise.resolve()),
+    startSharePoll: mock(() => () => {}),
     finishReview: mock(),
-    optInAutoClose: mock(),
     dismissCompletion: mock(),
+    optInAutoClose: mock(),
     saveReviewPanel: mock(),
   };
 }
 
 /** A deps bag where every effect is a mock and every read has a plain default. */
 function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDeps {
-  const controller = baseController();
-
   return {
-    controller: controller as unknown as IntentDispatchDeps["controller"],
+    controller: baseController(),
     onExit: mock(),
     isDiff: false,
     display: [],
@@ -90,20 +142,24 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
   };
 }
 
+function isUpdater(action: SetStateAction<number>): action is (current: number) => number {
+  return typeof action === "function";
+}
+
 describe("move", () => {
   test("down clamps at the last row and up clamps at the first", () => {
     // Arrange
-    const deps = makeDeps({ display: [block("a"), block("b"), block("c")] });
+    const setCursor = mock((_action: SetStateAction<number>) => {});
+    const deps = makeDeps({ display: [block("a"), block("b"), block("c")], setCursor });
     const dispatch = createIntentDispatch(deps);
 
     // Act
     dispatch({ type: "move", to: "down" });
 
     // Assert
-    const advance = (deps.setCursor as ReturnType<typeof mock>).mock.calls[0]![0] as (
-      current: number,
-    ) => number;
+    const advance = setCursor.mock.calls[0]![0];
 
+    if (!isUpdater(advance)) throw new Error("expected setCursor to receive an updater");
     expect(advance(2)).toBe(2); // already at the end, stays
     expect(advance(0)).toBe(1);
   });
@@ -124,7 +180,10 @@ describe("move", () => {
 describe("annotation navigation", () => {
   test("nextAnnotation wraps from the last annotation back to the first", () => {
     // Arrange
-    const deps = makeDeps({ session: sessionWith(["a1", "a2", "a3"]), focusedAnnotationId: "a3" });
+    const deps = makeDeps({
+      session: sessionWith([annotation("a1"), annotation("a2"), annotation("a3")]),
+      focusedAnnotationId: "a3",
+    });
     const dispatch = createIntentDispatch(deps);
 
     // Act
@@ -136,7 +195,10 @@ describe("annotation navigation", () => {
 
   test("prevAnnotation wraps from the first annotation to the last", () => {
     // Arrange
-    const deps = makeDeps({ session: sessionWith(["a1", "a2", "a3"]), focusedAnnotationId: "a1" });
+    const deps = makeDeps({
+      session: sessionWith([annotation("a1"), annotation("a2"), annotation("a3")]),
+      focusedAnnotationId: "a1",
+    });
     const dispatch = createIntentDispatch(deps);
 
     // Act
@@ -148,12 +210,11 @@ describe("annotation navigation", () => {
 
   test("cycling skips annotations a revision already addressed", () => {
     // Arrange: a2 is addressed, so next from a1 lands on a3
-    const session = sessionWith(["a1", "a2", "a3"]);
-
-    (session.annotations[1] as { resolution?: object }).resolution = {
-      revision: 2,
-      source: "agent",
-    };
+    const session = sessionWith([
+      annotation("a1"),
+      annotation("a2", { resolution: { revision: 2, source: "agent" } }),
+      annotation("a3"),
+    ]);
     const deps = makeDeps({ session, focusedAnnotationId: "a1" });
     const dispatch = createIntentDispatch(deps);
 
@@ -233,7 +294,7 @@ describe("marker-actions popover", () => {
       mode: { type: "spanActions", span, index: 1 },
       session: sessionWith([]),
       quickActions: [{ prompt: "Needs a test" }, { prompt: "YAGNI", metadata: "cut scope" }],
-      controller: { ...baseController(), annotate } as unknown as IntentDispatchDeps["controller"],
+      controller: { ...baseController(), annotate },
     });
     const dispatch = createIntentDispatch(deps);
 
@@ -253,7 +314,7 @@ describe("marker-actions popover", () => {
       mode: { type: "spanActions", span, index: 0 },
       session: sessionWith([]),
       quickActions: [{ prompt: "Needs a test" }, { prompt: "Extract the duplication" }],
-      controller: { ...baseController(), annotate } as unknown as IntentDispatchDeps["controller"],
+      controller: { ...baseController(), annotate },
     });
     const dispatch = createIntentDispatch(deps);
 
@@ -320,28 +381,15 @@ describe("share", () => {
 });
 
 describe("restoreCuration", () => {
-  const items = [
-    {
-      id: "diff:f#0#hunk",
-      source: "diff" as const,
-      label: "f:1 - hunk",
-      preview: [],
-      revealIndex: 1,
-    },
-    {
-      id: "diff:f#1#2",
-      source: "diff" as const,
-      label: "f:9 - change",
-      preview: [],
-      revealIndex: 9,
-    },
+  const items: CurationItem[] = [
+    { id: "diff:f#0#hunk", source: "diff", preview: [], revealIndex: 1 },
+    { id: "diff:f#1#2", source: "diff", preview: [], revealIndex: 9 },
   ];
 
   test("restores the selected item and clears the selection", () => {
     // Arrange
-    const deps = makeDeps({ selectedCurationId: "diff:f#1#2" });
-
-    (deps.controller.curationItems as ReturnType<typeof mock>).mockReturnValue(items);
+    const controller = { ...baseController(), curationItems: mock(() => items) };
+    const deps = makeDeps({ selectedCurationId: "diff:f#1#2", controller });
     const dispatch = createIntentDispatch(deps);
 
     // Act
@@ -354,9 +402,8 @@ describe("restoreCuration", () => {
 
   test("with nothing selected, undoes the last removal", () => {
     // Arrange
-    const deps = makeDeps({ selectedCurationId: undefined });
-
-    (deps.controller.curationItems as ReturnType<typeof mock>).mockReturnValue(items);
+    const controller = { ...baseController(), curationItems: mock(() => items) };
+    const deps = makeDeps({ selectedCurationId: undefined, controller });
     const dispatch = createIntentDispatch(deps);
 
     // Act
@@ -369,8 +416,6 @@ describe("restoreCuration", () => {
   test("does nothing when there is nothing curated out", () => {
     // Arrange
     const deps = makeDeps();
-
-    (deps.controller.curationItems as ReturnType<typeof mock>).mockReturnValue([]);
     const dispatch = createIntentDispatch(deps);
 
     // Act
@@ -398,7 +443,9 @@ describe("exit", () => {
 describe("inbox delete", () => {
   test("requestDeleteSession opens the confirm on the cursor row", () => {
     // Arrange
-    const inbox = [{ id: "ses_1", artifact: { meta: { title: "Plan A" } } }] as never;
+    const inbox = [
+      sessionWith([], { artifact: { type: "plan", content: "", meta: { title: "Plan A" } } }),
+    ];
     const deps = makeDeps({ inbox, inboxCursor: 0 });
 
     // Act
@@ -428,7 +475,7 @@ describe("inbox delete", () => {
 describe("rename author", () => {
   test("openRename seeds the prompt with the author's current local name", () => {
     // Arrange
-    const session = { annotations: [{ id: "a1", author: "SHA256:x" }] } as never;
+    const session = sessionWith([annotation("a1", { author: "SHA256:x" })]);
     const deps = makeDeps({
       session,
       focusedAnnotationId: "a1",
@@ -448,7 +495,7 @@ describe("rename author", () => {
 
   test("openRename on your own note does nothing but explain", () => {
     // Arrange
-    const session = { annotations: [{ id: "a1" }] } as never;
+    const session = sessionWith([annotation("a1")]);
     const deps = makeDeps({ session, focusedAnnotationId: "a1" });
 
     // Act

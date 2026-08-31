@@ -47,6 +47,12 @@ export interface TerminalPaneOptions extends RenderableOptions {
   onExit?: (exitCode: number) => void;
 }
 
+function terminalEnvironment(env: NodeJS.ProcessEnv) {
+  return Object.fromEntries(
+    Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+  );
+}
+
 const encoder = new TextEncoder();
 const DEFAULT_FG = RGBA.fromInts(208, 208, 208, 255);
 const TRANSPARENT = RGBA.fromValues(0, 0, 0, 0);
@@ -87,7 +93,7 @@ export class TerminalPaneRenderable extends Renderable {
       cols,
       rows,
       cwd: this.opts.cwd ?? process.cwd(),
-      env: (this.opts.env ?? process.env) as Record<string, string>,
+      env: this.opts.env ?? terminalEnvironment(process.env),
     });
     this.pty.onData((data) => {
       // the shim streams a UTF-8-decoded string (split multibyte is handled); a

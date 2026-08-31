@@ -65,7 +65,7 @@ export function TabList({ children }: TabListProps): React.ReactNode {
   const items: { id: string; label: string }[] = [];
 
   React.Children.forEach(children, (child) => {
-    if (React.isValidElement<TabProps>(child) && typeof child.props.id === "string") {
+    if (React.isValidElement<TabProps>(child)) {
       items.push({ id: child.props.id, label: child.props.children });
     }
   });

@@ -30,7 +30,7 @@ afterAll(() => {
  * `tab create`, prints the JSON pane id the auto-open helper reads so the full
  * open-and-launch sequence runs.
  */
-function makeStub(name: string): { binPath: string; logPath: string } {
+function makeStub(name: string) {
   const logPath = join(dir, `${name}.log`);
   const binPath = join(dir, `${name}.sh`);
 

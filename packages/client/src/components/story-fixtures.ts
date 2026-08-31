@@ -63,9 +63,11 @@ export function fixturePlanSession(overrides: Partial<ReviewSession> = {}): Revi
     },
     revisions: [{ revision: 1, content: FIXTURE_PLAN, submittedAt: "2026-01-01T00:00:00Z" }],
     annotations: FIXTURE_ANNOTATIONS,
+    verdict: null,
     status: "pending",
+    createdAt: "2026-01-01T00:00:00Z",
     ...overrides,
-  } as ReviewSession;
+  };
 }
 
 export function fixtureDiffSession(overrides: Partial<ReviewSession> = {}): ReviewSession {
@@ -80,9 +82,11 @@ export function fixtureDiffSession(overrides: Partial<ReviewSession> = {}): Revi
     },
     revisions: [{ revision: 1, content: FIXTURE_PATCH, submittedAt: "2026-01-01T00:00:00Z" }],
     annotations: [],
+    verdict: null,
     status: "pending",
+    createdAt: "2026-01-01T00:00:00Z",
     ...overrides,
-  } as ReviewSession;
+  };
 }
 
 export function fixtureDisplay() {

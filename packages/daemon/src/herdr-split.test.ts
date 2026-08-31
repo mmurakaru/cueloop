@@ -9,7 +9,7 @@ import { launchHarnessInSplit } from "./herdr-split";
 const dir = mkdtempSync(join(tmpdir(), "cueloop-herdr-split-"));
 
 /** A stub herdr binary that logs argv and prints the pane-split result (pane_id of the new split). */
-function makeStub(name: string, splitOk = true): { binPath: string; logPath: string } {
+function makeStub(name: string, splitOk = true) {
   const logPath = join(dir, `${name}.log`);
   const binPath = join(dir, `${name}.sh`);
   const splitResult = splitOk

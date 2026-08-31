@@ -6,6 +6,8 @@
  * This is the single source of truth the server dispatch enforces.
  */
 
+import * as v from "valibot";
+
 export type DaemonRole = "owner" | "collaborator" | "agent";
 
 /** Methods a non-owner role may call: read the session and annotate, plus connection plumbing. */
@@ -24,7 +26,8 @@ export function roleAllowsMethod(role: DaemonRole, method: string): boolean {
   return role === "owner" || NON_OWNER_METHODS.has(method);
 }
 
-/** Parse an untrusted role string, defaulting unknown values to the capped "agent". */
-export function asDaemonRole(value: unknown): DaemonRole {
-  return value === "owner" || value === "collaborator" ? value : "agent";
+export function asDaemonRole(value: Parameters<typeof v.safeParse>[1]): DaemonRole {
+  const result = v.safeParse(v.picklist(["owner", "collaborator"]), value);
+
+  return result.success ? result.output : "agent";
 }

@@ -6,6 +6,7 @@
  */
 
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
+import * as v from "valibot";
 import { herdrTabsPath } from "./paths";
 
 /** The tab and its root pane: pane id checks liveness, tab id focuses it. */
@@ -14,15 +15,11 @@ export interface HerdrTabHandle {
   paneId: string;
 }
 
-/** Guard a persisted entry - both ids must be present strings, or it is dropped. */
-function isHerdrTabHandle(value: unknown): value is HerdrTabHandle {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as HerdrTabHandle).tabId === "string" &&
-    typeof (value as HerdrTabHandle).paneId === "string"
-  );
-}
+const HerdrTabHandleSchema = v.object({
+  tabId: v.string(),
+  paneId: v.string(),
+});
+const HerdrTabsSchema = v.record(v.string(), v.unknown());
 
 export class HerdrTabStore {
   private tabs = new Map<string, HerdrTabHandle>();
@@ -35,12 +32,12 @@ export class HerdrTabStore {
 
   private load(): void {
     try {
-      const parsed: unknown = JSON.parse(readFileSync(this.path, "utf8"));
+      const parsed = v.parse(HerdrTabsSchema, JSON.parse(readFileSync(this.path, "utf8")));
 
-      if (typeof parsed !== "object" || parsed === null) return;
       for (const [sessionId, value] of Object.entries(parsed)) {
-        if (isHerdrTabHandle(value))
-          this.tabs.set(sessionId, { tabId: value.tabId, paneId: value.paneId });
+        const handle = v.safeParse(HerdrTabHandleSchema, value);
+
+        if (handle.success) this.tabs.set(sessionId, handle.output);
       }
     } catch {
       // absent, unreadable, or malformed: start empty - a stale tab just reopens on resubmit

@@ -54,13 +54,13 @@ describe("kitty image placement", () => {
 describe("resolveTransmitMedium", () => {
   test("defaults to base64; file transfer is opt-in and never over ssh", () => {
     // Assert
-    expect(resolveTransmitMedium({} as NodeJS.ProcessEnv)).toBe("base64");
-    expect(resolveTransmitMedium({ CUELOOP_KITTY_FILE: "1" } as NodeJS.ProcessEnv)).toBe("file");
+    expect(resolveTransmitMedium({})).toBe("base64");
+    expect(resolveTransmitMedium({ CUELOOP_KITTY_FILE: "1" })).toBe("file");
     expect(
       resolveTransmitMedium({
         CUELOOP_KITTY_FILE: "1",
         SSH_CONNECTION: "1.2.3.4 5 6 7",
-      } as NodeJS.ProcessEnv),
+      }),
     ).toBe("base64");
   });
 });

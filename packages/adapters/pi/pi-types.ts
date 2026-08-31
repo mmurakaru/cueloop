@@ -39,7 +39,7 @@ export interface PiParameterSchema {
   required?: string[];
 }
 
-export interface PiToolDefinition<TParams = Record<string, unknown>, TDetails = unknown> {
+export interface PiToolDefinition<TParams = unknown, TDetails = unknown> {
   name: string;
   label: string;
   description: string;
@@ -58,7 +58,7 @@ export interface PiToolCallEvent {
   type: "tool_call";
   toolCallId: string;
   toolName: string;
-  input: Record<string, unknown>;
+  input: unknown;
 }
 
 export interface PiToolCallResult {

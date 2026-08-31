@@ -8,7 +8,7 @@ const factory = loadGhosttyTerminals();
 describe("ghostty-terminal FFI", () => {
   test("reports platform support without throwing", () => {
     // Assert - null on unsupported platforms, a factory where a dylib ships
-    expect(factory === null || typeof factory.create === "function").toBe(true);
+    expect(factory === null || factory.create !== undefined).toBe(true);
   });
 
   test.skipIf(!factory)("writes VT bytes and reads back decoded cells", () => {

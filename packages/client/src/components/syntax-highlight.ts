@@ -19,7 +19,7 @@ export function filetypeFor(language?: string): string | undefined {
   const info = (language ?? "").toLowerCase();
 
   if (!info) return undefined;
-  const aliases: Record<string, string> = {
+  const aliases: SyntaxAliases = {
     ts: "typescript",
     js: "javascript",
     py: "python",
@@ -47,13 +47,21 @@ export function filetypeForPath(path: string): string | undefined {
   return extensionToFiletype.get(basename.slice(dotIndex + 1).toLowerCase());
 }
 
+interface SyntaxAliases {
+  [alias: string]: string;
+}
+
 interface SyntaxGroupStyle {
   fg: string;
   italic?: boolean;
 }
 
+interface SyntaxGroupStyles {
+  [group: string]: SyntaxGroupStyle;
+}
+
 /** The one group -> style map, keyed by tree-sitter capture name. */
-function syntaxGroupStyles(theme: Theme): Record<string, SyntaxGroupStyle> {
+function syntaxGroupStyles(theme: Theme): SyntaxGroupStyles {
   return {
     default: { fg: theme.textMuted },
     comment: { fg: theme.textDim, italic: true },

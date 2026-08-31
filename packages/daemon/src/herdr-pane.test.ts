@@ -16,7 +16,7 @@ const dir = mkdtempSync(join(tmpdir(), "cueloop-herdr-pane-"));
  * pane_id and tab_id (herdr 0.8.2 shape), and answers `pane get` alive or dead
  * per `paneAlive` so the liveness branch can be exercised.
  */
-function makeStub(name: string, paneAlive = false): { binPath: string; logPath: string } {
+function makeStub(name: string, paneAlive = false) {
   const logPath = join(dir, `${name}.log`);
   const binPath = join(dir, `${name}.sh`);
   const paneGet = paneAlive ? `printf '{"result":{"pane":{"pane_id":"w1:p2"}}}'` : "exit 1";
@@ -44,16 +44,13 @@ function readLines(logPath: string): string[] {
 }
 
 /** In-memory persistence double: records what openHerdrPaneForReview saves. */
-function fakePersistence(initial: HerdrTabHandle | null = null): {
-  persistence: HerdrTabPersistence;
-  saved: () => HerdrTabHandle | null;
-} {
+function fakePersistence(initial: HerdrTabHandle | null = null) {
   let stored = initial;
 
   return {
     persistence: {
       herdrGetTab: async () => stored,
-      herdrSetTab: async (_sessionId, handle) => {
+      herdrSetTab: async (_sessionId: string, handle: HerdrTabHandle) => {
         stored = handle;
       },
     },

@@ -21,11 +21,7 @@ function state(patch: Partial<KeyState> = {}): KeyState {
   };
 }
 
-function key(
-  name: string,
-  shift = false,
-  meta = false,
-): { name: string; shift: boolean; meta: boolean } {
+function key(name: string, shift = false, meta = false) {
   return { name, shift, meta };
 }
 
@@ -537,11 +533,13 @@ describe("review panel controls", () => {
 
 describe("duplicated-branch collapse", () => {
   test("plan and diff produce the same intents for annotation nav, delete, and submit", () => {
-    for (const patch of [
+    const patches: Partial<KeyState>[] = [
       {},
       { annotationCount: 0, hasFocusedAnnotation: false },
       { resolved: true },
-    ] as Partial<KeyState>[]) {
+    ];
+
+    for (const patch of patches) {
       for (const name of ["n", "p", "backspace", "return"]) {
         const plan = reduceKey(state(patch), key(name));
         const diff = reduceKey(state({ ...patch, view: "diff" }), key(name));

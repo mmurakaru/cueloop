@@ -60,12 +60,7 @@ export interface DiffSheetProps {
 }
 
 /** The sign, base color, and background a row draws with. */
-function rowStyle(
-  row: DiffRow,
-  isCursorRow: boolean,
-  isAnnotatedRow: boolean,
-  tokens: Theme,
-): { sign: string; baseColor: string; background: string | undefined } {
+function rowStyle(row: DiffRow, isCursorRow: boolean, isAnnotatedRow: boolean, tokens: Theme) {
   const sign = row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ";
   const baseColor =
     row.kind === "add"

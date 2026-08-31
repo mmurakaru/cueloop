@@ -23,6 +23,7 @@
     "./review": "./src/review.ts",
     "./working-tree": "./src/working-tree.ts",
     "./store": "./src/store.ts",
+    "./validate": "./src/validate.ts",
     "./paths": "./src/paths.ts",
     "./retention": "./src/retention.ts",
     "./herdr-pane": "./src/herdr-pane.ts",

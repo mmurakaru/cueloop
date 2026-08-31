@@ -1,10 +1,9 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test, type Mock } from "bun:test";
 import { ManualClock } from "@opentui/core/testing";
 import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
+import { createReviewController, SHARE_POLL_MS, type ShareTransport } from "./session-controller";
 
-// Stub the ssh transport so no subprocess spawns; the controller under test
-// imports these from "./share".
 const publishShare = mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: true }));
 let remote: ReviewSession;
 const pullShare = mock(async () => remote);
@@ -12,16 +11,13 @@ const pushShare = mock(
   async (_shareId: string, _annotations: Array<Omit<Annotation, "createdAt">>) => {},
 );
 
-mock.module("./share", () => ({
-  publishShare,
-  pullShare,
-  pushShare,
-  shareIdFromLine: (line: string) => line.match(/^ssh (\S+)@/)?.[1],
-  collaboratorAnnotations: (session: ReviewSession) =>
-    session.annotations.filter((annotation) => annotation.author),
-}));
-
-const { createReviewController, SHARE_POLL_MS } = await import("./session-controller");
+const shareTransport: ShareTransport = {
+  publish: publishShare,
+  pull: pullShare,
+  push: pushShare,
+  parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
+};
 
 function sessionFixture(overrides: Partial<ReviewSession> = {}): ReviewSession {
   return {
@@ -49,13 +45,23 @@ function annotation(id: string, author: string): Annotation {
   };
 }
 
-function fakeClient(session: ReviewSession): SessionClient {
+interface FakeSessionClient extends SessionClient {
+  sessionAnnotate: Mock<SessionClient["sessionAnnotate"]>;
+}
+
+const unimplemented = (member: string) => () =>
+  Promise.reject(new Error(`fakeClient does not implement ${member}`));
+
+function fakeClient(session: ReviewSession): FakeSessionClient {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
     sessionGet: async () => session,
     sessionList: async () => [session],
-    sessionAnnotate: mock(async () => session),
+    sessionAnnotate: mock<SessionClient["sessionAnnotate"]>(async () => session),
+    sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
+    sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
+    sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetShareId: mock(
       async (_id: string, shareId: string) => ((session.shareId = shareId), session),
     ),
@@ -67,8 +73,11 @@ function fakeClient(session: ReviewSession): SessionClient {
 
       return session;
     }),
+    sessionDelete: unimplemented("sessionDelete"),
+    sessionSetSelfName: unimplemented("sessionSetSelfName"),
+    sessionResolve: unimplemented("sessionResolve"),
     close: () => {},
-  } as unknown as SessionClient;
+  };
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -76,12 +85,13 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 async function connectedController(
   session: ReviewSession,
   clock?: ManualClock,
-): Promise<{ controller: ReturnType<typeof createReviewController>; client: SessionClient }> {
+): Promise<{ controller: ReturnType<typeof createReviewController>; client: FakeSessionClient }> {
   const client = fakeClient(session);
   const controller = createReviewController({
     sessionId: session.id,
     openClient: async () => client,
     clock,
+    shareTransport,
   });
 
   controller.connect();
@@ -205,7 +215,7 @@ describe("mirror on annotate", () => {
       sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }),
     );
 
-    (client.sessionAnnotate as ReturnType<typeof mock>).mockImplementationOnce(async () => {
+    client.sessionAnnotate.mockImplementationOnce(async () => {
       throw new Error("session is resolved");
     });
 

@@ -285,12 +285,14 @@ export function inlineStyleRuns(text: string, base: number): StyleRun[] {
 
   for (const run of inlineRuns(text)) {
     if (run.role === "marker" || run.start === null) continue;
-    runs.push({
+    const styleRun: StyleRun = {
       text: run.text,
       role: run.role === "text" ? "plain" : run.role,
       start: base + run.start,
-      ...(run.href !== undefined ? { href: run.href } : {}),
-    });
+    };
+
+    if (run.href !== undefined) styleRun.href = run.href;
+    runs.push(styleRun);
   }
 
   return runs;
@@ -437,10 +439,7 @@ export function workRangeForRendered(
 }
 
 /** Line delta between two revision contents, for the sheet-header summary. */
-export function revisionDelta(
-  previousContent: string,
-  nextContent: string,
-): { added: number; removed: number } {
+export function revisionDelta(previousContent: string, nextContent: string) {
   const ops = lcsDiff(previousContent.split("\n"), nextContent.split("\n"));
   let added = 0;
   let removed = 0;

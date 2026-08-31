@@ -43,9 +43,9 @@ describe("hook resilience", () => {
 
     // Assert
     expect(code).toBe(0);
-    const parsed = JSON.parse(out.trim()) as {
+    const parsed: {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
-    };
+    } = JSON.parse(out.trim());
 
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("allow");
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain("cueloop unavailable");
@@ -58,11 +58,30 @@ describe("hook resilience", () => {
     // Assert
     expect(code).toBe(0);
     // no event name in the payload, so the answer uses the PermissionRequest shape
-    const parsed = JSON.parse(out.trim()) as {
+    const parsed: {
       hookSpecificOutput?: { decision?: { behavior?: string } };
-    };
+    } = JSON.parse(out.trim());
 
     expect(parsed.hookSpecificOutput?.decision?.behavior).toBe("allow");
+  }, 60_000);
+
+  test("valid JSON with a wrong shape yields a valid allow response, never a crash", async () => {
+    const payloads = ["null", "42", JSON.stringify({ tool_input: { plan: 42 } })];
+
+    await Promise.all(
+      payloads.map(async (payload) => {
+        // Act
+        const { out, code } = await runHookProcess({}, payload);
+
+        // Assert
+        expect(code).toBe(0);
+        const parsed: {
+          hookSpecificOutput?: { decision?: { behavior?: string } };
+        } = JSON.parse(out.trim());
+
+        expect(parsed.hookSpecificOutput?.decision?.behavior).toBe("allow");
+      }),
+    );
   }, 60_000);
 
   test("an event without a plan passes through untouched", async () => {
@@ -73,9 +92,9 @@ describe("hook resilience", () => {
     );
 
     // Assert
-    const parsed = JSON.parse(out.trim()) as {
+    const parsed: {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
-    };
+    } = JSON.parse(out.trim());
 
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("allow");
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain("no plan payload");

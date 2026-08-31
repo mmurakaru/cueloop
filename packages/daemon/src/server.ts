@@ -18,7 +18,13 @@ import { DaemonCore, type DaemonEvent } from "./api";
 import { DaemonError } from "./errors";
 import { roleAllowsMethod, type DaemonRole } from "./capabilities";
 import { isKnownMethod, parseParams, type MethodName } from "./validate";
-import { BackpressureWriter, LineBuffer, type Request } from "./protocol";
+import {
+  BackpressureWriter,
+  LineBuffer,
+  parseRequestFrame,
+  type Request,
+  type Response,
+} from "./protocol";
 import { cueloopHome, lockPath, pidPath, socketPath } from "./paths";
 
 interface Connection {
@@ -28,7 +34,7 @@ interface Connection {
   role: DaemonRole;
 }
 
-type MethodHandler = (connection: Connection, request: Request) => unknown;
+type MethodHandler = (connection: Connection, request: Request) => Response["result"];
 
 export interface DaemonOptions {
   home?: string;
@@ -217,7 +223,7 @@ export class DaemonServer {
     let request: Request;
 
     try {
-      request = JSON.parse(line) as Request;
+      request = parseRequestFrame(line);
     } catch {
       connection.write(
         JSON.stringify({ id: -1, error: { code: "bad_json", message: "unparseable request" } }) +
@@ -340,10 +346,10 @@ export class DaemonServer {
     },
   };
 
-  private async dispatch(connection: Connection, request: Request): Promise<unknown> {
+  private async dispatch(connection: Connection, request: Request): Promise<Response["result"]> {
     // The wire is untrusted JSON: validate before DaemonCore sees anything.
-    if (typeof request.method !== "string" || !isKnownMethod(request.method)) {
-      throw new DaemonError("unknown_method", `unknown method ${String(request.method)}`);
+    if (!isKnownMethod(request.method)) {
+      throw new DaemonError("unknown_method", `unknown method ${request.method}`);
     }
     // Capability gate: a capped role (a review-side agent) cannot escalate past
     // read + annotate, whatever verb it sends.

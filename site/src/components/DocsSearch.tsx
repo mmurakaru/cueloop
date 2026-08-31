@@ -43,7 +43,8 @@ export default function DocsSearch() {
   useEffect(() => {
     if (!expanded) return;
     function onPointerDown(event: MouseEvent) {
-      if (boxRef.current && !boxRef.current.contains(event.target as Node)) close();
+      if (boxRef.current && event.target instanceof Node && !boxRef.current.contains(event.target))
+        close();
     }
     document.addEventListener("mousedown", onPointerDown);
 

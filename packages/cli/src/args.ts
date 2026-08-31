@@ -1,5 +1,7 @@
 /** Tiny flag parser: --key value, --key=value, boolean --flag, positionals. */
 
+import * as v from "valibot";
+
 export interface ParsedArgs {
   positional: string[];
   flags: Record<string, string | boolean>;
@@ -40,7 +42,7 @@ export function stringFlag(
   flags: Record<string, string | boolean>,
   key: string,
 ): string | undefined {
-  const value = flags[key];
+  const result = v.safeParse(v.string(), flags[key]);
 
-  return typeof value === "string" ? value : undefined;
+  return result.success ? result.output : undefined;
 }

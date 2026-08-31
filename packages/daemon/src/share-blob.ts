@@ -51,5 +51,5 @@ export function unpackSessionBlob(bytes: Uint8Array): ReviewSession {
 
   if (!parsed.ok) throw new Error(`blob is not a valid session: ${parsed.error}`);
 
-  return parsed.value as ReviewSession;
+  return parsed.value;
 }

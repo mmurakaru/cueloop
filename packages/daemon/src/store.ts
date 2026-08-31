@@ -36,7 +36,7 @@ export class SessionStore {
         const parsed = validateSessionRecord(JSON.parse(raw));
 
         if (!parsed.ok) throw new Error(`invalid record - ${parsed.error}`);
-        const session = parsed.value as ReviewSession;
+        const session: ReviewSession = parsed.value;
 
         this.sessions.set(session.id, session);
         report.recovered.push(session.id);

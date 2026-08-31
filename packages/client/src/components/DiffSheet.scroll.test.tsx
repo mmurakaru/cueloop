@@ -4,7 +4,7 @@ import { expect, test } from "bun:test";
 import React, { useState } from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { useKeyboard } from "@opentui/react";
-import type { Renderable, ScrollBoxRenderable } from "@opentui/core";
+import { ScrollBoxRenderable, type Renderable } from "@opentui/core";
 import type { Annotation } from "@cueloop/schema";
 import { DiffSheet } from "./DiffSheet";
 import { diffRows, type DiffRow } from "../view-diff";
@@ -82,7 +82,10 @@ test("scrolling down past wrapped annotation cards keeps the cursor pinned and t
   });
 
   await setup.waitForVisualIdle();
-  const scrollbox = findById(setup.renderer.root, "diff-scroll") as ScrollBoxRenderable;
+  const found = findById(setup.renderer.root, "diff-scroll");
+
+  if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+  const scrollbox = found;
 
   // the cursor row is the one painted with the cursor background
   const cursorScreenRow = (): number => {

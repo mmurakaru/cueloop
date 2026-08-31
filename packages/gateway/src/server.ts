@@ -11,6 +11,7 @@
 
 import { createHash } from "node:crypto";
 import React from "react";
+import * as v from "valibot";
 import {
   Server,
   utils,
@@ -20,6 +21,7 @@ import {
   type Session,
 } from "ssh2";
 import type { Annotation, ReviewSession } from "@cueloop/schema";
+import { AnnotationSchema } from "@cueloop/daemon/validate";
 import { App } from "@cueloop/client";
 import {
   DEFAULT_SHARE_HOST,
@@ -41,6 +43,15 @@ import { TokenBucket } from "./rate-limit";
 import { SHARE_UPLOAD_USER, isShareId, mintShareId } from "./share-id";
 import type { ShareStore } from "./store";
 
+const PushPayloadSchema = v.object({
+  shareId: v.optional(v.unknown()),
+  annotations: v.optional(v.unknown()),
+});
+const TransportErrorSchema = v.object({
+  level: v.optional(v.string()),
+  code: v.optional(v.string()),
+});
+
 export interface GatewayOptions {
   store: ShareStore;
   /** 256-bit master key; the per-blob keys derive from it. */
@@ -59,7 +70,7 @@ export interface GatewayOptions {
   metricsPort?: number;
   /** Bind for the metrics server. Default 127.0.0.1 - never expose it on the public port. */
   metricsHost?: string;
-  onError?: (err: unknown) => void;
+  onError?: (cause: unknown) => void;
 }
 
 export interface GatewayHandle {
@@ -79,7 +90,7 @@ interface Identity {
 export async function startGateway(options: GatewayOptions): Promise<GatewayHandle> {
   const publicHost = options.publicHost ?? DEFAULT_SHARE_HOST;
   const maxUploadBytes = options.maxUploadBytes ?? MAX_BLOB_BYTES;
-  const onError = options.onError ?? ((err: unknown) => console.error("[gateway]", err));
+  const onError = options.onError ?? ((cause: unknown) => console.error("[gateway]", cause));
   const uploadLimiter = new TokenBucket(20, 1);
   const hostKey = loadOrCreateHostKey(options.hostKeyPath);
 
@@ -257,11 +268,11 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       id = mintShareId();
       await store.put(id, sealBlob(options.masterKey, id, packSessionBlob(session)));
-    } catch (err) {
-      onError(err);
+    } catch (cause) {
+      onError(cause);
       metrics.recordShare("create", "error", elapsed(startedAt));
       channel.stderr.write(
-        `cueloop: upload rejected - ${err instanceof Error ? err.message : String(err)}\r\n`,
+        `cueloop: upload rejected - ${cause instanceof Error ? cause.message : String(cause)}\r\n`,
       );
 
       return end(channel, 1);
@@ -301,35 +312,31 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     const startedAt = Date.now();
 
     try {
-      const payload = JSON.parse((await readCapped(channel, maxUploadBytes)).toString("utf8")) as {
-        shareId?: unknown;
-        annotations?: unknown;
-      };
+      const payload = v.parse(
+        PushPayloadSchema,
+        JSON.parse((await readCapped(channel, maxUploadBytes)).toString("utf8")),
+      );
+      const shareId = v.safeParse(v.string(), payload.shareId);
+      const annotations = v.safeParse(v.array(AnnotationSchema), payload.annotations);
 
-      if (typeof payload.shareId !== "string" || !isShareId(payload.shareId))
+      if (!shareId.success || !isShareId(shareId.output))
         return void fail(channel, "not a share id");
-      if (!Array.isArray(payload.annotations))
-        return void fail(channel, "annotations must be a list");
-      const stored = await store.get(payload.shareId);
+      if (!annotations.success) return void fail(channel, "annotations must be a list");
+      const stored = await store.get(shareId.output);
 
       if (!stored) return void fail(channel, "this share was not found or has expired");
-      const session = unpackSessionBlob(openBlob(options.masterKey, payload.shareId, stored));
+      const session = unpackSessionBlob(openBlob(options.masterKey, shareId.output, stored));
 
       if (session.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can push to it");
       // Round-trip validates the pushed notes: a malformed one throws here, so the stored blob stays intact.
       const next = unpackSessionBlob(
-        packSessionBlob(
-          mergeOwnerAnnotations(
-            session,
-            payload.annotations as Array<Omit<Annotation, "createdAt">>,
-          ),
-        ),
+        packSessionBlob(mergeOwnerAnnotations(session, annotations.output)),
       );
 
       await store.put(
-        payload.shareId,
-        sealBlob(options.masterKey, payload.shareId, packSessionBlob(next)),
+        shareId.output,
+        sealBlob(options.masterKey, shareId.output, packSessionBlob(next)),
       );
       metrics.recordShare("push", "ok", elapsed(startedAt));
       end(channel, 0);
@@ -348,7 +355,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       server.off("error", reject);
       const address = this.address();
 
-      resolve({ host, port: typeof address === "object" && address ? address.port : port });
+      resolve({ host, port: address instanceof Object ? address.port : port });
     });
   });
 
@@ -451,17 +458,19 @@ function fail(channel: ServerChannel, message: string): void {
 }
 
 /** ssh2 transport failures from the open internet (bad handshake, auth abort, reset) are per-connection and expected - not gateway faults. */
-export function isExpectedTransportError(err: unknown): boolean {
-  const level = (err as { level?: unknown })?.level;
+export function isExpectedTransportError(cause: unknown): boolean {
+  const result = v.safeParse(TransportErrorSchema, cause);
+
+  if (!result.success) return false;
+  const { level, code } = result.output;
 
   if (level === "handshake" || level === "authentication" || level === "protocol") return true;
-  const code = (err as { code?: unknown })?.code;
 
   return code === "ECONNRESET" || code === "EPIPE" || code === "ETIMEDOUT";
 }
 
-function errorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }
 
 /** Union the owner's own notes into the blob by id, never clobbering a collaborator's. */

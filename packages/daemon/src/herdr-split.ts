@@ -7,8 +7,12 @@
  */
 
 import { detectHerdr, type HerdrEnv } from "@cueloop/schema";
+import * as v from "valibot";
 
 const HERDR_SPAWN_TIMEOUT_MS = 2000;
+const SplitPaneSchema = v.object({
+  result: v.optional(v.object({ pane: v.optional(v.object({ pane_id: v.optional(v.string()) })) })),
+});
 
 /** How much of the current pane the launched harness split takes (herdr --ratio). */
 const HARNESS_SPLIT_RATIO = "0.4";
@@ -55,10 +59,10 @@ export function launchHarnessInSplit(
     );
 
     if (split.exitCode !== 0) return false;
-    const parsed = JSON.parse(split.stdout.toString()) as {
-      result?: { pane?: { pane_id?: string } };
-    };
-    const paneId = parsed.result?.pane?.pane_id;
+    const parsed = v.safeParse(SplitPaneSchema, JSON.parse(split.stdout.toString()));
+
+    if (!parsed.success) return false;
+    const paneId = parsed.output.result?.pane?.pane_id;
 
     if (!paneId) return false;
     sendText(herdr.binPath, paneId, options.command);

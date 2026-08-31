@@ -442,7 +442,7 @@ function isLiveDiffSession(session: ReviewSession): boolean {
 }
 
 /** Convenience for adapters: map a resolved session to the agent contract. */
-export function verdictResponse(session: ReviewSession): { allow: boolean; feedback: string } {
+export function verdictResponse(session: ReviewSession) {
   if (!session.verdict) throw new DaemonError("pending", "session has no verdict");
 
   return { allow: verdictAllows(session.verdict.kind), feedback: session.verdict.feedback };

@@ -9,7 +9,8 @@
  * alpha. Runs in the release lane after a successful publish.
  */
 
-const version = (await Bun.file("packages/cli/package.json").json()).version as string;
+const releasePackage: { version: string } = await Bun.file("packages/cli/package.json").json();
+const version = releasePackage.version;
 const preTag = version.includes("-") ? (version.split("-")[1] ?? "").split(".")[0] : null;
 
 if (!preTag) {
@@ -21,7 +22,7 @@ const names: string[] = [];
 
 for (const glob of ["packages/*/package.json", "packages/integrations/*/package.json"]) {
   for await (const path of new Bun.Glob(glob).scan(".")) {
-    const pkg = (await Bun.file(path).json()) as { name: string; private?: boolean };
+    const pkg: { name: string; private?: boolean } = await Bun.file(path).json();
 
     if (!pkg.private) names.push(pkg.name);
   }

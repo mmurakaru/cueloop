@@ -15,23 +15,45 @@
  * (PreToolUse works identically for headless runs.)
  */
 
+import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
 import { openReview } from "@cueloop/daemon/review";
 import { verdictAllows } from "@cueloop/schema";
 import { reportLabel, reportState } from "../herdr";
 
-interface HookEvent {
-  hook_event_name?: string;
-  session_id?: string;
-  cwd?: string;
-  tool_name?: string;
-  tool_input?: { plan?: string };
-}
+const HookEventSchema = v.object({
+  hook_event_name: v.optional(v.string()),
+  session_id: v.optional(v.string()),
+  cwd: v.optional(v.string()),
+  tool_name: v.optional(v.string()),
+  tool_input: v.optional(v.object({ plan: v.optional(v.string()) })),
+});
+
+type HookEvent = v.InferOutput<typeof HookEventSchema>;
 
 interface HookDecision {
   allow: boolean;
   reason: string;
+}
+
+interface PreToolUseHookEvent extends HookEvent {
+  hook_event_name: "PreToolUse";
+}
+
+interface PreToolUseHookOutput {
+  hookSpecificOutput: {
+    hookEventName: "PreToolUse";
+    permissionDecision: "allow" | "deny";
+    permissionDecisionReason: string;
+  };
+}
+
+interface PermissionRequestHookOutput {
+  hookSpecificOutput: {
+    hookEventName: "PermissionRequest";
+    decision: { behavior: "allow" } | { behavior: "deny"; message: string };
+  };
 }
 
 /**
@@ -122,7 +144,22 @@ export async function runHook(
 }
 
 /** Serialize the decision in the event's native shape. */
-export function hookOutput(event: HookEvent, decision: HookDecision): unknown {
+export function hookOutput(
+  event: PreToolUseHookEvent,
+  decision: HookDecision,
+): PreToolUseHookOutput;
+export function hookOutput(
+  event: HookEvent & { hook_event_name?: undefined },
+  decision: HookDecision,
+): PermissionRequestHookOutput;
+export function hookOutput(
+  event: HookEvent,
+  decision: HookDecision,
+): PreToolUseHookOutput | PermissionRequestHookOutput;
+export function hookOutput(
+  event: HookEvent,
+  decision: HookDecision,
+): PreToolUseHookOutput | PermissionRequestHookOutput {
   if (event.hook_event_name === "PreToolUse") {
     return {
       hookSpecificOutput: {
@@ -153,9 +190,10 @@ if (import.meta.main) {
   let event: HookEvent = {};
 
   try {
-    event = JSON.parse(raw) as HookEvent;
+    event = v.parse(HookEventSchema, JSON.parse(raw));
   } catch {
-    // no payload: allow rather than wedge the agent on adapter failure
+    // no payload, or one that fails the wire schema: allow rather than wedge
+    // the agent on adapter failure - never gate on input we cannot interpret
     console.log(
       JSON.stringify(hookOutput({}, { allow: true, reason: "unparseable hook payload" })),
     );

@@ -18,7 +18,8 @@
     "@opentui/core": "^0.5.8",
     "@opentui/react": "^0.5.8",
     "react": "^19.2.0",
-    "ssh2": "^1.17.0"
+    "ssh2": "^1.17.0",
+    "valibot": "^1.4.2"
   },
   "devDependencies": {
     "@types/ssh2": "^1.15.5"

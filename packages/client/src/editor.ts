@@ -21,7 +21,11 @@ export interface EditResult {
 const DEFAULT_EDITOR = "nano";
 
 /** GUI editors fork and return immediately unless given their wait flag. */
-const GUI_WAIT_FLAGS: Record<string, string[]> = {
+interface GuiWaitFlags {
+  [editor: string]: string[];
+}
+
+const GUI_WAIT_FLAGS: GuiWaitFlags = {
   code: ["--wait"],
   "code-insiders": ["--wait"],
   codium: ["--wait"],

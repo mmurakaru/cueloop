@@ -1,6 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "oxc", "react"],
+  "jsPlugins": [
+    {
+      "name": "type-evidence",
+      "specifier": "./tools/oxlint/type-evidence/index.ts"
+    }
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "warn",
@@ -15,10 +21,26 @@
     "**/dist/**",
     "**/node_modules/**",
     "**/*.snap",
-    "misc/**"
+    "misc/**",
+    "tools/oxlint/type-evidence/**"
   ],
   "rules": {
     "react/react-in-jsx-scope": "off",
-    "complexity": ["error", 20]
+    "complexity": ["error", 20],
+    "type-evidence/no-chained-type-assertions": "error",
+    "type-evidence/no-conditional-empty-object-spread": "error",
+    "type-evidence/no-known-value-widening": "error",
+    "type-evidence/no-module-mocking": "error",
+    "type-evidence/no-object-parameters": "error",
+    "type-evidence/no-reflect-apply": "error",
+    "type-evidence/no-reflect-get": "error",
+    "type-evidence/no-runtime-typeof": ["error", { "allowInTypeGuards": true }],
+    "type-evidence/no-shape-in-symbol-names": "error",
+    "type-evidence/no-unknown-parameters": "error",
+    "type-evidence/no-unknown-returns": "error",
+    "type-evidence/no-unknown-type-aliases": "error",
+    "type-evidence/no-unsafe-dictionary-type": "error",
+    "type-evidence/no-widen-then-assert": "error",
+    "type-evidence/require-safety-comment-for-type-assertion": "error"
   }
 }

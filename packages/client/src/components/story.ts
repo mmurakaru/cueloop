@@ -32,7 +32,19 @@ export interface LoadedStory {
 
 export function isStory(value: unknown): value is Story {
   return (
-    typeof value === "object" && value !== null && typeof (value as Story).render === "function"
+    typeof value === "object" &&
+    value !== null &&
+    "render" in value &&
+    typeof value.render === "function"
+  );
+}
+
+function isStoryMeta(value: unknown): value is StoryMeta {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "title" in value &&
+    typeof value.title === "string"
   );
 }
 
@@ -43,9 +55,9 @@ export async function loadStories(): Promise<LoadedStory[]> {
   const loaded: LoadedStory[] = [];
 
   for (const file of files) {
-    const moduleExports = (await import(`${import.meta.dir}/${file}`)) as Record<string, unknown>;
-    const meta = moduleExports["meta"] as StoryMeta | undefined;
-    const moduleTitle = meta?.title ?? file.replace(/\.stories\.tsx$/, "");
+    const moduleExports = await import(`${import.meta.dir}/${file}`);
+    const meta = moduleExports["meta"];
+    const moduleTitle = isStoryMeta(meta) ? meta.title : file.replace(/\.stories\.tsx$/, "");
 
     for (const [exportName, exported] of Object.entries(moduleExports)) {
       if (exportName === "meta" || !isStory(exported)) continue;

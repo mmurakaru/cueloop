@@ -526,9 +526,11 @@ function handleResizeReviewPanel(
   deps.controller.saveReviewPanel({ width: next });
 }
 
-const intentHandlers: {
+type IntentHandlers = {
   [Kind in Intent["type"]]: (intent: IntentOfType<Kind>, deps: IntentDispatchDeps) => void;
-} = {
+};
+
+const intentHandlers: IntentHandlers = {
   exit: handleExit,
   status: handleStatus,
   move: handleMove,
@@ -572,14 +574,14 @@ const intentHandlers: {
   resizeReviewPanel: handleResizeReviewPanel,
 };
 
+function dispatchIntent<Kind extends Intent["type"]>(
+  intent: IntentOfType<Kind>,
+  deps: IntentDispatchDeps,
+): void {
+  intentHandlers[intent.type](intent, deps);
+}
+
 /** Build the intent handler for one render from its dependency bag. */
 export function createIntentDispatch(deps: IntentDispatchDeps): (intent: Intent) => void {
-  return (intent: Intent): void => {
-    const handler = intentHandlers[intent.type] as (
-      intent: Intent,
-      deps: IntentDispatchDeps,
-    ) => void;
-
-    handler(intent, deps);
-  };
+  return (intent: Intent): void => dispatchIntent(intent, deps);
 }

@@ -80,17 +80,20 @@ beforeAll(async () => {
 
   writeFileSync(editorScript, `#!/bin/sh\nprintf '\\n\\nEdited via PTY hand-off.\\n' >> "$1"\n`);
   chmodSync(editorScript, 0o755);
+  const environment: Record<string, string> = {};
+
+  for (const [name, value] of Object.entries(process.env)) {
+    if (value !== undefined) environment[name] = value;
+  }
+  Object.assign(environment, HERMETIC_HERDR_ENV);
+  environment.CUELOOP_HOME = home;
+  environment.CUELOOP_EDITOR = editorScript;
   pty = spawn(process.execPath, ["run", CLI, sessionId], {
     name: "xterm-256color",
     cols: 120,
     rows: 30,
     cwd: ROOT,
-    env: {
-      ...process.env,
-      ...HERMETIC_HERDR_ENV,
-      CUELOOP_HOME: home,
-      CUELOOP_EDITOR: editorScript,
-    } as Record<string, string>,
+    env: environment,
   });
   pty.onData((chunk) => {
     ptyOutput += chunk;

@@ -7,6 +7,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import * as v from "valibot";
+
+const ObsidianRegistrySchema = v.object({
+  vaults: v.optional(v.record(v.string(), v.object({ path: v.optional(v.string()) }))),
+});
 
 /** Platform-specific location of Obsidian's own obsidian.json. */
 export function obsidianConfigPath(platform: NodeJS.Platform = process.platform): string {
@@ -31,9 +36,7 @@ export function obsidianConfigPath(platform: NodeJS.Platform = process.platform)
 /** Vault paths registered with Obsidian that exist on disk. */
 export function detectVaults(configPath: string = obsidianConfigPath()): string[] {
   try {
-    const raw = JSON.parse(readFileSync(configPath, "utf8")) as {
-      vaults?: Record<string, { path?: string }>;
-    };
+    const raw = v.parse(ObsidianRegistrySchema, JSON.parse(readFileSync(configPath, "utf8")));
 
     return Object.values(raw.vaults ?? {})
       .map((vault) => vault.path)

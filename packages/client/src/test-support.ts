@@ -31,9 +31,13 @@ export function isolateUserConfig(home: string, fileName = "no-config.toml"): ()
   };
 }
 
+declare global {
+  var IS_REACT_ACT_ENVIRONMENT: boolean | undefined;
+}
+
 /** The harness drives the real event loop by design; keep React's act warning off. */
 export function allowEventLoopUpdates(): void {
-  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = false;
+  globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 }
 
 /**

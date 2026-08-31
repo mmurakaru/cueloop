@@ -5,29 +5,24 @@
  * "On this page" TOC plus an edit link. Works for .mdx pages (props arrive under
  * `frontmatter`, headings under `headings`).
  */
+import type { MarkdownLayoutProps } from "astro";
 import BaseLayout from "./BaseLayout.astro";
 import DocsSidebar from "../components/DocsSidebar.tsx";
 import DocsToc from "../components/DocsToc.tsx";
 import CopyPage from "../components/CopyPage.tsx";
 import { docsNav, normalizePath } from "../nav";
 
-const props = Astro.props as any;
-const fm = props.frontmatter ?? props;
-const {
-  title,
-  description,
-  lede,
-  prev,
-  next,
-} = fm as {
+type Props = MarkdownLayoutProps<{
   title: string;
   description?: string;
   lede?: string;
   prev?: { title: string; href: string };
   next?: { title: string; href: string };
-};
+}>;
 
-const headings = ((props.headings ?? []) as Array<{ depth: number; slug: string; text: string }>).filter(
+const { title, description, lede, prev, next } = Astro.props.frontmatter;
+
+const headings = Astro.props.headings.filter(
   (heading) => heading.depth >= 2 && heading.depth <= 3,
 );
 
@@ -123,6 +118,12 @@ const pageUrl = new URL(path, Astro.site).href;
   <script>
     // Docs chrome that must survive View Transitions: a copy button on every
     // code block, and a collapsible navigation (desktop) / bottom-sheet (mobile).
+    declare global {
+      interface Window {
+        __cueloopDocsKeys?: boolean;
+      }
+    }
+
     const NAV_KEY = "cueloop-docs-nav";
     let navResizeObserver: ResizeObserver | null = null;
     const isMobile = () => matchMedia("(max-width: 900px)").matches;
@@ -203,8 +204,8 @@ const pageUrl = new URL(path, Astro.site).href;
 
     // Registered once per document (window guard survives any re-execution).
     // Re-queries the live shell each press so it keeps working across swaps.
-    if (!(window as any).__cueloopDocsKeys) {
-      (window as any).__cueloopDocsKeys = true;
+    if (!window.__cueloopDocsKeys) {
+      window.__cueloopDocsKeys = true;
       document.addEventListener("keydown", (event) => {
         const shell = document.getElementById("docs-shell");
         if (!shell) return;
