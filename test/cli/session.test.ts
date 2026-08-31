@@ -60,6 +60,32 @@ describe("cueloop session (black box)", () => {
     sessionId = session.id;
   });
 
+  test("create accepts a reply artifact and titles it from the first heading", async () => {
+    // Act
+    const created = await runCli(
+      home,
+      ["session", "create", "--type", "reply", "--agent", "test"],
+      "# Findings\n\nThe cache is fine.\n",
+    );
+
+    // Assert
+    expect(created.code).toBe(0);
+    const session = cliJson<ReviewSession>(created);
+
+    expect(session.artifact.type).toBe("reply");
+    expect(session.artifact.meta.title).toBe("Findings");
+  });
+
+  test("create refuses an unknown artifact type with the supported list", async () => {
+    // Act
+    const created = await runCli(home, ["session", "create", "--type", "blueprint"], "body\n");
+
+    // Assert
+    expect(created.code).toBe(2);
+    expect(created.stderr).toContain('unknown artifact type "blueprint"');
+    expect(created.stderr).toContain("plan, diff, prototype, reply");
+  });
+
   test("list and get see the session from a fresh process", async () => {
     // Act
     const list = cliJson<ReviewSession[]>(

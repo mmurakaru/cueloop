@@ -19,6 +19,7 @@ import {
   validateSessionRecord,
 } from "./validate";
 import {
+  ARTIFACT_TYPES,
   SCHEMA_VERSION,
   type Anchor,
   type Annotation,
@@ -61,13 +62,15 @@ describe("parseParams", () => {
     }
   });
 
-  test("accepts the reply artifact type", () => {
-    const params = parseParams("session.create", {
-      workspace: { repoRoot: "/repo", branch: "main" },
-      artifact: { type: "reply", content: "# R" },
-    });
+  test("accepts every artifact type in the schema union", () => {
+    for (const type of ARTIFACT_TYPES) {
+      const params = parseParams("session.create", {
+        workspace: { repoRoot: "/repo", branch: "main" },
+        artifact: { type, content: "body" },
+      });
 
-    expect(params.artifact.type).toBe("reply");
+      expect(params.artifact.type).toBe(type);
+    }
   });
 
   test("rejects an unknown artifact type", () => {
