@@ -242,15 +242,24 @@ function elementAtScript(x: number, y: number): unknown {
 
     return parts.join(" > ");
   };
+  // Prefer the nearest focusable target before falling back to its component container.
+  const focusableTarget = (start: Element | null): Element | null => {
+    for (
+      let element: Element | null = start;
+      element && element !== document.body;
+      element = element.parentElement
+    ) {
+      if (element instanceof HTMLElement && element.tabIndex >= 0) {
+        return element;
+      }
+    }
+
+    return null;
+  };
   const hit = document.elementFromPoint(x, y);
 
   if (!(hit instanceof Element)) return null;
-  // A click on an interactive control anchors to that control - a button in a
-  // grid is the target, not the grid. Everything else climbs to its component.
-  const control = hit.closest(
-    "button, a, [role='button'], input, select, textarea, label, summary",
-  );
-  const node = control ?? componentRoot(hit);
+  const node = focusableTarget(hit) ?? componentRoot(hit);
   const selector = selectorFor(node);
 
   if (!selector) return null;
