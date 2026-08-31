@@ -1,5 +1,13 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.62
+
+### Patch Changes
+
+- Enforce a cyclomatic complexity limit of 20 (oxlint) and refactor the functions that exceeded it - the intent dispatcher, keymap reducer, config layering, App, plan-sheet run-style, the CLI command routers, and the daemon dispatch - into small, table-driven units. Behavior and public APIs are unchanged.
+- Updated dependencies []:
+  - @cueloop/schema@0.1.0-alpha.62
+
 ## 0.1.0-alpha.61
 
 ### Patch Changes
