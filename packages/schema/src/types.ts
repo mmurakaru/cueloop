@@ -28,7 +28,7 @@ export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 
 /** Trust-boundary guard: is this string one of the artifact primitives? */
 export function isArtifactType(value: string): value is ArtifactType {
-  return (ARTIFACT_TYPES as readonly string[]).includes(value);
+  return ARTIFACT_TYPES.some((candidate) => candidate === value);
 }
 
 /**

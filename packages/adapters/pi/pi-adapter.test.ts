@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { ARTIFACT_TYPES, type ArtifactType } from "@cueloop/schema";
-import { createCueloopExtension, type ReviewDetails } from "./index";
+import { createCueloopExtension, type RequestReviewParams, type ReviewDetails } from "./index";
 import type {
   PiCommandOptions,
   PiContext,
@@ -112,9 +112,12 @@ function toolCall(toolName: string): PiToolCallEvent {
 
 async function openPending(fake: FakePi, content: string, type?: ArtifactType): Promise<string> {
   const tool = fake.tools.get("request_review")!;
+  const params: RequestReviewParams = { content };
+
+  if (type) params.type = type;
   const result: PiToolResult<ReviewDetails> = await tool.execute(
     "t-" + content.length,
-    { content, ...(type ? { type } : {}) },
+    params,
     undefined,
     undefined,
     makeContext(),
