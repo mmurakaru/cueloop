@@ -73,10 +73,7 @@ function fileLabel(file: FileDiffMetadata): string {
 }
 
 /** Quote-primary anchor for a diff row: neighbors as context selectors. */
-export function diffRowAnchor(
-  rows: DiffRow[],
-  rowIndex: number,
-): { quote: string; prefix: string; suffix: string } {
+export function diffRowAnchor(rows: DiffRow[], rowIndex: number) {
   const row = rows[rowIndex]!;
   const prev = rows[rowIndex - 1];
   const next = rows[rowIndex + 1];

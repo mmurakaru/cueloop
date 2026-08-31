@@ -4,6 +4,8 @@
  * Events (push, after events.subscribe): { event, sessionId }
  */
 
+import * as v from "valibot";
+
 export interface Request {
   id: number;
   method: string;
@@ -22,6 +24,29 @@ export interface EventFrame {
 }
 
 export type Frame = Response | EventFrame;
+
+const RequestSchema = v.object({
+  id: v.number(),
+  method: v.string(),
+  params: v.optional(v.unknown()),
+});
+const ResponseSchema = v.object({
+  id: v.number(),
+  result: v.optional(v.unknown()),
+  error: v.optional(v.object({ code: v.string(), message: v.string() })),
+});
+const EventFrameSchema = v.object({
+  event: v.string(),
+  sessionId: v.string(),
+});
+
+export function parseRequestFrame(line: string): Request {
+  return v.parse(RequestSchema, JSON.parse(line));
+}
+
+export function parseInboundFrame(line: string): Frame {
+  return v.parse(v.union([ResponseSchema, EventFrameSchema]), JSON.parse(line));
+}
 
 /** Incremental NDJSON splitter; tolerates partial writes. */
 export class LineBuffer {

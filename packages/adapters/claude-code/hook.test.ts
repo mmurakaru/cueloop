@@ -139,23 +139,15 @@ describe("hookOutput: cueloop is the sole approval", () => {
     const event = { session_id: "s", tool_name: "ExitPlanMode", tool_input: { plan: "# P\n" } };
 
     // Act
-    const denied = hookOutput(event, { allow: false, reason: "review opened" }) as {
-      hookSpecificOutput?: {
-        hookEventName?: string;
-        decision?: { behavior?: string; message?: string };
-      };
-      decision?: unknown;
-    };
+    const denied = hookOutput(event, { allow: false, reason: "review opened" });
 
     // Assert - the wrapped shape, not a bare top-level decision
-    expect(denied.decision).toBeUndefined();
+    expect("decision" in denied ? denied.decision : undefined).toBeUndefined();
     expect(denied.hookSpecificOutput?.hookEventName).toBe("PermissionRequest");
     expect(denied.hookSpecificOutput?.decision?.behavior).toBe("deny");
 
     // Act
-    const allowed = hookOutput(event, { allow: true, reason: "ok" }) as {
-      hookSpecificOutput?: { decision?: { behavior?: string } };
-    };
+    const allowed = hookOutput(event, { allow: true, reason: "ok" });
 
     // Assert
     expect(allowed.hookSpecificOutput?.decision?.behavior).toBe("allow");
@@ -166,7 +158,7 @@ describe("hookOutput: cueloop is the sole approval", () => {
     const output = hookOutput(
       { hook_event_name: "PreToolUse", tool_input: { plan: "# P\n" } },
       { allow: false, reason: "nope" },
-    ) as { hookSpecificOutput?: { hookEventName?: string; permissionDecision?: string } };
+    );
 
     // Assert
     expect(output.hookSpecificOutput?.hookEventName).toBe("PreToolUse");

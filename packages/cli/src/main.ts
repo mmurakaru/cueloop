@@ -98,7 +98,11 @@ async function shareEntry(rest: string[]): Promise<number> {
 
 type CommandHandler = (rest: string[]) => number | Promise<number>;
 
-const commandHandlers: Record<string, CommandHandler> = {
+interface CommandHandlers {
+  [command: string]: CommandHandler;
+}
+
+const commandHandlers: CommandHandlers = {
   session: (rest) => sessionCommand(rest),
   daemon: (rest) => daemonCommand(rest),
   plan: (rest) => planCommand(rest),

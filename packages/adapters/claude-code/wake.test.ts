@@ -31,7 +31,7 @@ afterEach(() => {
   if (inboxDir) rmSync(inboxDir, { recursive: true, force: true });
 });
 
-function fakeInbox(): { socketPath: string; frames: Promise<string>; stop: () => void } {
+function fakeInbox() {
   inboxDir = mkdtempSync(join(tmpdir(), "cc-wake-sock-"));
   const socketPath = join(inboxDir, "s.sock");
   let received = "";
@@ -74,7 +74,7 @@ describe("runInboxWake", () => {
 
     expect(frames).toContain('{"type":"auth","token":"tok-1"}');
     const messageLine = frames.trim().split("\n").at(-1)!;
-    const content = JSON.parse(messageLine).message.content as string;
+    const content = JSON.parse(messageLine).message.content;
 
     expect(content).toContain("approved");
     expect(content).toContain("# Review: approve");

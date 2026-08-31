@@ -48,7 +48,7 @@ describe("resolveCleanupPeriodDays", () => {
     const missing = join(tempDir("cueloop-retention-"), "config.toml");
 
     // Act
-    const days = resolveCleanupPeriodDays({ CUELOOP_CONFIG: missing } as NodeJS.ProcessEnv);
+    const days = resolveCleanupPeriodDays({ CUELOOP_CONFIG: missing });
 
     // Assert
     expect(days).toBe(DEFAULT_CLEANUP_PERIOD_DAYS);
@@ -61,7 +61,7 @@ describe("resolveCleanupPeriodDays", () => {
     writeFileSync(path, "[cleanup]\nperiod_days = 7\n");
 
     // Act
-    const days = resolveCleanupPeriodDays({ CUELOOP_CONFIG: path } as NodeJS.ProcessEnv);
+    const days = resolveCleanupPeriodDays({ CUELOOP_CONFIG: path });
 
     // Assert
     expect(days).toBe(7);
@@ -74,7 +74,7 @@ describe("resolveCleanupPeriodDays", () => {
     writeFileSync(path, '[cleanup]\nperiod_days = "soon"\n');
 
     // Act
-    const days = resolveCleanupPeriodDays({ CUELOOP_CONFIG: path } as NodeJS.ProcessEnv);
+    const days = resolveCleanupPeriodDays({ CUELOOP_CONFIG: path });
 
     // Assert
     expect(days).toBe(DEFAULT_CLEANUP_PERIOD_DAYS);

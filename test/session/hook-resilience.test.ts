@@ -43,9 +43,9 @@ describe("hook resilience", () => {
 
     // Assert
     expect(code).toBe(0);
-    const parsed = JSON.parse(out.trim()) as {
+    const parsed: {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
-    };
+    } = JSON.parse(out.trim());
 
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("allow");
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain("cueloop unavailable");
@@ -58,9 +58,9 @@ describe("hook resilience", () => {
     // Assert
     expect(code).toBe(0);
     // no event name in the payload, so the answer uses the PermissionRequest shape
-    const parsed = JSON.parse(out.trim()) as {
+    const parsed: {
       hookSpecificOutput?: { decision?: { behavior?: string } };
-    };
+    } = JSON.parse(out.trim());
 
     expect(parsed.hookSpecificOutput?.decision?.behavior).toBe("allow");
   }, 60_000);
@@ -73,9 +73,9 @@ describe("hook resilience", () => {
     );
 
     // Assert
-    const parsed = JSON.parse(out.trim()) as {
+    const parsed: {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
-    };
+    } = JSON.parse(out.trim());
 
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("allow");
     expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain("no plan payload");

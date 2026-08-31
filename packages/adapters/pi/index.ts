@@ -50,8 +50,8 @@ const text = (message: string): PiToolResult<ReviewDetails>["content"] => [
   { type: "text", text: message },
 ];
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
 }
 
 export function createCueloopExtension(options: CueloopExtensionOptions = {}) {

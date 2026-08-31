@@ -17,6 +17,15 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import type { ServerChannel } from "ssh2";
 
+declare module "@opentui/core" {
+  interface RemoteCliRendererConfig extends Omit<CliRendererConfig, "stdin" | "stdout"> {
+    stdin: Readable;
+    stdout: Writable;
+  }
+
+  function createCliRenderer(config: RemoteCliRendererConfig): Promise<CliRenderer>;
+}
+
 /**
  * Terminal restore bytes: disable mouse reporting (?1000/1002/1003/1006), show
  * the cursor (?25), and leave the alt screen (?1049). The renderer emits these
@@ -69,20 +78,20 @@ function channelStreams(channel: ServerChannel, size: PtySize) {
   channel.on("close", () => ((channelGone = true), releaseDrain()));
   channel.on("error", () => ((channelGone = true), releaseDrain()));
 
-  const stdout = new Writable({
+  const stdout = Object.assign(
+    new Writable({
     write(chunk, _encoding, callback) {
       if (channelGone) return callback();
       const bytes = Buffer.from(chunk);
 
       if (bytes.byteLength === 0) return callback();
       if (channel.write(bytes)) return callback();
-      pendingDrain = callback;
-      channel.once("drain", releaseDrain);
-    },
-  }) as Writable & { columns: number; rows: number };
-
-  stdout.columns = size.cols;
-  stdout.rows = size.rows;
+        pendingDrain = callback;
+        channel.once("drain", releaseDrain);
+      },
+    }),
+    { columns: size.cols, rows: size.rows },
+  );
 
   return { stdin, stdout, detach: () => channel.removeListener("data", onData) };
 }
@@ -95,10 +104,8 @@ export async function renderOverChannel(
 ): Promise<ChannelRender> {
   const { stdin, stdout, detach } = channelStreams(channel, size);
   const renderer = await createCliRenderer({
-    // The renderer only touches the read/write subset these streams provide;
-    // the channel is not a real TTY, so we assert the shape @opentui/core wants.
-    stdin: stdin as unknown as NodeJS.ReadStream,
-    stdout: stdout as unknown as NodeJS.WriteStream,
+    stdin,
+    stdout,
     width: size.cols,
     height: size.rows,
     exitOnCtrlC: false,

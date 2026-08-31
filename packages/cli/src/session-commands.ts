@@ -4,10 +4,11 @@
  * JSON on stdout; exit code 0 unless the daemon returned an error.
  */
 
-import { newAnnotationId, type ArtifactType, type VerdictKind } from "@cueloop/schema";
+import { newAnnotationId } from "@cueloop/schema";
+import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
-import { openReview, verdictResponse, type ReviewNote } from "@cueloop/daemon/review";
+import { openReview, verdictResponse } from "@cueloop/daemon/review";
 import { loadConfig, quickActionBody, resolveQuickAction } from "@cueloop/client/config";
 import { parseArgs, stringFlag } from "./args";
 
@@ -15,9 +16,14 @@ async function readStdin(): Promise<string> {
   return await new Response(Bun.stdin.stream()).text();
 }
 
-function out(value: unknown): void {
+function out(value: Parameters<typeof JSON.stringify>[0]): void {
   console.log(JSON.stringify(value, null, 2));
 }
+
+const ReviewNotesSchema = v.array(v.object({ path: v.string(), body: v.string() }));
+const ArtifactTypeSchema = v.picklist(["plan", "diff", "prototype"]);
+const SessionStatusSchema = v.picklist(["pending", "resolved"]);
+const VerdictKindSchema = v.picklist(["comment", "approve", "request_changes"]);
 
 type SessionFlags = Record<string, string | boolean>;
 type SessionContext = { client: DaemonClient; positional: string[]; flags: SessionFlags };
@@ -29,10 +35,10 @@ async function sessionCreate({ client, flags }: SessionContext): Promise<number>
   // per-file agent notes for diff sessions: a JSON array of { path, body }
   const notesFile = stringFlag(flags, "notes-file");
   const notes = notesFile
-    ? (JSON.parse(await Bun.file(notesFile).text()) as ReviewNote[])
+    ? v.parse(ReviewNotesSchema, JSON.parse(await Bun.file(notesFile).text()))
     : undefined;
   const review = await openReview(client, {
-    type: (stringFlag(flags, "type") ?? "plan") as ArtifactType,
+    type: v.parse(ArtifactTypeSchema, stringFlag(flags, "type") ?? "plan"),
     content,
     cwd: stringFlag(flags, "cwd"),
     agent: stringFlag(flags, "agent"),
@@ -57,7 +63,8 @@ async function sessionGetCommand({ client, positional }: SessionContext): Promis
 }
 
 async function sessionListCommand({ client, flags }: SessionContext): Promise<number> {
-  const status = stringFlag(flags, "status") as "pending" | "resolved" | undefined;
+  const rawStatus = stringFlag(flags, "status");
+  const status = rawStatus ? v.parse(SessionStatusSchema, rawStatus) : undefined;
 
   out(await client.sessionList(status ? { status } : undefined));
 
@@ -103,7 +110,7 @@ async function sessionAnnotateCommand({
           suffix: stringFlag(flags, "suffix") ?? "",
         },
         body,
-        ...(author ? { author } : {}),
+        author,
       },
       stringFlag(flags, "author-name"),
     ),
@@ -118,7 +125,10 @@ async function sessionResolveCommand({
   flags,
 }: SessionContext): Promise<number> {
   const id = required(positional[1], "session id");
-  const kind = required(stringFlag(flags, "verdict"), "--verdict") as VerdictKind;
+  const kind = v.parse(
+    VerdictKindSchema,
+    required(stringFlag(flags, "verdict"), "--verdict"),
+  );
 
   out(await client.sessionResolve(id, kind, stringFlag(flags, "summary") ?? ""));
 
@@ -144,7 +154,11 @@ async function sessionSubmitRevisionCommand({
   return 0;
 }
 
-const sessionVerbHandlers: Record<string, SessionVerbHandler> = {
+interface SessionVerbHandlers {
+  [verb: string]: SessionVerbHandler;
+}
+
+const sessionVerbHandlers: SessionVerbHandlers = {
   create: sessionCreate,
   get: sessionGetCommand,
   list: sessionListCommand,

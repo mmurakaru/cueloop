@@ -187,7 +187,9 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
     >
       <Tabs
         selectedKey={railTab}
-        onSelectionChange={(key) => onTabChange(key as RailTab)}
+        onSelectionChange={(key) => {
+          if (key === "review" || key === "agent") onTabChange(key);
+        }}
         theme={theme}
       >
         <TabList>

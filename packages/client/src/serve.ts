@@ -36,7 +36,7 @@ export interface ServeOptions {
   home?: string;
   /** Silence the @opentui/ssh startup banner (tests). Default true. */
   banner?: boolean;
-  onError?: (err: unknown) => void;
+  onError?: (cause: unknown) => void;
 }
 
 export interface ServeHandle {

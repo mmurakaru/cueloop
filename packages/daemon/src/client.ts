@@ -5,6 +5,7 @@
  */
 
 import { existsSync, rmSync } from "node:fs";
+import * as v from "valibot";
 import type {
   Annotation,
   Artifact,
@@ -13,10 +14,18 @@ import type {
   VerdictKind,
   WorkspaceKey,
 } from "@cueloop/schema";
-import { BackpressureWriter, LineBuffer, type EventFrame, type Response } from "./protocol";
+import {
+  BackpressureWriter,
+  LineBuffer,
+  parseInboundFrame,
+  type EventFrame,
+  type Request,
+  type Response,
+} from "./protocol";
 import type { DaemonRole } from "./capabilities";
 import type { HerdrTabHandle } from "./herdr-tab-store";
 import { cueloopHome, socketPath } from "./paths";
+import { SessionRecordSchema } from "./validate";
 
 export type { EventFrame } from "./protocol";
 
@@ -28,7 +37,15 @@ export interface ConnectOptions {
   role?: DaemonRole;
 }
 
-type PendingRequest = { resolve: (value: unknown) => void; reject: (error: Error) => void };
+type PendingRequest = {
+  resolve: (value: Response["result"]) => void;
+  reject: (error: Error) => void;
+};
+
+const EmptyResultSchema = v.object({});
+const PingResultSchema = v.object({ pid: v.number() });
+const RefreshDiffResultSchema = v.object({ changed: v.boolean() });
+const HerdrTabResultSchema = v.nullable(v.object({ tabId: v.string(), paneId: v.string() }));
 
 /**
  * The session verbs the review controller drives. DaemonClient is the local
@@ -128,9 +145,10 @@ export class DaemonClient implements SessionClient {
     this.writer = new BackpressureWriter(this.socket);
     // Verify liveness: a dead socket file accepts connects on some platforms
     // only to fail later, so a ping is the actual handshake.
-    await this.request("daemon.ping", {}, 2_000);
+    await this.request("daemon.ping", {}, PingResultSchema, 2_000);
     // Cap this connection's role for the daemon's capability gate (owner is the default).
-    if (this.role !== "owner") await this.request("daemon.hello", { role: this.role }, 2_000);
+    if (this.role !== "owner")
+      await this.request("daemon.hello", { role: this.role }, EmptyResultSchema, 2_000);
   }
 
   onEvent(listener: (event: EventFrame) => void): () => void {
@@ -140,10 +158,10 @@ export class DaemonClient implements SessionClient {
   }
 
   private routeInboundFrame(line: string): void {
-    let frame: Response | EventFrame;
+    let frame;
 
     try {
-      frame = JSON.parse(line) as Response | EventFrame;
+      frame = parseInboundFrame(line);
     } catch {
       return;
     }
@@ -161,11 +179,16 @@ export class DaemonClient implements SessionClient {
     else pendingRequest.resolve(frame.result);
   }
 
-  request<T = unknown>(method: string, params: unknown, timeoutMs = 30_000): Promise<T> {
+  request<TOutput>(
+    method: string,
+    params: Request["params"],
+    resultSchema: v.GenericSchema<unknown, TOutput>,
+    timeoutMs = 30_000,
+  ): Promise<TOutput> {
     if (this.closed || !this.socket) return Promise.reject(new Error("not connected"));
     const id = this.nextId++;
 
-    return new Promise<T>((resolve, reject) => {
+    return new Promise<TOutput>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         reject(new Error(`request ${method} timed out`));
@@ -174,7 +197,7 @@ export class DaemonClient implements SessionClient {
       this.pending.set(id, {
         resolve: (value) => {
           clearTimeout(timer);
-          resolve(value as T);
+          resolve(v.parse(resultSchema, value));
         },
         reject: (error) => {
           clearTimeout(timer);
@@ -192,79 +215,104 @@ export class DaemonClient implements SessionClient {
 
   // ── typed verbs ─────────────────────────────
   ping(): Promise<{ pid: number }> {
-    return this.request("daemon.ping", {});
+    return this.request("daemon.ping", {}, PingResultSchema);
   }
   subscribe(): Promise<void> {
-    return this.request("events.subscribe", {});
+    return this.request("events.subscribe", {}, EmptyResultSchema).then(() => undefined);
   }
   sessionCreate(workspace: WorkspaceKey, artifact: Artifact): Promise<ReviewSession> {
-    return this.request("session.create", { workspace, artifact });
+    return this.request("session.create", { workspace, artifact }, SessionRecordSchema);
   }
   sessionGet(id: string): Promise<ReviewSession> {
-    return this.request("session.get", { id });
+    return this.request("session.get", { id }, SessionRecordSchema);
   }
   sessionList(filter?: { status?: "pending" | "resolved" }): Promise<ReviewSession[]> {
-    return this.request("session.list", { filter });
+    return this.request("session.list", { filter }, v.array(SessionRecordSchema));
   }
   /** Long-poll; null = still pending after timeoutMs (re-poll to collect). */
   sessionWait(id: string, timeoutMs: number): Promise<ReviewSession | null> {
-    return this.request("session.wait", { id, timeoutMs }, timeoutMs + 10_000);
+    return this.request(
+      "session.wait",
+      { id, timeoutMs },
+      v.nullable(SessionRecordSchema),
+      timeoutMs + 10_000,
+    );
   }
   sessionAnnotate(
     id: string,
     annotation: Omit<Annotation, "createdAt">,
     authorName?: string,
   ): Promise<ReviewSession> {
-    return this.request("session.annotate", { id, annotation, authorName });
+    return this.request(
+      "session.annotate",
+      { id, annotation, authorName },
+      SessionRecordSchema,
+    );
   }
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession> {
-    return this.request("session.removeAnnotation", { id, annotationId });
+    return this.request(
+      "session.removeAnnotation",
+      { id, annotationId },
+      SessionRecordSchema,
+    );
   }
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession> {
-    return this.request("session.setWorkingCopy", { id, workingCopy });
+    return this.request(
+      "session.setWorkingCopy",
+      { id, workingCopy },
+      SessionRecordSchema,
+    );
   }
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession> {
-    return this.request("session.setViewed", { id, viewedPaths });
+    return this.request("session.setViewed", { id, viewedPaths }, SessionRecordSchema);
   }
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
-    return this.request("session.refreshDiff", { id });
+    return this.request("session.refreshDiff", { id }, RefreshDiffResultSchema);
   }
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession> {
-    return this.request("session.setShareId", { id, shareId });
+    return this.request("session.setShareId", { id, shareId }, SessionRecordSchema);
   }
   sessionMergeShared(
     id: string,
     incoming: { annotations: Annotation[]; participants?: Identity[] },
   ): Promise<ReviewSession> {
-    return this.request("session.mergeShared", { id, ...incoming });
+    return this.request("session.mergeShared", { id, ...incoming }, SessionRecordSchema);
   }
   sessionDelete(id: string): Promise<void> {
-    return this.request("session.delete", { id });
+    return this.request("session.delete", { id }, EmptyResultSchema).then(() => undefined);
   }
   /** Local sessions have no collaborator self-name; the share client owns this. */
   sessionSetSelfName(id: string, _name: string): Promise<ReviewSession> {
     return this.sessionGet(id);
   }
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession> {
-    return this.request("session.resolve", { id, verdictKind, summary });
+    return this.request(
+      "session.resolve",
+      { id, verdictKind, summary },
+      SessionRecordSchema,
+    );
   }
   sessionSubmitRevision(
     id: string,
     content: string,
     addressedAnnotationIds: string[] = [],
   ): Promise<ReviewSession> {
-    return this.request("session.submitRevision", { id, content, addressedAnnotationIds });
+    return this.request(
+      "session.submitRevision",
+      { id, content, addressedAnnotationIds },
+      SessionRecordSchema,
+    );
   }
   /** herdr adapter scratch: the tab opened for a review; local-only, off the SessionClient contract. */
   herdrGetTab(id: string): Promise<HerdrTabHandle | null> {
-    return this.request("herdr.getTab", { id });
+    return this.request("herdr.getTab", { id }, HerdrTabResultSchema);
   }
   async herdrSetTab(id: string, handle: HerdrTabHandle): Promise<void> {
-    await this.request("herdr.setTab", { id, ...handle });
+    await this.request("herdr.setTab", { id, ...handle }, EmptyResultSchema);
   }
   shutdown(): Promise<void> {
-    return this.request("daemon.shutdown", {});
+    return this.request("daemon.shutdown", {}, EmptyResultSchema).then(() => undefined);
   }
 }
 

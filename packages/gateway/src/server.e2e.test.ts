@@ -462,7 +462,7 @@ describe("planner pull", () => {
 
     // Act
     const result = await sharePull(handle.port, id, CLIENT_KEY);
-    const pulled = JSON.parse(result.out) as ReviewSession;
+    const pulled: ReviewSession = JSON.parse(result.out);
 
     // Assert
     expect(result.code).toBe(0);

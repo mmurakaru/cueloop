@@ -10,6 +10,7 @@
  */
 
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
+import * as v from "valibot";
 
 /** Raw length of the master key and every derived per-blob key. */
 export const KEY_BYTES = 32;
@@ -25,6 +26,13 @@ interface Envelope {
   ciphertext: string;
   tag: string;
 }
+
+const EnvelopeSchema = v.object({
+  v: v.number(),
+  nonce: v.string(),
+  ciphertext: v.string(),
+  tag: v.string(),
+});
 
 /** Per-blob key = HKDF-SHA256(master, salt = share id). */
 function deriveBlobKey(master: Buffer, shareId: string): Buffer {
@@ -52,7 +60,7 @@ export function openBlob(master: Buffer, shareId: string, stored: Uint8Array): B
   let envelope: Envelope;
 
   try {
-    envelope = JSON.parse(Buffer.from(stored).toString("utf8")) as Envelope;
+    envelope = v.parse(EnvelopeSchema, JSON.parse(Buffer.from(stored).toString("utf8")));
   } catch {
     throw new Error("stored blob is not a valid envelope");
   }

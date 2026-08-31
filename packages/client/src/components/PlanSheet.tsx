@@ -94,10 +94,7 @@ interface BlockRef {
 }
 
 /** Screen position of a rendered-text offset inside a wrapped text. */
-function positionOfRenderedOffset(
-  renderable: TextRenderable,
-  renderedOffset: number,
-): { x: number; y: number } {
+function positionOfRenderedOffset(renderable: TextRenderable, renderedOffset: number) {
   const info = renderable.lineInfo;
   let lineIndex = 0;
 

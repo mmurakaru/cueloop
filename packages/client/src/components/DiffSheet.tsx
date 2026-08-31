@@ -65,7 +65,7 @@ function rowStyle(
   isCursorRow: boolean,
   isAnnotatedRow: boolean,
   tokens: Theme,
-): { sign: string; baseColor: string; background: string | undefined } {
+) {
   const sign = row.kind === "add" ? "+" : row.kind === "del" ? "-" : " ";
   const baseColor =
     row.kind === "add"

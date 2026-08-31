@@ -12,6 +12,7 @@ import { join } from "node:path";
 import { OBSIDIAN_DEFAULTS, type ObsidianConfig } from "@cueloop/integration-obsidian";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
+import * as v from "valibot";
 import { DARK, type Theme } from "./theme";
 import { DEFAULT_THEME_NAME, isThemeName, themeForName, type ThemeName } from "./theme-presets";
 import { REVIEW_DEFAULT_WIDTH, clampWidth, type ReviewPanelMode } from "./review-panel";
@@ -112,7 +113,7 @@ export interface CueloopConfig {
 }
 
 /** Every action in the grammar, with its default binding(s). */
-export const DEFAULT_KEYS: Record<string, string[]> = {
+export const DEFAULT_KEYS: CueloopConfig["keys"] = {
   down: ["j", "down"],
   up: ["k", "up"],
   top: ["g"],
@@ -136,100 +137,83 @@ export const DEFAULT_KEYS: Record<string, string[]> = {
   review_narrower: ["["],
 };
 
-function parseToml(text: string): Record<string, unknown> {
-  // Bun ships a native TOML parser
-  return Bun.TOML.parse(text) as Record<string, unknown>;
+const ConfigDocumentSchema = v.object({
+  actions: v.optional(v.array(v.unknown())),
+  authors: v.optional(v.unknown()),
+  integrations: v.optional(v.unknown()),
+  keys: v.optional(v.unknown()),
+  theme: v.optional(v.unknown()),
+  ui: v.optional(v.unknown()),
+});
+
+const QuickActionSchema = v.object({
+  prompt: v.pipe(
+    v.string(),
+    v.check((prompt) => Boolean(prompt.trim())),
+  ),
+  metadata: v.optional(v.string()),
+});
+
+const AuthorsSchema = v.record(v.string(), v.string());
+const KeysSchema = v.record(v.string(), v.union([v.string(), v.array(v.string())]));
+const UiSchema = v.object({
+  auto_close: v.optional(v.union([v.literal("off"), v.pipe(v.number(), v.minValue(0))])),
+  editor: v.optional(v.string()),
+  review_width: v.optional(v.pipe(v.number(), v.finite())),
+  review_state: v.optional(v.picklist(["expanded", "compact", "hidden"])),
+  theme: v.optional(v.string()),
+});
+const ObsidianSchema = v.object({
+  vault: v.optional(v.string()),
+  folder: v.optional(v.string()),
+  filenameFormat: v.optional(v.string()),
+  separator: v.optional(v.picklist(["space", "dash", "underscore"])),
+  exportOn: v.optional(v.picklist(["approve", "resolve", "manual"])),
+});
+const IntegrationsSchema = v.object({ obsidian: v.optional(ObsidianSchema) });
+const ThemeOverridesSchema = v.partial(
+  v.object({
+    background: v.string(),
+    panel: v.string(),
+    elevated: v.string(),
+    border: v.string(),
+    text: v.string(),
+    textMuted: v.string(),
+    textDim: v.string(),
+    accent: v.string(),
+    accentInk: v.string(),
+    green: v.string(),
+    red: v.string(),
+    blue: v.string(),
+    cursorBackground: v.string(),
+    markCommentBackground: v.string(),
+    insertedForeground: v.string(),
+    deletedForeground: v.string(),
+    backdrop: v.string(),
+  }),
+);
+
+function parseToml(text: string) {
+  return v.parse(ConfigDocumentSchema, Bun.TOML.parse(text));
 }
 
-/**
- * Parse a `[[actions]]` array-of-tables. A table without a non-empty `prompt`
- * is skipped; any valid table REPLACES the defaults (the whole set is the
- * user's, not merged). Returns undefined when nothing usable is present.
- */
-function parseActions(raw: unknown): QuickAction[] | undefined {
-  if (!Array.isArray(raw)) return undefined;
+function parseActions(entries: readonly unknown[] | undefined): QuickAction[] | undefined {
+  if (!entries) return undefined;
   const actions: QuickAction[] = [];
 
-  for (const entry of raw) {
-    if (!entry || typeof entry !== "object") continue;
-    const table = entry as Record<string, unknown>;
-    const prompt = table["prompt"];
+  for (const entry of entries) {
+    const result = v.safeParse(QuickActionSchema, entry);
 
-    if (typeof prompt !== "string" || !prompt.trim()) continue;
-    const metadata = table["metadata"];
+    if (!result.success) continue;
+    const { prompt, metadata } = result.output;
 
-    actions.push(
-      typeof metadata === "string" && metadata.trim() ? { prompt, metadata } : { prompt },
-    );
+    actions.push(metadata?.trim() ? { prompt, metadata } : { prompt });
   }
 
   return actions.length ? actions : undefined;
 }
 
-function mergeAuthors(target: Record<string, string>, raw: unknown): void {
-  const authors = raw as Record<string, unknown> | undefined;
-
-  if (!authors) return;
-  for (const [id, value] of Object.entries(authors)) {
-    if (typeof value === "string") target[id] = value;
-  }
-}
-
-function mergeKeys(target: Record<string, string[]>, raw: unknown): void {
-  const keys = raw as KeymapConfig | undefined;
-
-  if (!keys) return;
-  for (const [action, combo] of Object.entries(keys)) {
-    target[action] = Array.isArray(combo) ? combo : [combo];
-  }
-}
-
-function mergeAutoClose(target: CueloopConfig["ui"], value: unknown): void {
-  if (value === undefined) return;
-  if (value === "off") target.autoClose = "off";
-  else if (typeof value === "number" && value >= 0) target.autoClose = value;
-}
-
-function mergeUi(target: CueloopConfig["ui"], raw: unknown): void {
-  const ui = raw as
-    | { auto_close?: unknown; editor?: unknown; review_width?: unknown; review_state?: unknown }
-    | undefined;
-
-  if (!ui) return;
-  mergeAutoClose(target, ui.auto_close);
-  if (typeof ui.editor === "string" && ui.editor.trim()) target.editor = ui.editor.trim();
-  if (typeof ui.review_width === "number" && Number.isFinite(ui.review_width)) {
-    target.reviewWidth = clampWidth(ui.review_width);
-  }
-  if (
-    ui.review_state === "expanded" ||
-    ui.review_state === "compact" ||
-    ui.review_state === "hidden"
-  ) {
-    target.reviewState = ui.review_state;
-  }
-}
-
-function mergeObsidian(target: ObsidianConfig, raw: unknown): void {
-  const integrations = raw as Record<string, unknown> | undefined;
-  const obsidian = integrations?.["obsidian"] as Record<string, unknown> | undefined;
-
-  if (!obsidian) return;
-  if (typeof obsidian["vault"] === "string") target.vault = obsidian["vault"];
-  if (typeof obsidian["folder"] === "string") target.folder = obsidian["folder"];
-  if (typeof obsidian["filenameFormat"] === "string")
-    target.filenameFormat = obsidian["filenameFormat"];
-  const separator = obsidian["separator"];
-
-  if (separator === "space" || separator === "dash" || separator === "underscore")
-    target.separator = separator;
-  const exportOn = obsidian["exportOn"];
-
-  if (exportOn === "approve" || exportOn === "resolve" || exportOn === "manual")
-    target.exportOn = exportOn;
-}
-
-function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig {
+function layer(base: CueloopConfig, raw: v.InferOutput<typeof ConfigDocumentSchema>): CueloopConfig {
   const out: CueloopConfig = {
     keys: { ...base.keys },
     theme: { ...base.theme },
@@ -239,13 +223,28 @@ function layer(base: CueloopConfig, raw: Record<string, unknown>): CueloopConfig
     actions: [...base.actions],
     integrations: { obsidian: { ...base.integrations.obsidian } },
   };
-  const actions = parseActions(raw["actions"]);
+  const actions = parseActions(raw.actions);
+  const authors = v.safeParse(AuthorsSchema, raw.authors);
+  const keys = v.safeParse(KeysSchema, raw.keys);
+  const ui = v.safeParse(UiSchema, raw.ui);
+  const integrations = v.safeParse(IntegrationsSchema, raw.integrations);
 
   if (actions) out.actions = actions;
-  mergeAuthors(out.authors, raw["authors"]);
-  mergeKeys(out.keys, raw["keys"]);
-  mergeUi(out.ui, raw["ui"]);
-  mergeObsidian(out.integrations.obsidian, raw["integrations"]);
+  if (authors.success) Object.assign(out.authors, authors.output);
+  if (keys.success) {
+    for (const [action, combo] of Object.entries(keys.output)) {
+      out.keys[action] = Array.isArray(combo) ? combo : [combo];
+    }
+  }
+  if (ui.success) {
+    if (ui.output.auto_close !== undefined) out.ui.autoClose = ui.output.auto_close;
+    if (ui.output.editor?.trim()) out.ui.editor = ui.output.editor.trim();
+    if (ui.output.review_width !== undefined) out.ui.reviewWidth = clampWidth(ui.output.review_width);
+    if (ui.output.review_state !== undefined) out.ui.reviewState = ui.output.review_state;
+  }
+  if (integrations.success && integrations.output.obsidian) {
+    Object.assign(out.integrations.obsidian, integrations.output.obsidian);
+  }
 
   return out;
 }
@@ -284,10 +283,12 @@ export function loadConfig(
       const raw = parseToml(readFileSync(path, "utf8"));
 
       config = layer(config, raw);
-      const rawTheme = (raw["ui"] as { theme?: unknown } | undefined)?.theme;
+      const ui = v.safeParse(UiSchema, raw.ui);
+      const rawTheme = ui.success ? ui.output.theme : undefined;
+      const parsedThemeOverrides = v.safeParse(ThemeOverridesSchema, raw.theme);
 
-      if (typeof rawTheme === "string" && isThemeName(rawTheme)) themeName = rawTheme;
-      collectThemeOverrides(raw["theme"], themeOverrides);
+      if (rawTheme && isThemeName(rawTheme)) themeName = rawTheme;
+      if (parsedThemeOverrides.success) Object.assign(themeOverrides, parsedThemeOverrides.output);
     } catch {
       // a broken config never blocks a review; defaults win
     }
@@ -297,14 +298,6 @@ export function loadConfig(
   config.theme = { ...themeForName(themeName), ...themeOverrides };
 
   return config;
-}
-
-/** Merge a raw `[theme]` table's known string tokens into the accumulated overrides. */
-function collectThemeOverrides(raw: unknown, into: Partial<Record<keyof Theme, string>>): void {
-  if (!raw || typeof raw !== "object") return;
-  for (const [token, value] of Object.entries(raw)) {
-    if (token in DARK && typeof value === "string") into[token as keyof Theme] = value;
-  }
 }
 
 /** Reverse lookup: key name (+shift) → action, per the loaded keymap. */

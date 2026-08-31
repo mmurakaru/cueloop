@@ -6,6 +6,12 @@
  * is best-effort - a failure never blocks closing the review.
  */
 
+import * as v from "valibot";
+
+const HerdrPaneSchema = v.object({
+  result: v.optional(v.object({ pane: v.optional(v.object({ tab_id: v.optional(v.string()) })) })),
+});
+
 /** Focus the tab holding the target pane. Synchronous: runs just before exit. */
 export function focusHerdrPane(binPath: string, paneId: string): boolean {
   try {
@@ -15,8 +21,10 @@ export function focusHerdrPane(binPath: string, paneId: string): boolean {
     });
 
     if (got.exitCode !== 0) return false;
-    const parsed = JSON.parse(got.stdout.toString()) as { result?: { pane?: { tab_id?: string } } };
-    const tab = parsed.result?.pane?.tab_id;
+    const parsed = v.safeParse(HerdrPaneSchema, JSON.parse(got.stdout.toString()));
+
+    if (!parsed.success) return false;
+    const tab = parsed.output.result?.pane?.tab_id;
 
     if (!tab) return false;
 

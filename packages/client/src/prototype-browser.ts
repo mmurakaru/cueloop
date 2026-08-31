@@ -73,7 +73,7 @@ export function cssBoxToCell(
   box: ElementBox,
   image: { x: number; y: number; width: number; height: number },
   viewport: PrototypeViewport,
-): { column: number; row: number; columns: number; rows: number } {
+) {
   const scaleColumn = image.width / viewport.width;
   const scaleRow = image.height / viewport.height;
 
@@ -174,13 +174,13 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
         omitBackground: true,
       });
 
-      return new Uint8Array(buffer as Buffer);
+      return new Uint8Array(buffer);
     },
     async elementAt(cssX, cssY) {
-      return (await page.evaluate(elementAtScript, cssX, cssY)) as PrototypeElement | null;
+      return page.evaluate(elementAtScript, cssX, cssY);
     },
     async scrollBy(deltaY) {
-      return (await page.evaluate(scrollByScript, deltaY)) as boolean;
+      return page.evaluate(scrollByScript, deltaY);
     },
     async close() {
       await page.close().catch(() => undefined);
@@ -189,7 +189,7 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
 }
 
 /** Serialized into the page (self-contained for puppeteer): resolve the click to a component element. */
-function elementAtScript(x: number, y: number): unknown {
+function elementAtScript(x: number, y: number) {
   const SEMANTIC = new Set([
     "SECTION",
     "ARTICLE",
@@ -232,7 +232,8 @@ function elementAtScript(x: number, y: number): unknown {
       const parent: Element | null = current.parentElement;
 
       if (parent) {
-        const twins = [...parent.children].filter((child) => child.tagName === current!.tagName);
+        const currentTagName = current.tagName;
+        const twins = [...parent.children].filter((child) => child.tagName === currentTagName);
 
         if (twins.length > 1) part += ":nth-of-type(" + (twins.indexOf(current) + 1) + ")";
       }

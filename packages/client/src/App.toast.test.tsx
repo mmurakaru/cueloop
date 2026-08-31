@@ -8,20 +8,20 @@ import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
+import { App } from "./App";
+import type { ShareTransport } from "./session-controller";
+import { isolateUserConfig, press, waitForText, waitForTextGone } from "./test-support";
 
-// the controller reaches the gateway through "./share"; stub it so `S` yields a toast
 const publishShare = mock(async () => ({ line: "ssh p_share01@cueloop.dev", copied: true }));
-
-mock.module("./share", () => ({
-  publishShare,
-  pullShare: mock(async () => null),
-  pushShare: mock(async () => {}),
-  shareIdFromLine: (line: string) => line.match(/^ssh (\S+)@/)?.[1],
+const shareTransport: ShareTransport = {
+  publish: publishShare,
+  pull: mock(async () => {
+    throw new Error("Unexpected share pull");
+  }),
+  push: mock(async () => {}),
+  parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
   collaboratorAnnotations: () => [],
-}));
-
-const { App } = await import("./App");
-const { isolateUserConfig, press, waitForText, waitForTextGone } = await import("./test-support");
+};
 
 const PLAN = `# Migration Plan\n\n## Context\n\nThe daemon persists sessions to disk atomically.\n`;
 
@@ -53,10 +53,13 @@ afterEach(() => {
 describe("share toast", () => {
   test("escape cancels an open composer even while the toast is up", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} sessionId={session.id} />, {
+    const setup = await testRender(
+      <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
+      {
       width: 120,
-      height: 32,
-    });
+        height: 32,
+      },
+    );
 
     await waitForText(setup, "cueloop");
 

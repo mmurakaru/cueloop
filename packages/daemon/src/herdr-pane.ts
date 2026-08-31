@@ -7,9 +7,22 @@
  */
 
 import { detectHerdr, type HerdrEnv, type ReviewSession } from "@cueloop/schema";
+import * as v from "valibot";
 import type { HerdrTabHandle } from "./herdr-tab-store";
 
 const HERDR_SPAWN_TIMEOUT_MS = 2000;
+const CreatedTabSchema = v.object({
+  result: v.optional(
+    v.object({
+      root_pane: v.optional(
+        v.object({ pane_id: v.optional(v.string()), tab_id: v.optional(v.string()) }),
+      ),
+    }),
+  ),
+});
+const PaneResultSchema = v.object({
+  result: v.optional(v.object({ pane: v.optional(v.unknown()) })),
+});
 
 export interface OpenHerdrPaneOptions {
   sessionId: string;
@@ -40,11 +53,11 @@ export function openHerdrPane(options: OpenHerdrPaneOptions): HerdrTabHandle | n
     );
 
     if (created.exitCode !== 0) return null;
-    const parsed = JSON.parse(created.stdout.toString()) as {
-      result?: { root_pane?: { pane_id?: string; tab_id?: string } };
-    };
-    const paneId = parsed.result?.root_pane?.pane_id;
-    const tabId = parsed.result?.root_pane?.tab_id;
+    const parsed = v.safeParse(CreatedTabSchema, JSON.parse(created.stdout.toString()));
+
+    if (!parsed.success) return null;
+    const paneId = parsed.output.result?.root_pane?.pane_id;
+    const tabId = parsed.output.result?.root_pane?.tab_id;
 
     if (!paneId || !tabId) return null;
     // A fresh tab hosts a plain shell, so the review is typed in like a human.
@@ -77,9 +90,9 @@ function herdrPaneAlive(binPath: string, paneId: string): boolean {
     });
 
     if (got.exitCode !== 0) return false;
-    const parsed = JSON.parse(got.stdout.toString()) as { result?: { pane?: unknown } };
+    const parsed = v.safeParse(PaneResultSchema, JSON.parse(got.stdout.toString()));
 
-    return parsed.result?.pane != null;
+    return parsed.success && parsed.output.result?.pane != null;
   } catch {
     return false;
   }

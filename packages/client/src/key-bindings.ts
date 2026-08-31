@@ -10,6 +10,7 @@
 
 import { Keymap, type KeymapEvent, type KeymapHost } from "@opentui/keymap";
 import { registerDefaultKeys } from "@opentui/keymap/addons";
+import * as v from "valibot";
 import type { KeyState } from "./keymap";
 
 export interface ResolvableKey {
@@ -111,7 +112,11 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
 };
 
 /** Status-line glyphs for named keys. */
-const KEY_GLYPHS: Record<string, string> = {
+interface KeyGlyphs {
+  [key: string]: string;
+}
+
+const KEY_GLYPHS: KeyGlyphs = {
   return: "enter",
   enter: "enter",
   escape: "esc",
@@ -186,7 +191,7 @@ class HeadlessKeymapHost implements KeymapHost<object, KeymapEvent> {
  * keymap's canonical form is lowercase + the shift modifier. Non-letter
  * single characters ("$", "0") already encode their shift in the character.
  */
-function normalizedEvent(key: ResolvableKey): { name: string; shift: boolean } {
+function normalizedEvent(key: ResolvableKey) {
   if (key.name.length === 1) {
     if (/[a-zA-Z]/.test(key.name)) {
       return {
@@ -234,7 +239,9 @@ export class KeyBindings {
     // and dispatch only see the layer that owns the current mode
     this.keymap.registerLayerFields({
       when: (value, fieldContext) => {
-        if (typeof value === "function") fieldContext.activeWhen(value as () => boolean);
+        const condition = v.safeParse(v.function(), value);
+
+        if (condition.success) fieldContext.activeWhen(condition.output);
       },
     });
     this.registerModeLayers();
@@ -373,10 +380,10 @@ export class KeyBindings {
   /** First active key display for a command, mapped through the glyph table. */
   private keyDisplayFor(command: string): string | null {
     for (const activeKey of this.keymap.getActiveKeys({ includeBindings: true })) {
-      const bindingCommand =
-        typeof activeKey.command === "string"
-          ? activeKey.command
-          : activeKey.bindings?.[0]?.command;
+      const parsedCommand = v.safeParse(v.string(), activeKey.command);
+      const bindingCommand = parsedCommand.success
+        ? parsedCommand.output
+        : activeKey.bindings?.[0]?.command;
 
       if (bindingCommand !== command) continue;
 

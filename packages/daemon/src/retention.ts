@@ -20,7 +20,7 @@ const RefineStateSchema = v.object({
 
 export type RefineState = v.InferOutput<typeof RefineStateSchema>;
 
-export function parseRefineState(raw: unknown): Map<string, string> {
+export function parseRefineState(raw: Parameters<typeof v.safeParse>[1]): Map<string, string> {
   const parsed = v.safeParse(RefineStateSchema, raw);
 
   if (!parsed.success) return new Map();

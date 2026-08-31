@@ -18,17 +18,13 @@ import { REVIEW_COMPACT_WIDTH, resolveReviewWidth, type ReviewPanelMode } from "
 export function computeRoleCapabilities(
   readOnly: boolean,
   role: "owner" | "observer" | "collaborator",
-): { observer: boolean; isOwner: boolean } {
+) {
   const observer = readOnly || role === "observer";
 
   return { observer, isOwner: !observer && role === "owner" };
 }
 
-export function deriveReviewFlags(session: ReviewSession | null): {
-  isDiff: boolean;
-  isPrototype: boolean;
-  resolved: boolean;
-} {
+export function deriveReviewFlags(session: ReviewSession | null) {
   return {
     isDiff: session?.artifact.type === "diff",
     isPrototype: session?.artifact.type === "prototype",
@@ -121,13 +117,7 @@ export function buildRenderFlags(params: {
   menuOpen: boolean;
   menuDialog: "keybinds" | "settings" | null;
   resolvedIds: Set<string>;
-}): {
-  showOwnerActions: boolean;
-  prototypeCanComment: boolean;
-  chromeHidden: boolean;
-  prototypePath: string;
-  railResolvedIds: Set<string> | null;
-} {
+}) {
   const { session, isOwner, isDiff, isPrototype, resolved, menuOpen, menuDialog, resolvedIds } =
     params;
 

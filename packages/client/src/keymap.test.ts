@@ -21,11 +21,7 @@ function state(patch: Partial<KeyState> = {}): KeyState {
   };
 }
 
-function key(
-  name: string,
-  shift = false,
-  meta = false,
-): { name: string; shift: boolean; meta: boolean } {
+function key(name: string, shift = false, meta = false) {
   return { name, shift, meta };
 }
 

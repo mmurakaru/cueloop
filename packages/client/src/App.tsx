@@ -37,7 +37,7 @@ import {
   type ThemeName,
 } from "./theme-presets";
 import type { Theme } from "./theme";
-import { createReviewController } from "./session-controller";
+import { createReviewController, type ShareTransport } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { launchHarnessInSplit } from "@cueloop/daemon/herdr-split";
 import { activeSpanState, createIntentDispatch, type Mode } from "./intent-dispatch";
@@ -105,6 +105,7 @@ export interface AppProps {
   clock?: Clock;
   /** Session source; the sharing gateway injects a blob-backed client. */
   openClient?: () => Promise<SessionClient>;
+  shareTransport?: ShareTransport;
   /**
    * Who is at the keyboard. `owner` is the local planner (default). `observer`
    * is a passive `cueloop serve` watcher (read-only). `collaborator` is a share
@@ -131,6 +132,7 @@ export function App({
   onExit,
   clock,
   openClient,
+  shareTransport,
   role = "owner",
   selfAuthor,
   appearance = "dark",
@@ -138,7 +140,15 @@ export function App({
   const { observer, isOwner } = computeRoleCapabilities(readOnly, role);
   const controller = useMemo(
     () =>
-      createReviewController({ home, sessionId, readOnly: observer, onExit, clock, openClient }),
+      createReviewController({
+        home,
+        sessionId,
+        readOnly: observer,
+        onExit,
+        clock,
+        openClient,
+        shareTransport,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home, sessionId],
   );
@@ -305,7 +315,8 @@ export function App({
     if (!session) return positions;
     if (isDiff) {
       for (const annotation of session.annotations) {
-        const blockIndex = (annotation.anchor as { blockIndex?: number }).blockIndex;
+        const blockIndex =
+          "blockIndex" in annotation.anchor ? annotation.anchor.blockIndex : undefined;
 
         if (blockIndex !== undefined) positions.set(annotation.id, blockIndex);
       }

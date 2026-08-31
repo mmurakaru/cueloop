@@ -2,9 +2,8 @@ import { describe, expect, mock, test } from "bun:test";
 import { ManualClock } from "@opentui/core/testing";
 import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
+import { createReviewController, SHARE_POLL_MS, type ShareTransport } from "./session-controller";
 
-// Stub the ssh transport so no subprocess spawns; the controller under test
-// imports these from "./share".
 const publishShare = mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: true }));
 let remote: ReviewSession;
 const pullShare = mock(async () => remote);
@@ -12,16 +11,14 @@ const pushShare = mock(
   async (_shareId: string, _annotations: Array<Omit<Annotation, "createdAt">>) => {},
 );
 
-mock.module("./share", () => ({
-  publishShare,
-  pullShare,
-  pushShare,
-  shareIdFromLine: (line: string) => line.match(/^ssh (\S+)@/)?.[1],
-  collaboratorAnnotations: (session: ReviewSession) =>
-    session.annotations.filter((annotation) => annotation.author),
-}));
-
-const { createReviewController, SHARE_POLL_MS } = await import("./session-controller");
+const shareTransport: ShareTransport = {
+  publish: publishShare,
+  pull: pullShare,
+  push: pushShare,
+  parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  collaboratorAnnotations: (session) =>
+    session.annotations.filter((entry) => entry.author),
+};
 
 function sessionFixture(overrides: Partial<ReviewSession> = {}): ReviewSession {
   return {
@@ -82,6 +79,7 @@ async function connectedController(
     sessionId: session.id,
     openClient: async () => client,
     clock,
+    shareTransport,
   });
 
   controller.connect();

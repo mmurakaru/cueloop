@@ -10,6 +10,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import type { BoxRenderable } from "@opentui/core";
+import * as v from "valibot";
 import { useKeyboard, useRenderer } from "@opentui/react";
 import type { Theme } from "../theme";
 import { quickActionBody, type QuickAction } from "../config";
@@ -95,10 +96,7 @@ type CaptureRenderer = {
  * raster and fewer bytes). Without a resolution report, fall back to a fixed
  * width at 2x and derive the height from the cell aspect.
  */
-function captureConfig(
-  region: CellRegion,
-  renderer: CaptureRenderer,
-): { viewport: PrototypeViewport; deviceScaleFactor: number } {
+function captureConfig(region: CellRegion, renderer: CaptureRenderer) {
   const resolution = renderer.resolution;
 
   if (resolution && renderer.terminalWidth >= 1 && renderer.terminalHeight >= 1) {
@@ -174,11 +172,9 @@ function PrototypeSheetImpl({
   // harness), but the launch trigger still runs.
   useEffect(() => {
     if (!renderer) return;
-    // writeOut is the renderer's raw output channel, ordered against its frame
-    // bytes; it is private, so reach it through one narrow cast
-    const rawWrite = (renderer as unknown as { writeOut?: (data: string) => void }).writeOut;
-    const write =
-      typeof rawWrite === "function" ? (chunk: string) => rawWrite.call(renderer, chunk) : null;
+    const rendererOutput = v.safeParse(v.object({ writeOut: v.function() }), renderer);
+    const rawWrite = rendererOutput.success ? rendererOutput.output.writeOut : null;
+    const write = rawWrite ? (chunk: string) => rawWrite.call(renderer, chunk) : null;
     const medium = resolveTransmitMedium();
     const paint = (): void => {
       if (!write) return;

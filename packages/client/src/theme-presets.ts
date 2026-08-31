@@ -148,7 +148,14 @@ export const THEME_PRESETS: Record<ThemeName, Theme> = {
 };
 
 /** Cycle order for the Settings theme row; the registry's insertion order, branded default first. */
-export const THEME_NAMES: ThemeName[] = Object.keys(THEME_PRESETS) as ThemeName[];
+export const THEME_NAMES: ThemeName[] = [
+  "cueloop",
+  "rose-pine-moon",
+  "catppuccin-mocha",
+  "tokyo-night",
+  "gruvbox-dark",
+  "nord",
+];
 
 /** Human labels for the Settings cycle row, keyed by the persisted name. */
 export const THEME_LABELS: Record<ThemeName, string> = {
@@ -169,7 +176,7 @@ export const THEME_LABELS: Record<ThemeName, string> = {
 export function themeForName(name: string, appearance: Appearance = "dark"): Theme {
   if (name === "cueloop") return brandedTheme(appearance);
 
-  return THEME_PRESETS[name as ThemeName] ?? brandedTheme(appearance);
+  return isThemeName(name) ? THEME_PRESETS[name] : brandedTheme(appearance);
 }
 
 /** A preset with the user's `[theme]` per-token overrides layered on top - the live-switch equivalent of config load. */

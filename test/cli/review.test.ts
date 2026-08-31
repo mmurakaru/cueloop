@@ -45,7 +45,7 @@ function ghCalls(): string[][] {
     .map((line) => JSON.parse(line) as string[]);
 }
 
-function ghEnv(): Record<string, string> {
+function ghEnv() {
   return { CUELOOP_GH: ghStub };
 }
 

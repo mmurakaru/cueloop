@@ -11,6 +11,10 @@ export interface CliResult {
   stderr: string;
 }
 
+export function cliJson<T = object>(result: CliResult): T {
+  return JSON.parse(result.stdout);
+}
+
 export async function runCli(
   home: string,
   args: string[],
@@ -38,6 +42,3 @@ export async function runCli(
   return { code, stdout, stderr };
 }
 
-export function cliJson<T = Record<string, unknown>>(result: CliResult): T {
-  return JSON.parse(result.stdout) as T;
-}

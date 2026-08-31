@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as v from "valibot";
 import { DaemonServer } from "./server";
 import { DaemonClient, DaemonClientError } from "./client";
 import type { Artifact, WorkspaceKey } from "@cueloop/schema";
@@ -86,29 +87,33 @@ describe("socket round-trip", () => {
   test("malformed requests get structured errors and never wedge the daemon", async () => {
     // missing required params
     try {
-      await client.request("session.create", { artifact: { type: "plan", content: "x" } });
+      await client.request(
+        "session.create",
+        { artifact: { type: "plan", content: "x" } },
+        v.object({}),
+      );
       throw new Error("should have thrown");
     } catch (error) {
       expect((error as DaemonClientError).code).toBe("invalid_params");
     }
     // wrong types
     try {
-      await client.request("session.wait", { id: 42 });
+      await client.request("session.wait", { id: 42 }, v.object({}));
       throw new Error("should have thrown");
     } catch (error) {
       expect((error as DaemonClientError).code).toBe("invalid_params");
     }
     // unknown method
     try {
-      await client.request("session.nuke", {});
+      await client.request("session.nuke", {}, v.object({}));
       throw new Error("should have thrown");
     } catch (error) {
       expect((error as DaemonClientError).code).toBe("unknown_method");
     }
     const prototypeMethods = await Promise.allSettled([
-      client.request("__proto__", {}),
-      client.request("toString", {}),
-      client.request("constructor", {}),
+      client.request("__proto__", {}, v.object({})),
+      client.request("toString", {}, v.object({})),
+      client.request("constructor", {}, v.object({})),
     ]);
 
     for (const result of prototypeMethods) {

@@ -29,14 +29,14 @@ const work = mkdtempSync(join(tmpdir(), "cueloop-pack-"));
 try {
   for (const path of paths) {
     const dir = path.replace(/\/package\.json$/, "");
-    const pkg = (await Bun.file(path).json()) as {
+    const pkg: {
       name: string;
       private?: boolean;
       main?: string;
       bin?: Record<string, string> | string;
-      exports?: Record<string, unknown> | string;
+      exports?: Record<string, object> | string;
       dependencies?: Record<string, string>;
-    };
+    } = await Bun.file(path).json();
 
     if (pkg.private) continue;
 

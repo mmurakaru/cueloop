@@ -43,7 +43,7 @@ describe("open fails loudly", () => {
   test("a flipped ciphertext byte fails the auth tag", () => {
     // Arrange
     const sealed = sealBlob(MASTER, "p_abc123xy", PLAINTEXT);
-    const envelope = JSON.parse(sealed.toString("utf8")) as { ciphertext: string };
+    const envelope = JSON.parse(sealed.toString("utf8"));
     const bytes = Buffer.from(envelope.ciphertext, "base64");
 
     bytes[0] = bytes[0]! ^ 0xff;

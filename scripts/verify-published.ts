@@ -13,14 +13,15 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const version = (await Bun.file("packages/cli/package.json").json()).version as string;
+const releasePackage: { version: string } = await Bun.file("packages/cli/package.json").json();
+const version = releasePackage.version;
 const tag = version.includes("-") ? (version.split("-")[1] ?? "").split(".")[0] : "latest";
 
 const names: string[] = [];
 
 for (const glob of ["packages/*/package.json", "packages/integrations/*/package.json"]) {
   for await (const path of new Bun.Glob(glob).scan(".")) {
-    const pkg = (await Bun.file(path).json()) as { name: string; private?: boolean };
+    const pkg: { name: string; private?: boolean } = await Bun.file(path).json();
 
     if (!pkg.private) names.push(pkg.name);
   }
@@ -60,10 +61,10 @@ for (const name of new Set(names)) {
 
     if (!response.ok)
       return `${name}: not on the registry (HTTP ${response.status}) - the publish did not land`;
-    const doc = (await response.json()) as {
-      versions?: Record<string, unknown>;
+    const doc: {
+      versions?: Record<string, object>;
       "dist-tags"?: Record<string, string>;
-    };
+    } = await response.json();
 
     if (!doc.versions?.[version]) {
       return `${name}: registry has no ${version} (tags: ${JSON.stringify(doc["dist-tags"] ?? {})})`;
@@ -80,7 +81,7 @@ if (problems.length === 0) {
   const problem = await settle(async () => {
     // the dedicated dist-tags endpoint reflects a retag sooner than the full doc
     const response = await fresh("https://registry.npmjs.org/-/package/cueloop/dist-tags");
-    const tags = response.ok ? ((await response.json()) as Record<string, string>) : {};
+    const tags: Record<string, string> = response.ok ? await response.json() : {};
     const tagged = tags[tag];
 
     return tagged === version

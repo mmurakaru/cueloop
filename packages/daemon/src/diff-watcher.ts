@@ -64,10 +64,7 @@ export class DiffWatcher {
     }
     // a watcher error (the root is deleted mid-review) must not take down the
     // daemon; the inherited EventEmitter `on` is absent from Bun's FSWatcher type
-    (handle as FSWatcher & { on(event: "error", listener: (error: Error) => void): void }).on(
-      "error",
-      () => {},
-    );
+    handle.on("error", () => {});
     this.repoWatches.set(repoRoot, { handle, sessionIds: new Set([sessionId]), debounce: null });
   }
 

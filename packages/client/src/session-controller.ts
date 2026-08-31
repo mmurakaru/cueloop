@@ -131,6 +131,22 @@ export interface ControllerSnapshot {
   walk: { index: number } | null;
 }
 
+export interface ShareTransport {
+  publish: typeof publishShare;
+  pull: typeof pullShare;
+  push: typeof pushShare;
+  parseShareId: typeof shareIdFromLine;
+  collaboratorAnnotations: typeof collaboratorAnnotations;
+}
+
+const DEFAULT_SHARE_TRANSPORT: ShareTransport = {
+  publish: publishShare,
+  pull: pullShare,
+  push: pushShare,
+  parseShareId: shareIdFromLine,
+  collaboratorAnnotations,
+};
+
 export interface ReviewControllerOptions {
   home?: string;
   sessionId?: string;
@@ -145,6 +161,7 @@ export interface ReviewControllerOptions {
    * renders a decrypted share instead.
    */
   openClient?: () => Promise<SessionClient>;
+  shareTransport?: ShareTransport;
 }
 
 export interface ReviewController {
@@ -235,6 +252,13 @@ export function createReviewController(options: ReviewControllerOptions): Review
   return new Controller(options);
 }
 
+interface DerivedSessionProjection {
+  display: DisplayBlock[];
+  rows: DiffRow[];
+  files: WalkFile[];
+  models: Map<string, FileDiffMetadata>;
+}
+
 class Controller implements ReviewController {
   readonly readOnly: boolean;
   private client: SessionClient | null = null;
@@ -254,18 +278,13 @@ class Controller implements ReviewController {
   private editor: string | undefined;
   private exporters: BundledExporter[] = [];
   private readonly clock: Clock;
+  private readonly shareTransport: ShareTransport;
   private countdown: TimerHandle | undefined;
   private sharePoll: TimerHandle | undefined;
   private shareRun: object | null = null;
   /** Projections keyed by session identity so renders reuse one computation. */
   private derivedFor: ReviewSession | null = null;
-  private derived: {
-    display: DisplayBlock[];
-    rows: DiffRow[];
-    files: WalkFile[];
-    /** Per-path parsed diff models, for hunk curation; empty when files absent. */
-    models: Map<string, FileDiffMetadata>;
-  } = {
+  private derived: DerivedSessionProjection = {
     display: [],
     rows: [],
     files: [],
@@ -277,6 +296,7 @@ class Controller implements ReviewController {
   constructor(private readonly options: ReviewControllerOptions) {
     this.readOnly = options.readOnly ?? false;
     this.clock = options.clock ?? new SystemClock();
+    this.shareTransport = options.shareTransport ?? DEFAULT_SHARE_TRANSPORT;
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -402,16 +422,16 @@ class Controller implements ReviewController {
   private async refreshSession(id: string): Promise<void> {
     try {
       if (this.client) this.update({ session: await this.client.sessionGet(id) });
-    } catch (error) {
-      if (!this.closed) this.setStatus(error instanceof Error ? error.message : String(error));
+    } catch (cause) {
+      if (!this.closed) this.setStatus(cause instanceof Error ? cause.message : String(cause));
     }
   }
 
   private async refreshInbox(): Promise<void> {
     try {
       if (this.client) this.update({ inbox: await this.client.sessionList({ status: "pending" }) });
-    } catch (error) {
-      if (!this.closed) this.setStatus(error instanceof Error ? error.message : String(error));
+    } catch (cause) {
+      if (!this.closed) this.setStatus(cause instanceof Error ? cause.message : String(cause));
     }
   }
 
@@ -419,8 +439,8 @@ class Controller implements ReviewController {
   private apply(mutation: Promise<ReviewSession>): void {
     mutation
       .then((session) => this.update({ session }))
-      .catch((error: unknown) =>
-        this.setStatus(String(error instanceof Error ? error.message : error)),
+      .catch((cause: unknown) =>
+        this.setStatus(String(cause instanceof Error ? cause.message : cause)),
       );
   }
 
@@ -438,8 +458,8 @@ class Controller implements ReviewController {
     this.client
       ?.sessionDelete(id)
       .then(() => this.setStatus("plan deleted"))
-      .catch((error: unknown) =>
-        this.setStatus(`delete failed: ${error instanceof Error ? error.message : String(error)}`),
+      .catch((cause: unknown) =>
+        this.setStatus(`delete failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
   }
 
@@ -775,7 +795,7 @@ class Controller implements ReviewController {
     const shareId = this.snapshot.session?.shareId;
 
     if (!shareId) return;
-    void persisted.then(() => pushShare(shareId, [annotation])).catch(() => {});
+    void persisted.then(() => this.shareTransport.push(shareId, [annotation])).catch(() => {});
   }
 
   removeAnnotation(id: string): void {
@@ -872,8 +892,8 @@ class Controller implements ReviewController {
         else if (typeof delay === "number") this.startCounting(delay);
         else this.startCounting(DEFAULT_AUTO_CLOSE);
       })
-      .catch((error: unknown) =>
-        this.setStatus(String(error instanceof Error ? error.message : error)),
+      .catch((cause: unknown) =>
+        this.setStatus(String(cause instanceof Error ? cause.message : cause)),
       );
   }
 
@@ -882,17 +902,18 @@ class Controller implements ReviewController {
 
     if (!session) return;
     this.setStatus("sharing…");
-    publishShare(session)
+    this.shareTransport
+      .publish(session)
       .then(async ({ line, copied }) => {
         // Stamp the id back so a later pull knows which share to collect from.
-        const shareId = shareIdFromLine(line);
+        const shareId = this.shareTransport.parseShareId(line);
 
         if (shareId && this.client) await this.client.sessionSetShareId(session.id, shareId);
         this.setStatus("");
         this.showToast(line, copied ? "share link copied" : "share link");
       })
-      .catch((error: unknown) =>
-        this.setStatus(`share failed: ${error instanceof Error ? error.message : String(error)}`),
+      .catch((cause: unknown) =>
+        this.setStatus(`share failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
   }
 
@@ -908,10 +929,11 @@ class Controller implements ReviewController {
     if (!session?.shareId || !this.client) return Promise.resolve();
     const client = this.client;
 
-    return pullShare(session.shareId)
+    return this.shareTransport
+      .pull(session.shareId)
       .then((remote) =>
         client.sessionMergeShared(session.id, {
-          annotations: collaboratorAnnotations(remote),
+          annotations: this.shareTransport.collaboratorAnnotations(remote),
           participants: remote.participants,
         }),
       )

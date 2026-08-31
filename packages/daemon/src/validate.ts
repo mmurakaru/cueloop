@@ -24,6 +24,7 @@ import {
   type WorkspaceKey,
 } from "@cueloop/schema";
 import { DaemonError } from "./errors";
+import type { Request } from "./protocol";
 
 /**
  * Drift guard for every hand-mirrored shape below. v.object strips keys it
@@ -172,7 +173,7 @@ export function isKnownMethod(method: string): method is MethodName {
 /** Validate params for a method, or throw a DaemonError the client can read. */
 export function parseParams<M extends MethodName>(
   method: M,
-  params: unknown,
+  params: Request["params"],
 ): v.InferOutput<(typeof Params)[M]> {
   const result = v.safeParse(Params[method], params ?? {});
 
@@ -221,7 +222,7 @@ export const SessionRecordSchema = v.object({
 } satisfies EntriesOf<ReviewSession>);
 
 export function validateSessionRecord(
-  raw: unknown,
+  raw: Parameters<typeof v.safeParse>[1],
 ): { ok: true; value: v.InferOutput<typeof SessionRecordSchema> } | { ok: false; error: string } {
   const result = v.safeParse(SessionRecordSchema, raw);
 

@@ -37,8 +37,12 @@ function diffSession(files?: DiffFileContents[]): ReviewSession {
   };
 }
 
+interface WorkingCopySink {
+  workingCopy?: string;
+}
+
 /** A fake client that records the working copy the controller writes. */
-function fakeClient(session: ReviewSession, sink: { workingCopy?: string }): SessionClient {
+function fakeClient(session: ReviewSession, sink: WorkingCopySink): SessionClient {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
@@ -56,7 +60,7 @@ function fakeClient(session: ReviewSession, sink: { workingCopy?: string }): Ses
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 async function connected(session: ReviewSession) {
-  const sink: { workingCopy?: string } = {};
+  const sink: WorkingCopySink = {};
   const client = fakeClient(session, sink);
   const controller = createReviewController({
     sessionId: session.id,

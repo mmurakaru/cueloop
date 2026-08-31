@@ -34,6 +34,25 @@ interface HookDecision {
   reason: string;
 }
 
+interface PreToolUseHookEvent extends HookEvent {
+  hook_event_name: "PreToolUse";
+}
+
+interface PreToolUseHookOutput {
+  hookSpecificOutput: {
+    hookEventName: "PreToolUse";
+    permissionDecision: "allow" | "deny";
+    permissionDecisionReason: string;
+  };
+}
+
+interface PermissionRequestHookOutput {
+  hookSpecificOutput: {
+    hookEventName: "PermissionRequest";
+    decision: { behavior: "allow" } | { behavior: "deny"; message: string };
+  };
+}
+
 /**
  * Arm the detached inbox waiter that resumes this Claude Code session when the
  * verdict lands. A child of the hook (itself a child of the session) inherits
@@ -122,7 +141,22 @@ export async function runHook(
 }
 
 /** Serialize the decision in the event's native shape. */
-export function hookOutput(event: HookEvent, decision: HookDecision): unknown {
+export function hookOutput(
+  event: PreToolUseHookEvent,
+  decision: HookDecision,
+): PreToolUseHookOutput;
+export function hookOutput(
+  event: HookEvent & { hook_event_name?: undefined },
+  decision: HookDecision,
+): PermissionRequestHookOutput;
+export function hookOutput(
+  event: HookEvent,
+  decision: HookDecision,
+): PreToolUseHookOutput | PermissionRequestHookOutput;
+export function hookOutput(
+  event: HookEvent,
+  decision: HookDecision,
+): PreToolUseHookOutput | PermissionRequestHookOutput {
   if (event.hook_event_name === "PreToolUse") {
     return {
       hookSpecificOutput: {
@@ -153,7 +187,7 @@ if (import.meta.main) {
   let event: HookEvent = {};
 
   try {
-    event = JSON.parse(raw) as HookEvent;
+    event = JSON.parse(raw);
   } catch {
     // no payload: allow rather than wedge the agent on adapter failure
     console.log(

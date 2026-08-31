@@ -108,9 +108,9 @@ function spawnHook(plan: string, options: SpawnHookOptions = {}): HookRun {
     if (!out.trim()) {
       throw new Error(`hook produced no output (exit ${await exited}); stderr:\n${await stderr}`);
     }
-    const parsed = JSON.parse(out.trim()) as {
+    const parsed: {
       hookSpecificOutput: { permissionDecision: string; permissionDecisionReason: string };
-    };
+    } = JSON.parse(out.trim());
 
     return {
       decision: parsed.hookSpecificOutput.permissionDecision,
@@ -161,7 +161,7 @@ async function waitForPendingSession(
 }
 
 /** A fake Claude Code inbox: capture the frames the detached wake posts, then resolve. */
-function fakeInbox(): { socketPath: string; frames: Promise<string>; stop: () => void } {
+function fakeInbox() {
   const inboxHome = mkdtempSync(join(tmpdir(), "cueloop-e2e-inbox-"));
   const socketPath = join(inboxHome, "s.sock");
   let received = "";
@@ -227,7 +227,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
 
       // Assert - the detached wake injects feedback.md into the inbox
       const frames = await inbox.frames;
-      const content = JSON.parse(frames.trim().split("\n").at(-1)!).message.content as string;
+      const content = JSON.parse(frames.trim().split("\n").at(-1)!).message.content;
 
       expect(content).toContain("# Review: request changes");
       expect(content).toContain("Too aggressive.");

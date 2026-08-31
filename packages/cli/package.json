@@ -33,7 +33,8 @@
     "@cueloop/adapters": "0.1.0-alpha.62",
     "@cueloop/client": "0.1.0-alpha.62",
     "@cueloop/daemon": "0.1.0-alpha.62",
-    "@cueloop/schema": "0.1.0-alpha.62"
+    "@cueloop/schema": "0.1.0-alpha.62",
+    "valibot": "^1.4.2"
   },
   "engines": {
     "bun": ">=1.3.0"
