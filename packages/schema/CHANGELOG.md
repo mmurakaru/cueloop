@@ -1,5 +1,11 @@
 # @cueloop/schema
 
+## 0.1.0-alpha.63
+
+### Minor Changes
+
+- [#303](https://github.com/mmurakaru/cueloop/pull/303) [`17d2789`](https://github.com/mmurakaru/cueloop/commit/17d278988d2c65f7e1e5e635fc103c5de79f961a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Any cueloop primitive can now return its verdict into a live pi session. The schema's artifact types become one runtime union (ARTIFACT_TYPES); daemon wire validation, `cueloop session create --type`, and the pi extension's request_review tool all derive their supported set from it. request_review takes `content` plus an optional `type` (default plan) and `title`, keeping the same waiter map, write gate, and shutdown abort for every primitive. A resubmit under the same agent session id only revises a session of the same artifact type, and a reply review's feedback document references reply.md.
+
 ## 0.1.0-alpha.62
 
 ### Minor Changes
