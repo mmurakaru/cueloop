@@ -245,10 +245,14 @@ export async function openReview(
   const cwd = options.cwd ?? process.cwd();
   const workspace = options.workspace ?? (await resolveWorkspace(cwd));
 
-  // Resubmits from the same agent session become revisions, not new sessions.
+  // Resubmits from the same agent session become revisions, not new sessions -
+  // but only within the same primitive: a different artifact type is a new
+  // review, never a silent type mismatch on the old session.
   if (options.agentSessionId !== undefined) {
     const existing = (await client.sessionList()).find(
-      (candidate) => candidate.artifact.meta.agentSessionId === options.agentSessionId,
+      (candidate) =>
+        candidate.artifact.meta.agentSessionId === options.agentSessionId &&
+        candidate.artifact.type === options.type,
     );
 
     if (existing !== undefined) {

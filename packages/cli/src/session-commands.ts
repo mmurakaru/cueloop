@@ -4,7 +4,7 @@
  * JSON on stdout; exit code 0 unless the daemon returned an error.
  */
 
-import { newAnnotationId } from "@cueloop/schema";
+import { ARTIFACT_TYPES, isArtifactType, newAnnotationId } from "@cueloop/schema";
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
@@ -21,7 +21,6 @@ function out(value: Parameters<typeof JSON.stringify>[0]): void {
 }
 
 const ReviewNotesSchema = v.array(v.object({ path: v.string(), body: v.string() }));
-const ArtifactTypeSchema = v.picklist(["plan", "diff", "prototype"]);
 const SessionStatusSchema = v.picklist(["pending", "resolved"]);
 const VerdictKindSchema = v.picklist(["comment", "approve", "request_changes"]);
 
@@ -30,6 +29,12 @@ type SessionContext = { client: DaemonClient; positional: string[]; flags: Sessi
 type SessionVerbHandler = (context: SessionContext) => Promise<number>;
 
 async function sessionCreate({ client, flags }: SessionContext): Promise<number> {
+  const type = stringFlag(flags, "type") ?? "plan";
+
+  if (!isArtifactType(type)) {
+    console.error(`unknown artifact type "${type}" - one of: ${ARTIFACT_TYPES.join(", ")}`);
+    return 2;
+  }
   const contentFile = stringFlag(flags, "content-file");
   const content = contentFile ? await Bun.file(contentFile).text() : await readStdin();
   // per-file agent notes for diff sessions: a JSON array of { path, body }
@@ -38,7 +43,7 @@ async function sessionCreate({ client, flags }: SessionContext): Promise<number>
     ? v.parse(ReviewNotesSchema, JSON.parse(await Bun.file(notesFile).text()))
     : undefined;
   const review = await openReview(client, {
-    type: v.parse(ArtifactTypeSchema, stringFlag(flags, "type") ?? "plan"),
+    type,
     content,
     cwd: stringFlag(flags, "cwd"),
     agent: stringFlag(flags, "agent"),

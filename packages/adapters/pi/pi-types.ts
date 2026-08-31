@@ -35,7 +35,7 @@ export interface PiContext {
 /** Plain JSON-schema parameters; structurally what pi's TypeBox schemas are. */
 export interface PiParameterSchema {
   type: "object";
-  properties: Record<string, { type: string; description?: string }>;
+  properties: Record<string, { type: string; description?: string; enum?: readonly string[] }>;
   required?: string[];
 }
 

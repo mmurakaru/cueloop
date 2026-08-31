@@ -1,6 +1,6 @@
 /**
  * pi adapter: a pi extension factory. Registers the request_review tool
- * (submit a plan, return immediately with the session id), a background waiter
+ * (submit any cueloop primitive, return immediately with the session id), a background waiter
  * per open review that injects the reviewer's verdict back into the live session
  * with pi.sendUserMessage once it resolves, a tool_call gate that holds
  * write-capable tools while a review this extension opened is still pending, and
@@ -15,6 +15,7 @@
 
 import { DaemonClient } from "@cueloop/daemon/client";
 import { awaitResolve, openReview } from "@cueloop/daemon/review";
+import { ARTIFACT_TYPES, isArtifactType, type ArtifactType } from "@cueloop/schema";
 import { wakeMessage } from "../wake-message";
 import type { PiExtensionAPI, PiToolDefinition, PiToolResult } from "./pi-types";
 
@@ -28,7 +29,10 @@ const REVIEW_TOOL = "request_review";
 const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls"]);
 
 export interface RequestReviewParams {
-  plan: string;
+  /** The artifact source: plan or reply markdown, a unified diff, or prototype HTML. */
+  content: string;
+  /** The cueloop primitive under review; defaults to "plan". */
+  type?: ArtifactType;
   title?: string;
 }
 
@@ -97,20 +101,32 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
     name: REVIEW_TOOL,
     label: "Request review",
     description:
-      "Submit a plan for human review in cueloop and return immediately with the session id. " +
+      `Submit a cueloop artifact (${ARTIFACT_TYPES.join(", ")}) for human review and return ` +
+      "immediately with the session id. " +
       "Do not block: end your turn and keep helping the user. When the reviewer returns a verdict " +
       "cueloop wakes this session with a follow-up message carrying the outcome - an approval to " +
       "proceed, or structured feedback to address before continuing.",
     parameters: {
       type: "object",
       properties: {
-        plan: { type: "string", description: "The full plan as markdown." },
+        content: {
+          type: "string",
+          description:
+            "The artifact source: plan or reply markdown, a unified diff, or prototype HTML.",
+        },
+        type: {
+          type: "string",
+          // Derived from the schema's runtime union, never hardcoded: a new
+          // primitive is reviewable from pi the moment the schema knows it.
+          enum: ARTIFACT_TYPES,
+          description: "The cueloop primitive under review; defaults to plan.",
+        },
         title: {
           type: "string",
-          description: "Session title; defaults to the plan's first heading.",
+          description: "Session title; markdown artifacts default to their first heading.",
         },
       },
-      required: ["plan"],
+      required: ["content"],
     },
     async execute(_toolCallId, params, signal, _onUpdate, context) {
       if (signal?.aborted) {
@@ -120,12 +136,25 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
           isError: true,
         };
       }
+      // The model side of the trust boundary: pi does not enforce the enum,
+      // so a hallucinated type is refused here instead of reaching the daemon.
+      const type = params.type ?? "plan";
+
+      if (!isArtifactType(type)) {
+        return {
+          content: text(
+            `cueloop does not know the artifact type "${type}" - one of: ${ARTIFACT_TYPES.join(", ")}.`,
+          ),
+          details: { status: "cancelled", annotationCount: 0 },
+          isError: true,
+        };
+      }
       const client = await DaemonClient.connect({ home: options.home, autostart: true });
 
       try {
         const review = await openReview(client, {
-          type: "plan",
-          content: params.plan,
+          type,
+          content: params.content,
           cwd: context.cwd,
           agent: "pi",
           title: params.title,

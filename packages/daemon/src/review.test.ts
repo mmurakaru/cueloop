@@ -159,6 +159,30 @@ describe("openReview", () => {
     expect(other.id).not.toBe(first.id);
   });
 
+  test("the same agentSessionId with a different type opens a new session, never a type mismatch", async () => {
+    // Arrange - the agent session's plan review is open
+    const plan = await openReview(client, {
+      type: "plan",
+      content: PLAN,
+      cwd: home,
+      agentSessionId: "agent-cross",
+    });
+
+    // Act - the same agent session now submits a reply for review
+    const reply = await openReview(client, {
+      type: "reply",
+      content: "# Findings\n\nThe cache is fine.\n",
+      cwd: home,
+      agentSessionId: "agent-cross",
+    });
+
+    // Assert - a fresh reply session; the plan session keeps its type and history
+    expect(reply.id).not.toBe(plan.id);
+    expect(reply.session.artifact.type).toBe("reply");
+    expect(reply.session.revisions.length).toBe(1);
+    expect((await client.sessionGet(plan.id)).artifact.type).toBe("plan");
+  });
+
   test("per-file notes land as note annotations anchored at the file path", async () => {
     // Act
     const review = await openReview(client, {

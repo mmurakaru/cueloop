@@ -11,6 +11,7 @@
 
 import * as v from "valibot";
 import {
+  ARTIFACT_TYPES,
   SCHEMA_VERSION,
   type Anchor,
   type Annotation,
@@ -61,7 +62,9 @@ export const DiffFileContentsSchema = v.object({
 } satisfies EntriesOf<DiffFileContents>);
 
 export const ArtifactSchema = v.object({
-  type: v.picklist(["plan", "diff", "prototype", "reply"]),
+  // Derived from the schema's runtime union: a new primitive extends the wire
+  // contract without touching this file.
+  type: v.picklist(ARTIFACT_TYPES),
   content: v.string(),
   meta: v.optional(ArtifactMetaSchema, {}),
   files: v.optional(v.array(DiffFileContentsSchema)),
