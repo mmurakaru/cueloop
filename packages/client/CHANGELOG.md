@@ -1,5 +1,67 @@
 # @cueloop/client
 
+## 0.1.0-alpha.62
+
+### Minor Changes
+
+- Review surface refresh, all on the transparent theme:
+
+  - The comment composer opens inline under the line you are commenting on in
+    both the plan and diff views (the bottom `ComposeBar` is gone), and paints no
+    background - a bordered frame floats over the visible session.
+  - The plan and diff bodies now sit in a bordered frame whose border takes the
+    document text colour. The header collapses to one flat inline row
+    (`cueloop · title · rev · submitted by …`) with **Edit** and **Share** pinned
+    to the plan sheet's top-right corner.
+  - The rail's Review/Agent tabs are a full-width rounded box with no fill; the
+    active tab reads in the accent. The resize divider is invisible (the plan's
+    right border is the seam) but still drag-resizes. The empty state centres in
+    the rail, and the rail body aligns under the tab labels.
+  - Your own annotations tag as `me` in the accent once a collaborator has also
+    left a note; collaborator notes keep their blue name-in-border card.
+  - Share now surfaces the ssh link as a centred, auto-dismissing toast (a new
+    `Toast` primitive) instead of an inline status line. The submit-review card is
+    transparent like the other dialogs.
+  - Replace the always-on keybind bar with a bottom-left menu that drops up to a
+    keybinds cheatsheet and a settings dialog (auto-close and review panel,
+    persisted), and show the cueloop version at the bottom-right under the rail.
+  - Put "Submit review" inline with the rail's collapse chevron on the plan's
+    bottom-border row and drop the trailing return glyph.
+  - Annotation cards share the tab box's width and stack tightly; the keybinds and
+    settings dialogs get a solid dark panel so their content stays legible.
+  - Drop the `⏎` return glyph from every button and hint - the return key reads as
+    the word "enter" where a key needs naming, and buttons show their label alone.
+
+- The default theme no longer paints the canvas or flat chrome: `bg` and
+  `panel` default to `transparent`, so the terminal's own background (and any
+  transparency or blur it renders) shows through. Floating surfaces (dialogs,
+  walk cards) now sit on the `elevated` token and stay opaque. Set `[theme]`
+  `bg`/`panel` overrides in the user config for an opaque look.
+
+- Dialogs no longer paint a dim backdrop or a surface fill - an open dialog
+  floats as a bordered frame and the session stays visible behind it. Set
+  `[theme] backdrop` to a colour to restore the dimmed layer.
+
+  Theme tokens now use full names, and `[theme]` config keys follow suit:
+  `bg` is `background`, `cursorBg` is `cursorBackground`, `markCommentBg` is
+  `markCommentBackground`, `markSuggestionBg` is `markSuggestionBackground`,
+  `insFg` is `insertedForeground`, `delFg` is `deletedForeground`. Update any
+  overrides using the old keys.
+
+### Patch Changes
+
+- Enforce a cyclomatic complexity limit of 20 (oxlint) and refactor the functions that exceeded it - the intent dispatcher, keymap reducer, config layering, App, plan-sheet run-style, the CLI command routers, and the daemon dispatch - into small, table-driven units. Behavior and public APIs are unchanged.
+
+- App test suites isolate the user config: a shared test helper points the
+  config path into the test home, so local runs no longer read the
+  developer's real config (a persisted review_state made char-frame tests
+  time out locally while CI passed).
+- Updated dependencies []:
+  - @cueloop/schema@0.1.0-alpha.62
+  - @cueloop/daemon@0.1.0-alpha.62
+  - @cueloop/extension-api@0.1.0-alpha.62
+  - @cueloop/integration-obsidian@0.1.0-alpha.62
+
 ## 0.1.0-alpha.61
 
 ### Minor Changes
