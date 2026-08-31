@@ -1,5 +1,12 @@
 # @cueloop/extension-api
 
+## 0.1.0-alpha.63
+
+### Patch Changes
+
+- Updated dependencies [[`17d2789`](https://github.com/mmurakaru/cueloop/commit/17d278988d2c65f7e1e5e635fc103c5de79f961a)]:
+  - @cueloop/schema@0.1.0-alpha.63
+
 ## 0.1.0-alpha.62
 
 ### Patch Changes
