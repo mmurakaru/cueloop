@@ -36,18 +36,13 @@ jobs:
         with:
           bun-version: 1.3.14
       - run: bun install --frozen-lockfile
-      # v3 `changeset version` errors in pre mode when no new changeset is queued
-      # (they live in .changeset/pre/); run it only when the top level has one.
-      - id: pending
-        run: |
-          count=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' | wc -l | tr -d ' ')
-          echo "count=$count" >> "$GITHUB_OUTPUT"
-      - uses: changesets/action@v1
-        if: steps.pending.outputs.count != '0'
+      # v2 reads changesets v3's .changeset/pre/ layout; v1 does not and errors there.
+      - uses: changesets/action@v2
         with:
-          version: bun run version
-          title: "Release: version packages"
-          commit: "Release: version packages"
+          version-script: bun run version
+          pr-title: "Release: version packages"
+          commit-message: "Release: version packages"
+          github-token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
