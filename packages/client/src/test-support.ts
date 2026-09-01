@@ -67,6 +67,65 @@ export async function typeText(setup: TestRendererSetup, text: string): Promise<
   await settle(setup);
 }
 
+/** Drive one key press with modifiers: KeyCodes names ("ARROW_RIGHT") or single letters (ctrl+o). */
+export async function pressKey(
+  setup: TestRendererSetup,
+  key: string,
+  modifiers?: { shift?: boolean; ctrl?: boolean; meta?: boolean },
+): Promise<void> {
+  setup.mockInput.pressKey(key, modifiers);
+  await settle(setup);
+}
+
+/** A 0-based cell position within a captured char frame. */
+export interface FrameLocation {
+  row: number;
+  column: number;
+}
+
+/** Locate the first visual line containing the needle: 0-based row and start column. */
+export function locateText(setup: TestRendererSetup, needle: string): FrameLocation {
+  const frame = setup.captureCharFrame();
+
+  for (const [row, line] of frame.split("\n").entries()) {
+    const column = line.indexOf(needle);
+
+    if (column !== -1) return { row, column };
+  }
+
+  throw new Error(`locateText ${JSON.stringify(needle)} not found.\nframe:\n${frame}`);
+}
+
+/** The 0-based visual row of the needle - for relative vertical-layout assertions. */
+export function frameRow(setup: TestRendererSetup, needle: string): number {
+  return locateText(setup, needle).row;
+}
+
+/** Click the first on-screen occurrence of the needle, offset in characters from its start. */
+export async function clickText(
+  setup: TestRendererSetup,
+  needle: string,
+  charOffset = 0,
+): Promise<void> {
+  const { row, column } = locateText(setup, needle);
+
+  await setup.mockMouse.click(column + charOffset, row);
+  await settle(setup);
+}
+
+/** Drag from the first occurrence of one needle to the first occurrence of another. */
+export async function dragText(
+  setup: TestRendererSetup,
+  fromNeedle: string,
+  toNeedle: string,
+): Promise<void> {
+  const from = locateText(setup, fromNeedle);
+  const to = locateText(setup, toNeedle);
+
+  await setup.mockMouse.drag(from.column, from.row, to.column, to.row);
+  await settle(setup);
+}
+
 // Below the 60s per-test budget so a genuinely stuck wait throws its frame
 // error (useful) before bun's bare "timed out" fires. Generous because a
 // contended CI runner starves the render loop and daemon round-trips.
