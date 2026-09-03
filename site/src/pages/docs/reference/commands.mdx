@@ -105,7 +105,7 @@ Everything a reviewer does to a discussion has its primitive:
 cueloop session annotate <id> --quote "two phases" --body "Why two?"     # a comment
 cueloop session annotate <id> --reply-to <comment-id> --body "Rollout."  # a reply, on the root's anchor
 cueloop session annotate <id> --selector "main > h1" --body "Too loud."  # a prototype comment, by element
-cueloop session remove <id> <comment-id> --author <fingerprint>          # remove the author's own comment
+cueloop session remove <id> <comment-id>                                 # remove a comment
 cueloop session name-self <id> "Ana" --author <fingerprint>              # the display name of an author
 cueloop session events <id> [--once]                                     # follow the session: one JSON line per change
 ```
@@ -113,6 +113,12 @@ cueloop session events <id> [--once]                                     # follo
 A reply always points at the discussion's root comment, even when it answers a
 reply. Each event names the history entry the change appended, so a follower
 never has to fetch the session to learn what moved.
+
+A review-side agent connects with `--role agent --author <fingerprint>`: the
+author is bound to the connection once, and from then on the agent comments,
+removes, and names itself as that author only. Locally that identity is
+declared, as anything on the same user's socket is; over a share the gateway
+binds it to the SSH key that connected.
 
 Every connection to the daemon starts as a collaborator: it can read sessions,
 wait on them, and comment. Ownership is proven, not declared - the daemon mints

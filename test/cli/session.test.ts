@@ -387,7 +387,7 @@ describe("cueloop session (black box)", () => {
     expect(note?.anchor.selector).toBe("main > h1");
   });
 
-  test("remove takes a comment away; an agent removes only its own author's", async () => {
+  test("remove takes a comment away; an agent removes only the author's it is bound to", async () => {
     // Arrange: the owner's and Ana's comments
     await runCli(home, [
       "session",

@@ -159,16 +159,12 @@ async function sessionAnnotateCommand({
   return 0;
 }
 
-/** Remove a comment; a non-owner names the author it acts as and removes only that author's. */
-async function sessionRemoveCommand({
-  client,
-  positional,
-  flags,
-}: SessionContext): Promise<number> {
+/** Remove a comment; a non-owner connection removes only the comments of the author it is bound to. */
+async function sessionRemoveCommand({ client, positional }: SessionContext): Promise<number> {
   const id = required(positional[1], "session id");
   const annotationId = required(positional[2], "annotation id");
 
-  out(await client.sessionRemoveAnnotation(id, annotationId, stringFlag(flags, "author")));
+  out(await client.sessionRemoveAnnotation(id, annotationId));
 
   return 0;
 }
@@ -191,6 +187,8 @@ async function sessionNameSelfCommand({
 /**
  * Follow a session live: one JSON line per event, with the entry the change
  * appended, until the process ends. `--once` prints the first event and exits.
+ * The subscription is in place before the session is read, so nothing that
+ * lands after the read can slip between the two.
  */
 async function sessionEventsCommand({
   client,
@@ -199,17 +197,18 @@ async function sessionEventsCommand({
 }: SessionContext): Promise<number> {
   const id = required(positional[1], "session id");
   const once = flags.once === true;
-
-  await client.sessionGet(id);
-
-  return new Promise((resolve) => {
+  const stream = new Promise<number>((resolve) => {
     client.onEvent((event) => {
       if (event.sessionId !== id) return;
       out(event);
       if (once) resolve(0);
     });
-    void client.subscribe();
   });
+
+  await client.subscribe();
+  await client.sessionGet(id);
+
+  return stream;
 }
 
 async function sessionResolveCommand({
@@ -266,8 +265,13 @@ export async function sessionCommand(argv: string[]): Promise<number> {
   const primitive = positional[0];
   // --role agent (or collaborator) caps this connection to read + annotate; a
   // review-side agent passes it so the daemon rejects any escalation attempt.
+  // and --author binds the identity its comments, removals, and name carry
   const role = stringFlag(flags, "role") === "agent" ? "agent" : undefined;
-  const client = await DaemonClient.connect({ autostart: true, role });
+  const client = await DaemonClient.connect({
+    autostart: true,
+    role,
+    author: role === undefined ? undefined : stringFlag(flags, "author"),
+  });
 
   try {
     const handler = primitive !== undefined ? sessionVerbHandlers[primitive] : undefined;

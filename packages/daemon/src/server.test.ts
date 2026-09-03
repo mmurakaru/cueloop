@@ -123,19 +123,24 @@ describe("socket round-trip", () => {
       body: "hers",
       author: "SHA256:ana",
     });
-    const agent = await DaemonClient.connect({ home, role: "agent" });
+    const anonymous = await DaemonClient.connect({ home, role: "agent" });
+    const agent = await DaemonClient.connect({ home, role: "agent", author: "SHA256:ana" });
 
-    // Act + Assert: removal without an author, or of another author's comment, is refused
+    // Act + Assert: an unbound connection removes nothing; a bound one never another author's
+    await expect(anonymous.sessionRemoveAnnotation(session.id, "own")).rejects.toHaveProperty(
+      "code",
+      "forbidden",
+    );
     await expect(agent.sessionRemoveAnnotation(session.id, "own")).rejects.toHaveProperty(
       "code",
       "forbidden",
     );
     await expect(
-      agent.sessionRemoveAnnotation(session.id, "own", "SHA256:ana"),
+      agent.sessionSetParticipantName(session.id, "SHA256:bob", "Not Bob"),
     ).rejects.toHaveProperty("code", "forbidden");
 
     // Act: her own comment goes, and she names herself
-    const removed = await agent.sessionRemoveAnnotation(session.id, "anas", "SHA256:ana");
+    const removed = await agent.sessionRemoveAnnotation(session.id, "anas");
     const named = await agent.sessionSetParticipantName(session.id, "SHA256:ana", "Ana");
 
     // Assert
@@ -145,6 +150,7 @@ describe("socket round-trip", () => {
       annotationId: "anas",
     });
     expect(named.participants).toContainEqual({ id: "SHA256:ana", provider: "ssh", name: "Ana" });
+    anonymous.close();
     agent.close();
   });
 
