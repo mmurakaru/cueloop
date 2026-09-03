@@ -28,6 +28,7 @@ export const docsNav: NavGroup[] = [
       { title: "The review session", href: "/docs/concepts/review-session/" },
       { title: "Annotations", href: "/docs/concepts/annotations/" },
       { title: "The review primitives", href: "/docs/concepts/plan-diff-review/" },
+      { title: "Branches and checkpoints", href: "/docs/concepts/history/" },
     ],
   },
   {
