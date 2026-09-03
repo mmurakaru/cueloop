@@ -8,3 +8,4 @@ export * from "./anchor";
 export * from "./fuzzy";
 export * from "./feedback";
 export * from "./herdr";
+export * from "./history";
