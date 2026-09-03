@@ -1,8 +1,10 @@
 /**
  * The ReviewSession primitive. Everything in cueloop renders, annotates, or
  * resolves this one noun. This module is pure data shapes - no IO, no
- * dependencies.
+ * dependencies beyond the history shapes.
  */
+
+import type { SessionHistory } from "./history";
 
 export const SCHEMA_VERSION = "1";
 
@@ -197,6 +199,13 @@ export interface ReviewSession {
   /** Revision history; artifact.content always equals the latest revision. */
   revisions: Revision[];
   annotations: Annotation[];
+  /**
+   * The session's history as a tree of entries with named branches; the
+   * artifact text and the open comments derive from the active path. Absent
+   * only on records written before histories existed; the store migrates
+   * those on read.
+   */
+  history?: SessionHistory;
   /**
    * The reviewer's working copy of the artifact source (plan edits).
    * Serializes as ONE unified diff against the submitted revision.
