@@ -740,7 +740,12 @@ export function App({
               suspended={threadViewSuspended}
               editOrphanCount={editOrphanCount}
               onComposingChange={setThreadComposing}
-              onObserverBlocked={() => controller.setStatus("observer - read-only")}
+              resolved={resolved}
+              onObserverBlocked={(reason) =>
+                controller.setStatus(
+                  reason === "observer" ? "observer - read-only" : "review submitted - read-only",
+                )
+              }
               onCursorChange={setCursor}
               focusedAnnotationId={focusedAnnotationId}
               onFocusAnnotation={setFocusedAnnotationId}

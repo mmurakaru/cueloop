@@ -83,4 +83,30 @@ describe("resolveThreadChord", () => {
       resolveThreadChord({ name: "return", ctrl: true }, { ...owner, resolved: true }),
     ).toBeNull();
   });
+
+  test("a resolved review refuses every change and says so; renaming an author stays open", () => {
+    // Arrange
+    const resolved = { ...owner, resolved: true };
+    const submitted = { type: "status" as const, message: "review submitted - read-only" };
+
+    // Assert
+    expect(resolveThreadChord({ name: "e", ctrl: true }, resolved)).toEqual(submitted);
+    expect(resolveThreadChord({ name: "e", meta: true }, resolved)).toEqual(submitted);
+    expect(resolveThreadChord({ name: "backspace", meta: true }, resolved)).toEqual(submitted);
+    expect(resolveThreadChord({ name: "x", meta: true }, resolved)).toEqual(submitted);
+    expect(resolveThreadChord({ name: "u", meta: true }, resolved)).toEqual(submitted);
+    expect(resolveThreadChord({ name: "r", meta: true }, resolved)).toEqual({ type: "openRename" });
+    expect(resolveThreadChord({ name: "s", ctrl: true }, resolved)).toEqual({ type: "share" });
+  });
+
+  test("an observer cannot edit or delete cards either", () => {
+    // Arrange
+    const observer = { ...owner, isOwner: false };
+    const readOnly = { type: "status" as const, message: "observer - read-only" };
+
+    // Assert
+    expect(resolveThreadChord({ name: "e", meta: true }, observer)).toEqual(readOnly);
+    expect(resolveThreadChord({ name: "backspace", meta: true }, observer)).toEqual(readOnly);
+    expect(resolveThreadChord({ name: "r", meta: true }, observer)).toEqual({ type: "openRename" });
+  });
 });

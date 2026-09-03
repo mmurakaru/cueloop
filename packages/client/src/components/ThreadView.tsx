@@ -760,8 +760,10 @@ export interface ThreadViewProps {
   editOrphanCount?: number;
   /** Reports whether a composer is open, so session chords can yield to typing. */
   onComposingChange?: (composing: boolean) => void;
-  /** An observer tried to comment; the app answers with its read-only status. */
-  onObserverBlocked?: () => void;
+  /** A verdict is in: no draft may open; the app answers with its read-only status. */
+  resolved?: boolean;
+  /** An observer or a resolved review refused a draft; the app shows why. */
+  onObserverBlocked?: (reason: "observer" | "resolved") => void;
   /** Reports the caret's block, so block-level primitives (cut, restore) act where the caret is. */
   onCursorChange?: (blockIndex: number) => void;
   /** The rail's focused card; the discussion holding it takes focus here. */
@@ -781,6 +783,7 @@ export function ThreadView({
   marks,
   quickActions,
   observer,
+  resolved = false,
   suspended = false,
   editOrphanCount = 0,
   onComposingChange,
@@ -929,7 +932,8 @@ export function ThreadView({
     }));
 
   const openCompose = (state: ComposeState): void => {
-    if (observer) return onObserverBlocked?.();
+    if (observer) return onObserverBlocked?.("observer");
+    if (resolved) return onObserverBlocked?.("resolved");
     composerReady.current = false;
     composeRef.current = state;
     setCompose(state);

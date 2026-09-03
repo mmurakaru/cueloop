@@ -135,6 +135,40 @@ describe("observer primitives are blocked", () => {
   });
 });
 
+describe("a resolved review is read-only for its owner too", () => {
+  test("typing, deleting a card, and editing answer review submitted - read-only", async () => {
+    // Arrange: a comment exists and the verdict is in
+    server.core.sessionAnnotate(session.id, {
+      id: "a_done",
+      kind: "comment",
+      anchor: makeAnchor(parseBlocks(PLAN), 2, 0, 10),
+      body: "settled",
+    });
+    server.core.sessionResolve(session.id, "approve", "");
+    const setup = await testRender(<App home={home} sessionId={session.id} />, {
+      width: 120,
+      height: 32,
+    });
+
+    await waitForText(setup, "settled");
+    const before = snapshot();
+
+    // Act + Assert: a draft never opens
+    await clickText(setup, "daemon");
+    await typeText(setup, "c");
+    await waitForText(setup, "review submitted - read-only");
+    expect(setup.captureCharFrame()).not.toContain("● c");
+
+    // Act + Assert: the focused card cannot be deleted or edited
+    await pressKey(setup, "n", { meta: true });
+    await pressKey(setup, "BACKSPACE", { meta: true });
+    await pressKey(setup, "e", { meta: true });
+    await pressKey(setup, "x", { meta: true });
+    expect(snapshot()).toEqual(before);
+    expect(server.core.sessionGet(session.id).annotations).toHaveLength(1);
+  });
+});
+
 describe("observer navigation still works", () => {
   test("↓ moves the caret between blocks", async () => {
     // Arrange
