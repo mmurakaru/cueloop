@@ -2,7 +2,6 @@
 "@cueloop/schema": minor
 "@cueloop/daemon": minor
 "@cueloop/client": minor
-"@cueloop/gateway": minor
 "cueloop": minor
 ---
 
