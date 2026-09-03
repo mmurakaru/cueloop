@@ -68,6 +68,9 @@ function fakeClient(session: ReviewSession): FakeSessionClient {
     sessionAnnotate: mock<SessionClient["sessionAnnotate"]>(async () => session),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
+    sessionCutBlock: unimplemented("sessionCutBlock"),
+    sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
+    sessionCurate: unimplemented("sessionCurate"),
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetShareId: mock(
       async (_id: string, shareId: string) => ((session.shareId = shareId), session),

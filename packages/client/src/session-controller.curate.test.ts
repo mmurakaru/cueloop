@@ -53,6 +53,9 @@ function fakeClient(session: ReviewSession, sink: WorkingCopySink): SessionClien
     sessionList: async () => [session],
     sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
+    sessionCutBlock: unimplemented("sessionCutBlock"),
+    sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
+    sessionCurate: unimplemented("sessionCurate"),
     sessionSetWorkingCopy: mock(async (_id: string, content: string | undefined) => {
       sink.workingCopy = content;
 

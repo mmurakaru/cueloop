@@ -20,6 +20,7 @@ import {
   type DiffFileContents,
   type Identity,
   type ReviewSession,
+  type HunkRejection,
   type Revision,
   type SessionHistory,
   validateHistory,
@@ -143,6 +144,25 @@ export const Params = {
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
   "session.setParticipantName": v.object({ id: SessionId, author: NonEmpty, name: NonEmpty }),
   "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
+  "session.cutBlock": v.object({
+    id: SessionId,
+    blockIndex: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  }),
+  "session.restoreBlock": v.object({
+    id: SessionId,
+    baseBlockIndex: v.pipe(v.number(), v.integer(), v.minValue(0)),
+    line: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  }),
+  "session.curate": v.object({
+    id: SessionId,
+    rejections: v.array(
+      v.object({
+        path: NonEmpty,
+        hunkIndex: v.pipe(v.number(), v.integer(), v.minValue(0)),
+        changeIndex: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+      } satisfies EntriesOf<HunkRejection>),
+    ),
+  }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
   "session.refreshDiff": v.object({ id: SessionId }),
   "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
@@ -267,6 +287,15 @@ export const SessionRecordSchema = v.object({
   revisions: v.array(RevisionSchema),
   annotations: v.array(FullAnnotationSchema),
   history: v.optional(SessionHistorySchema),
+  curation: v.optional(
+    v.array(
+      v.object({
+        path: NonEmpty,
+        hunkIndex: v.number(),
+        changeIndex: v.optional(v.number()),
+      } satisfies EntriesOf<HunkRejection>),
+    ),
+  ),
   workingCopy: v.optional(v.string()),
   viewedPaths: v.optional(v.array(v.string())),
   verdict: v.nullable(VerdictSchema),

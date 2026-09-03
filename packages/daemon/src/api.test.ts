@@ -534,3 +534,72 @@ describe("the session history records every write as an entry", () => {
     expect(derivePath(recovered.history!).head.content).toBe(PLAN.content);
   });
 });
+
+describe("curation primitives", () => {
+  test("cutting a block records a reviewer revision; restoring it returns the copy to pristine", () => {
+    // Arrange: block 2 of the plan is the paragraph
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
+    const cut = core.sessionCutBlock(created.id, 2);
+
+    // Assert: the working copy lost the paragraph and the history gained the edit
+    expect(cut.workingCopy).not.toContain("Do the thing carefully.");
+    expect(cut.history!.entries.at(-1)).toMatchObject({ type: "revision", by: "reviewer" });
+    expect(derivePath(cut.history!).head.content).toBe(cut.workingCopy!);
+
+    // Act: put it back where it was (block 2 of the submitted revision, before the end)
+    const restored = core.sessionRestoreBlock(created.id, 2);
+
+    // Assert: pristine again, and that edit is on record too
+    expect(restored.workingCopy).toBeUndefined();
+    expect(derivePath(restored.history!).head.content).toBe(PLAN.content);
+    expect(restored.history!.entries.filter((entry) => entry.type === "revision")).toHaveLength(3);
+  });
+
+  test("a block index outside the text is refused", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Assert
+    expect(() => core.sessionCutBlock(created.id, 99)).toThrow(/no block 99/);
+    expect(() => core.sessionRestoreBlock(created.id, 99)).toThrow(/no block 99/);
+  });
+
+  test("curating a diff stores the decisions and the patch they leave; no decisions clear both", () => {
+    // Arrange: one file with two separated changes
+    const oldContents = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n";
+    const newContents = "a\nB\nc\nd\ne\nf\ng\nh\ni\nJ\n";
+    const diff: Artifact = {
+      type: "diff",
+      content: "",
+      meta: {},
+      files: [{ path: "src/x.txt", oldContents, newContents, status: "modified" }],
+    };
+    const created = core.sessionCreate({ workspace: WS, artifact: diff });
+
+    // Act: reject the first hunk
+    const curated = core.sessionCurate(created.id, [{ path: "src/x.txt", hunkIndex: 0 }]);
+
+    // Assert: only the second change survives in the working copy
+    expect(curated.curation).toEqual([{ path: "src/x.txt", hunkIndex: 0 }]);
+    expect(curated.workingCopy).toContain("+J");
+    expect(curated.workingCopy).not.toContain("+B");
+    expect(curated.history!.entries.at(-1)).toMatchObject({ type: "revision", by: "reviewer" });
+
+    // Act
+    const cleared = core.sessionCurate(created.id, []);
+
+    // Assert
+    expect(cleared.curation).toBeUndefined();
+    expect(cleared.workingCopy).toBeUndefined();
+  });
+
+  test("a plan cannot be curated by hunk", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Assert
+    expect(() => core.sessionCurate(created.id, [])).toThrow(/only a diff review/);
+  });
+});

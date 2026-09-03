@@ -28,13 +28,15 @@
     "./retention": "./src/retention.ts",
     "./herdr-pane": "./src/herdr-pane.ts",
     "./herdr-split": "./src/herdr-split.ts",
-    "./share-blob": "./src/share-blob.ts"
+    "./share-blob": "./src/share-blob.ts",
+    "./curate": "./src/curate.ts"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
     "@cueloop/schema": "0.1.0-alpha.64",
+    "@pierre/diffs": "^1.3.6",
     "valibot": "^1.4.2"
   },
   "engines": {
