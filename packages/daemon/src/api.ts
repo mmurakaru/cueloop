@@ -550,16 +550,19 @@ export class DaemonCore {
   }
 
   /**
-   * Move the current branch's tip back to an entry on its path. The entries
-   * after it stay in the tree; a summary records them as a branch-summary
-   * entry at the target. The view follows the path: on `main`, the agent's
-   * next revision lands there.
+   * Move a branch's tip back to an entry on its path - the current branch, or
+   * `branch` after switching to it. The entries after it stay in the tree; a
+   * summary records them as a branch-summary entry at the target. The view
+   * follows the path: on `main`, the agent's next revision lands there.
    */
-  sessionNavigate(id: string, entryId: string, summary?: string): ReviewSession {
+  sessionNavigate(id: string, entryId: string, summary?: string, branch?: string): ReviewSession {
     const session = this.mutable(id);
-    const moved = this.tree(id, () =>
-      navigateTo(this.historyOf(session), entryId, summary === undefined ? {} : { summary }),
-    );
+    const moved = this.tree(id, () => {
+      const history = this.historyOf(session);
+      const standing = branch === undefined ? history : switchBranch(history, branch);
+
+      return navigateTo(standing, entryId, summary === undefined ? {} : { summary });
+    });
 
     this.refreshView(session, moved);
     const tip = moved.tips[moved.branch];

@@ -168,6 +168,8 @@ export const Params = {
     id: SessionId,
     entryId: NonEmpty,
     summary: v.optional(v.string()),
+    // stand on this branch first, so a move on another branch is one request
+    branch: v.optional(NonEmpty),
   }),
   "session.branch": v.object({ id: SessionId, name: NonEmpty }),
   "session.switch": v.object({ id: SessionId, branch: NonEmpty }),

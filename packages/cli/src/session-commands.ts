@@ -229,7 +229,7 @@ async function sessionCurateCommand({
   return 0;
 }
 
-/** Move the current branch's tip back to an entry on its path; --summary records what was left behind. */
+/** Move a branch's tip back to an entry on its path; --summary records what was left behind, --branch stands on that branch first. */
 async function sessionNavigateCommand({
   client,
   positional,
@@ -238,7 +238,14 @@ async function sessionNavigateCommand({
   const id = required(positional[1], "session id");
   const entryId = required(positional[2], "entry id");
 
-  out(await client.sessionNavigate(id, entryId, stringFlag(flags, "summary")));
+  out(
+    await client.sessionNavigate(
+      id,
+      entryId,
+      stringFlag(flags, "summary"),
+      stringFlag(flags, "branch"),
+    ),
+  );
 
   return 0;
 }

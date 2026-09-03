@@ -343,7 +343,7 @@ export class DaemonServer {
     "session.navigate": (_connection, request) => {
       const params = parseParams("session.navigate", request.params);
 
-      return this.core.sessionNavigate(params.id, params.entryId, params.summary);
+      return this.core.sessionNavigate(params.id, params.entryId, params.summary, params.branch);
     },
     "session.branch": (_connection, request) => {
       const params = parseParams("session.branch", request.params);
