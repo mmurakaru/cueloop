@@ -544,6 +544,59 @@ describe("cueloop session (black box)", () => {
     expect(viewed.viewedPaths).toEqual(["plan.md"]);
   });
 
+  test("label, branch, switch, navigate, and fork walk the session's tree", async () => {
+    // Arrange: a labelled checkpoint, then a comment on a side branch
+    const labelled = cliJson<ReviewSession>(
+      await runCli(home, ["session", "label", sessionId, "start"]),
+    );
+    const start = labelled.history!.tips.main!;
+
+    cliJson<ReviewSession>(await runCli(home, ["session", "branch", sessionId, "alt"]));
+    await runCli(home, [
+      "session",
+      "annotate",
+      sessionId,
+      "--quote",
+      "two phases",
+      "--body",
+      "Only on alt.",
+    ]);
+
+    // Act
+    const onMain = cliJson<ReviewSession>(
+      await runCli(home, ["session", "switch", sessionId, "main"]),
+    );
+    const onAlt = cliJson<ReviewSession>(
+      await runCli(home, ["session", "switch", sessionId, "alt"]),
+    );
+    const moved = cliJson<ReviewSession>(
+      await runCli(home, ["session", "navigate", sessionId, start, "--summary", "left alt"]),
+    );
+    const fork = cliJson<ReviewSession>(await runCli(home, ["session", "fork", sessionId]));
+
+    // Assert
+    expect(labelled.history!.labels[start]).toBe("start");
+    expect(onMain.annotations.map((annotation) => annotation.body)).not.toContain("Only on alt.");
+    expect(onAlt.annotations.map((annotation) => annotation.body)).toContain("Only on alt.");
+    expect(moved.annotations.map((annotation) => annotation.body)).not.toContain("Only on alt.");
+    expect(moved.history!.entries.at(-1)).toMatchObject({
+      type: "branch-summary",
+      text: "left alt",
+    });
+    expect(fork.id).not.toBe(sessionId);
+    expect(fork.parentSessionId).toBe(sessionId);
+    expect(fork.status).toBe("pending");
+  });
+
+  test("a review-side agent cannot move the tree", async () => {
+    // Act
+    const refused = await runCli(home, ["session", "branch", sessionId, "mine", "--role", "agent"]);
+
+    // Assert
+    expect(refused.code).not.toBe(0);
+    expect(refused.stderr).toMatch(/forbidden|owner/i);
+  });
+
   test("actions resolve from the session's repo, not the caller's cwd", async () => {
     // Arrange - a repo whose .cueloop config defines its own quick action
     const repo = mkdtempSync(join(tmpdir(), "cueloop-repo-"));

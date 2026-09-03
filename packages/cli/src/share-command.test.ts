@@ -50,7 +50,13 @@ function fakeClient(sessions: ReviewSession[]): SessionClient {
     sessionBranch: unimplemented("sessionBranch"),
     sessionSwitch: unimplemented("sessionSwitch"),
     sessionLabel: unimplemented("sessionLabel"),
-    sessionFork: unimplemented("sessionFork"),
+    sessionFork: mock(async (id: string) => {
+      const fork = { ...sessionFixture(`${id}_fork`), parentSessionId: id };
+
+      sessions.push(fork);
+
+      return fork;
+    }),
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetShareId: mock(async (id: string, shareId: string) => {
       const session = sessions.find((candidate) => candidate.id === id)!;
@@ -163,6 +169,28 @@ describe(shareSession, () => {
 
     // Assert
     expect(client.sessionSetShareId).toHaveBeenCalledWith("ses_1", "p_abc123xy");
+  });
+
+  test("--fork shares a fork of the session and leaves the original unshared", async () => {
+    // Arrange
+    const session = sessionFixture("ses_1");
+    const client = fakeClient([session]);
+    const deps = depsSpy();
+
+    // Act
+    const code = await shareSession(client, { sessionId: "ses_1", fork: true }, deps);
+
+    // Assert
+    expect(code).toBe(0);
+    expect(client.sessionFork).toHaveBeenCalledWith("ses_1");
+    expect(deps.publish).toHaveBeenCalledTimes(1);
+    expect(deps.publish).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ses_1_fork", parentSessionId: "ses_1" }),
+      expect.anything(),
+    );
+    expect(client.sessionSetShareId).toHaveBeenCalledWith("ses_1_fork", "p_abc123xy");
+    expect(session.shareId).toBeUndefined();
+    expect(deps.lines[0]).toBe("forked ses_1 as ses_1_fork");
   });
 });
 
