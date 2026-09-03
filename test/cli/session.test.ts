@@ -309,6 +309,195 @@ describe("cueloop session (black box)", () => {
     expect(actions[2]).toMatchObject({ index: 3, prompt: "Out of scope" });
   });
 
+  test("annotate --reply-to borrows the root's anchor and links the reply to it", async () => {
+    // Arrange
+    const withRoot = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--annotation-id",
+        "root_cli",
+        "--quote",
+        "two phases",
+        "--body",
+        "Why two?",
+      ]),
+    );
+
+    expect(withRoot.annotations.some((annotation) => annotation.id === "root_cli")).toBe(true);
+
+    // Act: a reply, then a reply to the reply
+    await runCli(home, [
+      "session",
+      "annotate",
+      sessionId,
+      "--annotation-id",
+      "reply_cli",
+      "--reply-to",
+      "root_cli",
+      "--body",
+      "Because of rollout.",
+      "--author",
+      "SHA256:ana",
+    ]);
+    const nested = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--annotation-id",
+        "nested_cli",
+        "--reply-to",
+        "reply_cli",
+        "--body",
+        "Agreed.",
+      ]),
+    );
+
+    // Assert: both hang off the root and share its anchor
+    const byId = new Map(nested.annotations.map((annotation) => [annotation.id, annotation]));
+
+    expect(byId.get("reply_cli")).toMatchObject({
+      replyTo: "root_cli",
+      anchor: byId.get("root_cli")!.anchor,
+    });
+    expect(byId.get("nested_cli")).toMatchObject({ replyTo: "root_cli" });
+  });
+
+  test("annotate --selector anchors a prototype comment to an element", async () => {
+    // Act
+    const annotated = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--selector",
+        "main > h1",
+        "--body",
+        "Heading too loud.",
+      ]),
+    );
+
+    // Assert
+    const note = annotated.annotations.find(
+      (annotation) => annotation.body === "Heading too loud.",
+    );
+
+    expect(note?.anchor.selector).toBe("main > h1");
+  });
+
+  test("remove takes a comment away; an agent removes only its own author's", async () => {
+    // Arrange: the owner's and Ana's comments
+    await runCli(home, [
+      "session",
+      "annotate",
+      sessionId,
+      "--annotation-id",
+      "own_rm",
+      "--quote",
+      "two phases",
+      "--body",
+      "mine",
+    ]);
+    await runCli(home, [
+      "session",
+      "annotate",
+      sessionId,
+      "--annotation-id",
+      "ana_rm",
+      "--quote",
+      "two phases",
+      "--body",
+      "hers",
+      "--author",
+      "SHA256:ana",
+    ]);
+
+    // Act + Assert: the agent cannot touch the owner's
+    const refused = await runCli(home, [
+      "session",
+      "remove",
+      sessionId,
+      "own_rm",
+      "--role",
+      "agent",
+      "--author",
+      "SHA256:ana",
+    ]);
+
+    expect(refused.exitCode).not.toBe(0);
+
+    // Act: hers goes; the owner removes its own without naming anyone
+    const afterAna = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "remove",
+        sessionId,
+        "ana_rm",
+        "--role",
+        "agent",
+        "--author",
+        "SHA256:ana",
+      ]),
+    );
+    const afterOwn = cliJson<ReviewSession>(
+      await runCli(home, ["session", "remove", sessionId, "own_rm"]),
+    );
+
+    // Assert
+    expect(afterAna.annotations.some((annotation) => annotation.id === "ana_rm")).toBe(false);
+    expect(afterOwn.annotations.some((annotation) => annotation.id === "own_rm")).toBe(false);
+  });
+
+  test("name-self registers the display name of the author an agent acts as", async () => {
+    // Act
+    const named = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "name-self",
+        sessionId,
+        "Ana",
+        "--author",
+        "SHA256:ana",
+        "--role",
+        "agent",
+      ]),
+    );
+
+    // Assert
+    expect(named.participants).toContainEqual({ id: "SHA256:ana", provider: "ssh", name: "Ana" });
+  });
+
+  test("events streams a session's changes with the entry each one appended", async () => {
+    // Arrange: a follower that prints the first event and exits
+    const follower = runCli(home, ["session", "events", sessionId, "--once"]);
+
+    await Bun.sleep(600);
+
+    // Act: a comment lands while it listens
+    const annotated = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--annotation-id",
+        "evt_cli",
+        "--quote",
+        "two phases",
+        "--body",
+        "seen live",
+      ]),
+    );
+
+    // Assert
+    const event = cliJson<{ event: string; sessionId: string; entryId?: string }>(await follower);
+
+    expect(event.event).toBe("session.updated");
+    expect(event.sessionId).toBe(sessionId);
+    expect(event.entryId).toBe(annotated.history!.entries.at(-1)!.id);
+  });
+
   test("actions resolve from the session's repo, not the caller's cwd", async () => {
     // Arrange - a repo whose .cueloop config defines its own quick action
     const repo = mkdtempSync(join(tmpdir(), "cueloop-repo-"));
