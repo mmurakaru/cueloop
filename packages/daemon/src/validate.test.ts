@@ -271,6 +271,29 @@ describe("wire pins", () => {
     participants: [fullIdentity],
   };
 
+  test("a history whose tree is broken is refused even when every entry is well-formed", () => {
+    // Arrange: a parent cycle
+    const record = {
+      ...fullSession,
+      history: {
+        entries: [
+          { id: "a", parentId: "b", type: "revision", by: "agent", content: "x", createdAt: "now" },
+          { id: "b", parentId: "a", type: "comment", annotationId: "a1", createdAt: "now" },
+        ],
+        tips: { main: "b" },
+        branch: "main",
+        labels: {},
+      },
+    };
+
+    // Act
+    const parsed = validateSessionRecord(record);
+
+    // Assert
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.error).toContain("history:");
+  });
+
   test("schema key sets match the schema types", () => {
     expect(entryKeys(WorkspaceSchema)).toEqual(keys(fullWorkspace));
     expect(entryKeys(ArtifactMetaSchema)).toEqual(keys(fullMeta));

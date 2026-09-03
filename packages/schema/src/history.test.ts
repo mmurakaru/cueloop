@@ -12,6 +12,7 @@ import {
   pathOf,
   switchBranch,
   tipOf,
+  validateHistory,
   type SessionHistory,
 } from "./history";
 import type { Annotation, Verdict } from "./types";
@@ -65,7 +66,7 @@ describe("appendEntry and derivePath", () => {
     const derived = derivePath(history);
 
     expect(derived.head.content).toBe("Plan v2");
-    expect(derived.openAnnotationIds).toEqual(["a2"]);
+    expect(derived.annotationIds).toEqual(["a2"]);
     expect(derived.verdicts).toEqual([VERDICT]);
     expect(derived.rounds).toBe(2);
     expect(pathOf(history).map((entry) => entry.type)).toEqual([
@@ -107,7 +108,7 @@ describe("branches and navigation", () => {
     const derived = derivePath(history);
 
     expect(derived.head.content).toBe("Plan v1");
-    expect(derived.openAnnotationIds).toEqual([]);
+    expect(derived.annotationIds).toEqual([]);
     expect(derived.summaries[0]!.abandoned).toHaveLength(2);
     expect(history.labels[checkpoint]).toBe("before ramble");
 
@@ -153,6 +154,57 @@ describe("branches and navigation", () => {
   });
 });
 
+describe("validateHistory and cycles", () => {
+  test("a healthy tree validates; each broken invariant names itself", () => {
+    // Arrange
+    const healthy = root();
+    const entry = healthy.entries[0]!;
+
+    // Assert
+    expect(validateHistory(healthy)).toBeNull();
+    expect(validateHistory({ ...healthy, entries: [entry, { ...entry }] })).toMatch(
+      /duplicate entry id/,
+    );
+    expect(validateHistory({ ...healthy, entries: [{ ...entry, parentId: "ghost" }] })).toMatch(
+      /missing parent/,
+    );
+    expect(validateHistory({ ...healthy, tips: {} })).toMatch(/no "main" branch/);
+    expect(validateHistory({ ...healthy, tips: { main: "ghost" } })).toMatch(/missing entry/);
+    expect(validateHistory({ ...healthy, branch: "ramble" })).toMatch(/has no tip/);
+    expect(
+      validateHistory({
+        ...healthy,
+        entries: [{ id: "c", parentId: null, type: "comment", annotationId: "a", createdAt: AT }],
+        tips: { main: "c" },
+      }),
+    ).toMatch(/no revision/);
+  });
+
+  test("a parent cycle is refused instead of walked forever", () => {
+    // Arrange: two entries that point at each other, off the main path
+    const healthy = root();
+    const loopA = {
+      id: "la",
+      parentId: "lb",
+      type: "comment",
+      annotationId: "x",
+      createdAt: AT,
+    } as const;
+    const loopB = {
+      id: "lb",
+      parentId: "la",
+      type: "comment",
+      annotationId: "y",
+      createdAt: AT,
+    } as const;
+    const cyclic = { ...healthy, entries: [...healthy.entries, loopA, loopB] };
+
+    // Assert
+    expect(validateHistory(cyclic)).toMatch(/own ancestor/);
+    expect(() => pathOf(cyclic, "la")).toThrow(HistoryError);
+  });
+});
+
 describe("forkHistory", () => {
   test("copies the path with its comments and labels, drops verdicts, starts at the head", () => {
     // Arrange
@@ -173,7 +225,7 @@ describe("forkHistory", () => {
     // Assert
     expect(fork.entries.map((entry) => entry.type)).toEqual(["revision", "comment"]);
     expect(fork.tips).toEqual({ [MAIN_BRANCH]: fork.entries[1]!.id });
-    expect(derivePath(fork).openAnnotationIds).toEqual(["a1"]);
+    expect(derivePath(fork).annotationIds).toEqual(["a1"]);
     // the label sat on the dropped verdict entry, so it does not travel
     expect(fork.labels).toEqual({});
     expect(history.labels[approvedTip]).toBe("approved v1");
@@ -208,7 +260,7 @@ describe("historyFromLinear", () => {
     const derived = derivePath(history);
 
     expect(derived.head.content).toBe("v2");
-    expect(derived.openAnnotationIds).toEqual(["early", "late"]);
+    expect(derived.annotationIds).toEqual(["early", "late"]);
     expect(derived.verdicts).toEqual([VERDICT]);
     expect(derived.rounds).toBe(2);
   });

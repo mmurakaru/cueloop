@@ -22,6 +22,7 @@ import {
   type ReviewSession,
   type Revision,
   type SessionHistory,
+  validateHistory,
   type Verdict,
   type WorkspaceKey,
 } from "@cueloop/schema";
@@ -234,12 +235,21 @@ export const SessionEntrySchema = v.variant("type", [
   }),
 ]);
 
-export const SessionHistorySchema = v.object({
-  entries: v.array(SessionEntrySchema),
-  tips: v.record(v.string(), NonEmpty),
-  branch: NonEmpty,
-  labels: v.record(v.string(), v.string()),
-} satisfies EntriesOf<SessionHistory>);
+export const SessionHistorySchema = v.pipe(
+  v.object({
+    entries: v.array(SessionEntrySchema),
+    tips: v.record(v.string(), NonEmpty),
+    branch: NonEmpty,
+    labels: v.record(v.string(), v.string()),
+  } satisfies EntriesOf<SessionHistory>),
+  // the shape is not enough: the tree itself must hold, or a walk hangs or rewires the path
+  v.rawCheck(({ dataset, addIssue }) => {
+    if (!dataset.typed) return;
+    const problem = validateHistory(dataset.value);
+
+    if (problem !== null) addIssue({ message: `history: ${problem}` });
+  }),
+);
 
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
 export const SessionRecordSchema = v.object({
