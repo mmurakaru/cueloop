@@ -10,13 +10,11 @@
 import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
 import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
 import {
-  cutBlock,
   detectHerdr,
   makeAnchor,
   newAnnotationId,
   parseBlocks,
   resolveAnchor,
-  restoreBlock,
   restoreLine,
   returnPaneFor,
   type Annotation,
@@ -36,7 +34,6 @@ import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import {
   changeRejectionForRow,
-  curateDiff,
   hunkRejectionForRow,
   isRowRejected,
   parseFileDiff,
@@ -77,6 +74,7 @@ export const SHARE_RECONNECT_MIN_MS = 1000;
 export const SHARE_RECONNECT_MAX_MS = 30_000;
 
 /** Shared empty set so "nothing rejected" is a stable identity for renders. */
+const EMPTY_REJECTIONS: HunkRejection[] = [];
 const EMPTY_REJECTED_ROWS: Set<number> = new Set();
 
 /** Shared empty list so "nothing curated out" is a stable identity for renders. */
@@ -304,7 +302,10 @@ class Controller implements ReviewController {
     models: new Map(),
   };
   /** The owner's per-hunk/change reject decisions for the open diff session. */
-  private rejections: HunkRejection[] = [];
+  /** The diff's reject decisions live on the session record; the daemon curates from them. */
+  private get rejections(): HunkRejection[] {
+    return this.snapshot.session?.curation ?? EMPTY_REJECTIONS;
+  }
 
   constructor(private readonly options: ReviewControllerOptions) {
     this.readOnly = options.readOnly ?? false;
@@ -460,7 +461,6 @@ class Controller implements ReviewController {
   // ── primitives ───────────────────────────────────
   open(id: string): void {
     this.locallyViewed.clear();
-    this.rejections = [];
     const cached = this.snapshot.inbox?.find((candidate) => candidate.id === id);
 
     if (cached) this.update({ session: cached });
@@ -495,7 +495,12 @@ class Controller implements ReviewController {
     if (block.type === "del") {
       this.restoreDelBlock(block, displayIndex);
     } else if (block.work) {
-      this.setWorkingCopy(cutBlock(working, block.work));
+      const workIndex = parseBlocks(working).findIndex(
+        (candidate) => candidate.lineStart === block.work!.lineStart,
+      );
+
+      if (workIndex === -1) return;
+      this.apply(this.client!.sessionCutBlock(session.id, workIndex));
       this.setStatus("block cut - it serializes into the diff");
     }
   }
@@ -510,11 +515,12 @@ class Controller implements ReviewController {
       nextWorkBlock(this.display(), displayIndex),
       working.split("\n").length,
     );
-    // restoreBlock returns undefined when the block structure round-trips to the
-    // submitted revision - the working copy is back to pristine and is dropped
-    const restored = restoreBlock(session.artifact.content, working, block.base, line);
+    const baseIndex = parseBlocks(session.artifact.content).findIndex(
+      (candidate) => candidate.lineStart === block.base!.lineStart,
+    );
 
-    this.setWorkingCopy(restored);
+    if (baseIndex === -1) return;
+    this.apply(this.client!.sessionRestoreBlock(session.id, baseIndex, line));
     this.setStatus(REMOVAL_RESTORED_STATUS);
   }
 
@@ -553,18 +559,18 @@ class Controller implements ReviewController {
     const wholeHunk = (rejection: HunkRejection): boolean => rejectsWholeHunk(rejection, target);
 
     if (this.rejections.some(wholeHunk)) {
-      this.rejections = this.rejections.filter((rejection) => !wholeHunk(rejection));
+      this.curate(this.rejections.filter((rejection) => !wholeHunk(rejection)));
       this.setStatus("hunk restored");
     } else {
       // a whole-hunk reject supersedes any change-level rejects inside it
-      this.rejections = this.rejections.filter(
+      const others = this.rejections.filter(
         (rejection) =>
           !(rejection.path === target.path && rejection.hunkIndex === target.hunkIndex),
       );
-      this.rejections.push(target);
+
+      this.curate([...others, target]);
       this.setStatus("hunk rejected - dropped from the working copy");
     }
-    this.recomputeCuration();
   }
 
   toggleRejectChange(rowIndex: number): void {
@@ -580,24 +586,20 @@ class Controller implements ReviewController {
 
     if (wholeCovers) return this.setStatus("the whole hunk is rejected - restore it first");
     if (this.rejections.some((rejection) => sameRejection(rejection, target))) {
-      this.rejections = this.rejections.filter((rejection) => !sameRejection(rejection, target));
+      this.curate(this.rejections.filter((rejection) => !sameRejection(rejection, target)));
       this.setStatus("change restored");
     } else {
-      this.rejections.push(target);
+      this.curate([...this.rejections, target]);
       this.setStatus("change rejected - dropped from the working copy");
     }
-    this.recomputeCuration();
   }
 
-  /** Recompute the curated patch and push it as the working copy (or clear it). */
-  private recomputeCuration(): void {
-    const files = this.snapshot.session?.artifact.files;
+  /** Hand the daemon the full set of reject decisions; the working copy follows. */
+  private curate(rejections: HunkRejection[]): void {
+    const session = this.snapshot.session;
 
-    if (!files) return;
-    // no decisions left = the working copy reverts to the full submitted diff
-    this.setWorkingCopy(this.rejections.length ? curateDiff(files, this.rejections) : undefined);
-    // dimming reads `rejections` directly; a bare update forces the re-read
-    this.update({});
+    if (!session) return;
+    this.apply(this.client!.sessionCurate(session.id, rejections));
   }
 
   rejectedRows(): Set<number> {
@@ -629,9 +631,8 @@ class Controller implements ReviewController {
       const kept = this.rejections.filter((rejection) => curationItemId(rejection) !== id);
 
       if (kept.length === this.rejections.length) return;
-      this.rejections = kept;
+      this.curate(kept);
       this.setStatus(REMOVAL_RESTORED_STATUS);
-      this.recomputeCuration();
 
       return;
     }
