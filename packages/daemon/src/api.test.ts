@@ -772,4 +772,35 @@ describe("tree primitives", () => {
     ]);
     expect(core.sessionList().map((session) => session.id)).toContain(fork.id);
   });
+
+  test("a fork's addressed marks follow its own numbering; one addressed off the path reopens", () => {
+    // Arrange: a1 addressed by round two, main navigated back before round two, round three submitted
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(created.id, comment("a1", "first"));
+    const beforeRoundTwo = tipOf(core.sessionGet(created.id).history!);
+
+    core.sessionSubmitRevision(created.id, "# Plan\n\nRound two.\n", ["a1"]);
+    core.sessionAnnotate(created.id, comment("a2", "second"));
+    core.sessionSubmitRevision(created.id, "# Plan\n\nRound three.\n", ["a2"]);
+
+    // Act: fork with both rounds on the path
+    const straight = core.sessionFork(created.id);
+
+    core.sessionNavigate(created.id, beforeRoundTwo);
+    core.sessionSubmitRevision(created.id, "# Plan\n\nRound four.\n");
+    // the source numbers this 4; on the fork's path it is the second revision
+    const rerouted = core.sessionFork(created.id);
+
+    // Assert
+    expect(straight.annotations.map((annotation) => annotation.resolution?.revision)).toEqual([
+      2, 3,
+    ]);
+    expect(rerouted.revisions.map((revision) => revision.content)).toEqual([
+      PLAN.content,
+      "# Plan\n\nRound four.\n",
+    ]);
+    expect(rerouted.annotations.map((annotation) => annotation.id)).toEqual(["a1"]);
+    expect(rerouted.annotations[0]!.resolution).toBeUndefined();
+  });
 });
