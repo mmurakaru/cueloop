@@ -283,13 +283,18 @@ export function navigateTo(
 
 /**
  * A fork's history: the current path copied as one branch, keeping comments
- * and labels on it, dropping verdicts, with the tip at the copied head.
+ * and labels on it, dropping verdicts and the reviewer's edits, with the tip
+ * at the copied head. The kept entries are chained anew so no entry points at
+ * one that was dropped.
  */
 export function forkHistory(history: SessionHistory): SessionHistory {
-  const kept = pathOf(history).filter((entry) => entry.type !== "verdict");
+  const kept: SessionEntry[] = [];
   const labels: Record<string, string> = {};
 
-  for (const entry of kept) {
+  for (const entry of pathOf(history)) {
+    if (entry.type === "verdict" || (entry.type === "revision" && entry.by === "reviewer"))
+      continue;
+    kept.push({ ...entry, parentId: kept.at(-1)?.id ?? null });
     const label = history.labels[entry.id];
 
     if (label !== undefined) labels[entry.id] = label;
