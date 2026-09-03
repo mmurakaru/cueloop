@@ -43,9 +43,19 @@ export function renderFeedback(input: FeedbackInput): string {
   // agent notes are the submitter's own context - never echoed back as
   // feedback - and annotations a previous revision already addressed stay out
   // of the next document, so the agent only ever sees the open items
-  const annotations = input.annotations.filter(
+  const open = input.annotations.filter(
     (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
   );
+  // a discussion is one item: the root comment, then its replies in order; a
+  // reply whose root is gone stands on its own
+  const ids = new Set(open.map((annotation) => annotation.id));
+  const annotations = open.filter(
+    (annotation) => annotation.replyTo === undefined || !ids.has(annotation.replyTo),
+  );
+  const repliesTo = (root: Annotation): Annotation[] =>
+    open
+      .filter((annotation) => annotation.replyTo === root.id)
+      .toSorted((left, right) => left.createdAt.localeCompare(right.createdAt));
   const isDiff = input.artifactType === "diff";
   const isPrototype = input.artifactType === "prototype";
   // A diff's annotations anchor to the submitted patch rows; resolve against it,
@@ -131,6 +141,14 @@ export function renderFeedback(input: FeedbackInput): string {
       lines.push("");
       lines.push(annotation.body);
       lines.push("");
+      const replies = repliesTo(annotation);
+
+      if (replies.length > 0) {
+        lines.push("Replies:");
+        lines.push("");
+        for (const reply of replies) lines.push(`- ${reply.body.replace(/\n/g, "\n  ")}`);
+        lines.push("");
+      }
       lines.push(`annotation id: \`${annotation.id}\``);
       lines.push("");
     });

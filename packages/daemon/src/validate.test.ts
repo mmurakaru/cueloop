@@ -204,6 +204,7 @@ describe("wire pins", () => {
     body: "b",
     orphan: false,
     author: "SHA256:abc",
+    replyTo: "a0",
     resolution: { revision: 2, source: "agent" },
     createdAt: "now",
   };

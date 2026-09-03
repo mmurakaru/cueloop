@@ -24,8 +24,13 @@ number and not a floating comment - it holds onto the words themselves.
 - a **stable id**, minted on the client the moment you write the note,
 - a **quote-primary anchor** - the exact text the note is pinned to,
 - a **body** - what you have to say,
-- a **kind** - `comment` or `suggestion`, and
-- an **author**.
+- a **kind** - `comment` or `suggestion`,
+- an **author**, and
+- for a reply, the comment it answers (`replyTo`, the root comment's id).
+
+A comment and its replies form a discussion. A reply shares its root's anchor,
+so the whole discussion moves together when the text is edited, and the agent
+receives it as one item: the root comment with its replies listed underneath.
 
 The client mints the id, which matters for the merge rules below: an annotation
 has a durable identity from the first keystroke, before it ever leaves your
