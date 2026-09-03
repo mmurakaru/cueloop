@@ -335,6 +335,21 @@ export class DaemonServer {
 
       return this.core.sessionSetWorkingCopy(params.id, params.workingCopy);
     },
+    "session.cutBlock": (_connection, request) => {
+      const params = parseParams("session.cutBlock", request.params);
+
+      return this.core.sessionCutBlock(params.id, params.blockIndex);
+    },
+    "session.restoreBlock": (_connection, request) => {
+      const params = parseParams("session.restoreBlock", request.params);
+
+      return this.core.sessionRestoreBlock(params.id, params.baseBlockIndex, params.line);
+    },
+    "session.curate": (_connection, request) => {
+      const params = parseParams("session.curate", request.params);
+
+      return this.core.sessionCurate(params.id, params.rejections);
+    },
     "session.setViewed": (_connection, request) => {
       const params = parseParams("session.setViewed", request.params);
 

@@ -261,6 +261,7 @@ describe("wire pins", () => {
       branch: "main",
       labels: { e1: "start" },
     },
+    curation: [{ path: "src/a.ts", hunkIndex: 0, changeIndex: 1 }],
     workingCopy: "# P edited",
     viewedPaths: ["src/a.ts"],
     verdict: fullVerdict,

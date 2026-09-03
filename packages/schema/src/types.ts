@@ -63,6 +63,17 @@ export interface ArtifactMeta {
 /** How a file changed, so curation emits the right create/delete headers. */
 export type DiffFileStatus = "added" | "modified" | "deleted";
 
+/**
+ * One reject decision of a diff review: a whole hunk, or one change block of
+ * it when `changeIndex` is set. The daemon curates the working copy from the
+ * full set, so every client sees the same patch.
+ */
+export interface HunkRejection {
+  path: string;
+  hunkIndex: number;
+  changeIndex?: number;
+}
+
 export interface DiffFileContents {
   path: string;
   oldContents: string;
@@ -206,6 +217,8 @@ export interface ReviewSession {
    * those on read.
    */
   history?: SessionHistory;
+  /** A diff review's reject decisions; the working copy is the patch they leave. */
+  curation?: HunkRejection[];
   /**
    * The reviewer's working copy of the artifact source (plan edits).
    * Serializes as ONE unified diff against the submitted revision.

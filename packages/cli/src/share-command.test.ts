@@ -43,6 +43,9 @@ function fakeClient(sessions: ReviewSession[]): SessionClient {
     sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
+    sessionCutBlock: unimplemented("sessionCutBlock"),
+    sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
+    sessionCurate: unimplemented("sessionCurate"),
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetShareId: mock(async (id: string, shareId: string) => {
       const session = sessions.find((candidate) => candidate.id === id)!;

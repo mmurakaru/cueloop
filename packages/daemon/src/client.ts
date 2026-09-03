@@ -9,6 +9,7 @@ import * as v from "valibot";
 import type {
   Annotation,
   Artifact,
+  HunkRejection,
   Identity,
   ReviewSession,
   VerdictKind,
@@ -68,6 +69,12 @@ export interface SessionClient {
   /** Remove a comment; a non-owner connection removes only the comments of the author it is bound to. */
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession>;
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession>;
+  /** Cut the `blockIndex`-th block of the working copy. */
+  sessionCutBlock(id: string, blockIndex: number): Promise<ReviewSession>;
+  /** Re-insert the `baseBlockIndex`-th block of the submitted revision before `line` (default: the end). */
+  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<ReviewSession>;
+  /** Replace a diff review's reject decisions; the working copy follows. */
+  sessionCurate(id: string, rejections: HunkRejection[]): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
   sessionMergeShared(
@@ -303,6 +310,19 @@ export class DaemonClient implements SessionClient {
   }
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession> {
     return this.request("session.setWorkingCopy", { id, workingCopy }, SessionRecordSchema);
+  }
+  sessionCutBlock(id: string, blockIndex: number): Promise<ReviewSession> {
+    return this.request("session.cutBlock", { id, blockIndex }, SessionRecordSchema);
+  }
+  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<ReviewSession> {
+    return this.request(
+      "session.restoreBlock",
+      line === undefined ? { id, baseBlockIndex } : { id, baseBlockIndex, line },
+      SessionRecordSchema,
+    );
+  }
+  sessionCurate(id: string, rejections: HunkRejection[]): Promise<ReviewSession> {
+    return this.request("session.curate", { id, rejections }, SessionRecordSchema);
   }
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession> {
     return this.request("session.setViewed", { id, viewedPaths }, SessionRecordSchema);

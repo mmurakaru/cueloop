@@ -104,6 +104,18 @@ export class BlobSessionClient implements SessionClient {
     return rejectReadOnly();
   }
 
+  sessionCutBlock(): Promise<ReviewSession> {
+    return rejectReadOnly();
+  }
+
+  sessionRestoreBlock(): Promise<ReviewSession> {
+    return rejectReadOnly();
+  }
+
+  sessionCurate(): Promise<ReviewSession> {
+    return rejectReadOnly();
+  }
+
   sessionSetViewed(): Promise<ReviewSession> {
     return rejectReadOnly();
   }

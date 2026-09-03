@@ -8,6 +8,7 @@
 import {
   SCHEMA_VERSION,
   appendEntry,
+  cutBlock,
   feedbackForSession,
   historyFromLinear,
   isAddressed,
@@ -17,9 +18,11 @@ import {
   parseBlocks,
   registerParticipant,
   resolveAnchor,
+  restoreBlock,
   switchBranch,
   verdictAllows,
   type Annotation,
+  type HunkRejection,
   type NewEntry,
   type Artifact,
   type Identity,
@@ -28,6 +31,7 @@ import {
   type VerdictKind,
   type WorkspaceKey,
 } from "@cueloop/schema";
+import { curateDiff } from "./curate";
 import { SessionStore, withHistory } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
 import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
@@ -268,12 +272,10 @@ export class DaemonCore {
   /** The reviewer's working copy; undefined clears it (revert all edits). */
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): ReviewSession {
     const session = this.mutable(id);
+    const entryId = this.applyWorkingCopy(session, workingCopy);
 
-    if (workingCopy === undefined || workingCopy === session.artifact.content)
-      delete session.workingCopy;
-    else session.workingCopy = workingCopy;
     this.store.upsert(session);
-    this.emit("session.updated", id);
+    this.emit("session.updated", id, entryId);
 
     return session;
   }
@@ -313,6 +315,78 @@ export class DaemonCore {
     this.diffRefreshGenerations.delete(id);
     this.herdrTabs.delete(id);
     this.emit("inbox.changed", id);
+  }
+
+  /**
+   * Cut one block of the reviewer's working copy - the `blockIndex`-th block
+   * of the working text - so it serializes into the diff the agent receives.
+   */
+  sessionCutBlock(id: string, blockIndex: number): ReviewSession {
+    const session = this.mutable(id);
+    const working = session.workingCopy ?? session.artifact.content;
+    const block = parseBlocks(working)[blockIndex];
+
+    if (!block)
+      throw new DaemonError("invalid_params", `no block ${blockIndex} in the working copy`);
+    const entryId = this.applyWorkingCopy(session, cutBlock(working, block));
+
+    this.store.upsert(session);
+    this.emit("session.updated", id, entryId);
+
+    return session;
+  }
+
+  /**
+   * Re-insert a cut block - the `baseBlockIndex`-th block of the submitted
+   * revision - into the working copy before `line` (default: the end). A copy
+   * that reads as the submitted revision again is dropped, not stored.
+   */
+  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): ReviewSession {
+    const session = this.mutable(id);
+    const base = session.artifact.content;
+    const block = parseBlocks(base)[baseBlockIndex];
+
+    if (!block) {
+      throw new DaemonError(
+        "invalid_params",
+        `no block ${baseBlockIndex} in the submitted revision`,
+      );
+    }
+    const working = session.workingCopy ?? base;
+    const beforeLine = Math.min(line ?? working.split("\n").length, working.split("\n").length);
+    const entryId = this.applyWorkingCopy(session, restoreBlock(base, working, block, beforeLine));
+
+    this.store.upsert(session);
+    this.emit("session.updated", id, entryId);
+
+    return session;
+  }
+
+  /**
+   * Replace a diff review's reject decisions; the working copy becomes the
+   * patch they leave, or clears when nothing is rejected. Needs the full file
+   * contents a working-tree diff carries; a PR diff cannot be curated.
+   */
+  sessionCurate(id: string, rejections: HunkRejection[]): ReviewSession {
+    const session = this.mutable(id);
+
+    if (session.artifact.type !== "diff") {
+      throw new DaemonError("invalid_params", "only a diff review is curated by hunk");
+    }
+    if (!session.artifact.files) {
+      throw new DaemonError("invalid_params", "hunk curation needs full file contents");
+    }
+    if (rejections.length === 0) delete session.curation;
+    else session.curation = rejections;
+    const entryId = this.applyWorkingCopy(
+      session,
+      rejections.length === 0 ? undefined : curateDiff(session.artifact.files, rejections),
+    );
+
+    this.store.upsert(session);
+    this.emit("session.updated", id, entryId);
+
+    return session;
   }
 
   /**
@@ -498,6 +572,34 @@ export class DaemonCore {
   private unwatchIfDiffSession(session: ReviewSession): void {
     if (session.artifact.type === "diff")
       this.diffWatcher.untrackDiffRepo(session.workspace.repoRoot, session.id);
+  }
+
+  /**
+   * Set or clear the working copy and, when the reviewer's text changed, record
+   * it as a reviewer revision on the current branch. Returns that entry's id.
+   */
+  private applyWorkingCopy(
+    session: ReviewSession,
+    workingCopy: string | undefined,
+  ): string | undefined {
+    const before = session.workingCopy ?? session.artifact.content;
+    const next =
+      workingCopy === undefined || workingCopy === session.artifact.content
+        ? undefined
+        : workingCopy;
+
+    if (next === undefined) delete session.workingCopy;
+    else session.workingCopy = next;
+    const after = next ?? session.artifact.content;
+
+    if (after === before) return undefined;
+
+    return this.record(session, {
+      type: "revision",
+      by: "reviewer",
+      content: after,
+      createdAt: new Date().toISOString(),
+    });
   }
 
   /** Append an entry on the session's current branch; a session without a head has no history to extend. */
