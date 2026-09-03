@@ -29,6 +29,8 @@ import { cueloopHome, lockPath, ownerTokenPath, pidPath, socketPath } from "./pa
 import { randomBytes } from "node:crypto";
 
 interface Connection {
+  /** The author a non-owner connection acts as, bound in the handshake. */
+  author?: string;
   write(data: string): void;
   subscribed: boolean;
   /** Capability role for this connection; the owner until a daemon.hello caps it. */
@@ -264,6 +266,8 @@ export class DaemonServer {
         throw new DaemonError("forbidden", "owner token required");
       }
       connection.role = params.role;
+      // identity is bound once, here; a non-owner never names it per call
+      if (params.role !== "owner" && params.author !== undefined) connection.author = params.author;
 
       return {};
     },
@@ -302,19 +306,27 @@ export class DaemonServer {
     "session.removeAnnotation": (connection, request) => {
       const params = parseParams("session.removeAnnotation", request.params);
 
-      // the owner removes any comment; everyone else must say whose comment it removes
-      if (connection.role !== "owner" && params.onBehalfOf === undefined) {
-        throw new DaemonError("forbidden", "a non-owner removes comments on behalf of an author");
+      // the owner removes any comment; a non-owner only the ones of the author it is bound to
+      if (connection.role !== "owner" && connection.author === undefined) {
+        throw new DaemonError(
+          "forbidden",
+          "a non-owner connection removes comments as its bound author",
+        );
       }
 
       return this.core.sessionRemoveAnnotation(
         params.id,
         params.annotationId,
-        connection.role === "owner" ? undefined : params.onBehalfOf,
+        connection.role === "owner" ? undefined : connection.author,
       );
     },
-    "session.setParticipantName": (_connection, request) => {
+    "session.setParticipantName": (connection, request) => {
       const params = parseParams("session.setParticipantName", request.params);
+
+      // the owner names anyone; a non-owner names only the author it is bound to
+      if (connection.role !== "owner" && params.author !== connection.author) {
+        throw new DaemonError("forbidden", "a non-owner connection names only its bound author");
+      }
 
       return this.core.sessionSetParticipantName(params.id, params.author, params.name);
     },

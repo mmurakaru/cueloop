@@ -140,12 +140,7 @@ export const Params = {
     annotation: AnnotationSchema,
     authorName: v.optional(v.string()),
   }),
-  "session.removeAnnotation": v.object({
-    id: SessionId,
-    annotationId: NonEmpty,
-    // a non-owner removes only the comments of the author it acts as
-    onBehalfOf: v.optional(NonEmpty),
-  }),
+  "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
   "session.setParticipantName": v.object({ id: SessionId, author: NonEmpty, name: NonEmpty }),
   "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
@@ -174,6 +169,8 @@ export const Params = {
   "daemon.hello": v.object({
     role: v.picklist(["owner", "collaborator", "agent"]),
     token: v.optional(v.string()),
+    // the author a non-owner acts as, bound once for the connection
+    author: v.optional(NonEmpty),
   }),
   "daemon.shutdown": v.object({}),
   // herdr adapter scratch: the review's opened tab, kept off the session record.

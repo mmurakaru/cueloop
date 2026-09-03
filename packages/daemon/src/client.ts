@@ -35,6 +35,8 @@ export interface ConnectOptions {
   autostart?: boolean;
   /** Capability role for this connection; a review-side agent connects capped. Defaults to owner. */
   role?: DaemonRole;
+  /** The author a non-owner connection acts as; its comments, removals, and name are bound to it. */
+  author?: string;
 }
 
 type PendingRequest = {
@@ -63,12 +65,8 @@ export interface SessionClient {
     annotation: Omit<Annotation, "createdAt">,
     authorName?: string,
   ): Promise<ReviewSession>;
-  /** Remove a comment; a non-owner passes the author it acts as and removes only that author's. */
-  sessionRemoveAnnotation(
-    id: string,
-    annotationId: string,
-    onBehalfOf?: string,
-  ): Promise<ReviewSession>;
+  /** Remove a comment; a non-owner connection removes only the comments of the author it is bound to. */
+  sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession>;
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
@@ -83,10 +81,11 @@ export interface SessionClient {
   close(): void;
 }
 
-/** What a connection says about itself: its role, and the owner token when it claims ownership. */
+/** What a connection says about itself: its role, the owner token when it claims ownership, the author it acts as otherwise. */
 interface HelloParams {
   role: DaemonRole;
   token?: string;
+  author?: string;
 }
 
 /** The token as the daemon writes it: 32 random bytes in hex. */
@@ -117,6 +116,7 @@ export class DaemonClient implements SessionClient {
   private eventListeners = new Set<(event: EventFrame) => void>();
   private closed = false;
   private role: DaemonRole = "owner";
+  private author: string | undefined;
   private home = cueloopHome();
 
   static async connect(options: ConnectOptions = {}): Promise<DaemonClient> {
@@ -125,6 +125,7 @@ export class DaemonClient implements SessionClient {
     const client = new DaemonClient();
 
     client.role = options.role ?? "owner";
+    client.author = options.author;
     client.home = home;
     try {
       await client.dial(path);
@@ -188,7 +189,11 @@ export class DaemonClient implements SessionClient {
   }
 
   private helloParams(): HelloParams {
-    if (this.role !== "owner") return { role: this.role };
+    if (this.role !== "owner") {
+      return this.author === undefined
+        ? { role: this.role }
+        : { role: this.role, author: this.author };
+    }
     const token = readOwnerToken(this.home);
 
     // a daemon from before owner tokens has no file; it still knows the bare hello
@@ -289,16 +294,8 @@ export class DaemonClient implements SessionClient {
   ): Promise<ReviewSession> {
     return this.request("session.annotate", { id, annotation, authorName }, SessionRecordSchema);
   }
-  sessionRemoveAnnotation(
-    id: string,
-    annotationId: string,
-    onBehalfOf?: string,
-  ): Promise<ReviewSession> {
-    return this.request(
-      "session.removeAnnotation",
-      onBehalfOf === undefined ? { id, annotationId } : { id, annotationId, onBehalfOf },
-      SessionRecordSchema,
-    );
+  sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession> {
+    return this.request("session.removeAnnotation", { id, annotationId }, SessionRecordSchema);
   }
   /** Register a display name for a participant - a collaborator's or an agent's own, on a share or locally. */
   sessionSetParticipantName(id: string, author: string, name: string): Promise<ReviewSession> {
