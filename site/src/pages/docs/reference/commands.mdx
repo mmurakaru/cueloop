@@ -99,6 +99,13 @@ Primitives: `create`, `get`, `list`, `wait`, `annotate`, `resolve`,
 `submit-revision`. Each prints JSON, so it composes with other tools. Run
 `cueloop session` with no primitive for the flag list.
 
+Every connection to the daemon starts as a collaborator: it can read sessions,
+wait on them, and comment. Ownership is proven, not declared - the daemon mints
+an owner token into its home directory on every run, readable by that user
+alone, and the local client presents it when it connects. A review-side agent
+connects with `--role agent` and never sees the token, so it cannot resolve,
+rewrite, cut, share, or delete, whatever it sends.
+
 **`cueloop refine`** reads the stored corpus of past reviews and writes a
 markdown report of every reviewer annotation, grouped by kind with its session,
 primitive, and quote - the raw material for turning recurring feedback into
