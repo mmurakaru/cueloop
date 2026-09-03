@@ -7,9 +7,8 @@ prev: { title: "Configuration", href: "/docs/reference/configuration/" }
 next: { title: "Sharing over SSH", href: "/docs/sharing/" }
 ---
 
-The thread view is opt-in: start cueloop with `CUELOOP_THREAD_VIEW=1` and a plan
-or reply opens as a thread instead of the plan sheet. Press the menu's
-**keybinds** entry inside the view to see this list in the terminal.
+Plans and replies open in the thread view. Press the menu's **keybinds**
+entry to see this list in the terminal.
 
 ## Marking text
 
@@ -59,7 +58,33 @@ carries the text of every block it covers, and the card sits under the last one.
   default. Add <code>keybind = super+enter=unbind</code> to its config, or send with ctrl+enter.
 </div>
 
-## The plan sheet
+## The session
 
-Without `CUELOOP_THREAD_VIEW`, plans open in the plan sheet, whose keys are
-rebindable in the `[keys]` table of the [configuration](/docs/reference/configuration/#keys).
+Letters type a comment, so everything that acts on the review as a whole
+sits on a ctrl chord.
+
+| Input        | What it does                                     |
+| ------------ | ------------------------------------------------ |
+| `ctrl+enter` | open the submit card (with no comment open)      |
+| `ctrl+e`     | edit the plan in `$EDITOR`                       |
+| `ctrl+s`     | share the plan                                   |
+| `ctrl+r`     | cycle the review rail: expanded, compact, hidden |
+
+## The rail and curation
+
+Option plus a letter drives the review rail and the curation of the plan.
+
+| Input                   | What it does                    |
+| ----------------------- | ------------------------------- |
+| `option+n` / `option+p` | focus the next or previous card |
+| `option+e`              | edit the focused card in place  |
+| `option+backspace`      | delete the focused card         |
+| `option+r`              | rename a collaborator           |
+| `option+x`              | cut the block under the caret   |
+| `option+u`              | restore the last cut            |
+| `option+w` / `option+s` | widen or narrow the rail        |
+
+## Diff reviews
+
+Diff reviews keep the diff sheet and the rebindable keys of the
+[`[keys]` table](/docs/reference/configuration/#keys).

@@ -20,8 +20,6 @@ import { DaemonServer } from "@cueloop/daemon";
 import { runClient } from "@cueloop/client";
 import { makeAnchor, parseBlocks } from "@cueloop/schema";
 
-process.env.CUELOOP_THREAD_VIEW = "1";
-
 const home = mkdtempSync(join(tmpdir(), "cueloop-example-"));
 const server = new DaemonServer({ home, idleExitMs: 0 });
 server.start();
