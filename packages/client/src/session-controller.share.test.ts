@@ -261,6 +261,29 @@ describe("reply", () => {
     expect(pushShare.mock.calls[0]?.[1]).toEqual([wire]);
   });
 
+  test("editing a reply keeps its reply link", async () => {
+    // Arrange
+    const { controller, client } = await connectedController(
+      sessionFixture({
+        annotations: [
+          annotation("a1", "SHA256:ana"),
+          { ...annotation("a2", "SHA256:me"), replyTo: "a1" },
+        ],
+      }),
+    );
+
+    // Act
+    controller.updateAnnotation("a2", "revised reply");
+    await tick();
+
+    // Assert
+    expect(client.sessionAnnotate.mock.calls.at(-1)?.[1]).toMatchObject({
+      id: "a2",
+      body: "revised reply",
+      replyTo: "a1",
+    });
+  });
+
   test("a reply to a reply hangs off the discussion's root comment", async () => {
     // Arrange
     const { controller, client } = await connectedController(

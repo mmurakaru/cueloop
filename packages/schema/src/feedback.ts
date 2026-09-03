@@ -46,11 +46,15 @@ export function renderFeedback(input: FeedbackInput): string {
   const open = input.annotations.filter(
     (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
   );
-  // a discussion is one item: the root comment, then its replies in order; a
-  // reply whose root is gone stands on its own
-  const ids = new Set(open.map((annotation) => annotation.id));
+  // a discussion is one item: the root comment, then its replies in order. A
+  // reply whose root was addressed leaves with it; only a reply whose root is
+  // gone entirely stands on its own
+  const openIds = new Set(open.map((annotation) => annotation.id));
+  const knownIds = new Set(input.annotations.map((annotation) => annotation.id));
   const annotations = open.filter(
-    (annotation) => annotation.replyTo === undefined || !ids.has(annotation.replyTo),
+    (annotation) =>
+      annotation.replyTo === undefined ||
+      (!openIds.has(annotation.replyTo) && !knownIds.has(annotation.replyTo)),
   );
   const repliesTo = (root: Annotation): Annotation[] =>
     open
