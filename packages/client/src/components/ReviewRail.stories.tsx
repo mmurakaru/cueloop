@@ -6,8 +6,21 @@ import { FIXTURE_ANNOTATIONS, fixtureDiffSession, fixturePlanSession } from "./s
 
 export const meta: StoryMeta = { title: "ReviewRail" };
 
+/** An empty Tree tab: the stories here show the review tab. */
+const tree = {
+  rows: [],
+  canMove: true,
+  onSelect: () => {},
+  onGo: () => {},
+  onBranch: () => {},
+  onLabel: () => {},
+  onFork: () => {},
+  onForkAndShare: () => {},
+};
+
 const callbacks = {
   curationItems: [],
+  tree,
   onTabChange: () => {},
   onSelectCard: () => {},
   onActivateCard: () => {},

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { resolveThreadChord } from "./thread-chords";
 
-const owner = { composing: false, isOwner: true, resolved: false };
+const owner = { composing: false, isOwner: true, resolved: false, treeActive: false };
 
 describe("resolveThreadChord", () => {
   test("ctrl+enter opens the submit overlay for an owner with an open review", () => {
@@ -97,6 +97,48 @@ describe("resolveThreadChord", () => {
     expect(resolveThreadChord({ name: "u", meta: true }, resolved)).toEqual(submitted);
     expect(resolveThreadChord({ name: "r", meta: true }, resolved)).toEqual({ type: "openRename" });
     expect(resolveThreadChord({ name: "s", ctrl: true }, resolved)).toEqual({ type: "share" });
+  });
+
+  test("the tree chords: toggle, move on the Tree tab, go, branch, label, fork, hand off", () => {
+    // Arrange
+    const onTree = { ...owner, treeActive: true };
+    const readOnly = { type: "status" as const, message: "observer - read-only" };
+    const submitted = { type: "status" as const, message: "review submitted - read-only" };
+
+    // Assert: next / previous follow the tab that shows
+    expect(resolveThreadChord({ name: "t", meta: true }, owner)).toEqual({ type: "toggleTree" });
+    expect(resolveThreadChord({ name: "n", meta: true }, onTree)).toEqual({
+      type: "treeMove",
+      direction: 1,
+    });
+    expect(resolveThreadChord({ name: "p", meta: true }, onTree)).toEqual({
+      type: "treeMove",
+      direction: -1,
+    });
+    expect(resolveThreadChord({ name: "n", meta: true }, owner)).toEqual({
+      type: "nextAnnotation",
+    });
+    expect(resolveThreadChord({ name: "g", meta: true }, owner)).toEqual({ type: "treeGo" });
+    expect(resolveThreadChord({ name: "b", meta: true }, owner)).toEqual({ type: "treeBranch" });
+    expect(resolveThreadChord({ name: "l", meta: true }, owner)).toEqual({ type: "treeLabel" });
+    expect(resolveThreadChord({ name: "f", meta: true }, owner)).toEqual({ type: "treeFork" });
+    expect(resolveThreadChord({ name: "h", meta: true }, owner)).toEqual({ type: "treeForkShare" });
+    // moving the tree is the owner's; a fork is open after a verdict, a move is not
+    expect(resolveThreadChord({ name: "g", meta: true }, { ...owner, isOwner: false })).toEqual(
+      readOnly,
+    );
+    expect(resolveThreadChord({ name: "f", meta: true }, { ...owner, isOwner: false })).toEqual(
+      readOnly,
+    );
+    expect(resolveThreadChord({ name: "b", meta: true }, { ...owner, resolved: true })).toEqual(
+      submitted,
+    );
+    expect(resolveThreadChord({ name: "f", meta: true }, { ...owner, resolved: true })).toEqual({
+      type: "treeFork",
+    });
+    expect(resolveThreadChord({ name: "t", meta: true }, { ...owner, isOwner: false })).toEqual({
+      type: "toggleTree",
+    });
   });
 
   test("an observer cannot edit or delete cards either", () => {

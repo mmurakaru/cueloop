@@ -1,4 +1,4 @@
-// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+// Bun Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`stories catalog AnnotationCard/CommentDraft renders, snapshots, and carries its colors: AnnotationCard/CommentDraft 1`] = `
 "╭─ comment on "persists sessions" ─────────────────────────────────────────────╮
@@ -716,7 +716,7 @@ exports[`stories catalog ReviewPanel/Compact renders, snapshots, and carries its
 
 exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carries its colors: ReviewPanel/ExpandedNarrow 1`] = `
 " The plan takes the width the panel hands back.         ╭──────────────────────╮
-                                                        │ Review  Agent        │
+                                                        │ Review  Tree  Agent  │
                                                         ╰──────────────────────╯
                                                         ╭─ COMMENT · me ───────╮
                                                         │ Whichidaemonsownss"  │
@@ -744,7 +744,7 @@ exports[`stories catalog ReviewPanel/ExpandedNarrow renders, snapshots, and carr
 
 exports[`stories catalog ReviewPanel/ExpandedWide renders, snapshots, and carries its colors: ReviewPanel/ExpandedWide 1`] = `
 " The plan takes the width the panel     ╭────────────────────────────────────────────────╮
- hands back.                            │ Review  Agent                                  │
+ hands back.                            │ Review  Tree  Agent                            │
                                         ╰────────────────────────────────────────────────╯
                                         ╭─ COMMENT · me ─────────────────────────────────╮
                                         │ "persists sessions"                            │
@@ -800,7 +800,7 @@ exports[`stories catalog ReviewPanel/Hidden renders, snapshots, and carries its 
 
 exports[`stories catalog ReviewRail/AgentTab renders, snapshots, and carries its colors: ReviewRail/AgentTab 1`] = `
 "╭────────────────────────────────╮      
-│ Review  Agent                  │      
+│ Review  Tree  Agent            │      
 ╰────────────────────────────────╯      
 ╭────────────────────────────────╮      
 │ Claude Code                    │      
@@ -828,7 +828,7 @@ plan context: seed the plan
 
 exports[`stories catalog ReviewRail/AnnotationStack renders, snapshots, and carries its colors: ReviewRail/AnnotationStack 1`] = `
 "╭────────────────────────────────╮      
-│ Review  Agent                  │      
+│ Review  Tree  Agent            │      
 ╰────────────────────────────────╯      
 ╭─ COMMENT · me ─────────────────╮      
 │ "persists sessions"            │      
@@ -856,7 +856,7 @@ Submit review
 
 exports[`stories catalog ReviewRail/InterleavedStack renders, snapshots, and carries its colors: ReviewRail/InterleavedStack 1`] = `
 "╭────────────────────────────────╮      
-│ Review  Agent                  │      
+│ Review  Tree  Agent            │      
 ╰────────────────────────────────╯      
 ╭─ CUT · me ─────────────────────╮      
 │ - add recovery                 │      
@@ -884,7 +884,7 @@ Submit review
 
 exports[`stories catalog ReviewRail/MixedOwnershipStack renders, snapshots, and carries its colors: ReviewRail/MixedOwnershipStack 1`] = `
 "╭────────────────────────────────╮      
-│ Review  Agent                  │      
+│ Review  Tree  Agent            │      
 ╰────────────────────────────────╯      
 ╭─ COMMENT · me ─────────────────╮      
 │ "persists sessions"            │      
@@ -912,7 +912,7 @@ Submit review
 
 exports[`stories catalog ReviewRail/Removals renders, snapshots, and carries its colors: ReviewRail/Removals 1`] = `
 "╭────────────────────────────────╮      
-│ Review  Agent                  │      
+│ Review  Tree  Agent            │      
 ╰────────────────────────────────╯      
 ╭─ REJECT · me ──────────────────╮      
 │ -   private items = [];        │      
@@ -940,7 +940,7 @@ Submit review
 
 exports[`stories catalog ReviewRail/Resolved renders, snapshots, and carries its colors: ReviewRail/Resolved 1`] = `
 "╭────────────────────────────────╮      
-│ Review  Agent                  │      
+│ Review  Tree  Agent            │      
 ╰────────────────────────────────╯      
 ╭─ COMMENT · me · ORPHANED ──────╮      
 │ "persists sessions"            │      
@@ -968,7 +968,7 @@ resolved: approve
 
 exports[`stories catalog ReviewRail/SubmitConfirmOpen renders, snapshots, and carries its colors: ReviewRail/SubmitConfirmOpen 1`] = `
 "╭────────────────────────────────╮      
-│ Review  Agent                  │      
+│ Review  Tree  Agent            │      
 ╰────────────────────────────────╯      
 ╭─ COMMENT · me · ORPHANED ──────╮      
 │ "persists sessions"            │      
@@ -1181,6 +1181,58 @@ exports[`stories catalog Toast/ShareLink renders, snapshots, and carries its col
                                                             
                                                             
                                                             
+"
+`;
+
+exports[`stories catalog TreePane/CollaboratorReadsOnly renders, snapshots, and carries its colors: TreePane/CollaboratorReadsOnly 1`] = `
+" ◉ revision 1                           
+ · comment  ⚑ start                     
+   · comment  ← alt                     
+ ● revision 2  ← main                   
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+"
+`;
+
+exports[`stories catalog TreePane/NoHistory renders, snapshots, and carries its colors: TreePane/NoHistory 1`] = `
+"                                        
+                                        
+                                        
+             no history yet             
+                                        
+                                        
+                                        
+                                        
+"
+`;
+
+exports[`stories catalog TreePane/OwnerWithBranch renders, snapshots, and carries its colors: TreePane/OwnerWithBranch 1`] = `
+" ◉ revision 1                           
+ · comment  ⚑ start                     
+   · comment  ← alt                     
+ ● revision 2  ← main                   
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+ Go Branch Label Fork Fork+share        
 "
 `;
 

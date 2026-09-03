@@ -13,6 +13,8 @@ import { displayText, spanKey, startSpan, type DisplayBlock, type SpanState } fr
 import type { DiffRow } from "./view-diff";
 import type { ReviewController } from "./session-controller";
 import type { Intent } from "./keymap";
+import type { TreeRow } from "./tree-view";
+import type { RailTab } from "./components/ReviewRail";
 import { quickActionBody, type QuickAction } from "./config";
 import { VERDICTS } from "./components/ConfirmCard";
 import {
@@ -39,7 +41,11 @@ export type Mode =
   | { type: "submit"; verdict: VerdictKind; summary: string }
   | { type: "confirmDelete"; sessionId: string; title: string }
   | { type: "rename"; authorId: string; text: string }
-  | { type: "nameSelf"; text: string };
+  | { type: "nameSelf"; text: string }
+  | { type: "treePrompt"; ask: TreeAsk; entryId?: string; text: string };
+
+/** What a tree prompt asks for: a branch name, a checkpoint name, or the summary a move back leaves. */
+export type TreeAsk = "branch" | "label" | "navigate";
 
 /** The marked span for span mode and its quick-actions sub-mode; null otherwise. */
 export function activeSpanState(mode: Mode): SpanState | null {
@@ -87,6 +93,9 @@ export interface IntentDispatchDeps {
   focusedAnnotationId: string | undefined;
   /** The curation item selected in the rail, if any; the undo target when set. */
   selectedCurationId: string | undefined;
+  railTab: RailTab;
+  /** The tree row selected in the rail's Tree tab; the target of go. */
+  selectedEntryId: string | undefined;
   /** Planner-local author renames, for seeding the rename prompt. */
   authorNames: Record<string, string>;
   /** Marker-popover quick actions, in list order; picking one inserts a preset comment. */
@@ -102,7 +111,8 @@ export interface IntentDispatchDeps {
   setMode: Dispatch<SetStateAction<Mode>>;
   setReviewMode: Dispatch<SetStateAction<ReviewPanelMode>>;
   setReviewWidth: Dispatch<SetStateAction<number>>;
-  setRailTab: Dispatch<SetStateAction<"review" | "agent">>;
+  setRailTab: Dispatch<SetStateAction<RailTab>>;
+  setSelectedEntryId: Dispatch<SetStateAction<string | undefined>>;
   setFocusedAnnotationId: Dispatch<SetStateAction<string | undefined>>;
   setSelectedCurationId: Dispatch<SetStateAction<string | undefined>>;
   setPulsedAnnotationId: Dispatch<SetStateAction<string | null>>;
@@ -185,6 +195,7 @@ function handleConfirmDialog(
   if (mode.type === "confirmDelete") controller.deleteSession(mode.sessionId);
   else if (mode.type === "rename") deps.renameAuthor(mode.authorId, mode.text.trim());
   else if (mode.type === "nameSelf") controller.setSelfName(mode.text.trim());
+  else if (mode.type === "treePrompt") confirmTreePrompt(mode, deps);
   deps.setMode({ type: "normal" });
 }
 
@@ -516,6 +527,66 @@ function handleResizeReviewPanel(
   deps.controller.saveReviewPanel({ width: next });
 }
 
+function confirmTreePrompt(
+  mode: Extract<Mode, { type: "treePrompt" }>,
+  deps: IntentDispatchDeps,
+): void {
+  if (mode.ask === "branch") deps.controller.branch(mode.text);
+  else if (mode.ask === "label") deps.controller.labelTip(mode.text);
+  else if (mode.entryId !== undefined) deps.controller.goToEntry(mode.entryId, mode.text.trim());
+}
+
+function handleToggleTree(_intent: IntentOfType<"toggleTree">, deps: IntentDispatchDeps): void {
+  deps.setRailTab(deps.railTab === "tree" ? "review" : "tree");
+}
+
+/** The tree rows in drawing order; the selection falls back to the current tip. */
+function selectedTreeIndex(deps: IntentDispatchDeps, rows: TreeRow[]): number {
+  const byId = rows.findIndex((row) => row.entryId === deps.selectedEntryId);
+
+  return byId === -1 ? rows.findIndex((row) => row.isCurrentTip) : byId;
+}
+
+function handleTreeMove(intent: IntentOfType<"treeMove">, deps: IntentDispatchDeps): void {
+  const rows = deps.controller.treeRows();
+
+  if (rows.length === 0) return;
+  const current = selectedTreeIndex(deps, rows);
+  const next = Math.min(rows.length - 1, Math.max(0, current + intent.direction));
+
+  deps.setSelectedEntryId(rows[next]!.entryId);
+}
+
+function handleTreeGo(_intent: IntentOfType<"treeGo">, deps: IntentDispatchDeps): void {
+  const rows = deps.controller.treeRows();
+  const row = rows[selectedTreeIndex(deps, rows)];
+
+  if (!row) return deps.controller.setStatus("select an entry in the tree first");
+  if (row.isCurrentTip) return deps.controller.setStatus("already at the tip");
+  // a switch needs no summary; a move back may leave one, so it asks
+  if (row.tips.length > 0) return deps.controller.goToEntry(row.entryId);
+  deps.setMode({ type: "treePrompt", ask: "navigate", entryId: row.entryId, text: "" });
+}
+
+function handleTreeBranch(_intent: IntentOfType<"treeBranch">, deps: IntentDispatchDeps): void {
+  deps.setMode({ type: "treePrompt", ask: "branch", text: "" });
+}
+
+function handleTreeLabel(_intent: IntentOfType<"treeLabel">, deps: IntentDispatchDeps): void {
+  deps.setMode({ type: "treePrompt", ask: "label", text: "" });
+}
+
+function handleTreeFork(_intent: IntentOfType<"treeFork">, deps: IntentDispatchDeps): void {
+  deps.controller.fork();
+}
+
+function handleTreeForkShare(
+  _intent: IntentOfType<"treeForkShare">,
+  deps: IntentDispatchDeps,
+): void {
+  deps.controller.forkAndShare();
+}
+
 type IntentHandlers = {
   [Kind in Intent["type"]]: (intent: IntentOfType<Kind>, deps: IntentDispatchDeps) => void;
 };
@@ -562,6 +633,13 @@ const intentHandlers: IntentHandlers = {
   dismissCompletion: handleDismissCompletion,
   cycleReviewPanel: handleCycleReviewPanel,
   resizeReviewPanel: handleResizeReviewPanel,
+  toggleTree: handleToggleTree,
+  treeMove: handleTreeMove,
+  treeGo: handleTreeGo,
+  treeBranch: handleTreeBranch,
+  treeLabel: handleTreeLabel,
+  treeFork: handleTreeFork,
+  treeForkShare: handleTreeForkShare,
 };
 
 function dispatchIntent<Kind extends Intent["type"]>(

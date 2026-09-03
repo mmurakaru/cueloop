@@ -183,7 +183,7 @@ describe("rail submit confirm", () => {
   /** The rail's columns of the frame, so document text never leaks into a rail assertion. */
   function railText(frame: string): string {
     const rows = frame.split("\n");
-    const railColumn = rows.find((row) => row.includes("Review  Agent"))!.indexOf("│");
+    const railColumn = rows.find((row) => row.includes("Review  Tree  Agent"))!.indexOf("│");
 
     return rows.map((row) => row.slice(railColumn)).join("\n");
   }

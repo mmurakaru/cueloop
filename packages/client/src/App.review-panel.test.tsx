@@ -58,7 +58,7 @@ describe("review panel", () => {
       const frame = setup.captureCharFrame();
 
       return {
-        tabs: frame.includes("Review  Agent"),
+        tabs: frame.includes("Review  Tree  Agent"),
         submit: frame.includes("Submit review"),
         strip: /\s0\s*\n/.test(frame) && frame.includes("<"),
       };
