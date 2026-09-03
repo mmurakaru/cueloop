@@ -19,7 +19,7 @@ import React, {
 } from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock, MouseEvent } from "@opentui/core";
-import { displayText, marksByDisplay, spanFromRange, type Mark } from "./view-plan";
+import { marksByDisplay, type Mark } from "./view-plan";
 import { dimmedTheme } from "./theme";
 import {
   DEFAULT_KEYS,
@@ -40,14 +40,13 @@ import type { Theme } from "./theme";
 import { createReviewController, type ShareTransport } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { launchHarnessInSplit } from "@cueloop/daemon/herdr-split";
-import { activeSpanState, createIntentDispatch, type Mode } from "./intent-dispatch";
+import { createIntentDispatch, type Mode } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { Breadcrumb } from "./components/Breadcrumb";
-import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import { RAIL_CHORD_ENTRIES, resolveThreadChord, THREAD_CHORD_ENTRIES } from "./thread-chords";
 import { DiffSheet } from "./components/DiffSheet";
@@ -64,12 +63,9 @@ import {
   type ReviewPanelMode,
 } from "./review-panel";
 import {
-  buildActiveSpan,
   buildCardEditState,
-  buildComposeState,
   buildDiffComposeState,
   buildHeaderItems,
-  buildPopoverState,
   buildRenderFlags,
   buildSubmitConfirmState,
   computePendingCount,
@@ -236,7 +232,6 @@ export function App({
   // live mirror of overlay input text: refs commit synchronously, so the
   // RETURN handler never reads a stale value mid-typing
   const liveInput = useRef("");
-  const planSheetRef = useRef<PlanSheetHandle | null>(null);
   const railRef = useRef<ReviewRailHandle | null>(null);
   // keymap from layered config; the loaded theme swaps the provider value
   const keysRef = useRef(DEFAULT_KEYS);
@@ -337,8 +332,6 @@ export function App({
     return ids;
   }, [marks]);
   const { isDiff, isPrototype, resolved } = deriveReviewFlags(session);
-  // CUELOOP_THREAD_VIEW=1 swaps the plan sheet for the thread view (the
-  // inline-comment-threads surface graduating from the UX spike)
   // plans and replies open in the thread view; diffs and prototypes keep their sheets
   const threadViewActive = session !== null && !isDiff && !isPrototype;
   const [threadComposing, setThreadComposing] = useState(false);
@@ -372,18 +365,6 @@ export function App({
   const walking = isWalking(isDiff, walk);
   const viewedPaths = useMemo(() => new Set(session?.viewedPaths ?? []), [session]);
 
-  // driving needs committed layout, so it runs after render; any transition
-  // out of span mode clears the renderer selection (compose paints its own
-  // mark, and a mouse drag never changes the mode, so it survives)
-  useEffect(() => {
-    // one marker at a time: clear any prior selection, then paint the current
-    // span (span and its quick-actions sub-mode both keep it painted)
-    const span = activeSpanState(mode);
-
-    planSheetRef.current?.clearSelection();
-    if (span) planSheetRef.current?.driveSpanSelection(span);
-  }, [mode]);
-
   // ── selection symmetry: one selected id, both sides ──
   const pulse = (id: string): void => {
     setPulsedAnnotationId(id);
@@ -396,7 +377,6 @@ export function App({
     for (const [displayIndex, blockMarks] of marks) {
       if (!blockMarks.some((mark) => mark.annotationId === annotationId)) continue;
       setCursor(displayIndex);
-      planSheetRef.current?.revealBlock(displayIndex);
 
       return;
     }
@@ -422,7 +402,6 @@ export function App({
 
     if (!item) return;
     setCursor(item.revealIndex);
-    if (item.source === "plan") planSheetRef.current?.revealBlock(item.revealIndex);
   };
 
   // the selected removal card's undo button: same restore path as the u key,
@@ -489,7 +468,6 @@ export function App({
     },
     liveInput,
     reviewWidthRef,
-    planSheetRef,
     setCursor,
     setInboxCursor,
     setMode,
@@ -622,24 +600,12 @@ export function App({
       />
     );
 
-  const composeState = buildComposeState({ mode, isDiff, display, liveInput, setMode, dispatch });
   const diffComposeState = buildDiffComposeState({
     mode,
     isDiff,
     rows,
     liveInput,
     setMode,
-    dispatch,
-  });
-  const activeSpan = buildActiveSpan(mode, isDiff);
-  const popoverState = buildPopoverState({
-    mode,
-    isDiff,
-    quickActions,
-    isOwner,
-    observer,
-    resolved,
-    controller,
     dispatch,
   });
   const submitConfirmState = buildSubmitConfirmState({
@@ -667,39 +633,6 @@ export function App({
       menuDialog,
       resolvedIds,
     });
-
-  // a mouse drag leaves a native selection: turn it into a word span so the
-  // marker popover opens at the dragged range, mirroring the `v` grammar.
-  // Returns whether a native selection existed (the release ended a drag).
-  const activateSpanFromSelection = (preferredIndex?: number): boolean => {
-    if (!renderer?.hasSelection) return false;
-    // the release block re-anchors the span, so each drag replaces the last
-    const selection = planSheetRef.current?.readSelection(preferredIndex);
-    const block = selection ? display[selection.displayIndex] : undefined;
-    const span =
-      selection && block
-        ? spanFromRange(selection.displayIndex, displayText(block), selection.start, selection.end)
-        : null;
-
-    if (span) setMode({ type: "span", span });
-
-    return true;
-  };
-
-  const onLineActivate = (displayIndex: number): void => {
-    if (activateSpanFromSelection(displayIndex)) return;
-    setCursor(displayIndex);
-    const annotationId = marks.get(displayIndex)?.[0]?.annotationId;
-
-    if (annotationId) selectCardFromDocument(annotationId);
-  };
-
-  // a drag released outside any block's text (the gutter, past a line end, a
-  // gap between blocks) never reaches a block handler; the sheet-level release
-  // still turns the finished drag into a span
-  const onSelectionRelease = (): void => {
-    activateSpanFromSelection();
-  };
 
   const onEditRequest = (): void => {
     // A share viewer/observer has no Edit affordance (the button is hidden), so
@@ -801,7 +734,7 @@ export function App({
               compose={diffComposeState}
               theme={walking ? dimmedTheme(theme) : undefined}
             />
-          ) : threadViewActive ? (
+          ) : (
             <ThreadView
               session={activeSession}
               suspended={threadViewSuspended}
@@ -828,20 +761,6 @@ export function App({
               onReply={(rootAnnotationId, body) => void controller.reply(rootAnnotationId, body)}
               onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
               onExit={() => onExit?.(0)}
-            />
-          ) : (
-            <PlanSheet
-              ref={planSheetRef}
-              session={activeSession}
-              display={display}
-              marks={marks}
-              cursor={cursor}
-              activeSpan={activeSpan}
-              compose={composeState}
-              popover={popoverState}
-              editOrphanCount={editOrphanCount}
-              onLineActivate={onLineActivate}
-              onSelectionRelease={onSelectionRelease}
             />
           )}
           <ReviewPanel

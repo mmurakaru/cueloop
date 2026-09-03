@@ -1,14 +1,11 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { ReviewSession, VerdictKind } from "@cueloop/schema";
-import { activeSpanState, reviewerAnnotations, type Mode } from "./intent-dispatch";
-import { displayText, type DisplayBlock } from "./view-plan";
+import { reviewerAnnotations, type Mode } from "./intent-dispatch";
 import type { DiffRow } from "./view-diff";
 import type { Intent, KeyState } from "./keymap";
-import type { Completion, ReviewController } from "./session-controller";
-import type { QuickAction } from "./config";
+import type { Completion } from "./session-controller";
 import type { WalkFile } from "./walk";
 import { viewedCount } from "./walk";
-import type { PlanComposeState, PlanPopoverState } from "./components/PlanSheet";
 import type { DiffComposeState } from "./components/DiffSheet";
 import type { ConfirmCardProps } from "./components/ConfirmCard";
 import type { RailCardEdit } from "./components/ReviewRail";
@@ -130,47 +127,10 @@ export function buildRenderFlags(params: {
   };
 }
 
-export function buildActiveSpan(
-  mode: Mode,
-  isDiff: boolean,
-): { displayIndex: number; start: number; end: number } | null {
-  const markedSpan = activeSpanState(mode);
-
-  if (markedSpan)
-    return { displayIndex: markedSpan.displayIndex, start: markedSpan.start, end: markedSpan.end };
-  if (mode.type === "compose" && !isDiff)
-    return { displayIndex: mode.displayIndex, start: mode.start, end: mode.end };
-
-  return null;
-}
-
 interface DraftHandlerDeps {
   liveInput: MutableRefObject<string>;
   setMode: Dispatch<SetStateAction<Mode>>;
   dispatch: (intent: Intent) => void;
-}
-
-export function buildComposeState(
-  deps: DraftHandlerDeps & { mode: Mode; isDiff: boolean; display: DisplayBlock[] },
-): PlanComposeState | null {
-  const { mode, isDiff, display, liveInput, setMode, dispatch } = deps;
-
-  if (mode.type !== "compose" || isDiff) return null;
-
-  return {
-    kind: mode.kind,
-    displayIndex: mode.displayIndex,
-    quote: displayText(display[mode.displayIndex]!).slice(mode.start, mode.end),
-    draft: {
-      text: mode.text,
-      onInput: (text: string) => {
-        liveInput.current = text;
-        setMode({ ...mode, text });
-      },
-      onSave: () => dispatch({ type: "saveCompose" }),
-      onCancel: () => dispatch({ type: "closeOverlay" }),
-    },
-  };
 }
 
 export function buildDiffComposeState(
@@ -193,59 +153,6 @@ export function buildDiffComposeState(
       onSave: () => dispatch({ type: "saveCompose" }),
       onCancel: () => dispatch({ type: "closeOverlay" }),
     },
-  };
-}
-
-export function buildPopoverState(deps: {
-  mode: Mode;
-  isDiff: boolean;
-  quickActions: QuickAction[];
-  isOwner: boolean;
-  observer: boolean;
-  resolved: boolean;
-  controller: ReviewController;
-  dispatch: (intent: Intent) => void;
-}): PlanPopoverState | null {
-  const { mode, isDiff, quickActions, isOwner, observer, resolved, controller, dispatch } = deps;
-  const markedSpan = activeSpanState(mode);
-
-  if (!markedSpan || isDiff) return null;
-  const spanMutationBlock = (): string | null =>
-    observer ? "observer - read-only" : resolved ? "review submitted - read-only" : null;
-
-  return {
-    displayIndex: markedSpan.displayIndex,
-    view: mode.type === "spanActions" ? ("actions" as const) : ("toolbar" as const),
-    actions: quickActions,
-    actionIndex: mode.type === "spanActions" ? mode.index : 0,
-    canCut: isOwner,
-    onComment: () => {
-      const blocked = spanMutationBlock();
-
-      if (blocked) return controller.setStatus(blocked);
-      dispatch({ type: "openCompose", kind: "comment", from: "span" });
-    },
-    onCut: () => {
-      const blocked = spanMutationBlock();
-
-      if (blocked) return controller.setStatus(blocked);
-      if (!isOwner) return;
-      dispatch({ type: "spanCut" });
-    },
-    onOpenActions: () => {
-      const blocked = spanMutationBlock();
-
-      if (blocked) return controller.setStatus(blocked);
-      dispatch({ type: "openSpanActions" });
-    },
-    onClose: () => dispatch({ type: "closeOverlay" }),
-    onPickAction: (index: number) => {
-      const blocked = spanMutationBlock();
-
-      if (blocked) return controller.setStatus(blocked);
-      dispatch({ type: "pickSpanAction", index });
-    },
-    onBack: () => dispatch({ type: "closeSpanActions" }),
   };
 }
 
