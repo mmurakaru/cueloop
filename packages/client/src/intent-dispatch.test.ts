@@ -95,7 +95,7 @@ function baseController(): ReviewController {
     submit: mock(),
     share: mock(),
     pullShared: mock(() => Promise.resolve()),
-    startSharePoll: mock(() => () => {}),
+    startShareSync: mock(() => () => {}),
     finishReview: mock(),
     dismissCompletion: mock(),
     optInAutoClose: mock(),

@@ -581,6 +581,119 @@ describe("planner push", () => {
   });
 });
 
+/**
+ * Open a `cueloop-watch` stream as `privateKey`; resolve once `ready` arrived
+ * with a handle that waits for the next session frame and closes the link.
+ */
+function shareWatch(
+  port: number,
+  shareId: string,
+  privateKey: string,
+): Promise<{
+  nextSession: () => Promise<ReviewSession>;
+  close: () => void;
+  refused: Promise<{ err: string; code: number | null }>;
+}> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    const sessions: ReviewSession[] = [];
+    const waiters: Array<(session: ReviewSession) => void> = [];
+    let buffered = "";
+    let err = "";
+    let code: number | null = null;
+    let settleRefused: (value: { err: string; code: number | null }) => void = () => {};
+    const refused = new Promise<{ err: string; code: number | null }>((done) => {
+      settleRefused = done;
+    });
+    const timer = setTimeout(() => reject(new Error("watch timed out")), 8000);
+
+    conn
+      .on("ready", () => {
+        conn.exec("cueloop-watch", (error, stream) => {
+          if (error) return reject(error);
+          stream.on("data", (chunk: Buffer) => {
+            buffered += chunk.toString("utf8");
+            const lines = buffered.split("\n");
+
+            buffered = lines.pop() ?? "";
+            for (const line of lines) {
+              const frame = JSON.parse(line);
+
+              if (frame.type === "ready") {
+                clearTimeout(timer);
+                resolve({
+                  nextSession: () =>
+                    sessions.length > 0
+                      ? Promise.resolve(sessions.shift()!)
+                      : new Promise((next) => waiters.push(next)),
+                  close: () => conn.end(),
+                  refused,
+                });
+              }
+              if (frame.type === "session") {
+                const waiter = waiters.shift();
+
+                if (waiter) waiter(frame.session);
+                else sessions.push(frame.session);
+              }
+            }
+          });
+          stream.stderr.on("data", (chunk: Buffer) => (err += chunk.toString("utf8")));
+          stream.on("exit", (exitCode: number) => (code = exitCode));
+          stream.on("close", () => {
+            clearTimeout(timer);
+            conn.end();
+            settleRefused({ err, code });
+            resolve({
+              nextSession: () => Promise.reject(new Error("stream closed")),
+              close: () => {},
+              refused,
+            });
+          });
+          stream.end(shareId);
+        });
+      })
+      .on("error", reject)
+      .connect({ host: "127.0.0.1", port, username: "share", privateKey });
+  });
+}
+
+describe("planner watch", () => {
+  test("the owner's stream carries the session the moment a collaborator annotates", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+    const watch = await shareWatch(handle.port, id, CLIENT_KEY);
+
+    // Act
+    const arriving = watch.nextSession();
+
+    await annotateOverShell(handle.port, id, "live from ana");
+    const session = await arriving;
+
+    // Assert: the full record, with the collaborator's authored note
+    const note = session.annotations.find((annotation) =>
+      annotation.body.includes("live from ana"),
+    );
+
+    expect(note?.author).toBeTruthy();
+    expect(session.id).toBe(SESSION.id);
+    watch.close();
+  });
+
+  test("a fingerprint that did not share it is refused", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+
+    // Act
+    const watch = await shareWatch(handle.port, id, OTHER_KEY);
+    const result = await watch.refused;
+
+    // Assert
+    expect(result.code).not.toBe(0);
+    expect(result.err).toContain("only the planner who shared this can watch it");
+  });
+});
+
 describe("upload hygiene", () => {
   test("strips the planner's local shareId from the stored blob", async () => {
     // Arrange - a re-shared session carries an old shareId; it must not reach the blob

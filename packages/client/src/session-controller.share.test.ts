@@ -1,8 +1,14 @@
-import { describe, expect, mock, test, type Mock } from "bun:test";
+import { beforeEach, describe, expect, mock, test, type Mock } from "bun:test";
 import { ManualClock } from "@opentui/core/testing";
 import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
-import { createReviewController, SHARE_POLL_MS, type ShareTransport } from "./session-controller";
+import {
+  createReviewController,
+  SHARE_RECONNECT_MAX_MS,
+  SHARE_RECONNECT_MIN_MS,
+  type ShareTransport,
+} from "./session-controller";
+import type { ShareWatchHandlers } from "./share";
 
 const publishShare = mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: true }));
 let remote: ReviewSession;
@@ -15,6 +21,7 @@ const shareTransport: ShareTransport = {
   publish: publishShare,
   pull: pullShare,
   push: pushShare,
+  watch: () => () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
 };
@@ -283,103 +290,149 @@ describe("reply", () => {
   });
 });
 
-describe("startSharePoll", () => {
-  test("pulls now and again each interval until stopped", async () => {
+describe("startShareSync", () => {
+  /** A fake watch stream: records handlers so a test can push a session or drop the link. */
+  const streams: Array<{ shareId: string; handlers: ShareWatchHandlers; stopped: boolean }> = [];
+  const watchShare = mock((shareId: string, handlers: ShareWatchHandlers) => {
+    const stream = { shareId, handlers, stopped: false };
+
+    streams.push(stream);
+
+    return () => {
+      stream.stopped = true;
+    };
+  });
+  const liveTransport: ShareTransport = { ...shareTransport, watch: watchShare };
+
+  beforeEach(() => {
+    streams.length = 0;
+    watchShare.mockClear();
+    pullShare.mockClear();
+    remote = sessionFixture({ annotations: [] });
+  });
+
+  test("connect pulls once to catch up, then follows the stream and merges each session it delivers", async () => {
     // Arrange
-    pullShare.mockClear();
-    remote = sessionFixture({ annotations: [] });
     const clock = new ManualClock();
-    const { controller } = await connectedController(
+    const { controller, client } = await connectedController(
       sessionFixture({ shareId: "p_abc123xy" }),
       clock,
+      liveTransport,
     );
 
-    // Act - immediate pull
-    const stop = controller.startSharePoll();
-
+    // Act
+    controller.startShareSync();
     await tick();
 
-    // Assert
+    // Assert - one catch-up pull, one open stream on the share
     expect(pullShare).toHaveBeenCalledTimes(1);
+    expect(streams).toHaveLength(1);
+    expect(streams[0]!.shareId).toBe("p_abc123xy");
 
-    // Act - one interval later, it pulls again
-    clock.advance(SHARE_POLL_MS);
-    await tick();
-
-    // Assert
-    expect(pullShare).toHaveBeenCalledTimes(2);
-
-    // Act - stop, then advance: no further pulls
-    stop();
-    clock.advance(SHARE_POLL_MS * 3);
-    await tick();
-
-    // Assert
-    expect(pullShare).toHaveBeenCalledTimes(2);
-  });
-
-  test("a stop during an in-flight pull leaves no zombie timer", async () => {
-    // Arrange - the first pull hangs until released
-    pullShare.mockClear();
-    remote = sessionFixture({ annotations: [] });
-    let release: () => void = () => {};
-
-    pullShare.mockImplementationOnce(
-      () => new Promise<ReviewSession>((resolve) => (release = () => resolve(remote))),
+    // Act - the gateway pushes a change carrying Ana's note
+    streams[0]!.handlers.onSession(
+      sessionFixture({ annotations: [annotation("a9", "SHA256:ana")] }),
     );
-    const clock = new ManualClock();
-    const { controller } = await connectedController(
-      sessionFixture({ shareId: "p_abc123xy" }),
-      clock,
+    await tick();
+
+    // Assert - merged without another pull
+    expect(client.sessionMergeShared).toHaveBeenLastCalledWith(
+      "ses_1",
+      expect.objectContaining({
+        annotations: [expect.objectContaining({ id: "a9", author: "SHA256:ana" })],
+      }),
     );
-
-    // Act - start (pull is in flight), leave, then let the pull settle
-    const stop = controller.startSharePoll();
-
-    await tick();
-    expect(pullShare).toHaveBeenCalledTimes(1);
-    stop();
-    release();
-    await tick();
-    clock.advance(SHARE_POLL_MS * 3);
-    await tick();
-
-    // Assert - the settled pull's finally must not re-arm the timer
     expect(pullShare).toHaveBeenCalledTimes(1);
   });
 
-  test("a restart during an in-flight pull does not double the poll", async () => {
-    // Arrange - run A's first pull hangs; later pulls resolve immediately
-    pullShare.mockClear();
-    remote = sessionFixture({ annotations: [] });
-    let release: () => void = () => {};
-
-    pullShare.mockImplementationOnce(
-      () => new Promise<ReviewSession>((resolve) => (release = () => resolve(remote))),
-    );
+  test("a dropped stream reconnects with doubling backoff and catches up on each connect", async () => {
+    // Arrange
     const clock = new ManualClock();
     const { controller } = await connectedController(
       sessionFixture({ shareId: "p_abc123xy" }),
       clock,
+      liveTransport,
     );
 
-    // Act - run A starts (pull hangs), then run B restarts while A is in flight
-    controller.startSharePoll();
+    controller.startShareSync();
     await tick();
-    expect(pullShare).toHaveBeenCalledTimes(1);
-    const stopB = controller.startSharePoll();
 
+    // Act - the link drops: nothing until the floor delay has passed
+    streams[0]!.handlers.onClose("ssh exited 255");
+    clock.advance(SHARE_RECONNECT_MIN_MS - 1);
     await tick();
+    expect(streams).toHaveLength(1);
+    clock.advance(1);
+    await tick();
+
+    // Assert - reconnected, with a fresh catch-up pull
+    expect(streams).toHaveLength(2);
     expect(pullShare).toHaveBeenCalledTimes(2);
 
-    // A's stale pull settles - it must not re-arm; then one interval fires only run B
-    release();
+    // Act - drops again: the wait doubles
+    streams[1]!.handlers.onClose("ssh exited 255");
+    clock.advance(SHARE_RECONNECT_MIN_MS);
     await tick();
-    clock.advance(SHARE_POLL_MS);
+    expect(streams).toHaveLength(2);
+    clock.advance(SHARE_RECONNECT_MIN_MS);
+    await tick();
+    expect(streams).toHaveLength(3);
+
+    // Act - a delivered session resets the backoff to the floor
+    streams[2]!.handlers.onSession(remote);
+    streams[2]!.handlers.onClose("ssh exited 255");
+    clock.advance(SHARE_RECONNECT_MIN_MS);
     await tick();
 
-    // Assert - exactly one more pull (run B), not two
-    expect(pullShare).toHaveBeenCalledTimes(3);
-    stopB();
+    // Assert
+    expect(streams).toHaveLength(4);
+  });
+
+  test("stop closes the stream and a late close never reconnects", async () => {
+    // Arrange
+    const clock = new ManualClock();
+    const { controller } = await connectedController(
+      sessionFixture({ shareId: "p_abc123xy" }),
+      clock,
+      liveTransport,
+    );
+    const stop = controller.startShareSync();
+
+    await tick();
+
+    // Act
+    stop();
+    streams[0]!.handlers.onClose("killed");
+    clock.advance(SHARE_RECONNECT_MAX_MS * 2);
+    await tick();
+
+    // Assert
+    expect(streams[0]!.stopped).toBe(true);
+    expect(streams).toHaveLength(1);
+  });
+
+  test("a restart replaces the stream instead of doubling it", async () => {
+    // Arrange
+    const clock = new ManualClock();
+    const { controller } = await connectedController(
+      sessionFixture({ shareId: "p_abc123xy" }),
+      clock,
+      liveTransport,
+    );
+
+    controller.startShareSync();
+    await tick();
+
+    // Act
+    controller.startShareSync();
+    await tick();
+    streams[0]!.handlers.onClose("stale");
+    clock.advance(SHARE_RECONNECT_MAX_MS * 2);
+    await tick();
+
+    // Assert - the first stream was stopped and its close re-armed nothing
+    expect(streams[0]!.stopped).toBe(true);
+    expect(streams).toHaveLength(2);
+    expect(streams[1]!.stopped).toBe(false);
   });
 });

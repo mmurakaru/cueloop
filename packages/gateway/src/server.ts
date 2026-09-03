@@ -41,7 +41,7 @@ import { loadOrCreateHostKey } from "./host-key";
 import { GatewayMetrics, startMetricsServer } from "./metrics";
 import { TokenBucket } from "./rate-limit";
 import { SHARE_UPLOAD_USER, isShareId, mintShareId } from "./share-id";
-import type { ShareStore } from "./store";
+import { WatchedShareStore, type ShareStore } from "./store";
 
 const PushPayloadSchema = v.object({
   shareId: v.optional(v.unknown()),
@@ -51,6 +51,15 @@ const TransportErrorSchema = v.object({
   level: v.optional(v.string()),
   code: v.optional(v.string()),
 });
+
+/** How often a quiet watch stream says it is alive. */
+export const WATCH_HEARTBEAT_MS = 30_000;
+
+/** One line of a `cueloop-watch` stream. */
+export type WatchFrame =
+  | { type: "ready" }
+  | { type: "ping" }
+  | { type: "session"; session: ReviewSession };
 
 export interface GatewayOptions {
   store: ShareStore;
@@ -97,7 +106,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
   // Metrics are always collected (bounded, negligible) but only served when a
   // port is configured, so production is unaffected until an operator opts in.
   const metrics = new GatewayMetrics();
-  const store = meterStore(options.store, metrics);
+  const store = new WatchedShareStore(meterStore(options.store, metrics));
   const metricsServer =
     options.metricsPort !== undefined
       ? startMetricsServer(metrics, { host: options.metricsHost, port: options.metricsPort })
@@ -174,6 +183,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       if (info.command === "cueloop-pull") void handlePull(channel, identity);
       else if (info.command === "cueloop-push") void handlePush(channel, identity);
+      else if (info.command === "cueloop-watch") void handleWatch(channel, identity);
       else void handleUpload(channel, identity, remoteIp);
     });
   }
@@ -221,6 +231,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         masterKey: options.masterKey,
         shareId,
         author: identity.fingerprint,
+        changes: store,
       });
       let handle: ChannelRender | null = null;
 
@@ -305,6 +316,59 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       metrics.recordShare("pull", "error", elapsed(startedAt));
       fail(channel, "could not read this share");
     }
+  }
+
+  /**
+   * The owner follows the share live: after the id, the channel stays open and
+   * carries one JSON line per change with the whole session record, plus a
+   * heartbeat so a dead link is noticed. The client reconnects when it closes.
+   */
+  async function handleWatch(channel: ServerChannel, identity: Identity): Promise<void> {
+    const startedAt = Date.now();
+    let shareId: string;
+
+    try {
+      shareId = (await readCapped(channel, 256)).toString("utf8").trim();
+      if (!isShareId(shareId)) return void fail(channel, "not a share id");
+      const stored = await store.get(shareId);
+
+      if (!stored) return void fail(channel, "this share was not found or has expired");
+      const session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
+
+      if (session.owner !== identity.fingerprint)
+        return void fail(channel, "only the planner who shared this can watch it");
+    } catch (err) {
+      onError(err);
+      metrics.recordShare("watch", "error", elapsed(startedAt));
+
+      return void fail(channel, "could not read this share");
+    }
+    const send = (frame: WatchFrame): void => void channel.write(`${JSON.stringify(frame)}\n`);
+    const heartbeat = setInterval(() => send({ type: "ping" }), WATCH_HEARTBEAT_MS);
+    const unsubscribe = store.subscribe(shareId, () => {
+      void store
+        .get(shareId)
+        .then((bytes) => {
+          if (!bytes) return finish();
+          send({
+            type: "session",
+            session: unpackSessionBlob(openBlob(options.masterKey, shareId, bytes)),
+          });
+        })
+        .catch(onError);
+    });
+    const finish = (): void => {
+      unsubscribe();
+      clearInterval(heartbeat);
+      end(channel, 0);
+    };
+
+    channel.on("close", () => {
+      unsubscribe();
+      clearInterval(heartbeat);
+    });
+    send({ type: "ready" });
+    metrics.recordShare("watch", "ok", elapsed(startedAt));
   }
 
   // The owner mirrors their own annotations into the share (stage 2 push-up).

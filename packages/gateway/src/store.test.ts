@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { isExpired, MemoryShareStore, r2StoreFromEnv, SHARE_TTL_MS } from "./store";
+import {
+  isExpired,
+  MemoryShareStore,
+  WatchedShareStore,
+  r2StoreFromEnv,
+  SHARE_TTL_MS,
+} from "./store";
 
 describe(MemoryShareStore, () => {
   test("get returns the bytes a matching put stored", async () => {
@@ -79,5 +85,32 @@ describe(r2StoreFromEnv, () => {
   test("fails fast and names the missing credential", () => {
     // Act / Assert
     expect(() => r2StoreFromEnv({})).toThrow(/CUELOOP_R2_ENDPOINT/);
+  });
+});
+
+describe("WatchedShareStore", () => {
+  test("notifies the subscribers of that id after a put, and stops after unsubscribe", async () => {
+    // Arrange
+    const store = new WatchedShareStore(new MemoryShareStore());
+    const heard: string[] = [];
+    const stop = store.subscribe("p_one", () => heard.push("one"));
+
+    store.subscribe("p_two", () => heard.push("two"));
+
+    // Act
+    await store.put("p_one", new Uint8Array([1]));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Assert: only p_one's listener, and the bytes are stored
+    expect(heard).toEqual(["one"]);
+    expect(await store.get("p_one")).toEqual(new Uint8Array([1]));
+
+    // Act
+    stop();
+    await store.put("p_one", new Uint8Array([2]));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Assert
+    expect(heard).toEqual(["one"]);
   });
 });
