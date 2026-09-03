@@ -1,0 +1,77 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Branches and checkpoints
+eyebrow: Docs · Concepts
+lede: A session's history is a tree, not a line. Every revision, comment, and verdict is an entry; a branch is a named tip; what you see is the path from that tip back to the start. Nothing is ever deleted.
+prev: { title: "The review primitives", href: "/docs/concepts/plan-diff-review/" }
+next: { title: "Commands", href: "/docs/reference/commands/" }
+---
+
+<div class="learn">
+  <div class="learn__label">You'll learn</div>
+  <ul>
+    <li>what an entry is and how the path decides what the session shows</li>
+    <li>how checkpoints, branches, and moving back work together</li>
+    <li>what a fork carries and how fork-and-share hands one plan to two people</li>
+  </ul>
+</div>
+
+Every change to a session is an **entry**: an agent revision, a reviewer's
+edit, a comment, a comment's removal, a verdict. Each entry points at the one
+before it, so the entries form a tree. A **branch** is a named tip in that
+tree; `main` is the agent's line and always exists. The **path** is the chain
+from the current branch's tip back to the first revision, and the path decides
+what you see: the artifact is the agent's last revision on it, your edits are
+the reviewer revisions after that, and the comments are the ones added on the
+path and not removed later.
+
+The rail's **Tree** tab draws the tree. The path reads bright, everything else
+dim; a row that carries a branch shows the branch's name, the current tip is
+marked, and a checkpoint shows its label.
+
+## Checkpoints
+
+A **checkpoint** is a name on an entry. Label the tip before a risky rewrite,
+and you have a place to come back to. Labels travel with the entry: they show
+in the tree, and a fork carries them.
+
+## Moving back
+
+Going to an earlier entry on your branch moves the tip back to it. The entries
+after it stay in the tree - they are not deleted, only off the path - and you
+can leave a **summary** that records what you left behind as an entry at the
+target. Comments the path no longer reaches are shelved, not dropped; a later
+move that reaches them again shows them again.
+
+The agent's revisions always land on `main`, wherever its tip sits. Moving
+`main` back to a checkpoint is how the next round starts from there: the
+agent's next revision chains after the checkpoint (or after your summary), and
+the abandoned round stays visible in the tree.
+
+## Branches
+
+A branch starts at the current tip and becomes the branch you are on. Comment
+and edit on it freely; `main` stays where it was, and switching back shows
+`main`'s path with its own comments. Going to another branch's tip is a
+switch; going to an entry only that branch reaches switches first, then moves.
+
+Collaborators comment on the branch a share follows. Moving the tree - a
+branch, a label, a move back - is the owner's.
+
+## Forks
+
+A **fork** copies the current path into a new session: its revisions, the
+comments open on it, its checkpoints, and the names of everyone who took part.
+The fork starts pending, with no verdict, no edits, and no share, and it
+records the session it came from. A resolved review can be forked to carry a
+finished plan into a new round.
+
+**Fork and share** does both in one step, so one plan reaches two people with
+separate discussions: the fork goes out over its own share while your session
+stays as it was.
+
+## From the command line
+
+Every one of these is a primitive an agent or a script can call: `cueloop
+session label`, `branch`, `switch`, `navigate`, and `fork`, and `cueloop share
+--fork`. The [commands reference](/docs/reference/commands/) lists them.

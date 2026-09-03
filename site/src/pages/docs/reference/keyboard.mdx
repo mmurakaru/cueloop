@@ -84,6 +84,26 @@ Option plus a letter drives the review rail and the curation of the plan.
 | `option+u`              | restore the last cut            |
 | `option+w` / `option+s` | widen or narrow the rail        |
 
+## The tree
+
+The rail's Tree tab shows the session's history: revisions, comments,
+checkpoints, and branches, with the path you are on bright and the current tip
+marked. Option plus a letter walks it; the buttons under the tree reach the
+same primitives with the mouse, and clicking a selected row goes there.
+
+| Input                   | What it does                                              |
+| ----------------------- | --------------------------------------------------------- |
+| `option+t`              | show or hide the tree                                     |
+| `option+n` / `option+p` | select the next or previous entry (while the tree shows)  |
+| `option+g`              | go to the entry: switch to its branch, or move back to it |
+| `option+b`              | start a branch at the tip                                 |
+| `option+l`              | label the tip as a checkpoint                             |
+| `option+f`              | fork the path into a new session                          |
+| `option+h`              | fork and hand off: share the fork                         |
+
+Moving the tree is the owner's; a collaborator reads it. A move back asks for
+an optional summary of what you leave behind.
+
 ## Diff reviews
 
 Diff reviews keep the diff sheet and the rebindable keys of the
