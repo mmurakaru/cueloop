@@ -10,6 +10,7 @@ export const meta: StoryMeta = { title: "ReviewRail" };
 const tree = {
   rows: [],
   canMove: true,
+  canFork: true,
   onSelect: () => {},
   onGo: () => {},
   onBranch: () => {},

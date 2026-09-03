@@ -1236,6 +1236,26 @@ exports[`stories catalog TreePane/OwnerWithBranch renders, snapshots, and carrie
 "
 `;
 
+exports[`stories catalog TreePane/ResolvedForkOnly renders, snapshots, and carries its colors: TreePane/ResolvedForkOnly 1`] = `
+" ◉ revision 1                           
+ · comment  ⚑ start                     
+   · comment  ← alt                     
+ ● revision 2  ← main                   
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+ Fork Fork+share                        
+"
+`;
+
 exports[`stories catalog WalkWizard/EndCard renders, snapshots, and carries its colors: WalkWizard/EndCard 1`] = `
 "                                                                                
                                                                                 

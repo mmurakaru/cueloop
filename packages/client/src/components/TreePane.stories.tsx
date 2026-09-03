@@ -70,7 +70,7 @@ function PaneFrame({ children }: { children: React.ReactNode }): React.ReactNode
 export const OwnerWithBranch: Story = {
   render: () => (
     <PaneFrame>
-      <TreePane rows={ROWS} selectedEntryId="e2" canMove {...callbacks} />
+      <TreePane rows={ROWS} selectedEntryId="e2" canMove canFork {...callbacks} />
     </PaneFrame>
   ),
   expectedColors: [DARK.accent],
@@ -80,7 +80,17 @@ export const OwnerWithBranch: Story = {
 export const CollaboratorReadsOnly: Story = {
   render: () => (
     <PaneFrame>
-      <TreePane rows={ROWS} canMove={false} {...callbacks} />
+      <TreePane rows={ROWS} canMove={false} canFork={false} {...callbacks} />
+    </PaneFrame>
+  ),
+  size: { width: 40, height: 16 },
+};
+
+/** A resolved review: the owner can still fork, not move. */
+export const ResolvedForkOnly: Story = {
+  render: () => (
+    <PaneFrame>
+      <TreePane rows={ROWS} canMove={false} canFork {...callbacks} />
     </PaneFrame>
   ),
   size: { width: 40, height: 16 },
@@ -89,7 +99,7 @@ export const CollaboratorReadsOnly: Story = {
 export const NoHistory: Story = {
   render: () => (
     <PaneFrame>
-      <TreePane rows={[]} canMove {...callbacks} />
+      <TreePane rows={[]} canMove canFork {...callbacks} />
     </PaneFrame>
   ),
   size: { width: 40, height: 8 },

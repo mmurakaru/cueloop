@@ -11,6 +11,7 @@ export const meta: StoryMeta = { title: "ReviewPanel" };
 const tree = {
   rows: [],
   canMove: true,
+  canFork: true,
   onSelect: () => {},
   onGo: () => {},
   onBranch: () => {},

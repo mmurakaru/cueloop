@@ -6,8 +6,8 @@
  * path to the same primitives the option chords reach.
  */
 
-import React from "react";
-import { createTextAttributes } from "@opentui/core";
+import React, { useEffect, useRef } from "react";
+import { createTextAttributes, type ScrollBoxRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import type { TreeRow } from "../tree-view";
 import { useComponentTheme } from "./theme-context";
@@ -17,8 +17,10 @@ import { Toolbar } from "./primitives/Toolbar";
 export interface TreePaneProps {
   rows: TreeRow[];
   selectedEntryId?: string;
-  /** The owner may move the tree; everyone else reads it. */
+  /** The owner of an open review may move the tree; everyone else reads it. */
   canMove: boolean;
+  /** The owner may fork, a resolved review included. */
+  canFork: boolean;
   onSelect: (entryId: string) => void;
   onGo: (entryId: string) => void;
   onBranch: () => void;
@@ -50,6 +52,7 @@ export function TreePane({
   rows,
   selectedEntryId,
   canMove,
+  canFork,
   onSelect,
   onGo,
   onBranch,
@@ -59,6 +62,18 @@ export function TreePane({
   theme,
 }: TreePaneProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null);
+  const revealId = selectedEntryId ?? rows.find((row) => row.isCurrentTip)?.entryId;
+
+  // the trunk draws last, so a long history opens with its tip below the fold: keep the row in view
+  useEffect(() => {
+    if (revealId === undefined) return;
+    try {
+      scrollRef.current?.scrollChildIntoView(`tree-row-${revealId}`);
+    } catch {
+      // reveal is best-effort; the selection is already correct
+    }
+  }, [revealId]);
 
   if (rows.length === 0)
     return (
@@ -69,7 +84,7 @@ export function TreePane({
 
   return (
     <box style={{ flexGrow: 1, flexDirection: "column" }}>
-      <scrollbox style={{ flexGrow: 1 }} focused={false}>
+      <scrollbox ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
         {rows.map((row) => {
           const selected = row.entryId === selectedEntryId;
           const foreground = row.onPath ? tokens.text : tokens.textDim;
@@ -83,7 +98,7 @@ export function TreePane({
                 paddingLeft: 1 + row.depth * 2,
                 backgroundColor: selected ? tokens.elevated : undefined,
               }}
-              onMouseUp={() => (selected ? onGo(row.entryId) : onSelect(row.entryId))}
+              onMouseUp={() => (selected && canMove ? onGo(row.entryId) : onSelect(row.entryId))}
             >
               <text
                 fg={row.isCurrentTip ? tokens.accent : foreground}
@@ -98,31 +113,41 @@ export function TreePane({
           );
         })}
       </scrollbox>
-      {canMove ? (
+      {canMove || canFork ? (
         <box style={{ paddingLeft: 1 }}>
           <Toolbar>
-            <Button
-              onPress={() => {
-                if (selectedEntryId !== undefined) onGo(selectedEntryId);
-              }}
-              isDisabled={selectedEntryId === undefined}
-              marginRight={1}
-              theme={theme}
-            >
-              Go
-            </Button>
-            <Button onPress={onBranch} marginRight={1} theme={theme}>
-              Branch
-            </Button>
-            <Button onPress={onLabel} marginRight={1} theme={theme}>
-              Label
-            </Button>
-            <Button onPress={onFork} marginRight={1} theme={theme}>
-              Fork
-            </Button>
-            <Button onPress={onForkAndShare} theme={theme}>
-              Fork+share
-            </Button>
+            {canMove ? (
+              <Button
+                onPress={() => {
+                  if (selectedEntryId !== undefined) onGo(selectedEntryId);
+                }}
+                isDisabled={selectedEntryId === undefined}
+                marginRight={1}
+                theme={theme}
+              >
+                Go
+              </Button>
+            ) : null}
+            {canMove ? (
+              <Button onPress={onBranch} marginRight={1} theme={theme}>
+                Branch
+              </Button>
+            ) : null}
+            {canMove ? (
+              <Button onPress={onLabel} marginRight={1} theme={theme}>
+                Label
+              </Button>
+            ) : null}
+            {canFork ? (
+              <Button onPress={onFork} marginRight={1} theme={theme}>
+                Fork
+              </Button>
+            ) : null}
+            {canFork ? (
+              <Button onPress={onForkAndShare} theme={theme}>
+                Fork+share
+              </Button>
+            ) : null}
           </Toolbar>
         </box>
       ) : null}
