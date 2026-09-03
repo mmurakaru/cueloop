@@ -301,6 +301,8 @@ export const SessionRecordSchema = v.object({
   verdict: v.nullable(VerdictSchema),
   status: v.picklist(["pending", "resolved"]),
   createdAt: v.string(),
+  shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
+  parentSessionId: v.optional(v.string()),
   shareId: v.optional(v.string()),
   owner: v.optional(v.string()),
   participants: v.optional(v.array(IdentitySchema)),
