@@ -62,13 +62,22 @@ export function resolveThreadChord(
   return null;
 }
 
-/** The answer an observer gets for an owner primitive - the same words the keymap uses. */
+/** The answers a blocked primitive gets - the same words the keymap uses. */
 const READ_ONLY: Intent = { type: "status", message: "observer - read-only" };
+const RESOLVED: Intent = { type: "status", message: "review submitted - read-only" };
+
+/** Editing, deleting, cutting, and restoring change the review: gated by role and by a verdict. */
+function mutating(intent: Intent, context: ThreadChordContext): Intent {
+  if (!context.isOwner) return READ_ONLY;
+  if (context.resolved) return RESOLVED;
+
+  return intent;
+}
 
 function resolveSessionChord(name: string, context: ThreadChordContext): Intent | null {
   switch (name) {
     case "e":
-      return context.isOwner ? { type: "edit" } : READ_ONLY;
+      return mutating({ type: "edit" }, context);
     case "s":
       return context.isOwner ? { type: "share" } : READ_ONLY;
     case "r":
@@ -87,15 +96,16 @@ function resolveRailChord(name: string, context: ThreadChordContext): Intent | n
     case "p":
       return { type: "prevAnnotation" };
     case "e":
-      return { type: "editCard" };
+      return mutating({ type: "editCard" }, context);
     case "backspace":
-      return { type: "removeAnnotation" };
+      return mutating({ type: "removeAnnotation" }, context);
+    // renaming an author is a local display choice, open to every role
     case "r":
       return { type: "openRename" };
     case "x":
-      return context.isOwner ? { type: "cut" } : READ_ONLY;
+      return mutating({ type: "cut" }, context);
     case "u":
-      return context.isOwner ? { type: "restoreCuration" } : READ_ONLY;
+      return mutating({ type: "restoreCuration" }, context);
     // letters only: escape-prefixed punctuation reads as control sequences, not keys
     case "w":
       return { type: "resizeReviewPanel", direction: 1 };
