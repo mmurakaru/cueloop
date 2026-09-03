@@ -230,6 +230,35 @@ describe("forkHistory", () => {
     expect(fork.labels).toEqual({});
     expect(history.labels[approvedTip]).toBe("approved v1");
   });
+
+  test("entries after a dropped one are chained to the kept entry before it", () => {
+    // Arrange: rev1, verdict, rev2 by the agent, a reviewer edit, a comment on top
+    let history = root();
+
+    history = appendEntry(history, { type: "verdict", verdict: VERDICT, createdAt: AT }).history;
+    history = appendEntry(history, {
+      type: "revision",
+      by: "agent",
+      content: "Plan v2",
+      createdAt: AT,
+    }).history;
+    history = appendEntry(history, {
+      type: "revision",
+      by: "reviewer",
+      content: "Plan v2 edited",
+      createdAt: AT,
+    }).history;
+    history = appendEntry(history, { type: "comment", annotationId: "a1", createdAt: AT }).history;
+
+    // Act
+    const fork = forkHistory(history);
+
+    // Assert: a valid one-branch tree with the agent's head and the comment, edits reset
+    expect(validateHistory(fork)).toBeNull();
+    expect(fork.entries.map((entry) => entry.type)).toEqual(["revision", "revision", "comment"]);
+    expect(derivePath(fork).head.content).toBe("Plan v2");
+    expect(derivePath(fork).annotationIds).toEqual(["a1"]);
+  });
 });
 
 describe("historyFromLinear", () => {
