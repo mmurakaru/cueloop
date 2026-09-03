@@ -4,7 +4,13 @@
  * JSON on stdout; exit code 0 unless the daemon returned an error.
  */
 
-import { ARTIFACT_TYPES, isArtifactType, newAnnotationId } from "@cueloop/schema";
+import {
+  ARTIFACT_TYPES,
+  isArtifactType,
+  newAnnotationId,
+  type Anchor,
+  type Annotation,
+} from "@cueloop/schema";
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
@@ -93,35 +99,117 @@ async function sessionWaitCommand({ client, positional, flags }: SessionContext)
   return 0;
 }
 
+/**
+ * The anchor an annotate call means: a reply borrows its root comment's
+ * anchor, a prototype comment names an element by selector, and anything
+ * else quotes the passage.
+ */
+async function annotateAnchor(
+  flags: Record<string, string | boolean>,
+  client: DaemonClient,
+  id: string,
+): Promise<{ anchor: Anchor; replyTo?: string }> {
+  const replyTo = stringFlag(flags, "reply-to");
+
+  if (replyTo !== undefined) {
+    const session = await client.sessionGet(id);
+    const root = session.annotations.find((annotation) => annotation.id === replyTo);
+
+    if (!root) throw new Error(`no comment ${replyTo} to reply to`);
+
+    // a reply to a reply still hangs off the discussion's root comment
+    return { anchor: root.anchor, replyTo: root.replyTo ?? root.id };
+  }
+  const selector = stringFlag(flags, "selector");
+  const quote =
+    selector === undefined
+      ? required(stringFlag(flags, "quote"), "--quote")
+      : (stringFlag(flags, "quote") ?? "");
+  const anchor: Anchor = {
+    quote,
+    prefix: stringFlag(flags, "prefix") ?? "",
+    suffix: stringFlag(flags, "suffix") ?? "",
+  };
+
+  if (selector !== undefined) anchor.selector = selector;
+
+  return { anchor };
+}
+
 async function sessionAnnotateCommand({
   client,
   positional,
   flags,
 }: SessionContext): Promise<number> {
   const id = required(positional[1], "session id");
-  const quote = required(stringFlag(flags, "quote"), "--quote");
   const author = stringFlag(flags, "author");
   const body = await annotateBody(flags, client, id);
+  const { anchor, replyTo } = await annotateAnchor(flags, client, id);
+  const annotation: Omit<Annotation, "createdAt"> = {
+    id: stringFlag(flags, "annotation-id") ?? newAnnotationId(),
+    kind: stringFlag(flags, "kind") ?? "comment",
+    anchor,
+    body,
+    author,
+  };
 
-  out(
-    await client.sessionAnnotate(
-      id,
-      {
-        id: stringFlag(flags, "annotation-id") ?? newAnnotationId(),
-        kind: stringFlag(flags, "kind") ?? "comment",
-        anchor: {
-          quote,
-          prefix: stringFlag(flags, "prefix") ?? "",
-          suffix: stringFlag(flags, "suffix") ?? "",
-        },
-        body,
-        author,
-      },
-      stringFlag(flags, "author-name"),
-    ),
-  );
+  if (replyTo !== undefined) annotation.replyTo = replyTo;
+  out(await client.sessionAnnotate(id, annotation, stringFlag(flags, "author-name")));
 
   return 0;
+}
+
+/** Remove a comment; a non-owner names the author it acts as and removes only that author's. */
+async function sessionRemoveCommand({
+  client,
+  positional,
+  flags,
+}: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+  const annotationId = required(positional[2], "annotation id");
+
+  out(await client.sessionRemoveAnnotation(id, annotationId, stringFlag(flags, "author")));
+
+  return 0;
+}
+
+/** Register the display name of a participant: how a collaborator or an agent names itself. */
+async function sessionNameSelfCommand({
+  client,
+  positional,
+  flags,
+}: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+  const name = required(positional[2], "name");
+  const author = required(stringFlag(flags, "author"), "--author");
+
+  out(await client.sessionSetParticipantName(id, author, name));
+
+  return 0;
+}
+
+/**
+ * Follow a session live: one JSON line per event, with the entry the change
+ * appended, until the process ends. `--once` prints the first event and exits.
+ */
+async function sessionEventsCommand({
+  client,
+  positional,
+  flags,
+}: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+  const once = flags.once === true;
+
+  await client.sessionGet(id);
+
+  return new Promise((resolve) => {
+    client.onEvent((event) => {
+      if (event.sessionId !== id) return;
+      out(event);
+      if (once) resolve(0);
+    });
+    void client.subscribe();
+  });
 }
 
 async function sessionResolveCommand({
@@ -166,6 +254,9 @@ const sessionVerbHandlers: SessionVerbHandlers = {
   list: sessionListCommand,
   wait: sessionWaitCommand,
   annotate: sessionAnnotateCommand,
+  remove: sessionRemoveCommand,
+  "name-self": sessionNameSelfCommand,
+  events: sessionEventsCommand,
   resolve: sessionResolveCommand,
   "submit-revision": sessionSubmitRevisionCommand,
 };
@@ -183,7 +274,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
 
     if (handler === undefined) {
       console.error(
-        "usage: cueloop session <create|get|list|wait|annotate|resolve|submit-revision> [flags]",
+        "usage: cueloop session <create|get|list|wait|annotate|remove|name-self|events|resolve|submit-revision> [flags]",
       );
 
       return 2;

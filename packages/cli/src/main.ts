@@ -340,7 +340,7 @@ function printHelp(): void {
       "  cueloop <plan|diff|review> --latest  open the latest pending review of that type",
       "",
       "scripting:",
-      "  cueloop session <primitive> [flags]   script the daemon (create|get|list|wait|annotate|resolve|submit-revision)",
+      "  cueloop session <primitive> [flags]   script the daemon (create|get|list|wait|annotate|remove|name-self|events|resolve|submit-revision)",
       "  cueloop actions list             list the quick-action vocabulary (for annotate --action)",
       "  cueloop refine                   mine past reviews into a markdown report + writeback proposals",
       "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the verdict (spawn detached)",
