@@ -12,7 +12,7 @@
     "test": "bun test --timeout 60000 ./packages ./test",
     "test:pty": "CUELOOP_RUN_PTY=1 bun test ./test/pty",
     "typecheck": "bunx tsc --noEmit",
-    "lint": "oxlint",
+    "lint": "oxlint && bun run scripts/check-import-budgets.ts",
     "format": "oxfmt packages test scripts site",
     "format:check": "oxfmt --check packages test scripts site",
     "changeset": "changeset",
