@@ -1,5 +1,14 @@
 import { describe, expect, mock, test } from "bun:test";
-import { SCHEMA_VERSION, type DiffFileContents, type ReviewSession } from "@cueloop/schema";
+import {
+  cutBlock,
+  parseBlocks,
+  restoreBlock,
+  SCHEMA_VERSION,
+  type DiffFileContents,
+  type HunkRejection,
+  type ReviewSession,
+} from "@cueloop/schema";
+import { curateDiff } from "@cueloop/daemon/curate";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { createReviewController } from "./session-controller";
 
@@ -45,7 +54,9 @@ const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
 /** A fake client that records the working copy the controller writes. */
-function fakeClient(session: ReviewSession, sink: WorkingCopySink): SessionClient {
+function fakeClient(initial: ReviewSession, sink: WorkingCopySink): SessionClient {
+  let session = initial;
+
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
@@ -53,13 +64,49 @@ function fakeClient(session: ReviewSession, sink: WorkingCopySink): SessionClien
     sessionList: async () => [session],
     sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
-    sessionCutBlock: unimplemented("sessionCutBlock"),
-    sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
-    sessionCurate: unimplemented("sessionCurate"),
     sessionSetWorkingCopy: mock(async (_id: string, content: string | undefined) => {
       sink.workingCopy = content;
 
       return { ...session, workingCopy: content };
+    }),
+    // the daemon's block primitives, stood in for with the same pure helpers it uses
+    sessionCutBlock: mock(async (_id: string, blockIndex: number) => {
+      const working = session.workingCopy ?? session.artifact.content;
+      const content = cutBlock(working, parseBlocks(working)[blockIndex]!);
+
+      sink.workingCopy = content;
+      session = { ...session, workingCopy: content };
+
+      return session;
+    }),
+    sessionRestoreBlock: mock(async (_id: string, baseBlockIndex: number, line?: number) => {
+      const base = session.artifact.content;
+      const working = session.workingCopy ?? base;
+      const content = restoreBlock(
+        base,
+        working,
+        parseBlocks(base)[baseBlockIndex]!,
+        line ?? working.split("\n").length,
+      );
+
+      sink.workingCopy = content;
+      session = { ...session, workingCopy: content };
+      if (content === undefined) delete session.workingCopy;
+
+      return session;
+    }),
+    // the daemon's curation, stood in for: the record carries the decisions and the patch they leave
+    sessionCurate: mock(async (_id: string, rejections: HunkRejection[]) => {
+      const content = rejections.length
+        ? curateDiff(session.artifact.files!, rejections)
+        : undefined;
+
+      sink.workingCopy = content;
+      session = { ...session, workingCopy: content };
+      if (rejections.length) session.curation = rejections;
+      else delete session.curation;
+
+      return session;
     }),
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetShareId: unimplemented("sessionSetShareId"),
