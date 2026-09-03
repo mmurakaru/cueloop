@@ -120,6 +120,26 @@ export class BlobSessionClient implements SessionClient {
     return rejectReadOnly();
   }
 
+  sessionNavigate(): Promise<ReviewSession> {
+    return rejectReadOnly();
+  }
+
+  sessionBranch(): Promise<ReviewSession> {
+    return rejectReadOnly();
+  }
+
+  sessionSwitch(): Promise<ReviewSession> {
+    return rejectReadOnly();
+  }
+
+  sessionLabel(): Promise<ReviewSession> {
+    return rejectReadOnly();
+  }
+
+  sessionFork(): Promise<ReviewSession> {
+    return rejectReadOnly();
+  }
+
   sessionSetShareId(): Promise<ReviewSession> {
     return rejectReadOnly();
   }

@@ -24,6 +24,11 @@ describe("roleAllowsMethod", () => {
       "session.setShareId",
       "session.refreshDiff",
       "session.create",
+      "session.navigate",
+      "session.branch",
+      "session.switch",
+      "session.label",
+      "session.fork",
     ];
 
     for (const method of owned) expect(roleAllowsMethod("agent", method)).toBe(false);

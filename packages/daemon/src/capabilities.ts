@@ -35,6 +35,12 @@ const PRIMITIVE_ROLES = {
   "session.restoreBlock": "owner",
   "session.curate": "owner",
   "session.setViewed": "owner",
+  // the tree is the owner's: collaborators comment on the branch a share follows
+  "session.navigate": "owner",
+  "session.branch": "owner",
+  "session.switch": "owner",
+  "session.label": "owner",
+  "session.fork": "owner",
   "session.refreshDiff": "owner",
   "session.setShareId": "owner",
   "session.delete": "owner",

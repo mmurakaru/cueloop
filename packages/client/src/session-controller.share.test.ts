@@ -71,6 +71,11 @@ function fakeClient(session: ReviewSession): FakeSessionClient {
     sessionCutBlock: unimplemented("sessionCutBlock"),
     sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
     sessionCurate: unimplemented("sessionCurate"),
+    sessionNavigate: unimplemented("sessionNavigate"),
+    sessionBranch: unimplemented("sessionBranch"),
+    sessionSwitch: unimplemented("sessionSwitch"),
+    sessionLabel: unimplemented("sessionLabel"),
+    sessionFork: unimplemented("sessionFork"),
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetShareId: mock(
       async (_id: string, shareId: string) => ((session.shareId = shareId), session),

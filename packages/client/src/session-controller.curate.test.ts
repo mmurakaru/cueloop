@@ -108,6 +108,11 @@ function fakeClient(initial: ReviewSession, sink: WorkingCopySink): SessionClien
 
       return session;
     }),
+    sessionNavigate: unimplemented("sessionNavigate"),
+    sessionBranch: unimplemented("sessionBranch"),
+    sessionSwitch: unimplemented("sessionSwitch"),
+    sessionLabel: unimplemented("sessionLabel"),
+    sessionFork: unimplemented("sessionFork"),
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetShareId: unimplemented("sessionSetShareId"),
     sessionMergeShared: unimplemented("sessionMergeShared"),

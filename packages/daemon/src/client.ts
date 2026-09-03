@@ -76,6 +76,15 @@ export interface SessionClient {
   /** Replace a diff review's reject decisions; the working copy follows. */
   sessionCurate(id: string, rejections: HunkRejection[]): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
+  /** Move the current branch's tip back to an entry on its path; a summary records the abandoned segment. */
+  sessionNavigate(id: string, entryId: string, summary?: string): Promise<ReviewSession>;
+  /** Start a branch at the current tip and switch to it. */
+  sessionBranch(id: string, name: string): Promise<ReviewSession>;
+  sessionSwitch(id: string, branch: string): Promise<ReviewSession>;
+  /** Name the current tip as a checkpoint. */
+  sessionLabel(id: string, label: string): Promise<ReviewSession>;
+  /** Copy the current path into a new session; returns the fork. */
+  sessionFork(id: string): Promise<ReviewSession>;
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
   sessionMergeShared(
     id: string,
@@ -313,6 +322,25 @@ export class DaemonClient implements SessionClient {
   }
   sessionCutBlock(id: string, blockIndex: number): Promise<ReviewSession> {
     return this.request("session.cutBlock", { id, blockIndex }, SessionRecordSchema);
+  }
+  sessionNavigate(id: string, entryId: string, summary?: string): Promise<ReviewSession> {
+    return this.request(
+      "session.navigate",
+      summary === undefined ? { id, entryId } : { id, entryId, summary },
+      SessionRecordSchema,
+    );
+  }
+  sessionBranch(id: string, name: string): Promise<ReviewSession> {
+    return this.request("session.branch", { id, name }, SessionRecordSchema);
+  }
+  sessionSwitch(id: string, branch: string): Promise<ReviewSession> {
+    return this.request("session.switch", { id, branch }, SessionRecordSchema);
+  }
+  sessionLabel(id: string, label: string): Promise<ReviewSession> {
+    return this.request("session.label", { id, label }, SessionRecordSchema);
+  }
+  sessionFork(id: string): Promise<ReviewSession> {
+    return this.request("session.fork", { id }, SessionRecordSchema);
   }
   sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<ReviewSession> {
     return this.request(
