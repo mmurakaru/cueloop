@@ -164,7 +164,11 @@ export const Params = {
   }),
   "events.subscribe": v.object({}),
   "daemon.ping": v.object({}),
-  "daemon.hello": v.object({ role: v.picklist(["owner", "collaborator", "agent"]) }),
+  // the owner token proves ownership; without it a request for owner stays a collaborator
+  "daemon.hello": v.object({
+    role: v.picklist(["owner", "collaborator", "agent"]),
+    token: v.optional(v.string()),
+  }),
   "daemon.shutdown": v.object({}),
   // herdr adapter scratch: the review's opened tab, kept off the session record.
   "herdr.getTab": v.object({ id: SessionId }),

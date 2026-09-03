@@ -30,6 +30,11 @@ export function lockPath(home = cueloopHome()): string {
   return join(home, "cueloop.lock");
 }
 
+/** The secret a connection presents to be the owner; written by the daemon, mode 0600. */
+export function ownerTokenPath(home = cueloopHome()): string {
+  return join(home, "owner.token");
+}
+
 /** Adapter scratch: herdr tab handles keyed by session id, kept out of the core session record. */
 export function herdrTabsPath(home = cueloopHome()): string {
   return join(home, "herdr-tabs.json");

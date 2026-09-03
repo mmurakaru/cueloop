@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as v from "valibot";
@@ -197,6 +197,115 @@ describe("socket round-trip", () => {
     // Assert
     expect(fromSecond.artifact.content).toBe(PLAN.content);
     second.close();
+  });
+});
+
+describe("ownership is proven, never declared", () => {
+  /** A wire frame as the daemon answers it: a result or a coded error. */
+  interface WireReply {
+    result?: unknown;
+    error?: { code: string };
+  }
+
+  /** The request body a bare socket sends: the primitive's params as the wire carries them. */
+  type WireParams = Parameters<typeof JSON.stringify>[0];
+
+  interface RawConnection {
+    call: (method: string, params: WireParams) => Promise<WireReply>;
+    close: () => void;
+  }
+
+  /** A bare socket that speaks the wire protocol without the client's handshake. */
+  async function rawConnection(): Promise<RawConnection> {
+    const pending = new Map<number, (frame: WireReply) => void>();
+    let buffered = "";
+    let nextId = 1;
+    const socket = await Bun.connect({
+      unix: join(home, "cueloop.sock"),
+      socket: {
+        data: (_socket, data) => {
+          buffered += data.toString();
+          const lines = buffered.split("\n");
+
+          buffered = lines.pop() ?? "";
+          for (const line of lines) {
+            const frame = JSON.parse(line);
+
+            if ("id" in frame) pending.get(frame.id)?.(frame);
+          }
+        },
+      },
+    });
+
+    return {
+      call: (method, params) =>
+        new Promise((resolve) => {
+          const id = nextId++;
+
+          pending.set(id, resolve);
+          socket.write(JSON.stringify({ id, method, params }) + "\n");
+        }),
+      close: () => socket.end(),
+    };
+  }
+
+  test("a connection that never proves ownership is a collaborator: it reads and comments, nothing more", async () => {
+    // Arrange
+    const session = await client.sessionCreate(WS, PLAN);
+    const raw = await rawConnection();
+
+    // Act + Assert
+    expect((await raw.call("session.get", { id: session.id })).error).toBeUndefined();
+    expect(
+      (
+        await raw.call("session.annotate", {
+          id: session.id,
+          annotation: {
+            id: "a_raw",
+            kind: "comment",
+            anchor: { quote: "Plan", prefix: "", suffix: "" },
+            body: "from a bare socket",
+          },
+        })
+      ).error,
+    ).toBeUndefined();
+    expect(
+      (await raw.call("session.resolve", { id: session.id, verdictKind: "approve", summary: "" }))
+        .error?.code,
+    ).toBe("forbidden");
+    expect((await raw.call("session.delete", { id: session.id })).error?.code).toBe("forbidden");
+    raw.close();
+  });
+
+  test("claiming ownership without the token is refused; the token grants it", async () => {
+    // Arrange
+    const raw = await rawConnection();
+
+    // Act + Assert: a bare claim, then a wrong token, both refused
+    expect((await raw.call("daemon.hello", { role: "owner" })).error?.code).toBe("forbidden");
+    expect((await raw.call("daemon.hello", { role: "owner", token: "nope" })).error?.code).toBe(
+      "forbidden",
+    );
+    expect((await raw.call("daemon.shutdown", {})).error?.code).toBe("forbidden");
+
+    // Act: the token the daemon wrote into its home
+    const token = readFileSync(join(home, "owner.token"), "utf8").trim();
+
+    expect((await raw.call("daemon.hello", { role: "owner", token })).error).toBeUndefined();
+
+    // Assert: owner primitives open up
+    const created = await raw.call("session.create", { workspace: WS, artifact: PLAN });
+
+    expect(created.error).toBeUndefined();
+    raw.close();
+  });
+
+  test("the daemon client proves ownership on connect and the token is private to the home", async () => {
+    // Assert: the client in beforeEach connected as the owner through the token
+    const session = await client.sessionCreate(WS, PLAN);
+
+    expect((await client.sessionResolve(session.id, "approve", "")).status).toBe("resolved");
+    expect(statSync(join(home, "owner.token")).mode & 0o777).toBe(0o600);
   });
 });
 
