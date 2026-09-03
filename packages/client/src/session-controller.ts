@@ -10,17 +10,24 @@
 import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
 import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
 import {
+  applyPathView,
+  createBranch,
   cutBlock,
   detectHerdr,
+  labelTip,
   makeAnchor,
+  navigateTo,
   newAnnotationId,
   parseBlocks,
   resolveAnchor,
   restoreBlock,
   restoreLine,
   returnPaneFor,
+  switchBranch,
+  viewOfPath,
   type Annotation,
   type ReviewSession,
+  type SessionHistory,
   type VerdictKind,
 } from "@cueloop/schema";
 import { loadBundledExporters, type BundledExporter } from "./integrations";
@@ -33,6 +40,7 @@ import {
   shareIdFromLine,
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
+import { entryTarget, treeRows, type TreeRow } from "./tree-view";
 import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
 import {
   changeRejectionForRow,
@@ -243,6 +251,21 @@ export interface ReviewController {
   submit(verdict: VerdictKind, summary: string): void;
   /** Publish the current session as a share; the ssh line lands on the clipboard. */
   share(): void;
+  /** The session tree as rows for the rail's Tree tab, cached per session identity. */
+  treeRows(): TreeRow[];
+  /**
+   * Go to an entry: switch to the branch whose tip it is, or move the current
+   * branch's tip back to it, with an optional branch summary. Owner only.
+   */
+  goToEntry(entryId: string, summary?: string): void;
+  /** Start a branch at the current tip and switch to it. */
+  branch(name: string): void;
+  /** Name the current tip as a checkpoint. */
+  labelTip(label: string): void;
+  /** Copy the current path into a new session and open it. */
+  fork(): void;
+  /** Fork, then share the fork; the current session stays open and unshared. */
+  forkAndShare(): void;
   /** Pull a shared plan's collaborator notes back and union them in (planner only). */
   pullShared(): Promise<void>;
   /** Poll the share for collaborator notes while it is open; returns a stop handle. */
@@ -269,6 +292,7 @@ interface DerivedSessionProjection {
   rows: DiffRow[];
   files: WalkFile[];
   models: Map<string, FileDiffMetadata>;
+  tree: TreeRow[];
 }
 
 class Controller implements ReviewController {
@@ -302,8 +326,8 @@ class Controller implements ReviewController {
     rows: [],
     files: [],
     models: new Map(),
+    tree: [],
   };
-  /** The owner's per-hunk/change reject decisions for the open diff session. */
   /** The diff's reject decisions live on the session record; the daemon curates from them. */
   private get rejections(): HunkRejection[] {
     return this.snapshot.session?.curation ?? EMPTY_REJECTIONS;
@@ -405,7 +429,14 @@ class Controller implements ReviewController {
       rows,
       files: walkFiles(rows),
       models,
+      tree: session?.history ? treeRows(session.history) : [],
     };
+  }
+
+  treeRows(): TreeRow[] {
+    this.ensureDerived();
+
+    return this.derived.tree;
   }
 
   display(): DisplayBlock[] {
@@ -991,6 +1022,125 @@ class Controller implements ReviewController {
       .catch((cause: unknown) =>
         this.setStatus(`share failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
+  }
+
+  goToEntry(entryId: string, summary?: string): void {
+    const session = this.snapshot.session;
+
+    if (!session?.history || !this.client) return;
+    const target = entryTarget(session.history, entryId);
+
+    if (target === null) return this.setStatus("that entry is not on any branch");
+    if (target.kind === "here") return this.setStatus("already at the tip");
+    if (target.kind === "switch") {
+      this.moveTree(session, switchBranch(session.history, target.branch), () =>
+        this.client!.sessionSwitch(session.id, target.branch),
+      );
+      this.setStatus(`on branch ${target.branch}`);
+
+      return;
+    }
+    // an entry another branch reaches: stand on that branch first, then move its tip
+    const onBranch = switchBranch(session.history, target.branch);
+    const options = summary === undefined || summary === "" ? {} : { summary };
+    const moved = navigateTo(onBranch, entryId, options);
+    const client = this.client;
+    const request =
+      target.branch === session.history.branch
+        ? client.sessionNavigate(session.id, entryId, options.summary)
+        : client
+            .sessionSwitch(session.id, target.branch)
+            .then(() => client.sessionNavigate(session.id, entryId, options.summary));
+
+    this.moveTree(session, moved, () => request);
+    this.setStatus(
+      options.summary === undefined
+        ? "moved back - later entries stay in the tree"
+        : "moved back with a summary",
+    );
+  }
+
+  branch(name: string): void {
+    const session = this.snapshot.session;
+    const branchName = name.trim();
+
+    if (!session?.history || !this.client) return;
+    if (!branchName) return this.setStatus("a branch needs a name");
+    if (session.history.tips[branchName] !== undefined)
+      return this.setStatus(`branch ${branchName} exists`);
+    this.moveTree(session, createBranch(session.history, branchName), () =>
+      this.client!.sessionBranch(session.id, branchName),
+    );
+    this.setStatus(`on branch ${branchName}`);
+  }
+
+  labelTip(label: string): void {
+    const session = this.snapshot.session;
+    const name = label.trim();
+
+    if (!session?.history || !this.client) return;
+    if (!name) return this.setStatus("a checkpoint needs a name");
+    this.moveTree(session, labelTip(session.history, name), () =>
+      this.client!.sessionLabel(session.id, name),
+    );
+    this.setStatus(`checkpoint ${name}`);
+  }
+
+  fork(): void {
+    const session = this.snapshot.session;
+
+    if (!session || !this.client) return;
+    this.client
+      .sessionFork(session.id)
+      .then((fork) => {
+        this.update({ session: fork });
+        this.showToast(`forked ${session.id} - you are on the fork now`, "fork");
+      })
+      .catch((cause: unknown) =>
+        this.setStatus(`fork failed: ${cause instanceof Error ? cause.message : String(cause)}`),
+      );
+  }
+
+  forkAndShare(): void {
+    const session = this.snapshot.session;
+
+    if (!session || !this.client) return;
+    const client = this.client;
+
+    this.setStatus("forking and sharing…");
+    client
+      .sessionFork(session.id)
+      .then(async (fork) => {
+        const { line, copied } = await this.shareTransport.publish(fork);
+        const shareId = this.shareTransport.parseShareId(line);
+
+        if (shareId) await client.sessionSetShareId(fork.id, shareId);
+        this.setStatus("");
+        this.showToast(line, copied ? "fork shared - link copied" : "fork shared");
+      })
+      .catch((cause: unknown) =>
+        this.setStatus(
+          `fork and share failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        ),
+      );
+  }
+
+  /**
+   * Show a moved tree at once - the record re-derived from its new path - and
+   * let the daemon's answer replace it. A refused move surfaces as status.
+   */
+  private moveTree(
+    session: ReviewSession,
+    history: SessionHistory,
+    request: () => Promise<ReviewSession>,
+  ): void {
+    const expected: ReviewSession = { ...session, history };
+
+    applyPathView(
+      expected,
+      viewOfPath(history, [...session.annotations, ...(session.shelvedAnnotations ?? [])]),
+    );
+    this.applyOptimistic(expected, request());
   }
 
   /**
