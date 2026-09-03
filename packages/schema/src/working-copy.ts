@@ -42,6 +42,20 @@ function signature(text: string): string {
 }
 
 /**
+ * Whether a base block is missing from the working source: the working copy
+ * holds fewer blocks with its kind and text than the base does. Only such a
+ * block can be restored without duplicating content.
+ */
+export function isBlockCut(base: string, working: string, block: Block): boolean {
+  const matches = (text: string) =>
+    parseBlocks(text).filter(
+      (candidate) => candidate.kind === block.kind && candidate.text === block.text,
+    ).length;
+
+  return matches(working) < matches(base);
+}
+
+/**
  * Re-insert a cut base block into the working source before `beforeLine`.
  * Returns undefined when the block structure round-trips to the base content
  * (restore may differ in blank-line placement only) - the working copy is
