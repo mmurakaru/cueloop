@@ -42,12 +42,13 @@ import type { SessionClient } from "@cueloop/daemon/client";
 import { launchHarnessInSplit } from "@cueloop/daemon/herdr-split";
 import { activeSpanState, createIntentDispatch, type Mode } from "./intent-dispatch";
 import { reduceKey } from "./keymap";
-import { KeyBindings } from "./key-bindings";
+import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { Breadcrumb } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
+import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import { DiffSheet } from "./components/DiffSheet";
 import { PrototypeSheet } from "./components/PrototypeSheet";
 import type { PrototypeElement } from "./prototype-browser";
@@ -123,6 +124,23 @@ export interface AppProps {
    * light-on-light. Defaults to dark - the historical assumption.
    */
   appearance?: Appearance;
+}
+
+/** True while the drop-up or one of its dialogs is open and owns the keyboard. */
+function menuChromeOpen(menuOpen: boolean, menuDialog: "keybinds" | "settings" | null): boolean {
+  return menuOpen || menuDialog !== null;
+}
+
+/** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
+function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
+  const base = keyBindings.cheatsheet();
+
+  if (!threadViewActive) return base;
+
+  return [
+    ...THREAD_VIEW_CHEATSHEET,
+    ...base.filter((section) => section.title === "Agent terminal"),
+  ];
 }
 
 export function App({
@@ -305,6 +323,10 @@ export function App({
     return ids;
   }, [marks]);
   const { isDiff, isPrototype, resolved } = deriveReviewFlags(session);
+  // CUELOOP_THREAD_VIEW=1 swaps the plan sheet for the thread view (the
+  // inline-comment-threads surface graduating from the UX spike)
+  const threadViewActive =
+    process.env.CUELOOP_THREAD_VIEW === "1" && session !== null && !isDiff && !isPrototype;
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
@@ -469,7 +491,13 @@ export function App({
 
   const overlay = resolveOverlay(mode, completion.phase, walking);
 
+  const menuOwnsKeyboard = menuChromeOpen(menuOpen, menuDialog);
+
   useKeyboard((key) => {
+    // The thread view owns the whole keyboard grammar while active (its own
+    // useKeyboard handles keys, including ctrl+q); the legacy keymap yields,
+    // except to an open menu or dialog, which the thread view suspends for.
+    if (threadViewActive && !menuOwnsKeyboard) return void key;
     // The prototype compose textarea owns the keyboard while open: let it receive
     // the typed note instead of the global keymap acting on each letter.
     if (prototypeComposing) return;
@@ -526,7 +554,7 @@ export function App({
       theme={theme}
       setMenuOpen={setMenuOpen}
       setMenuDialog={setMenuDialog}
-      keybindsSections={keyBindings.cheatsheet()}
+      keybindsSections={cheatsheetFor(keyBindings, threadViewActive)}
       settingsCategories={settingsCategories}
       settingsValues={settingsValues}
       settingsNav={settingsNav}
@@ -743,6 +771,28 @@ export function App({
               rejectedRows={rejectedRows}
               compose={diffComposeState}
               theme={walking ? dimmedTheme(theme) : undefined}
+            />
+          ) : threadViewActive ? (
+            <ThreadView
+              session={activeSession}
+              suspended={menuOwnsKeyboard}
+              display={display}
+              marks={marks}
+              quickActions={quickActions}
+              observer={observer}
+              onAnnotate={(span, body) =>
+                void controller.annotate(
+                  "comment",
+                  span.start.blockIndex,
+                  span.start.char,
+                  span.end.char,
+                  body,
+                  span.end.blockIndex,
+                )
+              }
+              onReply={(rootAnnotationId, body) => void controller.reply(rootAnnotationId, body)}
+              onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
+              onExit={() => onExit?.(0)}
             />
           ) : (
             <PlanSheet

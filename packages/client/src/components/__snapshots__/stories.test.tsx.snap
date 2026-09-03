@@ -1292,6 +1292,44 @@ exports[`stories catalog SettingsRows/AllKinds renders, snapshots, and carries i
 "
 `;
 
+exports[`stories catalog ThreadView/InlineThreads renders, snapshots, and carries its colors: ThreadView/InlineThreads 1`] = `
+"                                                                                                    
+  Migration Plan                                                                                    
+                                                                                                    
+  Context                                                                                           
+                                                                                                    
+  The daemon persists sessions to disk atomically.                                                  
+                                                                                                    
+  ╷─────────────────────────────────────────────────────────────────────────────────────────────┐   
+  │ ● Which daemon owns this?                                                                   │   
+  ╵─────────────────────────────────────────────────────────────────────────────────────────────┘   
+                                                                                                    
+  Steps                                                                                             
+                                                                                                    
+  · move the store                                                                                  
+                                                                                                    
+  ╷─────────────────────────────────────────────────────────────────────────────────────────────┐   
+  │ ● move the store behind one interface                                                       │ ○ 
+  ╵─────────────────────────────────────────────────────────────────────────────────────────────┘ ○ 
+                                                                                                    
+  · add recovery                                                                                    
+                                                                                                    
+  export function persist(session: Session): void {                                                 
+    // one JSON document per session                                                                
+    writeAtomically(pathFor(session.id), serialize(session));                                       
+  }                                                                                                 
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+"
+`;
+
 exports[`stories catalog Toast/ShareLink renders, snapshots, and carries its colors: Toast/ShareLink 1`] = `
 "                                                            
                                                             

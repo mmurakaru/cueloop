@@ -1,0 +1,65 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Keyboard & mouse
+eyebrow: Docs · Reference
+lede: The thread view reads a plan or reply as one thread with discussions pinned to its text. Mark text with the mouse or the keyboard, type to comment, and send with cmd+enter. These keys belong to the view and are not rebindable.
+prev: { title: "Configuration", href: "/docs/reference/configuration/" }
+next: { title: "Sharing over SSH", href: "/docs/sharing/" }
+---
+
+The thread view is opt-in: start cueloop with `CUELOOP_THREAD_VIEW=1` and a plan
+or reply opens as a thread instead of the plan sheet. Press the menu's
+**keybinds** entry inside the view to see this list in the terminal.
+
+## Marking text
+
+A mark is a character-precise stretch of text. It can start in the middle of a
+word and run across wrapped lines and across blocks - from the tail of a
+paragraph into the bullets under it.
+
+| Input                 | What it does                                      |
+| --------------------- | ------------------------------------------------- |
+| click                 | place the caret                                   |
+| drag                  | mark from the press to the pointer, across blocks |
+| double-click          | mark the word under the pointer                   |
+| `←` / `→`             | move the caret by word; it flows across blocks    |
+| `shift+←` / `shift+→` | hold a mark from the caret                        |
+| `↑` / `↓`             | move the caret by block                           |
+| `esc`                 | drop the mark                                     |
+
+A drag that leaves a block on its blank line below marks to the end of that
+block; the next block joins the mark once the pointer reaches its text.
+
+## Commenting
+
+| Input             | What it does                                               |
+| ----------------- | ---------------------------------------------------------- |
+| type              | open a comment on the mark, or on the word under the caret |
+| `cmd+option+m`    | open a comment on the mark                                 |
+| `enter`           | reply to the comment under the caret                       |
+| `tab`             | fold or unfold the discussion under the caret              |
+| `cmd+]` / `cmd+[` | jump to the next or previous comment                       |
+| `ctrl+q`          | quit                                                       |
+
+Inside a comment:
+
+| Input                         | What it does                                           |
+| ----------------------------- | ------------------------------------------------------ |
+| `cmd+enter`                   | send (`ctrl+enter` works where the terminal keeps cmd) |
+| `enter`                       | new line, kept as typed                                |
+| `backspace` on an empty draft | dismiss the draft; the mark stays                      |
+| `/`                           | the actions palette                                    |
+| click elsewhere               | save the draft                                         |
+
+A comment on a mark that spans blocks anchors to the whole stretch: its quote
+carries the text of every block it covers, and the card sits under the last one.
+
+<div class="callout callout--tip">
+  <div class="callout__label">Ghostty and cmd+enter</div>Ghostty binds cmd+enter to fullscreen by
+  default. Add <code>keybind = super+enter=unbind</code> to its config, or send with ctrl+enter.
+</div>
+
+## The plan sheet
+
+Without `CUELOOP_THREAD_VIEW`, plans open in the plan sheet, whose keys are
+rebindable in the `[keys]` table of the [configuration](/docs/reference/configuration/#keys).

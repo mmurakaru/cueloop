@@ -287,3 +287,45 @@ describe("inbox", () => {
     await waitForText(setup, "Submit review");
   });
 });
+
+describe("the thread view and the menu", () => {
+  test("the keybinds dialog lists the thread view grammar, keeps keys away from the text, and closes on escape", async () => {
+    // Arrange
+    process.env.CUELOOP_THREAD_VIEW = "1";
+    try {
+      const setup = await renderApp();
+
+      await waitForText(setup, "The daemon persists");
+      const lines = setup.captureCharFrame().split("\n");
+      const menuRow = lines.findIndex((line) => line.includes("menu"));
+      const menuColumn = lines[menuRow]!.indexOf("menu");
+
+      // Act - open the menu, then the keybinds dialog
+      await setup.mockMouse.click(menuColumn + 1, menuRow);
+      await waitForText(setup, "Keybinds");
+      const dropUp = setup.captureCharFrame().split("\n");
+      const keybindsRow = dropUp.findIndex((line) => line.includes("Keybinds"));
+
+      await setup.mockMouse.click(dropUp[keybindsRow]!.indexOf("Keybinds") + 1, keybindsRow);
+      await waitForText(setup, "mark text, across blocks");
+
+      // Assert - the thread grammar, not the plan sheet's
+      const dialog = setup.captureCharFrame();
+
+      expect(dialog).toContain("⌘⌥m");
+      expect(dialog).toContain("dismiss an empty draft");
+      expect(dialog).not.toContain("grow/shrink");
+
+      // Act - a printable behind the dialog must not open a comment; escape closes it
+      await press(setup, "x");
+      expect(setup.captureCharFrame()).not.toContain("● x");
+      await press(setup, "escape");
+
+      // Assert
+      await waitForState(setup, () => !setup.captureCharFrame().includes("dismiss an empty draft"));
+      expect(setup.captureCharFrame()).not.toContain("● x");
+    } finally {
+      delete process.env.CUELOOP_THREAD_VIEW;
+    }
+  });
+});
