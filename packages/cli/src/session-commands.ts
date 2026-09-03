@@ -229,6 +229,54 @@ async function sessionCurateCommand({
   return 0;
 }
 
+/** Move the current branch's tip back to an entry on its path; --summary records what was left behind. */
+async function sessionNavigateCommand({
+  client,
+  positional,
+  flags,
+}: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+  const entryId = required(positional[2], "entry id");
+
+  out(await client.sessionNavigate(id, entryId, stringFlag(flags, "summary")));
+
+  return 0;
+}
+
+/** Start a branch at the current tip and switch to it. */
+async function sessionBranchCommand({ client, positional }: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+
+  out(await client.sessionBranch(id, required(positional[2], "branch name")));
+
+  return 0;
+}
+
+/** Show another branch's path. */
+async function sessionSwitchCommand({ client, positional }: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+
+  out(await client.sessionSwitch(id, required(positional[2], "branch name")));
+
+  return 0;
+}
+
+/** Name the current tip as a checkpoint. */
+async function sessionLabelCommand({ client, positional }: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+
+  out(await client.sessionLabel(id, required(positional[2], "label")));
+
+  return 0;
+}
+
+/** Copy the current path into a new session and print the fork. */
+async function sessionForkCommand({ client, positional }: SessionContext): Promise<number> {
+  out(await client.sessionFork(required(positional[1], "session id")));
+
+  return 0;
+}
+
 /** Mark files of a diff review as viewed - the guided walk's state, from a script. */
 async function sessionSetViewedCommand({ client, positional }: SessionContext): Promise<number> {
   const id = required(positional[1], "session id");
@@ -327,6 +375,11 @@ const sessionVerbHandlers: SessionVerbHandlers = {
   restore: sessionRestoreCommand,
   curate: sessionCurateCommand,
   "set-viewed": sessionSetViewedCommand,
+  navigate: sessionNavigateCommand,
+  branch: sessionBranchCommand,
+  switch: sessionSwitchCommand,
+  label: sessionLabelCommand,
+  fork: sessionForkCommand,
   "name-self": sessionNameSelfCommand,
   events: sessionEventsCommand,
   resolve: sessionResolveCommand,
@@ -351,7 +404,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
 
     if (handler === undefined) {
       console.error(
-        "usage: cueloop session <create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|name-self|events|resolve|submit-revision> [flags]",
+        "usage: cueloop session <create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|resolve|submit-revision> [flags]",
       );
 
       return 2;
