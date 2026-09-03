@@ -261,6 +261,23 @@ describe("diff hunk curation", () => {
     expect(controller.curationItems().length).toBe(1);
   });
 
+  test("a second decision before the daemon answers builds on the first", async () => {
+    // Arrange
+    const { controller, client } = await connected(diffSession(FILES));
+
+    // Act - reject, then restore, with no answer in between
+    controller.toggleRejectChange(4);
+    controller.toggleRejectChange(4);
+    await tick();
+
+    // Assert - the second request restores; a stale snapshot would reject again
+    expect(client.sessionCurate).toHaveBeenCalledTimes(2);
+    expect(client.sessionCurate).toHaveBeenNthCalledWith(1, "ses_diff", [
+      { path: "src/store.ts", hunkIndex: 0, changeIndex: 1 },
+    ]);
+    expect(client.sessionCurate).toHaveBeenNthCalledWith(2, "ses_diff", []);
+  });
+
   test("curation is disabled without full file contents", async () => {
     // Arrange - a legacy diff with no artifact.files
     const { controller, sink } = await connected(diffSession(undefined));
@@ -321,5 +338,20 @@ describe("plan cut removals", () => {
     // Assert - restoring the only cut round-trips to the submitted revision
     expect(controller.getSnapshot().status).toContain("removal restored");
     expect(sink.workingCopy).toBeUndefined();
+  });
+
+  test("a second cut before the daemon answers indexes the already-cut copy", async () => {
+    // Arrange - pristine plan: title(0), first(1), second(2)
+    const { controller, client, sink } = await connected(planSession());
+
+    // Act - cut the first paragraph, then the second, with no answer in between
+    controller.cut(1);
+    controller.cut(2);
+    await tick();
+
+    // Assert - the second paragraph is block 1 once the first is gone
+    expect(client.sessionCutBlock).toHaveBeenNthCalledWith(1, "ses_plan", 1);
+    expect(client.sessionCutBlock).toHaveBeenNthCalledWith(2, "ses_plan", 1);
+    expect(sink.workingCopy).toBe("# Title\n");
   });
 });
