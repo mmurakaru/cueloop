@@ -299,10 +299,24 @@ export class DaemonServer {
 
       return this.core.sessionAnnotate(params.id, params.annotation, params.authorName);
     },
-    "session.removeAnnotation": (_connection, request) => {
+    "session.removeAnnotation": (connection, request) => {
       const params = parseParams("session.removeAnnotation", request.params);
 
-      return this.core.sessionRemoveAnnotation(params.id, params.annotationId);
+      // the owner removes any comment; everyone else must say whose comment it removes
+      if (connection.role !== "owner" && params.onBehalfOf === undefined) {
+        throw new DaemonError("forbidden", "a non-owner removes comments on behalf of an author");
+      }
+
+      return this.core.sessionRemoveAnnotation(
+        params.id,
+        params.annotationId,
+        connection.role === "owner" ? undefined : params.onBehalfOf,
+      );
+    },
+    "session.setParticipantName": (_connection, request) => {
+      const params = parseParams("session.setParticipantName", request.params);
+
+      return this.core.sessionSetParticipantName(params.id, params.author, params.name);
     },
     "session.setWorkingCopy": (_connection, request) => {
       const params = parseParams("session.setWorkingCopy", request.params);

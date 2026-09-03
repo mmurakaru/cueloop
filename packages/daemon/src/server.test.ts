@@ -80,6 +80,74 @@ describe("socket round-trip", () => {
     observer.close();
   });
 
+  test("an event names the history entry its change appended", async () => {
+    // Arrange
+    const observer = await DaemonClient.connect({ home });
+    const frames: Array<{ event: string; entryId?: string }> = [];
+
+    observer.onEvent((event) => frames.push(event));
+    await observer.subscribe();
+    const session = await client.sessionCreate(WS, PLAN);
+
+    // Act
+    const annotated = await client.sessionAnnotate(session.id, {
+      id: "a_evt",
+      kind: "comment",
+      anchor: { quote: "Plan", prefix: "", suffix: "" },
+      body: "hello",
+    });
+
+    await Bun.sleep(50);
+
+    // Assert: the update frame carries the comment entry's id
+    const updated = frames.find((frame) => frame.event === "session.updated");
+
+    expect(updated?.entryId).toBe(annotated.history!.entries.at(-1)!.id);
+    observer.close();
+  });
+
+  test("a non-owner removes only the comments of the author it acts as, and names itself", async () => {
+    // Arrange: the owner's and Ana's comments; an agent connection acting as Ana
+    const session = await client.sessionCreate(WS, PLAN);
+
+    await client.sessionAnnotate(session.id, {
+      id: "own",
+      kind: "comment",
+      anchor: { quote: "Plan", prefix: "", suffix: "" },
+      body: "mine",
+    });
+    await client.sessionAnnotate(session.id, {
+      id: "anas",
+      kind: "comment",
+      anchor: { quote: "Plan", prefix: "", suffix: "" },
+      body: "hers",
+      author: "SHA256:ana",
+    });
+    const agent = await DaemonClient.connect({ home, role: "agent" });
+
+    // Act + Assert: removal without an author, or of another author's comment, is refused
+    await expect(agent.sessionRemoveAnnotation(session.id, "own")).rejects.toHaveProperty(
+      "code",
+      "forbidden",
+    );
+    await expect(
+      agent.sessionRemoveAnnotation(session.id, "own", "SHA256:ana"),
+    ).rejects.toHaveProperty("code", "forbidden");
+
+    // Act: her own comment goes, and she names herself
+    const removed = await agent.sessionRemoveAnnotation(session.id, "anas", "SHA256:ana");
+    const named = await agent.sessionSetParticipantName(session.id, "SHA256:ana", "Ana");
+
+    // Assert
+    expect(removed.annotations.map((annotation) => annotation.id)).toEqual(["own"]);
+    expect(removed.history!.entries.at(-1)).toMatchObject({
+      type: "comment-removed",
+      annotationId: "anas",
+    });
+    expect(named.participants).toContainEqual({ id: "SHA256:ana", provider: "ssh", name: "Ana" });
+    agent.close();
+  });
+
   test("malformed requests get structured errors and never wedge the daemon", async () => {
     // missing required params
     await expect(

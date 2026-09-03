@@ -140,7 +140,13 @@ export const Params = {
     annotation: AnnotationSchema,
     authorName: v.optional(v.string()),
   }),
-  "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
+  "session.removeAnnotation": v.object({
+    id: SessionId,
+    annotationId: NonEmpty,
+    // a non-owner removes only the comments of the author it acts as
+    onBehalfOf: v.optional(NonEmpty),
+  }),
+  "session.setParticipantName": v.object({ id: SessionId, author: NonEmpty, name: NonEmpty }),
   "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
   "session.refreshDiff": v.object({ id: SessionId }),

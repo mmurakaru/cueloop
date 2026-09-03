@@ -23,12 +23,15 @@ describe("roleAllowsMethod", () => {
       "session.delete",
       "session.setShareId",
       "session.refreshDiff",
-      "session.removeAnnotation",
       "session.create",
     ];
 
     for (const method of owned) expect(roleAllowsMethod("agent", method)).toBe(false);
     expect(roleAllowsMethod("collaborator", "session.resolve")).toBe(false);
+    // removal and naming are open to every role; the primitive itself scopes a
+    // non-owner to the author it acts as
+    expect(roleAllowsMethod("agent", "session.removeAnnotation")).toBe(true);
+    expect(roleAllowsMethod("agent", "session.setParticipantName")).toBe(true);
   });
 
   test("a connection starts as a collaborator, never as the owner", () => {

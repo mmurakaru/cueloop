@@ -63,7 +63,12 @@ export interface SessionClient {
     annotation: Omit<Annotation, "createdAt">,
     authorName?: string,
   ): Promise<ReviewSession>;
-  sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession>;
+  /** Remove a comment; a non-owner passes the author it acts as and removes only that author's. */
+  sessionRemoveAnnotation(
+    id: string,
+    annotationId: string,
+    onBehalfOf?: string,
+  ): Promise<ReviewSession>;
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
@@ -284,8 +289,20 @@ export class DaemonClient implements SessionClient {
   ): Promise<ReviewSession> {
     return this.request("session.annotate", { id, annotation, authorName }, SessionRecordSchema);
   }
-  sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession> {
-    return this.request("session.removeAnnotation", { id, annotationId }, SessionRecordSchema);
+  sessionRemoveAnnotation(
+    id: string,
+    annotationId: string,
+    onBehalfOf?: string,
+  ): Promise<ReviewSession> {
+    return this.request(
+      "session.removeAnnotation",
+      onBehalfOf === undefined ? { id, annotationId } : { id, annotationId, onBehalfOf },
+      SessionRecordSchema,
+    );
+  }
+  /** Register a display name for a participant - a collaborator's or an agent's own, on a share or locally. */
+  sessionSetParticipantName(id: string, author: string, name: string): Promise<ReviewSession> {
+    return this.request("session.setParticipantName", { id, author, name }, SessionRecordSchema);
   }
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession> {
     return this.request("session.setWorkingCopy", { id, workingCopy }, SessionRecordSchema);
