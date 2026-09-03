@@ -6,8 +6,11 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import {
+  appendEntry,
+  createBranch,
   historyFromLinear,
   SCHEMA_VERSION,
+  switchBranch,
   type Annotation,
   type ReviewSession,
 } from "@cueloop/schema";
@@ -126,7 +129,52 @@ describe("tree primitives", () => {
       "a1",
     ]);
     expect(controller.treeRows().find((row) => row.glyph === "↩")?.isCurrentTip).toBe(true);
-    expect(client.sessionNavigate).toHaveBeenCalledWith("ses_1", revision, "too soon");
+    expect(client.sessionNavigate).toHaveBeenCalledWith("ses_1", revision, "too soon", undefined);
+  });
+
+  test("a move on another branch is one request that names the branch", async () => {
+    // Arrange: alt with its own comment entry; the owner stands on main
+    const session = sessionFixture();
+    let history = createBranch(session.history!, "alt");
+
+    history = appendEntry(history, { type: "comment", annotationId: "b1", createdAt: AT }).history;
+    history = appendEntry(history, { type: "comment", annotationId: "b2", createdAt: AT }).history;
+    session.history = switchBranch(history, "main");
+    session.shelvedAnnotations = [annotation("b1", "alt one"), annotation("b2", "alt two")];
+    const { controller, client } = await connected(session);
+    const altFirst = history.entries.find(
+      (entry) => entry.type === "comment" && entry.annotationId === "b1",
+    )!;
+
+    // Act
+    controller.goToEntry(altFirst.id);
+
+    // Assert
+    expect(client.sessionSwitch).not.toHaveBeenCalled();
+    expect(client.sessionNavigate).toHaveBeenCalledWith("ses_1", altFirst.id, undefined, "alt");
+    expect(controller.getSnapshot().session!.annotations.map((entry) => entry.id)).toEqual([
+      "a1",
+      "b1",
+    ]);
+  });
+
+  test("a refused move gives way to the daemon's record", async () => {
+    // Arrange: the daemon refuses; a re-read hands back the untouched record
+    const session = sessionFixture();
+    const { controller, client } = await connected(session);
+
+    client.sessionNavigate.mockImplementationOnce(() => Promise.reject(new Error("resolved")));
+
+    // Act
+    controller.goToEntry(session.history!.entries[0]!.id);
+    const guessed = controller.getSnapshot().session!.annotations.length;
+
+    await tick();
+
+    // Assert: the guess showed, then the record came back
+    expect(guessed).toBe(0);
+    expect(controller.getSnapshot().session!.annotations.map((entry) => entry.id)).toEqual(["a1"]);
+    expect(controller.getSnapshot().status).toBe("resolved");
   });
 
   test("branch and label refuse an empty name and a taken branch name", async () => {
