@@ -234,6 +234,14 @@ export interface ReviewSession {
   verdict: Verdict | null;
   status: SessionStatus;
   createdAt: string;
+  /**
+   * Comments off the active path - removed, or made on a segment a tip moved
+   * away from. Nothing is deleted: a navigate or switch that brings their
+   * entries back onto the path shows them again.
+   */
+  shelvedAnnotations?: Annotation[];
+  /** The session this one was forked from. */
+  parentSessionId?: string;
   /** Share id once published; lets the planner pull collaborator notes back. */
   shareId?: string;
   /** SSH fingerprint that created the share; the gateway stamps it to gate pulls. */
