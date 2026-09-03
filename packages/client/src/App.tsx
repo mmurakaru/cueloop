@@ -814,7 +814,8 @@ export function App({
               tree: {
                 rows: controller.treeRows(),
                 selectedEntryId,
-                canMove: isOwner,
+                canMove: isOwner && !resolved,
+                canFork: isOwner,
                 onSelect: setSelectedEntryId,
                 onGo: (entryId) => {
                   setSelectedEntryId(entryId);

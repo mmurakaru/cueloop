@@ -198,5 +198,27 @@ describe("the Tree tab", () => {
     // Assert: no prompt, the read-only answer, no buttons
     await waitForText(setup, "observer - read-only");
     expect(setup.captureCharFrame()).not.toContain("Fork+share");
+
+    // Act: two clicks on the revision row select it and nothing more
+    await clickText(setup, "● revision 1");
+    await clickText(setup, "● revision 1");
+
+    // Assert: no prompt opened, the record stands
+    expect(setup.captureCharFrame()).not.toContain("Move back");
+    expect(server.core.sessionGet(session.id).history!.entries).toHaveLength(1);
+  });
+
+  test("a resolved review keeps the fork buttons and drops the moving ones", async () => {
+    // Arrange
+    server.core.sessionResolve(session.id, "approve", "ship it");
+    const setup = await renderApp();
+
+    // Act
+    await pressKey(setup, "t", { meta: true });
+    await waitForText(setup, "Fork+share");
+
+    // Assert
+    expect(setup.captureCharFrame()).not.toContain("Branch");
+    expect(setup.captureCharFrame()).not.toContain("Label");
   });
 });
