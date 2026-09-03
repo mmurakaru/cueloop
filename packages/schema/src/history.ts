@@ -68,7 +68,8 @@ export class HistoryError extends Error {
       | "branch-exists"
       | "off-path"
       | "already-there"
-      | "not-a-revision",
+      | "not-a-revision"
+      | "cycle",
     message: string,
   ) {
     super(message);
@@ -93,23 +94,73 @@ export function tipOf(history: SessionHistory, branch: string = history.branch):
 export function pathOf(history: SessionHistory, fromId: string = tipOf(history)): SessionEntry[] {
   const byId = new Map(history.entries.map((entry) => [entry.id, entry]));
   const path: SessionEntry[] = [];
+  const seen = new Set<string>();
 
   for (
     let entry = byId.get(fromId);
     entry;
     entry = entry.parentId ? byId.get(entry.parentId) : undefined
   ) {
+    if (seen.has(entry.id))
+      throw new HistoryError("cycle", `entry "${entry.id}" is its own ancestor`);
+    seen.add(entry.id);
     path.unshift(entry);
   }
 
   return path;
 }
 
+/**
+ * The graph invariants every history must hold, as one message or null: ids
+ * are unique, every parent exists, no entry is its own ancestor, every tip
+ * names an entry, `main` and the current branch exist, and every tip's path
+ * reaches a revision. Run at every boundary a history crosses.
+ */
+export function validateHistory(history: SessionHistory): string | null {
+  const ids = new Set<string>();
+
+  for (const entry of history.entries) {
+    if (ids.has(entry.id)) return `duplicate entry id "${entry.id}"`;
+    ids.add(entry.id);
+  }
+  for (const entry of history.entries) {
+    if (entry.parentId !== null && !ids.has(entry.parentId)) {
+      return `entry "${entry.id}" points at missing parent "${entry.parentId}"`;
+    }
+  }
+  if (history.tips[MAIN_BRANCH] === undefined) return `no "${MAIN_BRANCH}" branch`;
+  if (history.tips[history.branch] === undefined)
+    return `current branch "${history.branch}" has no tip`;
+  for (const [branch, tip] of Object.entries(history.tips)) {
+    if (!ids.has(tip)) return `branch "${branch}" points at missing entry "${tip}"`;
+    try {
+      if (!pathOf(history, tip).some((entry) => entry.type === "revision")) {
+        return `branch "${branch}" has no revision on its path`;
+      }
+    } catch (error) {
+      return error instanceof HistoryError ? error.message : String(error);
+    }
+  }
+  for (const entry of history.entries) {
+    // a cycle off every path still hangs a walk that starts inside it
+    try {
+      pathOf(history, entry.id);
+    } catch (error) {
+      return error instanceof HistoryError ? error.message : String(error);
+    }
+  }
+
+  return null;
+}
+
 export interface DerivedPath {
   /** The last revision on the path: what the artifact shows. */
   head: SessionEntry & { type: "revision" };
-  /** Comments added on the path and not removed after, in order. */
-  openAnnotationIds: string[];
+  /**
+   * Comments added on the path and not removed after, in order. Whether one
+   * is addressed by a revision is the annotation's own state, not the path's.
+   */
+  annotationIds: string[];
   /** Verdicts on the path, oldest first. */
   verdicts: Verdict[];
   summaries: Array<SessionEntry & { type: "branch-summary" }>;
@@ -137,7 +188,7 @@ export function derivePath(history: SessionHistory, fromId?: string): DerivedPat
 
   return {
     head,
-    openAnnotationIds: [...open],
+    annotationIds: [...open],
     verdicts,
     summaries,
     rounds: revisions.filter((entry) => entry.by === "agent").length,

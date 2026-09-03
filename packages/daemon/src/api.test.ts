@@ -485,7 +485,7 @@ describe("the session history records every write as an entry", () => {
 
     // Assert
     expect(derived.head.content).toBe(revised.artifact.content);
-    expect(derived.openAnnotationIds).toEqual(["a2"]);
+    expect(derived.annotationIds).toEqual(["a2"]);
     expect(derived.rounds).toBe(2);
   });
 

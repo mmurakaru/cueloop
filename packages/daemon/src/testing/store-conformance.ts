@@ -18,7 +18,7 @@ export interface StoreHarness {
   restart: (store: SessionRepository) => SessionRepository;
 }
 
-export function sessionRecord(
+export function createTestSessionRecord(
   id: string,
   createdAt: string,
   overrides: Partial<ReviewSession> = {},
@@ -44,8 +44,8 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
       const store = harness.open([]);
 
       store.recover();
-      const newer = sessionRecord("ses_b", "2026-09-02T00:00:00.000Z");
-      const older = sessionRecord("ses_a", "2026-09-01T00:00:00.000Z");
+      const newer = createTestSessionRecord("ses_b", "2026-09-02T00:00:00.000Z");
+      const older = createTestSessionRecord("ses_a", "2026-09-01T00:00:00.000Z");
 
       // Act
       store.upsert(newer);
@@ -62,10 +62,12 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
       const store = harness.open([]);
 
       store.recover();
-      store.upsert(sessionRecord("ses_a", "2026-09-01T00:00:00.000Z"));
+      store.upsert(createTestSessionRecord("ses_a", "2026-09-01T00:00:00.000Z"));
 
       // Act
-      store.upsert(sessionRecord("ses_a", "2026-09-01T00:00:00.000Z", { status: "resolved" }));
+      store.upsert(
+        createTestSessionRecord("ses_a", "2026-09-01T00:00:00.000Z", { status: "resolved" }),
+      );
 
       // Assert
       expect(store.list()).toHaveLength(1);
@@ -80,8 +82,8 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
       const store = harness.open([]);
 
       store.recover();
-      store.upsert(sessionRecord("ses_keep", "2026-09-01T00:00:00.000Z"));
-      store.upsert(sessionRecord("ses_gone", "2026-09-02T00:00:00.000Z"));
+      store.upsert(createTestSessionRecord("ses_keep", "2026-09-01T00:00:00.000Z"));
+      store.upsert(createTestSessionRecord("ses_gone", "2026-09-02T00:00:00.000Z"));
       store.delete("ses_gone");
 
       // Act
@@ -96,7 +98,7 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
 
     test("a record without a history reads as a one-branch tree whose head is the artifact", () => {
       // Arrange: written before histories existed, with two revisions and a comment
-      const legacy = sessionRecord("ses_old", "2026-09-01T00:00:00.000Z", {
+      const legacy = createTestSessionRecord("ses_old", "2026-09-01T00:00:00.000Z", {
         artifact: { type: "plan", content: "v2", meta: {} },
         revisions: [
           { revision: 1, content: "v1", submittedAt: "2026-09-01T00:00:00.000Z" },
@@ -133,7 +135,7 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
     test("a record with no revision still recovers, without a history", () => {
       // Arrange
       const store = harness.open([
-        sessionRecord("ses_empty", "2026-09-01T00:00:00.000Z", { revisions: [] }),
+        createTestSessionRecord("ses_empty", "2026-09-01T00:00:00.000Z", { revisions: [] }),
       ]);
 
       // Act
@@ -146,7 +148,7 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
 
     test("a record that already carries a history keeps it untouched", () => {
       // Arrange
-      const withTree = sessionRecord("ses_tree", "2026-09-01T00:00:00.000Z", {
+      const withTree = createTestSessionRecord("ses_tree", "2026-09-01T00:00:00.000Z", {
         history: {
           entries: [
             {
@@ -175,7 +177,7 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
     test("a record that fails validation is skipped and reported, never dropped from the report", () => {
       // Arrange
       const store = harness.open([
-        sessionRecord("ses_good", "2026-09-01T00:00:00.000Z"),
+        createTestSessionRecord("ses_good", "2026-09-01T00:00:00.000Z"),
         { schemaVersion: SCHEMA_VERSION, id: "ses_bad" },
       ]);
 
