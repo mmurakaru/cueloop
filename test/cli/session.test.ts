@@ -426,7 +426,7 @@ describe("cueloop session (black box)", () => {
       "SHA256:ana",
     ]);
 
-    expect(refused.exitCode).not.toBe(0);
+    expect(refused.code).not.toBe(0);
 
     // Act: hers goes; the owner removes its own without naming anyone
     const afterAna = cliJson<ReviewSession>(
