@@ -169,13 +169,12 @@ exportOn = "manual"
 
 ## Environment variables
 
-| Variable              | Default      | Used for                                                                    |
-| --------------------- | ------------ | --------------------------------------------------------------------------- |
-| `CUELOOP_CONFIG`      | -            | path to your user config file                                               |
-| `CUELOOP_HOME`        | `~/.cueloop` | daemon state: socket, sessions, pid, lock                                   |
-| `CUELOOP_GH`          | `gh`         | the GitHub CLI used to fetch and post PR reviews                            |
-| `CUELOOP_THREAD_VIEW` | -            | `1` opens plans and replies in the [thread view](/docs/reference/keyboard/) |
-| `EDITOR`              | -            | editor for the edit action (overridden by `[ui] editor`)                    |
+| Variable         | Default      | Used for                                                 |
+| ---------------- | ------------ | -------------------------------------------------------- |
+| `CUELOOP_CONFIG` | -            | path to your user config file                            |
+| `CUELOOP_HOME`   | `~/.cueloop` | daemon state: socket, sessions, pid, lock                |
+| `CUELOOP_GH`     | `gh`         | the GitHub CLI used to fetch and post PR reviews         |
+| `EDITOR`         | -            | editor for the edit action (overridden by `[ui] editor`) |
 
 The gateway that serves shared plans reads its own `CUELOOP_GATEWAY_*` and key
 variables, but those are server-side and do not affect the local CLI.
