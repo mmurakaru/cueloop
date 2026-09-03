@@ -9,7 +9,14 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, press, settle, waitForText, waitForTextGone } from "./test-support";
+import {
+  isolateUserConfig,
+  press,
+  pressKey,
+  settle,
+  waitForText,
+  waitForTextGone,
+} from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -85,7 +92,7 @@ describe("rail submit confirm", () => {
     expect(setup.captureCharFrame()).toContain("Submit review");
 
     // Act
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "submit review");
@@ -102,7 +109,7 @@ describe("rail submit confirm", () => {
     // Arrange
     const setup = await renderApp();
 
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "[Approve]");
@@ -130,7 +137,7 @@ describe("rail submit confirm", () => {
     // Arrange
     const setup = await renderApp();
 
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "[Approve]");
@@ -152,7 +159,7 @@ describe("rail submit confirm", () => {
     const setup = await renderApp();
 
     // Act
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "[Changes]"); // pending items: request changes default
@@ -173,26 +180,34 @@ describe("rail submit confirm", () => {
     expect(stored.verdict!.kind).toBe("request_changes");
   });
 
+  /** The rail's columns of the frame, so document text never leaks into a rail assertion. */
+  function railText(frame: string): string {
+    const rows = frame.split("\n");
+    const railColumn = rows.find((row) => row.includes("Review  Agent"))!.indexOf("│");
+
+    return rows.map((row) => row.slice(railColumn)).join("\n");
+  }
+
   test("the annotation stack stays scrollable while the card is open", async () => {
     // Arrange
     seedAnnotations(12);
     const setup = await renderApp();
 
     // Act
-    // walk annotation focus to the last card: the rail scrolls it into view
-    for (let index = 0; index < 12; index++) await press(setup, "n");
+    // walk card focus to the last one: the rail scrolls it into view
+    for (let index = 0; index < 12; index++) await pressKey(setup, "n", { meta: true });
 
     // Assert
     await waitForText(setup, "note 12");
-    expect(setup.captureCharFrame()).not.toContain("note 01");
+    expect(railText(setup.captureCharFrame())).not.toContain("note 01");
 
     // Act
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "[Changes]");
     // the card is pinned outside the scrollbox; the stack stays scrolled off the top
-    expect(setup.captureCharFrame()).not.toContain("note 01");
+    expect(railText(setup.captureCharFrame())).not.toContain("note 01");
 
     // Act
     // the stack still scrolls with the card open: wheel over the rail
@@ -202,7 +217,7 @@ describe("rail submit confirm", () => {
 
     // Assert
     await waitForText(setup, "note 12");
-    const scrolledWithCard = setup.captureCharFrame();
+    const scrolledWithCard = railText(setup.captureCharFrame());
 
     expect(scrolledWithCard).toContain("submit review");
     expect(scrolledWithCard).not.toContain("note 01");
@@ -214,7 +229,7 @@ describe("rail submit confirm", () => {
     const setup = await renderApp({ readOnly: true });
 
     // Act
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "observer - read-only");

@@ -10,8 +10,12 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import {
+  clickText,
+  dragText,
+  frameRow,
   isolateUserConfig,
   press,
+  pressKey,
   typeText as type,
   waitForState,
   waitForText,
@@ -77,45 +81,36 @@ describe("plan rendering", () => {
     expect(frame).toContain("Migration Plan");
     expect(frame).toContain("Context");
     expect(frame).toContain("persists sessions to disk atomically");
-    expect(frame).toContain("- move the store");
+    expect(frame).toContain("· move the store");
     expect(frame).toContain("Review");
     expect(frame).toContain("Submit review");
   });
 });
 
-describe("keyboard grammar", () => {
-  test("j/k moves the cursor glyph between blocks", async () => {
+describe("thread view grammar", () => {
+  test("↓ moves the caret between blocks and typing anchors to the block under it", async () => {
     // Arrange
     const setup = await renderApp();
 
-    // Act
-    await press(setup, "j");
-    await press(setup, "j");
-    await setup.renderOnce();
+    // Act: two blocks down lands on the paragraph; a printable opens a draft there
+    await pressKey(setup, "ARROW_DOWN");
+    await pressKey(setup, "ARROW_DOWN");
+    await type(setup, "x");
 
-    // Assert
-    const lines = setup.captureCharFrame().split("\n");
-    const cursorLine = lines.find((line) => line.includes("▎"))!;
-
-    expect(cursorLine).toContain("persists sessions");
+    // Assert: the draft card sits right under the paragraph's row
+    await waitForText(setup, "● x");
+    expect(frameRow(setup, "● x")).toBeGreaterThan(frameRow(setup, "persists sessions"));
+    expect(frameRow(setup, "● x")).toBeLessThan(frameRow(setup, "Steps"));
   });
 
-  test("comment flow: c types a body, ⏎ saves to the daemon", async () => {
+  test("comment flow: click a word, type a body, cmd+⏎ saves to the daemon", async () => {
     // Arrange
     const setup = await renderApp();
 
     // Act
-    await press(setup, "j");
-    await press(setup, "j");
-    await press(setup, "c");
-    await setup.renderOnce();
-
-    // Assert
-    await waitForText(setup, 'comment on "The daemon');
-
-    // Act
+    await clickText(setup, "daemon");
     await type(setup, "Define atomically.");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "COMMENT");
@@ -123,50 +118,44 @@ describe("keyboard grammar", () => {
 
     expect(stored.annotations.length).toBe(1);
     expect(stored.annotations[0]!.body).toBe("Define atomically.");
+    expect(stored.annotations[0]!.anchor.quote).toBe("daemon");
   });
 
-  test("span mode: v + l selects words, c anchors the exact span", async () => {
+  test("a drag marks the exact span the comment anchors to", async () => {
     // Arrange
     const setup = await renderApp();
 
-    // Act
-    await press(setup, "j");
-    await press(setup, "j");
-    await press(setup, "v");
-    await press(setup, "l"); // "The daemon"
-    await press(setup, "c");
+    // Act: from the start of "The" to the end of "daemon"
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
     await type(setup, "Which daemon?");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
-    const stored = server.core.sessionGet(session.id);
-
-    expect(stored.annotations[0]!.anchor.quote).toBe("The daemon");
+    expect(server.core.sessionGet(session.id).annotations[0]!.anchor.quote).toBe("The daemon");
   });
 
-  test("x cuts a block into the working copy; x restores it", async () => {
+  test("option+x cuts the caret's block into the working copy; option+x restores it", async () => {
     // Arrange
     const setup = await renderApp();
 
-    // move to "- move the store" (h1, h2, p, h2 = 4 steps in)
-    for (let i = 0; i < 4; i++) await press(setup, "j");
+    await clickText(setup, "move the store");
 
     // Act
-    await press(setup, "x");
+    await pressKey(setup, "x", { meta: true });
 
     // Assert - the rail shows the cut as a removal card titled CUT · me
     await waitForText(setup, "CUT · me");
     expect(server.core.sessionGet(session.id).workingCopy).not.toContain("move the store");
 
     // Act
-    await press(setup, "x");
+    await pressKey(setup, "x", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
   });
 
-  test("e runs $EDITOR on the working copy and tracks the diff", async () => {
+  test("ctrl+e runs $EDITOR on the working copy and tracks the diff", async () => {
     const script = join(home, "fake-editor.sh");
 
     await Bun.write(script, `#!/bin/sh\nsed -i '' 's/atomically/very atomically/' "$1"\n`);
@@ -177,7 +166,7 @@ describe("keyboard grammar", () => {
       const setup = await renderApp();
 
       // Act
-      await press(setup, "e");
+      await pressKey(setup, "e", { ctrl: true });
 
       // Assert
       await waitForText(setup, "[edited]");
@@ -189,19 +178,17 @@ describe("keyboard grammar", () => {
 });
 
 describe("submit", () => {
-  test("⏎ opens the rail confirm card; verdict + summary resolve the session", async () => {
+  test("cmd+⏎ opens the rail confirm card; verdict + summary resolve the session", async () => {
     // Arrange
     const setup = await renderApp();
 
-    await press(setup, "j");
-    await press(setup, "j");
-    await press(setup, "c");
+    await clickText(setup, "daemon");
     await type(setup, "Needs a phase list.");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
     await waitForText(setup, "Needs a phase list");
 
-    // Act
-    await press(setup, "enter"); // open submit
+    // Act: with no composer open the same chord opens submit
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "[Changes]");
@@ -226,7 +213,7 @@ describe("submit", () => {
     const setup = await renderApp();
 
     // Act
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "[Approve]"); // no pending items → approve default
@@ -291,41 +278,36 @@ describe("inbox", () => {
 describe("the thread view and the menu", () => {
   test("the keybinds dialog lists the thread view grammar, keeps keys away from the text, and closes on escape", async () => {
     // Arrange
-    process.env.CUELOOP_THREAD_VIEW = "1";
-    try {
-      const setup = await renderApp();
+    const setup = await renderApp();
 
-      await waitForText(setup, "The daemon persists");
-      const lines = setup.captureCharFrame().split("\n");
-      const menuRow = lines.findIndex((line) => line.includes("menu"));
-      const menuColumn = lines[menuRow]!.indexOf("menu");
+    await waitForText(setup, "The daemon persists");
+    const lines = setup.captureCharFrame().split("\n");
+    const menuRow = lines.findIndex((line) => line.includes("menu"));
+    const menuColumn = lines[menuRow]!.indexOf("menu");
 
-      // Act - open the menu, then the keybinds dialog
-      await setup.mockMouse.click(menuColumn + 1, menuRow);
-      await waitForText(setup, "Keybinds");
-      const dropUp = setup.captureCharFrame().split("\n");
-      const keybindsRow = dropUp.findIndex((line) => line.includes("Keybinds"));
+    // Act - open the menu, then the keybinds dialog
+    await setup.mockMouse.click(menuColumn + 1, menuRow);
+    await waitForText(setup, "Keybinds");
+    const dropUp = setup.captureCharFrame().split("\n");
+    const keybindsRow = dropUp.findIndex((line) => line.includes("Keybinds"));
 
-      await setup.mockMouse.click(dropUp[keybindsRow]!.indexOf("Keybinds") + 1, keybindsRow);
-      await waitForText(setup, "mark text, across blocks");
+    await setup.mockMouse.click(dropUp[keybindsRow]!.indexOf("Keybinds") + 1, keybindsRow);
+    await waitForText(setup, "mark text, across blocks");
 
-      // Assert - the thread grammar, not the plan sheet's
-      const dialog = setup.captureCharFrame();
+    // Assert - the thread grammar, not the plan sheet's
+    const dialog = setup.captureCharFrame();
 
-      expect(dialog).toContain("⌘⌥m");
-      expect(dialog).toContain("dismiss an empty draft");
-      expect(dialog).not.toContain("grow/shrink");
+    expect(dialog).toContain("⌘⌥m");
+    expect(dialog).toContain("dismiss an empty draft");
+    expect(dialog).not.toContain("grow/shrink");
 
-      // Act - a printable behind the dialog must not open a comment; escape closes it
-      await press(setup, "x");
-      expect(setup.captureCharFrame()).not.toContain("● x");
-      await press(setup, "escape");
+    // Act - a printable behind the dialog must not open a comment; escape closes it
+    await press(setup, "x");
+    expect(setup.captureCharFrame()).not.toContain("● x");
+    await press(setup, "escape");
 
-      // Assert
-      await waitForState(setup, () => !setup.captureCharFrame().includes("dismiss an empty draft"));
-      expect(setup.captureCharFrame()).not.toContain("● x");
-    } finally {
-      delete process.env.CUELOOP_THREAD_VIEW;
-    }
+    // Assert
+    await waitForState(setup, () => !setup.captureCharFrame().includes("dismiss an empty draft"));
+    expect(setup.captureCharFrame()).not.toContain("● x");
   });
 });

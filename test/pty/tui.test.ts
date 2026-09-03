@@ -130,35 +130,36 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
 
       expect(frame).toContain("Rollout Plan");
       expect(frame).toContain("Ship the daemon behind a flag.");
-      // the cursor glyph starts on the title block
-      expect(frame).toMatch(/▎ +Rollout Plan/);
+      // the rail and its submit button frame the thread
+      expect(frame).toContain("Submit review");
     },
     60_000,
   );
 
   ptyTest(
-    "j routes through the raw tty: the cursor glyph moves block by block",
+    "keys route through the raw tty: arrows move the caret, a printable opens a draft there",
     async () => {
       // Arrange
       ptyOutput = "";
 
-      // Act
-      pty.write("j");
+      // Act: two blocks down lands the caret on the first paragraph; typing
+      // opens a draft card under it, which repaints through the raw tty
+      pty.write("\x1b[B");
+      pty.write("\x1b[B");
+      pty.write("x");
 
       // Assert
-      // the cell-diff repaint after j redraws the newly highlighted block behind the glyph
-      await waitFor(() => /▎ +Phase 1/.test(stripAnsi(ptyOutput)), 10_000, "cursor on Phase 1");
+      await waitFor(() => stripAnsi(ptyOutput).includes("● x"), 10_000, "the draft card");
 
-      // Act
+      // Act: escape twice drops the draft, then the mark
       ptyOutput = "";
-      pty.write("j");
+      pty.write("\x1b");
+      await Bun.sleep(300);
+      pty.write("\x1b");
+      await Bun.sleep(300);
 
       // Assert
-      await waitFor(
-        () => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(ptyOutput)),
-        10_000,
-        "cursor on the paragraph",
-      );
+      expect(exit).toBeNull();
     },
     60_000,
   );
@@ -184,24 +185,24 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
       // Assert
       await waitFor(() => ptyOutput.length > 0, 10_000, "a repaint after growing back");
       expect(exit).toBeNull();
-      // the cursor position survives both resizes
+      // the document survives both resizes
       await waitFor(
-        () => /▎ +Ship the daemon behind a flag\./.test(stripAnsi(ptyOutput)),
+        () => stripAnsi(ptyOutput).includes("Ship the daemon behind a flag."),
         10_000,
-        "cursor after resize",
+        "the paragraph after resize",
       );
     },
     60_000,
   );
 
   ptyTest(
-    "e suspends the renderer, runs the editor on the real tty, and resumes with the edit",
+    "ctrl+e suspends the renderer, runs the editor on the real tty, and resumes with the edit",
     async () => {
       // Arrange
       ptyOutput = "";
 
       // Act
-      pty.write("e");
+      pty.write("\x05");
 
       // Assert
       // resume repaints the plan with the appended line - proof the full
@@ -214,9 +215,9 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
       expect(exit).toBeNull();
 
       // Act
-      // the TUI is live again: j still routes through the raw tty
+      // the TUI is live again: an arrow still routes through the raw tty
       ptyOutput = "";
-      pty.write("j");
+      pty.write("\x1b[B");
 
       // Assert
       await waitFor(() => ptyOutput.length > 0, 10_000, "a repaint after resume");
@@ -226,10 +227,10 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
   );
 
   ptyTest(
-    "q exits cleanly with code 0",
+    "ctrl+q exits cleanly with code 0",
     async () => {
       // Act
-      pty.write("q");
+      pty.write("\x11");
 
       // Assert
       await waitFor(() => exit !== null, 10_000, "process exit");

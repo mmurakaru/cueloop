@@ -41,7 +41,7 @@ import { createReviewController, type ShareTransport } from "./session-controlle
 import type { SessionClient } from "@cueloop/daemon/client";
 import { launchHarnessInSplit } from "@cueloop/daemon/herdr-split";
 import { activeSpanState, createIntentDispatch, type Mode } from "./intent-dispatch";
-import { reduceKey } from "./keymap";
+import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
@@ -49,6 +49,7 @@ import { Toolbar } from "./components/primitives/Toolbar";
 import { Breadcrumb } from "./components/Breadcrumb";
 import { PlanSheet, type PlanSheetHandle } from "./components/PlanSheet";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
+import { RAIL_CHORD_ENTRIES, resolveThreadChord, THREAD_CHORD_ENTRIES } from "./thread-chords";
 import { DiffSheet } from "./components/DiffSheet";
 import { PrototypeSheet } from "./components/PrototypeSheet";
 import type { PrototypeElement } from "./prototype-browser";
@@ -131,6 +132,15 @@ function menuChromeOpen(menuOpen: boolean, menuDialog: "keybinds" | "settings" |
   return menuOpen || menuDialog !== null;
 }
 
+/** True while a menu, an overlay, or the agent terminal owns the keyboard instead of the thread view. */
+function keyboardOwnedElsewhere(
+  menuOwnsKeyboard: boolean,
+  overlay: KeyState["overlay"],
+  agentTerminal: AgentTerminalHandle | null,
+): boolean {
+  return menuOwnsKeyboard || overlay !== "none" || agentTerminal !== null;
+}
+
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
 function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
@@ -141,6 +151,8 @@ function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): Che
 
   return [
     ...THREAD_VIEW_CHEATSHEET,
+    { title: "Session", entries: [...THREAD_CHORD_ENTRIES] },
+    { title: "Rail", entries: [...RAIL_CHORD_ENTRIES] },
     ...base.filter((section) => section.title === "Agent terminal"),
   ];
 }
@@ -327,8 +339,9 @@ export function App({
   const { isDiff, isPrototype, resolved } = deriveReviewFlags(session);
   // CUELOOP_THREAD_VIEW=1 swaps the plan sheet for the thread view (the
   // inline-comment-threads surface graduating from the UX spike)
-  const threadViewActive =
-    process.env.CUELOOP_THREAD_VIEW === "1" && session !== null && !isDiff && !isPrototype;
+  // plans and replies open in the thread view; diffs and prototypes keep their sheets
+  const threadViewActive = session !== null && !isDiff && !isPrototype;
+  const [threadComposing, setThreadComposing] = useState(false);
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
@@ -494,12 +507,26 @@ export function App({
   const overlay = resolveOverlay(mode, completion.phase, walking);
 
   const menuOwnsKeyboard = menuChromeOpen(menuOpen, menuDialog);
+  // an overlay (submit, walk, prompt, confirm) or the menu takes the keyboard
+  // from the thread view; the view suspends its own grammar meanwhile
+  const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay, agentTerminal);
 
   useKeyboard((key) => {
-    // The thread view owns the whole keyboard grammar while active (its own
-    // useKeyboard handles keys, including ctrl+q); the legacy keymap yields,
-    // except to an open menu or dialog, which the thread view suspends for.
-    if (threadViewActive && !menuOwnsKeyboard) return void key;
+    // The thread view owns the document grammar while active (its own
+    // useKeyboard handles marks, comments, and ctrl+q); the session chords
+    // (submit, share, edit, walk, the rail) resolve here, and the keymap only
+    // sees keys while an overlay or the menu owns them.
+    if (threadViewActive && !threadViewSuspended) {
+      const chord = resolveThreadChord(key, {
+        composing: threadComposing,
+        isOwner,
+        resolved,
+      });
+
+      if (chord) dispatch(chord);
+
+      return;
+    }
     // The prototype compose textarea owns the keyboard while open: let it receive
     // the typed note instead of the global keymap acting on each letter.
     if (prototypeComposing) return;
@@ -777,7 +804,13 @@ export function App({
           ) : threadViewActive ? (
             <ThreadView
               session={activeSession}
-              suspended={menuOwnsKeyboard}
+              suspended={threadViewSuspended}
+              editOrphanCount={editOrphanCount}
+              onComposingChange={setThreadComposing}
+              onObserverBlocked={() => controller.setStatus("observer - read-only")}
+              onCursorChange={setCursor}
+              focusedAnnotationId={focusedAnnotationId}
+              onFocusAnnotation={setFocusedAnnotationId}
               display={display}
               marks={marks}
               quickActions={quickActions}

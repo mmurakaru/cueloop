@@ -184,7 +184,7 @@ function viewThenQuit(port: number, shareId: string): Promise<string> {
           if (!(await until("Rollout Plan")))
             return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
           await wait(400);
-          stream.write("q"); // graceful quit -> restore the terminal, then close
+          stream.write("\x11"); // ctrl+q: graceful quit -> restore the terminal, then close
         }),
       )
       .on("error", reject)
@@ -323,11 +323,11 @@ function annotateOverShell(port: number, shareId: string, body: string): Promise
           if (!(await until("Rollout Plan")))
             return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
           await wait(400);
-          stream.write("c"); // comment on the cursor line
-          await wait(700);
+          // the caret rests on the title's first word: a printable opens the
+          // draft there, alt+enter (ESC CR) sends it -> unions into the stored blob
           stream.write(body);
-          await wait(400);
-          stream.write("\r"); // save -> unions into the stored blob
+          await wait(700);
+          stream.write("\x1b\r");
           await wait(1000);
           clearTimeout(timer);
           conn.end();

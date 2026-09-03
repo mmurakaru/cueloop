@@ -10,7 +10,15 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import type { ShareTransport } from "./session-controller";
-import { isolateUserConfig, press, waitForText, waitForTextGone } from "./test-support";
+import {
+  clickText,
+  isolateUserConfig,
+  press,
+  pressKey,
+  typeText,
+  waitForText,
+  waitForTextGone,
+} from "./test-support";
 
 const publishShare = mock(async () => ({ line: "ssh p_share01@cueloop.dev", copied: true }));
 const shareTransport: ShareTransport = {
@@ -64,18 +72,17 @@ describe("share toast", () => {
 
     await waitForText(setup, "cueloop");
 
-    // Act: share raises the toast, then open a composer under it
-    await press(setup, "S");
+    // Act: share raises the toast, then open a composer under it by typing
+    await pressKey(setup, "s", { ctrl: true });
     await waitForText(setup, "share link copied");
-    await press(setup, "j");
-    await press(setup, "j");
-    await press(setup, "c");
-    await waitForText(setup, 'comment on "');
+    await clickText(setup, "daemon");
+    await typeText(setup, "x");
+    await waitForText(setup, "● x");
 
     // Act: escape must reach the composer, not get eaten by the toast
     await press(setup, "escape");
 
     // Assert: the composer closed on the first escape
-    await waitForTextGone(setup, 'comment on "');
+    await waitForTextGone(setup, "● x");
   });
 });

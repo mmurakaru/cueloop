@@ -83,10 +83,9 @@ describe("code blocks", () => {
 });
 
 describe("block spacing", () => {
-  // the review panel's full-height divider paints a `│` on every row, so read
-  // the plan column (everything left of the divider) before asserting spacing
-  // the plan body is framed: content sits between the left border and the next │
-  const planColumn = (line: string): string => line.split("│")[1]?.trimEnd() ?? "";
+  // the review rail paints box edges on the right, so read the document
+  // column (everything left of the first rail glyph) before asserting spacing
+  const planColumn = (line: string): string => line.split(/[│╭╰]/)[0]!.trimEnd();
 
   test("a code block never glues to the list item above it", async () => {
     // Arrange
@@ -129,8 +128,8 @@ describe("block spacing", () => {
       .captureCharFrame()
       .split("\n")
       .map((line) => line.trimEnd());
-    const one = lines.findIndex((line) => line.includes("- one"));
+    const one = lines.findIndex((line) => line.includes("· one"));
 
-    expect(lines[one + 1]).toContain("- two");
+    expect(lines[one + 1]).toContain("· two");
   });
 });
