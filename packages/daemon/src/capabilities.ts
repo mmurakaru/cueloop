@@ -27,7 +27,9 @@ const PRIMITIVE_ROLES = {
   "session.list": "any",
   "session.wait": "any",
   "session.annotate": "any",
-  "session.removeAnnotation": "owner",
+  // any role may call it; a non-owner must act on behalf of an author and stays scoped to it
+  "session.removeAnnotation": "any",
+  "session.setParticipantName": "any",
   "session.setWorkingCopy": "owner",
   "session.setViewed": "owner",
   "session.refreshDiff": "owner",

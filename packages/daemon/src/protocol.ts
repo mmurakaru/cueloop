@@ -21,6 +21,8 @@ export interface Response {
 export interface EventFrame {
   event: string;
   sessionId: string;
+  /** The history entry the change appended, when it appended one. */
+  entryId?: string;
 }
 
 export type Frame = Response | EventFrame;
@@ -38,6 +40,7 @@ const ResponseSchema = v.object({
 const EventFrameSchema = v.object({
   event: v.string(),
   sessionId: v.string(),
+  entryId: v.optional(v.string()),
 });
 
 export function parseRequestFrame(line: string): Request {

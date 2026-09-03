@@ -45,6 +45,8 @@ export type EventName =
 export interface DaemonEvent {
   event: EventName;
   sessionId: string;
+  /** The history entry the change appended, when it appended one. */
+  entryId?: string;
 }
 
 type EventListener = (event: DaemonEvent) => void;
@@ -94,8 +96,11 @@ export class DaemonCore {
     return () => this.listeners.delete(listener);
   }
 
-  private emit(event: EventName, sessionId: string): void {
-    for (const listener of this.listeners) listener({ event, sessionId });
+  private emit(event: EventName, sessionId: string, entryId?: string): void {
+    const frame: DaemonEvent =
+      entryId === undefined ? { event, sessionId } : { event, sessionId, entryId };
+
+    for (const listener of this.listeners) listener(frame);
   }
 
   /** True when nothing awaits a verdict - drives idle-exit. */
@@ -195,9 +200,15 @@ export class DaemonCore {
     const existing = session.annotations.findIndex((candidate) => candidate.id === annotation.id);
     const full: Annotation = { ...annotation, createdAt: new Date().toISOString() };
 
+    let entryId: string | undefined;
+
     if (existing === -1) {
       session.annotations.push(full);
-      this.record(session, { type: "comment", annotationId: full.id, createdAt: full.createdAt });
+      entryId = this.record(session, {
+        type: "comment",
+        annotationId: full.id,
+        createdAt: full.createdAt,
+      });
     } else
       session.annotations[existing] = {
         ...full,
@@ -210,24 +221,44 @@ export class DaemonCore {
         authorName,
       ).participants;
     this.store.upsert(session);
-    this.emit("session.updated", id);
+    this.emit("session.updated", id, entryId);
 
     return session;
   }
 
-  sessionRemoveAnnotation(id: string, annotationId: string): ReviewSession {
+  /**
+   * Remove a comment. With `onBehalfOf`, the caller is a collaborator or an
+   * agent acting as that author and may remove only that author's comments;
+   * the owner (no `onBehalfOf`) may remove any.
+   */
+  sessionRemoveAnnotation(id: string, annotationId: string, onBehalfOf?: string): ReviewSession {
+    const session = this.mutable(id);
+    const target = session.annotations.find((candidate) => candidate.id === annotationId);
+
+    if (onBehalfOf !== undefined && target !== undefined && target.author !== onBehalfOf) {
+      throw new DaemonError("forbidden", `${onBehalfOf} cannot remove another author's comment`);
+    }
+    session.annotations = session.annotations.filter((candidate) => candidate.id !== annotationId);
+    const entryId =
+      target === undefined
+        ? undefined
+        : this.record(session, {
+            type: "comment-removed",
+            annotationId,
+            createdAt: new Date().toISOString(),
+          });
+
+    this.store.upsert(session);
+    this.emit("session.updated", id, entryId);
+
+    return session;
+  }
+
+  /** Register a display name for a participant; how a collaborator or an agent names itself. */
+  sessionSetParticipantName(id: string, author: string, name: string): ReviewSession {
     const session = this.mutable(id);
 
-    const known = session.annotations.some((candidate) => candidate.id === annotationId);
-
-    session.annotations = session.annotations.filter((candidate) => candidate.id !== annotationId);
-    if (known) {
-      this.record(session, {
-        type: "comment-removed",
-        annotationId,
-        createdAt: new Date().toISOString(),
-      });
-    }
+    session.participants = registerParticipant(session, author, name).participants;
     this.store.upsert(session);
     this.emit("session.updated", id);
 
@@ -332,7 +363,11 @@ export class DaemonCore {
 
     session.verdict = verdict;
     session.status = "resolved";
-    this.record(session, { type: "verdict", verdict, createdAt: verdict.resolvedAt });
+    const entryId = this.record(session, {
+      type: "verdict",
+      verdict,
+      createdAt: verdict.resolvedAt,
+    });
     this.store.upsert(session);
     // a resolved diff review is frozen; stop hot-reloading its working tree
     this.unwatchIfDiffSession(session);
@@ -340,7 +375,7 @@ export class DaemonCore {
 
     this.waiters.delete(id);
     for (const parkedWaiter of parked) parkedWaiter(session);
-    this.emit("session.resolved", id);
+    this.emit("session.resolved", id, entryId);
     this.emit("inbox.changed", id);
 
     return session;
@@ -369,7 +404,12 @@ export class DaemonCore {
     session.artifact = { ...session.artifact, content };
     // the agent's revision lands on main wherever its tip sits; the artifact
     // shows the head of the branch the reviewer is on
-    this.recordOnMain(session, { type: "revision", by: "agent", content, createdAt: now });
+    const entryId = this.recordOnMain(session, {
+      type: "revision",
+      by: "agent",
+      content,
+      createdAt: now,
+    });
     delete session.workingCopy;
     session.verdict = null;
     session.status = "pending";
@@ -401,7 +441,7 @@ export class DaemonCore {
     }
 
     this.store.upsert(session);
-    this.emit("session.revised", id);
+    this.emit("session.revised", id, entryId);
     this.emit("inbox.changed", id);
 
     return session;
@@ -461,20 +501,27 @@ export class DaemonCore {
   }
 
   /** Append an entry on the session's current branch; a session without a head has no history to extend. */
-  private record(session: ReviewSession, entry: NewEntry): void {
+  private record(session: ReviewSession, entry: NewEntry): string | undefined {
     const history = withHistory(session).history;
 
-    if (history) session.history = appendEntry(history, entry).history;
+    if (!history) return undefined;
+    const appended = appendEntry(history, entry);
+
+    session.history = appended.history;
+
+    return appended.entry.id;
   }
 
   /** Append an entry on main, leaving the reviewer's current branch where it is. */
-  private recordOnMain(session: ReviewSession, entry: NewEntry): void {
+  private recordOnMain(session: ReviewSession, entry: NewEntry): string | undefined {
     const history = withHistory(session).history;
 
-    if (!history) return;
-    const onMain = appendEntry(switchBranch(history, MAIN_BRANCH), entry).history;
+    if (!history) return undefined;
+    const appended = appendEntry(switchBranch(history, MAIN_BRANCH), entry);
 
-    session.history = { ...onMain, branch: history.branch };
+    session.history = { ...appended.history, branch: history.branch };
+
+    return appended.entry.id;
   }
 
   private mutable(id: string): ReviewSession {
