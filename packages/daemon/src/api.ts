@@ -8,9 +8,16 @@
 import {
   SCHEMA_VERSION,
   appendEntry,
+  applyPathView,
+  createBranch,
   cutBlock,
   feedbackForSession,
+  forkHistory,
   historyFromLinear,
+  HistoryError,
+  labelTip,
+  navigateTo,
+  viewOfPath,
   isAddressed,
   isAgentNote,
   isMarkdownArtifact,
@@ -28,6 +35,7 @@ import {
   type Artifact,
   type Identity,
   type ReviewSession,
+  type SessionHistory,
   type Verdict,
   type VerdictKind,
   type WorkspaceKey,
@@ -117,7 +125,7 @@ export class DaemonCore {
     const now = new Date().toISOString();
     const session: ReviewSession = {
       schemaVersion: SCHEMA_VERSION,
-      id: `ses_${now.replace(/\D/g, "").slice(0, 14)}_${(++this.seq).toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      id: this.newSessionId(now),
       workspace: params.workspace,
       artifact: params.artifact,
       revisions: [{ revision: 1, content: params.artifact.content, submittedAt: now }],
@@ -134,6 +142,10 @@ export class DaemonCore {
     this.emit("inbox.changed", session.id);
 
     return session;
+  }
+
+  private newSessionId(now: string): string {
+    return `ses_${now.replace(/\D/g, "").slice(0, 14)}_${(++this.seq).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   }
 
   sessionGet(id: string): ReviewSession {
@@ -244,14 +256,17 @@ export class DaemonCore {
       throw new DaemonError("forbidden", `${onBehalfOf} cannot remove another author's comment`);
     }
     session.annotations = session.annotations.filter((candidate) => candidate.id !== annotationId);
-    const entryId =
-      target === undefined
-        ? undefined
-        : this.record(session, {
-            type: "comment-removed",
-            annotationId,
-            createdAt: new Date().toISOString(),
-          });
+    let entryId: string | undefined;
+
+    if (target !== undefined) {
+      // nothing is deleted: a navigate back before the removal shows it again
+      session.shelvedAnnotations = [...(session.shelvedAnnotations ?? []), target];
+      entryId = this.record(session, {
+        type: "comment-removed",
+        annotationId,
+        createdAt: new Date().toISOString(),
+      });
+    }
 
     this.store.upsert(session);
     this.emit("session.updated", id, entryId);
@@ -409,7 +424,11 @@ export class DaemonCore {
     incoming: { annotations: Annotation[]; participants?: Identity[] },
   ): ReviewSession {
     const session = this.mutable(id);
-    const known = new Set(session.annotations.map((annotation) => annotation.id));
+    const known = new Set(
+      [...session.annotations, ...(session.shelvedAnnotations ?? [])].map(
+        (annotation) => annotation.id,
+      ),
+    );
 
     for (const annotation of incoming.annotations) {
       if (known.has(annotation.id)) continue;
@@ -529,6 +548,103 @@ export class DaemonCore {
     return session;
   }
 
+  /**
+   * Move the current branch's tip back to an entry on its path. The entries
+   * after it stay in the tree; a summary records them as a branch-summary
+   * entry at the target. The view follows the path: on `main`, the agent's
+   * next revision lands there.
+   */
+  sessionNavigate(id: string, entryId: string, summary?: string): ReviewSession {
+    const session = this.mutable(id);
+    const moved = this.tree(id, () =>
+      navigateTo(this.historyOf(session), entryId, summary === undefined ? {} : { summary }),
+    );
+
+    this.refreshView(session, moved);
+    const tip = moved.tips[moved.branch];
+
+    this.emit("session.updated", id, tip === entryId ? undefined : tip);
+
+    return session;
+  }
+
+  /** Start a branch at the current tip and switch to it; `main` stays where it is. */
+  sessionBranch(id: string, name: string): ReviewSession {
+    const session = this.mutable(id);
+
+    this.refreshView(
+      session,
+      this.tree(id, () => createBranch(this.historyOf(session), name)),
+    );
+    this.emit("session.updated", id);
+
+    return session;
+  }
+
+  sessionSwitch(id: string, branch: string): ReviewSession {
+    const session = this.mutable(id);
+
+    this.refreshView(
+      session,
+      this.tree(id, () => switchBranch(this.historyOf(session), branch)),
+    );
+    this.emit("session.updated", id);
+
+    return session;
+  }
+
+  /** Name the current tip as a checkpoint to navigate back to. */
+  sessionLabel(id: string, label: string): ReviewSession {
+    const session = this.mutable(id);
+
+    session.history = labelTip(this.historyOf(session), label);
+    this.store.upsert(session);
+    this.emit("session.updated", id);
+
+    return session;
+  }
+
+  /**
+   * Copy the current path into a new pending session: its revisions, open
+   * comments, labels, and participant names travel; verdicts, edits, and the
+   * share do not. A resolved session can be forked.
+   */
+  sessionFork(id: string): ReviewSession {
+    const source = this.sessionGet(id);
+    const history = this.tree(id, () => forkHistory(this.historyOf(source)));
+    const now = new Date().toISOString();
+    const known = [...source.annotations, ...(source.shelvedAnnotations ?? [])];
+    const view = viewOfPath(history, known);
+    const fork: ReviewSession = {
+      schemaVersion: SCHEMA_VERSION,
+      id: this.newSessionId(now),
+      workspace: source.workspace,
+      artifact: { ...source.artifact, content: view.content },
+      revisions: history.entries
+        .filter((entry) => entry.type === "revision")
+        .map((entry, index) => ({
+          revision: index + 1,
+          content: entry.content,
+          submittedAt: entry.createdAt,
+        })),
+      annotations: view.annotations.map((annotation) => ({ ...annotation })),
+      history,
+      verdict: null,
+      status: "pending",
+      createdAt: now,
+      parentSessionId: id,
+    };
+
+    if (source.participants)
+      fork.participants = source.participants.map((identity) => ({ ...identity }));
+    this.store.upsert(fork);
+    this.watchIfDiffSession(fork);
+    this.emit("session.created", fork.id);
+    this.emit("inbox.changed", fork.id);
+
+    return fork;
+  }
+
   /** Re-capture a diff session's working tree; broadcasts session.updated only when the patch moved. */
   async sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
     const session = this.mutable(id);
@@ -608,6 +724,35 @@ export class DaemonCore {
       content: after,
       createdAt: new Date().toISOString(),
     });
+  }
+
+  /** The session's history; a record without a revision has none and cannot be moved through. */
+  private historyOf(session: ReviewSession): SessionHistory {
+    const history = withHistory(session).history;
+
+    if (!history) throw new DaemonError("invalid_params", `session ${session.id} has no history`);
+
+    return history;
+  }
+
+  /** Run a tree operation; a refused move is the caller's mistake, not the daemon's. */
+  private tree(id: string, operation: () => SessionHistory): SessionHistory {
+    try {
+      return operation();
+    } catch (error) {
+      if (error instanceof HistoryError) throw new DaemonError("invalid_params", error.message);
+      throw error;
+    }
+  }
+
+  /** Store a moved history and make the record show its active path. */
+  private refreshView(session: ReviewSession, history: SessionHistory): void {
+    session.history = history;
+    applyPathView(
+      session,
+      viewOfPath(history, [...session.annotations, ...(session.shelvedAnnotations ?? [])]),
+    );
+    this.store.upsert(session);
   }
 
   /** Append an entry on the session's current branch; a session without a head has no history to extend. */
