@@ -26,7 +26,7 @@ import {
 import type { DaemonRole } from "./capabilities";
 import type { HerdrTabHandle } from "./herdr-tab-store";
 import { cueloopHome, ownerTokenPath, socketPath } from "./paths";
-import { SessionRecordSchema } from "./validate";
+import { Params, SessionRecordSchema } from "./validate";
 
 export type { EventFrame } from "./protocol";
 
@@ -76,8 +76,13 @@ export interface SessionClient {
   /** Replace a diff review's reject decisions; the working copy follows. */
   sessionCurate(id: string, rejections: HunkRejection[]): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
-  /** Move the current branch's tip back to an entry on its path; a summary records the abandoned segment. */
-  sessionNavigate(id: string, entryId: string, summary?: string): Promise<ReviewSession>;
+  /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */
+  sessionNavigate(
+    id: string,
+    entryId: string,
+    summary?: string,
+    branch?: string,
+  ): Promise<ReviewSession>;
   /** Start a branch at the current tip and switch to it. */
   sessionBranch(id: string, name: string): Promise<ReviewSession>;
   sessionSwitch(id: string, branch: string): Promise<ReviewSession>;
@@ -323,12 +328,18 @@ export class DaemonClient implements SessionClient {
   sessionCutBlock(id: string, blockIndex: number): Promise<ReviewSession> {
     return this.request("session.cutBlock", { id, blockIndex }, SessionRecordSchema);
   }
-  sessionNavigate(id: string, entryId: string, summary?: string): Promise<ReviewSession> {
-    return this.request(
-      "session.navigate",
-      summary === undefined ? { id, entryId } : { id, entryId, summary },
-      SessionRecordSchema,
-    );
+  sessionNavigate(
+    id: string,
+    entryId: string,
+    summary?: string,
+    branch?: string,
+  ): Promise<ReviewSession> {
+    const params: v.InferInput<(typeof Params)["session.navigate"]> = { id, entryId };
+
+    if (summary !== undefined) params.summary = summary;
+    if (branch !== undefined) params.branch = branch;
+
+    return this.request("session.navigate", params, SessionRecordSchema);
   }
   sessionBranch(id: string, name: string): Promise<ReviewSession> {
     return this.request("session.branch", { id, name }, SessionRecordSchema);

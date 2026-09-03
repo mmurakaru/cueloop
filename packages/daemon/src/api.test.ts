@@ -681,6 +681,27 @@ describe("tree primitives", () => {
     expect(resolved.verdict!.feedback).not.toContain("not this one");
   });
 
+  test("a navigate names the branch to stand on, so a move on another branch is one request", () => {
+    // Arrange: alt has a comment; the owner stands on main
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const revision = tipOf(created.history!);
+
+    core.sessionBranch(created.id, "alt");
+    core.sessionAnnotate(created.id, comment("a1", "on alt"));
+    core.sessionSwitch(created.id, "main");
+
+    // Act
+    const moved = core.sessionNavigate(created.id, revision, undefined, "alt");
+
+    // Assert: on alt, back at the revision, the comment shelved
+    expect(moved.history!.branch).toBe("alt");
+    expect(tipOf(moved.history!)).toBe(revision);
+    expect(moved.shelvedAnnotations!.map((annotation) => annotation.id)).toEqual(["a1"]);
+    expect(() => core.sessionNavigate(created.id, revision, undefined, "nope")).toThrow(
+      /no branch/,
+    );
+  });
+
   test("a navigate to the tip or off the path is refused", () => {
     // Arrange
     const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
