@@ -181,11 +181,11 @@ export function AnnotationCard({
   );
 
   if (draft) {
-    const verb = "comment on";
+    const primitive = "comment on";
 
     return (
       <Card
-        title={` ${verb} "${truncateToSingleLine(quote, 40)}" `}
+        title={` ${primitive} "${truncateToSingleLine(quote, 40)}" `}
         contentRows={editorRowCount + 1}
         borderColor={kindColor}
         backgroundColor="transparent"

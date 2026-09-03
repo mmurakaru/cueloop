@@ -43,7 +43,7 @@ describe("grammar-layer resolution", () => {
 });
 
 describe("mode layers own their keys", () => {
-  test("span mode resolves the span verbs, not the grammar", () => {
+  test("span mode resolves the span primitives, not the grammar", () => {
     // Arrange
     const resolver = bindings({ spanMode: true });
 

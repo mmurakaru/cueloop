@@ -33,7 +33,7 @@ function annotationFixture(id: string, author?: string): Annotation {
 const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
-/** A SessionClient that answers get/list from a fixed list and records the share/merge verbs. */
+/** A SessionClient that answers get/list from a fixed list and records the share/merge primitives. */
 function fakeClient(sessions: ReviewSession[]): SessionClient {
   return {
     onEvent: () => () => {},

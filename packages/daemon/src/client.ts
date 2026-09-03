@@ -1,5 +1,5 @@
 /**
- * Daemon client: the one library every consumer shares - CLI verbs, the TUI,
+ * Daemon client: the one library every consumer shares - CLI primitives, the TUI,
  * adapters, and tests. Also owns the lazy-launch story: connect() with
  * autostart spawns a detached daemon when the socket is dead, then attaches.
  */
@@ -48,7 +48,7 @@ const RefreshDiffResultSchema = v.object({ changed: v.boolean() });
 const HerdrTabResultSchema = v.nullable(v.object({ tabId: v.string(), paneId: v.string() }));
 
 /**
- * The session verbs the review controller drives. DaemonClient is the local
+ * The session primitives the review controller drives. DaemonClient is the local
  * implementation (unix socket); the sharing gateway supplies an in-memory,
  * blob-backed one. Depending on this interface - not DaemonClient - is what
  * lets the same <App> render a local session or a decrypted share unchanged.
@@ -213,7 +213,7 @@ export class DaemonClient implements SessionClient {
     this.socket?.end();
   }
 
-  // ── typed verbs ─────────────────────────────
+  // ── typed primitives ─────────────────────────────
   ping(): Promise<{ pid: number }> {
     return this.request("daemon.ping", {}, PingResultSchema);
   }

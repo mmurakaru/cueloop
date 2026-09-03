@@ -56,7 +56,7 @@ const EMPTY_SNAPSHOT: ControllerSnapshot = {
   walk: null,
 };
 
-/** A controller where every verb is a mock; annotate returns undefined by default. */
+/** A controller where every primitive is a mock; annotate returns undefined by default. */
 function baseController(): ReviewController {
   return {
     readOnly: false,

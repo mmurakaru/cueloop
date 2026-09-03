@@ -1,4 +1,4 @@
-/** Observer mode (tier 2): the App with readOnly renders and navigates like the controller's, but every mutating verb answers "observer - read-only" and leaves daemon state untouched. */
+/** Observer mode (tier 2): the App with readOnly renders and navigates like the controller's, but every mutating primitive answers "observer - read-only" and leaves daemon state untouched. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -60,7 +60,7 @@ async function renderObserver() {
   return setup;
 }
 
-/** Session state that any mutating verb would change. */
+/** Session state that any mutating primitive would change. */
 function snapshot() {
   const stored = server.core.sessionGet(session.id);
 
@@ -84,14 +84,14 @@ describe("observer rendering", () => {
   });
 });
 
-describe("observer verbs are blocked", () => {
-  for (const [key, verb] of [
+describe("observer primitives are blocked", () => {
+  for (const [key, primitive] of [
     ["c", "comment"],
     ["x", "cut"],
     ["e", "edit"],
     ["enter", "submit"],
   ] as const) {
-    test(`${verb} (${key}) answers observer - read-only and mutates nothing`, async () => {
+    test(`${primitive} (${key}) answers observer - read-only and mutates nothing`, async () => {
       const setup = await renderObserver();
       const before = snapshot();
 

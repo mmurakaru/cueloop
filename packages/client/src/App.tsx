@@ -1,7 +1,7 @@
 /**
  * The cueloop TUI: state wiring, keymap dispatch, and layout composition -
  * nothing else. Rendering lives in components/, daemon IO and the mutation
- * verbs in session-controller.ts, the keyboard grammar in keymap.ts with
+ * primitives in session-controller.ts, the keyboard grammar in keymap.ts with
  * binding resolution and status hints from key-bindings.ts, and theming in
  * the ThemeProvider. Selection is the entry primitive (mouse drag or keyboard
  * span on one native renderer selection); annotation text lives in the rail
@@ -96,7 +96,7 @@ export interface AppProps {
   home?: string;
   sessionId?: string;
   /**
-   * Observer mode (SSH-served connections): every mutating verb is ignored and
+   * Observer mode (SSH-served connections): every mutating primitive is ignored and
    * answers "observer - read-only" in the status line; navigation still works.
    */
   readOnly?: boolean;

@@ -1,8 +1,8 @@
 /**
  * The review-session controller: every daemon round-trip and mutation
- * verb behind one React-free object. It owns connect/autostart/subscribe,
+ * primitive behind one React-free object. It owns connect/autostart/subscribe,
  * the session/inbox/status/error snapshot, optimistic apply, the mutation
- * verbs (cut/edit/annotate/submit/...), and the post-submit completion
+ * primitives (cut/edit/annotate/submit/...), and the post-submit completion
  * lifecycle including the notes-vault export and the herdr return-focus.
  * App subscribes to snapshots and keeps only view state.
  */
@@ -451,7 +451,7 @@ class Controller implements ReviewController {
       );
   }
 
-  // ── verbs ───────────────────────────────────
+  // ── primitives ───────────────────────────────────
   open(id: string): void {
     this.locallyViewed.clear();
     this.rejections = [];
@@ -814,7 +814,7 @@ class Controller implements ReviewController {
     const existing = session.annotations.find((annotation) => annotation.id === id);
 
     if (!existing) return;
-    // the daemon's annotate verb upserts by id: same id + anchor, new body
+    // the daemon's annotate primitive upserts by id: same id + anchor, new body
     const wire = { id: existing.id, kind: existing.kind, anchor: existing.anchor, body };
     const persisted = this.client!.sessionAnnotate(session.id, wire);
 
@@ -879,7 +879,7 @@ class Controller implements ReviewController {
 
     if (!current) return; // already on the end card
     // advancing IS the viewed mark: the step is complete once you move past
-    // it; the daemon verb merges, so only the new path travels
+    // it; the daemon primitive merges, so only the new path travels
     if (!this.viewedSet().has(current.path)) {
       this.locallyViewed.add(current.path);
       this.apply(this.client!.sessionSetViewed(session.id, [current.path]));

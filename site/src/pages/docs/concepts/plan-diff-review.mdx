@@ -1,8 +1,8 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: The review verbs
+title: The review primitives
 eyebrow: Docs · Concepts
-lede: One verb per artifact type. plan for plans, reply for an agent's message, diff for the working tree, prototype for rendered HTML, review for pull requests - and bare cueloop for the inbox across all of them.
+lede: One primitive per artifact type. plan for plans, reply for an agent's message, diff for the working tree, prototype for rendered HTML, review for pull requests - and bare cueloop for the inbox across all of them.
 prev: { title: "Annotations", href: "/docs/concepts/annotations/" }
 next: { title: "Commands", href: "/docs/reference/commands/" }
 ---
@@ -10,7 +10,7 @@ next: { title: "Commands", href: "/docs/reference/commands/" }
 <div class="learn">
   <div class="learn__label">You'll learn</div>
   <ul>
-    <li>which verb opens which artifact</li>
+    <li>which primitive opens which artifact</li>
     <li>
       how <code>diff</code> creates a review from your working tree
     </li>
@@ -20,7 +20,7 @@ next: { title: "Commands", href: "/docs/reference/commands/" }
   </ul>
 </div>
 
-cueloop maps one verb onto each artifact type. The verb tells cueloop what kind
+cueloop maps one primitive onto each artifact type. The primitive tells cueloop what kind
 of thing you want to review; it then picks the latest pending one of that type,
 or the specific one you name.
 
@@ -71,7 +71,7 @@ and posts the verdict back to the pull request itself.
 
 ## refine - the retrospective
 
-The verbs above are forward-flow: they put one pending artifact in front of you.
+The primitives above are forward-flow: they put one pending artifact in front of you.
 `cueloop refine` looks backward. It reads the stored corpus of past reviews and
 produces a markdown report of every reviewer annotation, grouped and attributed,
 so the feedback that keeps recurring can be turned into concrete edits to how
@@ -81,7 +81,7 @@ your agent plans. See the
 ## The inbox and `--latest`
 
 Bare `cueloop` opens the inbox across all types, so you do not have to know which
-verb you want before you look. And on any verb, `--latest` - alias `--open` -
+primitive you want before you look. And on any primitive, `--latest` - alias `--open` -
 always selects the latest review of that type.
 
 ```bash
@@ -90,7 +90,7 @@ cueloop diff --open
 ```
 
 <div class="callout">
-  <div class="callout__label">One verb per type</div>
-  plan, reply, diff, prototype, review. Each verb owns one artifact type, defaults to the latest
-  pending one, and takes an id or title when you need a specific one.
+  <div class="callout__label">One primitive per type</div>
+  plan, reply, diff, prototype, review. Each primitive owns one artifact type, defaults to the
+  latest pending one, and takes an id or title when you need a specific one.
 </div>

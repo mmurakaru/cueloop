@@ -157,7 +157,7 @@ async function sessionSubmitRevisionCommand({
 }
 
 interface SessionVerbHandlers {
-  [verb: string]: SessionVerbHandler;
+  [primitive: string]: SessionVerbHandler;
 }
 
 const sessionVerbHandlers: SessionVerbHandlers = {
@@ -172,14 +172,14 @@ const sessionVerbHandlers: SessionVerbHandlers = {
 
 export async function sessionCommand(argv: string[]): Promise<number> {
   const { positional, flags } = parseArgs(argv);
-  const verb = positional[0];
+  const primitive = positional[0];
   // --role agent (or collaborator) caps this connection to read + annotate; a
   // review-side agent passes it so the daemon rejects any escalation attempt.
   const role = stringFlag(flags, "role") === "agent" ? "agent" : undefined;
   const client = await DaemonClient.connect({ autostart: true, role });
 
   try {
-    const handler = verb !== undefined ? sessionVerbHandlers[verb] : undefined;
+    const handler = primitive !== undefined ? sessionVerbHandlers[primitive] : undefined;
 
     if (handler === undefined) {
       console.error(

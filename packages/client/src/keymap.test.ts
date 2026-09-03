@@ -224,7 +224,7 @@ describe("plan normal mode", () => {
     });
   }
 
-  test("resolved sessions guard the mutating verbs", () => {
+  test("resolved sessions guard the mutating primitives", () => {
     // Arrange
     const resolvedState = state({ resolved: true });
 
@@ -386,9 +386,9 @@ describe("diff mode", () => {
     ["p", [{ type: "prevAnnotation" }]],
     ["backspace", [{ type: "removeAnnotation" }]],
     ["return", [{ type: "openSubmit" }]],
-    ["v", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
+    ["v", [{ type: "status", message: "plan-only primitive - diff review uses c on a line" }]],
     ["x", [{ type: "rejectChange" }]],
-    ["e", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
+    ["e", [{ type: "status", message: "plan-only primitive - diff review uses c on a line" }]],
     ["q", [{ type: "exit" }]],
   ];
 
@@ -514,7 +514,7 @@ describe("review panel controls", () => {
     expect(reduceKey(observer, key("]"))).toEqual([{ type: "resizeReviewPanel", direction: 1 }]);
   });
 
-  test("span mode still owns b as a span verb, not a panel cycle", () => {
+  test("span mode still owns b as a span primitive, not a panel cycle", () => {
     // Assert
     expect(reduceKey(state({ spanMode: true }), key("b"))).toEqual([
       { type: "spanKey", name: "b" },
