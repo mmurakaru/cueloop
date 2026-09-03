@@ -173,7 +173,7 @@ export function App({
   useEffect(() => {
     if (!isOwner || !session?.shareId) return;
 
-    return controller.startSharePoll();
+    return controller.startShareSync();
   }, [isOwner, session?.id, session?.shareId, controller]);
   const renderer = useRenderer();
   const { width: terminalWidth } = useTerminalDimensions();

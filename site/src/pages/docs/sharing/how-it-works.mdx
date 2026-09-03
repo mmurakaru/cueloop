@@ -60,8 +60,16 @@ stable id. Union by id is what makes merge-back safe:
 Your own annotations are never touched, because the merge only ever adds or
 updates by the ids in the incoming submit - it never removes. Two collaborators
 working at once cannot clobber each other either: their ids differ, so both sets
-land. You then pull the merged annotations into your local session, each
-attributed to its author.
+land.
+
+## 5. Stay in sync
+
+Every write to the store notifies everyone on that share. A collaborator's
+view refreshes the moment you or another collaborator saves a note, and your
+local session follows the share over one long-lived SSH stream: each change
+arrives as it lands, attributed to its author, and a dropped link reconnects
+and catches up on its own. Your own notes and replies travel the other way the
+same instant you save them.
 
 ## Why nothing is ever lost
 

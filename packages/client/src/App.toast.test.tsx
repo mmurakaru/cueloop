@@ -19,6 +19,7 @@ const shareTransport: ShareTransport = {
     throw new Error("Unexpected share pull");
   }),
   push: mock(async () => {}),
+  watch: () => () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
   collaboratorAnnotations: () => [],
 };

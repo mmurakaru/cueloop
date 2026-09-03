@@ -16,7 +16,7 @@ import { registerParticipant, type Annotation, type ReviewSession } from "@cuelo
 import type { EventFrame, SessionClient } from "@cueloop/daemon/client";
 import { packSessionBlob, unpackSessionBlob } from "@cueloop/daemon/share-blob";
 import { openBlob, sealBlob } from "./crypto";
-import type { ShareStore } from "./store";
+import type { ShareChangeFeed, ShareStore } from "./store";
 
 /** Present when the viewer may write annotations back to the store. */
 export interface ShareWriteBack {
@@ -27,10 +27,14 @@ export interface ShareWriteBack {
   author: string;
   /** Timestamp source; injectable so tests are deterministic. */
   now?: () => string;
+  /** When present, the viewer follows the share live: each write re-reads the blob and emits session.updated. */
+  changes?: ShareChangeFeed;
 }
 
 export class BlobSessionClient implements SessionClient {
   private session: ReviewSession;
+  private readonly listeners = new Set<(event: EventFrame) => void>();
+  private unsubscribe: (() => void) | null = null;
 
   constructor(
     session: ReviewSession,
@@ -39,11 +43,37 @@ export class BlobSessionClient implements SessionClient {
     this.session = session;
   }
 
-  onEvent(_listener: (event: EventFrame) => void): () => void {
-    return () => {};
+  onEvent(listener: (event: EventFrame) => void): () => void {
+    this.listeners.add(listener);
+
+    return () => this.listeners.delete(listener);
   }
 
-  async subscribe(): Promise<void> {}
+  async subscribe(): Promise<void> {
+    const changes = this.writeBack?.changes;
+
+    if (!changes || this.unsubscribe) return;
+    this.unsubscribe = changes.subscribe(this.writeBack!.shareId, () => void this.refresh());
+  }
+
+  /** Re-read the stored blob after another writer changed it, then tell the controller. */
+  private async refresh(): Promise<void> {
+    const writeBack = this.writeBack;
+
+    if (!writeBack) return;
+    try {
+      const stored = await writeBack.store.get(writeBack.shareId);
+
+      if (!stored) return;
+      this.session = unpackSessionBlob(openBlob(writeBack.masterKey, writeBack.shareId, stored));
+    } catch {
+      // a torn read is retried by the next change; the current session stays
+      return;
+    }
+    for (const listener of this.listeners) {
+      listener({ event: "session.updated", sessionId: this.session.id });
+    }
+  }
 
   async sessionGet(_id: string): Promise<ReviewSession> {
     return this.session;
@@ -102,7 +132,11 @@ export class BlobSessionClient implements SessionClient {
     return rejectReadOnly();
   }
 
-  close(): void {}
+  close(): void {
+    this.unsubscribe?.();
+    this.unsubscribe = null;
+    this.listeners.clear();
+  }
 
   private requireWriteBack(): ShareWriteBack {
     if (!this.writeBack) throw new Error("this shared plan is read-only");

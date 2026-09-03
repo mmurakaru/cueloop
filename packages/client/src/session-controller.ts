@@ -29,6 +29,7 @@ import {
   publishShare,
   pullShare,
   pushShare,
+  watchShare,
   shareIdFromLine,
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
@@ -71,7 +72,9 @@ export type Completion =
 export const DEFAULT_AUTO_CLOSE = 5;
 
 /** How often an open shared plan re-pulls collaborator notes (ADR 0005 stage 2). */
-export const SHARE_POLL_MS = 4000;
+/** Reconnect backoff for a dropped watch stream: doubles from the floor to the cap. */
+export const SHARE_RECONNECT_MIN_MS = 1000;
+export const SHARE_RECONNECT_MAX_MS = 30_000;
 
 /** Shared empty set so "nothing rejected" is a stable identity for renders. */
 const EMPTY_REJECTED_ROWS: Set<number> = new Set();
@@ -135,6 +138,7 @@ export interface ShareTransport {
   publish: typeof publishShare;
   pull: typeof pullShare;
   push: typeof pushShare;
+  watch: typeof watchShare;
   parseShareId: typeof shareIdFromLine;
   collaboratorAnnotations: typeof collaboratorAnnotations;
 }
@@ -142,6 +146,7 @@ export interface ShareTransport {
 const DEFAULT_SHARE_TRANSPORT: ShareTransport = {
   publish: publishShare,
   pull: pullShare,
+  watch: watchShare,
   push: pushShare,
   parseShareId: shareIdFromLine,
   collaboratorAnnotations,
@@ -241,7 +246,7 @@ export interface ReviewController {
   /** Pull a shared plan's collaborator notes back and union them in (planner only). */
   pullShared(): Promise<void>;
   /** Poll the share for collaborator notes while it is open; returns a stop handle. */
-  startSharePoll(): () => void;
+  startShareSync(): () => void;
   /** Close the review and, inside herdr, bounce focus back to the agent. */
   finishReview(): void;
   dismissCompletion(): void;
@@ -287,7 +292,8 @@ class Controller implements ReviewController {
   private readonly clock: Clock;
   private readonly shareTransport: ShareTransport;
   private countdown: TimerHandle | undefined;
-  private sharePoll: TimerHandle | undefined;
+  private shareReconnect: TimerHandle | undefined;
+  private shareStop: (() => void) | null = null;
   private shareRun: object | null = null;
   /** Projections keyed by session identity so renders reuse one computation. */
   private derivedFor: ReviewSession | null = null;
@@ -351,7 +357,7 @@ class Controller implements ReviewController {
   close(): void {
     this.closed = true;
     this.clearCountdown();
-    this.stopSharePoll();
+    this.stopShareSync();
     this.client?.close();
   }
 
@@ -954,58 +960,80 @@ class Controller implements ReviewController {
   }
 
   /**
-   * Pull collaborator notes for a shared plan and union them in, awaiting the
-   * merge so a poll never overlaps rounds. The daemon's merge emits
-   * session.updated, so the re-render happens through the normal event path.
-   * Best-effort: a failed refresh is silent and the next tick retries.
+   * Pull collaborator notes for a shared plan and union them in. The daemon's
+   * merge emits session.updated, so the re-render happens through the normal
+   * event path. Best-effort: a failed refresh is silent.
    */
   pullShared(): Promise<void> {
     const session = this.snapshot.session;
 
-    if (!session?.shareId || !this.client) return Promise.resolve();
-    const client = this.client;
+    if (!session?.shareId) return Promise.resolve();
 
     return this.shareTransport
       .pull(session.shareId)
-      .then((remote) =>
-        client.sessionMergeShared(session.id, {
-          annotations: this.shareTransport.collaboratorAnnotations(remote),
-          participants: remote.participants,
-        }),
-      )
+      .then((remote) => this.mergeShared(remote))
+      .catch(() => {});
+  }
+
+  private mergeShared(remote: ReviewSession): Promise<void> {
+    const session = this.snapshot.session;
+
+    if (!session || !this.client) return Promise.resolve();
+
+    return this.client
+      .sessionMergeShared(session.id, {
+        annotations: this.shareTransport.collaboratorAnnotations(remote),
+        participants: remote.participants,
+      })
       .then(() => {})
       .catch(() => {});
   }
 
   /**
-   * Poll the share for collaborator notes while it is open: pull now, then again
-   * every few seconds, each round waiting for the last so slow pulls never stack.
-   * Returns a stop handle the caller runs on leave.
+   * Follow the share live while it is open: one watch stream delivers every
+   * change as it lands; a pull on each (re)connect catches up on anything
+   * missed while the link was down, and a dropped link reconnects with
+   * backoff. Returns a stop handle the caller runs on leave.
    */
-  startSharePoll(): () => void {
-    this.stopSharePoll();
-    // per-run token so a stale run's in-flight pull never re-arms the poll
+  startShareSync(): () => void {
+    this.stopShareSync();
+    // per-run token so a stale run's close never re-arms a newer run
     const run = {};
+    let delay = SHARE_RECONNECT_MIN_MS;
 
     this.shareRun = run;
-    const tick = (): void => {
-      void this.pullShared().finally(() => {
-        if (this.shareRun === run && !this.closed)
-          this.sharePoll = this.clock.setTimeout(tick, SHARE_POLL_MS);
+    const connect = (): void => {
+      const shareId = this.snapshot.session?.shareId;
+
+      if (this.shareRun !== run || this.closed || !shareId) return;
+      void this.pullShared();
+      this.shareStop = this.shareTransport.watch(shareId, {
+        onSession: (remote) => {
+          delay = SHARE_RECONNECT_MIN_MS;
+          void this.mergeShared(remote);
+        },
+        onClose: () => {
+          if (this.shareRun !== run || this.closed) return;
+          this.shareStop = null;
+          this.shareReconnect = this.clock.setTimeout(connect, delay);
+          delay = Math.min(delay * 2, SHARE_RECONNECT_MAX_MS);
+        },
       });
     };
 
-    tick();
+    connect();
 
     return () => {
-      if (this.shareRun === run) this.stopSharePoll();
+      if (this.shareRun === run) this.stopShareSync();
     };
   }
 
-  private stopSharePoll(): void {
+  private stopShareSync(): void {
     this.shareRun = null;
-    if (this.sharePoll !== undefined) this.clock.clearTimeout(this.sharePoll);
-    this.sharePoll = undefined;
+    if (this.shareReconnect !== undefined) this.clock.clearTimeout(this.shareReconnect);
+    this.shareReconnect = undefined;
+    this.shareStop?.();
+    this.shareStop = null;
   }
 
   // ── completion hand-back ────────────────────

@@ -3,7 +3,7 @@ import type { Annotation, ReviewSession } from "@cueloop/schema";
 import { packSessionBlob, unpackSessionBlob } from "@cueloop/daemon/share-blob";
 import { BlobSessionClient, type ShareWriteBack } from "./blob-session-client";
 import { generateMasterKey, openBlob, sealBlob } from "./crypto";
-import { MemoryShareStore } from "./store";
+import { MemoryShareStore, WatchedShareStore } from "./store";
 
 const PLANNER_NOTE: Annotation = {
   id: "a_planner",
@@ -217,5 +217,64 @@ describe("collaborator write-back", () => {
 
     // Assert
     expect(after.participants).toEqual([{ id: "SHA256:collab", provider: "ssh" }]);
+  });
+});
+
+describe("live events", () => {
+  test("a subscribed viewer hears another writer's change and serves the fresh session", async () => {
+    // Arrange: two collaborators on one watched store
+    const masterKey = generateMasterKey();
+    const store = new WatchedShareStore(new MemoryShareStore());
+
+    await store.put(
+      "p_abc123xy",
+      sealBlob(masterKey, "p_abc123xy", packSessionBlob(sessionWith([PLANNER_NOTE]))),
+    );
+    const writeBackFor = (author: string): ShareWriteBack => ({
+      store,
+      masterKey,
+      shareId: "p_abc123xy",
+      author,
+      changes: store,
+    });
+    const ana = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBackFor("SHA256:ana"));
+    const bob = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBackFor("SHA256:bob"));
+    const events: string[] = [];
+
+    ana.onEvent((event) => events.push(`${event.event}:${event.sessionId}`));
+    await ana.subscribe();
+
+    // Act
+    await bob.sessionAnnotate("ses_1", NOTE("a_bob", "from bob"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Assert: Ana was told, and her next read already holds Bob's note
+    expect(events).toEqual(["session.updated:ses_1"]);
+    expect((await ana.sessionGet("ses_1")).annotations.map((note) => note.id)).toEqual([
+      "a_planner",
+      "a_bob",
+    ]);
+
+    // Act: closing unsubscribes
+    ana.close();
+    await bob.sessionAnnotate("ses_1", NOTE("a_bob2", "again"));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Assert
+    expect(events).toHaveLength(1);
+  });
+
+  test("without a change feed the viewer stays silent", async () => {
+    // Arrange
+    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]));
+    const events: string[] = [];
+
+    client.onEvent((event) => events.push(event.event));
+
+    // Act
+    await client.subscribe();
+
+    // Assert
+    expect(events).toEqual([]);
   });
 });
