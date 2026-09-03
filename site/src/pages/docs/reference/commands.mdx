@@ -95,8 +95,9 @@ cueloop --help                   # print help
 ```
 
 **`cueloop session`** exposes the daemon API one-to-one for scripts and agents.
-Primitives: `create`, `get`, `list`, `wait`, `annotate`, `remove`, `name-self`,
-`events`, `resolve`, `submit-revision`. Each prints JSON, so it composes with
+Primitives: `create`, `get`, `list`, `wait`, `annotate`, `remove`, `cut`,
+`restore`, `curate`, `set-viewed`, `name-self`, `events`, `resolve`,
+`submit-revision`. Each prints JSON, so it composes with
 other tools. Run `cueloop session` with no primitive for the flag list.
 
 Everything a reviewer does to a discussion has its primitive:
@@ -109,6 +110,21 @@ cueloop session remove <id> <comment-id>                                 # remov
 cueloop session name-self <id> "Ana" --author <fingerprint>              # the display name of an author
 cueloop session events <id> [--once]                                     # follow the session: one JSON line per change
 ```
+
+Shaping the artifact itself is owner work, and it has its primitives too:
+
+```bash
+cueloop session cut <id> <block>                                  # drop a block of a plan from the working copy
+cueloop session restore <id> <block> [--line <n>]                 # put a cut block back, before line n
+cueloop session curate <id> --rejections '[{"path":"src/a.ts","hunkIndex":0}]'  # reject hunks of a diff
+cueloop session set-viewed <id> <path> [<path> ...]               # mark files as walked
+```
+
+Blocks are counted over the submitted revision, so an index stays valid while
+the working copy changes. A working copy that reads as the submitted revision
+again is dropped rather than stored. Curation needs the full file contents a
+working-tree diff carries; a PR diff cannot be curated. Every cut, restore, and
+curation appends a reviewer revision to the session history.
 
 A reply always points at the discussion's root comment, even when it answers a
 reply. Each event names the history entry the change appended, so a follower
