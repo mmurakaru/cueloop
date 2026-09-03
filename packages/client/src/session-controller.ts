@@ -498,7 +498,13 @@ class Controller implements ReviewController {
    */
   private applyOptimistic(expected: ReviewSession, mutation: Promise<ReviewSession>): void {
     this.update({ session: expected });
-    this.apply(mutation);
+    mutation
+      .then((session) => this.update({ session }))
+      .catch((cause: unknown) => {
+        // a refused guess must not stay on screen: the daemon's record replaces it
+        this.setStatus(String(cause instanceof Error ? cause.message : cause));
+        void this.refreshSession(expected.id);
+      });
   }
 
   // ── primitives ───────────────────────────────────
@@ -1040,19 +1046,15 @@ class Controller implements ReviewController {
 
       return;
     }
-    // an entry another branch reaches: stand on that branch first, then move its tip
+    // an entry another branch reaches: the daemon stands on that branch first, in the same request
     const onBranch = switchBranch(session.history, target.branch);
     const options = summary === undefined || summary === "" ? {} : { summary };
     const moved = navigateTo(onBranch, entryId, options);
-    const client = this.client;
-    const request =
-      target.branch === session.history.branch
-        ? client.sessionNavigate(session.id, entryId, options.summary)
-        : client
-            .sessionSwitch(session.id, target.branch)
-            .then(() => client.sessionNavigate(session.id, entryId, options.summary));
+    const branch = target.branch === session.history.branch ? undefined : target.branch;
 
-    this.moveTree(session, moved, () => request);
+    this.moveTree(session, moved, () =>
+      this.client!.sessionNavigate(session.id, entryId, options.summary, branch),
+    );
     this.setStatus(
       options.summary === undefined
         ? "moved back - later entries stay in the tree"
