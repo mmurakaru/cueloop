@@ -214,6 +214,24 @@ export function appendEntry(history: SessionHistory, entry: NewEntry): AppendRes
   };
 }
 
+/**
+ * Replace the text of the agent's current revision on `main` in place. A
+ * re-capture of a working tree is the revision the agent is still working on,
+ * not a new one, so nothing is appended.
+ */
+export function recaptureMainHead(history: SessionHistory, content: string): SessionHistory {
+  const head = pathOf(history, tipOf(history, MAIN_BRANCH))
+    .filter((entry) => entry.type === "revision" && entry.by === "agent")
+    .at(-1);
+
+  if (!head) throw new HistoryError("not-a-revision", `"${MAIN_BRANCH}" has no agent revision`);
+
+  return {
+    ...history,
+    entries: history.entries.map((entry) => (entry.id === head.id ? { ...entry, content } : entry)),
+  };
+}
+
 /** Name the current tip as a checkpoint. */
 export function labelTip(history: SessionHistory, label: string): SessionHistory {
   return { ...history, labels: { ...history.labels, [tipOf(history)]: label } };

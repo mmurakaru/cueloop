@@ -10,6 +10,7 @@ import {
   MAIN_BRANCH,
   navigateTo,
   pathOf,
+  recaptureMainHead,
   switchBranch,
   tipOf,
   validateHistory,
@@ -258,6 +259,30 @@ describe("forkHistory", () => {
     expect(fork.entries.map((entry) => entry.type)).toEqual(["revision", "revision", "comment"]);
     expect(derivePath(fork).head.content).toBe("Plan v2");
     expect(derivePath(fork).annotationIds).toEqual(["a1"]);
+  });
+});
+
+describe("recaptureMainHead", () => {
+  test("replaces the agent's current revision on main in place, wherever the reviewer is", () => {
+    // Arrange: main at rev1, a reviewer edit on a branch
+    let history = createBranch(root(), "alt");
+
+    history = appendEntry(history, {
+      type: "revision",
+      by: "reviewer",
+      content: "Plan v1 edited",
+      createdAt: AT,
+    }).history;
+
+    // Act
+    const recaptured = recaptureMainHead(history, "Plan v1 recaptured");
+
+    // Assert: same entry count, main's head text moved, the branch keeps its edit
+    expect(recaptured.entries).toHaveLength(history.entries.length);
+    expect(derivePath(recaptured, tipOf(recaptured, MAIN_BRANCH)).head.content).toBe(
+      "Plan v1 recaptured",
+    );
+    expect(derivePath(recaptured).head.content).toBe("Plan v1 edited");
   });
 });
 

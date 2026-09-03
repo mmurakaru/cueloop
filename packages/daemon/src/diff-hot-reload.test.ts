@@ -100,6 +100,22 @@ describe("session.refreshDiff", () => {
     expect(events).toContain("session.updated");
   });
 
+  test("a tree move after a refresh keeps the fresh patch", async () => {
+    // Given a refreshed diff session
+    const session = await openDiffSession();
+
+    writeFileSync(join(repo, "a.ts"), "export const a = 4;\n");
+    await core.sessionRefreshDiff(session.id);
+
+    // When the owner branches off and switches back
+    core.sessionBranch(session.id, "alt");
+    const shown = core.sessionSwitch(session.id, "main");
+
+    // Then the artifact still shows the re-captured working tree, and the history has one revision
+    expect(shown.artifact.content).toContain("+export const a = 4;");
+    expect(shown.history!.entries.filter((entry) => entry.type === "revision")).toHaveLength(1);
+  });
+
   test("is a no-op for a non-diff (plan) session", async () => {
     // Given a plan session in the same workspace
     const workspace = await resolveWorkspace(repo);
