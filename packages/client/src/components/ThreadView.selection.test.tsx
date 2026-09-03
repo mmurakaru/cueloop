@@ -419,12 +419,12 @@ describe("marking across rows", () => {
     await setup.mockMouse.moveTo(63, origin.row + 8);
     await settle(setup);
 
-    // Assert: the stanza tail and both bullets
+    // Assert: the stanza tail and both bullets (list items sit on adjacent rows)
     const rows = highlightedByRow();
 
     expect(rows.get(origin.row + 2)).toBe("torn file on disk.");
     expect(rows.get(origin.row + 4)).toBe(BULLETS[0]);
-    expect(rows.get(origin.row + 6)).toBe(BULLETS[1]);
+    expect(rows.get(origin.row + 5)).toBe(BULLETS[1]);
     expect(rows.size).toBe(3);
   });
 

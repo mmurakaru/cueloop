@@ -1311,9 +1311,9 @@ exports[`stories catalog ThreadView/InlineThreads renders, snapshots, and carrie
   ╷─────────────────────────────────────────────────────────────────────────────────────────────┐   
   │ ● move the store behind one interface                                                       │ ○ 
   ╵─────────────────────────────────────────────────────────────────────────────────────────────┘ ○ 
-                                                                                                    
   · add recovery                                                                                    
                                                                                                     
+  ts                                                                                                
   export function persist(session: Session): void {                                                 
     // one JSON document per session                                                                
     writeAtomically(pathFor(session.id), serialize(session));                                       

@@ -113,16 +113,21 @@ export async function clickText(
   await settle(setup);
 }
 
-/** Drag from the first occurrence of one needle to the first occurrence of another. */
+/**
+ * Drag from the first occurrence of one needle to the first occurrence of
+ * another, `toCharOffset` characters past the second needle's start - so a
+ * character-precise selection can end inside or right after a word.
+ */
 export async function dragText(
   setup: TestRendererSetup,
   fromNeedle: string,
   toNeedle: string,
+  toCharOffset = 0,
 ): Promise<void> {
   const from = locateText(setup, fromNeedle);
   const to = locateText(setup, toNeedle);
 
-  await setup.mockMouse.drag(from.column, from.row, to.column, to.row);
+  await setup.mockMouse.drag(from.column, from.row, to.column + toCharOffset, to.row);
   await settle(setup);
 }
 

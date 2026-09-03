@@ -10,7 +10,16 @@ import { DaemonServer } from "@cueloop/daemon";
 import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { DARK } from "./theme";
-import { isolateUserConfig, press, waitForState, waitForText } from "./test-support";
+import {
+  clickText,
+  dragText,
+  frameRow,
+  isolateUserConfig,
+  pressKey,
+  typeText,
+  waitForState,
+  waitForText,
+} from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -60,6 +69,8 @@ async function renderObserver() {
   return setup;
 }
 
+type Setup = Awaited<ReturnType<typeof renderObserver>>;
+
 /** Session state that any mutating primitive would change. */
 function snapshot() {
   const stored = server.core.sessionGet(session.id);
@@ -85,66 +96,66 @@ describe("observer rendering", () => {
 });
 
 describe("observer primitives are blocked", () => {
-  for (const [key, primitive] of [
-    ["c", "comment"],
-    ["x", "cut"],
-    ["e", "edit"],
-    ["enter", "submit"],
-  ] as const) {
-    test(`${primitive} (${key}) answers observer - read-only and mutates nothing`, async () => {
+  const attempts: Array<[string, (setup: Setup) => Promise<void>]> = [
+    ["comment (typing)", (setup) => typeText(setup, "c")],
+    ["cut (option+x)", (setup) => pressKey(setup, "x", { meta: true })],
+    ["edit (ctrl+e)", (setup) => pressKey(setup, "e", { ctrl: true })],
+    ["submit (cmd+enter)", (setup) => pressKey(setup, "RETURN", { meta: true })],
+  ];
+
+  for (const [primitive, attempt] of attempts) {
+    test(`${primitive} answers observer - read-only and mutates nothing`, async () => {
       const setup = await renderObserver();
       const before = snapshot();
 
-      await press(setup, "j");
-      await press(setup, "j");
-      await press(setup, key);
+      await clickText(setup, "daemon");
+      await attempt(setup);
       const frame = await waitForText(setup, "observer - read-only");
 
-      // no overlay opened: compose/submit bars never appear
-      expect(frame).not.toContain('comment on "');
-      expect(frame).not.toContain("verdict ←/→");
+      // no draft card and no submit card ever appear
+      expect(frame).not.toContain("● c");
+      expect(frame).not.toContain("[Approve]");
       expect(snapshot()).toEqual(before);
     });
   }
 
-  test("span mode c is blocked too", async () => {
+  test("typing over a marked span is blocked too", async () => {
     // Arrange
     const setup = await renderObserver();
 
     // Act
-    await press(setup, "j");
-    await press(setup, "j");
-    await press(setup, "v");
-    await press(setup, "c");
-    await setup.renderOnce();
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await typeText(setup, "c");
 
     // Assert
-    const frame = setup.captureCharFrame();
+    const frame = await waitForText(setup, "observer - read-only");
 
-    expect(frame).toContain("observer - read-only");
-    expect(frame).not.toContain('comment on "');
+    expect(frame).not.toContain("● c");
     expect(snapshot().annotations).toBe(0);
   });
 });
 
 describe("observer navigation still works", () => {
-  test("j/k moves the cursor between blocks", async () => {
+  test("↓ moves the caret between blocks", async () => {
     // Arrange
     const setup = await renderObserver();
 
     // Act
-    await press(setup, "j");
-    await press(setup, "j");
+    await pressKey(setup, "ARROW_DOWN");
+    await pressKey(setup, "ARROW_DOWN");
     await setup.renderOnce();
 
-    // Assert
-    const lines = setup.captureCharFrame().split("\n");
-    const cursorLine = lines.find((line) => line.includes("▎"))!;
+    // Assert: the caret cell is painted on the paragraph's row
+    const caretRow = setup
+      .captureSpans()
+      .lines.findIndex((line) =>
+        line.spans.some((span) => span.bg.toInts().slice(0, 3).join() === "86,91,104"),
+      );
 
-    expect(cursorLine).toContain("persists sessions");
+    expect(caretRow).toBe(frameRow(setup, "persists sessions"));
   });
 
-  test("n focuses annotations made by the controller", async () => {
+  test("option+n focuses annotations made by the controller", async () => {
     // Arrange
     server.core.sessionAnnotate(session.id, {
       id: "a_obs1",
@@ -155,7 +166,7 @@ describe("observer navigation still works", () => {
     const setup = await renderObserver();
 
     // Act
-    await press(setup, "n");
+    await pressKey(setup, "n", { meta: true });
     await setup.renderOnce();
 
     // Assert - focus shows as the card's blue border (transparent fill); a

@@ -13,7 +13,13 @@ import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { App } from "../../packages/client/src/App";
-import { press, typeText, waitForText } from "../../packages/client/src/test-support";
+import {
+  dragText,
+  press,
+  pressKey,
+  typeText,
+  waitForText,
+} from "../../packages/client/src/test-support";
 import { HERMETIC_HERDR_ENV } from "../helpers/env";
 
 /** Generous on purpose: these spawn real subprocesses on shared CI runners. */
@@ -215,13 +221,12 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       expect(setup.captureCharFrame()).toContain("Enable it for everyone immediately.");
 
       // Act - annotate the risky paragraph, then submit request_changes
-      for (let i = 0; i < 6; i++) await press(setup, "j"); // to the Phase 2 paragraph
-      await press(setup, "c");
+      await dragText(setup, "Enable it", "immediately.", "immediately.".length);
       await typeText(setup, "Stage the rollout: 5% then 50% then 100%.");
-      await press(setup, "enter");
+      await pressKey(setup, "RETURN", { meta: true });
       await waitForText(setup, "COMMENT · me");
-      await press(setup, "enter"); // open submit (request_changes default with pending item)
-      expect(setup.captureCharFrame()).toContain("[Changes]");
+      await pressKey(setup, "RETURN", { meta: true }); // open submit (request_changes default with pending item)
+      await waitForText(setup, "[Changes]");
       await typeText(setup, "Too aggressive.");
       await press(setup, "enter");
 

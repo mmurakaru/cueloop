@@ -10,7 +10,7 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { loadConfig } from "./config";
-import { isolateUserConfig, press, settle, waitForText, waitForTextGone } from "./test-support";
+import { isolateUserConfig, settle, waitForText, waitForTextGone, pressKey } from "./test-support";
 
 const PLAN = "# Plan\n\nShip the thing.\n";
 
@@ -49,43 +49,40 @@ async function renderApp() {
 }
 
 describe("review panel", () => {
-  test("b cycles expanded -> compact -> hidden -> expanded", async () => {
+  test("ctrl+r cycles expanded -> compact -> hidden -> expanded", async () => {
     // Arrange
     const setup = await renderApp();
-    // the plan frame widens as the rail shrinks: expanded < compact < hidden.
-    // its width is the column of its top-right corner (the first ╮ on the row).
-    const planWidth = () =>
-      setup
-        .captureCharFrame()
-        .split("\n")
-        .find((line) => line.includes("╮"))
-        ?.indexOf("╮") ?? 0;
+    // each mode has its own signature: expanded draws the tab box and the
+    // submit button, compact keeps only the count strip, hidden draws nothing
+    const railSignature = () => {
+      const frame = setup.captureCharFrame();
 
-    // Assert: expanded shows the submit button and leaves room for the rail
-    expect(setup.captureCharFrame()).toContain("Submit review");
-    const expandedWidth = planWidth();
+      return {
+        tabs: frame.includes("Review  Agent"),
+        submit: frame.includes("Submit review"),
+        strip: /\s0\s*\n/.test(frame) && frame.includes("<"),
+      };
+    };
+
+    // Assert: expanded
+    expect(railSignature()).toEqual({ tabs: true, submit: true, strip: false });
 
     // Act
-    await press(setup, "b");
+    await pressKey(setup, "r", { ctrl: true });
 
-    // Assert: compact drops the submit button and widens the plan (rail is a strip)
+    // Assert: compact drops the tabs and the button, keeps the strip
     await waitForTextGone(setup, "Submit review");
-    const compactWidth = planWidth();
-
-    expect(compactWidth).toBeGreaterThan(expandedWidth);
+    expect(railSignature()).toEqual({ tabs: false, submit: false, strip: true });
 
     // Act
-    await press(setup, "b");
+    await pressKey(setup, "r", { ctrl: true });
     await settle(setup);
 
-    // Assert: hidden spans the plan full width, no rail column
-    const hiddenWidth = planWidth();
-
-    expect(hiddenWidth).toBeGreaterThan(compactWidth);
-    expect(hiddenWidth).toBeGreaterThan(115);
+    // Assert: hidden draws no rail at all
+    expect(railSignature()).toEqual({ tabs: false, submit: false, strip: false });
 
     // Act
-    await press(setup, "b");
+    await pressKey(setup, "r", { ctrl: true });
 
     // Assert
     await waitForText(setup, "Submit review"); // back to expanded
@@ -96,19 +93,19 @@ describe("review panel", () => {
     const setup = await renderApp();
 
     // Act
-    await press(setup, "b"); // -> compact
+    await pressKey(setup, "r", { ctrl: true }); // -> compact
 
     // Assert
     expect(loadConfig({ userConfigPath: configPath }).ui.reviewState).toBe("compact");
   });
 
-  test("] widens the rail and persists the new width", async () => {
+  test("option+w widens the rail and persists the new width", async () => {
     // Arrange
     const setup = await renderApp();
     const startWidth = loadConfig({ userConfigPath: configPath }).ui.reviewWidth;
 
     // Act
-    await press(setup, "]");
+    await pressKey(setup, "w", { meta: true });
 
     // Assert
     const widened = loadConfig({ userConfigPath: configPath }).ui.reviewWidth;
@@ -120,15 +117,15 @@ describe("review panel", () => {
     // Arrange
     const setup = await renderApp();
 
-    await press(setup, "b"); // -> compact
-    await press(setup, "b"); // -> hidden
+    await pressKey(setup, "r", { ctrl: true }); // -> compact
+    await pressKey(setup, "r", { ctrl: true }); // -> hidden
 
     // Assert
     await waitForTextGone(setup, "Submit review"); // rail is gone
     expect(setup.captureCharFrame()).not.toContain("Submit review");
 
     // Act
-    await press(setup, "enter"); // submit while hidden must not trap in an invisible modal
+    await pressKey(setup, "RETURN", { meta: true }); // submit while hidden must not trap in an invisible modal
 
     // Assert
     await waitForText(setup, "submit review");

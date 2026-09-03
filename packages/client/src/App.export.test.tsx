@@ -17,7 +17,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, press, waitForState, waitForText } from "./test-support";
+import { isolateUserConfig, press, waitForState, waitForText, pressKey } from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -69,7 +69,7 @@ describe("obsidian export on resolve", () => {
     await waitForText(setup, "cueloop");
 
     // Act
-    await press(setup, "enter"); // open the submit overlay, keep the default verdict (approve)
+    await pressKey(setup, "RETURN", { meta: true }); // open the submit overlay, keep the default verdict (approve)
 
     // Assert
     await waitForText(setup, "[Approve]");

@@ -52,6 +52,7 @@ import { useComponentTheme } from "./theme-context";
 /* ------------------------------------------------------------- palette */
 
 const UNDERLINE = createTextAttributes({ underline: true });
+const CUT = createTextAttributes({ strikethrough: true, dim: true });
 const BOLD = createTextAttributes({ bold: true });
 
 /** The marked-words treatment: a violet backdrop under an underline. */
@@ -663,6 +664,45 @@ function ScrollMarkers({
   );
 }
 
+/**
+ * How a block's rows are painted: heading weight, muted kinds, the list or
+ * quote marker, and tracked changes as the plan sheet drew them - a cut block
+ * dim and struck through, an added or edited block tagged on its first row.
+ */
+interface BlockStyle {
+  baseFg: string;
+  baseAttributes: number;
+  marker: string;
+  changeTag: { text: string; fg: string } | null;
+}
+
+function blockStyle(block: DisplayBlock, tokens: Theme): BlockStyle {
+  const isHeading = block.kind === "h1" || block.kind === "h2" || block.kind === "h3";
+  const isCut = block.type === "del";
+  const muted = block.kind === "h2" || block.kind === "h3" || block.kind === "code";
+  const marker =
+    block.kind === "li"
+      ? "· "
+      : block.kind === "oli"
+        ? `${block.orderedItemNumber ?? 1}. `
+        : block.kind === "quote"
+          ? "▏ "
+          : "";
+  const changeTag =
+    block.type === "add"
+      ? { text: " [new]", fg: tokens.green }
+      : block.type === "mod"
+        ? { text: " [edited]", fg: tokens.accent }
+        : null;
+
+  return {
+    baseFg: isCut ? tokens.textDim : muted ? tokens.textMuted : tokens.text,
+    baseAttributes: (isHeading ? BOLD : 0) | (isCut ? CUT : 0),
+    marker,
+    changeTag,
+  };
+}
+
 /* ------------------------------------------------------------------ view */
 
 interface ComposeState {
@@ -714,8 +754,20 @@ export interface ThreadViewProps {
   marks: Map<number, Mark[]>;
   quickActions: QuickAction[];
   observer: boolean;
-  /** True while a menu or dialog owns the keyboard. */
+  /** True while a menu, dialog, or overlay owns the keyboard. */
   suspended?: boolean;
+  /** Comments an edit orphaned: their passage is gone from the working copy. */
+  editOrphanCount?: number;
+  /** Reports whether a composer is open, so session chords can yield to typing. */
+  onComposingChange?: (composing: boolean) => void;
+  /** An observer tried to comment; the app answers with its read-only status. */
+  onObserverBlocked?: () => void;
+  /** Reports the caret's block, so block-level primitives (cut, restore) act where the caret is. */
+  onCursorChange?: (blockIndex: number) => void;
+  /** The rail's focused card; the discussion holding it takes focus here. */
+  focusedAnnotationId?: string;
+  /** Reports the focused discussion's root comment, so the rail follows. */
+  onFocusAnnotation?: (annotationId: string | undefined) => void;
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
@@ -730,6 +782,12 @@ export function ThreadView({
   quickActions,
   observer,
   suspended = false,
+  editOrphanCount = 0,
+  onComposingChange,
+  onObserverBlocked,
+  onCursorChange,
+  focusedAnnotationId,
+  onFocusAnnotation,
   onAnnotate,
   onReply,
   onUpdateAnnotation,
@@ -751,7 +809,29 @@ export function ThreadView({
     anchor: { blockIndex: 0, char: 0 },
   });
   const [compose, setCompose] = useState<ComposeState | null>(null);
-  const [focusedDiscussion, setFocusedDiscussion] = useState<string | null>(null);
+
+  useEffect(() => {
+    onComposingChange?.(compose !== null);
+  }, [compose, onComposingChange]);
+  useEffect(() => {
+    onCursorChange?.(caret.head.blockIndex);
+  }, [caret.head.blockIndex, onCursorChange]);
+
+  // discussion focus is the rail's card focus seen from the document: when the
+  // app owns it (onFocusAnnotation), the focused discussion is the one holding
+  // the focused card and focusing here names the root comment; standalone, it
+  // is local state
+  const [localFocus, setLocalFocus] = useState<string | null>(null);
+  const focusedDiscussion =
+    onFocusAnnotation === undefined
+      ? localFocus
+      : (discussions.find((discussion) =>
+          discussion.annotations.some((annotation) => annotation.id === focusedAnnotationId),
+        )?.key ?? null);
+  const setFocusedDiscussion = (key: string | null): void => {
+    if (onFocusAnnotation === undefined) return setLocalFocus(key);
+    onFocusAnnotation(discussions.find((discussion) => discussion.key === key)?.rootId);
+  };
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [composeText, setComposeText] = useState("");
   const [slashIndex, setSlashIndex] = useState(0);
@@ -789,8 +869,12 @@ export function ThreadView({
     0,
   );
 
-  // an opening card shifts the layout, so the block it belongs to is revealed again
-  const revealBlockIndex = compose?.blockIndex ?? cursor;
+  // an opening card shifts the layout, so the block it belongs to is revealed
+  // again; a discussion focused from the rail is scrolled into view the same way
+  const revealBlockIndex =
+    compose?.blockIndex ??
+    discussions.find((discussion) => discussion.key === focusedDiscussion)?.blockIndex ??
+    cursor;
 
   useEffect(() => {
     try {
@@ -845,7 +929,7 @@ export function ThreadView({
     }));
 
   const openCompose = (state: ComposeState): void => {
-    if (observer) return;
+    if (observer) return onObserverBlocked?.();
     composerReady.current = false;
     composeRef.current = state;
     setCompose(state);
@@ -1289,10 +1373,13 @@ export function ThreadView({
     marker: string;
     baseFg: string;
     baseAttributes: number;
+    /** A tag after the row's text, such as the tracked-change label. */
+    trailing: { text: string; fg: string } | null;
   }
 
   const lineRowFor = (context: LineContext): React.ReactNode => {
-    const { blockIndex, text, line, lineIndex, ranges, marker, baseFg, baseAttributes } = context;
+    const { blockIndex, text, line, lineIndex, ranges, marker, baseFg, baseAttributes, trailing } =
+      context;
     const lineRanges = ranges
       .map((range) => ({
         start: Math.max(range.start, line.start) - line.start,
@@ -1351,6 +1438,7 @@ export function ThreadView({
               {run.text}
             </span>
           ))}
+          {trailing ? <span fg={trailing.fg}>{trailing.text}</span> : null}
         </text>
       </box>
     );
@@ -1404,20 +1492,7 @@ export function ThreadView({
       (discussion) => discussion.blockIndex === blockIndex,
     );
     const ranges = blockRangesFor(blockIndex);
-    const isHeading = block.kind === "h1" || block.kind === "h2" || block.kind === "h3";
-    const baseFg =
-      block.kind === "h2" || block.kind === "h3" || block.kind === "code"
-        ? tokens.textMuted
-        : tokens.text;
-    const baseAttributes = isHeading ? BOLD : 0;
-    const marker =
-      block.kind === "li"
-        ? "· "
-        : block.kind === "oli"
-          ? `${block.orderedItemNumber ?? 1}. `
-          : block.kind === "quote"
-            ? "▏ "
-            : "";
+    const { baseFg, baseAttributes, marker, changeTag } = blockStyle(block, tokens);
     const lines = wrapLines(text, viewWidth > 0 ? viewWidth - marker.length - 6 : 0);
     const lineRows: React.ReactNode[] = [];
 
@@ -1435,6 +1510,7 @@ export function ThreadView({
           marker,
           baseFg,
           baseAttributes,
+          trailing: lineIndex === 0 ? changeTag : null,
         }),
       );
       const cards = cardsAfterLine(blockIndex, line, isLastLine, blockDiscussions);
@@ -1445,12 +1521,27 @@ export function ThreadView({
       }
     }
 
+    // list items of one list stay tight; every other block sits a blank row
+    // below its neighbour, and a code block announces its language first
+    const previous = display[blockIndex - 1];
+    const tight =
+      previous !== undefined &&
+      block.kind === previous.kind &&
+      (block.kind === "li" || block.kind === "oli");
+    const languageRow =
+      block.kind === "code" ? (
+        <text key="language" fg={tokens.textDim} selectable={false}>
+          {`  ${block.work?.lang ?? block.base?.lang ?? "code"}`}
+        </text>
+      ) : null;
+
     return (
       <box
         key={`discussion-block-${blockIndex}`}
         id={`discussion-block-${blockIndex}`}
-        style={{ flexDirection: "column", marginTop: blockIndex === 0 ? 0 : 1 }}
+        style={{ flexDirection: "column", marginTop: blockIndex === 0 || tight ? 0 : 1 }}
       >
+        {languageRow}
         {lineRows}
       </box>
     );
@@ -1500,9 +1591,18 @@ export function ThreadView({
       onMouseDragEnd={endDrag}
       onMouseUp={endDrag}
     >
-      <scrollbox ref={scrollRef} style={{ flexGrow: 1, paddingTop: 1 }} focused={false}>
-        {display.map((_block, blockIndex) => blockNodeFor(blockIndex))}
-      </scrollbox>
+      <box style={{ flexGrow: 1, flexDirection: "column" }}>
+        {editOrphanCount > 0 ? (
+          <box style={{ height: 1, backgroundColor: palette.markBackdrop, paddingLeft: 2 }}>
+            <text fg={tokens.red}>
+              {`${editOrphanCount} annotation${editOrphanCount === 1 ? "" : "s"} no longer match - the passage was removed.`}
+            </text>
+          </box>
+        ) : null}
+        <scrollbox ref={scrollRef} style={{ flexGrow: 1, paddingTop: 1 }} focused={false}>
+          {display.map((_block, blockIndex) => blockNodeFor(blockIndex))}
+        </scrollbox>
+      </box>
       <ScrollMarkers
         discussions={discussions}
         hovered={hoveredMarker?.key ?? null}

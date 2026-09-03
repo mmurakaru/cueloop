@@ -10,7 +10,7 @@ import { ManualClock } from "@opentui/core/testing";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, press, settle, waitForText } from "./test-support";
+import { isolateUserConfig, press, settle, waitForText, pressKey } from "./test-support";
 
 const PLAN = "# Plan\n\nShip the thing.\n";
 
@@ -56,7 +56,7 @@ async function renderApp(onExit?: (code: number) => void) {
 type Setup = Awaited<ReturnType<typeof renderApp>>;
 
 async function submitApprove(setup: Setup): Promise<void> {
-  await press(setup, "enter"); // open submit (approve default: no pending items)
+  await pressKey(setup, "RETURN", { meta: true }); // open submit (approve default: no pending items)
   await press(setup, "enter"); // confirm
   await waitForText(setup, "review approved");
 }

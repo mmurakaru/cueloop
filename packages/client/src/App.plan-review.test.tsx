@@ -12,9 +12,11 @@ import { App } from "./App";
 import { DEFAULT_QUICK_ACTIONS, quickActionBody } from "./config";
 import { DARK } from "./theme";
 import {
+  clickText,
+  dragText,
   isolateUserConfig,
   press,
-  settle,
+  pressKey,
   typeText as type,
   waitForState,
   waitForText,
@@ -90,38 +92,6 @@ function backgroundsOf(setup: Setup, needle: string): string[] {
   }
 
   return backgrounds;
-}
-
-function foregroundsOf(setup: Setup, needle: string): string[] {
-  const foregrounds: string[] = [];
-
-  for (const line of setup.captureSpans().lines) {
-    for (const span of line.spans) {
-      if (!span.text.includes(needle)) continue;
-      const [red, green, blue] = span.fg.toInts();
-
-      foregrounds.push(
-        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""),
-      );
-    }
-  }
-
-  return foregrounds;
-}
-
-/** Move the cursor to "The daemon persists sessions to disk atomically." */
-async function toContextParagraph(setup: Setup): Promise<void> {
-  await press(setup, "j");
-  await press(setup, "j");
-}
-
-/** Click the first on-screen occurrence of a string, by its char-frame position. */
-async function clickText(setup: Setup, needle: string): Promise<void> {
-  const lines = setup.captureCharFrame().split("\n");
-  const row = lines.findIndex((line) => line.includes(needle));
-
-  await setup.mockMouse.click(lines[row]!.indexOf(needle) + 1, row);
-  await setup.renderOnce();
 }
 
 describe("share button", () => {
@@ -221,259 +191,127 @@ describe("attribution", () => {
   });
 });
 
-describe("selection feeds the annotation quote", () => {
-  test("v anchors, l extends, c composes with the char-precise quote", async () => {
+describe("marks feed the comment anchor", () => {
+  test("a drag marks a character-precise span and typing anchors the comment to it", async () => {
     // Arrange
     const setup = await renderApp();
 
-    await toContextParagraph(setup);
-
     // Act
-    await press(setup, "v");
-    await press(setup, "l"); // "The daemon"
-    await press(setup, "c");
-
-    // Assert
-    await waitForText(setup, 'comment on "The daemon"');
-
-    // Act
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
     await type(setup, "Which daemon?");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
-    const stored = server.core.sessionGet(session.id);
-
-    expect(stored.annotations[0]!.anchor.quote).toBe("The daemon");
+    expect(server.core.sessionGet(session.id).annotations[0]!.anchor.quote).toBe("The daemon");
   });
 
-  test("a mouse drag over the text becomes the compose quote", async () => {
+  test("a drag that ends mid-sentence keeps exactly the dragged words", async () => {
     // Arrange
     const setup = await renderApp();
-    const lines = setup.captureCharFrame().split("\n");
-    const row = lines.findIndex((line) => line.includes("persists sessions"));
-    const startColumn = lines[row]!.indexOf("persists");
 
-    expect(row).toBeGreaterThan(-1);
-
-    // Act
-    // the drag's end cell is exclusive: release one past the last character
-    await setup.mockMouse.drag(startColumn, row, startColumn + "persists sessions".length, row);
-    await settle(setup);
-    await press(setup, "c");
-
-    // Assert
-    await waitForText(setup, 'comment on "persists sessions"');
-
-    // Act
+    // Act: release one past the last character of "sessions"
+    await dragText(setup, "persists", "sessions", "sessions".length);
     await type(setup, "sessions plural?");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
-    const stored = server.core.sessionGet(session.id);
-
-    expect(stored.annotations[0]!.anchor.quote).toBe("persists sessions");
+    expect(server.core.sessionGet(session.id).annotations[0]!.anchor.quote).toBe(
+      "persists sessions",
+    );
   });
 });
 
-describe("inline compose keeps the anchor painted", () => {
-  test("the selection stays painted while composing; cancel un-paints; save converts to the comment highlight", async () => {
+/** The thread view's mark backdrop in the dark palette. */
+const THREAD_MARK = "#463852";
+
+describe("the mark stays painted while composing", () => {
+  test("the mark paints while composing, escape un-paints, save keeps it as the comment's mark", async () => {
     // Arrange
     const setup = await renderApp();
 
-    await toContextParagraph(setup);
-
     // Act
-    await press(setup, "v");
-    await press(setup, "l");
-    await press(setup, "c");
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await type(setup, "x");
 
-    // Assert
-    // compose open: the anchor is painted selection-style. The box can render
-    // a frame before the anchor repaint settles, so wait on the color itself.
-    await waitForText(setup, "Save");
-    expect(setup.captureCharFrame()).toContain("Cancel");
-    await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(DARK.accent));
-    expect(backgroundsOf(setup, "The daemon")).toContain(DARK.accent);
+    // Assert: composing, the marked words carry the mark backdrop
+    await waitForText(setup, "● x");
+    expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
 
-    // Act
-    // cancel un-paints (a bare ESC settles after the parser's escape window)
+    // Act: escape discards the draft; the mark stays for re-typing, a second escape drops it
+    await press(setup, "escape");
+    await waitForTextGone(setup, "● x");
+    expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
     await press(setup, "escape");
 
     // Assert
-    await waitForTextGone(setup, 'comment on "');
-    expect(backgroundsOf(setup, "The daemon")).not.toContain(DARK.accent);
+    await waitForState(setup, () => !backgroundsOf(setup, "The daemon").includes(THREAD_MARK));
 
-    // Act
-    // save converts the paint to the kind-colored annotation highlight
-    await press(setup, "c");
+    // Act: mark again, save
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
     await type(setup, "Which daemon?");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert
+    // Assert: the saved comment keeps the passage marked
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
-    await settle(setup);
-    // the whole cursor block is the anchor here; check the highlight landed
-    const stored = server.core.sessionGet(session.id);
-
-    expect(stored.annotations.length).toBe(1);
-    expect(backgroundsOf(setup, stored.annotations[0]!.anchor.quote.slice(0, 20))).toContain(
-      DARK.markCommentBackground,
-    );
-    // renderApp plus this many frame-waits grazes the 5s default on a loaded CI
-    // runner, and the whole-suite publish lane has timed even 15s out; give the
-    // heaviest frame-wait chain generous headroom so runner load cannot flake it.
+    await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(THREAD_MARK));
   }, 60_000);
-
-  test("clicking the Cancel word-button closes the compose box", async () => {
-    // Arrange
-    const setup = await renderApp();
-
-    await toContextParagraph(setup);
-    await press(setup, "v");
-    await press(setup, "l");
-    await press(setup, "c");
-    await waitForText(setup, "Cancel");
-
-    // Act
-    await clickText(setup, "Cancel");
-
-    // Assert
-    await waitForTextGone(setup, 'comment on "');
-  });
-
-  test("clicking Cancel in a saved card's edit composer closes it", async () => {
-    // Arrange
-    const setup = await renderApp();
-
-    await toContextParagraph(setup);
-    await press(setup, "v");
-    await press(setup, "l");
-    await press(setup, "c");
-    await waitForText(setup, "Cancel");
-    await type(setup, "note body");
-    await press(setup, "enter");
-    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
-    // select the saved card, then activate it to open the in-place editor
-    await clickText(setup, "note body");
-    await clickText(setup, "note body");
-    await waitForText(setup, "Cancel");
-
-    // Act
-    await clickText(setup, "Cancel");
-
-    // Assert - the editor closes back to the plain saved card
-    await waitForTextGone(setup, "Cancel");
-  });
 });
 
 describe("compose newline convention", () => {
-  // Option/Alt and Shift reach the App as `meta`/`shift` on the return key.
-  // modifyOtherKeys encoding preserves those modifiers so the grammar and the
-  // focused textarea can tell a bare submit from a newline.
-  async function renderModifierAwareApp() {
-    const setup = await testRender(<App home={home} sessionId={session.id} />, {
-      width: 120,
-      height: 32,
-      otherModifiersMode: true,
-    });
-
-    await waitForText(setup, "cueloop");
-
-    return setup;
-  }
-
-  async function pressReturnWith(
-    setup: Setup,
-    modifiers: { shift?: boolean; meta?: boolean },
-  ): Promise<void> {
-    setup.mockInput.pressKey("RETURN", modifiers);
-    await settle(setup);
-  }
-
-  test("option+return inserts a newline; a bare return submits the multiline body", async () => {
+  test("enter breaks the line; cmd+enter saves the multiline body verbatim", async () => {
     // Arrange
-    const setup = await renderModifierAwareApp();
+    const setup = await renderApp();
 
-    await toContextParagraph(setup);
-    await press(setup, "v");
-    await press(setup, "l");
-    await press(setup, "c");
-    await waitForText(setup, 'comment on "The daemon"');
+    await clickText(setup, "daemon");
 
     // Act
     await type(setup, "first line");
-    await pressReturnWith(setup, { meta: true }); // option/alt+return -> newline
+    await press(setup, "enter");
     await type(setup, "second line");
 
-    // Assert
-    // still composing: the newline did not submit
+    // Assert: still composing, the newline did not save
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
 
     // Act
-    await press(setup, "enter"); // bare return -> save
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     expect(server.core.sessionGet(session.id).annotations[0]!.body).toBe("first line\nsecond line");
   });
 
-  test("shift+return still inserts a newline (existing muscle memory)", async () => {
-    // Arrange
-    const setup = await renderModifierAwareApp();
-
-    await toContextParagraph(setup);
-    await press(setup, "c");
-
-    // Act
-    await type(setup, "alpha");
-    await pressReturnWith(setup, { shift: true }); // shift+return -> newline
-    await type(setup, "beta");
-
-    // Assert
-    expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
-
-    // Act
-    await press(setup, "enter");
-
-    // Assert
-    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
-    expect(server.core.sessionGet(session.id).annotations[0]!.body).toBe("alpha\nbeta");
-  });
-
   test("escape cancels the composer without saving", async () => {
     // Arrange
-    const setup = await renderModifierAwareApp();
+    const setup = await renderApp();
 
-    await toContextParagraph(setup);
-    await press(setup, "c");
-    await waitForText(setup, 'comment on "');
+    await clickText(setup, "daemon");
     await type(setup, "never saved");
+    await waitForText(setup, "● never saved");
 
     // Act
     await press(setup, "escape");
 
     // Assert
-    await waitForTextGone(setup, 'comment on "');
+    await waitForTextGone(setup, "● never saved");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
   });
 });
 
 describe("the document selects, the rail edits", () => {
-  test("e edits the selected card in place; enter saves through the controller", async () => {
+  test("option+e edits the focused card in place; enter saves through the controller", async () => {
     // Arrange
     const setup = await renderApp();
 
-    await toContextParagraph(setup);
-    await press(setup, "c");
+    await clickText(setup, "daemon");
     await type(setup, "Needs a citation.");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
     await waitForText(setup, "COMMENT · me");
 
-    // Act
-    // the saved card is selected; e turns its body into an input in place
-    await press(setup, "e");
+    // Act: focus the card, then turn its body into an input in place
+    await pressKey(setup, "n", { meta: true });
+    await pressKey(setup, "e", { meta: true });
     await type(setup, " And a link.");
     await press(setup, "enter");
 
@@ -505,51 +343,51 @@ describe("the document selects, the rail edits", () => {
     await waitForText(setup, "1a2b3c4d");
 
     // Act - focus the collaborator card, then activate it
-    await press(setup, "n");
-    await press(setup, "e");
+    await pressKey(setup, "n", { meta: true });
+    await pressKey(setup, "e", { meta: true });
 
     // Assert - the rename prompt opens; the body never becomes an editor
     await waitForText(setup, "Rename author");
   });
 
-  test("x deletes the selected card and un-paints the document highlight", async () => {
+  test("option+backspace deletes the focused card and un-paints the document mark", async () => {
     // Arrange
     const setup = await renderApp();
 
-    await toContextParagraph(setup);
-    await press(setup, "c");
+    await dragText(setup, "daemon", "daemon persists", "daemon".length);
     await type(setup, "Delete me.");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
     await waitForText(setup, "COMMENT · me");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
-    expect(backgroundsOf(setup, "persists sessions")).toContain(DARK.markCommentBackground);
+    await waitForState(setup, () => backgroundsOf(setup, "daemon").includes(THREAD_MARK));
 
     // Act
-    await press(setup, "x");
+    await pressKey(setup, "n", { meta: true });
+    await pressKey(setup, "BACKSPACE", { meta: true });
 
     // Assert
     await waitForTextGone(setup, "COMMENT · me");
     expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
-    expect(backgroundsOf(setup, "persists sessions")).not.toContain(DARK.markCommentBackground);
+    expect(backgroundsOf(setup, "daemon")).not.toContain(THREAD_MARK);
   });
 });
 
 describe("plan cut removals", () => {
-  test("a cut block becomes a rail removal card and u restores it", async () => {
+  test("option+x cuts the caret's block into a rail removal card and option+u restores it", async () => {
     // Arrange
     const setup = await renderApp();
 
-    await toContextParagraph(setup);
+    await clickText(setup, "daemon");
 
-    // Act - no card is selected, so x cuts the block under the cursor
-    await press(setup, "x");
+    // Act - no card is focused, so the cut takes the block under the caret
+    await pressKey(setup, "x", { meta: true });
 
     // Assert - the rail shows a removal card titled CUT · me for the cut block
     await waitForText(setup, "CUT · me");
     await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy !== undefined);
 
     // Act - undo restores it (no selection, so the last removal)
-    await press(setup, "u");
+    await pressKey(setup, "u", { meta: true });
 
     // Assert - the block returns and the working copy is pristine again
     await waitForText(setup, "removal restored");
@@ -661,18 +499,13 @@ describe("edit-exit reconciliation", () => {
       // Arrange
       const setup = await renderApp();
 
-      await toContextParagraph(setup);
-      await press(setup, "c");
+      await clickText(setup, "daemon");
       await type(setup, "Anchor me to the doomed passage.");
-      await press(setup, "enter");
+      await pressKey(setup, "RETURN", { meta: true });
       await waitForText(setup, "COMMENT · me");
 
       // Act
-      // deselect the card so e reaches the editor hand-off, then edit; deselection
-      // shows as the card's quote line dropping the selection tone (blue)
-      await press(setup, "escape");
-      await waitForState(setup, () => !foregroundsOf(setup, "The daemon").includes(DARK.blue));
-      await press(setup, "e");
+      await pressKey(setup, "e", { ctrl: true });
 
       // Assert
       await waitForText(setup, "1 annotation no longer match - the passage was removed.");
@@ -686,23 +519,19 @@ describe("edit-exit reconciliation", () => {
   });
 });
 
-describe("marker-actions popover", () => {
-  test("v shows the toolbar, a opens quick-actions, enter inserts the preset comment", async () => {
+describe("the quick-action palette", () => {
+  test("/ lists the quick actions and a pick seeds the comment with the preset body", async () => {
     // Arrange
     const setup = await renderApp();
 
-    await toContextParagraph(setup);
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
 
-    // Act - marking a span reveals the inline toolbar
-    await press(setup, "v");
-    await waitForText(setup, "actions");
-
-    // open the quick-actions list; step to the second default and pick it. The
-    // list renders as a floating overlay the virtual terminal cannot composite,
-    // so drive the grammar directly rather than waiting on its painted text.
-    await press(setup, "a");
-    await press(setup, "j");
+    // Act - a leading slash opens the palette; step to the second default and pick it
+    await type(setup, "/");
+    await waitForText(setup, "zoom-out-research-in-depth");
+    await pressKey(setup, "ARROW_DOWN");
     await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert - a comment annotation was created with the second default's body
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);

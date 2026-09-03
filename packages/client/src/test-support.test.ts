@@ -238,4 +238,15 @@ describe("dragText", () => {
     expect(log.mouseEvents).toContainEqual({ type: "down", x: 2, y: 2 });
     expect(log.mouseEvents).toContainEqual({ type: "up", x: 5, y: 3 });
   });
+
+  test("an end offset lands the up that many characters past the to-text", async () => {
+    // Arrange
+    const { setup, log } = await renderFixture();
+
+    // Act
+    await dragText(setup, "drag from here", "drop to here", 4);
+
+    // Assert
+    expect(log.mouseEvents).toContainEqual({ type: "up", x: 9, y: 3 });
+  });
 });
