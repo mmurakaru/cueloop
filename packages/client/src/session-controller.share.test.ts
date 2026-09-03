@@ -85,13 +85,14 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 async function connectedController(
   session: ReviewSession,
   clock?: ManualClock,
+  transport: ShareTransport = shareTransport,
 ): Promise<{ controller: ReturnType<typeof createReviewController>; client: FakeSessionClient }> {
   const client = fakeClient(session);
   const controller = createReviewController({
     sessionId: session.id,
     openClient: async () => client,
     clock,
-    shareTransport,
+    shareTransport: transport,
   });
 
   controller.connect();
@@ -225,6 +226,60 @@ describe("mirror on annotate", () => {
 
     // Assert - a failed local write must never leak to the share
     expect(pushShare).not.toHaveBeenCalled();
+  });
+});
+
+describe("reply", () => {
+  test("a reply shares the root's anchor, names it in replyTo, and mirrors up", async () => {
+    // Arrange
+    pushShare.mockClear();
+    const { controller, client } = await connectedController(
+      sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:ana")] }),
+    );
+
+    // Act
+    const id = controller.reply("a1", "agreed");
+    await tick();
+
+    // Assert
+    const wire = client.sessionAnnotate.mock.calls.at(-1)![1];
+
+    expect(wire).toEqual({
+      id: id!,
+      kind: "comment",
+      anchor: { quote: "Plan", prefix: "", suffix: "" },
+      body: "agreed",
+      replyTo: "a1",
+    });
+    expect(pushShare.mock.calls[0]?.[1]).toEqual([wire]);
+  });
+
+  test("a reply to a reply hangs off the discussion's root comment", async () => {
+    // Arrange
+    const { controller, client } = await connectedController(
+      sessionFixture({
+        annotations: [
+          annotation("a1", "SHA256:ana"),
+          { ...annotation("a2", "SHA256:bob"), replyTo: "a1" },
+        ],
+      }),
+    );
+
+    // Act
+    controller.reply("a2", "same thread");
+    await tick();
+
+    // Assert
+    expect(client.sessionAnnotate.mock.calls.at(-1)?.[1]).toMatchObject({ replyTo: "a1" });
+  });
+
+  test("replying to an unknown annotation does nothing", async () => {
+    // Arrange
+    const { controller, client } = await connectedController(sessionFixture());
+
+    // Act + Assert
+    expect(controller.reply("missing", "x")).toBeUndefined();
+    expect(client.sessionAnnotate).not.toHaveBeenCalled();
   });
 });
 

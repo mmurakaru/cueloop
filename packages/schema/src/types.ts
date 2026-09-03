@@ -130,6 +130,11 @@ export interface Annotation {
    */
   author?: string;
   /**
+   * The root comment this one replies to. Absent on a root. A reply shares its
+   * root's anchor, so a discussion stays one conversation when the text moves.
+   */
+  replyTo?: string;
+  /**
    * Set when a revision addressed this annotation: the agent reported the id
    * on resubmit ("agent"), or the quoted text disappeared from the revised
    * plan ("drift"). Addressed annotations leave the default rail view and the

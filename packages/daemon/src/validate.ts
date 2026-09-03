@@ -90,6 +90,7 @@ export const AnnotationSchema = v.object({
   body: v.string(),
   orphan: v.optional(v.boolean()),
   author: v.optional(v.string()),
+  replyTo: v.optional(NonEmpty),
   resolution: v.optional(
     v.object({
       revision: v.number(),

@@ -216,6 +216,11 @@ export interface ReviewController {
     body: string,
     endDisplayIndex?: number,
   ): string | undefined;
+  /**
+   * Reply to `rootAnnotationId`: the reply shares the root's anchor and names
+   * it in replyTo, so the discussion stays one conversation. Returns the minted id.
+   */
+  reply(rootAnnotationId: string, body: string): string | undefined;
   /** Anchor a prototype comment to a DOM element by its selector. */
   annotatePrototype(selector: string, quote: string, body: string): string | undefined;
   /** Rewrite a stored annotation's body in place (the rail-card edit). */
@@ -761,6 +766,28 @@ class Controller implements ReviewController {
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
     this.setStatus("comment added");
+
+    return wire.id;
+  }
+
+  reply(rootAnnotationId: string, body: string): string | undefined {
+    const session = this.snapshot.session;
+    const root = session?.annotations.find((annotation) => annotation.id === rootAnnotationId);
+
+    if (!session || !root) return undefined;
+    // a reply to a reply still hangs off the discussion's root comment
+    const wire = {
+      id: newAnnotationId(),
+      kind: "comment",
+      anchor: root.anchor,
+      body,
+      replyTo: root.replyTo ?? root.id,
+    };
+    const persisted = this.client!.sessionAnnotate(session.id, wire);
+
+    this.apply(persisted);
+    this.mirrorAnnotation(persisted, wire);
+    this.setStatus("reply added");
 
     return wire.id;
   }

@@ -153,6 +153,46 @@ describe("renderFeedback", () => {
     expect(feedback).toContain("Please clarify.");
   });
 
+  test("a discussion renders as one item: the root comment, then its replies in order", () => {
+    // Arrange: a root, a later reply, an earlier reply, and a reply whose root is gone
+    const anchor = { quote: "daemon memory", prefix: "live only in ", suffix: " today." };
+
+    // Act
+    const feedback = renderFeedback({
+      verdictKind: "comment",
+      summary: "",
+      artifactContent: PLAN,
+      annotations: [
+        makeAnnotation({ id: "root", anchor, body: "Which daemon?" }),
+        makeAnnotation({
+          id: "late",
+          anchor,
+          body: "The local one, I think.",
+          replyTo: "root",
+          createdAt: "2026-08-07T00:02:00.000Z",
+        }),
+        makeAnnotation({
+          id: "early",
+          anchor,
+          body: "Worth stating in the plan.",
+          replyTo: "root",
+          author: "SHA256:ana",
+          createdAt: "2026-08-07T00:01:00.000Z",
+        }),
+        makeAnnotation({ id: "stray", anchor, body: "Standalone.", replyTo: "gone" }),
+      ],
+    });
+
+    // Assert: two items, replies listed under the root by time
+    expect(feedback).toContain("## Annotations (2)");
+    expect(feedback).toContain(
+      "Which daemon?\n\nReplies:\n\n- Worth stating in the plan.\n- The local one, I think.\n\nannotation id: `root`",
+    );
+    expect(feedback).toContain("### 2. Comment");
+    expect(feedback).toContain("Standalone.");
+    expect(feedback).not.toContain("annotation id: `late`");
+  });
+
   test("orphaned anchors are flagged, never dropped", () => {
     // Act
     const feedback = renderFeedback({
