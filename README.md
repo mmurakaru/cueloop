@@ -10,13 +10,7 @@
 
 # cueloop
 
-A terminal-first self-extensible review surface for coding agents.  
-
-One loop: 
-
-```bash
-agent > artifact > annotate > agent
-```
+A terminal-first multiplayer review surface for agent-authored work.
 
 ## The primitives
 
