@@ -17,6 +17,7 @@ import {
   HistoryError,
   labelTip,
   navigateTo,
+  recaptureMainHead,
   viewOfPath,
   isAddressed,
   isAgentNote,
@@ -627,7 +628,7 @@ export class DaemonCore {
           content: entry.content,
           submittedAt: entry.createdAt,
         })),
-      annotations: view.annotations.map((annotation) => ({ ...annotation })),
+      annotations: [],
       history,
       verdict: null,
       status: "pending",
@@ -635,6 +636,9 @@ export class DaemonCore {
       parentSessionId: id,
     };
 
+    fork.annotations = view.annotations.map((annotation) =>
+      forkedAnnotation(annotation, source, fork),
+    );
     if (source.participants)
       fork.participants = source.participants.map((identity) => ({ ...identity }));
     this.store.upsert(fork);
@@ -666,6 +670,10 @@ export class DaemonCore {
       return { changed: false };
     if (diff.patch === current.artifact.content) return { changed: false };
     current.artifact = { ...current.artifact, content: diff.patch, files: diff.files };
+    // the history keeps showing the same revision, re-captured, so a later tree move derives this patch
+    const history = withHistory(current).history;
+
+    if (history) current.history = recaptureMainHead(history, diff.patch);
     this.store.upsert(current);
     this.emit("session.updated", id);
 
@@ -790,6 +798,30 @@ export class DaemonCore {
 }
 
 export { DaemonError };
+
+/**
+ * A comment as the fork carries it. An addressed mark names a revision by the
+ * source's numbering; the fork numbers its own, so the mark follows the
+ * revision's text, and a comment addressed by a revision off the fork's path
+ * is open again.
+ */
+function forkedAnnotation(
+  annotation: Annotation,
+  source: ReviewSession,
+  fork: ReviewSession,
+): Annotation {
+  const { resolution, ...open } = annotation;
+
+  if (resolution === undefined) return { ...annotation };
+  const addressedBy = source.revisions.find(
+    (revision) => revision.revision === resolution.revision,
+  );
+  const inFork = fork.revisions.find((revision) => revision.content === addressedBy?.content);
+
+  return inFork === undefined
+    ? open
+    : { ...annotation, resolution: { ...resolution, revision: inFork.revision } };
+}
 
 /** A pending diff session: the state that warrants hot-reload watching of its working tree. */
 function isLiveDiffSession(session: ReviewSession): boolean {
