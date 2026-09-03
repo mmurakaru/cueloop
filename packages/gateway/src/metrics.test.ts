@@ -16,15 +16,19 @@ describe("GatewayMetrics.render", () => {
     const text = metrics.render();
 
     // Then the counters, buckets, sum, and count are present in exposition format
-    expect(text).toContain('cueloop_share_ops_total{verb="pull",outcome="ok"} 2');
-    expect(text).toContain('cueloop_share_ops_total{verb="pull",outcome="error"} 1');
+    expect(text).toContain('cueloop_share_ops_total{primitive="pull",outcome="ok"} 2');
+    expect(text).toContain('cueloop_share_ops_total{primitive="pull",outcome="error"} 1');
     expect(text).toContain("# TYPE cueloop_share_op_duration_seconds histogram");
     // 0.02, 0.2 are <= 0.25 (two obs); 3 is not -> le="0.25" bucket holds 2
-    expect(text).toContain('cueloop_share_op_duration_seconds_bucket{verb="pull",le="0.25"} 2');
-    expect(text).toContain('cueloop_share_op_duration_seconds_bucket{verb="pull",le="+Inf"} 3');
-    expect(text).toContain('cueloop_share_op_duration_seconds_count{verb="pull"} 3');
+    expect(text).toContain(
+      'cueloop_share_op_duration_seconds_bucket{primitive="pull",le="0.25"} 2',
+    );
+    expect(text).toContain(
+      'cueloop_share_op_duration_seconds_bucket{primitive="pull",le="+Inf"} 3',
+    );
+    expect(text).toContain('cueloop_share_op_duration_seconds_count{primitive="pull"} 3');
     const sum = Number(
-      text.match(/cueloop_share_op_duration_seconds_sum\{verb="pull"\} ([\d.]+)/)![1],
+      text.match(/cueloop_share_op_duration_seconds_sum\{primitive="pull"\} ([\d.]+)/)![1],
     );
 
     expect(sum).toBeCloseTo(3.22, 5);
@@ -66,7 +70,7 @@ describe("startMetricsServer", () => {
 
     // Then it returns the exposition text; other paths 404
     expect(ok.status).toBe(200);
-    expect(body).toContain('cueloop_share_ops_total{verb="create",outcome="ok"} 1');
+    expect(body).toContain('cueloop_share_ops_total{primitive="create",outcome="ok"} 1');
     const missing = await fetch(`http://127.0.0.1:${server.port}/nope`);
 
     expect(missing.status).toBe(404);

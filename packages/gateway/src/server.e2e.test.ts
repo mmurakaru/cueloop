@@ -261,8 +261,8 @@ describe("share upload then view", () => {
         await fetch(`http://127.0.0.1:${metricsGateway.metricsPort}/metrics`)
       ).text();
 
-      // Assert - the create verb and the R2 put both counted
-      expect(body).toContain('cueloop_share_ops_total{verb="create",outcome="ok"} 1');
+      // Assert - the create primitive and the R2 put both counted
+      expect(body).toContain('cueloop_share_ops_total{primitive="create",outcome="ok"} 1');
       expect(body).toContain('cueloop_r2_ops_total{op="put",outcome="ok"} 1');
     } finally {
       await metricsGateway.close();

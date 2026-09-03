@@ -123,7 +123,7 @@ describe("socket round-trip", () => {
     expect(got.artifact.meta.agent).toBe("claude-code");
   });
 
-  test("share-sync verbs round-trip: setShareId persists, mergeShared unions notes and identities by id", async () => {
+  test("share-sync primitives round-trip: setShareId persists, mergeShared unions notes and identities by id", async () => {
     // Given a shared session with one local note
     const session = await client.sessionCreate(WS, PLAN);
     const anchor = { quote: "Body text", prefix: "", suffix: "." };

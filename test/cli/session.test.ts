@@ -393,12 +393,12 @@ describe("cueloop session (black box)", () => {
     expect(resolved.stderr).toContain("cannot call session.resolve");
   });
 
-  test("help output and unknown verbs", async () => {
+  test("help output and unknown primitives", async () => {
     // Act
     const help = await runCli(home, ["help"]);
 
     // Assert
-    expect(help.stdout).toContain("cueloop session <verb>");
+    expect(help.stdout).toContain("cueloop session <primitive>");
 
     // Act
     const bad = await runCli(home, ["session", "frobnicate"]);

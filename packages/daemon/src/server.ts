@@ -352,7 +352,7 @@ export class DaemonServer {
       throw new DaemonError("unknown_method", `unknown method ${request.method}`);
     }
     // Capability gate: a capped role (a review-side agent) cannot escalate past
-    // read + annotate, whatever verb it sends.
+    // read + annotate, whatever primitive it sends.
     if (!roleAllowsMethod(connection.role, request.method)) {
       throw new DaemonError("forbidden", `role ${connection.role} cannot call ${request.method}`);
     }

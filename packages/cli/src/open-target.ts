@@ -1,5 +1,5 @@
 /**
- * Verb-first review-open resolution: turn a verb (plan/diff/review) plus an
+ * Primitive-first review-open resolution: turn a primitive (plan/diff/review) plus an
  * optional id-or-title selector into a single session to open, or a clear
  * miss. Pure over a session list so it unit-tests without a daemon or a TUI -
  * main.ts fetches the sessions and prints the miss messages.
@@ -12,15 +12,15 @@
  *   - otherwise the selector matches session titles, case-insensitive: an
  *     exact title wins, else a unique substring match wins, else the substring
  *     candidates are reported as ambiguous.
- * Every lookup is scoped by the caller's `match` predicate, so a verb only
+ * Every lookup is scoped by the caller's `match` predicate, so a primitive only
  * ever resolves to its own artifact kind.
  */
 
 import type { ReviewSession } from "@cueloop/schema";
 
 /**
- * The verb scopes, kept disjoint on purpose so a single session never resolves
- * under two verbs. A PR review is a diff artifact that carries a `pr`
+ * The primitive scopes, kept disjoint on purpose so a single session never resolves
+ * under two primitives. A PR review is a diff artifact that carries a `pr`
  * reference (openReview maps a top-level `pr` into `meta.pr`), so the plain
  * diff scope must exclude those - otherwise `cueloop diff` and `cueloop
  * review` would both open the same pending PR review.
@@ -47,7 +47,7 @@ export function isSessionId(value: string): boolean {
 }
 
 export interface OpenTargetQuery {
-  /** Only sessions this predicate accepts are eligible - the verb's artifact scope. */
+  /** Only sessions this predicate accepts are eligible - the primitive's artifact scope. */
   match: (session: ReviewSession) => boolean;
   /** Positional id-or-title selector; absent means "latest pending". */
   selector?: string;
@@ -107,7 +107,7 @@ export function resolveOpenTarget(sessions: ReviewSession[], query: OpenTargetQu
 
 /**
  * The reviewer-facing line for a miss, in the "working tree is clean - nothing
- * to review" tone. `label` is the human word for the verb's scope ("plan",
+ * to review" tone. `label` is the human word for the primitive's scope ("plan",
  * "diff", "PR"). The "session" outcome has no message - the caller opens it.
  */
 export function openTargetMessage(

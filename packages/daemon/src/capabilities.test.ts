@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { asDaemonRole, roleAllowsMethod } from "./capabilities";
 
 describe("roleAllowsMethod", () => {
-  test("the owner may call every verb", () => {
+  test("the owner may call every primitive", () => {
     // Assert
     for (const method of ["session.resolve", "session.submitRevision", "session.delete"])
       expect(roleAllowsMethod("owner", method)).toBe(true);

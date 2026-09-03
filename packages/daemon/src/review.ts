@@ -18,7 +18,7 @@ import {
 import { verdictResponse } from "./api";
 import type { DaemonClient } from "./client";
 
-// Adapters and CLI verbs reach the verdict mapping through this module too,
+// Adapters and CLI primitives reach the verdict mapping through this module too,
 // so a session obtained outside a ReviewHandle maps the same way.
 export { verdictResponse };
 

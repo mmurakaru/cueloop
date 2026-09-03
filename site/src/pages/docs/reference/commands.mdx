@@ -3,14 +3,14 @@ layout: ../../../layouts/DocsLayout.astro
 title: Commands
 eyebrow: Docs · Reference
 lede: The full cueloop command surface - opening reviews, sharing over SSH, posting to GitHub, and the scripting API. Every command runs against a local daemon that starts on demand.
-prev: { title: "The review verbs", href: "/docs/concepts/plan-diff-review/" }
+prev: { title: "The review primitives", href: "/docs/concepts/plan-diff-review/" }
 next: { title: "Configuration", href: "/docs/reference/configuration/" }
 ---
 
 cueloop is one binary, `cueloop`, with a small set of subcommands. Most connect
 to a local daemon that starts automatically the first time you run one. This page
-is the reference; for the ideas behind the verbs, read
-[The review verbs](/docs/concepts/plan-diff-review/).
+is the reference; for the ideas behind the primitives, read
+[The review primitives](/docs/concepts/plan-diff-review/).
 
 ## Open a review
 
@@ -88,16 +88,16 @@ The verdict's feedback becomes the review body.
 ## Scripting and the daemon
 
 ```bash
-cueloop session <verb> [flags]   # script the daemon API; JSON on stdout
+cueloop session <primitive> [flags]   # script the daemon API; JSON on stdout
 cueloop refine                   # mine past reviews into a markdown report
 cueloop daemon                   # run the daemon in the foreground
 cueloop --help                   # print help
 ```
 
 **`cueloop session`** exposes the daemon API one-to-one for scripts and agents.
-Verbs: `create`, `get`, `list`, `wait`, `annotate`, `resolve`,
+Primitives: `create`, `get`, `list`, `wait`, `annotate`, `resolve`,
 `submit-revision`. Each prints JSON, so it composes with other tools. Run
-`cueloop session` with no verb for the flag list.
+`cueloop session` with no primitive for the flag list.
 
 **`cueloop refine`** reads the stored corpus of past reviews and writes a
 markdown report of every reviewer annotation, grouped by kind with its session,

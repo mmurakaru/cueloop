@@ -1,7 +1,7 @@
 /**
  * The keyboard grammar as a pure reducer: view state in, intents out.
  * App builds a KeyState per key event, calls reduceKey, and dispatches the
- * intents to controller verbs and view-state setters - no branch bodies live
+ * intents to controller primitives and view-state setters - no branch bodies live
  * in the key handler. Diff and plan reviews share one path for annotation
  * navigation, deletion, and submit; the read-only rule is one gate here.
  */
@@ -63,7 +63,7 @@ export interface KeyState {
   keys: Record<string, string[]>;
   readOnly: boolean;
   /**
-   * Owner-only verbs a share collaborator lacks (undefined = owner, allowed).
+   * Owner-only primitives a share collaborator lacks (undefined = owner, allowed).
    * A collaborator annotates but cannot edit the plan (cut / $EDITOR runs on
    * the gateway) or submit an agent verdict (there is no agent on a share).
    */
@@ -95,7 +95,7 @@ export interface KeyState {
   cursorAnnotatable: boolean;
 }
 
-/** Verbs that write session state; an observer never reaches their handlers. */
+/** Primitives that write session state; an observer never reaches their handlers. */
 const MUTATING_ACTIONS = new Set([
   "comment",
   "cut",
@@ -136,7 +136,7 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
 
   if (state.readOnly && mutating) return status("observer - read-only");
 
-  // share is a session-level verb: it works from any view, owner only
+  // share is a session-level primitive: it works from any view, owner only
   if (action === "share") {
     if (state.canShare === false) return status("only the plan owner can share");
 
@@ -305,7 +305,7 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 
   if (shared) return shared;
   if (action === "span" || action === "edit") {
-    return status("plan-only verb - diff review uses c on a line");
+    return status("plan-only primitive - diff review uses c on a line");
   }
 
   return [];
@@ -356,7 +356,7 @@ function planGrammar(state: KeyState, action: string | undefined, name: string):
     // the annotation and edit rewrites the card body in place
     if (state.hasFocusedAnnotation)
       return [action === "cut" ? { type: "removeAnnotation" } : { type: "editCard" }];
-    // editing the plan itself is the owner's verb; a share viewer only annotates,
+    // editing the plan itself is the owner's primitive; a share viewer only annotates,
     // and has no edit affordance, so the key is silent rather than a nag
     if (state.canEditPlan === false) return [];
 

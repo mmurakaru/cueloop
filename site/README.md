@@ -26,7 +26,7 @@ site/
       concepts/
         review-session.mdx      the core primitive
         annotations.mdx         quote-anchored, stable ids
-        plan-diff-review.mdx    the three verbs
+        plan-diff-review.mdx    the three primitives
         sharing-over-ssh.mdx    the design direction (terminal only)
   public/               static assets (favicon)
 ```
