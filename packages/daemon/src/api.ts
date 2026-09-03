@@ -7,15 +7,20 @@
 
 import {
   SCHEMA_VERSION,
+  appendEntry,
   feedbackForSession,
+  historyFromLinear,
   isAddressed,
   isAgentNote,
   isMarkdownArtifact,
+  MAIN_BRANCH,
   parseBlocks,
   registerParticipant,
   resolveAnchor,
+  switchBranch,
   verdictAllows,
   type Annotation,
+  type NewEntry,
   type Artifact,
   type Identity,
   type ReviewSession,
@@ -23,7 +28,7 @@ import {
   type VerdictKind,
   type WorkspaceKey,
 } from "@cueloop/schema";
-import { SessionStore } from "./store";
+import { SessionStore, withHistory } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
 import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
 import { DiffWatcher } from "./diff-watcher";
@@ -112,6 +117,7 @@ export class DaemonCore {
       createdAt: now,
     };
 
+    session.history = historyFromLinear(session);
     this.store.upsert(session);
     this.watchIfDiffSession(session);
     this.emit("session.created", session.id);
@@ -189,8 +195,10 @@ export class DaemonCore {
     const existing = session.annotations.findIndex((candidate) => candidate.id === annotation.id);
     const full: Annotation = { ...annotation, createdAt: new Date().toISOString() };
 
-    if (existing === -1) session.annotations.push(full);
-    else
+    if (existing === -1) {
+      session.annotations.push(full);
+      this.record(session, { type: "comment", annotationId: full.id, createdAt: full.createdAt });
+    } else
       session.annotations[existing] = {
         ...full,
         createdAt: session.annotations[existing]!.createdAt,
@@ -210,7 +218,16 @@ export class DaemonCore {
   sessionRemoveAnnotation(id: string, annotationId: string): ReviewSession {
     const session = this.mutable(id);
 
+    const known = session.annotations.some((candidate) => candidate.id === annotationId);
+
     session.annotations = session.annotations.filter((candidate) => candidate.id !== annotationId);
+    if (known) {
+      this.record(session, {
+        type: "comment-removed",
+        annotationId,
+        createdAt: new Date().toISOString(),
+      });
+    }
     this.store.upsert(session);
     this.emit("session.updated", id);
 
@@ -281,8 +298,15 @@ export class DaemonCore {
     const session = this.mutable(id);
     const known = new Set(session.annotations.map((annotation) => annotation.id));
 
-    for (const annotation of incoming.annotations)
-      if (!known.has(annotation.id)) session.annotations.push(annotation);
+    for (const annotation of incoming.annotations) {
+      if (known.has(annotation.id)) continue;
+      session.annotations.push(annotation);
+      this.record(session, {
+        type: "comment",
+        annotationId: annotation.id,
+        createdAt: annotation.createdAt,
+      });
+    }
     if (incoming.participants?.length) {
       const registry = new Map(
         (session.participants ?? []).map((participant) => [participant.id, participant]),
@@ -308,6 +332,7 @@ export class DaemonCore {
 
     session.verdict = verdict;
     session.status = "resolved";
+    this.record(session, { type: "verdict", verdict, createdAt: verdict.resolvedAt });
     this.store.upsert(session);
     // a resolved diff review is frozen; stop hot-reloading its working tree
     this.unwatchIfDiffSession(session);
@@ -342,6 +367,9 @@ export class DaemonCore {
 
     session.revisions.push({ revision: revisionNumber, content, submittedAt: now });
     session.artifact = { ...session.artifact, content };
+    // the agent's revision lands on main wherever its tip sits; the artifact
+    // shows the head of the branch the reviewer is on
+    this.recordOnMain(session, { type: "revision", by: "agent", content, createdAt: now });
     delete session.workingCopy;
     session.verdict = null;
     session.status = "pending";
@@ -430,6 +458,23 @@ export class DaemonCore {
   private unwatchIfDiffSession(session: ReviewSession): void {
     if (session.artifact.type === "diff")
       this.diffWatcher.untrackDiffRepo(session.workspace.repoRoot, session.id);
+  }
+
+  /** Append an entry on the session's current branch; a session without a head has no history to extend. */
+  private record(session: ReviewSession, entry: NewEntry): void {
+    const history = withHistory(session).history;
+
+    if (history) session.history = appendEntry(history, entry).history;
+  }
+
+  /** Append an entry on main, leaving the reviewer's current branch where it is. */
+  private recordOnMain(session: ReviewSession, entry: NewEntry): void {
+    const history = withHistory(session).history;
+
+    if (!history) return;
+    const onMain = appendEntry(switchBranch(history, MAIN_BRANCH), entry).history;
+
+    session.history = { ...onMain, branch: history.branch };
   }
 
   private mutable(id: string): ReviewSession {
