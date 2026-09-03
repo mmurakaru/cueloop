@@ -10,11 +10,13 @@
 import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
 import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
 import {
+  cutBlock,
   detectHerdr,
   makeAnchor,
   newAnnotationId,
   parseBlocks,
   resolveAnchor,
+  restoreBlock,
   restoreLine,
   returnPaneFor,
   type Annotation,
@@ -458,6 +460,16 @@ class Controller implements ReviewController {
       );
   }
 
+  /**
+   * Show the expected result before the daemon answers, so a second keypress
+   * builds on the first instead of on the stale snapshot. Answers arrive in
+   * request order over the socket and replace the guess with the daemon's copy.
+   */
+  private applyOptimistic(expected: ReviewSession, mutation: Promise<ReviewSession>): void {
+    this.update({ session: expected });
+    this.apply(mutation);
+  }
+
   // ── primitives ───────────────────────────────────
   open(id: string): void {
     this.locallyViewed.clear();
@@ -500,7 +512,10 @@ class Controller implements ReviewController {
       );
 
       if (workIndex === -1) return;
-      this.apply(this.client!.sessionCutBlock(session.id, workIndex));
+      this.applyOptimistic(
+        { ...session, workingCopy: cutBlock(working, block.work) },
+        this.client!.sessionCutBlock(session.id, workIndex),
+      );
       this.setStatus("block cut - it serializes into the diff");
     }
   }
@@ -515,12 +530,19 @@ class Controller implements ReviewController {
       nextWorkBlock(this.display(), displayIndex),
       working.split("\n").length,
     );
-    const baseIndex = parseBlocks(session.artifact.content).findIndex(
+    const base = session.artifact.content;
+    const baseIndex = parseBlocks(base).findIndex(
       (candidate) => candidate.lineStart === block.base!.lineStart,
     );
 
     if (baseIndex === -1) return;
-    this.apply(this.client!.sessionRestoreBlock(session.id, baseIndex, line));
+    const expected: ReviewSession = {
+      ...session,
+      workingCopy: restoreBlock(base, working, block.base, line),
+    };
+
+    if (expected.workingCopy === undefined) delete expected.workingCopy;
+    this.applyOptimistic(expected, this.client!.sessionRestoreBlock(session.id, baseIndex, line));
     this.setStatus(REMOVAL_RESTORED_STATUS);
   }
 
@@ -599,7 +621,10 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return;
-    this.apply(this.client!.sessionCurate(session.id, rejections));
+    const expected: ReviewSession = { ...session, curation: rejections };
+
+    if (!rejections.length) delete expected.curation;
+    this.applyOptimistic(expected, this.client!.sessionCurate(session.id, rejections));
   }
 
   rejectedRows(): Set<number> {
