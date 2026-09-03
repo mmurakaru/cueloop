@@ -18,6 +18,7 @@ import {
   parseBlocks,
   registerParticipant,
   resolveAnchor,
+  isBlockCut,
   restoreBlock,
   switchBranch,
   verdictAllows,
@@ -353,6 +354,13 @@ export class DaemonCore {
       );
     }
     const working = session.workingCopy ?? base;
+
+    if (!isBlockCut(base, working, block)) {
+      throw new DaemonError(
+        "invalid_params",
+        `block ${baseBlockIndex} of the submitted revision is present in the working copy`,
+      );
+    }
     const beforeLine = Math.min(line ?? working.split("\n").length, working.split("\n").length);
     const entryId = this.applyWorkingCopy(session, restoreBlock(base, working, block, beforeLine));
 

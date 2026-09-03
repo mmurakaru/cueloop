@@ -566,6 +566,22 @@ describe("curation primitives", () => {
     expect(() => core.sessionRestoreBlock(created.id, 99)).toThrow(/no block 99/);
   });
 
+  test("restoring a block that is present is refused rather than duplicated", () => {
+    // Arrange: nothing cut, then block 2 cut once
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Assert: a pristine copy has every block
+    expect(() => core.sessionRestoreBlock(created.id, 2)).toThrow(/present in the working copy/);
+
+    // Act
+    core.sessionCutBlock(created.id, 2);
+    const restored = core.sessionRestoreBlock(created.id, 2);
+
+    // Assert: one restore puts it back; a second would duplicate it
+    expect(restored.workingCopy).toBeUndefined();
+    expect(() => core.sessionRestoreBlock(created.id, 2)).toThrow(/present in the working copy/);
+  });
+
   test("curating a diff stores the decisions and the patch they leave; no decisions clear both", () => {
     // Arrange: one file with two separated changes
     const oldContents = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n";
