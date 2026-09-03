@@ -21,6 +21,7 @@ import {
   type Identity,
   type ReviewSession,
   type Revision,
+  type SessionHistory,
   type Verdict,
   type WorkspaceKey,
 } from "@cueloop/schema";
@@ -208,6 +209,38 @@ export const VerdictSchema = v.object({
   resolvedAt: v.string(),
 } satisfies EntriesOf<Verdict>);
 
+const EntryBaseEntries = {
+  id: NonEmpty,
+  parentId: v.nullable(NonEmpty),
+  createdAt: v.string(),
+};
+
+/** One record of a session's history; the tree pointers plus the entry's own fields. */
+export const SessionEntrySchema = v.variant("type", [
+  v.object({
+    ...EntryBaseEntries,
+    type: v.literal("revision"),
+    by: v.picklist(["agent", "reviewer"]),
+    content: v.string(),
+  }),
+  v.object({ ...EntryBaseEntries, type: v.literal("comment"), annotationId: NonEmpty }),
+  v.object({ ...EntryBaseEntries, type: v.literal("comment-removed"), annotationId: NonEmpty }),
+  v.object({ ...EntryBaseEntries, type: v.literal("verdict"), verdict: VerdictSchema }),
+  v.object({
+    ...EntryBaseEntries,
+    type: v.literal("branch-summary"),
+    text: v.string(),
+    abandoned: v.array(NonEmpty),
+  }),
+]);
+
+export const SessionHistorySchema = v.object({
+  entries: v.array(SessionEntrySchema),
+  tips: v.record(v.string(), NonEmpty),
+  branch: NonEmpty,
+  labels: v.record(v.string(), v.string()),
+} satisfies EntriesOf<SessionHistory>);
+
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
 export const SessionRecordSchema = v.object({
   schemaVersion: v.literal(SCHEMA_VERSION),
@@ -216,6 +249,7 @@ export const SessionRecordSchema = v.object({
   artifact: ArtifactSchema,
   revisions: v.array(RevisionSchema),
   annotations: v.array(FullAnnotationSchema),
+  history: v.optional(SessionHistorySchema),
   workingCopy: v.optional(v.string()),
   viewedPaths: v.optional(v.array(v.string())),
   verdict: v.nullable(VerdictSchema),
