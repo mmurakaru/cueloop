@@ -7,14 +7,13 @@
  * into React beyond the setters it is given.
  */
 
-import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
+import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { isAddressed, isAgentNote, type ReviewSession, type VerdictKind } from "@cueloop/schema";
 import { displayText, spanKey, startSpan, type DisplayBlock, type SpanState } from "./view-plan";
 import type { DiffRow } from "./view-diff";
 import type { ReviewController } from "./session-controller";
 import type { Intent } from "./keymap";
 import { quickActionBody, type QuickAction } from "./config";
-import type { PlanSheetHandle } from "./components/PlanSheet";
 import { VERDICTS } from "./components/ConfirmCard";
 import {
   REVIEW_RESIZE_STEP,
@@ -97,7 +96,6 @@ export interface IntentDispatchDeps {
 
   liveInput: MutableRefObject<string>;
   reviewWidthRef: MutableRefObject<number>;
-  planSheetRef: RefObject<PlanSheetHandle | null>;
 
   setCursor: Dispatch<SetStateAction<number>>;
   setInboxCursor: Dispatch<SetStateAction<number>>;
@@ -307,24 +305,17 @@ function handleOpenCompose(intent: IntentOfType<"openCompose">, deps: IntentDisp
         text: "",
       });
   } else {
-    // a mouse drag leaves a native selection; it wins over the cursor block
-    const native = deps.planSheetRef.current?.readSelection() ?? null;
+    const block = deps.display[deps.cursor];
 
-    if (native) {
-      deps.setMode({ type: "compose", kind: intent.kind, ...native, text: "" });
-    } else {
-      const block = deps.display[deps.cursor];
-
-      if (block)
-        deps.setMode({
-          type: "compose",
-          kind: intent.kind,
-          displayIndex: deps.cursor,
-          start: 0,
-          end: displayText(block).length,
-          text: "",
-        });
-    }
+    if (block)
+      deps.setMode({
+        type: "compose",
+        kind: intent.kind,
+        displayIndex: deps.cursor,
+        start: 0,
+        end: displayText(block).length,
+        text: "",
+      });
   }
 }
 
@@ -429,7 +420,6 @@ function handleRemoveAnnotation(
 }
 
 function handleDeselect(_intent: IntentOfType<"deselect">, deps: IntentDispatchDeps): void {
-  deps.planSheetRef.current?.clearSelection();
   deps.setFocusedAnnotationId(undefined);
   deps.setPulsedAnnotationId(null);
 }

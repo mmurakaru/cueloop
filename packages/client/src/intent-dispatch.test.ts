@@ -126,7 +126,6 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     renameAuthor: mock(),
     liveInput: { current: "" },
     reviewWidthRef: { current: 34 },
-    planSheetRef: { current: null },
     setCursor: mock(),
     setInboxCursor: mock(),
     setMode: mock(),
