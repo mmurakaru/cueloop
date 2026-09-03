@@ -205,6 +205,7 @@ export interface ReviewController {
   edit(): void;
   /**
    * Anchor and store an annotation; both plan and diff anchor constructions.
+   * `end` is an offset within `endDisplayIndex` (the same block by default).
    * Returns the minted annotation id so the view can select the new card.
    */
   annotate(
@@ -213,6 +214,7 @@ export interface ReviewController {
     start: number,
     end: number,
     body: string,
+    endDisplayIndex?: number,
   ): string | undefined;
   /** Anchor a prototype comment to a DOM element by its selector. */
   annotatePrototype(selector: string, quote: string, body: string): string | undefined;
@@ -730,6 +732,7 @@ class Controller implements ReviewController {
     start: number,
     end: number,
     body: string,
+    endDisplayIndex: number = displayIndex,
   ): string | undefined {
     const session = this.snapshot.session;
 
@@ -741,10 +744,16 @@ class Controller implements ReviewController {
     } else {
       const display = this.display();
       const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);
-      const workBlockIndex =
-        display.slice(0, displayIndex + 1).filter((entry) => entry.work).length - 1;
+      const workIndexOf = (index: number): number =>
+        display.slice(0, index + 1).filter((entry) => entry.work).length - 1;
 
-      anchor = makeAnchor(workBlocks, workBlockIndex, start, end);
+      anchor = makeAnchor(
+        workBlocks,
+        workIndexOf(displayIndex),
+        start,
+        end,
+        workIndexOf(endDisplayIndex),
+      );
     }
     const wire = { id: newAnnotationId(), kind, anchor, body };
     const persisted = this.client!.sessionAnnotate(session.id, wire);

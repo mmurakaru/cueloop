@@ -192,6 +192,7 @@ describe("wire pins", () => {
     prefix: "p",
     suffix: "s",
     blockIndex: 0,
+    endBlockIndex: 0,
     start: 0,
     end: 1,
     selector: "div.card",

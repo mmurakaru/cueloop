@@ -75,6 +75,7 @@ export const AnchorSchema = v.object({
   prefix: v.optional(v.string(), ""),
   suffix: v.optional(v.string(), ""),
   blockIndex: v.optional(v.number()),
+  endBlockIndex: v.optional(v.number()),
   start: v.optional(v.number()),
   end: v.optional(v.number()),
   selector: v.optional(v.string()),
