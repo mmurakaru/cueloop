@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as v from "valibot";
@@ -298,6 +298,50 @@ describe("ownership is proven, never declared", () => {
 
     expect(created.error).toBeUndefined();
     raw.close();
+  });
+
+  test("a refused handshake reaches the caller and leaves the live daemon's socket alone", async () => {
+    // Arrange: a token file that is not what the daemon minted
+    const tokenPath = join(home, "owner.token");
+    const minted = readFileSync(tokenPath, "utf8");
+
+    writeFileSync(tokenPath, "0".repeat(64));
+
+    // Act + Assert: the client hears the refusal; autostart does not replace the daemon
+    await expect(DaemonClient.connect({ home, autostart: true })).rejects.toHaveProperty(
+      "code",
+      "forbidden",
+    );
+    expect(existsSync(join(home, "cueloop.sock"))).toBe(true);
+    expect((await client.sessionList()).length).toBe(0);
+
+    // Arrange: a token file that is not a token at all
+    writeFileSync(tokenPath, "not-a-token");
+
+    // Act + Assert
+    await expect(DaemonClient.connect({ home })).rejects.toHaveProperty(
+      "code",
+      "invalid_owner_token",
+    );
+    writeFileSync(tokenPath, minted);
+  });
+
+  test("the token exists before the socket does", () => {
+    // Arrange: a second daemon in another home
+    const other = mkdtempSync(join(tmpdir(), "cueloop-token-"));
+    const daemon = new DaemonServer({ home: other, idleExitMs: 0 });
+
+    try {
+      // Act
+      daemon.start();
+
+      // Assert: the token is on disk the moment the socket is
+      expect(existsSync(join(other, "owner.token"))).toBe(true);
+      expect(existsSync(join(other, "cueloop.sock"))).toBe(true);
+    } finally {
+      daemon.stop();
+      rmSync(other, { recursive: true, force: true });
+    }
   });
 
   test("the daemon client proves ownership on connect and the token is private to the home", async () => {

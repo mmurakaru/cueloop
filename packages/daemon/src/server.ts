@@ -148,6 +148,11 @@ export class DaemonServer {
     // safe now: holding the lock means no live daemon owns this home, so any
     // socket file left behind is stale
     if (existsSync(path)) rmSync(path, { force: true });
+    // the token exists before the socket does: the first client to connect
+    // must be able to prove ownership
+    this.ownerToken = randomBytes(32).toString("hex");
+    writeFileSync(ownerTokenPath(this.home), this.ownerToken, { mode: 0o600 });
+    chmodSync(ownerTokenPath(this.home), 0o600);
     this.server = Bun.listen<{
       buffer: LineBuffer;
       connection: Connection;
@@ -186,9 +191,6 @@ export class DaemonServer {
     });
     chmodSync(path, 0o600);
     writeFileSync(pidPath(this.home), String(process.pid));
-    this.ownerToken = randomBytes(32).toString("hex");
-    writeFileSync(ownerTokenPath(this.home), this.ownerToken, { mode: 0o600 });
-    chmodSync(ownerTokenPath(this.home), 0o600);
     this.scheduleIdleCheck();
 
     return path;
