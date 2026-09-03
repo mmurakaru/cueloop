@@ -91,9 +91,11 @@ export interface Anchor {
   quote: string;
   prefix: string;
   suffix: string;
-  /** Index of the block the anchor was made in (hint). */
+  /** Index of the block the anchor starts in (hint). */
   blockIndex?: number;
-  /** Character offsets within that block's text (hint). */
+  /** Last block of a quote that spans blocks (hint); absent for one block. */
+  endBlockIndex?: number;
+  /** Character offsets: `start` within the first block, `end` within the last (hint). */
   start?: number;
   end?: number;
   /** Prototype anchors: the CSS selector of the annotated element (authority). */

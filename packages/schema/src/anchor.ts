@@ -10,6 +10,10 @@
  *   5. orphan     - none matched; keep the quote for display, drop the highlight
  * Prefix/suffix selectors and the recorded position break ties within a tier.
  * Never silently bind to the wrong text: fuzzy needs a high similarity floor.
+ *
+ * A quote may span consecutive blocks: its text is the blocks' text joined by
+ * BLOCK_SEPARATOR, and it resolves against the document joined the same way,
+ * so one comment can cover the tail of a paragraph and the bullets under it.
  */
 
 import type { Anchor } from "./types";
@@ -22,12 +26,18 @@ const ANCHOR_CONTEXT_CHARS = 24;
 /** Minimum similarity a fuzzy match needs before the resolver will trust it. */
 const FUZZY_MINIMUM_SIMILARITY = 0.75;
 
+/** Joins block texts in a spanning quote and in the document it resolves against. */
+export const BLOCK_SEPARATOR = "\n\n";
+
 /** How the quote bound to the block text, weakest binding named last. */
 export type AnchorMatchStrategy = "exact" | "trimmed" | "normalized" | "fuzzy";
 
 export interface ResolvedAnchor {
   blockIndex: number;
   start: number;
+  /** Last block of the quote; equals blockIndex unless the quote spans blocks. */
+  endBlockIndex: number;
+  /** Offset within the end block. */
   end: number;
   /** True whenever the binding was not an exact quote match. */
   approximate: boolean;
@@ -40,17 +50,32 @@ export function makeAnchor(
   blockIndex: number,
   start: number,
   end: number,
+  endBlockIndex: number = blockIndex,
 ): Anchor {
-  const blockText = blocks[blockIndex]?.text ?? "";
+  const startText = blocks[blockIndex]?.text ?? "";
+  const endText = blocks[endBlockIndex]?.text ?? "";
+  const quote = blocks
+    .slice(blockIndex, endBlockIndex + 1)
+    .map((block, offset, spanned) => {
+      const isFirst = offset === 0;
+      const isLast = offset === spanned.length - 1;
 
-  return {
-    quote: blockText.slice(start, end),
-    prefix: blockText.slice(Math.max(0, start - ANCHOR_CONTEXT_CHARS), start),
-    suffix: blockText.slice(end, end + ANCHOR_CONTEXT_CHARS),
+      return block.text.slice(isFirst ? start : 0, isLast ? end : block.text.length);
+    })
+    .join(BLOCK_SEPARATOR);
+
+  const anchor: Anchor = {
+    quote,
+    prefix: startText.slice(Math.max(0, start - ANCHOR_CONTEXT_CHARS), start),
+    suffix: endText.slice(end, end + ANCHOR_CONTEXT_CHARS),
     blockIndex,
     start,
     end,
   };
+
+  if (endBlockIndex !== blockIndex) anchor.endBlockIndex = endBlockIndex;
+
+  return anchor;
 }
 
 interface Candidate {
@@ -149,15 +174,183 @@ function resolved(candidate: Candidate, strategy: AnchorMatchStrategy): Resolved
   return {
     blockIndex: candidate.blockIndex,
     start: candidate.start,
+    endBlockIndex: candidate.blockIndex,
     end: candidate.end,
     approximate: strategy !== "exact",
     strategy,
   };
 }
 
+/* ------------------------------------------------ quotes spanning blocks */
+
+/** The blocks as one document, with where each block's text starts in it. */
+interface JoinedDocument {
+  text: string;
+  starts: number[];
+}
+
+function joinBlocks(blocks: Block[]): JoinedDocument {
+  const starts: number[] = [];
+  let text = "";
+
+  blocks.forEach((block, blockIndex) => {
+    if (blockIndex > 0) text += BLOCK_SEPARATOR;
+    starts.push(text.length);
+    text += block.text;
+  });
+
+  return { text, starts };
+}
+
+/**
+ * The block and in-block offset of a document offset. An offset inside a
+ * separator belongs to the block after it when it opens a range and to the
+ * block before it when it closes one, so a span never starts or ends on the
+ * blank line between blocks.
+ */
+interface BlockOffset {
+  blockIndex: number;
+  offset: number;
+}
+
+function locateInBlocks(
+  blocks: Block[],
+  starts: number[],
+  offset: number,
+  edge: "start" | "end",
+): BlockOffset {
+  let blockIndex = starts.findLastIndex((start) => start <= offset);
+
+  if (blockIndex < 0) blockIndex = 0;
+  const blockEnd = starts[blockIndex]! + blocks[blockIndex]!.text.length;
+
+  if (edge === "start" && offset >= blockEnd && blockIndex < blocks.length - 1) {
+    return { blockIndex: blockIndex + 1, offset: 0 };
+  }
+  if (edge === "end" && offset === starts[blockIndex] && blockIndex > 0) {
+    return {
+      blockIndex: blockIndex - 1,
+      offset: blocks[blockIndex - 1]!.text.length,
+    };
+  }
+
+  return {
+    blockIndex,
+    offset: Math.min(offset, blockEnd) - starts[blockIndex]!,
+  };
+}
+
+/** Context agreement plus position hints for a window of the joined document. */
+function documentScore(
+  anchor: Anchor,
+  documentText: string,
+  start: number,
+  end: number,
+  startBlockIndex: number,
+): number {
+  const prefix = documentText.slice(Math.max(0, start - ANCHOR_CONTEXT_CHARS), start);
+  const suffix = documentText.slice(end, end + ANCHOR_CONTEXT_CHARS);
+  let score = 0;
+
+  if (prefix === anchor.prefix) score += 2;
+  if (suffix === anchor.suffix) score += 2;
+  if (anchor.blockIndex === startBlockIndex) score += 1;
+
+  return score;
+}
+
+interface DocumentCandidate {
+  start: number;
+  end: number;
+  score: number;
+}
+
+function findSpanningExact(
+  anchor: Anchor,
+  documentText: string,
+  quote: string,
+  starts: number[],
+  blocks: Block[],
+): DocumentCandidate[] {
+  const candidates: DocumentCandidate[] = [];
+
+  for (
+    let matchStart = documentText.indexOf(quote);
+    matchStart !== -1;
+    matchStart = documentText.indexOf(quote, matchStart + 1)
+  ) {
+    const matchEnd = matchStart + quote.length;
+    const startBlockIndex = locateInBlocks(blocks, starts, matchStart, "start").blockIndex;
+
+    candidates.push({
+      start: matchStart,
+      end: matchEnd,
+      score: documentScore(anchor, documentText, matchStart, matchEnd, startBlockIndex),
+    });
+  }
+
+  return candidates;
+}
+
+function resolvedSpan(
+  blocks: Block[],
+  starts: number[],
+  candidate: DocumentCandidate,
+  strategy: AnchorMatchStrategy,
+): ResolvedAnchor {
+  const startPosition = locateInBlocks(blocks, starts, candidate.start, "start");
+  const endPosition = locateInBlocks(blocks, starts, candidate.end, "end");
+
+  return {
+    blockIndex: startPosition.blockIndex,
+    start: startPosition.offset,
+    endBlockIndex: endPosition.blockIndex,
+    end: endPosition.offset,
+    approximate: strategy !== "exact",
+    strategy,
+  };
+}
+
+/** The cascade for a quote that spans blocks, run over the joined document. */
+function resolveSpanningAnchor(anchor: Anchor, blocks: Block[]): ResolvedAnchor | null {
+  const document = joinBlocks(blocks);
+  const best = (candidates: DocumentCandidate[]): DocumentCandidate | null =>
+    candidates.toSorted((left, right) => right.score - left.score)[0] ?? null;
+
+  const exact = best(
+    findSpanningExact(anchor, document.text, anchor.quote, document.starts, blocks),
+  );
+
+  if (exact) return resolvedSpan(blocks, document.starts, exact, "exact");
+
+  const trimmedQuote = anchor.quote.trim();
+
+  if (trimmedQuote !== anchor.quote) {
+    const trimmed = best(
+      findSpanningExact(anchor, document.text, trimmedQuote, document.starts, blocks),
+    );
+
+    if (trimmed) return resolvedSpan(blocks, document.starts, trimmed, "trimmed");
+  }
+
+  const fuzzy = fuzzyFindBestMatch(trimmedQuote, document.text, FUZZY_MINIMUM_SIMILARITY);
+
+  if (fuzzy) {
+    return resolvedSpan(
+      blocks,
+      document.starts,
+      { start: fuzzy.start, end: fuzzy.end, score: 0 },
+      "fuzzy",
+    );
+  }
+
+  return null;
+}
+
 /** Resolve an anchor against the current blocks, or null when orphaned. */
 export function resolveAnchor(anchor: Anchor, blocks: Block[]): ResolvedAnchor | null {
   if (anchor.quote === "") return null;
+  if (anchor.quote.includes(BLOCK_SEPARATOR)) return resolveSpanningAnchor(anchor, blocks);
 
   const exact = pickBest(findExactCandidates(anchor, blocks, anchor.quote));
 
