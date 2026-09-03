@@ -193,6 +193,33 @@ describe("renderFeedback", () => {
     expect(feedback).not.toContain("annotation id: `late`");
   });
 
+  test("a reply whose root was addressed leaves the document with it", () => {
+    // Arrange: the root is addressed, its reply is not marked, a stray reply's root is unknown
+    const anchor = { quote: "daemon memory", prefix: "live only in ", suffix: " today." };
+
+    // Act
+    const feedback = renderFeedback({
+      verdictKind: "comment",
+      summary: "",
+      artifactContent: PLAN,
+      annotations: [
+        makeAnnotation({
+          id: "root",
+          anchor,
+          body: "Which daemon?",
+          resolution: { revision: 2, source: "agent" },
+        }),
+        makeAnnotation({ id: "reply", anchor, body: "The local one.", replyTo: "root" }),
+        makeAnnotation({ id: "stray", anchor, body: "Standalone.", replyTo: "gone" }),
+      ],
+    });
+
+    // Assert: only the stray reply remains, as its own item
+    expect(feedback).toContain("## Annotations (1)");
+    expect(feedback).not.toContain("The local one.");
+    expect(feedback).toContain("Standalone.");
+  });
+
   test("orphaned anchors are flagged, never dropped", () => {
     // Act
     const feedback = renderFeedback({

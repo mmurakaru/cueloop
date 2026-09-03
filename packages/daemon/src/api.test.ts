@@ -226,6 +226,30 @@ describe("revision marks addressed annotations", () => {
     expect(second!.resolution).toBeUndefined();
   });
 
+  test("a reported root comment addresses its replies as well", () => {
+    // Arrange: a discussion of a root and one reply, plus an unrelated comment
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    annotate(session.id, "root", "carefully");
+    core.sessionAnnotate(session.id, {
+      id: "reply",
+      kind: "comment",
+      anchor: { quote: "carefully", prefix: "", suffix: "" },
+      body: "agreed",
+      replyTo: "root",
+    });
+    annotate(session.id, "other", "Context");
+
+    // Act: the agent reports only the root
+    const revised = core.sessionSubmitRevision(session.id, PLAN.content + "\nMore.\n", ["root"]);
+    const byId = new Map(revised.annotations.map((annotation) => [annotation.id, annotation]));
+
+    // Assert
+    expect(byId.get("root")!.resolution).toEqual({ revision: 2, source: "agent" });
+    expect(byId.get("reply")!.resolution).toEqual({ revision: 2, source: "agent" });
+    expect(byId.get("other")!.resolution).toBeUndefined();
+  });
+
   test("a plan annotation whose quoted text vanished is drift-addressed; a surviving quote stays open", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });

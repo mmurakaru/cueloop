@@ -346,7 +346,15 @@ export class DaemonCore {
     session.verdict = null;
     session.status = "pending";
 
+    // a reported root comment addresses its whole discussion: replies are
+    // never listed on their own in the feedback document
     const reportedIds = new Set(addressedAnnotationIds);
+
+    for (const annotation of session.annotations) {
+      if (annotation.replyTo !== undefined && reportedIds.has(annotation.replyTo)) {
+        reportedIds.add(annotation.id);
+      }
+    }
     // drift assist applies to markdown artifacts (plan, reply) only: a diff
     // revision is a whole new patch, where a vanished quote says nothing about
     // the feedback

@@ -820,8 +820,16 @@ class Controller implements ReviewController {
     const existing = session.annotations.find((annotation) => annotation.id === id);
 
     if (!existing) return;
-    // the daemon's annotate primitive upserts by id: same id + anchor, new body
-    const wire = { id: existing.id, kind: existing.kind, anchor: existing.anchor, body };
+    // the daemon's annotate primitive upserts by id: same id, anchor, and
+    // reply link, new body
+    const wire: Omit<Annotation, "createdAt"> = {
+      id: existing.id,
+      kind: existing.kind,
+      anchor: existing.anchor,
+      body,
+    };
+
+    if (existing.replyTo !== undefined) wire.replyTo = existing.replyTo;
     const persisted = this.client!.sessionAnnotate(session.id, wire);
 
     this.apply(persisted);

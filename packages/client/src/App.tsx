@@ -135,7 +135,9 @@ function menuChromeOpen(menuOpen: boolean, menuDialog: "keybinds" | "settings" |
 function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
 
-  if (!threadViewActive) return base;
+  if (!threadViewActive) {
+    return base;
+  }
 
   return [
     ...THREAD_VIEW_CHEATSHEET,
