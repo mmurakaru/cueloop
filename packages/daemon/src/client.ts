@@ -84,6 +84,26 @@ interface HelloParams {
   token?: string;
 }
 
+/** The token as the daemon writes it: 32 random bytes in hex. */
+const OwnerTokenSchema = v.pipe(v.string(), v.trim(), v.regex(/^[0-9a-f]{64}$/));
+
+/** The owner token in `home`, or undefined when the daemon there never wrote one. */
+function readOwnerToken(home: string): string | undefined {
+  const path = ownerTokenPath(home);
+
+  if (!existsSync(path)) return undefined;
+  const parsed = v.safeParse(OwnerTokenSchema, readFileSync(path, "utf8"));
+
+  if (!parsed.success) {
+    throw new DaemonClientError(
+      "invalid_owner_token",
+      `${path} is not an owner token; restart the daemon to mint a fresh one`,
+    );
+  }
+
+  return parsed.output;
+}
+
 export class DaemonClient implements SessionClient {
   private socket: Awaited<ReturnType<typeof Bun.connect>> | null = null;
   private writer: BackpressureWriter | null = null;
@@ -106,7 +126,9 @@ export class DaemonClient implements SessionClient {
 
       return client;
     } catch (err) {
-      if (!options.autostart) throw err;
+      // a live daemon that refused the handshake is not a dead socket: the
+      // caller hears why instead of the client replacing a running daemon
+      if (!options.autostart || err instanceof DaemonClientError) throw err;
     }
     // Socket dead or absent: clean a stale file and spawn the daemon detached.
     if (existsSync(path)) rmSync(path, { force: true });
@@ -162,8 +184,10 @@ export class DaemonClient implements SessionClient {
 
   private helloParams(): HelloParams {
     if (this.role !== "owner") return { role: this.role };
+    const token = readOwnerToken(this.home);
 
-    return { role: "owner", token: readFileSync(ownerTokenPath(this.home), "utf8").trim() };
+    // a daemon from before owner tokens has no file; it still knows the bare hello
+    return token === undefined ? { role: "owner" } : { role: "owner", token };
   }
 
   onEvent(listener: (event: EventFrame) => void): () => void {
