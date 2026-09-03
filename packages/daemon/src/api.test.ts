@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonCore, verdictResponse } from "./api";
 import { SessionStore } from "./store";
-import type { Artifact, WorkspaceKey } from "@cueloop/schema";
+import { derivePath, type Artifact, type WorkspaceKey } from "@cueloop/schema";
+import { MAX_BLOB_BYTES, packSessionBlob, unpackSessionBlob } from "./share-blob";
 
 const WS: WorkspaceKey = { repoRoot: "/repo", branch: "main" };
 const PLAN: Artifact = {
@@ -422,5 +423,114 @@ describe("events", () => {
       "session.resolved",
       "inbox.changed",
     ]);
+  });
+});
+
+describe("the session history records every write as an entry", () => {
+  const annotate = (sessionId: string, id: string, quote: string, body = "note") =>
+    core.sessionAnnotate(sessionId, {
+      id,
+      kind: "comment",
+      anchor: { quote, prefix: "", suffix: "" },
+      body,
+    });
+
+  test("create, comment, remove, resolve, and revise append in order on main", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Assert: a fresh session is one root revision
+    expect(created.history?.entries.map((entry) => entry.type)).toEqual(["revision"]);
+    expect(created.history?.tips.main).toBe(created.history?.entries[0]!.id);
+
+    // Act
+    annotate(created.id, "a1", "carefully");
+    annotate(created.id, "a1", "carefully", "edited body");
+    annotate(created.id, "a2", "Context");
+    core.sessionRemoveAnnotation(created.id, "a2");
+    core.sessionRemoveAnnotation(created.id, "never-existed");
+    core.sessionResolve(created.id, "request_changes", "tighten");
+    const revised = core.sessionSubmitRevision(created.id, PLAN.content + "\nMore.\n", ["a1"]);
+
+    // Assert: an edit of an existing comment and a removal of an unknown id leave no entry
+    const history = revised.history!;
+
+    expect(history.entries.map((entry) => entry.type)).toEqual([
+      "revision",
+      "comment",
+      "comment",
+      "comment-removed",
+      "verdict",
+      "revision",
+    ]);
+    expect(history.branch).toBe("main");
+    expect(history.tips.main).toBe(history.entries.at(-1)!.id);
+    // every entry chains on the one before
+    history.entries.forEach((entry, index) => {
+      expect(entry.parentId).toBe(index === 0 ? null : history.entries[index - 1]!.id);
+    });
+  });
+
+  test("the head of the current path is the artifact, and the open comments are the path's", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    annotate(created.id, "a1", "carefully");
+    annotate(created.id, "a2", "Context");
+    core.sessionRemoveAnnotation(created.id, "a1");
+    const revised = core.sessionSubmitRevision(created.id, "# Plan v2\n");
+
+    // Act
+    const derived = derivePath(revised.history!);
+
+    // Assert
+    expect(derived.head.content).toBe(revised.artifact.content);
+    expect(derived.openAnnotationIds).toEqual(["a2"]);
+    expect(derived.rounds).toBe(2);
+  });
+
+  test("a shared session's incoming comments become entries, and the blob round-trips with its history", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
+    const merged = core.sessionMergeShared(created.id, {
+      annotations: [
+        {
+          id: "ana_1",
+          kind: "comment",
+          anchor: { quote: "Context", prefix: "", suffix: "" },
+          body: "from ana",
+          author: "SHA256:ana",
+          createdAt: "2026-09-01T10:00:00.000Z",
+        },
+      ],
+    });
+    const roundTripped = unpackSessionBlob(packSessionBlob(merged));
+
+    // Assert
+    expect(merged.history?.entries.at(-1)).toMatchObject({
+      type: "comment",
+      annotationId: "ana_1",
+    });
+    expect(roundTripped.history).toEqual(merged.history);
+    expect(packSessionBlob(merged).byteLength).toBeLessThan(MAX_BLOB_BYTES);
+  });
+
+  test("a session written before histories existed gets one on the next boot", () => {
+    // Arrange: a record with no history on disk, as an earlier daemon left it
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const legacy = { ...created };
+
+    delete legacy.history;
+    new SessionStore(home).upsert(legacy);
+
+    // Act
+    const rebooted = new DaemonCore(home);
+    const recovered = rebooted.sessionGet(created.id);
+
+    // Assert
+    expect(recovered.history?.entries.map((entry) => entry.type)).toEqual(["revision"]);
+    expect(derivePath(recovered.history!).head.content).toBe(PLAN.content);
   });
 });
