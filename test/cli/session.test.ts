@@ -498,6 +498,52 @@ describe("cueloop session (black box)", () => {
     expect(event.entryId).toBe(annotated.history!.entries.at(-1)!.id);
   });
 
+  test("cut and restore edit the working copy through the daemon and leave reviewer revisions", async () => {
+    // Arrange: block 2 of the plan is its first paragraph
+    const before = cliJson<ReviewSession>(await runCli(home, ["session", "get", sessionId]));
+    const paragraph = before.artifact.content.split("\n\n")[2]!;
+
+    // Act
+    const cut = cliJson<ReviewSession>(await runCli(home, ["session", "cut", sessionId, "2"]));
+
+    // Assert
+    expect(cut.workingCopy).toBeDefined();
+    expect(cut.workingCopy).not.toContain(paragraph.split("\n")[0]);
+    expect(cut.history!.entries.at(-1)).toMatchObject({ type: "revision", by: "reviewer" });
+
+    // Act: put it back where it came from
+    const blockLine = before.artifact.content.split("\n").indexOf(paragraph.split("\n")[0]!);
+    const restored = cliJson<ReviewSession>(
+      await runCli(home, ["session", "restore", sessionId, "2", "--line", String(blockLine)]),
+    );
+
+    // Assert: a copy that reads as the submitted revision is dropped
+    expect(restored.workingCopy).toBeUndefined();
+  });
+
+  test("curate is refused for a plan and set-viewed records the walk", async () => {
+    // Act: hunk curation belongs to diff reviews
+    const refused = await runCli(home, [
+      "session",
+      "curate",
+      sessionId,
+      "--rejections",
+      JSON.stringify([{ path: "src/x.txt", hunkIndex: 0 }]),
+    ]);
+
+    // Assert
+    expect(refused.code).not.toBe(0);
+    expect(refused.stderr).toContain("only a diff review");
+
+    // Act
+    const viewed = cliJson<ReviewSession>(
+      await runCli(home, ["session", "set-viewed", sessionId, "plan.md"]),
+    );
+
+    // Assert
+    expect(viewed.viewedPaths).toEqual(["plan.md"]);
+  });
+
   test("actions resolve from the session's repo, not the caller's cwd", async () => {
     // Arrange - a repo whose .cueloop config defines its own quick action
     const repo = mkdtempSync(join(tmpdir(), "cueloop-repo-"));

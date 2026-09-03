@@ -169,6 +169,75 @@ async function sessionRemoveCommand({ client, positional }: SessionContext): Pro
   return 0;
 }
 
+/** A 0-based block or line index as the command line carries it. */
+const BlockIndexSchema = v.pipe(v.string(), v.transform(Number), v.integer(), v.minValue(0));
+
+/** The reject decisions of a diff review as `--rejections` carries them. */
+const RejectionsSchema = v.array(
+  v.object({
+    path: v.pipe(v.string(), v.minLength(1)),
+    hunkIndex: v.pipe(v.number(), v.integer(), v.minValue(0)),
+    changeIndex: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  }),
+);
+
+/** Cut the given block of the working copy (a 0-based index into its blocks). */
+async function sessionCutCommand({ client, positional }: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+  const blockIndex = v.parse(BlockIndexSchema, required(positional[2], "block index"));
+
+  out(await client.sessionCutBlock(id, blockIndex));
+
+  return 0;
+}
+
+/** Re-insert a cut block of the submitted revision, before --line (default: the end). */
+async function sessionRestoreCommand({
+  client,
+  positional,
+  flags,
+}: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+  const baseBlockIndex = v.parse(BlockIndexSchema, required(positional[2], "block index"));
+  const line = stringFlag(flags, "line");
+
+  out(
+    await client.sessionRestoreBlock(
+      id,
+      baseBlockIndex,
+      line === undefined ? undefined : v.parse(BlockIndexSchema, line),
+    ),
+  );
+
+  return 0;
+}
+
+/** Replace a diff review's reject decisions with the JSON list given. */
+async function sessionCurateCommand({
+  client,
+  positional,
+  flags,
+}: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+  const rejections = v.parse(
+    RejectionsSchema,
+    JSON.parse(required(stringFlag(flags, "rejections"), "--rejections")),
+  );
+
+  out(await client.sessionCurate(id, rejections));
+
+  return 0;
+}
+
+/** Mark files of a diff review as viewed - the guided walk's state, from a script. */
+async function sessionSetViewedCommand({ client, positional }: SessionContext): Promise<number> {
+  const id = required(positional[1], "session id");
+
+  out(await client.sessionSetViewed(id, positional.slice(2)));
+
+  return 0;
+}
+
 /** Register the display name of a participant: how a collaborator or an agent names itself. */
 async function sessionNameSelfCommand({
   client,
@@ -254,6 +323,10 @@ const sessionVerbHandlers: SessionVerbHandlers = {
   wait: sessionWaitCommand,
   annotate: sessionAnnotateCommand,
   remove: sessionRemoveCommand,
+  cut: sessionCutCommand,
+  restore: sessionRestoreCommand,
+  curate: sessionCurateCommand,
+  "set-viewed": sessionSetViewedCommand,
   "name-self": sessionNameSelfCommand,
   events: sessionEventsCommand,
   resolve: sessionResolveCommand,
@@ -278,7 +351,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
 
     if (handler === undefined) {
       console.error(
-        "usage: cueloop session <create|get|list|wait|annotate|remove|name-self|events|resolve|submit-revision> [flags]",
+        "usage: cueloop session <create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|name-self|events|resolve|submit-revision> [flags]",
       );
 
       return 2;
