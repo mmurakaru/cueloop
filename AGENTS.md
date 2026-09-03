@@ -30,6 +30,10 @@ packages/
 
 Rules:
 - `schema` is the root of the dependency graph; everything imports it, it imports nothing.
+- The dependency direction is a check: `import-budgets.json` lists the workspace
+  packages each package may import and the number of imports a module may have;
+  `bun run lint` runs `scripts/check-import-budgets.ts` and fails on a reach down
+  or a module over budget. Raise a budget in that file, not by widening a layer.
 - `client` and `daemon` never import each other - they meet only at the socket protocol.
 - All session mutation goes through the daemon; the client never touches session files.
 - Renderers and panels are built-in components; the extension API exists for integrations to register exporters.

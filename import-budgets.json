@@ -1,0 +1,40 @@
+{
+  "layers": {
+    "@cueloop/schema": [],
+    "@cueloop/extension-api": [
+      "@cueloop/schema"
+    ],
+    "@cueloop/integration-obsidian": [
+      "@cueloop/schema",
+      "@cueloop/extension-api"
+    ],
+    "@cueloop/daemon": [
+      "@cueloop/schema"
+    ],
+    "@cueloop/client": [
+      "@cueloop/schema",
+      "@cueloop/daemon",
+      "@cueloop/extension-api",
+      "@cueloop/integration-obsidian"
+    ],
+    "cueloop": [
+      "@cueloop/schema",
+      "@cueloop/daemon",
+      "@cueloop/client",
+      "@cueloop/adapters"
+    ],
+    "@cueloop/gateway": [
+      "@cueloop/schema",
+      "@cueloop/daemon",
+      "@cueloop/client"
+    ],
+    "@cueloop/adapters": [
+      "@cueloop/schema",
+      "@cueloop/daemon"
+    ]
+  },
+  "moduleImportBudget": 20,
+  "moduleBudgets": {
+    "packages/client/src/App.tsx": 32
+  }
+}
