@@ -4,7 +4,7 @@
  * autostart spawns a detached daemon when the socket is dead, then attaches.
  */
 
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import * as v from "valibot";
 import type {
   Annotation,
@@ -24,7 +24,7 @@ import {
 } from "./protocol";
 import type { DaemonRole } from "./capabilities";
 import type { HerdrTabHandle } from "./herdr-tab-store";
-import { cueloopHome, socketPath } from "./paths";
+import { cueloopHome, ownerTokenPath, socketPath } from "./paths";
 import { SessionRecordSchema } from "./validate";
 
 export type { EventFrame } from "./protocol";
@@ -78,6 +78,12 @@ export interface SessionClient {
   close(): void;
 }
 
+/** What a connection says about itself: its role, and the owner token when it claims ownership. */
+interface HelloParams {
+  role: DaemonRole;
+  token?: string;
+}
+
 export class DaemonClient implements SessionClient {
   private socket: Awaited<ReturnType<typeof Bun.connect>> | null = null;
   private writer: BackpressureWriter | null = null;
@@ -86,6 +92,7 @@ export class DaemonClient implements SessionClient {
   private eventListeners = new Set<(event: EventFrame) => void>();
   private closed = false;
   private role: DaemonRole = "owner";
+  private home = cueloopHome();
 
   static async connect(options: ConnectOptions = {}): Promise<DaemonClient> {
     const home = options.home ?? cueloopHome();
@@ -93,6 +100,7 @@ export class DaemonClient implements SessionClient {
     const client = new DaemonClient();
 
     client.role = options.role ?? "owner";
+    client.home = home;
     try {
       await client.dial(path);
 
@@ -146,9 +154,16 @@ export class DaemonClient implements SessionClient {
     // Verify liveness: a dead socket file accepts connects on some platforms
     // only to fail later, so a ping is the actual handshake.
     await this.request("daemon.ping", {}, PingResultSchema, 2_000);
-    // Cap this connection's role for the daemon's capability gate (owner is the default).
-    if (this.role !== "owner")
-      await this.request("daemon.hello", { role: this.role }, EmptyResultSchema, 2_000);
+    // Every connection starts as a collaborator; the owner proves itself with
+    // the token the daemon wrote into the home it serves, which only the home's
+    // user can read. A capped role just names itself.
+    await this.request("daemon.hello", this.helloParams(), EmptyResultSchema, 2_000);
+  }
+
+  private helloParams(): HelloParams {
+    if (this.role !== "owner") return { role: this.role };
+
+    return { role: "owner", token: readFileSync(ownerTokenPath(this.home), "utf8").trim() };
   }
 
   onEvent(listener: (event: EventFrame) => void): () => void {

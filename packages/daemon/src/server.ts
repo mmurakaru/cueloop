@@ -16,7 +16,7 @@ import {
 } from "node:fs";
 import { DaemonCore, type DaemonEvent } from "./api";
 import { DaemonError } from "./errors";
-import { roleAllowsMethod, type DaemonRole } from "./capabilities";
+import { DEFAULT_ROLE, roleAllowsMethod, type DaemonRole } from "./capabilities";
 import { isKnownMethod, parseParams, type MethodName } from "./validate";
 import {
   BackpressureWriter,
@@ -25,7 +25,8 @@ import {
   type Request,
   type Response,
 } from "./protocol";
-import { cueloopHome, lockPath, pidPath, socketPath } from "./paths";
+import { cueloopHome, lockPath, ownerTokenPath, pidPath, socketPath } from "./paths";
+import { randomBytes } from "node:crypto";
 
 interface Connection {
   write(data: string): void;
@@ -57,6 +58,8 @@ export class DaemonServer {
   private server: ReturnType<typeof Bun.listen> | null = null;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private lockFd: number | null = null;
+  /** The secret that proves ownership; minted per daemon run, readable by the home's user only. */
+  private ownerToken = "";
   private readonly idleExitMs: number;
   private readonly onIdleExit: () => void;
 
@@ -157,7 +160,7 @@ export class DaemonServer {
           const connection: Connection = {
             write: (data) => writer.write(data),
             subscribed: false,
-            role: "owner",
+            role: DEFAULT_ROLE,
           };
 
           socket.data = { buffer: new LineBuffer(), connection, writer };
@@ -183,6 +186,9 @@ export class DaemonServer {
     });
     chmodSync(path, 0o600);
     writeFileSync(pidPath(this.home), String(process.pid));
+    this.ownerToken = randomBytes(32).toString("hex");
+    writeFileSync(ownerTokenPath(this.home), this.ownerToken, { mode: 0o600 });
+    chmodSync(ownerTokenPath(this.home), 0o600);
     this.scheduleIdleCheck();
 
     return path;
@@ -194,6 +200,7 @@ export class DaemonServer {
     this.server = null;
     rmSync(socketPath(this.home), { force: true });
     rmSync(pidPath(this.home), { force: true });
+    rmSync(ownerTokenPath(this.home), { force: true });
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.releaseLock();
   }
@@ -247,7 +254,14 @@ export class DaemonServer {
   private readonly handlers: Record<MethodName, MethodHandler> = {
     "daemon.ping": () => ({ pid: process.pid }),
     "daemon.hello": (connection, request) => {
-      connection.role = parseParams("daemon.hello", request.params).role;
+      const params = parseParams("daemon.hello", request.params);
+
+      // ownership is proven, never declared: the token lives in the home
+      // directory the daemon serves, readable by its user alone
+      if (params.role === "owner" && params.token !== this.ownerToken) {
+        throw new DaemonError("forbidden", "owner token required");
+      }
+      connection.role = params.role;
 
       return {};
     },
