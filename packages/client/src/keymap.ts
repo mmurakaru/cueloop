@@ -49,7 +49,14 @@ export type Intent =
   | { type: "optInAutoClose" }
   | { type: "dismissCompletion" }
   | { type: "cycleReviewPanel" }
-  | { type: "resizeReviewPanel"; direction: -1 | 1 };
+  | { type: "resizeReviewPanel"; direction: -1 | 1 }
+  | { type: "toggleTree" }
+  | { type: "treeMove"; direction: -1 | 1 }
+  | { type: "treeGo" }
+  | { type: "treeBranch" }
+  | { type: "treeLabel" }
+  | { type: "treeFork" }
+  | { type: "treeForkShare" };
 
 export interface KeyInput {
   name: string;

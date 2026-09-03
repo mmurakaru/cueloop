@@ -48,11 +48,16 @@ import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { Breadcrumb } from "./components/Breadcrumb";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
-import { RAIL_CHORD_ENTRIES, resolveThreadChord, THREAD_CHORD_ENTRIES } from "./thread-chords";
+import {
+  RAIL_CHORD_ENTRIES,
+  resolveThreadChord,
+  THREAD_CHORD_ENTRIES,
+  TREE_CHORD_ENTRIES,
+} from "./thread-chords";
 import { DiffSheet } from "./components/DiffSheet";
 import { PrototypeSheet } from "./components/PrototypeSheet";
 import type { PrototypeElement } from "./prototype-browser";
-import { type ReviewRailHandle } from "./components/ReviewRail";
+import { type RailTab, type ReviewRailHandle } from "./components/ReviewRail";
 import type { AgentTerminalHandle } from "./components/agent-launcher";
 import { ReviewPanel } from "./components/ReviewPanel";
 import {
@@ -149,6 +154,7 @@ function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): Che
     ...THREAD_VIEW_CHEATSHEET,
     { title: "Session", entries: [...THREAD_CHORD_ENTRIES] },
     { title: "Rail", entries: [...RAIL_CHORD_ENTRIES] },
+    { title: "Tree", entries: [...TREE_CHORD_ENTRIES] },
     ...base.filter((section) => section.title === "Agent terminal"),
   ];
 }
@@ -216,7 +222,9 @@ export function App({
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
-  const [railTab, setRailTab] = useState<"review" | "agent">("review");
+  const [railTab, setRailTab] = useState<RailTab>("review");
+  // the tree row the reviewer stands on in the rail's Tree tab
+  const [selectedEntryId, setSelectedEntryId] = useState<string | undefined>(undefined);
   // A running in-tab agent terminal (embedded harness); while set, keys route to it.
   const [agentTerminal, setAgentTerminal] = useState<AgentTerminalHandle | null>(null);
   // review panel layout: mode + expanded width are client view state, loaded
@@ -460,6 +468,8 @@ export function App({
     terminalWidth,
     focusedAnnotationId,
     selectedCurationId,
+    railTab,
+    selectedEntryId,
     authorNames,
     quickActions,
     renameAuthor: (id: string, name: string) => {
@@ -474,6 +484,7 @@ export function App({
     setReviewMode,
     setReviewWidth,
     setRailTab,
+    setSelectedEntryId,
     setFocusedAnnotationId,
     setSelectedCurationId,
     setPulsedAnnotationId,
@@ -499,6 +510,7 @@ export function App({
         composing: threadComposing,
         isOwner,
         resolved,
+        treeActive: railTab === "tree",
       });
 
       if (chord) dispatch(chord);
@@ -799,6 +811,20 @@ export function App({
                   seedText,
                 }),
               onAgentTerminal: setAgentTerminal,
+              tree: {
+                rows: controller.treeRows(),
+                selectedEntryId,
+                canMove: isOwner,
+                onSelect: setSelectedEntryId,
+                onGo: (entryId) => {
+                  setSelectedEntryId(entryId);
+                  dispatch({ type: "treeGo" });
+                },
+                onBranch: () => dispatch({ type: "treeBranch" }),
+                onLabel: () => dispatch({ type: "treeLabel" }),
+                onFork: () => dispatch({ type: "treeFork" }),
+                onForkAndShare: () => dispatch({ type: "treeForkShare" }),
+              },
             }}
           />
         </box>

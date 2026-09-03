@@ -7,8 +7,21 @@ import { FIXTURE_ANNOTATIONS, fixturePlanSession } from "./story-fixtures";
 
 export const meta: StoryMeta = { title: "ReviewPanel" };
 
+/** An empty Tree tab: the stories here show the review tab. */
+const tree = {
+  rows: [],
+  canMove: true,
+  onSelect: () => {},
+  onGo: () => {},
+  onBranch: () => {},
+  onLabel: () => {},
+  onFork: () => {},
+  onForkAndShare: () => {},
+};
+
 const rail = {
   session: fixturePlanSession(),
+  tree,
   authorNames: {},
   selectedId: FIXTURE_ANNOTATIONS[0]!.id,
   resolvedIds: new Set(FIXTURE_ANNOTATIONS.map((annotation) => annotation.id)),

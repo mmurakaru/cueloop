@@ -22,6 +22,8 @@ export interface ThreadChordContext {
   isOwner: boolean;
   /** A resolved session has nothing left to submit. */
   resolved: boolean;
+  /** The rail shows the tree: next / previous move its selection instead of the cards. */
+  treeActive: boolean;
 }
 
 /** The cheatsheet rows for the chords, in the same order they are resolved. */
@@ -41,6 +43,17 @@ export const RAIL_CHORD_ENTRIES = [
   { keys: "⌥x", label: "cut the block" },
   { keys: "⌥u", label: "restore the last cut" },
   { keys: "⌥w / ⌥s", label: "widen / narrow the rail" },
+] as const;
+
+/** The tree chords: option plus a letter, all on the rail's Tree tab. */
+export const TREE_CHORD_ENTRIES = [
+  { keys: "⌥t", label: "show / hide the tree" },
+  { keys: "⌥n / ⌥p", label: "next / previous entry" },
+  { keys: "⌥g", label: "go to the entry" },
+  { keys: "⌥b", label: "branch off the tip" },
+  { keys: "⌥l", label: "label a checkpoint" },
+  { keys: "⌥f", label: "fork the path" },
+  { keys: "⌥h", label: "fork and hand off" },
 ] as const;
 
 export function resolveThreadChord(
@@ -92,9 +105,23 @@ function resolveSessionChord(name: string, context: ThreadChordContext): Intent 
 function resolveRailChord(name: string, context: ThreadChordContext): Intent | null {
   switch (name) {
     case "n":
-      return { type: "nextAnnotation" };
+      return context.treeActive ? { type: "treeMove", direction: 1 } : { type: "nextAnnotation" };
     case "p":
-      return { type: "prevAnnotation" };
+      return context.treeActive ? { type: "treeMove", direction: -1 } : { type: "prevAnnotation" };
+    case "t":
+      return { type: "toggleTree" };
+    // the tree is the owner's: a move, a branch, or a label changes what everyone sees
+    case "g":
+      return mutating({ type: "treeGo" }, context);
+    case "b":
+      return mutating({ type: "treeBranch" }, context);
+    case "l":
+      return mutating({ type: "treeLabel" }, context);
+    // a fork can be taken from a resolved review: only the role gates it
+    case "f":
+      return context.isOwner ? { type: "treeFork" } : READ_ONLY;
+    case "h":
+      return context.isOwner ? { type: "treeForkShare" } : READ_ONLY;
     case "e":
       return mutating({ type: "editCard" }, context);
     case "backspace":

@@ -2,7 +2,7 @@ import React, { type Dispatch, type SetStateAction } from "react";
 import type { ReviewSession, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
-import type { Mode } from "./intent-dispatch";
+import type { Mode, TreeAsk } from "./intent-dispatch";
 import type { Intent } from "./keymap";
 import type { ReviewController, ToastState } from "./session-controller";
 import { noteForFile } from "./walk";
@@ -195,6 +195,21 @@ export function CompletionScreen(props: {
   );
 }
 
+/** The words each tree prompt uses; enter with an empty summary moves back without one. */
+const TREE_PROMPTS: Record<TreeAsk, { title: string; label: string; placeholder: string }> = {
+  branch: { title: " Branch ", label: "Name for the new branch:", placeholder: "alt" },
+  label: {
+    title: " Checkpoint ",
+    label: "Name for this checkpoint:",
+    placeholder: "before the rewrite",
+  },
+  navigate: {
+    title: " Move back ",
+    label: "Summary of what you leave behind (optional):",
+    placeholder: "tried a shorter plan",
+  },
+};
+
 export function TrailingOverlays(props: {
   walking: boolean;
   walk: { index: number } | null;
@@ -260,6 +275,17 @@ export function TrailingOverlays(props: {
           label="Your name (optional) - it attributes the notes you leave:"
           value={mode.text}
           placeholder="your name"
+          onInput={(text) => setMode({ ...mode, text })}
+          theme={theme}
+        />
+      ) : null}
+      {mode.type === "treePrompt" ? (
+        <PromptDialog
+          isOpen
+          title={TREE_PROMPTS[mode.ask].title}
+          label={TREE_PROMPTS[mode.ask].label}
+          value={mode.text}
+          placeholder={TREE_PROMPTS[mode.ask].placeholder}
           onInput={(text) => setMode({ ...mode, text })}
           theme={theme}
         />

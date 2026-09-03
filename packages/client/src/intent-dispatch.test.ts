@@ -11,6 +11,7 @@ import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/sc
 import { createIntentDispatch, type IntentDispatchDeps } from "./intent-dispatch";
 import type { ControllerSnapshot, CurationItem, ReviewController } from "./session-controller";
 import type { DisplayBlock } from "./view-plan";
+import type { TreeRow } from "./tree-view";
 
 function block(text: string): DisplayBlock {
   return { type: "same", kind: "p", work: { kind: "p", text, lineStart: 0, lineEnd: 0 } };
@@ -127,6 +128,8 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     terminalWidth: 120,
     focusedAnnotationId: undefined,
     selectedCurationId: undefined,
+    railTab: "review",
+    selectedEntryId: undefined,
     authorNames: {},
     quickActions: [],
     renameAuthor: mock(),
@@ -138,6 +141,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     setReviewMode: mock(),
     setReviewWidth: mock(),
     setRailTab: mock(),
+    setSelectedEntryId: mock(),
     setFocusedAnnotationId: mock(),
     setSelectedCurationId: mock(),
     setPulsedAnnotationId: mock(),
@@ -548,5 +552,128 @@ describe("collaborator self-name", () => {
     // Assert
     expect(deps.controller.setSelfName).toHaveBeenCalledWith("");
     expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+});
+
+describe("tree intents", () => {
+  const rows: TreeRow[] = [
+    {
+      entryId: "e1",
+      depth: 0,
+      glyph: "◉",
+      text: "revision 1",
+      onPath: true,
+      tips: [],
+      isCurrentTip: false,
+    },
+    {
+      entryId: "e2",
+      depth: 0,
+      glyph: "·",
+      text: "comment",
+      onPath: true,
+      tips: ["main"],
+      isCurrentTip: false,
+    },
+    {
+      entryId: "e3",
+      depth: 1,
+      glyph: "·",
+      text: "comment",
+      onPath: false,
+      tips: ["alt"],
+      isCurrentTip: true,
+    },
+  ];
+
+  function treeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDeps {
+    const deps = makeDeps({ railTab: "tree", ...overrides });
+
+    deps.controller.treeRows = mock(() => rows);
+
+    return deps;
+  }
+
+  test("toggleTree shows the Tree tab and hides it again", () => {
+    // Arrange
+    const shown = makeDeps({ railTab: "review" });
+    const hidden = makeDeps({ railTab: "tree" });
+
+    // Act
+    createIntentDispatch(shown)({ type: "toggleTree" });
+    createIntentDispatch(hidden)({ type: "toggleTree" });
+
+    // Assert
+    expect(shown.setRailTab).toHaveBeenCalledWith("tree");
+    expect(hidden.setRailTab).toHaveBeenCalledWith("review");
+  });
+
+  test("treeMove starts from the current tip and stays inside the rows", () => {
+    // Arrange
+    const fromTip = treeDeps();
+    const atTop = treeDeps({ selectedEntryId: "e1" });
+
+    // Act
+    createIntentDispatch(fromTip)({ type: "treeMove", direction: -1 });
+    createIntentDispatch(atTop)({ type: "treeMove", direction: -1 });
+
+    // Assert
+    expect(fromTip.setSelectedEntryId).toHaveBeenCalledWith("e2");
+    expect(atTop.setSelectedEntryId).toHaveBeenCalledWith("e1");
+  });
+
+  test("treeGo: the tip answers, a tip of another branch switches, an inner entry asks for a summary", () => {
+    // Arrange
+    const atTip = treeDeps({ selectedEntryId: "e3" });
+    const toTip = treeDeps({ selectedEntryId: "e2" });
+    const inner = treeDeps({ selectedEntryId: "e1" });
+
+    // Act
+    createIntentDispatch(atTip)({ type: "treeGo" });
+    createIntentDispatch(toTip)({ type: "treeGo" });
+    createIntentDispatch(inner)({ type: "treeGo" });
+
+    // Assert
+    expect(atTip.controller.setStatus).toHaveBeenCalledWith("already at the tip");
+    expect(toTip.controller.goToEntry).toHaveBeenCalledWith("e2");
+    expect(inner.setMode).toHaveBeenCalledWith({
+      type: "treePrompt",
+      ask: "navigate",
+      entryId: "e1",
+      text: "",
+    });
+  });
+
+  test("the prompts confirm into branch, label, and a move back with the typed summary", () => {
+    // Arrange
+    const branch = treeDeps({ mode: { type: "treePrompt", ask: "branch", text: "alt" } });
+    const label = treeDeps({ mode: { type: "treePrompt", ask: "label", text: "start" } });
+    const navigate = treeDeps({
+      mode: { type: "treePrompt", ask: "navigate", entryId: "e1", text: " too early " },
+    });
+
+    // Act
+    createIntentDispatch(branch)({ type: "confirmDialog" });
+    createIntentDispatch(label)({ type: "confirmDialog" });
+    createIntentDispatch(navigate)({ type: "confirmDialog" });
+
+    // Assert
+    expect(branch.controller.branch).toHaveBeenCalledWith("alt");
+    expect(label.controller.labelTip).toHaveBeenCalledWith("start");
+    expect(navigate.controller.goToEntry).toHaveBeenCalledWith("e1", "too early");
+    expect(navigate.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+
+  test("treeFork and treeForkShare reach the controller", () => {
+    // Arrange
+    const deps = treeDeps();
+
+    // Act
+    createIntentDispatch(deps)({ type: "treeFork" });
+    createIntentDispatch(deps)({ type: "treeForkShare" });
+
+    // Assert
+    expect(deps.controller.fork).toHaveBeenCalledTimes(1);
+    expect(deps.controller.forkAndShare).toHaveBeenCalledTimes(1);
   });
 });

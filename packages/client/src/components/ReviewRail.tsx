@@ -1,5 +1,5 @@
 /**
- * The right review rail: tab strip (Review/Agent), the scrollable annotation
+ * The right review rail: tab strip (Review/Tree/Agent), the scrollable annotation
  * stack, and the pinned submit affordance. The confirm card sits OUTSIDE the
  * scrollbox so the stack scrolls while the card stays at the rail bottom.
  * Card reveal goes through the scrollbox's own scrollChildIntoView - no
@@ -18,11 +18,12 @@ import { Toolbar } from "./primitives/Toolbar";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { ConfirmCard, type ConfirmCardProps } from "./ConfirmCard";
 import { AgentLauncher, type AgentTerminalHandle } from "./agent-launcher";
+import { TreePane, type TreePaneProps } from "./TreePane";
 import { Card } from "./primitives/Card";
 import { truncateToSingleLine } from "./truncate-text";
 import { resolveDisplayName } from "../attribution";
 
-export type RailTab = "review" | "agent";
+export type RailTab = "review" | "agent" | "tree";
 
 export interface RailCardEdit extends AnnotationDraft {
   id: string;
@@ -65,6 +66,8 @@ export interface ReviewRailProps {
   onLaunchHarness: (command: string, seedText?: string) => void;
   /** In-tab agent terminal handle (embedded path); null when detached. Lets the app route keys to it. */
   onAgentTerminal?: (handle: AgentTerminalHandle | null) => void;
+  /** The Tree tab: the session's history rows and the primitives that move it. */
+  tree: Omit<TreePaneProps, "theme">;
   /** Rail column width; the app derives it from the persisted review layout. */
   width?: number;
   /**
@@ -95,6 +98,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
     onSubmitRequest,
     onLaunchHarness,
     onAgentTerminal,
+    tree,
     width = 34,
     onCollapse,
     theme,
@@ -188,16 +192,19 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
       <Tabs
         selectedKey={railTab}
         onSelectionChange={(key) => {
-          if (key === "review" || key === "agent") onTabChange(key);
+          if (key === "review" || key === "agent" || key === "tree") onTabChange(key);
         }}
         theme={theme}
       >
         <TabList>
           <Tab id="review">Review</Tab>
+          <Tab id="tree">Tree</Tab>
           <Tab id="agent">Agent</Tab>
         </TabList>
       </Tabs>
-      {railTab === "agent" ? (
+      {railTab === "tree" ? (
+        <TreePane {...tree} theme={theme} />
+      ) : railTab === "agent" ? (
         <box style={{ flexGrow: 1, flexDirection: "column" }}>
           <AgentLauncher
             session={session}
@@ -223,7 +230,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
         </box>
       )}
       {/* the confirm card keeps full width, above the footer row */}
-      {railTab !== "agent" && submitConfirm ? (
+      {railTab === "review" && submitConfirm ? (
         <ConfirmCard {...submitConfirm} theme={theme} />
       ) : null}
       {/* footer row: collapse chevron left-bound, the submit affordance inline
@@ -234,7 +241,7 @@ export const ReviewRail = forwardRef<ReviewRailHandle, ReviewRailProps>(function
             <text fg={tokens.textDim}>{">"}</text>
           </box>
         ) : null}
-        {railTab !== "agent" && !submitConfirm ? (
+        {railTab === "review" && !submitConfirm ? (
           session.status === "resolved" ? (
             <text fg={tokens.green}>resolved: {session.verdict!.kind.replace("_", " ")}</text>
           ) : (
