@@ -13,6 +13,7 @@ next: { title: "Identity & attribution", href: "/docs/sharing/identity/" }
     <li>what each of the four steps does under the hood</li>
     <li>how a short id and AES-256-GCM protect a shared plan</li>
     <li>why an id-keyed union means nothing is ever lost</li>
+    <li>why a share follows one branch and carries its whole history</li>
   </ul>
 </div>
 
@@ -20,10 +21,13 @@ Sharing is four steps. This page explains what each one does.
 
 ## 1. Share
 
-When you press Share, cueloop serialises the review session - the plan and every
-annotation on it - into one blob. It compresses the blob, then encrypts it with
-AES-256-GCM. It PUTs the ciphertext to a hosted object store under a fresh short
-id, and copies the connection line to your clipboard:
+When you press Share, cueloop serialises the review session into one blob: the
+plan, every annotation on it, and the history of one branch - the entries that
+led to what the branch shows. A share follows a single branch, `main` by
+default, so a collaborator always sees that branch's plan, wherever you have
+navigated your own view. It compresses the blob, then encrypts it, PUTs the
+ciphertext to a hosted object store under a fresh short id, and copies the
+connection line to your clipboard:
 
 ```bash
 ssh p_7f3k9x2q@cueloop.dev
@@ -57,10 +61,16 @@ stable id. Union by id is what makes merge-back safe:
 - Every annotation already in the store and not part of this submit is left
   exactly as it was.
 
-Your own annotations are never touched, because the merge only ever adds or
-updates by the ids in the incoming submit - it never removes. Two collaborators
-working at once cannot clobber each other either: their ids differ, so both sets
-land.
+Removing a comment is itself an entry, not a deletion. When a collaborator
+removes their own note, the share records a removal entry and shelves the note;
+that entry reaches you and every other collaborator, so the comment disappears
+from the shared view without ever being erased from the history. The same holds
+for your own notes travelling the other way.
+
+Your own annotations are never overwritten, because the merge only ever appends
+entries and unions notes by id. Two collaborators working at once cannot clobber
+each other either: their ids differ, so both sets land, and each removal is
+recorded once by its entry id even if a later pull carries it again.
 
 ## 5. Stay in sync
 
@@ -74,9 +84,11 @@ same instant you save them.
 ## Why nothing is ever lost
 
 The store is the single source of truth for a shared plan, and every write is an
-id-keyed union. There is no "last write wins" and no full-document overwrite. An
-annotation can be added or updated by its own id, and nothing else moves. That
-is why a merge-back can only ever grow the set of notes, never shrink it.
+id-keyed union that only ever appends to the entry log. There is no "last write
+wins" and no full-document overwrite. An annotation is added or updated by its
+own id, a removal is a new entry that shelves a note without erasing it, and
+nothing else moves. That is why a merge-back can only ever grow the history,
+never rewrite it.
 
 <div class="callout callout--tip">
   <div class="callout__label">Union, not overwrite</div>
