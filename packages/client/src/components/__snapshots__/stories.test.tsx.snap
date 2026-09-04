@@ -1668,6 +1668,56 @@ exports[`stories catalog primitives/Toolbar/ActionRow renders, snapshots, and ca
 "
 `;
 
+exports[`stories catalog Primitives/Tree/FileTree renders, snapshots, and carries its colors: Primitives/Tree/FileTree 1`] = `
+"                                            
+ ▾ packages                                 
+   ▾ schema                                 
+       types.ts                       M     
+       tree-model.ts                  A     
+   ▾ daemon                                 
+       api.ts                         M     
+   README.md                                
+   old.ts                             D     
+                                            
+                                            
+                                            
+                                            
+                                            
+                                            
+                                            
+"
+`;
+
+exports[`stories catalog Primitives/Tree/FlattenedChain renders, snapshots, and carries its colors: Primitives/Tree/FlattenedChain 1`] = `
+"                                            
+ ▾ src/components/primitives                
+     Tree.tsx                         A     
+                                            
+                                            
+                                            
+                                            
+                                            
+                                            
+                                            
+"
+`;
+
+exports[`stories catalog Primitives/Tree/ProjectsThreads renders, snapshots, and carries its colors: Primitives/Tree/ProjectsThreads 1`] = `
+"                                            
+ ▾ Projects                                 
+   ▾ cueloop                                
+       Read Cueloop Repository              
+ ▾ Threads                                  
+     Welcome to cueloop                     
+                                            
+                                            
+                                            
+                                            
+                                            
+                                            
+"
+`;
+
 exports[`stories catalog QuickActionsEditor/Collapsed renders, snapshots, and carries its colors: QuickActionsEditor/Collapsed 1`] = `
 "  click a prompt to edit its system  reset to         
   prompt                             defaults ▸       
