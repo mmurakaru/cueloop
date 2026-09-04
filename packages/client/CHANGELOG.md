@@ -1,5 +1,40 @@
 # @cueloop/client
 
+## 0.1.0-alpha.65
+
+### Minor Changes
+
+- [#326](https://github.com/mmurakaru/cueloop/pull/326) [`a9de22e`](https://github.com/mmurakaru/cueloop/commit/a9de22e9680fa4ba7e79e3b86815ec49ea6a01e6) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The thread view is the plan surface.
+
+  - Plans and replies open in the thread view; the plan sheet is retired and the opt-in flag is gone.
+  - Session primitives move to chords: ctrl+enter submits, ctrl+e edits in `$EDITOR`, ctrl+s shares, ctrl+r cycles the rail.
+  - Option plus a letter drives the rail and curation: cards (n / p), edit (e), delete (backspace), rename (r), cut (x), restore (u), resize (w / s).
+  - Tracked changes render as before: cut blocks dim and struck through, added or edited blocks tagged; code blocks show their language; list items stay tight.
+  - The keybinds dialog folds into two columns when the grammar outgrows the terminal.
+
+- [#324](https://github.com/mmurakaru/cueloop/pull/324) [`dcbd48d`](https://github.com/mmurakaru/cueloop/commit/dcbd48d2325e74230b7911038b0c51a0a2e3449b) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Thread view, discussions, spanning anchors, and realtime share sync.
+
+  - An anchor may span consecutive blocks: the quote joins the blocks with a blank line, the end block travels as a hint, and resolution maps a match back to its start and end block.
+  - A reply carries `replyTo`, the id of the root comment it answers, and shares its anchor; the feedback document renders a discussion as one item with its replies in time order.
+  - Behind `CUELOOP_THREAD_VIEW=1`, plans and replies open in the thread view: character-precise marks across rows and blocks, type-to-comment, inline discussion cards, folding, the quick-action palette, and scroll markers; the keybinds dialog lists the grammar.
+  - Shares sync live: the gateway store notifies every viewer of a change, collaborators refresh in place, and the owner follows the share over a `cueloop-watch` stream with reconnect instead of polling.
+  - Every callable action is a primitive; the gateway share metrics label is `primitive` instead of `verb`.
+
+### Patch Changes
+
+- [#331](https://github.com/mmurakaru/cueloop/pull/331) [`1b8253c`](https://github.com/mmurakaru/cueloop/commit/1b8253c0f2159e99244e1fdae9a3350eabb68055) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Cutting a plan block, restoring it, rejecting diff hunks, and marking files as viewed are daemon primitives. The TUI routes every one of them through the daemon, so an agent or a script can shape the artifact the same way a reviewer does: `cueloop session cut`, `restore`, `curate`, and `set-viewed`. Reject decisions live on the session, and each change appends a reviewer revision to the history.
+
+- [#335](https://github.com/mmurakaru/cueloop/pull/335) [`3adc09e`](https://github.com/mmurakaru/cueloop/commit/3adc09e5294ef384872c1a8e578231c65ce76ce4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A share follows one named branch (`main` by default) and carries that branch's entry log, so a collaborator sees the branch's plan wherever the owner has navigated their own view. A collaborator removing their own comment records a removal entry that reaches the owner and every other collaborator through the same additive union - the note is shelved, never erased - and merging a share applies each removal once by its entry id. The owner navigating another branch does not change what collaborators see.
+
+- [#332](https://github.com/mmurakaru/cueloop/pull/332) [`8e56045`](https://github.com/mmurakaru/cueloop/commit/8e56045b6081a851a757cf33b676382c04c07446) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The owner walks a session's history tree from the command line: `cueloop session label`, `branch`, `switch`, `navigate`, and `fork`, plus `cueloop share --fork` to hand a fork to a second teammate. What the session shows follows the current branch's path; comments the path no longer reaches are shelved rather than deleted, and the agent's next revision lands on `main` wherever its tip was moved. A fork copies the path's revisions, open comments, labels, and participant names into a new pending session that names its parent.
+
+- [#334](https://github.com/mmurakaru/cueloop/pull/334) [`3ee474c`](https://github.com/mmurakaru/cueloop/commit/3ee474cb4772b8a227686e32a960c1587e0f5c27) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The rail has a Tree tab that shows the session's history: revisions, comments, checkpoints, and branches, with the path you are on bright and the current tip marked. Option chords and the buttons under it label a checkpoint, start a branch, go to an entry (a switch or a move back with an optional summary), fork the path, and fork-and-share. The thread view shows a moved path in the frame after the key.
+- Updated dependencies [[`d4bfddc`](https://github.com/mmurakaru/cueloop/commit/d4bfddc0057c131c82c46258bc1921e11302e7ad), [`1b8253c`](https://github.com/mmurakaru/cueloop/commit/1b8253c0f2159e99244e1fdae9a3350eabb68055), [`6c5fdab`](https://github.com/mmurakaru/cueloop/commit/6c5fdab8ba7098344a051e5a0ef779af783c1249), [`3199a76`](https://github.com/mmurakaru/cueloop/commit/3199a76ec6af4fd6cc8c38a451522224c11229ea), [`3adc09e`](https://github.com/mmurakaru/cueloop/commit/3adc09e5294ef384872c1a8e578231c65ce76ce4), [`dcbd48d`](https://github.com/mmurakaru/cueloop/commit/dcbd48d2325e74230b7911038b0c51a0a2e3449b), [`8e56045`](https://github.com/mmurakaru/cueloop/commit/8e56045b6081a851a757cf33b676382c04c07446)]:
+  - @cueloop/daemon@0.1.0-alpha.65
+  - @cueloop/schema@0.1.0-alpha.65
+  - @cueloop/extension-api@0.1.0-alpha.65
+  - @cueloop/integration-obsidian@0.1.0-alpha.65
+
 ## 0.1.0-alpha.64
 
 ### Patch Changes
