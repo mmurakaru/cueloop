@@ -5,8 +5,8 @@
  * back the snapshot harness - what this TUI shows is what the tests assert.
  */
 
-import React, { useMemo, useState } from "react";
-import { createCliRenderer } from "@opentui/core";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createCliRenderer, type ScrollBoxRenderable } from "@opentui/core";
 import { createRoot, useKeyboard } from "@opentui/react";
 import { DARK } from "../theme";
 import { ThemeProvider } from "./theme-context";
@@ -37,6 +37,16 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
   const rows = flattenTree(treeNodes, { expandedIds });
   const selectedRow = rows.find((row) => row.id === selectedId) ?? rows[0];
   const opened = storiesById.get(openedId);
+  const sidebarScroll = useRef<ScrollBoxRenderable | null>(null);
+
+  // keep the moving selection inside the scrolled viewport
+  useEffect(() => {
+    try {
+      sidebarScroll.current?.scrollChildIntoView(`tree-row-${selectedId}`);
+    } catch {
+      // reveal is best-effort; the selection state is already correct
+    }
+  }, [selectedId]);
 
   const openStory = (id: string): void => {
     if (storiesById.has(id)) setOpenedId(id);
@@ -106,31 +116,33 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
           </box>
         }
         sidebar={
-          <box style={{ flexDirection: "column", paddingTop: 1 }}>
-            <Tree
-              nodes={treeNodes}
-              expandedIds={expandedIds}
-              selectedId={selectedId}
-              theme={DARK}
-              onSelect={(id) => {
-                setSelectedId(id);
-                openStory(id);
-              }}
-              onToggle={(id) => {
-                setSelectedId(id);
-                toggleFolder(id);
-              }}
-            />
+          <box style={{ flexDirection: "column", flexGrow: 1, paddingTop: 1 }}>
+            <scrollbox ref={sidebarScroll} style={{ flexGrow: 1 }} focused={false}>
+              <Tree
+                nodes={treeNodes}
+                expandedIds={expandedIds}
+                selectedId={selectedId}
+                theme={DARK}
+                onSelect={(id) => {
+                  setSelectedId(id);
+                  openStory(id);
+                }}
+                onToggle={(id) => {
+                  setSelectedId(id);
+                  toggleFolder(id);
+                }}
+              />
+            </scrollbox>
           </box>
         }
         main={
           opened !== undefined ? (
-            <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
+            <scrollbox style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }} focused={false}>
               {/* remount per story so component-local state never leaks across */}
-              <box key={openedId} style={{ flexGrow: 1, flexDirection: "column" }}>
+              <box key={openedId} style={{ flexDirection: "column" }}>
                 {opened.story.render()}
               </box>
-            </box>
+            </scrollbox>
           ) : (
             <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
               <text fg={DARK.textDim}>Select a story</text>
