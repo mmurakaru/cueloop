@@ -46,6 +46,7 @@ import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
+import { NERD } from "./components/primitives/icons";
 import { Breadcrumb } from "./components/Breadcrumb";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
@@ -594,6 +595,7 @@ export function App({
         controller={controller}
         setMode={setMode}
         menuChrome={menuChrome}
+        onOpenMenu={() => setMenuOpen((isOpen) => !isOpen)}
       />
     ) : (
       <ConnectingScreen theme={theme} />
@@ -710,6 +712,9 @@ export function App({
           style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}
         >
           <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
+            <box onMouseUp={() => setMenuOpen((isOpen) => !isOpen)} style={{ paddingRight: 2 }}>
+              <text fg={theme.textMuted}>{NERD.settings}</text>
+            </box>
             <Breadcrumb items={headerItems} />
             <box style={{ flexGrow: 1 }} />
             {showOwnerActions ? (

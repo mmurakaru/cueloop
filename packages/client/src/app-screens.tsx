@@ -13,6 +13,7 @@ import type { SettingsNav } from "./use-settings-dialog";
 import { CLIENT_VERSION } from "./version";
 import { ThemeProvider } from "./components/theme-context";
 import { MenuBar } from "./components/MenuBar";
+import { NERD } from "./components/primitives/icons";
 import { KeybindsDialog } from "./components/KeybindsDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
@@ -73,7 +74,6 @@ export function MenuChrome(props: {
         open={menuOpen}
         version={CLIENT_VERSION}
         status={status}
-        onToggle={() => setMenuOpen((isOpen) => !isOpen)}
         onSettings={() => {
           setMenuOpen(false);
           setMenuDialog("settings");
@@ -112,8 +112,9 @@ export function InboxScreen(props: {
   controller: ReviewController;
   setMode: Dispatch<SetStateAction<Mode>>;
   menuChrome: React.ReactNode;
+  onOpenMenu: () => void;
 }): React.ReactNode {
-  const { inbox, inboxCursor, mode, theme, controller, setMode, menuChrome } = props;
+  const { inbox, inboxCursor, mode, theme, controller, setMode, menuChrome, onOpenMenu } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
 
   return (
@@ -139,6 +140,9 @@ export function InboxScreen(props: {
               flexDirection: "row",
             }}
           >
+            <box onMouseUp={onOpenMenu} style={{ paddingRight: 2 }}>
+              <text fg={theme.textMuted}>{NERD.settings}</text>
+            </box>
             <text>
               <span fg={theme.accent}>cueloop</span>
               <span fg={theme.textDim}> · resume</span>
