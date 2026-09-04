@@ -49,6 +49,14 @@ import { DiffWatcher } from "./diff-watcher";
 import { workingTreeDiff } from "./working-tree";
 import { DaemonError } from "./errors";
 
+/** What a share hands back: the notes and names it collected, and the removals it recorded. */
+export interface SharedMerge {
+  annotations: Annotation[];
+  participants?: Identity[];
+  /** Removal entries by id; a merge applies each once and never rewrites what it already holds. */
+  removals?: Array<{ id: string; annotationId: string; createdAt: string }>;
+}
+
 export type EventName =
   | "session.created"
   | "session.updated"
@@ -414,31 +422,45 @@ export class DaemonCore {
   }
 
   /**
-   * Merge a share's collaborator state back into the local session: annotations
-   * union by id with existing ones (the planner's) winning, and the participant
-   * registry union by id with the incoming identity winning (a collaborator is
-   * the authority on their own name). This is how a teammate's name reaches the
-   * planner after a pull, alongside their notes.
+   * Merge a share's state back into the local session. Comments union by
+   * annotation id with existing ones (the planner's) winning; removals union by
+   * entry id, each shelving its comment once; the participant registry unions
+   * by id with the incoming identity winning (a collaborator is the authority
+   * on their own name). Everything lands on the branch the share follows, and
+   * the record then shows its current path again, wherever the owner stands.
    */
-  sessionMergeShared(
-    id: string,
-    incoming: { annotations: Annotation[]; participants?: Identity[] },
-  ): ReviewSession {
+  sessionMergeShared(id: string, incoming: SharedMerge): ReviewSession {
     const session = this.mutable(id);
+    const branch = this.shareBranchOf(session);
     const known = new Set(
       [...session.annotations, ...(session.shelvedAnnotations ?? [])].map(
         (annotation) => annotation.id,
       ),
     );
+    let changed = false;
 
     for (const annotation of incoming.annotations) {
       if (known.has(annotation.id)) continue;
+      known.add(annotation.id);
       session.annotations.push(annotation);
-      this.record(session, {
+      this.recordOn(session, branch, {
         type: "comment",
         annotationId: annotation.id,
         createdAt: annotation.createdAt,
       });
+      changed = true;
+    }
+    const recorded = new Set((session.history?.entries ?? []).map((entry) => entry.id));
+
+    for (const removal of incoming.removals ?? []) {
+      if (recorded.has(removal.id) || !known.has(removal.annotationId)) continue;
+      this.recordOn(session, branch, {
+        id: removal.id,
+        type: "comment-removed",
+        annotationId: removal.annotationId,
+        createdAt: removal.createdAt,
+      });
+      changed = true;
     }
     if (incoming.participants?.length) {
       const registry = new Map(
@@ -448,7 +470,8 @@ export class DaemonCore {
       for (const participant of incoming.participants) registry.set(participant.id, participant);
       session.participants = [...registry.values()];
     }
-    this.store.upsert(session);
+    if (changed && session.history) this.refreshView(session, session.history);
+    else this.store.upsert(session);
     this.emit("session.updated", id);
 
     return session;
@@ -780,14 +803,26 @@ export class DaemonCore {
 
   /** Append an entry on main, leaving the reviewer's current branch where it is. */
   private recordOnMain(session: ReviewSession, entry: NewEntry): string | undefined {
+    return this.recordOn(session, MAIN_BRANCH, entry);
+  }
+
+  /** Append an entry on a named branch, leaving the reviewer's current branch where it is. */
+  private recordOn(session: ReviewSession, branch: string, entry: NewEntry): string | undefined {
     const history = withHistory(session).history;
 
     if (!history) return undefined;
-    const appended = appendEntry(switchBranch(history, MAIN_BRANCH), entry);
+    const appended = appendEntry(switchBranch(history, branch), entry);
 
     session.history = { ...appended.history, branch: history.branch };
 
     return appended.entry.id;
+  }
+
+  /** The branch a share follows; a share made before branches existed follows main. */
+  private shareBranchOf(session: ReviewSession): string {
+    const branch = session.shareBranch ?? MAIN_BRANCH;
+
+    return session.history?.tips[branch] === undefined ? MAIN_BRANCH : branch;
   }
 
   private mutable(id: string): ReviewSession {
