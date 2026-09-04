@@ -64,8 +64,8 @@ stable id. Union by id is what makes merge-back safe:
 Removing a comment is itself an entry, not a deletion. When a collaborator
 removes their own note, the share records a removal entry and shelves the note;
 that entry reaches you and every other collaborator, so the comment disappears
-from the shared view without ever being erased from the history. The same holds
-for your own notes travelling the other way.
+from the shared view without ever being erased from the history. Your own notes
+and edits travel up to the share the same way, appended as entries.
 
 Your own annotations are never overwritten, because the merge only ever appends
 entries and unions notes by id. Two collaborators working at once cannot clobber
