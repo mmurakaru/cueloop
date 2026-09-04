@@ -12,7 +12,9 @@ import { DARK } from "../theme";
 import { ThemeProvider } from "./theme-context";
 import { buildStoryTree, loadStories, type LoadedStory } from "./story";
 import { AppShell } from "./AppShell";
+import { ShellHeader } from "./ShellHeader";
 import { Tree } from "./primitives/Tree";
+import { NERD } from "./primitives/icons";
 import { allFolderIds, flattenTree } from "./primitives/tree-model";
 
 interface StoriesAppProps {
@@ -103,17 +105,13 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
       <AppShell
         theme={DARK}
         header={
-          <box style={{ height: 1, paddingLeft: 1 }}>
-            <text fg={DARK.text}>
-              <span fg={DARK.accent}>cueloop stories</span>
-              {opened !== undefined ? (
-                <span fg={DARK.textDim}>
-                  {" "}
-                  · {opened.moduleTitle} / {opened.storyName}
-                </span>
-              ) : null}
-            </text>
-          </box>
+          <ShellHeader
+            theme={DARK}
+            leftIcons={[NERD.settings, NERD.sidebar]}
+            leftLabel="cueloop stories"
+            title={opened !== undefined ? `${opened.moduleTitle} / ${opened.storyName}` : "cueloop"}
+            rightIcons={[NERD.search, NERD.expand, NERD.sidebar]}
+          />
         }
         sidebar={
           <box style={{ flexDirection: "column", flexGrow: 1, paddingTop: 1 }}>

@@ -1186,6 +1186,20 @@ exports[`stories catalog Chrome/SettingsRows/AllKinds renders, snapshots, and ca
 "
 `;
 
+exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, and carries its colors: Layout/ShellHeader/ReviewSurface 1`] = `
+"   Subagents                                Read Cueloop Repository                                 Changes       
+                                                                                                                        
+                                                                                                                        
+"
+`;
+
+exports[`stories catalog Layout/ShellHeader/StoriesCatalog renders, snapshots, and carries its colors: Layout/ShellHeader/StoriesCatalog 1`] = `
+"   cueloop stories                            Cards/AnnotationCard / SavedSelected                                 
+                                                                                                                        
+                                                                                                                        
+"
+`;
+
 exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, and carries its colors: Surfaces/ThreadView/InlineThreads 1`] = `
 "                                                                                                    
   Migration Plan                                                                                    
