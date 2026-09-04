@@ -244,6 +244,8 @@ export interface ReviewSession {
   parentSessionId?: string;
   /** Share id once published; lets the planner pull collaborator notes back. */
   shareId?: string;
+  /** The branch the share follows and shows collaborators; `main` when absent. */
+  shareBranch?: string;
   /** SSH fingerprint that created the share; the gateway stamps it to gate pulls. */
   owner?: string;
   /**

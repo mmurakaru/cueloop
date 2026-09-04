@@ -264,6 +264,7 @@ describe("wire pins", () => {
     curation: [{ path: "src/a.ts", hunkIndex: 0, changeIndex: 1 }],
     shelvedAnnotations: [fullAnnotation],
     parentSessionId: "ses_0",
+    shareBranch: "main",
     workingCopy: "# P edited",
     viewedPaths: ["src/a.ts"],
     verdict: fullVerdict,
