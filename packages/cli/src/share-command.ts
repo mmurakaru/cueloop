@@ -8,7 +8,7 @@
 
 import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
 import {
-  collaboratorAnnotations,
+  mergeFromShare,
   publishShare,
   pullShare,
   shareIdFromLine,
@@ -109,12 +109,10 @@ export async function pullSession(
     return 1;
   }
   const remote = await deps.pull(session.shareId!, { host: params.host, port: params.port });
-  const before = session.annotations.length;
-  const merged = await client.sessionMergeShared(session.id, {
-    annotations: collaboratorAnnotations(remote),
-    participants: remote.participants,
-  });
-  const added = merged.annotations.length - before;
+  const before = new Set(session.annotations.map((annotation) => annotation.id));
+  const merged = await client.sessionMergeShared(session.id, mergeFromShare(remote));
+  // count notes that were not here before, so a pull carrying removals never miscounts
+  const added = merged.annotations.filter((annotation) => !before.has(annotation.id)).length;
 
   deps.out(
     added > 0 ? `pulled ${added} new annotation${added === 1 ? "" : "s"}` : "no new annotations",

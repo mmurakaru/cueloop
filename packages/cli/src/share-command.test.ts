@@ -1,5 +1,11 @@
 import { describe, expect, mock, test } from "bun:test";
-import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
+import {
+  appendEntry,
+  historyFromLinear,
+  SCHEMA_VERSION,
+  type Annotation,
+  type ReviewSession,
+} from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { pullSession, shareSession, type PullDeps, type ShareDeps } from "./share-command";
 
@@ -65,15 +71,25 @@ function fakeClient(sessions: ReviewSession[]): SessionClient {
 
       return session;
     }),
-    sessionMergeShared: mock(async (id: string, incoming: { annotations: Annotation[] }) => {
-      const session = sessions.find((candidate) => candidate.id === id)!;
-      const known = new Set(session.annotations.map((annotation) => annotation.id));
+    sessionMergeShared: mock(
+      async (
+        id: string,
+        incoming: { annotations: Annotation[]; removals?: Array<{ annotationId: string }> },
+      ) => {
+        const session = sessions.find((candidate) => candidate.id === id)!;
+        const known = new Set(session.annotations.map((annotation) => annotation.id));
 
-      for (const annotation of incoming.annotations)
-        if (!known.has(annotation.id)) session.annotations.push(annotation);
+        for (const annotation of incoming.annotations)
+          if (!known.has(annotation.id)) session.annotations.push(annotation);
+        const shelved = new Set((incoming.removals ?? []).map((removal) => removal.annotationId));
 
-      return session;
-    }),
+        session.annotations = session.annotations.filter(
+          (annotation) => !shelved.has(annotation.id),
+        );
+
+        return session;
+      },
+    ),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),
     sessionResolve: unimplemented("sessionResolve"),
@@ -255,6 +271,34 @@ describe(pullSession, () => {
 
     // Assert
     expect(deps.lines).toEqual(["no new annotations"]);
+  });
+
+  test("counts only the new notes when a pull also carries a removal", async () => {
+    // Arrange: the owner holds one collaborator note; the share brings a new note and removes the old one
+    const local = sessionFixture("ses_1", {
+      shareId: "p_abc123xy",
+      annotations: [annotationFixture("gone", "SHA256:mate")],
+    });
+    const remote = sessionFixture("ses_1", {
+      annotations: [
+        annotationFixture("gone", "SHA256:mate"),
+        annotationFixture("fresh", "SHA256:mate"),
+      ],
+    });
+
+    remote.history = appendEntry(historyFromLinear(remote), {
+      id: "e_rm",
+      type: "comment-removed",
+      annotationId: "gone",
+      createdAt: "2026-02-02T00:00:00.000Z",
+    }).history;
+    const deps = pullDepsSpy(remote);
+
+    // Act
+    await pullSession(fakeClient([local]), { sessionId: "ses_1" }, deps);
+
+    // Assert: one note is genuinely new, so a plain length difference (0) would be wrong
+    expect(deps.lines).toEqual(["pulled 1 new annotation"]);
   });
 
   test("refuses to pull a plan that was never shared", async () => {
