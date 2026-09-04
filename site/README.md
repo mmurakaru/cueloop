@@ -47,8 +47,9 @@ The build writes static HTML to `site/dist`.
 ## Deploy (deferred - not yet live)
 
 The site is intended for [Cloudflare Pages](https://developers.cloudflare.com/pages/) on
-`www.cueloop.dev` (orange-cloud, proxied). The apex `cueloop.dev` is reserved grey-cloud for
-the future SSH gateway (see the "Sharing over SSH" concept page), so the two never collide.
+`www.cueloop.dev` (orange-cloud, proxied). The apex `cueloop.dev` is grey-cloud: the SSH
+gateway (see the "Sharing over SSH" concept page) runs there and needs raw TCP to the origin,
+which Cloudflare's HTTP proxy cannot front, so the two never collide.
 
 `wrangler.toml` in this folder is a **stub**, present so the Pages build settings are
 discoverable and version-controlled. It is not yet wired to a Cloudflare account, and no
