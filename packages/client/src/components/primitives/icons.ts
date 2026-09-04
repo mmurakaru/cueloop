@@ -1,4 +1,4 @@
-// Nerd Font glyphs (Private Use Area / codicons); render as icons under a Nerd Font, tofu without one.
+// Nerd Font glyphs (Private Use Area / codicons) plus the plus-minus diff mark; render as icons under a Nerd Font, tofu without one.
 
 export const NERD = {
   folderClosed: "",
@@ -9,7 +9,7 @@ export const NERD = {
   settings: "",
   search: "",
   expand: "",
-  diff: "",
+  diff: "±",
   listTree: "",
   sidebarLeft: "",
   sidebarLeftOff: "",

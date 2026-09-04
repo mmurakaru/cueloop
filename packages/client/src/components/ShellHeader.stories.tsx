@@ -14,11 +14,14 @@ export const ReviewSurface: Story = {
   render: () => (
     <Frame>
       <ShellHeader
-        leftIcons={[NERD.settings]}
-        leftLabel="Subagents"
-        title="Read Cueloop Repository"
+        leftIcons={[{ glyph: NERD.settings }]}
+        leftLabel="Read Cueloop Repository"
         tabs={[{ label: "Changes", active: true }]}
-        rightIcons={[NERD.expand, NERD.diff, NERD.listTree]}
+        rightIcons={[
+          { glyph: NERD.expand },
+          { glyph: NERD.diff, active: true },
+          { glyph: NERD.listTree },
+        ]}
         onToggleSidebar={() => {}}
         onToggleInspector={() => {}}
       />
@@ -32,9 +35,9 @@ export const InspectorCollapsed: Story = {
   render: () => (
     <Frame>
       <ShellHeader
-        leftIcons={[NERD.settings]}
-        title="Read Cueloop Repository"
-        rightIcons={[NERD.search, NERD.expand]}
+        leftIcons={[{ glyph: NERD.settings }]}
+        leftLabel="Read Cueloop Repository"
+        rightIcons={[{ glyph: NERD.search }, { glyph: NERD.expand }]}
         onToggleSidebar={() => {}}
         sidebarOpen={false}
         onToggleInspector={() => {}}
