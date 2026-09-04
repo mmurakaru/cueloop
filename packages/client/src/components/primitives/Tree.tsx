@@ -3,6 +3,7 @@
 import React from "react";
 import { DARK, type Theme } from "../../theme";
 import { flattenTree, statusMeta, type TreeNode, type TreeTone } from "./tree-model";
+import { NERD_TREE_ICONS, type TreeIcons } from "./icons";
 
 export interface TreeProps {
   nodes: readonly TreeNode[];
@@ -11,15 +12,16 @@ export interface TreeProps {
   flattenEmptyDirectories?: boolean;
   showStatus?: boolean;
   indentWidth?: number;
+  icons?: TreeIcons;
   onSelect?: (id: string) => void;
   onToggle?: (id: string) => void;
   theme?: Theme;
 }
 
-function twisty(isFolder: boolean, expanded: boolean): string {
-  if (!isFolder) return " ";
+function rowGlyph(isFolder: boolean, expanded: boolean, icons: TreeIcons): string {
+  if (!isFolder) return icons.leaf;
 
-  return expanded ? "▾" : "▸";
+  return expanded ? icons.expanded : icons.collapsed;
 }
 
 function toneColor(tone: TreeTone, theme: Theme): string {
@@ -37,6 +39,7 @@ export function Tree({
   flattenEmptyDirectories,
   showStatus,
   indentWidth = 2,
+  icons = NERD_TREE_ICONS,
   onSelect,
   onToggle,
   theme,
@@ -69,10 +72,9 @@ export function Tree({
             }}
             onMouseUp={() => (row.isFolder ? onToggle?.(row.id) : onSelect?.(row.id))}
           >
-            <text fg={row.isFolder ? tokens.textDim : "transparent"}>
-              {twisty(row.isFolder, row.expanded)}{" "}
+            <text fg={row.isFolder ? tokens.blue : tokens.textDim}>
+              {row.icon ?? rowGlyph(row.isFolder, row.expanded, icons)}{" "}
             </text>
-            {row.icon !== undefined ? <text fg={tokens.textDim}>{row.icon} </text> : null}
             <text fg={selected ? tokens.accent : labelColor}>{row.label}</text>
             <box style={{ flexGrow: 1 }} />
             {row.badge !== undefined ? <text fg={tokens.textDim}>{row.badge}</text> : null}
