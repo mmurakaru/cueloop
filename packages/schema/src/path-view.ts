@@ -63,10 +63,14 @@ export function applyPathView(session: ReviewSession, view: PathView): void {
 /**
  * The record as a share carries it: the followed branch's path and what it
  * shows, with no other branch, no shelved comment, and no working copy of the
- * owner's. A record without a history travels as it is.
+ * owner's. A followed branch that no longer exists falls back to main. A record
+ * without a history travels as it is.
  */
 export function viewFollowing(session: ReviewSession, branch?: string): ReviewSession {
-  const followed = branch ?? session.shareBranch ?? MAIN_BRANCH;
+  const asked = branch ?? session.shareBranch ?? MAIN_BRANCH;
+  // a branch that no longer exists falls back to main, matching the daemon
+  const followed =
+    session.history && session.history.tips[asked] === undefined ? MAIN_BRANCH : asked;
   const shared: ReviewSession = { ...session, shareBranch: followed };
 
   if (!session.history) return shared;
