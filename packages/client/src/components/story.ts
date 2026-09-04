@@ -7,6 +7,7 @@
  */
 
 import type React from "react";
+import type { TreeNode } from "./primitives/tree-model";
 
 export interface StoryMeta {
   /** Catalog path, e.g. "primitives/Card". */
@@ -66,6 +67,60 @@ export async function loadStories(): Promise<LoadedStory[]> {
   }
 
   return loaded;
+}
+
+/** A folder node keeps its children array live so the builder can append to it. */
+interface StoryTreeFolder extends TreeNode {
+  children: TreeNode[];
+}
+
+// A component folder holding one story of its own name reads as one row, not a folder wrapping a single leaf.
+function hoistSingleStoryFolders(nodes: TreeNode[]): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.children === undefined) return node;
+    const children = hoistSingleStoryFolders(node.children);
+    const onlyChild = children.length === 1 ? children[0] : undefined;
+    if (
+      onlyChild !== undefined &&
+      onlyChild.children === undefined &&
+      onlyChild.label === node.label
+    ) {
+      return onlyChild;
+    }
+
+    return { ...node, children };
+  });
+}
+
+/**
+ * Nest the flat catalog into folder/component groups by splitting each
+ * moduleTitle on "/". Each story becomes a leaf keyed `${moduleTitle}/${storyName}`
+ * under its component node; a component holding a single story of its own name
+ * collapses so its row IS that story leaf.
+ */
+export function buildStoryTree(stories: LoadedStory[]): TreeNode[] {
+  const roots: TreeNode[] = [];
+  const foldersByPath = new Map<string, StoryTreeFolder>();
+
+  for (const { moduleTitle, storyName } of stories) {
+    let siblings = roots;
+    let path = "";
+
+    for (const segment of moduleTitle.split("/")) {
+      path = path === "" ? segment : `${path}/${segment}`;
+      let folder = foldersByPath.get(path);
+      if (folder === undefined) {
+        folder = { id: path, label: segment, children: [] };
+        foldersByPath.set(path, folder);
+        siblings.push(folder);
+      }
+      siblings = folder.children;
+    }
+
+    siblings.push({ id: `${moduleTitle}/${storyName}`, label: storyName });
+  }
+
+  return hoistSingleStoryFolders(roots);
 }
 
 /** Component files that must carry stories: every .tsx that is not a story/test/prototype. */

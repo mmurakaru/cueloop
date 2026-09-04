@@ -1,6 +1,6 @@
 /**
- * The interactive stories catalog (`bun run stories`): a left list of
- * component modules (j/k), h/l cycling through the module's stories, and the
+ * The interactive stories catalog (`bun run stories`): a nested tree of
+ * component modules on the left (j/k to move, h/l to fold or open) and the
  * selected story rendered live in the preview pane. The same story objects
  * back the snapshot harness - what this TUI shows is what the tests assert.
  */
@@ -10,100 +10,139 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot, useKeyboard } from "@opentui/react";
 import { DARK } from "../theme";
 import { ThemeProvider } from "./theme-context";
-import { loadStories, type LoadedStory } from "./story";
-import { FRAME_BORDER_STYLE } from "./primitives/frame";
+import { buildStoryTree, loadStories, type LoadedStory } from "./story";
+import { AppShell } from "./AppShell";
+import { Tree } from "./primitives/Tree";
+import { allFolderIds, flattenTree } from "./primitives/tree-model";
 
-function StoriesApp({
-  stories,
-  onExit,
-}: {
+interface StoriesAppProps {
   stories: LoadedStory[];
   onExit: () => void;
-}): React.ReactNode {
-  const moduleTitles = useMemo(
-    () => [...new Set(stories.map((story) => story.moduleTitle))],
+}
+
+function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
+  const treeNodes = useMemo(() => buildStoryTree(stories), [stories]);
+  const storiesById = useMemo(
+    () => new Map(stories.map((story) => [`${story.moduleTitle}/${story.storyName}`, story])),
     [stories],
   );
-  const [moduleIndex, setModuleIndex] = useState(0);
-  const [storyIndex, setStoryIndex] = useState(0);
-  const moduleTitle = moduleTitles[moduleIndex]!;
-  const moduleStories = stories.filter((story) => story.moduleTitle === moduleTitle);
-  const current = moduleStories[Math.min(storyIndex, moduleStories.length - 1)]!;
+  const firstStoryId = `${stories[0]!.moduleTitle}/${stories[0]!.storyName}`;
+
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() =>
+    allFolderIds(treeNodes),
+  );
+  const [selectedId, setSelectedId] = useState(firstStoryId);
+  const [openedId, setOpenedId] = useState(firstStoryId);
+
+  const rows = flattenTree(treeNodes, { expandedIds });
+  const selectedRow = rows.find((row) => row.id === selectedId) ?? rows[0];
+  const opened = storiesById.get(openedId);
+
+  const openStory = (id: string): void => {
+    if (storiesById.has(id)) setOpenedId(id);
+  };
+
+  const toggleFolder = (id: string): void => {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+
+      return next;
+    });
+  };
+
+  const expandFolder = (id: string): void => {
+    setExpandedIds((current) => new Set(current).add(id));
+  };
+
+  const collapseFolder = (id: string): void => {
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+
+      return next;
+    });
+  };
+
+  const moveSelection = (delta: number): void => {
+    const index = rows.findIndex((row) => row.id === selectedId);
+    const nextIndex = Math.max(0, Math.min(rows.length - 1, index + delta));
+    const nextRow = rows[nextIndex];
+    if (nextRow !== undefined) setSelectedId(nextRow.id);
+  };
 
   useKeyboard((key) => {
     if (key.name === "q") onExit();
-    else if (key.name === "j" || key.name === "down") {
-      setModuleIndex((index) => Math.min(moduleTitles.length - 1, index + 1));
-      setStoryIndex(0);
-    } else if (key.name === "k" || key.name === "up") {
-      setModuleIndex((index) => Math.max(0, index - 1));
-      setStoryIndex(0);
-    } else if (key.name === "l" || key.name === "right") {
-      setStoryIndex((index) => (index + 1) % moduleStories.length);
+    else if (key.name === "j" || key.name === "down") moveSelection(1);
+    else if (key.name === "k" || key.name === "up") moveSelection(-1);
+    else if (selectedRow === undefined) return;
+    else if (key.name === "l" || key.name === "right") {
+      if (selectedRow.isFolder) expandFolder(selectedRow.id);
+      else openStory(selectedRow.id);
     } else if (key.name === "h" || key.name === "left") {
-      setStoryIndex((index) => (index - 1 + moduleStories.length) % moduleStories.length);
+      if (selectedRow.isFolder) collapseFolder(selectedRow.id);
+    } else if (key.name === "return" || key.name === "space") {
+      if (selectedRow.isFolder) toggleFolder(selectedRow.id);
+      else openStory(selectedRow.id);
     }
   });
 
   return (
     <ThemeProvider theme={DARK}>
-      <box
-        style={{
-          flexDirection: "column",
-          width: "100%",
-          height: "100%",
-          backgroundColor: DARK.background,
-        }}
-      >
-        <box style={{ height: 1, backgroundColor: DARK.panel, paddingLeft: 1 }}>
-          <text fg={DARK.text}>
-            <span fg={DARK.accent}>cueloop stories</span>
-            <span fg={DARK.textDim}>
-              {" "}
-              · {moduleTitle} / {current.storyName}
-            </span>
-          </text>
-        </box>
-        <box style={{ flexDirection: "row", flexGrow: 1 }}>
-          <box
-            style={{
-              width: 28,
-              backgroundColor: DARK.panel,
-              flexDirection: "column",
-              paddingLeft: 1,
-              paddingTop: 1,
-            }}
-          >
-            {moduleTitles.map((title, index) => (
-              <text key={title} fg={index === moduleIndex ? DARK.accent : DARK.textMuted}>
-                {index === moduleIndex ? "▸ " : "  "}
-                {title}
-              </text>
-            ))}
+      <AppShell
+        theme={DARK}
+        header={
+          <box style={{ height: 1, paddingLeft: 1 }}>
+            <text fg={DARK.text}>
+              <span fg={DARK.accent}>cueloop stories</span>
+              {opened !== undefined ? (
+                <span fg={DARK.textDim}>
+                  {" "}
+                  · {opened.moduleTitle} / {opened.storyName}
+                </span>
+              ) : null}
+            </text>
           </box>
-          <box
-            style={{
-              flexGrow: 1,
-              flexDirection: "column",
-              border: true,
-              borderStyle: FRAME_BORDER_STYLE,
-              borderColor: DARK.border,
-            }}
-            title={` ${current.storyName} (${moduleStories.indexOf(current) + 1}/${moduleStories.length}) `}
-          >
-            {/* remount per story so component-local state never leaks across */}
-            <box
-              key={`${moduleTitle}/${current.storyName}`}
-              style={{ flexGrow: 1, flexDirection: "column" }}
-            >
-              {current.story.render()}
+        }
+        sidebar={
+          <box style={{ flexDirection: "column", paddingTop: 1 }}>
+            <Tree
+              nodes={treeNodes}
+              expandedIds={expandedIds}
+              selectedId={selectedId}
+              theme={DARK}
+              onSelect={(id) => {
+                setSelectedId(id);
+                openStory(id);
+              }}
+              onToggle={(id) => {
+                setSelectedId(id);
+                toggleFolder(id);
+              }}
+            />
+          </box>
+        }
+        main={
+          opened !== undefined ? (
+            <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
+              {/* remount per story so component-local state never leaks across */}
+              <box key={openedId} style={{ flexGrow: 1, flexDirection: "column" }}>
+                {opened.story.render()}
+              </box>
             </box>
+          ) : (
+            <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+              <text fg={DARK.textDim}>Select a story</text>
+            </box>
+          )
+        }
+        footer={
+          <box style={{ height: 1, paddingLeft: 1 }}>
+            <text fg={DARK.textDim}>j/k move · h/l fold or open · enter open · q quit</text>
           </box>
-        </box>
-        <box style={{ height: 1, backgroundColor: DARK.panel, paddingLeft: 1 }}>
-          <text fg={DARK.textDim}>j/k component · h/l story · q quit</text>
-        </box>
-      </box>
+        }
+      />
     </ThemeProvider>
   );
 }
