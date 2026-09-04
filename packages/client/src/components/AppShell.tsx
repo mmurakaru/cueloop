@@ -35,11 +35,7 @@ export function AppShell({
         backgroundColor: tokens.background,
       }}
     >
-      {header !== undefined ? (
-        <box style={{ borderStyle: "single", border: ["bottom"], borderColor: tokens.border }}>
-          {header}
-        </box>
-      ) : null}
+      {header !== undefined ? <box>{header}</box> : null}
       <box style={{ flexDirection: "row", flexGrow: 1 }}>
         {sidebar !== undefined ? (
           <box
