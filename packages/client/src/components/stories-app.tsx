@@ -35,6 +35,7 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
   );
   const [selectedId, setSelectedId] = useState(firstStoryId);
   const [openedId, setOpenedId] = useState(firstStoryId);
+  const [treeOpen, setTreeOpen] = useState(true);
 
   const rows = flattenTree(treeNodes, { expandedIds });
   const selectedRow = rows.find((row) => row.id === selectedId) ?? rows[0];
@@ -107,31 +108,13 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
         header={
           <ShellHeader
             theme={DARK}
-            leftIcons={[NERD.settings, NERD.sidebar]}
+            leftIcons={[NERD.settings]}
             leftLabel="cueloop stories"
             title={opened !== undefined ? `${opened.moduleTitle} / ${opened.storyName}` : "cueloop"}
-            rightIcons={[NERD.search, NERD.expand, NERD.sidebar]}
+            rightIcons={[NERD.search, NERD.expand]}
+            inspectorOpen={treeOpen}
+            onToggleInspector={() => setTreeOpen((open) => !open)}
           />
-        }
-        sidebar={
-          <box style={{ flexDirection: "column", flexGrow: 1, paddingTop: 1 }}>
-            <scrollbox ref={sidebarScroll} style={{ flexGrow: 1 }} focused={false}>
-              <Tree
-                nodes={treeNodes}
-                expandedIds={expandedIds}
-                selectedId={selectedId}
-                theme={DARK}
-                onSelect={(id) => {
-                  setSelectedId(id);
-                  openStory(id);
-                }}
-                onToggle={(id) => {
-                  setSelectedId(id);
-                  toggleFolder(id);
-                }}
-              />
-            </scrollbox>
-          </box>
         }
         main={
           opened !== undefined ? (
@@ -146,6 +129,29 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
               <text fg={DARK.textDim}>Select a story</text>
             </box>
           )
+        }
+        inspectorWidth={34}
+        inspector={
+          treeOpen ? (
+            <box style={{ flexDirection: "column", flexGrow: 1, paddingTop: 1 }}>
+              <scrollbox ref={sidebarScroll} style={{ flexGrow: 1 }} focused={false}>
+                <Tree
+                  nodes={treeNodes}
+                  expandedIds={expandedIds}
+                  selectedId={selectedId}
+                  theme={DARK}
+                  onSelect={(id) => {
+                    setSelectedId(id);
+                    openStory(id);
+                  }}
+                  onToggle={(id) => {
+                    setSelectedId(id);
+                    toggleFolder(id);
+                  }}
+                />
+              </scrollbox>
+            </box>
+          ) : undefined
         }
         footer={
           <box style={{ height: 1, paddingLeft: 1 }}>
