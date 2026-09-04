@@ -1,4 +1,4 @@
-// The app shell's top bar: left panel toggle + icons + label, a center title, right tabs + icons + panel toggle.
+// The app shell's top bar: left panel toggle + icons + label, an optional title, right icons + panel toggle.
 
 import React from "react";
 import { DARK, type Theme } from "../theme";
@@ -9,13 +9,20 @@ export interface ShellTab {
   active?: boolean;
 }
 
+// A header icon; active paints it in the brand accent to mark the current view or mode.
+export interface ShellIcon {
+  glyph: string;
+  active?: boolean;
+  onPress?: () => void;
+}
+
 export interface ShellHeaderProps {
-  leftIcons?: readonly string[];
+  leftIcons?: readonly ShellIcon[];
   leftLabel?: string;
   titleIcon?: string;
   title?: string;
   tabs?: readonly ShellTab[];
-  rightIcons?: readonly string[];
+  rightIcons?: readonly ShellIcon[];
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   inspectorOpen?: boolean;
@@ -23,23 +30,21 @@ export interface ShellHeaderProps {
   theme?: Theme;
 }
 
-function ToggleButton({
-  glyph,
-  onPress,
-  color,
+function IconView({
+  icon,
+  tokens,
   marginRight,
-  marginLeft,
 }: {
-  glyph: string;
-  onPress: () => void;
-  color: string;
-  marginRight?: number;
-  marginLeft?: number;
+  icon: ShellIcon;
+  tokens: Theme;
+  marginRight: number;
 }): React.ReactNode {
-  // alignSelf center keeps the clickable box on the same row as the sibling icon text
+  const color = icon.active ? tokens.accent : tokens.textMuted;
+
+  // alignSelf center keeps the clickable box on the same row as sibling icons
   return (
-    <box onMouseUp={onPress} style={{ alignSelf: "center", marginRight, marginLeft }}>
-      <text fg={color}>{glyph}</text>
+    <box onMouseUp={icon.onPress} style={{ alignSelf: "center", marginRight }}>
+      <text fg={color}>{icon.glyph}</text>
     </box>
   );
 }
@@ -71,18 +76,22 @@ export function ShellHeader({
     >
       <box style={{ flexDirection: "row", alignItems: "center" }}>
         {onToggleSidebar !== undefined ? (
-          <ToggleButton
-            glyph={sidebarOpen ? NERD.sidebarLeft : NERD.sidebarLeftOff}
-            onPress={onToggleSidebar}
-            color={tokens.textMuted}
-            marginRight={2}
+          <IconView
+            icon={{
+              glyph: sidebarOpen ? NERD.sidebarLeft : NERD.sidebarLeftOff,
+              onPress: onToggleSidebar,
+            }}
+            tokens={tokens}
+            marginRight={3}
           />
         ) : null}
-        {leftIcons.map((glyph, index) => (
-          <text key={`left-${index}-${glyph}`} fg={tokens.textMuted}>
-            {glyph}
-            {"   "}
-          </text>
+        {leftIcons.map((icon, index) => (
+          <IconView
+            key={`left-${index}-${icon.glyph}`}
+            icon={icon}
+            tokens={tokens}
+            marginRight={3}
+          />
         ))}
         {leftLabel !== undefined ? (
           <text fg={tokens.textMuted}>
@@ -104,17 +113,22 @@ export function ShellHeader({
             {"   "}
           </text>
         ))}
-        {rightIcons.map((glyph, index) => (
-          <text key={`right-${index}-${glyph}`} fg={tokens.textMuted}>
-            {glyph}
-            {"   "}
-          </text>
+        {rightIcons.map((icon, index) => (
+          <IconView
+            key={`right-${index}-${icon.glyph}`}
+            icon={icon}
+            tokens={tokens}
+            marginRight={3}
+          />
         ))}
         {onToggleInspector !== undefined ? (
-          <ToggleButton
-            glyph={inspectorOpen ? NERD.sidebarRight : NERD.sidebarRightOff}
-            onPress={onToggleInspector}
-            color={tokens.textMuted}
+          <IconView
+            icon={{
+              glyph: inspectorOpen ? NERD.sidebarRight : NERD.sidebarRightOff,
+              onPress: onToggleInspector,
+            }}
+            tokens={tokens}
+            marginRight={0}
           />
         ) : null}
       </box>

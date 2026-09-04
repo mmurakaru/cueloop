@@ -1188,14 +1188,14 @@ exports[`stories catalog Chrome/SettingsRows/AllKinds renders, snapshots, and ca
 
 exports[`stories catalog Layout/ShellHeader/InspectorCollapsed renders, snapshots, and carries its colors: Layout/ShellHeader/InspectorCollapsed 1`] = `
 "                                                                                                                        
-       Read Cueloop Repository                                                                                     
+        Read Cueloop Repository                                                                                    
                                                                                                                         
 "
 `;
 
 exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, and carries its colors: Layout/ShellHeader/ReviewSurface 1`] = `
 "                                                                                                                        
-       Subagents  Read Cueloop Repository                                                    Changes              
+        Read Cueloop Repository                                                              Changes      ±        
                                                                                                                         
 "
 `;

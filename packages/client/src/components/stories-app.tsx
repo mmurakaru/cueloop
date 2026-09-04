@@ -108,11 +108,17 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
         mainHeader={
           <ShellHeader
             theme={DARK}
-            leftIcons={[NERD.settings]}
+            leftIcons={[{ glyph: NERD.settings }]}
             leftLabel="cueloop storybook"
-            rightIcons={[NERD.expand, NERD.diff, NERD.listTree]}
             inspectorOpen={treeOpen}
-            onToggleInspector={() => setTreeOpen((open) => !open)}
+            onToggleInspector={treeOpen ? undefined : () => setTreeOpen(true)}
+          />
+        }
+        inspectorHeader={
+          <ShellHeader
+            theme={DARK}
+            inspectorOpen={treeOpen}
+            onToggleInspector={() => setTreeOpen(false)}
           />
         }
         main={
