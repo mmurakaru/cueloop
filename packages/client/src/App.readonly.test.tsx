@@ -83,7 +83,7 @@ function snapshot() {
 }
 
 describe("observer rendering", () => {
-  test("shows the observer badge and the bottom menu", async () => {
+  test("shows the observer badge and the bottom version line", async () => {
     // Arrange
     const setup = await renderObserver();
 
@@ -91,7 +91,7 @@ describe("observer rendering", () => {
     const frame = setup.captureCharFrame();
 
     expect(frame).toContain("· observer");
-    expect(frame).toContain("menu");
+    expect(frame).toMatch(/v\d+\.\d+/); // the shared MenuBar version line sits at the bottom
   });
 });
 

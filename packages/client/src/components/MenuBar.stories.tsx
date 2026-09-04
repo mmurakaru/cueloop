@@ -5,7 +5,7 @@ import { MenuBar } from "./MenuBar";
 
 export const meta: StoryMeta = { title: "Chrome/MenuBar" };
 
-const callbacks = { onToggle: () => {}, onSettings: () => {}, onKeybinds: () => {} };
+const callbacks = { onSettings: () => {}, onKeybinds: () => {} };
 
 function BottomFrame({ children }: { children: React.ReactNode }): React.ReactNode {
   return (

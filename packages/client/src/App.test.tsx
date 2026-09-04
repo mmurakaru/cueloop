@@ -239,7 +239,7 @@ describe("inbox", () => {
 
     expect(frame).toContain("cueloop · resume");
     expect(frame).toContain("Migration Plan");
-    expect(frame).toContain("menu"); // the shared MenuBar sits at the bottom
+    expect(frame).toMatch(/v\d+\.\d+/); // the shared MenuBar version line sits at the bottom
     expect(frame).not.toContain("inbox ("); // the old inline header is gone
 
     // Act
@@ -254,12 +254,9 @@ describe("inbox", () => {
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "cueloop · resume");
-    const lines = setup.captureCharFrame().split("\n");
-    const menuRow = lines.findIndex((line) => line.includes("menu"));
-    const menuColumn = lines[menuRow]!.indexOf("menu");
 
-    // Act - open the drop-up from the shared menu bar
-    await setup.mockMouse.click(menuColumn + 1, menuRow);
+    // Act - open the drop-down from the top-left settings gear (header content row)
+    await setup.mockMouse.click(1, 1);
 
     // Assert - the drop-up options appear
     await waitForText(setup, "Keybinds");
@@ -281,12 +278,9 @@ describe("the thread view and the menu", () => {
     const setup = await renderApp();
 
     await waitForText(setup, "The daemon persists");
-    const lines = setup.captureCharFrame().split("\n");
-    const menuRow = lines.findIndex((line) => line.includes("menu"));
-    const menuColumn = lines[menuRow]!.indexOf("menu");
 
-    // Act - open the menu, then the keybinds dialog
-    await setup.mockMouse.click(menuColumn + 1, menuRow);
+    // Act - open the menu from the top-left settings gear, then the keybinds dialog
+    await setup.mockMouse.click(1, 1);
     await waitForText(setup, "Keybinds");
     const dropUp = setup.captureCharFrame().split("\n");
     const keybindsRow = dropUp.findIndex((line) => line.includes("Keybinds"));

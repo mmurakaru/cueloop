@@ -658,19 +658,19 @@ exports[`stories catalog Chrome/MenuBar/Closed renders, snapshots, and carries i
                                                             
                                                             
                                                             
- menu                                       v0.1.0-alpha.32 
+                                            v0.1.0-alpha.32 
 "
 `;
 
 exports[`stories catalog Chrome/MenuBar/Open renders, snapshots, and carries its colors: Chrome/MenuBar/Open 1`] = `
 "                                                            
                                                             
-                                                            
  ╭──────────────╮                                           
  │ Settings     │                                           
  │ Keybinds     │                                           
  ╰──────────────╯                                           
- menu                                       v0.1.0-alpha.32 
+                                                            
+                                            v0.1.0-alpha.32 
 "
 `;
 

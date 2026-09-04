@@ -1,5 +1,4 @@
 import React from "react";
-import { useTerminalDimensions } from "@opentui/react";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
@@ -7,39 +6,37 @@ import { FRAME_BORDER_STYLE } from "./primitives/frame";
 export interface MenuBarProps {
   open: boolean;
   version: string;
-  /** The transient status line, shown between the menu and the version. */
+  /** The transient status line, shown to the left of the version. */
   status?: string;
-  onToggle: () => void;
   onSettings: () => void;
   onKeybinds: () => void;
   theme?: Theme;
 }
 
-const DROPUP_OPTION_ROWS = 2;
+const DROPDOWN_OPTION_ROWS = 2;
 
 export function MenuBar({
   open,
   version,
   status,
-  onToggle,
   onSettings,
   onKeybinds,
   theme,
 }: MenuBarProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const { height: terminalHeight } = useTerminalDimensions();
-  const dropupHeight = DROPUP_OPTION_ROWS + 2;
+  const dropdownHeight = DROPDOWN_OPTION_ROWS + 2;
 
   return (
     <>
       {open ? (
+        // drops down from the top-left settings gear, below the header row
         <box
           style={{
             position: "absolute",
             left: 1,
-            top: Math.max(0, terminalHeight - 1 - dropupHeight),
+            top: 2,
             width: 16,
-            height: dropupHeight,
+            height: dropdownHeight,
             border: true,
             borderStyle: FRAME_BORDER_STYLE,
             borderColor: tokens.text,
@@ -63,10 +60,7 @@ export function MenuBar({
           paddingRight: 1,
         }}
       >
-        <box onMouseUp={onToggle}>
-          <text fg={tokens.textDim}>menu</text>
-        </box>
-        {status ? <text fg={tokens.accent}>{`  ${status}`}</text> : null}
+        {status ? <text fg={tokens.accent}>{status}</text> : null}
         <box style={{ flexGrow: 1 }} />
         <text fg={tokens.textDim}>v{version}</text>
       </box>
