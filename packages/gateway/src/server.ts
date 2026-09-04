@@ -29,7 +29,7 @@ import {
   unpackSessionBlob,
   MAX_BLOB_BYTES,
 } from "@cueloop/daemon/share-blob";
-import { BlobSessionClient } from "./blob-session-client";
+import { BlobSessionClient, withEntry } from "./blob-session-client";
 import {
   renderOverChannel,
   TERMINAL_RESTORE,
@@ -545,6 +545,8 @@ function mergeOwnerAnnotations(
   const byId = new Map(session.annotations.map((annotation) => [annotation.id, annotation]));
   const now = new Date().toISOString();
 
+  let next = session;
+
   for (const note of incoming) {
     const existing = byId.get(note.id);
 
@@ -553,7 +555,9 @@ function mergeOwnerAnnotations(
     const { author: _drop, ...rest } = note;
 
     byId.set(note.id, { ...rest, createdAt: existing?.createdAt ?? now });
+    if (!existing)
+      next = withEntry(next, { type: "comment", annotationId: note.id, createdAt: now });
   }
 
-  return { ...session, annotations: [...byId.values()] };
+  return { ...next, annotations: [...byId.values()] };
 }
