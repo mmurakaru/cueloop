@@ -12,7 +12,13 @@
  * Plan edits and agent verdicts stay rejected - a share has neither.
  */
 
-import { registerParticipant, type Annotation, type ReviewSession } from "@cueloop/schema";
+import {
+  appendEntry,
+  registerParticipant,
+  type Annotation,
+  type NewEntry,
+  type ReviewSession,
+} from "@cueloop/schema";
 import type { EventFrame, SessionClient } from "@cueloop/daemon/client";
 import { packSessionBlob, unpackSessionBlob } from "@cueloop/daemon/share-blob";
 import { openBlob, sealBlob } from "./crypto";
@@ -96,7 +102,12 @@ export class BlobSessionClient implements SessionClient {
     const writeBack = this.requireWriteBack();
 
     return this.commit(writeBack, (session) =>
-      removeOwnAnnotation(session, annotationId, writeBack.author),
+      removeOwnAnnotation(
+        session,
+        annotationId,
+        writeBack.author,
+        writeBack.now?.() ?? new Date().toISOString(),
+      ),
     );
   }
 
@@ -226,26 +237,48 @@ function upsertAnnotation(
       )
     : [...session.annotations, stamped];
 
+  const noted = existing
+    ? { ...session, annotations }
+    : withEntry(
+        { ...session, annotations },
+        { type: "comment", annotationId: stamped.id, createdAt: stamped.createdAt },
+      );
+
   // Leaving a note registers the author in the participant registry, so a
   // collaborator who skipped naming resolves to anonymous, not a raw fingerprint.
-  return registerParticipant({ ...session, annotations }, writeBack.author);
+  return registerParticipant(noted, writeBack.author);
 }
 
-/** Remove an annotation only when it is the collaborator's own. */
+/**
+ * Remove an annotation only when it is the collaborator's own. The share
+ * records the removal as an entry, so it reaches the owner and every other
+ * collaborator; the note itself is shelved, never dropped.
+ */
 function removeOwnAnnotation(
   session: ReviewSession,
   annotationId: string,
   author: string,
+  createdAt: string,
 ): ReviewSession {
   const existing = session.annotations.find((annotation) => annotation.id === annotationId);
 
   if (existing && existing.author !== author)
     throw new Error("cannot delete another author's note");
-
-  return {
+  if (!existing) return session;
+  const removed: ReviewSession = {
     ...session,
     annotations: session.annotations.filter((annotation) => annotation.id !== annotationId),
+    shelvedAnnotations: [...(session.shelvedAnnotations ?? []), existing],
   };
+
+  return withEntry(removed, { type: "comment-removed", annotationId, createdAt });
+}
+
+/** Append an entry on the branch the share follows; a share without a history carries none. */
+export function withEntry(session: ReviewSession, entry: NewEntry): ReviewSession {
+  if (!session.history) return session;
+
+  return { ...session, history: appendEntry(session.history, entry).history };
 }
 
 function rejectReadOnly(): Promise<never> {

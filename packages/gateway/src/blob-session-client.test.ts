@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { Annotation, ReviewSession } from "@cueloop/schema";
+import {
+  historyFromLinear,
+  removalEntries,
+  validateHistory,
+  type Annotation,
+  type ReviewSession,
+} from "@cueloop/schema";
 import { packSessionBlob, unpackSessionBlob } from "@cueloop/daemon/share-blob";
 import { BlobSessionClient, type ShareWriteBack } from "./blob-session-client";
 import { generateMasterKey, openBlob, sealBlob } from "./crypto";
@@ -140,6 +146,34 @@ describe("collaborator write-back", () => {
 
     // Assert
     expect(after.annotations.map((annotation) => annotation.id)).toEqual(["a_planner"]);
+  });
+
+  test("a share with a history records each note and each removal as an entry, shelving the removed note", async () => {
+    // Arrange: the seeded blob carries a one-branch history
+    const withHistory = sessionWith([PLANNER_NOTE]);
+
+    withHistory.history = historyFromLinear(withHistory);
+    await store.put(
+      "p_abc123xy",
+      sealBlob(writeBack.masterKey, "p_abc123xy", packSessionBlob(withHistory)),
+    );
+    const client = new BlobSessionClient(withHistory, writeBack);
+
+    // Act
+    await client.sessionAnnotate("ses_1", NOTE("a_collab", "note"));
+    const after = await client.sessionRemoveAnnotation("ses_1", "a_collab");
+
+    // Assert: the entry log tells the story; the note is shelved, not gone
+    expect(after.history!.entries.map((entry) => entry.type)).toEqual([
+      "revision",
+      "comment",
+      "comment",
+      "comment-removed",
+    ]);
+    expect(removalEntries(after.history!).map((entry) => entry.annotationId)).toEqual(["a_collab"]);
+    expect(after.annotations.map((annotation) => annotation.id)).toEqual(["a_planner"]);
+    expect(after.shelvedAnnotations!.map((annotation) => annotation.id)).toEqual(["a_collab"]);
+    expect(validateHistory((await storedSession()).history!)).toBeNull();
   });
 
   test("self-naming records the collaborator's identity in the participant registry", async () => {
