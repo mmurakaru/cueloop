@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { CodeBlock } from "./CodeBlock";
 
-export const meta: StoryMeta = { title: "CodeBlock" };
+export const meta: StoryMeta = { title: "Primitives/CodeBlock" };
 
 const SNIPPET = `export function gate(full: number) {
   // threshold

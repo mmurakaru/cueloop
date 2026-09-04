@@ -4,7 +4,7 @@ import type { WalkFile } from "../walk";
 import type { Story, StoryMeta } from "./story";
 import { WalkWizard } from "./WalkWizard";
 
-export const meta: StoryMeta = { title: "WalkWizard" };
+export const meta: StoryMeta = { title: "Overlays/WalkWizard" };
 
 const FILES: WalkFile[] = [
   {

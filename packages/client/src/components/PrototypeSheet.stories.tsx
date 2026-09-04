@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { PrototypeSheet } from "./PrototypeSheet";
 
-export const meta: StoryMeta = { title: "PrototypeSheet" };
+export const meta: StoryMeta = { title: "Surfaces/PrototypeSheet" };
 
 // The story renderer reports no kitty graphics, so the sheet shows its fallback.
 export const Unsupported: Story = {
