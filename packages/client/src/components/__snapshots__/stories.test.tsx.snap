@@ -140,6 +140,62 @@ exports[`stories catalog AnnotationCard/SavedSelected renders, snapshots, and ca
 "
 `;
 
+exports[`stories catalog Layout/AppShell/SidebarAndMain renders, snapshots, and carries its colors: Layout/AppShell/SidebarAndMain 1`] = `
+"                           │                                                              
+ Projects                  │ read the repo                                                
+  cueloop                  │                                                              
+  Read Cueloop Repository  │ Repository context loaded. main is clean.                    
+                           │                                                              
+ Threads                   │ Core architecture                                            
+  Welcome to cueloop       │  - packages/schema is the dependency root                    
+                           │  - packages/daemon owns session state                        
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+"
+`;
+
+exports[`stories catalog Layout/AppShell/ThreePane renders, snapshots, and carries its colors: Layout/AppShell/ThreePane 1`] = `
+" Read Cueloop Repository                                                                                markdown.test.ts
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                           │                                                    │                                       
+ Projects                  │ read the repo                                      │ cueloop/main                          
+  cueloop                  │                                                    │  No changes                           
+  Read Cueloop Repository  │ Repository context loaded. main is clean.          │                                       
+                           │                                                    │                                       
+ Threads                   │ Core architecture                                  │                                       
+  Welcome to cueloop       │  - packages/schema is the dependency root          │                                       
+                           │  - packages/daemon owns session state              │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ cueloop / main                                                                                                  Fable 5
+"
+`;
+
 exports[`stories catalog Breadcrumb/SessionHeader renders, snapshots, and carries its colors: Breadcrumb/SessionHeader 1`] = `
 " cueloop · Migration Plan · rev 2 · resolved: approve                           
                                                                                 
