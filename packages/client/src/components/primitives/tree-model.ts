@@ -1,12 +1,12 @@
 // Headless tree model mirrored from @pierre/trees (DOM-only): share the model, render our own.
 
-export type FileStatus = "added" | "modified" | "deleted" | "renamed" | "untracked" | "ignored";
+export type GitStatus = "added" | "modified" | "deleted" | "renamed" | "untracked" | "ignored";
 
 export interface TreeNode {
   id: string;
   label: string;
   children?: TreeNode[];
-  status?: FileStatus;
+  status?: GitStatus;
   badge?: string;
   icon?: string;
 }
@@ -22,7 +22,7 @@ export interface VisibleRow {
   depth: number;
   isFolder: boolean;
   expanded: boolean;
-  status?: FileStatus;
+  status?: GitStatus;
   badge?: string;
   icon?: string;
 }
@@ -119,7 +119,7 @@ export interface StatusMeta {
   tone: TreeTone;
 }
 
-export function statusMeta(status: FileStatus): StatusMeta {
+export function statusMeta(status: GitStatus): StatusMeta {
   switch (status) {
     case "added":
       return { letter: "A", tone: "green" };
