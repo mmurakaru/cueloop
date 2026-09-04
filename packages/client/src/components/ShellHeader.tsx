@@ -68,8 +68,12 @@ export function ShellHeader({
           {glyph}{" "}
         </text>
       ))}
-      {leftLabel !== undefined ? <text fg={tokens.textMuted}>{leftLabel}</text> : null}
-      <box style={{ flexGrow: 1 }} />
+      {leftLabel !== undefined ? (
+        <text fg={tokens.textMuted}>
+          {leftLabel}
+          {"  "}
+        </text>
+      ) : null}
       {titleIcon !== undefined ? <text fg={tokens.textDim}>{titleIcon} </text> : null}
       {title !== undefined ? <text fg={tokens.text}>{title}</text> : null}
       <box style={{ flexGrow: 1 }} />

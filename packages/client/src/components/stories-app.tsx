@@ -109,8 +109,6 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
           <ShellHeader
             theme={DARK}
             leftIcons={[NERD.settings]}
-            leftLabel="cueloop stories"
-            title={opened !== undefined ? `${opened.moduleTitle} / ${opened.storyName}` : "cueloop"}
             rightIcons={[NERD.search, NERD.expand]}
             inspectorOpen={treeOpen}
             onToggleInspector={() => setTreeOpen((open) => !open)}
