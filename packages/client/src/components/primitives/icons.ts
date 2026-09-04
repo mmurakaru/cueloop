@@ -1,4 +1,4 @@
-// Nerd Font glyphs (Unicode Private Use Area); render as icons under a Nerd Font, tofu without one.
+// Nerd Font glyphs (Private Use Area / codicons); render as icons under a Nerd Font, tofu without one.
 
 export const NERD = {
   folderClosed: "",
@@ -6,12 +6,15 @@ export const NERD = {
   file: "",
   chevronRight: "",
   chevronDown: "",
-  search: "",
-  settings: "",
-  expand: "",
-  split: "",
-  history: "",
-  sidebar: "",
+  settings: "",
+  search: "",
+  expand: "",
+  diff: "",
+  listTree: "",
+  sidebarLeft: "",
+  sidebarLeftOff: "",
+  sidebarRight: "",
+  sidebarRightOff: "",
 } as const;
 
 export interface TreeIcons {
