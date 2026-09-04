@@ -16,6 +16,7 @@ import {
 } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { createReviewController, type ShareTransport } from "./session-controller";
+import { mergeFromShare } from "./share";
 
 const AT = "2026-01-01T00:00:00.000Z";
 
@@ -59,6 +60,7 @@ const shareTransport: ShareTransport = {
   watch: () => () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
+  mergeFromShare,
 };
 
 const unimplemented = (member: string) => () =>

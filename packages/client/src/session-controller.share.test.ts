@@ -8,7 +8,7 @@ import {
   SHARE_RECONNECT_MIN_MS,
   type ShareTransport,
 } from "./session-controller";
-import type { ShareWatchHandlers } from "./share";
+import { mergeFromShare, type ShareWatchHandlers } from "./share";
 
 const publishShare = mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: true }));
 let remote: ReviewSession;
@@ -24,6 +24,7 @@ const shareTransport: ShareTransport = {
   watch: () => () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
+  mergeFromShare,
 };
 
 function sessionFixture(overrides: Partial<ReviewSession> = {}): ReviewSession {

@@ -12,8 +12,14 @@ import {
   SHARE_UPLOAD_USER,
   packSessionBlob,
 } from "@cueloop/daemon/share-blob";
-import type { Annotation, ReviewSession } from "@cueloop/schema";
+import {
+  removalEntries,
+  viewFollowing,
+  type Annotation,
+  type ReviewSession,
+} from "@cueloop/schema";
 import { SessionRecordSchema } from "@cueloop/daemon/validate";
+import type { SharedMerge } from "@cueloop/daemon/client";
 import * as v from "valibot";
 import { copyToClipboard } from "./clipboard";
 
@@ -41,7 +47,8 @@ export async function publishShare(
 ): Promise<ShareResult> {
   const { stdout, stderr, code } = await runShareSsh(
     "cueloop-share",
-    packSessionBlob(session),
+    // the share follows one branch: collaborators see its path wherever the owner stands
+    packSessionBlob(viewFollowing(session)),
     target,
   );
 
@@ -71,6 +78,25 @@ export async function pullShare(shareId: string, target: ShareTarget = {}): Prom
 /** A share's collaborator notes: the ones a viewer authored (author stamped). */
 export function collaboratorAnnotations(session: ReviewSession): Annotation[] {
   return session.annotations.filter((annotation) => annotation.author);
+}
+
+/**
+ * What a pulled share hands the local merge: collaborators' notes, the
+ * participant registry, and the removals the share recorded, by entry id.
+ */
+export function mergeFromShare(remote: ReviewSession): SharedMerge {
+  const merge: SharedMerge = { annotations: collaboratorAnnotations(remote) };
+
+  if (remote.participants) merge.participants = remote.participants;
+  if (remote.history) {
+    merge.removals = removalEntries(remote.history).map((entry) => ({
+      id: entry.id,
+      annotationId: entry.annotationId,
+      createdAt: entry.createdAt,
+    }));
+  }
+
+  return merge;
 }
 
 /**

@@ -15,6 +15,7 @@ import {
   cutBlock,
   detectHerdr,
   labelTip,
+  MAIN_BRANCH,
   makeAnchor,
   navigateTo,
   newAnnotationId,
@@ -33,6 +34,7 @@ import {
 import { loadBundledExporters, type BundledExporter } from "./integrations";
 import {
   collaboratorAnnotations,
+  mergeFromShare,
   publishShare,
   pullShare,
   pushShare,
@@ -149,6 +151,7 @@ export interface ShareTransport {
   watch: typeof watchShare;
   parseShareId: typeof shareIdFromLine;
   collaboratorAnnotations: typeof collaboratorAnnotations;
+  mergeFromShare: typeof mergeFromShare;
 }
 
 const DEFAULT_SHARE_TRANSPORT: ShareTransport = {
@@ -158,6 +161,7 @@ const DEFAULT_SHARE_TRANSPORT: ShareTransport = {
   push: pushShare,
   parseShareId: shareIdFromLine,
   collaboratorAnnotations,
+  mergeFromShare,
 };
 
 export interface ReviewControllerOptions {
@@ -905,9 +909,12 @@ class Controller implements ReviewController {
     persisted: Promise<ReviewSession>,
     annotation: Omit<Annotation, "createdAt">,
   ): void {
-    const shareId = this.snapshot.session?.shareId;
+    const session = this.snapshot.session;
+    const shareId = session?.shareId;
 
     if (!shareId) return;
+    // the share follows one branch: a note left on another stays the owner's
+    if (session.history && session.history.branch !== (session.shareBranch ?? MAIN_BRANCH)) return;
     void persisted.then(() => this.shareTransport.push(shareId, [annotation])).catch(() => {});
   }
 
@@ -1167,10 +1174,7 @@ class Controller implements ReviewController {
     if (!session || !this.client) return Promise.resolve();
 
     return this.client
-      .sessionMergeShared(session.id, {
-        annotations: this.shareTransport.collaboratorAnnotations(remote),
-        participants: remote.participants,
-      })
+      .sessionMergeShared(session.id, this.shareTransport.mergeFromShare(remote))
       .then(() => {})
       .catch(() => {});
   }

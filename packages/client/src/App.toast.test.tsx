@@ -30,6 +30,7 @@ const shareTransport: ShareTransport = {
   watch: () => () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
   collaboratorAnnotations: () => [],
+  mergeFromShare: () => ({ annotations: [] }),
 };
 
 const PLAN = `# Migration Plan\n\n## Context\n\nThe daemon persists sessions to disk atomically.\n`;
