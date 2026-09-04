@@ -27,13 +27,18 @@ function ToggleButton({
   glyph,
   onPress,
   color,
+  marginRight,
+  marginLeft,
 }: {
   glyph: string;
   onPress: () => void;
   color: string;
+  marginRight?: number;
+  marginLeft?: number;
 }): React.ReactNode {
+  // alignSelf center keeps the clickable box on the same row as the sibling icon text
   return (
-    <box onMouseUp={onPress} style={{ marginRight: 2 }}>
+    <box onMouseUp={onPress} style={{ alignSelf: "center", marginRight, marginLeft }}>
       <text fg={color}>{glyph}</text>
     </box>
   );
@@ -58,53 +63,61 @@ export function ShellHeader({
     <box
       style={{
         flexDirection: "row",
-        height: 3,
+        height: "100%",
         alignItems: "center",
         paddingLeft: 2,
         paddingRight: 2,
       }}
     >
-      {onToggleSidebar !== undefined ? (
-        <ToggleButton
-          glyph={sidebarOpen ? NERD.sidebarLeft : NERD.sidebarLeftOff}
-          onPress={onToggleSidebar}
-          color={tokens.textMuted}
-        />
-      ) : null}
-      {leftIcons.map((glyph, index) => (
-        <text key={`left-${index}-${glyph}`} fg={tokens.textMuted}>
-          {glyph}
-          {"   "}
-        </text>
-      ))}
-      {leftLabel !== undefined ? (
-        <text fg={tokens.textMuted}>
-          {leftLabel}
-          {"  "}
-        </text>
-      ) : null}
-      {titleIcon !== undefined ? <text fg={tokens.textDim}>{titleIcon} </text> : null}
-      {title !== undefined ? <text fg={tokens.text}>{title}</text> : null}
+      <box style={{ flexDirection: "row", alignItems: "center" }}>
+        {onToggleSidebar !== undefined ? (
+          <ToggleButton
+            glyph={sidebarOpen ? NERD.sidebarLeft : NERD.sidebarLeftOff}
+            onPress={onToggleSidebar}
+            color={tokens.textMuted}
+            marginRight={2}
+          />
+        ) : null}
+        {leftIcons.map((glyph, index) => (
+          <text key={`left-${index}-${glyph}`} fg={tokens.textMuted}>
+            {glyph}
+            {"   "}
+          </text>
+        ))}
+        {leftLabel !== undefined ? (
+          <text fg={tokens.textMuted}>
+            {leftLabel}
+            {"  "}
+          </text>
+        ) : null}
+        {titleIcon !== undefined ? <text fg={tokens.textDim}>{titleIcon} </text> : null}
+        {title !== undefined ? <text fg={tokens.text}>{title}</text> : null}
+      </box>
       <box style={{ flexGrow: 1 }} />
-      {tabs.map((tab, index) => (
-        <text key={`tab-${index}-${tab.label}`} fg={tab.active ? tokens.accent : tokens.textMuted}>
-          {tab.label}
-          {"   "}
-        </text>
-      ))}
-      {rightIcons.map((glyph, index) => (
-        <text key={`right-${index}-${glyph}`} fg={tokens.textMuted}>
-          {glyph}
-          {"   "}
-        </text>
-      ))}
-      {onToggleInspector !== undefined ? (
-        <ToggleButton
-          glyph={inspectorOpen ? NERD.sidebarRight : NERD.sidebarRightOff}
-          onPress={onToggleInspector}
-          color={tokens.textMuted}
-        />
-      ) : null}
+      <box style={{ flexDirection: "row", alignItems: "center" }}>
+        {tabs.map((tab, index) => (
+          <text
+            key={`tab-${index}-${tab.label}`}
+            fg={tab.active ? tokens.accent : tokens.textMuted}
+          >
+            {tab.label}
+            {"   "}
+          </text>
+        ))}
+        {rightIcons.map((glyph, index) => (
+          <text key={`right-${index}-${glyph}`} fg={tokens.textMuted}>
+            {glyph}
+            {"   "}
+          </text>
+        ))}
+        {onToggleInspector !== undefined ? (
+          <ToggleButton
+            glyph={inspectorOpen ? NERD.sidebarRight : NERD.sidebarRightOff}
+            onPress={onToggleInspector}
+            color={tokens.textMuted}
+          />
+        ) : null}
+      </box>
     </box>
   );
 }

@@ -142,6 +142,9 @@ exports[`stories catalog Cards/AnnotationCard/SavedSelected renders, snapshots, 
 
 exports[`stories catalog Layout/AppShell/SidebarAndMain renders, snapshots, and carries its colors: Layout/AppShell/SidebarAndMain 1`] = `
 "                           │                                                              
+                           │                                                              
+───────────────────────────│──────────────────────────────────────────────────────────────
+                           │                                                              
  Projects                  │ read the repo                                                
   cueloop                  │                                                              
   Read Cueloop Repository  │ Repository context loaded. main is clean.                    
@@ -158,14 +161,13 @@ exports[`stories catalog Layout/AppShell/SidebarAndMain renders, snapshots, and 
                            │                                                              
                            │                                                              
                            │                                                              
-                           │                                                              
-                           │                                                              
-                           │                                                              
 "
 `;
 
 exports[`stories catalog Layout/AppShell/ThreePane renders, snapshots, and carries its colors: Layout/AppShell/ThreePane 1`] = `
-" Read Cueloop Repository                                                                                markdown.test.ts
+"                           │ Read Cueloop Repository            markdown.test.ts│                                       
+                           │                                                    │                                       
+───────────────────────────│────────────────────────────────────────────────────│───────────────────────────────────────
                            │                                                    │                                       
  Projects                  │ read the repo                                      │ cueloop/main                          
   cueloop                  │                                                    │  No changes                           
@@ -174,8 +176,6 @@ exports[`stories catalog Layout/AppShell/ThreePane renders, snapshots, and carri
  Threads                   │ Core architecture                                  │                                       
   Welcome to cueloop       │  - packages/schema is the dependency root          │                                       
                            │  - packages/daemon owns session state              │                                       
-                           │                                                    │                                       
-                           │                                                    │                                       
                            │                                                    │                                       
                            │                                                    │                                       
                            │                                                    │                                       
@@ -1188,14 +1188,14 @@ exports[`stories catalog Chrome/SettingsRows/AllKinds renders, snapshots, and ca
 
 exports[`stories catalog Layout/ShellHeader/InspectorCollapsed renders, snapshots, and carries its colors: Layout/ShellHeader/InspectorCollapsed 1`] = `
 "                                                                                                                        
-       Read Cueloop Repository                                                                                     
+       Read Cueloop Repository                                                                                     
                                                                                                                         
 "
 `;
 
 exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, and carries its colors: Layout/ShellHeader/ReviewSurface 1`] = `
 "                                                                                                                        
-       Subagents  Read Cueloop Repository                                                  Changes                
+       Subagents  Read Cueloop Repository                                                    Changes              
                                                                                                                         
 "
 `;
@@ -1467,7 +1467,9 @@ exports[`stories catalog Chrome/AgentLauncher/Launcher renders, snapshots, and c
 `;
 
 exports[`stories catalog Pages/Workspace/ThreePane renders, snapshots, and carries its colors: Pages/Workspace/ThreePane 1`] = `
-" Review the app shell                                                                                                                             cueloop / main
+"                           │ Review the app shell                                                         cueloop / main│                                       
+                           │                                                                                            │                                       
+───────────────────────────│────────────────────────────────────────────────────────────────────────────────────────────│───────────────────────────────────────
                            │                                                                                            │                                       
   Projects                │ Review the app shell                                                                       │ AppShell.tsx                          
     cueloop               │                                                                                            │                                       
@@ -1486,8 +1488,6 @@ exports[`stories catalog Pages/Workspace/ThreePane renders, snapshots, and carri
                            │                                                                                            │       AppShell.tsx                 M 
                            │                                                                                            │       Workspace.stories.tsx        A 
                            │                                                                                            │   README.md                        M 
-                           │                                                                                            │                                       
-                           │                                                                                            │                                       
                            │                                                                                            │                                       
                            │                                                                                            │                                       
                            │                                                                                            │                                       

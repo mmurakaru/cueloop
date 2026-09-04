@@ -66,9 +66,9 @@ function Footer(): React.ReactNode {
 export const ThreePane: Story = {
   render: () => (
     <AppShell
-      header={<Header />}
       sidebar={<Sidebar />}
       main={<Main />}
+      mainHeader={<Header />}
       inspector={<Inspector />}
       footer={<Footer />}
     />
