@@ -167,4 +167,35 @@ describe("viewFollowing", () => {
     // the owner's record is untouched
     expect(session.annotations.map((entry) => entry.id)).toEqual(["a1", "b1"]);
   });
+
+  test("a followed branch that no longer exists falls back to main", () => {
+    // Arrange: a plain main-only history, asked to follow a branch that is not there
+    const history = historyFromLinear({
+      id: "ses_1",
+      revisions: [{ revision: 1, content: "Plan v1", submittedAt: AT }],
+      annotations: [],
+      verdict: null,
+      createdAt: AT,
+    });
+    const session: ReviewSession = {
+      schemaVersion: "1",
+      id: "ses_1",
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: { type: "plan", content: "Plan v1", meta: {} },
+      revisions: [],
+      annotations: [],
+      shareBranch: "gone",
+      history,
+      verdict: null,
+      status: "pending",
+      createdAt: AT,
+    };
+
+    // Act
+    const shared = viewFollowing(session);
+
+    // Assert: it does not throw, and falls back to main
+    expect(shared.shareBranch).toBe("main");
+    expect(shared.history!.branch).toBe("main");
+  });
 });
