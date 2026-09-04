@@ -1456,23 +1456,23 @@ exports[`stories catalog Pages/Workspace/ThreePane renders, snapshots, and carri
 " Review the app shell                                                                                                                             cueloop / main
 ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
                            │                                                                                            │                                       
- ▾ Projects                │ Review the app shell                                                                       │ AppShell.tsx                          
-   ▾ cueloop               │                                                                                            │                                       
-      Review the app shell │ The three-pane layout divides regions with straight rules only.                            │  17 export function AppShell({        
+  Projects                │ Review the app shell                                                                       │ AppShell.tsx                          
+    cueloop               │                                                                                            │                                       
+     Review the app shell │ The three-pane layout divides regions with straight rules only.                            │  17 export function AppShell({        
                            │ Sidebar navigates, the transcript reads, the inspector shows code.                         │  18   header,                         
-       Read Cueloop        │                                                                                            │  19   sidebar,                        
+      Read Cueloop        │                                                                                            │  19   sidebar,                        
        Repository          │ │ markus commented on AppShell.tsx                                                         │  20   main,                           
- ▾ Threads                 │ │ The single rules read cleaner than an enclosing frame here.                              │  21   inspector,                      
-     Welcome to cueloop    │                                                                                            │  22 }: AppShellProps) {               
+  Threads                 │ │ The single rules read cleaner than an enclosing frame here.                              │  21   inspector,                      
+    Welcome to cueloop    │                                                                                            │  22 }: AppShellProps) {               
                            │ Header and footer are thin label rows the shell rules itself.                              │  23   const tokens = theme ?? DARK;   
                            │                                                                                            │  24   return <box>{main}</box>;       
                            │                                                                                            │                                       
                            │                                                                                            │ Changed files                         
-                           │                                                                                            │  ▾ packages                           
-                           │                                                                                            │    ▾ client                           
-                           │                                                                                            │        AppShell.tsx                 M 
-                           │                                                                                            │        Workspace.stories.tsx        A 
-                           │                                                                                            │    README.md                        M 
+                           │                                                                                            │   packages                           
+                           │                                                                                            │     client                           
+                           │                                                                                            │       AppShell.tsx                 M 
+                           │                                                                                            │       Workspace.stories.tsx        A 
+                           │                                                                                            │   README.md                        M 
                            │                                                                                            │                                       
                            │                                                                                            │                                       
                            │                                                                                            │                                       
@@ -1772,14 +1772,14 @@ exports[`stories catalog Primitives/Toolbar/ActionRow renders, snapshots, and ca
 
 exports[`stories catalog Primitives/Tree/FileTree renders, snapshots, and carries its colors: Primitives/Tree/FileTree 1`] = `
 "                                            
- ▾ packages                                 
-   ▾ schema                                 
-       types.ts                       M     
-       tree-model.ts                  A     
-   ▾ daemon                                 
-       api.ts                         M     
-   README.md                                
-   old.ts                             D     
+  packages                                 
+    schema                                 
+      types.ts                       M     
+      tree-model.ts                  A     
+    daemon                                 
+      api.ts                         M     
+  README.md                                
+  old.ts                             D     
                                             
                                             
                                             
@@ -1792,8 +1792,8 @@ exports[`stories catalog Primitives/Tree/FileTree renders, snapshots, and carrie
 
 exports[`stories catalog Primitives/Tree/FlattenedChain renders, snapshots, and carries its colors: Primitives/Tree/FlattenedChain 1`] = `
 "                                            
- ▾ src/components/primitives                
-     Tree.tsx                         A     
+  src/components/primitives                
+    Tree.tsx                         A     
                                             
                                             
                                             
@@ -1806,11 +1806,11 @@ exports[`stories catalog Primitives/Tree/FlattenedChain renders, snapshots, and 
 
 exports[`stories catalog Primitives/Tree/ProjectsThreads renders, snapshots, and carries its colors: Primitives/Tree/ProjectsThreads 1`] = `
 "                                            
- ▾ Projects                                 
-   ▾ cueloop                                
-       Read Cueloop Repository              
- ▾ Threads                                  
-     Welcome to cueloop                     
+  Projects                                 
+    cueloop                                
+      Read Cueloop Repository              
+  Threads                                  
+    Welcome to cueloop                     
                                             
                                             
                                             
