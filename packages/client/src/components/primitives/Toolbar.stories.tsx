@@ -3,7 +3,7 @@ import type { Story, StoryMeta } from "../story";
 import { Button } from "./Button";
 import { Toolbar } from "./Toolbar";
 
-export const meta: StoryMeta = { title: "primitives/Toolbar" };
+export const meta: StoryMeta = { title: "Primitives/Toolbar" };
 
 export const ActionRow: Story = {
   render: () => (

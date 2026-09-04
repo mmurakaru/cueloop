@@ -4,7 +4,7 @@ import { DEFAULT_QUICK_ACTIONS } from "../config";
 import type { Story, StoryMeta } from "./story";
 import { MarkerPopover } from "./MarkerPopover";
 
-export const meta: StoryMeta = { title: "MarkerPopover" };
+export const meta: StoryMeta = { title: "Overlays/MarkerPopover" };
 
 const callbacks = {
   onComment: () => {},

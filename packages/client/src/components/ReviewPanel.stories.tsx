@@ -5,7 +5,7 @@ import type { Story, StoryMeta } from "./story";
 import { ReviewPanel } from "./ReviewPanel";
 import { FIXTURE_ANNOTATIONS, fixturePlanSession } from "./story-fixtures";
 
-export const meta: StoryMeta = { title: "ReviewPanel" };
+export const meta: StoryMeta = { title: "Surfaces/ReviewPanel" };
 
 /** An empty Tree tab: the stories here show the review tab. */
 const tree = {

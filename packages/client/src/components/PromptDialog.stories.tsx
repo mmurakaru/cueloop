@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { PromptDialog } from "./PromptDialog";
 
-export const meta: StoryMeta = { title: "PromptDialog" };
+export const meta: StoryMeta = { title: "Overlays/PromptDialog" };
 
 export const RenameAuthor: Story = {
   render: () => (

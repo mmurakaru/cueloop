@@ -4,7 +4,7 @@ import type { Story, StoryMeta } from "./story";
 import { TreePane } from "./TreePane";
 import type { TreeRow } from "../tree-view";
 
-export const meta: StoryMeta = { title: "TreePane" };
+export const meta: StoryMeta = { title: "Surfaces/TreePane" };
 
 const callbacks = {
   onSelect: () => {},

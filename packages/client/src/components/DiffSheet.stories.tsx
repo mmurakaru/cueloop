@@ -4,7 +4,7 @@ import type { Story, StoryMeta } from "./story";
 import { DiffSheet } from "./DiffSheet";
 import { FIXTURE_PATCH, fixtureDiffRows } from "./story-fixtures";
 
-export const meta: StoryMeta = { title: "DiffSheet" };
+export const meta: StoryMeta = { title: "Surfaces/DiffSheet" };
 
 export const SignedRows: Story = {
   render: () => <DiffSheet rows={fixtureDiffRows()} cursor={0} annotations={[]} />,

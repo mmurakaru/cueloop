@@ -4,7 +4,7 @@ import { DEFAULT_QUICK_ACTIONS } from "../config";
 import type { Story, StoryMeta } from "./story";
 import { QuickActionsEditor } from "./quick-actions-editor";
 
-export const meta: StoryMeta = { title: "QuickActionsEditor" };
+export const meta: StoryMeta = { title: "Chrome/QuickActionsEditor" };
 
 /** The editor renders inside the settings body column. */
 function BodyFrame({ children }: { children: React.ReactNode }): React.ReactNode {

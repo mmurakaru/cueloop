@@ -4,7 +4,7 @@ import type { Story, StoryMeta } from "./story";
 import { InboxList } from "./InboxList";
 import { fixtureDiffSession, fixturePlanSession } from "./story-fixtures";
 
-export const meta: StoryMeta = { title: "InboxList" };
+export const meta: StoryMeta = { title: "Surfaces/InboxList" };
 
 /** InboxList is the body under App's header/menu chrome; a frame gives it height. */
 function BodyFrame({ children }: { children: React.ReactNode }): React.ReactNode {

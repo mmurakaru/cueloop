@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { MenuBar } from "./MenuBar";
 
-export const meta: StoryMeta = { title: "MenuBar" };
+export const meta: StoryMeta = { title: "Chrome/MenuBar" };
 
 const callbacks = { onToggle: () => {}, onSettings: () => {}, onKeybinds: () => {} };
 

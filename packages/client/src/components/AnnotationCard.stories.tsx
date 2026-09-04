@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { AnnotationCard } from "./AnnotationCard";
 
-export const meta: StoryMeta = { title: "AnnotationCard" };
+export const meta: StoryMeta = { title: "Cards/AnnotationCard" };
 
 const draftCallbacks = { onInput: () => {}, onSave: () => {}, onCancel: () => {} };
 

@@ -4,7 +4,7 @@ import { THEME_PRESETS } from "../theme-presets";
 import type { Story, StoryMeta } from "./story";
 import { SettingsDialog, type SettingsCategory } from "./SettingsDialog";
 
-export const meta: StoryMeta = { title: "SettingsDialog" };
+export const meta: StoryMeta = { title: "Overlays/SettingsDialog" };
 
 const CATEGORIES: SettingsCategory[] = [
   {

@@ -5,7 +5,7 @@ import type { Story, StoryMeta } from "./story";
 import { fixtureDisplay, fixtureMarks, fixturePlanSession } from "./story-fixtures";
 import { ThreadView } from "./ThreadView";
 
-export const meta: StoryMeta = { title: "ThreadView" };
+export const meta: StoryMeta = { title: "Surfaces/ThreadView" };
 
 export const InlineThreads: Story = {
   render: () => (
