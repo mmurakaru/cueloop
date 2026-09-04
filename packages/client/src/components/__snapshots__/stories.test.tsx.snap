@@ -1452,6 +1452,52 @@ exports[`stories catalog Chrome/AgentLauncher/Launcher renders, snapshots, and c
 "
 `;
 
+exports[`stories catalog Pages/Workspace/ThreePane renders, snapshots, and carries its colors: Pages/Workspace/ThreePane 1`] = `
+" Review the app shell                                                                                                                             cueloop / main
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                           │                                                                                            │                                       
+ ▾ Projects                │ Review the app shell                                                                       │ AppShell.tsx                          
+   ▾ cueloop               │                                                                                            │                                       
+      Review the app shell │ The three-pane layout divides regions with straight rules only.                            │  17 export function AppShell({        
+                           │ Sidebar navigates, the transcript reads, the inspector shows code.                         │  18   header,                         
+       Read Cueloop        │                                                                                            │  19   sidebar,                        
+       Repository          │ │ markus commented on AppShell.tsx                                                         │  20   main,                           
+ ▾ Threads                 │ │ The single rules read cleaner than an enclosing frame here.                              │  21   inspector,                      
+     Welcome to cueloop    │                                                                                            │  22 }: AppShellProps) {               
+                           │ Header and footer are thin label rows the shell rules itself.                              │  23   const tokens = theme ?? DARK;   
+                           │                                                                                            │  24   return <box>{main}</box>;       
+                           │                                                                                            │                                       
+                           │                                                                                            │ Changed files                         
+                           │                                                                                            │  ▾ packages                           
+                           │                                                                                            │    ▾ client                           
+                           │                                                                                            │        AppShell.tsx                 M 
+                           │                                                                                            │        Workspace.stories.tsx        A 
+                           │                                                                                            │    README.md                        M 
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+                           │                                                                                            │                                       
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ 2 files changed                                                                                                                                         Fable 5
+"
+`;
+
 exports[`stories catalog Primitives/Button/Disabled renders, snapshots, and carries its colors: Primitives/Button/Disabled 1`] = `
 " Edit                                                                           
                                                                                 
