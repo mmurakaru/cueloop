@@ -7,7 +7,7 @@ import {
   switchBranch,
   type SessionHistory,
 } from "./history";
-import { applyPathView, viewOfPath } from "./path-view";
+import { applyPathView, viewFollowing, viewOfPath } from "./path-view";
 import type { Annotation, ReviewSession } from "./types";
 
 const AT = "2026-09-01T10:00:00.000Z";
@@ -128,5 +128,43 @@ describe("applyPathView", () => {
     expect(session.annotations.map((entry) => entry.id)).toEqual(["a1", "a2"]);
     expect("workingCopy" in session).toBe(false);
     expect("shelvedAnnotations" in session).toBe(false);
+  });
+});
+
+describe("viewFollowing", () => {
+  test("a share carries one branch's path: its entries, tip, labels, and open comments, nothing shelved", () => {
+    // Arrange: main has a1 and an edit; a branch off a1 has its own comment; the owner stands on the branch
+    let history = threaded();
+
+    history = navigateTo(history, history.entries[1]!.id);
+    history = createBranch(history, "alt");
+    history = appendEntry(history, { type: "comment", annotationId: "b1", createdAt: AT }).history;
+    const session: ReviewSession = {
+      schemaVersion: "1",
+      id: "ses_1",
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: { type: "plan", content: "Plan v1", meta: {} },
+      revisions: [],
+      annotations: [annotation("a1"), annotation("b1")],
+      shelvedAnnotations: [annotation("a2")],
+      workingCopy: "Plan v1 edited",
+      history,
+      verdict: null,
+      status: "pending",
+      createdAt: AT,
+    };
+
+    // Act
+    const shared = viewFollowing(session);
+
+    // Assert: main's path only, back at the first comment, no working copy, no shelf, the branch named
+    expect(shared.shareBranch).toBe("main");
+    expect(shared.history!.tips).toEqual({ main: history.entries[1]!.id });
+    expect(shared.history!.entries.map((entry) => entry.type)).toEqual(["revision", "comment"]);
+    expect(shared.annotations.map((entry) => entry.id)).toEqual(["a1"]);
+    expect("shelvedAnnotations" in shared).toBe(false);
+    expect("workingCopy" in shared).toBe(false);
+    // the owner's record is untouched
+    expect(session.annotations.map((entry) => entry.id)).toEqual(["a1", "b1"]);
   });
 });

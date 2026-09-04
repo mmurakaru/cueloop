@@ -3,6 +3,7 @@ import {
   appendEntry,
   createBranch,
   derivePath,
+  followBranch,
   forkHistory,
   historyFromLinear,
   HistoryError,
@@ -11,6 +12,7 @@ import {
   navigateTo,
   pathOf,
   recaptureMainHead,
+  removalEntries,
   switchBranch,
   tipOf,
   validateHistory,
@@ -331,5 +333,63 @@ describe("historyFromLinear", () => {
 
     // Assert
     expect(historyFromLinear(record)).toEqual(historyFromLinear(record));
+  });
+});
+
+describe("followBranch", () => {
+  test("carries one branch's path and its labels, dropping other branches", () => {
+    // Arrange: main has rev1 -> a1 (labelled); a branch off a1 adds a comment
+    let history = historyFromLinear({
+      id: "ses_1",
+      revisions: [{ revision: 1, content: "v1", submittedAt: AT }],
+      annotations: [],
+      verdict: null,
+      createdAt: AT,
+    });
+
+    history = appendEntry(history, { type: "comment", annotationId: "a1", createdAt: AT }).history;
+    history = labelTip(history, "checkpoint");
+    const labelled = tipOf(history);
+
+    history = createBranch(history, "alt");
+    history = appendEntry(history, { type: "comment", annotationId: "b1", createdAt: AT }).history;
+
+    // Act: a share following main sees only main's path
+    const followed = followBranch(history, MAIN_BRANCH);
+
+    // Assert
+    expect(followed.branch).toBe(MAIN_BRANCH);
+    expect(followed.tips).toEqual({ [MAIN_BRANCH]: labelled });
+    expect(followed.entries.map((entry) => entry.type)).toEqual(["revision", "comment"]);
+    expect(followed.labels).toEqual({ [labelled]: "checkpoint" });
+    expect(validateHistory(followed)).toBeNull();
+  });
+});
+
+describe("removalEntries", () => {
+  test("returns the comment-removed entries in order, and nothing else", () => {
+    // Arrange
+    let history = historyFromLinear({
+      id: "ses_1",
+      revisions: [{ revision: 1, content: "v1", submittedAt: AT }],
+      annotations: [],
+      verdict: null,
+      createdAt: AT,
+    });
+
+    history = appendEntry(history, { type: "comment", annotationId: "a1", createdAt: AT }).history;
+    history = appendEntry(history, { type: "comment", annotationId: "a2", createdAt: AT }).history;
+    history = appendEntry(history, {
+      type: "comment-removed",
+      annotationId: "a1",
+      createdAt: AT,
+    }).history;
+
+    // Act
+    const removals = removalEntries(history);
+
+    // Assert
+    expect(removals.map((entry) => entry.annotationId)).toEqual(["a1"]);
+    expect(removals.every((entry) => entry.type === "comment-removed")).toBe(true);
   });
 });

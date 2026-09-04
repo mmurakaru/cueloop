@@ -324,6 +324,34 @@ export function forkHistory(history: SessionHistory): SessionHistory {
   return { entries: kept, tips: { [MAIN_BRANCH]: tip.id }, branch: MAIN_BRANCH, labels };
 }
 
+/**
+ * The history as a share carries it: one branch's path and nothing else, so a
+ * collaborator sees that branch wherever the owner stands. Labels on the path
+ * travel; other branches and their entries do not.
+ */
+export function followBranch(history: SessionHistory, branch: string): SessionHistory {
+  const entries = pathOf(history, tipOf(history, branch));
+  const labels: Record<string, string> = {};
+
+  for (const entry of entries) {
+    const label = history.labels[entry.id];
+
+    if (label !== undefined) labels[entry.id] = label;
+  }
+
+  return { entries, tips: { [branch]: entries.at(-1)!.id }, branch, labels };
+}
+
+/** The comment removals a history records, in entry order: what a merge carries across a share. */
+export function removalEntries(
+  history: SessionHistory,
+): Array<SessionEntry & { type: "comment-removed" }> {
+  return history.entries.filter(
+    (entry): entry is SessionEntry & { type: "comment-removed" } =>
+      entry.type === "comment-removed",
+  );
+}
+
 /* -------------------------------------------------------------- migration */
 
 /**

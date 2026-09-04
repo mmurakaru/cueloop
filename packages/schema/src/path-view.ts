@@ -6,7 +6,7 @@
  * dropped, so a later move can show them again.
  */
 
-import { derivePath, pathOf, type SessionHistory } from "./history";
+import { derivePath, followBranch, MAIN_BRANCH, pathOf, type SessionHistory } from "./history";
 import type { Annotation, ReviewSession } from "./types";
 
 export interface PathView {
@@ -58,4 +58,24 @@ export function applyPathView(session: ReviewSession, view: PathView): void {
   else session.workingCopy = view.workingCopy;
   if (view.shelvedAnnotations.length === 0) delete session.shelvedAnnotations;
   else session.shelvedAnnotations = view.shelvedAnnotations;
+}
+
+/**
+ * The record as a share carries it: the followed branch's path and what it
+ * shows, with no other branch, no shelved comment, and no working copy of the
+ * owner's. A record without a history travels as it is.
+ */
+export function viewFollowing(session: ReviewSession, branch?: string): ReviewSession {
+  const followed = branch ?? session.shareBranch ?? MAIN_BRANCH;
+  const shared: ReviewSession = { ...session, shareBranch: followed };
+
+  if (!session.history) return shared;
+  const history = followBranch(session.history, followed);
+  const known = [...session.annotations, ...(session.shelvedAnnotations ?? [])];
+
+  shared.history = history;
+  applyPathView(shared, viewOfPath(history, known));
+  delete shared.shelvedAnnotations;
+
+  return shared;
 }

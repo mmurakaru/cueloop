@@ -315,6 +315,7 @@ export const SessionRecordSchema = v.object({
   shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
   parentSessionId: v.optional(v.string()),
   shareId: v.optional(v.string()),
+  shareBranch: v.optional(v.string()),
   owner: v.optional(v.string()),
   participants: v.optional(v.array(IdentitySchema)),
 } satisfies EntriesOf<ReviewSession>);
