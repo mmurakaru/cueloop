@@ -758,6 +758,59 @@ describe("tree primitives", () => {
     expect(merged.annotations).toEqual([]);
   });
 
+  test("a share's removal entry hides the comment for the owner, once, by entry id", () => {
+    // Arrange: a collaborator's note pulled in earlier
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const note = {
+      ...comment("c1", "from a teammate"),
+      author: "SHA256:collab",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    core.sessionMergeShared(created.id, { annotations: [note] });
+    const removal = { id: "e_share_rm", annotationId: "c1", createdAt: "2026-01-02T00:00:00.000Z" };
+
+    // Act: the share hands the removal back twice, as two pulls would
+    core.sessionMergeShared(created.id, { annotations: [], removals: [removal] });
+    const merged = core.sessionMergeShared(created.id, {
+      annotations: [note],
+      removals: [removal],
+    });
+
+    // Assert: gone from view, kept on the shelf, one removal entry with the share's id
+    expect(merged.annotations).toEqual([]);
+    expect(merged.shelvedAnnotations!.map((annotation) => annotation.id)).toEqual(["c1"]);
+    expect(merged.history!.entries.filter((entry) => entry.type === "comment-removed")).toEqual([
+      expect.objectContaining({ id: "e_share_rm", annotationId: "c1" }),
+    ]);
+  });
+
+  test("a merge lands on the branch the share follows, wherever the owner stands", () => {
+    // Arrange: the owner works on a side branch while the share follows main
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionBranch(created.id, "alt");
+    const note = {
+      ...comment("c1", "from a teammate"),
+      author: "SHA256:collab",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    // Act
+    const merged = core.sessionMergeShared(created.id, { annotations: [note] });
+
+    // Assert: main's path has the note, alt's does not show it
+    expect(merged.history!.branch).toBe("alt");
+    expect(merged.annotations).toEqual([]);
+    expect(merged.shelvedAnnotations!.map((annotation) => annotation.id)).toEqual(["c1"]);
+    expect(derivePath(merged.history!, tipOf(merged.history!, "main")).annotationIds).toEqual([
+      "c1",
+    ]);
+    expect(
+      core.sessionSwitch(created.id, "main").annotations.map((annotation) => annotation.id),
+    ).toEqual(["c1"]);
+  });
+
   test("a fork is a new pending session on the copied path, without verdict, edits, or share", () => {
     // Arrange: comment, edit, resolve, then a second round
     const created = core.sessionCreate({ workspace: WS, artifact: PLAN });

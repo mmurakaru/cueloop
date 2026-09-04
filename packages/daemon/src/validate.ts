@@ -182,6 +182,10 @@ export const Params = {
     id: SessionId,
     annotations: v.array(FullAnnotationSchema),
     participants: v.optional(v.array(IdentitySchema)),
+    // the removal entries a share recorded, carried by id so a merge applies each once
+    removals: v.optional(
+      v.array(v.object({ id: NonEmpty, annotationId: NonEmpty, createdAt: v.string() })),
+    ),
   }),
   "session.resolve": v.object({
     id: SessionId,

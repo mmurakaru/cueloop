@@ -401,6 +401,7 @@ export class DaemonServer {
       return this.core.sessionMergeShared(params.id, {
         annotations: params.annotations,
         participants: params.participants,
+        removals: params.removals,
       });
     },
     "session.resolve": (_connection, request) => {

@@ -10,7 +10,6 @@ import type {
   Annotation,
   Artifact,
   HunkRejection,
-  Identity,
   ReviewSession,
   VerdictKind,
   WorkspaceKey,
@@ -25,6 +24,9 @@ import {
 } from "./protocol";
 import type { DaemonRole } from "./capabilities";
 import type { HerdrTabHandle } from "./herdr-tab-store";
+import type { SharedMerge } from "./api";
+
+export type { SharedMerge } from "./api";
 import { cueloopHome, ownerTokenPath, socketPath } from "./paths";
 import { Params, SessionRecordSchema } from "./validate";
 
@@ -91,10 +93,7 @@ export interface SessionClient {
   /** Copy the current path into a new session; returns the fork. */
   sessionFork(id: string): Promise<ReviewSession>;
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
-  sessionMergeShared(
-    id: string,
-    incoming: { annotations: Annotation[]; participants?: Identity[] },
-  ): Promise<ReviewSession>;
+  sessionMergeShared(id: string, incoming: SharedMerge): Promise<ReviewSession>;
   sessionDelete(id: string): Promise<void>;
   /** Record the caller's own identity name (collaborator self-naming on a share). */
   sessionSetSelfName(id: string, name: string): Promise<ReviewSession>;
@@ -373,10 +372,7 @@ export class DaemonClient implements SessionClient {
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession> {
     return this.request("session.setShareId", { id, shareId }, SessionRecordSchema);
   }
-  sessionMergeShared(
-    id: string,
-    incoming: { annotations: Annotation[]; participants?: Identity[] },
-  ): Promise<ReviewSession> {
+  sessionMergeShared(id: string, incoming: SharedMerge): Promise<ReviewSession> {
     return this.request("session.mergeShared", { id, ...incoming }, SessionRecordSchema);
   }
   sessionDelete(id: string): Promise<void> {
