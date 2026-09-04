@@ -33,8 +33,8 @@ function ToggleButton({
   color: string;
 }): React.ReactNode {
   return (
-    <box onMouseUp={onPress}>
-      <text fg={color}>{glyph} </text>
+    <box onMouseUp={onPress} style={{ marginRight: 2 }}>
+      <text fg={color}>{glyph}</text>
     </box>
   );
 }
@@ -55,7 +55,15 @@ export function ShellHeader({
   const tokens = theme ?? DARK;
 
   return (
-    <box style={{ flexDirection: "row", height: 1, paddingLeft: 1, paddingRight: 1 }}>
+    <box
+      style={{
+        flexDirection: "row",
+        height: 3,
+        alignItems: "center",
+        paddingLeft: 2,
+        paddingRight: 2,
+      }}
+    >
       {onToggleSidebar !== undefined ? (
         <ToggleButton
           glyph={sidebarOpen ? NERD.sidebarLeft : NERD.sidebarLeftOff}
@@ -65,7 +73,8 @@ export function ShellHeader({
       ) : null}
       {leftIcons.map((glyph, index) => (
         <text key={`left-${index}-${glyph}`} fg={tokens.textMuted}>
-          {glyph}{" "}
+          {glyph}
+          {"   "}
         </text>
       ))}
       {leftLabel !== undefined ? (
@@ -80,12 +89,13 @@ export function ShellHeader({
       {tabs.map((tab, index) => (
         <text key={`tab-${index}-${tab.label}`} fg={tab.active ? tokens.accent : tokens.textMuted}>
           {tab.label}
-          {"  "}
+          {"   "}
         </text>
       ))}
       {rightIcons.map((glyph, index) => (
         <text key={`right-${index}-${glyph}`} fg={tokens.textMuted}>
-          {glyph}{" "}
+          {glyph}
+          {"   "}
         </text>
       ))}
       {onToggleInspector !== undefined ? (
