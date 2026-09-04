@@ -109,7 +109,7 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
           <ShellHeader
             theme={DARK}
             leftIcons={[NERD.settings]}
-            rightIcons={[NERD.search, NERD.expand]}
+            rightIcons={[NERD.expand, NERD.diff, NERD.listTree]}
             inspectorOpen={treeOpen}
             onToggleInspector={() => setTreeOpen((open) => !open)}
           />
