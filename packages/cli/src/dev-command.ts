@@ -10,7 +10,7 @@ import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { resolveWorkspace } from "@cueloop/daemon/review";
 
-const DEV_PLAN = `# Read the repository
+const SEED_PLAN = `# Read the repository
 
 A seeded plan so \`cueloop dev\` always has a thread to open.
 
@@ -20,20 +20,20 @@ A seeded plan so \`cueloop dev\` always has a thread to open.
 - type to leave a comment
 `;
 
-const DEV_REPLY = `A standalone thought, not tied to any repository.
+const SEED_REPLY = `A standalone thought, not tied to any repository.
 
 It lands under Threads in the sidebar rather than a project.
 `;
 
-const DEV_DIFF_PATH = "packages/client/src/theme.ts";
-const DEV_DIFF_OLD = '  accent: "#f5a3a3",\n';
-const DEV_DIFF_NEW = '  accent: "#cba6f7",\n';
-const DEV_DIFF = `diff --git a/${DEV_DIFF_PATH} b/${DEV_DIFF_PATH}
---- a/${DEV_DIFF_PATH}
-+++ b/${DEV_DIFF_PATH}
+const SEED_DIFF_PATH = "packages/client/src/theme.ts";
+const SEED_DIFF_OLD = '  accent: "#f5a3a3",\n';
+const SEED_DIFF_NEW = '  accent: "#cba6f7",\n';
+const SEED_DIFF = `diff --git a/${SEED_DIFF_PATH} b/${SEED_DIFF_PATH}
+--- a/${SEED_DIFF_PATH}
++++ b/${SEED_DIFF_PATH}
 @@ -1 +1 @@
--${DEV_DIFF_OLD.trimEnd()}
-+${DEV_DIFF_NEW.trimEnd()}
+-${SEED_DIFF_OLD.trimEnd()}
++${SEED_DIFF_NEW.trimEnd()}
 `;
 
 async function seedDevSessions(client: DaemonClient): Promise<void> {
@@ -44,25 +44,25 @@ async function seedDevSessions(client: DaemonClient): Promise<void> {
 
   await client.sessionCreate(project, {
     type: "plan",
-    content: DEV_PLAN,
+    content: SEED_PLAN,
     meta: { title: "Read the repository" },
   });
   await client.sessionCreate(project, {
     type: "diff",
-    content: DEV_DIFF,
+    content: SEED_DIFF,
     meta: { title: "Review the accent change" },
     files: [
       {
-        path: DEV_DIFF_PATH,
-        oldContents: DEV_DIFF_OLD,
-        newContents: DEV_DIFF_NEW,
+        path: SEED_DIFF_PATH,
+        oldContents: SEED_DIFF_OLD,
+        newContents: SEED_DIFF_NEW,
         status: "modified",
       },
     ],
   });
   await client.sessionCreate(standalone, {
     type: "reply",
-    content: DEV_REPLY,
+    content: SEED_REPLY,
     meta: { title: "A standalone thought" },
   });
 }

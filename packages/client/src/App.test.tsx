@@ -84,6 +84,21 @@ describe("plan rendering", () => {
     expect(frame).toContain("· move the store");
     expect(frame).toContain("send message");
   });
+
+  test("a direct open still populates the Threads sidebar with other pending reviews", async () => {
+    // Arrange - a second pending review exists alongside the one opened directly
+    server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: { type: "plan", content: "# Other Plan\n", meta: { title: "Other Plan" } },
+    });
+    const setup = await renderApp();
+
+    // Act - open the collapsed Threads sidebar (the mirrored panel toggle by the gear)
+    await setup.mockMouse.click(3, 1);
+
+    // Assert - the sidebar lists the other pending review, so you can jump to it
+    await waitForText(setup, "Other Plan");
+  });
 });
 
 describe("thread view grammar", () => {
