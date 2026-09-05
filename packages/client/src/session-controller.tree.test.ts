@@ -117,6 +117,31 @@ async function connected(session = sessionFixture()) {
   return { controller, client, session };
 }
 
+describe("read-only guards", () => {
+  test("an observer's rename and delete never reach the daemon", async () => {
+    // Arrange - a read-only controller over a client whose mutations would throw
+    const session = sessionFixture();
+    const client = fakeClient(session);
+    const controller = createReviewController({
+      sessionId: session.id,
+      openClient: async () => client,
+      readOnly: true,
+      shareTransport,
+    });
+
+    controller.connect();
+    await tick();
+
+    // Act - the sidebar's rename and delete, invoked directly
+    controller.renameSession(session.id, "hijacked");
+    controller.deleteSession(session.id);
+    await tick();
+
+    // Assert - both answer read-only and the throwing client stubs were never called
+    expect(controller.getSnapshot().status).toBe("observer - read-only");
+  });
+});
+
 describe("tree primitives", () => {
   test("a move back shows the earlier path at once and asks the daemon for the same move", async () => {
     // Arrange

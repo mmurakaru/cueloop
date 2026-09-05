@@ -528,6 +528,7 @@ class Controller implements ReviewController {
   }
 
   deleteSession(id: string): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
     this.client
       ?.sessionDelete(id)
       .then(() => this.setStatus("plan deleted"))
@@ -537,6 +538,7 @@ class Controller implements ReviewController {
   }
 
   renameSession(id: string, title: string): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
     this.client
       ?.sessionSetTitle(id, title)
       .then(() => this.setStatus("thread renamed"))
