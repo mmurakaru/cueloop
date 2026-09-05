@@ -17,9 +17,8 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
 import { WelcomeSurface } from "./components/WelcomeSurface";
-import { PanelColumn, FileTab } from "./components/PanelColumn";
-import { IconButton } from "./components/primitives/IconButton";
-import { NERD } from "./components/primitives/icons";
+import { FileTab } from "./components/PanelColumn";
+import { AppShell } from "./components/AppShell";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
@@ -121,120 +120,55 @@ export function NoThreadShell(props: {
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
   const [welcomeOpen, setWelcomeOpen] = useState(true);
-  const [changesOpen, setChangesOpen] = useState(false);
+  const [projectOpen, setProjectOpen] = useState(true);
+  const [projectMode, setProjectMode] = useState<"changes" | "tree">("changes");
 
   return (
     <ThemeProvider theme={theme}>
-      <box
-        style={{
-          flexDirection: "column",
-          width: "100%",
-          height: "100%",
-          backgroundColor: theme.background,
-        }}
-      >
-        <box style={{ flexGrow: 1, flexDirection: "row" }}>
-          {sidebarOpen ? (
-            <PanelColumn
+      <AppShell
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={onToggleSidebar}
+        onOpenMenu={onOpenMenu}
+        threadsPanel={
+          <scrollbox style={{ flexGrow: 1 }} focused={false}>
+            <InboxList
+              rows={rows}
+              cursor={inboxCursor}
+              pinnedIds={pinnedIds}
               width={30}
-              border="right"
-              header={
-                <box style={{ flexDirection: "row" }}>
-                  <box onMouseUp={onOpenMenu} style={{ paddingRight: 2 }}>
-                    <text fg={theme.textMuted}>{NERD.settings}</text>
-                  </box>
-                  <IconButton
-                    glyph={NERD.sidebarLeft}
-                    onPress={onToggleSidebar}
-                    marginRight={2}
-                    theme={theme}
-                  />
-                  <text fg={theme.accent}>cueloop</text>
-                </box>
+              onSelect={(id) => controller.open(id)}
+              onRequestDelete={(id, title) =>
+                setMode({ type: "confirmDelete", sessionId: id, title })
               }
+              onPin={onPin}
+              onRename={onRename}
               theme={theme}
-            >
-              <scrollbox style={{ flexGrow: 1 }} focused={false}>
-                <InboxList
-                  rows={rows}
-                  cursor={inboxCursor}
-                  pinnedIds={pinnedIds}
-                  width={30}
-                  onSelect={(id) => controller.open(id)}
-                  onRequestDelete={(id, title) =>
-                    setMode({ type: "confirmDelete", sessionId: id, title })
-                  }
-                  onPin={onPin}
-                  onRename={onRename}
-                  theme={theme}
-                />
-              </scrollbox>
-            </PanelColumn>
-          ) : null}
-          <PanelColumn
-            header={
-              !sidebarOpen ? (
-                <box onMouseUp={onToggleSidebar} style={{ paddingRight: 1 }}>
-                  <text fg={theme.textMuted}>{NERD.sidebarLeftOff}</text>
-                </box>
-              ) : (
-                <text fg={theme.textDim}>Thread</text>
-              )
-            }
-            theme={theme}
-          >
-            <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
-              <text fg={theme.textDim}>open a thread in the sidebar</text>
-            </box>
-          </PanelColumn>
-          {welcomeOpen ? (
-            <PanelColumn
-              width={52}
-              border="left"
-              header={
-                <FileTab
-                  label="Welcome"
-                  active
-                  onClose={() => setWelcomeOpen(false)}
-                  theme={theme}
-                />
-              }
-              theme={theme}
-            >
-              <WelcomeSurface version={CLIENT_VERSION} theme={theme} />
-            </PanelColumn>
-          ) : null}
-          <PanelColumn
-            width={30}
-            border="left"
-            header={<FileTab label="Project" theme={theme} />}
-            headerRight={
-              <box style={{ flexDirection: "row" }}>
-                <IconButton
-                  glyph={NERD.diff}
-                  active={!changesOpen}
-                  onPress={() => setChangesOpen(false)}
-                  marginRight={1}
-                  theme={theme}
-                />
-                <IconButton
-                  glyph={NERD.listTree}
-                  active={changesOpen}
-                  onPress={() => setChangesOpen(true)}
-                  marginRight={1}
-                  theme={theme}
-                />
-                <IconButton glyph={NERD.expand} onPress={() => {}} marginRight={1} theme={theme} />
-                <IconButton glyph={NERD.sidebarRight} onPress={() => {}} theme={theme} />
-              </box>
-            }
-            theme={theme}
-          >
-            <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
-              <text fg={theme.textDim}>No changes</text>
-            </box>
-          </PanelColumn>
-        </box>
+            />
+          </scrollbox>
+        }
+        threadTitle=""
+        threadPanel={
+          <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
+            <text fg={theme.textDim}>open a thread in the sidebar</text>
+          </box>
+        }
+        changesOpen={welcomeOpen}
+        onToggleChanges={() => setWelcomeOpen((open) => !open)}
+        changesTab={
+          <FileTab label="Welcome" active onClose={() => setWelcomeOpen(false)} theme={theme} />
+        }
+        changesPanel={<WelcomeSurface version={CLIENT_VERSION} theme={theme} />}
+        projectOpen={projectOpen}
+        onToggleProject={() => setProjectOpen((open) => !open)}
+        projectMode={projectMode}
+        onProjectMode={setProjectMode}
+        projectPanel={
+          <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+            <text fg={theme.textDim}>No changes</text>
+          </box>
+        }
+        theme={theme}
+      >
         {menuChrome}
         <ConfirmDialog
           isOpen={confirming !== null}
@@ -260,7 +194,7 @@ export function NoThreadShell(props: {
             theme={theme}
           />
         ) : null}
-      </box>
+      </AppShell>
     </ThemeProvider>
   );
 }

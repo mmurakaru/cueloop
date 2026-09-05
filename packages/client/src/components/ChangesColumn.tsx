@@ -89,14 +89,16 @@ export interface ChangesColumnProps {
   theme?: Theme;
 }
 
-export function ChangesColumn({
-  open,
+/**
+ * The changed-files tree on its own, with no surrounding column frame: the body
+ * a workbench Project pane renders. A file click scrolls the diff to that file.
+ */
+export function ChangesFileTree({
   files = [],
   selectedPath,
   onSelectFile,
-  width = 32,
   theme,
-}: ChangesColumnProps): React.ReactNode {
+}: Omit<ChangesColumnProps, "open" | "width">): React.ReactNode {
   const nodes = useMemo(() => buildFileTree(files), [files]);
   // every folder opens by default so each changed file is reachable; the user
   // only ever names the folders they fold shut, so a new file set stays open
@@ -109,6 +111,39 @@ export function ChangesColumn({
     return expanded;
   }, [nodes, collapsedIds]);
 
+  return (
+    <scrollbox style={{ flexGrow: 1 }} focused={false}>
+      <Tree
+        nodes={nodes}
+        expandedIds={expandedIds}
+        selectedId={selectedPath}
+        flattenEmptyDirectories
+        showStatus
+        onSelect={onSelectFile}
+        onToggle={(id) =>
+          setCollapsedIds((current) => {
+            const next = new Set(current);
+
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+
+            return next;
+          })
+        }
+        theme={theme}
+      />
+    </scrollbox>
+  );
+}
+
+export function ChangesColumn({
+  open,
+  files = [],
+  selectedPath,
+  onSelectFile,
+  width = 32,
+  theme,
+}: ChangesColumnProps): React.ReactNode {
   if (!open) return null;
 
   return (
@@ -121,27 +156,12 @@ export function ChangesColumn({
         borderColor: theme?.border,
       }}
     >
-      <scrollbox style={{ flexGrow: 1 }} focused={false}>
-        <Tree
-          nodes={nodes}
-          expandedIds={expandedIds}
-          selectedId={selectedPath}
-          flattenEmptyDirectories
-          showStatus
-          onSelect={onSelectFile}
-          onToggle={(id) =>
-            setCollapsedIds((current) => {
-              const next = new Set(current);
-
-              if (next.has(id)) next.delete(id);
-              else next.add(id);
-
-              return next;
-            })
-          }
-          theme={theme}
-        />
-      </scrollbox>
+      <ChangesFileTree
+        files={files}
+        selectedPath={selectedPath}
+        onSelectFile={onSelectFile}
+        theme={theme}
+      />
     </box>
   );
 }

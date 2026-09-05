@@ -47,8 +47,9 @@ import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { groupInbox, projectName, threadTitle } from "./components/session-tree";
-import { ThreadsSidebar } from "./components/ThreadsSidebar";
-import { ChangesColumn, useDiffColumns } from "./components/ChangesColumn";
+import { InboxList } from "./components/InboxList";
+import { ChangesFileTree, useDiffColumns } from "./components/ChangesColumn";
+import { AppShell, type ProjectPanelMode } from "./components/AppShell";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
@@ -83,8 +84,6 @@ import {
   NoThreadShell,
   TrailingOverlays,
 } from "./app-screens";
-import { AppHeader } from "./components/AppHeader";
-
 /** A toast clears itself after this idle; esc dismisses it sooner. */
 const TOAST_DISMISS_MS = 4000;
 
@@ -231,6 +230,7 @@ export function App({
   // nothing selected (pick a thread) and stays collapsed on a direct thread open,
   // where the thread owns the width.
   const [sidebarOpen, setSidebarOpen] = useState(sessionId === undefined);
+  const [projectMode, setProjectMode] = useState<ProjectPanelMode>("changes");
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
@@ -616,47 +616,41 @@ export function App({
 
   return (
     <ThemeProvider theme={theme}>
-      <box
-        style={{
-          flexDirection: "column",
-          width: "100%",
-          height: "100%",
-          backgroundColor: theme.background,
-        }}
-      >
-        <AppHeader
-          onOpenMenu={() => setMenuDialog("settings")}
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen((open) => !open)}
-          title={threadTitle(activeSession)}
-          editShare={
-            showOwnerActions ? (
-              <Toolbar>
-                <Button onPress={onEditRequest} theme={theme}>
-                  {" Edit "}
-                </Button>
-                <Button onPress={onShareRequest} theme={theme}>
-                  {" Share "}
-                </Button>
-              </Toolbar>
-            ) : null
-          }
-          changesOpen={diffColumns.changesOpen}
-          onToggleChanges={diffColumns.toggleChanges}
-          theme={theme}
-        />
-        <box style={{ flexGrow: 1, flexDirection: "row" }}>
-          <ThreadsSidebar
-            open={sidebarOpen}
-            rows={grouped.rows}
-            cursor={inboxCursor}
-            activeId={session.id}
-            pinnedIds={pinnedIds}
-            onSelect={(id) => controller.open(id)}
-            onPin={togglePin}
-            onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
-            theme={theme}
-          />
+      <AppShell
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen((open) => !open)}
+        onOpenMenu={() => setMenuDialog("settings")}
+        threadsPanel={
+          <scrollbox style={{ flexGrow: 1 }} focused={false}>
+            <InboxList
+              rows={grouped.rows}
+              cursor={inboxCursor}
+              activeId={activeSession.id}
+              pinnedIds={pinnedIds}
+              width={30}
+              onSelect={(id) => controller.open(id)}
+              onPin={togglePin}
+              onRename={(id, title) =>
+                setMode({ type: "renameThread", sessionId: id, text: title })
+              }
+              theme={theme}
+            />
+          </scrollbox>
+        }
+        threadTitle={threadTitle(activeSession)}
+        threadActions={
+          showOwnerActions ? (
+            <Toolbar>
+              <Button onPress={onEditRequest} theme={theme}>
+                {" Edit "}
+              </Button>
+              <Button onPress={onShareRequest} theme={theme}>
+                {" Share "}
+              </Button>
+            </Toolbar>
+          ) : undefined
+        }
+        threadPanel={
           <box style={{ flexGrow: 1, flexDirection: "column" }}>
             <box style={{ flexGrow: 1, flexDirection: "row" }}>
               {isPrototype ? (
@@ -726,14 +720,21 @@ export function App({
               theme={theme}
             />
           </box>
-          <ChangesColumn
-            open={diffColumns.changesOpen}
+        }
+        projectOpen={diffColumns.changesOpen}
+        onToggleProject={diffColumns.toggleChanges}
+        projectMode={projectMode}
+        onProjectMode={setProjectMode}
+        projectPanel={
+          <ChangesFileTree
             files={activeSession.artifact.files}
             selectedPath={diffColumns.currentFilePath}
             onSelectFile={diffColumns.scrollToFile}
             theme={theme}
           />
-        </box>
+        }
+        theme={theme}
+      >
         <TrailingOverlays
           walking={walking}
           walk={walk}
@@ -763,7 +764,7 @@ export function App({
           </box>
         ) : null}
         {menuChrome}
-      </box>
+      </AppShell>
     </ThemeProvider>
   );
 }

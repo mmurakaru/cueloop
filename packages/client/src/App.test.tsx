@@ -95,7 +95,7 @@ describe("plan rendering", () => {
     const setup = await renderApp();
 
     // Act - open the collapsed Threads sidebar (the mirrored panel toggle by the gear)
-    await setup.mockMouse.click(3, 1);
+    await setup.mockMouse.click(4, 0);
 
     // Assert - the sidebar lists the other pending review, so you can jump to it
     await waitForText(setup, "Other Plan");
@@ -361,7 +361,7 @@ describe("the thread view and the menu", () => {
     await waitForText(setup, "The daemon persists");
 
     // Act - open the menu from the top-left settings gear, then the keybinds dialog
-    await setup.mockMouse.click(1, 1);
+    await setup.mockMouse.click(1, 0);
     await waitForText(setup, "Keybinds");
     const dropUp = setup.captureCharFrame().split("\n");
     const keybindsRow = dropUp.findIndex((line) => line.includes("Keybinds"));
@@ -390,7 +390,7 @@ describe("the thread view and the menu", () => {
     // Arrange - open the settings dialog from the gear
     const setup = await renderApp();
 
-    await setup.mockMouse.click(1, 1);
+    await setup.mockMouse.click(1, 0);
     await waitForText(setup, "Keybinds");
 
     // the nav folder is the last "Settings" on screen (the first is the dialog title)

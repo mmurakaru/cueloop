@@ -292,7 +292,7 @@ describe("quick-actions settings editor", () => {
     const setup = await renderApp();
 
     // Act - open Settings from the top-left gear, enter Actions, expand the first action, type
-    await setup.mockMouse.click(1, 1);
+    await setup.mockMouse.click(1, 0);
     await clickText(setup, "Settings");
     await clickText(setup, "Actions");
     await clickText(setup, "Zoom out, research in depth");

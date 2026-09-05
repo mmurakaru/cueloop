@@ -11,7 +11,7 @@ import { createRoot, useKeyboard } from "@opentui/react";
 import { DARK } from "../theme";
 import { ThemeProvider } from "./theme-context";
 import { buildStoryTree, loadStories, type LoadedStory } from "./story";
-import { AppShell } from "./AppShell";
+import { PaneGrid } from "./PaneGrid";
 import { ShellHeader } from "./ShellHeader";
 import { Tree } from "./primitives/Tree";
 import { NERD } from "./primitives/icons";
@@ -103,7 +103,7 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
 
   return (
     <ThemeProvider theme={DARK}>
-      <AppShell
+      <PaneGrid
         theme={DARK}
         mainHeader={
           <ShellHeader

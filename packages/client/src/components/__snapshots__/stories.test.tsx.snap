@@ -2059,3 +2059,115 @@ exports[`stories catalog Foundations/Theme/ProviderSwap renders, snapshots, and 
                                                                                 
 "
 `;
+
+exports[`stories catalog Layout/AppShell/FourPane renders, snapshots, and carries its colors: Layout/AppShell/FourPane 1`] = `
+"     cueloop               │ Read Cueloop     │ markdown.test.ts                                 │ ±                         
+─────────────────────────────│──────────────────│───────────────────────────────────────────────────│─────────────────────────────
+                             │                  │                                                   │                             
+ Projects                    │ read the repo    │ markdown.test.ts                                  │ No changes                  
+  cueloop                    │                  │                                                   │                             
+  Read Cueloop Repository    │ Repository       │                                                   │                             
+                             │ context loaded.  │                                                   │                             
+ Threads                     │ main is clean.   │                                                   │                             
+  Welcome to cueloop         │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+                             │                  │                                                   │                             
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+"
+`;
+
+exports[`stories catalog Layout/AppShell/ThreadAndCenterOnly renders, snapshots, and carries its colors: Layout/AppShell/ThreadAndCenterOnly 1`] = `
+"     cueloop               │                                                         ± 
+─────────────────────────────│────────────────────────────────────────────────────────────
+                             │                                                            
+ Projects                    │ read the repo                                              
+  cueloop                    │                                                            
+  Read Cueloop Repository    │ Repository context loaded. main is clean.                  
+                             │                                                            
+ Threads                     │                                                            
+  Welcome to cueloop         │                                                            
+                             │                                                            
+                             │                                                            
+                             │                                                            
+                             │                                                            
+                             │                                                            
+                             │                                                            
+                             │                                                            
+                             │                                                            
+                             │                                                            
+                             │                                                            
+                             │                                                            
+"
+`;
+
+exports[`stories catalog Layout/PaneGrid/SidebarAndMain renders, snapshots, and carries its colors: Layout/PaneGrid/SidebarAndMain 1`] = `
+"                           │                                                              
+                           │                                                              
+───────────────────────────│──────────────────────────────────────────────────────────────
+                           │                                                              
+ Projects                  │ read the repo                                                
+  cueloop                  │                                                              
+  Read Cueloop Repository  │ Repository context loaded. main is clean.                    
+                           │                                                              
+ Threads                   │ Core architecture                                            
+  Welcome to cueloop       │  - packages/schema is the dependency root                    
+                           │  - packages/daemon owns session state                        
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+                           │                                                              
+"
+`;
+
+exports[`stories catalog Layout/PaneGrid/ThreePane renders, snapshots, and carries its colors: Layout/PaneGrid/ThreePane 1`] = `
+"                           │ Read Cueloop Repository            markdown.test.ts│                                       
+                           │                                                    │                                       
+───────────────────────────│────────────────────────────────────────────────────│───────────────────────────────────────
+                           │                                                    │                                       
+ Projects                  │ read the repo                                      │ cueloop/main                          
+  cueloop                  │                                                    │  No changes                           
+  Read Cueloop Repository  │ Repository context loaded. main is clean.          │                                       
+                           │                                                    │                                       
+ Threads                   │ Core architecture                                  │                                       
+  Welcome to cueloop       │  - packages/schema is the dependency root          │                                       
+                           │  - packages/daemon owns session state              │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+                           │                                                    │                                       
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ cueloop / main                                                                                                  Fable 5
+"
+`;

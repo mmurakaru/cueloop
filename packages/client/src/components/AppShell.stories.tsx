@@ -2,10 +2,11 @@ import React from "react";
 import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { AppShell } from "./AppShell";
+import { FileTab } from "./PanelColumn";
 
 export const meta: StoryMeta = { title: "Layout/AppShell" };
 
-function Sidebar(): React.ReactNode {
+function Threads(): React.ReactNode {
   return (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
       <text fg={DARK.textDim}>Projects</text>
@@ -20,42 +21,35 @@ function Sidebar(): React.ReactNode {
   );
 }
 
-function Main(): React.ReactNode {
+function Thread(): React.ReactNode {
   return (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
       <text fg={DARK.text}>read the repo</text>
       <text> </text>
       <text fg={DARK.textMuted}>Repository context loaded. main is clean.</text>
-      <text> </text>
-      <text fg={DARK.text}>Core architecture</text>
-      <text fg={DARK.textMuted}> - packages/schema is the dependency root</text>
-      <text fg={DARK.textMuted}> - packages/daemon owns session state</text>
     </box>
   );
 }
 
-function Inspector(): React.ReactNode {
+function Changes(): React.ReactNode {
   return (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
-      <text fg={DARK.text}>cueloop/main</text>
-      <text fg={DARK.textDim}> No changes</text>
+      <text fg={DARK.textMuted}>markdown.test.ts</text>
     </box>
   );
 }
 
-function Header(): React.ReactNode {
+function Project(): React.ReactNode {
   return (
-    <box style={{ flexDirection: "row", paddingLeft: 1 }}>
-      <text fg={DARK.textMuted}>Read Cueloop Repository</text>
-      <box style={{ flexGrow: 1 }} />
-      <text fg={DARK.textDim}>markdown.test.ts</text>
+    <box style={{ flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
+      <text fg={DARK.textDim}>No changes</text>
     </box>
   );
 }
 
 function Footer(): React.ReactNode {
   return (
-    <box style={{ flexDirection: "row", paddingLeft: 1 }}>
+    <box style={{ flexDirection: "row" }}>
       <text fg={DARK.textDim}>cueloop / main</text>
       <box style={{ flexGrow: 1 }} />
       <text fg={DARK.textDim}>Fable 5</text>
@@ -63,22 +57,51 @@ function Footer(): React.ReactNode {
   );
 }
 
-export const ThreePane: Story = {
+export const FourPane: Story = {
   render: () => (
     <AppShell
-      sidebar={<Sidebar />}
-      main={<Main />}
-      mainHeader={<Header />}
-      inspector={<Inspector />}
+      sidebarOpen
+      onToggleSidebar={() => {}}
+      onOpenMenu={() => {}}
+      threadsPanel={<Threads />}
+      threadTitle="Read Cueloop Repository"
+      threadPanel={<Thread />}
+      changesOpen
+      onToggleChanges={() => {}}
+      changesTab={<FileTab label="markdown.test.ts" active theme={DARK} />}
+      changesPanel={<Changes />}
+      projectOpen
+      onToggleProject={() => {}}
+      projectMode="changes"
+      onProjectMode={() => {}}
+      projectPanel={<Project />}
       footer={<Footer />}
     />
   ),
   expectedColors: [DARK.border, DARK.accent],
-  size: { width: 120, height: 28 },
+  size: { width: 130, height: 28 },
 };
 
-export const SidebarAndMain: Story = {
-  render: () => <AppShell sidebar={<Sidebar />} main={<Main />} />,
+export const ThreadAndCenterOnly: Story = {
+  render: () => (
+    <AppShell
+      sidebarOpen
+      onToggleSidebar={() => {}}
+      onOpenMenu={() => {}}
+      threadsPanel={<Threads />}
+      threadTitle=""
+      threadPanel={<Thread />}
+      changesOpen={false}
+      onToggleChanges={() => {}}
+      changesTab={null}
+      changesPanel={null}
+      projectOpen={false}
+      onToggleProject={() => {}}
+      projectMode="changes"
+      onProjectMode={() => {}}
+      projectPanel={null}
+    />
+  ),
   expectedColors: [DARK.border],
   size: { width: 90, height: 20 },
 };

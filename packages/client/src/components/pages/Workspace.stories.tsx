@@ -1,7 +1,7 @@
 import React from "react";
 import { DARK } from "../../theme";
 import type { Story, StoryMeta } from "../story";
-import { AppShell } from "../AppShell";
+import { PaneGrid } from "../PaneGrid";
 import { Tree } from "../primitives/Tree";
 import type { TreeNode } from "../primitives/tree-model";
 
@@ -168,7 +168,7 @@ function Footer(): React.ReactNode {
 
 export const ThreePane: Story = {
   render: () => (
-    <AppShell
+    <PaneGrid
       sidebar={<Sidebar />}
       main={<Main />}
       mainHeader={<Header />}
