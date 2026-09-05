@@ -47,6 +47,8 @@ import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { NERD } from "./components/primitives/icons";
 import { groupInbox, projectName } from "./components/session-tree";
+import { ThreadsSidebar } from "./components/ThreadsSidebar";
+import { IconButton } from "./components/primitives/IconButton";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { Breadcrumb } from "./components/Breadcrumb";
@@ -135,6 +137,11 @@ function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean)
   return isOwner && !resolved && !observer;
 }
 
+/** The left panel toggle glyph: the mirrored sidebar icon, filled when the column is open. */
+function sidebarToggleGlyph(open: boolean): string {
+  return open ? NERD.sidebarLeft : NERD.sidebarLeftOff;
+}
+
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
 function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
@@ -210,6 +217,8 @@ export function App({
   const [inboxCursor, setInboxCursor] = useState(0);
   // Projects and Threads grouping; ordered is the flat sequence the inbox cursor walks
   const grouped = useMemo(() => groupInbox(inbox ?? []), [inbox]);
+  // the left Projects and Threads column, collapsible; a click there jumps threads
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuOpen, setMenuOpen] = useState(false);
@@ -603,6 +612,12 @@ export function App({
             <box onMouseUp={() => setMenuOpen((isOpen) => !isOpen)} style={{ paddingRight: 2 }}>
               <text fg={theme.textMuted}>{NERD.settings}</text>
             </box>
+            <IconButton
+              glyph={sidebarToggleGlyph(sidebarOpen)}
+              onPress={() => setSidebarOpen((open) => !open)}
+              marginRight={2}
+              theme={theme}
+            />
             <Breadcrumb items={headerItems} />
             <box style={{ flexGrow: 1 }} />
             {showOwnerActions ? (
@@ -617,70 +632,84 @@ export function App({
             ) : null}
           </box>
         </box>
-        <box style={{ flexGrow: 1, flexDirection: "column" }}>
-          <box style={{ flexGrow: 1, flexDirection: "row" }}>
-            {isPrototype ? (
-              <PrototypeSheet
-                prototypePath={prototypePath}
-                quickActions={quickActions}
-                canComment={prototypeCanComment}
-                onCommentElement={onCommentPrototype}
-                onComposingChange={setPrototypeComposing}
-                hidden={chromeHidden}
-              />
-            ) : isDiff ? (
-              // the sheet dims to reading-quiet colors while the wizard has focus
-              <DiffSheet
-                rows={rows}
-                cursor={cursor}
-                annotations={activeSession.annotations}
-                focusedAnnotationId={focusedAnnotationId}
-                rejectedRows={rejectedRows}
-                compose={diffComposeState}
-                theme={walking ? dimmedTheme(theme) : undefined}
-              />
-            ) : (
-              <ThreadView
-                session={activeSession}
-                suspended={threadViewSuspended}
-                editOrphanCount={editOrphanCount}
-                onComposingChange={setThreadComposing}
-                resolved={resolved}
-                onObserverBlocked={(reason) =>
-                  controller.setStatus(
-                    reason === "observer" ? "observer - read-only" : "review submitted - read-only",
-                  )
-                }
-                onCursorChange={setCursor}
-                focusedAnnotationId={focusedAnnotationId}
-                onFocusAnnotation={setFocusedAnnotationId}
-                display={display}
-                marks={marks}
-                quickActions={quickActions}
-                observer={observer}
-                onAnnotate={(span, body) =>
-                  void controller.annotate(
-                    "comment",
-                    span.start.blockIndex,
-                    span.start.char,
-                    span.end.char,
-                    body,
-                    span.end.blockIndex,
-                  )
-                }
-                onReply={(rootAnnotationId, body) => void controller.reply(rootAnnotationId, body)}
-                onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
-                onExit={() => onExit?.(0)}
-              />
-            )}
-          </box>
-          <ThreadFooter
-            repo={projectName(activeSession.workspace)}
-            branch={activeSession.workspace.branch}
-            onSubmit={onSubmitRequest}
-            canSubmit={canSubmitReview(isOwner, resolved, observer)}
+        <box style={{ flexGrow: 1, flexDirection: "row" }}>
+          <ThreadsSidebar
+            open={sidebarOpen}
+            rows={grouped.rows}
+            cursor={inboxCursor}
+            activeId={session.id}
+            onSelect={(id) => controller.open(id)}
             theme={theme}
           />
+          <box style={{ flexGrow: 1, flexDirection: "column" }}>
+            <box style={{ flexGrow: 1, flexDirection: "row" }}>
+              {isPrototype ? (
+                <PrototypeSheet
+                  prototypePath={prototypePath}
+                  quickActions={quickActions}
+                  canComment={prototypeCanComment}
+                  onCommentElement={onCommentPrototype}
+                  onComposingChange={setPrototypeComposing}
+                  hidden={chromeHidden}
+                />
+              ) : isDiff ? (
+                // the sheet dims to reading-quiet colors while the wizard has focus
+                <DiffSheet
+                  rows={rows}
+                  cursor={cursor}
+                  annotations={activeSession.annotations}
+                  focusedAnnotationId={focusedAnnotationId}
+                  rejectedRows={rejectedRows}
+                  compose={diffComposeState}
+                  theme={walking ? dimmedTheme(theme) : undefined}
+                />
+              ) : (
+                <ThreadView
+                  session={activeSession}
+                  suspended={threadViewSuspended}
+                  editOrphanCount={editOrphanCount}
+                  onComposingChange={setThreadComposing}
+                  resolved={resolved}
+                  onObserverBlocked={(reason) =>
+                    controller.setStatus(
+                      reason === "observer"
+                        ? "observer - read-only"
+                        : "review submitted - read-only",
+                    )
+                  }
+                  onCursorChange={setCursor}
+                  focusedAnnotationId={focusedAnnotationId}
+                  onFocusAnnotation={setFocusedAnnotationId}
+                  display={display}
+                  marks={marks}
+                  quickActions={quickActions}
+                  observer={observer}
+                  onAnnotate={(span, body) =>
+                    void controller.annotate(
+                      "comment",
+                      span.start.blockIndex,
+                      span.start.char,
+                      span.end.char,
+                      body,
+                      span.end.blockIndex,
+                    )
+                  }
+                  onReply={(rootAnnotationId, body) =>
+                    void controller.reply(rootAnnotationId, body)
+                  }
+                  onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
+                  onExit={() => onExit?.(0)}
+                />
+              )}
+            </box>
+            <ThreadFooter
+              repo={projectName(activeSession.workspace)}
+              branch={activeSession.workspace.branch}
+              onSubmit={onSubmitRequest}
+              canSubmit={canSubmitReview(isOwner, resolved, observer)}
+              theme={theme}
+            />
+          </box>
         </box>
         <TrailingOverlays
           walking={walking}
