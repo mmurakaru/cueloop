@@ -131,17 +131,7 @@ export function AppShell({
           {threadPanel}
         </PanelColumn>
         {changesTab !== undefined && changesOpen ? (
-          <PanelColumn
-            width={changesWidth}
-            border="left"
-            header={changesTab}
-            headerRight={
-              onToggleChanges ? (
-                <IconButton glyph={NERD.sidebarRight} onPress={onToggleChanges} theme={tokens} />
-              ) : null
-            }
-            theme={tokens}
-          >
+          <PanelColumn width={changesWidth} border="left" header={changesTab} theme={tokens}>
             {changesPanel}
           </PanelColumn>
         ) : null}

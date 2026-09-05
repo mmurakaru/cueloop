@@ -155,7 +155,7 @@ exports[`stories catalog Chrome/AppHeader/ThreadWithActions renders, snapshots, 
 `;
 
 exports[`stories catalog Layout/AppShell/FourPane renders, snapshots, and carries its colors: Layout/AppShell/FourPane 1`] = `
-"     cueloop               │ Read Cueloop     │ markdown.test.ts                                 │                        ±  
+"     cueloop               │ Read Cueloop     │ markdown.test.ts                                  │                        ±  
 ─────────────────────────────│──────────────────│───────────────────────────────────────────────────│─────────────────────────────
                              │                  │                                                   │                             
  Projects                    │ read the repo    │ markdown.test.ts                                  │ No changes                  
