@@ -224,7 +224,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       await dragText(setup, "Enable it", "immediately.", "immediately.".length);
       await typeText(setup, "Stage the rollout: 5% then 50% then 100%.");
       await pressKey(setup, "RETURN", { meta: true });
-      await waitForText(setup, "COMMENT · me");
+      await waitForText(setup, "Stage the rollout"); // the saved comment renders inline in the thread
       await pressKey(setup, "RETURN", { meta: true }); // open submit (request_changes default with pending item)
       await waitForText(setup, "[Changes]");
       await typeText(setup, "Too aggressive.");
