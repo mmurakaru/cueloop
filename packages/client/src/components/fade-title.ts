@@ -28,7 +28,7 @@ export function mixHex(from: string, to: string, t: number): string {
 }
 
 /** The tail length that fades out; kept short so most of the title stays legible. */
-const FADE_WIDTH = 4;
+const FADE_WIDTH = 5;
 
 export function fadeTitle(
   title: string,
@@ -47,7 +47,9 @@ export function fadeTitle(
   const segments: TitleSegment[] = head.length > 0 ? [{ text: head, fg: baseColor }] : [];
 
   for (let index = 0; index < fadeLength; index++) {
-    const progress = (index + 1) / (fadeLength + 1);
+    // the last character reaches the background fully, so the tail masks out
+    // rather than leaving a legible word fragment
+    const progress = (index + 1) / fadeLength;
 
     segments.push({
       text: clipped[maxWidth - fadeLength + index]!,

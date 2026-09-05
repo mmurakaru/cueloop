@@ -14,6 +14,7 @@ import {
   dragText,
   frameRow,
   isolateUserConfig,
+  locateText,
   press,
   pressKey,
   typeText as type,
@@ -311,7 +312,11 @@ describe("no-thread shell", () => {
 
     await waitForText(setup, "Welcome to cueloop");
 
-    // Act - click the tab's close control
+    // Act - hover the tab to reveal its close control, then click it
+    const tab = locateText(setup, "Welcome");
+
+    await setup.mockMouse.moveTo(tab.column, tab.row);
+    await waitForText(setup, "✕");
     await clickText(setup, "✕");
 
     // Assert - the welcome content is gone, the shell and its hint remain

@@ -1483,7 +1483,7 @@ exports[`stories catalog Overlays/WalkWizard/WithAgentNote renders, snapshots, a
 `;
 
 exports[`stories catalog Surfaces/WelcomeSurface/Welcome renders, snapshots, and carries its colors: Surfaces/WelcomeSurface/Welcome 1`] = `
-"─Welcome──✕─────────────────────────────────────────────────
+"─Welcome────────────────────────────────────────────────────
                                                             
   Welcome to cueloop                                        
   a review loop for coding agents                           

@@ -3,7 +3,7 @@
 // returns the next time the app opens with nothing selected. Points at where to
 // start, the docs, and what shipped in this build.
 
-import React from "react";
+import React, { useState } from "react";
 import type { Theme } from "../theme";
 
 const DOCS_URL = "www.cueloop.dev";
@@ -33,6 +33,8 @@ function Section({
 }
 
 export function WelcomeSurface({ version, onClose, theme }: WelcomeSurfaceProps): React.ReactNode {
+  const [hovered, setHovered] = useState(false);
+
   return (
     <box style={{ flexDirection: "column", flexGrow: 1 }}>
       <box
@@ -43,11 +45,14 @@ export function WelcomeSurface({ version, onClose, theme }: WelcomeSurfaceProps)
           border: ["bottom"],
           borderColor: theme?.border,
         }}
+        onMouseOver={() => setHovered(true)}
+        onMouseOut={() => setHovered(false)}
       >
         <box style={{ flexDirection: "row", paddingLeft: 1, paddingRight: 1 }}>
           <text fg={theme?.accent}>Welcome</text>
+          {/* the tab close reveals on hover, like a file tab */}
           <box onMouseUp={onClose} style={{ paddingLeft: 2 }}>
-            <text fg={theme?.textDim}>✕</text>
+            <text fg={theme?.textDim}>{hovered ? "✕" : " "}</text>
           </box>
         </box>
       </box>
