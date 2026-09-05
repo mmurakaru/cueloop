@@ -44,6 +44,8 @@ const NonEmpty = v.pipe(v.string(), v.minLength(1));
 export const WorkspaceSchema = v.object({
   repoRoot: NonEmpty,
   branch: NonEmpty,
+  rootCommit: v.optional(NonEmpty),
+  remote: v.optional(NonEmpty),
 } satisfies EntriesOf<WorkspaceKey>);
 
 export const ArtifactMetaSchema = v.object({

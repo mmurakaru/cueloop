@@ -221,7 +221,12 @@ describe("wire pins", () => {
     resolvedAt: "now",
   };
   const fullRevision: Required<Revision> = { revision: 1, content: "# P", submittedAt: "now" };
-  const fullWorkspace: Required<WorkspaceKey> = { repoRoot: "/repo", branch: "main" };
+  const fullWorkspace: Required<WorkspaceKey> = {
+    repoRoot: "/repo",
+    branch: "main",
+    rootCommit: "11e7abbcf507a13ae5e4e7559c4b42dbb52237fe",
+    remote: "git@github.com:acme/repo.git",
+  };
   const fullIdentity: Required<Identity> = {
     id: "SHA256:abc",
     provider: "ssh",
