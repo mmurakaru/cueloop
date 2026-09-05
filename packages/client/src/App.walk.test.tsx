@@ -157,7 +157,7 @@ describe("the guided walk", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "submit review");
+    await waitForText(setup, "send message");
     expect(setup.captureCharFrame()).toContain("3/3 files viewed");
 
     // Act

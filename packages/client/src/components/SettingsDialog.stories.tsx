@@ -62,6 +62,7 @@ export const NavZone: Story = {
   render: () => (
     <SettingsDialog
       isOpen
+      version="0.1.0-alpha.32"
       categories={CATEGORIES}
       values={VALUES}
       activeCategoryId="general"
@@ -79,6 +80,7 @@ export const BodyZone: Story = {
   render: () => (
     <SettingsDialog
       isOpen
+      version="0.1.0-alpha.32"
       categories={CATEGORIES}
       values={VALUES}
       activeCategoryId="display"
@@ -96,6 +98,7 @@ export const AppearanceThemed: Story = {
   render: () => (
     <SettingsDialog
       isOpen
+      version="0.1.0-alpha.32"
       categories={CATEGORIES}
       values={VALUES}
       activeCategoryId="appearance"

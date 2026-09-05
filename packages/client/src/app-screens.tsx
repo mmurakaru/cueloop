@@ -43,7 +43,6 @@ export function ConnectingScreen({ theme }: { theme: Theme }): React.ReactNode {
 export function MenuChrome(props: {
   menuOpen: boolean;
   menuDialog: "keybinds" | "settings" | null;
-  status: string;
   theme: Theme;
   setMenuOpen: Dispatch<SetStateAction<boolean>>;
   setMenuDialog: Dispatch<SetStateAction<"keybinds" | "settings" | null>>;
@@ -57,7 +56,6 @@ export function MenuChrome(props: {
   const {
     menuOpen,
     menuDialog,
-    status,
     theme,
     setMenuOpen,
     setMenuDialog,
@@ -73,8 +71,6 @@ export function MenuChrome(props: {
     <>
       <MenuBar
         open={menuOpen}
-        version={CLIENT_VERSION}
-        status={status}
         onSettings={() => {
           setMenuOpen(false);
           setMenuDialog("settings");
@@ -91,6 +87,7 @@ export function MenuChrome(props: {
       {menuDialog === "settings" ? (
         <SettingsDialog
           isOpen
+          version={CLIENT_VERSION}
           categories={settingsCategories}
           values={settingsValues}
           activeCategoryId={settingsNav.categoryId}

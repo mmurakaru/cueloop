@@ -393,13 +393,13 @@ exports[`stories catalog Overlays/CompletionOverlay/FeedbackCounting renders, sn
 `;
 
 exports[`stories catalog Cards/ConfirmCard/ApproveDefault renders, snapshots, and carries its colors: Cards/ConfirmCard/ApproveDefault 1`] = `
-"╭─ submit review ─────────────────────╮ 
-│  Comment  [Approve]  Changes        │ 
-│                                     │ 
-│ summary for the agent (optional)    │ 
-│                                     │ 
-│  Submit    Cancel                   │ 
-╰─────────────────────────────────────╯ 
+"╭─ send message ───────────────────────╮
+│  Comment  [Approve]  Changes         │
+│                                      │
+│ summary for the agent (optional)     │
+│                                      │
+│  send message    Cancel              │
+╰──────────────────────────────────────╯
                                         
                                         
                                         
@@ -411,13 +411,13 @@ exports[`stories catalog Cards/ConfirmCard/ApproveDefault renders, snapshots, an
 `;
 
 exports[`stories catalog Cards/ConfirmCard/RequestChanges renders, snapshots, and carries its colors: Cards/ConfirmCard/RequestChanges 1`] = `
-"╭─ submit review ─────────────────────╮ 
-│  Comment   Approve  [Changes]       │ 
-│                                     │ 
-│ Tighten the steps.                  │ 
-│                                     │ 
-│  Submit    Cancel                   │ 
-╰─────────────────────────────────────╯ 
+"╭─ send message ───────────────────────╮
+│  Comment   Approve  [Changes]        │
+│                                      │
+│ Tighten the steps.                   │
+│                                      │
+│  send message    Cancel              │
+╰──────────────────────────────────────╯
                                         
                                         
                                         
@@ -429,15 +429,15 @@ exports[`stories catalog Cards/ConfirmCard/RequestChanges renders, snapshots, an
 `;
 
 exports[`stories catalog Cards/ConfirmCard/WithViewedSummary renders, snapshots, and carries its colors: Cards/ConfirmCard/WithViewedSummary 1`] = `
-"╭─ submit review ─────────────────────╮ 
-│ 2/3 files viewed                    │ 
-│                                     │ 
-│  Comment  [Approve]  Changes        │ 
-│                                     │ 
-│ summary for the agent (optional)    │ 
-│                                     │ 
-│  Submit    Cancel                   │ 
-╰─────────────────────────────────────╯ 
+"╭─ send message ───────────────────────╮
+│ 2/3 files viewed                     │
+│                                      │
+│  Comment  [Approve]  Changes         │
+│                                      │
+│ summary for the agent (optional)     │
+│                                      │
+│  send message    Cancel              │
+╰──────────────────────────────────────╯
                                         
                                         
                                         
@@ -650,18 +650,6 @@ exports[`stories catalog Overlays/MarkerPopover/ToolbarNoCut renders, snapshots,
 "
 `;
 
-exports[`stories catalog Chrome/MenuBar/Closed renders, snapshots, and carries its colors: Chrome/MenuBar/Closed 1`] = `
-"                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                            v0.1.0-alpha.32 
-"
-`;
-
 exports[`stories catalog Chrome/MenuBar/Open renders, snapshots, and carries its colors: Chrome/MenuBar/Open 1`] = `
 "                                                            
                                                             
@@ -670,7 +658,7 @@ exports[`stories catalog Chrome/MenuBar/Open renders, snapshots, and carries its
  │ Keybinds     │                                           
  ╰──────────────╯                                           
                                                             
-                                            v0.1.0-alpha.32 
+                                                            
 "
 `;
 
@@ -1045,13 +1033,13 @@ exports[`stories catalog Surfaces/ReviewRail/SubmitConfirmOpen renders, snapshot
                                         
                                         
                                         
-╭─ submit review ───────────────╮       
-│  Comment   Approve  [Changes] │       
-│                               │       
-│ summary for the agent (optiona│       
-│                               │       
-│  Submit    Cancel             │       
-╰───────────────────────────────╯       
+╭─ send message ─────────────────╮      
+│  Comment   Approve  [Changes]  │      
+│                                │      
+│ summary for the agent (optional│      
+│                                │      
+│  send message    Cancel        │      
+╰────────────────────────────────╯      
                                         
 "
 `;
@@ -1081,7 +1069,7 @@ exports[`stories catalog Overlays/SettingsDialog/AppearanceThemed renders, snaps
             │                                                                          │            
             │                                                                          │            
             │                                                                          │            
-            │ j/k row · l/space change · h back · esc close                            │            
+            │ j/k row · l/space change · h back · esc close    cueloop v0.1.0-alpha.32 │            
             ╰──────────────────────────────────────────────────────────────────────────╯            
                                                                                                     
                                                                                                     
@@ -1115,7 +1103,7 @@ exports[`stories catalog Overlays/SettingsDialog/BodyZone renders, snapshots, an
             │                                                                          │            
             │                                                                          │            
             │                                                                          │            
-            │ j/k row · l/space change · h back · esc close                            │            
+            │ j/k row · l/space change · h back · esc close    cueloop v0.1.0-alpha.32 │            
             ╰──────────────────────────────────────────────────────────────────────────╯            
                                                                                                     
                                                                                                     
@@ -1149,7 +1137,7 @@ exports[`stories catalog Overlays/SettingsDialog/NavZone renders, snapshots, and
             │                                                                          │            
             │                                                                          │            
             │                                                                          │            
-            │ j/k category · l/enter into settings · esc close                         │            
+            │ j/k category · l/enter into settings · esc close cueloop v0.1.0-alpha.32 │            
             ╰──────────────────────────────────────────────────────────────────────────╯            
                                                                                                     
                                                                                                     
@@ -1201,12 +1189,12 @@ exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, an
 `;
 
 exports[`stories catalog Chrome/ThreadFooter/Default renders, snapshots, and carries its colors: Chrome/ThreadFooter/Default 1`] = `
-"  cueloop / main                                                              
+"  cueloop / main                                                  send message 
 "
 `;
 
 exports[`stories catalog Chrome/ThreadFooter/ReadOnly renders, snapshots, and carries its colors: Chrome/ThreadFooter/ReadOnly 1`] = `
-"  cueloop / design/tui                                                        
+"  cueloop / design/tui                                            send message 
 "
 `;
 

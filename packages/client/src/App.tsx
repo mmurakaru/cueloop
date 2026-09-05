@@ -18,7 +18,7 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
-import type { Clock, MouseEvent } from "@opentui/core";
+import type { Clock } from "@opentui/core";
 import { marksByDisplay, type Mark } from "./view-plan";
 import { dimmedTheme } from "./theme";
 import {
@@ -39,7 +39,6 @@ import {
 import type { Theme } from "./theme";
 import { createReviewController, type ShareTransport } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
-import { launchHarnessInSplit } from "@cueloop/daemon/herdr-split";
 import { createIntentDispatch, type Mode } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings, type CheatsheetSection } from "./key-bindings";
@@ -47,7 +46,9 @@ import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { NERD } from "./components/primitives/icons";
-import { groupInbox } from "./components/session-tree";
+import { groupInbox, projectName } from "./components/session-tree";
+import { ThreadFooter } from "./components/ThreadFooter";
+import { ConfirmCard } from "./components/ConfirmCard";
 import { Breadcrumb } from "./components/Breadcrumb";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
@@ -60,23 +61,12 @@ import { DiffSheet } from "./components/DiffSheet";
 import { PrototypeSheet } from "./components/PrototypeSheet";
 import type { PrototypeElement } from "./prototype-browser";
 import { type RailTab, type ReviewRailHandle } from "./components/ReviewRail";
-import type { AgentTerminalHandle } from "./components/agent-launcher";
-import { ReviewPanel } from "./components/ReviewPanel";
+import { REVIEW_DEFAULT_WIDTH, type ReviewPanelMode } from "./review-panel";
 import {
-  REVIEW_DEFAULT_WIDTH,
-  resolveReviewWidth,
-  toggleReviewPanelMode,
-  widthFromMouseColumn,
-  type ReviewPanelMode,
-} from "./review-panel";
-import {
-  buildCardEditState,
   buildDiffComposeState,
   buildHeaderItems,
   buildRenderFlags,
   buildSubmitConfirmState,
-  computePendingCount,
-  computeRailFootprint,
   computeRoleCapabilities,
   deriveReviewFlags,
   isCompletionOverlayPhase,
@@ -135,13 +125,14 @@ function menuChromeOpen(menuOpen: boolean, menuDialog: "keybinds" | "settings" |
   return menuOpen || menuDialog !== null;
 }
 
-/** True while a menu, an overlay, or the agent terminal owns the keyboard instead of the thread view. */
-function keyboardOwnedElsewhere(
-  menuOwnsKeyboard: boolean,
-  overlay: KeyState["overlay"],
-  agentTerminal: AgentTerminalHandle | null,
-): boolean {
-  return menuOwnsKeyboard || overlay !== "none" || agentTerminal !== null;
+/** True while a menu or an overlay owns the keyboard instead of the thread view. */
+function keyboardOwnedElsewhere(menuOwnsKeyboard: boolean, overlay: KeyState["overlay"]): boolean {
+  return menuOwnsKeyboard || overlay !== "none";
+}
+
+/** The footer submit fires only for the owner of an unresolved review, never an observer. */
+function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean): boolean {
+  return isOwner && !resolved && !observer;
 }
 
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
@@ -229,14 +220,11 @@ export function App({
   const [railTab, setRailTab] = useState<RailTab>("review");
   // the tree row the reviewer stands on in the rail's Tree tab
   const [selectedEntryId, setSelectedEntryId] = useState<string | undefined>(undefined);
-  // A running in-tab agent terminal (embedded harness); while set, keys route to it.
-  const [agentTerminal, setAgentTerminal] = useState<AgentTerminalHandle | null>(null);
   // review panel layout: mode + expanded width are client view state, loaded
   // from and persisted to the user config so they survive a restart. The ref
   // mirrors the width so the drag-end persist reads the latest value.
   const [reviewMode, setReviewMode] = useState<ReviewPanelMode>("expanded");
   const [reviewWidth, setReviewWidth] = useState(REVIEW_DEFAULT_WIDTH);
-  const [dividerDragging, setDividerDragging] = useState(false);
   const reviewWidthRef = useRef(REVIEW_DEFAULT_WIDTH);
   // ~2s focus pulse on the document highlight when a rail card is activated
   const [pulsedAnnotationId, setPulsedAnnotationId] = useState<string | null>(null);
@@ -325,7 +313,6 @@ export function App({
   const display = controller.display();
   const rows = controller.rows();
   const rejectedRows = controller.rejectedRows();
-  const curationItems = controller.curationItems();
   const marks = useMemo(
     () =>
       session
@@ -351,77 +338,15 @@ export function App({
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
   // annotation resolves to the display index it marked
-  const annotationPositions = useMemo(() => {
-    const positions = new Map<string, number>();
-
-    if (!session) return positions;
-    if (isDiff) {
-      for (const annotation of session.annotations) {
-        const blockIndex =
-          "blockIndex" in annotation.anchor ? annotation.anchor.blockIndex : undefined;
-
-        if (blockIndex !== undefined) positions.set(annotation.id, blockIndex);
-      }
-    } else {
-      for (const [displayIndex, blockMarks] of marks) {
-        for (const mark of blockMarks)
-          if (mark.annotationId) positions.set(mark.annotationId, displayIndex);
-      }
-    }
-
-    return positions;
-  }, [session, isDiff, marks]);
-
   // ── the guided walk's view model ────────────
   const walkFileList = controller.files();
   const walking = isWalking(isDiff, walk);
   const viewedPaths = useMemo(() => new Set(session?.viewedPaths ?? []), [session]);
 
   // ── selection symmetry: one selected id, both sides ──
-  const pulse = (id: string): void => {
-    setPulsedAnnotationId(id);
-    if (pulseTimer.current) clearTimeout(pulseTimer.current);
-    pulseTimer.current = setTimeout(() => setPulsedAnnotationId(null), 2000);
-  };
-
-  /** Card activation scrolls the document to the anchor and pulses it. */
-  const revealAnchor = (annotationId: string): void => {
-    for (const [displayIndex, blockMarks] of marks) {
-      if (!blockMarks.some((mark) => mark.annotationId === annotationId)) continue;
-      setCursor(displayIndex);
-
-      return;
-    }
-  };
-
   const selectCardFromDocument = (annotationId: string): void => {
     setFocusedAnnotationId(annotationId);
     railRef.current?.revealCard(annotationId);
-  };
-
-  const selectCardFromRail = (annotationId: string): void => {
-    setFocusedAnnotationId(annotationId);
-    pulse(annotationId);
-    revealAnchor(annotationId);
-  };
-
-  // selecting a removal reveals its source line, so the reader sees what the
-  // pending undo would bring back: the diff sheet follows the cursor; the plan
-  // sheet also needs an explicit scroll to the cut block
-  const selectCurationFromRail = (curationId: string): void => {
-    setSelectedCurationId(curationId);
-    const item = curationItems.find((candidate) => candidate.id === curationId);
-
-    if (!item) return;
-    setCursor(item.revealIndex);
-  };
-
-  // the selected removal card's undo button: same restore path as the u key,
-  // including the observer read-only guard the keyboard path gets via reduceKey
-  const undoCurationFromRail = (curationId: string): void => {
-    if (observer) return controller.setStatus("observer - read-only");
-    controller.restoreCuration(curationId);
-    setSelectedCurationId(undefined);
   };
 
   const openCardEdit = (annotationId: string): void => {
@@ -502,7 +427,7 @@ export function App({
   const menuOwnsKeyboard = menuChromeOpen(menuOpen, menuDialog);
   // an overlay (submit, walk, prompt, confirm) or the menu takes the keyboard
   // from the thread view; the view suspends its own grammar meanwhile
-  const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay, agentTerminal);
+  const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
 
   useKeyboard((key) => {
     // The thread view owns the document grammar while active (its own
@@ -524,13 +449,6 @@ export function App({
     // The prototype compose textarea owns the keyboard while open: let it receive
     // the typed note instead of the global keymap acting on each letter.
     if (prototypeComposing) return;
-    // A running in-tab agent terminal owns the keyboard: forward every key to it,
-    // with ctrl+] as the detach chord back to the review.
-    if (agentTerminal) {
-      if (key.ctrl && key.name === "]") return void agentTerminal.detach();
-
-      return void agentTerminal.write(key.sequence);
-    }
     if (menuDialog === "settings") return void handleSettingsKey(key.name);
     if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
     if (menuOpen) return void (key.name === "escape" && setMenuOpen(false));
@@ -573,7 +491,6 @@ export function App({
     <MenuChrome
       menuOpen={menuOpen}
       menuDialog={menuDialog}
-      status={status}
       theme={theme}
       setMenuOpen={setMenuOpen}
       setMenuDialog={setMenuDialog}
@@ -635,21 +552,17 @@ export function App({
     setMode,
     dispatch,
   });
-  const cardEditState = buildCardEditState({ mode, liveInput, setMode, dispatch });
-  const pendingCount = computePendingCount(activeSession);
-  const railFootprint = computeRailFootprint(reviewMode, reviewWidth, terminalWidth);
   const headerItems = buildHeaderItems({ session: activeSession, resolved, observer, role });
-  const { showOwnerActions, prototypeCanComment, chromeHidden, prototypePath, railResolvedIds } =
-    buildRenderFlags({
-      session: activeSession,
-      isOwner,
-      isDiff,
-      isPrototype,
-      resolved,
-      menuOpen,
-      menuDialog,
-      resolvedIds,
-    });
+  const { showOwnerActions, prototypeCanComment, chromeHidden, prototypePath } = buildRenderFlags({
+    session: activeSession,
+    isOwner,
+    isDiff,
+    isPrototype,
+    resolved,
+    menuOpen,
+    menuDialog,
+    resolvedIds,
+  });
 
   const onEditRequest = (): void => {
     // A share viewer/observer has no Edit affordance (the button is hidden), so
@@ -673,19 +586,6 @@ export function App({
     dispatch({ type: "openSubmit" });
   };
 
-  // the clickable chevron toggles expanded <-> compact; the keybinding (b)
-  // cycles all three including hidden
-  const onToggleReviewPanel = (): void => {
-    const next = toggleReviewPanelMode(reviewMode);
-
-    setReviewMode(next);
-    controller.saveReviewPanel({ mode: next });
-  };
-  // grabbing the divider only arms a drag when there is a width to drag
-  const onDividerGrab = (): void => {
-    if (reviewMode === "expanded") setDividerDragging(true);
-  };
-
   return (
     <ThemeProvider theme={theme}>
       <box
@@ -694,21 +594,6 @@ export function App({
           width: "100%",
           height: "100%",
           backgroundColor: theme.background,
-        }}
-        onMouseDrag={(event: MouseEvent) => {
-          if (!dividerDragging || reviewMode !== "expanded") return;
-          const next = widthFromMouseColumn(event.x, terminalWidth);
-
-          // many raw mouse-moves land in the same column: only re-render when the
-          // width actually changes, so the drag does not reconcile per pixel
-          if (next === reviewWidthRef.current) return;
-          reviewWidthRef.current = next;
-          setReviewWidth(next);
-        }}
-        onMouseUp={() => {
-          if (!dividerDragging) return;
-          setDividerDragging(false);
-          controller.saveReviewPanel({ width: reviewWidthRef.current });
         }}
       >
         <box
@@ -731,110 +616,70 @@ export function App({
               </Toolbar>
             ) : null}
           </box>
-          <box style={{ width: railFootprint }} />
         </box>
-        <box style={{ flexGrow: 1, flexDirection: "row" }}>
-          {isPrototype ? (
-            <PrototypeSheet
-              prototypePath={prototypePath}
-              quickActions={quickActions}
-              canComment={prototypeCanComment}
-              onCommentElement={onCommentPrototype}
-              onComposingChange={setPrototypeComposing}
-              hidden={chromeHidden}
-            />
-          ) : isDiff ? (
-            // the sheet dims to reading-quiet colors while the wizard has focus
-            <DiffSheet
-              rows={rows}
-              cursor={cursor}
-              annotations={activeSession.annotations}
-              focusedAnnotationId={focusedAnnotationId}
-              rejectedRows={rejectedRows}
-              compose={diffComposeState}
-              theme={walking ? dimmedTheme(theme) : undefined}
-            />
-          ) : (
-            <ThreadView
-              session={activeSession}
-              suspended={threadViewSuspended}
-              editOrphanCount={editOrphanCount}
-              onComposingChange={setThreadComposing}
-              resolved={resolved}
-              onObserverBlocked={(reason) =>
-                controller.setStatus(
-                  reason === "observer" ? "observer - read-only" : "review submitted - read-only",
-                )
-              }
-              onCursorChange={setCursor}
-              focusedAnnotationId={focusedAnnotationId}
-              onFocusAnnotation={setFocusedAnnotationId}
-              display={display}
-              marks={marks}
-              quickActions={quickActions}
-              observer={observer}
-              onAnnotate={(span, body) =>
-                void controller.annotate(
-                  "comment",
-                  span.start.blockIndex,
-                  span.start.char,
-                  span.end.char,
-                  body,
-                  span.end.blockIndex,
-                )
-              }
-              onReply={(rootAnnotationId, body) => void controller.reply(rootAnnotationId, body)}
-              onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
-              onExit={() => onExit?.(0)}
-            />
-          )}
-          <ReviewPanel
-            mode={reviewMode}
-            width={resolveReviewWidth(reviewWidth, terminalWidth)}
-            onDividerGrab={onDividerGrab}
-            onToggle={onToggleReviewPanel}
-            railRef={railRef}
-            rail={{
-              session: activeSession,
-              authorNames,
-              selectedId: focusedAnnotationId,
-              resolvedIds: railResolvedIds,
-              curationItems,
-              selectedCurationId,
-              annotationPositions,
-              railTab,
-              pendingCount,
-              cardEdit: cardEditState,
-              submitConfirm: submitConfirmState,
-              onTabChange: setRailTab,
-              onSelectCard: selectCardFromRail,
-              onActivateCard: openCardEdit,
-              onSelectCuration: selectCurationFromRail,
-              onUndoCuration: undoCurationFromRail,
-              onSubmitRequest,
-              onLaunchHarness: (command, seedText) =>
-                launchHarnessInSplit({
-                  command,
-                  cwd: activeSession.artifact.meta.cwd ?? process.cwd(),
-                  seedText,
-                }),
-              onAgentTerminal: setAgentTerminal,
-              tree: {
-                rows: controller.treeRows(),
-                selectedEntryId,
-                canMove: isOwner && !resolved,
-                canFork: isOwner,
-                onSelect: setSelectedEntryId,
-                onGo: (entryId) => {
-                  setSelectedEntryId(entryId);
-                  dispatch({ type: "treeGo" });
-                },
-                onBranch: () => dispatch({ type: "treeBranch" }),
-                onLabel: () => dispatch({ type: "treeLabel" }),
-                onFork: () => dispatch({ type: "treeFork" }),
-                onForkAndShare: () => dispatch({ type: "treeForkShare" }),
-              },
-            }}
+        <box style={{ flexGrow: 1, flexDirection: "column" }}>
+          <box style={{ flexGrow: 1, flexDirection: "row" }}>
+            {isPrototype ? (
+              <PrototypeSheet
+                prototypePath={prototypePath}
+                quickActions={quickActions}
+                canComment={prototypeCanComment}
+                onCommentElement={onCommentPrototype}
+                onComposingChange={setPrototypeComposing}
+                hidden={chromeHidden}
+              />
+            ) : isDiff ? (
+              // the sheet dims to reading-quiet colors while the wizard has focus
+              <DiffSheet
+                rows={rows}
+                cursor={cursor}
+                annotations={activeSession.annotations}
+                focusedAnnotationId={focusedAnnotationId}
+                rejectedRows={rejectedRows}
+                compose={diffComposeState}
+                theme={walking ? dimmedTheme(theme) : undefined}
+              />
+            ) : (
+              <ThreadView
+                session={activeSession}
+                suspended={threadViewSuspended}
+                editOrphanCount={editOrphanCount}
+                onComposingChange={setThreadComposing}
+                resolved={resolved}
+                onObserverBlocked={(reason) =>
+                  controller.setStatus(
+                    reason === "observer" ? "observer - read-only" : "review submitted - read-only",
+                  )
+                }
+                onCursorChange={setCursor}
+                focusedAnnotationId={focusedAnnotationId}
+                onFocusAnnotation={setFocusedAnnotationId}
+                display={display}
+                marks={marks}
+                quickActions={quickActions}
+                observer={observer}
+                onAnnotate={(span, body) =>
+                  void controller.annotate(
+                    "comment",
+                    span.start.blockIndex,
+                    span.start.char,
+                    span.end.char,
+                    body,
+                    span.end.blockIndex,
+                  )
+                }
+                onReply={(rootAnnotationId, body) => void controller.reply(rootAnnotationId, body)}
+                onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
+                onExit={() => onExit?.(0)}
+              />
+            )}
+          </box>
+          <ThreadFooter
+            repo={projectName(activeSession.workspace)}
+            branch={activeSession.workspace.branch}
+            onSubmit={onSubmitRequest}
+            canSubmit={canSubmitReview(isOwner, resolved, observer)}
+            theme={theme}
           />
         </box>
         <TrailingOverlays
@@ -850,6 +695,21 @@ export function App({
           setMode={setMode}
           dispatch={dispatch}
         />
+        {submitConfirmState !== null ? (
+          <box
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              width: "100%",
+              height: "100%",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <ConfirmCard {...submitConfirmState} theme={theme} />
+          </box>
+        ) : null}
         {menuChrome}
       </box>
     </ThemeProvider>

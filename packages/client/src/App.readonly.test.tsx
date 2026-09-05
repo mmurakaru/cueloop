@@ -9,7 +9,6 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { DARK } from "./theme";
 import {
   clickText,
   dragText,
@@ -17,7 +16,6 @@ import {
   isolateUserConfig,
   pressKey,
   typeText,
-  waitForState,
   waitForText,
 } from "./test-support";
 
@@ -83,15 +81,12 @@ function snapshot() {
 }
 
 describe("observer rendering", () => {
-  test("shows the observer badge and the bottom version line", async () => {
+  test("shows the observer badge in the header", async () => {
     // Arrange
     const setup = await renderObserver();
 
     // Assert
-    const frame = setup.captureCharFrame();
-
-    expect(frame).toContain("· observer");
-    expect(frame).toMatch(/v\d+\.\d+/); // the shared MenuBar version line sits at the bottom
+    expect(setup.captureCharFrame()).toContain("· observer");
   });
 });
 
@@ -199,29 +194,12 @@ describe("observer navigation still works", () => {
     });
     const setup = await renderObserver();
 
-    // Act
+    // Act - the observer navigates to the annotation without mutating anything
     await pressKey(setup, "n", { meta: true });
     await setup.renderOnce();
 
-    // Assert - focus shows as the card's blue border (transparent fill); a
-    // comment card is the only blue-bordered box in the frame
-    await waitForText(setup, "COMMENT · me");
-    await waitForState(setup, () => hasBorderColor(setup, DARK.blue));
+    // Assert - the observer reads the controller's comment inline in the thread
+    await waitForText(setup, "From the controller.");
+    expect(snapshot().annotations).toBe(1);
   });
 });
-
-/** Whether any border character (box-drawing) is painted in the given foreground hex. */
-function hasBorderColor(setup: Awaited<ReturnType<typeof renderObserver>>, hex: string): boolean {
-  for (const line of setup.captureSpans().lines) {
-    for (const span of line.spans) {
-      if (!/[╭╮╰╯│─┌┐└┘]/.test(span.text)) continue;
-      const [red, green, blue] = span.fg.toInts();
-      const rendered =
-        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
-
-      if (rendered === hex) return true;
-    }
-  }
-
-  return false;
-}
