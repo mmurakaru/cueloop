@@ -12,6 +12,10 @@ export const SCHEMA_VERSION = "1";
 export interface WorkspaceKey {
   repoRoot: string;
   branch: string;
+  /** Earliest root commit SHA; the project key that survives moving or re-cloning the repo. Absent for a standalone thread. */
+  rootCommit?: string;
+  /** Origin remote URL when present; for display and repair only, never the project key. */
+  remote?: string;
 }
 
 /**
