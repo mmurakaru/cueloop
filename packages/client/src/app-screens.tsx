@@ -15,10 +15,11 @@ import { ThemeProvider } from "./components/theme-context";
 import type { InboxRow } from "./components/session-tree";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
-import { ThreadsSidebar } from "./components/ThreadsSidebar";
-import { AppHeader } from "./components/AppHeader";
+import { InboxList } from "./components/InboxList";
 import { WelcomeSurface } from "./components/WelcomeSurface";
-import { ChangesColumn } from "./components/ChangesColumn";
+import { PanelColumn, FileTab } from "./components/PanelColumn";
+import { IconButton } from "./components/primitives/IconButton";
+import { NERD } from "./components/primitives/icons";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
@@ -132,43 +133,107 @@ export function NoThreadShell(props: {
           backgroundColor: theme.background,
         }}
       >
-        <AppHeader
-          onOpenMenu={onOpenMenu}
-          sidebarOpen={sidebarOpen}
-          onToggleSidebar={onToggleSidebar}
-          title=""
-          changesOpen={changesOpen}
-          onToggleChanges={() => setChangesOpen((open) => !open)}
-          theme={theme}
-        />
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
-          <ThreadsSidebar
-            open={sidebarOpen}
-            rows={rows}
-            cursor={inboxCursor}
-            pinnedIds={pinnedIds}
-            onSelect={(id) => controller.open(id)}
-            onRequestDelete={(id, title) =>
-              setMode({ type: "confirmDelete", sessionId: id, title })
+          {sidebarOpen ? (
+            <PanelColumn
+              width={30}
+              border="right"
+              header={
+                <box style={{ flexDirection: "row" }}>
+                  <box onMouseUp={onOpenMenu} style={{ paddingRight: 2 }}>
+                    <text fg={theme.textMuted}>{NERD.settings}</text>
+                  </box>
+                  <IconButton
+                    glyph={NERD.sidebarLeft}
+                    onPress={onToggleSidebar}
+                    marginRight={2}
+                    theme={theme}
+                  />
+                  <text fg={theme.accent}>cueloop</text>
+                </box>
+              }
+              theme={theme}
+            >
+              <scrollbox style={{ flexGrow: 1 }} focused={false}>
+                <InboxList
+                  rows={rows}
+                  cursor={inboxCursor}
+                  pinnedIds={pinnedIds}
+                  width={30}
+                  onSelect={(id) => controller.open(id)}
+                  onRequestDelete={(id, title) =>
+                    setMode({ type: "confirmDelete", sessionId: id, title })
+                  }
+                  onPin={onPin}
+                  onRename={onRename}
+                  theme={theme}
+                />
+              </scrollbox>
+            </PanelColumn>
+          ) : null}
+          <PanelColumn
+            header={
+              !sidebarOpen ? (
+                <box onMouseUp={onToggleSidebar} style={{ paddingRight: 1 }}>
+                  <text fg={theme.textMuted}>{NERD.sidebarLeftOff}</text>
+                </box>
+              ) : (
+                <text fg={theme.textDim}>Thread</text>
+              )
             }
-            onPin={onPin}
-            onRename={onRename}
             theme={theme}
-          />
-          <box style={{ flexGrow: 1, flexDirection: "column" }}>
-            {welcomeOpen ? (
-              <WelcomeSurface
-                version={CLIENT_VERSION}
-                onClose={() => setWelcomeOpen(false)}
-                theme={theme}
-              />
-            ) : (
-              <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
-                <text fg={theme.textDim}>select a thread</text>
+          >
+            <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
+              <text fg={theme.textDim}>open a thread in the sidebar</text>
+            </box>
+          </PanelColumn>
+          {welcomeOpen ? (
+            <PanelColumn
+              width={52}
+              border="left"
+              header={
+                <FileTab
+                  label="Welcome"
+                  active
+                  onClose={() => setWelcomeOpen(false)}
+                  theme={theme}
+                />
+              }
+              theme={theme}
+            >
+              <WelcomeSurface version={CLIENT_VERSION} theme={theme} />
+            </PanelColumn>
+          ) : null}
+          <PanelColumn
+            width={30}
+            border="left"
+            header={<FileTab label="Project" theme={theme} />}
+            headerRight={
+              <box style={{ flexDirection: "row" }}>
+                <IconButton
+                  glyph={NERD.diff}
+                  active={!changesOpen}
+                  onPress={() => setChangesOpen(false)}
+                  marginRight={1}
+                  theme={theme}
+                />
+                <IconButton
+                  glyph={NERD.listTree}
+                  active={changesOpen}
+                  onPress={() => setChangesOpen(true)}
+                  marginRight={1}
+                  theme={theme}
+                />
+                <IconButton glyph={NERD.expand} onPress={() => {}} marginRight={1} theme={theme} />
+                <IconButton glyph={NERD.sidebarRight} onPress={() => {}} theme={theme} />
               </box>
-            )}
-          </box>
-          <ChangesColumn open={changesOpen} onSelectFile={() => {}} theme={theme} />
+            }
+            theme={theme}
+          >
+            <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+              <text fg={theme.textDim}>No changes</text>
+            </box>
+          </PanelColumn>
         </box>
         {menuChrome}
         <ConfirmDialog
@@ -187,8 +252,8 @@ export function NoThreadShell(props: {
         {mode.type === "renameThread" ? (
           <PromptDialog
             isOpen
-            title=" Rename thread "
-            label="New title for this thread:"
+            title=" rename thread "
+            label="new title for this thread:"
             value={mode.text}
             placeholder="a short title"
             onInput={(text) => setMode({ ...mode, text })}
@@ -301,8 +366,8 @@ export function TrailingOverlays(props: {
       {mode.type === "renameThread" ? (
         <PromptDialog
           isOpen
-          title=" Rename thread "
-          label="New title for this thread:"
+          title=" rename thread "
+          label="new title for this thread:"
           value={mode.text}
           placeholder="a short title"
           onInput={(text) => setMode({ ...mode, text })}

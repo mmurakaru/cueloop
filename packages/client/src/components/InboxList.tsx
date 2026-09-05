@@ -94,11 +94,14 @@ interface ThreadRowProps {
 function ThreadRow(props: ThreadRowProps): React.ReactNode {
   const { title, selected, pinned, titleWidth, menuOpen, onToggleMenu, tokens, theme } = props;
   const [hovered, setHovered] = useState(false);
+  // the tail fades toward the row's own background, so it masks out instead of
+  // leaving a colored band over the selected (elevated) or hovered (panel) row
+  const rowBackground = selected ? tokens.elevated : hovered ? tokens.panel : tokens.background;
   const segments = fadeTitle(
     title,
     titleWidth,
     selected ? tokens.accent : tokens.textMuted,
-    tokens.background,
+    rowBackground,
   );
   const hasActions =
     props.onPin !== undefined || props.onRename !== undefined || props.onDelete !== undefined;
@@ -122,7 +125,7 @@ function ThreadRow(props: ThreadRowProps): React.ReactNode {
           ))}
         </text>
         <box style={{ flexGrow: 1 }} />
-        {(hovered || selected || menuOpen) && hasActions ? (
+        {(hovered || menuOpen) && hasActions ? (
           <IconButton
             glyph={NERD.kebab}
             active={menuOpen}

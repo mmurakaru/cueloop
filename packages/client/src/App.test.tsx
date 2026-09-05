@@ -290,13 +290,16 @@ describe("no-thread shell", () => {
   });
 
   test("the row kebab menu pins a thread into a Pinned section", async () => {
-    // Arrange - the no-thread shell opens with the first thread selected, so its
-    // kebab is visible without hover
+    // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "Migration Plan");
 
-    // Act - open the row menu and pick Pin
+    // Act - hover the row to reveal its kebab, open the menu, and pick Pin
+    const row = locateText(setup, "Migration Plan");
+
+    await setup.mockMouse.moveTo(row.column, row.row);
+    await waitForText(setup, "⋮");
     await clickText(setup, "⋮");
     await waitForText(setup, "Pin");
     await clickText(setup, "Pin");
@@ -319,11 +322,11 @@ describe("no-thread shell", () => {
     await waitForText(setup, "✕");
     await clickText(setup, "✕");
 
-    // Assert - the welcome content is gone, the shell and its hint remain
+    // Assert - the Welcome panel is gone, the shell and its thread-panel hint remain
     await waitForState(setup, () => !setup.captureCharFrame().includes("Welcome to cueloop"));
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("select a thread");
+    expect(frame).toContain("open a thread in the sidebar");
     expect(frame).toContain("Migration Plan"); // the sidebar stays
   });
 
@@ -333,8 +336,8 @@ describe("no-thread shell", () => {
 
     await waitForText(setup, "Welcome to cueloop");
 
-    // Act - open the settings dialog from the top-left gear (header content row)
-    await setup.mockMouse.click(1, 1);
+    // Act - open the settings dialog from the top-left gear (the Threads panel header, row 0)
+    await setup.mockMouse.click(1, 0);
 
     // Assert - the settings dialog with its Keybinds leaf appears
     await waitForText(setup, "Keybinds");

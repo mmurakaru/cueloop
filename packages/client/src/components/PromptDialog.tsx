@@ -46,7 +46,14 @@ export function PromptDialog({
   if (!isOpen) return null;
 
   return (
-    <Dialog isOpen title={title} width={Math.min(54, terminalWidth - 6)} height={7} theme={theme}>
+    <Dialog
+      isOpen
+      title={title}
+      width={Math.min(54, terminalWidth - 6)}
+      height={7}
+      background={tokens.elevated}
+      theme={theme}
+    >
       <box
         style={{
           flexDirection: "column",

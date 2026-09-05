@@ -692,6 +692,18 @@ exports[`stories catalog Chrome/MenuBar/Open renders, snapshots, and carries its
 "
 `;
 
+exports[`stories catalog Surfaces/PanelColumn/WithFileTab renders, snapshots, and carries its colors: Surfaces/PanelColumn/WithFileTab 1`] = `
+"│ Welcome                                         
+│───────────────────────────────────────          
+│                                                 
+│ panel body                                      
+│                                                 
+│                                                 
+│                                                 
+│                                                 
+"
+`;
+
 exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, and carries its colors: Overlays/PromptDialog/NameYourself 1`] = `
 "                                                                
                                                                 
@@ -1483,8 +1495,7 @@ exports[`stories catalog Overlays/WalkWizard/WithAgentNote renders, snapshots, a
 `;
 
 exports[`stories catalog Surfaces/WelcomeSurface/Welcome renders, snapshots, and carries its colors: Surfaces/WelcomeSurface/Welcome 1`] = `
-"─Welcome────────────────────────────────────────────────────
-                                                            
+"                                                            
   Welcome to cueloop                                        
   a review loop for coding agents                           
                                                             
@@ -1498,6 +1509,7 @@ exports[`stories catalog Surfaces/WelcomeSurface/Welcome renders, snapshots, and
                                                             
   What's new                                                
   · cueloop v0.1.0-alpha.66                                 
+                                                            
                                                             
 "
 `;
