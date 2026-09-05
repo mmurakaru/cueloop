@@ -1,5 +1,21 @@
 # @cueloop/client
 
+## 0.1.0-alpha.66
+
+### Minor Changes
+
+- [#339](https://github.com/mmurakaru/cueloop/pull/339) [`53384b9`](https://github.com/mmurakaru/cueloop/commit/53384b973d5428187666ac2aa7a3ea3cc204fea2) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add a context-driven Changes column, a tree-nav settings dialog, and inline skill completion in the composer. A diff thread opens with a right-hand column that lists its changed files as a directory tree; clicking a file scrolls the diff to it, and the right panel icon toggles the column. The settings gear opens a dialog whose left navigation is a keyboard-navigable tree, with the keyboard reference as a leaf and the version in the footer. Typing a skill reference mid-comment shows a tab-hint with the closest match; tab completes it to the full name, and references chain inline.
+
+- [#336](https://github.com/mmurakaru/cueloop/pull/336) [`8889294`](https://github.com/mmurakaru/cueloop/commit/88892948ecbc37caf94e9ef01a5d53750afc2364) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reshape the review surface into an edgy app shell. The sidebar groups reviews into Projects and Threads keyed by a location-proof repo identity that survives moving or re-cloning the repo, and jumps between threads beside the thread view. The thread footer carries the repo and branch with a send-message control, brand-purple accents and nerd-font icons run throughout, and `cueloop dev` opens the TUI on an isolated home seeded with example threads.
+
+### Patch Changes
+
+- Updated dependencies [[`8889294`](https://github.com/mmurakaru/cueloop/commit/88892948ecbc37caf94e9ef01a5d53750afc2364)]:
+  - @cueloop/daemon@0.1.0-alpha.66
+  - @cueloop/schema@0.1.0-alpha.66
+  - @cueloop/extension-api@0.1.0-alpha.66
+  - @cueloop/integration-obsidian@0.1.0-alpha.66
+
 ## 0.1.0-alpha.65
 
 ### Minor Changes

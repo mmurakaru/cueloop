@@ -1,5 +1,16 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.66
+
+### Minor Changes
+
+- [#336](https://github.com/mmurakaru/cueloop/pull/336) [`8889294`](https://github.com/mmurakaru/cueloop/commit/88892948ecbc37caf94e9ef01a5d53750afc2364) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reshape the review surface into an edgy app shell. The sidebar groups reviews into Projects and Threads keyed by a location-proof repo identity that survives moving or re-cloning the repo, and jumps between threads beside the thread view. The thread footer carries the repo and branch with a send-message control, brand-purple accents and nerd-font icons run throughout, and `cueloop dev` opens the TUI on an isolated home seeded with example threads.
+
+### Patch Changes
+
+- Updated dependencies [[`8889294`](https://github.com/mmurakaru/cueloop/commit/88892948ecbc37caf94e9ef01a5d53750afc2364)]:
+  - @cueloop/schema@0.1.0-alpha.66
+
 ## 0.1.0-alpha.65
 
 ### Minor Changes
