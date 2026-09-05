@@ -47,6 +47,7 @@ import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { NERD } from "./components/primitives/icons";
+import { groupInbox } from "./components/session-tree";
 import { Breadcrumb } from "./components/Breadcrumb";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
@@ -216,8 +217,10 @@ export function App({
   // ── view state ──────────────────────────────
   const [cursor, setCursor] = useState(0);
   const [inboxCursor, setInboxCursor] = useState(0);
+  // Projects and Threads grouping; ordered is the flat sequence the inbox cursor walks
+  const grouped = useMemo(() => groupInbox(inbox ?? []), [inbox]);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
-  // the bottom-left menu drop-up and the centered dialog it opens
+  // the top-left settings gear drop-down and the centered dialog it opens
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
@@ -460,7 +463,7 @@ export function App({
     display,
     rows,
     cursor,
-    inbox,
+    inbox: inbox === null ? null : grouped.ordered,
     inboxCursor,
     mode,
     session,
@@ -588,7 +591,7 @@ export function App({
   if (!session)
     return inbox ? (
       <InboxScreen
-        inbox={inbox}
+        rows={grouped.rows}
         inboxCursor={inboxCursor}
         mode={mode}
         theme={theme}

@@ -14,6 +14,7 @@ import { CLIENT_VERSION } from "./version";
 import { ThemeProvider } from "./components/theme-context";
 import { MenuBar } from "./components/MenuBar";
 import { NERD } from "./components/primitives/icons";
+import type { InboxRow } from "./components/session-tree";
 import { KeybindsDialog } from "./components/KeybindsDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
@@ -105,7 +106,7 @@ export function MenuChrome(props: {
 }
 
 export function InboxScreen(props: {
-  inbox: ReviewSession[];
+  rows: InboxRow[];
   inboxCursor: number;
   mode: Mode;
   theme: Theme;
@@ -114,7 +115,7 @@ export function InboxScreen(props: {
   menuChrome: React.ReactNode;
   onOpenMenu: () => void;
 }): React.ReactNode {
-  const { inbox, inboxCursor, mode, theme, controller, setMode, menuChrome, onOpenMenu } = props;
+  const { rows, inboxCursor, mode, theme, controller, setMode, menuChrome, onOpenMenu } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
 
   return (
@@ -151,7 +152,7 @@ export function InboxScreen(props: {
           <box style={{ flexGrow: 1 }} />
         </box>
         <InboxList
-          inbox={inbox}
+          rows={rows}
           cursor={inboxCursor}
           onRequestDelete={(id, title) => setMode({ type: "confirmDelete", sessionId: id, title })}
         />

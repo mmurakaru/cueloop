@@ -116,6 +116,7 @@ const commandHandlers: CommandHandlers = {
   refine: async (rest) => (await import("./refine-command")).refineCommand(rest),
   review: (rest) => reviewEntry(rest),
   "review-post": async (rest) => (await import("./pr")).reviewPostCommand(rest),
+  dev: async () => (await import("./dev-command")).devCommand(),
 };
 
 const versionAliases = new Set(["-v", "--version", "version"]);
@@ -346,6 +347,7 @@ function printHelp(): void {
       "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the verdict (spawn detached)",
       "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
       "  cueloop daemon                   run the daemon in the foreground",
+      "  cueloop dev                      open the TUI on an isolated home seeded with example threads",
       "",
       "  cueloop -v, --version            print the installed version",
       "  cueloop -h, --help               print this help",
