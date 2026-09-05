@@ -580,11 +580,11 @@ exports[`stories catalog Surfaces/InboxList/Empty renders, snapshots, and carrie
 
 exports[`stories catalog Surfaces/InboxList/TwoPending renders, snapshots, and carries its colors: Surfaces/InboxList/TwoPending 1`] = `
 "                                                                                
- > Migration Plan · main · plan                                                 
-   working tree · main · diff                                                   
-                                                                                
-                                                                                
-                                                                                
+ Projects                                                                       
+   widget                                                                      
+    Migration Plan                                                              
+ Threads                                                                        
+    working tree                                                                
                                                                                 
                                                                                 
                                                                                 
