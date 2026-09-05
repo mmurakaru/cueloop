@@ -432,6 +432,38 @@ function slashFilter(items: SlashItem[], query: string): SlashItem[] {
   return scored.toSorted((left, right) => right.score - left.score).map((entry) => entry.item);
 }
 
+/**
+ * A skill invoked mid-sentence: the trailing "/word" token when text already
+ * precedes it (a draft that starts with "/" is the palette, not an inline
+ * completion). Newline-safe, since the token may sit at the start of a new line.
+ */
+export function inlineSlashToken(text: string): string | null {
+  if (text.startsWith("/")) return null;
+  const match = /(?:^|\s)(\/[a-zA-Z0-9-]*)$/.exec(text);
+
+  return match ? match[1]! : null;
+}
+
+interface InlineSlash {
+  token: string;
+  suggestion: SlashItem;
+}
+
+/** The inline completion state: the trailing "/word" and its closest skill, or null. */
+export function resolveInlineSuggestion(
+  slashActive: boolean,
+  text: string,
+  quickActions: QuickAction[],
+): InlineSlash | null {
+  if (slashActive) return null;
+  const token = inlineSlashToken(text);
+
+  if (token === null) return null;
+  const suggestion = slashFilter(slashItemsFrom(quickActions), token.slice(1))[0];
+
+  return suggestion ? { token, suggestion } : null;
+}
+
 function SlashList({
   items,
   selected,
@@ -466,6 +498,44 @@ function SlashList({
       {items.length > WINDOW ? (
         <text fg={tokens.textDim}>{`(${selected + 1}/${items.length})`}</text>
       ) : null}
+    </box>
+  );
+}
+
+/** Below the composer: the palette list for a leading "/", else the inline tab-hint, else nothing. */
+function ComposerPalette({
+  slashActive,
+  slashItems,
+  slashIndex,
+  inline,
+  tokens,
+}: {
+  slashActive: boolean;
+  slashItems: SlashItem[];
+  slashIndex: number;
+  inline: InlineSlash | null;
+  tokens: Theme;
+}): React.ReactNode {
+  if (slashActive) {
+    return (
+      <box style={{ flexDirection: "column", marginLeft: 3 }}>
+        <SlashList
+          items={slashItems}
+          selected={Math.min(slashIndex, Math.max(0, slashItems.length - 1))}
+          tokens={tokens}
+        />
+      </box>
+    );
+  }
+  if (inline === null) return null;
+
+  return (
+    <box style={{ flexDirection: "row", marginLeft: 3 }}>
+      <text>
+        <span fg={tokens.textDim}>{"⇥ "}</span>
+        <span fg={tokens.accent}>{`/${inline.suggestion.name}`}</span>
+        <span fg={tokens.textDim}>{`  ${inline.suggestion.description}`}</span>
+      </text>
     </box>
   );
 }
@@ -949,6 +1019,9 @@ export function ThreadView({
   const slashItems = slashActive
     ? slashFilter(slashItemsFrom(quickActions), composeText.slice(1).trim())
     : [];
+  // inline skill completion: the trailing "/word" token and its closest match,
+  // offered as a hint below the composer that tab completes to the full name
+  const inlineSlash = resolveInlineSuggestion(slashActive, composeText, quickActions);
 
   const saveComment = (body: string): void => {
     // the body saves verbatim - typed newlines are the author's choice;
@@ -1071,6 +1144,17 @@ export function ThreadView({
     return false;
   };
 
+  /** Tab completes the trailing "/word" to the matched skill's full name, then a space to chain. */
+  const handleInlineSlashKey = (key: KeyEvent, activeCompose: ComposeState): boolean => {
+    if (inlineSlash === null || key.name !== "tab") return false;
+    const cut = composeText.length - inlineSlash.token.length;
+    const completed = `${composeText.slice(0, cut)}/${inlineSlash.suggestion.name} `;
+
+    openCompose({ ...activeCompose, seed: completed });
+
+    return true;
+  };
+
   /** Pre-mount window: buffer printables, honor a fast cmd+enter or newline. */
   const handlePremountKey = (key: KeyEvent, activeCompose: ComposeState): void => {
     if (key.name === "return") {
@@ -1112,6 +1196,7 @@ export function ThreadView({
       return closeCompose();
     }
     if (handleSlashKey(key, activeCompose)) return;
+    if (handleInlineSlashKey(key, activeCompose)) return;
     if (!composerReady.current) handlePremountKey(key, activeCompose);
   };
 
@@ -1291,15 +1376,18 @@ export function ThreadView({
       onInput={setComposeText}
     />
   ) : null;
-  const slashNode = slashActive ? (
-    <box key="slash-palette" style={{ flexDirection: "column", marginLeft: 3 }}>
-      <SlashList
-        items={slashItems}
-        selected={Math.min(slashIndex, Math.max(0, slashItems.length - 1))}
-        tokens={tokens}
-      />
-    </box>
-  ) : null;
+  // one node below the composer: the palette list for a leading "/", otherwise the
+  // inline completion hint. Renders null when neither applies, so it always pushes.
+  const paletteNode = (
+    <ComposerPalette
+      key="composer-palette"
+      slashActive={slashActive}
+      slashItems={slashItems}
+      slashIndex={slashIndex}
+      inline={inlineSlash}
+      tokens={tokens}
+    />
+  );
 
   const foldedSummaryFor = (discussion: Discussion): React.ReactNode => (
     <box key={discussion.key} style={{ flexDirection: "row", marginTop: 1, marginLeft: 2 }}>
@@ -1468,7 +1556,7 @@ export function ThreadView({
         continue;
       }
       nodes.push(discussionCardFor(discussion, composingHere));
-      if (composingHere && slashNode) nodes.push(slashNode);
+      if (composingHere) nodes.push(paletteNode);
     }
     if (composeHere && compose.discussionKey === null && composerNode) {
       const anchoredHere = compose.span ? endsInLine(compose.span.end.char) : isLastLine;
@@ -1481,7 +1569,7 @@ export function ThreadView({
             segments={[{ color: palette.cardEdge, node: composerNode }]}
           />,
         );
-        if (slashNode) nodes.push(slashNode);
+        nodes.push(paletteNode);
       }
     }
 

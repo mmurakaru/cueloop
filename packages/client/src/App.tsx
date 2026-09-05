@@ -48,6 +48,7 @@ import { Toolbar } from "./components/primitives/Toolbar";
 import { NERD } from "./components/primitives/icons";
 import { groupInbox, projectName } from "./components/session-tree";
 import { ThreadsSidebar } from "./components/ThreadsSidebar";
+import { ChangesColumn, DiffChangesToggle, useDiffColumns } from "./components/ChangesColumn";
 import { IconButton } from "./components/primitives/IconButton";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
@@ -123,8 +124,8 @@ export interface AppProps {
 }
 
 /** True while the drop-up or one of its dialogs is open and owns the keyboard. */
-function menuChromeOpen(menuOpen: boolean, menuDialog: "keybinds" | "settings" | null): boolean {
-  return menuOpen || menuDialog !== null;
+function menuChromeOpen(menuDialog: "keybinds" | "settings" | null): boolean {
+  return menuDialog !== null;
 }
 
 /** True while a menu or an overlay owns the keyboard instead of the thread view. */
@@ -222,7 +223,6 @@ export function App({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
-  const [menuOpen, setMenuOpen] = useState(false);
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
@@ -322,6 +322,7 @@ export function App({
   // ── derived view model ──────────────────────
   const display = controller.display();
   const rows = controller.rows();
+  const diffColumns = useDiffColumns({ session, rows, cursor, setCursor });
   const rejectedRows = controller.rejectedRows();
   const marks = useMemo(
     () =>
@@ -434,7 +435,7 @@ export function App({
 
   const overlay = resolveOverlay(mode, completion.phase, walking);
 
-  const menuOwnsKeyboard = menuChromeOpen(menuOpen, menuDialog);
+  const menuOwnsKeyboard = menuChromeOpen(menuDialog);
   // an overlay (submit, walk, prompt, confirm) or the menu takes the keyboard
   // from the thread view; the view suspends its own grammar meanwhile
   const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
@@ -461,7 +462,6 @@ export function App({
     if (prototypeComposing) return;
     if (menuDialog === "settings") return void handleSettingsKey(key.name);
     if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
-    if (menuOpen) return void (key.name === "escape" && setMenuOpen(false));
     // the toast is non-modal: escape only dismisses it when nothing else owns
     // escape, so an open overlay (compose, submit, prompt, walk) still cancels
     if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span")
@@ -484,8 +484,14 @@ export function App({
       display,
     });
 
-    keyBindings.setContext({ overlay: state.overlay, spanMode: state.spanMode });
-    const action = keyBindings.resolveAction({ name: key.name, shift: !!key.shift });
+    keyBindings.setContext({
+      overlay: state.overlay,
+      spanMode: state.spanMode,
+    });
+    const action = keyBindings.resolveAction({
+      name: key.name,
+      shift: !!key.shift,
+    });
 
     for (const intent of reduceKey(
       state,
@@ -499,11 +505,8 @@ export function App({
   // reused by the inbox and by plan/diff review so the two never drift ──
   const menuChrome = (
     <MenuChrome
-      menuOpen={menuOpen}
       menuDialog={menuDialog}
       theme={theme}
-      setMenuOpen={setMenuOpen}
-      setMenuDialog={setMenuDialog}
       keybindsSections={cheatsheetFor(keyBindings, threadViewActive)}
       settingsCategories={settingsCategories}
       settingsValues={settingsValues}
@@ -525,7 +528,7 @@ export function App({
         controller={controller}
         setMode={setMode}
         menuChrome={menuChrome}
-        onOpenMenu={() => setMenuOpen((isOpen) => !isOpen)}
+        onOpenMenu={() => setMenuDialog("settings")}
       />
     ) : (
       <ConnectingScreen theme={theme} />
@@ -562,14 +565,18 @@ export function App({
     setMode,
     dispatch,
   });
-  const headerItems = buildHeaderItems({ session: activeSession, resolved, observer, role });
+  const headerItems = buildHeaderItems({
+    session: activeSession,
+    resolved,
+    observer,
+    role,
+  });
   const { showOwnerActions, prototypeCanComment, chromeHidden, prototypePath } = buildRenderFlags({
     session: activeSession,
     isOwner,
     isDiff,
     isPrototype,
     resolved,
-    menuOpen,
     menuDialog,
     resolvedIds,
   });
@@ -607,10 +614,15 @@ export function App({
         }}
       >
         <box
-          style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}
+          style={{
+            flexDirection: "row",
+            height: 2,
+            paddingTop: 1,
+            backgroundColor: theme.panel,
+          }}
         >
           <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
-            <box onMouseUp={() => setMenuOpen((isOpen) => !isOpen)} style={{ paddingRight: 2 }}>
+            <box onMouseUp={() => setMenuDialog("settings")} style={{ paddingRight: 2 }}>
               <text fg={theme.textMuted}>{NERD.settings}</text>
             </box>
             <IconButton
@@ -631,6 +643,12 @@ export function App({
                 </Button>
               </Toolbar>
             ) : null}
+            <DiffChangesToggle
+              isDiff={isDiff}
+              open={diffColumns.changesOpen}
+              onToggle={diffColumns.toggleChanges}
+              theme={theme}
+            />
           </box>
         </box>
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
@@ -711,6 +729,13 @@ export function App({
               theme={theme}
             />
           </box>
+          <ChangesColumn
+            open={diffColumns.changesOpen}
+            files={activeSession.artifact.files}
+            selectedPath={diffColumns.currentFilePath}
+            onSelectFile={diffColumns.scrollToFile}
+            theme={theme}
+          />
         </box>
         <TrailingOverlays
           walking={walking}

@@ -112,17 +112,15 @@ export function buildRenderFlags(params: {
   isDiff: boolean;
   isPrototype: boolean;
   resolved: boolean;
-  menuOpen: boolean;
   menuDialog: "keybinds" | "settings" | null;
   resolvedIds: Set<string>;
 }) {
-  const { session, isOwner, isDiff, isPrototype, resolved, menuOpen, menuDialog, resolvedIds } =
-    params;
+  const { session, isOwner, isDiff, isPrototype, resolved, menuDialog, resolvedIds } = params;
 
   return {
     showOwnerActions: isOwner && !isDiff && !resolved,
     prototypeCanComment: isOwner && !resolved,
-    chromeHidden: menuOpen || menuDialog !== null,
+    chromeHidden: menuDialog !== null,
     prototypePath: session.artifact.meta.prototypePath ?? "",
     railResolvedIds: isDiff || isPrototype ? null : resolvedIds,
   };

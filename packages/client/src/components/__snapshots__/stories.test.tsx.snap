@@ -1050,10 +1050,10 @@ exports[`stories catalog Overlays/SettingsDialog/AppearanceThemed renders, snaps
                                                                                                     
                                                                                                     
             ╭─ Settings ───────────────────────────────────────────────────────────────╮            
-            │ SETTINGS            Appearance                                           │            
-            │   General           the color theme                                      │            
-            │   Display                                                                │            
-            │ › Appearance         Theme                    Rosé Pine Moon             │            
+            │   Settings           Appearance                                         │            
+            │     General          the color theme                                    │            
+            │     Display                                                             │            
+            │     Appearance        Theme                    Rosé Pine Moon           │            
             │                                                                          │            
             │                                                                          │            
             │                                                                          │            
@@ -1084,11 +1084,11 @@ exports[`stories catalog Overlays/SettingsDialog/BodyZone renders, snapshots, an
                                                                                                     
                                                                                                     
             ╭─ Settings ───────────────────────────────────────────────────────────────╮            
-            │ SETTINGS            Display                                              │            
-            │   General           plan width and chrome                                │            
-            │ › Display                                                                │            
-            │   Appearance         Plan width               default                    │            
-            │                      Line numbers             on                         │            
+            │   Settings           Display                                            │            
+            │     General          plan width and chrome                              │            
+            │     Display                                                             │            
+            │     Appearance        Plan width               default                  │            
+            │                        Line numbers             on                       │            
             │                                                                          │            
             │                                                                          │            
             │                                                                          │            
@@ -1118,11 +1118,11 @@ exports[`stories catalog Overlays/SettingsDialog/NavZone renders, snapshots, and
                                                                                                     
                                                                                                     
             ╭─ Settings ───────────────────────────────────────────────────────────────╮            
-            │ SETTINGS            General                                              │            
-            │ › General           identity and submission                              │            
-            │   Display                                                                │            
-            │   Appearance         Display name             amber-heron                │            
-            │                      Auto-close on submit     3s                         │            
+            │   Settings           General                                            │            
+            │     General          identity and submission                            │            
+            │     Display                                                             │            
+            │     Appearance        Display name             amber-heron              │            
+            │                        Auto-close on submit     3s                       │            
             │                                                                          │            
             │                                                                          │            
             │                                                                          │            
@@ -1137,7 +1137,7 @@ exports[`stories catalog Overlays/SettingsDialog/NavZone renders, snapshots, and
             │                                                                          │            
             │                                                                          │            
             │                                                                          │            
-            │ j/k category · l/enter into settings · esc close cueloop v0.1.0-alpha.32 │            
+            │ j/k nav · l/tab open · esc close                 cueloop v0.1.0-alpha.32 │            
             ╰──────────────────────────────────────────────────────────────────────────╯            
                                                                                                     
                                                                                                     
@@ -1995,5 +1995,21 @@ exports[`stories catalog Foundations/Theme/ProviderSwap renders, snapshots, and 
                                                                                 
                                                                                 
                                                                                 
+"
+`;
+
+exports[`stories catalog Surfaces/ChangesColumn/Changed renders, snapshots, and carries its colors: Surfaces/ChangesColumn/Changed 1`] = `
+"│  packages                                                
+│    client/src                                            
+│      App.tsx               M                             
+│      components                                          
+│        ChangesColumn.tsx   A                             
+│    daemon/src                                            
+│      review.ts             D                             
+│  README.md                 M                             
+│                                                           
+│                                                           
+│                                                           
+│                                                           
 "
 `;

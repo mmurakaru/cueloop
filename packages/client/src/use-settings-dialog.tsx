@@ -191,6 +191,12 @@ export function useSettingsDialog(params: {
         />
       ),
     },
+    {
+      id: "keybinds",
+      name: "Keybinds",
+      description: "keyboard reference",
+      rows: [],
+    },
   ];
   const settingsValues = {
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
@@ -219,6 +225,9 @@ export function useSettingsDialog(params: {
   };
 
   const onCategorySelect = (categoryId: string): void => {
+    // the nav tree carries a synthetic Settings group folder; clicking it must
+    // not become the active category, or the key handler dereferences nothing
+    if (!settingsCategories.some((category) => category.id === categoryId)) return;
     setActionsExpandedIndex(null);
     setSettingsNav({ categoryId, rowIndex: 0, zone: "body" });
   };
