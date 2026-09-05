@@ -1,5 +1,23 @@
 # cueloop
 
+## 0.1.0-alpha.67
+
+### Minor Changes
+
+- [#343](https://github.com/mmurakaru/cueloop/pull/343) [`cda40b3`](https://github.com/mmurakaru/cueloop/commit/cda40b31f22f21eb6105d9e2a9a7fe217c37967c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Sharpen the sidebar and header. Long thread titles fade to a clean right-edge mask instead of wrapping; hovering or selecting a thread reveals a kebab that opens an inline pin / rename / delete menu, pinning lifts the thread into a Pinned section at the top, and a thread can be renamed through a new daemon title command. The header is one segmented bar that mirrors the open thread's name with the owner's Edit and Share beside it, and the diff pane reads as a flat editor surface without its own frame.
+
+- [#343](https://github.com/mmurakaru/cueloop/pull/343) [`cda40b3`](https://github.com/mmurakaru/cueloop/commit/cda40b31f22f21eb6105d9e2a9a7fe217c37967c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Retire the separate inbox screen. Opening the app with nothing selected lands directly in the shell - the same header and Projects/Threads sidebar as a thread view, with a disposable Welcome tab in the center that points at where to start, the docs, and what shipped in this build. Closing the Welcome tab leaves a bare select-a-thread hint, and picking a thread swaps the center for it.
+
+### Patch Changes
+
+- [#341](https://github.com/mmurakaru/cueloop/pull/341) [`dd36611`](https://github.com/mmurakaru/cueloop/commit/dd366115c74f058b9f7d1193580fa7b47a8bb7e4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Align installer progress symbols with the banner and keep message text fixed as loaders change to checkmarks.
+  Remove the cueloop prefix from install progress and completion messages.
+- Updated dependencies [[`cda40b3`](https://github.com/mmurakaru/cueloop/commit/cda40b31f22f21eb6105d9e2a9a7fe217c37967c), [`cda40b3`](https://github.com/mmurakaru/cueloop/commit/cda40b31f22f21eb6105d9e2a9a7fe217c37967c)]:
+  - @cueloop/client@0.1.0-alpha.67
+  - @cueloop/daemon@0.1.0-alpha.67
+  - @cueloop/schema@0.1.0-alpha.67
+  - @cueloop/adapters@0.1.0-alpha.67
+
 ## 0.1.0-alpha.66
 
 ### Minor Changes
