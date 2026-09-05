@@ -3,6 +3,7 @@
 // center keeps it on the same row as sibling text or icons.
 
 import React from "react";
+import type { MouseEvent as TerminalMouseEvent } from "@opentui/core";
 import { DARK, type Theme } from "../../theme";
 
 export interface IconButtonProps {
@@ -31,10 +32,15 @@ export function IconButton({
 }: IconButtonProps): React.ReactNode {
   const tokens = theme ?? DARK;
   const resolved = color ?? (disabled ? tokens.textDim : active ? tokens.accent : tokens.textMuted);
+  // a button press is its own action - never let it bubble to a clickable row behind it
+  const handleMouseUp = (event: TerminalMouseEvent): void => {
+    event.stopPropagation();
+    onPress?.();
+  };
 
   return (
     <box
-      onMouseUp={disabled ? undefined : onPress}
+      onMouseUp={disabled ? undefined : handleMouseUp}
       style={{ alignSelf: "center", marginLeft, marginRight }}
     >
       <text fg={resolved}>{glyph}</text>

@@ -26,6 +26,7 @@ import {
   DEFAULT_QUICK_ACTIONS,
   loadConfig,
   persistAuthorName,
+  persistPins,
   type AutoClose,
   type QuickAction,
 } from "./config";
@@ -210,7 +211,20 @@ export function App({
   const [cursor, setCursor] = useState(0);
   const [inboxCursor, setInboxCursor] = useState(0);
   // Projects and Threads grouping; ordered is the flat sequence the inbox cursor walks
-  const grouped = useMemo(() => groupInbox(inbox ?? []), [inbox]);
+  // pinned threads are client-local view state, seeded from the user config and
+  // persisted on toggle; a pin lifts the thread into the sidebar's Pinned section
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const grouped = useMemo(() => groupInbox(inbox ?? [], pinnedIds), [inbox, pinnedIds]);
+  const togglePin = (id: string): void =>
+    setPinnedIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      persistPins([...next]);
+
+      return next;
+    });
   // the left Projects and Threads column; collapsed by default per the context
   // matrix (the thread owns the width), toggled open to jump between threads
   // one sidebar-open state across the no-thread shell and the thread view, so
@@ -263,6 +277,7 @@ export function App({
     setAuthorNames(config.authors);
     setQuickActions(config.actions);
     setAutoClose(config.ui.autoClose);
+    setPinnedIds(new Set(config.ui.pins));
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings, appearance]);
   useEffect(
@@ -528,6 +543,8 @@ export function App({
         onOpenMenu={() => setMenuDialog("settings")}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={() => setSidebarOpen((open) => !open)}
+        pinnedIds={pinnedIds}
+        onPin={togglePin}
       />
     ) : (
       <ConnectingScreen theme={theme} />
@@ -645,7 +662,9 @@ export function App({
             rows={grouped.rows}
             cursor={inboxCursor}
             activeId={session.id}
+            pinnedIds={pinnedIds}
             onSelect={(id) => controller.open(id)}
+            onPin={togglePin}
             theme={theme}
           />
           <box style={{ flexGrow: 1, flexDirection: "column" }}>

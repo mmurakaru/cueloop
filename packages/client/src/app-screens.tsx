@@ -98,6 +98,8 @@ export function NoThreadShell(props: {
   /** Shared with the thread view, so picking a thread preserves the sidebar. */
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  pinnedIds: ReadonlySet<string>;
+  onPin: (id: string) => void;
 }): React.ReactNode {
   const {
     rows,
@@ -110,6 +112,8 @@ export function NoThreadShell(props: {
     onOpenMenu,
     sidebarOpen,
     onToggleSidebar,
+    pinnedIds,
+    onPin,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
   const [welcomeOpen, setWelcomeOpen] = useState(true);
@@ -136,10 +140,12 @@ export function NoThreadShell(props: {
             open={sidebarOpen}
             rows={rows}
             cursor={inboxCursor}
+            pinnedIds={pinnedIds}
             onSelect={(id) => controller.open(id)}
             onRequestDelete={(id, title) =>
               setMode({ type: "confirmDelete", sessionId: id, title })
             }
+            onPin={onPin}
             theme={theme}
           />
           <box style={{ flexGrow: 1, flexDirection: "column" }}>

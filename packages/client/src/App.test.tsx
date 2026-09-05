@@ -288,6 +288,23 @@ describe("no-thread shell", () => {
     expect(frame).toContain("Other Plan");
   });
 
+  test("the row kebab menu pins a thread into a Pinned section", async () => {
+    // Arrange - the no-thread shell opens with the first thread selected, so its
+    // kebab is visible without hover
+    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+
+    await waitForText(setup, "Migration Plan");
+
+    // Act - open the row menu and pick Pin
+    await clickText(setup, "⋮");
+    await waitForText(setup, "Pin");
+    await clickText(setup, "Pin");
+
+    // Assert - a Pinned section now holds the thread
+    await waitForText(setup, "Pinned");
+    expect(frameRow(setup, "Migration Plan")).toBeGreaterThan(frameRow(setup, "Pinned"));
+  });
+
   test("the Welcome tab is disposable: closing it leaves a bare select-a-thread hint", async () => {
     // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });

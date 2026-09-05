@@ -140,6 +140,20 @@ exports[`stories catalog Cards/AnnotationCard/SavedSelected renders, snapshots, 
 "
 `;
 
+exports[`stories catalog Chrome/AppHeader/NoThread renders, snapshots, and carries its colors: Chrome/AppHeader/NoThread 1`] = `
+"                                                            
+     cueloop                                              
+                                                            
+"
+`;
+
+exports[`stories catalog Chrome/AppHeader/WithBreadcrumb renders, snapshots, and carries its colors: Chrome/AppHeader/WithBreadcrumb 1`] = `
+"                                                            
+     cueloop · Migration Plan · rev 1                     
+                                                            
+"
+`;
+
 exports[`stories catalog Layout/AppShell/SidebarAndMain renders, snapshots, and carries its colors: Layout/AppShell/SidebarAndMain 1`] = `
 "                           │                                                              
                            │                                                              
@@ -221,6 +235,22 @@ exports[`stories catalog Chrome/Breadcrumb/SessionHeader renders, snapshots, and
                                                                                 
                                                                                 
                                                                                 
+"
+`;
+
+exports[`stories catalog Surfaces/ChangesColumn/Changed renders, snapshots, and carries its colors: Surfaces/ChangesColumn/Changed 1`] = `
+"│  packages                                                
+│    client/src                                            
+│      App.tsx               M                             
+│      components                                          
+│        ChangesColumn.tsx   A                             
+│    daemon/src                                            
+│      review.ts             D                             
+│  README.md                 M                             
+│                                                           
+│                                                           
+│                                                           
+│                                                           
 "
 `;
 
@@ -467,102 +497,102 @@ exports[`stories catalog Overlays/ConfirmDialog/DeletePlan renders, snapshots, a
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/AnnotatedLine 1`] = `
-"╭────────────────────────────────────────────────────────────────────────────────────────╮
-│ ▎■ src/store.ts                                                                        │
-│  @@ -1,4 +1,4 @@                                                                       │
-│   1   export class Store {                                                             │
-│   2  -  private items = [];                                                            │
-│   2◆ +  private items = new Map();                                                     │
-│       ◆ Map needs an eviction story.                                                   │
-│   3  }                                                                                 │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
+" ▎■ src/store.ts                                                                          
+  @@ -1,4 +1,4 @@                                                                         
+   1   export class Store {                                                               
+   2  -  private items = [];                                                              
+   2◆ +  private items = new Map();                                                       
+       ◆ Map needs an eviction story.                                                     
+   3  }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
 "
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/ComposingOnLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/ComposingOnLine 1`] = `
-"╭────────────────────────────────────────────────────────────────────────────────────────╮
-│  ■ src/store.ts                                                                        │
-│  @@ -1,4 +1,4 @@                                                                       │
-│    1  export class Store {                                                             │
-│    2 -  private items = [];                                                            │
-│ ▎  2 +  private items = new Map();                                                     │
-│ ╭─ comment on "  private items = new Map();" ─────────────────────────────────────────╮│
-│ │ Map needs an eviction story.                                                        ││
-│ │  Save    Cancel                                                                     ││
-│ ╰─────────────────────────────────────────────────────────────────────────────────────╯│
-│   3  }                                                                                 │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
+"  ■ src/store.ts                                                                          
+  @@ -1,4 +1,4 @@                                                                         
+    1  export class Store {                                                               
+    2 -  private items = [];                                                              
+ ▎  2 +  private items = new Map();                                                       
+ ╭─ comment on "  private items = new Map();" ───────────────────────────────────────────╮
+ │ Map needs an eviction story.                                                          │
+ │  Save    Cancel                                                                       │
+ ╰───────────────────────────────────────────────────────────────────────────────────────╯
+   3  }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
 "
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/CursorOnAddedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/CursorOnAddedLine 1`] = `
-"╭────────────────────────────────────────────────────────────────────────────────────────╮
-│  ■ src/store.ts                                                                        │
-│  @@ -1,4 +1,4 @@                                                                       │
-│    1  export class Store {                                                             │
-│    2 -  private items = [];                                                            │
-│ ▎  2 +  private items = new Map();                                                     │
-│    3  }                                                                                │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
+"  ■ src/store.ts                                                                          
+  @@ -1,4 +1,4 @@                                                                         
+    1  export class Store {                                                               
+    2 -  private items = [];                                                              
+ ▎  2 +  private items = new Map();                                                       
+    3  }                                                                                  
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
 "
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: Surfaces/DiffSheet/IntralineWordDiff 1`] = `
-"╭────────────────────────────────────────────────────────────────────────────────────────╮
-│ ▎■ src/store.ts                                                                        │
-│  @@ -1,4 +1,4 @@                                                                       │
-│   1  export class Store {                                                              │
-│   2 -  private items = [];                                                             │
-│   2 +  private items = new Map();                                                      │
-│   3  }                                                                                 │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
+" ▎■ src/store.ts                                                                          
+  @@ -1,4 +1,4 @@                                                                         
+   1  export class Store {                                                                
+   2 -  private items = [];                                                               
+   2 +  private items = new Map();                                                        
+   3  }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
 "
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and carries its colors: Surfaces/DiffSheet/SignedRows 1`] = `
-"╭────────────────────────────────────────────────────────────────────────────────────────╮
-│ ▎■ src/store.ts                                                                        │
-│  @@ -1,4 +1,4 @@                                                                       │
-│   1  export class Store {                                                              │
-│   2 -  private items = [];                                                             │
-│   2 +  private items = new Map();                                                      │
-│   3  }                                                                                 │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-│                                                                                        │
-╰────────────────────────────────────────────────────────────────────────────────────────╯
+" ▎■ src/store.ts                                                                          
+  @@ -1,4 +1,4 @@                                                                         
+   1  export class Store {                                                                
+   2 -  private items = [];                                                               
+   2 +  private items = new Map();                                                        
+   3  }                                                                                   
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
 "
 `;
 
@@ -1452,6 +1482,26 @@ exports[`stories catalog Overlays/WalkWizard/WithAgentNote renders, snapshots, a
 "
 `;
 
+exports[`stories catalog Surfaces/WelcomeSurface/Welcome renders, snapshots, and carries its colors: Surfaces/WelcomeSurface/Welcome 1`] = `
+"─Welcome──✕─────────────────────────────────────────────────
+                                                            
+  Welcome to cueloop                                        
+  a review loop for coding agents                           
+                                                            
+  Start                                                     
+  · select a thread on the left                             
+  · or run cueloop plan / cueloop diff from a repo          
+                                                            
+  Learn                                                     
+  · docs        www.cueloop.dev                             
+  · changelog   www.cueloop.dev/changelog                   
+                                                            
+  What's new                                                
+  · cueloop v0.1.0-alpha.66                                 
+                                                            
+"
+`;
+
 exports[`stories catalog Chrome/AgentLauncher/Launcher renders, snapshots, and carries its colors: Chrome/AgentLauncher/Launcher 1`] = `
 "  ╭────────────────────────────────────╮
   │ Claude Code                        │
@@ -1995,55 +2045,5 @@ exports[`stories catalog Foundations/Theme/ProviderSwap renders, snapshots, and 
                                                                                 
                                                                                 
                                                                                 
-"
-`;
-
-exports[`stories catalog Surfaces/ChangesColumn/Changed renders, snapshots, and carries its colors: Surfaces/ChangesColumn/Changed 1`] = `
-"│  packages                                                
-│    client/src                                            
-│      App.tsx               M                             
-│      components                                          
-│        ChangesColumn.tsx   A                             
-│    daemon/src                                            
-│      review.ts             D                             
-│  README.md                 M                             
-│                                                           
-│                                                           
-│                                                           
-│                                                           
-"
-`;
-
-exports[`stories catalog Chrome/AppHeader/NoThread renders, snapshots, and carries its colors: Chrome/AppHeader/NoThread 1`] = `
-"                                                            
-     cueloop                                              
-                                                            
-"
-`;
-
-exports[`stories catalog Chrome/AppHeader/WithBreadcrumb renders, snapshots, and carries its colors: Chrome/AppHeader/WithBreadcrumb 1`] = `
-"                                                            
-     cueloop · Migration Plan · rev 1                     
-                                                            
-"
-`;
-
-exports[`stories catalog Surfaces/WelcomeSurface/Welcome renders, snapshots, and carries its colors: Surfaces/WelcomeSurface/Welcome 1`] = `
-"─Welcome──✕─────────────────────────────────────────────────
-                                                            
-  Welcome to cueloop                                        
-  a review loop for coding agents                           
-                                                            
-  Start                                                     
-  · select a thread on the left                             
-  · or run cueloop plan / cueloop diff from a repo          
-                                                            
-  Learn                                                     
-  · docs        www.cueloop.dev                             
-  · changelog   www.cueloop.dev/changelog                   
-                                                            
-  What's new                                                
-  · cueloop v0.1.0-alpha.66                                 
-                                                            
 "
 `;

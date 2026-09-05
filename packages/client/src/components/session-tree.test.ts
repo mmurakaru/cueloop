@@ -111,4 +111,24 @@ describe("groupInbox", () => {
     expect(rows.some((row) => row.kind === "section" && row.label === "Projects")).toBe(false);
     expect(rows.some((row) => row.kind === "section" && row.label === "Threads")).toBe(true);
   });
+
+  test("a pinned thread lifts into a Pinned section at the top, out of its normal group", () => {
+    // Arrange - one repo-bound thread, one standalone; pin the repo-bound one
+    const sessions = [session("a", "Pinned one", "root-1"), session("b", "Loose two")];
+
+    // Act
+    const { rows, ordered } = groupInbox(sessions, new Set(["a"]));
+
+    // Assert - Pinned is the first section and holds thread a; a is gone from Projects
+    const sections = rows
+      .filter((row) => row.kind === "section")
+      .map((row) => (row.kind === "section" ? row.label : ""));
+
+    expect(sections[0]).toBe("Pinned");
+    expect(sections).not.toContain("Projects"); // its only member was pinned away
+    expect(ordered[0]!.id).toBe("a"); // the cursor walks pinned threads first
+    const pinnedThreadIds = rows.filter((row) => row.kind === "thread").map((row) => row.id);
+
+    expect(pinnedThreadIds).toEqual(["a", "b"]);
+  });
 });
