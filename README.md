@@ -10,7 +10,7 @@
 
 # cueloop
 
-A terminal-first multiplayer review surface for agent-authored work.
+A terminal-first multiplayer thread for agent-authored work.
 
 ## The primitives
 
