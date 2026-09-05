@@ -151,4 +151,31 @@ describe("diff review", () => {
 
     expect(stored.workingCopy).toBe("");
   });
+
+  test("a diff opens with the Changes column listing every changed file", async () => {
+    // Arrange - two changed files; config.ts is not in the patch text, so it can
+    // only appear here by way of the Changes column reading artifact.files
+    const withFiles = server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: {
+        type: "diff",
+        content: PATCH,
+        meta: { title: "working tree" },
+        files: [
+          { path: "src/store.ts", oldContents: "a", newContents: "b", status: "modified" },
+          { path: "src/config.ts", oldContents: "", newContents: "c", status: "added" },
+        ],
+      },
+    });
+    const setup = await testRender(<App home={home} sessionId={withFiles.id} />, {
+      width: 120,
+      height: 30,
+    });
+
+    await waitForText(setup, "cueloop");
+
+    // Assert - the context default opens the column for a diff, so both files show
+    await waitForText(setup, "config.ts");
+    expect(setup.captureCharFrame()).toContain("store.ts");
+  });
 });

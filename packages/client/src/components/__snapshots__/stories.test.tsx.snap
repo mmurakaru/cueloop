@@ -1997,3 +1997,19 @@ exports[`stories catalog Foundations/Theme/ProviderSwap renders, snapshots, and 
                                                                                 
 "
 `;
+
+exports[`stories catalog Surfaces/ChangesColumn/Changed renders, snapshots, and carries its colors: Surfaces/ChangesColumn/Changed 1`] = `
+"│  packages                                                
+│    client/src                                            
+│      App.tsx               M                             
+│      components                                          
+│        ChangesColumn.tsx   A                             
+│    daemon/src                                            
+│      review.ts             D                             
+│  README.md                 M                             
+│                                                           
+│                                                           
+│                                                           
+│                                                           
+"
+`;

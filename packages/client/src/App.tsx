@@ -17,7 +17,11 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
+import {
+  useKeyboard,
+  useRenderer,
+  useTerminalDimensions,
+} from "@opentui/react";
 import type { Clock } from "@opentui/core";
 import { marksByDisplay, type Mark } from "./view-plan";
 import { dimmedTheme } from "./theme";
@@ -37,7 +41,10 @@ import {
   type ThemeName,
 } from "./theme-presets";
 import type { Theme } from "./theme";
-import { createReviewController, type ShareTransport } from "./session-controller";
+import {
+  createReviewController,
+  type ShareTransport,
+} from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { createIntentDispatch, type Mode } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
@@ -48,6 +55,11 @@ import { Toolbar } from "./components/primitives/Toolbar";
 import { NERD } from "./components/primitives/icons";
 import { groupInbox, projectName } from "./components/session-tree";
 import { ThreadsSidebar } from "./components/ThreadsSidebar";
+import {
+  ChangesColumn,
+  DiffChangesToggle,
+  useDiffColumns,
+} from "./components/ChangesColumn";
 import { IconButton } from "./components/primitives/IconButton";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
@@ -128,12 +140,19 @@ function menuChromeOpen(menuDialog: "keybinds" | "settings" | null): boolean {
 }
 
 /** True while a menu or an overlay owns the keyboard instead of the thread view. */
-function keyboardOwnedElsewhere(menuOwnsKeyboard: boolean, overlay: KeyState["overlay"]): boolean {
+function keyboardOwnedElsewhere(
+  menuOwnsKeyboard: boolean,
+  overlay: KeyState["overlay"]
+): boolean {
   return menuOwnsKeyboard || overlay !== "none";
 }
 
 /** The footer submit fires only for the owner of an unresolved review, never an observer. */
-function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean): boolean {
+function canSubmitReview(
+  isOwner: boolean,
+  resolved: boolean,
+  observer: boolean
+): boolean {
   return isOwner && !resolved && !observer;
 }
 
@@ -143,7 +162,10 @@ function sidebarToggleGlyph(open: boolean): string {
 }
 
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
-function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
+function cheatsheetFor(
+  keyBindings: KeyBindings,
+  threadViewActive: boolean
+): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
 
   if (!threadViewActive) {
@@ -184,7 +206,7 @@ export function App({
         shareTransport,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [home, sessionId],
+    [home, sessionId]
   );
 
   useEffect(() => {
@@ -197,10 +219,22 @@ export function App({
   const onCommentPrototype = useCallback(
     (element: PrototypeElement, body: string) =>
       controller.annotatePrototype(element.selector, element.quote, body),
-    [controller],
+    [controller]
   );
-  const { session, inbox, status, toast, error, completion, editOrphanCount, walk } =
-    useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
+  const {
+    session,
+    inbox,
+    status,
+    toast,
+    error,
+    completion,
+    editOrphanCount,
+    walk,
+  } = useSyncExternalStore(
+    controller.subscribe,
+    controller.getSnapshot,
+    controller.getSnapshot
+  );
 
   // A shared plan you own polls for collaborator notes while it is open; the
   // merge refreshes through the normal event path. Stops on leave.
@@ -222,13 +256,21 @@ export function App({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
-  const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
+  const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(
+    null
+  );
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
-  const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
-  const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
+  const [focusedAnnotationId, setFocusedAnnotationId] = useState<
+    string | undefined
+  >(undefined);
+  const [selectedCurationId, setSelectedCurationId] = useState<
+    string | undefined
+  >(undefined);
   const [railTab, setRailTab] = useState<RailTab>("review");
   // the tree row the reviewer stands on in the rail's Tree tab
-  const [selectedEntryId, setSelectedEntryId] = useState<string | undefined>(undefined);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | undefined>(
+    undefined
+  );
   // review panel layout: mode + expanded width are client view state, loaded
   // from and persisted to the user config so they survive a restart. The ref
   // mirrors the width so the drag-end persist reads the latest value.
@@ -236,7 +278,9 @@ export function App({
   const [reviewWidth, setReviewWidth] = useState(REVIEW_DEFAULT_WIDTH);
   const reviewWidthRef = useRef(REVIEW_DEFAULT_WIDTH);
   // ~2s focus pulse on the document highlight when a rail card is activated
-  const [pulsedAnnotationId, setPulsedAnnotationId] = useState<string | null>(null);
+  const [pulsedAnnotationId, setPulsedAnnotationId] = useState<string | null>(
+    null
+  );
   const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // live mirror of overlay input text: refs commit synchronously, so the
   // RETURN handler never reads a stale value mid-typing
@@ -245,11 +289,15 @@ export function App({
   // keymap from layered config; the loaded theme swaps the provider value
   const keysRef = useRef(DEFAULT_KEYS);
   const keyBindings = useMemo(() => new KeyBindings(DEFAULT_KEYS), []);
-  const [theme, setTheme] = useState(() => themeForName(DEFAULT_THEME_NAME, appearance));
+  const [theme, setTheme] = useState(() =>
+    themeForName(DEFAULT_THEME_NAME, appearance)
+  );
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME_NAME);
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
-  const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
+  const [quickActions, setQuickActions] = useState<QuickAction[]>(
+    DEFAULT_QUICK_ACTIONS
+  );
 
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
@@ -271,7 +319,7 @@ export function App({
     () => () => {
       if (pulseTimer.current) clearTimeout(pulseTimer.current);
     },
-    [],
+    []
   );
 
   useEffect(() => {
@@ -286,9 +334,17 @@ export function App({
   const promptedSelfRef = useRef(false);
 
   useEffect(() => {
-    if (promptedSelfRef.current || role !== "collaborator" || !selfAuthor || !session) return;
+    if (
+      promptedSelfRef.current ||
+      role !== "collaborator" ||
+      !selfAuthor ||
+      !session
+    )
+      return;
     promptedSelfRef.current = true;
-    const known = session.participants?.find((participant) => participant.id === selfAuthor)?.name;
+    const known = session.participants?.find(
+      (participant) => participant.id === selfAuthor
+    )?.name;
 
     if (!known) setMode({ type: "nameSelf", text: "" });
   }, [role, selfAuthor, session]);
@@ -321,20 +377,26 @@ export function App({
   // ── derived view model ──────────────────────
   const display = controller.display();
   const rows = controller.rows();
+  const diffColumns = useDiffColumns({ session, rows, cursor, setCursor });
   const rejectedRows = controller.rejectedRows();
   const marks = useMemo(
     () =>
       session
-        ? marksByDisplay(session.annotations, display, pulsedAnnotationId ?? undefined)
+        ? marksByDisplay(
+            session.annotations,
+            display,
+            pulsedAnnotationId ?? undefined
+          )
         : new Map<number, Mark[]>(),
-    [session, display, pulsedAnnotationId],
+    [session, display, pulsedAnnotationId]
   );
   /** Annotation ids whose anchor resolved against the working copy. */
   const resolvedIds = useMemo(() => {
     const ids = new Set<string>();
 
     for (const blockMarks of marks.values()) {
-      for (const mark of blockMarks) if (mark.annotationId) ids.add(mark.annotationId);
+      for (const mark of blockMarks)
+        if (mark.annotationId) ids.add(mark.annotationId);
     }
 
     return ids;
@@ -350,7 +412,10 @@ export function App({
   // ── the guided walk's view model ────────────
   const walkFileList = controller.files();
   const walking = isWalking(isDiff, walk);
-  const viewedPaths = useMemo(() => new Set(session?.viewedPaths ?? []), [session]);
+  const viewedPaths = useMemo(
+    () => new Set(session?.viewedPaths ?? []),
+    [session]
+  );
 
   // ── selection symmetry: one selected id, both sides ──
   const selectCardFromDocument = (annotationId: string): void => {
@@ -360,7 +425,9 @@ export function App({
 
   const openCardEdit = (annotationId: string): void => {
     if (observer) return controller.setStatus("observer - read-only");
-    const annotation = session?.annotations.find((candidate) => candidate.id === annotationId);
+    const annotation = session?.annotations.find(
+      (candidate) => candidate.id === annotationId
+    );
 
     if (!annotation) return;
     // a collaborator's note is theirs to word: activating it (click or e) renames
@@ -462,7 +529,12 @@ export function App({
     if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
     // the toast is non-modal: escape only dismisses it when nothing else owns
     // escape, so an open overlay (compose, submit, prompt, walk) still cancels
-    if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span")
+    if (
+      toast &&
+      key.name === "escape" &&
+      overlay === "none" &&
+      mode.type !== "span"
+    )
       return controller.dismissToast();
     const state = buildKeyState({
       keys: keysRef.current,
@@ -482,13 +554,19 @@ export function App({
       display,
     });
 
-    keyBindings.setContext({ overlay: state.overlay, spanMode: state.spanMode });
-    const action = keyBindings.resolveAction({ name: key.name, shift: !!key.shift });
+    keyBindings.setContext({
+      overlay: state.overlay,
+      spanMode: state.spanMode,
+    });
+    const action = keyBindings.resolveAction({
+      name: key.name,
+      shift: !!key.shift,
+    });
 
     for (const intent of reduceKey(
       state,
       { name: key.name, shift: !!key.shift, meta: !!key.meta },
-      action,
+      action
     ))
       dispatch(intent);
   });
@@ -557,16 +635,22 @@ export function App({
     setMode,
     dispatch,
   });
-  const headerItems = buildHeaderItems({ session: activeSession, resolved, observer, role });
-  const { showOwnerActions, prototypeCanComment, chromeHidden, prototypePath } = buildRenderFlags({
+  const headerItems = buildHeaderItems({
     session: activeSession,
-    isOwner,
-    isDiff,
-    isPrototype,
     resolved,
-    menuDialog,
-    resolvedIds,
+    observer,
+    role,
   });
+  const { showOwnerActions, prototypeCanComment, chromeHidden, prototypePath } =
+    buildRenderFlags({
+      session: activeSession,
+      isOwner,
+      isDiff,
+      isPrototype,
+      resolved,
+      menuDialog,
+      resolvedIds,
+    });
 
   const onEditRequest = (): void => {
     // A share viewer/observer has no Edit affordance (the button is hidden), so
@@ -585,7 +669,8 @@ export function App({
   // clicking the rail Submit button: same read-only answer as the submit key
   const onSubmitRequest = (): void => {
     if (observer) return controller.setStatus("observer - read-only");
-    if (!isOwner) return controller.setStatus("shared view - your notes save as you go");
+    if (!isOwner)
+      return controller.setStatus("shared view - your notes save as you go");
     if (resolved) return;
     dispatch({ type: "openSubmit" });
   };
@@ -601,10 +686,18 @@ export function App({
         }}
       >
         <box
-          style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}
+          style={{
+            flexDirection: "row",
+            height: 2,
+            paddingTop: 1,
+            backgroundColor: theme.panel,
+          }}
         >
           <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
-            <box onMouseUp={() => setMenuDialog("settings")} style={{ paddingRight: 2 }}>
+            <box
+              onMouseUp={() => setMenuDialog("settings")}
+              style={{ paddingRight: 2 }}
+            >
               <text fg={theme.textMuted}>{NERD.settings}</text>
             </box>
             <IconButton
@@ -625,6 +718,12 @@ export function App({
                 </Button>
               </Toolbar>
             ) : null}
+            <DiffChangesToggle
+              isDiff={isDiff}
+              open={diffColumns.changesOpen}
+              onToggle={diffColumns.toggleChanges}
+              theme={theme}
+            />
           </box>
         </box>
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
@@ -669,7 +768,7 @@ export function App({
                     controller.setStatus(
                       reason === "observer"
                         ? "observer - read-only"
-                        : "review submitted - read-only",
+                        : "review submitted - read-only"
                     )
                   }
                   onCursorChange={setCursor}
@@ -686,13 +785,15 @@ export function App({
                       span.start.char,
                       span.end.char,
                       body,
-                      span.end.blockIndex,
+                      span.end.blockIndex
                     )
                   }
                   onReply={(rootAnnotationId, body) =>
                     void controller.reply(rootAnnotationId, body)
                   }
-                  onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
+                  onUpdateAnnotation={(id, body) =>
+                    controller.updateAnnotation(id, body)
+                  }
                   onExit={() => onExit?.(0)}
                 />
               )}
@@ -705,6 +806,13 @@ export function App({
               theme={theme}
             />
           </box>
+          <ChangesColumn
+            open={diffColumns.changesOpen}
+            files={activeSession.artifact.files}
+            selectedPath={diffColumns.currentFilePath}
+            onSelectFile={diffColumns.scrollToFile}
+            theme={theme}
+          />
         </box>
         <TrailingOverlays
           walking={walking}
