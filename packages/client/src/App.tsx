@@ -123,8 +123,8 @@ export interface AppProps {
 }
 
 /** True while the drop-up or one of its dialogs is open and owns the keyboard. */
-function menuChromeOpen(menuOpen: boolean, menuDialog: "keybinds" | "settings" | null): boolean {
-  return menuOpen || menuDialog !== null;
+function menuChromeOpen(menuDialog: "keybinds" | "settings" | null): boolean {
+  return menuDialog !== null;
 }
 
 /** True while a menu or an overlay owns the keyboard instead of the thread view. */
@@ -222,7 +222,6 @@ export function App({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
-  const [menuOpen, setMenuOpen] = useState(false);
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
@@ -434,7 +433,7 @@ export function App({
 
   const overlay = resolveOverlay(mode, completion.phase, walking);
 
-  const menuOwnsKeyboard = menuChromeOpen(menuOpen, menuDialog);
+  const menuOwnsKeyboard = menuChromeOpen(menuDialog);
   // an overlay (submit, walk, prompt, confirm) or the menu takes the keyboard
   // from the thread view; the view suspends its own grammar meanwhile
   const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
@@ -461,7 +460,6 @@ export function App({
     if (prototypeComposing) return;
     if (menuDialog === "settings") return void handleSettingsKey(key.name);
     if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
-    if (menuOpen) return void (key.name === "escape" && setMenuOpen(false));
     // the toast is non-modal: escape only dismisses it when nothing else owns
     // escape, so an open overlay (compose, submit, prompt, walk) still cancels
     if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span")
@@ -499,11 +497,8 @@ export function App({
   // reused by the inbox and by plan/diff review so the two never drift ──
   const menuChrome = (
     <MenuChrome
-      menuOpen={menuOpen}
       menuDialog={menuDialog}
       theme={theme}
-      setMenuOpen={setMenuOpen}
-      setMenuDialog={setMenuDialog}
       keybindsSections={cheatsheetFor(keyBindings, threadViewActive)}
       settingsCategories={settingsCategories}
       settingsValues={settingsValues}
@@ -525,7 +520,7 @@ export function App({
         controller={controller}
         setMode={setMode}
         menuChrome={menuChrome}
-        onOpenMenu={() => setMenuOpen((isOpen) => !isOpen)}
+        onOpenMenu={() => setMenuDialog("settings")}
       />
     ) : (
       <ConnectingScreen theme={theme} />
@@ -569,7 +564,6 @@ export function App({
     isDiff,
     isPrototype,
     resolved,
-    menuOpen,
     menuDialog,
     resolvedIds,
   });
@@ -610,7 +604,7 @@ export function App({
           style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}
         >
           <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
-            <box onMouseUp={() => setMenuOpen((isOpen) => !isOpen)} style={{ paddingRight: 2 }}>
+            <box onMouseUp={() => setMenuDialog("settings")} style={{ paddingRight: 2 }}>
               <text fg={theme.textMuted}>{NERD.settings}</text>
             </box>
             <IconButton

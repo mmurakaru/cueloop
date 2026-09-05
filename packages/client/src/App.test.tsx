@@ -307,7 +307,7 @@ describe("the thread view and the menu", () => {
     const dialog = setup.captureCharFrame();
 
     expect(dialog).toContain("⌘⌥m");
-    expect(dialog).toContain("dismiss an empty draft");
+    expect(dialog).toContain("place the caret");
     expect(dialog).not.toContain("grow/shrink");
 
     // Act - a printable behind the dialog must not open a comment; escape closes it
@@ -316,7 +316,7 @@ describe("the thread view and the menu", () => {
     await press(setup, "escape");
 
     // Assert
-    await waitForState(setup, () => !setup.captureCharFrame().includes("dismiss an empty draft"));
+    await waitForState(setup, () => !setup.captureCharFrame().includes("mark text, across blocks"));
     expect(setup.captureCharFrame()).not.toContain("● x");
   });
 });

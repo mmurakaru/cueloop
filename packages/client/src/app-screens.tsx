@@ -12,10 +12,8 @@ import type { SettingsCategory, SettingsValues } from "./components/SettingsDial
 import type { SettingsNav } from "./use-settings-dialog";
 import { CLIENT_VERSION } from "./version";
 import { ThemeProvider } from "./components/theme-context";
-import { MenuBar } from "./components/MenuBar";
 import { NERD } from "./components/primitives/icons";
 import type { InboxRow } from "./components/session-tree";
-import { KeybindsDialog } from "./components/KeybindsDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { ThreadsSidebar } from "./components/ThreadsSidebar";
@@ -41,11 +39,8 @@ export function ConnectingScreen({ theme }: { theme: Theme }): React.ReactNode {
 }
 
 export function MenuChrome(props: {
-  menuOpen: boolean;
   menuDialog: "keybinds" | "settings" | null;
   theme: Theme;
-  setMenuOpen: Dispatch<SetStateAction<boolean>>;
-  setMenuDialog: Dispatch<SetStateAction<"keybinds" | "settings" | null>>;
   keybindsSections: CheatsheetSection[];
   settingsCategories: SettingsCategory[];
   settingsValues: SettingsValues;
@@ -54,11 +49,8 @@ export function MenuChrome(props: {
   cycleSetting: (rowKey: string) => void;
 }): React.ReactNode {
   const {
-    menuOpen,
     menuDialog,
     theme,
-    setMenuOpen,
-    setMenuDialog,
     keybindsSections,
     settingsCategories,
     settingsValues,
@@ -67,38 +59,23 @@ export function MenuChrome(props: {
     cycleSetting,
   } = props;
 
+  // the gear opens the settings dialog directly; Keybinds is a leaf in its tree nav
+  if (menuDialog !== "settings") return null;
+
   return (
-    <>
-      <MenuBar
-        open={menuOpen}
-        onSettings={() => {
-          setMenuOpen(false);
-          setMenuDialog("settings");
-        }}
-        onKeybinds={() => {
-          setMenuOpen(false);
-          setMenuDialog("keybinds");
-        }}
-        theme={theme}
-      />
-      {menuDialog === "keybinds" ? (
-        <KeybindsDialog sections={keybindsSections} theme={theme} />
-      ) : null}
-      {menuDialog === "settings" ? (
-        <SettingsDialog
-          isOpen
-          version={CLIENT_VERSION}
-          categories={settingsCategories}
-          values={settingsValues}
-          activeCategoryId={settingsNav.categoryId}
-          activeRowIndex={settingsNav.rowIndex}
-          activeZone={settingsNav.zone}
-          onCategorySelect={onCategorySelect}
-          onRowActivate={(row) => cycleSetting(row.key)}
-          theme={theme}
-        />
-      ) : null}
-    </>
+    <SettingsDialog
+      isOpen
+      version={CLIENT_VERSION}
+      keybindsSections={keybindsSections}
+      categories={settingsCategories}
+      values={settingsValues}
+      activeCategoryId={settingsNav.categoryId}
+      activeRowIndex={settingsNav.rowIndex}
+      activeZone={settingsNav.zone}
+      onCategorySelect={onCategorySelect}
+      onRowActivate={(row) => cycleSetting(row.key)}
+      theme={theme}
+    />
   );
 }
 

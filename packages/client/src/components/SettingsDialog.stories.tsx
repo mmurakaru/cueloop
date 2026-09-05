@@ -63,6 +63,7 @@ export const NavZone: Story = {
     <SettingsDialog
       isOpen
       version="0.1.0-alpha.32"
+      keybindsSections={[]}
       categories={CATEGORIES}
       values={VALUES}
       activeCategoryId="general"
@@ -81,6 +82,7 @@ export const BodyZone: Story = {
     <SettingsDialog
       isOpen
       version="0.1.0-alpha.32"
+      keybindsSections={[]}
       categories={CATEGORIES}
       values={VALUES}
       activeCategoryId="display"
@@ -99,6 +101,7 @@ export const AppearanceThemed: Story = {
     <SettingsDialog
       isOpen
       version="0.1.0-alpha.32"
+      keybindsSections={[]}
       categories={CATEGORIES}
       values={VALUES}
       activeCategoryId="appearance"

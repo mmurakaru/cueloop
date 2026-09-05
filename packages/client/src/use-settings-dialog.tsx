@@ -191,6 +191,12 @@ export function useSettingsDialog(params: {
         />
       ),
     },
+    {
+      id: "keybinds",
+      name: "Keybinds",
+      description: "keyboard reference",
+      rows: [],
+    },
   ];
   const settingsValues = {
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
