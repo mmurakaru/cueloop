@@ -18,6 +18,7 @@ import { CompletionOverlay } from "./components/CompletionOverlay";
 import { ThreadsSidebar } from "./components/ThreadsSidebar";
 import { AppHeader } from "./components/AppHeader";
 import { WelcomeSurface } from "./components/WelcomeSurface";
+import { ChangesColumn } from "./components/ChangesColumn";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
@@ -119,6 +120,7 @@ export function NoThreadShell(props: {
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
   const [welcomeOpen, setWelcomeOpen] = useState(true);
+  const [changesOpen, setChangesOpen] = useState(false);
 
   return (
     <ThemeProvider theme={theme}>
@@ -134,7 +136,9 @@ export function NoThreadShell(props: {
           onOpenMenu={onOpenMenu}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={onToggleSidebar}
-          breadcrumb={[{ label: "cueloop", tone: "accent" }]}
+          title=""
+          changesOpen={changesOpen}
+          onToggleChanges={() => setChangesOpen((open) => !open)}
           theme={theme}
         />
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
@@ -164,6 +168,7 @@ export function NoThreadShell(props: {
               </box>
             )}
           </box>
+          <ChangesColumn open={changesOpen} onSelectFile={() => {}} theme={theme} />
         </box>
         {menuChrome}
         <ConfirmDialog

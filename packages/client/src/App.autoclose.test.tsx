@@ -118,8 +118,8 @@ describe("completion overlay", () => {
     // window before it is delivered - the frame wait absorbs it
     await press(setup, "escape");
 
-    // Assert
-    const frame = await waitForText(setup, "resolved: approve");
+    // Assert - the countdown is cancelled and we are back in the (resolved) thread view
+    const frame = await waitForText(setup, "Ship the thing");
 
     expect(frame).not.toContain("closing in");
   });

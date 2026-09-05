@@ -46,9 +46,9 @@ import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
-import { groupInbox, projectName } from "./components/session-tree";
+import { groupInbox, projectName, threadTitle } from "./components/session-tree";
 import { ThreadsSidebar } from "./components/ThreadsSidebar";
-import { ChangesColumn, DiffChangesToggle, useDiffColumns } from "./components/ChangesColumn";
+import { ChangesColumn, useDiffColumns } from "./components/ChangesColumn";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
@@ -65,7 +65,6 @@ import { type RailTab, type ReviewRailHandle } from "./components/ReviewRail";
 import { REVIEW_DEFAULT_WIDTH, type ReviewPanelMode } from "./review-panel";
 import {
   buildDiffComposeState,
-  buildHeaderItems,
   buildRenderFlags,
   buildSubmitConfirmState,
   computeRoleCapabilities,
@@ -583,12 +582,6 @@ export function App({
     setMode,
     dispatch,
   });
-  const headerItems = buildHeaderItems({
-    session: activeSession,
-    resolved,
-    observer,
-    role,
-  });
   const { showOwnerActions, prototypeCanComment, chromeHidden, prototypePath } = buildRenderFlags({
     session: activeSession,
     isOwner,
@@ -635,27 +628,21 @@ export function App({
           onOpenMenu={() => setMenuDialog("settings")}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((open) => !open)}
-          breadcrumb={headerItems}
-          rightActions={
-            <>
-              {showOwnerActions ? (
-                <Toolbar>
-                  <Button onPress={onEditRequest} theme={theme}>
-                    {" Edit "}
-                  </Button>
-                  <Button onPress={onShareRequest} theme={theme}>
-                    {" Share "}
-                  </Button>
-                </Toolbar>
-              ) : null}
-              <DiffChangesToggle
-                isDiff={isDiff}
-                open={diffColumns.changesOpen}
-                onToggle={diffColumns.toggleChanges}
-                theme={theme}
-              />
-            </>
+          title={threadTitle(activeSession)}
+          editShare={
+            showOwnerActions ? (
+              <Toolbar>
+                <Button onPress={onEditRequest} theme={theme}>
+                  {" Edit "}
+                </Button>
+                <Button onPress={onShareRequest} theme={theme}>
+                  {" Share "}
+                </Button>
+              </Toolbar>
+            ) : null
           }
+          changesOpen={diffColumns.changesOpen}
+          onToggleChanges={diffColumns.toggleChanges}
           theme={theme}
         />
         <box style={{ flexGrow: 1, flexDirection: "row" }}>

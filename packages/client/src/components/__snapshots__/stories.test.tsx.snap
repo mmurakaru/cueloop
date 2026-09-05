@@ -141,16 +141,16 @@ exports[`stories catalog Cards/AnnotationCard/SavedSelected renders, snapshots, 
 `;
 
 exports[`stories catalog Chrome/AppHeader/NoThread renders, snapshots, and carries its colors: Chrome/AppHeader/NoThread 1`] = `
-"                                                            
-     cueloop                                              
-                                                            
+"                                                                                
+    cueloop                                                                  
+                                                                                
 "
 `;
 
-exports[`stories catalog Chrome/AppHeader/WithBreadcrumb renders, snapshots, and carries its colors: Chrome/AppHeader/WithBreadcrumb 1`] = `
-"                                                            
-     cueloop · Migration Plan · rev 1                     
-                                                            
+exports[`stories catalog Chrome/AppHeader/ThreadWithActions renders, snapshots, and carries its colors: Chrome/AppHeader/ThreadWithActions 1`] = `
+"                                                                                
+    cueloop                  Rev Edit  Share  Changes                        
+                                                                                
 "
 `;
 

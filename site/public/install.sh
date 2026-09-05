@@ -39,7 +39,8 @@ SPINNER_FRAMES='⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏'
 CHECK_MARK='✓'
 spinner_process_id=''
 
-info() { printf '%s\n' "${DIM}cueloop:${RESET} $*" >&2; }
+# Reserve one terminal cell and a space for the status symbol after the banner indent.
+info() { printf '    %s\n' "$*" >&2; }
 
 # spinner_start <message>: begin the spinner for a step. Animates only on a
 # capable terminal; otherwise (piped output, or a dumb terminal without
@@ -50,7 +51,7 @@ spinner_start() {
     (
       while :; do
         for frame in $SPINNER_FRAMES; do
-          printf '\r%scueloop:%s %s %s ' "$DIM" "$RESET" "$spinner_message" "$frame" >&2
+          printf '\r  %s %s' "$frame" "$spinner_message" >&2
           sleep 0.08 2>/dev/null || true
         done
       done
@@ -67,7 +68,7 @@ spinner_finish() {
   kill "$spinner_process_id" 2>/dev/null || true
   wait "$spinner_process_id" 2>/dev/null || true
   spinner_process_id=''
-  printf '\r\033[K%scueloop:%s %s %s\n' "$DIM" "$RESET" "$spinner_message" "$CHECK_MARK" >&2
+  printf '\r\033[K  %s %s\n' "$CHECK_MARK" "$spinner_message" >&2
 }
 
 error() {

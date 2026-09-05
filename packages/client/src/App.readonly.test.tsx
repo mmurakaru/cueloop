@@ -81,12 +81,16 @@ function snapshot() {
 }
 
 describe("observer rendering", () => {
-  test("shows the observer badge in the header", async () => {
+  test("the minimal header mirrors the thread name, with no observer badge", async () => {
     // Arrange
     const setup = await renderObserver();
 
-    // Assert
-    expect(setup.captureCharFrame()).toContain("· observer");
+    // Assert - the header shows the thread title only; read-only is enforced by
+    // the blocked primitives below, not a header badge
+    const frame = setup.captureCharFrame();
+
+    expect(frame).toContain("Migration Plan");
+    expect(frame).not.toContain("· observer");
   });
 });
 

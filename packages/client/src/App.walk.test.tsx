@@ -287,9 +287,7 @@ describe("the guided walk", () => {
     server.core.sessionResolve(session.id, "approve", "");
     const setup = await renderApp();
 
-    await waitForText(setup, "resolved");
-
-    // Act
+    // Act - renderApp already waited for the diff to load; the session is resolved
     await press(setup, "w");
 
     // Assert
