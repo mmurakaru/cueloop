@@ -217,8 +217,9 @@ export function App({
   const [inboxCursor, setInboxCursor] = useState(0);
   // Projects and Threads grouping; ordered is the flat sequence the inbox cursor walks
   const grouped = useMemo(() => groupInbox(inbox ?? []), [inbox]);
-  // the left Projects and Threads column, collapsible; a click there jumps threads
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // the left Projects and Threads column; collapsed by default per the context
+  // matrix (the thread owns the width), toggled open to jump between threads
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuOpen, setMenuOpen] = useState(false);

@@ -18,7 +18,7 @@ import type { InboxRow } from "./components/session-tree";
 import { KeybindsDialog } from "./components/KeybindsDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
-import { InboxList } from "./components/InboxList";
+import { ThreadsSidebar } from "./components/ThreadsSidebar";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
@@ -148,11 +148,21 @@ export function InboxScreen(props: {
           </box>
           <box style={{ flexGrow: 1 }} />
         </box>
-        <InboxList
-          rows={rows}
-          cursor={inboxCursor}
-          onRequestDelete={(id, title) => setMode({ type: "confirmDelete", sessionId: id, title })}
-        />
+        <box style={{ flexGrow: 1, flexDirection: "row" }}>
+          <ThreadsSidebar
+            open
+            rows={rows}
+            cursor={inboxCursor}
+            onSelect={(id) => controller.open(id)}
+            onRequestDelete={(id, title) =>
+              setMode({ type: "confirmDelete", sessionId: id, title })
+            }
+            theme={theme}
+          />
+          <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
+            <text fg={theme.textDim}>Select a thread</text>
+          </box>
+        </box>
         {menuChrome}
         <ConfirmDialog
           isOpen={confirming !== null}

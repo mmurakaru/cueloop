@@ -14,6 +14,8 @@ export interface ThreadsSidebarProps {
   /** The open thread's id, highlighted in the list. */
   activeId?: string;
   onSelect: (sessionId: string) => void;
+  /** Ask to delete a thread (the selected row's [delete] button). */
+  onRequestDelete?: (id: string, title: string) => void;
   width?: number;
   theme?: Theme;
 }
@@ -24,6 +26,7 @@ export function ThreadsSidebar({
   cursor,
   activeId,
   onSelect,
+  onRequestDelete,
   width = 30,
   theme,
 }: ThreadsSidebarProps): React.ReactNode {
@@ -45,6 +48,7 @@ export function ThreadsSidebar({
           cursor={cursor}
           activeId={activeId}
           onSelect={onSelect}
+          onRequestDelete={onRequestDelete}
           theme={theme}
         />
       </scrollbox>
