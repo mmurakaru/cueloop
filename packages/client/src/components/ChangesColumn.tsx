@@ -48,9 +48,7 @@ export function useDiffColumns(params: {
     toggleChanges: () => setChangesOpen((open) => !open),
     currentFilePath: rows[cursor]?.file,
     scrollToFile: (path: string) => {
-      const fileRowIndex = rows.findIndex(
-        (row) => row.kind === "file" && row.file === path
-      );
+      const fileRowIndex = rows.findIndex((row) => row.kind === "file" && row.file === path);
 
       if (fileRowIndex >= 0) setCursor(fileRowIndex);
     },
@@ -102,9 +100,7 @@ export function ChangesColumn({
   const nodes = useMemo(() => buildFileTree(files), [files]);
   // every folder opens by default so each changed file is reachable; the user
   // only ever names the folders they fold shut, so a new file set stays open
-  const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(
-    new Set()
-  );
+  const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(new Set());
   const expandedIds = useMemo(() => {
     const expanded = allFolderIds(nodes);
 

@@ -20,8 +20,7 @@ interface MutableTreeNode {
 }
 
 function freeze(node: MutableTreeNode): TreeNode {
-  if (node.children === undefined)
-    return { id: node.id, label: node.label, status: node.status };
+  if (node.children === undefined) return { id: node.id, label: node.label, status: node.status };
 
   return {
     id: node.id,
@@ -35,9 +34,7 @@ export function buildFileTree(files: readonly DiffFileContents[]): TreeNode[] {
   const roots = new Map<string, MutableTreeNode>();
 
   for (const file of files) {
-    const segments = file.path
-      .split("/")
-      .filter((segment) => segment.length > 0);
+    const segments = file.path.split("/").filter((segment) => segment.length > 0);
     let level = roots;
     let prefix = "";
 
