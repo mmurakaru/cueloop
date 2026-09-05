@@ -1200,6 +1200,16 @@ exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, an
 "
 `;
 
+exports[`stories catalog Chrome/ThreadFooter/Default renders, snapshots, and carries its colors: Chrome/ThreadFooter/Default 1`] = `
+"  cueloop / main                                                              
+"
+`;
+
+exports[`stories catalog Chrome/ThreadFooter/ReadOnly renders, snapshots, and carries its colors: Chrome/ThreadFooter/ReadOnly 1`] = `
+"  cueloop / design/tui                                                        
+"
+`;
+
 exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, and carries its colors: Surfaces/ThreadView/InlineThreads 1`] = `
 "                                                                                                    
   Migration Plan                                                                                    
