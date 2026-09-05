@@ -1672,6 +1672,20 @@ exports[`stories catalog Primitives/Dialog/Open renders, snapshots, and carries 
 "
 `;
 
+exports[`stories catalog Primitives/IconButton/States renders, snapshots, and carries its colors: Primitives/IconButton/States 1`] = `
+"                                        
+       ±                             
+                                        
+"
+`;
+
+exports[`stories catalog Primitives/IconButton/Submit renders, snapshots, and carries its colors: Primitives/IconButton/Submit 1`] = `
+"                    
+                   
+                    
+"
+`;
+
 exports[`stories catalog Primitives/StatusBar/HintLine renders, snapshots, and carries its colors: Primitives/StatusBar/HintLine 1`] = `
 " j/k move · v span · c comment · q quit                                         
                                                                                 
