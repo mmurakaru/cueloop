@@ -319,4 +319,41 @@ describe("the thread view and the menu", () => {
     await waitForState(setup, () => !setup.captureCharFrame().includes("mark text, across blocks"));
     expect(setup.captureCharFrame()).not.toContain("● x");
   });
+
+  test("clicking the Settings nav group is inert and never corrupts the active category", async () => {
+    // Arrange - open the settings dialog from the gear
+    const setup = await renderApp();
+
+    await setup.mockMouse.click(1, 1);
+    await waitForText(setup, "Keybinds");
+
+    // the nav folder is the last "Settings" on screen (the first is the dialog title)
+    const lines = setup.captureCharFrame().split("\n");
+    let folderRow = -1;
+    let folderColumn = -1;
+
+    lines.forEach((line, row) => {
+      const column = line.indexOf("Settings");
+
+      if (column !== -1) {
+        folderColumn = column;
+        folderRow = row;
+      }
+    });
+
+    // Act - click the synthetic Settings group folder, then press a nav key. The
+    // key handler dereferences the active category, so a corrupt id would throw
+    // (the global key handler swallows the throw into console.error).
+    const keyHandlerErrors: string[] = [];
+    const originalConsoleError = console.error;
+
+    console.error = (...args: unknown[]) => keyHandlerErrors.push(args.map(String).join(" "));
+    await setup.mockMouse.click(folderColumn + 1, folderRow);
+    await pressKey(setup, "ARROW_DOWN");
+    console.error = originalConsoleError;
+
+    // Assert - no key-handler crash, and the dialog is still up
+    expect(keyHandlerErrors.filter((line) => line.includes("keypress handler"))).toEqual([]);
+    expect(setup.captureCharFrame()).toContain("Keybinds");
+  });
 });
