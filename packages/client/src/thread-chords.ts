@@ -93,8 +93,6 @@ function resolveSessionChord(name: string, context: ThreadChordContext): Intent 
       return mutating({ type: "edit" }, context);
     case "s":
       return context.isOwner ? { type: "share" } : READ_ONLY;
-    case "r":
-      return { type: "cycleReviewPanel" };
     default:
       return null;
   }
@@ -133,11 +131,6 @@ function resolveRailChord(name: string, context: ThreadChordContext): Intent | n
       return mutating({ type: "cut" }, context);
     case "u":
       return mutating({ type: "restoreCuration" }, context);
-    // letters only: escape-prefixed punctuation reads as control sequences, not keys
-    case "w":
-      return { type: "resizeReviewPanel", direction: 1 };
-    case "s":
-      return { type: "resizeReviewPanel", direction: -1 };
     default:
       return null;
   }

@@ -21,9 +21,6 @@ describe("resolveThreadChord", () => {
     // Assert
     expect(resolveThreadChord({ name: "e", ctrl: true }, owner)).toEqual({ type: "edit" });
     expect(resolveThreadChord({ name: "s", ctrl: true }, owner)).toEqual({ type: "share" });
-    expect(resolveThreadChord({ name: "r", ctrl: true }, owner)).toEqual({
-      type: "cycleReviewPanel",
-    });
   });
 
   test("option chords drive the rail and curation with the plan sheet's letters", () => {
@@ -42,10 +39,6 @@ describe("resolveThreadChord", () => {
     expect(resolveThreadChord({ name: "x", meta: true }, owner)).toEqual({ type: "cut" });
     expect(resolveThreadChord({ name: "u", meta: true }, owner)).toEqual({
       type: "restoreCuration",
-    });
-    expect(resolveThreadChord({ name: "w", meta: true }, owner)).toEqual({
-      type: "resizeReviewPanel",
-      direction: 1,
     });
     expect(resolveThreadChord({ name: "x", meta: true }, { ...owner, isOwner: false })).toEqual({
       type: "status",
@@ -76,9 +69,6 @@ describe("resolveThreadChord", () => {
     expect(resolveThreadChord({ name: "return", ctrl: true }, collaborator)).toEqual(readOnly);
     expect(resolveThreadChord({ name: "e", ctrl: true }, collaborator)).toEqual(readOnly);
     expect(resolveThreadChord({ name: "s", ctrl: true }, collaborator)).toEqual(readOnly);
-    expect(resolveThreadChord({ name: "r", ctrl: true }, collaborator)).toEqual({
-      type: "cycleReviewPanel",
-    });
     expect(
       resolveThreadChord({ name: "return", ctrl: true }, { ...owner, resolved: true }),
     ).toBeNull();

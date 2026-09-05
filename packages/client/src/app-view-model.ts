@@ -1,6 +1,6 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { ReviewSession, VerdictKind } from "@cueloop/schema";
-import { reviewerAnnotations, type Mode } from "./intent-dispatch";
+import type { Mode } from "./intent-dispatch";
 import type { DiffRow } from "./view-diff";
 import type { Intent, KeyState } from "./keymap";
 import type { Completion } from "./session-controller";
@@ -8,9 +8,7 @@ import type { WalkFile } from "./walk";
 import { viewedCount } from "./walk";
 import type { DiffComposeState } from "./components/DiffSheet";
 import type { ConfirmCardProps } from "./components/ConfirmCard";
-import type { RailCardEdit } from "./components/ReviewRail";
 import type { BreadcrumbItem } from "./components/Breadcrumb";
-import { REVIEW_COMPACT_WIDTH, resolveReviewWidth, type ReviewPanelMode } from "./review-panel";
 
 export function computeRoleCapabilities(
   readOnly: boolean,
@@ -60,25 +58,6 @@ export function isCompletionOverlayPhase(
   completion: Completion,
 ): completion is { phase: "prompt" } | { phase: "counting"; remaining: number } {
   return completion.phase === "prompt" || completion.phase === "counting";
-}
-
-export function computePendingCount(session: ReviewSession): number {
-  return reviewerAnnotations(session).length + (session.workingCopy !== undefined ? 1 : 0);
-}
-
-export function computeRailFootprint(
-  reviewMode: ReviewPanelMode,
-  reviewWidth: number,
-  terminalWidth: number,
-): number {
-  if (reviewMode === "hidden") return 0;
-
-  return (
-    1 +
-    (reviewMode === "compact"
-      ? REVIEW_COMPACT_WIDTH
-      : resolveReviewWidth(reviewWidth, terminalWidth))
-  );
 }
 
 export function buildHeaderItems(params: {
@@ -186,23 +165,6 @@ export function buildSubmitConfirmState(
     },
     onSelectVerdict: (verdict: VerdictKind) => setMode({ ...mode, verdict }),
     onSubmit: () => dispatch({ type: "submitVerdict" }),
-    onCancel: () => dispatch({ type: "closeOverlay" }),
-  };
-}
-
-export function buildCardEditState(deps: DraftHandlerDeps & { mode: Mode }): RailCardEdit | null {
-  const { mode, liveInput, setMode, dispatch } = deps;
-
-  if (mode.type !== "railEdit") return null;
-
-  return {
-    id: mode.id,
-    text: mode.text,
-    onInput: (text: string) => {
-      liveInput.current = text;
-      setMode({ type: "railEdit", id: mode.id, text });
-    },
-    onSave: () => dispatch({ type: "saveCompose" }),
     onCancel: () => dispatch({ type: "closeOverlay" }),
   };
 }

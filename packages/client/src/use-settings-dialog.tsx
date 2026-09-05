@@ -15,10 +15,8 @@ import {
   type ThemeName,
 } from "./theme-presets";
 import type { Theme } from "./theme";
-import type { ReviewPanelMode } from "./review-panel";
 import type { SettingsCategory } from "./components/SettingsDialog";
 import { QuickActionsEditor } from "./components/quick-actions-editor";
-import type { ReviewController } from "./session-controller";
 
 export interface SettingsNav {
   categoryId: string;
@@ -74,15 +72,12 @@ export function useSettingsDialog(params: {
   appearance: Appearance;
   autoClose: AutoClose;
   setAutoClose: Dispatch<SetStateAction<AutoClose>>;
-  reviewMode: ReviewPanelMode;
-  setReviewMode: Dispatch<SetStateAction<ReviewPanelMode>>;
   themeName: ThemeName;
   setThemeName: Dispatch<SetStateAction<ThemeName>>;
   themeOverrides: Partial<Theme>;
   setTheme: Dispatch<SetStateAction<Theme>>;
   quickActions: QuickAction[];
   setQuickActions: Dispatch<SetStateAction<QuickAction[]>>;
-  controller: ReviewController;
   setMenuDialog: Dispatch<SetStateAction<"keybinds" | "settings" | null>>;
 }): SettingsDialogModel {
   const {
@@ -90,15 +85,12 @@ export function useSettingsDialog(params: {
     appearance,
     autoClose,
     setAutoClose,
-    reviewMode,
-    setReviewMode,
     themeName,
     setThemeName,
     themeOverrides,
     setTheme,
     quickActions,
     setQuickActions,
-    controller,
     setMenuDialog,
   } = params;
 
@@ -145,19 +137,6 @@ export function useSettingsDialog(params: {
       ],
     },
     {
-      id: "display",
-      name: "Display",
-      description: "the review panel",
-      rows: [
-        {
-          key: "reviewPanel",
-          label: "Review panel",
-          kind: "cycle",
-          options: ["expanded", "compact", "hidden"],
-        },
-      ],
-    },
-    {
       id: "appearance",
       name: "Appearance",
       description: "the color theme",
@@ -200,7 +179,6 @@ export function useSettingsDialog(params: {
   ];
   const settingsValues = {
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
-    reviewPanel: reviewMode,
     theme: THEME_LABELS[themeName],
   };
   const cycleSetting = (rowKey: string): void => {
@@ -209,12 +187,6 @@ export function useSettingsDialog(params: {
 
       setAutoClose(next);
       persistAutoClose(next);
-    } else if (rowKey === "reviewPanel") {
-      const order: ReviewPanelMode[] = ["expanded", "compact", "hidden"];
-      const next = order[(order.indexOf(reviewMode) + 1) % order.length]!;
-
-      setReviewMode(next);
-      controller.saveReviewPanel({ mode: next });
     } else if (rowKey === "theme") {
       const next = THEME_NAMES[(THEME_NAMES.indexOf(themeName) + 1) % THEME_NAMES.length]!;
 

@@ -2,8 +2,7 @@
  * Layered TOML config: built-in defaults → user config → trusted repo
  * config → env. Sections: [keys] action = "combo" (every action rebindable),
  * [theme] per-token overrides, [ui] auto_close + editor + theme (a named
- * preset) + the review-panel layout (review_width + review_state),
- * [integrations.obsidian] notes-vault export.
+ * preset) + pins, [integrations.obsidian] notes-vault export.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -15,7 +14,6 @@ import { dirname } from "node:path";
 import * as v from "valibot";
 import { DARK, type Theme } from "./theme";
 import { DEFAULT_THEME_NAME, isThemeName, themeForName, type ThemeName } from "./theme-presets";
-import { REVIEW_DEFAULT_WIDTH, clampWidth, type ReviewPanelMode } from "./review-panel";
 
 export interface KeymapConfig {
   [action: string]: string | string[];
@@ -93,15 +91,9 @@ export interface CueloopConfig {
   theme: Theme;
   /** The `[theme]` per-token overrides alone, so a live theme switch can re-compose them onto a new preset. */
   themeOverrides: Partial<Theme>;
-  /**
-   * ui.reviewState / ui.reviewWidth are CLIENT VIEW STATE: the review panel's
-   * collapse mode and expanded-rail width, persisted so they survive restarts.
-   */
   ui: {
     autoClose: AutoClose;
     editor?: string;
-    reviewState: ReviewPanelMode;
-    reviewWidth: number;
     /** The selected theme preset name; its tokens are the base for `theme`, before any `[theme]` overrides. */
     theme: ThemeName;
     /** Session ids the user has pinned to the top of the sidebar; client-local view state. */
@@ -134,9 +126,6 @@ export const DEFAULT_KEYS: CueloopConfig["keys"] = {
   share: ["S"],
   quit: ["q"],
   walk: ["w"],
-  review_cycle: ["b"],
-  review_wider: ["]"],
-  review_narrower: ["["],
 };
 
 const ConfigDocumentSchema = v.object({
@@ -167,8 +156,6 @@ const UiSchema = v.object({
     undefined,
   ),
   editor: v.fallback(v.optional(v.string()), undefined),
-  review_width: v.fallback(v.optional(v.pipe(v.number(), v.finite())), undefined),
-  review_state: v.fallback(v.optional(v.picklist(["expanded", "compact", "hidden"])), undefined),
   theme: v.fallback(v.optional(v.string()), undefined),
   pins: v.fallback(v.optional(v.array(v.string())), undefined),
 });
@@ -255,9 +242,6 @@ function layer(
   if (ui.success) {
     if (ui.output.auto_close !== undefined) out.ui.autoClose = ui.output.auto_close;
     if (ui.output.editor?.trim()) out.ui.editor = ui.output.editor.trim();
-    if (ui.output.review_width !== undefined)
-      out.ui.reviewWidth = clampWidth(ui.output.review_width);
-    if (ui.output.review_state !== undefined) out.ui.reviewState = ui.output.review_state;
     if (ui.output.pins !== undefined) out.ui.pins = ui.output.pins;
   }
   if (integrations.success && integrations.output.obsidian) {
@@ -276,8 +260,6 @@ export function loadConfig(
     themeOverrides: {},
     ui: {
       autoClose: "off",
-      reviewState: "expanded",
-      reviewWidth: REVIEW_DEFAULT_WIDTH,
       theme: DEFAULT_THEME_NAME,
       pins: [],
     },
@@ -406,16 +388,6 @@ export function persistActions(actions: QuickAction[], userConfigPath?: string):
 /** Persist the auto-close choice (`[ui] auto_close`) into the user config. */
 export function persistAutoClose(value: AutoClose, userConfigPath?: string): void {
   persistUiSetting("auto_close", value === "off" ? '"off"' : String(value), userConfigPath);
-}
-
-/** Persist the expanded-rail width (`[ui] review_width`) into the user config. */
-export function persistReviewWidth(width: number, userConfigPath?: string): void {
-  persistUiSetting("review_width", String(clampWidth(width)), userConfigPath);
-}
-
-/** Persist the review-panel collapse mode (`[ui] review_state`) into the config. */
-export function persistReviewState(state: ReviewPanelMode, userConfigPath?: string): void {
-  persistUiSetting("review_state", `"${state}"`, userConfigPath);
 }
 
 /** Persist the selected theme preset (`[ui] theme`) into the user config. */

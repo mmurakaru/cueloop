@@ -14,15 +14,11 @@ import type { DiffRow } from "./view-diff";
 import type { ReviewController } from "./session-controller";
 import type { Intent } from "./keymap";
 import type { TreeRow } from "./tree-view";
-import type { RailTab } from "./components/ReviewRail";
 import { quickActionBody, type QuickAction } from "./config";
 import { VERDICTS } from "./components/ConfirmCard";
-import {
-  REVIEW_RESIZE_STEP,
-  cycleReviewPanelMode,
-  resolveReviewWidth,
-  type ReviewPanelMode,
-} from "./review-panel";
+
+/** Which pane of the session tree / review the keyboard grammar is aimed at. */
+export type RailTab = "review" | "agent" | "tree";
 
 /** The one overlay/mode the TUI is in; every compose/submit/edit flow is a variant. */
 export type Mode =
@@ -88,14 +84,11 @@ export interface IntentDispatchDeps {
   inboxCursor: number;
   mode: Mode;
   session: ReviewSession | null;
-  reviewMode: ReviewPanelMode;
-  reviewWidth: number;
-  terminalWidth: number;
   focusedAnnotationId: string | undefined;
-  /** The curation item selected in the rail, if any; the undo target when set. */
+  /** The curation item selected for undo, if any. */
   selectedCurationId: string | undefined;
   railTab: RailTab;
-  /** The tree row selected in the rail's Tree tab; the target of go. */
+  /** The tree row selected in the session tree; the target of go. */
   selectedEntryId: string | undefined;
   /** Planner-local author renames, for seeding the rename prompt. */
   authorNames: Record<string, string>;
@@ -107,13 +100,10 @@ export interface IntentDispatchDeps {
   renameThread: (id: string, title: string) => void;
 
   liveInput: MutableRefObject<string>;
-  reviewWidthRef: MutableRefObject<number>;
 
   setCursor: Dispatch<SetStateAction<number>>;
   setInboxCursor: Dispatch<SetStateAction<number>>;
   setMode: Dispatch<SetStateAction<Mode>>;
-  setReviewMode: Dispatch<SetStateAction<ReviewPanelMode>>;
-  setReviewWidth: Dispatch<SetStateAction<number>>;
   setRailTab: Dispatch<SetStateAction<RailTab>>;
   setSelectedEntryId: Dispatch<SetStateAction<string | undefined>>;
   setFocusedAnnotationId: Dispatch<SetStateAction<string | undefined>>;
@@ -339,11 +329,6 @@ function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispa
 
   if (!session) return;
   deps.liveInput.current = "";
-  // the confirm card lives in the expanded review rail; a compact or hidden
-  // panel would swallow the whole submit flow, so force the rail open (live
-  // only - the saved panel preference is left untouched)
-  deps.setReviewMode("expanded");
-  deps.setRailTab("review");
   deps.setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
 }
 
@@ -506,31 +491,6 @@ function handleDismissCompletion(
   deps.controller.dismissCompletion();
 }
 
-function handleCycleReviewPanel(
-  _intent: IntentOfType<"cycleReviewPanel">,
-  deps: IntentDispatchDeps,
-): void {
-  const next = cycleReviewPanelMode(deps.reviewMode);
-
-  deps.setReviewMode(next);
-  deps.controller.saveReviewPanel({ mode: next });
-}
-
-function handleResizeReviewPanel(
-  intent: IntentOfType<"resizeReviewPanel">,
-  deps: IntentDispatchDeps,
-): void {
-  if (deps.reviewMode !== "expanded") return;
-  const next = resolveReviewWidth(
-    deps.reviewWidth + intent.direction * REVIEW_RESIZE_STEP,
-    deps.terminalWidth,
-  );
-
-  deps.reviewWidthRef.current = next;
-  deps.setReviewWidth(next);
-  deps.controller.saveReviewPanel({ width: next });
-}
-
 function confirmTreePrompt(
   mode: Extract<Mode, { type: "treePrompt" }>,
   deps: IntentDispatchDeps,
@@ -635,8 +595,6 @@ const intentHandlers: IntentHandlers = {
   finishReview: handleFinishReview,
   optInAutoClose: handleOptInAutoClose,
   dismissCompletion: handleDismissCompletion,
-  cycleReviewPanel: handleCycleReviewPanel,
-  resizeReviewPanel: handleResizeReviewPanel,
   toggleTree: handleToggleTree,
   treeMove: handleTreeMove,
   treeGo: handleTreeGo,

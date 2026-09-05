@@ -40,7 +40,7 @@ import {
 import type { Theme } from "./theme";
 import { createReviewController, type ShareTransport } from "./session-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
-import { createIntentDispatch, type Mode } from "./intent-dispatch";
+import { createIntentDispatch, type Mode, type RailTab } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
@@ -62,8 +62,6 @@ import {
 import { DiffSheet } from "./components/DiffSheet";
 import { PrototypeSheet } from "./components/PrototypeSheet";
 import type { PrototypeElement } from "./prototype-browser";
-import { type RailTab, type ReviewRailHandle } from "./components/ReviewRail";
-import { REVIEW_DEFAULT_WIDTH, type ReviewPanelMode } from "./review-panel";
 import {
   buildDiffComposeState,
   buildRenderFlags,
@@ -238,21 +236,14 @@ export function App({
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<RailTab>("review");
-  // the tree row the reviewer stands on in the rail's Tree tab
+  // the tree row the reviewer stands on in the session tree
   const [selectedEntryId, setSelectedEntryId] = useState<string | undefined>(undefined);
-  // review panel layout: mode + expanded width are client view state, loaded
-  // from and persisted to the user config so they survive a restart. The ref
-  // mirrors the width so the drag-end persist reads the latest value.
-  const [reviewMode, setReviewMode] = useState<ReviewPanelMode>("expanded");
-  const [reviewWidth, setReviewWidth] = useState(REVIEW_DEFAULT_WIDTH);
-  const reviewWidthRef = useRef(REVIEW_DEFAULT_WIDTH);
-  // ~2s focus pulse on the document highlight when a rail card is activated
+  // ~2s focus pulse on the document highlight when a card is activated
   const [pulsedAnnotationId, setPulsedAnnotationId] = useState<string | null>(null);
   const pulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // live mirror of overlay input text: refs commit synchronously, so the
   // RETURN handler never reads a stale value mid-typing
   const liveInput = useRef("");
-  const railRef = useRef<ReviewRailHandle | null>(null);
   // keymap from layered config; the loaded theme swaps the provider value
   const keysRef = useRef(DEFAULT_KEYS);
   const keyBindings = useMemo(() => new KeyBindings(DEFAULT_KEYS), []);
@@ -270,9 +261,6 @@ export function App({
     setTheme(composeTheme(config.ui.theme, config.themeOverrides, appearance));
     setThemeName(config.ui.theme);
     setThemeOverrides(config.themeOverrides);
-    setReviewMode(config.ui.reviewState);
-    setReviewWidth(config.ui.reviewWidth);
-    reviewWidthRef.current = config.ui.reviewWidth;
     setAuthorNames(config.authors);
     setQuickActions(config.actions);
     setAutoClose(config.ui.autoClose);
@@ -318,15 +306,12 @@ export function App({
     appearance,
     autoClose,
     setAutoClose,
-    reviewMode,
-    setReviewMode,
     themeName,
     setThemeName,
     themeOverrides,
     setTheme,
     quickActions,
     setQuickActions,
-    controller,
     setMenuDialog,
   });
 
@@ -368,7 +353,6 @@ export function App({
   // ── selection symmetry: one selected id, both sides ──
   const selectCardFromDocument = (annotationId: string): void => {
     setFocusedAnnotationId(annotationId);
-    railRef.current?.revealCard(annotationId);
   };
 
   const openCardEdit = (annotationId: string): void => {
@@ -414,9 +398,6 @@ export function App({
     inboxCursor,
     mode,
     session,
-    reviewMode,
-    reviewWidth,
-    terminalWidth,
     focusedAnnotationId,
     selectedCurationId,
     railTab,
@@ -429,12 +410,9 @@ export function App({
     },
     renameThread: (id: string, title: string) => controller.renameSession(id, title),
     liveInput,
-    reviewWidthRef,
     setCursor,
     setInboxCursor,
     setMode,
-    setReviewMode,
-    setReviewWidth,
     setRailTab,
     setSelectedEntryId,
     setFocusedAnnotationId,
