@@ -16,6 +16,10 @@ import type { InboxRow } from "./session-tree";
 export interface InboxListProps {
   rows: InboxRow[];
   cursor: number;
+  /** The open thread's id; highlights it instead of the cursor (the left sidebar case). */
+  activeId?: string;
+  /** Open a thread by clicking its row (the left sidebar case). */
+  onSelect?: (sessionId: string) => void;
   /** Ask to delete a thread (the selected row's [delete] button). */
   onRequestDelete?: (id: string, title: string) => void;
   theme?: Theme;
@@ -24,6 +28,8 @@ export interface InboxListProps {
 export function InboxList({
   rows,
   cursor,
+  activeId,
+  onSelect,
   onRequestDelete,
   theme,
 }: InboxListProps): React.ReactNode {
@@ -52,12 +58,14 @@ export function InboxList({
             );
           }
 
-          const selected = row.selectionIndex === cursor;
+          const selected =
+            activeId !== undefined ? activeId === row.session.id : row.selectionIndex === cursor;
           const title = row.session.artifact.meta.title ?? row.session.id;
 
           return (
             <box
               key={row.id}
+              onMouseUp={onSelect ? () => onSelect(row.session.id) : undefined}
               style={{
                 flexDirection: "row",
                 backgroundColor: selected ? tokens.elevated : undefined,
