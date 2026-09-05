@@ -213,7 +213,11 @@ export function App({
   const grouped = useMemo(() => groupInbox(inbox ?? []), [inbox]);
   // the left Projects and Threads column; collapsed by default per the context
   // matrix (the thread owns the width), toggled open to jump between threads
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // one sidebar-open state across the no-thread shell and the thread view, so
+  // picking a thread keeps the sidebar as it was. It opens when the app lands with
+  // nothing selected (pick a thread) and stays collapsed on a direct thread open,
+  // where the thread owns the width.
+  const [sidebarOpen, setSidebarOpen] = useState(sessionId === undefined);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
@@ -522,6 +526,8 @@ export function App({
         setMode={setMode}
         menuChrome={menuChrome}
         onOpenMenu={() => setMenuDialog("settings")}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen((open) => !open)}
       />
     ) : (
       <ConnectingScreen theme={theme} />

@@ -264,6 +264,30 @@ describe("no-thread shell", () => {
     await waitForText(setup, "send message");
   });
 
+  test("picking a thread from the no-thread shell keeps the Threads sidebar open", async () => {
+    // Arrange - a second pending thread so the sidebar has a row that never shows
+    // in the opened thread's own view
+    server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: { type: "plan", content: "# Other Plan\n", meta: { title: "Other Plan" } },
+    });
+    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+
+    await waitForText(setup, "Welcome to cueloop");
+    await waitForText(setup, "Other Plan"); // the sidebar opens by default here
+
+    // Act - open the thread under the cursor
+    await press(setup, "enter");
+    await waitForText(setup, "send message");
+
+    // Assert - the sidebar stayed open across the swap: both titles are on screen,
+    // and the non-opened one can only come from the still-open sidebar
+    const frame = setup.captureCharFrame();
+
+    expect(frame).toContain("Migration Plan");
+    expect(frame).toContain("Other Plan");
+  });
+
   test("the Welcome tab is disposable: closing it leaves a bare select-a-thread hint", async () => {
     // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });

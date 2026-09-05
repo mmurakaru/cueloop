@@ -95,10 +95,23 @@ export function NoThreadShell(props: {
   setMode: Dispatch<SetStateAction<Mode>>;
   menuChrome: React.ReactNode;
   onOpenMenu: () => void;
+  /** Shared with the thread view, so picking a thread preserves the sidebar. */
+  sidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }): React.ReactNode {
-  const { rows, inboxCursor, mode, theme, controller, setMode, menuChrome, onOpenMenu } = props;
+  const {
+    rows,
+    inboxCursor,
+    mode,
+    theme,
+    controller,
+    setMode,
+    menuChrome,
+    onOpenMenu,
+    sidebarOpen,
+    onToggleSidebar,
+  } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [welcomeOpen, setWelcomeOpen] = useState(true);
 
   return (
@@ -114,7 +127,7 @@ export function NoThreadShell(props: {
         <AppHeader
           onOpenMenu={onOpenMenu}
           sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen((open) => !open)}
+          onToggleSidebar={onToggleSidebar}
           breadcrumb={[{ label: "cueloop", tone: "accent" }]}
           theme={theme}
         />
