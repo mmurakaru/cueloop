@@ -149,7 +149,8 @@ export function AppShell({
           <PanelColumn
             width={projectWidth}
             border="left"
-            header={
+            header={null}
+            headerRight={
               <box style={{ flexDirection: "row" }}>
                 <IconButton
                   glyph={NERD.diff}
@@ -162,12 +163,11 @@ export function AppShell({
                   glyph={NERD.listTree}
                   active={projectMode === "tree"}
                   onPress={() => onProjectMode("tree")}
+                  marginRight={1}
                   theme={tokens}
                 />
+                <IconButton glyph={NERD.sidebarRight} onPress={onToggleProject} theme={tokens} />
               </box>
-            }
-            headerRight={
-              <IconButton glyph={NERD.sidebarRight} onPress={onToggleProject} theme={tokens} />
             }
             theme={tokens}
           >
