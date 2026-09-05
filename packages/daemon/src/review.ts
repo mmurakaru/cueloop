@@ -48,13 +48,16 @@ function earliestRootCommit(revList: string | null): string | undefined {
 export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKey> {
   const repoRoot = (await git(["rev-parse", "--show-toplevel"], cwd)) ?? cwd;
   const branch = (await git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)) ?? "detached";
-  const rootCommit = earliestRootCommit(
-    await git(["rev-list", "--max-parents=0", "--date-order", "HEAD"], cwd),
-  );
+  // a shallow clone's oldest commit is the graft boundary, not the true root, so
+  // it would key a different project than a full clone - leave it unset instead
+  const shallow = (await git(["rev-parse", "--is-shallow-repository"], cwd)) === "true";
+  const rootCommit = shallow
+    ? undefined
+    : earliestRootCommit(await git(["rev-list", "--max-parents=0", "--date-order", "HEAD"], cwd));
   const remote = await git(["remote", "get-url", "origin"], cwd);
 
   const workspace: WorkspaceKey = { repoRoot, branch };
-  // a repo with no commits has no root commit, so the thread stays standalone
+  // a repo with no commits (or a shallow clone) has no reliable root, so the thread stays standalone
   if (rootCommit) workspace.rootCommit = rootCommit;
   if (remote) workspace.remote = remote;
 

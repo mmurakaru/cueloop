@@ -371,13 +371,17 @@ class Controller implements ReviewController {
           const session = this.snapshot.session;
 
           if (session && event.sessionId === session.id) void this.refreshSession(session.id);
-          if (!this.options.sessionId) void this.refreshInbox();
+          // the Threads sidebar shows the inbox even on a direct open, so keep it fresh
+          void this.refreshInbox();
         });
         await client.subscribe();
+        // load the inbox in both cases so the sidebar can jump between threads
+        const inbox = await client.sessionList({ status: "pending" });
+
         if (this.options.sessionId) {
-          this.update({ session: await client.sessionGet(this.options.sessionId) });
+          this.update({ session: await client.sessionGet(this.options.sessionId), inbox });
         } else {
-          this.update({ inbox: await client.sessionList({ status: "pending" }) });
+          this.update({ inbox });
         }
       } catch (err) {
         this.update({ error: err instanceof Error ? err.message : String(err) });
