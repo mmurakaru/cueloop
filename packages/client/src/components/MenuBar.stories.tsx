@@ -17,19 +17,10 @@ function BottomFrame({ children }: { children: React.ReactNode }): React.ReactNo
   );
 }
 
-export const Closed: Story = {
-  render: () => (
-    <BottomFrame>
-      <MenuBar open={false} version="0.1.0-alpha.32" {...callbacks} />
-    </BottomFrame>
-  ),
-  size: { width: 60, height: 8 },
-};
-
 export const Open: Story = {
   render: () => (
     <BottomFrame>
-      <MenuBar open version="0.1.0-alpha.32" {...callbacks} />
+      <MenuBar open {...callbacks} />
     </BottomFrame>
   ),
   expectedColors: [DARK.text],

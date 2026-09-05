@@ -406,7 +406,8 @@ class Controller implements ReviewController {
   }
 
   setStatus(message: string): void {
-    this.update({ status: message });
+    // the persistent status bar is gone; transient feedback surfaces as a toast
+    this.update({ status: message, toast: message ? { body: message } : null });
   }
 
   showToast(body: string, title?: string): void {

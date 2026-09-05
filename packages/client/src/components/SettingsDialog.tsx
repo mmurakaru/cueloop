@@ -27,6 +27,8 @@ export type SettingsValues = Record<string, string | boolean>;
 
 export interface SettingsDialogProps {
   isOpen: boolean;
+  /** The client version, shown in the dialog footer (its home now the menu bar is gone). */
+  version: string;
   categories: SettingsCategory[];
   values: SettingsValues;
   activeCategoryId: string;
@@ -39,6 +41,7 @@ export interface SettingsDialogProps {
 
 export function SettingsDialog({
   isOpen,
+  version,
   categories,
   values,
   activeCategoryId,
@@ -135,12 +138,14 @@ export function SettingsDialog({
           })}
         </box>
       </box>
-      <box style={{ flexDirection: "row", height: 1, paddingLeft: 1 }}>
+      <box style={{ flexDirection: "row", height: 1, paddingLeft: 1, paddingRight: 1 }}>
         <text fg={tokens.textDim}>
           {activeZone === "nav"
             ? "j/k category · l/enter into settings · esc close"
             : "j/k row · l/space change · h back · esc close"}
         </text>
+        <box style={{ flexGrow: 1 }} />
+        <text fg={tokens.textDim}>{`cueloop v${version}`}</text>
       </box>
     </Dialog>
   );

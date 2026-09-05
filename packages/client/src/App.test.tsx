@@ -71,7 +71,7 @@ async function renderApp(sessionId?: string) {
 }
 
 describe("plan rendering", () => {
-  test("renders the plan with headings, list markers, and the rail", async () => {
+  test("renders the plan with headings, list markers, and the footer", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -82,8 +82,7 @@ describe("plan rendering", () => {
     expect(frame).toContain("Context");
     expect(frame).toContain("persists sessions to disk atomically");
     expect(frame).toContain("· move the store");
-    expect(frame).toContain("Review");
-    expect(frame).toContain("Submit review");
+    expect(frame).toContain("send message");
   });
 });
 
@@ -113,7 +112,7 @@ describe("thread view grammar", () => {
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
-    await waitForText(setup, "COMMENT");
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
 
     expect(stored.annotations.length).toBe(1);
@@ -144,9 +143,11 @@ describe("thread view grammar", () => {
     // Act
     await pressKey(setup, "x", { meta: true });
 
-    // Assert - the rail shows the cut as a removal card titled CUT · me
-    await waitForText(setup, "CUT · me");
-    expect(server.core.sessionGet(session.id).workingCopy).not.toContain("move the store");
+    // Assert - the cut lands in the working copy
+    await waitForState(
+      setup,
+      () => !(server.core.sessionGet(session.id).workingCopy ?? "").includes("move the store"),
+    );
 
     // Act
     await pressKey(setup, "x", { meta: true });
@@ -228,25 +229,24 @@ describe("submit", () => {
 });
 
 describe("inbox", () => {
-  test("inbox mode wears the review chrome (header + menu bar) and opens a session", async () => {
+  test("inbox mode wears the review header and opens a session", async () => {
     // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "cueloop");
 
-    // Assert - the same header/menu chrome as review, plus the session row
+    // Assert - the same header as review, plus the session row
     const frame = setup.captureCharFrame();
 
     expect(frame).toContain("cueloop · resume");
     expect(frame).toContain("Migration Plan");
-    expect(frame).toMatch(/v\d+\.\d+/); // the shared MenuBar version line sits at the bottom
     expect(frame).not.toContain("inbox ("); // the old inline header is gone
 
     // Act
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "Submit review");
+    await waitForText(setup, "send message");
   });
 
   test("the menu opens from the inbox and escape is not a trap", async () => {
@@ -268,7 +268,7 @@ describe("inbox", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "Submit review");
+    await waitForText(setup, "send message");
   });
 });
 

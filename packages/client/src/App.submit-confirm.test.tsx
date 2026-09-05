@@ -1,4 +1,4 @@
-/** The rail submit confirm (tier 2): pressing submit expands the rail's Submit button into a bordered confirm card - counts, verdict selector, summary input, word-buttons. Char-frame assertions over the real App and an in-process daemon, like App.test.tsx. */
+/** The send-message confirm: cmd+enter opens a centered overlay with a verdict selector, summary input, and word-buttons. Char-frame assertions over the real App and an in-process daemon, like App.test.tsx. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -83,29 +83,27 @@ function seedAnnotations(count: number): void {
   }
 }
 
-describe("rail submit confirm", () => {
-  test("submit expands the Submit button into the confirm card", async () => {
+describe("send message confirm", () => {
+  test("cmd+enter opens the send-message confirm overlay", async () => {
     // Arrange
     const setup = await renderApp();
 
-    // Assert
-    expect(setup.captureCharFrame()).toContain("Submit review");
+    // Assert - the footer carries the send control before the overlay opens
+    expect(setup.captureCharFrame()).toContain("send message");
 
     // Act
     await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert
-    await waitForText(setup, "submit review");
+    // Assert - the overlay: verdict selector and word-buttons
+    await waitForText(setup, "[Approve]"); // nothing pending: approve default
     const frame = setup.captureCharFrame();
 
-    // the card: title, verdict selector, word-buttons
-    expect(frame).toContain("submit review");
-    expect(frame).toContain("[Approve]"); // nothing pending: approve default
-    expect(frame).toContain(" Submit ");
+    expect(frame).toContain("[Approve]");
+    expect(frame).toContain(" send message ");
     expect(frame).toContain(" Cancel ");
   });
 
-  test("left/right cycles the verdict selector in the card", async () => {
+  test("left/right cycles the verdict selector in the overlay", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -133,7 +131,7 @@ describe("rail submit confirm", () => {
     await waitForText(setup, "[Changes]");
   });
 
-  test("esc cancels the card and restores the plain Submit button", async () => {
+  test("esc closes the overlay", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -145,15 +143,13 @@ describe("rail submit confirm", () => {
     // Act
     await press(setup, "escape");
 
-    // Assert
-    // a bare ESC settles after the parser's escape-sequence window
+    // Assert - a bare ESC settles after the parser's escape-sequence window
     const frame = await waitForTextGone(setup, "[Approve]");
 
-    expect(frame).not.toContain("submit review");
-    expect(frame).toContain("Submit review");
+    expect(frame).not.toContain(" Cancel ");
   });
 
-  test("enter in the card resolves the session through the controller", async () => {
+  test("enter in the overlay resolves the session through the controller", async () => {
     // Arrange
     seedAnnotations(1);
     const setup = await renderApp();
@@ -163,16 +159,12 @@ describe("rail submit confirm", () => {
 
     // Assert
     await waitForText(setup, "[Changes]"); // pending items: request changes default
-    const frame = setup.captureCharFrame();
-
-    expect(frame).toContain("submit review");
 
     // Act
     await setup.mockInput.typeText("Tighten the steps.");
     await press(setup, "enter");
 
-    // Assert
-    // the completion flow after submit is unchanged
+    // Assert - the completion flow after submit is unchanged
     await waitForText(setup, "feedback sent");
     const stored = server.core.sessionGet(session.id);
 
@@ -180,65 +172,20 @@ describe("rail submit confirm", () => {
     expect(stored.verdict!.kind).toBe("request_changes");
   });
 
-  /** The rail's columns of the frame, so document text never leaks into a rail assertion. */
-  function railText(frame: string): string {
-    const rows = frame.split("\n");
-    const railColumn = rows.find((row) => row.includes("Review  Tree  Agent"))!.indexOf("│");
-
-    return rows.map((row) => row.slice(railColumn)).join("\n");
-  }
-
-  test("the annotation stack stays scrollable while the card is open", async () => {
-    // Arrange
-    seedAnnotations(12);
-    const setup = await renderApp();
-
-    // Act
-    // walk card focus to the last one: the rail scrolls it into view
-    for (let index = 0; index < 12; index++) await pressKey(setup, "n", { meta: true });
-
-    // Assert
-    await waitForText(setup, "note 12");
-    expect(railText(setup.captureCharFrame())).not.toContain("note 01");
-
-    // Act
-    await pressKey(setup, "RETURN", { meta: true });
-
-    // Assert
-    await waitForText(setup, "[Changes]");
-    // the card is pinned outside the scrollbox; the stack stays scrolled off the top
-    expect(railText(setup.captureCharFrame())).not.toContain("note 01");
-
-    // Act
-    // the stack still scrolls with the card open: wheel over the rail
-    // brings the last card back into view while the confirm card stays put
-    for (let turn = 0; turn < 12; turn++) await setup.mockMouse.scroll(100, 10, "down");
-    await settle(setup);
-
-    // Assert
-    await waitForText(setup, "note 12");
-    const scrolledWithCard = railText(setup.captureCharFrame());
-
-    expect(scrolledWithCard).toContain("submit review");
-    expect(scrolledWithCard).not.toContain("note 01");
-  });
-
-  test("read-only observers never see the confirm card", async () => {
+  test("read-only observers cannot open the confirm overlay", async () => {
     // Arrange
     seedAnnotations(1);
     const setup = await renderApp({ readOnly: true });
 
     // Act
     await pressKey(setup, "RETURN", { meta: true });
+    await settle(setup);
 
-    // Assert
-    await waitForText(setup, "observer - read-only");
+    // Assert - no overlay, and the session stays pending
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("observer - read-only");
-    expect(frame).not.toContain("1 annotations");
     expect(frame).not.toContain("[Changes]");
-    expect(setup.captureCharFrame()).not.toContain("verdict ←/→");
+    expect(frame).not.toContain(" Cancel ");
     expect(server.core.sessionGet(session.id).status).toBe("pending");
   });
 });

@@ -10,7 +10,6 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { DEFAULT_QUICK_ACTIONS, quickActionBody } from "./config";
-import { DARK } from "./theme";
 import {
   clickText,
   dragText,
@@ -166,31 +165,6 @@ describe("edit affordance", () => {
   });
 });
 
-describe("attribution", () => {
-  test("a collaborator's note shows their name in the card border", async () => {
-    // Arrange - a pulled collaborator note carries an author fingerprint
-    const { makeAnchor, parseBlocks } = await import("@cueloop/schema");
-    const blocks = parseBlocks(PLAN);
-    const contextBlockIndex = blocks.findIndex((block) =>
-      block.text.startsWith("The daemon persists"),
-    );
-
-    server.core.sessionAnnotate(session.id, {
-      id: "collab-1",
-      kind: "comment",
-      anchor: makeAnchor(blocks, contextBlockIndex, 0, 10),
-      body: "who owns retries?",
-      author: "SHA256:1a2b3c4d5e6f",
-    });
-
-    // Act
-    const setup = await renderApp();
-
-    // Assert - the short author handle rides the card border
-    await waitForText(setup, "1a2b3c4d");
-  });
-});
-
 describe("marks feed the comment anchor", () => {
   test("a drag marks a character-precise span and typing anchors the comment to it", async () => {
     // Arrange
@@ -299,140 +273,6 @@ describe("compose newline convention", () => {
   });
 });
 
-describe("the document selects, the rail edits", () => {
-  test("option+e edits the focused card in place; enter saves through the controller", async () => {
-    // Arrange
-    const setup = await renderApp();
-
-    await clickText(setup, "daemon");
-    await type(setup, "Needs a citation.");
-    await pressKey(setup, "RETURN", { meta: true });
-    await waitForText(setup, "COMMENT · me");
-
-    // Act: focus the card, then turn its body into an input in place
-    await pressKey(setup, "n", { meta: true });
-    await pressKey(setup, "e", { meta: true });
-    await type(setup, " And a link.");
-    await press(setup, "enter");
-
-    // Assert
-    await waitForState(
-      setup,
-      () =>
-        server.core.sessionGet(session.id).annotations[0]!.body === "Needs a citation. And a link.",
-    );
-  });
-
-  test("activating a collaborator's card opens rename, not a body edit", async () => {
-    // Arrange - a pulled collaborator note carries an author fingerprint
-    const { makeAnchor, parseBlocks } = await import("@cueloop/schema");
-    const blocks = parseBlocks(PLAN);
-    const contextBlockIndex = blocks.findIndex((block) =>
-      block.text.startsWith("The daemon persists"),
-    );
-
-    server.core.sessionAnnotate(session.id, {
-      id: "collab-1",
-      kind: "comment",
-      anchor: makeAnchor(blocks, contextBlockIndex, 0, 10),
-      body: "who owns retries?",
-      author: "SHA256:1a2b3c4d5e6f",
-    });
-    const setup = await renderApp();
-
-    await waitForText(setup, "1a2b3c4d");
-
-    // Act - focus the collaborator card, then activate it
-    await pressKey(setup, "n", { meta: true });
-    await pressKey(setup, "e", { meta: true });
-
-    // Assert - the rename prompt opens; the body never becomes an editor
-    await waitForText(setup, "Rename author");
-  });
-
-  test("option+backspace deletes the focused card and un-paints the document mark", async () => {
-    // Arrange
-    const setup = await renderApp();
-
-    await dragText(setup, "daemon", "daemon persists", "daemon".length);
-    await type(setup, "Delete me.");
-    await pressKey(setup, "RETURN", { meta: true });
-    await waitForText(setup, "COMMENT · me");
-    expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
-    await waitForState(setup, () => backgroundsOf(setup, "daemon").includes(THREAD_MARK));
-
-    // Act
-    await pressKey(setup, "n", { meta: true });
-    await pressKey(setup, "BACKSPACE", { meta: true });
-
-    // Assert
-    await waitForTextGone(setup, "COMMENT · me");
-    expect(server.core.sessionGet(session.id).annotations.length).toBe(0);
-    expect(backgroundsOf(setup, "daemon")).not.toContain(THREAD_MARK);
-  });
-});
-
-describe("plan cut removals", () => {
-  test("option+x cuts the caret's block into a rail removal card and option+u restores it", async () => {
-    // Arrange
-    const setup = await renderApp();
-
-    await clickText(setup, "daemon");
-
-    // Act - no card is focused, so the cut takes the block under the caret
-    await pressKey(setup, "x", { meta: true });
-
-    // Assert - the rail shows a removal card titled CUT · me for the cut block
-    await waitForText(setup, "CUT · me");
-    await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy !== undefined);
-
-    // Act - undo restores it (no selection, so the last removal)
-    await pressKey(setup, "u", { meta: true });
-
-    // Assert - the block returns and the working copy is pristine again
-    await waitForText(setup, "removal restored");
-    await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
-  });
-});
-
-describe("addressed annotations leave the open list", () => {
-  test("a revision that addresses one card hides it, un-paints it, and shows the count", async () => {
-    // Arrange: two annotations through the daemon, then a revision addressing one
-    const { makeAnchor, parseBlocks } = await import("@cueloop/schema");
-    const blocks = parseBlocks(PLAN);
-    const contextBlockIndex = blocks.findIndex((block) =>
-      block.text.startsWith("The daemon persists"),
-    );
-
-    server.core.sessionAnnotate(session.id, {
-      id: "a_settled",
-      kind: "comment",
-      anchor: makeAnchor(blocks, contextBlockIndex, 0, 10), // "The daemon"
-      body: "settled note",
-    });
-    server.core.sessionAnnotate(session.id, {
-      id: "a_open",
-      kind: "comment",
-      anchor: makeAnchor(blocks, contextBlockIndex, 11, 19), // "persists"
-      body: "still open note",
-    });
-    server.core.sessionSubmitRevision(session.id, PLAN, ["a_settled"]);
-
-    // Act
-    const setup = await renderApp();
-
-    await waitForText(setup, "still open note");
-
-    // Assert: the open card renders, the addressed one is gone behind the count
-    const frame = setup.captureCharFrame();
-
-    expect(frame).toContain("✓ 1 addressed by revision");
-    expect(frame).not.toContain("settled note");
-    expect(frame).toContain("still open note"); // the open card survives; the addressed one does not
-    expect(backgroundsOf(setup, "The daemon")).not.toContain(DARK.markCommentBackground); // no highlight paint
-  });
-});
-
 describe("sheet header", () => {
   test("shows the submitting agent, the revision, and the Edit and Share word-buttons", async () => {
     // Arrange
@@ -445,25 +285,6 @@ describe("sheet header", () => {
     expect(frame).toContain("rev 1");
     expect(frame).toContain("Edit");
     expect(frame).toContain("Share");
-  });
-
-  test("the Agent tab shows the text-only harness launcher buttons", async () => {
-    // Arrange
-    const setup = await renderApp();
-    const lines = setup.captureCharFrame().split("\n");
-    const tabRow = lines.findIndex((line) => line.includes("Review") && line.includes("Agent"));
-    const tabColumn = lines[tabRow]!.indexOf("Agent");
-
-    // Act
-    await setup.mockMouse.click(tabColumn + 1, tabRow);
-    await setup.renderOnce();
-
-    // Assert - the three launcher buttons, in order
-    await waitForText(setup, "Claude Code");
-    const frame = setup.captureCharFrame();
-
-    expect(frame).toContain("Pi");
-    expect(frame).toContain("OpenAI Codex");
   });
 });
 
@@ -502,15 +323,13 @@ describe("edit-exit reconciliation", () => {
       await clickText(setup, "daemon");
       await type(setup, "Anchor me to the doomed passage.");
       await pressKey(setup, "RETURN", { meta: true });
-      await waitForText(setup, "COMMENT · me");
+      await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
 
       // Act
       await pressKey(setup, "e", { ctrl: true });
 
-      // Assert
+      // Assert - the thread view banner reports the orphaned annotation
       await waitForText(setup, "1 annotation no longer match - the passage was removed.");
-      // the rail card flips to ORPHANED once the working-copy refresh lands
-      await waitForText(setup, "· ORPHANED");
       // the annotation is NOT deleted: the feedback serializer handles orphans
       expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
     } finally {

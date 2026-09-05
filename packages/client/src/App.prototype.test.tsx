@@ -105,7 +105,7 @@ async function clickText(setup: Setup, needle: string): Promise<void> {
 }
 
 describe("prototype review", () => {
-  test("click an element, comment on it, and it lands in the rail", async () => {
+  test("click an element, comment on it, and it saves to the daemon", async () => {
     // Arrange - wait until the fake browser produced its first screenshot, so
     // the sheet is interactive before the click
     const setup = await renderApp();
@@ -135,13 +135,6 @@ describe("prototype review", () => {
     expect(stored.kind).toBe("comment");
     expect(stored.body).toBe("tighten the padding");
     expect(stored.anchor.selector).toBe("main > div.card");
-
-    // and it renders in the rail
-    await settle(setup);
-    const frame = setup.captureCharFrame();
-
-    expect(frame).toContain("tighten the padding");
-    expect(frame).toContain("COMMENT");
   });
 
   test("escape cancels the compose, matching the plan composer", async () => {
