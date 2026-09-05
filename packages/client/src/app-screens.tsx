@@ -1,4 +1,4 @@
-import React, { type Dispatch, type SetStateAction } from "react";
+import React, { useState, type Dispatch, type SetStateAction } from "react";
 import type { ReviewSession, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
@@ -12,11 +12,12 @@ import type { SettingsCategory, SettingsValues } from "./components/SettingsDial
 import type { SettingsNav } from "./use-settings-dialog";
 import { CLIENT_VERSION } from "./version";
 import { ThemeProvider } from "./components/theme-context";
-import { NERD } from "./components/primitives/icons";
 import type { InboxRow } from "./components/session-tree";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { ThreadsSidebar } from "./components/ThreadsSidebar";
+import { AppHeader } from "./components/AppHeader";
+import { WelcomeSurface } from "./components/WelcomeSurface";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
@@ -79,7 +80,13 @@ export function MenuChrome(props: {
   );
 }
 
-export function InboxScreen(props: {
+/**
+ * The shell with no thread open: the same header and Projects/Threads sidebar as
+ * the thread view, and a disposable Welcome tab in the center. There is no
+ * separate inbox screen - opening the app lands here, and picking a thread swaps
+ * the center for it. Closing the Welcome tab leaves a bare "select a thread" hint.
+ */
+export function NoThreadShell(props: {
   rows: InboxRow[];
   inboxCursor: number;
   mode: Mode;
@@ -91,6 +98,8 @@ export function InboxScreen(props: {
 }): React.ReactNode {
   const { rows, inboxCursor, mode, theme, controller, setMode, menuChrome, onOpenMenu } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [welcomeOpen, setWelcomeOpen] = useState(true);
 
   return (
     <ThemeProvider theme={theme}>
@@ -102,32 +111,16 @@ export function InboxScreen(props: {
           backgroundColor: theme.background,
         }}
       >
-        {/* mirrors the review header row: same box, position, and accent product
-            word, with a " · resume" separator and no Edit/Share toolbar */}
-        <box
-          style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}
-        >
-          <box
-            style={{
-              height: 1,
-              backgroundColor: theme.panel,
-              paddingLeft: 1,
-              flexDirection: "row",
-            }}
-          >
-            <box onMouseUp={onOpenMenu} style={{ paddingRight: 2 }}>
-              <text fg={theme.textMuted}>{NERD.settings}</text>
-            </box>
-            <text>
-              <span fg={theme.accent}>cueloop</span>
-              <span fg={theme.textDim}> · resume</span>
-            </text>
-          </box>
-          <box style={{ flexGrow: 1 }} />
-        </box>
+        <AppHeader
+          onOpenMenu={onOpenMenu}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((open) => !open)}
+          breadcrumb={[{ label: "cueloop", tone: "accent" }]}
+          theme={theme}
+        />
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
           <ThreadsSidebar
-            open
+            open={sidebarOpen}
             rows={rows}
             cursor={inboxCursor}
             onSelect={(id) => controller.open(id)}
@@ -136,8 +129,18 @@ export function InboxScreen(props: {
             }
             theme={theme}
           />
-          <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
-            <text fg={theme.textDim}>Select a thread</text>
+          <box style={{ flexGrow: 1, flexDirection: "column" }}>
+            {welcomeOpen ? (
+              <WelcomeSurface
+                version={CLIENT_VERSION}
+                onClose={() => setWelcomeOpen(false)}
+                theme={theme}
+              />
+            ) : (
+              <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
+                <text fg={theme.textDim}>select a thread</text>
+              </box>
+            )}
           </box>
         </box>
         {menuChrome}

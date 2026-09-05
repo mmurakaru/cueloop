@@ -2013,3 +2013,37 @@ exports[`stories catalog Surfaces/ChangesColumn/Changed renders, snapshots, and 
 │                                                           
 "
 `;
+
+exports[`stories catalog Chrome/AppHeader/NoThread renders, snapshots, and carries its colors: Chrome/AppHeader/NoThread 1`] = `
+"                                                            
+     cueloop                                              
+                                                            
+"
+`;
+
+exports[`stories catalog Chrome/AppHeader/WithBreadcrumb renders, snapshots, and carries its colors: Chrome/AppHeader/WithBreadcrumb 1`] = `
+"                                                            
+     cueloop · Migration Plan · rev 1                     
+                                                            
+"
+`;
+
+exports[`stories catalog Surfaces/WelcomeSurface/Welcome renders, snapshots, and carries its colors: Surfaces/WelcomeSurface/Welcome 1`] = `
+"─Welcome──✕─────────────────────────────────────────────────
+                                                            
+  Welcome to cueloop                                        
+  a review loop for coding agents                           
+                                                            
+  Start                                                     
+  · select a thread on the left                             
+  · or run cueloop plan / cueloop diff from a repo          
+                                                            
+  Learn                                                     
+  · docs        www.cueloop.dev                             
+  · changelog   www.cueloop.dev/changelog                   
+                                                            
+  What's new                                                
+  · cueloop v0.1.0-alpha.66                                 
+                                                            
+"
+`;

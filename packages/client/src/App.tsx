@@ -45,14 +45,11 @@ import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
-import { NERD } from "./components/primitives/icons";
 import { groupInbox, projectName } from "./components/session-tree";
 import { ThreadsSidebar } from "./components/ThreadsSidebar";
 import { ChangesColumn, DiffChangesToggle, useDiffColumns } from "./components/ChangesColumn";
-import { IconButton } from "./components/primitives/IconButton";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
-import { Breadcrumb } from "./components/Breadcrumb";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
   RAIL_CHORD_ENTRIES,
@@ -82,10 +79,11 @@ import {
   CompletionScreen,
   ConnectingScreen,
   ErrorScreen,
-  InboxScreen,
   MenuChrome,
+  NoThreadShell,
   TrailingOverlays,
 } from "./app-screens";
+import { AppHeader } from "./components/AppHeader";
 
 /** A toast clears itself after this idle; esc dismisses it sooner. */
 const TOAST_DISMISS_MS = 4000;
@@ -136,11 +134,6 @@ function keyboardOwnedElsewhere(menuOwnsKeyboard: boolean, overlay: KeyState["ov
 /** The footer submit fires only for the owner of an unresolved review, never an observer. */
 function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean): boolean {
   return isOwner && !resolved && !observer;
-}
-
-/** The left panel toggle glyph: the mirrored sidebar icon, filled when the column is open. */
-function sidebarToggleGlyph(open: boolean): string {
-  return open ? NERD.sidebarLeft : NERD.sidebarLeftOff;
 }
 
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
@@ -520,7 +513,7 @@ export function App({
   if (error) return <ErrorScreen error={error} theme={theme} />;
   if (!session)
     return inbox ? (
-      <InboxScreen
+      <NoThreadShell
         rows={grouped.rows}
         inboxCursor={inboxCursor}
         mode={mode}
@@ -613,44 +606,33 @@ export function App({
           backgroundColor: theme.background,
         }}
       >
-        <box
-          style={{
-            flexDirection: "row",
-            height: 2,
-            paddingTop: 1,
-            backgroundColor: theme.panel,
-          }}
-        >
-          <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
-            <box onMouseUp={() => setMenuDialog("settings")} style={{ paddingRight: 2 }}>
-              <text fg={theme.textMuted}>{NERD.settings}</text>
-            </box>
-            <IconButton
-              glyph={sidebarToggleGlyph(sidebarOpen)}
-              onPress={() => setSidebarOpen((open) => !open)}
-              marginRight={2}
-              theme={theme}
-            />
-            <Breadcrumb items={headerItems} />
-            <box style={{ flexGrow: 1 }} />
-            {showOwnerActions ? (
-              <Toolbar>
-                <Button onPress={onEditRequest} theme={theme}>
-                  {" Edit "}
-                </Button>
-                <Button onPress={onShareRequest} theme={theme}>
-                  {" Share "}
-                </Button>
-              </Toolbar>
-            ) : null}
-            <DiffChangesToggle
-              isDiff={isDiff}
-              open={diffColumns.changesOpen}
-              onToggle={diffColumns.toggleChanges}
-              theme={theme}
-            />
-          </box>
-        </box>
+        <AppHeader
+          onOpenMenu={() => setMenuDialog("settings")}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((open) => !open)}
+          breadcrumb={headerItems}
+          rightActions={
+            <>
+              {showOwnerActions ? (
+                <Toolbar>
+                  <Button onPress={onEditRequest} theme={theme}>
+                    {" Edit "}
+                  </Button>
+                  <Button onPress={onShareRequest} theme={theme}>
+                    {" Share "}
+                  </Button>
+                </Toolbar>
+              ) : null}
+              <DiffChangesToggle
+                isDiff={isDiff}
+                open={diffColumns.changesOpen}
+                onToggle={diffColumns.toggleChanges}
+                theme={theme}
+              />
+            </>
+          }
+          theme={theme}
+        />
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
           <ThreadsSidebar
             open={sidebarOpen}
