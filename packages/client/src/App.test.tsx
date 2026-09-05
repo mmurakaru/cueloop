@@ -14,6 +14,7 @@ import {
   dragText,
   frameRow,
   isolateUserConfig,
+  locateText,
   press,
   pressKey,
   typeText as type,
@@ -243,19 +244,19 @@ describe("submit", () => {
   });
 });
 
-describe("inbox", () => {
-  test("inbox mode wears the review header and opens a session", async () => {
+describe("no-thread shell", () => {
+  test("opening with nothing selected lands in the shell with a Welcome tab and the Threads sidebar", async () => {
     // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "cueloop");
 
-    // Assert - the same header as review, plus the session row
+    // Assert - the same shell header, the disposable Welcome tab, and the pending thread
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("cueloop · resume");
+    expect(frame).toContain("Welcome to cueloop");
     expect(frame).toContain("Migration Plan");
-    expect(frame).not.toContain("inbox ("); // the old inline header is gone
+    expect(frame).not.toContain("· resume"); // the bespoke inbox header is retired
 
     // Act
     await press(setup, "enter");
@@ -264,20 +265,82 @@ describe("inbox", () => {
     await waitForText(setup, "send message");
   });
 
-  test("the menu opens from the inbox and escape is not a trap", async () => {
+  test("picking a thread from the no-thread shell keeps the Threads sidebar open", async () => {
+    // Arrange - a second pending thread so the sidebar has a row that never shows
+    // in the opened thread's own view
+    server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: { type: "plan", content: "# Other Plan\n", meta: { title: "Other Plan" } },
+    });
+    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+
+    await waitForText(setup, "Welcome to cueloop");
+    await waitForText(setup, "Other Plan"); // the sidebar opens by default here
+
+    // Act - open the thread under the cursor
+    await press(setup, "enter");
+    await waitForText(setup, "send message");
+
+    // Assert - the sidebar stayed open across the swap: both titles are on screen,
+    // and the non-opened one can only come from the still-open sidebar
+    const frame = setup.captureCharFrame();
+
+    expect(frame).toContain("Migration Plan");
+    expect(frame).toContain("Other Plan");
+  });
+
+  test("the row kebab menu pins a thread into a Pinned section", async () => {
+    // Arrange - the no-thread shell opens with the first thread selected, so its
+    // kebab is visible without hover
+    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+
+    await waitForText(setup, "Migration Plan");
+
+    // Act - open the row menu and pick Pin
+    await clickText(setup, "⋮");
+    await waitForText(setup, "Pin");
+    await clickText(setup, "Pin");
+
+    // Assert - a Pinned section now holds the thread
+    await waitForText(setup, "Pinned");
+    expect(frameRow(setup, "Migration Plan")).toBeGreaterThan(frameRow(setup, "Pinned"));
+  });
+
+  test("the Welcome tab is disposable: closing it leaves a bare select-a-thread hint", async () => {
     // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
 
-    await waitForText(setup, "cueloop · resume");
+    await waitForText(setup, "Welcome to cueloop");
 
-    // Act - open the drop-down from the top-left settings gear (header content row)
+    // Act - hover the tab to reveal its close control, then click it
+    const tab = locateText(setup, "Welcome");
+
+    await setup.mockMouse.moveTo(tab.column, tab.row);
+    await waitForText(setup, "✕");
+    await clickText(setup, "✕");
+
+    // Assert - the welcome content is gone, the shell and its hint remain
+    await waitForState(setup, () => !setup.captureCharFrame().includes("Welcome to cueloop"));
+    const frame = setup.captureCharFrame();
+
+    expect(frame).toContain("select a thread");
+    expect(frame).toContain("Migration Plan"); // the sidebar stays
+  });
+
+  test("the menu opens from the shell gear and escape is not a trap", async () => {
+    // Arrange
+    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+
+    await waitForText(setup, "Welcome to cueloop");
+
+    // Act - open the settings dialog from the top-left gear (header content row)
     await setup.mockMouse.click(1, 1);
 
-    // Assert - the drop-up options appear
+    // Assert - the settings dialog with its Keybinds leaf appears
     await waitForText(setup, "Keybinds");
     expect(setup.captureCharFrame()).toContain("Settings");
 
-    // Act - escape closes the menu (not a trap), and the inbox nav still works
+    // Act - escape closes the menu (not a trap), and the thread nav still works
     await press(setup, "escape");
     await waitForState(setup, () => !setup.captureCharFrame().includes("Keybinds"));
     await press(setup, "enter");

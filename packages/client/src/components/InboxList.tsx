@@ -1,39 +1,168 @@
 /**
- * The pending-review inbox: a Projects and Threads tree. Selection stays with
- * the keyboard grammar - the cursor indexes the flat thread order and this
- * component only renders the snapshot. The selected thread carries a [delete]
- * word-button (click, or `d` in the grammar). App supplies the surrounding
- * header and MenuBar chrome; this is the flex-growing body.
+ * The pending-review inbox: a Pinned / Projects / Threads tree. Selection stays
+ * with the keyboard grammar - the cursor indexes the flat thread order and this
+ * component renders the snapshot. A hovered or selected thread reveals a kebab
+ * that opens an inline pin / rename / delete menu; long titles fade on the right
+ * instead of wrapping. App supplies the surrounding chrome.
  */
 
-import React from "react";
+import React, { useState } from "react";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
-import { Button } from "./primitives/Button";
+import { IconButton } from "./primitives/IconButton";
 import { NERD } from "./primitives/icons";
-import type { InboxRow } from "./session-tree";
+import { fadeTitle } from "./fade-title";
+import { threadTitle, type InboxRow } from "./session-tree";
 
 export interface InboxListProps {
   rows: InboxRow[];
   cursor: number;
   /** The open thread's id; highlights it instead of the cursor (the left sidebar case). */
   activeId?: string;
+  /** Ids of pinned threads; a pinned row carries the pin glyph and the menu offers Unpin. */
+  pinnedIds?: ReadonlySet<string>;
+  /** The column width, so titles fade to fit one line. */
+  width?: number;
   /** Open a thread by clicking its row (the left sidebar case). */
   onSelect?: (sessionId: string) => void;
-  /** Ask to delete a thread (the selected row's [delete] button). */
+  /** Ask to delete a thread (the menu's Delete, wired to the confirm dialog). */
   onRequestDelete?: (id: string, title: string) => void;
+  /** Toggle a thread's pinned state (the menu's Pin/Unpin). */
+  onPin?: (id: string) => void;
+  /** Rename a thread's title (the menu's Rename). */
+  onRename?: (id: string, title: string) => void;
   theme?: Theme;
+}
+
+function ActionsMenu({
+  pinned,
+  onPin,
+  onRename,
+  onDelete,
+  tokens,
+}: {
+  pinned: boolean;
+  onPin?: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
+  tokens: Theme;
+}): React.ReactNode {
+  const item = (
+    glyph: string,
+    label: string,
+    color: string,
+    onPick?: () => void,
+  ): React.ReactNode =>
+    onPick !== undefined ? (
+      <box onMouseUp={onPick} style={{ flexDirection: "row", paddingLeft: 4, paddingRight: 1 }}>
+        <text fg={color}>{`${glyph} ${label}`}</text>
+      </box>
+    ) : null;
+
+  return (
+    <box
+      style={{
+        flexDirection: "column",
+        marginLeft: 3,
+        borderStyle: "single",
+        border: ["left"],
+        borderColor: tokens.border,
+      }}
+    >
+      {item(NERD.pin, pinned ? "Unpin" : "Pin", tokens.text, onPin)}
+      {item(NERD.file, "Rename", tokens.text, onRename)}
+      {item(NERD.close, "Delete", tokens.red, onDelete)}
+    </box>
+  );
+}
+
+interface ThreadRowProps {
+  title: string;
+  selected: boolean;
+  pinned: boolean;
+  titleWidth: number;
+  menuOpen: boolean;
+  onToggleMenu: () => void;
+  onSelect?: () => void;
+  onPin?: () => void;
+  onRename?: () => void;
+  onDelete?: () => void;
+  tokens: Theme;
+  theme?: Theme;
+}
+
+function ThreadRow(props: ThreadRowProps): React.ReactNode {
+  const { title, selected, pinned, titleWidth, menuOpen, onToggleMenu, tokens, theme } = props;
+  const [hovered, setHovered] = useState(false);
+  const segments = fadeTitle(
+    title,
+    titleWidth,
+    selected ? tokens.accent : tokens.textMuted,
+    tokens.background,
+  );
+  const hasActions =
+    props.onPin !== undefined || props.onRename !== undefined || props.onDelete !== undefined;
+
+  return (
+    <box style={{ flexDirection: "column" }} onMouseOut={() => setHovered(false)}>
+      <box
+        onMouseUp={props.onSelect}
+        onMouseOver={() => setHovered(true)}
+        style={{
+          flexDirection: "row",
+          backgroundColor: selected ? tokens.elevated : hovered ? tokens.panel : undefined,
+        }}
+      >
+        <text>
+          <span fg={tokens.textDim}>{pinned ? ` ${NERD.pin} ` : "   "}</span>
+          {segments.map((segment, index) => (
+            <span key={index} fg={segment.fg}>
+              {segment.text}
+            </span>
+          ))}
+        </text>
+        <box style={{ flexGrow: 1 }} />
+        {(hovered || selected || menuOpen) && hasActions ? (
+          <IconButton
+            glyph={NERD.kebab}
+            active={menuOpen}
+            onPress={onToggleMenu}
+            marginRight={1}
+            theme={theme}
+          />
+        ) : null}
+      </box>
+      {menuOpen ? (
+        <ActionsMenu
+          pinned={pinned}
+          onPin={props.onPin}
+          onRename={props.onRename}
+          onDelete={props.onDelete}
+          tokens={tokens}
+        />
+      ) : null}
+    </box>
+  );
 }
 
 export function InboxList({
   rows,
   cursor,
   activeId,
+  pinnedIds,
+  width = 30,
   onSelect,
   onRequestDelete,
+  onPin,
+  onRename,
   theme,
 }: InboxListProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+  const [actionsForId, setActionsForId] = useState<string | null>(null);
+  // leave room for the 3-char prefix, the border, and the hover kebab so a row
+  // never wraps: the title fades to fit whatever is left
+  const titleWidth = Math.max(8, width - 9);
+  const closeMenu = (): void => setActionsForId(null);
 
   return (
     <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
@@ -58,30 +187,27 @@ export function InboxList({
             );
           }
 
-          const selected =
-            activeId !== undefined ? activeId === row.session.id : row.selectionIndex === cursor;
-          const title = row.session.artifact.meta.title ?? row.session.id;
+          const id = row.session.id;
+          const title = threadTitle(row.session);
 
           return (
-            <box
+            <ThreadRow
               key={row.id}
-              onMouseUp={onSelect ? () => onSelect(row.session.id) : undefined}
-              style={{
-                flexDirection: "row",
-                backgroundColor: selected ? tokens.elevated : undefined,
-              }}
-            >
-              <text fg={selected ? tokens.accent : tokens.textMuted}>
-                {"   "}
-                {title}
-              </text>
-              <box style={{ flexGrow: 1 }} />
-              {selected && onRequestDelete ? (
-                <Button onPress={() => onRequestDelete(row.session.id, title)} theme={theme}>
-                  {" [delete] "}
-                </Button>
-              ) : null}
-            </box>
+              title={title}
+              selected={activeId !== undefined ? activeId === id : row.selectionIndex === cursor}
+              pinned={pinnedIds?.has(id) ?? false}
+              titleWidth={titleWidth}
+              menuOpen={actionsForId === id}
+              onToggleMenu={() => setActionsForId(actionsForId === id ? null : id)}
+              onSelect={onSelect ? () => onSelect(id) : undefined}
+              onPin={onPin ? () => (onPin(id), closeMenu()) : undefined}
+              onRename={onRename ? () => (onRename(id, title), closeMenu()) : undefined}
+              onDelete={
+                onRequestDelete ? () => (onRequestDelete(id, title), closeMenu()) : undefined
+              }
+              tokens={tokens}
+              theme={theme}
+            />
           );
         })
       )}

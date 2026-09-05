@@ -99,13 +99,12 @@ describe("share button", () => {
     const setup = await renderApp();
 
     // Assert
-    // both word-buttons ride the same header row, so Share sits next to Edit
+    // both word-buttons ride the header's thread segment, so Share sits next to Edit
     const headerLine = setup
       .captureCharFrame()
       .split("\n")
-      .find((line) => line.includes("submitted by"));
+      .find((line) => line.includes("Edit"));
 
-    expect(headerLine).toContain("Edit");
     expect(headerLine).toContain("Share");
   });
 
@@ -129,16 +128,13 @@ describe("share button", () => {
     // Act
     const setup = await renderApp();
 
-    await waitForText(setup, "submitted by");
+    await waitForText(setup, "Migration Plan");
 
     // Assert - the owner toolbar is gone once the review is resolved
-    const headerLine = setup
-      .captureCharFrame()
-      .split("\n")
-      .find((line) => line.includes("submitted by"));
+    const frame = setup.captureCharFrame();
 
-    expect(headerLine).not.toContain("Edit");
-    expect(headerLine).not.toContain("Share");
+    expect(frame).not.toContain("Edit");
+    expect(frame).not.toContain("Share");
   });
 });
 
@@ -274,15 +270,17 @@ describe("compose newline convention", () => {
 });
 
 describe("sheet header", () => {
-  test("shows the submitting agent, the revision, and the Edit and Share word-buttons", async () => {
+  test("mirrors the thread name and carries the Edit and Share word-buttons", async () => {
     // Arrange
     const setup = await renderApp();
 
-    // Assert
+    // Assert - the minimal header shows the thread title (mirror) plus the owner
+    // actions; the revision and submitter metadata are no longer in the header
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("submitted by agent/worker-3");
-    expect(frame).toContain("rev 1");
+    expect(frame).toContain("Migration Plan");
+    expect(frame).not.toContain("submitted by");
+    expect(frame).not.toContain("rev 1");
     expect(frame).toContain("Edit");
     expect(frame).toContain("Share");
   });

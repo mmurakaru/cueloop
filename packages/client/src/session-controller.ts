@@ -204,6 +204,8 @@ export interface ReviewController {
   open(id: string): void;
   /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
   deleteSession(id: string): void;
+  /** Rename a session's title; the inbox refreshes on the event. */
+  renameSession(id: string, title: string): void;
   /** Record the viewer's own name into the share's participant registry (collaborator self-naming). */
   setSelfName(name: string): void;
   /** Cut the block under the cursor, or restore a cut one. */
@@ -526,11 +528,22 @@ class Controller implements ReviewController {
   }
 
   deleteSession(id: string): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
     this.client
       ?.sessionDelete(id)
       .then(() => this.setStatus("plan deleted"))
       .catch((cause: unknown) =>
         this.setStatus(`delete failed: ${cause instanceof Error ? cause.message : String(cause)}`),
+      );
+  }
+
+  renameSession(id: string, title: string): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
+    this.client
+      ?.sessionSetTitle(id, title)
+      .then(() => this.setStatus("thread renamed"))
+      .catch((cause: unknown) =>
+        this.setStatus(`rename failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
   }
 

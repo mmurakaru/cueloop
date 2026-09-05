@@ -166,6 +166,7 @@ export const Params = {
     ),
   }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
+  "session.setTitle": v.object({ id: SessionId, title: v.string() }),
   "session.navigate": v.object({
     id: SessionId,
     entryId: NonEmpty,

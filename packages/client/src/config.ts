@@ -104,6 +104,8 @@ export interface CueloopConfig {
     reviewWidth: number;
     /** The selected theme preset name; its tokens are the base for `theme`, before any `[theme]` overrides. */
     theme: ThemeName;
+    /** Session ids the user has pinned to the top of the sidebar; client-local view state. */
+    pins: string[];
   };
   /** Planner-local author renames: identity id → display name ([authors] table). */
   authors: Record<string, string>;
@@ -168,6 +170,7 @@ const UiSchema = v.object({
   review_width: v.fallback(v.optional(v.pipe(v.number(), v.finite())), undefined),
   review_state: v.fallback(v.optional(v.picklist(["expanded", "compact", "hidden"])), undefined),
   theme: v.fallback(v.optional(v.string()), undefined),
+  pins: v.fallback(v.optional(v.array(v.string())), undefined),
 });
 const ObsidianSchema = v.object({
   vault: v.fallback(v.optional(v.string()), undefined),
@@ -255,6 +258,7 @@ function layer(
     if (ui.output.review_width !== undefined)
       out.ui.reviewWidth = clampWidth(ui.output.review_width);
     if (ui.output.review_state !== undefined) out.ui.reviewState = ui.output.review_state;
+    if (ui.output.pins !== undefined) out.ui.pins = ui.output.pins;
   }
   if (integrations.success && integrations.output.obsidian) {
     mergeObsidian(out.integrations.obsidian, integrations.output.obsidian);
@@ -275,6 +279,7 @@ export function loadConfig(
       reviewState: "expanded",
       reviewWidth: REVIEW_DEFAULT_WIDTH,
       theme: DEFAULT_THEME_NAME,
+      pins: [],
     },
     authors: {},
     actions: [...DEFAULT_QUICK_ACTIONS],
@@ -416,6 +421,11 @@ export function persistReviewState(state: ReviewPanelMode, userConfigPath?: stri
 /** Persist the selected theme preset (`[ui] theme`) into the user config. */
 export function persistTheme(name: ThemeName, userConfigPath?: string): void {
   persistUiSetting("theme", `"${name}"`, userConfigPath);
+}
+
+/** Persist the pinned-thread ids (`[ui] pins`) into the user config. */
+export function persistPins(ids: readonly string[], userConfigPath?: string): void {
+  persistUiSetting("pins", `[${ids.map(tomlString).join(", ")}]`, userConfigPath);
 }
 
 function escapeRegExp(text: string): string {

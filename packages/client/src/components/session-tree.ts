@@ -50,12 +50,21 @@ interface ProjectGroup {
   sessions: ReviewSession[];
 }
 
-/** Group pending sessions into Projects (by root commit) then standalone Threads. */
-export function groupInbox(sessions: readonly ReviewSession[]): GroupedInbox {
+/** Group pending sessions into Pinned, then Projects (by root commit), then standalone Threads. */
+export function groupInbox(
+  sessions: readonly ReviewSession[],
+  pinnedIds?: ReadonlySet<string>,
+): GroupedInbox {
+  const pinned: ReviewSession[] = [];
   const projects = new Map<string, ProjectGroup>();
   const standalone: ReviewSession[] = [];
 
   for (const session of sessions) {
+    if (pinnedIds?.has(session.id) === true) {
+      pinned.push(session);
+      continue;
+    }
+
     const key = session.workspace.rootCommit;
     if (key === undefined) {
       standalone.push(session);
@@ -73,6 +82,11 @@ export function groupInbox(sessions: readonly ReviewSession[]): GroupedInbox {
     rows.push({ kind: "thread", id: session.id, session, selectionIndex: ordered.length });
     ordered.push(session);
   };
+
+  if (pinned.length > 0) {
+    rows.push({ kind: "section", id: "section:pinned", label: "Pinned" });
+    for (const session of pinned) pushThread(session);
+  }
 
   const projectEntries = [...projects.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
   if (projectEntries.length > 0) {

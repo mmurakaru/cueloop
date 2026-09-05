@@ -13,9 +13,15 @@ export interface ThreadsSidebarProps {
   cursor: number;
   /** The open thread's id, highlighted in the list. */
   activeId?: string;
+  /** Ids of pinned threads. */
+  pinnedIds?: ReadonlySet<string>;
   onSelect: (sessionId: string) => void;
-  /** Ask to delete a thread (the selected row's [delete] button). */
+  /** Ask to delete a thread (the row menu's Delete, wired to the confirm dialog). */
   onRequestDelete?: (id: string, title: string) => void;
+  /** Toggle a thread's pinned state (the row menu's Pin/Unpin). */
+  onPin?: (id: string) => void;
+  /** Rename a thread's title (the row menu's Rename). */
+  onRename?: (id: string, title: string) => void;
   width?: number;
   theme?: Theme;
 }
@@ -25,8 +31,11 @@ export function ThreadsSidebar({
   rows,
   cursor,
   activeId,
+  pinnedIds,
   onSelect,
   onRequestDelete,
+  onPin,
+  onRename,
   width = 30,
   theme,
 }: ThreadsSidebarProps): React.ReactNode {
@@ -47,8 +56,12 @@ export function ThreadsSidebar({
           rows={rows}
           cursor={cursor}
           activeId={activeId}
+          pinnedIds={pinnedIds}
+          width={width}
           onSelect={onSelect}
           onRequestDelete={onRequestDelete}
+          onPin={onPin}
+          onRename={onRename}
           theme={theme}
         />
       </scrollbox>

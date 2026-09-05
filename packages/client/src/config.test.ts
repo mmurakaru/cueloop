@@ -10,6 +10,7 @@ import {
   persistAuthorName,
   persistReviewState,
   persistActions,
+  persistPins,
   persistReviewWidth,
   persistTheme,
   quickActionBody,
@@ -283,6 +284,35 @@ describe("loadConfig", () => {
 
       // Assert
       expect(loadConfig({ userConfigPath: path }).ui.theme).toBe("gruvbox-dark");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("persistPins round-trips the pinned-thread ids through the config file", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-pins-"));
+    const path = join(dir, "config.toml");
+
+    try {
+      // Act
+      persistPins(["s_one", "s_two"], path);
+
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.pins).toEqual(["s_one", "s_two"]);
+
+      // unpinning rewrites the list in place, including down to empty
+      // Act
+      persistPins(["s_two"], path);
+
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.pins).toEqual(["s_two"]);
+
+      // Act
+      persistPins([], path);
+
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.pins).toEqual([]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -41,7 +41,12 @@ export function resolveOverlay(
   if (mode.type === "compose" || mode.type === "railEdit") return "compose";
   if (mode.type === "submit") return "submit";
   if (mode.type === "confirmDelete") return "confirm";
-  if (mode.type === "rename" || mode.type === "nameSelf" || mode.type === "treePrompt")
+  if (
+    mode.type === "rename" ||
+    mode.type === "renameThread" ||
+    mode.type === "nameSelf" ||
+    mode.type === "treePrompt"
+  )
     return "prompt";
   if (mode.type === "spanActions") return "spanActions";
   if (completionPhase === "prompt") return "completion-prompt";

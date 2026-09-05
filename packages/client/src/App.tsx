@@ -26,6 +26,7 @@ import {
   DEFAULT_QUICK_ACTIONS,
   loadConfig,
   persistAuthorName,
+  persistPins,
   type AutoClose,
   type QuickAction,
 } from "./config";
@@ -45,14 +46,11 @@ import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
-import { NERD } from "./components/primitives/icons";
-import { groupInbox, projectName } from "./components/session-tree";
+import { groupInbox, projectName, threadTitle } from "./components/session-tree";
 import { ThreadsSidebar } from "./components/ThreadsSidebar";
-import { ChangesColumn, DiffChangesToggle, useDiffColumns } from "./components/ChangesColumn";
-import { IconButton } from "./components/primitives/IconButton";
+import { ChangesColumn, useDiffColumns } from "./components/ChangesColumn";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
-import { Breadcrumb } from "./components/Breadcrumb";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
   RAIL_CHORD_ENTRIES,
@@ -67,7 +65,6 @@ import { type RailTab, type ReviewRailHandle } from "./components/ReviewRail";
 import { REVIEW_DEFAULT_WIDTH, type ReviewPanelMode } from "./review-panel";
 import {
   buildDiffComposeState,
-  buildHeaderItems,
   buildRenderFlags,
   buildSubmitConfirmState,
   computeRoleCapabilities,
@@ -82,10 +79,11 @@ import {
   CompletionScreen,
   ConnectingScreen,
   ErrorScreen,
-  InboxScreen,
   MenuChrome,
+  NoThreadShell,
   TrailingOverlays,
 } from "./app-screens";
+import { AppHeader } from "./components/AppHeader";
 
 /** A toast clears itself after this idle; esc dismisses it sooner. */
 const TOAST_DISMISS_MS = 4000;
@@ -136,11 +134,6 @@ function keyboardOwnedElsewhere(menuOwnsKeyboard: boolean, overlay: KeyState["ov
 /** The footer submit fires only for the owner of an unresolved review, never an observer. */
 function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean): boolean {
   return isOwner && !resolved && !observer;
-}
-
-/** The left panel toggle glyph: the mirrored sidebar icon, filled when the column is open. */
-function sidebarToggleGlyph(open: boolean): string {
-  return open ? NERD.sidebarLeft : NERD.sidebarLeftOff;
 }
 
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
@@ -217,10 +210,27 @@ export function App({
   const [cursor, setCursor] = useState(0);
   const [inboxCursor, setInboxCursor] = useState(0);
   // Projects and Threads grouping; ordered is the flat sequence the inbox cursor walks
-  const grouped = useMemo(() => groupInbox(inbox ?? []), [inbox]);
+  // pinned threads are client-local view state, seeded from the user config and
+  // persisted on toggle; a pin lifts the thread into the sidebar's Pinned section
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const grouped = useMemo(() => groupInbox(inbox ?? [], pinnedIds), [inbox, pinnedIds]);
+  const togglePin = (id: string): void =>
+    setPinnedIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      persistPins([...next]);
+
+      return next;
+    });
   // the left Projects and Threads column; collapsed by default per the context
   // matrix (the thread owns the width), toggled open to jump between threads
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // one sidebar-open state across the no-thread shell and the thread view, so
+  // picking a thread keeps the sidebar as it was. It opens when the app lands with
+  // nothing selected (pick a thread) and stays collapsed on a direct thread open,
+  // where the thread owns the width.
+  const [sidebarOpen, setSidebarOpen] = useState(sessionId === undefined);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
@@ -266,6 +276,7 @@ export function App({
     setAuthorNames(config.authors);
     setQuickActions(config.actions);
     setAutoClose(config.ui.autoClose);
+    setPinnedIds(new Set(config.ui.pins));
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings, appearance]);
   useEffect(
@@ -416,6 +427,7 @@ export function App({
       persistAuthorName(id, name);
       setAuthorNames((prev) => ({ ...prev, [id]: name }));
     },
+    renameThread: (id: string, title: string) => controller.renameSession(id, title),
     liveInput,
     reviewWidthRef,
     setCursor,
@@ -520,7 +532,7 @@ export function App({
   if (error) return <ErrorScreen error={error} theme={theme} />;
   if (!session)
     return inbox ? (
-      <InboxScreen
+      <NoThreadShell
         rows={grouped.rows}
         inboxCursor={inboxCursor}
         mode={mode}
@@ -529,6 +541,11 @@ export function App({
         setMode={setMode}
         menuChrome={menuChrome}
         onOpenMenu={() => setMenuDialog("settings")}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen((open) => !open)}
+        pinnedIds={pinnedIds}
+        onPin={togglePin}
+        onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
       />
     ) : (
       <ConnectingScreen theme={theme} />
@@ -564,12 +581,6 @@ export function App({
     liveInput,
     setMode,
     dispatch,
-  });
-  const headerItems = buildHeaderItems({
-    session: activeSession,
-    resolved,
-    observer,
-    role,
   });
   const { showOwnerActions, prototypeCanComment, chromeHidden, prototypePath } = buildRenderFlags({
     session: activeSession,
@@ -613,27 +624,13 @@ export function App({
           backgroundColor: theme.background,
         }}
       >
-        <box
-          style={{
-            flexDirection: "row",
-            height: 2,
-            paddingTop: 1,
-            backgroundColor: theme.panel,
-          }}
-        >
-          <box style={{ flexGrow: 1, flexDirection: "row", paddingRight: 1 }}>
-            <box onMouseUp={() => setMenuDialog("settings")} style={{ paddingRight: 2 }}>
-              <text fg={theme.textMuted}>{NERD.settings}</text>
-            </box>
-            <IconButton
-              glyph={sidebarToggleGlyph(sidebarOpen)}
-              onPress={() => setSidebarOpen((open) => !open)}
-              marginRight={2}
-              theme={theme}
-            />
-            <Breadcrumb items={headerItems} />
-            <box style={{ flexGrow: 1 }} />
-            {showOwnerActions ? (
+        <AppHeader
+          onOpenMenu={() => setMenuDialog("settings")}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((open) => !open)}
+          title={threadTitle(activeSession)}
+          editShare={
+            showOwnerActions ? (
               <Toolbar>
                 <Button onPress={onEditRequest} theme={theme}>
                   {" Edit "}
@@ -642,22 +639,22 @@ export function App({
                   {" Share "}
                 </Button>
               </Toolbar>
-            ) : null}
-            <DiffChangesToggle
-              isDiff={isDiff}
-              open={diffColumns.changesOpen}
-              onToggle={diffColumns.toggleChanges}
-              theme={theme}
-            />
-          </box>
-        </box>
+            ) : null
+          }
+          changesOpen={diffColumns.changesOpen}
+          onToggleChanges={diffColumns.toggleChanges}
+          theme={theme}
+        />
         <box style={{ flexGrow: 1, flexDirection: "row" }}>
           <ThreadsSidebar
             open={sidebarOpen}
             rows={grouped.rows}
             cursor={inboxCursor}
             activeId={session.id}
+            pinnedIds={pinnedIds}
             onSelect={(id) => controller.open(id)}
+            onPin={togglePin}
+            onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
             theme={theme}
           />
           <box style={{ flexGrow: 1, flexDirection: "column" }}>

@@ -20,7 +20,6 @@ import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { truncateToSingleLine } from "./truncate-text";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
-import { FRAME_BORDER_STYLE } from "./primitives/frame";
 import { intralineRunsByRow, type IntralineRun } from "../diff-intraline";
 import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
 import {
@@ -301,9 +300,6 @@ export function DiffSheet({
       style={{
         flexGrow: 1,
         flexDirection: "column",
-        border: true,
-        borderStyle: FRAME_BORDER_STYLE,
-        borderColor: tokens.text,
         paddingLeft: 1,
         paddingTop: 0,
       }}

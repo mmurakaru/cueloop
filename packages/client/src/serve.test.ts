@@ -84,18 +84,14 @@ describe("cueloop serve", () => {
     expect(existsSync(join(home, "ssh", "host_key"))).toBe(true);
   });
 
-  test("an anonymous ssh client gets the observer TUI for the session", async () => {
+  test("an anonymous ssh client gets the read-only TUI for the session", async () => {
     // Act
-    const bytes = await sshCapture(
-      handle.port,
-      (frame) => frame.includes("Rollout Plan") && frame.includes("observer"),
-    );
+    const bytes = await sshCapture(handle.port, (frame) => frame.includes("Rollout Plan"));
 
-    // Assert
+    // Assert - the viewer sees the session; read-only is enforced behaviorally
+    // (covered by the observer-primitives tests), not by a header badge
     expect(bytes).toContain("cueloop");
     expect(bytes).toContain("Rollout Plan");
-    // observer chrome: the header badge marks the read-only session
-    expect(bytes).toContain("observer");
   });
 
   test("two observers can watch at once", async () => {
