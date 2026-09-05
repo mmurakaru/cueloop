@@ -78,6 +78,7 @@ function fakeClient(session: ReviewSession): FakeSessionClient {
     sessionLabel: unimplemented("sessionLabel"),
     sessionFork: unimplemented("sessionFork"),
     sessionSetViewed: unimplemented("sessionSetViewed"),
+    sessionSetTitle: unimplemented("sessionSetTitle"),
     sessionSetShareId: mock(
       async (_id: string, shareId: string) => ((session.shareId = shareId), session),
     ),

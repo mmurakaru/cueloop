@@ -100,6 +100,7 @@ export function NoThreadShell(props: {
   onToggleSidebar: () => void;
   pinnedIds: ReadonlySet<string>;
   onPin: (id: string) => void;
+  onRename: (id: string, title: string) => void;
 }): React.ReactNode {
   const {
     rows,
@@ -114,6 +115,7 @@ export function NoThreadShell(props: {
     onToggleSidebar,
     pinnedIds,
     onPin,
+    onRename,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
   const [welcomeOpen, setWelcomeOpen] = useState(true);
@@ -146,6 +148,7 @@ export function NoThreadShell(props: {
               setMode({ type: "confirmDelete", sessionId: id, title })
             }
             onPin={onPin}
+            onRename={onRename}
             theme={theme}
           />
           <box style={{ flexGrow: 1, flexDirection: "column" }}>
@@ -176,6 +179,17 @@ export function NoThreadShell(props: {
           onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
+        {mode.type === "renameThread" ? (
+          <PromptDialog
+            isOpen
+            title=" Rename thread "
+            label="New title for this thread:"
+            value={mode.text}
+            placeholder="a short title"
+            onInput={(text) => setMode({ ...mode, text })}
+            theme={theme}
+          />
+        ) : null}
       </box>
     </ThemeProvider>
   );
@@ -275,6 +289,17 @@ export function TrailingOverlays(props: {
           label="Display name for this collaborator:"
           value={mode.text}
           placeholder="their name"
+          onInput={(text) => setMode({ ...mode, text })}
+          theme={theme}
+        />
+      ) : null}
+      {mode.type === "renameThread" ? (
+        <PromptDialog
+          isOpen
+          title=" Rename thread "
+          label="New title for this thread:"
+          value={mode.text}
+          placeholder="a short title"
           onInput={(text) => setMode({ ...mode, text })}
           theme={theme}
         />

@@ -380,6 +380,11 @@ export class DaemonServer {
 
       return this.core.sessionSetViewed(params.id, params.viewedPaths);
     },
+    "session.setTitle": (_connection, request) => {
+      const params = parseParams("session.setTitle", request.params);
+
+      return this.core.sessionSetTitle(params.id, params.title);
+    },
     "session.refreshDiff": (_connection, request) => {
       const params = parseParams("session.refreshDiff", request.params);
 

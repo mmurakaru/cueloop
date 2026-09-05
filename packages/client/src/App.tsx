@@ -428,6 +428,7 @@ export function App({
       persistAuthorName(id, name);
       setAuthorNames((prev) => ({ ...prev, [id]: name }));
     },
+    renameThread: (id: string, title: string) => controller.renameSession(id, title),
     liveInput,
     reviewWidthRef,
     setCursor,
@@ -545,6 +546,7 @@ export function App({
         onToggleSidebar={() => setSidebarOpen((open) => !open)}
         pinnedIds={pinnedIds}
         onPin={togglePin}
+        onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
       />
     ) : (
       <ConnectingScreen theme={theme} />
@@ -665,6 +667,7 @@ export function App({
             pinnedIds={pinnedIds}
             onSelect={(id) => controller.open(id)}
             onPin={togglePin}
+            onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
             theme={theme}
           />
           <box style={{ flexGrow: 1, flexDirection: "column" }}>

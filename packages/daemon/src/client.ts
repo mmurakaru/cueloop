@@ -78,6 +78,8 @@ export interface SessionClient {
   /** Replace a diff review's reject decisions; the working copy follows. */
   sessionCurate(id: string, rejections: HunkRejection[]): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
+  /** Rename a session's display title; an empty title restores the derived default. */
+  sessionSetTitle(id: string, title: string): Promise<ReviewSession>;
   /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */
   sessionNavigate(
     id: string,
@@ -364,6 +366,9 @@ export class DaemonClient implements SessionClient {
   }
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession> {
     return this.request("session.setViewed", { id, viewedPaths }, SessionRecordSchema);
+  }
+  sessionSetTitle(id: string, title: string): Promise<ReviewSession> {
+    return this.request("session.setTitle", { id, title }, SessionRecordSchema);
   }
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {

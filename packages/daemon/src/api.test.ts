@@ -154,6 +154,24 @@ describe("session lifecycle", () => {
     expect(core.sessionGet(session.id).workingCopy).toBeUndefined();
   });
 
+  test("a thread rename sets the title, clears back to the default on empty, and survives a restart", () => {
+    // Arrange
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
+    core.sessionSetTitle(session.id, "  Renamed thread  ");
+
+    // Assert - trimmed and persisted
+    expect(core.sessionGet(session.id).artifact.meta.title).toBe("Renamed thread");
+    expect(new DaemonCore(home).sessionGet(session.id).artifact.meta.title).toBe("Renamed thread");
+
+    // Act - an empty title clears back to the derived default
+    core.sessionSetTitle(session.id, "   ");
+
+    // Assert
+    expect(core.sessionGet(session.id).artifact.meta.title).toBeUndefined();
+  });
+
   test("viewed paths merge, dedupe, clear on empty, and survive a daemon restart", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });

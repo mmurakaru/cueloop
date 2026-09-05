@@ -321,6 +321,19 @@ export class DaemonCore {
     return session;
   }
 
+  /** Rename a session's display title; an empty title clears it back to the derived default. */
+  sessionSetTitle(id: string, title: string): ReviewSession {
+    const session = this.mutable(id);
+    const trimmed = title.trim();
+
+    if (trimmed.length === 0) delete session.artifact.meta.title;
+    else session.artifact.meta.title = trimmed;
+    this.store.upsert(session);
+    this.emit("session.updated", id);
+
+    return session;
+  }
+
   sessionSetShareId(id: string, shareId: string): ReviewSession {
     const session = this.mutable(id);
 

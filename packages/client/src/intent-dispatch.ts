@@ -41,6 +41,7 @@ export type Mode =
   | { type: "submit"; verdict: VerdictKind; summary: string }
   | { type: "confirmDelete"; sessionId: string; title: string }
   | { type: "rename"; authorId: string; text: string }
+  | { type: "renameThread"; sessionId: string; text: string }
   | { type: "nameSelf"; text: string }
   | { type: "treePrompt"; ask: TreeAsk; entryId?: string; text: string };
 
@@ -102,6 +103,8 @@ export interface IntentDispatchDeps {
   quickActions: QuickAction[];
   /** Persist an author rename and update the live overrides (App-owned). */
   renameAuthor: (id: string, name: string) => void;
+  /** Rename a thread's title through the daemon. */
+  renameThread: (id: string, title: string) => void;
 
   liveInput: MutableRefObject<string>;
   reviewWidthRef: MutableRefObject<number>;
@@ -194,6 +197,7 @@ function handleConfirmDialog(
 
   if (mode.type === "confirmDelete") controller.deleteSession(mode.sessionId);
   else if (mode.type === "rename") deps.renameAuthor(mode.authorId, mode.text.trim());
+  else if (mode.type === "renameThread") deps.renameThread(mode.sessionId, mode.text.trim());
   else if (mode.type === "nameSelf") controller.setSelfName(mode.text.trim());
   else if (mode.type === "treePrompt") confirmTreePrompt(mode, deps);
   deps.setMode({ type: "normal" });
