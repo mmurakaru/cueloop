@@ -247,8 +247,8 @@ function ProjectPanel({ mode, changesOpen, onToggleChanges, onToggleProject, onT
     <div className="w-64 shrink-0 rule-l flex flex-col" style={{ background: "var(--bg)" }}>
       {/* the one right-region control cluster: exactly three toggles */}
       <PanelHeader right={<>
-        <IconBtn icon="plusminus" tip="Toggle Changes Panel" active={changesOpen} onClick={onToggleChanges} />
-        <IconBtn icon="tree" tip="Toggle Project Panel" active onClick={onToggleProject} />
+        <IconBtn icon="plusminus" tip="Toggle Changes Panel" active={mode === "changes"} onClick={onToggleChanges} />
+        <IconBtn icon="tree" tip="Toggle Project Panel" active={mode === "tree"} onClick={onToggleProject} />
         <IconBtn icon="sidebarRight" tip="Toggle Right Sidebar" onClick={onToggleRight} />
       </>} />
       <div className="overflow-auto py-1 flex-1">
@@ -279,7 +279,7 @@ function LeafPane({ node, focused, onFocus, onActivate, onCloseTab, onOpenFileHe
             <div key={t.id} onClick={() => onActivate(node.id, t.id)}
                  className="group flex items-center gap-2 px-3 rule-r cursor-pointer whitespace-nowrap"
                  style={{ background: t.id === active.id ? "var(--bg)" : "transparent", color: t.id === active.id ? "var(--accent)" : "var(--dim)" }}>
-              {t.kind === "file" ? <Icon name="file" size={12} /> : null}{t.label}
+              {t.label}
               <span className="opacity-0 group-hover:opacity-100 iconbtn" style={{ width: 14, height: 14 }}
                     onClick={(e) => { e.stopPropagation(); onCloseTab(node.id, t.id); }}><Icon name="close" size={11} /></span>
             </div>
@@ -325,12 +325,18 @@ function PaneNode(props) {
     </div>
   );
 }
-function ChangesPanel({ tree, setTree, focusedLeaf, setFocusedLeaf, onToggle, onZoom, zoomed, comments, setComments }) {
+function ChangesPanel({ tree, setTree, focusedLeaf, setFocusedLeaf, onEmpty, onZoom, zoomed, comments, setComments }) {
   const activate = (lid, tid) => setTree((t) => mapLeaf(t, lid, (l) => ({ ...l, active: tid })));
-  const closeTab = (lid, tid) => setTree((t) => pruneEmpty(mapLeaf(t, lid, (l) => {
-    const tabs = l.tabs.filter((x) => x.id !== tid);
-    return { ...l, tabs, active: l.active === tid ? tabs[0]?.id ?? null : l.active };
-  })) || leaf([{ id: nid(), kind: "changes", label: "Changes" }]));
+  // dismissing the last tab collapses the Changes panel; the right sidebar (Project) stays open,
+  // and the tree resets so a fresh Changes tab reappears next time the panel opens
+  const closeTab = (lid, tid) => setTree((t) => {
+    const pruned = pruneEmpty(mapLeaf(t, lid, (l) => {
+      const tabs = l.tabs.filter((x) => x.id !== tid);
+      return { ...l, tabs, active: l.active === tid ? tabs[0]?.id ?? null : l.active };
+    }));
+    if (!pruned) { onEmpty(); return leaf([{ id: nid(), kind: "changes", label: "Changes" }]); }
+    return pruned;
+  });
   const split = (lid, dir) => setTree((t) => mapLeaf(t, lid, (l) => {
     const act = l.tabs.find((x) => x.id === l.active) || l.tabs[0];
     const moved = { ...act, id: nid() };
@@ -367,7 +373,7 @@ function App() {
   // the right sidebar IS the Project panel; Changes rides on top of it and never stands alone
   const [projectOpen, setProjectOpen] = useState(qbool("project", false) || qbool("changes", false));
   const [changesOpen, setChangesOpen] = useState(qbool("changes", false));
-  const [projectMode, setProjectMode] = useState(Q.get("mode") || "tree");
+  const [projectMode, setProjectMode] = useState(Q.get("mode") || (qbool("changes", false) ? "changes" : "tree"));
   const [zoomed, setZoomed] = useState(qbool("zoom", false));
   const [tree, setTree] = useState(() => leaf([{ id: nid(), kind: "changes", label: "Changes" }]));
   const [focusedLeaf, setFocusedLeaf] = useState(null);
@@ -380,18 +386,17 @@ function App() {
   // and Changes is restored to whatever it was. Turning it off closes Changes too.
   const toggleRight = () => {
     if (projectOpen) { rememberedChanges.current = changesOpen; setChangesOpen(false); setProjectOpen(false); }
-    else { setProjectOpen(true); setChangesOpen(rememberedChanges.current); }
+    else { setProjectOpen(true); setChangesOpen(rememberedChanges.current); setProjectMode(rememberedChanges.current ? "changes" : "tree"); }
   };
-  // Changes cannot stand alone: opening it forces Project open; closing it leaves Project up.
+  // The file tree has one mode at a time: changes (Changes toggle) or tree (Project toggle) - the two
+  // are mutually exclusive. Switching to changes mode opens the editor; switching to tree mode leaves
+  // the editor exactly as it is (the Changes panel can persist while the sidebar shows the project tree).
   const toggleChanges = () => {
-    if (changesOpen) setChangesOpen(false);
-    else { setChangesOpen(true); setProjectOpen(true); }
+    if (projectMode === "changes") { setChangesOpen(false); setProjectMode("tree"); }
+    else { setChangesOpen(true); setProjectOpen(true); setProjectMode("changes"); }
   };
-  // Closing the Project panel closes the whole right region (Changes cannot stand alone).
-  const toggleProject = () => {
-    if (projectOpen) { rememberedChanges.current = changesOpen; setChangesOpen(false); setProjectOpen(false); }
-    else setProjectOpen(true);
-  };
+  const toggleProject = () => { setProjectOpen(true); setProjectMode("tree"); };
+  const collapseChanges = () => { setChangesOpen(false); setProjectMode("tree"); };
   const openFileTab = (label, path) => {
     setProjectOpen(true);
     setChangesOpen(true);
@@ -411,7 +416,7 @@ function App() {
         {!zoomed ? <ThreadPanel collapsedLeftToggle={!threadsOpen} onOpenLeft={() => setThreadsOpen(true)} /> : null}
         {changesOpen ? (
           <ChangesPanel tree={tree} setTree={setTree} focusedLeaf={focusedLeaf} setFocusedLeaf={setFocusedLeaf}
-            onToggle={toggleChanges} onZoom={() => setZoomed((z) => !z)} zoomed={zoomed}
+            onEmpty={collapseChanges} onZoom={() => setZoomed((z) => !z)} zoomed={zoomed}
             comments={comments} setComments={setComments} />
         ) : null}
         {projectOpen ? (

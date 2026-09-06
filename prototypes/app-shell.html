@@ -836,12 +836,12 @@ export const placeholder = true;
       right: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(IconBtn, {
         icon: "plusminus",
         tip: "Toggle Changes Panel",
-        active: changesOpen,
+        active: mode === "changes",
         onClick: onToggleChanges
       }), /* @__PURE__ */ React.createElement(IconBtn, {
         icon: "tree",
         tip: "Toggle Project Panel",
-        active: true,
+        active: mode === "tree",
         onClick: onToggleProject
       }), /* @__PURE__ */ React.createElement(IconBtn, {
         icon: "sidebarRight",
@@ -889,10 +889,7 @@ export const placeholder = true;
       onClick: () => onActivate(node.id, t.id),
       className: "group flex items-center gap-2 px-3 rule-r cursor-pointer whitespace-nowrap",
       style: { background: t.id === active.id ? "var(--bg)" : "transparent", color: t.id === active.id ? "var(--accent)" : "var(--dim)" }
-    }, t.kind === "file" ? /* @__PURE__ */ React.createElement(Icon, {
-      name: "file",
-      size: 12
-    }) : null, t.label, /* @__PURE__ */ React.createElement("span", {
+    }, t.label, /* @__PURE__ */ React.createElement("span", {
       className: "opacity-0 group-hover:opacity-100 iconbtn",
       style: { width: 14, height: 14 },
       onClick: (e) => {
@@ -962,12 +959,19 @@ export const placeholder = true;
       node: c
     }))));
   }
-  function ChangesPanel({ tree, setTree, focusedLeaf, setFocusedLeaf, onToggle, onZoom, zoomed, comments, setComments }) {
+  function ChangesPanel({ tree, setTree, focusedLeaf, setFocusedLeaf, onEmpty, onZoom, zoomed, comments, setComments }) {
     const activate = (lid, tid) => setTree((t) => mapLeaf(t, lid, (l) => ({ ...l, active: tid })));
-    const closeTab = (lid, tid) => setTree((t) => pruneEmpty(mapLeaf(t, lid, (l) => {
-      const tabs = l.tabs.filter((x) => x.id !== tid);
-      return { ...l, tabs, active: l.active === tid ? tabs[0]?.id ?? null : l.active };
-    })) || leaf([{ id: nid(), kind: "changes", label: "Changes" }]));
+    const closeTab = (lid, tid) => setTree((t) => {
+      const pruned = pruneEmpty(mapLeaf(t, lid, (l) => {
+        const tabs = l.tabs.filter((x) => x.id !== tid);
+        return { ...l, tabs, active: l.active === tid ? tabs[0]?.id ?? null : l.active };
+      }));
+      if (!pruned) {
+        onEmpty();
+        return leaf([{ id: nid(), kind: "changes", label: "Changes" }]);
+      }
+      return pruned;
+    });
     const split = (lid, dir) => setTree((t) => mapLeaf(t, lid, (l) => {
       const act = l.tabs.find((x) => x.id === l.active) || l.tabs[0];
       const moved = { ...act, id: nid() };
@@ -1011,7 +1015,7 @@ export const placeholder = true;
     const [threadsOpen, setThreadsOpen] = useState(qbool("threads", true));
     const [projectOpen, setProjectOpen] = useState(qbool("project", false) || qbool("changes", false));
     const [changesOpen, setChangesOpen] = useState(qbool("changes", false));
-    const [projectMode, setProjectMode] = useState(Q.get("mode") || "tree");
+    const [projectMode, setProjectMode] = useState(Q.get("mode") || (qbool("changes", false) ? "changes" : "tree"));
     const [zoomed, setZoomed] = useState(qbool("zoom", false));
     const [tree, setTree] = useState(() => leaf([{ id: nid(), kind: "changes", label: "Changes" }]));
     const [focusedLeaf, setFocusedLeaf] = useState(null);
@@ -1029,23 +1033,26 @@ export const placeholder = true;
       } else {
         setProjectOpen(true);
         setChangesOpen(rememberedChanges.current);
+        setProjectMode(rememberedChanges.current ? "changes" : "tree");
       }
     };
     const toggleChanges = () => {
-      if (changesOpen)
+      if (projectMode === "changes") {
         setChangesOpen(false);
-      else {
+        setProjectMode("tree");
+      } else {
         setChangesOpen(true);
         setProjectOpen(true);
+        setProjectMode("changes");
       }
     };
     const toggleProject = () => {
-      if (projectOpen) {
-        rememberedChanges.current = changesOpen;
-        setChangesOpen(false);
-        setProjectOpen(false);
-      } else
-        setProjectOpen(true);
+      setProjectOpen(true);
+      setProjectMode("tree");
+    };
+    const collapseChanges = () => {
+      setChangesOpen(false);
+      setProjectMode("tree");
     };
     const openFileTab = (label, path) => {
       setProjectOpen(true);
@@ -1073,7 +1080,7 @@ export const placeholder = true;
       setTree,
       focusedLeaf,
       setFocusedLeaf,
-      onToggle: toggleChanges,
+      onEmpty: collapseChanges,
       onZoom: () => setZoomed((z) => !z),
       zoomed,
       comments,
