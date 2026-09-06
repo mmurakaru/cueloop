@@ -3,6 +3,7 @@ import {
   addTab,
   changesTab,
   closeTab,
+  containsGroup,
   fileTab,
   firstGroupId,
   makeGroup,
@@ -71,5 +72,15 @@ describe("editor grid", () => {
     const tab = changesTab();
     const group = makeGroup([tab]);
     expect(closeTab(group, group.id, tab.id)).toBeNull();
+  });
+
+  test("containsGroup finds a live group and misses a pruned one", () => {
+    const group = makeGroup([fileTab("a.ts", "a.ts", "diff")]);
+    const { tree } = splitGroup(group, group.id, "right");
+    const branch = asBranch(tree);
+    const rightGroup = asGroup(branch.children[1]!);
+    expect(containsGroup(tree, group.id)).toBe(true);
+    const collapsed = closeTab(tree, rightGroup.id, rightGroup.tabs[0]!.id);
+    expect(containsGroup(asGroup(collapsed), rightGroup.id)).toBe(false);
   });
 });

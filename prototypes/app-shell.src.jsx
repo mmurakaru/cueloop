@@ -70,7 +70,7 @@ function fileText(label) {
 }
 
 /* --------------------------------------------------------- pane tree ops
-   Model borrowed from VSCode's editor grid (src/vs/base/browser/ui/grid):
+   Editor-grid model:
    - the Changes panel is a GRID of GridNodes: a LEAF is an EDITOR GROUP (a tab
      strip + one active editor), a BRANCH holds child nodes along an ORIENTATION.
    - "Split Left/Right/Up/Down" is a DIRECTION; Left/Right => horizontal branch

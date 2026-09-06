@@ -1,5 +1,6 @@
-// The Project pane in tree mode: the workspace's tracked files as a collapsible directory tree
-// (a VS Code Explorer). Folders start collapsed and expand on click; a file click opens it as a tab.
+// The Project pane in tree mode: the workspace's tracked files as a collapsible directory tree.
+// Folders start collapsed and expand on click; a file click opens it as a tab. The caller keys this
+// on the session id so switching sessions remounts it and never shows the previous repository's paths.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Theme } from "../theme";

@@ -9,6 +9,7 @@ import {
   addTab,
   changesTab,
   closeTab,
+  containsGroup,
   fileTab,
   firstGroupId,
   makeGroup,
@@ -91,6 +92,10 @@ export function useChangesWorkbench(): ChangesWorkbench {
         setProjectMode("tree");
         return makeGroup([changesTab()]);
       }
+      // re-home focus when the closed group was pruned away, so the next open has a live target
+      setFocusedGroup((current) =>
+        current !== null && containsGroup(pruned, current) ? current : firstGroupId(pruned),
+      );
       return pruned;
     });
   };

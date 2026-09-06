@@ -1,7 +1,7 @@
-// The Changes pane's editor layout, modeled on VSCode's editor grid: a tree of nodes where a leaf is
-// an editor group (a tab strip plus its one active tab) and a branch splits child nodes along an
-// orientation. Splitting an editor group moves its active tab into a new group; a group is pruned
-// when its last tab closes, collapsing the branch that held it.
+// The Changes pane's editor layout: a tree of nodes where a leaf is an editor group (a tab strip plus
+// its one active tab) and a branch splits child nodes along an orientation. Splitting an editor group
+// moves its active tab into a new group; a group is pruned when its last tab closes, collapsing the
+// branch that held it.
 
 /** One editor in a group's tab strip: the Changes tab (the whole diff) or a per-file tab. */
 export interface EditorTab {
@@ -61,6 +61,12 @@ export function fileTab(label: string, path: string, fileView: "diff" | "content
 /** The id of the first editor group in reading order; the fallback focus target. */
 export function firstGroupId(node: EditorNode): string {
   return node.type === "group" ? node.id : firstGroupId(node.children[0]!);
+}
+
+/** Whether a group id still exists in the grid; used to re-home focus after a prune. */
+export function containsGroup(node: EditorNode, groupId: string): boolean {
+  if (node.type === "group") return node.id === groupId;
+  return node.children.some((child) => containsGroup(child, groupId));
 }
 
 function replaceGroup(

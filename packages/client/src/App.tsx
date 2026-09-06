@@ -209,6 +209,7 @@ function ProjectPanelBody(props: {
   mode: ProjectPanelMode;
   files: ReviewSession["artifact"]["files"];
   loadProjectFiles: () => Promise<string[]>;
+  reloadKey: string;
   onOpenChangedFile: (path: string) => void;
   onOpenProjectFile: (path: string) => void;
   theme: Theme;
@@ -224,6 +225,7 @@ function ProjectPanelBody(props: {
   }
   return (
     <ProjectTreeView
+      key={props.reloadKey}
       loadFiles={props.loadProjectFiles}
       onSelectFile={props.onOpenProjectFile}
       theme={props.theme}
@@ -831,6 +833,7 @@ export function App({
             mode={workbench.projectMode}
             files={activeSession.artifact.files}
             loadProjectFiles={() => controller.projectFiles()}
+            reloadKey={activeSession.id}
             onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
             onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
             theme={theme}
