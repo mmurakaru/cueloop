@@ -153,7 +153,9 @@ export function AppShell({
               flexBasis: 0,
               minWidth: 0,
               borderStyle: "single",
-              border: ["left"],
+              // zoom drops the Thread pane, so the Threads sidebar's own right rule already divides
+              // here; skip the Changes editor's left rule then to avoid a double border
+              border: zoomHideThread ? [] : ["left"],
               borderColor: tokens.border,
             }}
           >
