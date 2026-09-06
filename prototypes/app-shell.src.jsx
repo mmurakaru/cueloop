@@ -240,15 +240,15 @@ function CollapsedRightRail({ onToggleRight }) {
 }
 // The Project panel is the right sidebar. Its header owns the right-region toggles: the navigator
 // mode (changed files / tree), a Changes toggle, and the master sidebar collapse.
-function ProjectPanel({ mode, setMode, changesOpen, onToggleChanges, onToggleRight, onOpenFile }) {
+function ProjectPanel({ mode, changesOpen, onToggleChanges, onToggleProject, onToggleRight, onOpenFile }) {
   const [expanded, setExpanded] = useState(new Set(["cueloop"]));
   const toggle = (p) => setExpanded((s) => { const n = new Set(s); n.has(p) ? n.delete(p) : n.add(p); return n; });
   return (
     <div className="w-64 shrink-0 rule-l flex flex-col" style={{ background: "var(--bg)" }}>
+      {/* the one right-region control cluster: exactly three toggles */}
       <PanelHeader right={<>
-        <IconBtn icon="plusminus" tip="Changed files" active={mode === "changes"} onClick={() => setMode("changes")} />
-        <IconBtn icon="tree" tip="Project tree" active={mode === "tree"} onClick={() => setMode("tree")} />
-        <IconBtn icon="split" tip="Toggle Changes Panel" active={changesOpen} onClick={onToggleChanges} />
+        <IconBtn icon="plusminus" tip="Toggle Changes Panel" active={changesOpen} onClick={onToggleChanges} />
+        <IconBtn icon="tree" tip="Toggle Project Panel" active onClick={onToggleProject} />
         <IconBtn icon="sidebarRight" tip="Toggle Right Sidebar" onClick={onToggleRight} />
       </>} />
       <div className="overflow-auto py-1 flex-1">
@@ -347,7 +347,6 @@ function ChangesPanel({ tree, setTree, focusedLeaf, setFocusedLeaf, onToggle, on
       <div className="flex-1 min-h-0 flex flex-col relative">
         <div className="absolute right-2 top-1.5 z-10 flex gap-1">
           <IconBtn icon="zoom" tip={zoomed ? "Restore" : "Zoom In"} active={zoomed} onClick={onZoom} />
-          <IconBtn icon="split" tip="Toggle Changes Panel" onClick={onToggle} />
         </div>
         <PaneNode node={tree} focusedLeaf={focusedLeaf} onFocus={setFocusedLeaf}
           onActivate={activate} onCloseTab={closeTab} onSplit={split}
@@ -388,6 +387,11 @@ function App() {
     if (changesOpen) setChangesOpen(false);
     else { setChangesOpen(true); setProjectOpen(true); }
   };
+  // Closing the Project panel closes the whole right region (Changes cannot stand alone).
+  const toggleProject = () => {
+    if (projectOpen) { rememberedChanges.current = changesOpen; setChangesOpen(false); setProjectOpen(false); }
+    else setProjectOpen(true);
+  };
   const openFileTab = (label, path) => {
     setProjectOpen(true);
     setChangesOpen(true);
@@ -412,7 +416,8 @@ function App() {
         ) : null}
         {projectOpen ? (
           <ProjectPanel mode={projectMode} setMode={setProjectMode} changesOpen={changesOpen}
-            onToggleChanges={toggleChanges} onToggleRight={toggleRight} onOpenFile={openFileTab} />
+            onToggleChanges={toggleChanges} onToggleProject={toggleProject} onToggleRight={toggleRight}
+            onOpenFile={openFileTab} />
         ) : (
           <CollapsedRightRail onToggleRight={toggleRight} />
         )}

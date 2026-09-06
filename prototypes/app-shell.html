@@ -822,7 +822,7 @@ export const placeholder = true;
       onClick: onToggleRight
     })));
   }
-  function ProjectPanel({ mode, setMode, changesOpen, onToggleChanges, onToggleRight, onOpenFile }) {
+  function ProjectPanel({ mode, changesOpen, onToggleChanges, onToggleProject, onToggleRight, onOpenFile }) {
     const [expanded, setExpanded] = useState(new Set(["cueloop"]));
     const toggle = (p) => setExpanded((s) => {
       const n = new Set(s);
@@ -835,19 +835,14 @@ export const placeholder = true;
     }, /* @__PURE__ */ React.createElement(PanelHeader, {
       right: /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(IconBtn, {
         icon: "plusminus",
-        tip: "Changed files",
-        active: mode === "changes",
-        onClick: () => setMode("changes")
-      }), /* @__PURE__ */ React.createElement(IconBtn, {
-        icon: "tree",
-        tip: "Project tree",
-        active: mode === "tree",
-        onClick: () => setMode("tree")
-      }), /* @__PURE__ */ React.createElement(IconBtn, {
-        icon: "split",
         tip: "Toggle Changes Panel",
         active: changesOpen,
         onClick: onToggleChanges
+      }), /* @__PURE__ */ React.createElement(IconBtn, {
+        icon: "tree",
+        tip: "Toggle Project Panel",
+        active: true,
+        onClick: onToggleProject
       }), /* @__PURE__ */ React.createElement(IconBtn, {
         icon: "sidebarRight",
         tip: "Toggle Right Sidebar",
@@ -995,10 +990,6 @@ export const placeholder = true;
       tip: zoomed ? "Restore" : "Zoom In",
       active: zoomed,
       onClick: onZoom
-    }), /* @__PURE__ */ React.createElement(IconBtn, {
-      icon: "split",
-      tip: "Toggle Changes Panel",
-      onClick: onToggle
     })), /* @__PURE__ */ React.createElement(PaneNode, {
       node: tree,
       focusedLeaf,
@@ -1048,6 +1039,14 @@ export const placeholder = true;
         setProjectOpen(true);
       }
     };
+    const toggleProject = () => {
+      if (projectOpen) {
+        rememberedChanges.current = changesOpen;
+        setChangesOpen(false);
+        setProjectOpen(false);
+      } else
+        setProjectOpen(true);
+    };
     const openFileTab = (label, path) => {
       setProjectOpen(true);
       setChangesOpen(true);
@@ -1084,6 +1083,7 @@ export const placeholder = true;
       setMode: setProjectMode,
       changesOpen,
       onToggleChanges: toggleChanges,
+      onToggleProject: toggleProject,
       onToggleRight: toggleRight,
       onOpenFile: openFileTab
     }) : /* @__PURE__ */ React.createElement(CollapsedRightRail, {
