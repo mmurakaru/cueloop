@@ -1,5 +1,6 @@
 // The one app shell: a single header row over four full-height panes - Threads, Thread, Changes,
-// Project - divided by straight rules whose header-cell bottoms join into one brand-accent underline.
+// Project - divided by straight rules; each header cell's thin bottom rule shares the divider gray so
+// the whole header underline reads as one line joining the side rules.
 // The right region (Changes + Project) toggles as a unit: the Project pane is the right sidebar and is
 // always present when the region is on, Changes rides on top of it, and a thin rail holds the sidebar
 // toggle when the region is closed. Each pane owns its own header controls; the thread header never does.
@@ -181,7 +182,7 @@ export function AppShell({
                 backgroundColor: tokens.panel,
                 borderStyle: "single",
                 border: ["bottom"],
-                borderColor: tokens.accent,
+                borderColor: tokens.border,
               }}
             >
               <text fg={tokens.border}>{"│"}</text>

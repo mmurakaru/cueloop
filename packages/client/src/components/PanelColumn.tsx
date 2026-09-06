@@ -1,7 +1,7 @@
 // A workbench panel: one full-height grid column with a file-tab header cell on
 // top and a body below. The header row carries the tabs on the left and optional
-// controls on the right, with a brand-accent underline that reads as the active
-// panel. The column's side border makes the divider run from the very top.
+// controls on the right, underlined by a thin rule in the same divider gray so the
+// header bottoms join the side rules into one grid. The side border runs from the top.
 
 import React, { useState } from "react";
 import type { Theme } from "../theme";
@@ -78,7 +78,7 @@ export function PanelColumn({
           backgroundColor: theme?.panel,
           borderStyle: "single",
           border: ["bottom"],
-          borderColor: theme?.accent,
+          borderColor: theme?.border,
         }}
       >
         {header}

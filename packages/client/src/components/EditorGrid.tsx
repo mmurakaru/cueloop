@@ -130,7 +130,7 @@ function EditorGroupPane({
           backgroundColor: focused ? tokens.elevated : tokens.panel,
           borderStyle: "single",
           border: ["bottom"],
-          borderColor: tokens.accent,
+          borderColor: tokens.border,
         }}
       >
         <box style={{ flexDirection: "row" }}>
