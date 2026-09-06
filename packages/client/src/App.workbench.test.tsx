@@ -84,9 +84,12 @@ async function renderApp() {
 
 type Setup = Awaited<ReturnType<typeof renderApp>>;
 
+/** The header controls sit on the content row, one below the top padding row. */
+const HEADER_ROW = 1;
+
 /** Column of the diff (±) toggle in the Project header; the tree toggle sits +2, the sidebar toggle +4. */
 function diffToggleColumn(setup: Setup): number {
-  return setup.captureCharFrame().split("\n")[0]!.lastIndexOf("±");
+  return setup.captureCharFrame().split("\n")[HEADER_ROW]!.lastIndexOf("±");
 }
 
 describe("the four-pane workbench", () => {
@@ -105,7 +108,7 @@ describe("the four-pane workbench", () => {
     const setup = await renderApp();
 
     // the diff and tree toggles are mutually exclusive; switch to the full project tree
-    await setup.mockMouse.click(diffToggleColumn(setup) + 2, 0);
+    await setup.mockMouse.click(diffToggleColumn(setup) + 2, HEADER_ROW);
     await waitForText(setup, "README.md");
 
     const frame = setup.captureCharFrame();
@@ -119,7 +122,7 @@ describe("the four-pane workbench", () => {
   test("opening a project-tree file adds a read-only contents tab", async () => {
     const setup = await renderApp();
 
-    await setup.mockMouse.click(diffToggleColumn(setup) + 2, 0);
+    await setup.mockMouse.click(diffToggleColumn(setup) + 2, HEADER_ROW);
     await waitForText(setup, "README.md");
 
     const readme = locateText(setup, "README.md");
@@ -129,13 +132,13 @@ describe("the four-pane workbench", () => {
     const frame = setup.captureCharFrame();
     // the contents tab carries the file's text with no diff markers
     expect(frame).toContain("A tiny tracked repo.");
-    expect(frame.split("\n")[0]!).toContain("README.md");
+    expect(frame.split("\n")[HEADER_ROW]!).toContain("README.md");
   });
 
   test("the split control offers four directions and Split Right makes two groups", async () => {
     const setup = await renderApp();
 
-    await setup.mockMouse.click(diffToggleColumn(setup) + 2, 0);
+    await setup.mockMouse.click(diffToggleColumn(setup) + 2, HEADER_ROW);
     await waitForText(setup, "README.md");
     const readme = locateText(setup, "README.md");
     await setup.mockMouse.click(readme.column, readme.row);
@@ -178,7 +181,7 @@ describe("the four-pane workbench", () => {
     const setup = await renderApp();
 
     const railColumn = diffToggleColumn(setup) + 4;
-    await setup.mockMouse.click(railColumn, 0);
+    await setup.mockMouse.click(railColumn, HEADER_ROW);
     await waitForState(setup, () => !setup.captureCharFrame().includes("store.ts"));
 
     // the right region is closed: no Changes editor, no Project tree toggles
@@ -186,7 +189,7 @@ describe("the four-pane workbench", () => {
     expect(diffToggleColumn(setup)).toBe(-1);
 
     // the thin rail's toggle reopens the region, restoring the Changes editor
-    await setup.mockMouse.click(railColumn, 0);
+    await setup.mockMouse.click(railColumn, HEADER_ROW);
     await waitForText(setup, "store.ts");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
   });
@@ -229,6 +232,17 @@ describe("the four-pane workbench", () => {
     expect(frame).toContain("store.ts");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
   });
+
+  test("hovering a header toggle surfaces its tooltip label at the screen root", async () => {
+    const setup = await renderApp();
+
+    // the tip is not painted until the pointer is over the control
+    expect(setup.captureCharFrame()).not.toContain("Toggle Changes Panel");
+
+    await setup.mockMouse.moveTo(diffToggleColumn(setup), HEADER_ROW);
+    // the label surfaces at the root, escaping the header cell that would otherwise clip it
+    await waitForText(setup, "Toggle Changes Panel");
+  });
 });
 
 /** The no-session welcome shell shares the four-pane chrome; its right-region toggles must behave the
@@ -262,31 +276,31 @@ describe("the no-session welcome shell", () => {
   }
 
   function railToggleColumn(setup: Setup): number {
-    return setup.captureCharFrame().split("\n")[0]!.replace(/\s+$/, "").length - 1;
+    return setup.captureCharFrame().split("\n")[HEADER_ROW]!.replace(/\s+$/, "").length - 1;
   }
 
   test("the changed-files and tree toggles switch navigator mode without collapsing", async () => {
     const setup = await renderWelcome();
 
     // a bare launch starts collapsed; the rail toggle opens the empty right region in changed-files mode
-    await setup.mockMouse.click(railToggleColumn(setup), 0);
+    await setup.mockMouse.click(railToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "No changes");
 
     const plus = diffToggleColumn(setup);
     expect(plus).toBeGreaterThan(0);
 
     // the tree toggle switches to the project view - it must not collapse the region
-    await setup.mockMouse.click(plus + 2, 0);
+    await setup.mockMouse.click(plus + 2, HEADER_ROW);
     await waitForText(setup, "No project files");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
 
     // the changed-files toggle switches back
-    await setup.mockMouse.click(plus, 0);
+    await setup.mockMouse.click(plus, HEADER_ROW);
     await waitForText(setup, "No changes");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
 
     // the sidebar toggle collapses the region to a rail
-    await setup.mockMouse.click(plus + 4, 0);
+    await setup.mockMouse.click(plus + 4, HEADER_ROW);
     await waitForState(setup, () => diffToggleColumn(setup) === -1);
     expect(setup.captureCharFrame()).not.toContain("No changes");
   });
@@ -296,7 +310,7 @@ describe("the no-session welcome shell", () => {
 
     const lines = setup.captureCharFrame().split("\n");
     // the rail's divider sits at the far right; find its column on the header row
-    const headerDivider = lines[0]!.lastIndexOf("│");
+    const headerDivider = lines[HEADER_ROW]!.lastIndexOf("│");
     expect(headerDivider).toBeGreaterThan(0);
     // that column stays clear below the two-row header - no full-height column rule
     const bodyRows = lines.slice(3).filter((line) => line.length > headerDivider);

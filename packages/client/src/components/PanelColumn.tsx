@@ -73,7 +73,8 @@ export function PanelColumn({
       <box
         style={{
           flexDirection: "row",
-          height: 2,
+          height: 3,
+          paddingTop: 1,
           paddingLeft: 1,
           backgroundColor: theme?.panel,
           borderStyle: "single",

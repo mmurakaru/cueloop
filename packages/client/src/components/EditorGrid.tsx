@@ -126,7 +126,8 @@ function EditorGroupPane({
       <box
         style={{
           flexDirection: "row",
-          height: 2,
+          height: 3,
+          paddingTop: 1,
           backgroundColor: focused ? tokens.elevated : tokens.panel,
           borderStyle: "single",
           border: ["bottom"],
@@ -147,11 +148,18 @@ function EditorGroupPane({
         </box>
         <box style={{ flexGrow: 1 }} />
         <box style={{ flexDirection: "row", paddingRight: 1 }}>
-          <IconButton glyph={NERD.search} onPress={() => {}} marginRight={1} theme={tokens} />
+          <IconButton
+            glyph={NERD.search}
+            onPress={() => {}}
+            tip="Search"
+            marginRight={1}
+            theme={tokens}
+          />
           <IconButton
             glyph={NERD.zoom}
             active={props.zoomed}
             onPress={props.onZoom}
+            tip={props.zoomed ? "Zoom Out" : "Zoom In"}
             marginRight={isFile ? 1 : 0}
             theme={tokens}
           />
@@ -160,6 +168,7 @@ function EditorGroupPane({
               glyph={NERD.split}
               active={menuOpen}
               onPress={() => setMenuOpen((open) => !open)}
+              tip="Split Pane"
               theme={tokens}
             />
           ) : null}

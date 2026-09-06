@@ -9,6 +9,7 @@ import { DARK, type Theme } from "../theme";
 import { PanelColumn } from "./PanelColumn";
 import { IconButton } from "./primitives/IconButton";
 import { NERD } from "./primitives/icons";
+import { TooltipProvider } from "./Tooltip";
 
 export type ProjectPanelMode = "changes" | "tree";
 
@@ -78,6 +79,7 @@ export function AppShell({
       <IconButton
         glyph={sidebarOpen ? NERD.sidebarLeft : NERD.sidebarLeftOff}
         onPress={onToggleSidebar}
+        tip="Toggle Threads"
         marginRight={2}
         theme={tokens}
       />
@@ -91,6 +93,7 @@ export function AppShell({
         glyph={NERD.diff}
         active={projectMode === "changes"}
         onPress={onToggleChanges}
+        tip="Toggle Changes Panel"
         marginRight={1}
         theme={tokens}
       />
@@ -98,10 +101,16 @@ export function AppShell({
         glyph={NERD.listTree}
         active={projectMode === "tree"}
         onPress={onToggleProject}
+        tip="Toggle Project Panel"
         marginRight={1}
         theme={tokens}
       />
-      <IconButton glyph={NERD.sidebarRight} onPress={onToggleRight} theme={tokens} />
+      <IconButton
+        glyph={NERD.sidebarRight}
+        onPress={onToggleRight}
+        tip="Toggle Right Sidebar"
+        theme={tokens}
+      />
     </box>
   );
 
@@ -114,6 +123,7 @@ export function AppShell({
         backgroundColor: tokens.background,
       }}
     >
+      <TooltipProvider theme={tokens}>
       <box style={{ flexGrow: 1, flexDirection: "row" }}>
         {sidebarOpen ? (
           <PanelColumn width={threadsWidth} border="right" header={brandChrome} theme={tokens}>
@@ -160,20 +170,29 @@ export function AppShell({
             {projectPanel}
           </PanelColumn>
         ) : (
-          // collapsed: only the header carries the divider and holds the reopen toggle; no full-height rule
+          // collapsed: a divider tick above the continuous header underline holds the reopen toggle;
+          // the rule lives in the header only, never running the pane's full height
           <box style={{ flexDirection: "column", width: 3 }}>
             <box
               style={{
-                height: 2,
+                flexDirection: "row",
                 alignItems: "center",
-                justifyContent: "center",
+                height: 3,
+                paddingTop: 1,
                 backgroundColor: tokens.panel,
                 borderStyle: "single",
-                border: ["bottom", "left"],
+                border: ["bottom"],
                 borderColor: tokens.accent,
               }}
             >
-              <IconButton glyph={NERD.sidebarRight} onPress={onToggleRight} theme={tokens} />
+              <text fg={tokens.border}>{"│"}</text>
+              <IconButton
+                glyph={NERD.sidebarRight}
+                onPress={onToggleRight}
+                tip="Toggle Right Sidebar"
+                marginLeft={1}
+                theme={tokens}
+              />
             </box>
           </box>
         )}
@@ -194,6 +213,7 @@ export function AppShell({
         </box>
       ) : null}
       {children}
+      </TooltipProvider>
     </box>
   );
 }
