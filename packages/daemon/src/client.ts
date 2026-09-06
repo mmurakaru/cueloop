@@ -80,6 +80,10 @@ export interface SessionClient {
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
   /** Rename a session's display title; an empty title restores the derived default. */
   sessionSetTitle(id: string, title: string): Promise<ReviewSession>;
+  /** Tracked, repo-relative file paths for the session's workspace; a client with no local repo (a share) omits it. */
+  projectFiles?(sessionId: string): Promise<string[]>;
+  /** UTF-8 contents of a repo-relative file, or null when it cannot be read safely; omitted by a client with no local repo. */
+  fileContents?(sessionId: string, path: string): Promise<string | null>;
   /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */
   sessionNavigate(
     id: string,
@@ -369,6 +373,12 @@ export class DaemonClient implements SessionClient {
   }
   sessionSetTitle(id: string, title: string): Promise<ReviewSession> {
     return this.request("session.setTitle", { id, title }, SessionRecordSchema);
+  }
+  projectFiles(sessionId: string): Promise<string[]> {
+    return this.request("session.projectFiles", { id: sessionId }, v.array(v.string()));
+  }
+  fileContents(sessionId: string, path: string): Promise<string | null> {
+    return this.request("session.fileContents", { id: sessionId, path }, v.nullable(v.string()));
   }
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {

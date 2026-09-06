@@ -47,6 +47,7 @@ import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
 import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
 import { DiffWatcher } from "./diff-watcher";
 import { workingTreeDiff } from "./working-tree";
+import { listProjectFiles, readProjectFile } from "./project-files";
 import { DaemonError } from "./errors";
 
 /** What a share hands back: the notes and names it collected, and the removals it recorded. */
@@ -332,6 +333,16 @@ export class DaemonCore {
     this.emit("session.updated", id);
 
     return session;
+  }
+
+  /** Tracked, repo-relative file paths for the session's workspace; [] when it has no repo. */
+  projectFiles(id: string): Promise<string[]> {
+    return listProjectFiles(this.sessionGet(id).workspace.repoRoot);
+  }
+
+  /** UTF-8 contents of a repo-relative file in the session's workspace, or null when it cannot be read safely. */
+  fileContents(id: string, path: string): Promise<string | null> {
+    return readProjectFile(this.sessionGet(id).workspace.repoRoot, path);
   }
 
   sessionSetShareId(id: string, shareId: string): ReviewSession {

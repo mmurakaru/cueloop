@@ -36,6 +36,9 @@ const PRIMITIVE_ROLES = {
   "session.curate": "owner",
   "session.setViewed": "owner",
   "session.setTitle": "owner",
+  // reading the local working tree is the owner's alone; a share carries no repo to read
+  "session.projectFiles": "owner",
+  "session.fileContents": "owner",
   // the tree is the owner's: collaborators comment on the branch a share follows
   "session.navigate": "owner",
   "session.branch": "owner",

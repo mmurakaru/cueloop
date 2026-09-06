@@ -385,6 +385,13 @@ export class DaemonServer {
 
       return this.core.sessionSetTitle(params.id, params.title);
     },
+    "session.projectFiles": (_connection, request) =>
+      this.core.projectFiles(parseParams("session.projectFiles", request.params).id),
+    "session.fileContents": (_connection, request) => {
+      const params = parseParams("session.fileContents", request.params);
+
+      return this.core.fileContents(params.id, params.path);
+    },
     "session.refreshDiff": (_connection, request) => {
       const params = parseParams("session.refreshDiff", request.params);
 
