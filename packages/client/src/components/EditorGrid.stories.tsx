@@ -35,7 +35,7 @@ export const OneGroup: Story = {
       theme={DARK}
     />
   ),
-  expectedColors: [DARK.accent, DARK.border],
+  expectedColors: [DARK.textMuted, DARK.border],
   size: { width: 80, height: 16 },
 };
 
@@ -54,6 +54,6 @@ export const SplitGroups: Story = {
       theme={DARK}
     />
   ),
-  expectedColors: [DARK.accent, DARK.border],
+  expectedColors: [DARK.textMuted, DARK.border],
   size: { width: 100, height: 16 },
 };

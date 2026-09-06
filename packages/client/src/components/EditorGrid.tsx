@@ -58,7 +58,7 @@ function EditorTabButton({
         borderColor: tokens.border,
       }}
     >
-      <text fg={active ? tokens.accent : tokens.textDim}>{tab.label}</text>
+      <text fg={active ? tokens.textMuted : tokens.textDim}>{tab.label}</text>
       <box
         onMouseUp={(event) => {
           event.stopPropagation();
