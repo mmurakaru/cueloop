@@ -274,11 +274,15 @@ describe("the four-pane workbench", () => {
  * the collapsed rail draws its divider in the header only. */
 describe("the bare-launch welcome shell", () => {
   let welcomeHome: string;
+  let welcomeRepo: string;
   let restoreWelcome: () => void;
   let welcomeServer: DaemonServer;
 
   beforeEach(() => {
     welcomeHome = mkdtempSync(join(tmpdir(), "cueloop-welcome-"));
+    // a small, controlled launch repo so the welcome tree/changes resolve fast and deterministically
+    welcomeRepo = makeRepo();
+    writeFileSync(join(welcomeRepo, "README.md"), "# Fixture\n\nedited in the working tree\n");
     restoreWelcome = isolateUserConfig(welcomeHome);
     welcomeServer = new DaemonServer({ home: welcomeHome, idleExitMs: 0 });
     welcomeServer.start();
@@ -287,17 +291,35 @@ describe("the bare-launch welcome shell", () => {
     restoreWelcome();
     welcomeServer.stop();
     rmSync(welcomeHome, { recursive: true, force: true });
+    rmSync(welcomeRepo, { recursive: true, force: true });
   });
 
   async function renderWelcome() {
-    const setup = await testRender(<App home={welcomeHome} sessionId={undefined} />, {
-      width: 180,
-      height: 14,
-    });
+    const setup = await testRender(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
+      { width: 180, height: 14 },
+    );
     await waitForText(setup, "cueloop");
 
     return setup;
   }
+
+  test("the project tree shows the launch repo's files even with no thread open", async () => {
+    const setup = await renderWelcome();
+
+    // the tree toggle loads the git repo the client launched in
+    await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
+    await waitForText(setup, "README.md");
+    expect(setup.captureCharFrame()).toContain("README.md");
+  });
+
+  test("the changes tree lists the launch repo's working-tree changes", async () => {
+    const setup = await renderWelcome();
+
+    // changes mode is the default; the edited README shows with its status
+    await waitForText(setup, "README.md");
+    expect(setup.captureCharFrame()).toContain("README.md");
+  });
 
   test("a bare launch rides a Welcome tab in the editor while the Thread pane waits empty", async () => {
     const setup = await renderWelcome();
@@ -327,23 +349,21 @@ describe("the bare-launch welcome shell", () => {
   test("the changed-files and tree toggles switch navigator mode without collapsing", async () => {
     const setup = await renderWelcome();
 
-    const plus = diffToggleColumn(setup);
-    expect(plus).toBeGreaterThan(0);
-
-    // the tree toggle switches to the project view - it must not collapse the region
-    await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
-    await waitForText(setup, "No project files");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
 
-    // the changed-files toggle switches back
+    // the tree toggle switches to the project view (the launch repo's tree) without collapsing
+    await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
+    await waitForText(setup, "src");
+    expect(diffToggleColumn(setup)).toBeGreaterThan(0);
+
+    // the changed-files toggle switches back, still open
     await setup.mockMouse.click(diffToggleColumn(setup), HEADER_ROW);
-    await waitForText(setup, "No changes");
+    await waitForState(setup, () => !setup.captureCharFrame().includes("src"));
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
 
     // the sidebar toggle collapses the region to a rail
     await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
     await waitForState(setup, () => diffToggleColumn(setup) === -1);
-    expect(setup.captureCharFrame()).not.toContain("No changes");
   });
 
   test("the collapsed rail draws its divider in the header only, not full-height", async () => {

@@ -27,6 +27,7 @@ import {
   switchBranch,
   viewOfPath,
   type Annotation,
+  type DiffFileContents,
   type ReviewSession,
   type SessionHistory,
   type VerdictKind,
@@ -160,6 +161,8 @@ const DEFAULT_SHARE_TRANSPORT: ShareTransport = {
 export interface ReviewControllerOptions {
   home?: string;
   sessionId?: string;
+  /** The directory the client launched in; its git repo backs the no-session welcome tree. Defaults to process.cwd(). */
+  cwd?: string;
   /** Observer mode: stored for the key reducer's read-only gate. */
   readOnly?: boolean;
   onExit?: (code: number) => void;
@@ -197,6 +200,12 @@ export interface ReviewController {
   projectFiles(): Promise<string[]>;
   /** Read a workspace file's contents for a Changes file tab; null when it cannot be read. */
   readFile(path: string): Promise<string | null>;
+  /** The launch repo's tracked files for the no-session welcome Project tree; empty when not a repo. */
+  repoFiles(): Promise<string[]>;
+  /** Read a launch-repo file's contents for a welcome file tab; null when it cannot be read. */
+  repoReadFile(path: string): Promise<string | null>;
+  /** The launch repo's working-tree changed files for the no-session welcome Changes tree. */
+  repoChanges(): Promise<readonly DiffFileContents[]>;
   /** Open a session from the inbox. */
   open(id: string): void;
   /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
@@ -477,6 +486,38 @@ class Controller implements ReviewController {
     if (this.client?.fileContents === undefined || !session) return null;
 
     return this.client.fileContents(session.id, path);
+  }
+
+  /** The repo the sidebar tree/changes point at: the thread's own repo, else the launch directory. */
+  private sidebarRepoRoot(): string {
+    return this.snapshot.session?.workspace.repoRoot || this.options.cwd || process.cwd();
+  }
+
+  async repoFiles(): Promise<string[]> {
+    if (this.client?.repoFiles === undefined) return [];
+
+    return this.client.repoFiles(this.sidebarRepoRoot());
+  }
+
+  async repoReadFile(path: string): Promise<string | null> {
+    if (this.client?.repoFileContents === undefined) return null;
+
+    return this.client.repoFileContents(this.sidebarRepoRoot(), path);
+  }
+
+  async repoChanges(): Promise<readonly DiffFileContents[]> {
+    // a diff review pins its captured snapshot; every other thread reflects the live working tree
+    const session = this.snapshot.session;
+    if (session?.artifact.type === "diff") return session.artifact.files ?? [];
+    if (this.client?.repoChanges === undefined) return [];
+    const changes = await this.client.repoChanges(this.sidebarRepoRoot());
+
+    return changes.map((change) => ({
+      path: change.path,
+      status: change.status,
+      oldContents: "",
+      newContents: "",
+    }));
   }
 
   // Refreshes race the connection teardown: an event can arrive while close()

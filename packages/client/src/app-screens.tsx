@@ -1,5 +1,5 @@
-import React, { type Dispatch, type SetStateAction } from "react";
-import type { ReviewSession, VerdictKind } from "@cueloop/schema";
+import React, { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import type { DiffFileContents, ReviewSession, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
 import type { Mode, TreeAsk } from "./intent-dispatch";
@@ -17,8 +17,11 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
 import { WelcomeSurface } from "./components/WelcomeSurface";
-import { AppShell } from "./components/AppShell";
+import { AppShell, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
+import { ProjectTreeView } from "./components/ProjectTreeView";
+import { ChangesFileTree } from "./components/ChangesColumn";
+import { FileContentsView } from "./components/FileContentsView";
 import { useChangesWorkbench } from "./use-changes-workbench";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
@@ -82,6 +85,50 @@ export function MenuChrome(props: {
   );
 }
 
+/** The welcome shell's Project pane: the launch repo's changed files in changes mode, its full tree otherwise. */
+function WelcomeProjectPanel({
+  mode,
+  controller,
+  onOpenFile,
+  theme,
+}: {
+  mode: ProjectPanelMode;
+  controller: ReviewController;
+  onOpenFile: (path: string) => void;
+  theme: Theme;
+}): React.ReactNode {
+  const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+
+    void controller.repoChanges().then(
+      (files) => {
+        if (alive) setChanges(files);
+      },
+      () => {
+        if (alive) setChanges([]);
+      },
+    );
+
+    return () => {
+      alive = false;
+    };
+  }, [controller]);
+
+  if (mode === "changes") {
+    return <ChangesFileTree files={changes} onSelectFile={onOpenFile} theme={theme} />;
+  }
+
+  return (
+    <ProjectTreeView
+      loadFiles={() => controller.repoFiles()}
+      onSelectFile={onOpenFile}
+      theme={theme}
+    />
+  );
+}
+
 /**
  * The shell with no thread open: the same header and Projects/Threads sidebar as
  * the thread view, and a disposable Welcome tab in the center. There is no
@@ -123,6 +170,7 @@ export function NoThreadShell(props: {
   // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
   // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
   const workbench = useChangesWorkbench({ seed: "welcome" });
+  const openRepoFile = (path: string): void => workbench.openFile(path, "contents");
 
   return (
     <ThemeProvider theme={theme}>
@@ -174,20 +222,23 @@ export function NoThreadShell(props: {
               tab.kind === "welcome" ? (
                 <WelcomeSurface version={CLIENT_VERSION} theme={theme} />
               ) : (
-                <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
-                  <text fg={theme.textDim}>No changes</text>
-                </box>
+                <FileContentsView
+                  path={tab.path ?? ""}
+                  loadContents={(path) => controller.repoReadFile(path)}
+                  theme={theme}
+                />
               )
             }
             theme={theme}
           />
         }
         projectPanel={
-          <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
-            <text fg={theme.textDim}>
-              {workbench.projectMode === "changes" ? "No changes" : "No project files"}
-            </text>
-          </box>
+          <WelcomeProjectPanel
+            mode={workbench.projectMode}
+            controller={controller}
+            onOpenFile={openRepoFile}
+            theme={theme}
+          />
         }
         theme={theme}
       >

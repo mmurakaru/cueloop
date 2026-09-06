@@ -392,6 +392,15 @@ export class DaemonServer {
 
       return this.core.fileContents(params.id, params.path);
     },
+    "repo.files": (_connection, request) =>
+      this.core.repoFiles(parseParams("repo.files", request.params).cwd),
+    "repo.fileContents": (_connection, request) => {
+      const params = parseParams("repo.fileContents", request.params);
+
+      return this.core.repoFileContents(params.cwd, params.path);
+    },
+    "repo.changes": (_connection, request) =>
+      this.core.repoChanges(parseParams("repo.changes", request.params).cwd),
     "session.refreshDiff": (_connection, request) => {
       const params = parseParams("session.refreshDiff", request.params);
 

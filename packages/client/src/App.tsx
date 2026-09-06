@@ -66,7 +66,7 @@ import {
 } from "./thread-chords";
 import { DiffSheet, type DiffComposeState } from "./components/DiffSheet";
 import type { DiffRow } from "./view-diff";
-import type { ReviewSession } from "@cueloop/schema";
+import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
 import { PrototypeSheet } from "./components/PrototypeSheet";
 import type { PrototypeElement } from "./prototype-browser";
 import {
@@ -95,6 +95,8 @@ const TOAST_DISMISS_MS = 4000;
 export interface AppProps {
   home?: string;
   sessionId?: string;
+  /** The launch directory whose git repo backs the no-session welcome tree; defaults to process.cwd(). */
+  cwd?: string;
   /**
    * Observer mode (SSH-served connections): every mutating primitive is ignored and
    * answers "observer - read-only" in the status line; navigation still works.
@@ -204,23 +206,41 @@ function GridTabContent(props: {
   );
 }
 
-/** The Project pane body: the changed-files tree in changes mode, the full project tree otherwise. */
+/** The Project pane body: the resolved repo's changed files in changes mode, its full tree otherwise. */
 function ProjectPanelBody(props: {
   mode: ProjectPanelMode;
-  files: ReviewSession["artifact"]["files"];
+  loadChanges: () => Promise<readonly DiffFileContents[]>;
   loadProjectFiles: () => Promise<string[]>;
   reloadKey: string;
   onOpenChangedFile: (path: string) => void;
   onOpenProjectFile: (path: string) => void;
   theme: Theme;
 }): React.ReactNode {
+  const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
+  const loadRef = useRef(props.loadChanges);
+  useEffect(() => {
+    loadRef.current = props.loadChanges;
+  });
+  useEffect(() => {
+    let alive = true;
+
+    void loadRef.current().then(
+      (files) => {
+        if (alive) setChanges(files);
+      },
+      () => {
+        if (alive) setChanges([]);
+      },
+    );
+
+    return () => {
+      alive = false;
+    };
+  }, [props.reloadKey, props.mode]);
+
   if (props.mode === "changes") {
     return (
-      <ChangesFileTree
-        files={props.files}
-        onSelectFile={props.onOpenChangedFile}
-        theme={props.theme}
-      />
+      <ChangesFileTree files={changes} onSelectFile={props.onOpenChangedFile} theme={props.theme} />
     );
   }
   return (
@@ -253,6 +273,7 @@ function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): Che
 export function App({
   home,
   sessionId,
+  cwd,
   readOnly = false,
   onExit,
   clock,
@@ -268,6 +289,7 @@ export function App({
       createReviewController({
         home,
         sessionId,
+        cwd,
         readOnly: observer,
         onExit,
         clock,
@@ -821,7 +843,7 @@ export function App({
                 rejectedRows={rejectedRows}
                 compose={diffComposeState}
                 dimmed={walking}
-                readFile={(path) => controller.readFile(path)}
+                readFile={(path) => controller.repoReadFile(path)}
                 theme={theme}
               />
             )}
@@ -831,10 +853,13 @@ export function App({
         projectPanel={
           <ProjectPanelBody
             mode={workbench.projectMode}
-            files={activeSession.artifact.files}
-            loadProjectFiles={() => controller.projectFiles()}
+            loadChanges={() => controller.repoChanges()}
+            loadProjectFiles={() => controller.repoFiles()}
             reloadKey={activeSession.id}
-            onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
+            // a diff review opens a changed file as its captured diff; other threads show live contents
+            onOpenChangedFile={(path) =>
+              workbench.openFile(path, isDiff ? "diff" : "contents")
+            }
             onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
             theme={theme}
           />

@@ -39,6 +39,10 @@ const PRIMITIVE_ROLES = {
   // reading the local working tree is the owner's alone; a share carries no repo to read
   "session.projectFiles": "owner",
   "session.fileContents": "owner",
+  // the launch repo is the local owner's; a share has no local repo to browse
+  "repo.files": "owner",
+  "repo.fileContents": "owner",
+  "repo.changes": "owner",
   // the tree is the owner's: collaborators comment on the branch a share follows
   "session.navigate": "owner",
   "session.branch": "owner",

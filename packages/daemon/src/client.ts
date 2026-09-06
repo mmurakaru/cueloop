@@ -9,6 +9,7 @@ import * as v from "valibot";
 import type {
   Annotation,
   Artifact,
+  DiffFileStatus,
   HunkRejection,
   ReviewSession,
   VerdictKind,
@@ -84,6 +85,12 @@ export interface SessionClient {
   projectFiles?(sessionId: string): Promise<string[]>;
   /** UTF-8 contents of a repo-relative file, or null when it cannot be read safely; omitted by a client with no local repo. */
   fileContents?(sessionId: string, path: string): Promise<string | null>;
+  /** Tracked, repo-relative paths for the git repo containing `cwd`, for the no-session welcome shell. */
+  repoFiles?(cwd: string): Promise<string[]>;
+  /** UTF-8 contents of a repo-relative file in `cwd`'s repo, or null when unreadable. */
+  repoFileContents?(cwd: string, path: string): Promise<string | null>;
+  /** Changed files (path plus git status) in the working tree at `cwd`. */
+  repoChanges?(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]>;
   /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */
   sessionNavigate(
     id: string,
@@ -379,6 +386,21 @@ export class DaemonClient implements SessionClient {
   }
   fileContents(sessionId: string, path: string): Promise<string | null> {
     return this.request("session.fileContents", { id: sessionId, path }, v.nullable(v.string()));
+  }
+  repoFiles(cwd: string): Promise<string[]> {
+    return this.request("repo.files", { cwd }, v.array(v.string()));
+  }
+  repoFileContents(cwd: string, path: string): Promise<string | null> {
+    return this.request("repo.fileContents", { cwd, path }, v.nullable(v.string()));
+  }
+  repoChanges(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]> {
+    return this.request(
+      "repo.changes",
+      { cwd },
+      v.array(
+        v.object({ path: v.string(), status: v.picklist(["added", "modified", "deleted"]) }),
+      ),
+    );
   }
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {

@@ -31,6 +31,7 @@ import {
   switchBranch,
   verdictAllows,
   type Annotation,
+  type DiffFileStatus,
   type HunkRejection,
   type NewEntry,
   type Artifact,
@@ -46,8 +47,9 @@ import { SessionStore, withHistory } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
 import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
 import { DiffWatcher } from "./diff-watcher";
-import { workingTreeDiff } from "./working-tree";
+import { workingTreeDiff, workingChangeList } from "./working-tree";
 import { listProjectFiles, readProjectFile } from "./project-files";
+import { resolveWorkspace } from "./review";
 import { DaemonError } from "./errors";
 
 /** What a share hands back: the notes and names it collected, and the removals it recorded. */
@@ -343,6 +345,21 @@ export class DaemonCore {
   /** UTF-8 contents of a repo-relative file in the session's workspace, or null when it cannot be read safely. */
   fileContents(id: string, path: string): Promise<string | null> {
     return readProjectFile(this.sessionGet(id).workspace.repoRoot, path);
+  }
+
+  /** Tracked, repo-relative file paths for the git repo containing `cwd`; [] when it is not a repo. Owner-only. */
+  async repoFiles(cwd: string): Promise<string[]> {
+    return listProjectFiles((await resolveWorkspace(cwd)).repoRoot);
+  }
+
+  /** UTF-8 contents of a repo-relative file in the repo containing `cwd`, or null when unreadable. Owner-only. */
+  async repoFileContents(cwd: string, path: string): Promise<string | null> {
+    return readProjectFile((await resolveWorkspace(cwd)).repoRoot, path);
+  }
+
+  /** Changed files (repo-relative path plus git status) in the working tree at `cwd`. Owner-only. */
+  repoChanges(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]> {
+    return workingChangeList(cwd);
   }
 
   sessionSetShareId(id: string, shareId: string): ReviewSession {
