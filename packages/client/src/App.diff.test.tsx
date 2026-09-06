@@ -62,7 +62,7 @@ describe("diff review", () => {
     // Assert
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("■ src/store.ts");
+    expect(frame).toContain("src/store.ts");
     expect(frame).toContain("@@ -1,4 +1,4 @@");
     expect(frame).toContain("-  private items = [];");
     expect(frame).toContain("+  private items = new Map();");

@@ -317,7 +317,7 @@ export function DiffSheet({
                   bg={isCursor ? tokens.cursorBackground : tokens.panel}
                   style={{ wrapMode: "none" }}
                 >
-                  {isCursor ? "▎" : " "}■ {rowLine(segment.row)}
+                  {isCursor ? "▎" : " "} {rowLine(segment.row)}
                 </text>
               );
             }

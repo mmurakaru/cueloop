@@ -241,14 +241,14 @@ exports[`stories catalog Chrome/Breadcrumb/SessionHeader renders, snapshots, and
 `;
 
 exports[`stories catalog Surfaces/ChangesColumn/Changed renders, snapshots, and carries its colors: Surfaces/ChangesColumn/Changed 1`] = `
-"│  packages                                                
-│    client/src                                            
-│      App.tsx               M                             
-│      components                                          
-│        ChangesColumn.tsx   A                             
-│    daemon/src                                            
-│      review.ts             D                             
-│  README.md                 M                             
+"│  packages                                                
+│    client/src                                            
+│      App.tsx               M                             
+│      components                                          
+│        ChangesColumn.tsx   A                             
+│    daemon/src                                            
+│      review.ts             D                             
+│  README.md                 M                             
 │                                                           
 │                                                           
 │                                                           
@@ -499,7 +499,7 @@ exports[`stories catalog Overlays/ConfirmDialog/DeletePlan renders, snapshots, a
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/AnnotatedLine 1`] = `
-" ▎■ src/store.ts                                                                          
+" ▎ src/store.ts                                                                           
   @@ -1,4 +1,4 @@                                                                         
    1   export class Store {                                                               
    2  -  private items = [];                                                              
@@ -519,7 +519,7 @@ exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, an
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/ComposingOnLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/ComposingOnLine 1`] = `
-"  ■ src/store.ts                                                                          
+"   src/store.ts                                                                           
   @@ -1,4 +1,4 @@                                                                         
     1  export class Store {                                                               
     2 -  private items = [];                                                              
@@ -539,7 +539,7 @@ exports[`stories catalog Surfaces/DiffSheet/ComposingOnLine renders, snapshots, 
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/CursorOnAddedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/CursorOnAddedLine 1`] = `
-"  ■ src/store.ts                                                                          
+"   src/store.ts                                                                           
   @@ -1,4 +1,4 @@                                                                         
     1  export class Store {                                                               
     2 -  private items = [];                                                              
@@ -559,7 +559,7 @@ exports[`stories catalog Surfaces/DiffSheet/CursorOnAddedLine renders, snapshots
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: Surfaces/DiffSheet/IntralineWordDiff 1`] = `
-" ▎■ src/store.ts                                                                          
+" ▎ src/store.ts                                                                           
   @@ -1,4 +1,4 @@                                                                         
    1  export class Store {                                                                
    2 -  private items = [];                                                               
@@ -579,7 +579,7 @@ exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and carries its colors: Surfaces/DiffSheet/SignedRows 1`] = `
-" ▎■ src/store.ts                                                                          
+" ▎ src/store.ts                                                                           
   @@ -1,4 +1,4 @@                                                                         
    1  export class Store {                                                                
    2 -  private items = [];                                                               
@@ -669,7 +669,7 @@ exports[`stories catalog Surfaces/InboxList/Empty renders, snapshots, and carrie
 exports[`stories catalog Surfaces/InboxList/TwoPending renders, snapshots, and carries its colors: Surfaces/InboxList/TwoPending 1`] = `
 "                                                                                
  Projects                                                                       
-   widget                                                                      
+   widget                                                                      
     Migration Plan                                                              
  Threads                                                                        
     working tree                                                                
@@ -819,8 +819,8 @@ exports[`stories catalog Surfaces/PanelColumn/WithFileTab renders, snapshots, an
 `;
 
 exports[`stories catalog Surfaces/ProjectTreeView/Loaded renders, snapshots, and carries its colors: Surfaces/ProjectTreeView/Loaded 1`] = `
-"  packages                             
-  README.md                            
+"  packages                             
+  README.md                            
                                         
                                         
                                         
@@ -1052,13 +1052,13 @@ exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, an
 
 exports[`stories catalog Chrome/ThreadFooter/Default renders, snapshots, and carries its colors: Chrome/ThreadFooter/Default 1`] = `
 "────────────────────────────────────────────────────────────────────────────────
-  cueloop / main                                                  send message 
+  cueloop / main                                                  send message 
 "
 `;
 
 exports[`stories catalog Chrome/ThreadFooter/ReadOnly renders, snapshots, and carries its colors: Chrome/ThreadFooter/ReadOnly 1`] = `
 "────────────────────────────────────────────────────────────────────────────────
-  cueloop / design/tui                                            send message 
+  cueloop / design/tui                                            send message 
 "
 `;
 
@@ -1103,7 +1103,7 @@ exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, a
 exports[`stories catalog Surfaces/ThreadsSidebar/Open renders, snapshots, and carries its colors: Surfaces/ThreadsSidebar/Open 1`] = `
 "                             │                              
  Projects                    │                              
-   widget                   │                              
+   widget                   │                              
     Migration Plan           │                              
  Threads                     │                              
     working tree             │                              
@@ -1377,23 +1377,23 @@ exports[`stories catalog Pages/Workspace/ThreePane renders, snapshots, and carri
                            │                                                                                            │                                       
 ───────────────────────────│────────────────────────────────────────────────────────────────────────────────────────────│───────────────────────────────────────
                            │                                                                                            │                                       
-  Projects                │ Review the app shell                                                                       │ AppShell.tsx                          
-    cueloop               │                                                                                            │                                       
-     Review the app shell │ The three-pane layout divides regions with straight rules only.                            │  17 export function AppShell({        
+  Projects                │ Review the app shell                                                                       │ AppShell.tsx                          
+    cueloop               │                                                                                            │                                       
+      Review the app shell│ The three-pane layout divides regions with straight rules only.                            │  17 export function AppShell({        
                            │ Sidebar navigates, the transcript reads, the inspector shows code.                         │  18   header,                         
-      Read Cueloop        │                                                                                            │  19   sidebar,                        
+      Read Cueloop        │                                                                                            │  19   sidebar,                        
        Repository          │ │ markus commented on AppShell.tsx                                                         │  20   main,                           
-  Threads                 │ │ The single rules read cleaner than an enclosing frame here.                              │  21   inspector,                      
-    Welcome to cueloop    │                                                                                            │  22 }: AppShellProps) {               
+  Threads                 │ │ The single rules read cleaner than an enclosing frame here.                              │  21   inspector,                      
+    Welcome to cueloop    │                                                                                            │  22 }: AppShellProps) {               
                            │ Header and footer are thin label rows the shell rules itself.                              │  23   const tokens = theme ?? DARK;   
                            │                                                                                            │  24   return <box>{main}</box>;       
                            │                                                                                            │                                       
                            │                                                                                            │ Changed files                         
-                           │                                                                                            │   packages                           
-                           │                                                                                            │     client                           
-                           │                                                                                            │       AppShell.tsx                 M 
-                           │                                                                                            │       Workspace.stories.tsx        A 
-                           │                                                                                            │   README.md                        M 
+                           │                                                                                            │   packages                           
+                           │                                                                                            │     client                           
+                           │                                                                                            │       AppShell.tsx                 M 
+                           │                                                                                            │       Workspace.stories.tsx        A 
+                           │                                                                                            │   README.md                        M 
                            │                                                                                            │                                       
                            │                                                                                            │                                       
                            │                                                                                            │                                       
@@ -1706,14 +1706,14 @@ exports[`stories catalog Primitives/Toolbar/ActionRow renders, snapshots, and ca
 
 exports[`stories catalog Primitives/Tree/FileTree renders, snapshots, and carries its colors: Primitives/Tree/FileTree 1`] = `
 "                                            
-  packages                                 
-    schema                                 
-      types.ts                       M     
-      tree-model.ts                  A     
-    daemon                                 
-      api.ts                         M     
-  README.md                                
-  old.ts                             D     
+  packages                                 
+    schema                                 
+      types.ts                       M     
+      tree-model.ts                  A     
+    daemon                                 
+      api.ts                         M     
+  README.md                                
+  old.ts                             D     
                                             
                                             
                                             
@@ -1726,8 +1726,8 @@ exports[`stories catalog Primitives/Tree/FileTree renders, snapshots, and carrie
 
 exports[`stories catalog Primitives/Tree/FlattenedChain renders, snapshots, and carries its colors: Primitives/Tree/FlattenedChain 1`] = `
 "                                            
-  src/components/primitives                
-    Tree.tsx                         A     
+  src/components/primitives                
+    Tree.tsx                         A     
                                             
                                             
                                             
@@ -1740,11 +1740,11 @@ exports[`stories catalog Primitives/Tree/FlattenedChain renders, snapshots, and 
 
 exports[`stories catalog Primitives/Tree/ProjectsThreads renders, snapshots, and carries its colors: Primitives/Tree/ProjectsThreads 1`] = `
 "                                            
-  Projects                                 
-    cueloop                                
-      Read Cueloop Repository              
-  Threads                                  
-    Welcome to cueloop                     
+  Projects                                 
+    cueloop                                
+      Read Cueloop Repository              
+  Threads                                  
+    Welcome to cueloop                     
                                             
                                             
                                             

@@ -80,7 +80,11 @@ export function Tree({
                 {row.icon ?? rowGlyph(row.isFolder, row.expanded, icons)}{" "}
               </text>
             )}
-            <text fg={selected ? tokens.accent : labelColor}>{row.label}</text>
+            <box style={{ flexShrink: 1, minWidth: 0 }}>
+              <text fg={selected ? tokens.accent : labelColor} truncate>
+                {row.label}
+              </text>
+            </box>
             <box style={{ flexGrow: 1 }} />
             {row.badge !== undefined ? <text fg={tokens.textDim}>{row.badge}</text> : null}
             {status ? <text fg={toneColor(status.tone, tokens)}> {status.letter}</text> : null}
