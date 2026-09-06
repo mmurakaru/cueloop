@@ -129,7 +129,7 @@ export function SettingsDialog({
             theme={theme}
           />
         </box>
-        <box style={{ width: 1, backgroundColor: tokens.border }} />
+        <box style={{ borderStyle: "single", border: ["left"], borderColor: tokens.border }} />
         <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 2, paddingRight: 1 }}>
           <text fg={tokens.text}>{category.name}</text>
           <text fg={tokens.textDim}>{category.description}</text>

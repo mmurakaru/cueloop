@@ -912,25 +912,25 @@ exports[`stories catalog Overlays/SettingsDialog/AppearanceThemed renders, snaps
                                                                                                     
                                                                                                     
             ╭─ Settings ───────────────────────────────────────────────────────────────╮            
-            │  Settings             Appearance                                         │            
-            │    General            the color theme                                    │            
-            │    Display                                                               │            
-            │    Appearance          Theme                    Rosé Pine Moon           │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
+            │  Settings          │  Appearance                                         │            
+            │    General         │  the color theme                                    │            
+            │    Display         │                                                     │            
+            │    Appearance      │   Theme                    Rosé Pine Moon           │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
             │ j/k row · l/space change · h back · esc close    cueloop v0.1.0-alpha.32 │            
             ╰──────────────────────────────────────────────────────────────────────────╯            
                                                                                                     
@@ -946,25 +946,25 @@ exports[`stories catalog Overlays/SettingsDialog/BodyZone renders, snapshots, an
                                                                                                     
                                                                                                     
             ╭─ Settings ───────────────────────────────────────────────────────────────╮            
-            │  Settings             Display                                            │            
-            │    General            plan width and chrome                              │            
-            │    Display                                                               │            
-            │    Appearance          Plan width               default                  │            
-            │                        Line numbers             on                       │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
+            │  Settings          │  Display                                            │            
+            │    General         │  plan width and chrome                              │            
+            │    Display         │                                                     │            
+            │    Appearance      │   Plan width               default                  │            
+            │                    │   Line numbers             on                       │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
             │ j/k row · l/space change · h back · esc close    cueloop v0.1.0-alpha.32 │            
             ╰──────────────────────────────────────────────────────────────────────────╯            
                                                                                                     
@@ -980,25 +980,25 @@ exports[`stories catalog Overlays/SettingsDialog/NavZone renders, snapshots, and
                                                                                                     
                                                                                                     
             ╭─ Settings ───────────────────────────────────────────────────────────────╮            
-            │  Settings             General                                            │            
-            │    General            identity and submission                            │            
-            │    Display                                                               │            
-            │    Appearance          Display name             amber-heron              │            
-            │                        Auto-close on submit     3s                       │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
-            │                                                                          │            
+            │  Settings          │  General                                            │            
+            │    General         │  identity and submission                            │            
+            │    Display         │                                                     │            
+            │    Appearance      │   Display name             amber-heron              │            
+            │                    │   Auto-close on submit     3s                       │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
             │ j/k nav · l/tab open · esc close                 cueloop v0.1.0-alpha.32 │            
             ╰──────────────────────────────────────────────────────────────────────────╯            
                                                                                                     
