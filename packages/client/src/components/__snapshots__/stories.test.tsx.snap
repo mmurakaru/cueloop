@@ -156,7 +156,7 @@ exports[`stories catalog Chrome/AppHeader/ThreadWithActions renders, snapshots, 
 
 exports[`stories catalog Layout/AppShell/CollapsedRightRail renders, snapshots, and carries its colors: Layout/AppShell/CollapsedRightRail 1`] = `
 "     cueloop               │ Read Cueloop Repository                                           │ 
-─────────────────────────────│──────────────────────────────────────────────────────────────────────
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                              │                                                                      
  Pinned                      │ the conversation renders here                                        
   Read Cueloop Repository    │                                                                      
@@ -182,7 +182,7 @@ exports[`stories catalog Layout/AppShell/CollapsedRightRail renders, snapshots, 
 
 exports[`stories catalog Layout/AppShell/FourPane renders, snapshots, and carries its colors: Layout/AppShell/FourPane 1`] = `
 "     cueloop               │ Read Cueloop Repository          │                                 │                          ±  
-─────────────────────────────│──────────────────────────────────│ the editor grid renders here    │───────────────────────────────
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│ the editor grid renders here    │‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                              │                                  │                                 │                               
  Pinned                      │ the conversation renders here    │                                 │ No changes                    
   Read Cueloop Repository    │                                  │                                 │                               
@@ -600,7 +600,7 @@ exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and c
 
 exports[`stories catalog Surfaces/EditorGrid/OneGroup renders, snapshots, and carries its colors: Surfaces/EditorGrid/OneGroup 1`] = `
 " Changes   │ App.tsx   │                                                     ⛶ 
-────────────────────────────────────────────────────────────────────────────────
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                                                                                 
  the whole diff                                                                 
                                                                                 
@@ -620,7 +620,7 @@ exports[`stories catalog Surfaces/EditorGrid/OneGroup renders, snapshots, and ca
 
 exports[`stories catalog Surfaces/EditorGrid/SplitGroups renders, snapshots, and carries its colors: Surfaces/EditorGrid/SplitGroups 1`] = `
 " plugin.json   │                             ⛶  │ plugin.json   │                             ⛶ 
-──────────────────────────────────────────────────│─────────────────────────────────────────────────
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                                                   │                                                 
  .claude-plugin/plugin.json                       │ .claude-plugin/plugin.json                      
                                                   │                                                 
@@ -808,7 +808,7 @@ exports[`stories catalog Layout/PaneGrid/ThreePane renders, snapshots, and carri
 
 exports[`stories catalog Surfaces/PanelColumn/WithFileTab renders, snapshots, and carries its colors: Surfaces/PanelColumn/WithFileTab 1`] = `
 "│ Welcome                                         
-│───────────────────────────────────────          
+│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾          
 │                                                 
 │ panel body                                      
 │                                                 

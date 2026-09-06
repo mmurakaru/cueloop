@@ -5,7 +5,7 @@
 import React, { useState } from "react";
 import { DARK, type Theme } from "../theme";
 import { IconButton } from "./primitives/IconButton";
-import { NERD } from "./primitives/icons";
+import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
 import type { EditorGroup, EditorNode, EditorTab, SplitDirection } from "./editor-grid";
 
 export interface EditorGridProps {
@@ -124,6 +124,7 @@ function EditorGroupPane({
       style={{ flexDirection: "column", flexGrow: 1, flexBasis: 0, minWidth: 0, minHeight: 0 }}
     >
       <box
+        customBorderChars={HEADER_UNDERLINE_CHARS}
         style={{
           flexDirection: "row",
           height: 2,

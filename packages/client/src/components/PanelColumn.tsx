@@ -5,7 +5,7 @@
 
 import React, { useState } from "react";
 import type { Theme } from "../theme";
-import { NERD } from "./primitives/icons";
+import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
 
 export interface FileTabProps {
   label: string;
@@ -71,6 +71,7 @@ export function PanelColumn({
       }}
     >
       <box
+        customBorderChars={HEADER_UNDERLINE_CHARS}
         style={{
           flexDirection: "row",
           height: 2,

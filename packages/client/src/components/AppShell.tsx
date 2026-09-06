@@ -9,7 +9,7 @@ import React from "react";
 import { DARK, type Theme } from "../theme";
 import { PanelColumn } from "./PanelColumn";
 import { IconButton } from "./primitives/IconButton";
-import { NERD } from "./primitives/icons";
+import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
 import { TooltipProvider } from "./Tooltip";
 
 export type ProjectPanelMode = "changes" | "tree";
@@ -175,6 +175,7 @@ export function AppShell({
           // the rule lives in the header only, never running the pane's full height
           <box style={{ flexDirection: "column", width: 3 }}>
             <box
+              customBorderChars={HEADER_UNDERLINE_CHARS}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
