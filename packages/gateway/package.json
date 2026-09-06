@@ -15,8 +15,8 @@
     "@cueloop/client": "0.1.0-alpha.66",
     "@cueloop/daemon": "0.1.0-alpha.66",
     "@cueloop/schema": "0.1.0-alpha.66",
-    "@opentui/core": "^0.5.8",
-    "@opentui/react": "^0.5.8",
+    "@opentui/core": "^0.5.10",
+    "@opentui/react": "^0.5.10",
     "react": "^19.2.0",
     "ssh2": "^1.17.0",
     "valibot": "^1.4.2"
