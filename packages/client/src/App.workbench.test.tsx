@@ -88,10 +88,15 @@ type Setup = Awaited<ReturnType<typeof renderApp>>;
 /** The header controls sit on the top content row of the compact header. */
 const HEADER_ROW = 0;
 
-/** Column of the diff (±) toggle in the Project header; the tree toggle sits +2, the sidebar toggle +4. */
-function diffToggleColumn(setup: Setup): number {
-  return setup.captureCharFrame().split("\n")[HEADER_ROW]!.lastIndexOf("±");
+/** Column of a Project-header toggle, located by its own glyph so spacing changes never break the click. */
+function toggleColumn(setup: Setup, glyph: string): number {
+  return setup.captureCharFrame().split("\n")[HEADER_ROW]!.lastIndexOf(glyph);
 }
+const diffToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.diff);
+const treeToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.listTree);
+const rightToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sidebarRight);
+// the collapsed rail shows the outline (off) variant, mirroring the left toggle's filled/outline states
+const railToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sidebarRightOff);
 
 describe("the four-pane workbench", () => {
   test("a diff session lays out the four panes with the diff toggle active", async () => {
@@ -109,7 +114,7 @@ describe("the four-pane workbench", () => {
     const setup = await renderApp();
 
     // the diff and tree toggles are mutually exclusive; switch to the full project tree
-    await setup.mockMouse.click(diffToggleColumn(setup) + 2, HEADER_ROW);
+    await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "README.md");
 
     const frame = setup.captureCharFrame();
@@ -123,7 +128,7 @@ describe("the four-pane workbench", () => {
   test("opening a project-tree file adds a read-only contents tab", async () => {
     const setup = await renderApp();
 
-    await setup.mockMouse.click(diffToggleColumn(setup) + 2, HEADER_ROW);
+    await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "README.md");
 
     const readme = locateText(setup, "README.md");
@@ -139,7 +144,7 @@ describe("the four-pane workbench", () => {
   test("the split control offers four directions and Split Right makes two groups", async () => {
     const setup = await renderApp();
 
-    await setup.mockMouse.click(diffToggleColumn(setup) + 2, HEADER_ROW);
+    await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "README.md");
     const readme = locateText(setup, "README.md");
     await setup.mockMouse.click(readme.column, readme.row);
@@ -181,16 +186,15 @@ describe("the four-pane workbench", () => {
   test("the right-sidebar toggle collapses the region to a rail and reopens it", async () => {
     const setup = await renderApp();
 
-    const railColumn = diffToggleColumn(setup) + 4;
-    await setup.mockMouse.click(railColumn, HEADER_ROW);
+    await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
     await waitForState(setup, () => !setup.captureCharFrame().includes("store.ts"));
 
     // the right region is closed: no Changes editor, no Project tree toggles
     expect(setup.captureCharFrame()).not.toContain("store.ts");
     expect(diffToggleColumn(setup)).toBe(-1);
 
-    // the thin rail's toggle reopens the region, restoring the Changes editor
-    await setup.mockMouse.click(railColumn, HEADER_ROW);
+    // the collapsed rail shows the outline (off) variant; its toggle reopens the region
+    await setup.mockMouse.click(railToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "store.ts");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
   });
@@ -243,7 +247,7 @@ describe("the four-pane workbench", () => {
     await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
 
     // toggling the right sidebar off must not strand a blank screen: zoom exits, the Thread pane returns
-    await setup.mockMouse.click(diffToggleColumn(setup) + 4, HEADER_ROW);
+    await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "review the changes");
     const frame = setup.captureCharFrame();
     expect(frame).toContain("review the changes");
@@ -327,17 +331,17 @@ describe("the bare-launch welcome shell", () => {
     expect(plus).toBeGreaterThan(0);
 
     // the tree toggle switches to the project view - it must not collapse the region
-    await setup.mockMouse.click(plus + 2, HEADER_ROW);
+    await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "No project files");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
 
     // the changed-files toggle switches back
-    await setup.mockMouse.click(plus, HEADER_ROW);
+    await setup.mockMouse.click(diffToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "No changes");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
 
     // the sidebar toggle collapses the region to a rail
-    await setup.mockMouse.click(plus + 4, HEADER_ROW);
+    await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
     await waitForState(setup, () => diffToggleColumn(setup) === -1);
     expect(setup.captureCharFrame()).not.toContain("No changes");
   });
@@ -346,7 +350,7 @@ describe("the bare-launch welcome shell", () => {
     const setup = await renderWelcome();
 
     // collapse the right region so only the rail remains
-    await setup.mockMouse.click(diffToggleColumn(setup) + 4, HEADER_ROW);
+    await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
     await waitForState(setup, () => diffToggleColumn(setup) === -1);
 
     const lines = setup.captureCharFrame().split("\n");

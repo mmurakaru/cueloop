@@ -95,7 +95,7 @@ export function AppShell({
         active={projectMode === "changes"}
         onPress={onToggleChanges}
         tip="Toggle Changes Panel"
-        marginRight={1}
+        marginRight={2}
         theme={tokens}
       />
       <IconButton
@@ -103,7 +103,7 @@ export function AppShell({
         active={projectMode === "tree"}
         onPress={onToggleProject}
         tip="Toggle Project Panel"
-        marginRight={1}
+        marginRight={2}
         theme={tokens}
       />
       <IconButton
@@ -188,7 +188,7 @@ export function AppShell({
             >
               <text fg={tokens.border}>{"│"}</text>
               <IconButton
-                glyph={NERD.sidebarRight}
+                glyph={NERD.sidebarRightOff}
                 onPress={onToggleRight}
                 tip="Toggle Right Sidebar"
                 marginLeft={1}

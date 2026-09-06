@@ -155,7 +155,7 @@ exports[`stories catalog Chrome/AppHeader/ThreadWithActions renders, snapshots, 
 `;
 
 exports[`stories catalog Layout/AppShell/CollapsedRightRail renders, snapshots, and carries its colors: Layout/AppShell/CollapsedRightRail 1`] = `
-"     cueloop               │ Read Cueloop Repository                                           │ 
+"     cueloop               │ Read Cueloop Repository                                           │ 
 ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                              │                                                                      
  Pinned                      │ the conversation renders here                                        
@@ -181,7 +181,7 @@ exports[`stories catalog Layout/AppShell/CollapsedRightRail renders, snapshots, 
 `;
 
 exports[`stories catalog Layout/AppShell/FourPane renders, snapshots, and carries its colors: Layout/AppShell/FourPane 1`] = `
-"     cueloop               │ Read Cueloop Repository          │                                 │                          ±  
+"     cueloop               │ Read Cueloop Repository          │                                 │                            
 ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│ the editor grid renders here    │‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                              │                                  │                                 │                               
  Pinned                      │ the conversation renders here    │                                 │ No changes                    
@@ -1045,7 +1045,7 @@ exports[`stories catalog Layout/ShellHeader/InspectorCollapsed renders, snapshot
 
 exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, and carries its colors: Layout/ShellHeader/ReviewSurface 1`] = `
 "                                                                                                                        
-        Read Cueloop Repository                                                              Changes      ±        
+        Read Cueloop Repository                                                              Changes              
                                                                                                                         
 "
 `;
@@ -1580,7 +1580,7 @@ exports[`stories catalog Primitives/Dialog/Open renders, snapshots, and carries 
 
 exports[`stories catalog Primitives/IconButton/States renders, snapshots, and carries its colors: Primitives/IconButton/States 1`] = `
 "                                        
-       ±                             
+                                    
                                         
 "
 `;
