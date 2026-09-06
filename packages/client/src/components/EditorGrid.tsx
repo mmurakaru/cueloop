@@ -152,7 +152,7 @@ function EditorGroupPane({
             glyph={NERD.search}
             onPress={() => {}}
             tip="Search"
-            marginRight={1}
+            marginRight={2}
             theme={tokens}
           />
           <IconButton
@@ -160,7 +160,7 @@ function EditorGroupPane({
             active={props.zoomed}
             onPress={props.onZoom}
             tip={props.zoomed ? "Zoom Out" : "Zoom In"}
-            marginRight={isFile ? 1 : 0}
+            marginRight={isFile ? 2 : 0}
             theme={tokens}
           />
           {isFile ? (
