@@ -912,10 +912,10 @@ exports[`stories catalog Overlays/SettingsDialog/AppearanceThemed renders, snaps
                                                                                                     
                                                                                                     
             ╭─ Settings ───────────────────────────────────────────────────────────────╮            
-            │   Settings           Appearance                                         │            
-            │     General          the color theme                                    │            
-            │     Display                                                             │            
-            │     Appearance        Theme                    Rosé Pine Moon           │            
+            │  Settings             Appearance                                         │            
+            │    General            the color theme                                    │            
+            │    Display                                                               │            
+            │    Appearance          Theme                    Rosé Pine Moon           │            
             │                                                                          │            
             │                                                                          │            
             │                                                                          │            
@@ -946,10 +946,10 @@ exports[`stories catalog Overlays/SettingsDialog/BodyZone renders, snapshots, an
                                                                                                     
                                                                                                     
             ╭─ Settings ───────────────────────────────────────────────────────────────╮            
-            │   Settings           Display                                            │            
-            │     General          plan width and chrome                              │            
-            │     Display                                                             │            
-            │     Appearance        Plan width               default                  │            
+            │  Settings             Display                                            │            
+            │    General            plan width and chrome                              │            
+            │    Display                                                               │            
+            │    Appearance          Plan width               default                  │            
             │                        Line numbers             on                       │            
             │                                                                          │            
             │                                                                          │            
@@ -980,10 +980,10 @@ exports[`stories catalog Overlays/SettingsDialog/NavZone renders, snapshots, and
                                                                                                     
                                                                                                     
             ╭─ Settings ───────────────────────────────────────────────────────────────╮            
-            │   Settings           General                                            │            
-            │     General          identity and submission                            │            
-            │     Display                                                             │            
-            │     Appearance        Display name             amber-heron              │            
+            │  Settings             General                                            │            
+            │    General            identity and submission                            │            
+            │    Display                                                               │            
+            │    Appearance          Display name             amber-heron              │            
             │                        Auto-close on submit     3s                       │            
             │                                                                          │            
             │                                                                          │            

@@ -123,6 +123,7 @@ export function SettingsDialog({
             nodes={navTree(categories)}
             expandedIds={new Set(["settings"])}
             selectedId={category.id}
+            hideIcons
             onSelect={onCategorySelect}
             onToggle={onCategorySelect}
             theme={theme}
