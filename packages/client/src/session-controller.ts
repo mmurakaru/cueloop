@@ -193,6 +193,10 @@ export interface ReviewController {
   /** The walk's step list, derived from the diff rows. */
   files(): WalkFile[];
   working(): string;
+  /** The workspace's tracked files (git ls-files) for the Project tree; empty when unavailable. */
+  projectFiles(): Promise<string[]>;
+  /** Read a workspace file's contents for a Changes file tab; null when it cannot be read. */
+  readFile(path: string): Promise<string | null>;
   /** Open a session from the inbox. */
   open(id: string): void;
   /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
@@ -459,6 +463,20 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     return session ? (session.workingCopy ?? session.artifact.content) : "";
+  }
+
+  async projectFiles(): Promise<string[]> {
+    const session = this.snapshot.session;
+    if (this.client?.projectFiles === undefined || !session) return [];
+
+    return this.client.projectFiles(session.id);
+  }
+
+  async readFile(path: string): Promise<string | null> {
+    const session = this.snapshot.session;
+    if (this.client?.fileContents === undefined || !session) return null;
+
+    return this.client.fileContents(session.id, path);
   }
 
   // Refreshes race the connection teardown: an event can arrive while close()

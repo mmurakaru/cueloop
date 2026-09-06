@@ -73,6 +73,8 @@ function baseController(): ReviewController {
     rows: mock(() => []),
     files: mock(() => []),
     working: mock(() => ""),
+    projectFiles: mock(() => Promise.resolve<string[]>([])),
+    readFile: mock(() => Promise.resolve<string | null>(null)),
     open: mock(),
     deleteSession: mock(),
     renameSession: mock(),

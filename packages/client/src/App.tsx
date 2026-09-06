@@ -49,6 +49,8 @@ import { Toolbar } from "./components/primitives/Toolbar";
 import { groupInbox, projectName, threadTitle } from "./components/session-tree";
 import { InboxList } from "./components/InboxList";
 import { ChangesFileTree } from "./components/ChangesColumn";
+import { ProjectTreeView } from "./components/ProjectTreeView";
+import { FileContentsView } from "./components/FileContentsView";
 import { AppShell, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
 import type { EditorTab } from "./components/editor-grid";
@@ -170,7 +172,7 @@ function ChangesTabBody(props: {
   );
 }
 
-/** An editor tab's body: the whole diff for the Changes tab, that file's diff for a file tab. */
+/** An editor tab's body: the whole diff for the Changes tab, a file's diff or contents for a file tab. */
 function GridTabContent(props: {
   tab: EditorTab;
   rows: DiffRow[];
@@ -180,15 +182,12 @@ function GridTabContent(props: {
   rejectedRows: Set<number>;
   compose: DiffComposeState | null;
   dimmed: boolean;
+  readFile: (path: string) => Promise<string | null>;
   theme: Theme;
 }): React.ReactNode {
   const { tab } = props;
-  if (tab.kind === "file" && tab.fileView === "contents") {
-    return (
-      <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
-        <text fg={props.theme.textDim}>{tab.path}</text>
-      </box>
-    );
+  if (tab.kind === "file" && tab.fileView === "contents" && tab.path !== undefined) {
+    return <FileContentsView path={tab.path} loadContents={props.readFile} theme={props.theme} />;
   }
   const rows = tab.kind === "file" ? props.rows.filter((row) => row.file === tab.path) : props.rows;
   return (
@@ -209,18 +208,26 @@ function GridTabContent(props: {
 function ProjectPanelBody(props: {
   mode: ProjectPanelMode;
   files: ReviewSession["artifact"]["files"];
-  onSelectFile: (path: string) => void;
+  loadProjectFiles: () => Promise<string[]>;
+  onOpenChangedFile: (path: string) => void;
+  onOpenProjectFile: (path: string) => void;
   theme: Theme;
 }): React.ReactNode {
   if (props.mode === "changes") {
     return (
-      <ChangesFileTree files={props.files} onSelectFile={props.onSelectFile} theme={props.theme} />
+      <ChangesFileTree
+        files={props.files}
+        onSelectFile={props.onOpenChangedFile}
+        theme={props.theme}
+      />
     );
   }
   return (
-    <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
-      <text fg={props.theme.textDim}>project tree</text>
-    </box>
+    <ProjectTreeView
+      loadFiles={props.loadProjectFiles}
+      onSelectFile={props.onOpenProjectFile}
+      theme={props.theme}
+    />
   );
 }
 
@@ -812,6 +819,7 @@ export function App({
                 rejectedRows={rejectedRows}
                 compose={diffComposeState}
                 dimmed={walking}
+                readFile={(path) => controller.readFile(path)}
                 theme={theme}
               />
             )}
@@ -822,7 +830,9 @@ export function App({
           <ProjectPanelBody
             mode={workbench.projectMode}
             files={activeSession.artifact.files}
-            onSelectFile={(path) => workbench.openFile(path, "diff")}
+            loadProjectFiles={() => controller.projectFiles()}
+            onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
+            onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
             theme={theme}
           />
         }

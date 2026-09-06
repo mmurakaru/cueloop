@@ -638,6 +638,22 @@ exports[`stories catalog Surfaces/EditorGrid/SplitGroups renders, snapshots, and
 "
 `;
 
+exports[`stories catalog Surfaces/FileContentsView/Loaded renders, snapshots, and carries its colors: Surfaces/FileContentsView/Loaded 1`] = `
+"                                                            
+    1 export function add(a: number, b: number): number {   
+    2   return a + b;                                       
+    3 }                                                     
+    4                                                       
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+"
+`;
+
 exports[`stories catalog Surfaces/InboxList/Empty renders, snapshots, and carries its colors: Surfaces/InboxList/Empty 1`] = `
 "                                                                                
  nothing waiting for review                                                     
@@ -799,6 +815,26 @@ exports[`stories catalog Surfaces/PanelColumn/WithFileTab renders, snapshots, an
 │                                                 
 │                                                 
 │                                                 
+"
+`;
+
+exports[`stories catalog Surfaces/ProjectTreeView/Loaded renders, snapshots, and carries its colors: Surfaces/ProjectTreeView/Loaded 1`] = `
+"  packages                             
+  README.md                            
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
 "
 `;
 
