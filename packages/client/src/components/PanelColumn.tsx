@@ -60,7 +60,10 @@ export function PanelColumn({
     <box
       style={{
         width,
+        // grow panes split evenly and clip wide content (a long diff line) rather than stretching
         flexGrow: width === undefined ? 1 : undefined,
+        flexBasis: width === undefined ? 0 : undefined,
+        minWidth: 0,
         flexDirection: "column",
         borderStyle: "single",
         border: border ? [border] : [],

@@ -28,11 +28,14 @@ export function ThreadFooter({
     <box
       style={{
         flexDirection: "row",
-        height: 1,
+        height: 2,
         alignItems: "center",
         paddingLeft: 1,
         paddingRight: 1,
         backgroundColor: tokens.panel,
+        borderStyle: "single",
+        border: ["top"],
+        borderColor: tokens.border,
       }}
     >
       <text>

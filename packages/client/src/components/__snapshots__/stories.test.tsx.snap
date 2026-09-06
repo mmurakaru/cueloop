@@ -522,7 +522,7 @@ exports[`stories catalog Surfaces/DiffSheet/ComposingOnLine renders, snapshots, 
     1  export class Store {                                                               
     2 -  private items = [];                                                              
  ▎  2 +  private items = new Map();                                                       
- ╭─ comment on "  private items = new Map();" ───────────────────────────────────────────╮
+ ╭─ comment on "  private items = n…" ───────────────────────────────────────────────────╮
  │ Map needs an eviction story.                                                          │
  │  Save    Cancel                                                                       │
  ╰───────────────────────────────────────────────────────────────────────────────────────╯
@@ -973,12 +973,14 @@ exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, an
 `;
 
 exports[`stories catalog Chrome/ThreadFooter/Default renders, snapshots, and carries its colors: Chrome/ThreadFooter/Default 1`] = `
-"  cueloop / main                                                  send message 
+"────────────────────────────────────────────────────────────────────────────────
+  cueloop / main                                                  send message 
 "
 `;
 
 exports[`stories catalog Chrome/ThreadFooter/ReadOnly renders, snapshots, and carries its colors: Chrome/ThreadFooter/ReadOnly 1`] = `
-"  cueloop / design/tui                                            send message 
+"────────────────────────────────────────────────────────────────────────────────
+  cueloop / design/tui                                            send message 
 "
 `;
 

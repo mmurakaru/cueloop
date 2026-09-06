@@ -30,6 +30,8 @@ export interface AppShellProps {
   /** The Changes header rendered as a file tab (Welcome on a bare launch). */
   changesTab?: React.ReactNode;
   changesPanel?: React.ReactNode;
+  /** Let the Changes pane grow beside the Thread pane (the diff/file viewer) rather than sit at a fixed width. */
+  changesWide?: boolean;
   projectOpen: boolean;
   onToggleProject: () => void;
   /** The Project navigator mode: changed files only, or the full project tree. */
@@ -57,6 +59,7 @@ export function AppShell({
   onToggleChanges,
   changesTab,
   changesPanel,
+  changesWide,
   projectOpen,
   onToggleProject,
   projectMode,
@@ -131,7 +134,12 @@ export function AppShell({
           {threadPanel}
         </PanelColumn>
         {changesTab !== undefined && changesOpen ? (
-          <PanelColumn width={changesWidth} border="left" header={changesTab} theme={tokens}>
+          <PanelColumn
+            width={changesWide ? undefined : changesWidth}
+            border="left"
+            header={changesTab}
+            theme={tokens}
+          >
             {changesPanel}
           </PanelColumn>
         ) : null}

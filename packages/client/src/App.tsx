@@ -50,6 +50,7 @@ import { groupInbox, projectName, threadTitle } from "./components/session-tree"
 import { InboxList } from "./components/InboxList";
 import { ChangesFileTree, useDiffColumns } from "./components/ChangesColumn";
 import { AppShell, type ProjectPanelMode } from "./components/AppShell";
+import { FileTab } from "./components/PanelColumn";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
@@ -59,7 +60,9 @@ import {
   THREAD_CHORD_ENTRIES,
   TREE_CHORD_ENTRIES,
 } from "./thread-chords";
-import { DiffSheet } from "./components/DiffSheet";
+import { DiffSheet, type DiffComposeState } from "./components/DiffSheet";
+import type { DiffRow } from "./view-diff";
+import type { ReviewSession } from "@cueloop/schema";
 import { PrototypeSheet } from "./components/PrototypeSheet";
 import type { PrototypeElement } from "./prototype-browser";
 import {
@@ -131,6 +134,38 @@ function keyboardOwnedElsewhere(menuOwnsKeyboard: boolean, overlay: KeyState["ov
 /** The footer submit fires only for the owner of an unresolved review, never an observer. */
 function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean): boolean {
   return isOwner && !resolved && !observer;
+}
+
+/** The Changes tab body: the whole diff in one scroll container, or a bare hint when nothing changed. */
+function ChangesTabBody(props: {
+  rows: DiffRow[];
+  cursor: number;
+  annotations: ReviewSession["annotations"];
+  focusedAnnotationId?: string;
+  rejectedRows: Set<number>;
+  compose: DiffComposeState | null;
+  dimmed: boolean;
+  theme: Theme;
+}): React.ReactNode {
+  if (props.rows.length === 0) {
+    return (
+      <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+        <text fg={props.theme.textDim}>No changes</text>
+      </box>
+    );
+  }
+
+  return (
+    <DiffSheet
+      rows={props.rows}
+      cursor={props.cursor}
+      annotations={props.annotations}
+      focusedAnnotationId={props.focusedAnnotationId}
+      rejectedRows={props.rejectedRows}
+      compose={props.compose}
+      theme={props.dimmed ? dimmedTheme(props.theme) : undefined}
+    />
+  );
 }
 
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
@@ -229,6 +264,8 @@ export function App({
   // where the thread owns the width.
   const [sidebarOpen, setSidebarOpen] = useState(sessionId === undefined);
   const [projectMode, setProjectMode] = useState<ProjectPanelMode>("changes");
+  // the default, dismissable Changes tab: the whole diff in one scroll container
+  const [changesTabOpen, setChangesTabOpen] = useState(true);
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
@@ -641,16 +678,9 @@ export function App({
                   hidden={chromeHidden}
                 />
               ) : isDiff ? (
-                // the sheet dims to reading-quiet colors while the wizard has focus
-                <DiffSheet
-                  rows={rows}
-                  cursor={cursor}
-                  annotations={activeSession.annotations}
-                  focusedAnnotationId={focusedAnnotationId}
-                  rejectedRows={rejectedRows}
-                  compose={diffComposeState}
-                  theme={walking ? dimmedTheme(theme) : undefined}
-                />
+                <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
+                  <text fg={theme.textDim}>review the changes on the right</text>
+                </box>
               ) : (
                 <ThreadView
                   session={activeSession}
@@ -698,6 +728,24 @@ export function App({
               theme={theme}
             />
           </box>
+        }
+        changesOpen={changesTabOpen}
+        onToggleChanges={() => setChangesTabOpen((open) => !open)}
+        changesWide={rows.length > 0}
+        changesTab={
+          <FileTab label="Changes" active onClose={() => setChangesTabOpen(false)} theme={theme} />
+        }
+        changesPanel={
+          <ChangesTabBody
+            rows={rows}
+            cursor={cursor}
+            annotations={activeSession.annotations}
+            focusedAnnotationId={focusedAnnotationId}
+            rejectedRows={rejectedRows}
+            compose={diffComposeState}
+            dimmed={walking}
+            theme={theme}
+          />
         }
         projectOpen={diffColumns.changesOpen}
         onToggleProject={diffColumns.toggleChanges}
