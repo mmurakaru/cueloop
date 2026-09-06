@@ -171,11 +171,11 @@ function Bubble({ who, text, mark }) {
     </div>
   );
 }
-function ThreadPanel({ collapsedLeftToggle, onOpenLeft }) {
+function ThreadPanel({ collapsedLeftToggle, onOpenLeft, tail }) {
   return (
     <div className="flex-1 min-w-0 flex flex-col rule-r" style={{ background: "var(--bg)" }}>
       <PanelHeader
-        right={<><span className="mr-3" style={{ color: "var(--dim)" }}>Edit</span><span style={{ color: "var(--dim)" }}>Share</span></>}>
+        right={<><span className="mr-3" style={{ color: "var(--dim)" }}>Edit</span><span className="mr-2" style={{ color: "var(--dim)" }}>Share</span>{tail}</>}>
         {collapsedLeftToggle ? <IconBtn icon="sidebarLeft" tip="Toggle Threads" onClick={onOpenLeft} /> : null}
         <span className={collapsedLeftToggle ? "ml-2" : ""} style={{ color: "var(--muted)" }}>Read Cueloop Repository</span>
       </PanelHeader>
@@ -379,20 +379,20 @@ function App() {
     });
   };
 
+  // reopen toggles for closed right panels ride the far-right of the thread header (the one header row)
+  const reopenToggles = (
+    <>
+      {!changesOpen ? <IconBtn icon="plusminus" tip="Toggle Changes Panel" onClick={openChanges} /> : null}
+      {!projectOpen ? <IconBtn icon="tree" tip="Toggle Project Panel" onClick={openProject} /> : null}
+      {!changesOpen && !projectOpen ? <IconBtn icon="sidebarRight" tip="Toggle Right Sidebar" onClick={toggleRight} /> : null}
+    </>
+  );
+
   return (
     <div className="h-full flex flex-col">
-      {/* global top toggle bar (right edge) sits above the columns for discoverability */}
-      <div className="flex items-center h-6 px-2 shrink-0 rule-b" style={{ background: "var(--panel)" }}>
-        <span style={{ color: "var(--dim)" }}>cueloop app shell</span>
-        <span className="ml-3 text-[11px]" style={{ color: "var(--dim)" }}>— throwaway prototype</span>
-        <div className="flex-1" />
-        <IconBtn icon="plusminus" tip="Changes = all changes in one tab" onClick={openChanges} active={changesOpen} />
-        <IconBtn icon="tree" tip="Toggle Project Panel" onClick={() => (projectOpen ? setProjectOpen(false) : openProject())} active={projectOpen} />
-        <IconBtn icon="sidebarRight" tip="Toggle Right Sidebar" onClick={toggleRight} active={changesOpen || projectOpen} />
-      </div>
       <div className="flex-1 min-h-0 flex">
         {threadsOpen ? <ThreadsPanel onGear={() => {}} onToggle={() => setThreadsOpen(false)} /> : null}
-        {!zoomed ? <ThreadPanel collapsedLeftToggle={!threadsOpen} onOpenLeft={() => setThreadsOpen(true)} /> : null}
+        {!zoomed ? <ThreadPanel collapsedLeftToggle={!threadsOpen} onOpenLeft={() => setThreadsOpen(true)} tail={reopenToggles} /> : null}
         {changesOpen ? (
           <ChangesPanel tree={tree} setTree={setTree} focusedLeaf={focusedLeaf} setFocusedLeaf={setFocusedLeaf}
             onToggle={() => setChangesOpen(false)} onZoom={() => setZoomed((z) => !z)} zoomed={zoomed}

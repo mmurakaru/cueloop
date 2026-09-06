@@ -3,7 +3,6 @@
   THROWAWAY PROTOTYPE - cueloop app shell (four panes, tabbed Changes, splits).
   Self-contained: React + ReactDOM inlined, app pre-compiled (no in-browser Babel).
   Edit prototypes/app-shell.src.jsx then rebuild (see prototypes/README.md).
-  Tailwind via CDN for utility classes; if offline, layout still renders (fewer styles).
 -->
 <html lang="en">
   <head>
@@ -706,7 +705,7 @@ export const placeholder = true;
       className: "px-1 rounded"
     }, text));
   }
-  function ThreadPanel({ collapsedLeftToggle, onOpenLeft }) {
+  function ThreadPanel({ collapsedLeftToggle, onOpenLeft, tail }) {
     return /* @__PURE__ */ React.createElement("div", {
       className: "flex-1 min-w-0 flex flex-col rule-r",
       style: { background: "var(--bg)" }
@@ -715,8 +714,9 @@ export const placeholder = true;
         className: "mr-3",
         style: { color: "var(--dim)" }
       }, "Edit"), /* @__PURE__ */ React.createElement("span", {
+        className: "mr-2",
         style: { color: "var(--dim)" }
-      }, "Share"))
+      }, "Share"), tail)
     }, collapsedLeftToggle ? /* @__PURE__ */ React.createElement(IconBtn, {
       icon: "sidebarLeft",
       tip: "Toggle Threads",
@@ -1052,41 +1052,30 @@ export const placeholder = true;
         });
       });
     };
+    const reopenToggles = /* @__PURE__ */ React.createElement(React.Fragment, null, !changesOpen ? /* @__PURE__ */ React.createElement(IconBtn, {
+      icon: "plusminus",
+      tip: "Toggle Changes Panel",
+      onClick: openChanges
+    }) : null, !projectOpen ? /* @__PURE__ */ React.createElement(IconBtn, {
+      icon: "tree",
+      tip: "Toggle Project Panel",
+      onClick: openProject
+    }) : null, !changesOpen && !projectOpen ? /* @__PURE__ */ React.createElement(IconBtn, {
+      icon: "sidebarRight",
+      tip: "Toggle Right Sidebar",
+      onClick: toggleRight
+    }) : null);
     return /* @__PURE__ */ React.createElement("div", {
       className: "h-full flex flex-col"
     }, /* @__PURE__ */ React.createElement("div", {
-      className: "flex items-center h-6 px-2 shrink-0 rule-b",
-      style: { background: "var(--panel)" }
-    }, /* @__PURE__ */ React.createElement("span", {
-      style: { color: "var(--dim)" }
-    }, "cueloop app shell"), /* @__PURE__ */ React.createElement("span", {
-      className: "ml-3 text-[11px]",
-      style: { color: "var(--dim)" }
-    }, "— throwaway prototype"), /* @__PURE__ */ React.createElement("div", {
-      className: "flex-1"
-    }), /* @__PURE__ */ React.createElement(IconBtn, {
-      icon: "plusminus",
-      tip: "Changes = all changes in one tab",
-      onClick: openChanges,
-      active: changesOpen
-    }), /* @__PURE__ */ React.createElement(IconBtn, {
-      icon: "tree",
-      tip: "Toggle Project Panel",
-      onClick: () => projectOpen ? setProjectOpen(false) : openProject(),
-      active: projectOpen
-    }), /* @__PURE__ */ React.createElement(IconBtn, {
-      icon: "sidebarRight",
-      tip: "Toggle Right Sidebar",
-      onClick: toggleRight,
-      active: changesOpen || projectOpen
-    })), /* @__PURE__ */ React.createElement("div", {
       className: "flex-1 min-h-0 flex"
     }, threadsOpen ? /* @__PURE__ */ React.createElement(ThreadsPanel, {
       onGear: () => {},
       onToggle: () => setThreadsOpen(false)
     }) : null, !zoomed ? /* @__PURE__ */ React.createElement(ThreadPanel, {
       collapsedLeftToggle: !threadsOpen,
-      onOpenLeft: () => setThreadsOpen(true)
+      onOpenLeft: () => setThreadsOpen(true),
+      tail: reopenToggles
     }) : null, changesOpen ? /* @__PURE__ */ React.createElement(ChangesPanel, {
       tree,
       setTree,
