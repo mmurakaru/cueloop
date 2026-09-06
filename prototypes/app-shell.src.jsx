@@ -266,7 +266,7 @@ function ProjectPanel({ mode, changesOpen, onToggleChanges, onToggleProject, onT
 }
 
 /* changes panel: recursive splittable pane tree --------------------------- */
-function LeafPane({ node, focused, onFocus, onActivate, onCloseTab, onOpenFileHere, onSplit, comments, addComment }) {
+function LeafPane({ node, focused, onFocus, onActivate, onCloseTab, onSplit, onZoom, zoomed, comments, addComment }) {
   const [menu, setMenu] = useState(false);
   const active = node.tabs.find((t) => t.id === node.active) || node.tabs[0];
   const isFile = active && active.kind === "file";
@@ -288,6 +288,7 @@ function LeafPane({ node, focused, onFocus, onActivate, onCloseTab, onOpenFileHe
         <div className="flex-1" />
         <div className="flex items-center px-2 gap-1 relative">
           <IconBtn icon="search" tip="Search" />
+          <IconBtn icon="zoom" tip={zoomed ? "Zoom Out" : "Zoom In"} active={zoomed} onClick={onZoom} />
           {isFile ? <IconBtn icon="split" tip="Split Pane" active={menu} onClick={() => setMenu((m) => !m)} /> : null}
           {menu ? (
             <div className="menu" style={{ top: 30, right: 0 }} onMouseLeave={() => setMenu(false)}>
@@ -348,13 +349,9 @@ function ChangesPanel({ tree, setTree, focusedLeaf, setFocusedLeaf, onEmpty, onZ
   }));
   return (
     <div className="flex-1 min-w-0 flex flex-col rule-r" style={{ background: "var(--bg)" }}>
-      {/* top strip: zoom + right-sidebar toggle live at the very top-right of the pane region */}
-      <div className="flex-1 min-h-0 flex flex-col relative">
-        <div className="absolute right-2 top-1.5 z-10 flex gap-1">
-          <IconBtn icon="zoom" tip={zoomed ? "Restore" : "Zoom In"} active={zoomed} onClick={onZoom} />
-        </div>
+      <div className="flex-1 min-h-0 flex flex-col">
         <PaneNode node={tree} focusedLeaf={focusedLeaf} onFocus={setFocusedLeaf}
-          onActivate={activate} onCloseTab={closeTab} onSplit={split}
+          onActivate={activate} onCloseTab={closeTab} onSplit={split} onZoom={onZoom} zoomed={zoomed}
           comments={comments} addComment={(tid, line, txt) => setComments((c) => {
             const f = { ...(c[tid] || {}) }; f[line] = [...(f[line] || []), txt]; return { ...c, [tid]: f };
           })} />
