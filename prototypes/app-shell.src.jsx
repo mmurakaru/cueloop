@@ -289,12 +289,12 @@ function LeafPane({ node, focused, onFocus, onActivate, onCloseTab, onOpenFileHe
         <div className="flex items-center px-2 gap-1 relative">
           <IconBtn icon="search" tip="Search" />
           <IconBtn icon="comment" tip="Comments" />
-          {isFile ? <IconBtn icon="dots" tip="Split Pane" onClick={() => setMenu((m) => !m)} /> : null}
+          {isFile ? <IconBtn icon="split" tip="Split Pane" active={menu} onClick={() => setMenu((m) => !m)} /> : null}
           {menu ? (
             <div className="menu" style={{ top: 30, right: 0 }} onMouseLeave={() => setMenu(false)}>
-              {[["Split Left", "left"], ["Split Right", "right"], ["Split Up", "up"], ["Split Down", "down"]].map(([lbl, dir]) => (
+              {[["Split Left", "left", "←"], ["Split Right", "right", "→"], ["Split Up", "up", "↑"], ["Split Down", "down", "↓"]].map(([lbl, dir, arrow]) => (
                 <div key={dir} className="menu-item" onClick={() => { setMenu(false); onSplit(node.id, dir); }}>
-                  <span>{lbl}</span><span style={{ color: "var(--dim)" }}>⌘⇧K</span>
+                  <span>{lbl}</span><span style={{ color: "var(--dim)" }}>{`⌘⇧K ${arrow}`}</span>
                 </div>
               ))}
             </div>
@@ -375,7 +375,12 @@ function App() {
   const [changesOpen, setChangesOpen] = useState(qbool("changes", false));
   const [projectMode, setProjectMode] = useState(Q.get("mode") || (qbool("changes", false) ? "changes" : "tree"));
   const [zoomed, setZoomed] = useState(qbool("zoom", false));
-  const [tree, setTree] = useState(() => leaf([{ id: nid(), kind: "changes", label: "Changes" }]));
+  const [tree, setTree] = useState(() =>
+    Q.get("demo") === "split"
+      ? { id: nid(), type: "split", dir: "row", children: [
+          leaf([{ id: nid(), kind: "file", label: "plugin.json", path: ".claude-plugin/plugin.json" }]),
+          leaf([{ id: nid(), kind: "file", label: "marketplace.json", path: ".claude-plugin/marketplace.json" }]) ] }
+      : leaf([{ id: nid(), kind: "changes", label: "Changes" }]));
   const [focusedLeaf, setFocusedLeaf] = useState(null);
   const [comments, setComments] = useState({});
   const rememberedChanges = useRef(qbool("changes", false));

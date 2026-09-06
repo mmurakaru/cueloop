@@ -910,14 +910,15 @@ export const placeholder = true;
       icon: "comment",
       tip: "Comments"
     }), isFile ? /* @__PURE__ */ React.createElement(IconBtn, {
-      icon: "dots",
+      icon: "split",
       tip: "Split Pane",
+      active: menu,
       onClick: () => setMenu((m) => !m)
     }) : null, menu ? /* @__PURE__ */ React.createElement("div", {
       className: "menu",
       style: { top: 30, right: 0 },
       onMouseLeave: () => setMenu(false)
-    }, [["Split Left", "left"], ["Split Right", "right"], ["Split Up", "up"], ["Split Down", "down"]].map(([lbl, dir]) => /* @__PURE__ */ React.createElement("div", {
+    }, [["Split Left", "left", "←"], ["Split Right", "right", "→"], ["Split Up", "up", "↑"], ["Split Down", "down", "↓"]].map(([lbl, dir, arrow]) => /* @__PURE__ */ React.createElement("div", {
       key: dir,
       className: "menu-item",
       onClick: () => {
@@ -926,7 +927,7 @@ export const placeholder = true;
       }
     }, /* @__PURE__ */ React.createElement("span", null, lbl), /* @__PURE__ */ React.createElement("span", {
       style: { color: "var(--dim)" }
-    }, "⌘⇧K")))) : null)), /* @__PURE__ */ React.createElement("div", {
+    }, `⌘⇧K ${arrow}`)))) : null)), /* @__PURE__ */ React.createElement("div", {
       className: "px-3 py-1 text-[12px] rule-b shrink-0",
       style: { color: "var(--dim)" }
     }, active ? active.kind === "file" ? active.path : "Since Last Turn ⌄" : ""), /* @__PURE__ */ React.createElement("div", {
@@ -1017,7 +1018,10 @@ export const placeholder = true;
     const [changesOpen, setChangesOpen] = useState(qbool("changes", false));
     const [projectMode, setProjectMode] = useState(Q.get("mode") || (qbool("changes", false) ? "changes" : "tree"));
     const [zoomed, setZoomed] = useState(qbool("zoom", false));
-    const [tree, setTree] = useState(() => leaf([{ id: nid(), kind: "changes", label: "Changes" }]));
+    const [tree, setTree] = useState(() => Q.get("demo") === "split" ? { id: nid(), type: "split", dir: "row", children: [
+      leaf([{ id: nid(), kind: "file", label: "plugin.json", path: ".claude-plugin/plugin.json" }]),
+      leaf([{ id: nid(), kind: "file", label: "marketplace.json", path: ".claude-plugin/marketplace.json" }])
+    ] } : leaf([{ id: nid(), kind: "changes", label: "Changes" }]));
     const [focusedLeaf, setFocusedLeaf] = useState(null);
     const [comments, setComments] = useState({});
     const rememberedChanges = useRef(qbool("changes", false));
