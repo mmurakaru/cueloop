@@ -126,8 +126,7 @@ function EditorGroupPane({
       <box
         style={{
           flexDirection: "row",
-          height: 3,
-          paddingTop: 1,
+          height: 2,
           backgroundColor: focused ? tokens.elevated : tokens.panel,
           borderStyle: "single",
           border: ["bottom"],

@@ -3,12 +3,12 @@
 // moves its active tab into a new group; a group is pruned when its last tab closes, collapsing the
 // branch that held it.
 
-/** One editor in a group's tab strip: the Changes tab (the whole diff) or a per-file tab. */
+/** One editor in a group's tab strip: the Changes tab (the whole diff), a per-file tab, or Welcome. */
 export interface EditorTab {
   id: string;
-  kind: "changes" | "file";
+  kind: "changes" | "file" | "welcome";
   label: string;
-  /** Repo-relative path for a file tab; absent for the Changes tab. */
+  /** Repo-relative path for a file tab; absent for the Changes and Welcome tabs. */
   path?: string;
   /** A file tab shows either a single-file diff or the file's plain contents. */
   fileView?: "diff" | "contents";
@@ -51,6 +51,11 @@ export function makeGroup(tabs: EditorTab[]): EditorGroup {
 /** The Changes tab: the whole diff in one scroll, the disposable default of the Changes pane. */
 export function changesTab(): EditorTab {
   return { id: freshId(), kind: "changes", label: "Changes" };
+}
+
+/** The Welcome tab: the getting-started surface, a disposable tab shown before any thread is opened. */
+export function welcomeTab(): EditorTab {
+  return { id: freshId(), kind: "welcome", label: "Welcome" };
 }
 
 /** A file tab, opened from a tree; a diff view for a changed file, plain contents otherwise. */

@@ -22,7 +22,7 @@ function Section({
   theme?: Theme;
 }): React.ReactNode {
   return (
-    <box style={{ flexDirection: "column", marginTop: 1 }}>
+    <box style={{ flexDirection: "column", flexShrink: 0, marginTop: 1 }}>
       <text fg={theme?.text}>{title}</text>
       {children}
     </box>
@@ -31,7 +31,9 @@ function Section({
 
 export function WelcomeSurface({ version, theme }: WelcomeSurfaceProps): React.ReactNode {
   return (
-    <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
+    <box
+      style={{ flexDirection: "column", flexGrow: 1, flexShrink: 0, paddingLeft: 2, paddingTop: 1 }}
+    >
       <text fg={theme?.accent}>Welcome to cueloop</text>
       <text fg={theme?.textDim}>a review loop for coding agents</text>
       <Section title="Start" theme={theme}>

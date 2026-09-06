@@ -14,9 +14,15 @@ import {
   firstGroupId,
   makeGroup,
   splitGroup,
+  welcomeTab,
   type EditorNode,
   type SplitDirection,
 } from "./components/editor-grid";
+
+/** Seed the workbench for a bare launch: the region opens on a disposable Welcome tab. */
+export interface ChangesWorkbenchOptions {
+  seed?: "changes" | "welcome";
+}
 
 export interface ChangesWorkbench {
   projectOpen: boolean;
@@ -38,14 +44,17 @@ export interface ChangesWorkbench {
   syncSession: (sessionId: string | undefined, isDiff: boolean) => void;
 }
 
-export function useChangesWorkbench(): ChangesWorkbench {
-  const [projectOpen, setProjectOpen] = useState(false);
-  const [changesOpen, setChangesOpen] = useState(false);
+export function useChangesWorkbench(options?: ChangesWorkbenchOptions): ChangesWorkbench {
+  const welcomeSeed = options?.seed === "welcome";
+  const [projectOpen, setProjectOpen] = useState(welcomeSeed);
+  const [changesOpen, setChangesOpen] = useState(welcomeSeed);
   const [projectMode, setProjectMode] = useState<ProjectPanelMode>("changes");
   const [zoomed, setZoomed] = useState(false);
-  const [grid, setGrid] = useState<EditorNode>(() => makeGroup([changesTab()]));
+  const [grid, setGrid] = useState<EditorNode>(() =>
+    makeGroup([welcomeSeed ? welcomeTab() : changesTab()]),
+  );
   const [focusedGroup, setFocusedGroup] = useState<string | null>(null);
-  const rememberedChanges = useRef(false);
+  const rememberedChanges = useRef(welcomeSeed);
   const seenSession = useRef<string | undefined>(undefined);
 
   const syncSession = (sessionId: string | undefined, isDiff: boolean): void => {
@@ -64,6 +73,8 @@ export function useChangesWorkbench(): ChangesWorkbench {
       rememberedChanges.current = changesOpen;
       setChangesOpen(false);
       setProjectOpen(false);
+      // zoom focuses the Changes editor; collapsing the region returns the Thread pane full width
+      setZoomed(false);
     } else {
       setProjectOpen(true);
       setChangesOpen(rememberedChanges.current);
@@ -74,6 +85,8 @@ export function useChangesWorkbench(): ChangesWorkbench {
     if (projectMode === "changes") {
       setChangesOpen(false);
       setProjectMode("tree");
+      // never leave zoom on with the Changes editor gone - the Thread pane would stay hidden
+      setZoomed(false);
     } else {
       setChangesOpen(true);
       setProjectOpen(true);
@@ -90,6 +103,8 @@ export function useChangesWorkbench(): ChangesWorkbench {
       if (pruned === null) {
         setChangesOpen(false);
         setProjectMode("tree");
+        // leaving zoom on would hide the Thread pane with no editor to fill the gap
+        setZoomed(false);
         return makeGroup([changesTab()]);
       }
       // re-home focus when the closed group was pruned away, so the next open has a live target

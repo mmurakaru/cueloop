@@ -38,13 +38,15 @@ export function ThreadFooter({
         borderColor: tokens.border,
       }}
     >
-      <text>
-        <span fg={tokens.blue}>{`${NERD.folderClosed} `}</span>
-        <span fg={tokens.textMuted}>{repo}</span>
-        <span fg={tokens.textDim}>{` / ${branch}`}</span>
-      </text>
+      <box style={{ flexShrink: 1, minWidth: 0 }}>
+        <text truncate>
+          <span fg={tokens.blue}>{`${NERD.folderClosed} `}</span>
+          <span fg={tokens.textMuted}>{repo}</span>
+          <span fg={tokens.textDim}>{` / ${branch}`}</span>
+        </text>
+      </box>
       <box style={{ flexGrow: 1 }} />
-      <box onMouseUp={canSubmit ? onSubmit : undefined}>
+      <box onMouseUp={canSubmit ? onSubmit : undefined} style={{ flexShrink: 0 }}>
         <text fg={canSubmit ? tokens.accent : tokens.textDim}>send message</text>
       </box>
     </box>

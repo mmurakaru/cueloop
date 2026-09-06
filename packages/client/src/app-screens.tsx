@@ -1,4 +1,4 @@
-import React, { useState, type Dispatch, type SetStateAction } from "react";
+import React, { type Dispatch, type SetStateAction } from "react";
 import type { ReviewSession, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
@@ -17,7 +17,9 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
 import { WelcomeSurface } from "./components/WelcomeSurface";
-import { AppShell, type ProjectPanelMode } from "./components/AppShell";
+import { AppShell } from "./components/AppShell";
+import { EditorGrid } from "./components/EditorGrid";
+import { useChangesWorkbench } from "./use-changes-workbench";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
@@ -118,10 +120,9 @@ export function NoThreadShell(props: {
     onRename,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
-  // a bare launch opens with the right region collapsed; the rail toggle reveals an empty project view.
-  // The changed-files and tree toggles are mutually-exclusive navigator modes, mirroring the thread shell.
-  const [projectOpen, setProjectOpen] = useState(false);
-  const [projectMode, setProjectMode] = useState<ProjectPanelMode>("changes");
+  // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
+  // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
+  const workbench = useChangesWorkbench({ seed: "welcome" });
 
   return (
     <ThemeProvider theme={theme}>
@@ -147,23 +148,44 @@ export function NoThreadShell(props: {
           </scrollbox>
         }
         threadTitle=""
-        threadPanel={<WelcomeSurface version={CLIENT_VERSION} theme={theme} />}
-        changesOpen={false}
-        projectOpen={projectOpen}
-        onToggleChanges={() => {
-          setProjectOpen(true);
-          setProjectMode("changes");
-        }}
-        onToggleProject={() => {
-          setProjectOpen(true);
-          setProjectMode("tree");
-        }}
-        onToggleRight={() => setProjectOpen((open) => !open)}
-        projectMode={projectMode}
+        threadPanel={
+          <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+            <text fg={theme.textDim}>Select a thread on the left to open it here.</text>
+          </box>
+        }
+        changesOpen={workbench.changesOpen}
+        projectOpen={workbench.projectOpen}
+        onToggleChanges={workbench.toggleChanges}
+        onToggleProject={workbench.toggleProject}
+        onToggleRight={workbench.toggleRight}
+        projectMode={workbench.projectMode}
+        zoomHideThread={workbench.zoomed}
+        changesPanel={
+          <EditorGrid
+            tree={workbench.grid}
+            focusedGroupId={workbench.activeGroup}
+            onFocusGroup={workbench.focusGroup}
+            onActivateTab={workbench.activate}
+            onCloseTab={workbench.close}
+            onSplit={workbench.split}
+            onZoom={workbench.toggleZoom}
+            zoomed={workbench.zoomed}
+            renderTab={(tab) =>
+              tab.kind === "welcome" ? (
+                <WelcomeSurface version={CLIENT_VERSION} theme={theme} />
+              ) : (
+                <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+                  <text fg={theme.textDim}>No changes</text>
+                </box>
+              )
+            }
+            theme={theme}
+          />
+        }
         projectPanel={
           <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
             <text fg={theme.textDim}>
-              {projectMode === "changes" ? "No changes" : "No project files"}
+              {workbench.projectMode === "changes" ? "No changes" : "No project files"}
             </text>
           </box>
         }

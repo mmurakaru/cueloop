@@ -177,8 +177,7 @@ export function AppShell({
               style={{
                 flexDirection: "row",
                 alignItems: "center",
-                height: 3,
-                paddingTop: 1,
+                height: 2,
                 backgroundColor: tokens.panel,
                 borderStyle: "single",
                 border: ["bottom"],

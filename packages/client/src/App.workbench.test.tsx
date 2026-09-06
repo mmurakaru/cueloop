@@ -84,8 +84,8 @@ async function renderApp() {
 
 type Setup = Awaited<ReturnType<typeof renderApp>>;
 
-/** The header controls sit on the content row, one below the top padding row. */
-const HEADER_ROW = 1;
+/** The header controls sit on the top content row of the compact header. */
+const HEADER_ROW = 0;
 
 /** Column of the diff (±) toggle in the Project header; the tree toggle sits +2, the sidebar toggle +4. */
 function diffToggleColumn(setup: Setup): number {
@@ -233,6 +233,24 @@ describe("the four-pane workbench", () => {
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
   });
 
+  test("toggling the right sidebar while zoomed exits zoom and restores the Thread pane", async () => {
+    const setup = await renderApp();
+
+    // zoom the Changes editor - the Thread pane hides
+    const zoom = locateText(setup, "⛶");
+    await setup.mockMouse.click(zoom.column, zoom.row);
+    await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
+
+    // toggling the right sidebar off must not strand a blank screen: zoom exits, the Thread pane returns
+    await setup.mockMouse.click(diffToggleColumn(setup) + 4, HEADER_ROW);
+    await waitForText(setup, "review the changes");
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("review the changes");
+    // the right region is collapsed and the Changes editor is gone
+    expect(frame).not.toContain("store.ts");
+    expect(diffToggleColumn(setup)).toBe(-1);
+  });
+
   test("hovering a header toggle surfaces its tooltip label at the screen root", async () => {
     const setup = await renderApp();
 
@@ -245,10 +263,11 @@ describe("the four-pane workbench", () => {
   });
 });
 
-/** The no-session welcome shell shares the four-pane chrome; its right-region toggles must behave the
- * same as the thread shell - the changed-files and tree toggles switch navigator mode (never collapse),
- * the sidebar toggle collapses to a rail, and the collapsed rail draws its divider in the header only. */
-describe("the no-session welcome shell", () => {
+/** The bare-launch (no thread) shell is the same four panes as a thread: the Thread pane waits in its
+ * empty state and a disposable Welcome tab rides in the Changes editor. The right-region toggles behave
+ * like the thread shell, dismissing Welcome collapses the editor without stranding an empty screen, and
+ * the collapsed rail draws its divider in the header only. */
+describe("the bare-launch welcome shell", () => {
   let welcomeHome: string;
   let restoreWelcome: () => void;
   let welcomeServer: DaemonServer;
@@ -267,7 +286,7 @@ describe("the no-session welcome shell", () => {
 
   async function renderWelcome() {
     const setup = await testRender(<App home={welcomeHome} sessionId={undefined} />, {
-      width: 120,
+      width: 180,
       height: 14,
     });
     await waitForText(setup, "cueloop");
@@ -275,16 +294,33 @@ describe("the no-session welcome shell", () => {
     return setup;
   }
 
-  function railToggleColumn(setup: Setup): number {
-    return setup.captureCharFrame().split("\n")[HEADER_ROW]!.replace(/\s+$/, "").length - 1;
-  }
+  test("a bare launch rides a Welcome tab in the editor while the Thread pane waits empty", async () => {
+    const setup = await renderWelcome();
+
+    const frame = setup.captureCharFrame();
+    // the getting-started surface is an editor tab, not the thread pane
+    expect(frame.split("\n")[HEADER_ROW]!).toContain("Welcome");
+    expect(frame).toContain("Welcome to cueloop");
+    // the Thread pane shows its empty state until a thread is opened
+    expect(frame).toContain("Select a thread");
+  });
+
+  test("dismissing the Welcome tab collapses the editor without stranding an empty screen", async () => {
+    const setup = await renderWelcome();
+
+    const welcome = locateText(setup, "Welcome");
+    // the close box sits just past the label
+    await setup.mockMouse.click(welcome.column + 8, welcome.row);
+    await waitForState(setup, () => !setup.captureCharFrame().includes("review loop for coding agents"));
+
+    // the Threads sidebar and the Thread empty state remain - never a blank shell
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("cueloop");
+    expect(frame).toContain("Select a thread");
+  });
 
   test("the changed-files and tree toggles switch navigator mode without collapsing", async () => {
     const setup = await renderWelcome();
-
-    // a bare launch starts collapsed; the rail toggle opens the empty right region in changed-files mode
-    await setup.mockMouse.click(railToggleColumn(setup), HEADER_ROW);
-    await waitForText(setup, "No changes");
 
     const plus = diffToggleColumn(setup);
     expect(plus).toBeGreaterThan(0);
@@ -307,6 +343,10 @@ describe("the no-session welcome shell", () => {
 
   test("the collapsed rail draws its divider in the header only, not full-height", async () => {
     const setup = await renderWelcome();
+
+    // collapse the right region so only the rail remains
+    await setup.mockMouse.click(diffToggleColumn(setup) + 4, HEADER_ROW);
+    await waitForState(setup, () => diffToggleColumn(setup) === -1);
 
     const lines = setup.captureCharFrame().split("\n");
     // the rail's divider sits at the far right; find its column on the header row
