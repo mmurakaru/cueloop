@@ -17,7 +17,7 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
 import { WelcomeSurface } from "./components/WelcomeSurface";
-import { AppShell } from "./components/AppShell";
+import { AppShell, type ProjectPanelMode } from "./components/AppShell";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
@@ -118,8 +118,10 @@ export function NoThreadShell(props: {
     onRename,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
-  // a bare launch opens with the right region collapsed; the rail toggle reveals an empty project view
+  // a bare launch opens with the right region collapsed; the rail toggle reveals an empty project view.
+  // The changed-files and tree toggles are mutually-exclusive navigator modes, mirroring the thread shell.
   const [projectOpen, setProjectOpen] = useState(false);
+  const [projectMode, setProjectMode] = useState<ProjectPanelMode>("changes");
 
   return (
     <ThemeProvider theme={theme}>
@@ -148,13 +150,21 @@ export function NoThreadShell(props: {
         threadPanel={<WelcomeSurface version={CLIENT_VERSION} theme={theme} />}
         changesOpen={false}
         projectOpen={projectOpen}
-        onToggleChanges={() => setProjectOpen(true)}
-        onToggleProject={() => setProjectOpen((open) => !open)}
+        onToggleChanges={() => {
+          setProjectOpen(true);
+          setProjectMode("changes");
+        }}
+        onToggleProject={() => {
+          setProjectOpen(true);
+          setProjectMode("tree");
+        }}
         onToggleRight={() => setProjectOpen((open) => !open)}
-        projectMode="tree"
+        projectMode={projectMode}
         projectPanel={
           <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
-            <text fg={theme.textDim}>No changes</text>
+            <text fg={theme.textDim}>
+              {projectMode === "changes" ? "No changes" : "No project files"}
+            </text>
           </box>
         }
         theme={theme}

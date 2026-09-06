@@ -160,15 +160,8 @@ export function AppShell({
             {projectPanel}
           </PanelColumn>
         ) : (
-          <box
-            style={{
-              flexDirection: "column",
-              width: 3,
-              borderStyle: "single",
-              border: ["left"],
-              borderColor: tokens.border,
-            }}
-          >
+          // collapsed: only the header carries the divider and holds the reopen toggle; no full-height rule
+          <box style={{ flexDirection: "column", width: 3 }}>
             <box
               style={{
                 height: 2,
@@ -176,7 +169,7 @@ export function AppShell({
                 justifyContent: "center",
                 backgroundColor: tokens.panel,
                 borderStyle: "single",
-                border: ["bottom"],
+                border: ["bottom", "left"],
                 borderColor: tokens.accent,
               }}
             >

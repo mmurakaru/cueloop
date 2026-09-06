@@ -230,3 +230,79 @@ describe("the four-pane workbench", () => {
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
   });
 });
+
+/** The no-session welcome shell shares the four-pane chrome; its right-region toggles must behave the
+ * same as the thread shell - the changed-files and tree toggles switch navigator mode (never collapse),
+ * the sidebar toggle collapses to a rail, and the collapsed rail draws its divider in the header only. */
+describe("the no-session welcome shell", () => {
+  let welcomeHome: string;
+  let restoreWelcome: () => void;
+  let welcomeServer: DaemonServer;
+
+  beforeEach(() => {
+    welcomeHome = mkdtempSync(join(tmpdir(), "cueloop-welcome-"));
+    restoreWelcome = isolateUserConfig(welcomeHome);
+    welcomeServer = new DaemonServer({ home: welcomeHome, idleExitMs: 0 });
+    welcomeServer.start();
+  });
+  afterEach(() => {
+    restoreWelcome();
+    welcomeServer.stop();
+    rmSync(welcomeHome, { recursive: true, force: true });
+  });
+
+  async function renderWelcome() {
+    const setup = await testRender(<App home={welcomeHome} sessionId={undefined} />, {
+      width: 120,
+      height: 14,
+    });
+    await waitForText(setup, "cueloop");
+
+    return setup;
+  }
+
+  function railToggleColumn(setup: Setup): number {
+    return setup.captureCharFrame().split("\n")[0]!.replace(/\s+$/, "").length - 1;
+  }
+
+  test("the changed-files and tree toggles switch navigator mode without collapsing", async () => {
+    const setup = await renderWelcome();
+
+    // a bare launch starts collapsed; the rail toggle opens the empty right region in changed-files mode
+    await setup.mockMouse.click(railToggleColumn(setup), 0);
+    await waitForText(setup, "No changes");
+
+    const plus = diffToggleColumn(setup);
+    expect(plus).toBeGreaterThan(0);
+
+    // the tree toggle switches to the project view - it must not collapse the region
+    await setup.mockMouse.click(plus + 2, 0);
+    await waitForText(setup, "No project files");
+    expect(diffToggleColumn(setup)).toBeGreaterThan(0);
+
+    // the changed-files toggle switches back
+    await setup.mockMouse.click(plus, 0);
+    await waitForText(setup, "No changes");
+    expect(diffToggleColumn(setup)).toBeGreaterThan(0);
+
+    // the sidebar toggle collapses the region to a rail
+    await setup.mockMouse.click(plus + 4, 0);
+    await waitForState(setup, () => diffToggleColumn(setup) === -1);
+    expect(setup.captureCharFrame()).not.toContain("No changes");
+  });
+
+  test("the collapsed rail draws its divider in the header only, not full-height", async () => {
+    const setup = await renderWelcome();
+
+    const lines = setup.captureCharFrame().split("\n");
+    // the rail's divider sits at the far right; find its column on the header row
+    const headerDivider = lines[0]!.lastIndexOf("│");
+    expect(headerDivider).toBeGreaterThan(0);
+    // that column stays clear below the two-row header - no full-height column rule
+    const bodyRows = lines.slice(3).filter((line) => line.length > headerDivider);
+    expect(bodyRows.length).toBeGreaterThan(0);
+    for (const line of bodyRows) {
+      expect(line[headerDivider]).not.toBe("│");
+    }
+  });
+});
