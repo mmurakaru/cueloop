@@ -288,7 +288,6 @@ function LeafPane({ node, focused, onFocus, onActivate, onCloseTab, onOpenFileHe
         <div className="flex-1" />
         <div className="flex items-center px-2 gap-1 relative">
           <IconBtn icon="search" tip="Search" />
-          <IconBtn icon="comment" tip="Comments" />
           {isFile ? <IconBtn icon="split" tip="Split Pane" active={menu} onClick={() => setMenu((m) => !m)} /> : null}
           {menu ? (
             <div className="menu" style={{ top: 30, right: 0 }} onMouseLeave={() => setMenu(false)}>
