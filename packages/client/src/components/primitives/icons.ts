@@ -20,7 +20,7 @@ export const NERD = {
   sidebarRightOff: "",
   submit: "",
   zoom: "⛶",
-  split: "◫",
+  split: "",
 } as const;
 
 export interface TreeIcons {

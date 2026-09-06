@@ -16,6 +16,7 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import { isolateUserConfig, locateText, waitForState, waitForText } from "./test-support";
+import { NERD } from "./components/primitives/icons";
 
 const PATCH = `diff --git a/src/store.ts b/src/store.ts
 index 111..222 100644
@@ -145,7 +146,7 @@ describe("the four-pane workbench", () => {
     await waitForText(setup, "Workbench Fixture");
 
     // the split control appears only on a file tab
-    const split = locateText(setup, "◫");
+    const split = locateText(setup, NERD.split);
     await setup.mockMouse.click(split.column, split.row);
     await waitForText(setup, "Split Right");
 
@@ -158,7 +159,7 @@ describe("the four-pane workbench", () => {
     const right = locateText(setup, "Split Right");
     await setup.mockMouse.click(right.column, right.row);
     // two editor groups now ride the header, each with its own split control
-    await waitForState(setup, () => (setup.captureCharFrame().match(/◫/g) ?? []).length >= 2);
+    await waitForState(setup, () => setup.captureCharFrame().split(NERD.split).length - 1 >= 2);
     expect((setup.captureCharFrame().match(/README\.md/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
 
@@ -221,7 +222,7 @@ describe("the four-pane workbench", () => {
   test("zoom hides the Thread pane while the sidebars stay", async () => {
     const setup = await renderApp();
 
-    const zoom = locateText(setup, "⛶");
+    const zoom = locateText(setup, NERD.zoom);
     await setup.mockMouse.click(zoom.column, zoom.row);
     await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
 
@@ -237,7 +238,7 @@ describe("the four-pane workbench", () => {
     const setup = await renderApp();
 
     // zoom the Changes editor - the Thread pane hides
-    const zoom = locateText(setup, "⛶");
+    const zoom = locateText(setup, NERD.zoom);
     await setup.mockMouse.click(zoom.column, zoom.row);
     await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
 
