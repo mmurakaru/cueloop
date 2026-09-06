@@ -83,6 +83,7 @@ function SplitMenu({
     <box
       style={{
         flexDirection: "column",
+        flexShrink: 0,
         borderStyle: "single",
         borderColor: tokens.border,
         backgroundColor: tokens.elevated,
