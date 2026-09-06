@@ -171,11 +171,12 @@ function Bubble({ who, text, mark }) {
     </div>
   );
 }
-function ThreadPanel({ collapsedLeftToggle, onOpenLeft, tail }) {
+// The thread header owns the thread only - title + owner actions. Right-region toggles never live here.
+function ThreadPanel({ collapsedLeftToggle, onOpenLeft }) {
   return (
     <div className="flex-1 min-w-0 flex flex-col rule-r" style={{ background: "var(--bg)" }}>
       <PanelHeader
-        right={<><span className="mr-3" style={{ color: "var(--dim)" }}>Edit</span><span className="mr-2" style={{ color: "var(--dim)" }}>Share</span>{tail}</>}>
+        right={<><span className="mr-3" style={{ color: "var(--dim)" }}>Edit</span><span style={{ color: "var(--dim)" }}>Share</span></>}>
         {collapsedLeftToggle ? <IconBtn icon="sidebarLeft" tip="Toggle Threads" onClick={onOpenLeft} /> : null}
         <span className={collapsedLeftToggle ? "ml-2" : ""} style={{ color: "var(--muted)" }}>Read Cueloop Repository</span>
       </PanelHeader>
@@ -227,7 +228,19 @@ function TreeNode({ node, path, depth, expanded, toggle, onOpenFile, changedOnly
     </div>
   );
 }
-function ProjectPanel({ mode, setMode, onToggle, onToggleRoot, onOpenFile }) {
+// The collapsed right region: a thin rail on the far right whose only job is to reopen the sidebar.
+function CollapsedRightRail({ onToggleRight }) {
+  return (
+    <div className="shrink-0 rule-l flex flex-col" style={{ width: 34, background: "var(--bg)" }}>
+      <div className="flex items-center justify-center h-9 accent-underline" style={{ background: "var(--panel)" }}>
+        <IconBtn icon="sidebarRight" tip="Toggle Right Sidebar" onClick={onToggleRight} />
+      </div>
+    </div>
+  );
+}
+// The Project panel is the right sidebar. Its header owns the right-region toggles: the navigator
+// mode (changed files / tree), a Changes toggle, and the master sidebar collapse.
+function ProjectPanel({ mode, setMode, changesOpen, onToggleChanges, onToggleRight, onOpenFile }) {
   const [expanded, setExpanded] = useState(new Set(["cueloop"]));
   const toggle = (p) => setExpanded((s) => { const n = new Set(s); n.has(p) ? n.delete(p) : n.add(p); return n; });
   return (
@@ -235,7 +248,8 @@ function ProjectPanel({ mode, setMode, onToggle, onToggleRoot, onOpenFile }) {
       <PanelHeader right={<>
         <IconBtn icon="plusminus" tip="Changed files" active={mode === "changes"} onClick={() => setMode("changes")} />
         <IconBtn icon="tree" tip="Project tree" active={mode === "tree"} onClick={() => setMode("tree")} />
-        <IconBtn icon="sidebarRight" tip="Toggle Project Panel" onClick={onToggle} />
+        <IconBtn icon="split" tip="Toggle Changes Panel" active={changesOpen} onClick={onToggleChanges} />
+        <IconBtn icon="sidebarRight" tip="Toggle Right Sidebar" onClick={onToggleRight} />
       </>} />
       <div className="overflow-auto py-1 flex-1">
         {mode === "tree"
@@ -351,25 +365,32 @@ const Q = new URLSearchParams(location.search);
 const qbool = (k, d) => (Q.has(k) ? Q.get(k) !== "0" : d);
 function App() {
   const [threadsOpen, setThreadsOpen] = useState(qbool("threads", true));
+  // the right sidebar IS the Project panel; Changes rides on top of it and never stands alone
+  const [projectOpen, setProjectOpen] = useState(qbool("project", false) || qbool("changes", false));
   const [changesOpen, setChangesOpen] = useState(qbool("changes", false));
-  const [projectOpen, setProjectOpen] = useState(qbool("project", false));
-  const [lastRight, setLastRight] = useState("changes");
   const [projectMode, setProjectMode] = useState(Q.get("mode") || "tree");
   const [zoomed, setZoomed] = useState(qbool("zoom", false));
   const [tree, setTree] = useState(() => leaf([{ id: nid(), kind: "changes", label: "Changes" }]));
   const [focusedLeaf, setFocusedLeaf] = useState(null);
   const [comments, setComments] = useState({});
+  const rememberedChanges = useRef(qbool("changes", false));
 
   useEffect(() => { if (!focusedLeaf) setFocusedLeaf(firstLeafId(tree)); }, [tree, focusedLeaf]);
 
-  const openChanges = () => { setChangesOpen(true); setLastRight("changes"); };
-  const openProject = () => { setProjectOpen(true); setLastRight("project"); };
+  // Toggling the right sidebar opens/closes the whole right region: Project always shows when on,
+  // and Changes is restored to whatever it was. Turning it off closes Changes too.
   const toggleRight = () => {
-    if (changesOpen || projectOpen) { setChangesOpen(false); setProjectOpen(false); }
-    else if (lastRight === "changes") openChanges(); else openProject();
+    if (projectOpen) { rememberedChanges.current = changesOpen; setChangesOpen(false); setProjectOpen(false); }
+    else { setProjectOpen(true); setChangesOpen(rememberedChanges.current); }
+  };
+  // Changes cannot stand alone: opening it forces Project open; closing it leaves Project up.
+  const toggleChanges = () => {
+    if (changesOpen) setChangesOpen(false);
+    else { setChangesOpen(true); setProjectOpen(true); }
   };
   const openFileTab = (label, path) => {
-    if (!changesOpen) openChanges();
+    setProjectOpen(true);
+    setChangesOpen(true);
     setTree((t) => {
       const target = focusedLeaf || firstLeafId(t);
       return mapLeaf(t, target, (l) => {
@@ -379,29 +400,22 @@ function App() {
     });
   };
 
-  // reopen toggles for closed right panels ride the far-right of the thread header (the one header row)
-  const reopenToggles = (
-    <>
-      {!changesOpen ? <IconBtn icon="plusminus" tip="Toggle Changes Panel" onClick={openChanges} /> : null}
-      {!projectOpen ? <IconBtn icon="tree" tip="Toggle Project Panel" onClick={openProject} /> : null}
-      {!changesOpen && !projectOpen ? <IconBtn icon="sidebarRight" tip="Toggle Right Sidebar" onClick={toggleRight} /> : null}
-    </>
-  );
-
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 min-h-0 flex">
         {threadsOpen ? <ThreadsPanel onGear={() => {}} onToggle={() => setThreadsOpen(false)} /> : null}
-        {!zoomed ? <ThreadPanel collapsedLeftToggle={!threadsOpen} onOpenLeft={() => setThreadsOpen(true)} tail={reopenToggles} /> : null}
+        {!zoomed ? <ThreadPanel collapsedLeftToggle={!threadsOpen} onOpenLeft={() => setThreadsOpen(true)} /> : null}
         {changesOpen ? (
           <ChangesPanel tree={tree} setTree={setTree} focusedLeaf={focusedLeaf} setFocusedLeaf={setFocusedLeaf}
-            onToggle={() => setChangesOpen(false)} onZoom={() => setZoomed((z) => !z)} zoomed={zoomed}
+            onToggle={toggleChanges} onZoom={() => setZoomed((z) => !z)} zoomed={zoomed}
             comments={comments} setComments={setComments} />
         ) : null}
         {projectOpen ? (
-          <ProjectPanel mode={projectMode} setMode={setProjectMode}
-            onToggle={() => setProjectOpen(false)} onOpenFile={openFileTab} />
-        ) : null}
+          <ProjectPanel mode={projectMode} setMode={setProjectMode} changesOpen={changesOpen}
+            onToggleChanges={toggleChanges} onToggleRight={toggleRight} onOpenFile={openFileTab} />
+        ) : (
+          <CollapsedRightRail onToggleRight={toggleRight} />
+        )}
       </div>
     </div>
   );

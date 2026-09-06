@@ -1,16 +1,10 @@
 <!doctype html>
-<!--
-  THROWAWAY PROTOTYPE - cueloop app shell (four panes, tabbed Changes, splits).
-  Self-contained: React + ReactDOM inlined, app pre-compiled (no in-browser Babel).
-  Edit prototypes/app-shell.src.jsx then rebuild (see prototypes/README.md).
--->
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>cueloop app shell - prototype</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
+<!-- THROWAWAY PROTOTYPE - cueloop app shell. Self-contained (React inlined, app pre-compiled).
+     Edit prototypes/app-shell.src.jsx then run prototypes/rebuild.sh (see README). -->
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>cueloop app shell - prototype</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
       :root {
         --bg: #0d0f14;
         --panel: #141720;
@@ -47,11 +41,8 @@
       .menu { position:absolute; background:var(--elevated); border:1px solid var(--border); border-radius:6px; padding:4px; z-index:60; box-shadow:0 10px 30px rgba(0,0,0,.6); }
       .menu-item { padding:4px 10px; border-radius:4px; cursor:pointer; display:flex; justify-content:space-between; gap:24px; }
       .menu-item:hover { background:#232838; }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script>/**
+    </style></head><body><div id="root"></div>
+<script>/**
  * @license React
  * react.production.min.js
  *
@@ -82,8 +73,7 @@ render:a}};c.isValidElement=M;c.lazy=function(a){return{$$typeof:Aa,_payload:{_s
 c.useEffect=function(a,b){return g.current.useEffect(a,b)};c.useId=function(){return g.current.useId()};c.useImperativeHandle=function(a,b,c){return g.current.useImperativeHandle(a,b,c)};c.useInsertionEffect=function(a,b){return g.current.useInsertionEffect(a,b)};c.useLayoutEffect=function(a,b){return g.current.useLayoutEffect(a,b)};c.useMemo=function(a,b){return g.current.useMemo(a,b)};c.useReducer=function(a,b,c){return g.current.useReducer(a,b,c)};c.useRef=function(a){return g.current.useRef(a)};
 c.useState=function(a){return g.current.useState(a)};c.useSyncExternalStore=function(a,b,c){return g.current.useSyncExternalStore(a,b,c)};c.useTransition=function(){return g.current.useTransition()};c.version="18.3.1"});
 })();
-</script>
-    <script>/**
+</script><script>/**
  * @license React
  * react-dom.production.min.js
  *
@@ -350,8 +340,7 @@ c,!1,d,e);a[Ja]=b.current;sc(8===a.nodeType?a.parentNode:a);return new Xf(b)};Q.
 var d=null!=c&&c.hydratedSources||null,e=!1,f="",g=aj;null!==c&&void 0!==c&&(!0===c.unstable_strictMode&&(e=!0),void 0!==c.identifierPrefix&&(f=c.identifierPrefix),void 0!==c.onRecoverableError&&(g=c.onRecoverableError));b=Wi(b,null,a,1,null!=c?c:null,e,!1,f,g);a[Ja]=b.current;sc(a);if(d)for(a=0;a<d.length;a++)c=d[a],e=c._getVersion,e=e(c._source),null==b.mutableSourceEagerHydrationData?b.mutableSourceEagerHydrationData=[c,e]:b.mutableSourceEagerHydrationData.push(c,e);return new Ud(b)};Q.render=
 function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmountComponentAtNode=function(a){if(!Vd(a))throw Error(m(40));return a._reactRootContainer?(yb(function(){Wd(null,null,a,!1,function(){a._reactRootContainer=null;a[Ja]=null})}),!0):!1};Q.unstable_batchedUpdates=Tf;Q.unstable_renderSubtreeIntoContainer=function(a,b,c,d){if(!Vd(c))throw Error(m(200));if(null==a||void 0===a._reactInternals)throw Error(m(38));return Wd(a,b,c,!1,d)};Q.version="18.3.1-next-f1338f8080-20240426"});
 })();
-</script>
-    <script>(() => {
+</script><script>(() => {
   // proto.jsx
   var { useState, useRef, useEffect, useCallback } = React;
   function Icon({ name, size = 15 }) {
@@ -705,7 +694,7 @@ export const placeholder = true;
       className: "px-1 rounded"
     }, text));
   }
-  function ThreadPanel({ collapsedLeftToggle, onOpenLeft, tail }) {
+  function ThreadPanel({ collapsedLeftToggle, onOpenLeft }) {
     return /* @__PURE__ */ React.createElement("div", {
       className: "flex-1 min-w-0 flex flex-col rule-r",
       style: { background: "var(--bg)" }
@@ -714,9 +703,8 @@ export const placeholder = true;
         className: "mr-3",
         style: { color: "var(--dim)" }
       }, "Edit"), /* @__PURE__ */ React.createElement("span", {
-        className: "mr-2",
         style: { color: "var(--dim)" }
-      }, "Share"), tail)
+      }, "Share"))
     }, collapsedLeftToggle ? /* @__PURE__ */ React.createElement(IconBtn, {
       icon: "sidebarLeft",
       tip: "Toggle Threads",
@@ -821,7 +809,20 @@ export const placeholder = true;
       changedOnly
     })) : null);
   }
-  function ProjectPanel({ mode, setMode, onToggle, onToggleRoot, onOpenFile }) {
+  function CollapsedRightRail({ onToggleRight }) {
+    return /* @__PURE__ */ React.createElement("div", {
+      className: "shrink-0 rule-l flex flex-col",
+      style: { width: 34, background: "var(--bg)" }
+    }, /* @__PURE__ */ React.createElement("div", {
+      className: "flex items-center justify-center h-9 accent-underline",
+      style: { background: "var(--panel)" }
+    }, /* @__PURE__ */ React.createElement(IconBtn, {
+      icon: "sidebarRight",
+      tip: "Toggle Right Sidebar",
+      onClick: onToggleRight
+    })));
+  }
+  function ProjectPanel({ mode, setMode, changesOpen, onToggleChanges, onToggleRight, onOpenFile }) {
     const [expanded, setExpanded] = useState(new Set(["cueloop"]));
     const toggle = (p) => setExpanded((s) => {
       const n = new Set(s);
@@ -843,9 +844,14 @@ export const placeholder = true;
         active: mode === "tree",
         onClick: () => setMode("tree")
       }), /* @__PURE__ */ React.createElement(IconBtn, {
+        icon: "split",
+        tip: "Toggle Changes Panel",
+        active: changesOpen,
+        onClick: onToggleChanges
+      }), /* @__PURE__ */ React.createElement(IconBtn, {
         icon: "sidebarRight",
-        tip: "Toggle Project Panel",
-        onClick: onToggle
+        tip: "Toggle Right Sidebar",
+        onClick: onToggleRight
       }))
     }), /* @__PURE__ */ React.createElement("div", {
       className: "overflow-auto py-1 flex-1"
@@ -1012,38 +1018,39 @@ export const placeholder = true;
   var qbool = (k, d) => Q.has(k) ? Q.get(k) !== "0" : d;
   function App() {
     const [threadsOpen, setThreadsOpen] = useState(qbool("threads", true));
+    const [projectOpen, setProjectOpen] = useState(qbool("project", false) || qbool("changes", false));
     const [changesOpen, setChangesOpen] = useState(qbool("changes", false));
-    const [projectOpen, setProjectOpen] = useState(qbool("project", false));
-    const [lastRight, setLastRight] = useState("changes");
     const [projectMode, setProjectMode] = useState(Q.get("mode") || "tree");
     const [zoomed, setZoomed] = useState(qbool("zoom", false));
     const [tree, setTree] = useState(() => leaf([{ id: nid(), kind: "changes", label: "Changes" }]));
     const [focusedLeaf, setFocusedLeaf] = useState(null);
     const [comments, setComments] = useState({});
+    const rememberedChanges = useRef(qbool("changes", false));
     useEffect(() => {
       if (!focusedLeaf)
         setFocusedLeaf(firstLeafId(tree));
     }, [tree, focusedLeaf]);
-    const openChanges = () => {
-      setChangesOpen(true);
-      setLastRight("changes");
-    };
-    const openProject = () => {
-      setProjectOpen(true);
-      setLastRight("project");
-    };
     const toggleRight = () => {
-      if (changesOpen || projectOpen) {
+      if (projectOpen) {
+        rememberedChanges.current = changesOpen;
         setChangesOpen(false);
         setProjectOpen(false);
-      } else if (lastRight === "changes")
-        openChanges();
-      else
-        openProject();
+      } else {
+        setProjectOpen(true);
+        setChangesOpen(rememberedChanges.current);
+      }
+    };
+    const toggleChanges = () => {
+      if (changesOpen)
+        setChangesOpen(false);
+      else {
+        setChangesOpen(true);
+        setProjectOpen(true);
+      }
     };
     const openFileTab = (label, path) => {
-      if (!changesOpen)
-        openChanges();
+      setProjectOpen(true);
+      setChangesOpen(true);
       setTree((t) => {
         const target = focusedLeaf || firstLeafId(t);
         return mapLeaf(t, target, (l) => {
@@ -1052,19 +1059,6 @@ export const placeholder = true;
         });
       });
     };
-    const reopenToggles = /* @__PURE__ */ React.createElement(React.Fragment, null, !changesOpen ? /* @__PURE__ */ React.createElement(IconBtn, {
-      icon: "plusminus",
-      tip: "Toggle Changes Panel",
-      onClick: openChanges
-    }) : null, !projectOpen ? /* @__PURE__ */ React.createElement(IconBtn, {
-      icon: "tree",
-      tip: "Toggle Project Panel",
-      onClick: openProject
-    }) : null, !changesOpen && !projectOpen ? /* @__PURE__ */ React.createElement(IconBtn, {
-      icon: "sidebarRight",
-      tip: "Toggle Right Sidebar",
-      onClick: toggleRight
-    }) : null);
     return /* @__PURE__ */ React.createElement("div", {
       className: "h-full flex flex-col"
     }, /* @__PURE__ */ React.createElement("div", {
@@ -1074,14 +1068,13 @@ export const placeholder = true;
       onToggle: () => setThreadsOpen(false)
     }) : null, !zoomed ? /* @__PURE__ */ React.createElement(ThreadPanel, {
       collapsedLeftToggle: !threadsOpen,
-      onOpenLeft: () => setThreadsOpen(true),
-      tail: reopenToggles
+      onOpenLeft: () => setThreadsOpen(true)
     }) : null, changesOpen ? /* @__PURE__ */ React.createElement(ChangesPanel, {
       tree,
       setTree,
       focusedLeaf,
       setFocusedLeaf,
-      onToggle: () => setChangesOpen(false),
+      onToggle: toggleChanges,
       onZoom: () => setZoomed((z) => !z),
       zoomed,
       comments,
@@ -1089,12 +1082,14 @@ export const placeholder = true;
     }) : null, projectOpen ? /* @__PURE__ */ React.createElement(ProjectPanel, {
       mode: projectMode,
       setMode: setProjectMode,
-      onToggle: () => setProjectOpen(false),
+      changesOpen,
+      onToggleChanges: toggleChanges,
+      onToggleRight: toggleRight,
       onOpenFile: openFileTab
-    }) : null));
+    }) : /* @__PURE__ */ React.createElement(CollapsedRightRail, {
+      onToggleRight: toggleRight
+    })));
   }
   ReactDOM.createRoot(document.getElementById("root")).render(/* @__PURE__ */ React.createElement(App, null));
 })();
-</script>
-  </body>
-</html>
+</script></body></html>
