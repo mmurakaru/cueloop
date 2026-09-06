@@ -134,7 +134,7 @@ function EditorGroupPane({
           borderColor: tokens.border,
         }}
       >
-        <box style={{ flexDirection: "row" }}>
+        <box style={{ flexDirection: "row", minWidth: 0 }}>
           {group.tabs.map((tab) => (
             <EditorTabButton
               key={tab.id}
@@ -147,7 +147,7 @@ function EditorGroupPane({
           ))}
         </box>
         <box style={{ flexGrow: 1 }} />
-        <box style={{ flexDirection: "row", paddingRight: 1 }}>
+        <box style={{ flexDirection: "row", flexShrink: 0, paddingRight: 1 }}>
           <IconButton
             glyph={NERD.search}
             onPress={() => {}}

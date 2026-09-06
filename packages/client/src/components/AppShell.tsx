@@ -73,7 +73,7 @@ export function AppShell({
   // gear + sidebar toggle + product mark: global chrome, in the Threads header when open, else at the
   // left of the Thread header when the Threads pane is collapsed
   const brandChrome = (
-    <box style={{ flexDirection: "row" }}>
+    <box style={{ flexDirection: "row", flexShrink: 0 }}>
       <box onMouseUp={onOpenMenu} style={{ paddingRight: 2 }}>
         <text fg={tokens.textMuted}>{NERD.settings}</text>
       </box>
@@ -89,7 +89,7 @@ export function AppShell({
   );
 
   const projectToggles = (
-    <box style={{ flexDirection: "row" }}>
+    <box style={{ flexDirection: "row", flexShrink: 0 }}>
       <IconButton
         glyph={NERD.diff}
         active={projectMode === "changes"}

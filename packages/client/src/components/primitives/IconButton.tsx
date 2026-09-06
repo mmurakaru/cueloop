@@ -49,7 +49,7 @@ export function IconButton({
       onMouseUp={disabled ? undefined : handleMouseUp}
       onMouseOver={tip ? (event) => showTooltip(tip, event.x, event.y) : undefined}
       onMouseOut={tip ? hideTooltip : undefined}
-      style={{ alignSelf: "center", marginLeft, marginRight }}
+      style={{ flexShrink: 0, alignSelf: "center", marginLeft, marginRight }}
     >
       <text fg={resolved}>{glyph}</text>
     </box>
