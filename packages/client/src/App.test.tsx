@@ -309,25 +309,18 @@ describe("no-thread shell", () => {
     expect(frameRow(setup, "Migration Plan")).toBeGreaterThan(frameRow(setup, "Pinned"));
   });
 
-  test("the Welcome tab is disposable: closing it leaves a bare select-a-thread hint", async () => {
+  test("a bare launch shows the Welcome surface with the right region collapsed", async () => {
     // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "Welcome to cueloop");
 
-    // Act - hover the tab to reveal its close control, then click it
-    const tab = locateText(setup, "Welcome");
-
-    await setup.mockMouse.moveTo(tab.column, tab.row);
-    await waitForText(setup, "✕");
-    await clickText(setup, "✕");
-
-    // Assert - the Welcome panel is gone, the shell and its thread-panel hint remain
-    await waitForState(setup, () => !setup.captureCharFrame().includes("Welcome to cueloop"));
+    // Assert - Welcome fills the thread pane (not a Changes tab); the right region stays collapsed
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("open a thread in the sidebar");
-    expect(frame).toContain("Migration Plan"); // the sidebar stays
+    expect(frame).toContain("Welcome to cueloop");
+    expect(frame).not.toContain("Changes"); // the Changes editor is closed on a bare launch
+    expect(frame).toContain("Migration Plan"); // the sidebar lists the pending thread
   });
 
   test("the menu opens from the shell gear and escape is not a trap", async () => {

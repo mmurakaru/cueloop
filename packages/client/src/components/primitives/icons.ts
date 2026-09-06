@@ -19,6 +19,8 @@ export const NERD = {
   sidebarRight: "",
   sidebarRightOff: "",
   submit: "",
+  zoom: "⛶",
+  split: "◫",
 } as const;
 
 export interface TreeIcons {

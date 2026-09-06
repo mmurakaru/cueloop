@@ -17,7 +17,6 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
 import { WelcomeSurface } from "./components/WelcomeSurface";
-import { FileTab } from "./components/PanelColumn";
 import { AppShell } from "./components/AppShell";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
@@ -119,9 +118,8 @@ export function NoThreadShell(props: {
     onRename,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
-  const [welcomeOpen, setWelcomeOpen] = useState(true);
-  const [projectOpen, setProjectOpen] = useState(true);
-  const [projectMode, setProjectMode] = useState<"changes" | "tree">("changes");
+  // a bare launch opens with the right region collapsed; the rail toggle reveals an empty project view
+  const [projectOpen, setProjectOpen] = useState(false);
 
   return (
     <ThemeProvider theme={theme}>
@@ -147,21 +145,13 @@ export function NoThreadShell(props: {
           </scrollbox>
         }
         threadTitle=""
-        threadPanel={
-          <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
-            <text fg={theme.textDim}>open a thread in the sidebar</text>
-          </box>
-        }
-        changesOpen={welcomeOpen}
-        onToggleChanges={() => setWelcomeOpen((open) => !open)}
-        changesTab={
-          <FileTab label="Welcome" active onClose={() => setWelcomeOpen(false)} theme={theme} />
-        }
-        changesPanel={<WelcomeSurface version={CLIENT_VERSION} theme={theme} />}
+        threadPanel={<WelcomeSurface version={CLIENT_VERSION} theme={theme} />}
+        changesOpen={false}
         projectOpen={projectOpen}
+        onToggleChanges={() => setProjectOpen(true)}
         onToggleProject={() => setProjectOpen((open) => !open)}
-        projectMode={projectMode}
-        onProjectMode={setProjectMode}
+        onToggleRight={() => setProjectOpen((open) => !open)}
+        projectMode="tree"
         projectPanel={
           <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
             <text fg={theme.textDim}>No changes</text>

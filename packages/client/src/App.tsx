@@ -48,9 +48,11 @@ import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { groupInbox, projectName, threadTitle } from "./components/session-tree";
 import { InboxList } from "./components/InboxList";
-import { ChangesFileTree, useDiffColumns } from "./components/ChangesColumn";
+import { ChangesFileTree } from "./components/ChangesColumn";
 import { AppShell, type ProjectPanelMode } from "./components/AppShell";
-import { FileTab } from "./components/PanelColumn";
+import { EditorGrid } from "./components/EditorGrid";
+import type { EditorTab } from "./components/editor-grid";
+import { useChangesWorkbench } from "./use-changes-workbench";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
@@ -168,6 +170,60 @@ function ChangesTabBody(props: {
   );
 }
 
+/** An editor tab's body: the whole diff for the Changes tab, that file's diff for a file tab. */
+function GridTabContent(props: {
+  tab: EditorTab;
+  rows: DiffRow[];
+  cursor: number;
+  annotations: ReviewSession["annotations"];
+  focusedAnnotationId?: string;
+  rejectedRows: Set<number>;
+  compose: DiffComposeState | null;
+  dimmed: boolean;
+  theme: Theme;
+}): React.ReactNode {
+  const { tab } = props;
+  if (tab.kind === "file" && tab.fileView === "contents") {
+    return (
+      <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+        <text fg={props.theme.textDim}>{tab.path}</text>
+      </box>
+    );
+  }
+  const rows = tab.kind === "file" ? props.rows.filter((row) => row.file === tab.path) : props.rows;
+  return (
+    <ChangesTabBody
+      rows={rows}
+      cursor={tab.kind === "file" ? 0 : props.cursor}
+      annotations={props.annotations}
+      focusedAnnotationId={tab.kind === "file" ? undefined : props.focusedAnnotationId}
+      rejectedRows={props.rejectedRows}
+      compose={tab.kind === "file" ? null : props.compose}
+      dimmed={props.dimmed}
+      theme={props.theme}
+    />
+  );
+}
+
+/** The Project pane body: the changed-files tree in changes mode, the full project tree otherwise. */
+function ProjectPanelBody(props: {
+  mode: ProjectPanelMode;
+  files: ReviewSession["artifact"]["files"];
+  onSelectFile: (path: string) => void;
+  theme: Theme;
+}): React.ReactNode {
+  if (props.mode === "changes") {
+    return (
+      <ChangesFileTree files={props.files} onSelectFile={props.onSelectFile} theme={props.theme} />
+    );
+  }
+  return (
+    <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+      <text fg={props.theme.textDim}>project tree</text>
+    </box>
+  );
+}
+
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
 function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
@@ -263,9 +319,8 @@ export function App({
   // nothing selected (pick a thread) and stays collapsed on a direct thread open,
   // where the thread owns the width.
   const [sidebarOpen, setSidebarOpen] = useState(sessionId === undefined);
-  const [projectMode, setProjectMode] = useState<ProjectPanelMode>("changes");
-  // the default, dismissable Changes tab: the whole diff in one scroll container
-  const [changesTabOpen, setChangesTabOpen] = useState(true);
+  // the Changes + Project right region and its editor grid (tabs, splits, zoom)
+  const workbench = useChangesWorkbench();
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
@@ -355,7 +410,6 @@ export function App({
   // ── derived view model ──────────────────────
   const display = controller.display();
   const rows = controller.rows();
-  const diffColumns = useDiffColumns({ session, rows, cursor, setCursor });
   const rejectedRows = controller.rejectedRows();
   const marks = useMemo(
     () =>
@@ -375,6 +429,8 @@ export function App({
     return ids;
   }, [marks]);
   const { isDiff, isPrototype, resolved } = deriveReviewFlags(session);
+  // entering a diff opens the right region in changed-files mode; a plan or reply opens it closed
+  workbench.syncSession(session?.id, isDiff);
   // plans and replies open in the thread view; diffs and prototypes keep their sheets
   const threadViewActive = session !== null && !isDiff && !isPrototype;
   const [threadComposing, setThreadComposing] = useState(false);
@@ -729,33 +785,44 @@ export function App({
             />
           </box>
         }
-        changesOpen={changesTabOpen}
-        onToggleChanges={() => setChangesTabOpen((open) => !open)}
-        changesWide={rows.length > 0}
-        changesTab={
-          <FileTab label="Changes" active onClose={() => setChangesTabOpen(false)} theme={theme} />
-        }
+        changesOpen={workbench.changesOpen}
+        projectOpen={workbench.projectOpen}
+        onToggleChanges={workbench.toggleChanges}
+        onToggleProject={workbench.toggleProject}
+        onToggleRight={workbench.toggleRight}
+        projectMode={workbench.projectMode}
+        zoomHideThread={workbench.zoomed}
         changesPanel={
-          <ChangesTabBody
-            rows={rows}
-            cursor={cursor}
-            annotations={activeSession.annotations}
-            focusedAnnotationId={focusedAnnotationId}
-            rejectedRows={rejectedRows}
-            compose={diffComposeState}
-            dimmed={walking}
+          <EditorGrid
+            tree={workbench.grid}
+            focusedGroupId={workbench.activeGroup}
+            onFocusGroup={workbench.focusGroup}
+            onActivateTab={workbench.activate}
+            onCloseTab={workbench.close}
+            onSplit={workbench.split}
+            onZoom={workbench.toggleZoom}
+            zoomed={workbench.zoomed}
+            renderTab={(tab) => (
+              <GridTabContent
+                tab={tab}
+                rows={rows}
+                cursor={cursor}
+                annotations={activeSession.annotations}
+                focusedAnnotationId={focusedAnnotationId}
+                rejectedRows={rejectedRows}
+                compose={diffComposeState}
+                dimmed={walking}
+                theme={theme}
+              />
+            )}
             theme={theme}
           />
         }
-        projectOpen={diffColumns.changesOpen}
-        onToggleProject={diffColumns.toggleChanges}
-        projectMode={projectMode}
-        onProjectMode={setProjectMode}
         projectPanel={
-          <ChangesFileTree
+          <ProjectPanelBody
+            mode={workbench.projectMode}
             files={activeSession.artifact.files}
-            selectedPath={diffColumns.currentFilePath}
-            onSelectFile={diffColumns.scrollToFile}
+            onSelectFile={(path) => workbench.openFile(path, "diff")}
             theme={theme}
           />
         }

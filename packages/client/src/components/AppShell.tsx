@@ -1,8 +1,8 @@
-// The one app shell: a grid of four full-height panes - Threads, Thread, Changes, Project - each
-// stacking a header cell over its body. The vertical rules run through the header and every header
-// cell's bottom rule joins into one brand-accent underline, so the header reads the same across
-// every view. The shell owns the stable chrome (menu gear, panel toggles, mode switch); each caller
-// fills only the variable slots (the thread title, the file tab, the pane bodies).
+// The one app shell: a single header row over four full-height panes - Threads, Thread, Changes,
+// Project - divided by straight rules whose header-cell bottoms join into one brand-accent underline.
+// The right region (Changes + Project) toggles as a unit: the Project pane is the right sidebar and is
+// always present when the region is on, Changes rides on top of it, and a thin rail holds the sidebar
+// toggle when the region is closed. Each pane owns its own header controls; the thread header never does.
 
 import React from "react";
 import { DARK, type Theme } from "../theme";
@@ -13,37 +13,33 @@ import { NERD } from "./primitives/icons";
 export type ProjectPanelMode = "changes" | "tree";
 
 export interface AppShellProps {
-  /** Threads pane visibility, shared across views so a thread open preserves the sidebar. */
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
-  /** Opens the settings dialog from the gear in the Threads header. */
   onOpenMenu: () => void;
   threadsPanel: React.ReactNode;
   /** The Thread header title; mirrors the selected sidebar thread, blank on a bare launch. */
   threadTitle: string;
-  /** Owner actions at the right edge of the Thread header (Edit/Share). */
+  /** Owner actions at the right edge of the Thread header (Edit/Share) - the only thread-header controls. */
   threadActions?: React.ReactNode;
   threadPanel: React.ReactNode;
-  /** Omit changesTab to drop the Changes pane entirely (a view with no file open). */
-  changesOpen?: boolean;
-  onToggleChanges?: () => void;
-  /** The Changes header rendered as a file tab (Welcome on a bare launch). */
-  changesTab?: React.ReactNode;
-  changesPanel?: React.ReactNode;
-  /** Let the Changes pane grow beside the Thread pane (the diff/file viewer) rather than sit at a fixed width. */
-  changesWide?: boolean;
+  changesOpen: boolean;
   projectOpen: boolean;
+  /** Toggle the Changes editor (also switches the Project tree to changed-files mode). */
+  onToggleChanges: () => void;
+  /** Toggle the Project tree to the full project view. */
   onToggleProject: () => void;
-  /** The Project navigator mode: changed files only, or the full project tree. */
+  /** Open or close the whole right region (the right sidebar). */
+  onToggleRight: () => void;
   projectMode: ProjectPanelMode;
-  onProjectMode: (mode: ProjectPanelMode) => void;
+  /** The Changes editor grid; rendered only when changesOpen. */
+  changesPanel?: React.ReactNode;
   projectPanel: React.ReactNode;
+  /** Hide the Thread pane so Changes fills the middle (zoom); the sidebars stay. */
+  zoomHideThread?: boolean;
   footer?: React.ReactNode;
-  /** Overlays that float above the grid (settings, dialogs). */
   children?: React.ReactNode;
   theme?: Theme;
   threadsWidth?: number;
-  changesWidth?: number;
   projectWidth?: number;
 }
 
@@ -56,26 +52,24 @@ export function AppShell({
   threadActions,
   threadPanel,
   changesOpen,
-  onToggleChanges,
-  changesTab,
-  changesPanel,
-  changesWide,
   projectOpen,
+  onToggleChanges,
   onToggleProject,
+  onToggleRight,
   projectMode,
-  onProjectMode,
+  changesPanel,
   projectPanel,
+  zoomHideThread,
   footer,
   children,
   theme,
   threadsWidth = 30,
-  changesWidth = 52,
-  projectWidth = 30,
+  projectWidth = 32,
 }: AppShellProps): React.ReactNode {
   const tokens = theme ?? DARK;
 
-  // gear + sidebar toggle + product mark: global chrome, so it rides in the Threads
-  // header when the pane is open and slides to the left of the Thread header when it collapses
+  // gear + sidebar toggle + product mark: global chrome, in the Threads header when open, else at the
+  // left of the Thread header when the Threads pane is collapsed
   const brandChrome = (
     <box style={{ flexDirection: "row" }}>
       <box onMouseUp={onOpenMenu} style={{ paddingRight: 2 }}>
@@ -88,6 +82,26 @@ export function AppShell({
         theme={tokens}
       />
       <text fg={tokens.accent}>cueloop</text>
+    </box>
+  );
+
+  const projectToggles = (
+    <box style={{ flexDirection: "row" }}>
+      <IconButton
+        glyph={NERD.diff}
+        active={projectMode === "changes"}
+        onPress={onToggleChanges}
+        marginRight={1}
+        theme={tokens}
+      />
+      <IconButton
+        glyph={NERD.listTree}
+        active={projectMode === "tree"}
+        onPress={onToggleProject}
+        marginRight={1}
+        theme={tokens}
+      />
+      <IconButton glyph={NERD.sidebarRight} onPress={onToggleRight} theme={tokens} />
     </box>
   );
 
@@ -106,72 +120,70 @@ export function AppShell({
             {threadsPanel}
           </PanelColumn>
         ) : null}
-        <PanelColumn
-          header={
-            <box style={{ flexDirection: "row" }}>
-              {!sidebarOpen ? <box style={{ paddingRight: 2 }}>{brandChrome}</box> : null}
-              {threadTitle ? <text fg={tokens.textDim}>{threadTitle}</text> : null}
-            </box>
-          }
-          headerRight={
-            <box style={{ flexDirection: "row" }}>
-              {threadActions}
-              {changesTab !== undefined && !changesOpen && onToggleChanges ? (
-                <IconButton
-                  glyph={NERD.diff}
-                  onPress={onToggleChanges}
-                  marginRight={1}
-                  theme={tokens}
-                />
-              ) : null}
-              {!projectOpen ? (
-                <IconButton glyph={NERD.listTree} onPress={onToggleProject} theme={tokens} />
-              ) : null}
-            </box>
-          }
-          theme={tokens}
-        >
-          {threadPanel}
-        </PanelColumn>
-        {changesTab !== undefined && changesOpen ? (
+        {!zoomHideThread ? (
           <PanelColumn
-            width={changesWide ? undefined : changesWidth}
-            border="left"
-            header={changesTab}
+            header={
+              <box style={{ flexDirection: "row" }}>
+                {!sidebarOpen ? <box style={{ paddingRight: 2 }}>{brandChrome}</box> : null}
+                {threadTitle ? <text fg={tokens.textDim}>{threadTitle}</text> : null}
+              </box>
+            }
+            headerRight={threadActions}
             theme={tokens}
           >
-            {changesPanel}
+            {threadPanel}
           </PanelColumn>
+        ) : null}
+        {changesOpen ? (
+          <box
+            style={{
+              flexDirection: "column",
+              flexGrow: 1,
+              flexBasis: 0,
+              minWidth: 0,
+              borderStyle: "single",
+              border: ["left"],
+              borderColor: tokens.border,
+            }}
+          >
+            {changesPanel}
+          </box>
         ) : null}
         {projectOpen ? (
           <PanelColumn
             width={projectWidth}
             border="left"
             header={null}
-            headerRight={
-              <box style={{ flexDirection: "row" }}>
-                <IconButton
-                  glyph={NERD.diff}
-                  active={projectMode === "changes"}
-                  onPress={() => onProjectMode("changes")}
-                  marginRight={1}
-                  theme={tokens}
-                />
-                <IconButton
-                  glyph={NERD.listTree}
-                  active={projectMode === "tree"}
-                  onPress={() => onProjectMode("tree")}
-                  marginRight={1}
-                  theme={tokens}
-                />
-                <IconButton glyph={NERD.sidebarRight} onPress={onToggleProject} theme={tokens} />
-              </box>
-            }
+            headerRight={projectToggles}
             theme={tokens}
           >
             {projectPanel}
           </PanelColumn>
-        ) : null}
+        ) : (
+          <box
+            style={{
+              flexDirection: "column",
+              width: 3,
+              borderStyle: "single",
+              border: ["left"],
+              borderColor: tokens.border,
+            }}
+          >
+            <box
+              style={{
+                height: 2,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: tokens.panel,
+                borderStyle: "single",
+                border: ["bottom"],
+                borderColor: tokens.accent,
+              }}
+            >
+              <IconButton glyph={NERD.sidebarRight} onPress={onToggleRight} theme={tokens} />
+            </box>
+          </box>
+        )}
       </box>
       {footer !== undefined ? (
         <box
