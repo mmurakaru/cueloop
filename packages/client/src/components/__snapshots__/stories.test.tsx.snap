@@ -1,42 +1,24 @@
 // Bun Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`stories catalog Surfaces/EditorGrid/OneGroup renders, snapshots, and carries its colors: Surfaces/EditorGrid/OneGroup 1`] = `
-" Changes   │ App.tsx   │                                              search  ⛶ 
-‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                                                                                
- the whole diff                                                                 
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Surfaces/EditorGrid/SplitGroups renders, snapshots, and carries its colors: Surfaces/EditorGrid/SplitGroups 1`] = `
-" plugin.json   │                 search  ⛶  split │ plugin.json   │                 search  ⛶  split
-‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-                                                  │                                                 
- .claude-plugin/plugin.json                       │ .claude-plugin/plugin.json                      
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
-                                                  │                                                 
+exports[`stories catalog Surfaces/DiffSheet/SplitView renders, snapshots, and carries its colors: Surfaces/DiffSheet/SplitView 1`] = `
+" ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ src/store.ts                                                                                                      +1 -1
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  @@ -1,4 +1,4 @@                                                                                                       
+ ▎   1   export class Store {                               │▎   1   export class Store {                               
+     2 -   private items = [];                              │    2 +   private items = new Map();                       
+                                                            │                                                           
+                                                            │  ╷───────────────────────────────────────────────────────┐
+                                                            │  │ ● Map needs an eviction story.                        │
+                                                            │  ╵───────────────────────────────────────────────────────┘
+     3   }                                                  │    3   }                                                  
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
 "
 `;
 
@@ -654,25 +636,43 @@ exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and c
 "
 `;
 
-exports[`stories catalog Surfaces/DiffSheet/SplitView renders, snapshots, and carries its colors: Surfaces/DiffSheet/SplitView 1`] = `
-" ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
- src/store.ts                                                                                                      +1 -1
- ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-  @@ -1,4 +1,4 @@                                                                                                       
- ▎   1   export class Store {                               │▎   1   export class Store {                               
-     2 -   private items = [];                              │    2 +   private items = new Map();                       
-                                                                                                                        
-   ╷───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-   │ ● Map needs an eviction story.                                                                                    │
-   ╵───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-     3   }                                                  │    3   }                                                  
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
+exports[`stories catalog Surfaces/EditorGrid/OneGroup renders, snapshots, and carries its colors: Surfaces/EditorGrid/OneGroup 1`] = `
+" Changes   │ App.tsx   │                                              search  ⛶ 
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                                                                
+ the whole diff                                                                 
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Surfaces/EditorGrid/SplitGroups renders, snapshots, and carries its colors: Surfaces/EditorGrid/SplitGroups 1`] = `
+" plugin.json   │                 search  ⛶  split │ plugin.json   │                 search  ⛶  split
+‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
+                                                  │                                                 
+ .claude-plugin/plugin.json                       │ .claude-plugin/plugin.json                      
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
+                                                  │                                                 
 "
 `;
 

@@ -190,10 +190,9 @@ interface CodeRowNodes {
   cards: React.ReactNode[];
 }
 
-/** One side of a split pair rendered: its column of lines (or filler) and the cards under it. */
+/** One side of a split pair rendered: its column of lines with its cards under them, or filler. */
 interface SplitSideNodes {
   node: React.ReactNode;
-  cards: React.ReactNode[];
 }
 
 /** The scroll viewport as measured after a frame: content width, visible height, scroll offset. */
@@ -628,14 +627,18 @@ export function DiffSheet({
         <box style={{ flexGrow: 1, flexBasis: 0, minWidth: 0, backgroundColor: tokens.panel }} />
       );
 
-      return { node: filler, cards: [] };
+      return { node: filler };
     }
     const { lines, cards } = codeRowLines(line.row, line.rowIndex, textWidth, keyPrefix);
+    // a discussion stays in the pane of the side it annotates, under that side's lines
     const column = (
-      <box style={{ flexDirection: "column", flexGrow: 1, flexBasis: 0, minWidth: 0 }}>{lines}</box>
+      <box style={{ flexDirection: "column", flexGrow: 1, flexBasis: 0, minWidth: 0 }}>
+        {lines}
+        {cards}
+      </box>
     );
 
-    return { node: column, cards };
+    return { node: column };
   };
 
   const splitItem = (pairIndex: number): React.ReactNode => {
@@ -677,8 +680,6 @@ export function DiffSheet({
           />
           {right.node}
         </box>
-        {left.cards}
-        {right.cards}
       </box>
     );
   };
