@@ -9,7 +9,7 @@ export const NERD = {
   settings: "",
   search: "",
   expand: "",
-  diff: "±",
+  diff: "",
   copy: "",
   unfold: "",
   kebab: "⋮",
