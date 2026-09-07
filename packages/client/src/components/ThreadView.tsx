@@ -1678,7 +1678,9 @@ export function ThreadView({
 
   return (
     <box
-      style={{ flexGrow: 1, flexDirection: "row" }}
+      // a positioning context so the marker preview anchors to this pane (right of its markers) rather
+      // than escaping to the screen root, where a neighbouring pane's border would slice through it
+      style={{ flexGrow: 1, flexDirection: "row", position: "relative" }}
       onMouseDrag={handleRootDrag}
       onMouseDragEnd={endDrag}
       onMouseUp={endDrag}
