@@ -397,9 +397,7 @@ export class DaemonClient implements SessionClient {
     return this.request(
       "repo.changes",
       { cwd },
-      v.array(
-        v.object({ path: v.string(), status: v.picklist(["added", "modified", "deleted"]) }),
-      ),
+      v.array(v.object({ path: v.string(), status: v.picklist(["added", "modified", "deleted"]) })),
     );
   }
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */

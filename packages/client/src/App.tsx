@@ -857,9 +857,7 @@ export function App({
             loadProjectFiles={() => controller.repoFiles()}
             reloadKey={activeSession.id}
             // a diff review opens a changed file as its captured diff; other threads show live contents
-            onOpenChangedFile={(path) =>
-              workbench.openFile(path, isDiff ? "diff" : "contents")
-            }
+            onOpenChangedFile={(path) => workbench.openFile(path, isDiff ? "diff" : "contents")}
             onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
             theme={theme}
           />

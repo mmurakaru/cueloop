@@ -125,97 +125,97 @@ export function AppShell({
       }}
     >
       <TooltipProvider theme={tokens}>
-      <box style={{ flexGrow: 1, flexDirection: "row" }}>
-        {sidebarOpen ? (
-          <PanelColumn width={threadsWidth} border="right" header={brandChrome} theme={tokens}>
-            {threadsPanel}
-          </PanelColumn>
-        ) : null}
-        {!zoomHideThread ? (
-          <PanelColumn
-            header={
-              <box style={{ flexDirection: "row" }}>
-                {!sidebarOpen ? <box style={{ paddingRight: 2 }}>{brandChrome}</box> : null}
-                {threadTitle ? <text fg={tokens.textDim}>{threadTitle}</text> : null}
-              </box>
-            }
-            headerRight={threadActions}
-            theme={tokens}
-          >
-            {threadPanel}
-          </PanelColumn>
-        ) : null}
-        {changesOpen ? (
-          <box
-            style={{
-              flexDirection: "column",
-              flexGrow: 1,
-              flexBasis: 0,
-              minWidth: 0,
-              borderStyle: "single",
-              // zoom drops the Thread pane, so the Threads sidebar's own right rule already divides
-              // here; skip the Changes editor's left rule then to avoid a double border
-              border: zoomHideThread ? [] : ["left"],
-              borderColor: tokens.border,
-            }}
-          >
-            {changesPanel}
-          </box>
-        ) : null}
-        {projectOpen ? (
-          <PanelColumn
-            width={projectWidth}
-            border="left"
-            header={null}
-            headerRight={projectToggles}
-            theme={tokens}
-          >
-            {projectPanel}
-          </PanelColumn>
-        ) : (
-          // collapsed: a divider tick above the continuous header underline holds the reopen toggle;
-          // the rule lives in the header only, never running the pane's full height
-          <box style={{ flexDirection: "column", width: 3 }}>
+        <box style={{ flexGrow: 1, flexDirection: "row" }}>
+          {sidebarOpen ? (
+            <PanelColumn width={threadsWidth} border="right" header={brandChrome} theme={tokens}>
+              {threadsPanel}
+            </PanelColumn>
+          ) : null}
+          {!zoomHideThread ? (
+            <PanelColumn
+              header={
+                <box style={{ flexDirection: "row" }}>
+                  {!sidebarOpen ? <box style={{ paddingRight: 2 }}>{brandChrome}</box> : null}
+                  {threadTitle ? <text fg={tokens.textDim}>{threadTitle}</text> : null}
+                </box>
+              }
+              headerRight={threadActions}
+              theme={tokens}
+            >
+              {threadPanel}
+            </PanelColumn>
+          ) : null}
+          {changesOpen ? (
             <box
-              customBorderChars={HEADER_UNDERLINE_CHARS}
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                height: 2,
-                backgroundColor: tokens.panel,
+                flexDirection: "column",
+                flexGrow: 1,
+                flexBasis: 0,
+                minWidth: 0,
                 borderStyle: "single",
-                border: ["bottom"],
+                // zoom drops the Thread pane, so the Threads sidebar's own right rule already divides
+                // here; skip the Changes editor's left rule then to avoid a double border
+                border: zoomHideThread ? [] : ["left"],
                 borderColor: tokens.border,
               }}
             >
-              <text fg={tokens.border}>{"│"}</text>
-              <IconButton
-                glyph={NERD.sidebarRightOff}
-                onPress={onToggleRight}
-                tip="Toggle Right Sidebar"
-                marginLeft={1}
-                theme={tokens}
-              />
+              {changesPanel}
             </box>
-          </box>
-        )}
-      </box>
-      {footer !== undefined ? (
-        <box
-          style={{
-            flexDirection: "row",
-            height: 1,
-            paddingLeft: 1,
-            paddingRight: 1,
-            borderStyle: "single",
-            border: ["top"],
-            borderColor: tokens.border,
-          }}
-        >
-          {footer}
+          ) : null}
+          {projectOpen ? (
+            <PanelColumn
+              width={projectWidth}
+              border="left"
+              header={null}
+              headerRight={projectToggles}
+              theme={tokens}
+            >
+              {projectPanel}
+            </PanelColumn>
+          ) : (
+            // collapsed: a divider tick above the continuous header underline holds the reopen toggle;
+            // the rule lives in the header only, never running the pane's full height
+            <box style={{ flexDirection: "column", width: 3 }}>
+              <box
+                customBorderChars={HEADER_UNDERLINE_CHARS}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  height: 2,
+                  backgroundColor: tokens.panel,
+                  borderStyle: "single",
+                  border: ["bottom"],
+                  borderColor: tokens.border,
+                }}
+              >
+                <text fg={tokens.border}>{"│"}</text>
+                <IconButton
+                  glyph={NERD.sidebarRightOff}
+                  onPress={onToggleRight}
+                  tip="Toggle Right Sidebar"
+                  marginLeft={1}
+                  theme={tokens}
+                />
+              </box>
+            </box>
+          )}
         </box>
-      ) : null}
-      {children}
+        {footer !== undefined ? (
+          <box
+            style={{
+              flexDirection: "row",
+              height: 1,
+              paddingLeft: 1,
+              paddingRight: 1,
+              borderStyle: "single",
+              border: ["top"],
+              borderColor: tokens.border,
+            }}
+          >
+            {footer}
+          </box>
+        ) : null}
+        {children}
       </TooltipProvider>
     </box>
   );

@@ -338,7 +338,10 @@ describe("the bare-launch welcome shell", () => {
     const welcome = locateText(setup, "Welcome");
     // the close box sits just past the label
     await setup.mockMouse.click(welcome.column + 8, welcome.row);
-    await waitForState(setup, () => !setup.captureCharFrame().includes("review loop for coding agents"));
+    await waitForState(
+      setup,
+      () => !setup.captureCharFrame().includes("review loop for coding agents"),
+    );
 
     // the Threads sidebar and the Thread empty state remain - never a blank shell
     const frame = setup.captureCharFrame();
