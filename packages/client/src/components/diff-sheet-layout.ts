@@ -49,6 +49,24 @@ export function annotatedRowsByIndex(
   return byRow;
 }
 
+/** Added and removed line counts per file path, for the file band's badge. */
+export function fileChangeCounts(
+  rows: DiffRow[],
+): Map<string, { additions: number; deletions: number }> {
+  const counts = new Map<string, { additions: number; deletions: number }>();
+
+  for (const row of rows) {
+    if (row.kind !== "add" && row.kind !== "del") continue;
+    const entry = counts.get(row.file) ?? { additions: 0, deletions: 0 };
+
+    if (row.kind === "add") entry.additions += 1;
+    else entry.deletions += 1;
+    counts.set(row.file, entry);
+  }
+
+  return counts;
+}
+
 /** Group rows into header segments and code chunks; a chunk closes after an
  *  annotated or composed row so a card can render directly below that line. */
 export function segmentRows(
@@ -96,10 +114,14 @@ export function segmentRows(
 
 /** The content-y offset of each row index, so the cursor can be scrolled into
  *  view; a file band spans three rows (rule, name, rule), a chunk's annotation
- *  adds one row for its card. */
-export function rowContentOffsets(segments: DiffSegment[]): number[] {
+ *  adds one row for its card. With `contentWidth` given, a code row that soft-wraps
+ *  counts the visual rows it occupies so the cursor-follow scroll stays honest. */
+export function rowContentOffsets(segments: DiffSegment[], contentWidth?: number): number[] {
   const offsets: number[] = [];
   let contentY = 0;
+  // a code row carries a one-cell sign prefix, so its wrapped height keys off text length + 1
+  const rowHeight = (text: string): number =>
+    contentWidth && contentWidth > 0 ? Math.max(1, Math.ceil((text.length + 1) / contentWidth)) : 1;
 
   for (const segment of segments) {
     if (segment.kind === "header") {
@@ -112,10 +134,11 @@ export function rowContentOffsets(segments: DiffSegment[]): number[] {
         contentY += 1;
       }
     } else {
-      segment.rows.forEach((_, lineIndex) => {
-        offsets[segment.firstRowIndex + lineIndex] = contentY + lineIndex;
-      });
-      contentY += segment.rows.length + (segment.annotation ? 1 : 0);
+      for (let lineIndex = 0; lineIndex < segment.rows.length; lineIndex++) {
+        offsets[segment.firstRowIndex + lineIndex] = contentY;
+        contentY += rowHeight(segment.rows[lineIndex]!.text);
+      }
+      if (segment.annotation) contentY += 1;
     }
   }
 

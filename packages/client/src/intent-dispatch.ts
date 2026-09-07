@@ -125,8 +125,39 @@ function handleStatus(intent: IntentOfType<"status">, deps: IntentDispatchDeps):
   deps.controller.setStatus(intent.message);
 }
 
+/** A diff cursor rests on code lines only; file and hunk headers are structural dividers. */
+function isCodeRow(row: DiffRow | undefined): boolean {
+  return row?.kind === "ctx" || row?.kind === "add" || row?.kind === "del";
+}
+
+/** The next code-row index in the move direction, skipping file/hunk headers; stays put at an edge. */
+function nextCodeRowIndex(rows: DiffRow[], from: number, to: IntentOfType<"move">["to"]): number {
+  if (to === "top") {
+    const first = rows.findIndex(isCodeRow);
+
+    return first === -1 ? from : first;
+  }
+  if (to === "bottom") {
+    for (let index = rows.length - 1; index >= 0; index--) if (isCodeRow(rows[index])) return index;
+
+    return from;
+  }
+  const step = to === "down" ? 1 : -1;
+
+  for (let index = from + step; index >= 0 && index < rows.length; index += step) {
+    if (isCodeRow(rows[index])) return index;
+  }
+
+  return from;
+}
+
 function handleMove(intent: IntentOfType<"move">, deps: IntentDispatchDeps): void {
-  const navigableCount = deps.isDiff ? deps.rows.length : deps.display.length;
+  if (deps.isDiff) {
+    deps.setCursor((current) => nextCodeRowIndex(deps.rows, current, intent.to));
+
+    return;
+  }
+  const navigableCount = deps.display.length;
 
   if (intent.to === "down") deps.setCursor((current) => Math.min(navigableCount - 1, current + 1));
   else if (intent.to === "up") deps.setCursor((current) => Math.max(0, current - 1));

@@ -7,6 +7,7 @@ import { DARK } from "../theme";
 import {
   annotatedRowsByIndex,
   coloredRowSpans,
+  fileChangeCounts,
   rowContentOffsets,
   rowLine,
   segmentRows,
@@ -30,6 +31,44 @@ describe("rowLine", () => {
   test("strips the trailing newline the patch carries", () => {
     // Arrange / Act / Assert
     expect(rowLine(row("add", "const x = 1;\n"))).toBe("const x = 1;");
+  });
+});
+
+describe("fileChangeCounts", () => {
+  test("tallies added and removed lines per file, ignoring context and headers", () => {
+    // Arrange
+    const rows = [
+      row("file", "a.ts"),
+      row("hunk", "@@"),
+      row("ctx", "unchanged"),
+      row("del", "gone"),
+      row("add", "one"),
+      row("add", "two"),
+      row("file", "b.ts", { file: "b.ts" }),
+      row("add", "only add", { file: "b.ts" }),
+    ];
+
+    // Act
+    const counts = fileChangeCounts(rows);
+
+    // Assert
+    expect(counts.get("a.ts")).toEqual({ additions: 2, deletions: 1 });
+    expect(counts.get("b.ts")).toEqual({ additions: 1, deletions: 0 });
+  });
+});
+
+describe("rowContentOffsets wrap", () => {
+  test("a code row past the content width counts the visual rows it wraps into", () => {
+    // Arrange - one 20-char add row, hunk header above it, content width 10
+    const rows = [row("hunk", "@@"), row("add", "12345678901234567890")];
+    const segments = segmentRows(rows, new Map());
+
+    // Act - the sign prefix makes it 21 cells, so three visual rows at width 10
+    const offsets = rowContentOffsets(segments, 10);
+
+    // Assert - hunk at y0, its wrapped code row at y1
+    expect(offsets[0]).toBe(0);
+    expect(offsets[1]).toBe(1);
   });
 });
 

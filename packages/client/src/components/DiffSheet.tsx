@@ -25,6 +25,7 @@ import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
 import {
   annotatedRowsByIndex,
   coloredRowSpans,
+  fileChangeCounts,
   rowContentOffsets,
   rowLine,
   segmentRows,
@@ -42,6 +43,10 @@ const REJECTED_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: tru
 
 /** A file band renders its name in bold between an equal rule above and below. */
 const FILE_HEADER_ATTRIBUTES = createTextAttributes({ bold: true });
+
+/** Columns the line-number gutter (min 4 + 1 pad) and scrollbar reserve, so wrap math
+ *  measures the width the code text actually occupies. */
+const GUTTER_COLUMNS = 6;
 
 export interface DiffComposeState {
   kind: "comment";
@@ -167,7 +172,7 @@ function DiffChunk({
         lineNumbers={lineNumbers}
         lineSigns={lineSigns}
       >
-        <text style={{ wrapMode: "none" }} selectable={false}>
+        <text style={{ wrapMode: "word" }} selectable={false}>
           {segment.rows.map((row, lineIndex) => {
             const isCursorRow = lineIndex === cursorInChunk;
             const isAnnotatedRow =
@@ -281,14 +286,20 @@ export function DiffSheet({
   );
   const intralineByRow = useMemo(() => intralineRunsByRow(rows), [rows]);
   const syntaxByRow = useSyntaxHighlights(rows);
-  const rowOffsets = useMemo(() => rowContentOffsets(segments), [segments]);
+  const fileStats = useMemo(() => fileChangeCounts(rows), [rows]);
 
-  // follow the cursor: keep it a couple of rows inside the viewport
+  // follow the cursor: keep it a couple of rows inside the viewport. Offsets read the live
+  // content width so a soft-wrapped code row counts its real visual height (gutter + scrollbar
+  // reserve a handful of columns the wrapped text does not use)
   useEffect(() => {
     const scrollbox = scrollRef.current;
-    const cursorOffset = rowOffsets[cursor];
 
-    if (!scrollbox || cursorOffset === undefined) return;
+    if (!scrollbox) return;
+    const cursorOffset = rowContentOffsets(segments, Math.max(1, scrollbox.width - GUTTER_COLUMNS))[
+      cursor
+    ];
+
+    if (cursorOffset === undefined) return;
     const viewportHeight = Math.max(1, scrollbox.height);
 
     if (cursorOffset < scrollbox.scrollTop + 2) {
@@ -296,7 +307,7 @@ export function DiffSheet({
     } else if (cursorOffset > scrollbox.scrollTop + viewportHeight - 3) {
       scrollbox.scrollTo({ x: 0, y: cursorOffset - viewportHeight + 3 });
     }
-  }, [cursor, rowOffsets]);
+  }, [cursor, segments]);
 
   return (
     <box
@@ -313,7 +324,11 @@ export function DiffSheet({
             const isCursor = segment.rowIndex === cursor;
 
             if (segment.row.kind === "file") {
-              // a file band: the bold name between an equal centered rule above and below it
+              // a file band: the bold name between an equal centered rule above and below it,
+              // with the file's added/removed counts pinned to the right edge. A file row is a
+              // structural divider, not the review target, so it never wears the cursor highlight
+              const stats = fileStats.get(segment.row.file);
+
               return (
                 <box
                   key={segmentIndex}
@@ -323,14 +338,26 @@ export function DiffSheet({
                     borderColor: tokens.border,
                   }}
                 >
-                  <text
-                    fg={tokens.text}
-                    bg={isCursor ? tokens.cursorBackground : undefined}
-                    attributes={FILE_HEADER_ATTRIBUTES}
-                    style={{ wrapMode: "none" }}
-                  >
-                    {(isCursor ? "▎" : "") + rowLine(segment.row)}
-                  </text>
+                  <box style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                    <text
+                      fg={tokens.text}
+                      attributes={FILE_HEADER_ATTRIBUTES}
+                      style={{ flexShrink: 1, minWidth: 0, wrapMode: "none" }}
+                    >
+                      {rowLine(segment.row)}
+                    </text>
+                    {stats && (stats.additions > 0 || stats.deletions > 0) ? (
+                      <text style={{ flexShrink: 0, wrapMode: "none" }}>
+                        {stats.additions > 0 ? (
+                          <span fg={tokens.insertedForeground}>{`+${stats.additions}`}</span>
+                        ) : null}
+                        {stats.additions > 0 && stats.deletions > 0 ? <span> </span> : null}
+                        {stats.deletions > 0 ? (
+                          <span fg={tokens.deletedForeground}>{`-${stats.deletions}`}</span>
+                        ) : null}
+                      </text>
+                    ) : null}
+                  </box>
                 </box>
               );
             }

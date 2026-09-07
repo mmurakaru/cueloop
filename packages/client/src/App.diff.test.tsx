@@ -73,8 +73,9 @@ describe("diff review", () => {
     const setup = await renderApp();
 
     // Act
-    // rows: file(0), hunk(1), ctx(2), del(3), add(4)
-    for (let i = 0; i < 4; i++) await press(setup, "j");
+    // rows: file(0), hunk(1), ctx(2), del(3), add(4); the cursor skips the file and
+    // hunk headers, so three moves land on the added line: ctx -> del -> add
+    for (let i = 0; i < 3; i++) await press(setup, "j");
     await press(setup, "c");
 
     // Assert
@@ -141,8 +142,9 @@ describe("diff review", () => {
     await waitForText(setup, "cueloop");
 
     // Act - move to the added line and reject its change
-    // rows: file(0), hunk(1), ctx(2), del(3), add(4)
-    for (let i = 0; i < 4; i++) await press(setup, "j");
+    // rows: file(0), hunk(1), ctx(2), del(3), add(4); the cursor skips the file and
+    // hunk headers, so three moves land on the added line: ctx -> del -> add
+    for (let i = 0; i < 3; i++) await press(setup, "j");
     await press(setup, "x");
 
     // Assert - the single change is gone, so the curated working copy is empty

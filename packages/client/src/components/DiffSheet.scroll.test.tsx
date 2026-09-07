@@ -54,10 +54,25 @@ function ScrollHarness({
   rows: DiffRow[];
   annotations: Annotation[];
 }): React.ReactNode {
-  const [cursor, setCursor] = useState(0);
+  // mirror the app: the cursor rests on code lines only, skipping file/hunk headers
+  const isCode = (index: number): boolean => {
+    const kind = rows[index]?.kind;
+
+    return kind === "ctx" || kind === "add" || kind === "del";
+  };
+  const firstCodeRow = Math.max(
+    0,
+    rows.findIndex((row) => row.kind !== "file" && row.kind !== "hunk"),
+  );
+  const [cursor, setCursor] = useState(firstCodeRow);
 
   useKeyboard((key) => {
-    if (key.name === "j") setCursor((current) => Math.min(rows.length - 1, current + 1));
+    if (key.name !== "j") return;
+    setCursor((current) => {
+      for (let index = current + 1; index < rows.length; index++) if (isCode(index)) return index;
+
+      return current;
+    });
   });
 
   return <DiffSheet rows={rows} cursor={cursor} annotations={annotations} />;

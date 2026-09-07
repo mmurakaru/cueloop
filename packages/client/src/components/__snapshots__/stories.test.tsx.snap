@@ -500,7 +500,7 @@ exports[`stories catalog Overlays/ConfirmDialog/DeletePlan renders, snapshots, a
 
 exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/AnnotatedLine 1`] = `
 " ─────────────────────────────────────────────────────────────────────────────────────────
- ▎src/store.ts                                                                            
+ src/store.ts                                                                        +1 -1
  ─────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                         
    1   export class Store {                                                               
@@ -520,7 +520,7 @@ exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, an
 
 exports[`stories catalog Surfaces/DiffSheet/ComposingOnLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/ComposingOnLine 1`] = `
 " ─────────────────────────────────────────────────────────────────────────────────────────
- src/store.ts                                                                             
+ src/store.ts                                                                        +1 -1
  ─────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                         
     1  export class Store {                                                               
@@ -540,7 +540,7 @@ exports[`stories catalog Surfaces/DiffSheet/ComposingOnLine renders, snapshots, 
 
 exports[`stories catalog Surfaces/DiffSheet/CursorOnAddedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/CursorOnAddedLine 1`] = `
 " ─────────────────────────────────────────────────────────────────────────────────────────
- src/store.ts                                                                             
+ src/store.ts                                                                        +1 -1
  ─────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                         
     1  export class Store {                                                               
@@ -560,7 +560,7 @@ exports[`stories catalog Surfaces/DiffSheet/CursorOnAddedLine renders, snapshots
 
 exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: Surfaces/DiffSheet/IntralineWordDiff 1`] = `
 " ─────────────────────────────────────────────────────────────────────────────────────────
- ▎src/store.ts                                                                            
+ src/store.ts                                                                        +1 -1
  ─────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                         
    1  export class Store {                                                                
@@ -580,7 +580,7 @@ exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots
 
 exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and carries its colors: Surfaces/DiffSheet/SignedRows 1`] = `
 " ─────────────────────────────────────────────────────────────────────────────────────────
- ▎src/store.ts                                                                            
+ src/store.ts                                                                        +1 -1
  ─────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                         
    1  export class Store {                                                                
@@ -599,7 +599,7 @@ exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and c
 `;
 
 exports[`stories catalog Surfaces/EditorGrid/OneGroup renders, snapshots, and carries its colors: Surfaces/EditorGrid/OneGroup 1`] = `
-" Changes   │ App.tsx   │                                                     ⛶ 
+" Changes   │ App.tsx   │                                                      
 ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                                                                                 
  the whole diff                                                                 
@@ -619,7 +619,7 @@ exports[`stories catalog Surfaces/EditorGrid/OneGroup renders, snapshots, and ca
 `;
 
 exports[`stories catalog Surfaces/EditorGrid/SplitGroups renders, snapshots, and carries its colors: Surfaces/EditorGrid/SplitGroups 1`] = `
-" plugin.json   │                            ⛶   │ plugin.json   │                            ⛶  
+" plugin.json   │                               │ plugin.json   │                              
 ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                                                   │                                                 
  .claude-plugin/plugin.json                       │ .claude-plugin/plugin.json                      
