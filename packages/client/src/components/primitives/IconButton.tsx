@@ -7,13 +7,6 @@ import type { MouseEvent as TerminalMouseEvent } from "@opentui/core";
 import { DARK, type Theme } from "../../theme";
 import { useTooltip } from "../Tooltip";
 
-/**
- * Emoji-presentation glyphs the terminal draws ~2 cells wide while the layout allocates them 1.
- * Reserving the extra column here (once, at the button) stops them overflowing into a neighbour or
- * clipping against a panel edge, so no container has to remember per-icon right padding.
- */
-const WIDE_GLYPHS = new Set(["⛶"]);
-
 export interface IconButtonProps {
   glyph: string;
   onPress?: () => void;
@@ -61,7 +54,6 @@ export function IconButton({
         alignSelf: "center",
         marginLeft,
         marginRight,
-        minWidth: WIDE_GLYPHS.has(glyph) ? 2 : undefined,
       }}
     >
       <text fg={resolved}>{glyph}</text>

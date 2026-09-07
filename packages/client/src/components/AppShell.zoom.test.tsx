@@ -87,7 +87,8 @@ describe("zoom icon in the shell", () => {
       zoomIconColumn(160, true, false),
     ]);
 
-    // Assert - width 160, project pane 32: the border sits at 128, the glyph two cells plus padding before it
-    for (const column of setupColumns) expect(128 - column).toBe(3);
+    // Assert - width 160, project pane 32: the border sits at 128 and the glyph one padding cell
+    // before it, the same inset the right-sidebar icon keeps from its own edge
+    for (const column of setupColumns) expect(128 - column).toBe(2);
   });
 });
