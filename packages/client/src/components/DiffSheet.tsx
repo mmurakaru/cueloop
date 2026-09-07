@@ -25,6 +25,7 @@ import { splitDiffRows, type SplitLine, type SplitRow } from "../split-diff";
 import { UNDERLINE, type AnnotationPalette } from "../annotation-palette";
 import { lineMarkRanges, runsFor, wrapLines, type MarkRange } from "../mark-runs";
 import { useFrameMeasure } from "../use-frame-measure";
+import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
 import { coloredRowSpans } from "./diff-sheet-layout";
 
@@ -195,13 +196,6 @@ interface SplitSideNodes {
   node: React.ReactNode;
 }
 
-/** The scroll viewport as measured after a frame: content width, visible height, scroll offset. */
-interface Viewport {
-  width: number;
-  height: number;
-  scrollTop: number;
-}
-
 /**
  * One item of the sheet's vertical layout: a base row (unified) or a split row, with the
  * visual lines it occupies. Cards under a materialized row add to the real height; the
@@ -278,32 +272,6 @@ function splitLayout(splitRows: SplitRow[], rows: DiffRow[], textWidth: number):
   });
 
   return buildLayout(items, itemOfRow);
-}
-
-/** The inclusive range of layout items to materialize; empty when `last < first`. */
-interface ItemWindow {
-  first: number;
-  last: number;
-}
-
-/** The inclusive item range to materialize for a scroll position: the viewport plus the overscan. */
-function visibleWindow(layout: SheetLayout, scrollTop: number, viewportHeight: number): ItemWindow {
-  const top = scrollTop - OVERSCAN_LINES;
-  const bottom = scrollTop + Math.max(1, viewportHeight) + OVERSCAN_LINES;
-  let first = layout.items.length;
-  let last = -1;
-
-  for (let index = 0; index < layout.items.length; index++) {
-    const start = layout.offsets[index]!;
-    const end = start + layout.items[index]!.height;
-
-    if (end <= top) continue;
-    if (start >= bottom) break;
-    if (index < first) first = index;
-    last = index;
-  }
-
-  return { first, last };
 }
 
 /** One painted stretch of a code line: its text with foreground, backdrop, and attributes. */
@@ -465,19 +433,11 @@ export function DiffSheet({
   const localStats = useMemo(() => fileChangeCounts(rows), [rows]);
   // base-row counts survive a collapse (folded rows drop the file's add/del rows); fall back locally
   const fileStats = fileStatsProp ?? localStats;
-  const viewport = useFrameMeasure<Viewport>(
-    () => ({
-      width: scrollRef.current?.content?.width ?? 0,
-      height: scrollRef.current?.height ?? 0,
-      scrollTop: scrollRef.current?.scrollTop ?? 0,
-    }),
-    (left, right) =>
-      left.width === right.width &&
-      left.height === right.height &&
-      left.scrollTop === right.scrollTop,
-    { width: 0, height: 0, scrollTop: 0 },
+  const viewWidth = useFrameMeasure(
+    () => scrollRef.current?.content?.width ?? 0,
+    (left, right) => left === right,
+    0,
   );
-  const viewWidth = viewport.width;
   // two columns and a one-cell divider share the width; each column keeps its own gutter
   const textWidth = split
     ? Math.max(0, Math.floor((viewWidth - 1) / 2) - GUTTER_COLUMNS)
@@ -485,32 +445,25 @@ export function DiffSheet({
 
   // Every visual line is its own text renderable (so a drag can hit-test it), and a large
   // diff has tens of thousands of them - more native text buffers than the renderer can
-  // hold. So the sheet is virtual: rows off screen collapse into spacers of their modelled
-  // height, and only the viewport plus an overscan is materialized.
+  // hold. So the sheet is virtual: only the viewport plus an overscan is mounted, each row
+  // estimated at its wrapped line count until its box (cards included) is measured.
   const layout = useMemo(
     () => (split ? splitLayout(splitRows, rows, textWidth) : unifiedLayout(rows, textWidth)),
     [split, splitRows, rows, textWidth],
   );
-  const window = visibleWindow(layout, viewport.scrollTop, viewport.height);
+  const virtual = useTerminalVirtualizer({
+    scrollbox: scrollRef,
+    count: layout.items.length,
+    estimateSize: (index) => layout.items[index]?.height ?? 1,
+    overscan: OVERSCAN_LINES,
+  });
 
   // an opening card shifts the layout, so the row it belongs to is revealed again; a
-  // discussion focused from the rail is scrolled into view the same way. A row that is
-  // not materialized yet scrolls to its modelled offset and renders on the next frame.
+  // discussion focused from the rail is scrolled into view the same way
+  const revealItem = layout.itemOfRow[surface.revealBlockIndex];
+
   useEffect(() => {
-    const scrollbox = scrollRef.current;
-    const itemIndex = layout.itemOfRow[surface.revealBlockIndex];
-
-    if (!scrollbox || itemIndex === undefined) return;
-    if (itemIndex >= window.first && itemIndex <= window.last) {
-      try {
-        scrollbox.scrollChildIntoView(`diff-row-${surface.revealBlockIndex}`);
-      } catch {
-        // best-effort reveal
-      }
-
-      return;
-    }
-    scrollbox.scrollTo({ x: 0, y: Math.max(0, layout.offsets[itemIndex]! - 2) });
+    if (revealItem !== undefined) virtual.scrollToIndex(revealItem);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surface.revealBlockIndex]);
 
@@ -685,15 +638,22 @@ export function DiffSheet({
   };
 
   const materialized: React.ReactNode[] = [];
+  const firstItem = virtual.items[0];
+  const lastItem = virtual.items[virtual.items.length - 1];
 
-  if (window.last >= window.first) {
-    const above = layout.offsets[window.first]!;
-    const lastItem = layout.items[window.last]!;
-    const below = layout.total - (layout.offsets[window.last]! + lastItem.height);
+  if (firstItem && lastItem) {
+    const below = virtual.totalSize - lastItem.end;
 
-    if (above > 0) materialized.push(<box key="spacer-above" style={{ height: above }} />);
-    for (let index = window.first; index <= window.last; index++) {
-      materialized.push(split ? splitItem(index) : unifiedItem(index));
+    if (firstItem.start > 0) {
+      materialized.push(<box key="spacer-above" style={{ height: firstItem.start }} />);
+    }
+    for (const item of virtual.items) {
+      // the wrapper is what gets measured, so a row's cards count toward its height
+      materialized.push(
+        <box key={`item-${item.index}`} ref={virtual.measureRef(item.index)}>
+          {split ? splitItem(item.index) : unifiedItem(item.index)}
+        </box>,
+      );
     }
     if (below > 0) materialized.push(<box key="spacer-below" style={{ height: below }} />);
   }
