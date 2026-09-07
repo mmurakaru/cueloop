@@ -906,6 +906,16 @@ exports[`stories catalog Surfaces/PrototypeSheet/Unsupported renders, snapshots,
 "
 `;
 
+exports[`stories catalog Layout/RootOverlay/FloatingNode renders, snapshots, and carries its colors: Layout/RootOverlay/FloatingNode 1`] = `
+"                                        
+ base content under the overlay         
+      ┌──────────────────┐              
+      │ floating overlay │              
+      └──────────────────┘              
+                                        
+"
+`;
+
 exports[`stories catalog Overlays/SettingsDialog/AppearanceThemed renders, snapshots, and carries its colors: Overlays/SettingsDialog/AppearanceThemed 1`] = `
 "                                                                                                    
                                                                                                     

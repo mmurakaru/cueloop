@@ -48,6 +48,7 @@ import { quickActionBody, type QuickAction } from "../config";
 import type { CheatsheetSection } from "../key-bindings";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
+import { useRootOverlay } from "./RootOverlay";
 
 /* ------------------------------------------------------------- palette */
 
@@ -677,7 +678,7 @@ function ScrollMarkers({
   discussions: Discussion[];
   hovered: string | null;
   tokens: Theme;
-  onHover: (marker: { key: string; row: number } | null) => void;
+  onHover: (marker: { key: string; screenY: number; anchorX: number } | null) => void;
   onJump: (key: string) => void;
 }): React.ReactNode {
   const railRef = useRef<BoxRenderable | null>(null);
@@ -709,9 +710,19 @@ function ScrollMarkers({
       ref={railRef}
       style={{ width: 3, flexShrink: 0, flexDirection: "column" }}
       onMouseMove={(event) => {
-        const index = indexAt(event.y - (railRef.current?.y ?? 0));
+        const railY = railRef.current?.y ?? 0;
+        const index = indexAt(event.y - railY);
 
-        onHover(index === null ? null : { key: discussions[index]!.key, row: rowFor(index) });
+        onHover(
+          index === null
+            ? null
+            : {
+                key: discussions[index]!.key,
+                // screen coordinates so the preview can render at the app root, above every pane rule
+                screenY: railY + rowFor(index),
+                anchorX: railRef.current?.x ?? 0,
+              },
+        );
       }}
       onMouseOut={() => onHover(null)}
       onMouseDown={(event) => {
@@ -910,8 +921,10 @@ export function ThreadView({
   const [slashIndex, setSlashIndex] = useState(0);
   const [hoveredMarker, setHoveredMarker] = useState<{
     key: string;
-    row: number;
+    screenY: number;
+    anchorX: number;
   } | null>(null);
+  const { setOverlay, clearOverlay } = useRootOverlay();
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
   const composerReady = useRef(false);
   const composeRef = useRef<ComposeState | null>(null);
@@ -1651,8 +1664,8 @@ export function ThreadView({
       <box
         style={{
           position: "absolute",
-          top: Math.max(0, hoveredMarker.row - 1),
-          right: 4,
+          top: Math.max(0, hoveredMarker.screenY - 1),
+          left: Math.max(0, hoveredMarker.anchorX - 48),
           width: 48,
           flexDirection: "column",
           border: true,
@@ -1676,11 +1689,18 @@ export function ThreadView({
     );
   };
 
+  // render the marker preview at the app root (above every pane rule); OpenTUI has no z-index, so an
+  // absolute box inside this pane would be sliced by the next pane's border
+  useEffect(() => {
+    setOverlay(markerPreview());
+
+    return () => clearOverlay();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoveredMarker, discussions, tokens]);
+
   return (
     <box
-      // a positioning context so the marker preview anchors to this pane (right of its markers) rather
-      // than escaping to the screen root, where a neighbouring pane's border would slice through it
-      style={{ flexGrow: 1, flexDirection: "row", position: "relative" }}
+      style={{ flexGrow: 1, flexDirection: "row" }}
       onMouseDrag={handleRootDrag}
       onMouseDragEnd={endDrag}
       onMouseUp={endDrag}
@@ -1704,7 +1724,6 @@ export function ThreadView({
         onHover={setHoveredMarker}
         onJump={jumpToDiscussion}
       />
-      {markerPreview()}
     </box>
   );
 }
