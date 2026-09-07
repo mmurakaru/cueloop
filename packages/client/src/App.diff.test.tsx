@@ -9,7 +9,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, press, waitForText } from "./test-support";
+import { isolateUserConfig, press, waitForState, waitForText } from "./test-support";
 
 const PATCH = `diff --git a/src/store.ts b/src/store.ts
 index 111..222 100644
@@ -103,6 +103,29 @@ describe("diff review", () => {
 
     expect(resolved.verdict!.feedback).toContain("new Map()");
     expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
+  });
+
+  test("Right folds a file to its band, Left restores its body", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    await waitForText(setup, "new Map()");
+
+    // Act - the cursor starts on the file band; Right collapses that file
+    await press(setup, "right");
+
+    // Assert - the body is gone but the band (with its counts) remains
+    await waitForState(setup, () => !setup.captureCharFrame().includes("new Map()"));
+    const collapsed = setup.captureCharFrame();
+
+    expect(collapsed).toContain("src/store.ts");
+    expect(collapsed).toContain("+1");
+
+    // Act - Left unfolds it again
+    await press(setup, "left");
+
+    // Assert
+    await waitForText(setup, "new Map()");
   });
 
   test("curation needs full file contents; a legacy diff answers", async () => {

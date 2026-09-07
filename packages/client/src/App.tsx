@@ -64,7 +64,7 @@ import {
   THREAD_CHORD_ENTRIES,
   TREE_CHORD_ENTRIES,
 } from "./thread-chords";
-import { DiffSheet, type DiffComposeState } from "./components/DiffSheet";
+import { DiffSheet, type DiffComposeState, type DiffFoldControls } from "./components/DiffSheet";
 import type { DiffRow } from "./view-diff";
 import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
 import { PrototypeSheet } from "./components/PrototypeSheet";
@@ -150,6 +150,8 @@ function ChangesTabBody(props: {
   focusedAnnotationId?: string;
   rejectedRows: Set<number>;
   compose: DiffComposeState | null;
+  fold?: DiffFoldControls;
+  fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
   dimmed: boolean;
   theme: Theme;
 }): React.ReactNode {
@@ -169,6 +171,8 @@ function ChangesTabBody(props: {
       focusedAnnotationId={props.focusedAnnotationId}
       rejectedRows={props.rejectedRows}
       compose={props.compose}
+      fold={props.fold}
+      fileStats={props.fileStats}
       theme={props.dimmed ? dimmedTheme(props.theme) : undefined}
     />
   );
@@ -183,6 +187,8 @@ function GridTabContent(props: {
   focusedAnnotationId?: string;
   rejectedRows: Set<number>;
   compose: DiffComposeState | null;
+  fold?: DiffFoldControls;
+  fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
   dimmed: boolean;
   readFile: (path: string) => Promise<string | null>;
   theme: Theme;
@@ -200,6 +206,9 @@ function GridTabContent(props: {
       focusedAnnotationId={tab.kind === "file" ? undefined : props.focusedAnnotationId}
       rejectedRows={props.rejectedRows}
       compose={tab.kind === "file" ? null : props.compose}
+      // the whole-diff Changes tab owns the per-file fold controls; a single-file tab has no band to fold
+      fold={tab.kind === "file" ? undefined : props.fold}
+      fileStats={props.fileStats}
       dimmed={props.dimmed}
       theme={props.theme}
     />
@@ -674,6 +683,15 @@ export function App({
     setMode,
     dispatch,
   });
+  const diffFold: DiffFoldControls = {
+    isCollapsed: (file) => controller.isFileCollapsed(file),
+    isExpanded: (file) => controller.isFileExpanded(file),
+    canExpand: (file) => controller.canExpandFile(file),
+    onToggleCollapse: (file) =>
+      controller.setFileCollapsed(file, !controller.isFileCollapsed(file)),
+    onToggleExpand: (file) => controller.setFileExpanded(file, !controller.isFileExpanded(file)),
+    onCopyPath: (file) => controller.copyFilePath(file),
+  };
   const submitConfirmState = buildSubmitConfirmState({
     mode,
     isDiff,
@@ -842,6 +860,8 @@ export function App({
                 focusedAnnotationId={focusedAnnotationId}
                 rejectedRows={rejectedRows}
                 compose={diffComposeState}
+                fold={diffFold}
+                fileStats={controller.fileStats()}
                 dimmed={walking}
                 readFile={(path) => controller.repoReadFile(path)}
                 theme={theme}

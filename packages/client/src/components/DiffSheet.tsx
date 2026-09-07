@@ -15,9 +15,11 @@ import {
   type ScrollBoxRenderable,
 } from "@opentui/core";
 import type { Annotation } from "@cueloop/schema";
-import type { DiffRow } from "../view-diff";
+import { fileChangeCounts, type DiffRow } from "../view-diff";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
+import { IconButton } from "./primitives/IconButton";
+import { NERD } from "./primitives/icons";
 import { truncateToSingleLine } from "./truncate-text";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { intralineRunsByRow, type IntralineRun } from "../diff-intraline";
@@ -25,7 +27,6 @@ import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
 import {
   annotatedRowsByIndex,
   coloredRowSpans,
-  fileChangeCounts,
   rowContentOffsets,
   rowLine,
   segmentRows,
@@ -55,6 +56,16 @@ export interface DiffComposeState {
   draft: AnnotationDraft;
 }
 
+/** The per-file fold controls the file band renders; absent in read-only story renders. */
+export interface DiffFoldControls {
+  isCollapsed: (file: string) => boolean;
+  isExpanded: (file: string) => boolean;
+  canExpand: (file: string) => boolean;
+  onToggleCollapse: (file: string) => void;
+  onToggleExpand: (file: string) => void;
+  onCopyPath: (file: string) => void;
+}
+
 export interface DiffSheetProps {
   rows: DiffRow[];
   cursor: number;
@@ -63,6 +74,10 @@ export interface DiffSheetProps {
   /** Row indices the owner rejected during curation; drawn struck through. */
   rejectedRows?: Set<number>;
   compose?: DiffComposeState | null;
+  /** File-band chevron/copy/unfold actions; when absent the band shows no controls. */
+  fold?: DiffFoldControls;
+  /** Per-file +/- counts from the base rows, so a collapsed file keeps its badge; else computed here. */
+  fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
   theme?: Theme;
 }
 
@@ -82,6 +97,106 @@ function rowStyle(row: DiffRow, isCursorRow: boolean, isAnnotatedRow: boolean, t
       : undefined;
 
   return { sign, baseColor, background };
+}
+
+/** The green +N red -N badge pinned to the file band's right edge. */
+function FileCountsBadge({
+  stats,
+  tokens,
+  marginRight,
+}: {
+  stats: { additions: number; deletions: number };
+  tokens: Theme;
+  marginRight: number;
+}): React.ReactNode {
+  if (stats.additions === 0 && stats.deletions === 0) return null;
+
+  return (
+    <text style={{ flexShrink: 0, wrapMode: "none", marginRight }}>
+      {stats.additions > 0 ? (
+        <span fg={tokens.insertedForeground}>{`+${stats.additions}`}</span>
+      ) : null}
+      {stats.additions > 0 && stats.deletions > 0 ? <span> </span> : null}
+      {stats.deletions > 0 ? (
+        <span fg={tokens.deletedForeground}>{`-${stats.deletions}`}</span>
+      ) : null}
+    </text>
+  );
+}
+
+/**
+ * A file band: chevron, bold name, and the added/removed counts between an equal rule above and
+ * below. The cursor only reaches a band when its file is collapsed (its sole landable row), so the
+ * highlight reads as "on this collapsed file", not "focused". `fold` absent (story renders) drops
+ * the controls.
+ */
+function FileBand({
+  row,
+  isCursor,
+  stats,
+  fold,
+  tokens,
+}: {
+  row: DiffRow;
+  isCursor: boolean;
+  stats: { additions: number; deletions: number } | undefined;
+  fold: DiffFoldControls | undefined;
+  tokens: Theme;
+}): React.ReactNode {
+  const file = row.file;
+  const collapsed = fold?.isCollapsed(file) ?? false;
+  const expanded = fold?.isExpanded(file) ?? false;
+  const canExpand = fold?.canExpand(file) ?? false;
+
+  return (
+    <box style={{ borderStyle: "single", border: ["top", "bottom"], borderColor: tokens.border }}>
+      <box
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          backgroundColor: isCursor ? tokens.cursorBackground : undefined,
+        }}
+      >
+        <box style={{ flexDirection: "row", flexShrink: 1, minWidth: 0 }}>
+          {fold ? (
+            <IconButton
+              glyph={collapsed ? NERD.chevronRight : NERD.chevronDown}
+              onPress={() => fold.onToggleCollapse(file)}
+              tip={collapsed ? "Expand file" : "Collapse file"}
+              marginRight={1}
+            />
+          ) : null}
+          <text
+            fg={tokens.text}
+            attributes={FILE_HEADER_ATTRIBUTES}
+            style={{ flexShrink: 1, minWidth: 0, wrapMode: "none" }}
+          >
+            {rowLine(row)}
+          </text>
+        </box>
+        <box style={{ flexDirection: "row", flexShrink: 0 }}>
+          {stats ? (
+            <FileCountsBadge stats={stats} tokens={tokens} marginRight={fold ? 1 : 0} />
+          ) : null}
+          {fold ? (
+            <IconButton
+              glyph={NERD.copy}
+              onPress={() => fold.onCopyPath(file)}
+              tip="Copy path"
+              marginRight={canExpand ? 1 : 0}
+            />
+          ) : null}
+          {fold && canExpand ? (
+            <IconButton
+              glyph={NERD.unfold}
+              onPress={() => fold.onToggleExpand(file)}
+              tip={expanded ? "Collapse to changes" : "Expand all lines"}
+            />
+          ) : null}
+        </box>
+      </box>
+    </box>
+  );
 }
 
 function DiffChunk({
@@ -271,6 +386,8 @@ export function DiffSheet({
   focusedAnnotationId,
   rejectedRows = EMPTY_REJECTED,
   compose,
+  fold,
+  fileStats: fileStatsProp,
   theme,
 }: DiffSheetProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -286,7 +403,9 @@ export function DiffSheet({
   );
   const intralineByRow = useMemo(() => intralineRunsByRow(rows), [rows]);
   const syntaxByRow = useSyntaxHighlights(rows);
-  const fileStats = useMemo(() => fileChangeCounts(rows), [rows]);
+  const localStats = useMemo(() => fileChangeCounts(rows), [rows]);
+  // base-row counts survive a collapse (folded rows drop the file's add/del rows); fall back locally
+  const fileStats = fileStatsProp ?? localStats;
 
   // follow the cursor: keep it a couple of rows inside the viewport. Offsets read the live
   // content width so a soft-wrapped code row counts its real visual height (gutter + scrollbar
@@ -324,41 +443,15 @@ export function DiffSheet({
             const isCursor = segment.rowIndex === cursor;
 
             if (segment.row.kind === "file") {
-              // a file band: the bold name between an equal centered rule above and below it,
-              // with the file's added/removed counts pinned to the right edge. A file row is a
-              // structural divider, not the review target, so it never wears the cursor highlight
-              const stats = fileStats.get(segment.row.file);
-
               return (
-                <box
+                <FileBand
                   key={segmentIndex}
-                  style={{
-                    borderStyle: "single",
-                    border: ["top", "bottom"],
-                    borderColor: tokens.border,
-                  }}
-                >
-                  <box style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                    <text
-                      fg={tokens.text}
-                      attributes={FILE_HEADER_ATTRIBUTES}
-                      style={{ flexShrink: 1, minWidth: 0, wrapMode: "none" }}
-                    >
-                      {rowLine(segment.row)}
-                    </text>
-                    {stats && (stats.additions > 0 || stats.deletions > 0) ? (
-                      <text style={{ flexShrink: 0, wrapMode: "none" }}>
-                        {stats.additions > 0 ? (
-                          <span fg={tokens.insertedForeground}>{`+${stats.additions}`}</span>
-                        ) : null}
-                        {stats.additions > 0 && stats.deletions > 0 ? <span> </span> : null}
-                        {stats.deletions > 0 ? (
-                          <span fg={tokens.deletedForeground}>{`-${stats.deletions}`}</span>
-                        ) : null}
-                      </text>
-                    ) : null}
-                  </box>
-                </box>
+                  row={segment.row}
+                  isCursor={isCursor}
+                  stats={fileStats.get(segment.row.file)}
+                  fold={fold}
+                  tokens={tokens}
+                />
               );
             }
 

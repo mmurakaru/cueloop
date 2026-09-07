@@ -130,22 +130,38 @@ function isCodeRow(row: DiffRow | undefined): boolean {
   return row?.kind === "ctx" || row?.kind === "add" || row?.kind === "del";
 }
 
-/** The next code-row index in the move direction, skipping file/hunk headers; stays put at an edge. */
+/**
+ * A landable diff row: any code line, plus a collapsed file's band (a file row with
+ * no body before the next file or the end) so the cursor can reach it to expand it.
+ */
+function isLandableRow(rows: DiffRow[], index: number): boolean {
+  const row = rows[index];
+
+  if (isCodeRow(row)) return true;
+  if (row?.kind !== "file") return false;
+  const next = rows[index + 1];
+
+  return next === undefined || next.kind === "file";
+}
+
+/** The next landable index in the move direction, skipping expanded headers; stays put at an edge. */
 function nextCodeRowIndex(rows: DiffRow[], from: number, to: IntentOfType<"move">["to"]): number {
   if (to === "top") {
-    const first = rows.findIndex(isCodeRow);
+    for (let index = 0; index < rows.length; index++) if (isLandableRow(rows, index)) return index;
 
-    return first === -1 ? from : first;
+    return from;
   }
   if (to === "bottom") {
-    for (let index = rows.length - 1; index >= 0; index--) if (isCodeRow(rows[index])) return index;
+    for (let index = rows.length - 1; index >= 0; index--) {
+      if (isLandableRow(rows, index)) return index;
+    }
 
     return from;
   }
   const step = to === "down" ? 1 : -1;
 
   for (let index = from + step; index >= 0 && index < rows.length; index += step) {
-    if (isCodeRow(rows[index])) return index;
+    if (isLandableRow(rows, index)) return index;
   }
 
   return from;
@@ -379,6 +395,30 @@ function handleRejectChange(_intent: IntentOfType<"rejectChange">, deps: IntentD
   deps.controller.toggleRejectChange(deps.cursor);
 }
 
+function handleFoldFile(_intent: IntentOfType<"foldFile">, deps: IntentDispatchDeps): void {
+  const file = deps.rows[deps.cursor]?.file;
+
+  if (!file || deps.controller.isFileCollapsed(file)) return;
+  deps.controller.setFileCollapsed(file, true);
+  // the file band is unchanged in index by its own collapse, so land the cursor on it
+  const headerIndex = deps.controller
+    .rows()
+    .findIndex((row) => row.kind === "file" && row.file === file);
+
+  if (headerIndex >= 0) deps.setCursor(headerIndex);
+}
+
+function handleUnfoldFile(_intent: IntentOfType<"unfoldFile">, deps: IntentDispatchDeps): void {
+  const file = deps.rows[deps.cursor]?.file;
+
+  if (!file || !deps.controller.isFileCollapsed(file)) return;
+  deps.controller.setFileCollapsed(file, false);
+  // drop the cursor onto the file's first code line now that its body is back
+  const firstCode = deps.controller.rows().findIndex((row) => row.file === file && isCodeRow(row));
+
+  if (firstCode >= 0) deps.setCursor(firstCode);
+}
+
 function handleRestoreCuration(
   _intent: IntentOfType<"restoreCuration">,
   deps: IntentDispatchDeps,
@@ -608,6 +648,8 @@ const intentHandlers: IntentHandlers = {
   cut: handleCut,
   rejectHunk: handleRejectHunk,
   rejectChange: handleRejectChange,
+  foldFile: handleFoldFile,
+  unfoldFile: handleUnfoldFile,
   restoreCuration: handleRestoreCuration,
   edit: handleEdit,
   editCard: handleEditCard,

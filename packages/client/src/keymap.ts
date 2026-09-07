@@ -33,6 +33,8 @@ export type Intent =
   | { type: "rejectHunk" }
   | { type: "rejectChange" }
   | { type: "restoreCuration" }
+  | { type: "foldFile" }
+  | { type: "unfoldFile" }
   | { type: "nextAnnotation" }
   | { type: "prevAnnotation" }
   | { type: "walkStart" }
@@ -284,6 +286,9 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 
     return [{ type: action === "reject_hunk" ? "rejectHunk" : "rejectChange" }];
   }
+  // right folds the file under the cursor to its band; left unfolds it again
+  if (action === "collapse_file") return [{ type: "foldFile" }];
+  if (action === "expand_file") return [{ type: "unfoldFile" }];
   // restore un-does a curated-out rejection from the rail; same owner gate as reject
   if (action === "restore_curation") {
     if (state.resolved) return status("review submitted - read-only");

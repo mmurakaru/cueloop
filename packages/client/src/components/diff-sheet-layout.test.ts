@@ -7,11 +7,11 @@ import { DARK } from "../theme";
 import {
   annotatedRowsByIndex,
   coloredRowSpans,
-  fileChangeCounts,
   rowContentOffsets,
   rowLine,
   segmentRows,
 } from "./diff-sheet-layout";
+import { fileChangeCounts } from "../view-diff";
 
 function row(kind: DiffRow["kind"], text: string, extra: Partial<DiffRow> = {}): DiffRow {
   return { kind, text, file: "a.ts", ...extra };

@@ -66,6 +66,24 @@ export function diffRows(patchText: string): DiffRow[] {
   return rows;
 }
 
+/** Added and removed line counts per file path, for the file band's badge; base rows only. */
+export function fileChangeCounts(
+  rows: DiffRow[],
+): Map<string, { additions: number; deletions: number }> {
+  const counts = new Map<string, { additions: number; deletions: number }>();
+
+  for (const row of rows) {
+    if (row.kind !== "add" && row.kind !== "del") continue;
+    const entry = counts.get(row.file) ?? { additions: 0, deletions: 0 };
+
+    if (row.kind === "add") entry.additions += 1;
+    else entry.deletions += 1;
+    counts.set(row.file, entry);
+  }
+
+  return counts;
+}
+
 function fileLabel(file: FileDiffMetadata): string {
   return file.prevName && file.prevName !== file.name
     ? `${file.prevName} → ${file.name}`

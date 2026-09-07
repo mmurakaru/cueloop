@@ -44,7 +44,9 @@ import {
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
-import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
+import { diffRowAnchor, diffRows, fileChangeCounts, type DiffRow } from "./view-diff";
+import { applyFold } from "./diff-fold";
+import { copyToClipboard } from "./clipboard";
 import {
   changeRejectionForRow,
   hunkRejectionForRow,
@@ -193,6 +195,18 @@ export interface ReviewController {
   /** Derived projections, cached per session identity. */
   display(): DisplayBlock[];
   rows(): DiffRow[];
+  /** Fold a file's diff body to just its band, or unfold it; rows() reflects the change. */
+  setFileCollapsed(file: string, collapsed: boolean): void;
+  isFileCollapsed(file: string): boolean;
+  /** Weave a file's full contents inline (unchanged lines as context), or fold back to hunks. */
+  setFileExpanded(file: string, expanded: boolean): void;
+  isFileExpanded(file: string): boolean;
+  /** Whether the file carries the full contents weaving needs (curatable diffs do). */
+  canExpandFile(file: string): boolean;
+  /** Copy a file's path to the clipboard; reports the outcome via status. */
+  copyFilePath(file: string): void;
+  /** Per-file added/removed line counts from the base rows (survives collapse). */
+  fileStats(): Map<string, { additions: number; deletions: number }>;
   /** The walk's step list, derived from the diff rows. */
   files(): WalkFile[];
   working(): string;
@@ -334,6 +348,10 @@ class Controller implements ReviewController {
     models: new Map(),
     tree: [],
   };
+  /** File paths whose diff body is folded to just the file band. */
+  private collapsedFiles = new Set<string>();
+  /** File paths woven to their full contents (unchanged lines shown as context). */
+  private expandedFiles = new Set<string>();
   /** The diff's reject decisions live on the session record; the daemon curates from them. */
   private get rejections(): HunkRejection[] {
     return this.snapshot.session?.curation ?? EMPTY_REJECTIONS;
@@ -431,6 +449,9 @@ class Controller implements ReviewController {
 
     if (this.derivedFor === session) return;
     this.derivedFor = session;
+    // a new session starts fully expanded, never inheriting the prior diff's fold state
+    this.collapsedFiles.clear();
+    this.expandedFiles.clear();
     const rows =
       session && session.artifact.type === "diff" ? diffRows(session.artifact.content) : [];
     const models = new Map<string, FileDiffMetadata>();
@@ -459,8 +480,58 @@ class Controller implements ReviewController {
 
   rows(): DiffRow[] {
     this.ensureDerived();
+    if (this.collapsedFiles.size === 0 && this.expandedFiles.size === 0) return this.derived.rows;
 
-    return this.derived.rows;
+    return applyFold(
+      this.derived.rows,
+      this.collapsedFiles,
+      this.expandedFiles,
+      this.snapshot.session?.artifact.files,
+    );
+  }
+
+  setFileCollapsed(file: string, collapsed: boolean): void {
+    if (collapsed) {
+      this.collapsedFiles.add(file);
+      this.expandedFiles.delete(file);
+    } else {
+      this.collapsedFiles.delete(file);
+    }
+    this.update({});
+  }
+
+  isFileCollapsed(file: string): boolean {
+    return this.collapsedFiles.has(file);
+  }
+
+  setFileExpanded(file: string, expanded: boolean): void {
+    if (expanded) {
+      this.expandedFiles.add(file);
+      this.collapsedFiles.delete(file);
+    } else {
+      this.expandedFiles.delete(file);
+    }
+    this.update({});
+  }
+
+  isFileExpanded(file: string): boolean {
+    return this.expandedFiles.has(file);
+  }
+
+  canExpandFile(file: string): boolean {
+    return (this.snapshot.session?.artifact.files ?? []).some((entry) => entry.path === file);
+  }
+
+  copyFilePath(file: string): void {
+    void copyToClipboard(file).then((copied) =>
+      this.setStatus(copied ? `copied ${file}` : "no clipboard tool available"),
+    );
+  }
+
+  fileStats(): Map<string, { additions: number; deletions: number }> {
+    this.ensureDerived();
+
+    return fileChangeCounts(this.derived.rows);
   }
 
   files(): WalkFile[] {

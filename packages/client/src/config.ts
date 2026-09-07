@@ -117,6 +117,8 @@ export const DEFAULT_KEYS: CueloopConfig["keys"] = {
   cut: ["x"],
   reject_hunk: ["X"],
   restore_curation: ["u"],
+  collapse_file: ["right"],
+  expand_file: ["left"],
   edit: ["e"],
   next_annotation: ["n"],
   prev_annotation: ["p"],
