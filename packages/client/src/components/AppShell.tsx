@@ -6,6 +6,7 @@
 // toggle when the region is closed. Each pane owns its own header controls; the thread header never does.
 
 import React from "react";
+import { useTerminalDimensions } from "@opentui/react";
 import { DARK, type Theme } from "../theme";
 import { PanelColumn } from "./PanelColumn";
 import { IconButton } from "./primitives/IconButton";
@@ -70,6 +71,18 @@ export function AppShell({
   projectWidth = 32,
 }: AppShellProps): React.ReactNode {
   const tokens = theme ?? DARK;
+  const { width: terminalWidth } = useTerminalDimensions();
+  // Thread and Changes would otherwise split the middle as two flexBasis-0 items, and Yoga adds the
+  // Changes left border on top of its share: at even widths the halves come out fractional, the
+  // Changes side rounds up, and the row overflows a cell under the Project border. Sizing the Thread
+  // pane to a whole number leaves Changes the lone flex item, which lays out exactly.
+  const collapsedRailWidth = 4;
+  const middleWidth =
+    terminalWidth -
+    (sidebarOpen ? threadsWidth : 0) -
+    (projectOpen ? projectWidth : collapsedRailWidth);
+  const threadPaneWidth =
+    changesOpen && !zoomHideThread ? Math.max(20, Math.floor(middleWidth / 2)) : undefined;
 
   // gear + sidebar toggle + product mark: global chrome, in the Threads header when open, else at the
   // left of the Thread header when the Threads pane is collapsed
@@ -133,6 +146,7 @@ export function AppShell({
             ) : null}
             {!zoomHideThread ? (
               <PanelColumn
+                width={threadPaneWidth}
                 header={
                   <box style={{ flexDirection: "row" }}>
                     {!sidebarOpen ? <box style={{ paddingRight: 2 }}>{brandChrome}</box> : null}
