@@ -459,7 +459,8 @@ function SplitPairRow({
   tokens: Theme;
 }): React.ReactNode {
   return (
-    <box style={{ flexDirection: "row" }}>
+    // stretch so the divider box grows to the taller side's wrapped height, leaving no gap
+    <box style={{ flexDirection: "row", alignItems: "stretch" }}>
       <SplitSide
         line={pair.left}
         isCursor={pair.left?.rowIndex === cursor}
@@ -469,9 +470,14 @@ function SplitPairRow({
         syntaxByRow={syntaxByRow}
         tokens={tokens}
       />
-      <text fg={tokens.border} style={{ flexShrink: 0, wrapMode: "none" }}>
-        {"│"}
-      </text>
+      <box
+        style={{
+          flexShrink: 0,
+          borderStyle: "single",
+          border: ["left"],
+          borderColor: tokens.border,
+        }}
+      />
       <SplitSide
         line={pair.right}
         isCursor={pair.right?.rowIndex === cursor}

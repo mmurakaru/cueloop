@@ -126,6 +126,9 @@ function EditorGroupPane({
         customBorderChars={HEADER_UNDERLINE_CHARS}
         style={{
           flexDirection: "row",
+          // pin the controls to the right edge so their column never shifts with the container
+          // width parity; a lone flexGrow tab strip would drag them a cell on zoom
+          justifyContent: "space-between",
           height: 2,
           // match the pane headers: the panel token is transparent in the branded theme, so the
           // header reads as terminal-through rather than a raised box
@@ -136,8 +139,8 @@ function EditorGroupPane({
         }}
       >
         {/* the tab strip shrinks and clips its overflow so a long row never collides with the
-            fixed header controls on the right */}
-        <box style={{ flexDirection: "row", flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
+            fixed header controls on the right; no flexGrow, so its rounded width can't shift them */}
+        <box style={{ flexDirection: "row", flexShrink: 1, minWidth: 0 }}>
           {group.tabs.map((tab) => (
             <EditorTabButton
               key={tab.id}
