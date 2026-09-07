@@ -2,7 +2,9 @@
 // editor group with its own tab strip and header controls. The caller supplies renderTab so the grid
 // stays layout-only - a tab becomes a diff, a file's contents, or the aggregate Changes view upstream.
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import type { ScrollBoxRenderable } from "@opentui/core";
+import { useRenderer } from "@opentui/react";
 import { DARK, type Theme } from "../theme";
 import { IconButton } from "./primitives/IconButton";
 import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
@@ -46,11 +48,14 @@ function EditorTabButton({
 
   return (
     <box
+      id={tab.id}
       onMouseUp={onSelect}
       onMouseOver={() => setHovered(true)}
       onMouseOut={() => setHovered(false)}
       style={{
         flexDirection: "row",
+        // a tab keeps the width of its name; the strip scrolls when the row overflows
+        flexShrink: 0,
         paddingLeft: 1,
         paddingRight: 1,
         backgroundColor: active ? tokens.background : undefined,
@@ -59,7 +64,9 @@ function EditorTabButton({
         borderColor: tokens.border,
       }}
     >
-      <text fg={active ? tokens.textMuted : tokens.textDim}>{tab.label}</text>
+      <text fg={active ? tokens.textMuted : tokens.textDim} style={{ wrapMode: "none" }}>
+        {tab.label}
+      </text>
       <box
         onMouseUp={(event) => {
           event.stopPropagation();
@@ -117,6 +124,30 @@ function EditorGroupPane({
   const [menuOpen, setMenuOpen] = useState(false);
   const active = group.tabs.find((tab) => tab.id === group.activeTabId) ?? group.tabs[0];
   const isFile = active?.kind === "file";
+  const stripRef = useRef<ScrollBoxRenderable | null>(null);
+  const renderer = useRenderer();
+
+  // the strip scrolls the active tab into view, so a tab opened past the edge is never hidden;
+  // the strip is laid out after the commit, so the reveal repeats on the next frame
+  useEffect(() => {
+    if (!active) return;
+    const reveal = (): void => {
+      try {
+        stripRef.current?.scrollChildIntoView(active.id);
+      } catch {
+        // best-effort reveal
+      }
+    };
+    const onFrame = (): void => {
+      renderer?.off("frame", onFrame);
+      reveal();
+    };
+
+    reveal();
+    renderer?.on("frame", onFrame);
+
+    return () => renderer?.off("frame", onFrame);
+  }, [active, renderer]);
 
   return (
     <box
@@ -139,9 +170,19 @@ function EditorGroupPane({
           borderColor: tokens.border,
         }}
       >
-        {/* the tab strip shrinks and clips its overflow so a long row never collides with the
-            fixed header controls on the right; no flexGrow, so its rounded width can't shift them */}
-        <box style={{ flexDirection: "row", flexShrink: 1, minWidth: 0 }}>
+        {/* the tab strip is a horizontal scroller: tabs keep their width and the row scrolls behind
+            the fixed header controls on the right when it overflows; no flexGrow, so its rounded
+            width can't shift them */}
+        <scrollbox
+          ref={stripRef}
+          focused={false}
+          scrollX
+          scrollY={false}
+          contentOptions={{ flexDirection: "row" }}
+          horizontalScrollbarOptions={{ visible: false }}
+          verticalScrollbarOptions={{ visible: false }}
+          style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, height: 1 }}
+        >
           {group.tabs.map((tab) => (
             <EditorTabButton
               key={tab.id}
@@ -152,8 +193,8 @@ function EditorGroupPane({
               tokens={tokens}
             />
           ))}
-        </box>
-        <box style={{ flexDirection: "row", flexShrink: 0, paddingRight: 1 }}>
+        </scrollbox>
+        <box style={{ flexDirection: "row", flexShrink: 0, paddingLeft: 1, paddingRight: 1 }}>
           <IconButton glyph="search" onPress={() => {}} marginRight={2} theme={tokens} />
           <IconButton
             glyph={NERD.zoom}
