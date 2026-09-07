@@ -113,6 +113,8 @@ export interface IntentDispatchDeps {
   selectCardFromDocument: (annotationId: string) => void;
   runEditorHandOff: () => void;
   openCardEdit: (annotationId: string) => void;
+  /** Flip unified/split diff and persist it (App-owned); split lays out only when zoomed. */
+  toggleDiffView: () => void;
 }
 
 type IntentOfType<Kind extends Intent["type"]> = Extract<Intent, { type: Kind }>;
@@ -419,6 +421,13 @@ function handleUnfoldFile(_intent: IntentOfType<"unfoldFile">, deps: IntentDispa
   if (firstCode >= 0) deps.setCursor(firstCode);
 }
 
+function handleToggleDiffView(
+  _intent: IntentOfType<"toggleDiffView">,
+  deps: IntentDispatchDeps,
+): void {
+  deps.toggleDiffView();
+}
+
 function handleRestoreCuration(
   _intent: IntentOfType<"restoreCuration">,
   deps: IntentDispatchDeps,
@@ -650,6 +659,7 @@ const intentHandlers: IntentHandlers = {
   rejectChange: handleRejectChange,
   foldFile: handleFoldFile,
   unfoldFile: handleUnfoldFile,
+  toggleDiffView: handleToggleDiffView,
   restoreCuration: handleRestoreCuration,
   edit: handleEdit,
   editCard: handleEditCard,

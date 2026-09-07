@@ -26,8 +26,10 @@ import {
   DEFAULT_QUICK_ACTIONS,
   loadConfig,
   persistAuthorName,
+  persistDiffView,
   persistPins,
   type AutoClose,
+  type DiffViewMode,
   type QuickAction,
 } from "./config";
 import {
@@ -152,6 +154,7 @@ function ChangesTabBody(props: {
   compose: DiffComposeState | null;
   fold?: DiffFoldControls;
   fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
+  split?: boolean;
   dimmed: boolean;
   theme: Theme;
 }): React.ReactNode {
@@ -173,6 +176,7 @@ function ChangesTabBody(props: {
       compose={props.compose}
       fold={props.fold}
       fileStats={props.fileStats}
+      split={props.split}
       theme={props.dimmed ? dimmedTheme(props.theme) : undefined}
     />
   );
@@ -189,6 +193,7 @@ function GridTabContent(props: {
   compose: DiffComposeState | null;
   fold?: DiffFoldControls;
   fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
+  split?: boolean;
   dimmed: boolean;
   readFile: (path: string) => Promise<string | null>;
   theme: Theme;
@@ -209,6 +214,7 @@ function GridTabContent(props: {
       // the whole-diff Changes tab owns the per-file fold controls; a single-file tab has no band to fold
       fold={tab.kind === "file" ? undefined : props.fold}
       fileStats={props.fileStats}
+      split={props.split}
       dimmed={props.dimmed}
       theme={props.theme}
     />
@@ -365,6 +371,8 @@ export function App({
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
+  // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
+  const [diffView, setDiffView] = useState<DiffViewMode>("unified");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<RailTab>("review");
@@ -396,6 +404,7 @@ export function App({
     setAuthorNames(config.authors);
     setQuickActions(config.actions);
     setAutoClose(config.ui.autoClose);
+    setDiffView(config.ui.diffView);
     setPinnedIds(new Set(config.ui.pins));
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings, appearance]);
@@ -438,6 +447,8 @@ export function App({
     appearance,
     autoClose,
     setAutoClose,
+    diffView,
+    setDiffView,
     themeName,
     setThemeName,
     themeOverrides,
@@ -554,6 +565,14 @@ export function App({
     selectCardFromDocument,
     runEditorHandOff,
     openCardEdit,
+    toggleDiffView: () => {
+      const next: DiffViewMode = diffView === "unified" ? "split" : "unified";
+
+      setDiffView(next);
+      persistDiffView(next);
+      if (next === "split" && !workbench.zoomed)
+        controller.setStatus("split diff shows when zoomed");
+    },
   });
 
   const overlay = resolveOverlay(mode, completion.phase, walking);
@@ -862,6 +881,7 @@ export function App({
                 compose={diffComposeState}
                 fold={diffFold}
                 fileStats={controller.fileStats()}
+                split={diffView === "split" && workbench.zoomed}
                 dimmed={walking}
                 readFile={(path) => controller.repoReadFile(path)}
                 theme={theme}

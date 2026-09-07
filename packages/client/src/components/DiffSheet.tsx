@@ -24,6 +24,7 @@ import { truncateToSingleLine } from "./truncate-text";
 import { AnnotationCard, type AnnotationDraft } from "./AnnotationCard";
 import { intralineRunsByRow, type IntralineRun } from "../diff-intraline";
 import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
+import { splitDiffRows, splitRowOffsets, type SplitLine, type SplitRow } from "../split-diff";
 import {
   annotatedRowsByIndex,
   coloredRowSpans,
@@ -78,6 +79,8 @@ export interface DiffSheetProps {
   fold?: DiffFoldControls;
   /** Per-file +/- counts from the base rows, so a collapsed file keeps its badge; else computed here. */
   fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
+  /** Render old|new side by side instead of one inline column; the App gates this on zoom. */
+  split?: boolean;
   theme?: Theme;
 }
 
@@ -354,6 +357,134 @@ function DiffChunk({
   );
 }
 
+/** One side of a split pair: a padded line number, the sign, and the colored code, or blank filler. */
+function SplitSide({
+  line,
+  isCursor,
+  isAnnotated,
+  isRejected,
+  intralineByRow,
+  syntaxByRow,
+  tokens,
+}: {
+  line: SplitLine | undefined;
+  isCursor: boolean;
+  isAnnotated: boolean;
+  isRejected: boolean;
+  intralineByRow: Map<number, IntralineRun[]>;
+  syntaxByRow: Map<number, SyntaxSpan[]>;
+  tokens: Theme;
+}): React.ReactNode {
+  // a filler side (the shorter half of an unbalanced change) reads as absent, not empty code
+  if (!line) {
+    return (
+      <box style={{ flexGrow: 1, flexBasis: 0, minWidth: 0, backgroundColor: tokens.panel }} />
+    );
+  }
+  const background = isCursor
+    ? tokens.cursorBackground
+    : isAnnotated
+      ? tokens.markCommentBackground
+      : undefined;
+  const sign = line.kind === "add" ? "+" : line.kind === "del" ? "-" : " ";
+  const baseColor =
+    line.kind === "add"
+      ? tokens.insertedForeground
+      : line.kind === "del"
+        ? tokens.deletedForeground
+        : tokens.textMuted;
+  const text = rowLine(line.row);
+  const gutter = `${isCursor ? "▎" : " "}${String(line.lineNumber ?? "").padStart(4, " ")} `;
+
+  return (
+    <box
+      style={{
+        flexDirection: "row",
+        flexGrow: 1,
+        flexBasis: 0,
+        minWidth: 0,
+        backgroundColor: background,
+      }}
+    >
+      <text
+        fg={isCursor ? tokens.accent : tokens.textDim}
+        style={{ flexShrink: 0, wrapMode: "none" }}
+      >
+        {gutter}
+      </text>
+      {isRejected ? (
+        <text
+          fg={tokens.textDim}
+          attributes={REJECTED_ATTRIBUTES}
+          style={{ flexGrow: 1, minWidth: 0, wrapMode: "word" }}
+        >
+          {sign + text}
+        </text>
+      ) : (
+        <text style={{ flexGrow: 1, minWidth: 0, wrapMode: "word" }}>
+          <span fg={baseColor}>{sign}</span>
+          {coloredRowSpans(
+            text,
+            intralineByRow.get(line.rowIndex),
+            syntaxByRow.get(line.rowIndex),
+            baseColor,
+            tokens,
+          ).map((span, spanIndex) => (
+            <span key={spanIndex} fg={span.foreground}>
+              {span.text}
+            </span>
+          ))}
+        </text>
+      )}
+    </box>
+  );
+}
+
+/** A split pair: old on the left, new on the right, divided by a thin rule. */
+function SplitPairRow({
+  pair,
+  cursor,
+  annotatedByRow,
+  rejectedRows,
+  intralineByRow,
+  syntaxByRow,
+  tokens,
+}: {
+  pair: SplitRow;
+  cursor: number;
+  annotatedByRow: Map<number, unknown>;
+  rejectedRows: Set<number>;
+  intralineByRow: Map<number, IntralineRun[]>;
+  syntaxByRow: Map<number, SyntaxSpan[]>;
+  tokens: Theme;
+}): React.ReactNode {
+  return (
+    <box style={{ flexDirection: "row" }}>
+      <SplitSide
+        line={pair.left}
+        isCursor={pair.left?.rowIndex === cursor}
+        isAnnotated={pair.left !== undefined && annotatedByRow.has(pair.left.rowIndex)}
+        isRejected={pair.left !== undefined && rejectedRows.has(pair.left.rowIndex)}
+        intralineByRow={intralineByRow}
+        syntaxByRow={syntaxByRow}
+        tokens={tokens}
+      />
+      <text fg={tokens.border} style={{ flexShrink: 0, wrapMode: "none" }}>
+        {"│"}
+      </text>
+      <SplitSide
+        line={pair.right}
+        isCursor={pair.right?.rowIndex === cursor}
+        isAnnotated={pair.right !== undefined && annotatedByRow.has(pair.right.rowIndex)}
+        isRejected={pair.right !== undefined && rejectedRows.has(pair.right.rowIndex)}
+        intralineByRow={intralineByRow}
+        syntaxByRow={syntaxByRow}
+        tokens={tokens}
+      />
+    </box>
+  );
+}
+
 /** Async tree-sitter highlights, discarded when they belong to superseded rows. */
 function useSyntaxHighlights(rows: DiffRow[]): Map<number, SyntaxSpan[]> {
   const [highlighted, setHighlighted] = useState<{
@@ -388,6 +519,7 @@ export function DiffSheet({
   compose,
   fold,
   fileStats: fileStatsProp,
+  split = false,
   theme,
 }: DiffSheetProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -401,22 +533,24 @@ export function DiffSheet({
     () => segmentRows(rows, annotatedByRow, compose?.rowIndex),
     [rows, annotatedByRow, compose?.rowIndex],
   );
+  const splitRows = useMemo(() => (split ? splitDiffRows(rows) : []), [split, rows]);
+  const splitOffsets = useMemo(() => splitRowOffsets(splitRows), [splitRows]);
   const intralineByRow = useMemo(() => intralineRunsByRow(rows), [rows]);
   const syntaxByRow = useSyntaxHighlights(rows);
   const localStats = useMemo(() => fileChangeCounts(rows), [rows]);
   // base-row counts survive a collapse (folded rows drop the file's add/del rows); fall back locally
   const fileStats = fileStatsProp ?? localStats;
 
-  // follow the cursor: keep it a couple of rows inside the viewport. Offsets read the live
-  // content width so a soft-wrapped code row counts its real visual height (gutter + scrollbar
-  // reserve a handful of columns the wrapped text does not use)
+  // follow the cursor: keep it a couple of rows inside the viewport. The unified offsets read the
+  // live content width so a soft-wrapped code row counts its real height; split columns are wide,
+  // so a pair counts as one row (the base index maps to its pair's y through splitOffsets)
   useEffect(() => {
     const scrollbox = scrollRef.current;
 
     if (!scrollbox) return;
-    const cursorOffset = rowContentOffsets(segments, Math.max(1, scrollbox.width - GUTTER_COLUMNS))[
-      cursor
-    ];
+    const cursorOffset = split
+      ? splitOffsets.get(cursor)
+      : rowContentOffsets(segments, Math.max(1, scrollbox.width - GUTTER_COLUMNS))[cursor];
 
     if (cursorOffset === undefined) return;
     const viewportHeight = Math.max(1, scrollbox.height);
@@ -426,7 +560,66 @@ export function DiffSheet({
     } else if (cursorOffset > scrollbox.scrollTop + viewportHeight - 3) {
       scrollbox.scrollTo({ x: 0, y: cursorOffset - viewportHeight + 3 });
     }
-  }, [cursor, segments]);
+  }, [cursor, segments, split, splitOffsets]);
+
+  if (split) {
+    return (
+      <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 0 }}>
+        <scrollbox id="diff-scroll" ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
+          {splitRows.map((row, rowIndex) => {
+            if (row.kind === "file") {
+              const isCursor = row.left?.rowIndex === cursor || row.right?.rowIndex === cursor;
+
+              return (
+                <FileBand
+                  key={rowIndex}
+                  row={{ kind: "file", text: row.text ?? row.file, file: row.file }}
+                  isCursor={isCursor}
+                  stats={fileStats.get(row.file)}
+                  fold={fold}
+                  tokens={tokens}
+                />
+              );
+            }
+            if (row.kind === "hunk") {
+              return (
+                <text key={rowIndex} fg={tokens.blue} style={{ wrapMode: "none" }}>
+                  {" "}
+                  {row.text ?? "@@"}
+                </text>
+              );
+            }
+            const composeHere =
+              compose !== undefined &&
+              compose !== null &&
+              (row.left?.rowIndex === compose.rowIndex || row.right?.rowIndex === compose.rowIndex);
+
+            return (
+              <React.Fragment key={rowIndex}>
+                <SplitPairRow
+                  pair={row}
+                  cursor={cursor}
+                  annotatedByRow={annotatedByRow}
+                  rejectedRows={rejectedRows}
+                  intralineByRow={intralineByRow}
+                  syntaxByRow={syntaxByRow}
+                  tokens={tokens}
+                />
+                {compose && composeHere ? (
+                  <AnnotationCard
+                    kind={compose.kind}
+                    quote={compose.quote}
+                    draft={compose.draft}
+                    theme={theme}
+                  />
+                ) : null}
+              </React.Fragment>
+            );
+          })}
+        </scrollbox>
+      </box>
+    );
+  }
 
   return (
     <box

@@ -3,8 +3,10 @@ import {
   DEFAULT_QUICK_ACTIONS,
   persistActions,
   persistAutoClose,
+  persistDiffView,
   persistTheme,
   type AutoClose,
+  type DiffViewMode,
   type QuickAction,
 } from "./config";
 import {
@@ -72,6 +74,8 @@ export function useSettingsDialog(params: {
   appearance: Appearance;
   autoClose: AutoClose;
   setAutoClose: Dispatch<SetStateAction<AutoClose>>;
+  diffView: DiffViewMode;
+  setDiffView: Dispatch<SetStateAction<DiffViewMode>>;
   themeName: ThemeName;
   setThemeName: Dispatch<SetStateAction<ThemeName>>;
   themeOverrides: Partial<Theme>;
@@ -85,6 +89,8 @@ export function useSettingsDialog(params: {
     appearance,
     autoClose,
     setAutoClose,
+    diffView,
+    setDiffView,
     themeName,
     setThemeName,
     themeOverrides,
@@ -134,6 +140,12 @@ export function useSettingsDialog(params: {
           kind: "cycle",
           options: ["off", "3s", "10s"],
         },
+        {
+          key: "diffView",
+          label: "Diff view (when zoomed)",
+          kind: "cycle",
+          options: ["Unified", "Split"],
+        },
       ],
     },
     {
@@ -179,6 +191,7 @@ export function useSettingsDialog(params: {
   ];
   const settingsValues = {
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
+    diffView: diffView === "split" ? "Split" : "Unified",
     theme: THEME_LABELS[themeName],
   };
   const cycleSetting = (rowKey: string): void => {
@@ -187,6 +200,11 @@ export function useSettingsDialog(params: {
 
       setAutoClose(next);
       persistAutoClose(next);
+    } else if (rowKey === "diffView") {
+      const next: DiffViewMode = diffView === "unified" ? "split" : "unified";
+
+      setDiffView(next);
+      persistDiffView(next);
     } else if (rowKey === "theme") {
       const next = THEME_NAMES[(THEME_NAMES.indexOf(themeName) + 1) % THEME_NAMES.length]!;
 

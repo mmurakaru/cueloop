@@ -1,5 +1,25 @@
 // Bun Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`stories catalog Surfaces/DiffSheet/SplitView renders, snapshots, and carries its colors: Surfaces/DiffSheet/SplitView 1`] = `
+" ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ src/store.ts                                                                                                      +1 -1
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  @@ -1,4 +1,4 @@                                                                                                       
+                                                                                                                        
+     1  export class Store {                                │    1  export class Store {                                
+     2 -  private items = [];                               │▎   2 +  private items = new Map();                        
+     3  }                                                   │    3  }                                                   
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+"
+`;
+
 exports[`stories catalog Cards/AnnotationCard/CommentDraft renders, snapshots, and carries its colors: Cards/AnnotationCard/CommentDraft 1`] = `
 "╭─ comment on "persists sessions" ─────────────────────────────────────────────╮
 │ Which daemon?                                                                │

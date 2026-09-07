@@ -23,7 +23,7 @@ describe("grammar-layer resolution", () => {
     ["g", true, "bottom"],
     ["v", false, "span"],
     ["c", false, "comment"],
-    ["s", false, undefined],
+    ["s", false, "split_diff"],
     ["x", false, "cut"],
     ["e", false, "edit"],
     ["n", false, "next_annotation"],

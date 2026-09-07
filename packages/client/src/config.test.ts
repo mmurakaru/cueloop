@@ -126,6 +126,24 @@ describe("loadConfig", () => {
     }
   });
 
+  test("[ui] diff_view defaults to unified and parses split", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-diff-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, `[ui]\ndiff_view = "split"\n`);
+
+    try {
+      // Assert
+      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.diffView).toBe(
+        "unified",
+      );
+      expect(loadConfig({ userConfigPath: path }).ui.diffView).toBe("split");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("[ui] theme defaults to the branded cueloop preset", () => {
     // Act
     const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });

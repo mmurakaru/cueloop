@@ -35,6 +35,7 @@ export type Intent =
   | { type: "restoreCuration" }
   | { type: "foldFile" }
   | { type: "unfoldFile" }
+  | { type: "toggleDiffView" }
   | { type: "nextAnnotation" }
   | { type: "prevAnnotation" }
   | { type: "walkStart" }
@@ -286,9 +287,9 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 
     return [{ type: action === "reject_hunk" ? "rejectHunk" : "rejectChange" }];
   }
-  // right folds the file under the cursor to its band; left unfolds it again
-  if (action === "collapse_file") return [{ type: "foldFile" }];
-  if (action === "expand_file") return [{ type: "unfoldFile" }];
+  const viewToggle = viewToggleIntent(action);
+
+  if (viewToggle) return viewToggle;
   // restore un-does a curated-out rejection from the rail; same owner gate as reject
   if (action === "restore_curation") {
     if (state.resolved) return status("review submitted - read-only");
@@ -366,6 +367,16 @@ function navigationIntent(action: string | undefined): Intent[] | null {
   if (action === "down" || action === "up" || action === "top" || action === "bottom") {
     return [{ type: "move", to: action }];
   }
+
+  return null;
+}
+
+/** Ungated view toggles in the diff: right folds a file to its band, left unfolds it, s flips
+ *  unified/split (split lays out only when the Changes pane is zoomed). */
+function viewToggleIntent(action: string | undefined): Intent[] | null {
+  if (action === "collapse_file") return [{ type: "foldFile" }];
+  if (action === "expand_file") return [{ type: "unfoldFile" }];
+  if (action === "split_diff") return [{ type: "toggleDiffView" }];
 
   return null;
 }

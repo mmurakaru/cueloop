@@ -389,6 +389,7 @@ describe("diff mode", () => {
     ["v", [{ type: "status", message: "plan-only primitive - diff review uses c on a line" }]],
     ["x", [{ type: "rejectChange" }]],
     ["e", [{ type: "status", message: "plan-only primitive - diff review uses c on a line" }]],
+    ["s", [{ type: "toggleDiffView" }]],
     ["q", [{ type: "exit" }]],
   ];
 

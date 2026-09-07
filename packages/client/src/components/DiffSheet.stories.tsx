@@ -26,6 +26,14 @@ export const CursorOnAddedLine: Story = {
   size: { width: 90, height: 16 },
 };
 
+// Side by side: old on the left, new on the right, divided by a thin rule; the
+// cursor highlights the change side of the row it rests on.
+export const SplitView: Story = {
+  render: () => <DiffSheet rows={fixtureDiffRows()} cursor={4} annotations={[]} split />,
+  expectedColors: [DARK.insertedForeground, DARK.deletedForeground, DARK.cursorBackground],
+  size: { width: 120, height: 16 },
+};
+
 export const ComposingOnLine: Story = {
   render: () => (
     <DiffSheet

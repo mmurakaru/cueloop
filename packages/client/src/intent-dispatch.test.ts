@@ -155,6 +155,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     selectCardFromDocument: mock(),
     runEditorHandOff: mock(),
     openCardEdit: mock(),
+    toggleDiffView: mock(),
     ...overrides,
   };
 }
@@ -438,6 +439,20 @@ describe("restoreCuration", () => {
 
     // Assert
     expect(deps.controller.restoreCuration).not.toHaveBeenCalled();
+  });
+});
+
+describe("toggleDiffView", () => {
+  test("delegates to the App-owned toggle", () => {
+    // Arrange
+    const deps = makeDeps();
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "toggleDiffView" });
+
+    // Assert
+    expect(deps.toggleDiffView).toHaveBeenCalled();
   });
 });
 

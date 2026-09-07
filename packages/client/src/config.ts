@@ -26,6 +26,9 @@ export interface IntegrationsConfig {
 /** Post-submit behavior: "off" prompts, 0 closes instantly, N counts down. */
 export type AutoClose = "off" | number;
 
+/** How the Changes diff renders: one inline column, or old|new side by side (only when zoomed). */
+export type DiffViewMode = "unified" | "split";
+
 /** One marker-popover quick action: a preset comment body, plus optional extra lines. */
 export interface QuickAction {
   prompt: string;
@@ -96,6 +99,8 @@ export interface CueloopConfig {
     editor?: string;
     /** The selected theme preset name; its tokens are the base for `theme`, before any `[theme]` overrides. */
     theme: ThemeName;
+    /** How the Changes diff renders when zoomed: one inline column or old|new side by side. */
+    diffView: DiffViewMode;
     /** Session ids the user has pinned to the top of the sidebar; client-local view state. */
     pins: string[];
   };
@@ -119,6 +124,7 @@ export const DEFAULT_KEYS: CueloopConfig["keys"] = {
   restore_curation: ["u"],
   collapse_file: ["right"],
   expand_file: ["left"],
+  split_diff: ["s"],
   edit: ["e"],
   next_annotation: ["n"],
   prev_annotation: ["p"],
@@ -159,6 +165,7 @@ const UiSchema = v.object({
   ),
   editor: v.fallback(v.optional(v.string()), undefined),
   theme: v.fallback(v.optional(v.string()), undefined),
+  diff_view: v.fallback(v.optional(v.picklist(["unified", "split"])), undefined),
   pins: v.fallback(v.optional(v.array(v.string())), undefined),
 });
 const ObsidianSchema = v.object({
@@ -244,6 +251,7 @@ function layer(
   if (ui.success) {
     if (ui.output.auto_close !== undefined) out.ui.autoClose = ui.output.auto_close;
     if (ui.output.editor?.trim()) out.ui.editor = ui.output.editor.trim();
+    if (ui.output.diff_view !== undefined) out.ui.diffView = ui.output.diff_view;
     if (ui.output.pins !== undefined) out.ui.pins = ui.output.pins;
   }
   if (integrations.success && integrations.output.obsidian) {
@@ -263,6 +271,7 @@ export function loadConfig(
     ui: {
       autoClose: "off",
       theme: DEFAULT_THEME_NAME,
+      diffView: "unified",
       pins: [],
     },
     authors: {},
@@ -395,6 +404,11 @@ export function persistAutoClose(value: AutoClose, userConfigPath?: string): voi
 /** Persist the selected theme preset (`[ui] theme`) into the user config. */
 export function persistTheme(name: ThemeName, userConfigPath?: string): void {
   persistUiSetting("theme", `"${name}"`, userConfigPath);
+}
+
+/** Persist the diff-view choice (`[ui] diff_view`) into the user config. */
+export function persistDiffView(mode: DiffViewMode, userConfigPath?: string): void {
+  persistUiSetting("diff_view", `"${mode}"`, userConfigPath);
 }
 
 /** Persist the pinned-thread ids (`[ui] pins`) into the user config. */
