@@ -3,6 +3,7 @@ import { testRender } from "@opentui/react/test-utils";
 import type { RGBA } from "@opentui/core";
 import React from "react";
 import { DiffSheet } from "./DiffSheet";
+import { fixtureDiffSession } from "./story-fixtures";
 import { diffRows } from "../view-diff";
 import { DARK } from "../theme";
 import { allowEventLoopUpdates } from "../test-support";
@@ -28,10 +29,21 @@ afterEach(() => allowEventLoopUpdates());
 
 test("renders tree-sitter colors, with the changed word in the diff color on top", async () => {
   // Arrange
-  const setup = await testRender(<DiffSheet rows={diffRows(PATCH)} cursor={0} annotations={[]} />, {
-    width: 60,
-    height: 12,
-  });
+  const noop = (): void => {};
+  const setup = await testRender(
+    <DiffSheet
+      rows={diffRows(PATCH)}
+      session={fixtureDiffSession()}
+      marks={new Map()}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 60, height: 12 },
+  );
 
   // Act
   // syntax highlighting resolves off the render path; pump until a keyword paints
@@ -40,10 +52,15 @@ test("renders tree-sitter colors, with the changed word in the diff color on top
   for (let attempt = 0; attempt < 60 && !keywordAccent; attempt++) {
     await setup.renderOnce();
     await new Promise((resolve) => setTimeout(resolve, 20));
+    // the caret cell splits the keyword's first character into its own span, so read the
+    // accent-colored text of a whole line rather than one span
     for (const line of setup.captureSpans().lines) {
-      for (const span of line.spans) {
-        if (span.text.includes("export") && hex(span.fg) === DARK.accent) keywordAccent = true;
-      }
+      const accentText = line.spans
+        .filter((span) => hex(span.fg) === DARK.accent)
+        .map((span) => span.text)
+        .join("");
+
+      if (accentText.includes("export")) keywordAccent = true;
     }
   }
 

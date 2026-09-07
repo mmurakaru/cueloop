@@ -58,6 +58,8 @@ export async function press(setup: TestRendererSetup, key: string): Promise<void
   else if (key === "backspace") setup.mockInput.pressKey("BACKSPACE");
   else if (key === "left") setup.mockInput.pressKey("ARROW_LEFT");
   else if (key === "right") setup.mockInput.pressKey("ARROW_RIGHT");
+  else if (key === "up") setup.mockInput.pressKey("ARROW_UP");
+  else if (key === "down") setup.mockInput.pressKey("ARROW_DOWN");
   else return typeText(setup, key);
   await settle(setup);
 }

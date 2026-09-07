@@ -10,6 +10,9 @@ import React from "react";
 import { DiffSheet } from "./DiffSheet";
 import { diffRows } from "../view-diff";
 import { allowEventLoopUpdates } from "../test-support";
+import { fixtureDiffSession } from "./story-fixtures";
+
+const noop = (): void => {};
 
 // long lines that wrap several times per side, plus an unbalanced block (filler)
 const WRAPPING_PATCH = `diff --git a/app.ts b/app.ts
@@ -25,7 +28,18 @@ const WRAPPING_PATCH = `diff --git a/app.ts b/app.ts
 
 async function splitFrameLines(width: number): Promise<string[]> {
   const setup = await testRender(
-    <DiffSheet rows={diffRows(WRAPPING_PATCH)} cursor={2} annotations={[]} split />,
+    <DiffSheet
+      rows={diffRows(WRAPPING_PATCH)}
+      session={fixtureDiffSession()}
+      marks={new Map()}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+      split
+    />,
     { width, height: 18 },
   );
 
@@ -60,7 +74,7 @@ describe("split diff rendering", () => {
     // Act - "const alpha = compute..." wraps, so its continuation must still show the divider
     const lines = await splitFrameLines(80);
     const continuation = lines.find(
-      (line) => line.includes("computeSomethingWithAReasonablyLo") && !line.includes("const alpha"),
+      (line) => line.includes("WithAReasonably") && !line.includes("const alpha"),
     );
 
     // Assert

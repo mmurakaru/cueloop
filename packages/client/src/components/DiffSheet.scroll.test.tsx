@@ -1,15 +1,18 @@
-/** Keyboard scroll is smooth: cursor-follow never drifts past wrapped cards. */
+/** Keyboard scroll is smooth: the caret-follow reveal never scrolls the caret off screen, nor rebounds. */
 
 import { expect, test } from "bun:test";
-import React, { useState } from "react";
+import React from "react";
 import { testRender } from "@opentui/react/test-utils";
-import { useKeyboard } from "@opentui/react";
 import { ScrollBoxRenderable, type Renderable } from "@opentui/core";
 import type { Annotation } from "@cueloop/schema";
 import { DiffSheet } from "./DiffSheet";
-import { diffRows, type DiffRow } from "../view-diff";
+import { diffRows, marksByRows } from "../view-diff";
 import { DARK } from "../theme";
+import { annotationPaletteFor } from "../annotation-palette";
 import { press } from "../test-support";
+import { fixtureDiffSession } from "./story-fixtures";
+
+const noop = (): void => {};
 
 /** Find a renderable by id anywhere in the tree (getRenderable is not recursive). */
 function findById(node: Renderable, id: string): Renderable | undefined {
@@ -46,41 +49,9 @@ function tallPatch(count: number): string {
   ].join("\n");
 }
 
-/** DiffSheet with j-driven cursor, mirroring the App's down-navigation. */
-function ScrollHarness({
-  rows,
-  annotations,
-}: {
-  rows: DiffRow[];
-  annotations: Annotation[];
-}): React.ReactNode {
-  // mirror the app: the cursor rests on code lines only, skipping file/hunk headers
-  const isCode = (index: number): boolean => {
-    const kind = rows[index]?.kind;
-
-    return kind === "ctx" || kind === "add" || kind === "del";
-  };
-  const firstCodeRow = Math.max(
-    0,
-    rows.findIndex((row) => row.kind !== "file" && row.kind !== "hunk"),
-  );
-  const [cursor, setCursor] = useState(firstCodeRow);
-
-  useKeyboard((key) => {
-    if (key.name !== "j") return;
-    setCursor((current) => {
-      for (let index = current + 1; index < rows.length; index++) if (isCode(index)) return index;
-
-      return current;
-    });
-  });
-
-  return <DiffSheet rows={rows} cursor={cursor} annotations={annotations} />;
-}
-
-test("scrolling down past wrapped annotation cards keeps the cursor pinned and the scroll monotonic", async () => {
-  // Arrange - a tall diff whose annotation bodies would wrap at this width; the
-  // wrapped card is exactly the layout the cursor-follow model used to mis-measure
+test("walking the caret down past wrapped discussion cards keeps it on screen and the scroll monotonic", async () => {
+  // Arrange - a tall diff whose comment bodies wrap at this width, so the cards
+  // between rows are taller than one line
   const rows = diffRows(tallPatch(40));
   const longBody =
     "this is a deliberately long annotation body that would wrap across the narrow test viewport";
@@ -88,39 +59,52 @@ test("scrolling down past wrapped annotation cards keeps the cursor pinned and t
     id: `a${rowIndex}`,
     kind: "comment",
     body: longBody,
-    anchor: { quote: rows[rowIndex]!.text, prefix: "", suffix: "" },
+    anchor: { quote: rows[rowIndex]!.text.replace(/\n$/, ""), prefix: "", suffix: "" },
     createdAt: "2026-01-01T00:00:00Z",
   }));
-  const setup = await testRender(<ScrollHarness rows={rows} annotations={annotations} />, {
-    width: 60,
-    height: 12,
-  });
+  const setup = await testRender(
+    <DiffSheet
+      rows={rows}
+      session={fixtureDiffSession({ annotations })}
+      marks={marksByRows(annotations, rows)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 60, height: 12 },
+  );
 
   await setup.waitForVisualIdle();
   const found = findById(setup.renderer.root, "diff-scroll");
 
   if (!(found instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
   const scrollbox = found;
+  const caretCell = annotationPaletteFor(DARK).caretCell;
 
-  // the cursor row is the one painted with the cursor background
-  const cursorScreenRow = (): number => {
+  // the caret row is the one painting the caret cell
+  const caretScreenRow = (): number => {
     const lines = setup.captureSpans().lines;
 
     for (let index = 0; index < lines.length; index++) {
-      if (lines[index]!.spans.some((span) => hex(span.bg) === DARK.cursorBackground)) return index;
+      if (lines[index]!.spans.some((span) => hex(span.bg) === caretCell)) return index;
     }
 
     return -1;
   };
 
-  // Act - walk the cursor down through the whole diff, sampling the scroll each step
+  // Act - walk the caret down through every code row, sampling the scroll each step
   const scrollTops: number[] = [];
   const screenRows: number[] = [];
+  const codeRowCount = rows.filter((row) => row.kind === "add").length;
 
-  for (let step = 0; step < rows.length; step++) {
+  for (let step = 0; step < codeRowCount; step++) {
+    await setup.waitForVisualIdle();
     scrollTops.push(scrollbox.scrollTop);
-    screenRows.push(cursorScreenRow());
-    await press(setup, "j");
+    screenRows.push(caretScreenRow());
+    await press(setup, "down");
   }
 
   // Assert - scrollTop only ever grows going down (never rebounds/jitters)
@@ -128,26 +112,10 @@ test("scrolling down past wrapped annotation cards keeps the cursor pinned and t
     expect(scrollTops[step]!).toBeGreaterThanOrEqual(scrollTops[step - 1]!);
   }
 
-  // Assert - the cursor never scrolls off screen (the pre-fix bug walked it off
-  // the viewport as it passed each wrapped card)
+  // Assert - the caret never scrolls off screen while it walks past each wrapped card
   expect(screenRows.every((row) => row >= 0)).toBe(true);
-
-  // Assert - through the steady scroll region (not the initial fill, not the
-  // final clamp at the content end) the cursor holds ONE stable row near the
-  // bottom; pre-fix it drifted down a row per wrapped card
-  const maxScroll = scrollbox.scrollHeight - scrollbox.height;
-  const steadyRows = screenRows.filter(
-    (_, step) => scrollTops[step]! > 0 && scrollTops[step]! < maxScroll,
-  );
-
-  expect(steadyRows.length).toBeGreaterThan(0);
-  expect(new Set(steadyRows).size).toBe(1);
-  const pinnedRow = steadyRows[0]!;
-  const viewportBottom = scrollbox.height;
-
-  // the cursor sits a couple of rows inside the bottom edge, per the follow rule
-  expect(viewportBottom - pinnedRow).toBeGreaterThanOrEqual(2);
-  expect(viewportBottom - pinnedRow).toBeLessThanOrEqual(3);
+  // and the walk did scroll: the tall diff does not fit the viewport
+  expect(scrollTops[scrollTops.length - 1]!).toBeGreaterThan(0);
 
   setup.renderer.destroy();
 }, 25000);

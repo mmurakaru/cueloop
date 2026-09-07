@@ -26,6 +26,8 @@ export interface SplitRow {
   file: string;
   /** Header text for file and hunk rows. */
   text?: string;
+  /** Index of the header in the base list, for file and hunk rows. */
+  rowIndex?: number;
   /** Old side: a context or deletion line, or absent (blank filler). */
   left?: SplitLine;
   /** New side: a context or addition line, or absent (blank filler). */
@@ -107,9 +109,9 @@ export function splitDiffRows(rows: DiffRow[]): SplitRow[] {
     }
     // any non-change row closes the current change block before it renders
     flushChangeBlock();
-    if (row.kind === "file") split.push({ kind: "file", file: row.file, text: row.text });
-    else if (row.kind === "hunk") split.push({ kind: "hunk", file: row.file, text: row.text });
-    else
+    if (row.kind === "file" || row.kind === "hunk") {
+      split.push({ kind: row.kind, file: row.file, text: row.text, rowIndex: index });
+    } else
       split.push({
         kind: "pair",
         file: row.file,

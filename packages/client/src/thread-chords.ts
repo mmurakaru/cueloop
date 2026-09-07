@@ -24,7 +24,18 @@ export interface ThreadChordContext {
   resolved: boolean;
   /** The rail shows the tree: next / previous move its selection instead of the cards. */
   treeActive: boolean;
+  /** A diff review: the block chords act on the code row under the caret (reject, fold, walk). */
+  isDiff?: boolean;
 }
+
+/** The diff-review chords: option plus a letter, acting on the caret's row or file. */
+export const DIFF_CHORD_ENTRIES = [
+  { keys: "⌥x / ⌥X", label: "reject the change / the hunk" },
+  { keys: "⌥u", label: "restore the last rejection" },
+  { keys: "⌥c", label: "collapse the file to its band" },
+  { keys: "⌥d", label: "unified / split (when zoomed)" },
+  { keys: "⌥k", label: "start the guided walk" },
+] as const;
 
 /** The cheatsheet rows for the chords, in the same order they are resolved. */
 export const THREAD_CHORD_ENTRIES = [
@@ -70,9 +81,30 @@ export function resolveThreadChord(
     return context.resolved ? null : { type: "openSubmit" };
   }
   if (key.ctrl) return resolveSessionChord(key.name, context);
-  if (key.meta) return resolveRailChord(key.name, context);
+  if (key.meta)
+    return (
+      (context.isDiff && resolveDiffChord(key.name, context)) || resolveRailChord(key.name, context)
+    );
 
   return null;
+}
+
+/** The diff's row and file chords; null lets the rail chords answer the letter. */
+function resolveDiffChord(name: string, context: ThreadChordContext): Intent | null {
+  switch (name) {
+    case "x":
+      return mutating({ type: "rejectChange" }, context);
+    case "X":
+      return mutating({ type: "rejectHunk" }, context);
+    case "c":
+      return { type: "foldFile" };
+    case "d":
+      return { type: "toggleDiffView" };
+    case "k":
+      return context.resolved ? RESOLVED : { type: "walkStart" };
+    default:
+      return null;
+  }
 }
 
 /** The answers a blocked primitive gets - the same words the keymap uses. */

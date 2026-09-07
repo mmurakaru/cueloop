@@ -17,7 +17,8 @@ export interface EditorGridProps {
   onSplit: (groupId: string, direction: SplitDirection) => void;
   onZoom: () => void;
   zoomed: boolean;
-  renderTab: (tab: EditorTab) => React.ReactNode;
+  /** The body of a group's active tab; `groupFocused` tells a keyboard-owning body whether it has the keys. */
+  renderTab: (tab: EditorTab, groupFocused: boolean) => React.ReactNode;
   theme?: Theme;
 }
 
@@ -182,7 +183,7 @@ function EditorGroupPane({
         />
       ) : null}
       <box style={{ flexGrow: 1, flexDirection: "column" }}>
-        {active ? props.renderTab(active) : null}
+        {active ? props.renderTab(active, props.focusedGroupId === group.id) : null}
       </box>
     </box>
   );

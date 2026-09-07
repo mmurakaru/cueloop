@@ -44,7 +44,7 @@ import {
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
-import { diffRowAnchor, diffRows, fileChangeCounts, type DiffRow } from "./view-diff";
+import { diffRowBlocks, diffRows, fileChangeCounts, type DiffRow } from "./view-diff";
 import { applyFold } from "./diff-fold";
 import { copyToClipboard } from "./clipboard";
 import {
@@ -954,7 +954,9 @@ class Controller implements ReviewController {
     let anchor;
 
     if (session.artifact.type === "diff") {
-      anchor = { ...diffRowAnchor(this.rows(), displayIndex), blockIndex: displayIndex };
+      // rows are the diff's blocks: a span over one or more code rows anchors with the
+      // same quote, context, and position selectors a plan span does
+      anchor = makeAnchor(diffRowBlocks(this.rows()), displayIndex, start, end, endDisplayIndex);
     } else {
       const display = this.display();
       const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);

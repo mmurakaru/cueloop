@@ -1,15 +1,99 @@
 // Bun Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/AnnotatedLine 1`] = `
+" ─────────────────────────────────────────────────────────────────────────────────────────
+ src/store.ts                                                                        +1 -1
+ ─────────────────────────────────────────────────────────────────────────────────────────
+  @@ -1,4 +1,4 @@                                                                         
+ ▎   1   export class Store {                                                             
+     2 -   private items = [];                                                            
+     2 +   private items = new Map();                                                     
+                                                                                          
+   ╷─────────────────────────────────────────────────────────────────────────────────────┐
+   │ ● Map needs an eviction story.                                                      │
+   ╵─────────────────────────────────────────────────────────────────────────────────────┘
+     3   }                                                                                
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
+exports[`stories catalog Surfaces/DiffSheet/CaretOnFirstLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/CaretOnFirstLine 1`] = `
+" ─────────────────────────────────────────────────────────────────────────────────────────
+ src/store.ts                                                                        +1 -1
+ ─────────────────────────────────────────────────────────────────────────────────────────
+  @@ -1,4 +1,4 @@                                                                         
+ ▎   1   export class Store {                                                             
+     2 -   private items = [];                                                            
+     2 +   private items = new Map();                                                     
+     3   }                                                                                
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
+exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: Surfaces/DiffSheet/IntralineWordDiff 1`] = `
+" ─────────────────────────────────────────────────────────────────────────────────────────
+ src/store.ts                                                                        +1 -1
+ ─────────────────────────────────────────────────────────────────────────────────────────
+  @@ -1,4 +1,4 @@                                                                         
+ ▎   1   export class Store {                                                             
+     2 -   private items = [];                                                            
+     2 +   private items = new Map();                                                     
+     3   }                                                                                
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
+exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and carries its colors: Surfaces/DiffSheet/SignedRows 1`] = `
+" ─────────────────────────────────────────────────────────────────────────────────────────
+ src/store.ts                                                                        +1 -1
+ ─────────────────────────────────────────────────────────────────────────────────────────
+  @@ -1,4 +1,4 @@                                                                         
+ ▎   1   export class Store {                                                             
+     2 -   private items = [];                                                            
+     2 +   private items = new Map();                                                     
+     3   }                                                                                
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
 exports[`stories catalog Surfaces/DiffSheet/SplitView renders, snapshots, and carries its colors: Surfaces/DiffSheet/SplitView 1`] = `
 " ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
  src/store.ts                                                                                                      +1 -1
  ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                                                       
+ ▎   1   export class Store {                               │▎   1   export class Store {                               
+     2 -   private items = [];                              │    2 +   private items = new Map();                       
                                                                                                                         
-     1  export class Store {                                │    1  export class Store {                                
-     2 -  private items = [];                               │▎   2 +  private items = new Map();                        
-     3  }                                                   │    3  }                                                   
-                                                                                                                        
+   ╷───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+   │ ● Map needs an eviction story.                                                                                    │
+   ╵───────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+     3   }                                                  │    3   }                                                  
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -157,6 +241,40 @@ exports[`stories catalog Cards/AnnotationCard/SavedSelected renders, snapshots, 
                                                                                 
                                                                                 
                                                                                 
+"
+`;
+
+exports[`stories catalog Chrome/AnnotationCards/FocusedCard renders, snapshots, and carries its colors: Chrome/AnnotationCards/FocusedCard 1`] = `
+"                                                            
+  ╻────────────────────────────────────────────────────────┐
+  ┃ ● Needs an eviction story.                             │
+  ╹────────────────────────────────────────────────────────┘
+                                                            
+                                                            
+"
+`;
+
+exports[`stories catalog Chrome/AnnotationCards/SlashPaletteOpen renders, snapshots, and carries its colors: Chrome/AnnotationCards/SlashPaletteOpen 1`] = `
+"     action:zoom-out-research-in-depth Research the broader problem, prior art, and       
+   →laction:restate-simplified         Restate this as the simplest thing that works and  
+   cuaction:out-of-scope               This is out of scope for the task, so capture it   
+   as                                                                                     
+     action:let-s-chat-about-this      Do not implement yet, and surface the open         
+   quaction:prototype-this             Build a throwaway prototype to answer the question,
+                                                                                          
+   (2/7)                                                                                  
+"
+`;
+
+exports[`stories catalog Chrome/AnnotationCards/TwoVoices renders, snapshots, and carries its colors: Chrome/AnnotationCards/TwoVoices 1`] = `
+"                                                            
+  ╷────────────────────────────────────────────────────────┐
+  │ ● Which daemon?                                        │
+  │ ○ The one the CLI spawns.                              │
+  ╵────────────────────────────────────────────────────────┘
+                                                            
+                                                            
+                                                            
 "
 `;
 
@@ -515,106 +633,6 @@ exports[`stories catalog Overlays/ConfirmDialog/DeletePlan renders, snapshots, a
                                                                 
                                                                 
                                                                 
-"
-`;
-
-exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/AnnotatedLine 1`] = `
-" ─────────────────────────────────────────────────────────────────────────────────────────
- src/store.ts                                                                        +1 -1
- ─────────────────────────────────────────────────────────────────────────────────────────
-  @@ -1,4 +1,4 @@                                                                         
-   1   export class Store {                                                               
-   2  -  private items = [];                                                              
-   2◆ +  private items = new Map();                                                       
-       ◆ Map needs an eviction story.                                                     
-   3  }                                                                                   
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-"
-`;
-
-exports[`stories catalog Surfaces/DiffSheet/ComposingOnLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/ComposingOnLine 1`] = `
-" ─────────────────────────────────────────────────────────────────────────────────────────
- src/store.ts                                                                        +1 -1
- ─────────────────────────────────────────────────────────────────────────────────────────
-  @@ -1,4 +1,4 @@                                                                         
-    1  export class Store {                                                               
-    2 -  private items = [];                                                              
- ▎  2 +  private items = new Map();                                                       
- ╭─ comment on "  private items = n…" ───────────────────────────────────────────────────╮
- │ Map needs an eviction story.                                                          │
- │  Save    Cancel                                                                       │
- ╰───────────────────────────────────────────────────────────────────────────────────────╯
-   3  }                                                                                   
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-"
-`;
-
-exports[`stories catalog Surfaces/DiffSheet/CursorOnAddedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/CursorOnAddedLine 1`] = `
-" ─────────────────────────────────────────────────────────────────────────────────────────
- src/store.ts                                                                        +1 -1
- ─────────────────────────────────────────────────────────────────────────────────────────
-  @@ -1,4 +1,4 @@                                                                         
-    1  export class Store {                                                               
-    2 -  private items = [];                                                              
- ▎  2 +  private items = new Map();                                                       
-    3  }                                                                                  
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-"
-`;
-
-exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: Surfaces/DiffSheet/IntralineWordDiff 1`] = `
-" ─────────────────────────────────────────────────────────────────────────────────────────
- src/store.ts                                                                        +1 -1
- ─────────────────────────────────────────────────────────────────────────────────────────
-  @@ -1,4 +1,4 @@                                                                         
-   1  export class Store {                                                                
-   2 -  private items = [];                                                               
-   2 +  private items = new Map();                                                        
-   3  }                                                                                   
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-"
-`;
-
-exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and carries its colors: Surfaces/DiffSheet/SignedRows 1`] = `
-" ─────────────────────────────────────────────────────────────────────────────────────────
- src/store.ts                                                                        +1 -1
- ─────────────────────────────────────────────────────────────────────────────────────────
-  @@ -1,4 +1,4 @@                                                                         
-   1  export class Store {                                                                
-   2 -  private items = [];                                                               
-   2 +  private items = new Map();                                                        
-   3  }                                                                                   
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
 "
 `;
 

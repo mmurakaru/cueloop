@@ -1,12 +1,10 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { ReviewSession, VerdictKind } from "@cueloop/schema";
 import type { Mode } from "./intent-dispatch";
-import type { DiffRow } from "./view-diff";
 import type { Intent, KeyState } from "./keymap";
 import type { Completion } from "./session-controller";
 import type { WalkFile } from "./walk";
 import { viewedCount } from "./walk";
-import type { DiffComposeState } from "./components/DiffSheet";
 import type { ConfirmCardProps } from "./components/ConfirmCard";
 import type { BreadcrumbItem } from "./components/Breadcrumb";
 
@@ -114,29 +112,6 @@ interface DraftHandlerDeps {
   liveInput: MutableRefObject<string>;
   setMode: Dispatch<SetStateAction<Mode>>;
   dispatch: (intent: Intent) => void;
-}
-
-export function buildDiffComposeState(
-  deps: DraftHandlerDeps & { mode: Mode; isDiff: boolean; rows: DiffRow[] },
-): DiffComposeState | null {
-  const { mode, isDiff, rows, liveInput, setMode, dispatch } = deps;
-
-  if (mode.type !== "compose" || !isDiff) return null;
-
-  return {
-    kind: mode.kind,
-    rowIndex: mode.displayIndex,
-    quote: rows[mode.displayIndex]?.text.replace(/\n$/, "") ?? "",
-    draft: {
-      text: mode.text,
-      onInput: (text: string) => {
-        liveInput.current = text;
-        setMode({ ...mode, text });
-      },
-      onSave: () => dispatch({ type: "saveCompose" }),
-      onCancel: () => dispatch({ type: "closeOverlay" }),
-    },
-  };
 }
 
 export function buildSubmitConfirmState(

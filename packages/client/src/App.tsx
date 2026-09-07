@@ -61,18 +61,18 @@ import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
+  DIFF_CHORD_ENTRIES,
   RAIL_CHORD_ENTRIES,
   resolveThreadChord,
   THREAD_CHORD_ENTRIES,
   TREE_CHORD_ENTRIES,
 } from "./thread-chords";
-import { DiffSheet, type DiffComposeState, type DiffFoldControls } from "./components/DiffSheet";
-import type { DiffRow } from "./view-diff";
-import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
+import { DiffSheet, type DiffFoldControls, type DiffSheetProps } from "./components/DiffSheet";
+import { marksByRows, type DiffRow } from "./view-diff";
+import type { DiffFileContents } from "@cueloop/schema";
 import { PrototypeSheet } from "./components/PrototypeSheet";
 import type { PrototypeElement } from "./prototype-browser";
 import {
-  buildDiffComposeState,
   buildRenderFlags,
   buildSubmitConfirmState,
   computeRoleCapabilities,
@@ -144,20 +144,42 @@ function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean)
   return isOwner && !resolved && !observer;
 }
 
+/** The inline-commenting props the diff sheet shares with the thread view, wired once by the app. */
+type DiffSurfaceProps = Pick<
+  DiffSheetProps,
+  | "session"
+  | "quickActions"
+  | "observer"
+  | "resolved"
+  | "suspended"
+  | "onComposingChange"
+  | "onObserverBlocked"
+  | "onCursorChange"
+  | "focusedAnnotationId"
+  | "onFocusAnnotation"
+  | "onAnnotate"
+  | "onReply"
+  | "onUpdateAnnotation"
+  | "onExit"
+>;
+
 /** The Changes tab body: the whole diff in one scroll container, or a bare hint when nothing changed. */
 function ChangesTabBody(props: {
   rows: DiffRow[];
-  cursor: number;
-  annotations: ReviewSession["annotations"];
-  focusedAnnotationId?: string;
+  surface: DiffSurfaceProps;
   rejectedRows: Set<number>;
-  compose: DiffComposeState | null;
   fold?: DiffFoldControls;
   fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
   split?: boolean;
   dimmed: boolean;
   theme: Theme;
 }): React.ReactNode {
+  const marks = useMemo(
+    () =>
+      marksByRows(props.surface.session.annotations, props.rows, props.surface.focusedAnnotationId),
+    [props.surface.session.annotations, props.rows, props.surface.focusedAnnotationId],
+  );
+
   if (props.rows.length === 0) {
     return (
       <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
@@ -169,11 +191,9 @@ function ChangesTabBody(props: {
   return (
     <DiffSheet
       rows={props.rows}
-      cursor={props.cursor}
-      annotations={props.annotations}
-      focusedAnnotationId={props.focusedAnnotationId}
+      marks={marks}
+      {...props.surface}
       rejectedRows={props.rejectedRows}
-      compose={props.compose}
       fold={props.fold}
       fileStats={props.fileStats}
       split={props.split}
@@ -186,11 +206,8 @@ function ChangesTabBody(props: {
 function GridTabContent(props: {
   tab: EditorTab;
   rows: DiffRow[];
-  cursor: number;
-  annotations: ReviewSession["annotations"];
-  focusedAnnotationId?: string;
+  surface: DiffSurfaceProps;
   rejectedRows: Set<number>;
-  compose: DiffComposeState | null;
   fold?: DiffFoldControls;
   fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
   split?: boolean;
@@ -202,17 +219,45 @@ function GridTabContent(props: {
   if (tab.kind === "file" && tab.fileView === "contents" && tab.path !== undefined) {
     return <FileContentsView path={tab.path} loadContents={props.readFile} theme={props.theme} />;
   }
-  const rows = tab.kind === "file" ? props.rows.filter((row) => row.file === tab.path) : props.rows;
+  if (tab.kind !== "file") {
+    return (
+      <ChangesTabBody
+        rows={props.rows}
+        surface={props.surface}
+        rejectedRows={props.rejectedRows}
+        fold={props.fold}
+        fileStats={props.fileStats}
+        split={props.split}
+        dimmed={props.dimmed}
+        theme={props.theme}
+      />
+    );
+  }
+  // a single-file tab shows that file's rows alone, so its row indices are its own: comments and
+  // the caret report back in whole-diff indices, and the fold controls (a band to fold) do not apply
+  const fileRowIndices = props.rows.flatMap((row, index) => (row.file === tab.path ? [index] : []));
+  const rows = fileRowIndices.map((index) => props.rows[index]!);
+  const wholeIndex = (rowIndex: number): number => fileRowIndices[rowIndex] ?? rowIndex;
+  const rejectedRows = new Set(
+    fileRowIndices.flatMap((index, rowIndex) => (props.rejectedRows.has(index) ? [rowIndex] : [])),
+  );
+
   return (
     <ChangesTabBody
       rows={rows}
-      cursor={tab.kind === "file" ? 0 : props.cursor}
-      annotations={props.annotations}
-      focusedAnnotationId={tab.kind === "file" ? undefined : props.focusedAnnotationId}
-      rejectedRows={props.rejectedRows}
-      compose={tab.kind === "file" ? null : props.compose}
-      // the whole-diff Changes tab owns the per-file fold controls; a single-file tab has no band to fold
-      fold={tab.kind === "file" ? undefined : props.fold}
+      surface={{
+        ...props.surface,
+        onCursorChange: (rowIndex) => props.surface.onCursorChange?.(wholeIndex(rowIndex)),
+        onAnnotate: (span, body) =>
+          props.surface.onAnnotate(
+            {
+              start: { blockIndex: wholeIndex(span.start.blockIndex), char: span.start.char },
+              end: { blockIndex: wholeIndex(span.end.blockIndex), char: span.end.char },
+            },
+            body,
+          ),
+      }}
+      rejectedRows={rejectedRows}
       fileStats={props.fileStats}
       split={props.split}
       dimmed={props.dimmed}
@@ -279,6 +324,7 @@ function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): Che
   return [
     ...THREAD_VIEW_CHEATSHEET,
     { title: "Session", entries: [...THREAD_CHORD_ENTRIES] },
+    { title: "Diff", entries: [...DIFF_CHORD_ENTRIES] },
     { title: "Rail", entries: [...RAIL_CHORD_ENTRIES] },
     { title: "Tree", entries: [...TREE_CHORD_ENTRIES] },
     ...base.filter((section) => section.title === "Agent terminal"),
@@ -482,8 +528,9 @@ export function App({
   const { isDiff, isPrototype, resolved } = deriveReviewFlags(session);
   // entering a diff opens the right region in changed-files mode; a plan or reply opens it closed
   workbench.syncSession(session?.id, isDiff);
-  // plans and replies open in the thread view; diffs and prototypes keep their sheets
-  const threadViewActive = session !== null && !isDiff && !isPrototype;
+  // plans and replies open in the thread view, diffs in the diff sheet: both drive the shared
+  // annotation surface and own the document grammar; only the prototype keeps the keymap
+  const threadViewActive = session !== null && !isPrototype;
   const [threadComposing, setThreadComposing] = useState(false);
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   // sort position per annotation so the rail interleaves annotation and removal
@@ -593,6 +640,7 @@ export function App({
         isOwner,
         resolved,
         treeActive: railTab === "tree",
+        isDiff,
       });
 
       if (chord) dispatch(chord);
@@ -694,14 +742,6 @@ export function App({
       />
     );
 
-  const diffComposeState = buildDiffComposeState({
-    mode,
-    isDiff,
-    rows,
-    liveInput,
-    setMode,
-    dispatch,
-  });
   const diffFold: DiffFoldControls = {
     isCollapsed: (file) => controller.isFileCollapsed(file),
     isExpanded: (file) => controller.isFileExpanded(file),
@@ -870,15 +910,41 @@ export function App({
             onSplit={workbench.split}
             onZoom={workbench.toggleZoom}
             zoomed={workbench.zoomed}
-            renderTab={(tab) => (
+            renderTab={(tab, groupFocused) => (
               <GridTabContent
                 tab={tab}
                 rows={rows}
-                cursor={cursor}
-                annotations={activeSession.annotations}
-                focusedAnnotationId={focusedAnnotationId}
+                surface={{
+                  session: activeSession,
+                  quickActions,
+                  observer,
+                  resolved,
+                  suspended: threadViewSuspended || !groupFocused,
+                  onComposingChange: setThreadComposing,
+                  onObserverBlocked: (reason) =>
+                    controller.setStatus(
+                      reason === "observer"
+                        ? "observer - read-only"
+                        : "review submitted - read-only",
+                    ),
+                  onCursorChange: setCursor,
+                  focusedAnnotationId,
+                  onFocusAnnotation: setFocusedAnnotationId,
+                  onAnnotate: (span, body) =>
+                    void controller.annotate(
+                      "comment",
+                      span.start.blockIndex,
+                      span.start.char,
+                      span.end.char,
+                      body,
+                      span.end.blockIndex,
+                    ),
+                  onReply: (rootAnnotationId, body) =>
+                    void controller.reply(rootAnnotationId, body),
+                  onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
+                  onExit: () => onExit?.(0),
+                }}
                 rejectedRows={rejectedRows}
-                compose={diffComposeState}
                 fold={diffFold}
                 fileStats={controller.fileStats()}
                 split={diffView === "split" && workbench.zoomed}

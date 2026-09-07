@@ -1,36 +1,23 @@
 import { describe, expect, test } from "bun:test";
 import type { Annotation } from "@cueloop/schema";
-import type { DiffRow } from "../view-diff";
+import { diffRowText, fileChangeCounts, marksByRows, type DiffRow } from "../view-diff";
 import type { IntralineRun } from "../diff-intraline";
 import type { SyntaxSpan } from "../diff-syntax";
 import { DARK } from "../theme";
-import {
-  annotatedRowsByIndex,
-  coloredRowSpans,
-  rowContentOffsets,
-  rowLine,
-  segmentRows,
-} from "./diff-sheet-layout";
-import { fileChangeCounts } from "../view-diff";
+import { coloredRowSpans } from "./diff-sheet-layout";
 
 function row(kind: DiffRow["kind"], text: string, extra: Partial<DiffRow> = {}): DiffRow {
   return { kind, text, file: "a.ts", ...extra };
 }
 
-function annotation(quote: string): Annotation {
-  return {
-    id: "a1",
-    kind: "comment",
-    body: "note",
-    anchor: { quote, prefix: "", suffix: "" },
-    createdAt: "2026-01-01T00:00:00Z",
-  };
+function annotation(id: string, anchor: Annotation["anchor"]): Annotation {
+  return { id, kind: "comment", body: "note", anchor, createdAt: "2026-01-01T00:00:00Z" };
 }
 
-describe("rowLine", () => {
+describe("diffRowText", () => {
   test("strips the trailing newline the patch carries", () => {
     // Arrange / Act / Assert
-    expect(rowLine(row("add", "const x = 1;\n"))).toBe("const x = 1;");
+    expect(diffRowText(row("add", "const x = 1;\n"))).toBe("const x = 1;");
   });
 });
 
@@ -57,84 +44,79 @@ describe("fileChangeCounts", () => {
   });
 });
 
-describe("rowContentOffsets wrap", () => {
-  test("a code row past the content width counts the visual rows it wraps into", () => {
-    // Arrange - one 20-char add row, hunk header above it, content width 10
-    const rows = [row("hunk", "@@"), row("add", "12345678901234567890")];
-    const segments = segmentRows(rows, new Map());
+describe("marksByRows", () => {
+  const rows = [
+    row("file", "a.ts"),
+    row("hunk", "@@"),
+    row("ctx", "keep\n"),
+    row("add", "const items = new Map();\n"),
+    row("add", "return items;\n"),
+  ];
 
-    // Act - the sign prefix makes it 21 cells, so three visual rows at width 10
-    const offsets = rowContentOffsets(segments, 10);
-
-    // Assert - hunk at y0, its wrapped code row at y1
-    expect(offsets[0]).toBe(0);
-    expect(offsets[1]).toBe(1);
-  });
-});
-
-describe("annotatedRowsByIndex", () => {
-  test("maps an annotation to the code row whose text matches its quote", () => {
-    // Arrange
-    const rows = [row("file", "a.ts"), row("ctx", "keep"), row("add", "new line")];
-
+  test("a whole-row quote (the legacy row anchor) marks that row end to end", () => {
     // Act
-    const byRow = annotatedRowsByIndex(rows, [annotation("new line")]);
+    const marks = marksByRows(
+      [annotation("a1", { quote: "return items;", prefix: "", suffix: "" })],
+      rows,
+    );
 
     // Assert
-    expect([...byRow.keys()]).toEqual([2]);
+    expect([...marks.keys()]).toEqual([4]);
+    expect(marks.get(4)![0]).toMatchObject({ start: 0, end: 13, annotationId: "a1" });
   });
-});
 
-describe("segmentRows", () => {
-  test("splits header rows out and closes a chunk after an annotated row", () => {
-    // Arrange
-    const rows = [
-      row("file", "a.ts"),
-      row("hunk", "@@"),
-      row("ctx", "keep"),
-      row("add", "changed"),
-    ];
-    const annotatedByRow = new Map<number, Annotation>([[3, annotation("changed")]]);
-
+  test("a word quote marks only its characters and carries the span", () => {
     // Act
-    const segments = segmentRows(rows, annotatedByRow);
+    const marks = marksByRows(
+      [annotation("a1", { quote: "new Map()", prefix: "const items = ", suffix: ";" })],
+      rows,
+    );
 
     // Assert
-    expect(segments.map((segment) => segment.kind)).toEqual(["header", "header", "chunk"]);
-    const chunk = segments[2];
+    const mark = marks.get(3)![0]!;
 
-    expect(chunk?.kind).toBe("chunk");
-    if (chunk?.kind === "chunk") expect(chunk.annotation?.id).toBe("a1");
+    expect(mark.start).toBe(14);
+    expect(mark.end).toBe(23);
+    expect(mark.span).toEqual({
+      start: { blockIndex: 3, char: 14 },
+      end: { blockIndex: 3, char: 23 },
+    });
   });
 
-  test("closes a chunk at the compose row so a draft card can follow it", () => {
-    // Arrange - two code rows, composing on the first
-    const rows = [row("add", "one"), row("add", "two")];
+  test("a quote across two rows paints a mark on each row with one shared span", () => {
+    // Arrange - the anchor a two-row drag produces: rows joined by the block separator
+    const marks = marksByRows(
+      [
+        annotation("a1", {
+          quote: "Map();\n\nreturn",
+          prefix: "const items = new ",
+          suffix: " items;",
+          blockIndex: 3,
+          start: 18,
+          end: 6,
+          endBlockIndex: 4,
+        }),
+      ],
+      rows,
+    );
 
-    // Act
-    const segments = segmentRows(rows, new Map(), 0);
-
-    // Assert - the first row is its own chunk, the second a separate chunk
-    expect(segments).toHaveLength(2);
-    expect(segments.every((segment) => segment.kind === "chunk")).toBe(true);
+    // Assert
+    expect([...marks.keys()].toSorted()).toEqual([3, 4]);
+    expect(marks.get(3)![0]!.span).toEqual(marks.get(4)![0]!.span);
+    expect(marks.get(3)![0]).toMatchObject({ start: 18, end: 24 });
+    expect(marks.get(4)![0]).toMatchObject({ start: 0, end: 6 });
   });
-});
 
-describe("rowContentOffsets", () => {
-  test("spans a file band across three rows, then a hunk header and its annotated chunk", () => {
-    // Arrange - a file band, a hunk header, one changed row carrying a card
-    const rows = [row("file", "a.ts"), row("hunk", "@@"), row("add", "changed")];
-    const annotatedByRow = new Map<number, Annotation>([[2, annotation("changed")]]);
-    const segments = segmentRows(rows, annotatedByRow);
-
+  test("the focused annotation wears the focus role", () => {
     // Act
-    const offsets = rowContentOffsets(segments);
+    const marks = marksByRows(
+      [annotation("a1", { quote: "keep", prefix: "", suffix: "" })],
+      rows,
+      "a1",
+    );
 
-    // Assert - the name sits between its rules (y1), the hunk header at y3,
-    // its chunk row at y4; the card would sit at y5
-    expect(offsets[0]).toBe(1);
-    expect(offsets[1]).toBe(3);
-    expect(offsets[2]).toBe(4);
+    // Assert
+    expect(marks.get(2)![0]!.role).toBe("mark-focus");
   });
 });
 

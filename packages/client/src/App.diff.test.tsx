@@ -1,4 +1,4 @@
-/** Diff-review flow in the virtual terminal (slice 3). */
+/** Diff-review flow in the virtual terminal: the diff sheet annotates like the thread view. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -9,7 +9,17 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, press, waitForState, waitForText } from "./test-support";
+import { NERD } from "./components/primitives/icons";
+import {
+  clickText,
+  dragText,
+  isolateUserConfig,
+  press,
+  pressKey,
+  typeText,
+  waitForState,
+  waitForText,
+} from "./test-support";
 
 const PATCH = `diff --git a/src/store.ts b/src/store.ts
 index 111..222 100644
@@ -43,13 +53,13 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-async function renderApp() {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+async function renderApp(sessionId = session.id) {
+  const setup = await testRender(<App home={home} sessionId={sessionId} />, {
     width: 120,
     height: 30,
   });
 
-  await waitForText(setup, "cueloop");
+  await waitForText(setup, "new Map()");
 
   return setup;
 }
@@ -64,38 +74,28 @@ describe("diff review", () => {
 
     expect(frame).toContain("src/store.ts");
     expect(frame).toContain("@@ -1,4 +1,4 @@");
-    expect(frame).toContain("-  private items = [];");
-    expect(frame).toContain("+  private items = new Map();");
+    expect(frame).toMatch(/- {2,}private items = \[\];/);
+    expect(frame).toMatch(/\+ {2,}private items = new Map\(\);/);
   });
 
-  test("line comment: quote-anchored, lands in feedback with the code line", async () => {
+  test("a drag marks the code, typing comments on it, and the comment lands in feedback", async () => {
     // Arrange
     const setup = await renderApp();
 
-    // Act
-    // rows: file(0), hunk(1), ctx(2), del(3), add(4); the cursor skips the file and
-    // hunk headers, so three moves land on the added line: ctx -> del -> add
-    for (let i = 0; i < 3; i++) await press(setup, "j");
-    await press(setup, "c");
+    // Act - mark "new Map()" on the added line and just start typing, as in the thread view
+    await dragText(setup, "new Map()", "new Map()", "new Map()".length);
+    await typeText(setup, "Map needs an eviction story.");
+    await waitForText(setup, "● Map needs an eviction story.");
+    await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert
-    await waitForText(setup, 'comment on "');
+    // Assert - the discussion card hangs under the line; the anchor is the marked words
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    await waitForText(setup, "● Map needs an eviction story.");
+    expect(server.core.sessionGet(session.id).annotations[0]!.anchor.quote).toBe("new Map()");
 
-    // Act
-    await setup.mockInput.typeText("Map needs an eviction story.");
+    // Act - submit with the session chord (cmd+enter, no composer open), confirm request_changes
+    await pressKey(setup, "RETURN", { meta: true });
     await press(setup, "enter");
-
-    // Assert
-    // inline annotation card rendered under the line
-    await waitForText(setup, "◆ Map needs an eviction story.");
-    const stored = server.core.sessionGet(session.id);
-
-    expect(stored.annotations.length).toBe(1);
-    expect(stored.annotations[0]!.anchor.quote).toContain("new Map()");
-
-    // Act
-    await press(setup, "enter"); // submit
-    await press(setup, "enter"); // confirm request_changes
 
     // Assert
     await waitForText(setup, "feedback sent");
@@ -105,14 +105,28 @@ describe("diff review", () => {
     expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
   });
 
-  test("Right folds a file to its band, Left restores its body", async () => {
-    // Arrange
+  test("a comment reopens with its mark painted on the code", async () => {
+    // Arrange - a stored comment anchored to the added line's words
+    server.core.sessionAnnotate(session.id, {
+      id: "a_existing",
+      kind: "comment",
+      anchor: { quote: "new Map()", prefix: "  private items = ", suffix: ";" },
+      body: "Existing note.",
+    });
+
+    // Act
     const setup = await renderApp();
 
-    await waitForText(setup, "new Map()");
+    // Assert
+    await waitForText(setup, "● Existing note.");
+  });
 
-    // Act - the cursor starts on the file band; Right collapses that file
-    await press(setup, "right");
+  test("option+c folds the caret's file to its band; the chevron restores its body", async () => {
+    // Arrange - the caret opens on the file's first code line
+    const setup = await renderApp();
+
+    // Act
+    await pressKey(setup, "c", { meta: true });
 
     // Assert - the body is gone but the band (with its counts) remains
     await waitForState(setup, () => !setup.captureCharFrame().includes("new Map()"));
@@ -121,8 +135,8 @@ describe("diff review", () => {
     expect(collapsed).toContain("src/store.ts");
     expect(collapsed).toContain("+1");
 
-    // Act - Left unfolds it again
-    await press(setup, "left");
+    // Act - the band's chevron unfolds it again
+    await clickText(setup, NERD.chevronRight);
 
     // Assert
     await waitForText(setup, "new Map()");
@@ -133,7 +147,7 @@ describe("diff review", () => {
     const setup = await renderApp();
 
     // Act
-    await press(setup, "x");
+    await pressKey(setup, "x", { meta: true });
 
     // Assert
     await waitForText(setup, "hunk curation needs full file contents");
@@ -157,18 +171,11 @@ describe("diff review", () => {
         ],
       },
     });
-    const setup = await testRender(<App home={home} sessionId={withFiles.id} />, {
-      width: 120,
-      height: 30,
-    });
+    const setup = await renderApp(withFiles.id);
 
-    await waitForText(setup, "cueloop");
-
-    // Act - move to the added line and reject its change
-    // rows: file(0), hunk(1), ctx(2), del(3), add(4); the cursor skips the file and
-    // hunk headers, so three moves land on the added line: ctx -> del -> add
-    for (let i = 0; i < 3; i++) await press(setup, "j");
-    await press(setup, "x");
+    // Act - place the caret on the added line and reject its change
+    await clickText(setup, "new Map()");
+    await pressKey(setup, "x", { meta: true });
 
     // Assert - the single change is gone, so the curated working copy is empty
     await waitForText(setup, "change rejected");
