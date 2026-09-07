@@ -369,12 +369,13 @@ class Controller implements ReviewController {
         if (this.closed) return void client.close();
         this.client = client;
         client.onEvent((event) => {
-          // another controller/observer changed state: re-fetch
+          // another controller/observer changed state: re-fetch the active session's content
           const session = this.snapshot.session;
 
           if (session && event.sessionId === session.id) void this.refreshSession(session.id);
-          // the Threads sidebar shows the inbox even on a direct open, so keep it fresh
-          void this.refreshInbox();
+          // only the list-changing events touch the Threads sidebar; refreshing on every
+          // content edit (session.updated) would amplify an active review into a request storm
+          if (event.event !== "session.updated") void this.refreshInbox();
         });
         await client.subscribe();
         // load the inbox in both cases so the sidebar can jump between threads

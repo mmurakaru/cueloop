@@ -332,7 +332,8 @@ export class DaemonCore {
     if (trimmed.length === 0) delete session.artifact.meta.title;
     else session.artifact.meta.title = trimmed;
     this.store.upsert(session);
-    this.emit("session.updated", id);
+    // the title shows in the Threads sidebar, so a rename is an inbox change, not just a content edit
+    this.emit("inbox.changed", id);
 
     return session;
   }
