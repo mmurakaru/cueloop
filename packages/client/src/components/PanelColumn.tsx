@@ -76,6 +76,9 @@ export function PanelColumn({
           flexDirection: "row",
           height: 2,
           paddingLeft: 1,
+          // right controls need the same breathing room as the left, or the rightmost icon renders
+          // squeezed against the terminal's last column
+          paddingRight: 1,
           backgroundColor: theme?.panel,
           borderStyle: "single",
           border: ["bottom"],

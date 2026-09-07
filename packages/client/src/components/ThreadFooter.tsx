@@ -38,7 +38,7 @@ export function ThreadFooter({
         borderColor: tokens.border,
       }}
     >
-      <box style={{ flexShrink: 1, minWidth: 0 }}>
+      <box style={{ flexShrink: 1, minWidth: 0, marginRight: 2 }}>
         <text truncate>
           <span fg={tokens.blue}>{`${NERD.folderClosed} `}</span>
           <span fg={tokens.textMuted}>{repo}</span>

@@ -21,7 +21,7 @@ export const NERD = {
   sidebarRight: "",
   sidebarRightOff: "",
   submit: "",
-  zoom: "",
+  zoom: "⛶",
   split: "",
 } as const;
 

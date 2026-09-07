@@ -89,20 +89,18 @@ export function AppShell({
   );
 
   const projectToggles = (
-    <box style={{ flexDirection: "row", flexShrink: 0 }}>
+    <box style={{ flexDirection: "row", flexShrink: 0, alignItems: "center" }}>
       <IconButton
-        glyph={NERD.diff}
+        glyph="changes"
         active={projectMode === "changes"}
         onPress={onToggleChanges}
-        tip="Toggle Changes Panel"
         marginRight={2}
         theme={tokens}
       />
       <IconButton
-        glyph={NERD.listTree}
+        glyph="project"
         active={projectMode === "tree"}
         onPress={onToggleProject}
-        tip="Toggle Project Panel"
         marginRight={2}
         theme={tokens}
       />
@@ -153,8 +151,8 @@ export function AppShell({
                 flexBasis: 0,
                 minWidth: 0,
                 borderStyle: "single",
-                // zoom drops the Thread pane, so the Threads sidebar's own right rule already divides
-                // here; skip the Changes editor's left rule then to avoid a double border
+                // zoom drops the Thread pane, whose sidebar rule already divides here, so drop this
+                // one then to avoid a double border
                 border: zoomHideThread ? [] : ["left"],
                 borderColor: tokens.border,
               }}
@@ -174,14 +172,16 @@ export function AppShell({
             </PanelColumn>
           ) : (
             // collapsed: a divider tick above the continuous header underline holds the reopen toggle;
-            // the rule lives in the header only, never running the pane's full height
-            <box style={{ flexDirection: "column", width: 3 }}>
+            // the rule lives in the header only, never running the pane's full height. The extra column
+            // of right padding keeps the reopen icon off the terminal's last column, which squeezes it
+            <box style={{ flexDirection: "column", width: 4 }}>
               <box
                 customBorderChars={HEADER_UNDERLINE_CHARS}
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
                   height: 2,
+                  paddingRight: 1,
                   backgroundColor: tokens.panel,
                   borderStyle: "single",
                   border: ["bottom"],

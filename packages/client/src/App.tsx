@@ -762,10 +762,10 @@ export function App({
           showOwnerActions ? (
             <Toolbar>
               <Button onPress={onEditRequest} theme={theme}>
-                {" Edit "}
+                {" edit "}
               </Button>
               <Button onPress={onShareRequest} theme={theme}>
-                {" Share "}
+                {" share "}
               </Button>
             </Toolbar>
           ) : undefined

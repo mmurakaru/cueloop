@@ -92,8 +92,8 @@ const HEADER_ROW = 0;
 function toggleColumn(setup: Setup, glyph: string): number {
   return setup.captureCharFrame().split("\n")[HEADER_ROW]!.lastIndexOf(glyph);
 }
-const diffToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.diff);
-const treeToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.listTree);
+const diffToggleColumn = (setup: Setup): number => toggleColumn(setup, "changes");
+const treeToggleColumn = (setup: Setup): number => toggleColumn(setup, "project");
 const rightToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sidebarRight);
 // the collapsed rail shows the outline (off) variant, mirroring the left toggle's filled/outline states
 const railToggleColumn = (setup: Setup): number => toggleColumn(setup, NERD.sidebarRightOff);
@@ -151,7 +151,7 @@ describe("the four-pane workbench", () => {
     await waitForText(setup, "Workbench Fixture");
 
     // the split control appears only on a file tab
-    const split = locateText(setup, NERD.split);
+    const split = locateText(setup, "split");
     await setup.mockMouse.click(split.column, split.row);
     await waitForText(setup, "Split Right");
 
@@ -164,7 +164,7 @@ describe("the four-pane workbench", () => {
     const right = locateText(setup, "Split Right");
     await setup.mockMouse.click(right.column, right.row);
     // two editor groups now ride the header, each with its own split control
-    await waitForState(setup, () => setup.captureCharFrame().split(NERD.split).length - 1 >= 2);
+    await waitForState(setup, () => setup.captureCharFrame().split("split").length - 1 >= 2);
     expect((setup.captureCharFrame().match(/README\.md/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
 
@@ -256,15 +256,15 @@ describe("the four-pane workbench", () => {
     expect(diffToggleColumn(setup)).toBe(-1);
   });
 
-  test("hovering a header toggle surfaces its tooltip label at the screen root", async () => {
+  test("hovering the right-sidebar icon surfaces its tooltip label at the screen root", async () => {
     const setup = await renderApp();
 
     // the tip is not painted until the pointer is over the control
-    expect(setup.captureCharFrame()).not.toContain("Toggle Changes Panel");
+    expect(setup.captureCharFrame()).not.toContain("Toggle Right Sidebar");
 
-    await setup.mockMouse.moveTo(diffToggleColumn(setup), HEADER_ROW);
+    await setup.mockMouse.moveTo(rightToggleColumn(setup), HEADER_ROW);
     // the label surfaces at the root, escaping the header cell that would otherwise clip it
-    await waitForText(setup, "Toggle Changes Panel");
+    await waitForText(setup, "Toggle Right Sidebar");
   });
 });
 

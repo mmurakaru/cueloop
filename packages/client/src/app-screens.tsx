@@ -197,8 +197,15 @@ export function NoThreadShell(props: {
         }
         threadTitle=""
         threadPanel={
-          <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
-            <text fg={theme.textDim}>Select a thread on the left to open it here.</text>
+          <box
+            style={{
+              flexGrow: 1,
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <text fg={theme.textDim}>Select a thread</text>
           </box>
         }
         changesOpen={workbench.changesOpen}

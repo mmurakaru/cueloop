@@ -86,7 +86,8 @@ function SplitMenu({
         flexShrink: 0,
         borderStyle: "single",
         borderColor: tokens.border,
-        backgroundColor: tokens.elevated,
+        // the panel token is transparent in the branded theme, so the menu reads terminal-through
+        backgroundColor: tokens.panel,
       }}
     >
       {SPLIT_ITEMS.map((item) => (
@@ -106,11 +107,9 @@ function SplitMenu({
 
 function EditorGroupPane({
   group,
-  focused,
   props,
 }: {
   group: EditorGroup;
-  focused: boolean;
   props: EditorGridProps;
 }): React.ReactNode {
   const tokens = props.theme ?? DARK;
@@ -128,13 +127,17 @@ function EditorGroupPane({
         style={{
           flexDirection: "row",
           height: 2,
-          backgroundColor: focused ? tokens.elevated : tokens.panel,
+          // match the pane headers: the panel token is transparent in the branded theme, so the
+          // header reads as terminal-through rather than a raised box
+          backgroundColor: tokens.panel,
           borderStyle: "single",
           border: ["bottom"],
           borderColor: tokens.border,
         }}
       >
-        <box style={{ flexDirection: "row", minWidth: 0 }}>
+        {/* the tab strip shrinks and clips its overflow so a long row never collides with the
+            fixed header controls on the right */}
+        <box style={{ flexDirection: "row", flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
           {group.tabs.map((tab) => (
             <EditorTabButton
               key={tab.id}
@@ -146,15 +149,8 @@ function EditorGroupPane({
             />
           ))}
         </box>
-        <box style={{ flexGrow: 1 }} />
         <box style={{ flexDirection: "row", flexShrink: 0, paddingRight: 1 }}>
-          <IconButton
-            glyph={NERD.search}
-            onPress={() => {}}
-            tip="Search"
-            marginRight={2}
-            theme={tokens}
-          />
+          <IconButton glyph="search" onPress={() => {}} marginRight={2} theme={tokens} />
           <IconButton
             glyph={NERD.zoom}
             active={props.zoomed}
@@ -165,10 +161,9 @@ function EditorGroupPane({
           />
           {isFile ? (
             <IconButton
-              glyph={NERD.split}
+              glyph="split"
               active={menuOpen}
               onPress={() => setMenuOpen((open) => !open)}
-              tip="Split Pane"
               theme={tokens}
             />
           ) : null}
@@ -192,9 +187,7 @@ function EditorGroupPane({
 
 function GridNode({ node, props }: { node: EditorNode; props: EditorGridProps }): React.ReactNode {
   if (node.type === "group") {
-    return (
-      <EditorGroupPane group={node} focused={node.id === props.focusedGroupId} props={props} />
-    );
+    return <EditorGroupPane group={node} props={props} />;
   }
   const tokens = props.theme ?? DARK;
   const horizontal = node.orientation === "horizontal";
