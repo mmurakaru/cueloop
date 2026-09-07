@@ -196,6 +196,117 @@ interface SplitSideNodes {
   cards: React.ReactNode[];
 }
 
+/** The scroll viewport as measured after a frame: content width, visible height, scroll offset. */
+interface Viewport {
+  width: number;
+  height: number;
+  scrollTop: number;
+}
+
+/**
+ * One item of the sheet's vertical layout: a base row (unified) or a split row, with the
+ * visual lines it occupies. Cards under a materialized row add to the real height; the
+ * model only has to be right enough for spacers and the caret reveal.
+ */
+interface LayoutItem {
+  /** Index into the unified rows, or into the split rows when side by side. */
+  index: number;
+  height: number;
+}
+
+interface SheetLayout {
+  items: LayoutItem[];
+  /** Visual-line offset of each item from the top of the content. */
+  offsets: number[];
+  total: number;
+  /** The layout item that shows a given base row, for the caret reveal. */
+  itemOfRow: number[];
+}
+
+/** Rows this many visual lines beyond the viewport stay materialized, so a scroll step never shows a gap. */
+const OVERSCAN_LINES = 30;
+
+/** A file band is three rows (rule, name, rule); a hunk header one. */
+function headerHeight(row: DiffRow): number {
+  return row.kind === "file" ? 3 : 1;
+}
+
+function codeRowHeight(row: DiffRow, textWidth: number): number {
+  return wrapLines(diffRowText(row), textWidth).length;
+}
+
+function buildLayout(items: LayoutItem[], itemOfRow: number[]): SheetLayout {
+  const offsets: number[] = [];
+  let total = 0;
+
+  for (const item of items) {
+    offsets.push(total);
+    total += item.height;
+  }
+
+  return { items, offsets, total, itemOfRow };
+}
+
+function unifiedLayout(rows: DiffRow[], textWidth: number): SheetLayout {
+  const items = rows.map((row, index) => ({
+    index,
+    height: isCodeRow(row) ? codeRowHeight(row, textWidth) : headerHeight(row),
+  }));
+
+  return buildLayout(
+    items,
+    rows.map((_row, index) => index),
+  );
+}
+
+function splitLayout(splitRows: SplitRow[], rows: DiffRow[], textWidth: number): SheetLayout {
+  const itemOfRow: number[] = [];
+  const items = splitRows.map((pair, index) => {
+    if (pair.kind !== "pair") {
+      const row = rows[pair.rowIndex ?? -1];
+
+      if (pair.rowIndex !== undefined) itemOfRow[pair.rowIndex] = index;
+
+      return { index, height: row ? headerHeight(row) : 1 };
+    }
+    const sideHeight = (line: SplitLine | undefined): number =>
+      line ? codeRowHeight(line.row, textWidth) : 0;
+
+    if (pair.left) itemOfRow[pair.left.rowIndex] = index;
+    if (pair.right) itemOfRow[pair.right.rowIndex] = index;
+
+    return { index, height: Math.max(1, sideHeight(pair.left), sideHeight(pair.right)) };
+  });
+
+  return buildLayout(items, itemOfRow);
+}
+
+/** The inclusive range of layout items to materialize; empty when `last < first`. */
+interface ItemWindow {
+  first: number;
+  last: number;
+}
+
+/** The inclusive item range to materialize for a scroll position: the viewport plus the overscan. */
+function visibleWindow(layout: SheetLayout, scrollTop: number, viewportHeight: number): ItemWindow {
+  const top = scrollTop - OVERSCAN_LINES;
+  const bottom = scrollTop + Math.max(1, viewportHeight) + OVERSCAN_LINES;
+  let first = layout.items.length;
+  let last = -1;
+
+  for (let index = 0; index < layout.items.length; index++) {
+    const start = layout.offsets[index]!;
+    const end = start + layout.items[index]!.height;
+
+    if (end <= top) continue;
+    if (start >= bottom) break;
+    if (index < first) first = index;
+    last = index;
+  }
+
+  return { first, last };
+}
+
 /** One painted stretch of a code line: its text with foreground, backdrop, and attributes. */
 interface CodeSpan {
   text: string;
@@ -355,20 +466,53 @@ export function DiffSheet({
   const localStats = useMemo(() => fileChangeCounts(rows), [rows]);
   // base-row counts survive a collapse (folded rows drop the file's add/del rows); fall back locally
   const fileStats = fileStatsProp ?? localStats;
-  const viewWidth = useFrameMeasure(
-    () => scrollRef.current?.content?.width ?? 0,
-    (left, right) => left === right,
-    0,
+  const viewport = useFrameMeasure<Viewport>(
+    () => ({
+      width: scrollRef.current?.content?.width ?? 0,
+      height: scrollRef.current?.height ?? 0,
+      scrollTop: scrollRef.current?.scrollTop ?? 0,
+    }),
+    (left, right) =>
+      left.width === right.width &&
+      left.height === right.height &&
+      left.scrollTop === right.scrollTop,
+    { width: 0, height: 0, scrollTop: 0 },
   );
+  const viewWidth = viewport.width;
+  // two columns and a one-cell divider share the width; each column keeps its own gutter
+  const textWidth = split
+    ? Math.max(0, Math.floor((viewWidth - 1) / 2) - GUTTER_COLUMNS)
+    : Math.max(0, viewWidth - GUTTER_COLUMNS);
+
+  // Every visual line is its own text renderable (so a drag can hit-test it), and a large
+  // diff has tens of thousands of them - more native text buffers than the renderer can
+  // hold. So the sheet is virtual: rows off screen collapse into spacers of their modelled
+  // height, and only the viewport plus an overscan is materialized.
+  const layout = useMemo(
+    () => (split ? splitLayout(splitRows, rows, textWidth) : unifiedLayout(rows, textWidth)),
+    [split, splitRows, rows, textWidth],
+  );
+  const window = visibleWindow(layout, viewport.scrollTop, viewport.height);
 
   // an opening card shifts the layout, so the row it belongs to is revealed again; a
-  // discussion focused from the rail is scrolled into view the same way
+  // discussion focused from the rail is scrolled into view the same way. A row that is
+  // not materialized yet scrolls to its modelled offset and renders on the next frame.
   useEffect(() => {
-    try {
-      scrollRef.current?.scrollChildIntoView(`diff-row-${surface.revealBlockIndex}`);
-    } catch {
-      // best-effort reveal
+    const scrollbox = scrollRef.current;
+    const itemIndex = layout.itemOfRow[surface.revealBlockIndex];
+
+    if (!scrollbox || itemIndex === undefined) return;
+    if (itemIndex >= window.first && itemIndex <= window.last) {
+      try {
+        scrollbox.scrollChildIntoView(`diff-row-${surface.revealBlockIndex}`);
+      } catch {
+        // best-effort reveal
+      }
+
+      return;
     }
+    scrollbox.scrollTo({ x: 0, y: Math.max(0, layout.offsets[itemIndex]! - 2) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surface.revealBlockIndex]);
 
   /** The visual lines of one code row painted with gutter, colors, and marks; cards collected after. */
@@ -459,20 +603,18 @@ export function DiffSheet({
       </text>
     );
 
-  const unifiedBody = (): React.ReactNode[] => {
-    const textWidth = Math.max(0, viewWidth - GUTTER_COLUMNS);
+  const unifiedItem = (rowIndex: number): React.ReactNode => {
+    const row = rows[rowIndex]!;
 
-    return rows.map((row, rowIndex) => {
-      if (!isCodeRow(row)) return headerNode(row, rowIndex);
-      const { lines, cards } = codeRowLines(row, rowIndex, textWidth, `row-${rowIndex}`);
+    if (!isCodeRow(row)) return headerNode(row, rowIndex);
+    const { lines, cards } = codeRowLines(row, rowIndex, textWidth, `row-${rowIndex}`);
 
-      return (
-        <box key={rowIndex} id={`diff-row-${rowIndex}`} style={{ flexDirection: "column" }}>
-          {lines}
-          {cards}
-        </box>
-      );
-    });
+    return (
+      <box key={rowIndex} id={`diff-row-${rowIndex}`} style={{ flexDirection: "column" }}>
+        {lines}
+        {cards}
+      </box>
+    );
   };
 
   /** One side of a split pair: the row's visual lines, or blank filler that reads as absent. */
@@ -496,48 +638,64 @@ export function DiffSheet({
     return { node: column, cards };
   };
 
-  const splitBody = (): React.ReactNode[] => {
-    // two columns and a one-cell divider share the width; each column keeps its own gutter
-    const textWidth = Math.max(0, Math.floor((viewWidth - 1) / 2) - GUTTER_COLUMNS);
+  const splitItem = (pairIndex: number): React.ReactNode => {
+    const pair: SplitRow = splitRows[pairIndex]!;
 
-    return splitRows.map((pair: SplitRow, pairIndex) => {
-      if (pair.kind !== "pair") {
-        const rowIndex = pair.rowIndex ?? -1;
+    if (pair.kind !== "pair") {
+      const rowIndex = pair.rowIndex ?? -1;
 
-        return headerNode(
-          rows[rowIndex] ?? { kind: pair.kind, text: pair.file, file: pair.file },
-          rowIndex,
-        );
-      }
-      const left = splitSide(pair.left, textWidth, `pair-${pairIndex}-left`);
-      const right = splitSide(pair.right, textWidth, `pair-${pairIndex}-right`);
-      const anchorRow = pair.right?.rowIndex ?? pair.left?.rowIndex ?? -1;
-
-      return (
-        <box
-          key={`pair-${pairIndex}`}
-          id={`diff-row-${anchorRow}`}
-          style={{ flexDirection: "column" }}
-        >
-          {/* stretch so the divider box grows to the taller side's wrapped height, leaving no gap */}
-          <box style={{ flexDirection: "row", alignItems: "stretch" }}>
-            {left.node}
-            <box
-              style={{
-                flexShrink: 0,
-                borderStyle: "single",
-                border: ["left"],
-                borderColor: tokens.border,
-              }}
-            />
-            {right.node}
-          </box>
-          {left.cards}
-          {right.cards}
-        </box>
+      return headerNode(
+        rows[rowIndex] ?? { kind: pair.kind, text: pair.file, file: pair.file },
+        rowIndex,
       );
-    });
+    }
+    const left = splitSide(pair.left, textWidth, `pair-${pairIndex}-left`);
+    const right = splitSide(pair.right, textWidth, `pair-${pairIndex}-right`);
+    // both sides answer to the pair's id, so a reveal of either base row lands here
+    const anchorRow = pair.right?.rowIndex ?? pair.left?.rowIndex ?? -1;
+    const otherRow = pair.left?.rowIndex;
+
+    return (
+      <box
+        key={`pair-${pairIndex}`}
+        id={`diff-row-${anchorRow}`}
+        style={{ flexDirection: "column" }}
+      >
+        {/* stretch so the divider box grows to the taller side's wrapped height, leaving no gap */}
+        <box
+          id={otherRow !== undefined && otherRow !== anchorRow ? `diff-row-${otherRow}` : undefined}
+          style={{ flexDirection: "row", alignItems: "stretch" }}
+        >
+          {left.node}
+          <box
+            style={{
+              flexShrink: 0,
+              borderStyle: "single",
+              border: ["left"],
+              borderColor: tokens.border,
+            }}
+          />
+          {right.node}
+        </box>
+        {left.cards}
+        {right.cards}
+      </box>
+    );
   };
+
+  const materialized: React.ReactNode[] = [];
+
+  if (window.last >= window.first) {
+    const above = layout.offsets[window.first]!;
+    const lastItem = layout.items[window.last]!;
+    const below = layout.total - (layout.offsets[window.last]! + lastItem.height);
+
+    if (above > 0) materialized.push(<box key="spacer-above" style={{ height: above }} />);
+    for (let index = window.first; index <= window.last; index++) {
+      materialized.push(split ? splitItem(index) : unifiedItem(index));
+    }
+    if (below > 0) materialized.push(<box key="spacer-below" style={{ height: below }} />);
+  }
 
   return (
     <box
@@ -545,7 +703,7 @@ export function DiffSheet({
       {...surface.rootMouseProps}
     >
       <scrollbox id="diff-scroll" ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
-        {split ? splitBody() : unifiedBody()}
+        {materialized}
       </scrollbox>
     </box>
   );
