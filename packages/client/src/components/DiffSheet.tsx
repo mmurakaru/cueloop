@@ -40,6 +40,9 @@ const EMPTY_REJECTED: Set<number> = new Set();
 /** A rejected (curated-out) change row renders struck through and dimmed. */
 const REJECTED_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
 
+/** A file band underlines its name in-cell, so the rule sits on the name's own row. */
+const FILE_HEADER_ATTRIBUTES = createTextAttributes({ underline: true });
+
 export interface DiffComposeState {
   kind: "comment";
   rowIndex: number;
@@ -310,14 +313,16 @@ export function DiffSheet({
             const isCursor = segment.rowIndex === cursor;
 
             if (segment.row.kind === "file") {
+              // a file band flush left, its name underlined in-cell so the rule shares its row
               return (
-                <text
-                  key={segmentIndex}
-                  fg={tokens.text}
-                  bg={isCursor ? tokens.cursorBackground : tokens.panel}
-                  style={{ wrapMode: "none" }}
-                >
-                  {isCursor ? "▎" : " "} {rowLine(segment.row)}
+                <text key={segmentIndex} style={{ wrapMode: "none" }}>
+                  <span
+                    fg={tokens.text}
+                    bg={isCursor ? tokens.cursorBackground : tokens.panel}
+                    attributes={FILE_HEADER_ATTRIBUTES}
+                  >
+                    {(isCursor ? "▎" : "") + rowLine(segment.row)}
+                  </span>
                 </text>
               );
             }
