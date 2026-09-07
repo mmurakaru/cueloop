@@ -10,6 +10,8 @@ export const NERD = {
   search: "",
   expand: "",
   diff: "±",
+  copy: "",
+  unfold: "",
   kebab: "⋮",
   pin: "⚑",
   close: "✕",

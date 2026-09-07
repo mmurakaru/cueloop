@@ -276,8 +276,8 @@ describe("the guided walk", () => {
 
     // Assert
     await waitForText(setup, "file 1 of 3 · 0 viewed");
-    // dimmed: the sheet's changed word drops to the dim token...
-    expect(foregroundsOf(setup, "new")).toEqual([DARK.textDim]);
+    // dimmed: an added line the wizard preview does not show drops to the dim token...
+    expect(foregroundsOf(setup, "added tail")).toEqual([DARK.textDim]);
     // ...while the wizard preview keeps the insertion color
     expect(foregroundsOf(setup, "+export const b = 3;")).toContain(DARK.insertedForeground);
   });

@@ -82,18 +82,20 @@ describe("segmentRows", () => {
 });
 
 describe("rowContentOffsets", () => {
-  test("counts one row per header and an extra row for a chunk's annotation card", () => {
-    // Arrange
-    const rows = [row("file", "a.ts"), row("add", "changed")];
-    const annotatedByRow = new Map<number, Annotation>([[1, annotation("changed")]]);
+  test("spans a file band across three rows, then a hunk header and its annotated chunk", () => {
+    // Arrange - a file band, a hunk header, one changed row carrying a card
+    const rows = [row("file", "a.ts"), row("hunk", "@@"), row("add", "changed")];
+    const annotatedByRow = new Map<number, Annotation>([[2, annotation("changed")]]);
     const segments = segmentRows(rows, annotatedByRow);
 
     // Act
     const offsets = rowContentOffsets(segments);
 
-    // Assert - header at y0, its chunk row at y1; the card would sit at y2
-    expect(offsets[0]).toBe(0);
-    expect(offsets[1]).toBe(1);
+    // Assert - the name sits between its rules (y1), the hunk header at y3,
+    // its chunk row at y4; the card would sit at y5
+    expect(offsets[0]).toBe(1);
+    expect(offsets[1]).toBe(3);
+    expect(offsets[2]).toBe(4);
   });
 });
 

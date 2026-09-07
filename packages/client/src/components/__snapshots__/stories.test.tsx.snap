@@ -499,7 +499,9 @@ exports[`stories catalog Overlays/ConfirmDialog/DeletePlan renders, snapshots, a
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/AnnotatedLine 1`] = `
-" ▎src/store.ts                                                                            
+" ─────────────────────────────────────────────────────────────────────────────────────────
+ ▎src/store.ts                                                                            
+ ─────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                         
    1   export class Store {                                                               
    2  -  private items = [];                                                              
@@ -513,13 +515,13 @@ exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, an
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
-                                                                                          
 "
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/ComposingOnLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/ComposingOnLine 1`] = `
-" src/store.ts                                                                             
+" ─────────────────────────────────────────────────────────────────────────────────────────
+ src/store.ts                                                                             
+ ─────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                         
     1  export class Store {                                                               
     2 -  private items = [];                                                              
@@ -533,13 +535,13 @@ exports[`stories catalog Surfaces/DiffSheet/ComposingOnLine renders, snapshots, 
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
-                                                                                          
 "
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/CursorOnAddedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/CursorOnAddedLine 1`] = `
-" src/store.ts                                                                             
+" ─────────────────────────────────────────────────────────────────────────────────────────
+ src/store.ts                                                                             
+ ─────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                         
     1  export class Store {                                                               
     2 -  private items = [];                                                              
@@ -553,20 +555,18 @@ exports[`stories catalog Surfaces/DiffSheet/CursorOnAddedLine renders, snapshots
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
-                                                                                          
 "
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: Surfaces/DiffSheet/IntralineWordDiff 1`] = `
-" ▎src/store.ts                                                                            
+" ─────────────────────────────────────────────────────────────────────────────────────────
+ ▎src/store.ts                                                                            
+ ─────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                         
    1  export class Store {                                                                
    2 -  private items = [];                                                               
    2 +  private items = new Map();                                                        
    3  }                                                                                   
-                                                                                          
-                                                                                          
                                                                                           
                                                                                           
                                                                                           
@@ -579,14 +579,14 @@ exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and carries its colors: Surfaces/DiffSheet/SignedRows 1`] = `
-" ▎src/store.ts                                                                            
+" ─────────────────────────────────────────────────────────────────────────────────────────
+ ▎src/store.ts                                                                            
+ ─────────────────────────────────────────────────────────────────────────────────────────
   @@ -1,4 +1,4 @@                                                                         
    1  export class Store {                                                                
    2 -  private items = [];                                                               
    2 +  private items = new Map();                                                        
    3  }                                                                                   
-                                                                                          
-                                                                                          
                                                                                           
                                                                                           
                                                                                           

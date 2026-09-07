@@ -40,8 +40,8 @@ const EMPTY_REJECTED: Set<number> = new Set();
 /** A rejected (curated-out) change row renders struck through and dimmed. */
 const REJECTED_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: true });
 
-/** A file band underlines its name in-cell, so the rule sits on the name's own row. */
-const FILE_HEADER_ATTRIBUTES = createTextAttributes({ underline: true });
+/** A file band renders its name in bold between an equal rule above and below. */
+const FILE_HEADER_ATTRIBUTES = createTextAttributes({ bold: true });
 
 export interface DiffComposeState {
   kind: "comment";
@@ -313,17 +313,25 @@ export function DiffSheet({
             const isCursor = segment.rowIndex === cursor;
 
             if (segment.row.kind === "file") {
-              // a file band flush left, its name underlined in-cell so the rule shares its row
+              // a file band: the bold name between an equal centered rule above and below it
               return (
-                <text key={segmentIndex} style={{ wrapMode: "none" }}>
-                  <span
+                <box
+                  key={segmentIndex}
+                  style={{
+                    borderStyle: "single",
+                    border: ["top", "bottom"],
+                    borderColor: tokens.border,
+                  }}
+                >
+                  <text
                     fg={tokens.text}
-                    bg={isCursor ? tokens.cursorBackground : tokens.panel}
+                    bg={isCursor ? tokens.cursorBackground : undefined}
                     attributes={FILE_HEADER_ATTRIBUTES}
+                    style={{ wrapMode: "none" }}
                   >
                     {(isCursor ? "▎" : "") + rowLine(segment.row)}
-                  </span>
-                </text>
+                  </text>
+                </box>
               );
             }
 

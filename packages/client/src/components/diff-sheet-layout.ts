@@ -95,15 +95,22 @@ export function segmentRows(
 }
 
 /** The content-y offset of each row index, so the cursor can be scrolled into
- *  view; a chunk's annotation adds one row for its card. */
+ *  view; a file band spans three rows (rule, name, rule), a chunk's annotation
+ *  adds one row for its card. */
 export function rowContentOffsets(segments: DiffSegment[]): number[] {
   const offsets: number[] = [];
   let contentY = 0;
 
   for (const segment of segments) {
     if (segment.kind === "header") {
-      offsets[segment.rowIndex] = contentY;
-      contentY += 1;
+      if (segment.row.kind === "file") {
+        // the name sits between its rules, so it lands one row into the band
+        offsets[segment.rowIndex] = contentY + 1;
+        contentY += 3;
+      } else {
+        offsets[segment.rowIndex] = contentY;
+        contentY += 1;
+      }
     } else {
       segment.rows.forEach((_, lineIndex) => {
         offsets[segment.firstRowIndex + lineIndex] = contentY + lineIndex;
