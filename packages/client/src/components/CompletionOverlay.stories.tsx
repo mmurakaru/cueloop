@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { CompletionOverlay } from "./CompletionOverlay";
 
-export const meta: StoryMeta = { title: "CompletionOverlay" };
+export const meta: StoryMeta = { title: "Overlays/CompletionOverlay" };
 
 export const ApprovedPrompt: Story = {
   render: () => <CompletionOverlay verdict="approve" completion={{ phase: "prompt" }} status="" />,

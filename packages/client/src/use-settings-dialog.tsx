@@ -3,8 +3,10 @@ import {
   DEFAULT_QUICK_ACTIONS,
   persistActions,
   persistAutoClose,
+  persistDiffView,
   persistTheme,
   type AutoClose,
+  type DiffViewMode,
   type QuickAction,
 } from "./config";
 import {
@@ -15,10 +17,8 @@ import {
   type ThemeName,
 } from "./theme-presets";
 import type { Theme } from "./theme";
-import type { ReviewPanelMode } from "./review-panel";
 import type { SettingsCategory } from "./components/SettingsDialog";
 import { QuickActionsEditor } from "./components/quick-actions-editor";
-import type { ReviewController } from "./session-controller";
 
 export interface SettingsNav {
   categoryId: string;
@@ -74,15 +74,14 @@ export function useSettingsDialog(params: {
   appearance: Appearance;
   autoClose: AutoClose;
   setAutoClose: Dispatch<SetStateAction<AutoClose>>;
-  reviewMode: ReviewPanelMode;
-  setReviewMode: Dispatch<SetStateAction<ReviewPanelMode>>;
+  diffView: DiffViewMode;
+  setDiffView: Dispatch<SetStateAction<DiffViewMode>>;
   themeName: ThemeName;
   setThemeName: Dispatch<SetStateAction<ThemeName>>;
   themeOverrides: Partial<Theme>;
   setTheme: Dispatch<SetStateAction<Theme>>;
   quickActions: QuickAction[];
   setQuickActions: Dispatch<SetStateAction<QuickAction[]>>;
-  controller: ReviewController;
   setMenuDialog: Dispatch<SetStateAction<"keybinds" | "settings" | null>>;
 }): SettingsDialogModel {
   const {
@@ -90,15 +89,14 @@ export function useSettingsDialog(params: {
     appearance,
     autoClose,
     setAutoClose,
-    reviewMode,
-    setReviewMode,
+    diffView,
+    setDiffView,
     themeName,
     setThemeName,
     themeOverrides,
     setTheme,
     quickActions,
     setQuickActions,
-    controller,
     setMenuDialog,
   } = params;
 
@@ -142,18 +140,11 @@ export function useSettingsDialog(params: {
           kind: "cycle",
           options: ["off", "3s", "10s"],
         },
-      ],
-    },
-    {
-      id: "display",
-      name: "Display",
-      description: "the review panel",
-      rows: [
         {
-          key: "reviewPanel",
-          label: "Review panel",
+          key: "diffView",
+          label: "Diff view (when zoomed)",
           kind: "cycle",
-          options: ["expanded", "compact", "hidden"],
+          options: ["Unified", "Split"],
         },
       ],
     },
@@ -191,10 +182,16 @@ export function useSettingsDialog(params: {
         />
       ),
     },
+    {
+      id: "keybinds",
+      name: "Keybinds",
+      description: "keyboard reference",
+      rows: [],
+    },
   ];
   const settingsValues = {
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
-    reviewPanel: reviewMode,
+    diffView: diffView === "split" ? "Split" : "Unified",
     theme: THEME_LABELS[themeName],
   };
   const cycleSetting = (rowKey: string): void => {
@@ -203,12 +200,11 @@ export function useSettingsDialog(params: {
 
       setAutoClose(next);
       persistAutoClose(next);
-    } else if (rowKey === "reviewPanel") {
-      const order: ReviewPanelMode[] = ["expanded", "compact", "hidden"];
-      const next = order[(order.indexOf(reviewMode) + 1) % order.length]!;
+    } else if (rowKey === "diffView") {
+      const next: DiffViewMode = diffView === "unified" ? "split" : "unified";
 
-      setReviewMode(next);
-      controller.saveReviewPanel({ mode: next });
+      setDiffView(next);
+      persistDiffView(next);
     } else if (rowKey === "theme") {
       const next = THEME_NAMES[(THEME_NAMES.indexOf(themeName) + 1) % THEME_NAMES.length]!;
 
@@ -219,6 +215,9 @@ export function useSettingsDialog(params: {
   };
 
   const onCategorySelect = (categoryId: string): void => {
+    // the nav tree carries a synthetic Settings group folder; clicking it must
+    // not become the active category, or the key handler dereferences nothing
+    if (!settingsCategories.some((category) => category.id === categoryId)) return;
     setActionsExpandedIndex(null);
     setSettingsNav({ categoryId, rowIndex: 0, zone: "body" });
   };

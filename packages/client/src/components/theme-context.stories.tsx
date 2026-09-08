@@ -4,7 +4,7 @@ import type { Story, StoryMeta } from "./story";
 import { ThemeProvider } from "./theme-context";
 import { Card } from "./primitives/Card";
 
-export const meta: StoryMeta = { title: "theme-context" };
+export const meta: StoryMeta = { title: "Foundations/Theme" };
 
 /** A high-contrast variant to prove tokens flow through the provider. */
 const HIGH_CONTRAST: Theme = { ...DARK, accent: "#00ffff", elevated: "#000000", border: "#ffffff" };

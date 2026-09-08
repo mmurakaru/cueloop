@@ -4,7 +4,7 @@ import type { Story, StoryMeta } from "./story";
 import { AgentLauncher } from "./agent-launcher";
 import { fixturePlanSession } from "./story-fixtures";
 
-export const meta: StoryMeta = { title: "AgentLauncher" };
+export const meta: StoryMeta = { title: "Chrome/AgentLauncher" };
 
 /** The launcher expects the rail's narrow, height-constrained column. */
 function RailFrame({ children }: { children: React.ReactNode }): React.ReactNode {

@@ -1,8 +1,8 @@
 /**
  * The review-session controller: every daemon round-trip and mutation
- * verb behind one React-free object. It owns connect/autostart/subscribe,
+ * primitive behind one React-free object. It owns connect/autostart/subscribe,
  * the session/inbox/status/error snapshot, optimistic apply, the mutation
- * verbs (cut/edit/annotate/submit/...), and the post-submit completion
+ * primitives (cut/edit/annotate/submit/...), and the post-submit completion
  * lifecycle including the notes-vault export and the herdr return-focus.
  * App subscribes to snapshots and keeps only view state.
  */
@@ -10,32 +10,45 @@
 import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
 import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
 import {
+  applyPathView,
+  createBranch,
   cutBlock,
   detectHerdr,
+  labelTip,
+  MAIN_BRANCH,
   makeAnchor,
+  navigateTo,
   newAnnotationId,
   parseBlocks,
   resolveAnchor,
   restoreBlock,
   restoreLine,
   returnPaneFor,
+  switchBranch,
+  viewOfPath,
   type Annotation,
+  type DiffFileContents,
   type ReviewSession,
+  type SessionHistory,
   type VerdictKind,
 } from "@cueloop/schema";
 import { loadBundledExporters, type BundledExporter } from "./integrations";
 import {
   collaboratorAnnotations,
+  mergeFromShare,
   publishShare,
   pullShare,
   pushShare,
+  watchShare,
   shareIdFromLine,
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
-import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
+import { entryTarget, treeRows, type TreeRow } from "./tree-view";
+import { diffRowBlocks, diffRows, fileChangeCounts, type DiffRow } from "./view-diff";
+import { applyFold } from "./diff-fold";
+import { copyToClipboard } from "./clipboard";
 import {
   changeRejectionForRow,
-  curateDiff,
   hunkRejectionForRow,
   isRowRejected,
   parseFileDiff,
@@ -47,14 +60,7 @@ import type { FileDiffMetadata } from "@pierre/diffs";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
 import { editInEditor } from "./editor";
 import { focusHerdrPane } from "./herdr";
-import {
-  persistAutoClose,
-  persistReviewState,
-  persistReviewWidth,
-  type AutoClose,
-  type CueloopConfig,
-} from "./config";
-import type { ReviewPanelMode } from "./review-panel";
+import { persistAutoClose, type AutoClose, type CueloopConfig } from "./config";
 
 /**
  * Post-submit lifecycle (a review pane should hand you back to the agent,
@@ -71,9 +77,12 @@ export type Completion =
 export const DEFAULT_AUTO_CLOSE = 5;
 
 /** How often an open shared plan re-pulls collaborator notes (ADR 0005 stage 2). */
-export const SHARE_POLL_MS = 4000;
+/** Reconnect backoff for a dropped watch stream: doubles from the floor to the cap. */
+export const SHARE_RECONNECT_MIN_MS = 1000;
+export const SHARE_RECONNECT_MAX_MS = 30_000;
 
 /** Shared empty set so "nothing rejected" is a stable identity for renders. */
+const EMPTY_REJECTIONS: HunkRejection[] = [];
 const EMPTY_REJECTED_ROWS: Set<number> = new Set();
 
 /** Shared empty list so "nothing curated out" is a stable identity for renders. */
@@ -135,21 +144,27 @@ export interface ShareTransport {
   publish: typeof publishShare;
   pull: typeof pullShare;
   push: typeof pushShare;
+  watch: typeof watchShare;
   parseShareId: typeof shareIdFromLine;
   collaboratorAnnotations: typeof collaboratorAnnotations;
+  mergeFromShare: typeof mergeFromShare;
 }
 
 const DEFAULT_SHARE_TRANSPORT: ShareTransport = {
   publish: publishShare,
   pull: pullShare,
+  watch: watchShare,
   push: pushShare,
   parseShareId: shareIdFromLine,
   collaboratorAnnotations,
+  mergeFromShare,
 };
 
 export interface ReviewControllerOptions {
   home?: string;
   sessionId?: string;
+  /** The directory the client launched in; its git repo backs the no-session welcome tree. Defaults to process.cwd(). */
+  cwd?: string;
   /** Observer mode: stored for the key reducer's read-only gate. */
   readOnly?: boolean;
   onExit?: (code: number) => void;
@@ -180,13 +195,37 @@ export interface ReviewController {
   /** Derived projections, cached per session identity. */
   display(): DisplayBlock[];
   rows(): DiffRow[];
+  /** Fold a file's diff body to just its band, or unfold it; rows() reflects the change. */
+  setFileCollapsed(file: string, collapsed: boolean): void;
+  isFileCollapsed(file: string): boolean;
+  /** Weave a file's full contents inline (unchanged lines as context), or fold back to hunks. */
+  setFileExpanded(file: string, expanded: boolean): void;
+  isFileExpanded(file: string): boolean;
+  /** Whether the file carries the full contents weaving needs (curatable diffs do). */
+  canExpandFile(file: string): boolean;
+  /** Copy a file's path to the clipboard; reports the outcome via status. */
+  copyFilePath(file: string): void;
+  /** Per-file added/removed line counts from the base rows (survives collapse). */
+  fileStats(): Map<string, { additions: number; deletions: number }>;
   /** The walk's step list, derived from the diff rows. */
   files(): WalkFile[];
   working(): string;
+  /** The workspace's tracked files (git ls-files) for the Project tree; empty when unavailable. */
+  projectFiles(): Promise<string[]>;
+  /** Read a workspace file's contents for a Changes file tab; null when it cannot be read. */
+  readFile(path: string): Promise<string | null>;
+  /** The launch repo's tracked files for the no-session welcome Project tree; empty when not a repo. */
+  repoFiles(): Promise<string[]>;
+  /** Read a launch-repo file's contents for a welcome file tab; null when it cannot be read. */
+  repoReadFile(path: string): Promise<string | null>;
+  /** The launch repo's working-tree changed files for the no-session welcome Changes tree. */
+  repoChanges(): Promise<readonly DiffFileContents[]>;
   /** Open a session from the inbox. */
   open(id: string): void;
   /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
   deleteSession(id: string): void;
+  /** Rename a session's title; the inbox refreshes on the event. */
+  renameSession(id: string, title: string): void;
   /** Record the viewer's own name into the share's participant registry (collaborator self-naming). */
   setSelfName(name: string): void;
   /** Cut the block under the cursor, or restore a cut one. */
@@ -205,6 +244,7 @@ export interface ReviewController {
   edit(): void;
   /**
    * Anchor and store an annotation; both plan and diff anchor constructions.
+   * `end` is an offset within `endDisplayIndex` (the same block by default).
    * Returns the minted annotation id so the view can select the new card.
    */
   annotate(
@@ -213,7 +253,13 @@ export interface ReviewController {
     start: number,
     end: number,
     body: string,
+    endDisplayIndex?: number,
   ): string | undefined;
+  /**
+   * Reply to `rootAnnotationId`: the reply shares the root's anchor and names
+   * it in replyTo, so the discussion stays one conversation. Returns the minted id.
+   */
+  reply(rootAnnotationId: string, body: string): string | undefined;
   /** Anchor a prototype comment to a DOM element by its selector. */
   annotatePrototype(selector: string, quote: string, body: string): string | undefined;
   /** Rewrite a stored annotation's body in place (the rail-card edit). */
@@ -231,21 +277,30 @@ export interface ReviewController {
   submit(verdict: VerdictKind, summary: string): void;
   /** Publish the current session as a share; the ssh line lands on the clipboard. */
   share(): void;
+  /** The session tree as rows for the rail's Tree tab, cached per session identity. */
+  treeRows(): TreeRow[];
+  /**
+   * Go to an entry: switch to the branch whose tip it is, or move the current
+   * branch's tip back to it, with an optional branch summary. Owner only.
+   */
+  goToEntry(entryId: string, summary?: string): void;
+  /** Start a branch at the current tip and switch to it. */
+  branch(name: string): void;
+  /** Name the current tip as a checkpoint. */
+  labelTip(label: string): void;
+  /** Copy the current path into a new session and open it. */
+  fork(): void;
+  /** Fork, then share the fork; the current session stays open and unshared. */
+  forkAndShare(): void;
   /** Pull a shared plan's collaborator notes back and union them in (planner only). */
   pullShared(): Promise<void>;
   /** Poll the share for collaborator notes while it is open; returns a stop handle. */
-  startSharePoll(): () => void;
+  startShareSync(): () => void;
   /** Close the review and, inside herdr, bounce focus back to the agent. */
   finishReview(): void;
   dismissCompletion(): void;
   /** From the completion prompt: persist auto-close and start the countdown. */
   optInAutoClose(): void;
-  /**
-   * Persist the review-panel layout (client view state) to the user config so
-   * the collapse mode and rail width survive a restart. A read-only config dir
-   * never blocks the review.
-   */
-  saveReviewPanel(layout: { mode?: ReviewPanelMode; width?: number }): void;
 }
 
 export function createReviewController(options: ReviewControllerOptions): ReviewController {
@@ -257,6 +312,7 @@ interface DerivedSessionProjection {
   rows: DiffRow[];
   files: WalkFile[];
   models: Map<string, FileDiffMetadata>;
+  tree: TreeRow[];
 }
 
 class Controller implements ReviewController {
@@ -280,7 +336,8 @@ class Controller implements ReviewController {
   private readonly clock: Clock;
   private readonly shareTransport: ShareTransport;
   private countdown: TimerHandle | undefined;
-  private sharePoll: TimerHandle | undefined;
+  private shareReconnect: TimerHandle | undefined;
+  private shareStop: (() => void) | null = null;
   private shareRun: object | null = null;
   /** Projections keyed by session identity so renders reuse one computation. */
   private derivedFor: ReviewSession | null = null;
@@ -289,9 +346,16 @@ class Controller implements ReviewController {
     rows: [],
     files: [],
     models: new Map(),
+    tree: [],
   };
-  /** The owner's per-hunk/change reject decisions for the open diff session. */
-  private rejections: HunkRejection[] = [];
+  /** File paths whose diff body is folded to just the file band. */
+  private collapsedFiles = new Set<string>();
+  /** File paths woven to their full contents (unchanged lines shown as context). */
+  private expandedFiles = new Set<string>();
+  /** The diff's reject decisions live on the session record; the daemon curates from them. */
+  private get rejections(): HunkRejection[] {
+    return this.snapshot.session?.curation ?? EMPTY_REJECTIONS;
+  }
 
   constructor(private readonly options: ReviewControllerOptions) {
     this.readOnly = options.readOnly ?? false;
@@ -323,17 +387,22 @@ class Controller implements ReviewController {
         if (this.closed) return void client.close();
         this.client = client;
         client.onEvent((event) => {
-          // another controller/observer changed state: re-fetch
+          // another controller/observer changed state: re-fetch the active session's content
           const session = this.snapshot.session;
 
           if (session && event.sessionId === session.id) void this.refreshSession(session.id);
-          if (!this.options.sessionId) void this.refreshInbox();
+          // only the list-changing events touch the Threads sidebar; refreshing on every
+          // content edit (session.updated) would amplify an active review into a request storm
+          if (event.event !== "session.updated") void this.refreshInbox();
         });
         await client.subscribe();
+        // load the inbox in both cases so the sidebar can jump between threads
+        const inbox = await client.sessionList({ status: "pending" });
+
         if (this.options.sessionId) {
-          this.update({ session: await client.sessionGet(this.options.sessionId) });
+          this.update({ session: await client.sessionGet(this.options.sessionId), inbox });
         } else {
-          this.update({ inbox: await client.sessionList({ status: "pending" }) });
+          this.update({ inbox });
         }
       } catch (err) {
         this.update({ error: err instanceof Error ? err.message : String(err) });
@@ -344,7 +413,7 @@ class Controller implements ReviewController {
   close(): void {
     this.closed = true;
     this.clearCountdown();
-    this.stopSharePoll();
+    this.stopShareSync();
     this.client?.close();
   }
 
@@ -362,7 +431,8 @@ class Controller implements ReviewController {
   }
 
   setStatus(message: string): void {
-    this.update({ status: message });
+    // the persistent status bar is gone; transient feedback surfaces as a toast
+    this.update({ status: message, toast: message ? { body: message } : null });
   }
 
   showToast(body: string, title?: string): void {
@@ -379,6 +449,9 @@ class Controller implements ReviewController {
 
     if (this.derivedFor === session) return;
     this.derivedFor = session;
+    // a new session starts fully expanded, never inheriting the prior diff's fold state
+    this.collapsedFiles.clear();
+    this.expandedFiles.clear();
     const rows =
       session && session.artifact.type === "diff" ? diffRows(session.artifact.content) : [];
     const models = new Map<string, FileDiffMetadata>();
@@ -389,7 +462,14 @@ class Controller implements ReviewController {
       rows,
       files: walkFiles(rows),
       models,
+      tree: session?.history ? treeRows(session.history) : [],
     };
+  }
+
+  treeRows(): TreeRow[] {
+    this.ensureDerived();
+
+    return this.derived.tree;
   }
 
   display(): DisplayBlock[] {
@@ -400,8 +480,58 @@ class Controller implements ReviewController {
 
   rows(): DiffRow[] {
     this.ensureDerived();
+    if (this.collapsedFiles.size === 0 && this.expandedFiles.size === 0) return this.derived.rows;
 
-    return this.derived.rows;
+    return applyFold(
+      this.derived.rows,
+      this.collapsedFiles,
+      this.expandedFiles,
+      this.snapshot.session?.artifact.files,
+    );
+  }
+
+  setFileCollapsed(file: string, collapsed: boolean): void {
+    if (collapsed) {
+      this.collapsedFiles.add(file);
+      this.expandedFiles.delete(file);
+    } else {
+      this.collapsedFiles.delete(file);
+    }
+    this.update({});
+  }
+
+  isFileCollapsed(file: string): boolean {
+    return this.collapsedFiles.has(file);
+  }
+
+  setFileExpanded(file: string, expanded: boolean): void {
+    if (expanded) {
+      this.expandedFiles.add(file);
+      this.collapsedFiles.delete(file);
+    } else {
+      this.expandedFiles.delete(file);
+    }
+    this.update({});
+  }
+
+  isFileExpanded(file: string): boolean {
+    return this.expandedFiles.has(file);
+  }
+
+  canExpandFile(file: string): boolean {
+    return (this.snapshot.session?.artifact.files ?? []).some((entry) => entry.path === file);
+  }
+
+  copyFilePath(file: string): void {
+    void copyToClipboard(file).then((copied) =>
+      this.setStatus(copied ? `copied ${file}` : "no clipboard tool available"),
+    );
+  }
+
+  fileStats(): Map<string, { additions: number; deletions: number }> {
+    this.ensureDerived();
+
+    return fileChangeCounts(this.derived.rows);
   }
 
   files(): WalkFile[] {
@@ -414,6 +544,52 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     return session ? (session.workingCopy ?? session.artifact.content) : "";
+  }
+
+  async projectFiles(): Promise<string[]> {
+    const session = this.snapshot.session;
+    if (this.client?.projectFiles === undefined || !session) return [];
+
+    return this.client.projectFiles(session.id);
+  }
+
+  async readFile(path: string): Promise<string | null> {
+    const session = this.snapshot.session;
+    if (this.client?.fileContents === undefined || !session) return null;
+
+    return this.client.fileContents(session.id, path);
+  }
+
+  /** The repo the sidebar tree/changes point at: the thread's own repo, else the launch directory. */
+  private sidebarRepoRoot(): string {
+    return this.snapshot.session?.workspace.repoRoot || this.options.cwd || process.cwd();
+  }
+
+  async repoFiles(): Promise<string[]> {
+    if (this.client?.repoFiles === undefined) return [];
+
+    return this.client.repoFiles(this.sidebarRepoRoot());
+  }
+
+  async repoReadFile(path: string): Promise<string | null> {
+    if (this.client?.repoFileContents === undefined) return null;
+
+    return this.client.repoFileContents(this.sidebarRepoRoot(), path);
+  }
+
+  async repoChanges(): Promise<readonly DiffFileContents[]> {
+    // a diff review pins its captured snapshot; every other thread reflects the live working tree
+    const session = this.snapshot.session;
+    if (session?.artifact.type === "diff") return session.artifact.files ?? [];
+    if (this.client?.repoChanges === undefined) return [];
+    const changes = await this.client.repoChanges(this.sidebarRepoRoot());
+
+    return changes.map((change) => ({
+      path: change.path,
+      status: change.status,
+      oldContents: "",
+      newContents: "",
+    }));
   }
 
   // Refreshes race the connection teardown: an event can arrive while close()
@@ -444,10 +620,25 @@ class Controller implements ReviewController {
       );
   }
 
-  // ── verbs ───────────────────────────────────
+  /**
+   * Show the expected result before the daemon answers, so a second keypress
+   * builds on the first instead of on the stale snapshot. Answers arrive in
+   * request order over the socket and replace the guess with the daemon's copy.
+   */
+  private applyOptimistic(expected: ReviewSession, mutation: Promise<ReviewSession>): void {
+    this.update({ session: expected });
+    mutation
+      .then((session) => this.update({ session }))
+      .catch((cause: unknown) => {
+        // a refused guess must not stay on screen: the daemon's record replaces it
+        this.setStatus(String(cause instanceof Error ? cause.message : cause));
+        void this.refreshSession(expected.id);
+      });
+  }
+
+  // ── primitives ───────────────────────────────────
   open(id: string): void {
     this.locallyViewed.clear();
-    this.rejections = [];
     const cached = this.snapshot.inbox?.find((candidate) => candidate.id === id);
 
     if (cached) this.update({ session: cached });
@@ -455,11 +646,22 @@ class Controller implements ReviewController {
   }
 
   deleteSession(id: string): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
     this.client
       ?.sessionDelete(id)
       .then(() => this.setStatus("plan deleted"))
       .catch((cause: unknown) =>
         this.setStatus(`delete failed: ${cause instanceof Error ? cause.message : String(cause)}`),
+      );
+  }
+
+  renameSession(id: string, title: string): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
+    this.client
+      ?.sessionSetTitle(id, title)
+      .then(() => this.setStatus("thread renamed"))
+      .catch((cause: unknown) =>
+        this.setStatus(`rename failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
   }
 
@@ -482,7 +684,15 @@ class Controller implements ReviewController {
     if (block.type === "del") {
       this.restoreDelBlock(block, displayIndex);
     } else if (block.work) {
-      this.setWorkingCopy(cutBlock(working, block.work));
+      const workIndex = parseBlocks(working).findIndex(
+        (candidate) => candidate.lineStart === block.work!.lineStart,
+      );
+
+      if (workIndex === -1) return;
+      this.applyOptimistic(
+        { ...session, workingCopy: cutBlock(working, block.work) },
+        this.client!.sessionCutBlock(session.id, workIndex),
+      );
       this.setStatus("block cut - it serializes into the diff");
     }
   }
@@ -497,11 +707,19 @@ class Controller implements ReviewController {
       nextWorkBlock(this.display(), displayIndex),
       working.split("\n").length,
     );
-    // restoreBlock returns undefined when the block structure round-trips to the
-    // submitted revision - the working copy is back to pristine and is dropped
-    const restored = restoreBlock(session.artifact.content, working, block.base, line);
+    const base = session.artifact.content;
+    const baseIndex = parseBlocks(base).findIndex(
+      (candidate) => candidate.lineStart === block.base!.lineStart,
+    );
 
-    this.setWorkingCopy(restored);
+    if (baseIndex === -1) return;
+    const expected: ReviewSession = {
+      ...session,
+      workingCopy: restoreBlock(base, working, block.base, line),
+    };
+
+    if (expected.workingCopy === undefined) delete expected.workingCopy;
+    this.applyOptimistic(expected, this.client!.sessionRestoreBlock(session.id, baseIndex, line));
     this.setStatus(REMOVAL_RESTORED_STATUS);
   }
 
@@ -540,18 +758,18 @@ class Controller implements ReviewController {
     const wholeHunk = (rejection: HunkRejection): boolean => rejectsWholeHunk(rejection, target);
 
     if (this.rejections.some(wholeHunk)) {
-      this.rejections = this.rejections.filter((rejection) => !wholeHunk(rejection));
+      this.curate(this.rejections.filter((rejection) => !wholeHunk(rejection)));
       this.setStatus("hunk restored");
     } else {
       // a whole-hunk reject supersedes any change-level rejects inside it
-      this.rejections = this.rejections.filter(
+      const others = this.rejections.filter(
         (rejection) =>
           !(rejection.path === target.path && rejection.hunkIndex === target.hunkIndex),
       );
-      this.rejections.push(target);
+
+      this.curate([...others, target]);
       this.setStatus("hunk rejected - dropped from the working copy");
     }
-    this.recomputeCuration();
   }
 
   toggleRejectChange(rowIndex: number): void {
@@ -567,24 +785,23 @@ class Controller implements ReviewController {
 
     if (wholeCovers) return this.setStatus("the whole hunk is rejected - restore it first");
     if (this.rejections.some((rejection) => sameRejection(rejection, target))) {
-      this.rejections = this.rejections.filter((rejection) => !sameRejection(rejection, target));
+      this.curate(this.rejections.filter((rejection) => !sameRejection(rejection, target)));
       this.setStatus("change restored");
     } else {
-      this.rejections.push(target);
+      this.curate([...this.rejections, target]);
       this.setStatus("change rejected - dropped from the working copy");
     }
-    this.recomputeCuration();
   }
 
-  /** Recompute the curated patch and push it as the working copy (or clear it). */
-  private recomputeCuration(): void {
-    const files = this.snapshot.session?.artifact.files;
+  /** Hand the daemon the full set of reject decisions; the working copy follows. */
+  private curate(rejections: HunkRejection[]): void {
+    const session = this.snapshot.session;
 
-    if (!files) return;
-    // no decisions left = the working copy reverts to the full submitted diff
-    this.setWorkingCopy(this.rejections.length ? curateDiff(files, this.rejections) : undefined);
-    // dimming reads `rejections` directly; a bare update forces the re-read
-    this.update({});
+    if (!session) return;
+    const expected: ReviewSession = { ...session, curation: rejections };
+
+    if (!rejections.length) delete expected.curation;
+    this.applyOptimistic(expected, this.client!.sessionCurate(session.id, rejections));
   }
 
   rejectedRows(): Set<number> {
@@ -616,9 +833,8 @@ class Controller implements ReviewController {
       const kept = this.rejections.filter((rejection) => curationItemId(rejection) !== id);
 
       if (kept.length === this.rejections.length) return;
-      this.rejections = kept;
+      this.curate(kept);
       this.setStatus(REMOVAL_RESTORED_STATUS);
-      this.recomputeCuration();
 
       return;
     }
@@ -730,6 +946,7 @@ class Controller implements ReviewController {
     start: number,
     end: number,
     body: string,
+    endDisplayIndex: number = displayIndex,
   ): string | undefined {
     const session = this.snapshot.session;
 
@@ -737,14 +954,22 @@ class Controller implements ReviewController {
     let anchor;
 
     if (session.artifact.type === "diff") {
-      anchor = { ...diffRowAnchor(this.rows(), displayIndex), blockIndex: displayIndex };
+      // rows are the diff's blocks: a span over one or more code rows anchors with the
+      // same quote, context, and position selectors a plan span does
+      anchor = makeAnchor(diffRowBlocks(this.rows()), displayIndex, start, end, endDisplayIndex);
     } else {
       const display = this.display();
       const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);
-      const workBlockIndex =
-        display.slice(0, displayIndex + 1).filter((entry) => entry.work).length - 1;
+      const workIndexOf = (index: number): number =>
+        display.slice(0, index + 1).filter((entry) => entry.work).length - 1;
 
-      anchor = makeAnchor(workBlocks, workBlockIndex, start, end);
+      anchor = makeAnchor(
+        workBlocks,
+        workIndexOf(displayIndex),
+        start,
+        end,
+        workIndexOf(endDisplayIndex),
+      );
     }
     const wire = { id: newAnnotationId(), kind, anchor, body };
     const persisted = this.client!.sessionAnnotate(session.id, wire);
@@ -752,6 +977,28 @@ class Controller implements ReviewController {
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
     this.setStatus("comment added");
+
+    return wire.id;
+  }
+
+  reply(rootAnnotationId: string, body: string): string | undefined {
+    const session = this.snapshot.session;
+    const root = session?.annotations.find((annotation) => annotation.id === rootAnnotationId);
+
+    if (!session || !root) return undefined;
+    // a reply to a reply still hangs off the discussion's root comment
+    const wire = {
+      id: newAnnotationId(),
+      kind: "comment",
+      anchor: root.anchor,
+      body,
+      replyTo: root.replyTo ?? root.id,
+    };
+    const persisted = this.client!.sessionAnnotate(session.id, wire);
+
+    this.apply(persisted);
+    this.mirrorAnnotation(persisted, wire);
+    this.setStatus("reply added");
 
     return wire.id;
   }
@@ -778,8 +1025,16 @@ class Controller implements ReviewController {
     const existing = session.annotations.find((annotation) => annotation.id === id);
 
     if (!existing) return;
-    // the daemon's annotate verb upserts by id: same id + anchor, new body
-    const wire = { id: existing.id, kind: existing.kind, anchor: existing.anchor, body };
+    // the daemon's annotate primitive upserts by id: same id, anchor, and
+    // reply link, new body
+    const wire: Omit<Annotation, "createdAt"> = {
+      id: existing.id,
+      kind: existing.kind,
+      anchor: existing.anchor,
+      body,
+    };
+
+    if (existing.replyTo !== undefined) wire.replyTo = existing.replyTo;
     const persisted = this.client!.sessionAnnotate(session.id, wire);
 
     this.apply(persisted);
@@ -792,9 +1047,12 @@ class Controller implements ReviewController {
     persisted: Promise<ReviewSession>,
     annotation: Omit<Annotation, "createdAt">,
   ): void {
-    const shareId = this.snapshot.session?.shareId;
+    const session = this.snapshot.session;
+    const shareId = session?.shareId;
 
     if (!shareId) return;
+    // the share follows one branch: a note left on another stays the owner's
+    if (session.history && session.history.branch !== (session.shareBranch ?? MAIN_BRANCH)) return;
     void persisted.then(() => this.shareTransport.push(shareId, [annotation])).catch(() => {});
   }
 
@@ -843,7 +1101,7 @@ class Controller implements ReviewController {
 
     if (!current) return; // already on the end card
     // advancing IS the viewed mark: the step is complete once you move past
-    // it; the daemon verb merges, so only the new path travels
+    // it; the daemon primitive merges, so only the new path travels
     if (!this.viewedSet().has(current.path)) {
       this.locallyViewed.add(current.path);
       this.apply(this.client!.sessionSetViewed(session.id, [current.path]));
@@ -917,59 +1175,193 @@ class Controller implements ReviewController {
       );
   }
 
+  goToEntry(entryId: string, summary?: string): void {
+    const session = this.snapshot.session;
+
+    if (!session?.history || !this.client) return;
+    const target = entryTarget(session.history, entryId);
+
+    if (target === null) return this.setStatus("that entry is not on any branch");
+    if (target.kind === "here") return this.setStatus("already at the tip");
+    if (target.kind === "switch") {
+      this.moveTree(session, switchBranch(session.history, target.branch), () =>
+        this.client!.sessionSwitch(session.id, target.branch),
+      );
+      this.setStatus(`on branch ${target.branch}`);
+
+      return;
+    }
+    // an entry another branch reaches: the daemon stands on that branch first, in the same request
+    const onBranch = switchBranch(session.history, target.branch);
+    const options = summary === undefined || summary === "" ? {} : { summary };
+    const moved = navigateTo(onBranch, entryId, options);
+    const branch = target.branch === session.history.branch ? undefined : target.branch;
+
+    this.moveTree(session, moved, () =>
+      this.client!.sessionNavigate(session.id, entryId, options.summary, branch),
+    );
+    this.setStatus(
+      options.summary === undefined
+        ? "moved back - later entries stay in the tree"
+        : "moved back with a summary",
+    );
+  }
+
+  branch(name: string): void {
+    const session = this.snapshot.session;
+    const branchName = name.trim();
+
+    if (!session?.history || !this.client) return;
+    if (!branchName) return this.setStatus("a branch needs a name");
+    if (session.history.tips[branchName] !== undefined)
+      return this.setStatus(`branch ${branchName} exists`);
+    this.moveTree(session, createBranch(session.history, branchName), () =>
+      this.client!.sessionBranch(session.id, branchName),
+    );
+    this.setStatus(`on branch ${branchName}`);
+  }
+
+  labelTip(label: string): void {
+    const session = this.snapshot.session;
+    const name = label.trim();
+
+    if (!session?.history || !this.client) return;
+    if (!name) return this.setStatus("a checkpoint needs a name");
+    this.moveTree(session, labelTip(session.history, name), () =>
+      this.client!.sessionLabel(session.id, name),
+    );
+    this.setStatus(`checkpoint ${name}`);
+  }
+
+  fork(): void {
+    const session = this.snapshot.session;
+
+    if (!session || !this.client) return;
+    this.client
+      .sessionFork(session.id)
+      .then((fork) => {
+        this.update({ session: fork });
+        this.showToast(`forked ${session.id} - you are on the fork now`, "fork");
+      })
+      .catch((cause: unknown) =>
+        this.setStatus(`fork failed: ${cause instanceof Error ? cause.message : String(cause)}`),
+      );
+  }
+
+  forkAndShare(): void {
+    const session = this.snapshot.session;
+
+    if (!session || !this.client) return;
+    const client = this.client;
+
+    this.setStatus("forking and sharing…");
+    client
+      .sessionFork(session.id)
+      .then(async (fork) => {
+        const { line, copied } = await this.shareTransport.publish(fork);
+        const shareId = this.shareTransport.parseShareId(line);
+
+        if (shareId) await client.sessionSetShareId(fork.id, shareId);
+        this.setStatus("");
+        this.showToast(line, copied ? "fork shared - link copied" : "fork shared");
+      })
+      .catch((cause: unknown) =>
+        this.setStatus(
+          `fork and share failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        ),
+      );
+  }
+
   /**
-   * Pull collaborator notes for a shared plan and union them in, awaiting the
-   * merge so a poll never overlaps rounds. The daemon's merge emits
-   * session.updated, so the re-render happens through the normal event path.
-   * Best-effort: a failed refresh is silent and the next tick retries.
+   * Show a moved tree at once - the record re-derived from its new path - and
+   * let the daemon's answer replace it. A refused move surfaces as status.
+   */
+  private moveTree(
+    session: ReviewSession,
+    history: SessionHistory,
+    request: () => Promise<ReviewSession>,
+  ): void {
+    const expected: ReviewSession = { ...session, history };
+
+    applyPathView(
+      expected,
+      viewOfPath(history, [...session.annotations, ...(session.shelvedAnnotations ?? [])]),
+    );
+    this.applyOptimistic(expected, request());
+  }
+
+  /**
+   * Pull collaborator notes for a shared plan and union them in. The daemon's
+   * merge emits session.updated, so the re-render happens through the normal
+   * event path. Best-effort: a failed refresh is silent.
    */
   pullShared(): Promise<void> {
     const session = this.snapshot.session;
 
-    if (!session?.shareId || !this.client) return Promise.resolve();
-    const client = this.client;
+    if (!session?.shareId) return Promise.resolve();
 
     return this.shareTransport
       .pull(session.shareId)
-      .then((remote) =>
-        client.sessionMergeShared(session.id, {
-          annotations: this.shareTransport.collaboratorAnnotations(remote),
-          participants: remote.participants,
-        }),
-      )
+      .then((remote) => this.mergeShared(remote))
+      .catch(() => {});
+  }
+
+  private mergeShared(remote: ReviewSession): Promise<void> {
+    const session = this.snapshot.session;
+
+    if (!session || !this.client) return Promise.resolve();
+
+    return this.client
+      .sessionMergeShared(session.id, this.shareTransport.mergeFromShare(remote))
       .then(() => {})
       .catch(() => {});
   }
 
   /**
-   * Poll the share for collaborator notes while it is open: pull now, then again
-   * every few seconds, each round waiting for the last so slow pulls never stack.
-   * Returns a stop handle the caller runs on leave.
+   * Follow the share live while it is open: one watch stream delivers every
+   * change as it lands; a pull on each (re)connect catches up on anything
+   * missed while the link was down, and a dropped link reconnects with
+   * backoff. Returns a stop handle the caller runs on leave.
    */
-  startSharePoll(): () => void {
-    this.stopSharePoll();
-    // per-run token so a stale run's in-flight pull never re-arms the poll
+  startShareSync(): () => void {
+    this.stopShareSync();
+    // per-run token so a stale run's close never re-arms a newer run
     const run = {};
+    let delay = SHARE_RECONNECT_MIN_MS;
 
     this.shareRun = run;
-    const tick = (): void => {
-      void this.pullShared().finally(() => {
-        if (this.shareRun === run && !this.closed)
-          this.sharePoll = this.clock.setTimeout(tick, SHARE_POLL_MS);
+    const connect = (): void => {
+      const shareId = this.snapshot.session?.shareId;
+
+      if (this.shareRun !== run || this.closed || !shareId) return;
+      void this.pullShared();
+      this.shareStop = this.shareTransport.watch(shareId, {
+        onSession: (remote) => {
+          delay = SHARE_RECONNECT_MIN_MS;
+          void this.mergeShared(remote);
+        },
+        onClose: () => {
+          if (this.shareRun !== run || this.closed) return;
+          this.shareStop = null;
+          this.shareReconnect = this.clock.setTimeout(connect, delay);
+          delay = Math.min(delay * 2, SHARE_RECONNECT_MAX_MS);
+        },
       });
     };
 
-    tick();
+    connect();
 
     return () => {
-      if (this.shareRun === run) this.stopSharePoll();
+      if (this.shareRun === run) this.stopShareSync();
     };
   }
 
-  private stopSharePoll(): void {
+  private stopShareSync(): void {
     this.shareRun = null;
-    if (this.sharePoll !== undefined) this.clock.clearTimeout(this.sharePoll);
-    this.sharePoll = undefined;
+    if (this.shareReconnect !== undefined) this.clock.clearTimeout(this.shareReconnect);
+    this.shareReconnect = undefined;
+    this.shareStop?.();
+    this.shareStop = null;
   }
 
   // ── completion hand-back ────────────────────
@@ -1002,14 +1394,5 @@ class Controller implements ReviewController {
       // a read-only config dir must not block closing the review
     }
     this.autoClose = DEFAULT_AUTO_CLOSE;
-  }
-
-  saveReviewPanel(layout: { mode?: ReviewPanelMode; width?: number }): void {
-    try {
-      if (layout.mode !== undefined) persistReviewState(layout.mode);
-      if (layout.width !== undefined) persistReviewWidth(layout.width);
-    } catch {
-      // a read-only config dir must never block collapsing or resizing the rail
-    }
   }
 }

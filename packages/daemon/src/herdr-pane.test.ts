@@ -196,7 +196,7 @@ describe("openHerdrPaneForReview", () => {
   });
 
   test("a recall failure (stale daemon) still opens a fresh tab", async () => {
-    // Arrange - a daemon predating the herdr-tab verbs rejects the recall
+    // Arrange - a daemon predating the herdr-tab primitives rejects the recall
     const stub = makeStub("gated-recall-fail");
     const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };
     const persistence: HerdrTabPersistence = {

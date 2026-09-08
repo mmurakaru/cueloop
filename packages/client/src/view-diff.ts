@@ -6,6 +6,19 @@
  */
 
 import { parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
+import {
+  isAddressed,
+  resolveAnchor,
+  type Annotation,
+  type Block,
+  type ReviewSession,
+} from "@cueloop/schema";
+import { spanRangeInBlock, type TextSpan } from "./thread-selection";
+import type { Mark } from "./view-plan";
+import { discussionsFrom } from "./discussions";
+
+// the diff sheet reads marks over rows as a diff concept; re-export so it need not reach into view-plan
+export type { Mark } from "./view-plan";
 
 export type DiffRowKind = "file" | "hunk" | "ctx" | "add" | "del";
 
@@ -66,10 +79,111 @@ export function diffRows(patchText: string): DiffRow[] {
   return rows;
 }
 
+/** Added and removed line counts per file path, for the file band's badge; base rows only. */
+export function fileChangeCounts(
+  rows: DiffRow[],
+): Map<string, { additions: number; deletions: number }> {
+  const counts = new Map<string, { additions: number; deletions: number }>();
+
+  for (const row of rows) {
+    if (row.kind !== "add" && row.kind !== "del") continue;
+    const entry = counts.get(row.file) ?? { additions: 0, deletions: 0 };
+
+    if (row.kind === "add") entry.additions += 1;
+    else entry.deletions += 1;
+    counts.set(row.file, entry);
+  }
+
+  return counts;
+}
+
 function fileLabel(file: FileDiffMetadata): string {
   return file.prevName && file.prevName !== file.name
     ? `${file.prevName} → ${file.name}`
     : file.name;
+}
+
+/** Row text carries the patch's trailing newline; anchors and rendering strip it. */
+export function diffRowText(row: DiffRow): string {
+  return row.text.replace(/\n$/, "");
+}
+
+/**
+ * The diff rows as anchor blocks, one per row in row order, so a comment span anchors
+ * with the same quote/context/position selectors a plan block does. Header rows are
+ * blocks too (indices stay 1:1 with the rows) but hold no comment.
+ */
+export function diffRowBlocks(rows: DiffRow[]): Block[] {
+  return rows.map((row, index) => ({
+    kind: "code",
+    text: row.kind === "file" || row.kind === "hunk" ? "" : diffRowText(row),
+    lineStart: index,
+    lineEnd: index,
+  }));
+}
+
+/**
+ * Resolve annotations against the diff rows and group marks per row index, with
+ * character ranges and the whole span, so the diff sheet paints and threads them
+ * exactly as the plan view does its blocks.
+ */
+export function marksByRows(
+  annotations: Annotation[],
+  rows: DiffRow[],
+  focusedId?: string,
+): Map<number, Mark[]> {
+  const blocks = diffRowBlocks(rows);
+  const marksByIndex = new Map<number, Mark[]>();
+
+  for (const annotation of annotations) {
+    // an addressed annotation keeps its record but paints no highlight
+    if (isAddressed(annotation)) continue;
+    const resolved = resolveAnchor(annotation.anchor, blocks);
+
+    if (!resolved) continue;
+    const span: TextSpan = {
+      start: { blockIndex: resolved.blockIndex, char: resolved.start },
+      end: { blockIndex: resolved.endBlockIndex, char: resolved.end },
+    };
+
+    // a span paints on every row it covers; the mark carries the whole span
+    for (let rowIndex = resolved.blockIndex; rowIndex <= resolved.endBlockIndex; rowIndex++) {
+      const range = spanRangeInBlock(span, rowIndex, blocks[rowIndex]!.text.length);
+
+      if (!range) continue;
+      const marks = marksByIndex.get(rowIndex) ?? [];
+
+      marks.push({
+        start: range.start,
+        end: range.end,
+        role: annotation.id === focusedId ? "mark-focus" : "mark-comment",
+        annotationId: annotation.id,
+        span,
+      });
+      marksByIndex.set(rowIndex, marks);
+    }
+  }
+
+  return marksByIndex;
+}
+
+/**
+ * Comments per file path across the diff: each discussion counts its comments (root plus
+ * replies) toward the file its span ends in. Feeds the changed-files tree and tab badges, so a
+ * file whose tab is closed still shows it carries feedback.
+ */
+export function commentCountsByFile(session: ReviewSession, rows: DiffRow[]): Map<string, number> {
+  const discussions = discussionsFrom(session, marksByRows(session.annotations, rows));
+  const counts = new Map<string, number>();
+
+  for (const discussion of discussions) {
+    const file = rows[discussion.blockIndex]?.file;
+
+    if (file === undefined) continue;
+    counts.set(file, (counts.get(file) ?? 0) + discussion.annotations.length);
+  }
+
+  return counts;
 }
 
 /** Quote-primary anchor for a diff row: neighbors as context selectors. */

@@ -1,0 +1,96 @@
+// OpenTUI renderer for the headless tree-model; the caller owns expansion and selection.
+
+import React from "react";
+import { DARK, type Theme } from "../../theme";
+import { flattenTree, statusMeta, type TreeNode, type TreeTone } from "./tree-model";
+import { NERD_TREE_ICONS, type TreeIcons } from "./icons";
+
+export interface TreeProps {
+  nodes: readonly TreeNode[];
+  expandedIds: ReadonlySet<string>;
+  selectedId?: string;
+  flattenEmptyDirectories?: boolean;
+  showStatus?: boolean;
+  /** Drop the folder/file glyph prefix, for a plain text tree (e.g. the settings nav). */
+  hideIcons?: boolean;
+  indentWidth?: number;
+  icons?: TreeIcons;
+  onSelect?: (id: string) => void;
+  onToggle?: (id: string) => void;
+  theme?: Theme;
+}
+
+function rowGlyph(isFolder: boolean, expanded: boolean, icons: TreeIcons): string {
+  if (!isFolder) return icons.leaf;
+
+  return expanded ? icons.expanded : icons.collapsed;
+}
+
+function toneColor(tone: TreeTone, theme: Theme): string {
+  if (tone === "green") return theme.green;
+  if (tone === "blue") return theme.blue;
+  if (tone === "red") return theme.red;
+
+  return theme.textDim;
+}
+
+export function Tree({
+  nodes,
+  expandedIds,
+  selectedId,
+  flattenEmptyDirectories,
+  showStatus,
+  hideIcons,
+  indentWidth = 2,
+  icons = NERD_TREE_ICONS,
+  onSelect,
+  onToggle,
+  theme,
+}: TreeProps): React.ReactNode {
+  const tokens = theme ?? DARK;
+  const rows = flattenTree(nodes, { expandedIds, flattenEmptyDirectories });
+
+  return (
+    <box style={{ flexDirection: "column" }}>
+      {rows.map((row) => {
+        const selected = row.id === selectedId;
+        const status = showStatus && row.status !== undefined ? statusMeta(row.status) : null;
+        const labelColor = selected
+          ? tokens.text
+          : status
+            ? toneColor(status.tone, tokens)
+            : row.isFolder
+              ? tokens.text
+              : tokens.textMuted;
+
+        return (
+          <box
+            key={row.id}
+            id={`tree-row-${row.id}`}
+            style={{
+              flexDirection: "row",
+              paddingLeft: 1 + row.depth * indentWidth,
+              paddingRight: 1,
+              backgroundColor: selected ? tokens.elevated : undefined,
+            }}
+            onMouseUp={() => (row.isFolder ? onToggle?.(row.id) : onSelect?.(row.id))}
+          >
+            {hideIcons ? null : (
+              <text fg={row.isFolder ? tokens.blue : tokens.textDim}>
+                {row.icon ?? rowGlyph(row.isFolder, row.expanded, icons)}{" "}
+              </text>
+            )}
+            <box style={{ flexShrink: 1, minWidth: 0 }}>
+              <text fg={selected ? tokens.accent : labelColor} truncate>
+                {row.label}
+              </text>
+            </box>
+            <box style={{ flexGrow: 1 }} />
+            {row.badge !== undefined ? <text fg={tokens.textDim}>{row.badge}</text> : null}
+            {status ? <text fg={toneColor(status.tone, tokens)}> {status.letter}</text> : null}
+          </box>
+        );
+      })}
+    </box>
+  );
+}

@@ -1,5 +1,14 @@
 import { describe, expect, mock, test } from "bun:test";
-import { SCHEMA_VERSION, type DiffFileContents, type ReviewSession } from "@cueloop/schema";
+import {
+  cutBlock,
+  parseBlocks,
+  restoreBlock,
+  SCHEMA_VERSION,
+  type DiffFileContents,
+  type HunkRejection,
+  type ReviewSession,
+} from "@cueloop/schema";
+import { curateDiff } from "@cueloop/daemon/curate";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { createReviewController } from "./session-controller";
 
@@ -45,7 +54,9 @@ const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
 /** A fake client that records the working copy the controller writes. */
-function fakeClient(session: ReviewSession, sink: WorkingCopySink): SessionClient {
+function fakeClient(initial: ReviewSession, sink: WorkingCopySink): SessionClient {
+  let session = initial;
+
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
@@ -58,7 +69,52 @@ function fakeClient(session: ReviewSession, sink: WorkingCopySink): SessionClien
 
       return { ...session, workingCopy: content };
     }),
+    // the daemon's block primitives, stood in for with the same pure helpers it uses
+    sessionCutBlock: mock(async (_id: string, blockIndex: number) => {
+      const working = session.workingCopy ?? session.artifact.content;
+      const content = cutBlock(working, parseBlocks(working)[blockIndex]!);
+
+      sink.workingCopy = content;
+      session = { ...session, workingCopy: content };
+
+      return session;
+    }),
+    sessionRestoreBlock: mock(async (_id: string, baseBlockIndex: number, line?: number) => {
+      const base = session.artifact.content;
+      const working = session.workingCopy ?? base;
+      const content = restoreBlock(
+        base,
+        working,
+        parseBlocks(base)[baseBlockIndex]!,
+        line ?? working.split("\n").length,
+      );
+
+      sink.workingCopy = content;
+      session = { ...session, workingCopy: content };
+      if (content === undefined) delete session.workingCopy;
+
+      return session;
+    }),
+    // the daemon's curation, stood in for: the record carries the decisions and the patch they leave
+    sessionCurate: mock(async (_id: string, rejections: HunkRejection[]) => {
+      const content = rejections.length
+        ? curateDiff(session.artifact.files!, rejections)
+        : undefined;
+
+      sink.workingCopy = content;
+      session = { ...session, workingCopy: content };
+      if (rejections.length) session.curation = rejections;
+      else delete session.curation;
+
+      return session;
+    }),
+    sessionNavigate: unimplemented("sessionNavigate"),
+    sessionBranch: unimplemented("sessionBranch"),
+    sessionSwitch: unimplemented("sessionSwitch"),
+    sessionLabel: unimplemented("sessionLabel"),
+    sessionFork: unimplemented("sessionFork"),
     sessionSetViewed: unimplemented("sessionSetViewed"),
+    sessionSetTitle: unimplemented("sessionSetTitle"),
     sessionSetShareId: unimplemented("sessionSetShareId"),
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
@@ -211,6 +267,23 @@ describe("diff hunk curation", () => {
     expect(controller.curationItems().length).toBe(1);
   });
 
+  test("a second decision before the daemon answers builds on the first", async () => {
+    // Arrange
+    const { controller, client } = await connected(diffSession(FILES));
+
+    // Act - reject, then restore, with no answer in between
+    controller.toggleRejectChange(4);
+    controller.toggleRejectChange(4);
+    await tick();
+
+    // Assert - the second request restores; a stale snapshot would reject again
+    expect(client.sessionCurate).toHaveBeenCalledTimes(2);
+    expect(client.sessionCurate).toHaveBeenNthCalledWith(1, "ses_diff", [
+      { path: "src/store.ts", hunkIndex: 0, changeIndex: 1 },
+    ]);
+    expect(client.sessionCurate).toHaveBeenNthCalledWith(2, "ses_diff", []);
+  });
+
   test("curation is disabled without full file contents", async () => {
     // Arrange - a legacy diff with no artifact.files
     const { controller, sink } = await connected(diffSession(undefined));
@@ -271,5 +344,94 @@ describe("plan cut removals", () => {
     // Assert - restoring the only cut round-trips to the submitted revision
     expect(controller.getSnapshot().status).toContain("removal restored");
     expect(sink.workingCopy).toBeUndefined();
+  });
+
+  test("a second cut before the daemon answers indexes the already-cut copy", async () => {
+    // Arrange - pristine plan: title(0), first(1), second(2)
+    const { controller, client, sink } = await connected(planSession());
+
+    // Act - cut the first paragraph, then the second, with no answer in between
+    controller.cut(1);
+    controller.cut(2);
+    await tick();
+
+    // Assert - the second paragraph is block 1 once the first is gone
+    expect(client.sessionCutBlock).toHaveBeenNthCalledWith(1, "ses_plan", 1);
+    expect(client.sessionCutBlock).toHaveBeenNthCalledWith(2, "ses_plan", 1);
+    expect(sink.workingCopy).toBe("# Title\n");
+  });
+});
+
+// a file whose hunk touches line 2 only, so lines 1/3/4 are unchanged tail/context
+const TAIL_PATCH = `diff --git a/src/store.ts b/src/store.ts
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -2,1 +2,1 @@
+-  private items = [];
++  private items = new Map();
+`;
+
+function tailSession(): ReviewSession {
+  return {
+    ...diffSession(),
+    artifact: {
+      type: "diff",
+      content: TAIL_PATCH,
+      meta: {},
+      files: [
+        {
+          path: "src/store.ts",
+          oldContents: "export class Store {\n  private items = [];\n}\nexport const x = 1;\n",
+          newContents:
+            "export class Store {\n  private items = new Map();\n}\nexport const x = 1;\n",
+          status: "modified",
+        },
+      ],
+    },
+  };
+}
+
+describe("diff file fold", () => {
+  test("collapse leaves only the file band; expand restores the body", async () => {
+    // Arrange
+    const { controller } = await connected(tailSession());
+    const bodyRows = () =>
+      controller.rows().filter((row) => row.file === "src/store.ts" && row.kind !== "file").length;
+
+    // Assert - starts unfolded with a body
+    expect(bodyRows()).toBeGreaterThan(0);
+
+    // Act / Assert - collapse hides the body
+    controller.setFileCollapsed("src/store.ts", true);
+    expect(bodyRows()).toBe(0);
+    expect(controller.isFileCollapsed("src/store.ts")).toBe(true);
+
+    // Act / Assert - unfold brings it back
+    controller.setFileCollapsed("src/store.ts", false);
+    expect(bodyRows()).toBeGreaterThan(0);
+  });
+
+  test("expand weaves the file's unchanged tail line the hunk never showed", async () => {
+    // Arrange
+    const { controller } = await connected(tailSession());
+    const hasTail = () => controller.rows().some((row) => row.text.includes("export const x = 1"));
+
+    // Assert - the hunk view does not show the tail line
+    expect(controller.canExpandFile("src/store.ts")).toBe(true);
+    expect(hasTail()).toBe(false);
+
+    // Act - weave the full file
+    controller.setFileExpanded("src/store.ts", true);
+
+    // Assert
+    expect(hasTail()).toBe(true);
+  });
+
+  test("a diff without full contents cannot be expanded", async () => {
+    // Arrange - no artifact.files
+    const { controller } = await connected(diffSession(undefined));
+
+    // Assert
+    expect(controller.canExpandFile("src/store.ts")).toBe(false);
   });
 });

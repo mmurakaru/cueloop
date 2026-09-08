@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { ConfirmCard } from "./ConfirmCard";
 
-export const meta: StoryMeta = { title: "ConfirmCard" };
+export const meta: StoryMeta = { title: "Cards/ConfirmCard" };
 
 const callbacks = {
   onInput: () => {},

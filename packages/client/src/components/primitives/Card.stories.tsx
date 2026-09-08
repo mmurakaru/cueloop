@@ -3,7 +3,7 @@ import { DARK } from "../../theme";
 import type { Story, StoryMeta } from "../story";
 import { Card } from "./Card";
 
-export const meta: StoryMeta = { title: "primitives/Card" };
+export const meta: StoryMeta = { title: "Primitives/Card" };
 
 export const Titled: Story = {
   render: () => (

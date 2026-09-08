@@ -8,14 +8,12 @@ import {
   actionFor,
   loadConfig,
   persistAuthorName,
-  persistReviewState,
   persistActions,
-  persistReviewWidth,
+  persistPins,
   persistTheme,
   quickActionBody,
   resolveQuickAction,
 } from "./config";
-import { REVIEW_DEFAULT_WIDTH, REVIEW_MAX_WIDTH } from "./review-panel";
 import { DARK } from "./theme";
 import { themeForName } from "./theme-presets";
 
@@ -128,48 +126,19 @@ describe("loadConfig", () => {
     }
   });
 
-  test("[ui] review panel defaults to an expanded rail at the default width", () => {
-    // Act
-    const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
-
-    // Assert
-    expect(config.ui.reviewState).toBe("expanded");
-    expect(config.ui.reviewWidth).toBe(REVIEW_DEFAULT_WIDTH);
-  });
-
-  test("[ui] parses review_width (clamped) and review_state", () => {
+  test("[ui] diff_view defaults to unified and parses split", () => {
     // Arrange
-    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg6-"));
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-diff-"));
     const path = join(dir, "config.toml");
 
-    writeFileSync(path, `[ui]\nreview_width = 999\nreview_state = "compact"\n`);
+    writeFileSync(path, `[ui]\ndiff_view = "split"\n`);
 
     try {
-      // Act
-      const config = loadConfig({ userConfigPath: path });
-
       // Assert
-      expect(config.ui.reviewWidth).toBe(REVIEW_MAX_WIDTH); // out-of-range width clamps
-      expect(config.ui.reviewState).toBe("compact");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  test("[ui] ignores an unknown review_state and a non-numeric width", () => {
-    // Arrange
-    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg7-"));
-    const path = join(dir, "config.toml");
-
-    writeFileSync(path, `[ui]\nreview_width = "wide"\nreview_state = "sideways"\n`);
-
-    try {
-      // Act
-      const config = loadConfig({ userConfigPath: path });
-
-      // Assert
-      expect(config.ui.reviewWidth).toBe(REVIEW_DEFAULT_WIDTH);
-      expect(config.ui.reviewState).toBe("expanded");
+      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.diffView).toBe(
+        "unified",
+      );
+      expect(loadConfig({ userConfigPath: path }).ui.diffView).toBe("split");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -288,28 +257,30 @@ describe("loadConfig", () => {
     }
   });
 
-  test("persistReviewWidth and persistReviewState round-trip through the config file", () => {
+  test("persistPins round-trips the pinned-thread ids through the config file", () => {
     // Arrange
-    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg8-"));
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-pins-"));
     const path = join(dir, "config.toml");
 
     try {
       // Act
-      persistReviewWidth(42, path);
-      persistReviewState("hidden", path);
+      persistPins(["s_one", "s_two"], path);
 
       // Assert
-      const config = loadConfig({ userConfigPath: path });
+      expect(loadConfig({ userConfigPath: path }).ui.pins).toEqual(["s_one", "s_two"]);
 
-      expect(config.ui.reviewWidth).toBe(42);
-      expect(config.ui.reviewState).toBe("hidden");
-
-      // a second write replaces the key in place rather than appending a duplicate
+      // unpinning rewrites the list in place, including down to empty
       // Act
-      persistReviewWidth(30, path);
+      persistPins(["s_two"], path);
 
       // Assert
-      expect(loadConfig({ userConfigPath: path }).ui.reviewWidth).toBe(30);
+      expect(loadConfig({ userConfigPath: path }).ui.pins).toEqual(["s_two"]);
+
+      // Act
+      persistPins([], path);
+
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.pins).toEqual([]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

@@ -13,6 +13,7 @@ import { DARK } from "./theme";
 import {
   isolateUserConfig,
   press,
+  pressKey,
   waitForState,
   waitForText,
   waitForTextGone,
@@ -103,7 +104,7 @@ describe("the guided walk", () => {
     const setup = await renderApp();
 
     // Act
-    await press(setup, "w");
+    await pressKey(setup, "k", { meta: true });
 
     // Assert
     await waitForText(setup, "file 1 of 3 · 0 viewed");
@@ -157,7 +158,7 @@ describe("the guided walk", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "submit review");
+    await waitForText(setup, "send message");
     expect(setup.captureCharFrame()).toContain("3/3 files viewed");
 
     // Act
@@ -171,7 +172,7 @@ describe("the guided walk", () => {
     // Arrange
     const setup = await renderApp();
 
-    await press(setup, "w");
+    await pressKey(setup, "k", { meta: true });
     await waitForText(setup, "file 1 of 3 · 0 viewed");
     await press(setup, "]");
     await waitForText(setup, "file 2 of 3 · 1 viewed");
@@ -185,7 +186,7 @@ describe("the guided walk", () => {
     expect(setup.captureCharFrame()).not.toContain("· 1 viewed");
 
     // Act
-    await press(setup, "w");
+    await pressKey(setup, "k", { meta: true });
 
     // Assert
     await waitForText(setup, "file 2 of 3 · 1 viewed");
@@ -195,7 +196,7 @@ describe("the guided walk", () => {
     // Arrange
     const first = await renderApp();
 
-    await press(first, "w");
+    await pressKey(first, "k", { meta: true });
     await waitForText(first, "file 1 of 3 · 0 viewed");
     await press(first, "]");
     await press(first, "]");
@@ -210,7 +211,7 @@ describe("the guided walk", () => {
     // a fresh client reads the viewed set back from the session record
     const second = await renderApp();
 
-    await press(second, "w");
+    await pressKey(second, "k", { meta: true });
 
     // Assert
     await waitForText(second, "file 3 of 3 · 2 viewed");
@@ -231,7 +232,7 @@ describe("the guided walk", () => {
     const setup = await renderApp();
 
     // Act
-    await press(setup, "w");
+    await pressKey(setup, "k", { meta: true });
 
     // Assert
     await waitForText(setup, "file 1 of 3");
@@ -249,7 +250,7 @@ describe("the guided walk", () => {
     // flips the default verdict, and never comes back in the feedback doc
     await press(setup, "escape");
     await waitForTextGone(setup, "agent note");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
     // nothing pending despite the note, so the confirm card defaults to approve
     await waitForText(setup, "[Approve]");
     await press(setup, "enter");
@@ -268,16 +269,16 @@ describe("the guided walk", () => {
 
     // Assert
     // before the walk the changed word on the added line wears the insertion color
-    await waitForText(setup, "+new line");
+    await waitForText(setup, "+ new line");
     expect(foregroundsOf(setup, "new")).toContain(DARK.insertedForeground);
 
     // Act
-    await press(setup, "w");
+    await pressKey(setup, "k", { meta: true });
 
     // Assert
     await waitForText(setup, "file 1 of 3 · 0 viewed");
-    // dimmed: the sheet's changed word drops to the dim token...
-    expect(foregroundsOf(setup, "new")).toEqual([DARK.textDim]);
+    // dimmed: an added line the wizard preview does not show drops to the dim token...
+    expect(foregroundsOf(setup, "added tail")).toEqual([DARK.textDim]);
     // ...while the wizard preview keeps the insertion color
     expect(foregroundsOf(setup, "+export const b = 3;")).toContain(DARK.insertedForeground);
   });
@@ -287,10 +288,8 @@ describe("the guided walk", () => {
     server.core.sessionResolve(session.id, "approve", "");
     const setup = await renderApp();
 
-    await waitForText(setup, "resolved");
-
-    // Act
-    await press(setup, "w");
+    // Act - renderApp already waited for the diff to load; the session is resolved
+    await pressKey(setup, "k", { meta: true });
 
     // Assert
     await waitForText(setup, "review submitted - read-only");

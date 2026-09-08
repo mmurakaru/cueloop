@@ -27,7 +27,7 @@ for (const argument of ["--help", "help"] as const) {
     expect(result.stdout).toContain("common commands:");
     expect(result.stdout).toContain("share:");
     expect(result.stdout).toContain("scripting:");
-    for (const verb of [
+    for (const primitive of [
       "cueloop plan",
       "cueloop diff",
       "cueloop review",
@@ -35,7 +35,7 @@ for (const argument of ["--help", "help"] as const) {
       "cueloop share",
       "cueloop session",
     ]) {
-      expect(result.stdout).toContain(verb);
+      expect(result.stdout).toContain(primitive);
     }
   });
 }

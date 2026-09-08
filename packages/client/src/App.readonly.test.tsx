@@ -1,4 +1,4 @@
-/** Observer mode (tier 2): the App with readOnly renders and navigates like the controller's, but every mutating verb answers "observer - read-only" and leaves daemon state untouched. */
+/** Observer mode (tier 2): the App with readOnly renders and navigates like the controller's, but every mutating primitive answers "observer - read-only" and leaves daemon state untouched. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -9,8 +9,15 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { DARK } from "./theme";
-import { isolateUserConfig, press, waitForState, waitForText } from "./test-support";
+import {
+  clickText,
+  dragText,
+  frameRow,
+  isolateUserConfig,
+  pressKey,
+  typeText,
+  waitForText,
+} from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -60,7 +67,9 @@ async function renderObserver() {
   return setup;
 }
 
-/** Session state that any mutating verb would change. */
+type Setup = Awaited<ReturnType<typeof renderObserver>>;
+
+/** Session state that any mutating primitive would change. */
 function snapshot() {
   const stored = server.core.sessionGet(session.id);
 
@@ -72,79 +81,114 @@ function snapshot() {
 }
 
 describe("observer rendering", () => {
-  test("shows the observer badge and the bottom menu", async () => {
+  test("the minimal header mirrors the thread name, with no observer badge", async () => {
     // Arrange
     const setup = await renderObserver();
 
-    // Assert
+    // Assert - the header shows the thread title only; read-only is enforced by
+    // the blocked primitives below, not a header badge
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("· observer");
-    expect(frame).toContain("menu");
+    expect(frame).toContain("Migration Plan");
+    expect(frame).not.toContain("· observer");
   });
 });
 
-describe("observer verbs are blocked", () => {
-  for (const [key, verb] of [
-    ["c", "comment"],
-    ["x", "cut"],
-    ["e", "edit"],
-    ["enter", "submit"],
-  ] as const) {
-    test(`${verb} (${key}) answers observer - read-only and mutates nothing`, async () => {
+describe("observer primitives are blocked", () => {
+  const attempts: Array<[string, (setup: Setup) => Promise<void>]> = [
+    ["comment (typing)", (setup) => typeText(setup, "c")],
+    ["cut (option+x)", (setup) => pressKey(setup, "x", { meta: true })],
+    ["edit (ctrl+e)", (setup) => pressKey(setup, "e", { ctrl: true })],
+    ["submit (cmd+enter)", (setup) => pressKey(setup, "RETURN", { meta: true })],
+  ];
+
+  for (const [primitive, attempt] of attempts) {
+    test(`${primitive} answers observer - read-only and mutates nothing`, async () => {
       const setup = await renderObserver();
       const before = snapshot();
 
-      await press(setup, "j");
-      await press(setup, "j");
-      await press(setup, key);
+      await clickText(setup, "daemon");
+      await attempt(setup);
       const frame = await waitForText(setup, "observer - read-only");
 
-      // no overlay opened: compose/submit bars never appear
-      expect(frame).not.toContain('comment on "');
-      expect(frame).not.toContain("verdict ←/→");
+      // no draft card and no submit card ever appear
+      expect(frame).not.toContain("● c");
+      expect(frame).not.toContain("[Approve]");
       expect(snapshot()).toEqual(before);
     });
   }
 
-  test("span mode c is blocked too", async () => {
+  test("typing over a marked span is blocked too", async () => {
     // Arrange
     const setup = await renderObserver();
 
     // Act
-    await press(setup, "j");
-    await press(setup, "j");
-    await press(setup, "v");
-    await press(setup, "c");
-    await setup.renderOnce();
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await typeText(setup, "c");
 
     // Assert
-    const frame = setup.captureCharFrame();
+    const frame = await waitForText(setup, "observer - read-only");
 
-    expect(frame).toContain("observer - read-only");
-    expect(frame).not.toContain('comment on "');
+    expect(frame).not.toContain("● c");
     expect(snapshot().annotations).toBe(0);
   });
 });
 
+describe("a resolved review is read-only for its owner too", () => {
+  test("typing, deleting a card, and editing answer review submitted - read-only", async () => {
+    // Arrange: a comment exists and the verdict is in
+    server.core.sessionAnnotate(session.id, {
+      id: "a_done",
+      kind: "comment",
+      anchor: makeAnchor(parseBlocks(PLAN), 2, 0, 10),
+      body: "settled",
+    });
+    server.core.sessionResolve(session.id, "approve", "");
+    const setup = await testRender(<App home={home} sessionId={session.id} />, {
+      width: 120,
+      height: 32,
+    });
+
+    await waitForText(setup, "settled");
+    const before = snapshot();
+
+    // Act + Assert: a draft never opens
+    await clickText(setup, "daemon");
+    await typeText(setup, "c");
+    await waitForText(setup, "review submitted - read-only");
+    expect(setup.captureCharFrame()).not.toContain("● c");
+
+    // Act + Assert: the focused card cannot be deleted or edited
+    await pressKey(setup, "n", { meta: true });
+    await pressKey(setup, "BACKSPACE", { meta: true });
+    await pressKey(setup, "e", { meta: true });
+    await pressKey(setup, "x", { meta: true });
+    expect(snapshot()).toEqual(before);
+    expect(server.core.sessionGet(session.id).annotations).toHaveLength(1);
+  });
+});
+
 describe("observer navigation still works", () => {
-  test("j/k moves the cursor between blocks", async () => {
+  test("↓ moves the caret between blocks", async () => {
     // Arrange
     const setup = await renderObserver();
 
     // Act
-    await press(setup, "j");
-    await press(setup, "j");
+    await pressKey(setup, "ARROW_DOWN");
+    await pressKey(setup, "ARROW_DOWN");
     await setup.renderOnce();
 
-    // Assert
-    const lines = setup.captureCharFrame().split("\n");
-    const cursorLine = lines.find((line) => line.includes("▎"))!;
+    // Assert: the caret cell is painted on the paragraph's row
+    const caretRow = setup
+      .captureSpans()
+      .lines.findIndex((line) =>
+        line.spans.some((span) => span.bg.toInts().slice(0, 3).join() === "86,91,104"),
+      );
 
-    expect(cursorLine).toContain("persists sessions");
+    expect(caretRow).toBe(frameRow(setup, "persists sessions"));
   });
 
-  test("n focuses annotations made by the controller", async () => {
+  test("option+n focuses annotations made by the controller", async () => {
     // Arrange
     server.core.sessionAnnotate(session.id, {
       id: "a_obs1",
@@ -154,29 +198,12 @@ describe("observer navigation still works", () => {
     });
     const setup = await renderObserver();
 
-    // Act
-    await press(setup, "n");
+    // Act - the observer navigates to the annotation without mutating anything
+    await pressKey(setup, "n", { meta: true });
     await setup.renderOnce();
 
-    // Assert - focus shows as the card's blue border (transparent fill); a
-    // comment card is the only blue-bordered box in the frame
-    await waitForText(setup, "COMMENT · me");
-    await waitForState(setup, () => hasBorderColor(setup, DARK.blue));
+    // Assert - the observer reads the controller's comment inline in the thread
+    await waitForText(setup, "From the controller.");
+    expect(snapshot().annotations).toBe(1);
   });
 });
-
-/** Whether any border character (box-drawing) is painted in the given foreground hex. */
-function hasBorderColor(setup: Awaited<ReturnType<typeof renderObserver>>, hex: string): boolean {
-  for (const line of setup.captureSpans().lines) {
-    for (const span of line.spans) {
-      if (!/[╭╮╰╯│─┌┐└┘]/.test(span.text)) continue;
-      const [red, green, blue] = span.fg.toInts();
-      const rendered =
-        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
-
-      if (rendered === hex) return true;
-    }
-  }
-
-  return false;
-}

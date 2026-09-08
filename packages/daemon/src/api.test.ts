@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonCore, verdictResponse } from "./api";
 import { SessionStore } from "./store";
-import type { Artifact, WorkspaceKey } from "@cueloop/schema";
+import { derivePath, tipOf, type Artifact, type WorkspaceKey } from "@cueloop/schema";
+import { MAX_BLOB_BYTES, packSessionBlob, unpackSessionBlob } from "./share-blob";
 
 const WS: WorkspaceKey = { repoRoot: "/repo", branch: "main" };
 const PLAN: Artifact = {
@@ -153,6 +154,24 @@ describe("session lifecycle", () => {
     expect(core.sessionGet(session.id).workingCopy).toBeUndefined();
   });
 
+  test("a thread rename sets the title, clears back to the default on empty, and survives a restart", () => {
+    // Arrange
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
+    core.sessionSetTitle(session.id, "  Renamed thread  ");
+
+    // Assert - trimmed and persisted
+    expect(core.sessionGet(session.id).artifact.meta.title).toBe("Renamed thread");
+    expect(new DaemonCore(home).sessionGet(session.id).artifact.meta.title).toBe("Renamed thread");
+
+    // Act - an empty title clears back to the derived default
+    core.sessionSetTitle(session.id, "   ");
+
+    // Assert
+    expect(core.sessionGet(session.id).artifact.meta.title).toBeUndefined();
+  });
+
   test("viewed paths merge, dedupe, clear on empty, and survive a daemon restart", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
@@ -224,6 +243,30 @@ describe("revision marks addressed annotations", () => {
 
     expect(first!.resolution).toEqual({ revision: 2, source: "agent" });
     expect(second!.resolution).toBeUndefined();
+  });
+
+  test("a reported root comment addresses its replies as well", () => {
+    // Arrange: a discussion of a root and one reply, plus an unrelated comment
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    annotate(session.id, "root", "carefully");
+    core.sessionAnnotate(session.id, {
+      id: "reply",
+      kind: "comment",
+      anchor: { quote: "carefully", prefix: "", suffix: "" },
+      body: "agreed",
+      replyTo: "root",
+    });
+    annotate(session.id, "other", "Context");
+
+    // Act: the agent reports only the root
+    const revised = core.sessionSubmitRevision(session.id, PLAN.content + "\nMore.\n", ["root"]);
+    const byId = new Map(revised.annotations.map((annotation) => [annotation.id, annotation]));
+
+    // Assert
+    expect(byId.get("root")!.resolution).toEqual({ revision: 2, source: "agent" });
+    expect(byId.get("reply")!.resolution).toEqual({ revision: 2, source: "agent" });
+    expect(byId.get("other")!.resolution).toBeUndefined();
   });
 
   test("a plan annotation whose quoted text vanished is drift-addressed; a surviving quote stays open", () => {
@@ -398,5 +441,458 @@ describe("events", () => {
       "session.resolved",
       "inbox.changed",
     ]);
+  });
+});
+
+describe("the session history records every write as an entry", () => {
+  const annotate = (sessionId: string, id: string, quote: string, body = "note") =>
+    core.sessionAnnotate(sessionId, {
+      id,
+      kind: "comment",
+      anchor: { quote, prefix: "", suffix: "" },
+      body,
+    });
+
+  test("create, comment, remove, resolve, and revise append in order on main", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Assert: a fresh session is one root revision
+    expect(created.history?.entries.map((entry) => entry.type)).toEqual(["revision"]);
+    expect(created.history?.tips.main).toBe(created.history?.entries[0]!.id);
+
+    // Act
+    annotate(created.id, "a1", "carefully");
+    annotate(created.id, "a1", "carefully", "edited body");
+    annotate(created.id, "a2", "Context");
+    core.sessionRemoveAnnotation(created.id, "a2");
+    core.sessionRemoveAnnotation(created.id, "never-existed");
+    core.sessionResolve(created.id, "request_changes", "tighten");
+    const revised = core.sessionSubmitRevision(created.id, PLAN.content + "\nMore.\n", ["a1"]);
+
+    // Assert: an edit of an existing comment and a removal of an unknown id leave no entry
+    const history = revised.history!;
+
+    expect(history.entries.map((entry) => entry.type)).toEqual([
+      "revision",
+      "comment",
+      "comment",
+      "comment-removed",
+      "verdict",
+      "revision",
+    ]);
+    expect(history.branch).toBe("main");
+    expect(history.tips.main).toBe(history.entries.at(-1)!.id);
+    // every entry chains on the one before
+    history.entries.forEach((entry, index) => {
+      expect(entry.parentId).toBe(index === 0 ? null : history.entries[index - 1]!.id);
+    });
+  });
+
+  test("the head of the current path is the artifact, and the open comments are the path's", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    annotate(created.id, "a1", "carefully");
+    annotate(created.id, "a2", "Context");
+    core.sessionRemoveAnnotation(created.id, "a1");
+    const revised = core.sessionSubmitRevision(created.id, "# Plan v2\n");
+
+    // Act
+    const derived = derivePath(revised.history!);
+
+    // Assert
+    expect(derived.head.content).toBe(revised.artifact.content);
+    expect(derived.annotationIds).toEqual(["a2"]);
+    expect(derived.rounds).toBe(2);
+  });
+
+  test("a shared session's incoming comments become entries, and the blob round-trips with its history", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
+    const merged = core.sessionMergeShared(created.id, {
+      annotations: [
+        {
+          id: "ana_1",
+          kind: "comment",
+          anchor: { quote: "Context", prefix: "", suffix: "" },
+          body: "from ana",
+          author: "SHA256:ana",
+          createdAt: "2026-09-01T10:00:00.000Z",
+        },
+      ],
+    });
+    const roundTripped = unpackSessionBlob(packSessionBlob(merged));
+
+    // Assert
+    expect(merged.history?.entries.at(-1)).toMatchObject({
+      type: "comment",
+      annotationId: "ana_1",
+    });
+    expect(roundTripped.history).toEqual(merged.history);
+    expect(packSessionBlob(merged).byteLength).toBeLessThan(MAX_BLOB_BYTES);
+  });
+
+  test("a session written before histories existed gets one on the next boot", () => {
+    // Arrange: a record with no history on disk, as an earlier daemon left it
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const legacy = { ...created };
+
+    delete legacy.history;
+    new SessionStore(home).upsert(legacy);
+
+    // Act
+    const rebooted = new DaemonCore(home);
+    const recovered = rebooted.sessionGet(created.id);
+
+    // Assert
+    expect(recovered.history?.entries.map((entry) => entry.type)).toEqual(["revision"]);
+    expect(derivePath(recovered.history!).head.content).toBe(PLAN.content);
+  });
+});
+
+describe("curation primitives", () => {
+  test("cutting a block records a reviewer revision; restoring it returns the copy to pristine", () => {
+    // Arrange: block 2 of the plan is the paragraph
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
+    const cut = core.sessionCutBlock(created.id, 2);
+
+    // Assert: the working copy lost the paragraph and the history gained the edit
+    expect(cut.workingCopy).not.toContain("Do the thing carefully.");
+    expect(cut.history!.entries.at(-1)).toMatchObject({ type: "revision", by: "reviewer" });
+    expect(derivePath(cut.history!).head.content).toBe(cut.workingCopy!);
+
+    // Act: put it back where it was (block 2 of the submitted revision, before the end)
+    const restored = core.sessionRestoreBlock(created.id, 2);
+
+    // Assert: pristine again, and that edit is on record too
+    expect(restored.workingCopy).toBeUndefined();
+    expect(derivePath(restored.history!).head.content).toBe(PLAN.content);
+    expect(restored.history!.entries.filter((entry) => entry.type === "revision")).toHaveLength(3);
+  });
+
+  test("a block index outside the text is refused", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Assert
+    expect(() => core.sessionCutBlock(created.id, 99)).toThrow(/no block 99/);
+    expect(() => core.sessionRestoreBlock(created.id, 99)).toThrow(/no block 99/);
+  });
+
+  test("restoring a block that is present is refused rather than duplicated", () => {
+    // Arrange: nothing cut, then block 2 cut once
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Assert: a pristine copy has every block
+    expect(() => core.sessionRestoreBlock(created.id, 2)).toThrow(/present in the working copy/);
+
+    // Act
+    core.sessionCutBlock(created.id, 2);
+    const restored = core.sessionRestoreBlock(created.id, 2);
+
+    // Assert: one restore puts it back; a second would duplicate it
+    expect(restored.workingCopy).toBeUndefined();
+    expect(() => core.sessionRestoreBlock(created.id, 2)).toThrow(/present in the working copy/);
+  });
+
+  test("curating a diff stores the decisions and the patch they leave; no decisions clear both", () => {
+    // Arrange: one file with two separated changes
+    const oldContents = "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\n";
+    const newContents = "a\nB\nc\nd\ne\nf\ng\nh\ni\nJ\n";
+    const diff: Artifact = {
+      type: "diff",
+      content: "",
+      meta: {},
+      files: [{ path: "src/x.txt", oldContents, newContents, status: "modified" }],
+    };
+    const created = core.sessionCreate({ workspace: WS, artifact: diff });
+
+    // Act: reject the first hunk
+    const curated = core.sessionCurate(created.id, [{ path: "src/x.txt", hunkIndex: 0 }]);
+
+    // Assert: only the second change survives in the working copy
+    expect(curated.curation).toEqual([{ path: "src/x.txt", hunkIndex: 0 }]);
+    expect(curated.workingCopy).toContain("+J");
+    expect(curated.workingCopy).not.toContain("+B");
+    expect(curated.history!.entries.at(-1)).toMatchObject({ type: "revision", by: "reviewer" });
+
+    // Act
+    const cleared = core.sessionCurate(created.id, []);
+
+    // Assert
+    expect(cleared.curation).toBeUndefined();
+    expect(cleared.workingCopy).toBeUndefined();
+  });
+
+  test("a plan cannot be curated by hunk", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Assert
+    expect(() => core.sessionCurate(created.id, [])).toThrow(/only a diff review/);
+  });
+});
+
+describe("tree primitives", () => {
+  const comment = (id: string, body: string) => ({
+    id,
+    kind: "comment" as const,
+    anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
+    body,
+  });
+
+  test("navigating main back hides later comments and edits, and the agent's next revision lands there", () => {
+    // Arrange: comment, reviewer edit, second comment
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(created.id, comment("a1", "first"));
+    const checkpoint = derivePath(core.sessionGet(created.id).history!);
+    const checkpointEntry = tipOf(core.sessionGet(created.id).history!);
+
+    core.sessionLabel(created.id, "after a1");
+    core.sessionSetWorkingCopy(created.id, "# Plan\n\n## Context\n\nDo it.\n");
+    core.sessionAnnotate(created.id, comment("a2", "second"));
+
+    // Act
+    const moved = core.sessionNavigate(created.id, checkpointEntry, "dropped the edit");
+
+    // Assert: the view is the checkpoint's, the abandoned segment is on record
+    expect(moved.workingCopy).toBeUndefined();
+    expect(moved.annotations.map((annotation) => annotation.id)).toEqual(["a1"]);
+    expect(moved.shelvedAnnotations!.map((annotation) => annotation.id)).toEqual(["a2"]);
+    expect(moved.history!.labels[checkpointEntry]).toBe("after a1");
+    expect(derivePath(moved.history!).summaries[0]!.abandoned).toHaveLength(2);
+    expect(checkpoint.annotationIds).toEqual(["a1"]);
+
+    // Act: the agent resubmits
+    const revised = core.sessionSubmitRevision(created.id, "# Plan\n\nRevised.\n");
+
+    // Assert: the revision chains after the summary on main
+    const path = derivePath(revised.history!);
+
+    expect(path.head.content).toBe("# Plan\n\nRevised.\n");
+    expect(revised.history!.entries.at(-1)!.parentId).toBe(
+      derivePath(moved.history!).summaries[0]!.id,
+    );
+  });
+
+  test("the feedback document renders from the tip's path", () => {
+    // Arrange: two comments, then main moved back between them
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(created.id, comment("a1", "keep this one"));
+    const between = tipOf(core.sessionGet(created.id).history!);
+
+    core.sessionAnnotate(created.id, comment("a2", "not this one"));
+    core.sessionNavigate(created.id, between);
+
+    // Act
+    const resolved = core.sessionResolve(created.id, "request_changes", "one note");
+
+    // Assert
+    expect(resolved.verdict!.feedback).toContain("keep this one");
+    expect(resolved.verdict!.feedback).not.toContain("not this one");
+  });
+
+  test("a navigate names the branch to stand on, so a move on another branch is one request", () => {
+    // Arrange: alt has a comment; the owner stands on main
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const revision = tipOf(created.history!);
+
+    core.sessionBranch(created.id, "alt");
+    core.sessionAnnotate(created.id, comment("a1", "on alt"));
+    core.sessionSwitch(created.id, "main");
+
+    // Act
+    const moved = core.sessionNavigate(created.id, revision, undefined, "alt");
+
+    // Assert: on alt, back at the revision, the comment shelved
+    expect(moved.history!.branch).toBe("alt");
+    expect(tipOf(moved.history!)).toBe(revision);
+    expect(moved.shelvedAnnotations!.map((annotation) => annotation.id)).toEqual(["a1"]);
+    expect(() => core.sessionNavigate(created.id, revision, undefined, "nope")).toThrow(
+      /no branch/,
+    );
+  });
+
+  test("a navigate to the tip or off the path is refused", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const tip = tipOf(created.history!);
+
+    core.sessionBranch(created.id, "alt");
+    core.sessionAnnotate(created.id, comment("a1", "on alt"));
+    const onAlt = tipOf(core.sessionGet(created.id).history!, "alt");
+
+    core.sessionSwitch(created.id, "main");
+
+    // Assert
+    expect(() => core.sessionNavigate(created.id, tip)).toThrow(/already at/);
+    expect(() => core.sessionNavigate(created.id, onAlt)).toThrow(/not on branch "main"/);
+    expect(() => core.sessionNavigate(created.id, "e_nope")).toThrow(/no entry/);
+  });
+
+  test("branching keeps main where it is; switching shows each branch's own comments", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(created.id, comment("shared", "on both"));
+
+    // Act
+    core.sessionBranch(created.id, "alt");
+    core.sessionAnnotate(created.id, comment("alt-only", "on alt"));
+    const onAlt = core
+      .sessionSwitch(created.id, "alt")
+      .annotations.map((annotation) => annotation.id);
+    const onMain = core.sessionSwitch(created.id, "main");
+
+    // Assert
+    expect(onAlt).toEqual(["shared", "alt-only"]);
+    expect(onMain.annotations.map((annotation) => annotation.id)).toEqual(["shared"]);
+    expect(onMain.shelvedAnnotations!.map((annotation) => annotation.id)).toEqual(["alt-only"]);
+    expect(() => core.sessionBranch(created.id, "alt")).toThrow(/exists/);
+    expect(() => core.sessionSwitch(created.id, "nope")).toThrow(/no branch/);
+  });
+
+  test("a removed comment is shelved, and a share merge does not bring it back", () => {
+    // Arrange
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(created.id, comment("a1", "first"));
+    const removed = core.sessionRemoveAnnotation(created.id, "a1");
+
+    // Act
+    const merged = core.sessionMergeShared(created.id, {
+      annotations: [{ ...comment("a1", "first"), createdAt: "2026-01-01T00:00:00.000Z" }],
+    });
+
+    // Assert
+    expect(removed.shelvedAnnotations!.map((annotation) => annotation.id)).toEqual(["a1"]);
+    expect(merged.annotations).toEqual([]);
+  });
+
+  test("a share's removal entry hides the comment for the owner, once, by entry id", () => {
+    // Arrange: a collaborator's note pulled in earlier
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const note = {
+      ...comment("c1", "from a teammate"),
+      author: "SHA256:collab",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    core.sessionMergeShared(created.id, { annotations: [note] });
+    const removal = { id: "e_share_rm", annotationId: "c1", createdAt: "2026-01-02T00:00:00.000Z" };
+
+    // Act: the share hands the removal back twice, as two pulls would
+    core.sessionMergeShared(created.id, { annotations: [], removals: [removal] });
+    const merged = core.sessionMergeShared(created.id, {
+      annotations: [note],
+      removals: [removal],
+    });
+
+    // Assert: gone from view, kept on the shelf, one removal entry with the share's id
+    expect(merged.annotations).toEqual([]);
+    expect(merged.shelvedAnnotations!.map((annotation) => annotation.id)).toEqual(["c1"]);
+    expect(merged.history!.entries.filter((entry) => entry.type === "comment-removed")).toEqual([
+      expect.objectContaining({ id: "e_share_rm", annotationId: "c1" }),
+    ]);
+  });
+
+  test("a merge lands on the branch the share follows, wherever the owner stands", () => {
+    // Arrange: the owner works on a side branch while the share follows main
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionBranch(created.id, "alt");
+    const note = {
+      ...comment("c1", "from a teammate"),
+      author: "SHA256:collab",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    };
+
+    // Act
+    const merged = core.sessionMergeShared(created.id, { annotations: [note] });
+
+    // Assert: main's path has the note, alt's does not show it
+    expect(merged.history!.branch).toBe("alt");
+    expect(merged.annotations).toEqual([]);
+    expect(merged.shelvedAnnotations!.map((annotation) => annotation.id)).toEqual(["c1"]);
+    expect(derivePath(merged.history!, tipOf(merged.history!, "main")).annotationIds).toEqual([
+      "c1",
+    ]);
+    expect(
+      core.sessionSwitch(created.id, "main").annotations.map((annotation) => annotation.id),
+    ).toEqual(["c1"]);
+  });
+
+  test("a fork is a new pending session on the copied path, without verdict, edits, or share", () => {
+    // Arrange: comment, edit, resolve, then a second round
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(created.id, comment("a1", "first"), "Ana");
+    core.sessionSetShareId(created.id, "share-1");
+    core.sessionResolve(created.id, "request_changes", "again");
+    core.sessionSubmitRevision(created.id, "# Plan\n\nRound two.\n", ["a1"]);
+    core.sessionLabel(created.id, "round two");
+    core.sessionSetWorkingCopy(created.id, "# Plan\n\nRound two, edited.\n");
+
+    // Act
+    const fork = core.sessionFork(created.id);
+
+    // Assert
+    expect(fork.id).not.toBe(created.id);
+    expect(fork.parentSessionId).toBe(created.id);
+    expect(fork.status).toBe("pending");
+    expect(fork.verdict).toBeNull();
+    expect(fork.shareId).toBeUndefined();
+    expect(fork.workingCopy).toBeUndefined();
+    expect(fork.artifact.content).toBe("# Plan\n\nRound two.\n");
+    expect(fork.revisions.map((revision) => revision.revision)).toEqual([1, 2]);
+    expect(fork.annotations.map((annotation) => annotation.id)).toEqual(["a1"]);
+    expect(fork.participants).toEqual(
+      created.participants ?? core.sessionGet(created.id).participants,
+    );
+    expect(Object.values(fork.history!.labels)).toEqual(["round two"]);
+    expect(fork.history!.entries.map((entry) => entry.type)).toEqual([
+      "revision",
+      "comment",
+      "revision",
+    ]);
+    expect(core.sessionList().map((session) => session.id)).toContain(fork.id);
+  });
+
+  test("a fork's addressed marks follow its own numbering; one addressed off the path reopens", () => {
+    // Arrange: a1 addressed by round two, main navigated back before round two, round three submitted
+    const created = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(created.id, comment("a1", "first"));
+    const beforeRoundTwo = tipOf(core.sessionGet(created.id).history!);
+
+    core.sessionSubmitRevision(created.id, "# Plan\n\nRound two.\n", ["a1"]);
+    core.sessionAnnotate(created.id, comment("a2", "second"));
+    core.sessionSubmitRevision(created.id, "# Plan\n\nRound three.\n", ["a2"]);
+
+    // Act: fork with both rounds on the path
+    const straight = core.sessionFork(created.id);
+
+    core.sessionNavigate(created.id, beforeRoundTwo);
+    core.sessionSubmitRevision(created.id, "# Plan\n\nRound four.\n");
+    // the source numbers this 4; on the fork's path it is the second revision
+    const rerouted = core.sessionFork(created.id);
+
+    // Assert
+    expect(straight.annotations.map((annotation) => annotation.resolution?.revision)).toEqual([
+      2, 3,
+    ]);
+    expect(rerouted.revisions.map((revision) => revision.content)).toEqual([
+      PLAN.content,
+      "# Plan\n\nRound four.\n",
+    ]);
+    expect(rerouted.annotations.map((annotation) => annotation.id)).toEqual(["a1"]);
+    expect(rerouted.annotations[0]!.resolution).toBeUndefined();
   });
 });

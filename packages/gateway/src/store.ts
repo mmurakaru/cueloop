@@ -27,6 +27,45 @@ export interface ShareStore {
   get(id: string): Promise<Uint8Array | null>;
 }
 
+/** "This share changed" notifications, per share id. */
+export interface ShareChangeFeed {
+  subscribe(id: string, listener: () => void): () => void;
+}
+
+/**
+ * The store every writer in the gateway goes through, fanning out a change
+ * notification per share id after each successful put. Scoped to this
+ * process: a viewer or watch stream hears every write this gateway accepts,
+ * which is all of them while the gateway runs as one instance.
+ */
+export class WatchedShareStore implements ShareStore, ShareChangeFeed {
+  private readonly listeners = new Map<string, Set<() => void>>();
+
+  constructor(private readonly inner: ShareStore) {}
+
+  get(id: string): Promise<Uint8Array | null> {
+    return this.inner.get(id);
+  }
+
+  async put(id: string, bytes: Uint8Array): Promise<void> {
+    await this.inner.put(id, bytes);
+    // listeners run after the put resolves and never fail the write
+    for (const listener of this.listeners.get(id) ?? []) queueMicrotask(listener);
+  }
+
+  subscribe(id: string, listener: () => void): () => void {
+    const set = this.listeners.get(id) ?? new Set();
+
+    set.add(listener);
+    this.listeners.set(id, set);
+
+    return () => {
+      set.delete(listener);
+      if (set.size === 0) this.listeners.delete(id);
+    };
+  }
+}
+
 /** In-process store for tests and `--store memory` local runs. */
 export class MemoryShareStore implements ShareStore {
   private readonly blobs = new Map<string, { bytes: Uint8Array; storedAt: number }>();

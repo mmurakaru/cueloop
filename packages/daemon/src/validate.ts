@@ -20,7 +20,10 @@ import {
   type DiffFileContents,
   type Identity,
   type ReviewSession,
+  type HunkRejection,
   type Revision,
+  type SessionHistory,
+  validateHistory,
   type Verdict,
   type WorkspaceKey,
 } from "@cueloop/schema";
@@ -41,6 +44,8 @@ const NonEmpty = v.pipe(v.string(), v.minLength(1));
 export const WorkspaceSchema = v.object({
   repoRoot: NonEmpty,
   branch: NonEmpty,
+  rootCommit: v.optional(NonEmpty),
+  remote: v.optional(NonEmpty),
 } satisfies EntriesOf<WorkspaceKey>);
 
 export const ArtifactMetaSchema = v.object({
@@ -75,6 +80,7 @@ export const AnchorSchema = v.object({
   prefix: v.optional(v.string(), ""),
   suffix: v.optional(v.string(), ""),
   blockIndex: v.optional(v.number()),
+  endBlockIndex: v.optional(v.number()),
   start: v.optional(v.number()),
   end: v.optional(v.number()),
   selector: v.optional(v.string()),
@@ -89,6 +95,7 @@ export const AnnotationSchema = v.object({
   body: v.string(),
   orphan: v.optional(v.boolean()),
   author: v.optional(v.string()),
+  replyTo: v.optional(NonEmpty),
   resolution: v.optional(
     v.object({
       revision: v.number(),
@@ -137,8 +144,45 @@ export const Params = {
     authorName: v.optional(v.string()),
   }),
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
+  "session.setParticipantName": v.object({ id: SessionId, author: NonEmpty, name: NonEmpty }),
   "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
+  "session.cutBlock": v.object({
+    id: SessionId,
+    blockIndex: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  }),
+  "session.restoreBlock": v.object({
+    id: SessionId,
+    baseBlockIndex: v.pipe(v.number(), v.integer(), v.minValue(0)),
+    line: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+  }),
+  "session.curate": v.object({
+    id: SessionId,
+    rejections: v.array(
+      v.object({
+        path: NonEmpty,
+        hunkIndex: v.pipe(v.number(), v.integer(), v.minValue(0)),
+        changeIndex: v.optional(v.pipe(v.number(), v.integer(), v.minValue(0))),
+      } satisfies EntriesOf<HunkRejection>),
+    ),
+  }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
+  "session.setTitle": v.object({ id: SessionId, title: v.string() }),
+  "session.projectFiles": v.object({ id: SessionId }),
+  "session.fileContents": v.object({ id: SessionId, path: NonEmpty }),
+  "repo.files": v.object({ cwd: NonEmpty }),
+  "repo.fileContents": v.object({ cwd: NonEmpty, path: NonEmpty }),
+  "repo.changes": v.object({ cwd: NonEmpty }),
+  "session.navigate": v.object({
+    id: SessionId,
+    entryId: NonEmpty,
+    summary: v.optional(v.string()),
+    // stand on this branch first, so a move on another branch is one request
+    branch: v.optional(NonEmpty),
+  }),
+  "session.branch": v.object({ id: SessionId, name: NonEmpty }),
+  "session.switch": v.object({ id: SessionId, branch: NonEmpty }),
+  "session.label": v.object({ id: SessionId, label: NonEmpty }),
+  "session.fork": v.object({ id: SessionId }),
   "session.refreshDiff": v.object({ id: SessionId }),
   "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
   "session.delete": v.object({ id: SessionId }),
@@ -146,6 +190,10 @@ export const Params = {
     id: SessionId,
     annotations: v.array(FullAnnotationSchema),
     participants: v.optional(v.array(IdentitySchema)),
+    // the removal entries a share recorded, carried by id so a merge applies each once
+    removals: v.optional(
+      v.array(v.object({ id: NonEmpty, annotationId: NonEmpty, createdAt: v.string() })),
+    ),
   }),
   "session.resolve": v.object({
     id: SessionId,
@@ -160,7 +208,13 @@ export const Params = {
   }),
   "events.subscribe": v.object({}),
   "daemon.ping": v.object({}),
-  "daemon.hello": v.object({ role: v.picklist(["owner", "collaborator", "agent"]) }),
+  // the owner token proves ownership; without it a request for owner stays a collaborator
+  "daemon.hello": v.object({
+    role: v.picklist(["owner", "collaborator", "agent"]),
+    token: v.optional(v.string()),
+    // the author a non-owner acts as, bound once for the connection
+    author: v.optional(NonEmpty),
+  }),
   "daemon.shutdown": v.object({}),
   // herdr adapter scratch: the review's opened tab, kept off the session record.
   "herdr.getTab": v.object({ id: SessionId }),
@@ -206,6 +260,47 @@ export const VerdictSchema = v.object({
   resolvedAt: v.string(),
 } satisfies EntriesOf<Verdict>);
 
+const EntryBaseEntries = {
+  id: NonEmpty,
+  parentId: v.nullable(NonEmpty),
+  createdAt: v.string(),
+};
+
+/** One record of a session's history; the tree pointers plus the entry's own fields. */
+export const SessionEntrySchema = v.variant("type", [
+  v.object({
+    ...EntryBaseEntries,
+    type: v.literal("revision"),
+    by: v.picklist(["agent", "reviewer"]),
+    content: v.string(),
+  }),
+  v.object({ ...EntryBaseEntries, type: v.literal("comment"), annotationId: NonEmpty }),
+  v.object({ ...EntryBaseEntries, type: v.literal("comment-removed"), annotationId: NonEmpty }),
+  v.object({ ...EntryBaseEntries, type: v.literal("verdict"), verdict: VerdictSchema }),
+  v.object({
+    ...EntryBaseEntries,
+    type: v.literal("branch-summary"),
+    text: v.string(),
+    abandoned: v.array(NonEmpty),
+  }),
+]);
+
+export const SessionHistorySchema = v.pipe(
+  v.object({
+    entries: v.array(SessionEntrySchema),
+    tips: v.record(v.string(), NonEmpty),
+    branch: NonEmpty,
+    labels: v.record(v.string(), v.string()),
+  } satisfies EntriesOf<SessionHistory>),
+  // the shape is not enough: the tree itself must hold, or a walk hangs or rewires the path
+  v.rawCheck(({ dataset, addIssue }) => {
+    if (!dataset.typed) return;
+    const problem = validateHistory(dataset.value);
+
+    if (problem !== null) addIssue({ message: `history: ${problem}` });
+  }),
+);
+
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
 export const SessionRecordSchema = v.object({
   schemaVersion: v.literal(SCHEMA_VERSION),
@@ -214,12 +309,25 @@ export const SessionRecordSchema = v.object({
   artifact: ArtifactSchema,
   revisions: v.array(RevisionSchema),
   annotations: v.array(FullAnnotationSchema),
+  history: v.optional(SessionHistorySchema),
+  curation: v.optional(
+    v.array(
+      v.object({
+        path: NonEmpty,
+        hunkIndex: v.number(),
+        changeIndex: v.optional(v.number()),
+      } satisfies EntriesOf<HunkRejection>),
+    ),
+  ),
   workingCopy: v.optional(v.string()),
   viewedPaths: v.optional(v.array(v.string())),
   verdict: v.nullable(VerdictSchema),
   status: v.picklist(["pending", "resolved"]),
   createdAt: v.string(),
+  shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
+  parentSessionId: v.optional(v.string()),
   shareId: v.optional(v.string()),
+  shareBranch: v.optional(v.string()),
   owner: v.optional(v.string()),
   participants: v.optional(v.array(IdentitySchema)),
 } satisfies EntriesOf<ReviewSession>);

@@ -1,5 +1,29 @@
 # @cueloop/integration-obsidian
 
+## 0.1.0-alpha.67
+
+### Patch Changes
+
+- Updated dependencies [[`cda40b3`](https://github.com/mmurakaru/cueloop/commit/cda40b31f22f21eb6105d9e2a9a7fe217c37967c)]:
+  - @cueloop/schema@0.1.0-alpha.67
+  - @cueloop/extension-api@0.1.0-alpha.67
+
+## 0.1.0-alpha.66
+
+### Patch Changes
+
+- Updated dependencies [[`8889294`](https://github.com/mmurakaru/cueloop/commit/88892948ecbc37caf94e9ef01a5d53750afc2364)]:
+  - @cueloop/schema@0.1.0-alpha.66
+  - @cueloop/extension-api@0.1.0-alpha.66
+
+## 0.1.0-alpha.65
+
+### Patch Changes
+
+- Updated dependencies [[`1b8253c`](https://github.com/mmurakaru/cueloop/commit/1b8253c0f2159e99244e1fdae9a3350eabb68055), [`3199a76`](https://github.com/mmurakaru/cueloop/commit/3199a76ec6af4fd6cc8c38a451522224c11229ea), [`3adc09e`](https://github.com/mmurakaru/cueloop/commit/3adc09e5294ef384872c1a8e578231c65ce76ce4), [`dcbd48d`](https://github.com/mmurakaru/cueloop/commit/dcbd48d2325e74230b7911038b0c51a0a2e3449b), [`8e56045`](https://github.com/mmurakaru/cueloop/commit/8e56045b6081a851a757cf33b676382c04c07446)]:
+  - @cueloop/schema@0.1.0-alpha.65
+  - @cueloop/extension-api@0.1.0-alpha.65
+
 ## 0.1.0-alpha.64
 
 ### Patch Changes

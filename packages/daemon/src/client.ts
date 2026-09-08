@@ -1,15 +1,16 @@
 /**
- * Daemon client: the one library every consumer shares - CLI verbs, the TUI,
+ * Daemon client: the one library every consumer shares - CLI primitives, the TUI,
  * adapters, and tests. Also owns the lazy-launch story: connect() with
  * autostart spawns a detached daemon when the socket is dead, then attaches.
  */
 
-import { existsSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import * as v from "valibot";
 import type {
   Annotation,
   Artifact,
-  Identity,
+  DiffFileStatus,
+  HunkRejection,
   ReviewSession,
   VerdictKind,
   WorkspaceKey,
@@ -24,8 +25,11 @@ import {
 } from "./protocol";
 import type { DaemonRole } from "./capabilities";
 import type { HerdrTabHandle } from "./herdr-tab-store";
-import { cueloopHome, socketPath } from "./paths";
-import { SessionRecordSchema } from "./validate";
+import type { SharedMerge } from "./api";
+
+export type { SharedMerge } from "./api";
+import { cueloopHome, ownerTokenPath, socketPath } from "./paths";
+import { Params, SessionRecordSchema } from "./validate";
 
 export type { EventFrame } from "./protocol";
 
@@ -35,6 +39,8 @@ export interface ConnectOptions {
   autostart?: boolean;
   /** Capability role for this connection; a review-side agent connects capped. Defaults to owner. */
   role?: DaemonRole;
+  /** The author a non-owner connection acts as; its comments, removals, and name are bound to it. */
+  author?: string;
 }
 
 type PendingRequest = {
@@ -48,7 +54,7 @@ const RefreshDiffResultSchema = v.object({ changed: v.boolean() });
 const HerdrTabResultSchema = v.nullable(v.object({ tabId: v.string(), paneId: v.string() }));
 
 /**
- * The session verbs the review controller drives. DaemonClient is the local
+ * The session primitives the review controller drives. DaemonClient is the local
  * implementation (unix socket); the sharing gateway supplies an in-memory,
  * blob-backed one. Depending on this interface - not DaemonClient - is what
  * lets the same <App> render a local session or a decrypted share unchanged.
@@ -63,19 +69,76 @@ export interface SessionClient {
     annotation: Omit<Annotation, "createdAt">,
     authorName?: string,
   ): Promise<ReviewSession>;
+  /** Remove a comment; a non-owner connection removes only the comments of the author it is bound to. */
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession>;
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession>;
+  /** Cut the `blockIndex`-th block of the working copy. */
+  sessionCutBlock(id: string, blockIndex: number): Promise<ReviewSession>;
+  /** Re-insert the `baseBlockIndex`-th block of the submitted revision before `line` (default: the end). */
+  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<ReviewSession>;
+  /** Replace a diff review's reject decisions; the working copy follows. */
+  sessionCurate(id: string, rejections: HunkRejection[]): Promise<ReviewSession>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
-  sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
-  sessionMergeShared(
+  /** Rename a session's display title; an empty title restores the derived default. */
+  sessionSetTitle(id: string, title: string): Promise<ReviewSession>;
+  /** Tracked, repo-relative file paths for the session's workspace; a client with no local repo (a share) omits it. */
+  projectFiles?(sessionId: string): Promise<string[]>;
+  /** UTF-8 contents of a repo-relative file, or null when it cannot be read safely; omitted by a client with no local repo. */
+  fileContents?(sessionId: string, path: string): Promise<string | null>;
+  /** Tracked, repo-relative paths for the git repo containing `cwd`, for the no-session welcome shell. */
+  repoFiles?(cwd: string): Promise<string[]>;
+  /** UTF-8 contents of a repo-relative file in `cwd`'s repo, or null when unreadable. */
+  repoFileContents?(cwd: string, path: string): Promise<string | null>;
+  /** Changed files (path plus git status) in the working tree at `cwd`. */
+  repoChanges?(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]>;
+  /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */
+  sessionNavigate(
     id: string,
-    incoming: { annotations: Annotation[]; participants?: Identity[] },
+    entryId: string,
+    summary?: string,
+    branch?: string,
   ): Promise<ReviewSession>;
+  /** Start a branch at the current tip and switch to it. */
+  sessionBranch(id: string, name: string): Promise<ReviewSession>;
+  sessionSwitch(id: string, branch: string): Promise<ReviewSession>;
+  /** Name the current tip as a checkpoint. */
+  sessionLabel(id: string, label: string): Promise<ReviewSession>;
+  /** Copy the current path into a new session; returns the fork. */
+  sessionFork(id: string): Promise<ReviewSession>;
+  sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
+  sessionMergeShared(id: string, incoming: SharedMerge): Promise<ReviewSession>;
   sessionDelete(id: string): Promise<void>;
   /** Record the caller's own identity name (collaborator self-naming on a share). */
   sessionSetSelfName(id: string, name: string): Promise<ReviewSession>;
   sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession>;
   close(): void;
+}
+
+/** What a connection says about itself: its role, the owner token when it claims ownership, the author it acts as otherwise. */
+interface HelloParams {
+  role: DaemonRole;
+  token?: string;
+  author?: string;
+}
+
+/** The token as the daemon writes it: 32 random bytes in hex. */
+const OwnerTokenSchema = v.pipe(v.string(), v.trim(), v.regex(/^[0-9a-f]{64}$/));
+
+/** The owner token in `home`, or undefined when the daemon there never wrote one. */
+function readOwnerToken(home: string): string | undefined {
+  const path = ownerTokenPath(home);
+
+  if (!existsSync(path)) return undefined;
+  const parsed = v.safeParse(OwnerTokenSchema, readFileSync(path, "utf8"));
+
+  if (!parsed.success) {
+    throw new DaemonClientError(
+      "invalid_owner_token",
+      `${path} is not an owner token; restart the daemon to mint a fresh one`,
+    );
+  }
+
+  return parsed.output;
 }
 
 export class DaemonClient implements SessionClient {
@@ -86,6 +149,8 @@ export class DaemonClient implements SessionClient {
   private eventListeners = new Set<(event: EventFrame) => void>();
   private closed = false;
   private role: DaemonRole = "owner";
+  private author: string | undefined;
+  private home = cueloopHome();
 
   static async connect(options: ConnectOptions = {}): Promise<DaemonClient> {
     const home = options.home ?? cueloopHome();
@@ -93,12 +158,16 @@ export class DaemonClient implements SessionClient {
     const client = new DaemonClient();
 
     client.role = options.role ?? "owner";
+    client.author = options.author;
+    client.home = home;
     try {
       await client.dial(path);
 
       return client;
     } catch (err) {
-      if (!options.autostart) throw err;
+      // a live daemon that refused the handshake is not a dead socket: the
+      // caller hears why instead of the client replacing a running daemon
+      if (!options.autostart || err instanceof DaemonClientError) throw err;
     }
     // Socket dead or absent: clean a stale file and spawn the daemon detached.
     if (existsSync(path)) rmSync(path, { force: true });
@@ -146,9 +215,22 @@ export class DaemonClient implements SessionClient {
     // Verify liveness: a dead socket file accepts connects on some platforms
     // only to fail later, so a ping is the actual handshake.
     await this.request("daemon.ping", {}, PingResultSchema, 2_000);
-    // Cap this connection's role for the daemon's capability gate (owner is the default).
-    if (this.role !== "owner")
-      await this.request("daemon.hello", { role: this.role }, EmptyResultSchema, 2_000);
+    // Every connection starts as a collaborator; the owner proves itself with
+    // the token the daemon wrote into the home it serves, which only the home's
+    // user can read. A capped role just names itself.
+    await this.request("daemon.hello", this.helloParams(), EmptyResultSchema, 2_000);
+  }
+
+  private helloParams(): HelloParams {
+    if (this.role !== "owner") {
+      return this.author === undefined
+        ? { role: this.role }
+        : { role: this.role, author: this.author };
+    }
+    const token = readOwnerToken(this.home);
+
+    // a daemon from before owner tokens has no file; it still knows the bare hello
+    return token === undefined ? { role: "owner" } : { role: "owner", token };
   }
 
   onEvent(listener: (event: EventFrame) => void): () => void {
@@ -213,7 +295,7 @@ export class DaemonClient implements SessionClient {
     this.socket?.end();
   }
 
-  // ── typed verbs ─────────────────────────────
+  // ── typed primitives ─────────────────────────────
   ping(): Promise<{ pid: number }> {
     return this.request("daemon.ping", {}, PingResultSchema);
   }
@@ -248,11 +330,75 @@ export class DaemonClient implements SessionClient {
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession> {
     return this.request("session.removeAnnotation", { id, annotationId }, SessionRecordSchema);
   }
+  /** Register a display name for a participant - a collaborator's or an agent's own, on a share or locally. */
+  sessionSetParticipantName(id: string, author: string, name: string): Promise<ReviewSession> {
+    return this.request("session.setParticipantName", { id, author, name }, SessionRecordSchema);
+  }
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession> {
     return this.request("session.setWorkingCopy", { id, workingCopy }, SessionRecordSchema);
   }
+  sessionCutBlock(id: string, blockIndex: number): Promise<ReviewSession> {
+    return this.request("session.cutBlock", { id, blockIndex }, SessionRecordSchema);
+  }
+  sessionNavigate(
+    id: string,
+    entryId: string,
+    summary?: string,
+    branch?: string,
+  ): Promise<ReviewSession> {
+    const params: v.InferInput<(typeof Params)["session.navigate"]> = { id, entryId };
+
+    if (summary !== undefined) params.summary = summary;
+    if (branch !== undefined) params.branch = branch;
+
+    return this.request("session.navigate", params, SessionRecordSchema);
+  }
+  sessionBranch(id: string, name: string): Promise<ReviewSession> {
+    return this.request("session.branch", { id, name }, SessionRecordSchema);
+  }
+  sessionSwitch(id: string, branch: string): Promise<ReviewSession> {
+    return this.request("session.switch", { id, branch }, SessionRecordSchema);
+  }
+  sessionLabel(id: string, label: string): Promise<ReviewSession> {
+    return this.request("session.label", { id, label }, SessionRecordSchema);
+  }
+  sessionFork(id: string): Promise<ReviewSession> {
+    return this.request("session.fork", { id }, SessionRecordSchema);
+  }
+  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<ReviewSession> {
+    return this.request(
+      "session.restoreBlock",
+      line === undefined ? { id, baseBlockIndex } : { id, baseBlockIndex, line },
+      SessionRecordSchema,
+    );
+  }
+  sessionCurate(id: string, rejections: HunkRejection[]): Promise<ReviewSession> {
+    return this.request("session.curate", { id, rejections }, SessionRecordSchema);
+  }
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession> {
     return this.request("session.setViewed", { id, viewedPaths }, SessionRecordSchema);
+  }
+  sessionSetTitle(id: string, title: string): Promise<ReviewSession> {
+    return this.request("session.setTitle", { id, title }, SessionRecordSchema);
+  }
+  projectFiles(sessionId: string): Promise<string[]> {
+    return this.request("session.projectFiles", { id: sessionId }, v.array(v.string()));
+  }
+  fileContents(sessionId: string, path: string): Promise<string | null> {
+    return this.request("session.fileContents", { id: sessionId, path }, v.nullable(v.string()));
+  }
+  repoFiles(cwd: string): Promise<string[]> {
+    return this.request("repo.files", { cwd }, v.array(v.string()));
+  }
+  repoFileContents(cwd: string, path: string): Promise<string | null> {
+    return this.request("repo.fileContents", { cwd, path }, v.nullable(v.string()));
+  }
+  repoChanges(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]> {
+    return this.request(
+      "repo.changes",
+      { cwd },
+      v.array(v.object({ path: v.string(), status: v.picklist(["added", "modified", "deleted"]) })),
+    );
   }
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
@@ -261,10 +407,7 @@ export class DaemonClient implements SessionClient {
   sessionSetShareId(id: string, shareId: string): Promise<ReviewSession> {
     return this.request("session.setShareId", { id, shareId }, SessionRecordSchema);
   }
-  sessionMergeShared(
-    id: string,
-    incoming: { annotations: Annotation[]; participants?: Identity[] },
-  ): Promise<ReviewSession> {
+  sessionMergeShared(id: string, incoming: SharedMerge): Promise<ReviewSession> {
     return this.request("session.mergeShared", { id, ...incoming }, SessionRecordSchema);
   }
   sessionDelete(id: string): Promise<void> {

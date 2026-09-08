@@ -12,9 +12,9 @@ import { parseArgs, stringFlag } from "./args";
 
 export async function actionsCommand(argv: string[]): Promise<number> {
   const { positional, flags } = parseArgs(argv);
-  const verb = positional[0] ?? "list";
+  const primitive = positional[0] ?? "list";
 
-  if (verb !== "list") {
+  if (primitive !== "list") {
     console.error("usage: cueloop actions list [--session <id>]");
 
     return 2;

@@ -11,6 +11,7 @@ import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/sc
 import { createIntentDispatch, type IntentDispatchDeps } from "./intent-dispatch";
 import type { ControllerSnapshot, CurationItem, ReviewController } from "./session-controller";
 import type { DisplayBlock } from "./view-plan";
+import type { TreeRow } from "./tree-view";
 
 function block(text: string): DisplayBlock {
   return { type: "same", kind: "p", work: { kind: "p", text, lineStart: 0, lineEnd: 0 } };
@@ -56,7 +57,7 @@ const EMPTY_SNAPSHOT: ControllerSnapshot = {
   walk: null,
 };
 
-/** A controller where every verb is a mock; annotate returns undefined by default. */
+/** A controller where every primitive is a mock; annotate returns undefined by default. */
 function baseController(): ReviewController {
   return {
     readOnly: false,
@@ -70,10 +71,23 @@ function baseController(): ReviewController {
     dismissToast: mock(),
     display: mock(() => []),
     rows: mock(() => []),
+    setFileCollapsed: mock(),
+    isFileCollapsed: mock(() => false),
+    setFileExpanded: mock(),
+    isFileExpanded: mock(() => false),
+    canExpandFile: mock(() => false),
+    copyFilePath: mock(),
+    fileStats: mock(() => new Map()),
     files: mock(() => []),
     working: mock(() => ""),
+    projectFiles: mock(() => Promise.resolve<string[]>([])),
+    readFile: mock(() => Promise.resolve<string | null>(null)),
+    repoFiles: mock(() => Promise.resolve<string[]>([])),
+    repoReadFile: mock(() => Promise.resolve<string | null>(null)),
+    repoChanges: mock(() => Promise.resolve([])),
     open: mock(),
     deleteSession: mock(),
+    renameSession: mock(),
     setSelfName: mock(),
     cut: mock(),
     toggleRejectHunk: mock(),
@@ -83,6 +97,7 @@ function baseController(): ReviewController {
     restoreCuration: mock(),
     edit: mock(),
     annotate: mock(() => undefined),
+    reply: mock(() => undefined),
     annotatePrototype: mock(() => undefined),
     updateAnnotation: mock(),
     removeAnnotation: mock(),
@@ -93,12 +108,17 @@ function baseController(): ReviewController {
     walkLeave: mock(),
     submit: mock(),
     share: mock(),
+    treeRows: mock(() => []),
+    goToEntry: mock(),
+    branch: mock(),
+    labelTip: mock(),
+    fork: mock(),
+    forkAndShare: mock(),
     pullShared: mock(() => Promise.resolve()),
-    startSharePoll: mock(() => () => {}),
+    startShareSync: mock(() => () => {}),
     finishReview: mock(),
     dismissCompletion: mock(),
     optInAutoClose: mock(),
-    saveReviewPanel: mock(),
   };
 }
 
@@ -115,29 +135,27 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     inboxCursor: 0,
     mode: { type: "normal" },
     session: null,
-    reviewMode: "expanded",
-    reviewWidth: 34,
-    terminalWidth: 120,
     focusedAnnotationId: undefined,
     selectedCurationId: undefined,
+    railTab: "review",
+    selectedEntryId: undefined,
     authorNames: {},
     quickActions: [],
     renameAuthor: mock(),
+    renameThread: mock(),
     liveInput: { current: "" },
-    reviewWidthRef: { current: 34 },
-    planSheetRef: { current: null },
     setCursor: mock(),
     setInboxCursor: mock(),
     setMode: mock(),
-    setReviewMode: mock(),
-    setReviewWidth: mock(),
     setRailTab: mock(),
+    setSelectedEntryId: mock(),
     setFocusedAnnotationId: mock(),
     setSelectedCurationId: mock(),
     setPulsedAnnotationId: mock(),
     selectCardFromDocument: mock(),
     runEditorHandOff: mock(),
     openCardEdit: mock(),
+    toggleDiffView: mock(),
     ...overrides,
   };
 }
@@ -339,17 +357,15 @@ describe("marker-actions popover", () => {
 });
 
 describe("openSubmit", () => {
-  test("force-opens the review rail so the confirm card can never be hidden", () => {
+  test("opens the submit confirm with the default verdict", () => {
     // Arrange
-    const deps = makeDeps({ session: sessionWith([]), reviewMode: "hidden" });
+    const deps = makeDeps({ session: sessionWith([]) });
     const dispatch = createIntentDispatch(deps);
 
     // Act
     dispatch({ type: "openSubmit" });
 
     // Assert
-    expect(deps.setReviewMode).toHaveBeenCalledWith("expanded");
-    expect(deps.setRailTab).toHaveBeenCalledWith("review");
     expect(deps.setMode).toHaveBeenCalledWith({ type: "submit", verdict: "approve", summary: "" });
   });
 
@@ -423,6 +439,20 @@ describe("restoreCuration", () => {
 
     // Assert
     expect(deps.controller.restoreCuration).not.toHaveBeenCalled();
+  });
+});
+
+describe("toggleDiffView", () => {
+  test("delegates to the App-owned toggle", () => {
+    // Arrange
+    const deps = makeDeps();
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "toggleDiffView" });
+
+    // Assert
+    expect(deps.toggleDiffView).toHaveBeenCalled();
   });
 });
 
@@ -542,5 +572,128 @@ describe("collaborator self-name", () => {
     // Assert
     expect(deps.controller.setSelfName).toHaveBeenCalledWith("");
     expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+});
+
+describe("tree intents", () => {
+  const rows: TreeRow[] = [
+    {
+      entryId: "e1",
+      depth: 0,
+      glyph: "◉",
+      text: "revision 1",
+      onPath: true,
+      tips: [],
+      isCurrentTip: false,
+    },
+    {
+      entryId: "e2",
+      depth: 0,
+      glyph: "·",
+      text: "comment",
+      onPath: true,
+      tips: ["main"],
+      isCurrentTip: false,
+    },
+    {
+      entryId: "e3",
+      depth: 1,
+      glyph: "·",
+      text: "comment",
+      onPath: false,
+      tips: ["alt"],
+      isCurrentTip: true,
+    },
+  ];
+
+  function treeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDeps {
+    const deps = makeDeps({ railTab: "tree", ...overrides });
+
+    deps.controller.treeRows = mock(() => rows);
+
+    return deps;
+  }
+
+  test("toggleTree shows the Tree tab and hides it again", () => {
+    // Arrange
+    const shown = makeDeps({ railTab: "review" });
+    const hidden = makeDeps({ railTab: "tree" });
+
+    // Act
+    createIntentDispatch(shown)({ type: "toggleTree" });
+    createIntentDispatch(hidden)({ type: "toggleTree" });
+
+    // Assert
+    expect(shown.setRailTab).toHaveBeenCalledWith("tree");
+    expect(hidden.setRailTab).toHaveBeenCalledWith("review");
+  });
+
+  test("treeMove starts from the current tip and stays inside the rows", () => {
+    // Arrange
+    const fromTip = treeDeps();
+    const atTop = treeDeps({ selectedEntryId: "e1" });
+
+    // Act
+    createIntentDispatch(fromTip)({ type: "treeMove", direction: -1 });
+    createIntentDispatch(atTop)({ type: "treeMove", direction: -1 });
+
+    // Assert
+    expect(fromTip.setSelectedEntryId).toHaveBeenCalledWith("e2");
+    expect(atTop.setSelectedEntryId).toHaveBeenCalledWith("e1");
+  });
+
+  test("treeGo: the tip answers, a tip of another branch switches, an inner entry asks for a summary", () => {
+    // Arrange
+    const atTip = treeDeps({ selectedEntryId: "e3" });
+    const toTip = treeDeps({ selectedEntryId: "e2" });
+    const inner = treeDeps({ selectedEntryId: "e1" });
+
+    // Act
+    createIntentDispatch(atTip)({ type: "treeGo" });
+    createIntentDispatch(toTip)({ type: "treeGo" });
+    createIntentDispatch(inner)({ type: "treeGo" });
+
+    // Assert
+    expect(atTip.controller.setStatus).toHaveBeenCalledWith("already at the tip");
+    expect(toTip.controller.goToEntry).toHaveBeenCalledWith("e2");
+    expect(inner.setMode).toHaveBeenCalledWith({
+      type: "treePrompt",
+      ask: "navigate",
+      entryId: "e1",
+      text: "",
+    });
+  });
+
+  test("the prompts confirm into branch, label, and a move back with the typed summary", () => {
+    // Arrange
+    const branch = treeDeps({ mode: { type: "treePrompt", ask: "branch", text: "alt" } });
+    const label = treeDeps({ mode: { type: "treePrompt", ask: "label", text: "start" } });
+    const navigate = treeDeps({
+      mode: { type: "treePrompt", ask: "navigate", entryId: "e1", text: " too early " },
+    });
+
+    // Act
+    createIntentDispatch(branch)({ type: "confirmDialog" });
+    createIntentDispatch(label)({ type: "confirmDialog" });
+    createIntentDispatch(navigate)({ type: "confirmDialog" });
+
+    // Assert
+    expect(branch.controller.branch).toHaveBeenCalledWith("alt");
+    expect(label.controller.labelTip).toHaveBeenCalledWith("start");
+    expect(navigate.controller.goToEntry).toHaveBeenCalledWith("e1", "too early");
+    expect(navigate.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+
+  test("treeFork and treeForkShare reach the controller", () => {
+    // Arrange
+    const deps = treeDeps();
+
+    // Act
+    createIntentDispatch(deps)({ type: "treeFork" });
+    createIntentDispatch(deps)({ type: "treeForkShare" });
+
+    // Assert
+    expect(deps.controller.fork).toHaveBeenCalledTimes(1);
+    expect(deps.controller.forkAndShare).toHaveBeenCalledTimes(1);
   });
 });

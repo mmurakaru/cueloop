@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { CycleRow, TextRow, ToggleRow } from "./SettingsRows";
 
-export const meta: StoryMeta = { title: "SettingsRows" };
+export const meta: StoryMeta = { title: "Chrome/SettingsRows" };
 
 export const AllKinds: Story = {
   render: () => (

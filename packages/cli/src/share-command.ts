@@ -8,7 +8,7 @@
 
 import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
 import {
-  collaboratorAnnotations,
+  mergeFromShare,
   publishShare,
   pullShare,
   shareIdFromLine,
@@ -19,6 +19,8 @@ import type { ReviewSession } from "@cueloop/schema";
 
 export interface ShareParams {
   sessionId?: string;
+  /** Fork the session first and share the fork: one artifact to two people, with separate discussions. */
+  fork?: boolean;
   host?: string;
   port?: number;
   home?: string;
@@ -71,17 +73,19 @@ export async function shareSession(
   params: ShareParams,
   deps: ShareDeps,
 ): Promise<number> {
-  const session = await pickSession(client, params.sessionId);
+  const picked = await pickSession(client, params.sessionId);
 
-  if (!session) {
+  if (!picked) {
     deps.out("no plan to share - open a review first");
 
     return 1;
   }
+  const session = params.fork ? await client.sessionFork(picked.id) : picked;
   const { line, copied } = await deps.publish(session, { host: params.host, port: params.port });
   const shareId = shareIdFromLine(line);
 
   if (shareId) await client.sessionSetShareId(session.id, shareId);
+  if (params.fork) deps.out(`forked ${picked.id} as ${session.id}`);
   deps.out(copied ? `share link copied - ${line}` : line);
 
   return 0;
@@ -105,12 +109,10 @@ export async function pullSession(
     return 1;
   }
   const remote = await deps.pull(session.shareId!, { host: params.host, port: params.port });
-  const before = session.annotations.length;
-  const merged = await client.sessionMergeShared(session.id, {
-    annotations: collaboratorAnnotations(remote),
-    participants: remote.participants,
-  });
-  const added = merged.annotations.length - before;
+  const before = new Set(session.annotations.map((annotation) => annotation.id));
+  const merged = await client.sessionMergeShared(session.id, mergeFromShare(remote));
+  // count notes that were not here before, so a pull carrying removals never miscounts
+  const added = merged.annotations.filter((annotation) => !before.has(annotation.id)).length;
 
   deps.out(
     added > 0 ? `pulled ${added} new annotation${added === 1 ? "" : "s"}` : "no new annotations",

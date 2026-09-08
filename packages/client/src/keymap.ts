@@ -1,7 +1,7 @@
 /**
  * The keyboard grammar as a pure reducer: view state in, intents out.
  * App builds a KeyState per key event, calls reduceKey, and dispatches the
- * intents to controller verbs and view-state setters - no branch bodies live
+ * intents to controller primitives and view-state setters - no branch bodies live
  * in the key handler. Diff and plan reviews share one path for annotation
  * navigation, deletion, and submit; the read-only rule is one gate here.
  */
@@ -33,6 +33,9 @@ export type Intent =
   | { type: "rejectHunk" }
   | { type: "rejectChange" }
   | { type: "restoreCuration" }
+  | { type: "foldFile" }
+  | { type: "unfoldFile" }
+  | { type: "toggleDiffView" }
   | { type: "nextAnnotation" }
   | { type: "prevAnnotation" }
   | { type: "walkStart" }
@@ -48,8 +51,13 @@ export type Intent =
   | { type: "finishReview" }
   | { type: "optInAutoClose" }
   | { type: "dismissCompletion" }
-  | { type: "cycleReviewPanel" }
-  | { type: "resizeReviewPanel"; direction: -1 | 1 };
+  | { type: "toggleTree" }
+  | { type: "treeMove"; direction: -1 | 1 }
+  | { type: "treeGo" }
+  | { type: "treeBranch" }
+  | { type: "treeLabel" }
+  | { type: "treeFork" }
+  | { type: "treeForkShare" };
 
 export interface KeyInput {
   name: string;
@@ -63,7 +71,7 @@ export interface KeyState {
   keys: Record<string, string[]>;
   readOnly: boolean;
   /**
-   * Owner-only verbs a share collaborator lacks (undefined = owner, allowed).
+   * Owner-only primitives a share collaborator lacks (undefined = owner, allowed).
    * A collaborator annotates but cannot edit the plan (cut / $EDITOR runs on
    * the gateway) or submit an agent verdict (there is no agent on a share).
    */
@@ -95,7 +103,7 @@ export interface KeyState {
   cursorAnnotatable: boolean;
 }
 
-/** Verbs that write session state; an observer never reaches their handlers. */
+/** Primitives that write session state; an observer never reaches their handlers. */
 const MUTATING_ACTIONS = new Set([
   "comment",
   "cut",
@@ -136,7 +144,7 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
 
   if (state.readOnly && mutating) return status("observer - read-only");
 
-  // share is a session-level verb: it works from any view, owner only
+  // share is a session-level primitive: it works from any view, owner only
   if (action === "share") {
     if (state.canShare === false) return status("only the plan owner can share");
 
@@ -144,14 +152,8 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   }
 
   if (state.view === "inbox") return inboxGrammar(state, name);
-  // span mode owns its single-letter keys (b slides the span back) before the
-  // review-panel controls claim them
+  // span mode owns its single-letter keys (b slides the span back)
   if (state.spanMode) return spanGrammar(state, name);
-  // the review panel rides both plan and diff reviews; collapsing and resizing
-  // are view state, so the read-only gate above lets them through
-  const reviewPanel = reviewPanelGrammar(action);
-
-  if (reviewPanel) return reviewPanel;
   if (state.view === "diff") return diffGrammar(state, action);
 
   return planGrammar(state, action, name);
@@ -251,15 +253,6 @@ function walkOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   return [];
 }
 
-/** The review-panel controls: cycle the mode, widen and narrow the rail. */
-function reviewPanelGrammar(action: string | undefined): Intent[] | null {
-  if (action === "review_cycle") return [{ type: "cycleReviewPanel" }];
-  if (action === "review_wider") return [{ type: "resizeReviewPanel", direction: 1 }];
-  if (action === "review_narrower") return [{ type: "resizeReviewPanel", direction: -1 }];
-
-  return null;
-}
-
 function inboxGrammar(state: KeyState, name: string): Intent[] {
   if (!state.hasInboxItems) return [];
   if (name === "j" || name === "down") return [{ type: "inboxMove", to: "down" }];
@@ -294,6 +287,9 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 
     return [{ type: action === "reject_hunk" ? "rejectHunk" : "rejectChange" }];
   }
+  const viewToggle = viewToggleIntent(action);
+
+  if (viewToggle) return viewToggle;
   // restore un-does a curated-out rejection from the rail; same owner gate as reject
   if (action === "restore_curation") {
     if (state.resolved) return status("review submitted - read-only");
@@ -305,7 +301,7 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 
   if (shared) return shared;
   if (action === "span" || action === "edit") {
-    return status("plan-only verb - diff review uses c on a line");
+    return status("plan-only primitive - diff review uses c on a line");
   }
 
   return [];
@@ -356,7 +352,7 @@ function planGrammar(state: KeyState, action: string | undefined, name: string):
     // the annotation and edit rewrites the card body in place
     if (state.hasFocusedAnnotation)
       return [action === "cut" ? { type: "removeAnnotation" } : { type: "editCard" }];
-    // editing the plan itself is the owner's verb; a share viewer only annotates,
+    // editing the plan itself is the owner's primitive; a share viewer only annotates,
     // and has no edit affordance, so the key is silent rather than a nag
     if (state.canEditPlan === false) return [];
 
@@ -371,6 +367,16 @@ function navigationIntent(action: string | undefined): Intent[] | null {
   if (action === "down" || action === "up" || action === "top" || action === "bottom") {
     return [{ type: "move", to: action }];
   }
+
+  return null;
+}
+
+/** Ungated view toggles in the diff: right folds a file to its band, left unfolds it, s flips
+ *  unified/split (split lays out only when the Changes pane is zoomed). */
+function viewToggleIntent(action: string | undefined): Intent[] | null {
+  if (action === "collapse_file") return [{ type: "foldFile" }];
+  if (action === "expand_file") return [{ type: "unfoldFile" }];
+  if (action === "split_diff") return [{ type: "toggleDiffView" }];
 
   return null;
 }

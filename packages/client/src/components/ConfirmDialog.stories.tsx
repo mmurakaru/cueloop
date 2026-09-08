@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { ConfirmDialog } from "./ConfirmDialog";
 
-export const meta: StoryMeta = { title: "ConfirmDialog" };
+export const meta: StoryMeta = { title: "Overlays/ConfirmDialog" };
 
 const callbacks = { onConfirm: () => {}, onCancel: () => {} };
 

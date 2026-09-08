@@ -1,4 +1,4 @@
-/** Verb-first open resolution over a plain session list: latest-pending default, by-id, and fuzzy-by-title (exact wins, unique substring wins, else ambiguous). Pure over the array - no daemon, no TUI. */
+/** Primitive-first open resolution over a plain session list: latest-pending default, by-id, and fuzzy-by-title (exact wins, unique substring wins, else ambiguous). Pure over the array - no daemon, no TUI. */
 
 import { describe, expect, test } from "bun:test";
 import type { ArtifactType, ReviewSession } from "@cueloop/schema";
@@ -43,7 +43,7 @@ function session(overrides: {
 
 const isPlan = isPlanReview;
 
-describe("verb scope predicates are disjoint", () => {
+describe("primitive scope predicates are disjoint", () => {
   test("isPlanReview matches only plan artifacts", () => {
     expect(isPlanReview(session({ id: "ses_p", type: "plan" }))).toBe(true);
     expect(isPlanReview(session({ id: "ses_d", type: "diff" }))).toBe(false);

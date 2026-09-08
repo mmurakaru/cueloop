@@ -1,5 +1,11 @@
 import { describe, expect, mock, test } from "bun:test";
-import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
+import {
+  appendEntry,
+  historyFromLinear,
+  SCHEMA_VERSION,
+  type Annotation,
+  type ReviewSession,
+} from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { pullSession, shareSession, type PullDeps, type ShareDeps } from "./share-command";
 
@@ -33,7 +39,7 @@ function annotationFixture(id: string, author?: string): Annotation {
 const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
-/** A SessionClient that answers get/list from a fixed list and records the share/merge verbs. */
+/** A SessionClient that answers get/list from a fixed list and records the share/merge primitives. */
 function fakeClient(sessions: ReviewSession[]): SessionClient {
   return {
     onEvent: () => () => {},
@@ -43,7 +49,22 @@ function fakeClient(sessions: ReviewSession[]): SessionClient {
     sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
+    sessionCutBlock: unimplemented("sessionCutBlock"),
+    sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
+    sessionCurate: unimplemented("sessionCurate"),
+    sessionNavigate: unimplemented("sessionNavigate"),
+    sessionBranch: unimplemented("sessionBranch"),
+    sessionSwitch: unimplemented("sessionSwitch"),
+    sessionLabel: unimplemented("sessionLabel"),
+    sessionFork: mock(async (id: string) => {
+      const fork = { ...sessionFixture(`${id}_fork`), parentSessionId: id };
+
+      sessions.push(fork);
+
+      return fork;
+    }),
     sessionSetViewed: unimplemented("sessionSetViewed"),
+    sessionSetTitle: unimplemented("sessionSetTitle"),
     sessionSetShareId: mock(async (id: string, shareId: string) => {
       const session = sessions.find((candidate) => candidate.id === id)!;
 
@@ -51,15 +72,25 @@ function fakeClient(sessions: ReviewSession[]): SessionClient {
 
       return session;
     }),
-    sessionMergeShared: mock(async (id: string, incoming: { annotations: Annotation[] }) => {
-      const session = sessions.find((candidate) => candidate.id === id)!;
-      const known = new Set(session.annotations.map((annotation) => annotation.id));
+    sessionMergeShared: mock(
+      async (
+        id: string,
+        incoming: { annotations: Annotation[]; removals?: Array<{ annotationId: string }> },
+      ) => {
+        const session = sessions.find((candidate) => candidate.id === id)!;
+        const known = new Set(session.annotations.map((annotation) => annotation.id));
 
-      for (const annotation of incoming.annotations)
-        if (!known.has(annotation.id)) session.annotations.push(annotation);
+        for (const annotation of incoming.annotations)
+          if (!known.has(annotation.id)) session.annotations.push(annotation);
+        const shelved = new Set((incoming.removals ?? []).map((removal) => removal.annotationId));
 
-      return session;
-    }),
+        session.annotations = session.annotations.filter(
+          (annotation) => !shelved.has(annotation.id),
+        );
+
+        return session;
+      },
+    ),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),
     sessionResolve: unimplemented("sessionResolve"),
@@ -156,6 +187,28 @@ describe(shareSession, () => {
     // Assert
     expect(client.sessionSetShareId).toHaveBeenCalledWith("ses_1", "p_abc123xy");
   });
+
+  test("--fork shares a fork of the session and leaves the original unshared", async () => {
+    // Arrange
+    const session = sessionFixture("ses_1");
+    const client = fakeClient([session]);
+    const deps = depsSpy();
+
+    // Act
+    const code = await shareSession(client, { sessionId: "ses_1", fork: true }, deps);
+
+    // Assert
+    expect(code).toBe(0);
+    expect(client.sessionFork).toHaveBeenCalledWith("ses_1");
+    expect(deps.publish).toHaveBeenCalledTimes(1);
+    expect(deps.publish).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "ses_1_fork", parentSessionId: "ses_1" }),
+      expect.anything(),
+    );
+    expect(client.sessionSetShareId).toHaveBeenCalledWith("ses_1_fork", "p_abc123xy");
+    expect(session.shareId).toBeUndefined();
+    expect(deps.lines[0]).toBe("forked ses_1 as ses_1_fork");
+  });
 });
 
 function pullDepsSpy(remote: ReviewSession): PullDeps & { lines: string[] } {
@@ -219,6 +272,34 @@ describe(pullSession, () => {
 
     // Assert
     expect(deps.lines).toEqual(["no new annotations"]);
+  });
+
+  test("counts only the new notes when a pull also carries a removal", async () => {
+    // Arrange: the owner holds one collaborator note; the share brings a new note and removes the old one
+    const local = sessionFixture("ses_1", {
+      shareId: "p_abc123xy",
+      annotations: [annotationFixture("gone", "SHA256:mate")],
+    });
+    const remote = sessionFixture("ses_1", {
+      annotations: [
+        annotationFixture("gone", "SHA256:mate"),
+        annotationFixture("fresh", "SHA256:mate"),
+      ],
+    });
+
+    remote.history = appendEntry(historyFromLinear(remote), {
+      id: "e_rm",
+      type: "comment-removed",
+      annotationId: "gone",
+      createdAt: "2026-02-02T00:00:00.000Z",
+    }).history;
+    const deps = pullDepsSpy(remote);
+
+    // Act
+    await pullSession(fakeClient([local]), { sessionId: "ses_1" }, deps);
+
+    // Assert: one note is genuinely new, so a plain length difference (0) would be wrong
+    expect(deps.lines).toEqual(["pulled 1 new annotation"]);
   });
 
   test("refuses to pull a plan that was never shared", async () => {

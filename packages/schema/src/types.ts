@@ -1,8 +1,10 @@
 /**
  * The ReviewSession primitive. Everything in cueloop renders, annotates, or
  * resolves this one noun. This module is pure data shapes - no IO, no
- * dependencies.
+ * dependencies beyond the history shapes.
  */
+
+import type { SessionHistory } from "./history";
 
 export const SCHEMA_VERSION = "1";
 
@@ -10,6 +12,10 @@ export const SCHEMA_VERSION = "1";
 export interface WorkspaceKey {
   repoRoot: string;
   branch: string;
+  /** Earliest root commit SHA; the project key that survives moving or re-cloning the repo. Absent for a standalone thread. */
+  rootCommit?: string;
+  /** Origin remote URL when present; for display and repair only, never the project key. */
+  remote?: string;
 }
 
 /**
@@ -61,6 +67,17 @@ export interface ArtifactMeta {
 /** How a file changed, so curation emits the right create/delete headers. */
 export type DiffFileStatus = "added" | "modified" | "deleted";
 
+/**
+ * One reject decision of a diff review: a whole hunk, or one change block of
+ * it when `changeIndex` is set. The daemon curates the working copy from the
+ * full set, so every client sees the same patch.
+ */
+export interface HunkRejection {
+  path: string;
+  hunkIndex: number;
+  changeIndex?: number;
+}
+
 export interface DiffFileContents {
   path: string;
   oldContents: string;
@@ -91,9 +108,11 @@ export interface Anchor {
   quote: string;
   prefix: string;
   suffix: string;
-  /** Index of the block the anchor was made in (hint). */
+  /** Index of the block the anchor starts in (hint). */
   blockIndex?: number;
-  /** Character offsets within that block's text (hint). */
+  /** Last block of a quote that spans blocks (hint); absent for one block. */
+  endBlockIndex?: number;
+  /** Character offsets: `start` within the first block, `end` within the last (hint). */
   start?: number;
   end?: number;
   /** Prototype anchors: the CSS selector of the annotated element (authority). */
@@ -127,6 +146,11 @@ export interface Annotation {
    * planner can tell whose note is whose and never overwrite a collaborator's.
    */
   author?: string;
+  /**
+   * The root comment this one replies to. Absent on a root. A reply shares its
+   * root's anchor, so a discussion stays one conversation when the text moves.
+   */
+  replyTo?: string;
   /**
    * Set when a revision addressed this annotation: the agent reported the id
    * on resubmit ("agent"), or the quoted text disappeared from the revised
@@ -191,6 +215,15 @@ export interface ReviewSession {
   revisions: Revision[];
   annotations: Annotation[];
   /**
+   * The session's history as a tree of entries with named branches; the
+   * artifact text and the open comments derive from the active path. Absent
+   * only on records written before histories existed; the store migrates
+   * those on read.
+   */
+  history?: SessionHistory;
+  /** A diff review's reject decisions; the working copy is the patch they leave. */
+  curation?: HunkRejection[];
+  /**
    * The reviewer's working copy of the artifact source (plan edits).
    * Serializes as ONE unified diff against the submitted revision.
    * Undefined = no direct edits.
@@ -205,8 +238,18 @@ export interface ReviewSession {
   verdict: Verdict | null;
   status: SessionStatus;
   createdAt: string;
+  /**
+   * Comments off the active path - removed, or made on a segment a tip moved
+   * away from. Nothing is deleted: a navigate or switch that brings their
+   * entries back onto the path shows them again.
+   */
+  shelvedAnnotations?: Annotation[];
+  /** The session this one was forked from. */
+  parentSessionId?: string;
   /** Share id once published; lets the planner pull collaborator notes back. */
   shareId?: string;
+  /** The branch the share follows and shows collaborators; `main` when absent. */
+  shareBranch?: string;
   /** SSH fingerprint that created the share; the gateway stamps it to gate pulls. */
   owner?: string;
   /**

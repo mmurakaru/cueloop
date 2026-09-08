@@ -18,7 +18,7 @@ import {
 import { verdictResponse } from "./api";
 import type { DaemonClient } from "./client";
 
-// Adapters and CLI verbs reach the verdict mapping through this module too,
+// Adapters and CLI primitives reach the verdict mapping through this module too,
 // so a session obtained outside a ReviewHandle maps the same way.
 export { verdictResponse };
 
@@ -35,12 +35,33 @@ async function git(args: string[], cwd: string): Promise<string | null> {
   }
 }
 
-/** Workspace key resolution: repo root + branch from the cwd. */
+/** The oldest root commit reachable from HEAD; the project key that survives moving or re-cloning the repo. */
+function earliestRootCommit(revList: string | null): string | undefined {
+  if (!revList) return undefined;
+  const roots = revList.split("\n").filter((line) => line.length > 0);
+
+  // --date-order lists newest first, so the last root is the earliest
+  return roots.at(-1);
+}
+
+/** Workspace key resolution: repo root, branch, and the project identity (root commit + remote) from the cwd. */
 export async function resolveWorkspace(cwd = process.cwd()): Promise<WorkspaceKey> {
   const repoRoot = (await git(["rev-parse", "--show-toplevel"], cwd)) ?? cwd;
   const branch = (await git(["rev-parse", "--abbrev-ref", "HEAD"], cwd)) ?? "detached";
+  // a shallow clone's oldest commit is the graft boundary, not the true root, so
+  // it would key a different project than a full clone - leave it unset instead
+  const shallow = (await git(["rev-parse", "--is-shallow-repository"], cwd)) === "true";
+  const rootCommit = shallow
+    ? undefined
+    : earliestRootCommit(await git(["rev-list", "--max-parents=0", "--date-order", "HEAD"], cwd));
+  const remote = await git(["remote", "get-url", "origin"], cwd);
 
-  return { repoRoot, branch };
+  const workspace: WorkspaceKey = { repoRoot, branch };
+  // a repo with no commits (or a shallow clone) has no reliable root, so the thread stays standalone
+  if (rootCommit) workspace.rootCommit = rootCommit;
+  if (remote) workspace.remote = remote;
+
+  return workspace;
 }
 
 function firstHeading(markdown: string): string | undefined {

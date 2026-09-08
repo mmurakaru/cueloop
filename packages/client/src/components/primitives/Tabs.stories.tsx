@@ -3,7 +3,7 @@ import { DARK } from "../../theme";
 import type { Story, StoryMeta } from "../story";
 import { Tab, TabList, Tabs } from "./Tabs";
 
-export const meta: StoryMeta = { title: "primitives/Tabs" };
+export const meta: StoryMeta = { title: "Primitives/Tabs" };
 
 export const TwoTabs: Story = {
   render: () => (

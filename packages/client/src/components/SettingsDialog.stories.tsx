@@ -4,7 +4,7 @@ import { THEME_PRESETS } from "../theme-presets";
 import type { Story, StoryMeta } from "./story";
 import { SettingsDialog, type SettingsCategory } from "./SettingsDialog";
 
-export const meta: StoryMeta = { title: "SettingsDialog" };
+export const meta: StoryMeta = { title: "Overlays/SettingsDialog" };
 
 const CATEGORIES: SettingsCategory[] = [
   {
@@ -62,6 +62,8 @@ export const NavZone: Story = {
   render: () => (
     <SettingsDialog
       isOpen
+      version="0.1.0-alpha.32"
+      keybindsSections={[]}
       categories={CATEGORIES}
       values={VALUES}
       activeCategoryId="general"
@@ -79,6 +81,8 @@ export const BodyZone: Story = {
   render: () => (
     <SettingsDialog
       isOpen
+      version="0.1.0-alpha.32"
+      keybindsSections={[]}
       categories={CATEGORIES}
       values={VALUES}
       activeCategoryId="display"
@@ -96,6 +100,8 @@ export const AppearanceThemed: Story = {
   render: () => (
     <SettingsDialog
       isOpen
+      version="0.1.0-alpha.32"
+      keybindsSections={[]}
       categories={CATEGORIES}
       values={VALUES}
       activeCategoryId="appearance"

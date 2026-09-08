@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseBlocks } from "./markdown";
-import { makeAnchor, resolveAnchor } from "./anchor";
+import { BLOCK_SEPARATOR, makeAnchor, resolveAnchor } from "./anchor";
 
 const DOC = `# Plan
 
@@ -140,7 +140,11 @@ describe("anchor cascade", () => {
     const blocks = blocksOf(DOC);
     const contextBlockIndex = blocks.findIndex((block) => block.text.startsWith("Review sessions"));
     // a typo the reviewer never saw: "sesssions"
-    const anchor = { quote: "Review sesssions currently live", prefix: "", suffix: "" };
+    const anchor = {
+      quote: "Review sesssions currently live",
+      prefix: "",
+      suffix: "",
+    };
 
     // Act
     const resolved = resolveAnchor(anchor, blocks)!;
@@ -205,5 +209,114 @@ describe("anchor cascade", () => {
 
     // Assert
     expect(resolveAnchor({ quote: "", prefix: "", suffix: "" }, blocks)).toBeNull();
+  });
+});
+
+describe("anchors spanning blocks", () => {
+  const SPANNING_DOC = `## Phase 1
+
+All persistence lives in a new module,
+so a crash can never leave a torn file on disk.
+
+- server/storage/store.ts - the SessionStore class
+- server/storage/schema.ts - the on-disk record shape
+
+## Phase 2
+`;
+  const blocks = parseBlocks(SPANNING_DOC);
+  const paragraph = blocks.findIndex((block) => block.text.startsWith("All persistence"));
+  const secondBullet = blocks.findIndex((block) => block.text.startsWith("server/storage/schema"));
+  const start = blocks[paragraph]!.text.indexOf("so a crash");
+  const end = "server/storage/schema.ts".length;
+  const anchor = makeAnchor(blocks, paragraph, start, end, secondBullet);
+
+  test("the quote is the spanned text joined by a blank line, with an end block hint", () => {
+    // Assert
+    expect(anchor.quote).toBe(
+      [
+        "so a crash can never leave a torn file on disk.",
+        "server/storage/store.ts - the SessionStore class",
+        "server/storage/schema.ts",
+      ].join(BLOCK_SEPARATOR),
+    );
+    expect(anchor.blockIndex).toBe(paragraph);
+    expect(anchor.endBlockIndex).toBe(secondBullet);
+    expect(anchor.suffix).toBe(" - the on-disk record sh");
+  });
+
+  test("a single-block anchor carries no end block hint", () => {
+    // Assert
+    expect(makeAnchor(blocks, paragraph, 0, 3)).not.toHaveProperty("endBlockIndex");
+  });
+
+  test("resolves exactly back onto the first and last block offsets", () => {
+    // Act
+    const resolved = resolveAnchor(anchor, blocks);
+
+    // Assert
+    expect(resolved).toEqual({
+      blockIndex: paragraph,
+      start,
+      endBlockIndex: secondBullet,
+      end,
+      approximate: false,
+      strategy: "exact",
+    });
+  });
+
+  test("follows the span when blocks are inserted above it", () => {
+    // Arrange: a new paragraph shifts every block index by one
+    const shifted = parseBlocks(
+      SPANNING_DOC.replace("## Phase 1\n", "## Phase 1\n\nA new intro.\n"),
+    );
+
+    // Act
+    const resolved = resolveAnchor(anchor, shifted);
+
+    // Assert
+    expect(resolved?.blockIndex).toBe(paragraph + 1);
+    expect(resolved?.endBlockIndex).toBe(secondBullet + 1);
+    expect(resolved?.start).toBe(start);
+    expect(resolved?.end).toBe(end);
+  });
+
+  test("re-binds fuzzily after a light edit inside the span", () => {
+    // Arrange
+    const edited = parseBlocks(SPANNING_DOC.replace("SessionStore class", "SessionStore type"));
+
+    // Act
+    const resolved = resolveAnchor(anchor, edited);
+
+    // Assert: still one span from the paragraph to the second bullet
+    expect(resolved?.strategy).toBe("fuzzy");
+    expect(resolved?.approximate).toBe(true);
+    expect(resolved?.blockIndex).toBe(paragraph);
+    expect(resolved?.endBlockIndex).toBe(secondBullet);
+  });
+
+  test("orphans when the spanned passage is gone", () => {
+    // Arrange
+    const gutted = parseBlocks("## Phase 1\n\nSomething else entirely.\n");
+
+    // Assert
+    expect(resolveAnchor(anchor, gutted)).toBeNull();
+  });
+
+  test("a match landing on a separator edge is pulled onto the neighbouring block", () => {
+    // Arrange: a quote whose exact text starts with the separator only exists
+    // when its first block portion is empty, which makeAnchor never produces;
+    // simulate the stale case directly
+    const staleAnchor = {
+      ...anchor,
+      quote: `${BLOCK_SEPARATOR}server/storage/store.ts - the SessionStore class`,
+    };
+
+    // Act
+    const resolved = resolveAnchor(staleAnchor, blocks);
+
+    // Assert: the span opens at the bullet, not on the blank line above it
+    expect(resolved?.blockIndex).toBe(secondBullet - 1);
+    expect(resolved?.start).toBe(0);
+    expect(resolved?.endBlockIndex).toBe(secondBullet - 1);
   });
 });

@@ -17,6 +17,7 @@ import {
   type Block,
 } from "@cueloop/schema";
 import { wordLevelChanges } from "./diff-intraline";
+import { spanRangeInBlock, type TextSpan } from "./thread-selection";
 
 // ── display model ─────────────────────────────
 
@@ -182,6 +183,8 @@ export interface Mark {
   end: number;
   role: RunRole;
   annotationId?: string;
+  /** The whole anchored stretch in display coordinates; one thread per span. */
+  span?: TextSpan;
 }
 
 /**
@@ -207,18 +210,32 @@ export function marksByDisplay(
     const resolved = resolveAnchor(annotation.anchor, workBlocks);
 
     if (!resolved) continue;
-    const entry = workEntries[resolved.blockIndex];
+    const startEntry = workEntries[resolved.blockIndex];
+    const endEntry = workEntries[resolved.endBlockIndex];
 
-    if (!entry) continue;
-    const marks = marksByIndex.get(entry.displayIndex) ?? [];
+    if (!startEntry || !endEntry) continue;
+    const span: TextSpan = {
+      start: { blockIndex: startEntry.displayIndex, char: resolved.start },
+      end: { blockIndex: endEntry.displayIndex, char: resolved.end },
+    };
 
-    marks.push({
-      start: resolved.start,
-      end: resolved.end,
-      role: annotation.id === focusedId ? "mark-focus" : "mark-comment",
-      annotationId: annotation.id,
-    });
-    marksByIndex.set(entry.displayIndex, marks);
+    // a span paints on every block it covers; the mark carries the whole span
+    for (let workIndex = resolved.blockIndex; workIndex <= resolved.endBlockIndex; workIndex++) {
+      const entry = workEntries[workIndex]!;
+      const range = spanRangeInBlock(span, entry.displayIndex, entry.block.work!.text.length);
+
+      if (!range) continue;
+      const marks = marksByIndex.get(entry.displayIndex) ?? [];
+
+      marks.push({
+        start: range.start,
+        end: range.end,
+        role: annotation.id === focusedId ? "mark-focus" : "mark-comment",
+        annotationId: annotation.id,
+        span,
+      });
+      marksByIndex.set(entry.displayIndex, marks);
+    }
   }
 
   return marksByIndex;

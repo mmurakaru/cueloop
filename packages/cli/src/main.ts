@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * cueloop entry points: `cueloop` opens the TUI on the inbox, the verb-first
+ * cueloop entry points: `cueloop` opens the TUI on the inbox, the primitive-first
  * openers `cueloop plan|reply|diff|review` open the latest pending review of
  * that type (or address one by id/title), `cueloop diff`/`cueloop review <pr>` also
  * keep their create paths, `cueloop session *` mirrors the daemon API for
@@ -93,7 +93,7 @@ async function shareEntry(rest: string[]): Promise<number> {
 
   if (positional[0] === "pull") return sharePullCommand({ ...target, sessionId: positional[1] });
 
-  return shareCommand({ ...target, sessionId: positional[0] });
+  return shareCommand({ ...target, sessionId: positional[0], fork: flags.fork === true });
 }
 
 type CommandHandler = (rest: string[]) => number | Promise<number>;
@@ -116,6 +116,7 @@ const commandHandlers: CommandHandlers = {
   refine: async (rest) => (await import("./refine-command")).refineCommand(rest),
   review: (rest) => reviewEntry(rest),
   "review-post": async (rest) => (await import("./pr")).reviewPostCommand(rest),
+  dev: async () => (await import("./dev-command")).devCommand(),
 };
 
 const versionAliases = new Set(["-v", "--version", "version"]);
@@ -143,7 +144,7 @@ async function main(): Promise<number> {
 }
 
 /**
- * The id-or-title selector for a verb-first opener: the bare positional, or a
+ * The id-or-title selector for a primitive-first opener: the bare positional, or a
  * value handed to `--open`/`--latest`. A bare `--latest`/`--open` flag carries
  * no value, so the selector stays undefined and the opener defaults to the
  * latest pending review.
@@ -155,7 +156,7 @@ function openSelector(parsed: ParsedArgs): string | undefined {
 }
 
 /**
- * Resolve one review of the verb's scope and open it in the TUI, or print the
+ * Resolve one review of the primitive's scope and open it in the TUI, or print the
  * miss and fail. `emptyMessage` overrides the default no-pending line for the
  * one caller that needs a scope-specific hint (a clean working tree).
  */
@@ -340,12 +341,13 @@ function printHelp(): void {
       "  cueloop <plan|diff|review> --latest  open the latest pending review of that type",
       "",
       "scripting:",
-      "  cueloop session <verb> [flags]   script the daemon (create|get|list|wait|annotate|resolve|submit-revision)",
+      "  cueloop session <primitive> [flags]   script the daemon (create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|resolve|submit-revision)",
       "  cueloop actions list             list the quick-action vocabulary (for annotate --action)",
       "  cueloop refine                   mine past reviews into a markdown report + writeback proposals",
       "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the verdict (spawn detached)",
       "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
       "  cueloop daemon                   run the daemon in the foreground",
+      "  cueloop dev                      open the TUI on an isolated home seeded with example threads",
       "",
       "  cueloop -v, --version            print the installed version",
       "  cueloop -h, --help               print this help",

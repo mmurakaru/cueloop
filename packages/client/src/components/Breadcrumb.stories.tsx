@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { Breadcrumb } from "./Breadcrumb";
 
-export const meta: StoryMeta = { title: "Breadcrumb" };
+export const meta: StoryMeta = { title: "Chrome/Breadcrumb" };
 
 export const SessionHeader: Story = {
   render: () => (

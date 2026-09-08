@@ -224,7 +224,7 @@ describe("plan normal mode", () => {
     });
   }
 
-  test("resolved sessions guard the mutating verbs", () => {
+  test("resolved sessions guard the mutating primitives", () => {
     // Arrange
     const resolvedState = state({ resolved: true });
 
@@ -386,9 +386,10 @@ describe("diff mode", () => {
     ["p", [{ type: "prevAnnotation" }]],
     ["backspace", [{ type: "removeAnnotation" }]],
     ["return", [{ type: "openSubmit" }]],
-    ["v", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
+    ["v", [{ type: "status", message: "plan-only primitive - diff review uses c on a line" }]],
     ["x", [{ type: "rejectChange" }]],
-    ["e", [{ type: "status", message: "plan-only verb - diff review uses c on a line" }]],
+    ["e", [{ type: "status", message: "plan-only primitive - diff review uses c on a line" }]],
+    ["s", [{ type: "toggleDiffView" }]],
     ["q", [{ type: "exit" }]],
   ];
 
@@ -490,31 +491,8 @@ describe("guided walk", () => {
   });
 });
 
-describe("review panel controls", () => {
-  const table: [string, Intent[]][] = [
-    ["b", [{ type: "cycleReviewPanel" }]],
-    ["]", [{ type: "resizeReviewPanel", direction: 1 }]],
-    ["[", [{ type: "resizeReviewPanel", direction: -1 }]],
-  ];
-
-  for (const view of ["plan", "diff"] as const) {
-    for (const [name, expected] of table) {
-      test(`${view} ${name} -> ${JSON.stringify(expected)}`, () => {
-        expect(reduceKey(state({ view }), key(name))).toEqual(expected);
-      });
-    }
-  }
-
-  test("observers may still collapse and resize the panel (it is view state, not a mutation)", () => {
-    // Arrange
-    const observer = state({ readOnly: true });
-
-    // Assert
-    expect(reduceKey(observer, key("b"))).toEqual([{ type: "cycleReviewPanel" }]);
-    expect(reduceKey(observer, key("]"))).toEqual([{ type: "resizeReviewPanel", direction: 1 }]);
-  });
-
-  test("span mode still owns b as a span verb, not a panel cycle", () => {
+describe("span and walk own their keys", () => {
+  test("span mode owns b as a span primitive", () => {
     // Assert
     expect(reduceKey(state({ spanMode: true }), key("b"))).toEqual([
       { type: "spanKey", name: "b" },

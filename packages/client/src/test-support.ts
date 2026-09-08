@@ -1,7 +1,7 @@
 /**
- * Shared driving helpers for the virtual-terminal App suites: key presses
- * settle through a macrotask yield (input parser + React scheduler), one
- * render pass, and the renderer's visual-idle wait - no fixed-duration
+ * Shared driving helpers for the virtual-terminal App suites: an input settles
+ * when its painted frame stops changing across consecutive event-loop turns
+ * (macrotask yield, render pass, visual-idle wait per turn) - no fixed-duration
  * sleeps. Waits on daemon round-trips go through waitForFrame/waitFor with
  * generous pass budgets.
  */
@@ -40,15 +40,44 @@ export function allowEventLoopUpdates(): void {
   globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 }
 
+/** Turns of the event loop a frame must survive unchanged before an input counts as settled. */
+const SETTLE_QUIET_TURNS = 2;
+
+/** Upper bound on settle turns, so a surface that keeps changing never stalls a test. */
+const SETTLE_MAX_TURNS = 40;
+
+/** The painted frame with its colors, so a caret cell (background only) counts as a change. */
+function paintedFrame(setup: TestRendererSetup): string {
+  return JSON.stringify(
+    setup
+      .captureSpans()
+      .lines.map((line) =>
+        line.spans.map((span) => [span.text, span.fg?.toInts(), span.bg?.toInts()]),
+      ),
+  );
+}
+
 /**
- * One macrotask yield lets the input parser and the React scheduler run,
- * then a render pass commits the result before the visual-idle wait.
+ * Wait for an input to land: React commits its state on its own scheduler, which the renderer's
+ * idle check cannot see, so on a slow machine a single idle wait returns between the key and its
+ * paint. Instead, run turns of the loop until the painted frame is unchanged across
+ * `SETTLE_QUIET_TURNS` consecutive turns.
  */
 export async function settle(setup: TestRendererSetup): Promise<void> {
   allowEventLoopUpdates();
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  await setup.renderOnce();
-  await setup.waitForVisualIdle();
+  let previous = "";
+  let quietTurns = 0;
+
+  for (let turn = 0; turn < SETTLE_MAX_TURNS; turn++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await setup.renderOnce();
+    await setup.waitForVisualIdle();
+    const frame = paintedFrame(setup);
+
+    quietTurns = frame === previous ? quietTurns + 1 : 0;
+    if (quietTurns >= SETTLE_QUIET_TURNS) return;
+    previous = frame;
+  }
 }
 
 /** Drive one key press: letters type as text; named keys use KeyCodes ids. */
@@ -58,12 +87,78 @@ export async function press(setup: TestRendererSetup, key: string): Promise<void
   else if (key === "backspace") setup.mockInput.pressKey("BACKSPACE");
   else if (key === "left") setup.mockInput.pressKey("ARROW_LEFT");
   else if (key === "right") setup.mockInput.pressKey("ARROW_RIGHT");
+  else if (key === "up") setup.mockInput.pressKey("ARROW_UP");
+  else if (key === "down") setup.mockInput.pressKey("ARROW_DOWN");
   else return typeText(setup, key);
   await settle(setup);
 }
 
 export async function typeText(setup: TestRendererSetup, text: string): Promise<void> {
   await setup.mockInput.typeText(text);
+  await settle(setup);
+}
+
+/** Drive one key press with modifiers: KeyCodes names ("ARROW_RIGHT") or single letters (ctrl+o). */
+export async function pressKey(
+  setup: TestRendererSetup,
+  key: string,
+  modifiers?: { shift?: boolean; ctrl?: boolean; meta?: boolean },
+): Promise<void> {
+  setup.mockInput.pressKey(key, modifiers);
+  await settle(setup);
+}
+
+/** A 0-based cell position within a captured char frame. */
+export interface FrameLocation {
+  row: number;
+  column: number;
+}
+
+/** Locate the first visual line containing the needle: 0-based row and start column. */
+export function locateText(setup: TestRendererSetup, needle: string): FrameLocation {
+  const frame = setup.captureCharFrame();
+
+  for (const [row, line] of frame.split("\n").entries()) {
+    const column = line.indexOf(needle);
+
+    if (column !== -1) return { row, column };
+  }
+
+  throw new Error(`locateText ${JSON.stringify(needle)} not found.\nframe:\n${frame}`);
+}
+
+/** The 0-based visual row of the needle - for relative vertical-layout assertions. */
+export function frameRow(setup: TestRendererSetup, needle: string): number {
+  return locateText(setup, needle).row;
+}
+
+/** Click the first on-screen occurrence of the needle, offset in characters from its start. */
+export async function clickText(
+  setup: TestRendererSetup,
+  needle: string,
+  charOffset = 0,
+): Promise<void> {
+  const { row, column } = locateText(setup, needle);
+
+  await setup.mockMouse.click(column + charOffset, row);
+  await settle(setup);
+}
+
+/**
+ * Drag from the first occurrence of one needle to the first occurrence of
+ * another, `toCharOffset` characters past the second needle's start - so a
+ * character-precise selection can end inside or right after a word.
+ */
+export async function dragText(
+  setup: TestRendererSetup,
+  fromNeedle: string,
+  toNeedle: string,
+  toCharOffset = 0,
+): Promise<void> {
+  const from = locateText(setup, fromNeedle);
+  const to = locateText(setup, toNeedle);
+
+  await setup.mockMouse.drag(from.column, from.row, to.column + toCharOffset, to.row);
   await settle(setup);
 }
 

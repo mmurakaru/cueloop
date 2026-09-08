@@ -98,11 +98,10 @@ export function ConfirmCard({
 
   return (
     <Card
-      title=" submit review "
+      title=" send message "
       contentRows={CONFIRM_CONTENT_ROWS + (viewedSummary !== undefined ? 2 : 0)}
       borderColor={tokens.text}
-      backgroundColor="transparent"
-      marginRight={1}
+      backgroundColor={tokens.elevated}
       theme={theme}
     >
       {viewedSummary !== undefined ? <text fg={tokens.textDim}>{viewedSummary}</text> : null}
@@ -118,7 +117,7 @@ export function ConfirmCard({
       <box style={{ height: 1 }} />
       <Toolbar>
         <Button variant="solid" marginRight={2} onPress={onSubmit} theme={theme}>
-          {" Submit "}
+          {" send message "}
         </Button>
         <Button onPress={onCancel} theme={theme}>
           {" Cancel "}

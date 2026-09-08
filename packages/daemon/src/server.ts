@@ -16,7 +16,7 @@ import {
 } from "node:fs";
 import { DaemonCore, type DaemonEvent } from "./api";
 import { DaemonError } from "./errors";
-import { roleAllowsMethod, type DaemonRole } from "./capabilities";
+import { DEFAULT_ROLE, roleAllowsMethod, type DaemonRole } from "./capabilities";
 import { isKnownMethod, parseParams, type MethodName } from "./validate";
 import {
   BackpressureWriter,
@@ -25,9 +25,12 @@ import {
   type Request,
   type Response,
 } from "./protocol";
-import { cueloopHome, lockPath, pidPath, socketPath } from "./paths";
+import { cueloopHome, lockPath, ownerTokenPath, pidPath, socketPath } from "./paths";
+import { randomBytes } from "node:crypto";
 
 interface Connection {
+  /** The author a non-owner connection acts as, bound in the handshake. */
+  author?: string;
   write(data: string): void;
   subscribed: boolean;
   /** Capability role for this connection; the owner until a daemon.hello caps it. */
@@ -57,6 +60,8 @@ export class DaemonServer {
   private server: ReturnType<typeof Bun.listen> | null = null;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private lockFd: number | null = null;
+  /** The secret that proves ownership; minted per daemon run, readable by the home's user only. */
+  private ownerToken = "";
   private readonly idleExitMs: number;
   private readonly onIdleExit: () => void;
 
@@ -145,6 +150,11 @@ export class DaemonServer {
     // safe now: holding the lock means no live daemon owns this home, so any
     // socket file left behind is stale
     if (existsSync(path)) rmSync(path, { force: true });
+    // the token exists before the socket does: the first client to connect
+    // must be able to prove ownership
+    this.ownerToken = randomBytes(32).toString("hex");
+    writeFileSync(ownerTokenPath(this.home), this.ownerToken, { mode: 0o600 });
+    chmodSync(ownerTokenPath(this.home), 0o600);
     this.server = Bun.listen<{
       buffer: LineBuffer;
       connection: Connection;
@@ -157,7 +167,7 @@ export class DaemonServer {
           const connection: Connection = {
             write: (data) => writer.write(data),
             subscribed: false,
-            role: "owner",
+            role: DEFAULT_ROLE,
           };
 
           socket.data = { buffer: new LineBuffer(), connection, writer };
@@ -194,6 +204,7 @@ export class DaemonServer {
     this.server = null;
     rmSync(socketPath(this.home), { force: true });
     rmSync(pidPath(this.home), { force: true });
+    rmSync(ownerTokenPath(this.home), { force: true });
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.releaseLock();
   }
@@ -247,7 +258,16 @@ export class DaemonServer {
   private readonly handlers: Record<MethodName, MethodHandler> = {
     "daemon.ping": () => ({ pid: process.pid }),
     "daemon.hello": (connection, request) => {
-      connection.role = parseParams("daemon.hello", request.params).role;
+      const params = parseParams("daemon.hello", request.params);
+
+      // ownership is proven, never declared: the token lives in the home
+      // directory the daemon serves, readable by its user alone
+      if (params.role === "owner" && params.token !== this.ownerToken) {
+        throw new DaemonError("forbidden", "owner token required");
+      }
+      connection.role = params.role;
+      // identity is bound once, here; a non-owner never names it per call
+      if (params.role !== "owner" && params.author !== undefined) connection.author = params.author;
 
       return {};
     },
@@ -283,21 +303,104 @@ export class DaemonServer {
 
       return this.core.sessionAnnotate(params.id, params.annotation, params.authorName);
     },
-    "session.removeAnnotation": (_connection, request) => {
+    "session.removeAnnotation": (connection, request) => {
       const params = parseParams("session.removeAnnotation", request.params);
 
-      return this.core.sessionRemoveAnnotation(params.id, params.annotationId);
+      // the owner removes any comment; a non-owner only the ones of the author it is bound to
+      if (connection.role !== "owner" && connection.author === undefined) {
+        throw new DaemonError(
+          "forbidden",
+          "a non-owner connection removes comments as its bound author",
+        );
+      }
+
+      return this.core.sessionRemoveAnnotation(
+        params.id,
+        params.annotationId,
+        connection.role === "owner" ? undefined : connection.author,
+      );
+    },
+    "session.setParticipantName": (connection, request) => {
+      const params = parseParams("session.setParticipantName", request.params);
+
+      // the owner names anyone; a non-owner names only the author it is bound to
+      if (connection.role !== "owner" && params.author !== connection.author) {
+        throw new DaemonError("forbidden", "a non-owner connection names only its bound author");
+      }
+
+      return this.core.sessionSetParticipantName(params.id, params.author, params.name);
     },
     "session.setWorkingCopy": (_connection, request) => {
       const params = parseParams("session.setWorkingCopy", request.params);
 
       return this.core.sessionSetWorkingCopy(params.id, params.workingCopy);
     },
+    "session.cutBlock": (_connection, request) => {
+      const params = parseParams("session.cutBlock", request.params);
+
+      return this.core.sessionCutBlock(params.id, params.blockIndex);
+    },
+    "session.navigate": (_connection, request) => {
+      const params = parseParams("session.navigate", request.params);
+
+      return this.core.sessionNavigate(params.id, params.entryId, params.summary, params.branch);
+    },
+    "session.branch": (_connection, request) => {
+      const params = parseParams("session.branch", request.params);
+
+      return this.core.sessionBranch(params.id, params.name);
+    },
+    "session.switch": (_connection, request) => {
+      const params = parseParams("session.switch", request.params);
+
+      return this.core.sessionSwitch(params.id, params.branch);
+    },
+    "session.label": (_connection, request) => {
+      const params = parseParams("session.label", request.params);
+
+      return this.core.sessionLabel(params.id, params.label);
+    },
+    "session.fork": (_connection, request) => {
+      const params = parseParams("session.fork", request.params);
+
+      return this.core.sessionFork(params.id);
+    },
+    "session.restoreBlock": (_connection, request) => {
+      const params = parseParams("session.restoreBlock", request.params);
+
+      return this.core.sessionRestoreBlock(params.id, params.baseBlockIndex, params.line);
+    },
+    "session.curate": (_connection, request) => {
+      const params = parseParams("session.curate", request.params);
+
+      return this.core.sessionCurate(params.id, params.rejections);
+    },
     "session.setViewed": (_connection, request) => {
       const params = parseParams("session.setViewed", request.params);
 
       return this.core.sessionSetViewed(params.id, params.viewedPaths);
     },
+    "session.setTitle": (_connection, request) => {
+      const params = parseParams("session.setTitle", request.params);
+
+      return this.core.sessionSetTitle(params.id, params.title);
+    },
+    "session.projectFiles": (_connection, request) =>
+      this.core.projectFiles(parseParams("session.projectFiles", request.params).id),
+    "session.fileContents": (_connection, request) => {
+      const params = parseParams("session.fileContents", request.params);
+
+      return this.core.fileContents(params.id, params.path);
+    },
+    "repo.files": (_connection, request) =>
+      this.core.repoFiles(parseParams("repo.files", request.params).cwd),
+    "repo.fileContents": (_connection, request) => {
+      const params = parseParams("repo.fileContents", request.params);
+
+      return this.core.repoFileContents(params.cwd, params.path);
+    },
+    "repo.changes": (_connection, request) =>
+      this.core.repoChanges(parseParams("repo.changes", request.params).cwd),
     "session.refreshDiff": (_connection, request) => {
       const params = parseParams("session.refreshDiff", request.params);
 
@@ -319,6 +422,7 @@ export class DaemonServer {
       return this.core.sessionMergeShared(params.id, {
         annotations: params.annotations,
         participants: params.participants,
+        removals: params.removals,
       });
     },
     "session.resolve": (_connection, request) => {
@@ -352,7 +456,7 @@ export class DaemonServer {
       throw new DaemonError("unknown_method", `unknown method ${request.method}`);
     }
     // Capability gate: a capped role (a review-side agent) cannot escalate past
-    // read + annotate, whatever verb it sends.
+    // read + annotate, whatever primitive it sends.
     if (!roleAllowsMethod(connection.role, request.method)) {
       throw new DaemonError("forbidden", `role ${connection.role} cannot call ${request.method}`);
     }

@@ -1,0 +1,110 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Keyboard & mouse
+eyebrow: Docs · Reference
+lede: The thread view reads a plan or reply as one thread with discussions pinned to its text. Mark text with the mouse or the keyboard, type to comment, and send with cmd+enter. These keys belong to the view and are not rebindable.
+prev: { title: "Configuration", href: "/docs/reference/configuration/" }
+next: { title: "Sharing over SSH", href: "/docs/sharing/" }
+---
+
+Plans and replies open in the thread view. Press the menu's **keybinds**
+entry to see this list in the terminal.
+
+## Marking text
+
+A mark is a character-precise stretch of text. It can start in the middle of a
+word and run across wrapped lines and across blocks - from the tail of a
+paragraph into the bullets under it.
+
+| Input                 | What it does                                      |
+| --------------------- | ------------------------------------------------- |
+| click                 | place the caret                                   |
+| drag                  | mark from the press to the pointer, across blocks |
+| double-click          | mark the word under the pointer                   |
+| `←` / `→`             | move the caret by word; it flows across blocks    |
+| `shift+←` / `shift+→` | hold a mark from the caret                        |
+| `↑` / `↓`             | move the caret by block                           |
+| `esc`                 | drop the mark                                     |
+
+A drag that leaves a block on its blank line below marks to the end of that
+block; the next block joins the mark once the pointer reaches its text.
+
+## Commenting
+
+| Input             | What it does                                               |
+| ----------------- | ---------------------------------------------------------- |
+| type              | open a comment on the mark, or on the word under the caret |
+| `cmd+option+m`    | open a comment on the mark                                 |
+| `enter`           | reply to the comment under the caret                       |
+| `tab`             | fold or unfold the discussion under the caret              |
+| `cmd+]` / `cmd+[` | jump to the next or previous comment                       |
+| `ctrl+q`          | quit                                                       |
+
+Inside a comment:
+
+| Input                         | What it does                                           |
+| ----------------------------- | ------------------------------------------------------ |
+| `cmd+enter`                   | send (`ctrl+enter` works where the terminal keeps cmd) |
+| `enter`                       | new line, kept as typed                                |
+| `backspace` on an empty draft | dismiss the draft; the mark stays                      |
+| `/`                           | the actions palette                                    |
+| click elsewhere               | save the draft                                         |
+
+A comment on a mark that spans blocks anchors to the whole stretch: its quote
+carries the text of every block it covers, and the card sits under the last one.
+
+<div class="callout callout--tip">
+  <div class="callout__label">Ghostty and cmd+enter</div>Ghostty binds cmd+enter to fullscreen by
+  default. Add <code>keybind = super+enter=unbind</code> to its config, or send with ctrl+enter.
+</div>
+
+## The session
+
+Letters type a comment, so everything that acts on the review as a whole
+sits on a ctrl chord.
+
+| Input        | What it does                                     |
+| ------------ | ------------------------------------------------ |
+| `ctrl+enter` | open the submit card (with no comment open)      |
+| `ctrl+e`     | edit the plan in `$EDITOR`                       |
+| `ctrl+s`     | share the plan                                   |
+| `ctrl+r`     | cycle the review rail: expanded, compact, hidden |
+
+## The rail and curation
+
+Option plus a letter drives the review rail and the curation of the plan.
+
+| Input                   | What it does                    |
+| ----------------------- | ------------------------------- |
+| `option+n` / `option+p` | focus the next or previous card |
+| `option+e`              | edit the focused card in place  |
+| `option+backspace`      | delete the focused card         |
+| `option+r`              | rename a collaborator           |
+| `option+x`              | cut the block under the caret   |
+| `option+u`              | restore the last cut            |
+| `option+w` / `option+s` | widen or narrow the rail        |
+
+## The tree
+
+The rail's Tree tab shows the session's history: revisions, comments,
+checkpoints, and branches, with the path you are on bright and the current tip
+marked. Option plus a letter walks it; the buttons under the tree reach the
+same primitives with the mouse, and clicking a selected row goes there.
+
+| Input                   | What it does                                              |
+| ----------------------- | --------------------------------------------------------- |
+| `option+t`              | show or hide the tree                                     |
+| `option+n` / `option+p` | select the next or previous entry (while the tree shows)  |
+| `option+g`              | go to the entry: switch to its branch, or move back to it |
+| `option+b`              | start a branch at the tip                                 |
+| `option+l`              | label the tip as a checkpoint                             |
+| `option+f`              | fork the path into a new session                          |
+| `option+h`              | fork and hand off: share the fork                         |
+
+Moving the tree is the owner's; a collaborator reads it. A move back asks for
+an optional summary of what you leave behind.
+
+## Diff reviews
+
+Diff reviews keep the diff sheet and the rebindable keys of the
+[`[keys]` table](/docs/reference/configuration/#keys).

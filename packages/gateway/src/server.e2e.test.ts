@@ -184,7 +184,7 @@ function viewThenQuit(port: number, shareId: string): Promise<string> {
           if (!(await until("Rollout Plan")))
             return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
           await wait(400);
-          stream.write("q"); // graceful quit -> restore the terminal, then close
+          stream.write("\x11"); // ctrl+q: graceful quit -> restore the terminal, then close
         }),
       )
       .on("error", reject)
@@ -210,7 +210,7 @@ describe("share upload then view", () => {
     const frames = await shellCapture(
       handle.port,
       id,
-      (frame) => frame.includes("Rollout Plan") && frame.includes("shared"),
+      (frame) => frame.includes("Rollout Plan"),
       20000,
       async (stream, getFrames) => {
         if (await pollFrames(getFrames, "Welcome")) {
@@ -220,11 +220,10 @@ describe("share upload then view", () => {
       },
     );
 
-    // Assert
+    // Assert - the viewer sees the shared plan; the minimal header carries no
+    // collaborator badge, so the share state is behavioral, not a header label
     expect(line).toMatch(/^ssh p_[A-Za-z0-9]{8}@cueloop\.dev$/);
     expect(frames).toContain("Rollout Plan");
-    // collaborator chrome (viewers annotate), not the passive observer label
-    expect(frames).toContain("shared");
   });
 
   test("quitting restores the terminal so the client is not left spewing mouse reports", async () => {
@@ -261,8 +260,8 @@ describe("share upload then view", () => {
         await fetch(`http://127.0.0.1:${metricsGateway.metricsPort}/metrics`)
       ).text();
 
-      // Assert - the create verb and the R2 put both counted
-      expect(body).toContain('cueloop_share_ops_total{verb="create",outcome="ok"} 1');
+      // Assert - the create primitive and the R2 put both counted
+      expect(body).toContain('cueloop_share_ops_total{primitive="create",outcome="ok"} 1');
       expect(body).toContain('cueloop_r2_ops_total{op="put",outcome="ok"} 1');
     } finally {
       await metricsGateway.close();
@@ -323,11 +322,11 @@ function annotateOverShell(port: number, shareId: string, body: string): Promise
           if (!(await until("Rollout Plan")))
             return (clearTimeout(timer), conn.end(), reject(new Error(`no render:\n${frames}`)));
           await wait(400);
-          stream.write("c"); // comment on the cursor line
-          await wait(700);
+          // the caret rests on the title's first word: a printable opens the
+          // draft there, alt+enter (ESC CR) sends it -> unions into the stored blob
           stream.write(body);
-          await wait(400);
-          stream.write("\r"); // save -> unions into the stored blob
+          await wait(700);
+          stream.write("\x1b\r");
           await wait(1000);
           clearTimeout(timer);
           conn.end();
@@ -578,6 +577,119 @@ describe("planner push", () => {
     expect(
       stored.annotations.find((annotation) => annotation.id === "spoof-1")?.author,
     ).toBeUndefined();
+  });
+});
+
+/**
+ * Open a `cueloop-watch` stream as `privateKey`; resolve once `ready` arrived
+ * with a handle that waits for the next session frame and closes the link.
+ */
+function shareWatch(
+  port: number,
+  shareId: string,
+  privateKey: string,
+): Promise<{
+  nextSession: () => Promise<ReviewSession>;
+  close: () => void;
+  refused: Promise<{ err: string; code: number | null }>;
+}> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    const sessions: ReviewSession[] = [];
+    const waiters: Array<(session: ReviewSession) => void> = [];
+    let buffered = "";
+    let err = "";
+    let code: number | null = null;
+    let settleRefused: (value: { err: string; code: number | null }) => void = () => {};
+    const refused = new Promise<{ err: string; code: number | null }>((done) => {
+      settleRefused = done;
+    });
+    const timer = setTimeout(() => reject(new Error("watch timed out")), 8000);
+
+    conn
+      .on("ready", () => {
+        conn.exec("cueloop-watch", (error, stream) => {
+          if (error) return reject(error);
+          stream.on("data", (chunk: Buffer) => {
+            buffered += chunk.toString("utf8");
+            const lines = buffered.split("\n");
+
+            buffered = lines.pop() ?? "";
+            for (const line of lines) {
+              const frame = JSON.parse(line);
+
+              if (frame.type === "ready") {
+                clearTimeout(timer);
+                resolve({
+                  nextSession: () =>
+                    sessions.length > 0
+                      ? Promise.resolve(sessions.shift()!)
+                      : new Promise((next) => waiters.push(next)),
+                  close: () => conn.end(),
+                  refused,
+                });
+              }
+              if (frame.type === "session") {
+                const waiter = waiters.shift();
+
+                if (waiter) waiter(frame.session);
+                else sessions.push(frame.session);
+              }
+            }
+          });
+          stream.stderr.on("data", (chunk: Buffer) => (err += chunk.toString("utf8")));
+          stream.on("exit", (exitCode: number) => (code = exitCode));
+          stream.on("close", () => {
+            clearTimeout(timer);
+            conn.end();
+            settleRefused({ err, code });
+            resolve({
+              nextSession: () => Promise.reject(new Error("stream closed")),
+              close: () => {},
+              refused,
+            });
+          });
+          stream.end(shareId);
+        });
+      })
+      .on("error", reject)
+      .connect({ host: "127.0.0.1", port, username: "share", privateKey });
+  });
+}
+
+describe("planner watch", () => {
+  test("the owner's stream carries the session the moment a collaborator annotates", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+    const watch = await shareWatch(handle.port, id, CLIENT_KEY);
+
+    // Act
+    const arriving = watch.nextSession();
+
+    await annotateOverShell(handle.port, id, "live from ana");
+    const session = await arriving;
+
+    // Assert: the full record, with the collaborator's authored note
+    const note = session.annotations.find((annotation) =>
+      annotation.body.includes("live from ana"),
+    );
+
+    expect(note?.author).toBeTruthy();
+    expect(session.id).toBe(SESSION.id);
+    watch.close();
+  });
+
+  test("a fingerprint that did not share it is refused", async () => {
+    // Arrange
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+
+    // Act
+    const watch = await shareWatch(handle.port, id, OTHER_KEY);
+    const result = await watch.refused;
+
+    // Assert
+    expect(result.code).not.toBe(0);
+    expect(result.err).toContain("only the planner who shared this can watch it");
   });
 });
 

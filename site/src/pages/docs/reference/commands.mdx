@@ -3,14 +3,14 @@ layout: ../../../layouts/DocsLayout.astro
 title: Commands
 eyebrow: Docs · Reference
 lede: The full cueloop command surface - opening reviews, sharing over SSH, posting to GitHub, and the scripting API. Every command runs against a local daemon that starts on demand.
-prev: { title: "The review verbs", href: "/docs/concepts/plan-diff-review/" }
+prev: { title: "The review primitives", href: "/docs/concepts/plan-diff-review/" }
 next: { title: "Configuration", href: "/docs/reference/configuration/" }
 ---
 
 cueloop is one binary, `cueloop`, with a small set of subcommands. Most connect
 to a local daemon that starts automatically the first time you run one. This page
-is the reference; for the ideas behind the verbs, read
-[The review verbs](/docs/concepts/plan-diff-review/).
+is the reference; for the ideas behind the primitives, read
+[The review primitives](/docs/concepts/plan-diff-review/).
 
 ## Open a review
 
@@ -52,13 +52,16 @@ cueloop review <pr>         # pull a pull request in and review it
 
 ```bash
 cueloop share [session-id]        # upload a plan, copy the ssh line
+cueloop share --fork [session-id] # fork the plan, then share the fork
 cueloop share pull [session-id]   # pull a teammate's annotations back
 cueloop serve [session-id]        # serve a live session over SSH yourself
 ```
 
 - **`cueloop share`** uploads the plan to the gateway and copies a single
   `ssh p_…@cueloop.dev` line for a teammate. With no id it shares the most recent
-  session. Flags: `--host` (default `cueloop.dev`), `--port` (default `22`).
+  session. Flags: `--host` (default `cueloop.dev`), `--port` (default `22`),
+  `--fork` to share a fork of the session so a second teammate gets their own
+  copy and discussion.
 - **`cueloop share pull`** merges a teammate's annotations back into your plan by
   stable id, adding only the new ones. Run `cueloop share` first; only the key
   that shared the plan can pull it.
@@ -88,16 +91,83 @@ The verdict's feedback becomes the review body.
 ## Scripting and the daemon
 
 ```bash
-cueloop session <verb> [flags]   # script the daemon API; JSON on stdout
+cueloop session <primitive> [flags]   # script the daemon API; JSON on stdout
 cueloop refine                   # mine past reviews into a markdown report
 cueloop daemon                   # run the daemon in the foreground
 cueloop --help                   # print help
 ```
 
 **`cueloop session`** exposes the daemon API one-to-one for scripts and agents.
-Verbs: `create`, `get`, `list`, `wait`, `annotate`, `resolve`,
-`submit-revision`. Each prints JSON, so it composes with other tools. Run
-`cueloop session` with no verb for the flag list.
+Primitives: `create`, `get`, `list`, `wait`, `annotate`, `remove`, `cut`,
+`restore`, `curate`, `set-viewed`, `navigate`, `branch`, `switch`, `label`,
+`fork`, `name-self`, `events`, `resolve`, `submit-revision`. Each prints JSON, so it composes with
+other tools. Run `cueloop session` with no primitive for the flag list.
+
+Everything a reviewer does to a discussion has its primitive:
+
+```bash
+cueloop session annotate <id> --quote "two phases" --body "Why two?"     # a comment
+cueloop session annotate <id> --reply-to <comment-id> --body "Rollout."  # a reply, on the root's anchor
+cueloop session annotate <id> --selector "main > h1" --body "Too loud."  # a prototype comment, by element
+cueloop session remove <id> <comment-id>                                 # remove a comment
+cueloop session name-self <id> "Ana" --author <fingerprint>              # the display name of an author
+cueloop session events <id> [--once]                                     # follow the session: one JSON line per change
+```
+
+Shaping the artifact itself is owner work, and it has its primitives too:
+
+```bash
+cueloop session cut <id> <block>                                  # drop a block of a plan from the working copy
+cueloop session restore <id> <block> [--line <n>]                 # put a cut block back, before line n
+cueloop session curate <id> --rejections '[{"path":"src/a.ts","hunkIndex":0}]'  # reject hunks of a diff
+cueloop session set-viewed <id> <path> [<path> ...]               # mark files as walked
+```
+
+Blocks are counted over the submitted revision, so an index stays valid while
+the working copy changes. A working copy that reads as the submitted revision
+again is dropped rather than stored. Curation needs the full file contents a
+working-tree diff carries; a PR diff cannot be curated. Every cut, restore, and
+curation appends a reviewer revision to the session history.
+
+A session's history is a tree of entries - revisions, comments, removals,
+verdicts - with named branches; what the session shows is the path from the
+current branch's tip back to the root. The owner walks that tree:
+
+```bash
+cueloop session label <id> "before the rewrite"          # name the current tip as a checkpoint
+cueloop session branch <id> alt                          # start a branch at the tip and switch to it
+cueloop session switch <id> main                         # show another branch's path
+cueloop session navigate <id> <entry-id> [--summary ""] # move the tip back to an entry on its path
+cueloop session fork <id>                                # copy the path into a new session
+cueloop share --fork [<id>]                              # fork, then share the fork
+```
+
+Nothing is deleted. Navigating back leaves the later entries in the tree, and a
+summary records them as an entry at the target; comments the path no longer
+reaches are shelved, not dropped, and return when a move brings them back. The
+agent's revisions always land on `main`, wherever its tip sits, so navigating
+`main` back to a checkpoint is how the next round starts from there. A fork
+carries the path's revisions, open comments, labels, and participant names; it
+starts pending, without verdict, edits, or share, and names its parent. Fork
+and share in one step hands the same artifact to two people with separate
+discussions.
+
+A reply always points at the discussion's root comment, even when it answers a
+reply. Each event names the history entry the change appended, so a follower
+never has to fetch the session to learn what moved.
+
+A review-side agent connects with `--role agent --author <fingerprint>`: the
+author is bound to the connection once, and from then on the agent comments,
+removes, and names itself as that author only. Locally that identity is
+declared, as anything on the same user's socket is; over a share the gateway
+binds it to the SSH key that connected.
+
+Every connection to the daemon starts as a collaborator: it can read sessions,
+wait on them, and comment. Ownership is proven, not declared - the daemon mints
+an owner token into its home directory on every run, readable by that user
+alone, and the local client presents it when it connects. A review-side agent
+connects with `--role agent` and never sees the token, so it cannot resolve,
+rewrite, cut, share, or delete, whatever it sends.
 
 **`cueloop refine`** reads the stored corpus of past reviews and writes a
 markdown report of every reviewer annotation, grouped by kind with its session,

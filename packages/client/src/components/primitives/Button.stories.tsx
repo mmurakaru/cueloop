@@ -4,7 +4,7 @@ import type { Story, StoryMeta } from "../story";
 import { Button } from "./Button";
 import { Toolbar } from "./Toolbar";
 
-export const meta: StoryMeta = { title: "primitives/Button" };
+export const meta: StoryMeta = { title: "Primitives/Button" };
 
 export const Variants: Story = {
   render: () => (

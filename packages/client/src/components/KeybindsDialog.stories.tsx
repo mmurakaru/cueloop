@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { KeybindsDialog } from "./KeybindsDialog";
 
-export const meta: StoryMeta = { title: "KeybindsDialog" };
+export const meta: StoryMeta = { title: "Overlays/KeybindsDialog" };
 
 const SECTIONS = [
   {

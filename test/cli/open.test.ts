@@ -1,5 +1,5 @@
 /**
- * Black-box verb-first open routing (tier 3): the real entrypoint spawned as a
+ * Black-box primitive-first open routing (tier 3): the real entrypoint spawned as a
  * subprocess against a fresh daemon home. Covers the miss branches that never
  * launch the TUI - a fresh home has nothing pending, so every opener falls
  * through to its plain "nothing to open" line and a nonzero exit.

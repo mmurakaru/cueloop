@@ -3,7 +3,7 @@ import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { Toast } from "./Toast";
 
-export const meta: StoryMeta = { title: "Toast" };
+export const meta: StoryMeta = { title: "Overlays/Toast" };
 
 export const ShareLink: Story = {
   render: () => <Toast title="share link copied" body="ssh review-4f2a@cueloop.dev" />,

@@ -309,6 +309,294 @@ describe("cueloop session (black box)", () => {
     expect(actions[2]).toMatchObject({ index: 3, prompt: "Out of scope" });
   });
 
+  test("annotate --reply-to borrows the root's anchor and links the reply to it", async () => {
+    // Arrange
+    const withRoot = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--annotation-id",
+        "root_cli",
+        "--quote",
+        "two phases",
+        "--body",
+        "Why two?",
+      ]),
+    );
+
+    expect(withRoot.annotations.some((annotation) => annotation.id === "root_cli")).toBe(true);
+
+    // Act: a reply, then a reply to the reply
+    await runCli(home, [
+      "session",
+      "annotate",
+      sessionId,
+      "--annotation-id",
+      "reply_cli",
+      "--reply-to",
+      "root_cli",
+      "--body",
+      "Because of rollout.",
+      "--author",
+      "SHA256:ana",
+    ]);
+    const nested = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--annotation-id",
+        "nested_cli",
+        "--reply-to",
+        "reply_cli",
+        "--body",
+        "Agreed.",
+      ]),
+    );
+
+    // Assert: both hang off the root and share its anchor
+    const byId = new Map(nested.annotations.map((annotation) => [annotation.id, annotation]));
+
+    expect(byId.get("reply_cli")).toMatchObject({
+      replyTo: "root_cli",
+      anchor: byId.get("root_cli")!.anchor,
+    });
+    expect(byId.get("nested_cli")).toMatchObject({ replyTo: "root_cli" });
+  });
+
+  test("annotate --selector anchors a prototype comment to an element", async () => {
+    // Act
+    const annotated = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--selector",
+        "main > h1",
+        "--body",
+        "Heading too loud.",
+      ]),
+    );
+
+    // Assert
+    const note = annotated.annotations.find(
+      (annotation) => annotation.body === "Heading too loud.",
+    );
+
+    expect(note?.anchor.selector).toBe("main > h1");
+  });
+
+  test("remove takes a comment away; an agent removes only the author's it is bound to", async () => {
+    // Arrange: the owner's and Ana's comments
+    await runCli(home, [
+      "session",
+      "annotate",
+      sessionId,
+      "--annotation-id",
+      "own_rm",
+      "--quote",
+      "two phases",
+      "--body",
+      "mine",
+    ]);
+    await runCli(home, [
+      "session",
+      "annotate",
+      sessionId,
+      "--annotation-id",
+      "ana_rm",
+      "--quote",
+      "two phases",
+      "--body",
+      "hers",
+      "--author",
+      "SHA256:ana",
+    ]);
+
+    // Act + Assert: the agent cannot touch the owner's
+    const refused = await runCli(home, [
+      "session",
+      "remove",
+      sessionId,
+      "own_rm",
+      "--role",
+      "agent",
+      "--author",
+      "SHA256:ana",
+    ]);
+
+    expect(refused.code).not.toBe(0);
+
+    // Act: hers goes; the owner removes its own without naming anyone
+    const afterAna = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "remove",
+        sessionId,
+        "ana_rm",
+        "--role",
+        "agent",
+        "--author",
+        "SHA256:ana",
+      ]),
+    );
+    const afterOwn = cliJson<ReviewSession>(
+      await runCli(home, ["session", "remove", sessionId, "own_rm"]),
+    );
+
+    // Assert
+    expect(afterAna.annotations.some((annotation) => annotation.id === "ana_rm")).toBe(false);
+    expect(afterOwn.annotations.some((annotation) => annotation.id === "own_rm")).toBe(false);
+  });
+
+  test("name-self registers the display name of the author an agent acts as", async () => {
+    // Act
+    const named = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "name-self",
+        sessionId,
+        "Ana",
+        "--author",
+        "SHA256:ana",
+        "--role",
+        "agent",
+      ]),
+    );
+
+    // Assert
+    expect(named.participants).toContainEqual({ id: "SHA256:ana", provider: "ssh", name: "Ana" });
+  });
+
+  test("events streams a session's changes with the entry each one appended", async () => {
+    // Arrange: a follower that prints the first event and exits
+    const follower = runCli(home, ["session", "events", sessionId, "--once"]);
+
+    await Bun.sleep(600);
+
+    // Act: a comment lands while it listens
+    const annotated = cliJson<ReviewSession>(
+      await runCli(home, [
+        "session",
+        "annotate",
+        sessionId,
+        "--annotation-id",
+        "evt_cli",
+        "--quote",
+        "two phases",
+        "--body",
+        "seen live",
+      ]),
+    );
+
+    // Assert
+    const event = cliJson<{ event: string; sessionId: string; entryId?: string }>(await follower);
+
+    expect(event.event).toBe("session.updated");
+    expect(event.sessionId).toBe(sessionId);
+    expect(event.entryId).toBe(annotated.history!.entries.at(-1)!.id);
+  });
+
+  test("cut and restore edit the working copy through the daemon and leave reviewer revisions", async () => {
+    // Arrange: block 2 of the plan is its first paragraph
+    const before = cliJson<ReviewSession>(await runCli(home, ["session", "get", sessionId]));
+    const paragraph = before.artifact.content.split("\n\n")[2]!;
+
+    // Act
+    const cut = cliJson<ReviewSession>(await runCli(home, ["session", "cut", sessionId, "2"]));
+
+    // Assert
+    expect(cut.workingCopy).toBeDefined();
+    expect(cut.workingCopy).not.toContain(paragraph.split("\n")[0]);
+    expect(cut.history!.entries.at(-1)).toMatchObject({ type: "revision", by: "reviewer" });
+
+    // Act: put it back where it came from
+    const blockLine = before.artifact.content.split("\n").indexOf(paragraph.split("\n")[0]!);
+    const restored = cliJson<ReviewSession>(
+      await runCli(home, ["session", "restore", sessionId, "2", "--line", String(blockLine)]),
+    );
+
+    // Assert: a copy that reads as the submitted revision is dropped
+    expect(restored.workingCopy).toBeUndefined();
+  });
+
+  test("curate is refused for a plan and set-viewed records the walk", async () => {
+    // Act: hunk curation belongs to diff reviews
+    const refused = await runCli(home, [
+      "session",
+      "curate",
+      sessionId,
+      "--rejections",
+      JSON.stringify([{ path: "src/x.txt", hunkIndex: 0 }]),
+    ]);
+
+    // Assert
+    expect(refused.code).not.toBe(0);
+    expect(refused.stderr).toContain("only a diff review");
+
+    // Act
+    const viewed = cliJson<ReviewSession>(
+      await runCli(home, ["session", "set-viewed", sessionId, "plan.md"]),
+    );
+
+    // Assert
+    expect(viewed.viewedPaths).toEqual(["plan.md"]);
+  });
+
+  test("label, branch, switch, navigate, and fork walk the session's tree", async () => {
+    // Arrange: a labelled checkpoint, then a comment on a side branch
+    const labelled = cliJson<ReviewSession>(
+      await runCli(home, ["session", "label", sessionId, "start"]),
+    );
+    const start = labelled.history!.tips.main!;
+
+    cliJson<ReviewSession>(await runCli(home, ["session", "branch", sessionId, "alt"]));
+    await runCli(home, [
+      "session",
+      "annotate",
+      sessionId,
+      "--quote",
+      "two phases",
+      "--body",
+      "Only on alt.",
+    ]);
+
+    // Act
+    const onMain = cliJson<ReviewSession>(
+      await runCli(home, ["session", "switch", sessionId, "main"]),
+    );
+    const onAlt = cliJson<ReviewSession>(
+      await runCli(home, ["session", "switch", sessionId, "alt"]),
+    );
+    const moved = cliJson<ReviewSession>(
+      await runCli(home, ["session", "navigate", sessionId, start, "--summary", "left alt"]),
+    );
+    const fork = cliJson<ReviewSession>(await runCli(home, ["session", "fork", sessionId]));
+
+    // Assert
+    expect(labelled.history!.labels[start]).toBe("start");
+    expect(onMain.annotations.map((annotation) => annotation.body)).not.toContain("Only on alt.");
+    expect(onAlt.annotations.map((annotation) => annotation.body)).toContain("Only on alt.");
+    expect(moved.annotations.map((annotation) => annotation.body)).not.toContain("Only on alt.");
+    expect(moved.history!.entries.at(-1)).toMatchObject({
+      type: "branch-summary",
+      text: "left alt",
+    });
+    expect(fork.id).not.toBe(sessionId);
+    expect(fork.parentSessionId).toBe(sessionId);
+    expect(fork.status).toBe("pending");
+  });
+
+  test("a review-side agent cannot move the tree", async () => {
+    // Act
+    const refused = await runCli(home, ["session", "branch", sessionId, "mine", "--role", "agent"]);
+
+    // Assert
+    expect(refused.code).not.toBe(0);
+    expect(refused.stderr).toMatch(/forbidden|owner/i);
+  });
+
   test("actions resolve from the session's repo, not the caller's cwd", async () => {
     // Arrange - a repo whose .cueloop config defines its own quick action
     const repo = mkdtempSync(join(tmpdir(), "cueloop-repo-"));
@@ -393,12 +681,12 @@ describe("cueloop session (black box)", () => {
     expect(resolved.stderr).toContain("cannot call session.resolve");
   });
 
-  test("help output and unknown verbs", async () => {
+  test("help output and unknown primitives", async () => {
     // Act
     const help = await runCli(home, ["help"]);
 
     // Assert
-    expect(help.stdout).toContain("cueloop session <verb>");
+    expect(help.stdout).toContain("cueloop session <primitive>");
 
     // Act
     const bad = await runCli(home, ["session", "frobnicate"]);

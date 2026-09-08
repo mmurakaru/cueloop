@@ -7,28 +7,58 @@
 
 import {
   SCHEMA_VERSION,
+  appendEntry,
+  applyPathView,
+  createBranch,
+  cutBlock,
   feedbackForSession,
+  forkHistory,
+  historyFromLinear,
+  HistoryError,
+  labelTip,
+  navigateTo,
+  recaptureMainHead,
+  viewOfPath,
   isAddressed,
   isAgentNote,
   isMarkdownArtifact,
+  MAIN_BRANCH,
   parseBlocks,
   registerParticipant,
   resolveAnchor,
+  isBlockCut,
+  restoreBlock,
+  switchBranch,
   verdictAllows,
   type Annotation,
+  type DiffFileStatus,
+  type HunkRejection,
+  type NewEntry,
   type Artifact,
   type Identity,
   type ReviewSession,
+  type SessionHistory,
   type Verdict,
   type VerdictKind,
   type WorkspaceKey,
 } from "@cueloop/schema";
-import { SessionStore } from "./store";
+import { curateDiff } from "./curate";
+import { SessionStore, withHistory } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
 import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
 import { DiffWatcher } from "./diff-watcher";
-import { workingTreeDiff } from "./working-tree";
+import { workingTreeDiff, workingChangeList } from "./working-tree";
+import { listProjectFiles, readProjectFile } from "./project-files";
+import { resolveWorkspace } from "./review";
 import { DaemonError } from "./errors";
+
+/** What a share hands back: the notes and names it collected, and the removals it recorded. */
+export interface SharedMerge {
+  annotations: Annotation[];
+  participants?: Identity[];
+  /** Removal entries by id; a merge applies each once and never rewrites what it already holds. */
+  removals?: Array<{ id: string; annotationId: string; createdAt: string }>;
+}
 
 export type EventName =
   | "session.created"
@@ -40,6 +70,8 @@ export type EventName =
 export interface DaemonEvent {
   event: EventName;
   sessionId: string;
+  /** The history entry the change appended, when it appended one. */
+  entryId?: string;
 }
 
 type EventListener = (event: DaemonEvent) => void;
@@ -89,8 +121,11 @@ export class DaemonCore {
     return () => this.listeners.delete(listener);
   }
 
-  private emit(event: EventName, sessionId: string): void {
-    for (const listener of this.listeners) listener({ event, sessionId });
+  private emit(event: EventName, sessionId: string, entryId?: string): void {
+    const frame: DaemonEvent =
+      entryId === undefined ? { event, sessionId } : { event, sessionId, entryId };
+
+    for (const listener of this.listeners) listener(frame);
   }
 
   /** True when nothing awaits a verdict - drives idle-exit. */
@@ -102,7 +137,7 @@ export class DaemonCore {
     const now = new Date().toISOString();
     const session: ReviewSession = {
       schemaVersion: SCHEMA_VERSION,
-      id: `ses_${now.replace(/\D/g, "").slice(0, 14)}_${(++this.seq).toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+      id: this.newSessionId(now),
       workspace: params.workspace,
       artifact: params.artifact,
       revisions: [{ revision: 1, content: params.artifact.content, submittedAt: now }],
@@ -112,12 +147,17 @@ export class DaemonCore {
       createdAt: now,
     };
 
+    session.history = historyFromLinear(session);
     this.store.upsert(session);
     this.watchIfDiffSession(session);
     this.emit("session.created", session.id);
     this.emit("inbox.changed", session.id);
 
     return session;
+  }
+
+  private newSessionId(now: string): string {
+    return `ses_${now.replace(/\D/g, "").slice(0, 14)}_${(++this.seq).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   }
 
   sessionGet(id: string): ReviewSession {
@@ -189,8 +229,16 @@ export class DaemonCore {
     const existing = session.annotations.findIndex((candidate) => candidate.id === annotation.id);
     const full: Annotation = { ...annotation, createdAt: new Date().toISOString() };
 
-    if (existing === -1) session.annotations.push(full);
-    else
+    let entryId: string | undefined;
+
+    if (existing === -1) {
+      session.annotations.push(full);
+      entryId = this.record(session, {
+        type: "comment",
+        annotationId: full.id,
+        createdAt: full.createdAt,
+      });
+    } else
       session.annotations[existing] = {
         ...full,
         createdAt: session.annotations[existing]!.createdAt,
@@ -202,15 +250,47 @@ export class DaemonCore {
         authorName,
       ).participants;
     this.store.upsert(session);
-    this.emit("session.updated", id);
+    this.emit("session.updated", id, entryId);
 
     return session;
   }
 
-  sessionRemoveAnnotation(id: string, annotationId: string): ReviewSession {
+  /**
+   * Remove a comment. With `onBehalfOf`, the caller is a collaborator or an
+   * agent acting as that author and may remove only that author's comments;
+   * the owner (no `onBehalfOf`) may remove any.
+   */
+  sessionRemoveAnnotation(id: string, annotationId: string, onBehalfOf?: string): ReviewSession {
+    const session = this.mutable(id);
+    const target = session.annotations.find((candidate) => candidate.id === annotationId);
+
+    if (onBehalfOf !== undefined && target !== undefined && target.author !== onBehalfOf) {
+      throw new DaemonError("forbidden", `${onBehalfOf} cannot remove another author's comment`);
+    }
+    session.annotations = session.annotations.filter((candidate) => candidate.id !== annotationId);
+    let entryId: string | undefined;
+
+    if (target !== undefined) {
+      // nothing is deleted: a navigate back before the removal shows it again
+      session.shelvedAnnotations = [...(session.shelvedAnnotations ?? []), target];
+      entryId = this.record(session, {
+        type: "comment-removed",
+        annotationId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    this.store.upsert(session);
+    this.emit("session.updated", id, entryId);
+
+    return session;
+  }
+
+  /** Register a display name for a participant; how a collaborator or an agent names itself. */
+  sessionSetParticipantName(id: string, author: string, name: string): ReviewSession {
     const session = this.mutable(id);
 
-    session.annotations = session.annotations.filter((candidate) => candidate.id !== annotationId);
+    session.participants = registerParticipant(session, author, name).participants;
     this.store.upsert(session);
     this.emit("session.updated", id);
 
@@ -220,12 +300,10 @@ export class DaemonCore {
   /** The reviewer's working copy; undefined clears it (revert all edits). */
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined): ReviewSession {
     const session = this.mutable(id);
+    const entryId = this.applyWorkingCopy(session, workingCopy);
 
-    if (workingCopy === undefined || workingCopy === session.artifact.content)
-      delete session.workingCopy;
-    else session.workingCopy = workingCopy;
     this.store.upsert(session);
-    this.emit("session.updated", id);
+    this.emit("session.updated", id, entryId);
 
     return session;
   }
@@ -244,6 +322,45 @@ export class DaemonCore {
     this.emit("session.updated", id);
 
     return session;
+  }
+
+  /** Rename a session's display title; an empty title clears it back to the derived default. */
+  sessionSetTitle(id: string, title: string): ReviewSession {
+    const session = this.mutable(id);
+    const trimmed = title.trim();
+
+    if (trimmed.length === 0) delete session.artifact.meta.title;
+    else session.artifact.meta.title = trimmed;
+    this.store.upsert(session);
+    // the title shows in the Threads sidebar, so a rename is an inbox change, not just a content edit
+    this.emit("inbox.changed", id);
+
+    return session;
+  }
+
+  /** Tracked, repo-relative file paths for the session's workspace; [] when it has no repo. */
+  projectFiles(id: string): Promise<string[]> {
+    return listProjectFiles(this.sessionGet(id).workspace.repoRoot);
+  }
+
+  /** UTF-8 contents of a repo-relative file in the session's workspace, or null when it cannot be read safely. */
+  fileContents(id: string, path: string): Promise<string | null> {
+    return readProjectFile(this.sessionGet(id).workspace.repoRoot, path);
+  }
+
+  /** Tracked, repo-relative file paths for the git repo containing `cwd`; [] when it is not a repo. Owner-only. */
+  async repoFiles(cwd: string): Promise<string[]> {
+    return listProjectFiles((await resolveWorkspace(cwd)).repoRoot);
+  }
+
+  /** UTF-8 contents of a repo-relative file in the repo containing `cwd`, or null when unreadable. Owner-only. */
+  async repoFileContents(cwd: string, path: string): Promise<string | null> {
+    return readProjectFile((await resolveWorkspace(cwd)).repoRoot, path);
+  }
+
+  /** Changed files (repo-relative path plus git status) in the working tree at `cwd`. Owner-only. */
+  repoChanges(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]> {
+    return workingChangeList(cwd);
   }
 
   sessionSetShareId(id: string, shareId: string): ReviewSession {
@@ -268,21 +385,125 @@ export class DaemonCore {
   }
 
   /**
-   * Merge a share's collaborator state back into the local session: annotations
-   * union by id with existing ones (the planner's) winning, and the participant
-   * registry union by id with the incoming identity winning (a collaborator is
-   * the authority on their own name). This is how a teammate's name reaches the
-   * planner after a pull, alongside their notes.
+   * Cut one block of the reviewer's working copy - the `blockIndex`-th block
+   * of the working text - so it serializes into the diff the agent receives.
    */
-  sessionMergeShared(
-    id: string,
-    incoming: { annotations: Annotation[]; participants?: Identity[] },
-  ): ReviewSession {
+  sessionCutBlock(id: string, blockIndex: number): ReviewSession {
     const session = this.mutable(id);
-    const known = new Set(session.annotations.map((annotation) => annotation.id));
+    const working = session.workingCopy ?? session.artifact.content;
+    const block = parseBlocks(working)[blockIndex];
 
-    for (const annotation of incoming.annotations)
-      if (!known.has(annotation.id)) session.annotations.push(annotation);
+    if (!block)
+      throw new DaemonError("invalid_params", `no block ${blockIndex} in the working copy`);
+    const entryId = this.applyWorkingCopy(session, cutBlock(working, block));
+
+    this.store.upsert(session);
+    this.emit("session.updated", id, entryId);
+
+    return session;
+  }
+
+  /**
+   * Re-insert a cut block - the `baseBlockIndex`-th block of the submitted
+   * revision - into the working copy before `line` (default: the end). A copy
+   * that reads as the submitted revision again is dropped, not stored.
+   */
+  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): ReviewSession {
+    const session = this.mutable(id);
+    const base = session.artifact.content;
+    const block = parseBlocks(base)[baseBlockIndex];
+
+    if (!block) {
+      throw new DaemonError(
+        "invalid_params",
+        `no block ${baseBlockIndex} in the submitted revision`,
+      );
+    }
+    const working = session.workingCopy ?? base;
+
+    if (!isBlockCut(base, working, block)) {
+      throw new DaemonError(
+        "invalid_params",
+        `block ${baseBlockIndex} of the submitted revision is present in the working copy`,
+      );
+    }
+    const beforeLine = Math.min(line ?? working.split("\n").length, working.split("\n").length);
+    const entryId = this.applyWorkingCopy(session, restoreBlock(base, working, block, beforeLine));
+
+    this.store.upsert(session);
+    this.emit("session.updated", id, entryId);
+
+    return session;
+  }
+
+  /**
+   * Replace a diff review's reject decisions; the working copy becomes the
+   * patch they leave, or clears when nothing is rejected. Needs the full file
+   * contents a working-tree diff carries; a PR diff cannot be curated.
+   */
+  sessionCurate(id: string, rejections: HunkRejection[]): ReviewSession {
+    const session = this.mutable(id);
+
+    if (session.artifact.type !== "diff") {
+      throw new DaemonError("invalid_params", "only a diff review is curated by hunk");
+    }
+    if (!session.artifact.files) {
+      throw new DaemonError("invalid_params", "hunk curation needs full file contents");
+    }
+    if (rejections.length === 0) delete session.curation;
+    else session.curation = rejections;
+    const entryId = this.applyWorkingCopy(
+      session,
+      rejections.length === 0 ? undefined : curateDiff(session.artifact.files, rejections),
+    );
+
+    this.store.upsert(session);
+    this.emit("session.updated", id, entryId);
+
+    return session;
+  }
+
+  /**
+   * Merge a share's state back into the local session. Comments union by
+   * annotation id with existing ones (the planner's) winning; removals union by
+   * entry id, each shelving its comment once; the participant registry unions
+   * by id with the incoming identity winning (a collaborator is the authority
+   * on their own name). Everything lands on the branch the share follows, and
+   * the record then shows its current path again, wherever the owner stands.
+   */
+  sessionMergeShared(id: string, incoming: SharedMerge): ReviewSession {
+    const session = this.mutable(id);
+    const branch = this.shareBranchOf(session);
+    const known = new Set(
+      [...session.annotations, ...(session.shelvedAnnotations ?? [])].map(
+        (annotation) => annotation.id,
+      ),
+    );
+    let changed = false;
+
+    for (const annotation of incoming.annotations) {
+      if (known.has(annotation.id)) continue;
+      known.add(annotation.id);
+      session.annotations.push(annotation);
+      this.recordOn(session, branch, {
+        type: "comment",
+        annotationId: annotation.id,
+        createdAt: annotation.createdAt,
+      });
+      changed = true;
+    }
+    const recorded = new Set((session.history?.entries ?? []).map((entry) => entry.id));
+
+    for (const removal of incoming.removals ?? []) {
+      if (recorded.has(removal.id) || !known.has(removal.annotationId)) continue;
+      this.recordOn(session, branch, {
+        id: removal.id,
+        type: "comment-removed",
+        annotationId: removal.annotationId,
+        createdAt: removal.createdAt,
+      });
+      changed = true;
+    }
     if (incoming.participants?.length) {
       const registry = new Map(
         (session.participants ?? []).map((participant) => [participant.id, participant]),
@@ -291,7 +512,8 @@ export class DaemonCore {
       for (const participant of incoming.participants) registry.set(participant.id, participant);
       session.participants = [...registry.values()];
     }
-    this.store.upsert(session);
+    if (changed && session.history) this.refreshView(session, session.history);
+    else this.store.upsert(session);
     this.emit("session.updated", id);
 
     return session;
@@ -308,6 +530,11 @@ export class DaemonCore {
 
     session.verdict = verdict;
     session.status = "resolved";
+    const entryId = this.record(session, {
+      type: "verdict",
+      verdict,
+      createdAt: verdict.resolvedAt,
+    });
     this.store.upsert(session);
     // a resolved diff review is frozen; stop hot-reloading its working tree
     this.unwatchIfDiffSession(session);
@@ -315,7 +542,7 @@ export class DaemonCore {
 
     this.waiters.delete(id);
     for (const parkedWaiter of parked) parkedWaiter(session);
-    this.emit("session.resolved", id);
+    this.emit("session.resolved", id, entryId);
     this.emit("inbox.changed", id);
 
     return session;
@@ -342,11 +569,27 @@ export class DaemonCore {
 
     session.revisions.push({ revision: revisionNumber, content, submittedAt: now });
     session.artifact = { ...session.artifact, content };
+    // the agent's revision lands on main wherever its tip sits; the artifact
+    // shows the head of the branch the reviewer is on
+    const entryId = this.recordOnMain(session, {
+      type: "revision",
+      by: "agent",
+      content,
+      createdAt: now,
+    });
     delete session.workingCopy;
     session.verdict = null;
     session.status = "pending";
 
+    // a reported root comment addresses its whole discussion: replies are
+    // never listed on their own in the feedback document
     const reportedIds = new Set(addressedAnnotationIds);
+
+    for (const annotation of session.annotations) {
+      if (annotation.replyTo !== undefined && reportedIds.has(annotation.replyTo)) {
+        reportedIds.add(annotation.id);
+      }
+    }
     // drift assist applies to markdown artifacts (plan, reply) only: a diff
     // revision is a whole new patch, where a vanished quote says nothing about
     // the feedback
@@ -365,10 +608,113 @@ export class DaemonCore {
     }
 
     this.store.upsert(session);
-    this.emit("session.revised", id);
+    this.emit("session.revised", id, entryId);
     this.emit("inbox.changed", id);
 
     return session;
+  }
+
+  /**
+   * Move a branch's tip back to an entry on its path - the current branch, or
+   * `branch` after switching to it. The entries after it stay in the tree; a
+   * summary records them as a branch-summary entry at the target. The view
+   * follows the path: on `main`, the agent's next revision lands there.
+   */
+  sessionNavigate(id: string, entryId: string, summary?: string, branch?: string): ReviewSession {
+    const session = this.mutable(id);
+    const moved = this.tree(id, () => {
+      const history = this.historyOf(session);
+      const standing = branch === undefined ? history : switchBranch(history, branch);
+
+      return navigateTo(standing, entryId, summary === undefined ? {} : { summary });
+    });
+
+    this.refreshView(session, moved);
+    const tip = moved.tips[moved.branch];
+
+    this.emit("session.updated", id, tip === entryId ? undefined : tip);
+
+    return session;
+  }
+
+  /** Start a branch at the current tip and switch to it; `main` stays where it is. */
+  sessionBranch(id: string, name: string): ReviewSession {
+    const session = this.mutable(id);
+
+    this.refreshView(
+      session,
+      this.tree(id, () => createBranch(this.historyOf(session), name)),
+    );
+    this.emit("session.updated", id);
+
+    return session;
+  }
+
+  sessionSwitch(id: string, branch: string): ReviewSession {
+    const session = this.mutable(id);
+
+    this.refreshView(
+      session,
+      this.tree(id, () => switchBranch(this.historyOf(session), branch)),
+    );
+    this.emit("session.updated", id);
+
+    return session;
+  }
+
+  /** Name the current tip as a checkpoint to navigate back to. */
+  sessionLabel(id: string, label: string): ReviewSession {
+    const session = this.mutable(id);
+
+    session.history = labelTip(this.historyOf(session), label);
+    this.store.upsert(session);
+    this.emit("session.updated", id);
+
+    return session;
+  }
+
+  /**
+   * Copy the current path into a new pending session: its revisions, open
+   * comments, labels, and participant names travel; verdicts, edits, and the
+   * share do not. A resolved session can be forked.
+   */
+  sessionFork(id: string): ReviewSession {
+    const source = this.sessionGet(id);
+    const history = this.tree(id, () => forkHistory(this.historyOf(source)));
+    const now = new Date().toISOString();
+    const known = [...source.annotations, ...(source.shelvedAnnotations ?? [])];
+    const view = viewOfPath(history, known);
+    const fork: ReviewSession = {
+      schemaVersion: SCHEMA_VERSION,
+      id: this.newSessionId(now),
+      workspace: source.workspace,
+      artifact: { ...source.artifact, content: view.content },
+      revisions: history.entries
+        .filter((entry) => entry.type === "revision")
+        .map((entry, index) => ({
+          revision: index + 1,
+          content: entry.content,
+          submittedAt: entry.createdAt,
+        })),
+      annotations: [],
+      history,
+      verdict: null,
+      status: "pending",
+      createdAt: now,
+      parentSessionId: id,
+    };
+
+    fork.annotations = view.annotations.map((annotation) =>
+      forkedAnnotation(annotation, source, fork),
+    );
+    if (source.participants)
+      fork.participants = source.participants.map((identity) => ({ ...identity }));
+    this.store.upsert(fork);
+    this.watchIfDiffSession(fork);
+    this.emit("session.created", fork.id);
+    this.emit("inbox.changed", fork.id);
+
+    return fork;
   }
 
   /** Re-capture a diff session's working tree; broadcasts session.updated only when the patch moved. */
@@ -392,6 +738,10 @@ export class DaemonCore {
       return { changed: false };
     if (diff.patch === current.artifact.content) return { changed: false };
     current.artifact = { ...current.artifact, content: diff.patch, files: diff.files };
+    // the history keeps showing the same revision, re-captured, so a later tree move derives this patch
+    const history = withHistory(current).history;
+
+    if (history) current.history = recaptureMainHead(history, diff.patch);
     this.store.upsert(current);
     this.emit("session.updated", id);
 
@@ -424,6 +774,99 @@ export class DaemonCore {
       this.diffWatcher.untrackDiffRepo(session.workspace.repoRoot, session.id);
   }
 
+  /**
+   * Set or clear the working copy and, when the reviewer's text changed, record
+   * it as a reviewer revision on the current branch. Returns that entry's id.
+   */
+  private applyWorkingCopy(
+    session: ReviewSession,
+    workingCopy: string | undefined,
+  ): string | undefined {
+    const before = session.workingCopy ?? session.artifact.content;
+    const next =
+      workingCopy === undefined || workingCopy === session.artifact.content
+        ? undefined
+        : workingCopy;
+
+    if (next === undefined) delete session.workingCopy;
+    else session.workingCopy = next;
+    const after = next ?? session.artifact.content;
+
+    if (after === before) return undefined;
+
+    return this.record(session, {
+      type: "revision",
+      by: "reviewer",
+      content: after,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  /** The session's history; a record without a revision has none and cannot be moved through. */
+  private historyOf(session: ReviewSession): SessionHistory {
+    const history = withHistory(session).history;
+
+    if (!history) throw new DaemonError("invalid_params", `session ${session.id} has no history`);
+
+    return history;
+  }
+
+  /** Run a tree operation; a refused move is the caller's mistake, not the daemon's. */
+  private tree(id: string, operation: () => SessionHistory): SessionHistory {
+    try {
+      return operation();
+    } catch (error) {
+      if (error instanceof HistoryError) throw new DaemonError("invalid_params", error.message);
+      throw error;
+    }
+  }
+
+  /** Store a moved history and make the record show its active path. */
+  private refreshView(session: ReviewSession, history: SessionHistory): void {
+    session.history = history;
+    applyPathView(
+      session,
+      viewOfPath(history, [...session.annotations, ...(session.shelvedAnnotations ?? [])]),
+    );
+    this.store.upsert(session);
+  }
+
+  /** Append an entry on the session's current branch; a session without a head has no history to extend. */
+  private record(session: ReviewSession, entry: NewEntry): string | undefined {
+    const history = withHistory(session).history;
+
+    if (!history) return undefined;
+    const appended = appendEntry(history, entry);
+
+    session.history = appended.history;
+
+    return appended.entry.id;
+  }
+
+  /** Append an entry on main, leaving the reviewer's current branch where it is. */
+  private recordOnMain(session: ReviewSession, entry: NewEntry): string | undefined {
+    return this.recordOn(session, MAIN_BRANCH, entry);
+  }
+
+  /** Append an entry on a named branch, leaving the reviewer's current branch where it is. */
+  private recordOn(session: ReviewSession, branch: string, entry: NewEntry): string | undefined {
+    const history = withHistory(session).history;
+
+    if (!history) return undefined;
+    const appended = appendEntry(switchBranch(history, branch), entry);
+
+    session.history = { ...appended.history, branch: history.branch };
+
+    return appended.entry.id;
+  }
+
+  /** The branch a share follows; a share made before branches existed follows main. */
+  private shareBranchOf(session: ReviewSession): string {
+    const branch = session.shareBranch ?? MAIN_BRANCH;
+
+    return session.history?.tips[branch] === undefined ? MAIN_BRANCH : branch;
+  }
+
   private mutable(id: string): ReviewSession {
     const session = this.sessionGet(id);
 
@@ -435,6 +878,30 @@ export class DaemonCore {
 }
 
 export { DaemonError };
+
+/**
+ * A comment as the fork carries it. An addressed mark names a revision by the
+ * source's numbering; the fork numbers its own, so the mark follows the
+ * revision's text, and a comment addressed by a revision off the fork's path
+ * is open again.
+ */
+function forkedAnnotation(
+  annotation: Annotation,
+  source: ReviewSession,
+  fork: ReviewSession,
+): Annotation {
+  const { resolution, ...open } = annotation;
+
+  if (resolution === undefined) return { ...annotation };
+  const addressedBy = source.revisions.find(
+    (revision) => revision.revision === resolution.revision,
+  );
+  const inFork = fork.revisions.find((revision) => revision.content === addressedBy?.content);
+
+  return inFork === undefined
+    ? open
+    : { ...annotation, resolution: { ...resolution, revision: inFork.revision } };
+}
 
 /** A pending diff session: the state that warrants hot-reload watching of its working tree. */
 function isLiveDiffSession(session: ReviewSession): boolean {

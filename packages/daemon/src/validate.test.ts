@@ -192,6 +192,7 @@ describe("wire pins", () => {
     prefix: "p",
     suffix: "s",
     blockIndex: 0,
+    endBlockIndex: 0,
     start: 0,
     end: 1,
     selector: "div.card",
@@ -203,6 +204,7 @@ describe("wire pins", () => {
     body: "b",
     orphan: false,
     author: "SHA256:abc",
+    replyTo: "a0",
     resolution: { revision: 2, source: "agent" },
     createdAt: "now",
   };
@@ -219,7 +221,12 @@ describe("wire pins", () => {
     resolvedAt: "now",
   };
   const fullRevision: Required<Revision> = { revision: 1, content: "# P", submittedAt: "now" };
-  const fullWorkspace: Required<WorkspaceKey> = { repoRoot: "/repo", branch: "main" };
+  const fullWorkspace: Required<WorkspaceKey> = {
+    repoRoot: "/repo",
+    branch: "main",
+    rootCommit: "11e7abbcf507a13ae5e4e7559c4b42dbb52237fe",
+    remote: "git@github.com:acme/repo.git",
+  };
   const fullIdentity: Required<Identity> = {
     id: "SHA256:abc",
     provider: "ssh",
@@ -233,6 +240,36 @@ describe("wire pins", () => {
     artifact: fullArtifact,
     revisions: [fullRevision],
     annotations: [fullAnnotation],
+    history: {
+      entries: [
+        {
+          id: "e1",
+          parentId: null,
+          type: "revision",
+          by: "agent",
+          content: "# P",
+          createdAt: "now",
+        },
+        { id: "e2", parentId: "e1", type: "comment", annotationId: "a1", createdAt: "now" },
+        { id: "e3", parentId: "e2", type: "comment-removed", annotationId: "a1", createdAt: "now" },
+        { id: "e4", parentId: "e3", type: "verdict", verdict: fullVerdict, createdAt: "now" },
+        {
+          id: "e5",
+          parentId: "e4",
+          type: "branch-summary",
+          text: "tried a thing",
+          abandoned: ["e3"],
+          createdAt: "now",
+        },
+      ],
+      tips: { main: "e5" },
+      branch: "main",
+      labels: { e1: "start" },
+    },
+    curation: [{ path: "src/a.ts", hunkIndex: 0, changeIndex: 1 }],
+    shelvedAnnotations: [fullAnnotation],
+    parentSessionId: "ses_0",
+    shareBranch: "main",
     workingCopy: "# P edited",
     viewedPaths: ["src/a.ts"],
     verdict: fullVerdict,
@@ -242,6 +279,29 @@ describe("wire pins", () => {
     owner: "SHA256:owner",
     participants: [fullIdentity],
   };
+
+  test("a history whose tree is broken is refused even when every entry is well-formed", () => {
+    // Arrange: a parent cycle
+    const record = {
+      ...fullSession,
+      history: {
+        entries: [
+          { id: "a", parentId: "b", type: "revision", by: "agent", content: "x", createdAt: "now" },
+          { id: "b", parentId: "a", type: "comment", annotationId: "a1", createdAt: "now" },
+        ],
+        tips: { main: "b" },
+        branch: "main",
+        labels: {},
+      },
+    };
+
+    // Act
+    const parsed = validateSessionRecord(record);
+
+    // Assert
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.error).toContain("history:");
+  });
 
   test("schema key sets match the schema types", () => {
     expect(entryKeys(WorkspaceSchema)).toEqual(keys(fullWorkspace));

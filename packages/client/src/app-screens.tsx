@@ -1,8 +1,8 @@
-import React, { type Dispatch, type SetStateAction } from "react";
-import type { ReviewSession, VerdictKind } from "@cueloop/schema";
+import React, { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import type { DiffFileContents, ReviewSession, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
-import type { Mode } from "./intent-dispatch";
+import type { Mode, TreeAsk } from "./intent-dispatch";
 import type { Intent } from "./keymap";
 import type { ReviewController, ToastState } from "./session-controller";
 import { noteForFile } from "./walk";
@@ -12,11 +12,17 @@ import type { SettingsCategory, SettingsValues } from "./components/SettingsDial
 import type { SettingsNav } from "./use-settings-dialog";
 import { CLIENT_VERSION } from "./version";
 import { ThemeProvider } from "./components/theme-context";
-import { MenuBar } from "./components/MenuBar";
-import { KeybindsDialog } from "./components/KeybindsDialog";
+import type { InboxRow } from "./components/session-tree";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { InboxList } from "./components/InboxList";
+import { WelcomeSurface } from "./components/WelcomeSurface";
+import { AppShell, type ProjectPanelMode } from "./components/AppShell";
+import { EditorGrid } from "./components/EditorGrid";
+import { ProjectTreeView } from "./components/ProjectTreeView";
+import { ChangesFileTree } from "./components/ChangesColumn";
+import { FileContentsView } from "./components/FileContentsView";
+import { useChangesWorkbench } from "./use-changes-workbench";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
 import { WalkWizard } from "./components/WalkWizard";
@@ -39,12 +45,8 @@ export function ConnectingScreen({ theme }: { theme: Theme }): React.ReactNode {
 }
 
 export function MenuChrome(props: {
-  menuOpen: boolean;
   menuDialog: "keybinds" | "settings" | null;
-  status: string;
   theme: Theme;
-  setMenuOpen: Dispatch<SetStateAction<boolean>>;
-  setMenuDialog: Dispatch<SetStateAction<"keybinds" | "settings" | null>>;
   keybindsSections: CheatsheetSection[];
   settingsCategories: SettingsCategory[];
   settingsValues: SettingsValues;
@@ -53,12 +55,8 @@ export function MenuChrome(props: {
   cycleSetting: (rowKey: string) => void;
 }): React.ReactNode {
   const {
-    menuOpen,
     menuDialog,
-    status,
     theme,
-    setMenuOpen,
-    setMenuDialog,
     keybindsSections,
     settingsCategories,
     settingsValues,
@@ -67,90 +65,190 @@ export function MenuChrome(props: {
     cycleSetting,
   } = props;
 
+  // the gear opens the settings dialog directly; Keybinds is a leaf in its tree nav
+  if (menuDialog !== "settings") return null;
+
   return (
-    <>
-      <MenuBar
-        open={menuOpen}
-        version={CLIENT_VERSION}
-        status={status}
-        onToggle={() => setMenuOpen((isOpen) => !isOpen)}
-        onSettings={() => {
-          setMenuOpen(false);
-          setMenuDialog("settings");
-        }}
-        onKeybinds={() => {
-          setMenuOpen(false);
-          setMenuDialog("keybinds");
-        }}
-        theme={theme}
-      />
-      {menuDialog === "keybinds" ? (
-        <KeybindsDialog sections={keybindsSections} theme={theme} />
-      ) : null}
-      {menuDialog === "settings" ? (
-        <SettingsDialog
-          isOpen
-          categories={settingsCategories}
-          values={settingsValues}
-          activeCategoryId={settingsNav.categoryId}
-          activeRowIndex={settingsNav.rowIndex}
-          activeZone={settingsNav.zone}
-          onCategorySelect={onCategorySelect}
-          onRowActivate={(row) => cycleSetting(row.key)}
-          theme={theme}
-        />
-      ) : null}
-    </>
+    <SettingsDialog
+      isOpen
+      version={CLIENT_VERSION}
+      keybindsSections={keybindsSections}
+      categories={settingsCategories}
+      values={settingsValues}
+      activeCategoryId={settingsNav.categoryId}
+      activeRowIndex={settingsNav.rowIndex}
+      activeZone={settingsNav.zone}
+      onCategorySelect={onCategorySelect}
+      onRowActivate={(row) => cycleSetting(row.key)}
+      theme={theme}
+    />
   );
 }
 
-export function InboxScreen(props: {
-  inbox: ReviewSession[];
+/** The welcome shell's Project pane: the launch repo's changed files in changes mode, its full tree otherwise. */
+function WelcomeProjectPanel({
+  mode,
+  controller,
+  onOpenFile,
+  theme,
+}: {
+  mode: ProjectPanelMode;
+  controller: ReviewController;
+  onOpenFile: (path: string) => void;
+  theme: Theme;
+}): React.ReactNode {
+  const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+
+    void controller.repoChanges().then(
+      (files) => {
+        if (alive) setChanges(files);
+      },
+      () => {
+        if (alive) setChanges([]);
+      },
+    );
+
+    return () => {
+      alive = false;
+    };
+  }, [controller]);
+
+  if (mode === "changes") {
+    return <ChangesFileTree files={changes} onSelectFile={onOpenFile} theme={theme} />;
+  }
+
+  return (
+    <ProjectTreeView
+      loadFiles={() => controller.repoFiles()}
+      onSelectFile={onOpenFile}
+      theme={theme}
+    />
+  );
+}
+
+/**
+ * The shell with no thread open: the same header and Projects/Threads sidebar as
+ * the thread view, and a disposable Welcome tab in the center. There is no
+ * separate inbox screen - opening the app lands here, and picking a thread swaps
+ * the center for it. Closing the Welcome tab leaves a bare "select a thread" hint.
+ */
+export function NoThreadShell(props: {
+  rows: InboxRow[];
   inboxCursor: number;
   mode: Mode;
   theme: Theme;
   controller: ReviewController;
   setMode: Dispatch<SetStateAction<Mode>>;
   menuChrome: React.ReactNode;
+  onOpenMenu: () => void;
+  /** Shared with the thread view, so picking a thread preserves the sidebar. */
+  sidebarOpen: boolean;
+  onToggleSidebar: () => void;
+  pinnedIds: ReadonlySet<string>;
+  onPin: (id: string) => void;
+  onRename: (id: string, title: string) => void;
 }): React.ReactNode {
-  const { inbox, inboxCursor, mode, theme, controller, setMode, menuChrome } = props;
+  const {
+    rows,
+    inboxCursor,
+    mode,
+    theme,
+    controller,
+    setMode,
+    menuChrome,
+    onOpenMenu,
+    sidebarOpen,
+    onToggleSidebar,
+    pinnedIds,
+    onPin,
+    onRename,
+  } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
+  // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
+  // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
+  const workbench = useChangesWorkbench({ seed: "welcome" });
+  const openRepoFile = (path: string): void => workbench.openFile(path, "contents");
 
   return (
     <ThemeProvider theme={theme}>
-      <box
-        style={{
-          flexDirection: "column",
-          width: "100%",
-          height: "100%",
-          backgroundColor: theme.background,
-        }}
-      >
-        {/* mirrors the review header row: same box, position, and accent product
-            word, with a " · resume" separator and no Edit/Share toolbar */}
-        <box
-          style={{ flexDirection: "row", height: 2, paddingTop: 1, backgroundColor: theme.panel }}
-        >
+      <AppShell
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={onToggleSidebar}
+        onOpenMenu={onOpenMenu}
+        threadsPanel={
+          <scrollbox style={{ flexGrow: 1 }} focused={false}>
+            <InboxList
+              rows={rows}
+              cursor={inboxCursor}
+              pinnedIds={pinnedIds}
+              width={30}
+              onSelect={(id) => controller.open(id)}
+              onRequestDelete={(id, title) =>
+                setMode({ type: "confirmDelete", sessionId: id, title })
+              }
+              onPin={onPin}
+              onRename={onRename}
+              theme={theme}
+            />
+          </scrollbox>
+        }
+        threadTitle=""
+        threadPanel={
           <box
             style={{
-              height: 1,
-              backgroundColor: theme.panel,
-              paddingLeft: 1,
-              flexDirection: "row",
+              flexGrow: 1,
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <text>
-              <span fg={theme.accent}>cueloop</span>
-              <span fg={theme.textDim}> · resume</span>
-            </text>
+            <text fg={theme.textDim}>Select a thread</text>
           </box>
-          <box style={{ flexGrow: 1 }} />
-        </box>
-        <InboxList
-          inbox={inbox}
-          cursor={inboxCursor}
-          onRequestDelete={(id, title) => setMode({ type: "confirmDelete", sessionId: id, title })}
-        />
+        }
+        changesOpen={workbench.changesOpen}
+        projectOpen={workbench.projectOpen}
+        onToggleChanges={workbench.toggleChanges}
+        onToggleProject={workbench.toggleProject}
+        onToggleRight={workbench.toggleRight}
+        projectMode={workbench.projectMode}
+        zoomHideThread={workbench.zoomed}
+        changesPanel={
+          <EditorGrid
+            tree={workbench.grid}
+            focusedGroupId={workbench.activeGroup}
+            onFocusGroup={workbench.focusGroup}
+            onActivateTab={workbench.activate}
+            onCloseTab={workbench.close}
+            onSplit={workbench.split}
+            onZoom={workbench.toggleZoom}
+            zoomed={workbench.zoomed}
+            renderTab={(tab) =>
+              tab.kind === "welcome" ? (
+                <WelcomeSurface version={CLIENT_VERSION} theme={theme} />
+              ) : (
+                <FileContentsView
+                  path={tab.path ?? ""}
+                  loadContents={(path) => controller.repoReadFile(path)}
+                  theme={theme}
+                />
+              )
+            }
+            theme={theme}
+          />
+        }
+        projectPanel={
+          <WelcomeProjectPanel
+            mode={workbench.projectMode}
+            controller={controller}
+            onOpenFile={openRepoFile}
+            theme={theme}
+          />
+        }
+        theme={theme}
+      >
         {menuChrome}
         <ConfirmDialog
           isOpen={confirming !== null}
@@ -165,7 +263,18 @@ export function InboxScreen(props: {
           onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
-      </box>
+        {mode.type === "renameThread" ? (
+          <PromptDialog
+            isOpen
+            title=" rename thread "
+            label="new title for this thread:"
+            value={mode.text}
+            placeholder="a short title"
+            onInput={(text) => setMode({ ...mode, text })}
+            theme={theme}
+          />
+        ) : null}
+      </AppShell>
     </ThemeProvider>
   );
 }
@@ -194,6 +303,21 @@ export function CompletionScreen(props: {
     </ThemeProvider>
   );
 }
+
+/** The words each tree prompt uses; enter with an empty summary moves back without one. */
+const TREE_PROMPTS: Record<TreeAsk, { title: string; label: string; placeholder: string }> = {
+  branch: { title: " Branch ", label: "Name for the new branch:", placeholder: "alt" },
+  label: {
+    title: " Checkpoint ",
+    label: "Name for this checkpoint:",
+    placeholder: "before the rewrite",
+  },
+  navigate: {
+    title: " Move back ",
+    label: "Summary of what you leave behind (optional):",
+    placeholder: "tried a shorter plan",
+  },
+};
 
 export function TrailingOverlays(props: {
   walking: boolean;
@@ -253,6 +377,17 @@ export function TrailingOverlays(props: {
           theme={theme}
         />
       ) : null}
+      {mode.type === "renameThread" ? (
+        <PromptDialog
+          isOpen
+          title=" rename thread "
+          label="new title for this thread:"
+          value={mode.text}
+          placeholder="a short title"
+          onInput={(text) => setMode({ ...mode, text })}
+          theme={theme}
+        />
+      ) : null}
       {mode.type === "nameSelf" ? (
         <PromptDialog
           isOpen
@@ -260,6 +395,17 @@ export function TrailingOverlays(props: {
           label="Your name (optional) - it attributes the notes you leave:"
           value={mode.text}
           placeholder="your name"
+          onInput={(text) => setMode({ ...mode, text })}
+          theme={theme}
+        />
+      ) : null}
+      {mode.type === "treePrompt" ? (
+        <PromptDialog
+          isOpen
+          title={TREE_PROMPTS[mode.ask].title}
+          label={TREE_PROMPTS[mode.ask].label}
+          value={mode.text}
+          placeholder={TREE_PROMPTS[mode.ask].placeholder}
           onInput={(text) => setMode({ ...mode, text })}
           theme={theme}
         />
