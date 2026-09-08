@@ -185,7 +185,7 @@ export function AnnotationCard({
 
     return (
       <Card
-        title={` ${primitive} "${truncateToSingleLine(quote, 40)}" `}
+        title={` ${primitive} "${truncateToSingleLine(quote, 20)}" `}
         contentRows={editorRowCount + 1}
         borderColor={kindColor}
         backgroundColor="transparent"

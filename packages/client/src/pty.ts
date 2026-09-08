@@ -13,8 +13,10 @@ import { join } from "node:path";
 
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
-/** How long the read loop sleeps when the child produced no output this tick. */
+/** Shortest read-loop sleep, used while the child is actively streaming - keeps output snappy. */
 const READ_IDLE_MS = 8;
+/** Longest read-loop sleep, reached after the child sits quiet - stops the loop burning a core at idle. */
+const READ_IDLE_MAX_MS = 100;
 const READ_BUFFER_BYTES = 4096;
 /** cueloop_pty_read's sentinel: the child has exited and its output is drained. */
 const CHILD_EXITED = -2;
@@ -200,11 +202,15 @@ class Pty implements IPty {
     if (this.reading) return;
     this.reading = true;
     const buffer = Buffer.allocUnsafe(READ_BUFFER_BYTES);
+    // consecutive empty reads; the idle sleep backs off exponentially so a quiet agent prompt
+    // ramps from an 8ms hot poll up to a 100ms idle poll instead of spinning a core forever
+    let idlePolls = 0;
 
     while (!this.closing) {
       const count = this.lib.cueloop_pty_read(this.handle, ptr(buffer), buffer.length);
 
       if (count > 0) {
+        idlePolls = 0;
         // Stream mode buffers a multibyte char split across reads (box-drawing etc.).
         const text = this.decoder.decode(buffer.subarray(0, count), { stream: true });
 
@@ -221,7 +227,9 @@ class Pty implements IPty {
         this.closing = true;
         this.exitEvent.fire({ exitCode });
       } else {
-        await new Promise((resolve) => setTimeout(resolve, READ_IDLE_MS));
+        const delay = Math.min(READ_IDLE_MAX_MS, READ_IDLE_MS * 2 ** Math.min(idlePolls, 5));
+        idlePolls += 1;
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }

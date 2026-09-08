@@ -21,8 +21,31 @@ describe("resolveThreadChord", () => {
     // Assert
     expect(resolveThreadChord({ name: "e", ctrl: true }, owner)).toEqual({ type: "edit" });
     expect(resolveThreadChord({ name: "s", ctrl: true }, owner)).toEqual({ type: "share" });
-    expect(resolveThreadChord({ name: "r", ctrl: true }, owner)).toEqual({
-      type: "cycleReviewPanel",
+  });
+
+  test("in a diff, option chords act on the caret's row and file; the rest still reach the rail", () => {
+    // Arrange
+    const diff = { ...owner, isDiff: true };
+
+    // Assert - the code-row primitives
+    expect(resolveThreadChord({ name: "x", meta: true }, diff)).toEqual({ type: "rejectChange" });
+    expect(resolveThreadChord({ name: "X", meta: true }, diff)).toEqual({ type: "rejectHunk" });
+    expect(resolveThreadChord({ name: "u", meta: true }, diff)).toEqual({
+      type: "restoreCuration",
+    });
+    expect(resolveThreadChord({ name: "c", meta: true }, diff)).toEqual({ type: "foldFile" });
+    expect(resolveThreadChord({ name: "d", meta: true }, diff)).toEqual({ type: "toggleDiffView" });
+    expect(resolveThreadChord({ name: "k", meta: true }, diff)).toEqual({ type: "walkStart" });
+    // the rail letters are untouched
+    expect(resolveThreadChord({ name: "n", meta: true }, diff)).toEqual({ type: "nextAnnotation" });
+    // rejecting is the owner's, and closed once resolved
+    expect(resolveThreadChord({ name: "x", meta: true }, { ...diff, isOwner: false })).toEqual({
+      type: "status",
+      message: "observer - read-only",
+    });
+    expect(resolveThreadChord({ name: "k", meta: true }, { ...diff, resolved: true })).toEqual({
+      type: "status",
+      message: "review submitted - read-only",
     });
   });
 
@@ -42,10 +65,6 @@ describe("resolveThreadChord", () => {
     expect(resolveThreadChord({ name: "x", meta: true }, owner)).toEqual({ type: "cut" });
     expect(resolveThreadChord({ name: "u", meta: true }, owner)).toEqual({
       type: "restoreCuration",
-    });
-    expect(resolveThreadChord({ name: "w", meta: true }, owner)).toEqual({
-      type: "resizeReviewPanel",
-      direction: 1,
     });
     expect(resolveThreadChord({ name: "x", meta: true }, { ...owner, isOwner: false })).toEqual({
       type: "status",
@@ -76,9 +95,6 @@ describe("resolveThreadChord", () => {
     expect(resolveThreadChord({ name: "return", ctrl: true }, collaborator)).toEqual(readOnly);
     expect(resolveThreadChord({ name: "e", ctrl: true }, collaborator)).toEqual(readOnly);
     expect(resolveThreadChord({ name: "s", ctrl: true }, collaborator)).toEqual(readOnly);
-    expect(resolveThreadChord({ name: "r", ctrl: true }, collaborator)).toEqual({
-      type: "cycleReviewPanel",
-    });
     expect(
       resolveThreadChord({ name: "return", ctrl: true }, { ...owner, resolved: true }),
     ).toBeNull();
