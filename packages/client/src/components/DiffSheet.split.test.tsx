@@ -11,8 +11,16 @@ import { DiffSheet } from "./DiffSheet";
 import { diffRows } from "../view-diff";
 import { allowEventLoopUpdates } from "../test-support";
 import { fixtureDiffSession } from "./story-fixtures";
+import { annotationPaletteFor } from "../annotation-palette";
+import { DARK } from "../theme";
 
 const noop = (): void => {};
+
+function hex(color: { toInts(): [number, number, number, number] }): string {
+  const [red, green, blue] = color.toInts();
+
+  return "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
+}
 
 // spaced words so each side word-wraps several visual lines, plus an unbalanced block (filler);
 // spaced (not one long token) so a whole word lands on a continuation line for the assertions
@@ -54,6 +62,40 @@ async function splitFrameLines(width: number): Promise<string[]> {
 }
 
 describe("split diff rendering", () => {
+  test("the caret marks only the change side, not both columns", async () => {
+    // Arrange - the caret opens on a context row, which is shown in both columns
+    const setup = await testRender(
+      <DiffSheet
+        rows={diffRows(WRAPPING_PATCH)}
+        session={fixtureDiffSession()}
+        marks={new Map()}
+        quickActions={[]}
+        observer={false}
+        onAnnotate={noop}
+        onReply={noop}
+        onUpdateAnnotation={noop}
+        onExit={noop}
+        split
+      />,
+      { width: 100, height: 18 },
+    );
+
+    allowEventLoopUpdates();
+    await setup.waitForVisualIdle();
+    const caretCell = annotationPaletteFor(DARK).caretCell;
+    let cells = 0;
+
+    for (const line of setup.captureSpans().lines) {
+      for (const span of line.spans) {
+        if (span.bg && hex(span.bg) === caretCell) cells += span.text.length;
+      }
+    }
+
+    // Assert - one caret cell (the change side), not one per column
+    expect(cells).toBe(1);
+    setup.renderer.destroy();
+  });
+
   test("the divider is one unbroken column across wrapped lines", async () => {
     // Act
     const lines = await splitFrameLines(80);

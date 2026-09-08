@@ -11,8 +11,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createTextAttributes, type ScrollBoxRenderable } from "@opentui/core";
 import type { ReviewSession } from "@cueloop/schema";
-import { diffRowText, fileChangeCounts, type DiffRow } from "../view-diff";
-import type { Mark } from "../view-plan";
+import { diffRowText, fileChangeCounts, type DiffRow, type Mark } from "../view-diff";
 import type { TextSpan } from "../thread-selection";
 import type { QuickAction } from "../config";
 import type { Theme } from "../theme";
@@ -468,16 +467,21 @@ export function DiffSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surface.revealBlockIndex]);
 
-  /** The visual lines of one code row painted with gutter, colors, and marks; cards collected after. */
+  /**
+   * The visual lines of one code row painted with gutter, colors, and marks; cards collected after.
+   * `paintMarks` false renders the line plain (no caret, no mark backdrop) - the split view uses it so
+   * a context row, shared by both columns, only carries the caret and marks on the change side.
+   */
   const codeRowLines = (
     row: DiffRow,
     rowIndex: number,
     textWidth: number,
     keyPrefix: string,
+    paintMarks = true,
   ): CodeRowNodes => {
     const text = diffRowText(row);
     const lines = wrapLines(text, textWidth);
-    const ranges = surface.rangesFor(rowIndex);
+    const ranges = paintMarks ? surface.rangesFor(rowIndex) : [];
     const fgByColumn = foregroundColumns(
       text,
       rowBaseColor(row, tokens),
@@ -486,7 +490,7 @@ export function DiffSheet({
       tokens,
     );
     const rejected = rejectedRows.has(rowIndex);
-    const isCaretRow = surface.head.blockIndex === rowIndex;
+    const isCaretRow = paintMarks && surface.head.blockIndex === rowIndex;
     const lineNumber = row.kind === "del" ? row.oldLine : row.newLine;
     const gutter = `${isCaretRow ? "▎" : " "}${String(lineNumber ?? "").padStart(4, " ")} ${rowSign(row)} `;
     const lineNodes: React.ReactNode[] = [];
@@ -534,7 +538,8 @@ export function DiffSheet({
           </text>
         </box>,
       );
-      cards.push(...surface.cardsAfterLine(rowIndex, line, isLastLine));
+      // cards render on the side that owns the row, so a shared context row's card is not duplicated
+      if (paintMarks) cards.push(...surface.cardsAfterLine(rowIndex, line, isLastLine));
     }
 
     return { lines: lineNodes, cards };
@@ -573,6 +578,7 @@ export function DiffSheet({
   /** One side of a split pair: the row's visual lines, or blank filler that reads as absent. */
   const splitSide = (
     line: SplitLine | undefined,
+    side: "left" | "right",
     textWidth: number,
     keyPrefix: string,
   ): SplitSideNodes => {
@@ -583,7 +589,16 @@ export function DiffSheet({
 
       return { node: filler };
     }
-    const { lines, cards } = codeRowLines(line.row, line.rowIndex, textWidth, keyPrefix);
+    // the change side (right: additions and context) owns the caret and marks; the left carries them
+    // only on its deletions, so a context row shared by both columns is not marked twice
+    const paintMarks = side === "right" || line.kind === "del";
+    const { lines, cards } = codeRowLines(
+      line.row,
+      line.rowIndex,
+      textWidth,
+      keyPrefix,
+      paintMarks,
+    );
     // a discussion stays in the pane of the side it annotates, under that side's lines
     const column = (
       <box style={{ flexDirection: "column", flexGrow: 1, flexBasis: 0, minWidth: 0 }}>
@@ -606,8 +621,8 @@ export function DiffSheet({
         rowIndex,
       );
     }
-    const left = splitSide(pair.left, textWidth, `pair-${pairIndex}-left`);
-    const right = splitSide(pair.right, textWidth, `pair-${pairIndex}-right`);
+    const left = splitSide(pair.left, "left", textWidth, `pair-${pairIndex}-left`);
+    const right = splitSide(pair.right, "right", textWidth, `pair-${pairIndex}-right`);
     // both sides answer to the pair's id, so a reveal of either base row lands here
     const anchorRow = pair.right?.rowIndex ?? pair.left?.rowIndex ?? -1;
     const otherRow = pair.left?.rowIndex;

@@ -17,6 +17,9 @@ import { spanRangeInBlock, type TextSpan } from "./thread-selection";
 import type { Mark } from "./view-plan";
 import { discussionsFrom } from "./discussions";
 
+// the diff sheet reads marks over rows as a diff concept; re-export so it need not reach into view-plan
+export type { Mark } from "./view-plan";
+
 export type DiffRowKind = "file" | "hunk" | "ctx" | "add" | "del";
 
 export interface DiffRow {
