@@ -677,7 +677,14 @@ export function DiffSheet({
   return (
     <box style={{ flexGrow: 1, flexDirection: "row" }} {...surface.rootMouseProps}>
       <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 0 }}>
-        <scrollbox id="diff-scroll" ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
+        {/* the rail draws this box's scrollbar past the dots, so the built-in one stays hidden */}
+        <scrollbox
+          id="diff-scroll"
+          ref={scrollRef}
+          style={{ flexGrow: 1 }}
+          focused={false}
+          verticalScrollbarOptions={{ visible: false }}
+        >
           {materialized}
         </scrollbox>
       </box>
@@ -685,6 +692,7 @@ export function DiffSheet({
         discussions={surface.discussions}
         spanQuote={surface.spanQuote}
         onJump={surface.jumpToDiscussion}
+        scrollbox={scrollRef}
         theme={theme}
       />
     </box>

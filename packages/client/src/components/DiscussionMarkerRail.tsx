@@ -6,14 +6,15 @@
  * preview draws at the app root (OpenTUI has no z-index) so no pane border slices it.
  */
 
-import React, { useEffect, useRef, useState } from "react";
-import type { BoxRenderable } from "@opentui/core";
+import React, { useEffect, useRef, useState, type RefObject } from "react";
+import type { BoxRenderable, ScrollBoxRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import type { TextSpan } from "../thread-selection";
 import type { Discussion } from "../discussions";
 import { useFrameMeasure } from "../use-frame-measure";
 import { useComponentTheme } from "./theme-context";
 import { useRootOverlay } from "./RootOverlay";
+import { SurfaceScrollbar } from "./SurfaceScrollbar";
 
 interface HoveredMarker {
   key: string;
@@ -103,6 +104,8 @@ export interface DiscussionMarkerRailProps {
   /** The text a discussion's span covers, for the hover preview. */
   spanQuote: (span: TextSpan) => string;
   onJump: (key: string) => void;
+  /** The surface's scrollbox; when given, its scrollbar draws past the dots as the panel's rightmost column. */
+  scrollbox?: RefObject<ScrollBoxRenderable | null>;
   theme?: Theme;
 }
 
@@ -110,6 +113,7 @@ export function DiscussionMarkerRail({
   discussions,
   spanQuote,
   onJump,
+  scrollbox,
   theme,
 }: DiscussionMarkerRailProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -163,12 +167,15 @@ export function DiscussionMarkerRail({
   }, [hovered, discussions, tokens]);
 
   return (
-    <ScrollMarkers
-      discussions={discussions}
-      hovered={hovered?.key ?? null}
-      tokens={tokens}
-      onHover={setHovered}
-      onJump={onJump}
-    />
+    <>
+      <ScrollMarkers
+        discussions={discussions}
+        hovered={hovered?.key ?? null}
+        tokens={tokens}
+        onHover={setHovered}
+        onJump={onJump}
+      />
+      {scrollbox ? <SurfaceScrollbar scrollbox={scrollbox} theme={theme} /> : null}
+    </>
   );
 }

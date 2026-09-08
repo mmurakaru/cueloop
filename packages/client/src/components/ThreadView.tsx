@@ -308,7 +308,13 @@ export function ThreadView({
             </text>
           </box>
         ) : null}
-        <scrollbox ref={scrollRef} style={{ flexGrow: 1, paddingTop: 1 }} focused={false}>
+        {/* the rail draws this box's scrollbar past the dots, so the built-in one stays hidden */}
+        <scrollbox
+          ref={scrollRef}
+          style={{ flexGrow: 1, paddingTop: 1 }}
+          focused={false}
+          verticalScrollbarOptions={{ visible: false }}
+        >
           {display.map((_block, blockIndex) => blockNodeFor(blockIndex))}
         </scrollbox>
       </box>
@@ -316,6 +322,7 @@ export function ThreadView({
         discussions={discussions}
         spanQuote={surface.spanQuote}
         onJump={surface.jumpToDiscussion}
+        scrollbox={scrollRef}
         theme={theme}
       />
     </box>

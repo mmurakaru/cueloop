@@ -1,27 +1,5 @@
 // Bun Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`stories catalog Surfaces/DiffSheet/SplitView renders, snapshots, and carries its colors: Surfaces/DiffSheet/SplitView 1`] = `
-" ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────   
- src/store.ts                                                                                                   +1 -1   
- ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────   
-  @@ -1,4 +1,4 @@                                                                                                       
-     1   export class Store {                              │▎   1   export class Store {                                
-     2 -   private items = [];                             │    2 +   private items = new Map();                        
-                                                           │                                                            
-                                                           │  ╷─────────────────────────────────────────────────────┐   
-                                                           │  │ ● Map needs an eviction story.                      │ ○ 
-                                                           │  ╵─────────────────────────────────────────────────────┘   
-     3   }                                                 │    3   }                                                   
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-                                                                                                                        
-"
-`;
-
 exports[`stories catalog Cards/AnnotationCard/CommentDraft renders, snapshots, and carries its colors: Cards/AnnotationCard/CommentDraft 1`] = `
 "╭─ comment on "persists sessions" ─────────────────────────────────────────────╮
 │ Which daemon?                                                                │
@@ -555,17 +533,17 @@ exports[`stories catalog Overlays/ConfirmDialog/DeletePlan renders, snapshots, a
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/AnnotatedLine 1`] = `
-" ──────────────────────────────────────────────────────────────────────────────────────   
- src/store.ts                                                                     +1 -1   
- ──────────────────────────────────────────────────────────────────────────────────────   
+" ─────────────────────────────────────────────────────────────────────────────────────    
+ src/store.ts                                                                    +1 -1    
+ ─────────────────────────────────────────────────────────────────────────────────────    
   @@ -1,4 +1,4 @@                                                                         
  ▎   1   export class Store {                                                             
      2 -   private items = [];                                                            
      2 +   private items = new Map();                                                     
                                                                                           
-   ╷──────────────────────────────────────────────────────────────────────────────────┐ ○ 
-   │ ● Map needs an eviction story.                                                   │   
-   ╵──────────────────────────────────────────────────────────────────────────────────┘   
+   ╷─────────────────────────────────────────────────────────────────────────────────┐ ○  
+   │ ● Map needs an eviction story.                                                  │    
+   ╵─────────────────────────────────────────────────────────────────────────────────┘    
      3   }                                                                                
                                                                                           
                                                                                           
@@ -577,9 +555,9 @@ exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, an
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/CaretOnFirstLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/CaretOnFirstLine 1`] = `
-" ──────────────────────────────────────────────────────────────────────────────────────   
- src/store.ts                                                                     +1 -1   
- ──────────────────────────────────────────────────────────────────────────────────────   
+" ─────────────────────────────────────────────────────────────────────────────────────    
+ src/store.ts                                                                    +1 -1    
+ ─────────────────────────────────────────────────────────────────────────────────────    
   @@ -1,4 +1,4 @@                                                                         
  ▎   1   export class Store {                                                             
      2 -   private items = [];                                                            
@@ -597,9 +575,9 @@ exports[`stories catalog Surfaces/DiffSheet/CaretOnFirstLine renders, snapshots,
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: Surfaces/DiffSheet/IntralineWordDiff 1`] = `
-" ──────────────────────────────────────────────────────────────────────────────────────   
- src/store.ts                                                                     +1 -1   
- ──────────────────────────────────────────────────────────────────────────────────────   
+" ─────────────────────────────────────────────────────────────────────────────────────    
+ src/store.ts                                                                    +1 -1    
+ ─────────────────────────────────────────────────────────────────────────────────────    
   @@ -1,4 +1,4 @@                                                                         
  ▎   1   export class Store {                                                             
      2 -   private items = [];                                                            
@@ -617,9 +595,9 @@ exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots
 `;
 
 exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and carries its colors: Surfaces/DiffSheet/SignedRows 1`] = `
-" ──────────────────────────────────────────────────────────────────────────────────────   
- src/store.ts                                                                     +1 -1   
- ──────────────────────────────────────────────────────────────────────────────────────   
+" ─────────────────────────────────────────────────────────────────────────────────────    
+ src/store.ts                                                                    +1 -1    
+ ─────────────────────────────────────────────────────────────────────────────────────    
   @@ -1,4 +1,4 @@                                                                         
  ▎   1   export class Store {                                                             
      2 -   private items = [];                                                            
@@ -633,6 +611,28 @@ exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and c
                                                                                           
                                                                                           
                                                                                           
+"
+`;
+
+exports[`stories catalog Surfaces/DiffSheet/SplitView renders, snapshots, and carries its colors: Surfaces/DiffSheet/SplitView 1`] = `
+" ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────    
+ src/store.ts                                                                                                  +1 -1    
+ ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────    
+  @@ -1,4 +1,4 @@                                                                                                       
+     1   export class Store {                             │▎   1   export class Store {                                 
+     2 -   private items = [];                            │    2 +   private items = new Map();                         
+                                                          │                                                             
+                                                          │  ╷─────────────────────────────────────────────────────┐    
+                                                          │  │ ● Map needs an eviction story.                      │ ○  
+                                                          │  ╵─────────────────────────────────────────────────────┘    
+     3   }                                                │    3   }                                                    
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
+                                                                                                                        
 "
 `;
 
@@ -1112,6 +1112,18 @@ exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, an
 "
 `;
 
+exports[`stories catalog Chrome/SurfaceScrollbar/ThumbAtTop renders, snapshots, and carries its colors: Chrome/SurfaceScrollbar/ThumbAtTop 1`] = `
+"row 1                   
+row 2                   
+row 3                   
+row 4                   
+row 5                   
+row 6                   
+row 7                   
+row 8                   
+"
+`;
+
 exports[`stories catalog Chrome/ThreadFooter/Default renders, snapshots, and carries its colors: Chrome/ThreadFooter/Default 1`] = `
 "────────────────────────────────────────────────────────────────────────────────
   cueloop / main                                                  send message 
@@ -1132,17 +1144,17 @@ exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, a
                                                                                                     
   The daemon persists sessions to disk atomically.                                                  
                                                                                                     
-  ╷─────────────────────────────────────────────────────────────────────────────────────────────┐   
-  │ ● Which daemon owns this?                                                                   │   
-  ╵─────────────────────────────────────────────────────────────────────────────────────────────┘   
+  ╷────────────────────────────────────────────────────────────────────────────────────────────┐    
+  │ ● Which daemon owns this?                                                                  │    
+  ╵────────────────────────────────────────────────────────────────────────────────────────────┘    
                                                                                                     
   Steps                                                                                             
                                                                                                     
   · move the store                                                                                  
                                                                                                     
-  ╷─────────────────────────────────────────────────────────────────────────────────────────────┐   
-  │ ● move the store behind one interface                                                       │ ○ 
-  ╵─────────────────────────────────────────────────────────────────────────────────────────────┘ ○ 
+  ╷────────────────────────────────────────────────────────────────────────────────────────────┐    
+  │ ● move the store behind one interface                                                      │ ○  
+  ╵────────────────────────────────────────────────────────────────────────────────────────────┘ ○  
   · add recovery                                                                                    
                                                                                                     
   ts                                                                                                
