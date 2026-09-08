@@ -1,0 +1,95 @@
+// A workbench panel: one full-height grid column with a file-tab header cell on
+// top and a body below. The header row carries the tabs on the left and optional
+// controls on the right, underlined by a thin rule in the same divider gray so the
+// header bottoms join the side rules into one grid. The side border runs from the top.
+
+import React, { useState } from "react";
+import type { Theme } from "../theme";
+import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
+
+export interface FileTabProps {
+  label: string;
+  active?: boolean;
+  /** When set, a close control reveals on hover (a disposable tab). */
+  onClose?: () => void;
+  theme?: Theme;
+}
+
+/** A file tab: the label in the accent when active, with a hover-revealed close. */
+export function FileTab({ label, active, onClose, theme }: FileTabProps): React.ReactNode {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <box
+      style={{ flexDirection: "row", paddingRight: 1 }}
+      onMouseOver={() => setHovered(true)}
+      onMouseOut={() => setHovered(false)}
+    >
+      <text fg={active ? theme?.accent : theme?.textDim}>{label}</text>
+      {onClose ? (
+        <box onMouseUp={onClose} style={{ paddingLeft: 1 }}>
+          <text fg={theme?.textDim}>{hovered ? NERD.close : " "}</text>
+        </box>
+      ) : null}
+    </box>
+  );
+}
+
+export interface PanelColumnProps {
+  /** Fixed column width; omit for the flex-growing center panel. */
+  width?: number;
+  /** Draw the divider on this side (the sidebar borders right, the rest border left). */
+  border?: "left" | "right";
+  /** Tabs and controls for the header cell. */
+  header: React.ReactNode;
+  /** Right-aligned header controls (toggles, search). */
+  headerRight?: React.ReactNode;
+  children: React.ReactNode;
+  theme?: Theme;
+}
+
+export function PanelColumn({
+  width,
+  border,
+  header,
+  headerRight,
+  children,
+  theme,
+}: PanelColumnProps): React.ReactNode {
+  return (
+    <box
+      style={{
+        width,
+        // grow panes split evenly and clip wide content (a long diff line) rather than stretching
+        flexGrow: width === undefined ? 1 : undefined,
+        flexBasis: width === undefined ? 0 : undefined,
+        minWidth: 0,
+        flexDirection: "column",
+        borderStyle: "single",
+        border: border ? [border] : [],
+        borderColor: theme?.border,
+      }}
+    >
+      <box
+        customBorderChars={HEADER_UNDERLINE_CHARS}
+        style={{
+          flexDirection: "row",
+          height: 2,
+          paddingLeft: 1,
+          // right controls need the same breathing room as the left, or the rightmost icon renders
+          // squeezed against the terminal's last column
+          paddingRight: 1,
+          backgroundColor: theme?.panel,
+          borderStyle: "single",
+          border: ["bottom"],
+          borderColor: theme?.border,
+        }}
+      >
+        {header}
+        <box style={{ flexGrow: 1 }} />
+        {headerRight}
+      </box>
+      <box style={{ flexGrow: 1, flexDirection: "column" }}>{children}</box>
+    </box>
+  );
+}

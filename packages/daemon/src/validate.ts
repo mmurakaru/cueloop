@@ -167,6 +167,11 @@ export const Params = {
   }),
   "session.setViewed": v.object({ id: SessionId, viewedPaths: v.array(v.string()) }),
   "session.setTitle": v.object({ id: SessionId, title: v.string() }),
+  "session.projectFiles": v.object({ id: SessionId }),
+  "session.fileContents": v.object({ id: SessionId, path: NonEmpty }),
+  "repo.files": v.object({ cwd: NonEmpty }),
+  "repo.fileContents": v.object({ cwd: NonEmpty, path: NonEmpty }),
+  "repo.changes": v.object({ cwd: NonEmpty }),
   "session.navigate": v.object({
     id: SessionId,
     entryId: NonEmpty,
