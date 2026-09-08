@@ -68,7 +68,7 @@ import {
   TREE_CHORD_ENTRIES,
 } from "./thread-chords";
 import { DiffSheet, type DiffFoldControls, type DiffSheetProps } from "./components/DiffSheet";
-import { marksByRows, type DiffRow } from "./view-diff";
+import { commentCountsByFile, marksByRows, type DiffRow } from "./view-diff";
 import type { DiffFileContents } from "@cueloop/schema";
 import { PrototypeSheet } from "./components/PrototypeSheet";
 import type { PrototypeElement } from "./prototype-browser";
@@ -274,6 +274,7 @@ function ProjectPanelBody(props: {
   reloadKey: string;
   onOpenChangedFile: (path: string) => void;
   onOpenProjectFile: (path: string) => void;
+  commentCounts?: ReadonlyMap<string, number>;
   theme: Theme;
 }): React.ReactNode {
   const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
@@ -300,7 +301,12 @@ function ProjectPanelBody(props: {
 
   if (props.mode === "changes") {
     return (
-      <ChangesFileTree files={changes} onSelectFile={props.onOpenChangedFile} theme={props.theme} />
+      <ChangesFileTree
+        files={changes}
+        onSelectFile={props.onOpenChangedFile}
+        commentCounts={props.commentCounts}
+        theme={props.theme}
+      />
     );
   }
   return (
@@ -526,6 +532,11 @@ export function App({
     return ids;
   }, [marks]);
   const { isDiff, isPrototype, resolved } = deriveReviewFlags(session);
+  // comments per changed-file path, for the changed-files tree and tab badges
+  const diffCommentCounts = useMemo(
+    () => (session && isDiff ? commentCountsByFile(session, rows) : undefined),
+    [session, isDiff, rows],
+  );
   // entering a diff opens the right region in changed-files mode; a plan or reply opens it closed
   workbench.syncSession(session?.id, isDiff);
   // plans and replies open in the thread view, diffs in the diff sheet: both drive the shared
@@ -904,6 +915,7 @@ export function App({
           <EditorGrid
             tree={workbench.grid}
             focusedGroupId={workbench.activeGroup}
+            commentCounts={diffCommentCounts}
             onFocusGroup={workbench.focusGroup}
             onActivateTab={workbench.activate}
             onCloseTab={workbench.close}
@@ -965,6 +977,7 @@ export function App({
             // a diff review opens a changed file as its captured diff; other threads show live contents
             onOpenChangedFile={(path) => workbench.openFile(path, isDiff ? "diff" : "contents")}
             onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
+            commentCounts={diffCommentCounts}
             theme={theme}
           />
         }

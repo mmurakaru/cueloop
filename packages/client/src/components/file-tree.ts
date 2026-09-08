@@ -16,11 +16,18 @@ interface MutableTreeNode {
   id: string;
   label: string;
   status?: GitStatus;
+  badge?: string;
   children?: Map<string, MutableTreeNode>;
 }
 
 function freeze(node: MutableTreeNode): TreeNode {
-  if (node.children === undefined) return { id: node.id, label: node.label, status: node.status };
+  if (node.children === undefined) {
+    const leaf: TreeNode = { id: node.id, label: node.label, status: node.status };
+
+    if (node.badge !== undefined) leaf.badge = node.badge;
+
+    return leaf;
+  }
 
   return {
     id: node.id,
@@ -29,8 +36,24 @@ function freeze(node: MutableTreeNode): TreeNode {
   };
 }
 
-/** Group changed files into a directory tree; leaves are keyed by their full path. */
-export function buildFileTree(files: readonly DiffFileContents[]): TreeNode[] {
+/** A file's comment count as a leaf badge, or undefined when it carries none. */
+function commentBadge(
+  counts: ReadonlyMap<string, number> | undefined,
+  path: string,
+): string | undefined {
+  const count = counts?.get(path);
+
+  return count ? `● ${count}` : undefined;
+}
+
+/**
+ * Group changed files into a directory tree; leaves are keyed by their full path. A leaf whose
+ * file carries comments shows a dot-and-count badge, so feedback is visible even with its tab closed.
+ */
+export function buildFileTree(
+  files: readonly DiffFileContents[],
+  commentCounts?: ReadonlyMap<string, number>,
+): TreeNode[] {
   const roots = new Map<string, MutableTreeNode>();
 
   for (const file of files) {
@@ -45,7 +68,12 @@ export function buildFileTree(files: readonly DiffFileContents[]): TreeNode[] {
 
       if (node === undefined) {
         node = isLeaf
-          ? { id: file.path, label: segment, status: gitStatusOf(file.status) }
+          ? {
+              id: file.path,
+              label: segment,
+              status: gitStatusOf(file.status),
+              badge: commentBadge(commentCounts, file.path),
+            }
           : { id: prefix, label: segment, children: new Map() };
         level.set(segment, node);
       }

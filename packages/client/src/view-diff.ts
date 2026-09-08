@@ -6,9 +6,16 @@
  */
 
 import { parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
-import { isAddressed, resolveAnchor, type Annotation, type Block } from "@cueloop/schema";
+import {
+  isAddressed,
+  resolveAnchor,
+  type Annotation,
+  type Block,
+  type ReviewSession,
+} from "@cueloop/schema";
 import { spanRangeInBlock, type TextSpan } from "./thread-selection";
 import type { Mark } from "./view-plan";
+import { discussionsFrom } from "./discussions";
 
 export type DiffRowKind = "file" | "hunk" | "ctx" | "add" | "del";
 
@@ -155,6 +162,25 @@ export function marksByRows(
   }
 
   return marksByIndex;
+}
+
+/**
+ * Comments per file path across the diff: each discussion counts its comments (root plus
+ * replies) toward the file its span ends in. Feeds the changed-files tree and tab badges, so a
+ * file whose tab is closed still shows it carries feedback.
+ */
+export function commentCountsByFile(session: ReviewSession, rows: DiffRow[]): Map<string, number> {
+  const discussions = discussionsFrom(session, marksByRows(session.annotations, rows));
+  const counts = new Map<string, number>();
+
+  for (const discussion of discussions) {
+    const file = rows[discussion.blockIndex]?.file;
+
+    if (file === undefined) continue;
+    counts.set(file, (counts.get(file) ?? 0) + discussion.annotations.length);
+  }
+
+  return counts;
 }
 
 /** Quote-primary anchor for a diff row: neighbors as context selectors. */

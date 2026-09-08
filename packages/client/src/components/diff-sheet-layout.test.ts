@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { Annotation } from "@cueloop/schema";
-import { diffRowText, fileChangeCounts, marksByRows, type DiffRow } from "../view-diff";
+import {
+  commentCountsByFile,
+  diffRowText,
+  fileChangeCounts,
+  marksByRows,
+  type DiffRow,
+} from "../view-diff";
+import { fixtureDiffSession } from "./story-fixtures";
 import type { IntralineRun } from "../diff-intraline";
 import type { SyntaxSpan } from "../diff-syntax";
 import { DARK } from "../theme";
@@ -117,6 +124,46 @@ describe("marksByRows", () => {
 
     // Assert
     expect(marks.get(2)![0]!.role).toBe("mark-focus");
+  });
+});
+
+describe("commentCountsByFile", () => {
+  const rows = [
+    row("file", "a.ts"),
+    row("add", "const items = new Map();\n"),
+    row("file", "b.ts", { file: "b.ts" }),
+    row("add", "return other;\n", { file: "b.ts" }),
+  ];
+  const annotation = (id: string, quote: string, replyTo?: string): Annotation => {
+    const comment: Annotation = {
+      id,
+      kind: "comment",
+      body: id,
+      anchor: { quote, prefix: "", suffix: "" },
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+
+    if (replyTo !== undefined) comment.replyTo = replyTo;
+
+    return comment;
+  };
+
+  test("counts a discussion's comments (root plus replies) toward its file", () => {
+    // Arrange - one thread on a.ts with a reply, one on b.ts
+    const session = fixtureDiffSession({
+      annotations: [
+        annotation("a1", "const items = new Map();"),
+        annotation("a1r", "const items = new Map();", "a1"),
+        annotation("b1", "return other;"),
+      ],
+    });
+
+    // Act
+    const counts = commentCountsByFile(session, rows);
+
+    // Assert
+    expect(counts.get("a.ts")).toBe(2);
+    expect(counts.get("b.ts")).toBe(1);
   });
 });
 

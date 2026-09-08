@@ -85,6 +85,8 @@ export interface ChangesColumnProps {
   /** The path whose diff the sheet is scrolled to, highlighted in the tree. */
   selectedPath?: string;
   onSelectFile: (path: string) => void;
+  /** Comments per file path, shown as a dot-and-count badge on each entry. */
+  commentCounts?: ReadonlyMap<string, number>;
   width?: number;
   theme?: Theme;
 }
@@ -97,9 +99,10 @@ export function ChangesFileTree({
   files = [],
   selectedPath,
   onSelectFile,
+  commentCounts,
   theme,
 }: Omit<ChangesColumnProps, "open" | "width">): React.ReactNode {
-  const nodes = useMemo(() => buildFileTree(files), [files]);
+  const nodes = useMemo(() => buildFileTree(files, commentCounts), [files, commentCounts]);
   // every folder opens by default so each changed file is reachable; the user
   // only ever names the folders they fold shut, so a new file set stays open
   const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(new Set());

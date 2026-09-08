@@ -21,6 +21,8 @@ export interface EditorGridProps {
   zoomed: boolean;
   /** The body of a group's active tab; `groupFocused` tells a keyboard-owning body whether it has the keys. */
   renderTab: (tab: EditorTab, groupFocused: boolean) => React.ReactNode;
+  /** Comments per file path, shown as a dot-and-count badge on a file tab. */
+  commentCounts?: ReadonlyMap<string, number>;
   theme?: Theme;
 }
 
@@ -34,12 +36,15 @@ const SPLIT_ITEMS: ReadonlyArray<{ label: string; direction: SplitDirection; arr
 function EditorTabButton({
   tab,
   active,
+  commentCount,
   onSelect,
   onClose,
   tokens,
 }: {
   tab: EditorTab;
   active: boolean;
+  /** Comments on this tab's file, shown as a dot-and-count badge; 0 shows nothing. */
+  commentCount: number;
   onSelect: () => void;
   onClose: () => void;
   tokens: Theme;
@@ -67,6 +72,12 @@ function EditorTabButton({
       <text fg={active ? tokens.textMuted : tokens.textDim} style={{ wrapMode: "none" }}>
         {tab.label}
       </text>
+      {commentCount > 0 ? (
+        <text
+          fg={tokens.textDim}
+          style={{ flexShrink: 0, wrapMode: "none" }}
+        >{` ● ${commentCount}`}</text>
+      ) : null}
       <box
         onMouseUp={(event) => {
           event.stopPropagation();
@@ -225,6 +236,7 @@ function EditorGroupPane({
               key={tab.id}
               tab={tab}
               active={tab.id === active?.id}
+              commentCount={tab.path ? (props.commentCounts?.get(tab.path) ?? 0) : 0}
               onSelect={() => props.onActivateTab(group.id, tab.id)}
               onClose={() => props.onCloseTab(group.id, tab.id)}
               tokens={tokens}
