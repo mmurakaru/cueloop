@@ -1,5 +1,27 @@
 # cueloop
 
+## 0.1.0-alpha.67
+
+### Minor Changes
+
+- [#344](https://github.com/mmurakaru/cueloop/pull/344) [`02a91e6`](https://github.com/mmurakaru/cueloop/commit/02a91e61ac77dcce39ed55c543be8c4f69530b2c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reshape the review surface into one app shell with four slotted panes - Threads, Thread, Changes, Project - under a single header row.
+  The Changes pane is a tabbed editor grid: a dismissable Changes tab holds the whole diff in one scroll, files open as their own tabs, and tabs split into editor groups left, right, up, or down; a zoom control hides the thread and widens Changes.
+  The Project pane is the right sidebar - always open when the right region is on, with the Changes editor riding on it - and switches between the changed files and the full project tree; clicking a file opens its diff or its contents in the Changes pane.
+
+- [#343](https://github.com/mmurakaru/cueloop/pull/343) [`cda40b3`](https://github.com/mmurakaru/cueloop/commit/cda40b31f22f21eb6105d9e2a9a7fe217c37967c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Sharpen the sidebar and header. Long thread titles fade to a clean right-edge mask instead of wrapping; hovering or selecting a thread reveals a kebab that opens an inline pin / rename / delete menu, pinning lifts the thread into a Pinned section at the top, and a thread can be renamed through a new daemon title command. The header is one segmented bar that mirrors the open thread's name with the owner's Edit and Share beside it, and the diff pane reads as a flat editor surface without its own frame.
+
+- [#343](https://github.com/mmurakaru/cueloop/pull/343) [`cda40b3`](https://github.com/mmurakaru/cueloop/commit/cda40b31f22f21eb6105d9e2a9a7fe217c37967c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Retire the separate inbox screen. Opening the app with nothing selected lands directly in the shell - the same header and Projects/Threads sidebar as a thread view, with a disposable Welcome tab in the center that points at where to start, the docs, and what shipped in this build. Closing the Welcome tab leaves a bare select-a-thread hint, and picking a thread swaps the center for it.
+
+### Patch Changes
+
+- [#341](https://github.com/mmurakaru/cueloop/pull/341) [`dd36611`](https://github.com/mmurakaru/cueloop/commit/dd366115c74f058b9f7d1193580fa7b47a8bb7e4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Align installer progress symbols with the banner and keep message text fixed as loaders change to checkmarks.
+  Remove the cueloop prefix from install progress and completion messages.
+- Updated dependencies [[`cda40b3`](https://github.com/mmurakaru/cueloop/commit/cda40b31f22f21eb6105d9e2a9a7fe217c37967c), [`cda40b3`](https://github.com/mmurakaru/cueloop/commit/cda40b31f22f21eb6105d9e2a9a7fe217c37967c)]:
+  - @cueloop/client@0.1.0-alpha.67
+  - @cueloop/daemon@0.1.0-alpha.67
+  - @cueloop/schema@0.1.0-alpha.67
+  - @cueloop/adapters@0.1.0-alpha.67
+
 ## 0.1.0-alpha.66
 
 ### Minor Changes
