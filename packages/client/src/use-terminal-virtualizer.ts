@@ -117,6 +117,9 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
     return view;
   };
 
+  // the offset reporter the core registered, so a scroll the core asks for reports at once
+  const reportOffset = useRef<(() => void) | null>(null);
+
   // a frame-event poll stands in for scroll and resize events: the renderer fires it after every
   // render, and the callbacks only fire the core when the value actually changed
   const onFrame = (read: () => void): (() => void) => {
@@ -153,17 +156,27 @@ export function useTerminalVirtualizer(options: TerminalVirtualizerOptions): Ter
       callback: (offset: number, isScrolling: boolean) => void,
     ) => {
       let last = -1;
-
-      return onFrame(() => {
+      const report = (): void => {
         const scrollbox = options.scrollbox.current;
 
         if (!scrollbox || scrollbox.scrollTop === last) return;
         last = scrollbox.scrollTop;
         callback(last, false);
-      });
+      };
+      const stop = onFrame(report);
+
+      reportOffset.current = report;
+
+      return () => {
+        reportOffset.current = null;
+        stop();
+      };
     },
+    // report the new offset in the same tick: the item window then follows the scroll at once,
+    // instead of one frame later with the target rows still unmounted
     scrollToFn: (offset: number) => {
       options.scrollbox.current?.scrollTo({ x: 0, y: Math.max(0, Math.round(offset)) });
+      reportOffset.current?.();
     },
     // a box measures 0 until Yoga has laid it out; keep the estimate rather than collapse the row
     measureElement: (element: Element) =>
