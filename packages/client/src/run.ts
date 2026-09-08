@@ -21,18 +21,28 @@ export async function runClient(options: RunClientOptions): Promise<number> {
     (await renderer.waitForThemeMode(THEME_QUERY_TIMEOUT_MS).catch(() => null)) ?? "dark";
 
   return new Promise<number>((resolve) => {
+    let exited = false;
+    const shutdown = (code: number): void => {
+      if (exited) return;
+      exited = true;
+      renderer.destroy();
+      resolve(code);
+      // one microtask between destroy and exit lets the renderer flush
+      // its terminal-restore sequences before the process dies
+      queueMicrotask(() => process.exit(code));
+    };
+
+    // a closed pane/terminal hangs up (or the parent kills us); exit instead of
+    // lingering as an orphan whose pty read loop keeps burning CPU
+    process.once("SIGHUP", () => shutdown(0));
+    process.once("SIGTERM", () => shutdown(0));
+
     createRoot(renderer).render(
       React.createElement(App, {
         home: options.home,
         sessionId: options.sessionId,
         appearance,
-        onExit: (code: number) => {
-          renderer.destroy();
-          resolve(code);
-          // one microtask between destroy and exit lets the renderer flush
-          // its terminal-restore sequences before the process dies
-          queueMicrotask(() => process.exit(code));
-        },
+        onExit: shutdown,
       }),
     );
   });

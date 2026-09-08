@@ -42,4 +42,19 @@ describe("buildFileTree", () => {
   test("returns an empty tree for no changes", () => {
     expect(buildFileTree([])).toEqual([]);
   });
+
+  test("badges a leaf with its comment count, and leaves an uncommented file bare", () => {
+    // Act
+    const tree = buildFileTree(
+      [file("a.ts"), file("b.ts")],
+      new Map([
+        ["a.ts", 3],
+        ["b.ts", 0],
+      ]),
+    );
+
+    // Assert - a.ts shows the dot-and-count, b.ts (0) shows nothing
+    expect(tree[0]!.badge).toBe("● 3");
+    expect(tree[1]!.badge).toBeUndefined();
+  });
 });

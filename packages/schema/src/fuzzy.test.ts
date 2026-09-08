@@ -89,4 +89,22 @@ describe("fuzzyFindBestMatch", () => {
     // Assert
     expect(match.start).toBe(0);
   });
+
+  test("a long quote fuzzed over a long document bails within its work budget", () => {
+    // Arrange - a stale multi-line anchor whose text is gone, over a large document; the naive
+    // scan is O(haystack * needle^3) and would pin the CPU for a minute
+    const needle = Array.from({ length: 200 }, (_unused, index) => `token-${index}`).join(" ");
+    const haystack = Array.from(
+      { length: 400 },
+      (_unused, index) => `line ${index} of the diff`,
+    ).join("\n");
+
+    // Act
+    const started = Date.now();
+    const match = fuzzyFindBestMatch(needle, haystack, 0.75);
+
+    // Assert - it returns (here: no match clears the bar) fast, never spinning
+    expect(match).toBeNull();
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
 });

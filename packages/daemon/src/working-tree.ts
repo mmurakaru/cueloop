@@ -1,7 +1,7 @@
 /** Working-tree diff capture for `cueloop diff`, untracked files included. */
 
 import { join } from "node:path";
-import type { DiffFileContents } from "@cueloop/schema";
+import type { DiffFileContents, DiffFileStatus } from "@cueloop/schema";
 
 async function git(args: string[], cwd: string): Promise<string | null> {
   const gitProcess = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "ignore" });
@@ -10,6 +10,42 @@ async function git(args: string[], cwd: string): Promise<string | null> {
   if ((await gitProcess.exited) !== 0) return null;
 
   return stdout.trim();
+}
+
+/** Map a `git diff --name-status` letter to a diff status; renames/copies read as modified. */
+function statusFromCode(code: string): DiffFileStatus {
+  const letter = code.charAt(0);
+  if (letter === "D") return "deleted";
+  if (letter === "A") return "added";
+
+  return "modified";
+}
+
+/**
+ * The working tree's changed files as repo-relative path plus status - a fast listing for the changes
+ * navigator that never reads file contents (unlike workingTreeDiff, which captures full curation copies).
+ * Uses tab-separated name-status so a trimmed leading column can never shift the parse.
+ */
+export async function workingChangeList(
+  cwd = process.cwd(),
+): Promise<{ path: string; status: DiffFileStatus }[]> {
+  const changes: { path: string; status: DiffFileStatus }[] = [];
+  const tracked = (await git(["diff", "--name-status", "HEAD"], cwd)) ?? "";
+
+  for (const line of tracked.split("\n")) {
+    if (line.trim().length === 0) continue;
+    const parts = line.split("\t");
+    // a rename is "R100<tab>old<tab>new"; the new path (last field) is what the reviewer opens
+    changes.push({ path: parts[parts.length - 1]!, status: statusFromCode(parts[0]!) });
+  }
+
+  const untracked = (await git(["ls-files", "--others", "--exclude-standard"], cwd)) ?? "";
+
+  for (const path of untracked.split("\n")) {
+    if (path.trim().length > 0) changes.push({ path, status: "added" });
+  }
+
+  return changes;
 }
 
 /** The blob at HEAD for a path, or "" when the path is not in HEAD (new file). */

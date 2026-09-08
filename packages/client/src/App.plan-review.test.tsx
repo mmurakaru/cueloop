@@ -99,13 +99,13 @@ describe("share button", () => {
     const setup = await renderApp();
 
     // Assert
-    // both word-buttons ride the header's thread segment, so Share sits next to Edit
+    // both word-buttons ride the header's thread segment, so share sits next to edit
     const headerLine = setup
       .captureCharFrame()
       .split("\n")
-      .find((line) => line.includes("Edit"));
+      .find((line) => line.includes("edit"));
 
-    expect(headerLine).toContain("Share");
+    expect(headerLine).toContain("share");
   });
 
   test("a read-only viewer (a plan shared over ssh) never sees the Share button", async () => {
@@ -118,7 +118,7 @@ describe("share button", () => {
     await waitForText(viewer, "cueloop");
 
     // Assert
-    expect(viewer.captureCharFrame()).not.toContain("Share");
+    expect(viewer.captureCharFrame()).not.toContain(" share ");
   });
 
   test("a resolved plan hides Edit and Share (no re-sharing a finished review)", async () => {
@@ -133,8 +133,8 @@ describe("share button", () => {
     // Assert - the owner toolbar is gone once the review is resolved
     const frame = setup.captureCharFrame();
 
-    expect(frame).not.toContain("Edit");
-    expect(frame).not.toContain("Share");
+    expect(frame).not.toContain(" edit ");
+    expect(frame).not.toContain(" share ");
   });
 });
 
@@ -144,7 +144,7 @@ describe("edit affordance", () => {
     const owner = await renderApp();
 
     // Assert
-    expect(owner.captureCharFrame()).toContain("Edit");
+    expect(owner.captureCharFrame()).toContain(" edit ");
   });
 
   test("a read-only viewer (a plan shared over ssh) never sees the Edit button", async () => {
@@ -157,7 +157,7 @@ describe("edit affordance", () => {
     await waitForText(viewer, "cueloop");
 
     // Assert
-    expect(viewer.captureCharFrame()).not.toContain("Edit");
+    expect(viewer.captureCharFrame()).not.toContain(" edit ");
   });
 });
 
@@ -281,8 +281,8 @@ describe("sheet header", () => {
     expect(frame).toContain("Migration Plan");
     expect(frame).not.toContain("submitted by");
     expect(frame).not.toContain("rev 1");
-    expect(frame).toContain("Edit");
-    expect(frame).toContain("Share");
+    expect(frame).toContain(" edit ");
+    expect(frame).toContain(" share ");
   });
 });
 
@@ -292,7 +292,8 @@ describe("quick-actions settings editor", () => {
     const setup = await renderApp();
 
     // Act - open Settings from the top-left gear, enter Actions, expand the first action, type
-    await setup.mockMouse.click(1, 1);
+    await setup.mockMouse.click(1, 0);
+    await waitForText(setup, "Keybinds");
     await clickText(setup, "Settings");
     await clickText(setup, "Actions");
     await clickText(setup, "Zoom out, research in depth");
