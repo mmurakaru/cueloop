@@ -2,10 +2,10 @@
 // editor group with its own tab strip and header controls. The caller supplies renderTab so the grid
 // stays layout-only - a tab becomes a diff, a file's contents, or the aggregate Changes view upstream.
 
-import React, { useEffect, useRef, useState } from "react";
-import type { ScrollBoxRenderable } from "@opentui/core";
-import { useRenderer } from "@opentui/react";
+import React, { useRef, useState } from "react";
+import type { BoxRenderable } from "@opentui/core";
 import { DARK, type Theme } from "../theme";
+import { useFrameMeasure } from "../use-frame-measure";
 import { IconButton } from "./primitives/IconButton";
 import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
 import type { EditorGroup, EditorNode, EditorTab, SplitDirection } from "./editor-grid";
@@ -80,6 +80,53 @@ function EditorTabButton({
   );
 }
 
+/** Cells a tab occupies: its padding, the label, the close cell and its padding, the right rule. */
+function tabCellWidth(tab: EditorTab): number {
+  return tab.label.length + 5;
+}
+
+/** The run of tabs `[first, end)` the strip shows. */
+export interface TabWindow {
+  first: number;
+  end: number;
+}
+
+/** The run of tabs that fits the strip and contains the active tab; markers take a cell each side. */
+export function visibleTabWindow(
+  tabs: EditorTab[],
+  firstVisible: number,
+  activeIndex: number,
+  stripWidth: number,
+): TabWindow {
+  // unmeasured strip: show everything, the header clips until the width is known
+  if (stripWidth <= 0) return { first: 0, end: tabs.length };
+  const fitEnd = (first: number): number => {
+    let used = first > 0 ? 1 : 0;
+    let end = first;
+
+    while (end < tabs.length) {
+      const remaining = end + 1 < tabs.length ? 1 : 0;
+
+      if (used + tabCellWidth(tabs[end]!) + remaining > stripWidth) break;
+      used += tabCellWidth(tabs[end]!);
+      end++;
+    }
+
+    // always show at least the tab the window starts on, even when it is wider than the strip
+    return Math.max(end, Math.min(first + 1, tabs.length));
+  };
+  let first = Math.min(Math.max(0, firstVisible), Math.max(0, activeIndex));
+  let end = fitEnd(first);
+
+  // the active tab past the right edge pulls the window along until it fits
+  while (activeIndex >= end && first < activeIndex) {
+    first++;
+    end = fitEnd(first);
+  }
+
+  return { first, end };
+}
+
 function SplitMenu({
   onPick,
   tokens,
@@ -124,30 +171,22 @@ function EditorGroupPane({
   const [menuOpen, setMenuOpen] = useState(false);
   const active = group.tabs.find((tab) => tab.id === group.activeTabId) ?? group.tabs[0];
   const isFile = active?.kind === "file";
-  const stripRef = useRef<ScrollBoxRenderable | null>(null);
-  const renderer = useRenderer();
-
-  // the strip scrolls the active tab into view, so a tab opened past the edge is never hidden;
-  // the strip is laid out after the commit, so the reveal repeats on the next frame
-  useEffect(() => {
-    if (!active) return;
-    const reveal = (): void => {
-      try {
-        stripRef.current?.scrollChildIntoView(active.id);
-      } catch {
-        // best-effort reveal
-      }
-    };
-    const onFrame = (): void => {
-      renderer?.off("frame", onFrame);
-      reveal();
-    };
-
-    reveal();
-    renderer?.on("frame", onFrame);
-
-    return () => renderer?.off("frame", onFrame);
-  }, [active, renderer]);
+  // The strip windows its tabs rather than scrolling a nested scrollbox (which stalls the
+  // renderer inside this header): tabs keep the width of their names, only the run that fits
+  // renders, and the window follows the active tab so a tab opened past the edge is never hidden.
+  const stripRef = useRef<BoxRenderable | null>(null);
+  const stripWidth = useFrameMeasure(
+    () => stripRef.current?.width ?? 0,
+    (left, right) => left === right,
+    0,
+  );
+  const [firstVisible, setFirstVisible] = useState(0);
+  const activeIndex = Math.max(
+    0,
+    group.tabs.findIndex((tab) => tab.id === active?.id),
+  );
+  // derived every render: the manual offset is a floor the active tab can pull the window past
+  const tabWindow = visibleTabWindow(group.tabs, firstVisible, activeIndex, stripWidth);
 
   return (
     <box
@@ -170,20 +209,18 @@ function EditorGroupPane({
           borderColor: tokens.border,
         }}
       >
-        {/* the tab strip is a horizontal scroller: tabs keep their width and the row scrolls behind
-            the fixed header controls on the right when it overflows; no flexGrow, so its rounded
-            width can't shift them */}
-        <scrollbox
+        {/* the tab strip windows its tabs: the run that fits renders in full, edge markers step
+            the window, and the controls stay pinned on the right */}
+        <box
           ref={stripRef}
-          focused={false}
-          scrollX
-          scrollY={false}
-          contentOptions={{ flexDirection: "row" }}
-          horizontalScrollbarOptions={{ visible: false }}
-          verticalScrollbarOptions={{ visible: false }}
-          style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, height: 1 }}
+          style={{ flexDirection: "row", flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }}
         >
-          {group.tabs.map((tab) => (
+          {tabWindow.first > 0 ? (
+            <box onMouseUp={() => setFirstVisible(tabWindow.first - 1)} style={{ flexShrink: 0 }}>
+              <text fg={tokens.textDim}>{"‹"}</text>
+            </box>
+          ) : null}
+          {group.tabs.slice(tabWindow.first, tabWindow.end).map((tab) => (
             <EditorTabButton
               key={tab.id}
               tab={tab}
@@ -193,7 +230,12 @@ function EditorGroupPane({
               tokens={tokens}
             />
           ))}
-        </scrollbox>
+          {tabWindow.end < group.tabs.length ? (
+            <box onMouseUp={() => setFirstVisible(tabWindow.first + 1)} style={{ flexShrink: 0 }}>
+              <text fg={tokens.textDim}>{"›"}</text>
+            </box>
+          ) : null}
+        </box>
         <box style={{ flexDirection: "row", flexShrink: 0, paddingLeft: 1, paddingRight: 1 }}>
           <IconButton glyph="search" onPress={() => {}} marginRight={2} theme={tokens} />
           <IconButton

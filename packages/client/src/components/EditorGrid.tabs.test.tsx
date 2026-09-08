@@ -7,10 +7,39 @@
 import { describe, expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import React from "react";
-import { EditorGrid } from "./EditorGrid";
-import { changesTab, fileTab, makeGroup } from "./editor-grid";
+import { EditorGrid, visibleTabWindow } from "./EditorGrid";
+import { changesTab, fileTab, makeGroup, type EditorTab } from "./editor-grid";
 import { NERD } from "./primitives/icons";
 import { allowEventLoopUpdates } from "../test-support";
+
+describe("visibleTabWindow", () => {
+  const tabs: EditorTab[] = ["aaaa", "bbbb", "cccc", "dddd", "eeee"].map((name) =>
+    fileTab(name, name, "diff"),
+  );
+
+  test("an unmeasured strip shows every tab", () => {
+    // Arrange / Act / Assert - width 0 means the header clips until it is measured
+    expect(visibleTabWindow(tabs, 0, 0, 0)).toEqual({ first: 0, end: tabs.length });
+  });
+
+  test("only the run that fits renders, and the active tab pulls the window to it", () => {
+    // Arrange - each tab is 9 cells (4 label + 5 chrome); a 30-cell strip fits about three
+    // Act - the last tab is active
+    const window = visibleTabWindow(tabs, 0, tabs.length - 1, 30);
+
+    // Assert - the window ends on the active tab and dropped earlier tabs
+    expect(window.end).toBe(tabs.length);
+    expect(window.first).toBeGreaterThan(0);
+  });
+
+  test("a tab wider than the strip still shows on its own", () => {
+    // Arrange
+    const wide = [fileTab("a-very-long-file-name.tsx", "x", "diff")];
+
+    // Act / Assert
+    expect(visibleTabWindow(wide, 0, 0, 10)).toEqual({ first: 0, end: 1 });
+  });
+});
 
 const NAMES = [
   "AppShell.tsx",
