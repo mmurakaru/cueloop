@@ -111,10 +111,13 @@ export function spansByLine(source: string, highlights: SimpleHighlight[]): Synt
     return Array.from({ length: Math.max(0, end - start) }, () => undefined);
   });
 
-  for (const [start, end, group] of highlights) {
+  for (const [start, rawEnd, group] of highlights) {
     // A capture can span newlines (block comments, template literals); color the
-    // covered columns on every line it crosses, not just the starting line.
-    let cursor = start;
+    // covered columns on every line it crosses, not just the starting line. Offsets
+    // past the source (byte offsets from a multi-byte line) clamp to its end, or the
+    // walk below would sit on the last line forever.
+    const end = Math.min(rawEnd, source.length);
+    let cursor = Math.max(0, start);
 
     while (cursor < end) {
       const line = lineOf(cursor);

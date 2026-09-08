@@ -14,15 +14,11 @@ import type { DiffRow } from "./view-diff";
 import type { ReviewController } from "./session-controller";
 import type { Intent } from "./keymap";
 import type { TreeRow } from "./tree-view";
-import type { RailTab } from "./components/ReviewRail";
 import { quickActionBody, type QuickAction } from "./config";
 import { VERDICTS } from "./components/ConfirmCard";
-import {
-  REVIEW_RESIZE_STEP,
-  cycleReviewPanelMode,
-  resolveReviewWidth,
-  type ReviewPanelMode,
-} from "./review-panel";
+
+/** Which pane of the session tree / review the keyboard grammar is aimed at. */
+export type RailTab = "review" | "agent" | "tree";
 
 /** The one overlay/mode the TUI is in; every compose/submit/edit flow is a variant. */
 export type Mode =
@@ -88,14 +84,11 @@ export interface IntentDispatchDeps {
   inboxCursor: number;
   mode: Mode;
   session: ReviewSession | null;
-  reviewMode: ReviewPanelMode;
-  reviewWidth: number;
-  terminalWidth: number;
   focusedAnnotationId: string | undefined;
-  /** The curation item selected in the rail, if any; the undo target when set. */
+  /** The curation item selected for undo, if any. */
   selectedCurationId: string | undefined;
   railTab: RailTab;
-  /** The tree row selected in the rail's Tree tab; the target of go. */
+  /** The tree row selected in the session tree; the target of go. */
   selectedEntryId: string | undefined;
   /** Planner-local author renames, for seeding the rename prompt. */
   authorNames: Record<string, string>;
@@ -107,13 +100,10 @@ export interface IntentDispatchDeps {
   renameThread: (id: string, title: string) => void;
 
   liveInput: MutableRefObject<string>;
-  reviewWidthRef: MutableRefObject<number>;
 
   setCursor: Dispatch<SetStateAction<number>>;
   setInboxCursor: Dispatch<SetStateAction<number>>;
   setMode: Dispatch<SetStateAction<Mode>>;
-  setReviewMode: Dispatch<SetStateAction<ReviewPanelMode>>;
-  setReviewWidth: Dispatch<SetStateAction<number>>;
   setRailTab: Dispatch<SetStateAction<RailTab>>;
   setSelectedEntryId: Dispatch<SetStateAction<string | undefined>>;
   setFocusedAnnotationId: Dispatch<SetStateAction<string | undefined>>;
@@ -123,6 +113,8 @@ export interface IntentDispatchDeps {
   selectCardFromDocument: (annotationId: string) => void;
   runEditorHandOff: () => void;
   openCardEdit: (annotationId: string) => void;
+  /** Flip unified/split diff and persist it (App-owned); split lays out only when zoomed. */
+  toggleDiffView: () => void;
 }
 
 type IntentOfType<Kind extends Intent["type"]> = Extract<Intent, { type: Kind }>;
@@ -135,8 +127,55 @@ function handleStatus(intent: IntentOfType<"status">, deps: IntentDispatchDeps):
   deps.controller.setStatus(intent.message);
 }
 
+/** A diff cursor rests on code lines only; file and hunk headers are structural dividers. */
+function isCodeRow(row: DiffRow | undefined): boolean {
+  return row?.kind === "ctx" || row?.kind === "add" || row?.kind === "del";
+}
+
+/**
+ * A landable diff row: any code line, plus a collapsed file's band (a file row with
+ * no body before the next file or the end) so the cursor can reach it to expand it.
+ */
+function isLandableRow(rows: DiffRow[], index: number): boolean {
+  const row = rows[index];
+
+  if (isCodeRow(row)) return true;
+  if (row?.kind !== "file") return false;
+  const next = rows[index + 1];
+
+  return next === undefined || next.kind === "file";
+}
+
+/** The next landable index in the move direction, skipping expanded headers; stays put at an edge. */
+function nextCodeRowIndex(rows: DiffRow[], from: number, to: IntentOfType<"move">["to"]): number {
+  if (to === "top") {
+    for (let index = 0; index < rows.length; index++) if (isLandableRow(rows, index)) return index;
+
+    return from;
+  }
+  if (to === "bottom") {
+    for (let index = rows.length - 1; index >= 0; index--) {
+      if (isLandableRow(rows, index)) return index;
+    }
+
+    return from;
+  }
+  const step = to === "down" ? 1 : -1;
+
+  for (let index = from + step; index >= 0 && index < rows.length; index += step) {
+    if (isLandableRow(rows, index)) return index;
+  }
+
+  return from;
+}
+
 function handleMove(intent: IntentOfType<"move">, deps: IntentDispatchDeps): void {
-  const navigableCount = deps.isDiff ? deps.rows.length : deps.display.length;
+  if (deps.isDiff) {
+    deps.setCursor((current) => nextCodeRowIndex(deps.rows, current, intent.to));
+
+    return;
+  }
+  const navigableCount = deps.display.length;
 
   if (intent.to === "down") deps.setCursor((current) => Math.min(navigableCount - 1, current + 1));
   else if (intent.to === "up") deps.setCursor((current) => Math.max(0, current - 1));
@@ -339,11 +378,6 @@ function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispa
 
   if (!session) return;
   deps.liveInput.current = "";
-  // the confirm card lives in the expanded review rail; a compact or hidden
-  // panel would swallow the whole submit flow, so force the rail open (live
-  // only - the saved panel preference is left untouched)
-  deps.setReviewMode("expanded");
-  deps.setRailTab("review");
   deps.setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
 }
 
@@ -361,6 +395,37 @@ function handleRejectHunk(_intent: IntentOfType<"rejectHunk">, deps: IntentDispa
 
 function handleRejectChange(_intent: IntentOfType<"rejectChange">, deps: IntentDispatchDeps): void {
   deps.controller.toggleRejectChange(deps.cursor);
+}
+
+function handleFoldFile(_intent: IntentOfType<"foldFile">, deps: IntentDispatchDeps): void {
+  const file = deps.rows[deps.cursor]?.file;
+
+  if (!file || deps.controller.isFileCollapsed(file)) return;
+  deps.controller.setFileCollapsed(file, true);
+  // the file band is unchanged in index by its own collapse, so land the cursor on it
+  const headerIndex = deps.controller
+    .rows()
+    .findIndex((row) => row.kind === "file" && row.file === file);
+
+  if (headerIndex >= 0) deps.setCursor(headerIndex);
+}
+
+function handleUnfoldFile(_intent: IntentOfType<"unfoldFile">, deps: IntentDispatchDeps): void {
+  const file = deps.rows[deps.cursor]?.file;
+
+  if (!file || !deps.controller.isFileCollapsed(file)) return;
+  deps.controller.setFileCollapsed(file, false);
+  // drop the cursor onto the file's first code line now that its body is back
+  const firstCode = deps.controller.rows().findIndex((row) => row.file === file && isCodeRow(row));
+
+  if (firstCode >= 0) deps.setCursor(firstCode);
+}
+
+function handleToggleDiffView(
+  _intent: IntentOfType<"toggleDiffView">,
+  deps: IntentDispatchDeps,
+): void {
+  deps.toggleDiffView();
 }
 
 function handleRestoreCuration(
@@ -506,31 +571,6 @@ function handleDismissCompletion(
   deps.controller.dismissCompletion();
 }
 
-function handleCycleReviewPanel(
-  _intent: IntentOfType<"cycleReviewPanel">,
-  deps: IntentDispatchDeps,
-): void {
-  const next = cycleReviewPanelMode(deps.reviewMode);
-
-  deps.setReviewMode(next);
-  deps.controller.saveReviewPanel({ mode: next });
-}
-
-function handleResizeReviewPanel(
-  intent: IntentOfType<"resizeReviewPanel">,
-  deps: IntentDispatchDeps,
-): void {
-  if (deps.reviewMode !== "expanded") return;
-  const next = resolveReviewWidth(
-    deps.reviewWidth + intent.direction * REVIEW_RESIZE_STEP,
-    deps.terminalWidth,
-  );
-
-  deps.reviewWidthRef.current = next;
-  deps.setReviewWidth(next);
-  deps.controller.saveReviewPanel({ width: next });
-}
-
 function confirmTreePrompt(
   mode: Extract<Mode, { type: "treePrompt" }>,
   deps: IntentDispatchDeps,
@@ -617,6 +657,9 @@ const intentHandlers: IntentHandlers = {
   cut: handleCut,
   rejectHunk: handleRejectHunk,
   rejectChange: handleRejectChange,
+  foldFile: handleFoldFile,
+  unfoldFile: handleUnfoldFile,
+  toggleDiffView: handleToggleDiffView,
   restoreCuration: handleRestoreCuration,
   edit: handleEdit,
   editCard: handleEditCard,
@@ -635,8 +678,6 @@ const intentHandlers: IntentHandlers = {
   finishReview: handleFinishReview,
   optInAutoClose: handleOptInAutoClose,
   dismissCompletion: handleDismissCompletion,
-  cycleReviewPanel: handleCycleReviewPanel,
-  resizeReviewPanel: handleResizeReviewPanel,
   toggleTree: handleToggleTree,
   treeMove: handleTreeMove,
   treeGo: handleTreeGo,

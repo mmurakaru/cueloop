@@ -5,80 +5,85 @@ import { AppShell } from "./AppShell";
 
 export const meta: StoryMeta = { title: "Layout/AppShell" };
 
-function Sidebar(): React.ReactNode {
+function Threads(): React.ReactNode {
   return (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
-      <text fg={DARK.textDim}>Projects</text>
-      <text fg={DARK.text}> cueloop</text>
-      <box style={{ backgroundColor: DARK.elevated }}>
-        <text fg={DARK.accent}> Read Cueloop Repository</text>
-      </box>
+      <text fg={DARK.textDim}>Pinned</text>
+      <text fg={DARK.accent}> Read Cueloop Repository</text>
       <text> </text>
       <text fg={DARK.textDim}>Threads</text>
-      <text fg={DARK.textMuted}> Welcome to cueloop</text>
+      <text fg={DARK.textMuted}> A standalone thought</text>
     </box>
   );
 }
 
-function Main(): React.ReactNode {
+function Thread(): React.ReactNode {
   return (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
-      <text fg={DARK.text}>read the repo</text>
-      <text> </text>
-      <text fg={DARK.textMuted}>Repository context loaded. main is clean.</text>
-      <text> </text>
-      <text fg={DARK.text}>Core architecture</text>
-      <text fg={DARK.textMuted}> - packages/schema is the dependency root</text>
-      <text fg={DARK.textMuted}> - packages/daemon owns session state</text>
+      <text fg={DARK.text}>the conversation renders here</text>
     </box>
   );
 }
 
-function Inspector(): React.ReactNode {
+function Changes(): React.ReactNode {
   return (
     <box style={{ flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
-      <text fg={DARK.text}>cueloop/main</text>
-      <text fg={DARK.textDim}> No changes</text>
+      <text fg={DARK.textMuted}>the editor grid renders here</text>
     </box>
   );
 }
 
-function Header(): React.ReactNode {
+function Project(): React.ReactNode {
   return (
-    <box style={{ flexDirection: "row", paddingLeft: 1 }}>
-      <text fg={DARK.textMuted}>Read Cueloop Repository</text>
-      <box style={{ flexGrow: 1 }} />
-      <text fg={DARK.textDim}>markdown.test.ts</text>
+    <box style={{ flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
+      <text fg={DARK.textDim}>No changes</text>
     </box>
   );
 }
 
-function Footer(): React.ReactNode {
-  return (
-    <box style={{ flexDirection: "row", paddingLeft: 1 }}>
-      <text fg={DARK.textDim}>cueloop / main</text>
-      <box style={{ flexGrow: 1 }} />
-      <text fg={DARK.textDim}>Fable 5</text>
-    </box>
-  );
-}
+const noop = (): void => {};
 
-export const ThreePane: Story = {
+export const FourPane: Story = {
   render: () => (
     <AppShell
-      sidebar={<Sidebar />}
-      main={<Main />}
-      mainHeader={<Header />}
-      inspector={<Inspector />}
-      footer={<Footer />}
+      sidebarOpen
+      onToggleSidebar={noop}
+      onOpenMenu={noop}
+      threadsPanel={<Threads />}
+      threadTitle="Read Cueloop Repository"
+      threadPanel={<Thread />}
+      changesOpen
+      projectOpen
+      onToggleChanges={noop}
+      onToggleProject={noop}
+      onToggleRight={noop}
+      projectMode="changes"
+      changesPanel={<Changes />}
+      projectPanel={<Project />}
     />
   ),
   expectedColors: [DARK.border, DARK.accent],
-  size: { width: 120, height: 28 },
+  size: { width: 130, height: 28 },
 };
 
-export const SidebarAndMain: Story = {
-  render: () => <AppShell sidebar={<Sidebar />} main={<Main />} />,
+export const CollapsedRightRail: Story = {
+  render: () => (
+    <AppShell
+      sidebarOpen
+      onToggleSidebar={noop}
+      onOpenMenu={noop}
+      threadsPanel={<Threads />}
+      threadTitle="Read Cueloop Repository"
+      threadPanel={<Thread />}
+      changesOpen={false}
+      projectOpen={false}
+      onToggleChanges={noop}
+      onToggleProject={noop}
+      onToggleRight={noop}
+      projectMode="tree"
+      projectPanel={<Project />}
+    />
+  ),
   expectedColors: [DARK.border],
-  size: { width: 90, height: 20 },
+  size: { width: 100, height: 22 },
 };

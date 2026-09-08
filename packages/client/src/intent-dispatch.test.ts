@@ -71,8 +71,20 @@ function baseController(): ReviewController {
     dismissToast: mock(),
     display: mock(() => []),
     rows: mock(() => []),
+    setFileCollapsed: mock(),
+    isFileCollapsed: mock(() => false),
+    setFileExpanded: mock(),
+    isFileExpanded: mock(() => false),
+    canExpandFile: mock(() => false),
+    copyFilePath: mock(),
+    fileStats: mock(() => new Map()),
     files: mock(() => []),
     working: mock(() => ""),
+    projectFiles: mock(() => Promise.resolve<string[]>([])),
+    readFile: mock(() => Promise.resolve<string | null>(null)),
+    repoFiles: mock(() => Promise.resolve<string[]>([])),
+    repoReadFile: mock(() => Promise.resolve<string | null>(null)),
+    repoChanges: mock(() => Promise.resolve([])),
     open: mock(),
     deleteSession: mock(),
     renameSession: mock(),
@@ -107,7 +119,6 @@ function baseController(): ReviewController {
     finishReview: mock(),
     dismissCompletion: mock(),
     optInAutoClose: mock(),
-    saveReviewPanel: mock(),
   };
 }
 
@@ -124,9 +135,6 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     inboxCursor: 0,
     mode: { type: "normal" },
     session: null,
-    reviewMode: "expanded",
-    reviewWidth: 34,
-    terminalWidth: 120,
     focusedAnnotationId: undefined,
     selectedCurationId: undefined,
     railTab: "review",
@@ -136,12 +144,9 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     renameAuthor: mock(),
     renameThread: mock(),
     liveInput: { current: "" },
-    reviewWidthRef: { current: 34 },
     setCursor: mock(),
     setInboxCursor: mock(),
     setMode: mock(),
-    setReviewMode: mock(),
-    setReviewWidth: mock(),
     setRailTab: mock(),
     setSelectedEntryId: mock(),
     setFocusedAnnotationId: mock(),
@@ -150,6 +155,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     selectCardFromDocument: mock(),
     runEditorHandOff: mock(),
     openCardEdit: mock(),
+    toggleDiffView: mock(),
     ...overrides,
   };
 }
@@ -351,17 +357,15 @@ describe("marker-actions popover", () => {
 });
 
 describe("openSubmit", () => {
-  test("force-opens the review rail so the confirm card can never be hidden", () => {
+  test("opens the submit confirm with the default verdict", () => {
     // Arrange
-    const deps = makeDeps({ session: sessionWith([]), reviewMode: "hidden" });
+    const deps = makeDeps({ session: sessionWith([]) });
     const dispatch = createIntentDispatch(deps);
 
     // Act
     dispatch({ type: "openSubmit" });
 
     // Assert
-    expect(deps.setReviewMode).toHaveBeenCalledWith("expanded");
-    expect(deps.setRailTab).toHaveBeenCalledWith("review");
     expect(deps.setMode).toHaveBeenCalledWith({ type: "submit", verdict: "approve", summary: "" });
   });
 
@@ -435,6 +439,20 @@ describe("restoreCuration", () => {
 
     // Assert
     expect(deps.controller.restoreCuration).not.toHaveBeenCalled();
+  });
+});
+
+describe("toggleDiffView", () => {
+  test("delegates to the App-owned toggle", () => {
+    // Arrange
+    const deps = makeDeps();
+    const dispatch = createIntentDispatch(deps);
+
+    // Act
+    dispatch({ type: "toggleDiffView" });
+
+    // Assert
+    expect(deps.toggleDiffView).toHaveBeenCalled();
   });
 });
 
