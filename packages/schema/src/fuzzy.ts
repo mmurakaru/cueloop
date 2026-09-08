@@ -63,10 +63,20 @@ export function similarityRatio(left: string, right: string): number {
 }
 
 /**
+ * Character comparisons this scan may spend before it gives up and returns the
+ * best window found so far (or null). The scan is O(haystack * needle^3) - a
+ * long quote fuzzed over a long document (a stale multi-block anchor whose text
+ * is gone) would otherwise pin the CPU for a minute; a passage that is truly gone
+ * is better left orphaned than fuzzed. Small everyday quotes never approach it.
+ */
+const FUZZY_WORK_BUDGET = 150_000_000;
+
+/**
  * Find the haystack window most similar to the needle, or null when nothing
  * clears `minimumSimilarity`. Windows range around the needle length so the
  * match tolerates a few inserted or deleted characters, not only substitutions.
- * Ties keep the earliest window. Offsets index the haystack directly.
+ * Ties keep the earliest window. Offsets index the haystack directly. The scan
+ * stops once it has spent `FUZZY_WORK_BUDGET`, returning the best window so far.
  */
 export function fuzzyFindBestMatch(
   needle: string,
@@ -80,6 +90,7 @@ export function fuzzyFindBestMatch(
   const maximumWindowLength = needle.length + lengthTolerance;
 
   let bestMatch: FuzzyMatch | null = null;
+  let remainingWork = FUZZY_WORK_BUDGET;
 
   for (let start = 0; start < haystack.length; start++) {
     for (
@@ -87,6 +98,9 @@ export function fuzzyFindBestMatch(
       windowLength <= maximumWindowLength && start + windowLength <= haystack.length;
       windowLength++
     ) {
+      // each window costs a needle x window edit-distance pass; spend that from the budget
+      remainingWork -= needle.length * windowLength;
+      if (remainingWork <= 0) return bestMatch;
       const window = haystack.slice(start, start + windowLength);
       const similarity = similarityRatio(needle, window);
 

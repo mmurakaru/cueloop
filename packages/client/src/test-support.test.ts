@@ -25,7 +25,7 @@ describe("isolateUserConfig", () => {
     const home = mkdtempSync(join(tmpdir(), "cueloop-isolate-"));
     const userConfigPath = join(home, "config.toml");
 
-    writeFileSync(userConfigPath, '[ui]\nreview_state = "compact"\n');
+    writeFileSync(userConfigPath, "[ui]\nauto_close = 5\n");
     const priorEnv = process.env.CUELOOP_CONFIG;
 
     process.env.CUELOOP_CONFIG = userConfigPath;
@@ -39,9 +39,9 @@ describe("isolateUserConfig", () => {
       const restored = loadConfig({ repoRoot: home });
 
       // Assert
-      expect(isolated.ui.reviewState).toBe("expanded");
+      expect(isolated.ui.autoClose).toBe("off");
       expect(process.env.CUELOOP_CONFIG).toBe(userConfigPath);
-      expect(restored.ui.reviewState).toBe("compact");
+      expect(restored.ui.autoClose).toBe(5);
     } finally {
       if (priorEnv === undefined) delete process.env.CUELOOP_CONFIG;
       else process.env.CUELOOP_CONFIG = priorEnv;

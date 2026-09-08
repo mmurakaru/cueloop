@@ -27,6 +27,7 @@ import {
   switchBranch,
   viewOfPath,
   type Annotation,
+  type DiffFileContents,
   type ReviewSession,
   type SessionHistory,
   type VerdictKind,
@@ -43,7 +44,9 @@ import {
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
-import { diffRowAnchor, diffRows, type DiffRow } from "./view-diff";
+import { diffRowBlocks, diffRows, fileChangeCounts, type DiffRow } from "./view-diff";
+import { applyFold } from "./diff-fold";
+import { copyToClipboard } from "./clipboard";
 import {
   changeRejectionForRow,
   hunkRejectionForRow,
@@ -57,14 +60,7 @@ import type { FileDiffMetadata } from "@pierre/diffs";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
 import { editInEditor } from "./editor";
 import { focusHerdrPane } from "./herdr";
-import {
-  persistAutoClose,
-  persistReviewState,
-  persistReviewWidth,
-  type AutoClose,
-  type CueloopConfig,
-} from "./config";
-import type { ReviewPanelMode } from "./review-panel";
+import { persistAutoClose, type AutoClose, type CueloopConfig } from "./config";
 
 /**
  * Post-submit lifecycle (a review pane should hand you back to the agent,
@@ -167,6 +163,8 @@ const DEFAULT_SHARE_TRANSPORT: ShareTransport = {
 export interface ReviewControllerOptions {
   home?: string;
   sessionId?: string;
+  /** The directory the client launched in; its git repo backs the no-session welcome tree. Defaults to process.cwd(). */
+  cwd?: string;
   /** Observer mode: stored for the key reducer's read-only gate. */
   readOnly?: boolean;
   onExit?: (code: number) => void;
@@ -197,9 +195,31 @@ export interface ReviewController {
   /** Derived projections, cached per session identity. */
   display(): DisplayBlock[];
   rows(): DiffRow[];
+  /** Fold a file's diff body to just its band, or unfold it; rows() reflects the change. */
+  setFileCollapsed(file: string, collapsed: boolean): void;
+  isFileCollapsed(file: string): boolean;
+  /** Weave a file's full contents inline (unchanged lines as context), or fold back to hunks. */
+  setFileExpanded(file: string, expanded: boolean): void;
+  isFileExpanded(file: string): boolean;
+  /** Whether the file carries the full contents weaving needs (curatable diffs do). */
+  canExpandFile(file: string): boolean;
+  /** Copy a file's path to the clipboard; reports the outcome via status. */
+  copyFilePath(file: string): void;
+  /** Per-file added/removed line counts from the base rows (survives collapse). */
+  fileStats(): Map<string, { additions: number; deletions: number }>;
   /** The walk's step list, derived from the diff rows. */
   files(): WalkFile[];
   working(): string;
+  /** The workspace's tracked files (git ls-files) for the Project tree; empty when unavailable. */
+  projectFiles(): Promise<string[]>;
+  /** Read a workspace file's contents for a Changes file tab; null when it cannot be read. */
+  readFile(path: string): Promise<string | null>;
+  /** The launch repo's tracked files for the no-session welcome Project tree; empty when not a repo. */
+  repoFiles(): Promise<string[]>;
+  /** Read a launch-repo file's contents for a welcome file tab; null when it cannot be read. */
+  repoReadFile(path: string): Promise<string | null>;
+  /** The launch repo's working-tree changed files for the no-session welcome Changes tree. */
+  repoChanges(): Promise<readonly DiffFileContents[]>;
   /** Open a session from the inbox. */
   open(id: string): void;
   /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
@@ -281,12 +301,6 @@ export interface ReviewController {
   dismissCompletion(): void;
   /** From the completion prompt: persist auto-close and start the countdown. */
   optInAutoClose(): void;
-  /**
-   * Persist the review-panel layout (client view state) to the user config so
-   * the collapse mode and rail width survive a restart. A read-only config dir
-   * never blocks the review.
-   */
-  saveReviewPanel(layout: { mode?: ReviewPanelMode; width?: number }): void;
 }
 
 export function createReviewController(options: ReviewControllerOptions): ReviewController {
@@ -334,6 +348,10 @@ class Controller implements ReviewController {
     models: new Map(),
     tree: [],
   };
+  /** File paths whose diff body is folded to just the file band. */
+  private collapsedFiles = new Set<string>();
+  /** File paths woven to their full contents (unchanged lines shown as context). */
+  private expandedFiles = new Set<string>();
   /** The diff's reject decisions live on the session record; the daemon curates from them. */
   private get rejections(): HunkRejection[] {
     return this.snapshot.session?.curation ?? EMPTY_REJECTIONS;
@@ -369,12 +387,13 @@ class Controller implements ReviewController {
         if (this.closed) return void client.close();
         this.client = client;
         client.onEvent((event) => {
-          // another controller/observer changed state: re-fetch
+          // another controller/observer changed state: re-fetch the active session's content
           const session = this.snapshot.session;
 
           if (session && event.sessionId === session.id) void this.refreshSession(session.id);
-          // the Threads sidebar shows the inbox even on a direct open, so keep it fresh
-          void this.refreshInbox();
+          // only the list-changing events touch the Threads sidebar; refreshing on every
+          // content edit (session.updated) would amplify an active review into a request storm
+          if (event.event !== "session.updated") void this.refreshInbox();
         });
         await client.subscribe();
         // load the inbox in both cases so the sidebar can jump between threads
@@ -430,6 +449,9 @@ class Controller implements ReviewController {
 
     if (this.derivedFor === session) return;
     this.derivedFor = session;
+    // a new session starts fully expanded, never inheriting the prior diff's fold state
+    this.collapsedFiles.clear();
+    this.expandedFiles.clear();
     const rows =
       session && session.artifact.type === "diff" ? diffRows(session.artifact.content) : [];
     const models = new Map<string, FileDiffMetadata>();
@@ -458,8 +480,58 @@ class Controller implements ReviewController {
 
   rows(): DiffRow[] {
     this.ensureDerived();
+    if (this.collapsedFiles.size === 0 && this.expandedFiles.size === 0) return this.derived.rows;
 
-    return this.derived.rows;
+    return applyFold(
+      this.derived.rows,
+      this.collapsedFiles,
+      this.expandedFiles,
+      this.snapshot.session?.artifact.files,
+    );
+  }
+
+  setFileCollapsed(file: string, collapsed: boolean): void {
+    if (collapsed) {
+      this.collapsedFiles.add(file);
+      this.expandedFiles.delete(file);
+    } else {
+      this.collapsedFiles.delete(file);
+    }
+    this.update({});
+  }
+
+  isFileCollapsed(file: string): boolean {
+    return this.collapsedFiles.has(file);
+  }
+
+  setFileExpanded(file: string, expanded: boolean): void {
+    if (expanded) {
+      this.expandedFiles.add(file);
+      this.collapsedFiles.delete(file);
+    } else {
+      this.expandedFiles.delete(file);
+    }
+    this.update({});
+  }
+
+  isFileExpanded(file: string): boolean {
+    return this.expandedFiles.has(file);
+  }
+
+  canExpandFile(file: string): boolean {
+    return (this.snapshot.session?.artifact.files ?? []).some((entry) => entry.path === file);
+  }
+
+  copyFilePath(file: string): void {
+    void copyToClipboard(file).then((copied) =>
+      this.setStatus(copied ? `copied ${file}` : "no clipboard tool available"),
+    );
+  }
+
+  fileStats(): Map<string, { additions: number; deletions: number }> {
+    this.ensureDerived();
+
+    return fileChangeCounts(this.derived.rows);
   }
 
   files(): WalkFile[] {
@@ -472,6 +544,52 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     return session ? (session.workingCopy ?? session.artifact.content) : "";
+  }
+
+  async projectFiles(): Promise<string[]> {
+    const session = this.snapshot.session;
+    if (this.client?.projectFiles === undefined || !session) return [];
+
+    return this.client.projectFiles(session.id);
+  }
+
+  async readFile(path: string): Promise<string | null> {
+    const session = this.snapshot.session;
+    if (this.client?.fileContents === undefined || !session) return null;
+
+    return this.client.fileContents(session.id, path);
+  }
+
+  /** The repo the sidebar tree/changes point at: the thread's own repo, else the launch directory. */
+  private sidebarRepoRoot(): string {
+    return this.snapshot.session?.workspace.repoRoot || this.options.cwd || process.cwd();
+  }
+
+  async repoFiles(): Promise<string[]> {
+    if (this.client?.repoFiles === undefined) return [];
+
+    return this.client.repoFiles(this.sidebarRepoRoot());
+  }
+
+  async repoReadFile(path: string): Promise<string | null> {
+    if (this.client?.repoFileContents === undefined) return null;
+
+    return this.client.repoFileContents(this.sidebarRepoRoot(), path);
+  }
+
+  async repoChanges(): Promise<readonly DiffFileContents[]> {
+    // a diff review pins its captured snapshot; every other thread reflects the live working tree
+    const session = this.snapshot.session;
+    if (session?.artifact.type === "diff") return session.artifact.files ?? [];
+    if (this.client?.repoChanges === undefined) return [];
+    const changes = await this.client.repoChanges(this.sidebarRepoRoot());
+
+    return changes.map((change) => ({
+      path: change.path,
+      status: change.status,
+      oldContents: "",
+      newContents: "",
+    }));
   }
 
   // Refreshes race the connection teardown: an event can arrive while close()
@@ -836,7 +954,9 @@ class Controller implements ReviewController {
     let anchor;
 
     if (session.artifact.type === "diff") {
-      anchor = { ...diffRowAnchor(this.rows(), displayIndex), blockIndex: displayIndex };
+      // rows are the diff's blocks: a span over one or more code rows anchors with the
+      // same quote, context, and position selectors a plan span does
+      anchor = makeAnchor(diffRowBlocks(this.rows()), displayIndex, start, end, endDisplayIndex);
     } else {
       const display = this.display();
       const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);
@@ -1274,14 +1394,5 @@ class Controller implements ReviewController {
       // a read-only config dir must not block closing the review
     }
     this.autoClose = DEFAULT_AUTO_CLOSE;
-  }
-
-  saveReviewPanel(layout: { mode?: ReviewPanelMode; width?: number }): void {
-    try {
-      if (layout.mode !== undefined) persistReviewState(layout.mode);
-      if (layout.width !== undefined) persistReviewWidth(layout.width);
-    } catch {
-      // a read-only config dir must never block collapsing or resizing the rail
-    }
   }
 }

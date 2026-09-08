@@ -95,7 +95,7 @@ describe("plan rendering", () => {
     const setup = await renderApp();
 
     // Act - open the collapsed Threads sidebar (the mirrored panel toggle by the gear)
-    await setup.mockMouse.click(3, 1);
+    await setup.mockMouse.click(4, 0);
 
     // Assert - the sidebar lists the other pending review, so you can jump to it
     await waitForText(setup, "Other Plan");
@@ -290,13 +290,16 @@ describe("no-thread shell", () => {
   });
 
   test("the row kebab menu pins a thread into a Pinned section", async () => {
-    // Arrange - the no-thread shell opens with the first thread selected, so its
-    // kebab is visible without hover
+    // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "Migration Plan");
 
-    // Act - open the row menu and pick Pin
+    // Act - hover the row to reveal its kebab, open the menu, and pick Pin
+    const row = locateText(setup, "Migration Plan");
+
+    await setup.mockMouse.moveTo(row.column, row.row);
+    await waitForText(setup, "⋮");
     await clickText(setup, "⋮");
     await waitForText(setup, "Pin");
     await clickText(setup, "Pin");
@@ -306,25 +309,18 @@ describe("no-thread shell", () => {
     expect(frameRow(setup, "Migration Plan")).toBeGreaterThan(frameRow(setup, "Pinned"));
   });
 
-  test("the Welcome tab is disposable: closing it leaves a bare select-a-thread hint", async () => {
+  test("a bare launch shows the Welcome surface with the right region collapsed", async () => {
     // Arrange
     const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "Welcome to cueloop");
 
-    // Act - hover the tab to reveal its close control, then click it
-    const tab = locateText(setup, "Welcome");
-
-    await setup.mockMouse.moveTo(tab.column, tab.row);
-    await waitForText(setup, "✕");
-    await clickText(setup, "✕");
-
-    // Assert - the welcome content is gone, the shell and its hint remain
-    await waitForState(setup, () => !setup.captureCharFrame().includes("Welcome to cueloop"));
+    // Assert - Welcome fills the thread pane (not a Changes tab); the right region stays collapsed
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("select a thread");
-    expect(frame).toContain("Migration Plan"); // the sidebar stays
+    expect(frame).toContain("Welcome to cueloop");
+    expect(frame).not.toContain("Changes"); // the Changes editor is closed on a bare launch
+    expect(frame).toContain("Migration Plan"); // the sidebar lists the pending thread
   });
 
   test("the menu opens from the shell gear and escape is not a trap", async () => {
@@ -333,8 +329,8 @@ describe("no-thread shell", () => {
 
     await waitForText(setup, "Welcome to cueloop");
 
-    // Act - open the settings dialog from the top-left gear (header content row)
-    await setup.mockMouse.click(1, 1);
+    // Act - open the settings dialog from the top-left gear (the Threads panel header, row 0)
+    await setup.mockMouse.click(1, 0);
 
     // Assert - the settings dialog with its Keybinds leaf appears
     await waitForText(setup, "Keybinds");
@@ -358,7 +354,7 @@ describe("the thread view and the menu", () => {
     await waitForText(setup, "The daemon persists");
 
     // Act - open the menu from the top-left settings gear, then the keybinds dialog
-    await setup.mockMouse.click(1, 1);
+    await setup.mockMouse.click(1, 0);
     await waitForText(setup, "Keybinds");
     const dropUp = setup.captureCharFrame().split("\n");
     const keybindsRow = dropUp.findIndex((line) => line.includes("Keybinds"));
@@ -387,7 +383,7 @@ describe("the thread view and the menu", () => {
     // Arrange - open the settings dialog from the gear
     const setup = await renderApp();
 
-    await setup.mockMouse.click(1, 1);
+    await setup.mockMouse.click(1, 0);
     await waitForText(setup, "Keybinds");
 
     // the nav folder is the last "Settings" on screen (the first is the dialog title)

@@ -11,6 +11,8 @@ export interface TreeProps {
   selectedId?: string;
   flattenEmptyDirectories?: boolean;
   showStatus?: boolean;
+  /** Drop the folder/file glyph prefix, for a plain text tree (e.g. the settings nav). */
+  hideIcons?: boolean;
   indentWidth?: number;
   icons?: TreeIcons;
   onSelect?: (id: string) => void;
@@ -38,6 +40,7 @@ export function Tree({
   selectedId,
   flattenEmptyDirectories,
   showStatus,
+  hideIcons,
   indentWidth = 2,
   icons = NERD_TREE_ICONS,
   onSelect,
@@ -72,10 +75,16 @@ export function Tree({
             }}
             onMouseUp={() => (row.isFolder ? onToggle?.(row.id) : onSelect?.(row.id))}
           >
-            <text fg={row.isFolder ? tokens.blue : tokens.textDim}>
-              {row.icon ?? rowGlyph(row.isFolder, row.expanded, icons)}{" "}
-            </text>
-            <text fg={selected ? tokens.accent : labelColor}>{row.label}</text>
+            {hideIcons ? null : (
+              <text fg={row.isFolder ? tokens.blue : tokens.textDim}>
+                {row.icon ?? rowGlyph(row.isFolder, row.expanded, icons)}{" "}
+              </text>
+            )}
+            <box style={{ flexShrink: 1, minWidth: 0 }}>
+              <text fg={selected ? tokens.accent : labelColor} truncate>
+                {row.label}
+              </text>
+            </box>
             <box style={{ flexGrow: 1 }} />
             {row.badge !== undefined ? <text fg={tokens.textDim}>{row.badge}</text> : null}
             {status ? <text fg={toneColor(status.tone, tokens)}> {status.letter}</text> : null}

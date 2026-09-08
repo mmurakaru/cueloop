@@ -361,3 +361,77 @@ describe("plan cut removals", () => {
     expect(sink.workingCopy).toBe("# Title\n");
   });
 });
+
+// a file whose hunk touches line 2 only, so lines 1/3/4 are unchanged tail/context
+const TAIL_PATCH = `diff --git a/src/store.ts b/src/store.ts
+--- a/src/store.ts
++++ b/src/store.ts
+@@ -2,1 +2,1 @@
+-  private items = [];
++  private items = new Map();
+`;
+
+function tailSession(): ReviewSession {
+  return {
+    ...diffSession(),
+    artifact: {
+      type: "diff",
+      content: TAIL_PATCH,
+      meta: {},
+      files: [
+        {
+          path: "src/store.ts",
+          oldContents: "export class Store {\n  private items = [];\n}\nexport const x = 1;\n",
+          newContents:
+            "export class Store {\n  private items = new Map();\n}\nexport const x = 1;\n",
+          status: "modified",
+        },
+      ],
+    },
+  };
+}
+
+describe("diff file fold", () => {
+  test("collapse leaves only the file band; expand restores the body", async () => {
+    // Arrange
+    const { controller } = await connected(tailSession());
+    const bodyRows = () =>
+      controller.rows().filter((row) => row.file === "src/store.ts" && row.kind !== "file").length;
+
+    // Assert - starts unfolded with a body
+    expect(bodyRows()).toBeGreaterThan(0);
+
+    // Act / Assert - collapse hides the body
+    controller.setFileCollapsed("src/store.ts", true);
+    expect(bodyRows()).toBe(0);
+    expect(controller.isFileCollapsed("src/store.ts")).toBe(true);
+
+    // Act / Assert - unfold brings it back
+    controller.setFileCollapsed("src/store.ts", false);
+    expect(bodyRows()).toBeGreaterThan(0);
+  });
+
+  test("expand weaves the file's unchanged tail line the hunk never showed", async () => {
+    // Arrange
+    const { controller } = await connected(tailSession());
+    const hasTail = () => controller.rows().some((row) => row.text.includes("export const x = 1"));
+
+    // Assert - the hunk view does not show the tail line
+    expect(controller.canExpandFile("src/store.ts")).toBe(true);
+    expect(hasTail()).toBe(false);
+
+    // Act - weave the full file
+    controller.setFileExpanded("src/store.ts", true);
+
+    // Assert
+    expect(hasTail()).toBe(true);
+  });
+
+  test("a diff without full contents cannot be expanded", async () => {
+    // Arrange - no artifact.files
+    const { controller } = await connected(diffSession(undefined));
+
+    // Assert
+    expect(controller.canExpandFile("src/store.ts")).toBe(false);
+  });
+});
