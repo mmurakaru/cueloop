@@ -14,15 +14,16 @@ import { fixtureDiffSession } from "./story-fixtures";
 
 const noop = (): void => {};
 
-// long lines that wrap several times per side, plus an unbalanced block (filler)
+// spaced words so each side word-wraps several visual lines, plus an unbalanced block (filler);
+// spaced (not one long token) so a whole word lands on a continuation line for the assertions
 const WRAPPING_PATCH = `diff --git a/app.ts b/app.ts
 --- a/app.ts
 +++ b/app.ts
 @@ -1,4 +1,5 @@
- const alpha = computeSomethingWithAReasonablyLongExpressionThatWraps(inputValue);
--const beta = oldImplementationThatUsedToDoThisParticularThingInAVeryVerboseWay(x);
-+const beta = newImplementationThatNowDoesTheSameThingButDifferentlyAndLonger(x, y);
-+const gamma = anotherAddedLineWithNoDeletionPartnerSoTheLeftSideIsBlankFiller(z);
+ const alpha = the quick brown fox jumps over the lazy dog and then keeps running past the far edge
+-const beta = old value that used to sit on this single line before the review had changed it wholly
++const beta = new value that now sits upon this single line after the review has changed it entirely
++const gamma = an added line with no deletion partner so the whole left column stays blank filler now
  export { alpha, beta };
 `;
 
@@ -71,21 +72,21 @@ describe("split diff rendering", () => {
   });
 
   test("wrapped continuation lines carry the divider, not just the first line", async () => {
-    // Act - "const alpha = compute..." wraps, so its continuation must still show the divider
+    // Act - the alpha line wraps, so a late word sits on a continuation line (no gutter number)
     const lines = await splitFrameLines(80);
     const continuation = lines.find(
-      (line) => line.includes("WithAReasonably") && !line.includes("const alpha"),
+      (line) => line.includes("running") && !line.includes("const alpha"),
     );
 
-    // Assert
+    // Assert - the continuation still shows the divider
     expect(continuation).toBeDefined();
     expect(continuation).toContain("│");
   });
 
   test("an addition with no deletion partner keeps the divider over blank left filler", async () => {
-    // Act
+    // Act - the gamma line has no left partner, so its left column is blank filler
     const lines = await splitFrameLines(80);
-    const fillerRow = lines.find((line) => line.includes("anotherAddedLineWithNoDeletion"));
+    const fillerRow = lines.find((line) => line.includes("no deletion partner"));
 
     // Assert - the row still has a divider, and the left of it is blank (no merged text)
     expect(fillerRow).toBeDefined();
