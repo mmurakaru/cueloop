@@ -16,7 +16,7 @@ export const Default: Story = {
     </Frame>
   ),
   expectedColors: [DARK.accent, DARK.textMuted],
-  size: { width: 80, height: 1 },
+  size: { width: 80, height: 2 },
 };
 
 export const ReadOnly: Story = {
@@ -26,5 +26,5 @@ export const ReadOnly: Story = {
     </Frame>
   ),
   expectedColors: [DARK.textDim],
-  size: { width: 80, height: 1 },
+  size: { width: 80, height: 2 },
 };

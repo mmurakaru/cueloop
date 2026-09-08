@@ -33,6 +33,9 @@ export type Intent =
   | { type: "rejectHunk" }
   | { type: "rejectChange" }
   | { type: "restoreCuration" }
+  | { type: "foldFile" }
+  | { type: "unfoldFile" }
+  | { type: "toggleDiffView" }
   | { type: "nextAnnotation" }
   | { type: "prevAnnotation" }
   | { type: "walkStart" }
@@ -48,8 +51,6 @@ export type Intent =
   | { type: "finishReview" }
   | { type: "optInAutoClose" }
   | { type: "dismissCompletion" }
-  | { type: "cycleReviewPanel" }
-  | { type: "resizeReviewPanel"; direction: -1 | 1 }
   | { type: "toggleTree" }
   | { type: "treeMove"; direction: -1 | 1 }
   | { type: "treeGo" }
@@ -151,14 +152,8 @@ export function reduceKey(state: KeyState, key: KeyInput, resolvedAction?: strin
   }
 
   if (state.view === "inbox") return inboxGrammar(state, name);
-  // span mode owns its single-letter keys (b slides the span back) before the
-  // review-panel controls claim them
+  // span mode owns its single-letter keys (b slides the span back)
   if (state.spanMode) return spanGrammar(state, name);
-  // the review panel rides both plan and diff reviews; collapsing and resizing
-  // are view state, so the read-only gate above lets them through
-  const reviewPanel = reviewPanelGrammar(action);
-
-  if (reviewPanel) return reviewPanel;
   if (state.view === "diff") return diffGrammar(state, action);
 
   return planGrammar(state, action, name);
@@ -258,15 +253,6 @@ function walkOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   return [];
 }
 
-/** The review-panel controls: cycle the mode, widen and narrow the rail. */
-function reviewPanelGrammar(action: string | undefined): Intent[] | null {
-  if (action === "review_cycle") return [{ type: "cycleReviewPanel" }];
-  if (action === "review_wider") return [{ type: "resizeReviewPanel", direction: 1 }];
-  if (action === "review_narrower") return [{ type: "resizeReviewPanel", direction: -1 }];
-
-  return null;
-}
-
 function inboxGrammar(state: KeyState, name: string): Intent[] {
   if (!state.hasInboxItems) return [];
   if (name === "j" || name === "down") return [{ type: "inboxMove", to: "down" }];
@@ -301,6 +287,9 @@ function diffGrammar(state: KeyState, action: string | undefined): Intent[] {
 
     return [{ type: action === "reject_hunk" ? "rejectHunk" : "rejectChange" }];
   }
+  const viewToggle = viewToggleIntent(action);
+
+  if (viewToggle) return viewToggle;
   // restore un-does a curated-out rejection from the rail; same owner gate as reject
   if (action === "restore_curation") {
     if (state.resolved) return status("review submitted - read-only");
@@ -378,6 +367,16 @@ function navigationIntent(action: string | undefined): Intent[] | null {
   if (action === "down" || action === "up" || action === "top" || action === "bottom") {
     return [{ type: "move", to: action }];
   }
+
+  return null;
+}
+
+/** Ungated view toggles in the diff: right folds a file to its band, left unfolds it, s flips
+ *  unified/split (split lays out only when the Changes pane is zoomed). */
+function viewToggleIntent(action: string | undefined): Intent[] | null {
+  if (action === "collapse_file") return [{ type: "foldFile" }];
+  if (action === "expand_file") return [{ type: "unfoldFile" }];
+  if (action === "split_diff") return [{ type: "toggleDiffView" }];
 
   return null;
 }
