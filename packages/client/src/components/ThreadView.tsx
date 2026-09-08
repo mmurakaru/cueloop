@@ -12,8 +12,8 @@
  * dismisses · tab folds · cmd+[ / cmd+] cycle discussions · blur-save on click.
  */
 
-import React, { useEffect, useRef, useState } from "react";
-import type { BoxRenderable, ScrollBoxRenderable } from "@opentui/core";
+import React, { useEffect, useRef } from "react";
+import type { ScrollBoxRenderable } from "@opentui/core";
 import type { ReviewSession } from "@cueloop/schema";
 import { displayText, type DisplayBlock, type Mark } from "../view-plan";
 import type { TextSpan } from "../thread-selection";
@@ -22,93 +22,13 @@ import type { CheatsheetSection } from "../key-bindings";
 import type { Theme } from "../theme";
 import { BOLD, CUT, UNDERLINE } from "../annotation-palette";
 import { lineMarkRanges, runsFor, wrapLines, type MarkRange, type VisualLine } from "../mark-runs";
-import type { Discussion } from "../discussions";
 import { useFrameMeasure } from "../use-frame-measure";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
+import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
 import { useComponentTheme } from "./theme-context";
-import { useRootOverlay } from "./RootOverlay";
 
 export { lighten } from "../annotation-palette";
 export { inlineSlashToken, resolveInlineSuggestion } from "../slash-palette";
-
-/* ---------------------------------------------------------- scroll markers */
-
-function ScrollMarkers({
-  discussions,
-  hovered,
-  tokens,
-  onHover,
-  onJump,
-}: {
-  discussions: Discussion[];
-  hovered: string | null;
-  tokens: Theme;
-  onHover: (marker: { key: string; screenY: number; anchorX: number } | null) => void;
-  onJump: (key: string) => void;
-}): React.ReactNode {
-  const railRef = useRef<BoxRenderable | null>(null);
-  const height = useFrameMeasure(
-    () => railRef.current?.height ?? 0,
-    (left, right) => left === right,
-    0,
-  );
-
-  const firstRow = Math.max(0, Math.floor((height - discussions.length) / 2));
-  const rowFor = (index: number): number => firstRow + index;
-  const indexAt = (row: number): number | null => {
-    const index = row - firstRow;
-
-    return index >= 0 && index < discussions.length ? index : null;
-  };
-  const hoveredIndex = discussions.findIndex((discussion) => discussion.key === hovered);
-  const colorFor = (index: number): string => {
-    if (index === hoveredIndex) return tokens.text;
-    if (hoveredIndex >= 0 && discussions.length >= 5 && Math.abs(index - hoveredIndex) === 1) {
-      return tokens.textMuted;
-    }
-
-    return tokens.textDim;
-  };
-
-  return (
-    <box
-      ref={railRef}
-      style={{ width: 3, flexShrink: 0, flexDirection: "column" }}
-      onMouseMove={(event) => {
-        const railY = railRef.current?.y ?? 0;
-        const index = indexAt(event.y - railY);
-
-        onHover(
-          index === null
-            ? null
-            : {
-                key: discussions[index]!.key,
-                // screen coordinates so the preview can render at the app root, above every pane rule
-                screenY: railY + rowFor(index),
-                anchorX: railRef.current?.x ?? 0,
-              },
-        );
-      }}
-      onMouseOut={() => onHover(null)}
-      onMouseDown={(event) => {
-        const index = indexAt(event.y - (railRef.current?.y ?? 0));
-
-        if (index !== null) onJump(discussions[index]!.key);
-      }}
-    >
-      {discussions.map((discussion, index) => (
-        <text
-          key={discussion.key}
-          selectable={false}
-          style={{ position: "absolute", top: rowFor(index), left: 0 }}
-          fg={colorFor(index)}
-        >
-          {(index === hoveredIndex ? "●" : "○").padStart(2)}
-        </text>
-      ))}
-    </box>
-  );
-}
 
 /**
  * How a block's rows are painted: heading weight, muted kinds, the list or
@@ -258,12 +178,6 @@ export function ThreadView({
     onExit,
   });
   const { palette, discussions } = surface;
-  const [hoveredMarker, setHoveredMarker] = useState<{
-    key: string;
-    screenY: number;
-    anchorX: number;
-  } | null>(null);
-  const { setOverlay, clearOverlay } = useRootOverlay();
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
   const viewWidth = useFrameMeasure(
     () => scrollRef.current?.content?.width ?? 0,
@@ -384,52 +298,6 @@ export function ThreadView({
     );
   };
 
-  const markerPreview = (): React.ReactNode => {
-    if (hoveredMarker === null) return null;
-    const preview = discussions.find((discussion) => discussion.key === hoveredMarker.key);
-
-    if (!preview) return null;
-    const quote = surface.spanQuote(preview.span);
-    const lastComment = preview.annotations.at(-1)!;
-
-    return (
-      <box
-        style={{
-          position: "absolute",
-          top: Math.max(0, hoveredMarker.screenY - 1),
-          left: Math.max(0, hoveredMarker.anchorX - 48),
-          width: 48,
-          flexDirection: "column",
-          border: true,
-          borderStyle: "single",
-          borderColor: tokens.border,
-          backgroundColor: tokens.elevated,
-          paddingLeft: 1,
-          paddingRight: 1,
-        }}
-      >
-        <text fg={tokens.textDim}>{`"${quote.slice(0, 42)}"`}</text>
-        <text fg={tokens.text}>
-          {`${lastComment.author === undefined ? "●" : "○"} ${lastComment.body}`.slice(0, 44)}
-        </text>
-        <text fg={tokens.textDim}>
-          {`${preview.annotations.length} comment${
-            preview.annotations.length === 1 ? "" : "s"
-          } · click to jump`}
-        </text>
-      </box>
-    );
-  };
-
-  // render the marker preview at the app root (above every pane rule); OpenTUI has no z-index, so an
-  // absolute box inside this pane would be sliced by the next pane's border
-  useEffect(() => {
-    setOverlay(markerPreview());
-
-    return () => clearOverlay();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hoveredMarker, discussions, tokens]);
-
   return (
     <box style={{ flexGrow: 1, flexDirection: "row" }} {...surface.rootMouseProps}>
       <box style={{ flexGrow: 1, flexDirection: "column" }}>
@@ -444,12 +312,11 @@ export function ThreadView({
           {display.map((_block, blockIndex) => blockNodeFor(blockIndex))}
         </scrollbox>
       </box>
-      <ScrollMarkers
+      <DiscussionMarkerRail
         discussions={discussions}
-        hovered={hoveredMarker?.key ?? null}
-        tokens={tokens}
-        onHover={setHoveredMarker}
+        spanQuote={surface.spanQuote}
         onJump={surface.jumpToDiscussion}
+        theme={theme}
       />
     </box>
   );

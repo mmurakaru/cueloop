@@ -27,6 +27,7 @@ import { lineMarkRanges, runsFor, wrapLines, type MarkRange } from "../mark-runs
 import { useFrameMeasure } from "../use-frame-measure";
 import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
+import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
 import { coloredRowSpans } from "./diff-sheet-layout";
 
 /** Shared empty map so an unresolved/stale highlight state is a stable value. */
@@ -659,13 +660,18 @@ export function DiffSheet({
   }
 
   return (
-    <box
-      style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 0 }}
-      {...surface.rootMouseProps}
-    >
-      <scrollbox id="diff-scroll" ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
-        {materialized}
-      </scrollbox>
+    <box style={{ flexGrow: 1, flexDirection: "row" }} {...surface.rootMouseProps}>
+      <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 0 }}>
+        <scrollbox id="diff-scroll" ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
+          {materialized}
+        </scrollbox>
+      </box>
+      <DiscussionMarkerRail
+        discussions={surface.discussions}
+        spanQuote={surface.spanQuote}
+        onJump={surface.jumpToDiscussion}
+        theme={theme}
+      />
     </box>
   );
 }
