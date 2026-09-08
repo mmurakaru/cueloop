@@ -1,7 +1,7 @@
 /**
- * Shared driving helpers for the virtual-terminal App suites: key presses
- * settle through a macrotask yield (input parser + React scheduler), one
- * render pass, and the renderer's visual-idle wait - no fixed-duration
+ * Shared driving helpers for the virtual-terminal App suites: an input settles
+ * when its painted frame stops changing across consecutive event-loop turns
+ * (macrotask yield, render pass, visual-idle wait per turn) - no fixed-duration
  * sleeps. Waits on daemon round-trips go through waitForFrame/waitFor with
  * generous pass budgets.
  */
@@ -40,15 +40,44 @@ export function allowEventLoopUpdates(): void {
   globalThis.IS_REACT_ACT_ENVIRONMENT = false;
 }
 
+/** Turns of the event loop a frame must survive unchanged before an input counts as settled. */
+const SETTLE_QUIET_TURNS = 2;
+
+/** Upper bound on settle turns, so a surface that keeps changing never stalls a test. */
+const SETTLE_MAX_TURNS = 40;
+
+/** The painted frame with its colors, so a caret cell (background only) counts as a change. */
+function paintedFrame(setup: TestRendererSetup): string {
+  return JSON.stringify(
+    setup
+      .captureSpans()
+      .lines.map((line) =>
+        line.spans.map((span) => [span.text, span.fg?.toInts(), span.bg?.toInts()]),
+      ),
+  );
+}
+
 /**
- * One macrotask yield lets the input parser and the React scheduler run,
- * then a render pass commits the result before the visual-idle wait.
+ * Wait for an input to land: React commits its state on its own scheduler, which the renderer's
+ * idle check cannot see, so on a slow machine a single idle wait returns between the key and its
+ * paint. Instead, run turns of the loop until the painted frame is unchanged across
+ * `SETTLE_QUIET_TURNS` consecutive turns.
  */
 export async function settle(setup: TestRendererSetup): Promise<void> {
   allowEventLoopUpdates();
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  await setup.renderOnce();
-  await setup.waitForVisualIdle();
+  let previous = "";
+  let quietTurns = 0;
+
+  for (let turn = 0; turn < SETTLE_MAX_TURNS; turn++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await setup.renderOnce();
+    await setup.waitForVisualIdle();
+    const frame = paintedFrame(setup);
+
+    quietTurns = frame === previous ? quietTurns + 1 : 0;
+    if (quietTurns >= SETTLE_QUIET_TURNS) return;
+    previous = frame;
+  }
 }
 
 /** Drive one key press: letters type as text; named keys use KeyCodes ids. */

@@ -100,15 +100,10 @@ test("walking the caret down past wrapped discussion cards keeps it on screen an
   const screenRows: number[] = [];
   const codeRowCount = rows.filter((row) => row.kind === "add").length;
 
-  let firstMissFrame: string | null = null;
-
   for (let step = 0; step < codeRowCount; step++) {
     await setup.waitForVisualIdle();
     scrollTops.push(scrollbox.scrollTop);
     screenRows.push(caretScreenRow());
-    if (screenRows[step] === -1 && firstMissFrame === null) {
-      firstMissFrame = setup.captureCharFrame();
-    }
     await press(setup, "down");
   }
 
@@ -118,12 +113,6 @@ test("walking the caret down past wrapped discussion cards keeps it on screen an
   }
 
   // Assert - the caret never scrolls off screen while it walks past each wrapped card
-  if (firstMissFrame !== null) {
-    // CI-only failure under investigation: show the walk and the frame at the first miss
-    console.log(
-      `DIAG scrollTops=${JSON.stringify(scrollTops)}\nDIAG screenRows=${JSON.stringify(screenRows)}\nDIAG frame:\n${firstMissFrame}`,
-    );
-  }
   expect(screenRows.every((row) => row >= 0)).toBe(true);
   // and the walk did scroll: the tall diff does not fit the viewport
   expect(scrollTops[scrollTops.length - 1]!).toBeGreaterThan(0);
