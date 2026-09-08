@@ -41,6 +41,22 @@ describe("spansByLine", () => {
     expect(lineSpans[1]).toEqual([{ start: 0, end: 2, group: "comment" }]);
   });
 
+  test("a capture ending past the source clamps to its end instead of walking forever", () => {
+    // Arrange - offsets past the string, as byte offsets over a multi-byte line report
+    const source = "a│b\ncc";
+    const highlights: SimpleHighlight[] = [
+      [0, 9, "string"],
+      [12, 20, "comment"],
+    ];
+
+    // Act
+    const lineSpans = spansByLine(source, highlights);
+
+    // Assert - the covered text is colored to the end and the second capture paints nothing
+    expect(lineSpans[0]).toEqual([{ start: 0, end: 3, group: "string" }]);
+    expect(lineSpans[1]).toEqual([{ start: 0, end: 2, group: "string" }]);
+  });
+
   test("resolves overlapping captures with later winning", () => {
     // Arrange
     const source = "foo";
