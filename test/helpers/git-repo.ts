@@ -5,7 +5,7 @@
  * developer's git config; removed by `cleanup`.
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { workingTreeDiff, type WorkingTreeDiff } from "@cueloop/daemon/working-tree";
@@ -47,6 +47,21 @@ function runGit(args: string[], cwd: string): void {
   }
 }
 
+/**
+ * Remove a fixture tree and prove it is gone. Falls back to the shell `rm`
+ * when the runtime's recursive remove leaves entries behind, and names the
+ * survivors when even that fails, so a leaked fixture explains itself in CI.
+ */
+function removeDirectoryTree(dir: string): void {
+  rmSync(dir, { recursive: true, force: true });
+  if (!existsSync(dir)) return;
+  Bun.spawnSync(["rm", "-rf", dir], { stdout: "ignore", stderr: "ignore" });
+  if (!existsSync(dir)) return;
+  const survivors = readdirSync(dir, { recursive: true }).slice(0, 20).join(", ");
+
+  throw new Error(`Test git repo cleanup left entries behind in ${dir}: ${survivors}`);
+}
+
 function writeFixtureFile(dir: string, path: string, contents: string): void {
   const target = join(dir, path);
 
@@ -63,6 +78,9 @@ export function createTestGitRepo(changedFiles: TestChangedFile[]): TestGitRepo 
 
   runGit(["init", "--quiet", "--initial-branch=main"], dir);
   runGit(["config", "commit.gpgsign", "false"], dir);
+  // no detached auto-gc or maintenance may outlive the fixture and rewrite .git after cleanup
+  runGit(["config", "gc.auto", "0"], dir);
+  runGit(["config", "maintenance.auto", "false"], dir);
   for (const file of changedFiles) {
     if (file.before !== null) writeFixtureFile(dir, file.path, file.before);
   }
@@ -79,7 +97,7 @@ export function createTestGitRepo(changedFiles: TestChangedFile[]): TestGitRepo 
       return workingTreeDiff(dir);
     },
     cleanup() {
-      rmSync(dir, { recursive: true, force: true });
+      removeDirectoryTree(dir);
     },
   };
 }

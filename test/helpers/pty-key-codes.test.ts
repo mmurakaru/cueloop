@@ -1,4 +1,4 @@
-/** Key names encode to the bytes an xterm-family terminal sends; bad chords fail loudly. */
+/** Key names encode to the bytes a TERM=xterm-256color terminal sends; bad chords fail loudly. */
 
 import { describe, expect, test } from "bun:test";
 import { encodePtyKeyPress } from "./pty-key-codes";

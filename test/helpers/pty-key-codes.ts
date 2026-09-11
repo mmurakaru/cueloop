@@ -1,11 +1,12 @@
 /**
- * Encode key names into the bytes a terminal sends for them, so a PTY test
- * writes `press("down")` or `press(["ctrl", "e"])` instead of escape sequences.
- * The table follows xterm: CSI arrows, SS3 F1-F4, tilde-form editing keys,
- * ctrl+letter as the C0 control byte, alt as an ESC prefix, and CSI u for
- * ctrl with enter/tab/backspace/escape (the only combos plain bytes cannot say).
- * Not built on @opentui/core/testing KeyCodes: that table targets the mock
- * renderer (backspace is 0x08 there, xterm sends 0x7f) and has no chord encoder.
+ * Encode key names into the bytes a TERM=xterm-256color terminal sends for
+ * them, so a PTY test writes `press("down")` or `press(["ctrl", "e"])` instead
+ * of escape sequences. Invariants: arrows and home/end are CSI final letters,
+ * F1-F4 are SS3, editing keys are CSI tilde forms, backspace is DEL (0x7f),
+ * ctrl+letter is the C0 control byte, alt prefixes ESC, and ctrl with
+ * enter/tab/backspace/escape uses CSI u because no plain byte exists for it.
+ * Not built on the mock renderer's KeyCodes table from @opentui/core/testing:
+ * it encodes backspace as 0x08 and has no chord encoder.
  */
 
 /** Named keys and their byte sequences; letters and other printables are sent as themselves. */
@@ -71,7 +72,7 @@ function isNamedKey(token: string): token is PtyNamedKey {
   return Object.hasOwn(PTY_KEY_SEQUENCES, token);
 }
 
-/** The xterm modifier parameter: 1 + shift(1) + alt(2) + ctrl(4). */
+/** The CSI modifier parameter: 1 + shift(1) + alt(2) + ctrl(4). */
 function csiModifierParameter(modifiers: ReadonlySet<PtyKeyModifier>): number {
   return (
     1 +

@@ -14,8 +14,15 @@ import { createTestGitRepo, type TestGitRepo } from "../helpers/git-repo";
 import { launchTuiSession, ptyTuiAvailable, type PtyTuiSession } from "../helpers/pty-tui-session";
 import { createTestReviewHome, type TestReviewHome } from "../helpers/review-home";
 
-const RUN = !!process.env.CUELOOP_RUN_PTY && ptyTuiAvailable();
+const RUN = !!process.env.CUELOOP_RUN_PTY;
 const ptyTest = RUN ? test : test.skip;
+
+// An explicitly requested PTY run must not pass by skipping everything.
+if (RUN && !ptyTuiAvailable()) {
+  throw new Error(
+    "PTY tier requested via CUELOOP_RUN_PTY but the native pty or Ghostty VT shim is missing for this platform",
+  );
+}
 
 const PLAN = `# Rollout Plan
 

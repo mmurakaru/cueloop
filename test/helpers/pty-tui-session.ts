@@ -81,7 +81,6 @@ export async function waitForPtyScreen(
   const timeoutMs = options.timeoutMs ?? SCREEN_WAIT_TIMEOUT_MS;
   const what = options.what ?? "the screen predicate";
   let screen = reader.text();
-  // stop early on a match or on exit; the exit is judged after the loop
   const settled = await pollUntil(() => {
     if (predicate(screen)) return true;
     if (reader.exit() !== null) return true;
@@ -112,7 +111,12 @@ export function waitForPtyText(
 ): Promise<string> {
   const matches =
     pattern instanceof RegExp
-      ? (screen: string) => pattern.test(screen)
+      ? (screen: string) => {
+          // a global or sticky pattern remembers lastIndex between calls
+          pattern.lastIndex = 0;
+
+          return pattern.test(screen);
+        }
       : (screen: string) => screen.includes(pattern);
 
   return waitForPtyScreen(reader, matches, { what: `text ${String(pattern)}`, ...options });
@@ -224,19 +228,20 @@ export class PtyTuiSession implements PtyScreenReader {
     this.pty.write(data);
   }
 
-  /** Press one key or chord by name and wait for the repaint to go quiet. */
+  /** Press one key or chord by name and wait for its repaint to go quiet. */
   async press(key: PtyKeyPress): Promise<void> {
-    this.pty.write(encodePtyKeyPress(key));
-    await this.waitIdle();
+    await this.writeAndSettle(encodePtyKeyPress(key));
   }
 
   /** Type text one character at a time, then wait for the repaint to go quiet. */
   async type(text: string): Promise<void> {
+    const before = this.generation;
+
     for (const character of text) {
       this.pty.write(character);
       await Bun.sleep(TYPE_CHARACTER_GAP_MS);
     }
-    await this.waitIdle();
+    await this.settleAfterInput(before);
   }
 
   /** Left-click the first on-screen occurrence of `needle` (SGR 1006 mouse encoding). */
@@ -255,8 +260,7 @@ export class PtyTuiSession implements PtyScreenReader {
     const x = column + 1;
     const y = row + 1;
 
-    this.pty.write(`\x1b[<0;${x};${y}M\x1b[<0;${x};${y}m`);
-    await this.waitIdle();
+    await this.writeAndSettle(`\x1b[<0;${x};${y}M\x1b[<0;${x};${y}m`);
   }
 
   /** Resize the emulator and the child's tty together, which delivers SIGWINCH. */
@@ -264,6 +268,29 @@ export class PtyTuiSession implements PtyScreenReader {
     this.terminal.resize(cols, rows);
     this.pty.resize(cols, rows);
     this.generation += 1;
+  }
+
+  /**
+   * Write input, then wait for the output it causes to arrive and go quiet.
+   * Output is asynchronous, so a bare quiet check right after the write would
+   * pass on the silence that preceded the key; the wait first requires a chunk
+   * newer than the write, bounded so a key with no visible effect still returns.
+   */
+  private async writeAndSettle(data: string): Promise<void> {
+    const before = this.generation;
+
+    this.pty.write(data);
+    await this.settleAfterInput(before);
+  }
+
+  private async settleAfterInput(generationBefore: number): Promise<void> {
+    const deadline = Date.now() + IDLE_TIMEOUT_MS;
+
+    await pollUntil(
+      () => this.generation !== generationBefore || this.exitRecord !== null,
+      IDLE_TIMEOUT_MS,
+    );
+    await this.waitIdle(IDLE_QUIET_MS, Math.max(IDLE_QUIET_MS, deadline - Date.now()));
   }
 
   /** Resolve once output has been quiet for `quietMs`, or after a bounded timeout. */
