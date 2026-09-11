@@ -21,10 +21,11 @@ describe("ghostty-terminal FFI", () => {
     term.write(new TextEncoder().encode("hi\x1b[1;32mGO\x1b[0m"));
     const cells = [0, 1, 2, 3].map((x) => term.readCell(x, 0));
 
-    // Assert - glyphs decode, and the green run is bold on ANSI palette index 2
+    // Assert - glyphs decode, the row reads as text, and the green run is bold on ANSI palette index 2
     expect(
       cells.map((c) => (c?.codepoint ? String.fromCodePoint(c.codepoint) : " ")).join(""),
     ).toBe("hiGO");
+    expect(term.rowText(0, 80)).toBe("hiGO");
     expect(cells[2]!.bold).toBe(true);
     expect(cells[2]!.fg).toEqual({ kind: "palette", index: 2 });
     term.free();

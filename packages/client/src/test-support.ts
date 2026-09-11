@@ -13,6 +13,16 @@ import type { TestRendererSetup } from "@opentui/core/testing";
 export const WAIT_PASSES = { maxPasses: 400 };
 
 /**
+ * The CUELOOP_CONFIG path that isolates a test from the developer's real user
+ * config: a file inside the test home that does not exist unless the test
+ * writes it. Subprocess harnesses set this in the child env; in-process suites
+ * use `isolateUserConfig`.
+ */
+export function isolatedUserConfigPath(home: string, fileName = "no-config.toml"): string {
+  return join(home, fileName);
+}
+
+/**
  * Isolate the user config: point CUELOOP_CONFIG into the test home so
  * loadConfig never reads the developer's real ~/.config/cueloop (a persisted
  * review_state would change what char frames render locally while CI stays
@@ -20,10 +30,10 @@ export const WAIT_PASSES = { maxPasses: 400 };
  * defaults; pass a file name for suites that write and assert a config of
  * their own. Call in beforeEach; invoke the returned restore in afterEach.
  */
-export function isolateUserConfig(home: string, fileName = "no-config.toml"): () => void {
+export function isolateUserConfig(home: string, fileName?: string): () => void {
   const priorUserConfig = process.env.CUELOOP_CONFIG;
 
-  process.env.CUELOOP_CONFIG = join(home, fileName);
+  process.env.CUELOOP_CONFIG = isolatedUserConfigPath(home, fileName);
 
   return () => {
     if (priorUserConfig === undefined) delete process.env.CUELOOP_CONFIG;
@@ -114,17 +124,27 @@ export interface FrameLocation {
   column: number;
 }
 
-/** Locate the first visual line containing the needle: 0-based row and start column. */
-export function locateText(setup: TestRendererSetup, needle: string): FrameLocation {
-  const frame = setup.captureCharFrame();
-
+/** Locate the first line of a text frame containing the needle; null when absent. */
+export function locateTextInFrame(frame: string, needle: string): FrameLocation | null {
   for (const [row, line] of frame.split("\n").entries()) {
     const column = line.indexOf(needle);
 
     if (column !== -1) return { row, column };
   }
 
-  throw new Error(`locateText ${JSON.stringify(needle)} not found.\nframe:\n${frame}`);
+  return null;
+}
+
+/** Locate the first visual line containing the needle: 0-based row and start column. */
+export function locateText(setup: TestRendererSetup, needle: string): FrameLocation {
+  const frame = setup.captureCharFrame();
+  const location = locateTextInFrame(frame, needle);
+
+  if (location === null) {
+    throw new Error(`locateText ${JSON.stringify(needle)} not found.\nframe:\n${frame}`);
+  }
+
+  return location;
 }
 
 /** The 0-based visual row of the needle - for relative vertical-layout assertions. */

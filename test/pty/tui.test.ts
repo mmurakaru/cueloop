@@ -1,26 +1,21 @@
 /**
- * PTY tests: the real `cueloop` TUI binary in a pseudo-terminal, asserting
- * what the virtual-terminal tier cannot prove - alternate-screen render, key
- * routing through a raw tty, SIGWINCH resize, and the process exit code.
- * The backend is cueloop's own forkpty FFI shim (packages/client/src/pty.ts).
- * Env-gated behind CUELOOP_RUN_PTY (`bun run
- * test:pty`). The tests share one PTY session and run in file order; OpenTUI
- * repaints only changed cells, so assertions read the stripped output delta.
+ * PTY tests: the real `cueloop` TUI in a pseudo-terminal, asserting what the
+ * virtual-terminal tier cannot prove - alternate-screen render, key routing
+ * through a raw tty, SIGWINCH resize, the editor hand-off, mouse routing, and
+ * the exit code. Output is fed into the Ghostty VT emulator, so every assertion
+ * reads the rendered screen (test/helpers/pty-tui-session.ts). Env-gated behind
+ * CUELOOP_RUN_PTY (`bun run test:pty`); each describe shares one session and
+ * runs in file order.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { spawn, type IPty } from "../../packages/client/src/pty";
-import { DaemonServer } from "@cueloop/daemon";
-import { HERMETIC_HERDR_ENV } from "../helpers/env";
+import type { ReviewSession } from "@cueloop/schema";
+import { createTestGitRepo, type TestGitRepo } from "../helpers/git-repo";
+import { launchTuiSession, ptyTuiAvailable, type PtyTuiSession } from "../helpers/pty-tui-session";
+import { createTestReviewHome, type TestReviewHome } from "../helpers/review-home";
 
-const RUN = !!process.env.CUELOOP_RUN_PTY;
+const RUN = !!process.env.CUELOOP_RUN_PTY && ptyTuiAvailable();
 const ptyTest = RUN ? test : test.skip;
-
-const ROOT = join(import.meta.dir, "..", "..");
-const CLI = join(ROOT, "packages", "cli", "src", "main.ts");
 
 const PLAN = `# Rollout Plan
 
@@ -33,164 +28,109 @@ Ship the daemon behind a flag.
 Enable it for everyone immediately.
 `;
 
-/** CSI (incl. private params), OSC, DCS/APC-style strings, and bare ESC finals. */
-const ANSI =
-  // eslint-disable-next-line no-control-regex
-  /\[[0-9;?>=<]*[ -/]*[@-~]|\][^]*(?:|\\)|P[^]*\\|[@-Z\\-_]/g;
+const EDIT_MARKER = "Edited via PTY hand-off.";
 
-function stripAnsi(raw: string): string {
-  return raw.replace(ANSI, "");
-}
+let reviewHome: TestReviewHome;
 
-let home: string;
-let server: DaemonServer;
-let sessionId: string;
-let pty: IPty;
-let ptyOutput = "";
-let exit: { exitCode: number } | null = null;
-
-/** PTY output arrives in chunks; poll a predicate against the buffer with a deadline. */
-async function waitFor(predicate: () => boolean, ms: number, what: string): Promise<void> {
-  const deadline = Date.now() + ms;
-
-  while (Date.now() < deadline) {
-    if (predicate()) return;
-    await Bun.sleep(50);
-  }
-  if (!predicate())
-    throw new Error(
-      `timed out waiting for ${what}; buffer: ${JSON.stringify(stripAnsi(ptyOutput).slice(-500))}`,
-    );
-}
-
-beforeAll(async () => {
+beforeAll(() => {
   if (!RUN) return;
-  home = mkdtempSync(join(tmpdir(), "cueloop-pty-"));
-  server = new DaemonServer({ home, idleExitMs: 0 });
-  server.start();
-  const session = server.core.sessionCreate({
-    workspace: { repoRoot: "/repo", branch: "main" },
-    artifact: { type: "plan", content: PLAN, meta: { title: "Rollout Plan", planPath: "plan.md" } },
-  });
-
-  sessionId = session.id;
-  // A non-interactive editor that appends a marker, so the e hand-off proves
-  // the renderer suspends, spawns on the real tty, and resumes.
-  const editorScript = join(home, "pty-editor.sh");
-
-  writeFileSync(editorScript, `#!/bin/sh\nprintf '\\n\\nEdited via PTY hand-off.\\n' >> "$1"\n`);
-  chmodSync(editorScript, 0o755);
-  const environment: Record<string, string> = {};
-
-  for (const [name, value] of Object.entries(process.env)) {
-    if (value !== undefined) environment[name] = value;
-  }
-  Object.assign(environment, HERMETIC_HERDR_ENV);
-  environment.CUELOOP_HOME = home;
-  environment.CUELOOP_EDITOR = editorScript;
-  pty = spawn(process.execPath, ["run", CLI, sessionId], {
-    name: "xterm-256color",
-    cols: 120,
-    rows: 30,
-    cwd: ROOT,
-    env: environment,
-  });
-  pty.onData((chunk) => {
-    ptyOutput += chunk;
-  });
-  pty.onExit((exitEvent) => {
-    exit = exitEvent;
-  });
+  reviewHome = createTestReviewHome();
 });
 
 afterAll(() => {
   if (!RUN) return;
-  if (exit === null) {
-    try {
-      pty.kill();
-    } catch {
-      // already gone
-    }
-  }
-  server.stop();
-  rmSync(home, { recursive: true, force: true });
+  reviewHome.cleanup();
 });
 
-describe("PTY tier: the real TUI in a pseudo-terminal", () => {
-  ptyTest(
-    "initial render paints the plan in a real terminal",
-    async () => {
-      await waitFor(() => stripAnsi(ptyOutput).includes("Rollout Plan"), 20_000, "the plan title");
-      await waitFor(
-        () => stripAnsi(ptyOutput).includes("Enable it for everyone immediately."),
-        20_000,
-        "the plan body",
-      );
-      const frame = stripAnsi(ptyOutput);
+describe("PTY tier: a plan review in a pseudo-terminal", () => {
+  let session: PtyTuiSession;
 
-      expect(frame).toContain("Rollout Plan");
-      expect(frame).toContain("Ship the daemon behind a flag.");
-      // the rail and its submit button frame the thread
-      expect(frame).toContain("Submit review");
+  beforeAll(async () => {
+    if (!RUN) return;
+    const planSession = reviewHome.createPlanSession(PLAN, "Rollout Plan");
+
+    session = launchTuiSession({
+      home: reviewHome.home,
+      args: [planSession.id],
+      cols: 120,
+      rows: 30,
+      env: { CUELOOP_EDITOR: reviewHome.createAppendingEditor(EDIT_MARKER) },
+    });
+    await session.waitForText("Enable it for everyone immediately.", {
+      timeoutMs: 20_000,
+      what: "the first painted plan",
+    });
+    // down moves the caret onto the next block (a background change); up moves it back
+    await session.ensureKeyboardIsLive("down", "up");
+  });
+
+  afterAll(async () => {
+    if (!RUN) return;
+    await session.close();
+  });
+
+  ptyTest(
+    "initial render paints the plan, the header actions, and the footer",
+    () => {
+      // Assert - the screen grid holds the title, the body, the header actions, and the footer
+      const screen = session.text();
+
+      expect(screen).toContain("Rollout Plan");
+      expect(screen).toContain("Ship the daemon behind a flag.");
+      expect(screen).toContain("Enable it for everyone immediately.");
+      expect(screen).toMatch(/edit\s+share/);
+      expect(screen).toContain("repo / main");
     },
     60_000,
   );
 
   ptyTest(
-    "keys route through the raw tty: arrows move the caret, a printable opens a draft there",
+    "keys route through the raw tty: arrows move the caret, printables open and fill a draft",
     async () => {
-      // Arrange
-      ptyOutput = "";
+      // Act - two blocks down lands the caret on the first paragraph; a printable opens a draft card
+      await session.press("down");
+      await session.press("down");
+      await session.pressAndWaitForScreen("x", (screen) => screen.includes("● x"), {
+        what: "the draft card",
+      });
 
-      // Act: two blocks down lands the caret on the first paragraph; typing
-      // opens a draft card under it, which repaints through the raw tty
-      pty.write("\x1b[B");
-      pty.write("\x1b[B");
-      pty.write("x");
-
-      // Assert
-      await waitFor(() => stripAnsi(ptyOutput).includes("● x"), 10_000, "the draft card");
-
-      // Act: escape twice drops the draft, then the mark
-      ptyOutput = "";
-      pty.write("\x1b");
-      await Bun.sleep(300);
-      pty.write("\x1b");
-      await Bun.sleep(300);
+      // Act - typed characters land in the same draft
+      await session.type("yz");
 
       // Assert
-      expect(exit).toBeNull();
+      await session.waitForText("● xyz", { what: "the typed draft text" });
+
+      // Act - escape twice drops the draft, then the mark
+      await session.press("escape");
+      await session.waitForScreen((screen) => !screen.includes("● xyz"), {
+        what: "the draft to close",
+      });
+      await session.press("escape");
+
+      // Assert
+      expect(session.exit()).toBeNull();
     },
     60_000,
   );
 
   ptyTest(
-    "resize does not crash and forces a repaint",
+    "resize does not crash and the document survives both directions",
     async () => {
-      // Arrange
-      ptyOutput = "";
+      // Act - shrink, then grow back; SIGWINCH must repaint, not kill
+      session.resize(100, 24);
+      await session.waitForText("Ship the daemon behind a flag.", {
+        what: "the plan after shrinking",
+      });
+      expect(session.exit()).toBeNull();
 
-      // Act
-      pty.resize(100, 24);
+      session.resize(120, 30);
+      await session.waitForText("Ship the daemon behind a flag.", {
+        what: "the plan after growing back",
+      });
 
-      // Assert
-      await waitFor(() => ptyOutput.length > 0, 10_000, "a repaint after resize");
-      expect(exit).toBeNull();
-
-      // Act
-      // grow back; the TUI keeps repainting rather than dying on SIGWINCH
-      ptyOutput = "";
-      pty.resize(120, 30);
-
-      // Assert
-      await waitFor(() => ptyOutput.length > 0, 10_000, "a repaint after growing back");
-      expect(exit).toBeNull();
-      // the document survives both resizes
-      await waitFor(
-        () => stripAnsi(ptyOutput).includes("Ship the daemon behind a flag."),
-        10_000,
-        "the paragraph after resize",
-      );
+      // Assert - the screen is the requested size and the child still runs
+      expect(session.text().split("\n")).toHaveLength(30);
+      expect(session.exit()).toBeNull();
     },
     60_000,
   );
@@ -198,30 +138,15 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
   ptyTest(
     "ctrl+e suspends the renderer, runs the editor on the real tty, and resumes with the edit",
     async () => {
-      // Arrange
-      ptyOutput = "";
+      // Act - the edit hand-off runs the appending editor script against the plan
+      await session.pressAndWaitForScreen(["ctrl", "e"], (screen) => screen.includes(EDIT_MARKER), {
+        timeoutMs: 15_000,
+        what: "the edited plan after resume",
+      });
 
-      // Act
-      pty.write("\x05");
-
-      // Assert
-      // resume repaints the plan with the appended line - proof the full
-      // suspend -> spawn -> resume cycle ran without crashing the tty
-      await waitFor(
-        () => stripAnsi(ptyOutput).includes("Edited via PTY hand-off."),
-        15_000,
-        "the edited plan after resume",
-      );
-      expect(exit).toBeNull();
-
-      // Act
-      // the TUI is live again: an arrow still routes through the raw tty
-      ptyOutput = "";
-      pty.write("\x1b[B");
-
-      // Assert
-      await waitFor(() => ptyOutput.length > 0, 10_000, "a repaint after resume");
-      expect(exit).toBeNull();
+      // Assert - the plan is back with the appended line, and the tty is live again
+      expect(session.exit()).toBeNull();
+      await session.ensureKeyboardIsLive("down", "up");
     },
     60_000,
   );
@@ -230,11 +155,79 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
     "ctrl+q exits cleanly with code 0",
     async () => {
       // Act
-      pty.write("\x11");
+      await session.press(["ctrl", "q"]);
 
       // Assert
-      await waitFor(() => exit !== null, 10_000, "process exit");
-      expect(exit!.exitCode).toBe(0);
+      const exit = await session.waitForExit(10_000);
+
+      expect(exit.exitCode).toBe(0);
+    },
+    60_000,
+  );
+});
+
+describe("PTY tier: a diff review in a pseudo-terminal", () => {
+  let repo: TestGitRepo;
+  let diffSession: ReviewSession;
+  let session: PtyTuiSession;
+
+  beforeAll(async () => {
+    if (!RUN) return;
+    repo = createTestGitRepo([
+      {
+        path: "src/store.ts",
+        before: "export class Store {\n  private items = [];\n}\n",
+        after: "export class Store {\n  private items = new Map();\n}\n",
+      },
+    ]);
+    const { patch, files } = await repo.diff();
+
+    diffSession = reviewHome.createDiffSession(patch, files);
+    session = launchTuiSession({
+      home: reviewHome.home,
+      args: [diffSession.id],
+      cols: 120,
+      rows: 30,
+    });
+    await session.waitForText("new Map()", { timeoutMs: 20_000, what: "the first painted diff" });
+  });
+
+  afterAll(async () => {
+    if (!RUN) return;
+    await session.close();
+    repo.cleanup();
+  });
+
+  ptyTest(
+    "the diff sheet paints the file header and both sides of the change",
+    () => {
+      // Assert
+      const screen = session.text();
+
+      expect(screen).toContain("src/store.ts");
+      expect(screen).toContain("private items = [];");
+      expect(screen).toContain("private items = new Map();");
+    },
+    60_000,
+  );
+
+  ptyTest(
+    "a mouse click routes through the tty, and alt+x rejects the change under the caret",
+    async () => {
+      // Arrange - the click lands the caret on the added line
+      await session.click("new Map()");
+
+      // Act
+      await session.pressAndWaitForScreen(
+        ["alt", "x"],
+        (screen) => screen.includes("change rejected"),
+        {
+          what: "the rejection toast",
+        },
+      );
+
+      // Assert - the daemon holds the curated working copy without the change
+      expect(reviewHome.server.core.sessionGet(diffSession.id).workingCopy).toBe("");
     },
     60_000,
   );

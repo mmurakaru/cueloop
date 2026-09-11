@@ -14,6 +14,7 @@ import {
   frameRow,
   isolateUserConfig,
   locateText,
+  locateTextInFrame,
   pressKey,
   waitForText,
   type FrameLocation,
@@ -248,5 +249,16 @@ describe("dragText", () => {
 
     // Assert
     expect(log.mouseEvents).toContainEqual({ type: "up", x: 9, y: 3 });
+  });
+});
+
+describe("locateTextInFrame", () => {
+  test("finds the 0-based row and column of the first match, null when absent", () => {
+    // Arrange
+    const frame = "header\n  ● draft here\nfooter";
+
+    // Act + Assert
+    expect(locateTextInFrame(frame, "draft")).toEqual({ row: 1, column: 4 });
+    expect(locateTextInFrame(frame, "missing")).toBeNull();
   });
 });
