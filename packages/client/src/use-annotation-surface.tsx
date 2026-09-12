@@ -73,6 +73,12 @@ export interface AnnotationSurfaceOptions {
   quickActions: QuickAction[];
   tokens: Theme;
   observer: boolean;
+  /**
+   * Whether this surface accepts comments. False for a non-diff thread's live
+   * working-tree diff, which is view-only: its rows are diff rows, but the
+   * thread anchors comments in plan coordinates, so a draft here would misanchor.
+   */
+  commentsEnabled?: boolean;
   /** A verdict is in: no draft may open; the app answers with its read-only status. */
   resolved: boolean;
   /** True while a menu, dialog, or overlay owns the keyboard. */
@@ -152,6 +158,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     quickActions,
     tokens,
     observer,
+    commentsEnabled = true,
     resolved,
     suspended,
     onComposingChange,
@@ -283,6 +290,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     }));
 
   const openCompose = (state: ComposeState): void => {
+    // a view-only surface (a non-diff thread's live diff) never opens a draft
+    if (!commentsEnabled) return;
     if (observer) return onObserverBlocked?.("observer");
     if (resolved) return onObserverBlocked?.("resolved");
     composerReady.current = false;

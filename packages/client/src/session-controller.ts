@@ -538,7 +538,9 @@ class Controller implements ReviewController {
   }
 
   canExpandFile(file: string): boolean {
-    return (this.snapshot.session?.artifact.files ?? []).some((entry) => entry.path === file);
+    // a live working-tree diff carries the same per-file contents as a captured one,
+    // so a non-diff thread can expand its files too
+    return (this.foldFiles() ?? []).some((entry) => entry.path === file);
   }
 
   copyFilePath(file: string): void {
@@ -603,7 +605,9 @@ class Controller implements ReviewController {
     // eager: capture the live working-tree diff so the Changes navigator and its file tabs render a real diff
     if (this.client?.repoDiff !== undefined) {
       const diff = await this.client.repoDiff(this.sidebarRepoRoot());
-
+      // a thread switch during the request would let this response overwrite the new
+      // thread's diff, showing changes from the wrong repo; drop it when the session moved on
+      if (this.snapshot.session !== session) return diff.files;
       this.liveDiff = diff;
       // rows() derive from the fresh patch; re-render so an open diff tab repaints
       this.update({});

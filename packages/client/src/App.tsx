@@ -146,6 +146,7 @@ type DiffSurfaceProps = Pick<
   | "session"
   | "quickActions"
   | "observer"
+  | "commentsEnabled"
   | "resolved"
   | "suspended"
   | "onComposingChange"
@@ -939,6 +940,9 @@ export function App({
                   session: activeSession,
                   quickActions,
                   observer,
+                  // a non-diff thread's Changes view is a live working-tree diff for reading only;
+                  // comments there would misanchor, since the thread anchors in plan coordinates
+                  commentsEnabled: isDiff,
                   resolved,
                   suspended: threadViewSuspended || !groupFocused,
                   onComposingChange: setThreadComposing,

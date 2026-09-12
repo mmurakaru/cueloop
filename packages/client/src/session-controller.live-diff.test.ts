@@ -43,11 +43,11 @@ const shareTransport: ShareTransport = {
   mergeFromShare,
 };
 
-function planSession(): ReviewSession {
+function planSession(id = "ses_plan", repoRoot = "/repo"): ReviewSession {
   return {
     schemaVersion: SCHEMA_VERSION,
-    id: "ses_plan",
-    workspace: { repoRoot: "/repo", branch: "main" },
+    id,
+    workspace: { repoRoot, branch: "main" },
     artifact: { type: "plan", content: "# Plan\n", meta: {} },
     revisions: [{ revision: 1, content: "# Plan\n", submittedAt: AT }],
     annotations: [],
@@ -111,6 +111,49 @@ describe("live working-tree diff for a non-diff thread", () => {
 
     // and the diff rows derive from the live patch, so an opened file tab shows a diff
     expect(controller.rows().some((row) => row.file === "src/x.ts")).toBe(true);
+
+    // the live per-file contents let a non-diff thread expand a folded file too
+    expect(controller.canExpandFile("src/x.ts")).toBe(true);
+
+    controller.close();
+  });
+
+  test("a late diff response from a previous thread never overwrites the active one", async () => {
+    const sessionA = planSession("ses_A", "/repoA");
+    const sessionB = planSession("ses_B", "/repoB");
+    let resolveA: (diff: { patch: string; files: typeof FILES }) => void = () => {};
+    const pendingA = new Promise<{ patch: string; files: typeof FILES }>((resolve) => {
+      resolveA = resolve;
+    });
+    const diffB = {
+      patch: PATCH.replace(/x\.ts/g, "y.ts"),
+      files: [{ ...FILES[0]!, path: "src/y.ts" }],
+    };
+    const client = {
+      ...fakeClient(sessionA),
+      sessionList: async () => [sessionA, sessionB],
+      repoDiff: async (cwd: string) => (cwd === "/repoA" ? pendingA : diffB),
+    } satisfies SessionClient;
+
+    const controller = createReviewController({
+      sessionId: sessionA.id,
+      openClient: async () => client,
+      shareTransport,
+    });
+    controller.connect();
+    await tick();
+
+    // thread A's diff is still in flight when the user switches to thread B
+    const inFlightA = controller.repoChanges();
+    controller.open("ses_B");
+    await controller.repoChanges();
+    // B's diff is showing; now A's stale response lands
+    resolveA({ patch: PATCH, files: FILES });
+    await inFlightA;
+
+    // the active thread keeps B's changes; A's late response is dropped
+    expect(controller.rows().some((row) => row.file === "src/y.ts")).toBe(true);
+    expect(controller.rows().some((row) => row.file === "src/x.ts")).toBe(false);
 
     controller.close();
   });

@@ -1401,18 +1401,18 @@ exports[`stories catalog Overlays/WalkWizard/WithAgentNote renders, snapshots, a
 exports[`stories catalog Surfaces/WelcomeSurface/Welcome renders, snapshots, and carries its colors: Surfaces/WelcomeSurface/Welcome 1`] = `
 "                                                            
   Welcome to cueloop                                        
+  a review loop for coding agents                           
                                                             
   Start                                                     
-  · select a thread                                         
-  · explore files in the project panel                      
-  · open changes to to see your diff                        
+  · select a thread on the left                             
+  · or run cueloop plan / cueloop diff from a repo          
                                                             
   Learn                                                     
-  · docs   cueloop.dev/docs                                 
+  · docs        www.cueloop.dev                             
+  · changelog   www.cueloop.dev/changelog                   
                                                             
   What's new                                                
   · cueloop v0.1.0-alpha.66                                 
-                                                            
                                                             
                                                             
 "

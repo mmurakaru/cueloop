@@ -61,6 +61,8 @@ export interface DiffContentViewProps {
   marks: Map<number, Mark[]>;
   quickActions: QuickAction[];
   observer: boolean;
+  /** Whether comments can be drafted here; false for a non-diff thread's view-only live diff. */
+  commentsEnabled?: boolean;
   /** A verdict is in: no draft may open; the app answers with its read-only status. */
   resolved?: boolean;
   /** True while a menu, dialog, or overlay owns the keyboard. */
@@ -383,6 +385,7 @@ export function DiffContentView({
   marks,
   quickActions,
   observer,
+  commentsEnabled = true,
   resolved = false,
   suspended = false,
   onComposingChange,
@@ -414,6 +417,7 @@ export function DiffContentView({
     quickActions,
     tokens,
     observer,
+    commentsEnabled,
     resolved,
     suspended,
     onComposingChange,
