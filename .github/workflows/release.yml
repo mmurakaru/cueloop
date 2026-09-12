@@ -237,13 +237,78 @@ jobs:
             --notes "cueloop $TAG" \
             assets/cueloop-* assets/checksums.txt
 
+  # The curl installer against the exact staged binaries, on each target's own
+  # OS, before anything is published. The draft assets are served from a local
+  # release tree so install.sh runs its real download-and-verify path against
+  # the bytes that are about to ship. The previous published release, when there
+  # is one, is served alongside so the upgrade path is covered too. A broken
+  # installer must block the release, so publish waits on this.
+  install-gate:
+    name: Install gate ${{ matrix.target }}
+    needs: [guard, stage]
+    if: needs.guard.outputs.publish == 'true'
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin-arm64
+            runner: macos-15
+          - target: darwin-x64
+            runner: macos-15-intel
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Run the installer against the staged release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.guard.outputs.tag }}
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          mkdir -p "assets/${TAG}"
+          gh release download "$TAG" --dir "assets/${TAG}"
+          scenarios="curl-clean curl-rerun plugin"
+          previous_version=""
+          # serve the previous published release too, when one exists, so the
+          # upgrade path runs against real binaries of two versions
+          if previous_tag="$(bun -e 'import { resolvePreviousReleaseTag } from "./scripts/benchmarks/previous-release"; console.log(await resolvePreviousReleaseTag(Bun.env.VERSION))' 2>/dev/null)" && [ -n "$previous_tag" ]; then
+            mkdir -p "assets/${previous_tag}"
+            gh release download "$previous_tag" --dir "assets/${previous_tag}"
+            previous_version="${previous_tag#cueloop@}"
+            scenarios="curl-clean curl-rerun curl-upgrade plugin"
+          fi
+          # shellcheck disable=SC2086
+          bun run test/install/matrix/run.ts \
+            --assets assets \
+            --version "$VERSION" \
+            --previous "$previous_version" \
+            --platform "${{ matrix.target }}" \
+            --out "dist/install-matrix" \
+            $scenarios
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: install-matrix-${{ matrix.target }}
+          path: dist/install-matrix
+          if-no-files-found: ignore
+
   # The one irreversible step, isolated so cleanup can key on it alone: once this
   # job succeeds, npm has the packages and the draft is never deleted. OIDC
   # trusted publishing, no npm token. typecheck+test guard a Release PR whose own
   # CI may not have run.
   publish-npm:
     name: Publish to npm
-    needs: [guard, stage]
+    needs: [guard, stage, install-gate]
     if: needs.guard.outputs.publish == 'true'
     runs-on: macos-latest
     permissions:
@@ -355,7 +420,7 @@ jobs:
   # binaries are never removed; a re-run then starts clean.
   cleanup:
     name: Cleanup failed draft
-    needs: [guard, build, stage, publish-npm, finalize]
+    needs: [guard, build, stage, install-gate, publish-npm, finalize]
     if: >-
       always() && needs.guard.outputs.publish == 'true' &&
       contains(needs.*.result, 'failure') && needs.publish-npm.result != 'success'

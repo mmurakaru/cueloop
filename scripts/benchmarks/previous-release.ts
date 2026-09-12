@@ -23,8 +23,18 @@ export function previousReleaseTag(releases: ReleaseList, headVersion: string): 
   return candidates.length > 0 ? `${RELEASE_TAG_PREFIX}${candidates[0]}` : null;
 }
 
-/** Ask GitHub for the release list and pick the previous release; throws when there is none. */
-export async function resolvePreviousReleaseTag(headVersion: string): Promise<string> {
+/** The `cueloop@<version>` tag of the newest published release, or null when none. */
+export function latestReleaseTag(releases: ReleaseList): string | null {
+  const candidates = releases
+    .filter((release) => !release.isDraft && release.tagName.startsWith(RELEASE_TAG_PREFIX))
+    .map((release) => release.tagName.slice(RELEASE_TAG_PREFIX.length))
+    .toSorted((left, right) => Bun.semver.order(right, left));
+
+  return candidates.length > 0 ? `${RELEASE_TAG_PREFIX}${candidates[0]}` : null;
+}
+
+/** Ask GitHub for the published release list, newest first is not assumed. */
+export async function fetchReleaseList(): Promise<ReleaseList> {
   const proc = Bun.spawn(["gh", "release", "list", "--limit", "100", "--json", "tagName,isDraft"], {
     stdout: "pipe",
     stderr: "inherit",
@@ -32,11 +42,26 @@ export async function resolvePreviousReleaseTag(headVersion: string): Promise<st
   const [stdout, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
 
   if (code !== 0) throw new Error("previous-release: gh release list failed");
-  const tag = previousReleaseTag(v.parse(ReleaseListSchema, JSON.parse(stdout)), headVersion);
+
+  return v.parse(ReleaseListSchema, JSON.parse(stdout));
+}
+
+/** Ask GitHub for the release list and pick the previous release; throws when there is none. */
+export async function resolvePreviousReleaseTag(headVersion: string): Promise<string> {
+  const tag = previousReleaseTag(await fetchReleaseList(), headVersion);
 
   if (tag === null) {
     throw new Error(`previous-release: no published cueloop release below ${headVersion}`);
   }
+
+  return tag;
+}
+
+/** Ask GitHub for the release list and pick the newest published release; throws when none. */
+export async function resolveLatestReleaseTag(): Promise<string> {
+  const tag = latestReleaseTag(await fetchReleaseList());
+
+  if (tag === null) throw new Error("previous-release: no published cueloop release found");
 
   return tag;
 }
