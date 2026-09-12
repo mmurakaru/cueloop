@@ -1,0 +1,36 @@
+{
+  "comment": "Pinned Firecracker binary, guest kernel, and base rootfs, per arch. Every artifact is verified against its sha256 before use. A sha256 of \"\" means the artifact has not been pinned yet: prepare-base-image.sh refuses to run until it is filled. Populate hashes once on a KVM-capable Linux box with `bun run test:install-vm -- --update-pins`, review the diff, and commit.",
+  "firecrackerVersion": "v1.10.1",
+  "arch": {
+    "x64": {
+      "firecracker": {
+        "url": "https://github.com/firecracker-microvm/firecracker/releases/download/v1.10.1/firecracker-v1.10.1-x86_64.tgz",
+        "member": "release-v1.10.1-x86_64/firecracker-v1.10.1-x86_64",
+        "sha256": ""
+      },
+      "kernel": {
+        "url": "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.10/x86_64/vmlinux-5.10.223",
+        "sha256": ""
+      },
+      "rootfs": {
+        "url": "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.10/x86_64/ubuntu-24.04.squashfs",
+        "sha256": ""
+      }
+    },
+    "arm64": {
+      "firecracker": {
+        "url": "https://github.com/firecracker-microvm/firecracker/releases/download/v1.10.1/firecracker-v1.10.1-aarch64.tgz",
+        "member": "release-v1.10.1-aarch64/firecracker-v1.10.1-aarch64",
+        "sha256": ""
+      },
+      "kernel": {
+        "url": "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.10/aarch64/vmlinux-5.10.223",
+        "sha256": ""
+      },
+      "rootfs": {
+        "url": "https://s3.amazonaws.com/spec.ccfc.min/firecracker-ci/v1.10/aarch64/ubuntu-24.04.squashfs",
+        "sha256": ""
+      }
+    }
+  }
+}

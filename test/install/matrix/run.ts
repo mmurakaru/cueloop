@@ -53,8 +53,9 @@ export interface ScenarioResult {
   passed: boolean;
 }
 
-/** The whole matrix run on one machine. */
+/** The whole matrix run on one machine. `suite` names the harness in reports. */
 export interface MatrixResult {
+  suite: string;
   platform: string;
   passed: boolean;
   scenarios: ScenarioResult[];
@@ -231,7 +232,7 @@ export async function runMatrix(options: MatrixOptions): Promise<MatrixResult> {
     }
     const passed = scenarios.every((scenario) => scenario.passed);
 
-    return { platform: options.platform, passed, scenarios };
+    return { suite: "install-matrix", platform: options.platform, passed, scenarios };
   } finally {
     release?.stop();
   }
@@ -276,7 +277,7 @@ export function toJUnitXml(result: MatrixResult): string {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     "<testsuites>",
-    `  <testsuite name="install-matrix ${escapeXml(result.platform)}" tests="${result.scenarios.length}" failures="${failures}">`,
+    `  <testsuite name="${escapeXml(result.suite)} ${escapeXml(result.platform)}" tests="${result.scenarios.length}" failures="${failures}">`,
     cases,
     "  </testsuite>",
     "</testsuites>",

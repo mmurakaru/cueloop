@@ -24,9 +24,5 @@ after="$(sha256_of "$binary")"
 
 check curl-upgrade-exit "upgrade exited $status" test "$status" -eq 0
 check curl-upgrade-replaced "binary hash unchanged after upgrade" test "$before" != "$after"
-target="${CUELOOP_VERSION#cueloop@}"
-if "$binary" --version 2>/dev/null | grep -q "$target"; then ok curl-upgrade-version; else bad curl-upgrade-version "--version does not report $target"; fi
-
-# the install dir must hold only the binary: no partial download left behind
-leftover="$(ls -A "$MATRIX_INSTALL_DIR" | grep -v '^cueloop$' || true)"
-if [ -z "$leftover" ]; then ok curl-upgrade-clean-dir; else bad curl-upgrade-clean-dir "stray files in install dir: $leftover"; fi
+assert_version_reports curl-upgrade-version "${CUELOOP_VERSION#cueloop@}"
+assert_clean_install_dir curl-upgrade-clean-dir
