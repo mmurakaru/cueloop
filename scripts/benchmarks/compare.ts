@@ -217,8 +217,18 @@ function formatThreshold(
   return `+${percent}% and +${formatMetricValue(threshold.minAbsoluteRegression, unit)}`;
 }
 
+export interface ComparisonMarkdownOptions {
+  /** The heading; the gate names itself, a pull request comment names the comparison. */
+  title?: string;
+  /** The line under the heading; replaces the default "base X vs head Y" subtitle. */
+  subtitle?: string;
+}
+
 /** A Markdown table for the job summary, failing rows first. */
-export function formatComparisonMarkdown(comparison: Comparison): string {
+export function formatComparisonMarkdown(
+  comparison: Comparison,
+  options: ComparisonMarkdownOptions = {},
+): string {
   const order: Record<RowStatus, number> = {
     fail: 0,
     "missing-head": 1,
@@ -230,9 +240,10 @@ export function formatComparisonMarkdown(comparison: Comparison): string {
   };
   const rows = comparison.rows.toSorted((left, right) => order[left.status] - order[right.status]);
   const lines = [
-    `## Benchmark gate: ${comparison.failed ? "FAILED" : "passed"}`,
+    options.title ?? `## Benchmark gate: ${comparison.failed ? "FAILED" : "passed"}`,
     "",
-    `base ${comparison.baseVersion ?? "?"} vs head ${comparison.headVersion ?? "?"}, compared on the sampler median.`,
+    options.subtitle ??
+      `base ${comparison.baseVersion ?? "?"} vs head ${comparison.headVersion ?? "?"}, compared on the sampler median.`,
     "",
     "| metric | base | head | delta | threshold | status |",
     "| --- | --- | --- | --- | --- | --- |",

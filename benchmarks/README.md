@@ -127,3 +127,25 @@ Pushes to main cannot bypass the gate.
 
 The native shims ship for darwin-arm64 only, so the pseudo-terminal first
 frame is measured on that target and the other three compare binary startup.
+
+## Pull requests and history
+
+`scripts/benchmarks/pr-compare.ts` runs in CI for same-repo pull requests: it
+checks the merge base out beside the head, measures both trees interleaved
+with the source-only scripts (three cold samples per side), and posts one
+sticky comment with the comparison. It is informational and never blocks a
+merge; a merge base that predates the suite simply has no base rows.
+
+`scripts/benchmarks/history.ts` runs on every push to main and appends one
+record (commit, date, median and p95 of every gated metric) to
+`benchmarks/history/linux-x64.ndjson` on the `bench-history` branch, kept to
+the newest 500 records; main is protected, so the history lives on its own
+branch. The docs site fetches that file at build time and renders it as trend
+lines on the Performance reference page, and the history job redeploys the
+site so the page follows main.
+
+`scripts/benchmarks/daemon-memory-check.ts` also runs on every push to main:
+it cycles create, get, and delete 55 times against a live daemon, drops 5
+warmup cycles, fits a line through the retained heap after a full collection
+on each remaining cycle, and fails when total growth exceeds 96 MiB or the
+slope exceeds 768 KiB per cycle. It is the one check in that job that fails.

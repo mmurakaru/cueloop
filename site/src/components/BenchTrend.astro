@@ -1,0 +1,107 @@
+---
+/*
+ * One trend chart per metric group: the median of each metric over the last
+ * pushes to main as an inline SVG line, no client script. The geometry comes
+ * from bench-chart.ts; this file is markup and styles. Colors use the site's
+ * own tokens so the chart follows the theme.
+ */
+import { buildChart, CHART_GEOMETRY, formatChartValue } from "../bench-chart";
+import { loadHistory, METRIC_GROUPS } from "../bench-history";
+
+const records = loadHistory().slice(-60);
+const { width, height, padding } = CHART_GEOMETRY;
+const newest = records.at(-1);
+---
+
+{records.length === 0 ? (
+  <p class="bench-empty">No history yet. The first push to main after this page shipped records the first point.</p>
+) : (
+  <p class="bench-meta">
+    {records.length} pushes recorded, newest <code>{newest?.sha.slice(0, 7)}</code> on {newest!.date.slice(0, 10)}. Each line is the median of three cold samples on a shared Linux runner.
+  </p>
+)}
+
+{records.length > 0 && METRIC_GROUPS.map((group) => {
+  const { lines, ticks } = buildChart(records, group.metrics);
+
+  return (
+    <figure class="bench-figure">
+      <figcaption>{group.title}</figcaption>
+      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${group.title} over recent pushes`}>
+        {ticks.map((tick) => (
+          <g>
+            <line x1={padding.left} x2={width - padding.right} y1={tick.y} y2={tick.y} class="bench-grid" />
+            <text x={padding.left - 6} y={tick.y + 4} text-anchor="end" class="bench-tick">{formatChartValue(tick.value, group.unit)}</text>
+          </g>
+        ))}
+        {lines.map((line) => line.path && <path d={line.path} fill="none" stroke={line.color} stroke-width="1.5" />)}
+        <text x={padding.left} y={height - 6} class="bench-tick">older</text>
+        <text x={width - padding.right} y={height - 6} text-anchor="end" class="bench-tick">newest</text>
+      </svg>
+      <ul class="bench-legend">
+        {lines.map((line) => (
+          <li>
+            <span class="bench-swatch" style={`background:${line.color}`}></span>
+            <code>{line.metric}</code>
+            {line.last !== null && <span class="bench-last">{formatChartValue(line.last, group.unit)}</span>}
+          </li>
+        ))}
+      </ul>
+    </figure>
+  );
+})}
+
+<style>
+  .bench-empty,
+  .bench-meta {
+    color: var(--muted, #6b6b76);
+    font-size: 0.95rem;
+  }
+  .bench-figure {
+    margin: 1.5rem 0 2rem;
+  }
+  .bench-figure figcaption {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  .bench-figure svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    background: var(--surface, transparent);
+    border: 1px solid var(--border, #e3e3e8);
+    border-radius: 8px;
+  }
+  .bench-grid {
+    stroke: var(--border, #e3e3e8);
+    stroke-width: 1;
+  }
+  .bench-tick {
+    fill: var(--muted, #6b6b76);
+    font-size: 10px;
+    font-family: ui-monospace, monospace;
+  }
+  .bench-legend {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+    font-size: 0.85rem;
+  }
+  .bench-legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .bench-swatch {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 2px;
+    display: inline-block;
+  }
+  .bench-last {
+    color: var(--muted, #6b6b76);
+  }
+</style>
