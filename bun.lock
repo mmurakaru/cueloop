@@ -1,6 +1,5 @@
 {
   "lockfileVersion": 1,
-  "configVersion": 0,
   "workspaces": {
     "": {
       "name": "cueloop-monorepo",
@@ -16,6 +15,7 @@
         "@types/bun": "^1.4.0",
         "@types/react": "^19.2.0",
         "cueloop": "workspace:*",
+        "effect": "^4.0.0-rc.115",
         "oxfmt": "^0.65.0",
         "oxlint": "^1.79.0",
         "react": "^19.2.0",
@@ -25,7 +25,7 @@
     },
     "packages/adapters": {
       "name": "@cueloop/adapters",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.68",
       "dependencies": {
         "@cueloop/daemon": "0.1.0-alpha.63",
         "@cueloop/schema": "0.1.0-alpha.63",
@@ -34,7 +34,7 @@
     },
     "packages/cli": {
       "name": "cueloop",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.68",
       "bin": {
         "cueloop": "./src/main.ts",
       },
@@ -48,7 +48,7 @@
     },
     "packages/client": {
       "name": "@cueloop/client",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.68",
       "dependencies": {
         "@cueloop/daemon": "0.1.0-alpha.66",
         "@cueloop/extension-api": "0.1.0-alpha.66",
@@ -73,7 +73,7 @@
     },
     "packages/daemon": {
       "name": "@cueloop/daemon",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.68",
       "dependencies": {
         "@cueloop/schema": "0.1.0-alpha.66",
         "@pierre/diffs": "^1.3.6",
@@ -82,7 +82,7 @@
     },
     "packages/extension-api": {
       "name": "@cueloop/extension-api",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.68",
       "dependencies": {
         "@cueloop/schema": "0.1.0-alpha.66",
       },
@@ -109,7 +109,7 @@
     },
     "packages/integrations/obsidian": {
       "name": "@cueloop/integration-obsidian",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.68",
       "dependencies": {
         "@cueloop/extension-api": "0.1.0-alpha.66",
         "@cueloop/schema": "0.1.0-alpha.66",
@@ -118,7 +118,7 @@
     },
     "packages/schema": {
       "name": "@cueloop/schema",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.68",
     },
   },
   "packages": {
@@ -411,6 +411,8 @@
     "devtools-protocol": ["devtools-protocol@0.0.1666840", "", {}, "sha512-gCcO42XCHKEs7Ag0S7aGYsnJ7hlgrO3qderYqeiY0Eqk+0GFfuvT13IA0hHreJTa2KCdDVyGMeOhdMNmrrTjVg=="],
 
     "diff": ["diff@9.0.0", "", {}, "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw=="],
+
+    "effect": ["effect@4.0.0-rc.115", "", {}, "sha512-ogYulZ5ffeOzrJqQrG0XOkDO5lKn2s9KNHhoxJy/6wKUkF0i12dlVXWA9TgsgQ+zV/JzizyG0+XMPepZEQX6vw=="],
 
     "emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 
