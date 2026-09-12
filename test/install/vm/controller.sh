@@ -1,8 +1,8 @@
 #!/bin/sh
 # controller.sh: PID 1 inside the install-vm container. It builds the base image,
 # serves the offline release, and for each scenario boots a fresh Firecracker
-# microVM, runs the scenario over SSH, and copies its assertions back out. Runs
-# with a dropped capability set plus NET_ADMIN and the kvm and tun devices.
+# microVM, runs the scenario over SSH, and copies its assertions back out. The
+# container runs privileged: building the rootfs and booting a VM need it.
 #
 # The guest reaches the fixture server at 172.16.0.1 through the installer's
 # CUELOOP_DOWNLOAD_BASE and CUELOOP_RELEASES_API, so no script is rewritten.

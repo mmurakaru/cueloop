@@ -345,12 +345,10 @@ async function main(): Promise<void> {
     "docker",
     "run",
     "--rm",
-    "--cap-drop=ALL",
-    "--cap-add=NET_ADMIN",
-    "--cap-add=CHOWN",
-    "--cap-add=DAC_OVERRIDE",
-    "--device=/dev/kvm",
-    "--device=/dev/net/tun",
+    // privileged: building the rootfs (unsquashfs, chroot, mkfs) and booting
+    // Firecracker (kvm and tun devices, tap networking) need capabilities a
+    // dropped set cannot cover. This is an ephemeral CI runner, not production.
+    "--privileged",
     "-v",
     `${fixturesDir}:/work/fixtures:ro`,
     "-v",

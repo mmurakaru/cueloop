@@ -85,9 +85,11 @@ if [ "$update_pins" -eq 1 ]; then
   exit 0
 fi
 
-# extract the firecracker binary from its release tarball
+# extract the firecracker binary from its release tarball; do not restore the
+# archived owner or mode (we chmod our own copy below), which avoids failures
+# when the container cannot change file modes during extraction
 fc_member="$(pin_field firecracker member)"
-tar -xzf "$fc_tgz" -C "$CACHE_DIR" "$fc_member"
+tar -xzf "$fc_tgz" -C "$CACHE_DIR" --no-same-owner --no-same-permissions "$fc_member"
 fc_bin="$CACHE_DIR/firecracker"
 cp "$CACHE_DIR/$fc_member" "$fc_bin"
 chmod +x "$fc_bin"
