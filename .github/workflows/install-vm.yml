@@ -7,10 +7,16 @@ name: install vm
 #
 # NEVER pull_request or pull_request_target: the job needs `sudo` on the runner
 # to open /dev/kvm and boots a VM, so it must not run untrusted fork code. It
-# runs nightly, on demand, and when the installer or this harness changes on main.
+# runs on demand and when the installer or this harness changes on main.
+#
+# The nightly schedule is intentionally disabled until a full run is green. The
+# Firecracker CI rootfs is a minimal boot image without curl, wget, or the
+# shells the scenarios need, and no working apt to add them; the guest rootfs
+# must be made tool-complete first (see README). Re-enable the schedule below
+# once that lands so the report-failure job can file a nightly tracking issue.
 on:
-  schedule:
-    - cron: "41 3 * * *"
+  # schedule:
+  #   - cron: "41 3 * * *"
   workflow_dispatch:
     inputs:
       scenario:

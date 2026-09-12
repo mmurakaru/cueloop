@@ -11,6 +11,19 @@ Covers Linux x64. GitHub's free hosted arm64 Linux runners do not expose
 when KVM reaches those runners. macOS clean-machine coverage stays on the hosted
 `macos-*` runners in the [install matrix](../matrix/README.md).
 
+## Status and remaining work
+
+The harness is complete and its host logic is unit-tested, but a full nightly
+run is not yet green, so the schedule in `install-vm.yml` is commented out (it
+runs on demand and on pushes that touch the harness). The blocker is the guest
+rootfs: the pinned Firecracker CI image is a minimal ~77 MB boot image without
+`curl`, `wget`, or the shells the scenarios need, and with no working `apt` to
+add them. Making it tool-complete, for example by building the rootfs from a
+full `ubuntu:22.04` image (apt, curl, zsh, fish) while keeping it bootable under
+Firecracker, is the remaining step. It is best iterated on a KVM-capable Linux
+box, where a boot takes seconds, rather than through CI. Re-enable the schedule
+once a full run passes.
+
 ## Why not on pull requests
 
 The job needs `sudo` on the runner to open `/dev/kvm` and it boots a VM, so it
