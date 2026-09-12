@@ -37,6 +37,7 @@
   "dependencies": {
     "@cueloop/schema": "0.1.0-alpha.68",
     "@pierre/diffs": "^1.3.6",
+    "effect": "^4.0.0-rc.115",
     "valibot": "^1.4.2"
   },
   "engines": {

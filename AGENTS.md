@@ -123,4 +123,4 @@ Verification recipes:
 
 The Effect TypeScript library (`effect`) is installed at the root. Before
 writing any Effect code, read `node_modules/effect/AGENTS.md` in full and follow
-its links. For apis the guide does not cover, search `node_modules/effect/src`.
+its links. For APIs the guide does not cover, search `node_modules/effect/src`.
