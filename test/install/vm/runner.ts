@@ -278,21 +278,25 @@ async function main(): Promise<void> {
 
   if (parsed.values["update-pins"]) {
     // the prep script defaults its paths to /work (the container); on the host
-    // point it at repo-local paths and pins.json so it can record hashes
+    // point it at repo-local paths and pins.json so it can record hashes.
+    // Hashing is just download-and-digest, so pin both arches from one machine.
     const pinWork = join(REPO_ROOT, "tmp", "install-vm", "pins");
 
     mkdirSync(join(pinWork, "cache"), { recursive: true });
-    const child = Bun.spawn(
-      ["sh", join(HOST_DIR, "prepare-base-image.sh"), "--update-pins", arch],
-      {
-        cwd: REPO_ROOT,
-        env: { ...Bun.env, WORK: pinWork, CACHE_DIR: join(pinWork, "cache"), PINS: PINS_PATH },
-        stdout: "inherit",
-        stderr: "inherit",
-      },
-    );
+    for (const pinArch of ["x64", "arm64"]) {
+      const child = Bun.spawn(
+        ["sh", join(HOST_DIR, "prepare-base-image.sh"), "--update-pins", pinArch],
+        {
+          cwd: REPO_ROOT,
+          env: { ...Bun.env, WORK: pinWork, CACHE_DIR: join(pinWork, "cache"), PINS: PINS_PATH },
+          stdout: "inherit",
+          stderr: "inherit",
+        },
+      );
 
-    await child.exited;
+      // eslint-disable-next-line no-await-in-loop -- pins share one pins.json; write them in turn
+      await child.exited;
+    }
 
     return;
   }
