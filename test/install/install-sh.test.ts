@@ -154,8 +154,8 @@ describe("installer structure", () => {
       (match) => `cueloop-${match[1]}`,
     );
 
-    // Then the fixture and the installer's platform table agree with it
-    expect(targets.toSorted()).toEqual(RELEASE_ASSETS.toSorted());
+    // Then the fixture and the installer's platform table agree with it; the workflow may list a target in more than one matrix
+    expect([...new Set(targets)].toSorted()).toEqual(RELEASE_ASSETS.toSorted());
   });
 
   test("keeps the env seams the update command relies on", () => {

@@ -80,3 +80,50 @@ Print `METRIC <name>=<number>` from a script through `emitMetric`, following
 the suffix table. Add a new script to `DEFAULT_SCRIPTS` in `run.ts`. Counts
 that describe the fixture (`files`, `patch_bytes`) are welcome: they make a
 result file self-explaining.
+
+## Release gate
+
+`scripts/benchmarks/gate.ts` runs in the release workflow between the build
+and the draft release, once per target on the target's own runner. It resolves
+the previous published release (the newest `cueloop@` tag below the head
+version, `scripts/benchmarks/previous-release.ts`), downloads that binary, and
+measures base and head interleaved with the binary-sensitive scripts, the
+order alternating per sample so neither side always follows the other's warm
+caches. Startup gets 15 cold samples per side, the first frame 5. A failing
+comparison is confirmed by a second independent pass before it counts.
+
+The runs are compared with `scripts/benchmarks/compare.ts`:
+
+- rows compare on the sampler median, including the median of `*_p95_ms`
+  rows, for the reason given above;
+- a gated row fails only when both bounds are exceeded: timings +15 percent
+  and +5 ms, memory +20 percent and +8 MiB;
+- a gated timing under the 5 ms floor on both sides is `below-floor`, a new
+  metric is `missing-base` and informational, a gated metric that vanished is
+  `missing-head` and fails, so nobody deletes a gated metric silently;
+- `benchmarks/accepted-regressions.json` lists reviewed regressions as
+  `{ name, untilVersion, reason }`; a match turns a fail into `accepted`
+  until the head version reaches `untilVersion`;
+- `benchmarks/metric-aliases.json` maps an old metric name to its new one so
+  a rename stays comparable.
+
+A base binary that cannot run today's fixtures (an old release against a new
+daemon) is not a regression of the head: the gate then reports every row as
+`missing-base`, says so in the summary, and passes. The first release that
+carries the ready signal (0.1.0-alpha.69) compares startup only, because the
+older base cannot report a first frame; the gate tells the first-frame script
+which side supports the signal through `CUELOOP_BENCH_READY_SIGNAL`.
+
+The gate writes a Markdown table to the job summary and a JSON record per
+target (both runs, the comparison, and any accepted reason). The finalize job
+attaches those records to the GitHub release before it flips live, so the
+history lives with the release it describes.
+
+A release operator can publish over a regression by running the workflow by
+hand with `allow_benchmark_regression` set and a non-empty
+`benchmark_regression_reason`; the guard job rejects the run in seconds when
+the reason is missing, and the reason lands in the summary and the record.
+Pushes to main cannot bypass the gate.
+
+The native shims ship for darwin-arm64 only, so the pseudo-terminal first
+frame is measured on that target and the other three compare binary startup.
