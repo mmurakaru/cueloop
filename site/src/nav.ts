@@ -37,6 +37,7 @@ export const docsNav: NavGroup[] = [
       { title: "Commands", href: "/docs/reference/commands/" },
       { title: "Configuration", href: "/docs/reference/configuration/" },
       { title: "Keyboard & mouse", href: "/docs/reference/keyboard/" },
+      { title: "Performance", href: "/docs/reference/performance/" },
     ],
   },
   {

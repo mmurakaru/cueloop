@@ -12,3 +12,6 @@ dist/
 
 # local benchmark runs
 benchmarks/results/
+
+# install-vm and other scratch output
+tmp/

@@ -50,6 +50,95 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun test --timeout 60000 ./test/install
 
+  bench-pr:
+    # Informational: the source-only benchmarks of the merge base and the head,
+    # measured interleaved on one runner, as a sticky comment. Never fails on
+    # performance; fails only when a benchmark itself crashes. Same-repo pull
+    # requests only: a fork's token cannot comment.
+    name: Benchmark comment
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Check out the merge base beside the head
+        id: base
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          base="$(git merge-base FETCH_HEAD HEAD)"
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+          git worktree add ../base "$base"
+          if [ -f ../base/bun.lock ]; then (cd ../base && bun install --frozen-lockfile); fi
+      - name: Compare head against the merge base
+        run: |
+          bun run scripts/benchmarks/pr-compare.ts \
+            --base-dir ../base --head-dir . \
+            --base-sha "${{ steps.base.outputs.sha }}" --head-sha "${{ github.event.pull_request.head.sha }}" \
+            --samples 3 \
+            --out dist/bench-pr.json --markdown dist/bench-pr.md
+          cat dist/bench-pr.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Post or update the sticky comment
+        uses: ./.github/actions/sticky-comment
+        with:
+          marker: "<!-- cueloop-bench -->"
+          body-file: dist/bench-pr.md
+
+  bench-main:
+    # One history record per push to main, on the bench-history branch (main
+    # is protected), plus the daemon leak check, which is the one check here
+    # that fails the job. Redeploys the docs site so the trend page updates.
+    # Serialized so two quick pushes cannot race on the history branch.
+    name: Benchmark history
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    concurrency:
+      group: bench-history
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Daemon memory leak check
+        run: bun run scripts/benchmarks/daemon-memory-check.ts
+      - name: Run the source benchmarks
+        run: bun run bench -- --samples 3 --source-only --out dist/bench-main.json
+      - name: Append the record to the bench-history branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --no-tags origin bench-history 2>/dev/null; then
+            git worktree add ../history FETCH_HEAD
+          else
+            git worktree add --detach ../history
+            git -C ../history switch --orphan bench-history
+          fi
+          bun run scripts/benchmarks/history.ts --run dist/bench-main.json --history ../history/benchmarks/history/linux-x64.ndjson
+          cd ../history
+          git add benchmarks/history/linux-x64.ndjson
+          git commit -q -m "bench: record ${GITHUB_SHA::7}"
+          # the concurrency group serializes pushes, but rebase-and-retry survives a manual push too
+          for attempt in 1 2 3; do
+            if git push origin HEAD:bench-history; then break; fi
+            git fetch --no-tags origin bench-history && git rebase FETCH_HEAD || true
+          done
+      - name: Redeploy the docs site with the new record
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-site.yml --ref main
+
   native:
     name: Native shim
     runs-on: macos-latest

@@ -17,6 +17,15 @@ import * as v from "valibot";
 import { formatRunTable, type BenchmarkRun } from "./lib/result";
 import { collectSamples, foldSamples, sampleScript } from "./lib/sampler";
 
+/** The scripts that measure the checked-out source and need no binary; a pull request compares these. */
+export const SOURCE_SCRIPTS = [
+  "artifact-parse",
+  "daemon-roundtrip",
+  "interaction-latency",
+  "large-stream",
+  "non-ascii-stream",
+];
+
 /** The default suite, in run order. */
 const DEFAULT_SCRIPTS = [
   "binary-startup",
@@ -69,6 +78,7 @@ if (import.meta.main) {
       samples: { type: "string", default: String(DEFAULT_SAMPLES) },
       out: { type: "string" },
       script: { type: "string", multiple: true },
+      "source-only": { type: "boolean", default: false },
     },
   });
   const samples = Number(values.samples);
@@ -76,7 +86,8 @@ if (import.meta.main) {
   if (!Number.isInteger(samples) || samples < 1) {
     throw new Error("benchmark sampler: --samples must be a positive integer");
   }
-  const scripts = values.script && values.script.length > 0 ? values.script : DEFAULT_SCRIPTS;
+  const defaultScripts = values["source-only"] ? SOURCE_SCRIPTS : DEFAULT_SCRIPTS;
+  const scripts = values.script && values.script.length > 0 ? values.script : defaultScripts;
   const samplesByMetric = new Map<string, number[]>();
 
   for (const script of scripts) {
