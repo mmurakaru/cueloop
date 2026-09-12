@@ -1,5 +1,18 @@
 # cueloop
 
+## 0.1.0-alpha.68
+
+### Patch Changes
+
+- [#363](https://github.com/mmurakaru/cueloop/pull/363) [`2c3828d`](https://github.com/mmurakaru/cueloop/commit/2c3828d3e29c08383eab3018921185ecae10d53a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add `cueloop update`, which reruns the published installer into the stable user bin directory.
+
+- [#361](https://github.com/mmurakaru/cueloop/pull/361) [`9c7659d`](https://github.com/mmurakaru/cueloop/commit/9c7659dd76f30c108d56f9d595604b09664c48b1) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Test-only: the PTY tier now drives the real TUI through a shared harness that feeds pseudo-terminal output into the in-repo Ghostty VT emulator, so tests press named keys and assert on the rendered screen grid instead of stripped raw bytes. Wait helpers carry the last screen in every timeout error and never re-send a dropped key. No shipped behavior changes.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.68
+  - @cueloop/client@0.1.0-alpha.68
+  - @cueloop/daemon@0.1.0-alpha.68
+  - @cueloop/schema@0.1.0-alpha.68
+
 ## 0.1.0-alpha.67
 
 ### Minor Changes
