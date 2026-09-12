@@ -33,7 +33,9 @@ sha256_of() {
   sha256sum "$1" | awk '{print $1}'
 }
 
-# fetch <url> <dest> <expected-sha-or-empty>: download once, verify unless empty.
+# fetch <url> <dest> <expected-sha-or-empty>: download once, then verify. In
+# normal mode an empty expected hash is a hard failure: the harness refuses to
+# use an unpinned artifact. Only --update-pins may download without a hash.
 fetch() {
   url="$1"
   dest="$2"
@@ -41,6 +43,10 @@ fetch() {
 
   if [ -f "$dest" ]; then
     return 0
+  fi
+  if [ "$update_pins" -eq 0 ] && [ -z "$expected" ]; then
+    echo "refusing to fetch unpinned artifact $url; run with --update-pins to record its sha256" >&2
+    exit 1
   fi
   echo "downloading $url" >&2
   curl -fsSL "$url" -o "$dest.partial"
@@ -111,13 +117,17 @@ SSHEOF
 # make sure the ssh server starts on boot
 chmod 700 "$rootfs_dir/root/.ssh"
 
-# add zsh and fish for the shell-rc scenario; the container has network here
-if command -v chroot >/dev/null 2>&1; then
-  cp /etc/resolv.conf "$rootfs_dir/etc/resolv.conf" 2>/dev/null || true
-  chroot "$rootfs_dir" /bin/sh -c \
-    "apt-get update && apt-get install -y --no-install-recommends zsh fish openssh-server && systemctl enable ssh systemd-networkd" \
-    >/dev/null 2>&1 || echo "warning: could not add shells or enable ssh in the guest rootfs" >&2
-fi
+# provision the guest rootfs: a downloader the installer needs, the shells the
+# shell-rc scenario needs, an ssh server, host keys, and the boot units enabled.
+# This runs once at image-build time with host network, so a failure here is a
+# hard failure, not a warning that later shows up as "guest did not come up".
+cp /etc/resolv.conf "$rootfs_dir/etc/resolv.conf" 2>/dev/null || true
+chroot "$rootfs_dir" /bin/sh -ec "
+  apt-get update
+  apt-get install -y --no-install-recommends curl ca-certificates zsh fish openssh-server
+  ssh-keygen -A
+  systemctl enable ssh systemd-networkd
+"
 
 # build a 4 GiB ext4 image populated from the rootfs directory
 base_ext4="$WORK/base.ext4"

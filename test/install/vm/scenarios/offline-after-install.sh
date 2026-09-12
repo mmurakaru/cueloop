@@ -25,8 +25,4 @@ else
 fi
 
 check offline-version "--version failed offline" "$binary" --version
-if env HOME="$MATRIX_HOME" CUELOOP_HOME="$MATRIX_HOME" "$binary" session list >"$MATRIX_SANDBOX/offline-session.log" 2>&1; then
-  ok offline-session
-else
-  bad offline-session "cueloop session list failed with no network"
-fi
+assert_session_command offline-session

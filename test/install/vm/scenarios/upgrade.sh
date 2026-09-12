@@ -24,8 +24,5 @@ after="$(sha256_of "$binary")"
 
 check upgrade-exit "upgrade exited $status" test "$status" -eq 0
 check upgrade-replaced "binary hash unchanged after upgrade" test "$before" != "$after"
-target="${CUELOOP_VERSION#cueloop@}"
-if "$binary" --version 2>/dev/null | grep -q "$target"; then ok upgrade-version; else bad upgrade-version "--version does not report $target"; fi
-
-leftover="$(ls -A "$MATRIX_INSTALL_DIR" | grep -v '^cueloop$' || true)"
-if [ -z "$leftover" ]; then ok upgrade-clean-dir; else bad upgrade-clean-dir "stray files in install dir: $leftover"; fi
+assert_version_reports upgrade-version "${CUELOOP_VERSION#cueloop@}"
+assert_clean_install_dir upgrade-clean-dir

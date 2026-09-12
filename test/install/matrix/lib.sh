@@ -32,6 +32,34 @@ contains() {
   if grep -qF "$2" "$3" 2>/dev/null; then ok "$1"; else bad "$1" "missing '$2'"; fi
 }
 
+# assert_clean_install_dir <id>: the install dir holds only the cueloop binary,
+# with no partial download left behind.
+assert_clean_install_dir() {
+  leftover="$(ls -A "$MATRIX_INSTALL_DIR" | grep -v '^cueloop$' || true)"
+  if [ -z "$leftover" ]; then ok "$1"; else bad "$1" "stray files in install dir: $leftover"; fi
+}
+
+# assert_version_reports <id> <expected>: the installed binary's --version output
+# contains <expected>.
+assert_version_reports() {
+  if "$MATRIX_INSTALL_DIR/cueloop" --version 2>/dev/null | grep -q "$2"; then
+    ok "$1"
+  else
+    bad "$1" "--version does not report $2"
+  fi
+}
+
+# assert_session_command <id>: a daemon-backed command autostarts a local daemon
+# and returns. Proves the CLI and daemon work end to end.
+assert_session_command() {
+  if env HOME="$MATRIX_HOME" CUELOOP_HOME="$MATRIX_HOME" \
+    "$MATRIX_INSTALL_DIR/cueloop" session list >/dev/null 2>&1; then
+    ok "$1"
+  else
+    bad "$1" "cueloop session list failed"
+  fi
+}
+
 # sha256_of <file>: the hex digest, using whichever tool is present.
 sha256_of() {
   if command -v sha256sum >/dev/null 2>&1; then

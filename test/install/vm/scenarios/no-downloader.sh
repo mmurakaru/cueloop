@@ -41,5 +41,3 @@ if [ "$status" -eq 0 ] && [ -x "$MATRIX_INSTALL_DIR/cueloop" ]; then
 else
   bad nodl-wget-succeeds "wget-only install failed, exit was $status"
 fi
-
-restore_tool curl

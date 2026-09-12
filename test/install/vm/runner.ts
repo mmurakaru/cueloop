@@ -247,6 +247,9 @@ export function aggregate(runsDir: string, specs: ScenarioSpec[], platform: stri
     const assertions = existsSync(assertionsPath)
       ? parseAssertions(readFileSync(assertionsPath, "utf8"))
       : [];
+    // the real guest exit is not carried back across the SSH boundary; the
+    // expect-contract in lib.sh turns a mid-scenario abort into a failing row,
+    // so a missing assertions file (nothing ran) is the only exit signal here
     const exitCode = existsSync(assertionsPath) ? 0 : 1;
     const passed = assertions.length > 0 && assertions.every((assertion) => assertion.passed);
 
@@ -254,24 +257,12 @@ export function aggregate(runsDir: string, specs: ScenarioSpec[], platform: stri
   });
   const passed = scenarios.every((scenario) => scenario.passed);
 
-  return { platform, passed, scenarios };
+  return { suite: "install-vm", platform, passed, scenarios };
 }
 
-/** A stable tag for the controller image: a hash of every harness input. */
-async function controllerImageTag(): Promise<string> {
-  const inputs = [
-    join(HOST_DIR, "Dockerfile"),
-    join(HOST_DIR, "controller.sh"),
-    join(HOST_DIR, "prepare-base-image.sh"),
-    PINS_PATH,
-  ];
-  const hasher = new Bun.CryptoHasher("sha256");
-  const contents = await Promise.all(inputs.toSorted().map((input) => Bun.file(input).bytes()));
-
-  for (const bytes of contents) hasher.update(bytes);
-
-  return `cueloop-install-vm:${hasher.digest("hex").slice(0, 16)}`;
-}
+/** The controller image tag. CI runners are fresh, so a content hash buys no
+ *  cache hit; Docker's own layer invalidation covers local iteration. */
+const CONTROLLER_IMAGE_TAG = "cueloop-install-vm:local";
 
 async function main(): Promise<void> {
   const parsed = parseArgs({
@@ -286,7 +277,22 @@ async function main(): Promise<void> {
   const arch = currentReleaseArch();
 
   if (parsed.values["update-pins"]) {
-    await run(["sh", join(HOST_DIR, "prepare-base-image.sh"), "--update-pins", arch]);
+    // the prep script defaults its paths to /work (the container); on the host
+    // point it at repo-local paths and pins.json so it can record hashes
+    const pinWork = join(REPO_ROOT, "tmp", "install-vm", "pins");
+
+    mkdirSync(join(pinWork, "cache"), { recursive: true });
+    const child = Bun.spawn(
+      ["sh", join(HOST_DIR, "prepare-base-image.sh"), "--update-pins", arch],
+      {
+        cwd: REPO_ROOT,
+        env: { ...Bun.env, WORK: pinWork, CACHE_DIR: join(pinWork, "cache"), PINS: PINS_PATH },
+        stdout: "inherit",
+        stderr: "inherit",
+      },
+    );
+
+    await child.exited;
 
     return;
   }
@@ -307,9 +313,29 @@ async function main(): Promise<void> {
   rmSync(runsDir, { recursive: true, force: true });
   mkdirSync(runsDir, { recursive: true });
   const versions = await stageFixtures(fixturesDir);
-  const imageTag = await controllerImageTag();
 
-  await run(["docker", "build", "-t", imageTag, "-f", join(HOST_DIR, "Dockerfile"), HOST_DIR]);
+  // the upgrade scenario needs a real previous release; skip it when there is none
+  const runnable =
+    versions.previous === "" ? selected.filter((spec) => spec.name !== "upgrade") : selected;
+
+  if (runnable.length < selected.length) {
+    console.log("skipping upgrade: no previous published release to upgrade from");
+  }
+  if (runnable.length === 0) {
+    console.log("install-vm: nothing to run");
+
+    return;
+  }
+
+  await run([
+    "docker",
+    "build",
+    "-t",
+    CONTROLLER_IMAGE_TAG,
+    "-f",
+    join(HOST_DIR, "Dockerfile"),
+    HOST_DIR,
+  ]);
 
   const dockerRun = [
     "docker",
@@ -336,7 +362,7 @@ async function main(): Promise<void> {
     "-e",
     `INSTALL_VM_ARCH=${arch}`,
     "-e",
-    `INSTALL_VM_SCENARIOS=${selected.map((spec) => spec.name).join(" ")}`,
+    `INSTALL_VM_SCENARIOS=${runnable.map((spec) => spec.name).join(" ")}`,
     "-e",
     `CUELOOP_VM_GOOD_VERSION=${versions.good}`,
     "-e",
@@ -347,10 +373,10 @@ async function main(): Promise<void> {
     `CUELOOP_VM_TRUNCATED_VERSION=${versions.truncated}`,
     "-e",
     `CUELOOP_VM_MISSING_ASSET_VERSION=${versions.missingAsset}`,
-    imageTag,
+    CONTROLLER_IMAGE_TAG,
   ];
   const controllerCode = await run(dockerRun);
-  const result = aggregate(runsDir, selected, `linux-${arch}`);
+  const result = aggregate(runsDir, runnable, `linux-${arch}`);
 
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, "result.json"), `${JSON.stringify(result, null, 2)}\n`);

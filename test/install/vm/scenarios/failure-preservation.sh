@@ -33,5 +33,4 @@ attempt fp-badchecksum-preserved "$CUELOOP_VM_BAD_CHECKSUM_VERSION"
 attempt fp-truncated-preserved "$CUELOOP_VM_TRUNCATED_VERSION"
 attempt fp-missing-preserved "$CUELOOP_VM_MISSING_ASSET_VERSION"
 
-leftover="$(ls -A "$MATRIX_INSTALL_DIR" | grep -v '^cueloop$' || true)"
-if [ -z "$leftover" ]; then ok fp-clean-dir; else bad fp-clean-dir "stray files after failed installs: $leftover"; fi
+assert_clean_install_dir fp-clean-dir

@@ -31,8 +31,4 @@ else
 fi
 
 # a daemon-backed command autostarts a local daemon and returns
-if env HOME="$MATRIX_HOME" CUELOOP_HOME="$MATRIX_HOME" "$binary" session list >"$MATRIX_SANDBOX/session.log" 2>&1; then
-  ok clean-session
-else
-  bad clean-session "cueloop session list failed on a clean machine"
-fi
+assert_session_command clean-session

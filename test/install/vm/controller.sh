@@ -25,14 +25,16 @@ eval "$(sh "$WORK/prepare-base-image.sh" "$ARCH")"
 : "${KERNEL:?prepare-base-image did not report KERNEL}"
 : "${BASE_EXT4:?prepare-base-image did not report BASE_EXT4}"
 
-python3 -m http.server "$FIXTURE_PORT" --bind "$HOST_IP" --directory "$WORK/fixtures" >/dev/null 2>&1 &
-fixture_pid=$!
-
 # --- host networking for the guests -----------------------------------------
+# the tap address must exist before the fixture server binds to it
 ip tuntap add tap0 mode tap 2>/dev/null || true
 ip addr add "$HOST_IP/30" dev tap0 2>/dev/null || true
 ip link set tap0 up
 sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || true
+
+# --- offline release server -------------------------------------------------
+python3 -m http.server "$FIXTURE_PORT" --bind "$HOST_IP" --directory "$WORK/fixtures" >/dev/null 2>&1 &
+fixture_pid=$!
 
 # --- ephemeral SSH key ------------------------------------------------------
 key="$WORK/id_ed25519"
@@ -42,7 +44,8 @@ SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o Connect
 download_base="http://$HOST_IP:$FIXTURE_PORT"
 releases_api="$download_base/releases.json"
 
-# version environment handed to every guest; each scenario uses what it needs
+# version environment handed to every guest; each scenario uses what it needs.
+# The MATRIX_* names mirror the contract runner.ts sets for the matrix host.
 guest_env() {
   cat <<ENV
 export MATRIX_ASSERTIONS=/root/assertions.tsv
@@ -77,7 +80,7 @@ run_scenario() {
 
   cat >"$WORK/$scenario.json" <<CFG
 {
-  "boot-source": { "kernel_image_path": "$KERNEL", "boot_args": "console=ttyS0 reboot=k panic=1 pci=off" },
+  "boot-source": { "kernel_image_path": "$KERNEL", "boot_args": "console=ttyS0 reboot=k panic=1 pci=off root=/dev/vda rw" },
   "drives": [ { "drive_id": "rootfs", "path_on_host": "$disk", "is_root_device": true, "is_read_only": false } ],
   "machine-config": { "vcpu_count": 2, "mem_size_mib": 2048 },
   "network-interfaces": [ { "iface_id": "eth0", "host_dev_name": "tap0", "guest_mac": "06:00:AC:10:00:02" } ]
