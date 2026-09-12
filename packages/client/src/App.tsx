@@ -45,6 +45,7 @@ import type { SessionClient } from "@cueloop/daemon/client";
 import { createIntentDispatch, type Mode, type RailTab } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings, type CheatsheetSection } from "./key-bindings";
+import { useReadySignal } from "./ready-signal";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
@@ -69,7 +70,7 @@ import {
 } from "./thread-chords";
 import { DiffSheet, type DiffFoldControls, type DiffSheetProps } from "./components/DiffSheet";
 import { commentCountsByFile, marksByRows, type DiffRow } from "./view-diff";
-import type { DiffFileContents } from "@cueloop/schema";
+import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
 import { PrototypeSheet } from "./components/PrototypeSheet";
 import type { PrototypeElement } from "./prototype-browser";
 import {
@@ -105,6 +106,8 @@ export interface AppProps {
    */
   readOnly?: boolean;
   onExit?: (code: number) => void;
+  /** Fired once, after the first frame that paints a usable screen with its keyboard handlers live (ready-signal.ts). */
+  onReady?: () => void;
   /** Timer source for the auto-close countdown; tests inject a ManualClock. */
   clock?: Clock;
   /** Session source; the sharing gateway injects a blob-backed client. */
@@ -319,6 +322,15 @@ function ProjectPanelBody(props: {
   );
 }
 
+/** The render tree has left the connecting screen: an error, a session, or the no-thread shell. */
+function usableScreenReached(
+  error: string | null,
+  session: ReviewSession | null,
+  inbox: ReviewSession[] | null,
+): boolean {
+  return Boolean(error) || session !== null || inbox !== null;
+}
+
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
 function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
@@ -343,6 +355,7 @@ export function App({
   cwd,
   readOnly = false,
   onExit,
+  onReady,
   clock,
   openClient,
   shareTransport,
@@ -701,6 +714,9 @@ export function App({
     ))
       dispatch(intent);
   });
+
+  // after every keyboard hook above, so their subscriptions precede the signal
+  useReadySignal(usableScreenReached(error, session, inbox), onReady);
 
   // ── shared bottom chrome: the menu bar and its drop-up dialogs, one render
   // reused by the inbox and by plan/diff review so the two never drift ──

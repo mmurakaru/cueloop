@@ -5,11 +5,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, settle, waitForText } from "./test-support";
+import { isolateUserConfig, settle, waitForText, renderReadyApp } from "./test-support";
 
 const PLAN = "# Sync Plan\n\n## Steps\n\n- flush the queue\n";
 
@@ -37,10 +36,13 @@ afterEach(() => {
 describe("appearance", () => {
   test("renders the review on a light terminal", async () => {
     // Arrange + Act
-    const setup = await testRender(<App home={home} sessionId={session.id} appearance="light" />, {
-      width: 120,
-      height: 32,
-    });
+    const setup = await renderReadyApp(
+      <App home={home} sessionId={session.id} appearance="light" />,
+      {
+        width: 120,
+        height: 32,
+      },
+    );
 
     // Assert
     await waitForText(setup, "cueloop");

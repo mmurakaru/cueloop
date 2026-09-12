@@ -5,7 +5,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
@@ -17,6 +16,7 @@ import {
   locateText,
   press,
   pressKey,
+  renderReadyApp,
   typeText as type,
   waitForState,
   waitForText,
@@ -60,15 +60,10 @@ afterEach(() => {
 });
 
 async function renderApp(sessionId?: string) {
-  const setup = await testRender(<App home={home} sessionId={sessionId ?? session.id} />, {
+  return renderReadyApp(<App home={home} sessionId={sessionId ?? session.id} />, {
     width: 120,
     height: 32,
   });
-
-  // the async daemon connect + first fetch land within the frame wait
-  await waitForText(setup, "cueloop");
-
-  return setup;
 }
 
 describe("plan rendering", () => {
@@ -247,7 +242,7 @@ describe("submit", () => {
 describe("no-thread shell", () => {
   test("opening with nothing selected lands in the shell with a Welcome tab and the Threads sidebar", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "cueloop");
 
@@ -272,7 +267,7 @@ describe("no-thread shell", () => {
       workspace: { repoRoot: "/repo", branch: "main" },
       artifact: { type: "plan", content: "# Other Plan\n", meta: { title: "Other Plan" } },
     });
-    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "Welcome to cueloop");
     await waitForText(setup, "Other Plan"); // the sidebar opens by default here
@@ -291,7 +286,7 @@ describe("no-thread shell", () => {
 
   test("the row kebab menu pins a thread into a Pinned section", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "Migration Plan");
 
@@ -311,7 +306,7 @@ describe("no-thread shell", () => {
 
   test("a bare launch shows the Welcome surface with the right region collapsed", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "Welcome to cueloop");
 
@@ -325,7 +320,7 @@ describe("no-thread shell", () => {
 
   test("the menu opens from the shell gear and escape is not a trap", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "Welcome to cueloop");
 

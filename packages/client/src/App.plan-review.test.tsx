@@ -5,7 +5,6 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
@@ -16,6 +15,7 @@ import {
   isolateUserConfig,
   press,
   pressKey,
+  renderReadyApp,
   typeText as type,
   waitForState,
   waitForText,
@@ -60,7 +60,7 @@ afterEach(() => {
 });
 
 async function renderApp() {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+  const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
     width: 120,
     height: 32,
   });
@@ -110,7 +110,7 @@ describe("share button", () => {
 
   test("a read-only viewer (a plan shared over ssh) never sees the Share button", async () => {
     // Arrange / Act
-    const viewer = await testRender(<App home={home} sessionId={session.id} readOnly />, {
+    const viewer = await renderReadyApp(<App home={home} sessionId={session.id} readOnly />, {
       width: 120,
       height: 32,
     });
@@ -149,7 +149,7 @@ describe("edit affordance", () => {
 
   test("a read-only viewer (a plan shared over ssh) never sees the Edit button", async () => {
     // Arrange / Act
-    const viewer = await testRender(<App home={home} sessionId={session.id} readOnly />, {
+    const viewer = await renderReadyApp(<App home={home} sessionId={session.id} readOnly />, {
       width: 120,
       height: 32,
     });

@@ -5,7 +5,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
@@ -15,6 +14,7 @@ import {
   frameRow,
   isolateUserConfig,
   pressKey,
+  renderReadyApp,
   typeText,
   waitForText,
 } from "./test-support";
@@ -57,7 +57,7 @@ afterEach(() => {
 });
 
 async function renderObserver() {
-  const setup = await testRender(<App home={home} sessionId={session.id} readOnly />, {
+  const setup = await renderReadyApp(<App home={home} sessionId={session.id} readOnly />, {
     width: 120,
     height: 32,
   });
@@ -144,7 +144,7 @@ describe("a resolved review is read-only for its owner too", () => {
       body: "settled",
     });
     server.core.sessionResolve(session.id, "approve", "");
-    const setup = await testRender(<App home={home} sessionId={session.id} />, {
+    const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
       width: 120,
       height: 32,
     });

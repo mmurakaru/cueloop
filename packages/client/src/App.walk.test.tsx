@@ -5,7 +5,6 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
@@ -14,6 +13,7 @@ import {
   isolateUserConfig,
   press,
   pressKey,
+  renderReadyApp,
   waitForState,
   waitForText,
   waitForTextGone,
@@ -66,7 +66,7 @@ afterEach(() => {
 });
 
 async function renderApp() {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+  const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
     width: 120,
     height: 34,
   });
