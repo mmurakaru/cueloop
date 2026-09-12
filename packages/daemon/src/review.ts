@@ -17,6 +17,7 @@ import {
 } from "@cueloop/schema";
 import { verdictResponse } from "./api";
 import type { DaemonClient } from "./client";
+import { ABORTED, pollUntilResolved, raceAbort } from "./interruptible-wait";
 
 // Adapters and CLI primitives reach the verdict mapping through this module too,
 // so a session obtained outside a ReviewHandle maps the same way.
@@ -139,42 +140,6 @@ export interface VerdictOutcome {
   session: ReviewSession;
 }
 
-/** Sentinel distinguishing an abort from any daemon response. */
-const ABORTED = Symbol("aborted");
-
-function raceAbort<T>(
-  promise: Promise<T>,
-  signal: AbortSignal | undefined,
-): Promise<T | typeof ABORTED> {
-  if (!signal) return promise;
-  if (signal.aborted) {
-    promise.catch(() => {});
-
-    return Promise.resolve(ABORTED);
-  }
-
-  return new Promise<T | typeof ABORTED>((resolve, reject) => {
-    const onAbort = () => {
-      // The daemon request keeps running until the client closes; swallow its
-      // eventual rejection so the abort path never leaks an unhandled error.
-      promise.catch(() => {});
-      resolve(ABORTED);
-    };
-
-    signal.addEventListener("abort", onAbort, { once: true });
-    promise.then(
-      (value) => {
-        signal.removeEventListener("abort", onAbort);
-        resolve(value);
-      },
-      (error) => {
-        signal.removeEventListener("abort", onAbort);
-        reject(error);
-      },
-    );
-  });
-}
-
 export class ReviewHandle {
   constructor(
     private readonly client: DaemonClient,
@@ -247,15 +212,12 @@ export async function awaitResolve(
   options: AwaitResolveOptions = {},
 ): Promise<VerdictOutcome | null> {
   const chunkMs = options.pollMs ?? 30_000;
-  const { signal } = options;
+  const resolved = await pollUntilResolved(
+    () => client.sessionWait(sessionId, chunkMs),
+    options.signal,
+  );
 
-  for (;;) {
-    if (signal?.aborted) return null;
-    const resolved = await raceAbort(client.sessionWait(sessionId, chunkMs), signal);
-
-    if (resolved === ABORTED) return null;
-    if (resolved !== null) return outcome(resolved);
-  }
+  return resolved === null ? null : outcome(resolved);
 }
 
 /** Open a review session (or revise the agent session's existing one) and hand back the wait surface. */

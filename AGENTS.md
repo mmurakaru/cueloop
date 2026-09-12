@@ -14,6 +14,7 @@
 - [Bun](https://bun.sh) runtime and package manager (run-from-source, zero build)
 - [OpenTUI](https://github.com/anomalyco/opentui) React terminal UI (`@opentui/core`, `@opentui/react`)
 - [@pierre/diffs](https://www.npmjs.com/package/@pierre/diffs) diff data layer (parse only; rendering is ours)
+- [Effect](https://effect.website) TypeScript standard library (`effect`); read the effect guidance below before writing Effect code
 
 ## architecture
 
@@ -117,3 +118,9 @@ Verification recipes:
 - Runtime validation uses **valibot** (not zod): modular and tree-shakeable,
   which matters for CLI startup latency. Validate at trust boundaries - the
   socket protocol and persisted records - not between internal modules.
+
+## effect
+
+The Effect TypeScript library (`effect`) is installed at the root. Before
+writing any Effect code, read `node_modules/effect/AGENTS.md` in full and follow
+its links. For APIs the guide does not cover, search `node_modules/effect/src`.
