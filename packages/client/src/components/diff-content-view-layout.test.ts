@@ -11,7 +11,7 @@ import { fixtureDiffSession } from "./story-fixtures";
 import type { IntralineRun } from "../diff-intraline";
 import type { SyntaxSpan } from "../diff-syntax";
 import { DARK } from "../theme";
-import { coloredRowSpans } from "./diff-sheet-layout";
+import { coloredRowSpans } from "./diff-content-view-layout";
 
 function row(kind: DiffRow["kind"], text: string, extra: Partial<DiffRow> = {}): DiffRow {
   return { kind, text, file: "a.ts", ...extra };

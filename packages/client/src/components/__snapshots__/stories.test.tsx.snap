@@ -532,7 +532,7 @@ exports[`stories catalog Overlays/ConfirmDialog/DeletePlan renders, snapshots, a
 "
 `;
 
-exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/AnnotatedLine 1`] = `
+exports[`stories catalog Surfaces/DiffContentView/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffContentView/AnnotatedLine 1`] = `
 " ─────────────────────────────────────────────────────────────────────────────────────    
  src/store.ts                                                                    +1 -1    
  ─────────────────────────────────────────────────────────────────────────────────────    
@@ -554,7 +554,7 @@ exports[`stories catalog Surfaces/DiffSheet/AnnotatedLine renders, snapshots, an
 "
 `;
 
-exports[`stories catalog Surfaces/DiffSheet/CaretOnFirstLine renders, snapshots, and carries its colors: Surfaces/DiffSheet/CaretOnFirstLine 1`] = `
+exports[`stories catalog Surfaces/DiffContentView/CaretOnFirstLine renders, snapshots, and carries its colors: Surfaces/DiffContentView/CaretOnFirstLine 1`] = `
 " ─────────────────────────────────────────────────────────────────────────────────────    
  src/store.ts                                                                    +1 -1    
  ─────────────────────────────────────────────────────────────────────────────────────    
@@ -574,7 +574,7 @@ exports[`stories catalog Surfaces/DiffSheet/CaretOnFirstLine renders, snapshots,
 "
 `;
 
-exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots, and carries its colors: Surfaces/DiffSheet/IntralineWordDiff 1`] = `
+exports[`stories catalog Surfaces/DiffContentView/IntralineWordDiff renders, snapshots, and carries its colors: Surfaces/DiffContentView/IntralineWordDiff 1`] = `
 " ─────────────────────────────────────────────────────────────────────────────────────    
  src/store.ts                                                                    +1 -1    
  ─────────────────────────────────────────────────────────────────────────────────────    
@@ -594,7 +594,7 @@ exports[`stories catalog Surfaces/DiffSheet/IntralineWordDiff renders, snapshots
 "
 `;
 
-exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and carries its colors: Surfaces/DiffSheet/SignedRows 1`] = `
+exports[`stories catalog Surfaces/DiffContentView/SignedRows renders, snapshots, and carries its colors: Surfaces/DiffContentView/SignedRows 1`] = `
 " ─────────────────────────────────────────────────────────────────────────────────────    
  src/store.ts                                                                    +1 -1    
  ─────────────────────────────────────────────────────────────────────────────────────    
@@ -614,7 +614,7 @@ exports[`stories catalog Surfaces/DiffSheet/SignedRows renders, snapshots, and c
 "
 `;
 
-exports[`stories catalog Surfaces/DiffSheet/SplitView renders, snapshots, and carries its colors: Surfaces/DiffSheet/SplitView 1`] = `
+exports[`stories catalog Surfaces/DiffContentView/SplitView renders, snapshots, and carries its colors: Surfaces/DiffContentView/SplitView 1`] = `
 " ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────    
  src/store.ts                                                                                                  +1 -1    
  ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────    

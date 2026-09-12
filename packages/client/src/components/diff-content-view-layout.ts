@@ -1,7 +1,7 @@
 /**
  * Pure color logic for the diff review sheet, split out so it can be tested
  * without rendering: a row's colored spans (syntax under the intra-line change
- * color). DiffSheet.tsx paints marks and the caret over these per character.
+ * color). DiffContentView.tsx paints marks and the caret over these per character.
  */
 
 import type { Theme } from "../theme";
