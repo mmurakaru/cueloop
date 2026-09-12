@@ -60,6 +60,14 @@ Four tiers, cheapest loop first (use the cheapest tier that can prove the change
 3. Daemon/session integration (`test/session/`) - cross-process flows over a real socket
    in a temp state dir.
 4. PTY tests (`test/pty/`, env-gated) - resize, key routing, real terminal behavior.
+   The TUI runs in a real pseudo terminal and its output is fed into the in-repo
+   Ghostty VT emulator, so assertions read the rendered screen, never raw bytes.
+   Harness: `test/helpers/pty-tui-session.ts` (`launchTuiSession`, `press`,
+   `waitForText`, `waitForScreen`, `ensureKeyboardIsLive`, `close`), key names in
+   `test/helpers/pty-key-codes.ts`; the daemon home fixture is
+   `test/helpers/review-home.ts` and the git repo fixture `test/helpers/git-repo.ts`.
+   Set `CUELOOP_TEST_EXECUTABLE` to run the suite against a compiled binary
+   instead of the source entry.
 
 Verification recipes:
 - schema change → tier 1 + `bun run typecheck`.

@@ -60,25 +60,31 @@ function nativeLibraryPath(): string | null {
   return existsSync(path) ? path : null;
 }
 
+/** One shared load of the VT library; null when no dylib ships or it failed to load. */
+let ghosttyFactory: GhosttyTerminalFactory | null | undefined;
+
 /**
  * Open the Ghostty VT library for this platform, or return null when the prebuilt
  * dylib is missing (the caller degrades to a herdr split instead of embedding).
+ * The library is opened once per process; later calls return the same factory.
  */
 export function loadGhosttyTerminals(): GhosttyTerminalFactory | null {
+  if (ghosttyFactory !== undefined) return ghosttyFactory;
   const path = nativeLibraryPath();
 
-  if (!path) return null;
+  if (!path) return (ghosttyFactory = null);
   try {
     const lib = dlopen(path, CVT_SYMBOLS);
 
-    return new GhosttyTerminalFactory(lib.symbols);
+    ghosttyFactory = new GhosttyTerminalFactory(lib.symbols);
   } catch (error) {
     // The file exists but failed to load (bad arch, missing symbol) - a real
     // fault, not the expected no-prebuilt case; surface it, then degrade.
     console.error(`cueloop: failed to load ${path}:`, error);
-
-    return null;
+    ghosttyFactory = null;
   }
+
+  return ghosttyFactory;
 }
 
 /** Creates `GhosttyTerminal`s that share one loaded copy of the VT library. */
@@ -144,6 +150,23 @@ export class GhosttyTerminal {
       faint: (flags & FLAG_FAINT) !== 0,
       strikethrough: (flags & FLAG_STRIKETHROUGH) !== 0,
     };
+  }
+
+  /**
+   * Row `y` as text: blank cells read as spaces, the trailing half of a wide
+   * glyph is skipped, and trailing spaces are trimmed.
+   */
+  rowText(y: number, cols: number): string {
+    let line = "";
+
+    for (let x = 0; x < cols; x++) {
+      const cell = this.readCell(x, y);
+
+      if (cell === null || cell.width === 2) continue;
+      line += cell.codepoint === 0 ? " " : String.fromCodePoint(cell.codepoint);
+    }
+
+    return line.trimEnd();
   }
 
   /** The cursor's current viewport position and visibility. */
