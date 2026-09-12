@@ -29,7 +29,9 @@ import type { SharedMerge } from "./api";
 
 export type { SharedMerge } from "./api";
 import { cueloopHome, ownerTokenPath, socketPath } from "./paths";
-import { Params, SessionRecordSchema } from "./validate";
+import { Params, SessionRecordSchema, DiffFileContentsSchema } from "./validate";
+import type { WorkingTreeDiff } from "./working-tree";
+import { DAEMON_VERSION } from "./version";
 
 export type { EventFrame } from "./protocol";
 
@@ -49,7 +51,9 @@ type PendingRequest = {
 };
 
 const EmptyResultSchema = v.object({});
-const PingResultSchema = v.object({ pid: v.number() });
+// version is optional: a daemon from before the handshake carried one reads as
+// undefined, which never equals this build - so it is treated as stale and replaced
+const PingResultSchema = v.object({ pid: v.number(), version: v.optional(v.string()) });
 const RefreshDiffResultSchema = v.object({ changed: v.boolean() });
 const HerdrTabResultSchema = v.nullable(v.object({ tabId: v.string(), paneId: v.string() }));
 
@@ -91,6 +95,8 @@ export interface SessionClient {
   repoFileContents?(cwd: string, path: string): Promise<string | null>;
   /** Changed files (path plus git status) in the working tree at `cwd`. */
   repoChanges?(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]>;
+  /** The live working-tree diff (patch plus per-file contents) at `cwd`. */
+  repoDiff?(cwd: string): Promise<WorkingTreeDiff>;
   /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */
   sessionNavigate(
     id: string,
@@ -145,6 +151,9 @@ export class DaemonClient implements SessionClient {
   private socket: Awaited<ReturnType<typeof Bun.connect>> | null = null;
   private writer: BackpressureWriter | null = null;
   private pending = new Map<number, PendingRequest>();
+  /** The connected daemon's build version and pid, learned from the ping handshake. */
+  private daemonVersion: string | undefined;
+  private daemonPid: number | undefined;
   private nextId = 1;
   private eventListeners = new Set<(event: EventFrame) => void>();
   private closed = false;
@@ -162,14 +171,66 @@ export class DaemonClient implements SessionClient {
     client.home = home;
     try {
       await client.dial(path);
-
-      return client;
+      // A daemon from an earlier build lingers after an upgrade; talking to it
+      // means new client, old behaviour. The owner replaces it so an upgrade
+      // never needs a manual restart; without autostart there is nothing to
+      // replace it with, so the caller hears exactly why.
+      if (client.daemonVersion === DAEMON_VERSION) return client;
+      if (!options.autostart) {
+        client.close();
+        throw new DaemonClientError(
+          "version_mismatch",
+          `daemon is version ${client.daemonVersion ?? "unknown"}, but this client is ${DAEMON_VERSION}; restart the daemon`,
+        );
+      }
+      await client.stopStaleDaemon(path);
     } catch (err) {
       // a live daemon that refused the handshake is not a dead socket: the
       // caller hears why instead of the client replacing a running daemon
       if (!options.autostart || err instanceof DaemonClientError) throw err;
     }
-    // Socket dead or absent: clean a stale file and spawn the daemon detached.
+    // Socket dead, absent, or just-replaced: clean a stale file and spawn detached.
+    return client.attachFreshDaemon(home, path);
+  }
+
+  /**
+   * Tear down a daemon from an earlier build so a fresh one can bind: ask it to
+   * shut down (owner-gated) or, failing that, signal its pid, then wait for it to
+   * release the socket. Best-effort - attachFreshDaemon's stale-socket and
+   * stale-lock cleanup recovers even a daemon that never ran its own teardown.
+   */
+  private async stopStaleDaemon(path: string): Promise<void> {
+    const pid = this.daemonPid;
+
+    try {
+      await this.request("daemon.shutdown", {}, EmptyResultSchema, 2_000);
+    } catch {
+      if (pid !== undefined) {
+        try {
+          process.kill(pid);
+        } catch {}
+      }
+    }
+    this.socket?.end();
+    this.resetConnection();
+    // the old daemon removes its socket in stop(); wait so the new one binds cleanly
+    const deadline = Date.now() + 5_000;
+
+    while (Date.now() < deadline && existsSync(path)) await Bun.sleep(50);
+  }
+
+  /** Reset per-connection state so a fresh dial() can reuse this client instance. */
+  private resetConnection(): void {
+    this.socket = null;
+    this.writer = null;
+    this.closed = false;
+    for (const pendingRequest of this.pending.values())
+      pendingRequest.reject(new Error("daemon connection replaced"));
+    this.pending.clear();
+  }
+
+  /** Clean any stale socket, spawn a detached daemon, and dial it until it answers. */
+  private async attachFreshDaemon(home: string, path: string): Promise<DaemonClient> {
     if (existsSync(path)) rmSync(path, { force: true });
     spawnDaemon(home);
     // Generous: a cold or loaded machine pays for a runtime start before the
@@ -179,9 +240,9 @@ export class DaemonClient implements SessionClient {
 
     while (Date.now() < deadline) {
       try {
-        await client.dial(path);
+        await this.dial(path);
 
-        return client;
+        return this;
       } catch (err) {
         lastError = err;
         await Bun.sleep(50);
@@ -213,8 +274,12 @@ export class DaemonClient implements SessionClient {
     });
     this.writer = new BackpressureWriter(this.socket);
     // Verify liveness: a dead socket file accepts connects on some platforms
-    // only to fail later, so a ping is the actual handshake.
-    await this.request("daemon.ping", {}, PingResultSchema, 2_000);
+    // only to fail later, so a ping is the actual handshake. It also carries the
+    // daemon's build version and pid, so connect() can replace a stale daemon.
+    const pong = await this.request("daemon.ping", {}, PingResultSchema, 2_000);
+
+    this.daemonVersion = pong.version;
+    this.daemonPid = pong.pid;
     // Every connection starts as a collaborator; the owner proves itself with
     // the token the daemon wrote into the home it serves, which only the home's
     // user can read. A capped role just names itself.
@@ -400,6 +465,13 @@ export class DaemonClient implements SessionClient {
       v.array(v.object({ path: v.string(), status: v.picklist(["added", "modified", "deleted"]) })),
     );
   }
+  repoDiff(cwd: string): Promise<WorkingTreeDiff> {
+    return this.request(
+      "repo.diff",
+      { cwd },
+      v.object({ patch: v.string(), files: v.array(DiffFileContentsSchema) }),
+    );
+  }
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
     return this.request("session.refreshDiff", { id }, RefreshDiffResultSchema);
@@ -453,14 +525,22 @@ export class DaemonClientError extends Error {
 }
 
 // A compiled binary re-execs `cueloop daemon --autostart` (idle-exits like main.ts,
-// unlike the never-exiting foreground daemon); from source, bun runs main.ts.
-export function daemonSpawnCommand(execPath: string, moduleUrl: string): string[] {
+// unlike the never-exiting foreground daemon); from source, bun runs main.ts. In
+// dev (CUELOOP_DEV_WATCH=1, source only) it runs under --watch so daemon-code edits
+// reload the daemon without a manual restart - the version handshake only catches
+// release upgrades, not same-version source changes.
+export function daemonSpawnCommand(
+  execPath: string,
+  moduleUrl: string,
+  devWatch = process.env.CUELOOP_DEV_WATCH === "1",
+): string[] {
   const compiled =
     moduleUrl.includes("$bunfs") || moduleUrl.includes("~BUN") || moduleUrl.includes("%7EBUN");
 
-  return compiled
-    ? [execPath, "daemon", "--autostart"]
-    : [execPath, "run", new URL("./main.ts", moduleUrl).pathname];
+  if (compiled) return [execPath, "daemon", "--autostart"];
+  const mainPath = new URL("./main.ts", moduleUrl).pathname;
+
+  return devWatch ? [execPath, "--watch", "run", mainPath] : [execPath, "run", mainPath];
 }
 
 function spawnDaemon(home: string): void {

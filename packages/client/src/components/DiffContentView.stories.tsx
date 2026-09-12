@@ -5,10 +5,10 @@ import { annotationPaletteFor } from "../annotation-palette";
 import { DEFAULT_QUICK_ACTIONS } from "../config";
 import { marksByRows } from "../view-diff";
 import type { Story, StoryMeta } from "./story";
-import { DiffSheet } from "./DiffSheet";
+import { DiffContentView } from "./DiffContentView";
 import { fixtureDiffRows, fixtureDiffSession } from "./story-fixtures";
 
-export const meta: StoryMeta = { title: "Surfaces/DiffSheet" };
+export const meta: StoryMeta = { title: "Surfaces/DiffContentView" };
 
 const palette = annotationPaletteFor(DARK);
 const noop = (): void => {};
@@ -27,7 +27,7 @@ function sheet(annotations: Annotation[], split = false): React.ReactNode {
   const session = fixtureDiffSession({ annotations });
 
   return (
-    <DiffSheet
+    <DiffContentView
       rows={rows}
       session={session}
       marks={marksByRows(annotations, rows)}

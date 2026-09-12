@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import type { RGBA } from "@opentui/core";
 import React from "react";
-import { DiffSheet } from "./DiffSheet";
+import { DiffContentView } from "./DiffContentView";
 import { fixtureDiffSession } from "./story-fixtures";
 import { diffRows } from "../view-diff";
 import { DARK } from "../theme";
@@ -31,7 +31,7 @@ test("renders tree-sitter colors, with the changed word in the diff color on top
   // Arrange
   const noop = (): void => {};
   const setup = await testRender(
-    <DiffSheet
+    <DiffContentView
       rows={diffRows(PATCH)}
       session={fixtureDiffSession()}
       marks={new Map()}
