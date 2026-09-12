@@ -64,10 +64,15 @@ Four tiers, cheapest loop first (use the cheapest tier that can prove the change
    Ghostty VT emulator, so assertions read the rendered screen, never raw bytes.
    Harness: `test/helpers/pty-tui-session.ts` (`launchTuiSession`, `press`,
    `waitForText`, `waitForScreen`, `ensureKeyboardIsLive`, `close`), key names in
-   `test/helpers/pty-key-codes.ts`; the daemon home fixture is
+   `test/helpers/pty-key-codes.ts`, ready-to-drive plan and diff reviews plus the
+   tier gate in `test/helpers/pty-reviews.ts`; the daemon home fixture is
    `test/helpers/review-home.ts` and the git repo fixture `test/helpers/git-repo.ts`.
+   Every PTY child gets a failing `ssh` first on PATH, so share chords never
+   reach the live gateway from a test.
    Set `CUELOOP_TEST_EXECUTABLE` to run the suite against a compiled binary
-   instead of the source entry.
+   instead of the source entry. `test/pty/keybindings.test.ts` covers every chord
+   in the thread view cheatsheet tables and fails on a new chord without an
+   expectation; runs in CI (`PTY tier` job) and in the release build.
 
 Verification recipes:
 - schema change → tier 1 + `bun run typecheck`.

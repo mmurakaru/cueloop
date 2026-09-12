@@ -4,7 +4,8 @@
  * of escape sequences. Invariants: arrows and home/end are CSI final letters,
  * F1-F4 are SS3, editing keys are CSI tilde forms, backspace is DEL (0x7f),
  * ctrl+letter is the C0 control byte, alt prefixes ESC, and ctrl with
- * enter/tab/backspace/escape uses CSI u because no plain byte exists for it.
+ * enter/tab/backspace/escape uses the xterm modifyOtherKeys form because no
+ * plain byte exists for it.
  * Not built on the mock renderer's KeyCodes table from @opentui/core/testing:
  * it encodes backspace as 0x08 and has no chord encoder.
  */
@@ -45,7 +46,7 @@ const PTY_KEY_SEQUENCES = {
 type PtyNamedKey = keyof typeof PTY_KEY_SEQUENCES;
 
 /** A modifier that can prefix a chord: ["ctrl", "e"], ["alt", "n"], ["shift", "tab"]. */
-type PtyKeyModifier = "ctrl" | "alt" | "shift";
+export type PtyKeyModifier = "ctrl" | "alt" | "shift";
 
 /**
  * One key press: a named key, a single printable character, or a chord whose
@@ -53,8 +54,12 @@ type PtyKeyModifier = "ctrl" | "alt" | "shift";
  */
 export type PtyKeyPress = string | [...PtyKeyModifier[], string];
 
-/** Legacy CSI u code points for the keys whose ctrl form has no plain byte (return aliases enter). */
-const CSI_U_CODE_POINTS = new Map([
+/**
+ * Code points for the keys whose ctrl form has no plain byte; they go out in
+ * the xterm modifyOtherKeys form `ESC [ 27 ; modifier ; code ~`, which the
+ * app's input parser accepts without the kitty keyboard protocol.
+ */
+const MODIFY_OTHER_KEYS_CODE_POINTS = new Map([
   ["enter", 13],
   ["return", 13],
   ["tab", 9],
@@ -107,7 +112,7 @@ function encodeSingleKey(key: string, modifiers: ReadonlySet<PtyKeyModifier>): s
     if (key.length === 1 && /[a-z]/i.test(key)) {
       return prefix + String.fromCharCode(key.toLowerCase().charCodeAt(0) & 0x1f);
     }
-    const codePoint = CSI_U_CODE_POINTS.get(key);
+    const codePoint = MODIFY_OTHER_KEYS_CODE_POINTS.get(key);
 
     if (codePoint === undefined) {
       throw new Error(
@@ -115,7 +120,7 @@ function encodeSingleKey(key: string, modifiers: ReadonlySet<PtyKeyModifier>): s
       );
     }
 
-    return `\x1b[${codePoint};${csiModifierParameter(modifiers)}u`;
+    return `\x1b[27;${csiModifierParameter(modifiers)};${codePoint}~`;
   }
   if (isNamedKey(key)) {
     const sequence = PTY_KEY_SEQUENCES[key];
@@ -131,4 +136,34 @@ function encodeSingleKey(key: string, modifiers: ReadonlySet<PtyKeyModifier>): s
     throw new Error(`PTY key press "${key}" is neither a named key nor one character`);
 
   return prefix + (modifiers.has("shift") ? key.toUpperCase() : key);
+}
+
+/**
+ * The key press for a chord as the keybinds cheatsheet spells it: ⌥ is alt,
+ * ⌃ is ctrl, ⌫ is backspace, and an uppercase letter adds shift.
+ */
+export function cheatsheetChordKeyPress(chord: string): PtyKeyPress {
+  const modifiers: PtyKeyModifier[] = [];
+  let key = chord;
+
+  if (key.startsWith("⌥")) {
+    modifiers.push("alt");
+    key = key.slice(1);
+  }
+  if (key.startsWith("⌃")) {
+    modifiers.push("ctrl");
+    key = key.slice(1);
+  }
+  if (key === "⌫") key = "backspace";
+  if (key.length === 1 && key !== key.toLowerCase()) {
+    modifiers.push("shift");
+    key = key.toLowerCase();
+  }
+
+  return [...modifiers, key];
+}
+
+/** The individual chords of a cheatsheet entry such as "⌥n / ⌥p". */
+export function cheatsheetEntryChords(keys: string): string[] {
+  return keys.split(" / ");
 }

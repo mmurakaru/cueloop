@@ -10,7 +10,7 @@
     "dev": "bun run packages/cli/src/main.ts dev",
     "stories": "bun run packages/client/src/components/stories-app.tsx",
     "test": "bun test --timeout 60000 ./packages ./test",
-    "test:pty": "CUELOOP_RUN_PTY=1 bun test ./test/pty",
+    "test:pty": "CUELOOP_RUN_PTY=1 bun test --timeout 60000 ./test/pty",
     "typecheck": "bunx tsc --noEmit",
     "lint": "oxlint && bun run scripts/check-import-budgets.ts",
     "format": "oxfmt packages test scripts site",

@@ -6,3 +6,6 @@ dist/
 
 # native libghostty-vt build workspace (artifacts are vendored under packages/client/native)
 .libghostty-build/
+
+# bun build --compile scratch files
+.*.bun-build
