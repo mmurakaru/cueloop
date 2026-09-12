@@ -62,13 +62,17 @@ export interface PtyScreenWaitOptions {
   what?: string;
 }
 
-/** Poll `condition` every POLL_MS until it holds or the deadline passes; true when it held. */
-async function pollUntil(condition: () => boolean, timeoutMs: number): Promise<boolean> {
+/** Poll `condition` every `pollMs` until it holds or the deadline passes; true when it held. */
+async function pollUntil(
+  condition: () => boolean,
+  timeoutMs: number,
+  pollMs = POLL_MS,
+): Promise<boolean> {
   const deadline = Date.now() + timeoutMs;
 
   while (!condition()) {
     if (Date.now() >= deadline) return false;
-    await Bun.sleep(POLL_MS);
+    await Bun.sleep(pollMs);
   }
 
   return true;
@@ -384,13 +388,29 @@ export class PtyTuiSession implements PtyScreenReader {
   /**
    * Wait for the app's ready signal: the file it writes after the first frame
    * that paints a usable screen, by which point every keyboard handler is
-   * subscribed (see packages/client/src/ready-signal.ts).
+   * subscribed (see packages/client/src/ready-signal.ts). `pollMs` bounds the
+   * quantization of a timing taken around this wait.
    */
-  async waitForReady(timeoutMs = READY_TIMEOUT_MS): Promise<void> {
-    await waitForPtyScreen(this, () => existsSync(this.readyFile), {
+  async waitForReady(timeoutMs = READY_TIMEOUT_MS, pollMs = POLL_MS): Promise<void> {
+    const ready = await pollUntil(
+      () => existsSync(this.readyFile) || this.exitRecord !== null,
       timeoutMs,
-      what: "the ready signal",
-    });
+      pollMs,
+    );
+
+    if (existsSync(this.readyFile)) return;
+    const exit = this.exitRecord;
+
+    if (exit !== null) {
+      throw new Error(
+        `PTY child exited with code ${exit.exitCode} before the ready signal. Last screen:\n${this.text()}`,
+      );
+    }
+    if (!ready) {
+      throw new Error(
+        `PTY ready signal did not arrive within ${timeoutMs}ms. Last screen:\n${this.text()}`,
+      );
+    }
   }
 
   /**

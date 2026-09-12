@@ -9,3 +9,6 @@ dist/
 
 # bun build --compile scratch files
 .*.bun-build
+
+# local benchmark runs
+benchmarks/results/
