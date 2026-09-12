@@ -1,0 +1,96 @@
+name: install vm
+
+# Clean-machine install tests: the real installer inside a fresh Firecracker
+# microVM, one per scenario, on hosted runners with KVM. This catches bugs that
+# only show on a truly clean box (no node or bun, empty PATH, unset HOME, a
+# daemon left running, no network) that shared runners and containers cannot.
+#
+# NEVER pull_request or pull_request_target: the job needs `sudo` on the runner
+# to open /dev/kvm and boots a VM, so it must not run untrusted fork code. It
+# runs nightly, on demand, and when the installer or this harness changes on main.
+on:
+  schedule:
+    - cron: "41 3 * * *"
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "a single scenario to run (empty runs all)"
+        required: false
+        default: ""
+  push:
+    branches: [main]
+    paths:
+      - "site/public/install.sh"
+      - "test/install/vm/**"
+
+permissions:
+  contents: read
+
+jobs:
+  vm:
+    name: ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Open /dev/kvm to the runner user
+        run: |
+          sudo chmod a+rw /dev/kvm
+          ls -l /dev/kvm /dev/net/tun
+      - name: Run install-vm scenarios
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SCENARIO: ${{ github.event.inputs.scenario }}
+        run: bun run test:install-vm -- --scenario "$SCENARIO"
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: install-vm-${{ matrix.arch }}
+          path: |
+            tmp/install-vm/result.json
+            tmp/install-vm/junit.xml
+            tmp/install-vm/runs/**
+          # never upload disk images, sockets, or keys
+          # (the runs dir holds only logs and assertions.tsv)
+          if-no-files-found: ignore
+
+  # A red nightly run is invisible unless it is filed; comment on the open
+  # tracking issue if there is one, else open it. Manual and push runs stay quiet.
+  report-failure:
+    name: Report failure
+    needs: vm
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create install-vm-failure --color b60205 \
+            --description "The nightly clean-machine install tests failed" 2>/dev/null || true
+          body="The nightly install-vm run failed. Run: ${RUN_URL}"
+          existing=$(gh issue list --state open --label install-vm-failure \
+            --json number -q '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "Clean-machine install tests are failing" \
+              --label install-vm-failure --body "$body"
+          fi
