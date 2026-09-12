@@ -4,7 +4,9 @@
  * grid instead of raw escape bytes. OpenTUI repaints only changed cells, so the
  * byte stream is never "the screen" - the emulator is. Tests press named keys,
  * wait on screen predicates, and get the last screen in every timeout error.
- * Wait helpers take a `PtyScreenReader` so they are unit-testable with a fake.
+ * Readiness comes from the app's own signal (`waitForReady`), never from
+ * output silence. Wait helpers take a `PtyScreenReader` so they are
+ * unit-testable with a fake.
  */
 
 import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
@@ -15,6 +17,7 @@ import {
   type GhosttyTerminal,
 } from "../../packages/client/src/ghostty-terminal";
 import { ptyAvailable, spawn, type ExitEvent, type IPty } from "../../packages/client/src/pty";
+import { READY_FILE_ENV } from "../../packages/client/src/ready-signal";
 import { locateTextInFrame, type FrameLocation } from "../../packages/client/src/test-support";
 import { hermeticCueloopEnvironment } from "./env";
 import { encodePtyKeyPress, type PtyKeyPress } from "./pty-key-codes";
@@ -42,10 +45,8 @@ const POLL_MS = 30;
 const TYPE_CHARACTER_GAP_MS = 30;
 /** How long `close` waits for SIGTERM to work before escalating to SIGKILL. */
 const TERMINATE_GRACE_MS = 2_000;
-/** Attempts `ensureKeyboardIsLive` makes before declaring the key handler dead. */
-const KEYBOARD_LIVE_ATTEMPTS = 5;
-/** Deadline per attempt for the probe key to change the frame. */
-const KEYBOARD_LIVE_ATTEMPT_MS = 1_000;
+/** Deadline for the app's ready signal: the CLI boots through bun and the daemon socket. */
+const READY_TIMEOUT_MS = 20_000;
 
 /** What the wait helpers need from a session: the screen and the exit state. */
 export interface PtyScreenReader {
@@ -161,10 +162,12 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
   if (terminal === null) {
     throw new Error("PTY session launch failed: Ghostty terminal allocation failed");
   }
+  const readyFile = join(options.home, `ready-${++launchCount}`);
   const environment = hermeticCueloopEnvironment(options.home, {
     TERM: "xterm-256color",
     COLORTERM: "truecolor",
     PATH: `${offlineBinDirectory(options.home)}:${process.env.PATH ?? ""}`,
+    [READY_FILE_ENV]: readyFile,
     ...options.env,
   });
   const executable = process.env.CUELOOP_TEST_EXECUTABLE;
@@ -178,8 +181,11 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
     env: environment,
   });
 
-  return new PtyTuiSession(pty, terminal);
+  return new PtyTuiSession(pty, terminal, readyFile);
 }
+
+/** Distinguishes the ready files of sessions launched from one home. */
+let launchCount = 0;
 
 /**
  * A bin directory whose `ssh` fails at once with a recognizable message, put
@@ -210,11 +216,11 @@ export class PtyTuiSession implements PtyScreenReader {
   private lastDataAt = 0;
   private exitRecord: ExitEvent | null = null;
   private textCache: { generation: number; text: string } | null = null;
-  private frameCache: { generation: number; frame: string } | null = null;
 
   constructor(
     private readonly pty: IPty,
     private readonly terminal: GhosttyTerminal,
+    private readonly readyFile: string,
   ) {
     pty.onData((chunk) => {
       this.terminal.write(this.encoder.encode(chunk));
@@ -376,33 +382,15 @@ export class PtyTuiSession implements PtyScreenReader {
   }
 
   /**
-   * Prove the key handler is bound: OpenTUI attaches it after first paint, so
-   * a key sent right after the first frame can be dropped. Presses `probe`
-   * until the painted frame (glyphs and colors) changes, then presses `undo`.
-   * The caller picks a pair whose effect is cheap and unambiguous for the
-   * screen under test. This is the one place a re-send is allowed. Retire
-   * when the app exposes a ready signal.
+   * Wait for the app's ready signal: the file it writes after the first frame
+   * that paints a usable screen, by which point every keyboard handler is
+   * subscribed (see packages/client/src/ready-signal.ts).
    */
-  async ensureKeyboardIsLive(probe: PtyKeyPress, undo: PtyKeyPress): Promise<void> {
-    const before = this.paintedFrame();
-
-    for (let attempt = 1; attempt <= KEYBOARD_LIVE_ATTEMPTS; attempt++) {
-      await this.press(probe);
-      const changed = await pollUntil(
-        () => this.paintedFrame() !== before,
-        KEYBOARD_LIVE_ATTEMPT_MS,
-      );
-
-      if (changed) {
-        await this.press(undo);
-
-        return;
-      }
-    }
-
-    throw new Error(
-      `PTY keyboard never went live: ${KEYBOARD_LIVE_ATTEMPTS} presses of ${JSON.stringify(probe)} left the frame unchanged. Last screen:\n${this.text()}`,
-    );
+  async waitForReady(timeoutMs = READY_TIMEOUT_MS): Promise<void> {
+    await waitForPtyScreen(this, () => existsSync(this.readyFile), {
+      timeoutMs,
+      what: "the ready signal",
+    });
   }
 
   /**
@@ -426,24 +414,6 @@ export class PtyTuiSession implements PtyScreenReader {
     return this.exitRecord ?? { exitCode: 0 };
   }
 
-  /** The screen with colors, compactly serialized, so a caret move (background only) counts as a change. */
-  private paintedFrame(): string {
-    if (this.frameCache?.generation === this.generation) return this.frameCache.frame;
-    let frame = "";
-
-    for (let y = 0; y < this.pty.rows; y++) {
-      for (let x = 0; x < this.pty.cols; x++) {
-        const cell = this.terminal.readCell(x, y);
-
-        frame += cell ? `${cell.codepoint}/${colorToken(cell.fg)}:${colorToken(cell.bg)};` : "_;";
-      }
-      frame += "\n";
-    }
-    this.frameCache = { generation: this.generation, frame };
-
-    return frame;
-  }
-
   private signalProcessGroup(signal: "SIGTERM" | "SIGKILL"): void {
     try {
       process.kill(-this.pty.pid, signal);
@@ -451,12 +421,4 @@ export class PtyTuiSession implements PtyScreenReader {
       // the group is already gone; the read loop reports the exit
     }
   }
-}
-
-/** A color as one short token for frame comparison. */
-function colorToken(color: GhosttyCell["fg"]): string {
-  if (color.kind === "rgb") return `${color.r}.${color.g}.${color.b}`;
-  if (color.kind === "palette") return `p${color.index}`;
-
-  return "d";
 }

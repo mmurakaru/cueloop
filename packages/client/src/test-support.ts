@@ -7,10 +7,49 @@
  */
 
 import { join } from "node:path";
-import type { TestRendererSetup } from "@opentui/core/testing";
+import { cloneElement, isValidElement, type ReactNode } from "react";
+import type { TestRendererOptions, TestRendererSetup } from "@opentui/core/testing";
+import { testRender } from "@opentui/react/test-utils";
+import type { AppProps } from "./App";
 
-/** Pass budget for waits that include daemon or subprocess round-trips. */
-export const WAIT_PASSES = { maxPasses: 400 };
+/**
+ * A probe for the App's ready signal in an in-process suite: pass `onReady`
+ * to the App and await `ready` before the first interaction, instead of
+ * waiting for a piece of text and hoping the keyboard is bound by then.
+ */
+export interface AppReadyProbe {
+  /** Pass as the App's `onReady` prop. */
+  onReady: () => void;
+  /** Resolves once the App has fired its ready signal. */
+  ready: Promise<void>;
+}
+
+export function appReadyProbe(): AppReadyProbe {
+  let resolve: () => void = () => {};
+  const ready = new Promise<void>((done) => {
+    resolve = done;
+  });
+
+  return { onReady: () => resolve(), ready };
+}
+
+/**
+ * Boot an App element and resolve once it has fired its ready signal: the
+ * first usable screen is painted and its keyboard handlers are subscribed.
+ * Every App suite starts here so no boot waits on a piece of text and hopes.
+ */
+export async function renderReadyApp(
+  element: ReactNode,
+  options: TestRendererOptions,
+): Promise<TestRendererSetup> {
+  if (!isValidElement<AppProps>(element)) throw new Error("renderReadyApp needs an App element");
+  const probe = appReadyProbe();
+  const setup = await testRender(cloneElement(element, { onReady: probe.onReady }), options);
+
+  await probe.ready;
+
+  return setup;
+}
 
 /**
  * The CUELOOP_CONFIG path that isolates a test from the developer's real user

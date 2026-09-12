@@ -15,7 +15,13 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, locateText, waitForState, waitForText } from "./test-support";
+import {
+  isolateUserConfig,
+  locateText,
+  waitForState,
+  waitForText,
+  renderReadyApp,
+} from "./test-support";
 import { NERD } from "./components/primitives/icons";
 
 const PATCH = `diff --git a/src/store.ts b/src/store.ts
@@ -73,7 +79,7 @@ afterEach(() => {
 });
 
 async function renderApp() {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+  const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
     width: 160,
     height: 20,
   });

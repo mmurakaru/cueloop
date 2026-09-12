@@ -5,11 +5,10 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, waitForText } from "./test-support";
+import { isolateUserConfig, waitForText, renderReadyApp } from "./test-support";
 
 const PLAN = `# Render Plan
 
@@ -51,7 +50,7 @@ afterEach(() => {
 });
 
 async function frame(): Promise<string> {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+  const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
     width: 120,
     height: 36,
   });
@@ -116,7 +115,7 @@ describe("block spacing", () => {
       workspace: { repoRoot: "/repo", branch: "main" },
       artifact: { type: "plan", content: listPlan, meta: {} },
     });
-    const setup = await testRender(<App home={home} sessionId={s2.id} />, {
+    const setup = await renderReadyApp(<App home={home} sessionId={s2.id} />, {
       width: 120,
       height: 30,
     });

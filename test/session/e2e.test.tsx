@@ -10,13 +10,13 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { App } from "../../packages/client/src/App";
 import {
   dragText,
   press,
   pressKey,
+  renderReadyApp,
   typeText,
   waitForText,
 } from "../../packages/client/src/test-support";
@@ -212,7 +212,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
         undefined,
         (candidate) => candidate.artifact.meta.agentSessionId === "cc-deny",
       );
-      const setup = await testRender(<App home={home} sessionId={sessionId} />, {
+      const setup = await renderReadyApp(<App home={home} sessionId={sessionId} />, {
         width: 120,
         height: 30,
       });

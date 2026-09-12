@@ -1,8 +1,8 @@
 /**
  * Ready-to-drive PTY reviews: the tier gate, the shared plan text, and
- * launchers that open a plan or diff session in the TUI, wait for its first
- * paint, and prove the keyboard is live. Every PTY suite starts from here so
- * the fixtures and the readiness protocol live in one place.
+ * launchers that open a plan or diff session in the TUI and wait for the app's
+ * ready signal. Every PTY suite starts from here so the fixtures and the
+ * readiness protocol live in one place.
  */
 
 import { test } from "bun:test";
@@ -56,16 +56,13 @@ export const OTHER_CHANGE: TestChangedFile = {
   after: "export const a = 2;\n",
 };
 
-/** Deadline for the first paint: the CLI boots through bun and the daemon socket. */
-const FIRST_PAINT_TIMEOUT_MS = 20_000;
-
 export interface LaunchReviewOptions {
   cols?: number;
   rows?: number;
   env?: Record<string, string>;
 }
 
-/** Open ROLLOUT_PLAN in the TUI, painted and with the keyboard proven live. */
+/** Open ROLLOUT_PLAN in the TUI, ready and painted. */
 export async function launchPlanReview(
   reviewHome: TestReviewHome,
   options: LaunchReviewOptions = {},
@@ -79,17 +76,13 @@ export async function launchPlanReview(
     env: options.env,
   });
 
-  await session.waitForText(ROLLOUT_PLAN_LAST_LINE, {
-    timeoutMs: FIRST_PAINT_TIMEOUT_MS,
-    what: "the first painted plan",
-  });
-  // down moves the caret onto the next block (a background change); up moves it back
-  await session.ensureKeyboardIsLive("down", "up");
+  await session.waitForReady();
+  await session.waitForText(ROLLOUT_PLAN_LAST_LINE, { what: "the painted plan" });
 
   return { session, review };
 }
 
-/** Open a diff review over `files` in the TUI, painted with the caret on the added `new Map()` line. */
+/** Open a diff review over `files` in the TUI, ready, with the caret on the added `new Map()` line. */
 export async function launchDiffReview(
   reviewHome: TestReviewHome,
   files: TestChangedFile[],
@@ -106,11 +99,8 @@ export async function launchDiffReview(
     env: options.env,
   });
 
-  await session.waitForText("new Map()", {
-    timeoutMs: FIRST_PAINT_TIMEOUT_MS,
-    what: "the first painted diff",
-  });
-  await session.ensureKeyboardIsLive("down", "up");
+  await session.waitForReady();
+  await session.waitForText("new Map()", { what: "the painted diff" });
   await session.click("new Map()");
 
   return { session, review, repo };

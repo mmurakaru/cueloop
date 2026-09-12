@@ -62,13 +62,22 @@ Four tiers, cheapest loop first (use the cheapest tier that can prove the change
 4. PTY tests (`test/pty/`, env-gated) - resize, key routing, real terminal behavior.
    The TUI runs in a real pseudo terminal and its output is fed into the in-repo
    Ghostty VT emulator, so assertions read the rendered screen, never raw bytes.
-   Harness: `test/helpers/pty-tui-session.ts` (`launchTuiSession`, `press`,
-   `waitForText`, `waitForScreen`, `ensureKeyboardIsLive`, `close`), key names in
+   Harness: `test/helpers/pty-tui-session.ts` (`launchTuiSession`, `waitForReady`,
+   `press`, `waitForText`, `waitForScreen`, `close`), key names in
    `test/helpers/pty-key-codes.ts`, ready-to-drive plan and diff reviews plus the
    tier gate in `test/helpers/pty-reviews.ts`; the daemon home fixture is
    `test/helpers/review-home.ts` and the git repo fixture `test/helpers/git-repo.ts`.
    Every PTY child gets a failing `ssh` first on PATH, so share chords never
    reach the live gateway from a test.
+
+Readiness contract: the App fires one ready signal after the first frame that
+paints a usable screen, by which point that screen's keyboard handlers are
+subscribed (`packages/client/src/ready-signal.ts`). Surfaces that mount later
+still need a screen predicate. In-process suites boot with `renderReadyApp`
+from `test-support.ts`; subprocess and PTY suites set `CUELOOP_READY_FILE`
+and wait for that file (`waitForReady`). Wait for readiness on the signal,
+never on output silence or a sleep. CI runs the suite once: the retry loop had
+not fired in the last 18 green runs, and a flaky test is a failing test.
    Set `CUELOOP_TEST_EXECUTABLE` to run the suite against a compiled binary
    instead of the source entry. `test/pty/keybindings.test.ts` covers every chord
    in the thread view cheatsheet tables and fails on a new chord without an

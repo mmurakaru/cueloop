@@ -195,15 +195,7 @@ jobs:
       - run: npm install -g npm@latest
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
-      - name: test
-        run: |
-          for attempt in 1 2 3; do
-            echo "::group::test attempt $attempt"
-            if bun run test; then echo "::endgroup::"; exit 0; fi
-            echo "::endgroup::"
-            echo "test attempt $attempt failed - retrying"
-          done
-          exit 1
+      - run: bun run test
       - name: Publish
         run: bun run ci:publish
         env:
