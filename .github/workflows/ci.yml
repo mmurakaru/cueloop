@@ -32,6 +32,22 @@ jobs:
           done
           exit 1
 
+  pty:
+    # The PTY tier drives the real TUI in a pseudo terminal through the native
+    # pty and Ghostty VT shims, which ship prebuilt for darwin-arm64 only, so
+    # this job is pinned to the same Apple silicon runner the release build
+    # uses. Serial on purpose: OpenTUI's FFI does not survive bun's parallel
+    # test isolation.
+    name: PTY tier
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bun run test:pty
+
   native:
     name: Native shim
     runs-on: macos-latest

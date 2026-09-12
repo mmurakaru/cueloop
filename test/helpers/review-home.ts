@@ -19,6 +19,8 @@ export interface TestReviewHome {
   createPlanSession(markdown: string, title?: string): ReviewSession;
   /** A diff review session over `patch`, with per-file contents when the test needs curation. */
   createDiffSession(patch: string, files?: DiffFileContents[], title?: string): ReviewSession;
+  /** An executable `#!/bin/sh` script in the home with `body`; for stand-in editors and stub commands. */
+  createShellScript(name: string, body: string): string;
   /** A non-interactive editor script that appends `marker` to the file it is given; for hand-off tests. */
   createAppendingEditor(marker: string): string;
   cleanup(): void;
@@ -54,13 +56,16 @@ export function createTestReviewHome(): TestReviewHome {
         artifact,
       });
     },
-    createAppendingEditor(marker) {
-      const script = join(home, "appending-editor.sh");
+    createShellScript(name, body) {
+      const script = join(home, name);
 
-      writeFileSync(script, `#!/bin/sh\nprintf '\\n\\n${marker}\\n' >> "$1"\n`);
+      writeFileSync(script, `#!/bin/sh\n${body}\n`);
       chmodSync(script, 0o755);
 
       return script;
+    },
+    createAppendingEditor(marker) {
+      return this.createShellScript("appending-editor.sh", `printf '\\n\\n${marker}\\n' >> "$1"`);
     },
     cleanup() {
       server.stop();

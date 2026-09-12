@@ -1,7 +1,7 @@
 /** Key names encode to the bytes a TERM=xterm-256color terminal sends; bad chords fail loudly. */
 
 import { describe, expect, test } from "bun:test";
-import { encodePtyKeyPress } from "./pty-key-codes";
+import { cheatsheetChordKeyPress, cheatsheetEntryChords, encodePtyKeyPress } from "./pty-key-codes";
 
 describe("encodePtyKeyPress", () => {
   test("names map to their sequences and printables pass through", () => {
@@ -23,12 +23,12 @@ describe("encodePtyKeyPress", () => {
     expect(encodePtyKeyPress(["ctrl", "Q"])).toBe("\x11");
   });
 
-  test("ctrl with enter or tab uses CSI u, alt prefixes ESC, shift uppercases", () => {
+  test("ctrl with enter or tab uses modifyOtherKeys, alt prefixes ESC, shift uppercases", () => {
     // Given chords plain bytes cannot express
     // When encoded
-    // Then CSI u carries the modifier parameter, alt is an ESC prefix, shift+tab is CSI Z
-    expect(encodePtyKeyPress(["ctrl", "enter"])).toBe("\x1b[13;5u");
-    expect(encodePtyKeyPress(["ctrl", "shift", "tab"])).toBe("\x1b[9;6u");
+    // Then modifyOtherKeys carries the modifier and code point, alt is an ESC prefix, shift+tab is CSI Z
+    expect(encodePtyKeyPress(["ctrl", "enter"])).toBe("\x1b[27;5;13~");
+    expect(encodePtyKeyPress(["ctrl", "shift", "tab"])).toBe("\x1b[27;6;9~");
     expect(encodePtyKeyPress(["alt", "n"])).toBe("\x1bn");
     expect(encodePtyKeyPress(["alt", "down"])).toBe("\x1b\x1b[B");
     expect(encodePtyKeyPress(["shift", "tab"])).toBe("\x1b[Z");
@@ -44,5 +44,19 @@ describe("encodePtyKeyPress", () => {
       '"dwon" is neither a named key nor one character',
     );
     expect(() => encodePtyKeyPress(["ctrl", "down"])).toThrow('cannot send ctrl with "down"');
+  });
+});
+
+describe("cheatsheetChordKeyPress", () => {
+  test("reads the cheatsheet glyphs as modifiers and keys", () => {
+    // Given chords as the keybinds dialog spells them
+    // When mapped to key presses
+    // Then option is alt, control is ctrl, the delete glyph is backspace, uppercase adds shift
+    expect(cheatsheetChordKeyPress("⌥x")).toEqual(["alt", "x"]);
+    expect(cheatsheetChordKeyPress("⌥X")).toEqual(["alt", "shift", "x"]);
+    expect(cheatsheetChordKeyPress("⌃enter")).toEqual(["ctrl", "enter"]);
+    expect(cheatsheetChordKeyPress("⌥⌫")).toEqual(["alt", "backspace"]);
+    expect(cheatsheetEntryChords("⌥n / ⌥p")).toEqual(["⌥n", "⌥p"]);
+    expect(cheatsheetEntryChords("⌃s")).toEqual(["⌃s"]);
   });
 });

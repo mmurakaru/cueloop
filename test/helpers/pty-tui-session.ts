@@ -7,6 +7,7 @@
  * Wait helpers take a `PtyScreenReader` so they are unit-testable with a fake.
  */
 
+import { chmodSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   loadGhosttyTerminals,
@@ -14,7 +15,7 @@ import {
   type GhosttyTerminal,
 } from "../../packages/client/src/ghostty-terminal";
 import { ptyAvailable, spawn, type ExitEvent, type IPty } from "../../packages/client/src/pty";
-import { locateTextInFrame } from "../../packages/client/src/test-support";
+import { locateTextInFrame, type FrameLocation } from "../../packages/client/src/test-support";
 import { hermeticCueloopEnvironment } from "./env";
 import { encodePtyKeyPress, type PtyKeyPress } from "./pty-key-codes";
 
@@ -33,8 +34,12 @@ const IDLE_TIMEOUT_MS = 500;
 const SCREEN_WAIT_TIMEOUT_MS = 5_000;
 /** Gap between polls while a condition is pending. */
 const POLL_MS = 30;
-/** Gap between characters in `type`, so a fast burst is not coalesced into one paste. */
-const TYPE_CHARACTER_GAP_MS = 1;
+/**
+ * Gap between characters in `type`: a human typing rate. The composer reorders
+ * characters that arrive faster than about 30 ms apart (issue #365); the tier
+ * types like a person until that is fixed.
+ */
+const TYPE_CHARACTER_GAP_MS = 30;
 /** How long `close` waits for SIGTERM to work before escalating to SIGKILL. */
 const TERMINATE_GRACE_MS = 2_000;
 /** Attempts `ensureKeyboardIsLive` makes before declaring the key handler dead. */
@@ -159,6 +164,7 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
   const environment = hermeticCueloopEnvironment(options.home, {
     TERM: "xterm-256color",
     COLORTERM: "truecolor",
+    PATH: `${offlineBinDirectory(options.home)}:${process.env.PATH ?? ""}`,
     ...options.env,
   });
   const executable = process.env.CUELOOP_TEST_EXECUTABLE;
@@ -174,6 +180,27 @@ export function launchTuiSession(options: LaunchTuiSessionOptions): PtyTuiSessio
 
   return new PtyTuiSession(pty, terminal);
 }
+
+/**
+ * A bin directory whose `ssh` fails at once with a recognizable message, put
+ * first on the child's PATH so a share chord can never reach the live gateway
+ * from a test. Created once per home.
+ */
+function offlineBinDirectory(home: string): string {
+  const directory = join(home, "offline-bin");
+  const ssh = join(directory, "ssh");
+
+  if (!existsSync(ssh)) {
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(ssh, `#!/bin/sh\necho "${OFFLINE_SSH_MESSAGE}" >&2\nexit 255\n`);
+    chmodSync(ssh, 0o755);
+  }
+
+  return directory;
+}
+
+/** What the stub `ssh` prints to stderr; share failure toasts quote it. */
+export const OFFLINE_SSH_MESSAGE = "test: network disabled";
 
 /** A live TUI in a PTY with a Ghostty screen behind it. Always `close()` it in `afterAll`. */
 export class PtyTuiSession implements PtyScreenReader {
@@ -233,25 +260,33 @@ export class PtyTuiSession implements PtyScreenReader {
     await this.writeAndSettle(encodePtyKeyPress(key));
   }
 
-  /** Type text one character at a time, then wait for the repaint to go quiet. */
-  async type(text: string): Promise<void> {
+  /** Type text one character at a time (`gapMs` apart), then wait for the repaint to go quiet. */
+  async type(text: string, gapMs = TYPE_CHARACTER_GAP_MS): Promise<void> {
     const before = this.generation;
 
     for (const character of text) {
       this.pty.write(character);
-      await Bun.sleep(TYPE_CHARACTER_GAP_MS);
+      await Bun.sleep(gapMs);
     }
     await this.settleAfterInput(before);
   }
 
-  /** Left-click the first on-screen occurrence of `needle` (SGR 1006 mouse encoding). */
-  async click(needle: string): Promise<void> {
+  /** The 0-based position of the first on-screen occurrence of `needle`; throws with the screen when absent. */
+  locate(needle: string): FrameLocation {
     const screen = this.text();
     const location = locateTextInFrame(screen, needle);
 
     if (location === null) {
-      throw new Error(`PTY click target "${needle}" is not on screen:\n${screen}`);
+      throw new Error(`PTY text "${needle}" is not on screen:\n${screen}`);
     }
+
+    return location;
+  }
+
+  /** Left-click the first on-screen occurrence of `needle` (SGR 1006 mouse encoding). */
+  async click(needle: string): Promise<void> {
+    const location = this.locate(needle);
+
     await this.clickAt(location.column, location.row);
   }
 
