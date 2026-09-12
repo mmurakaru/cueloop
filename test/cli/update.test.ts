@@ -8,7 +8,7 @@
  */
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -40,7 +40,9 @@ test("the compiled binary resolves its install target to its own directory, neve
   });
   const [stderr, code] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
 
+  // realpath canonicalizes the macOS /var -> /private/var symlink, which the
+  // binary's own path resolution also applies.
   expect(code).toBe(0);
-  expect(stderr).toContain(`cueloop would update in ${installRoot}`);
+  expect(stderr).toContain(`cueloop would update in ${realpathSync(installRoot)}`);
   expect(stderr).not.toContain("$bunfs");
 });

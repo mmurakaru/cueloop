@@ -20,7 +20,7 @@ function depsSpy(overrides: Partial<UpdateDeps> = {}): UpdateDeps & { lines: str
 describe("resolveInstallDir", () => {
   test("rejects the Bun single-file virtual path and falls back to the per-user bin dir", () => {
     // Arrange - a compiled binary that mistakenly reports its bunfs path
-    const env = { HOME: "/Users/dev" } as NodeJS.ProcessEnv;
+    const env: NodeJS.ProcessEnv = { HOME: "/Users/dev" };
 
     // Act
     const dir = resolveInstallDir("/$bunfs/root/cueloop", env);
@@ -31,7 +31,7 @@ describe("resolveInstallDir", () => {
 
   test("uses the real on-disk directory of the invoked binary", () => {
     // Arrange
-    const env = { HOME: "/Users/dev" } as NodeJS.ProcessEnv;
+    const env: NodeJS.ProcessEnv = { HOME: "/Users/dev" };
 
     // Act
     const dir = resolveInstallDir("/usr/local/bin/cueloop", env);
@@ -42,7 +42,7 @@ describe("resolveInstallDir", () => {
 
   test("falls back to the per-user bin dir when not running as the compiled cueloop", () => {
     // Arrange - execPath is the bun runtime, not cueloop
-    const env = { HOME: "/Users/dev" } as NodeJS.ProcessEnv;
+    const env: NodeJS.ProcessEnv = { HOME: "/Users/dev" };
 
     // Act
     const dir = resolveInstallDir("/Users/dev/.bun/bin/bun", env);
@@ -53,7 +53,7 @@ describe("resolveInstallDir", () => {
 
   test("an explicit CUELOOP_INSTALL_DIR overrides everything", () => {
     // Arrange
-    const env = { HOME: "/Users/dev", CUELOOP_INSTALL_DIR: "/opt/bin" } as NodeJS.ProcessEnv;
+    const env: NodeJS.ProcessEnv = { HOME: "/Users/dev", CUELOOP_INSTALL_DIR: "/opt/bin" };
 
     // Act
     const dir = resolveInstallDir("/$bunfs/root/cueloop", env);
