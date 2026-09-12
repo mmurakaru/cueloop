@@ -172,6 +172,7 @@ export const Params = {
   "repo.files": v.object({ cwd: NonEmpty }),
   "repo.fileContents": v.object({ cwd: NonEmpty, path: NonEmpty }),
   "repo.changes": v.object({ cwd: NonEmpty }),
+  "repo.diff": v.object({ cwd: NonEmpty }),
   "session.navigate": v.object({
     id: SessionId,
     entryId: NonEmpty,

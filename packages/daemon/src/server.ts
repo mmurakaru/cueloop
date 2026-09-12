@@ -26,6 +26,7 @@ import {
   type Response,
 } from "./protocol";
 import { cueloopHome, lockPath, ownerTokenPath, pidPath, socketPath } from "./paths";
+import { DAEMON_VERSION } from "./version";
 import { randomBytes } from "node:crypto";
 
 interface Connection {
@@ -44,6 +45,8 @@ export interface DaemonOptions {
   /** Idle-exit delay; 0 disables (tests, foreground runs). */
   idleExitMs?: number;
   onIdleExit?: () => void;
+  /** The version the ping handshake reports; defaults to this build. Tests override it to pose as a stale daemon. */
+  version?: string;
 }
 
 /**
@@ -64,11 +67,13 @@ export class DaemonServer {
   private ownerToken = "";
   private readonly idleExitMs: number;
   private readonly onIdleExit: () => void;
+  private readonly version: string;
 
   constructor(options: DaemonOptions = {}) {
     this.home = options.home ?? cueloopHome();
     this.idleExitMs = options.idleExitMs ?? 15 * 60 * 1000;
     this.onIdleExit = options.onIdleExit ?? (() => process.exit(0));
+    this.version = options.version ?? DAEMON_VERSION;
     mkdirSync(this.home, { recursive: true, mode: 0o700 });
     this.core = new DaemonCore(this.home);
     this.core.onEvent((event) => this.broadcast(event));
@@ -256,7 +261,7 @@ export class DaemonServer {
   }
 
   private readonly handlers: Record<MethodName, MethodHandler> = {
-    "daemon.ping": () => ({ pid: process.pid }),
+    "daemon.ping": () => ({ pid: process.pid, version: this.version }),
     "daemon.hello": (connection, request) => {
       const params = parseParams("daemon.hello", request.params);
 
@@ -401,6 +406,8 @@ export class DaemonServer {
     },
     "repo.changes": (_connection, request) =>
       this.core.repoChanges(parseParams("repo.changes", request.params).cwd),
+    "repo.diff": (_connection, request) =>
+      this.core.repoDiff(parseParams("repo.diff", request.params).cwd),
     "session.refreshDiff": (_connection, request) => {
       const params = parseParams("session.refreshDiff", request.params);
 

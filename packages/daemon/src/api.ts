@@ -47,7 +47,7 @@ import { SessionStore, withHistory } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
 import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
 import { DiffWatcher } from "./diff-watcher";
-import { workingTreeDiff, workingChangeList } from "./working-tree";
+import { workingTreeDiff, workingChangeList, type WorkingTreeDiff } from "./working-tree";
 import { listProjectFiles, readProjectFile } from "./project-files";
 import { resolveWorkspace } from "./review";
 import { DaemonError } from "./errors";
@@ -361,6 +361,15 @@ export class DaemonCore {
   /** Changed files (repo-relative path plus git status) in the working tree at `cwd`. Owner-only. */
   repoChanges(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]> {
     return workingChangeList(cwd);
+  }
+
+  /**
+   * The live working-tree diff (HEAD vs working tree, untracked included) at `cwd`:
+   * the same unified patch plus full per-file contents a `cueloop diff` captures,
+   * so the Changes navigator renders a real diff for any thread. Owner-only.
+   */
+  repoDiff(cwd: string): Promise<WorkingTreeDiff> {
+    return workingTreeDiff(cwd);
   }
 
   sessionSetShareId(id: string, shareId: string): ReviewSession {

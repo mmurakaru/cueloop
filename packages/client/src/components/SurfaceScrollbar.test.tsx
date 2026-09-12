@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import React from "react";
-import { DiffSheet } from "./DiffSheet";
+import { DiffContentView } from "./DiffContentView";
 import { diffRows, marksByRows } from "../view-diff";
 import { allowEventLoopUpdates } from "../test-support";
 import { fixtureDiffSession } from "./story-fixtures";
@@ -69,7 +69,7 @@ describe("the diff sheet's scrollbar", () => {
     });
     const width = 60;
     const setup = await testRender(
-      <DiffSheet
+      <DiffContentView
         rows={rows}
         session={session}
         marks={marksByRows(session.annotations, rows)}

@@ -315,6 +315,12 @@ interface DerivedSessionProjection {
   tree: TreeRow[];
 }
 
+/** A live working-tree diff: the same patch + per-file contents a diff capture pins. */
+interface LiveWorkingDiff {
+  patch: string;
+  files: readonly DiffFileContents[];
+}
+
 class Controller implements ReviewController {
   readonly readOnly: boolean;
   private client: SessionClient | null = null;
@@ -339,8 +345,11 @@ class Controller implements ReviewController {
   private shareReconnect: TimerHandle | undefined;
   private shareStop: (() => void) | null = null;
   private shareRun: object | null = null;
-  /** Projections keyed by session identity so renders reuse one computation. */
+  /** Projections keyed by session identity (and the live diff for non-diff threads) so renders reuse one computation. */
   private derivedFor: ReviewSession | null = null;
+  /** The launch/workspace repo's live working-tree diff, feeding the Changes view for non-diff threads. */
+  private liveDiff: LiveWorkingDiff | null = null;
+  private derivedForLiveDiff: LiveWorkingDiff | null = null;
   private derived: DerivedSessionProjection = {
     display: [],
     rows: [],
@@ -446,17 +455,25 @@ class Controller implements ReviewController {
   // ── derived projections ─────────────────────
   private ensureDerived(): void {
     const session = this.snapshot.session;
+    const isDiff = session?.artifact.type === "diff";
+    // a diff thread reads its pinned capture; every other thread reflects the live working tree
+    const liveDiff = isDiff ? null : this.liveDiff;
 
-    if (this.derivedFor === session) return;
+    if (this.derivedFor === session && this.derivedForLiveDiff === liveDiff) return;
+    // fold state belongs to the session, so a live-tree refresh keeps it; only a new session resets it
+    if (this.derivedFor !== session) {
+      this.collapsedFiles.clear();
+      this.expandedFiles.clear();
+    }
     this.derivedFor = session;
-    // a new session starts fully expanded, never inheriting the prior diff's fold state
-    this.collapsedFiles.clear();
-    this.expandedFiles.clear();
-    const rows =
-      session && session.artifact.type === "diff" ? diffRows(session.artifact.content) : [];
+    this.derivedForLiveDiff = liveDiff;
+
+    const content = isDiff ? session!.artifact.content : (liveDiff?.patch ?? "");
+    const files = isDiff ? (session?.artifact.files ?? []) : (liveDiff?.files ?? []);
+    const rows = content ? diffRows(content) : [];
     const models = new Map<string, FileDiffMetadata>();
 
-    for (const file of session?.artifact.files ?? []) models.set(file.path, parseFileDiff(file));
+    for (const file of files) models.set(file.path, parseFileDiff(file));
     this.derived = {
       display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
       rows,
@@ -464,6 +481,13 @@ class Controller implements ReviewController {
       models,
       tree: session?.history ? treeRows(session.history) : [],
     };
+  }
+
+  /** The per-file contents that back the current rows: a diff thread's capture, else the live working tree. */
+  private foldFiles(): readonly DiffFileContents[] | undefined {
+    const session = this.snapshot.session;
+
+    return session?.artifact.type === "diff" ? session.artifact.files : this.liveDiff?.files;
   }
 
   treeRows(): TreeRow[] {
@@ -482,12 +506,7 @@ class Controller implements ReviewController {
     this.ensureDerived();
     if (this.collapsedFiles.size === 0 && this.expandedFiles.size === 0) return this.derived.rows;
 
-    return applyFold(
-      this.derived.rows,
-      this.collapsedFiles,
-      this.expandedFiles,
-      this.snapshot.session?.artifact.files,
-    );
+    return applyFold(this.derived.rows, this.collapsedFiles, this.expandedFiles, this.foldFiles());
   }
 
   setFileCollapsed(file: string, collapsed: boolean): void {
@@ -581,6 +600,17 @@ class Controller implements ReviewController {
     // a diff review pins its captured snapshot; every other thread reflects the live working tree
     const session = this.snapshot.session;
     if (session?.artifact.type === "diff") return session.artifact.files ?? [];
+    // eager: capture the live working-tree diff so the Changes navigator and its file tabs render a real diff
+    if (this.client?.repoDiff !== undefined) {
+      const diff = await this.client.repoDiff(this.sidebarRepoRoot());
+
+      this.liveDiff = diff;
+      // rows() derive from the fresh patch; re-render so an open diff tab repaints
+      this.update({});
+
+      return diff.files;
+    }
+    // a peer without the live-diff capability still lists changes, just without a diff body
     if (this.client?.repoChanges === undefined) return [];
     const changes = await this.client.repoChanges(this.sidebarRepoRoot());
 

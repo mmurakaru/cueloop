@@ -43,7 +43,7 @@ describe("visibleTabWindow", () => {
 
 const NAMES = [
   "AppShell.tsx",
-  "DiffSheet.tsx",
+  "DiffContentView.tsx",
   "IconButton.tsx",
   "EditorGrid.zoom.test.tsx",
   "ThreadView.tsx",
@@ -89,7 +89,7 @@ describe("editor tab strip", () => {
     // Assert - no squeezed labels: every visible tab reads in full up to the clip edge
     expect(row).toContain("Changes ");
     expect(row).toContain("AppShell.tsx ");
-    expect(row).toContain("DiffSheet.tsx ");
+    expect(row).toContain("DiffContentView.tsx ");
     // and the header controls sit at the right edge, past the clipped strip
     expect(row.trimEnd().endsWith(`search  ${NERD.zoom}`)).toBe(true);
   });

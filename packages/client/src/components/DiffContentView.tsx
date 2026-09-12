@@ -27,7 +27,7 @@ import { useFrameMeasure } from "../use-frame-measure";
 import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
 import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
-import { coloredRowSpans } from "./diff-sheet-layout";
+import { coloredRowSpans } from "./diff-content-view-layout";
 
 /** Shared empty map so an unresolved/stale highlight state is a stable value. */
 const EMPTY_SYNTAX: Map<number, SyntaxSpan[]> = new Map();
@@ -54,7 +54,7 @@ export interface DiffFoldControls {
   onCopyPath: (file: string) => void;
 }
 
-export interface DiffSheetProps {
+export interface DiffContentViewProps {
   rows: DiffRow[];
   session: ReviewSession;
   /** Annotations resolved onto rows (marksByRows), with char ranges and spans. */
@@ -377,7 +377,7 @@ function useSyntaxHighlights(rows: DiffRow[]): Map<number, SyntaxSpan[]> {
   return highlighted.rows === rows ? highlighted.byRow : EMPTY_SYNTAX;
 }
 
-export function DiffSheet({
+export function DiffContentView({
   rows,
   session,
   marks,
@@ -399,7 +399,7 @@ export function DiffSheet({
   fileStats: fileStatsProp,
   split = false,
   theme,
-}: DiffSheetProps): React.ReactNode {
+}: DiffContentViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
   const source: LineSource = {

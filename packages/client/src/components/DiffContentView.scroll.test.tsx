@@ -5,7 +5,7 @@ import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { ScrollBoxRenderable, type Renderable } from "@opentui/core";
 import type { Annotation } from "@cueloop/schema";
-import { DiffSheet } from "./DiffSheet";
+import { DiffContentView } from "./DiffContentView";
 import { diffRows, marksByRows } from "../view-diff";
 import { DARK } from "../theme";
 import { annotationPaletteFor } from "../annotation-palette";
@@ -63,7 +63,7 @@ test("walking the caret down past wrapped discussion cards keeps it on screen an
     createdAt: "2026-01-01T00:00:00Z",
   }));
   const setup = await testRender(
-    <DiffSheet
+    <DiffContentView
       rows={rows}
       session={fixtureDiffSession({ annotations })}
       marks={marksByRows(annotations, rows)}

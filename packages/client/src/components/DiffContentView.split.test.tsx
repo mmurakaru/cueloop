@@ -7,7 +7,7 @@
 import { describe, expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import React from "react";
-import { DiffSheet } from "./DiffSheet";
+import { DiffContentView } from "./DiffContentView";
 import { diffRows } from "../view-diff";
 import { allowEventLoopUpdates } from "../test-support";
 import { fixtureDiffSession } from "./story-fixtures";
@@ -37,7 +37,7 @@ const WRAPPING_PATCH = `diff --git a/app.ts b/app.ts
 
 async function splitFrameLines(width: number): Promise<string[]> {
   const setup = await testRender(
-    <DiffSheet
+    <DiffContentView
       rows={diffRows(WRAPPING_PATCH)}
       session={fixtureDiffSession()}
       marks={new Map()}
@@ -65,7 +65,7 @@ describe("split diff rendering", () => {
   test("the caret marks only the change side, not both columns", async () => {
     // Arrange - the caret opens on a context row, which is shown in both columns
     const setup = await testRender(
-      <DiffSheet
+      <DiffContentView
         rows={diffRows(WRAPPING_PATCH)}
         session={fixtureDiffSession()}
         marks={new Map()}

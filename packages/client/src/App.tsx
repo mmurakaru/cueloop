@@ -1,14 +1,3 @@
-/**
- * The cueloop TUI: state wiring, keymap dispatch, and layout composition -
- * nothing else. Rendering lives in components/, daemon IO and the mutation
- * primitives in session-controller.ts, the keyboard grammar in keymap.ts with
- * binding resolution and status hints from key-bindings.ts, and theming in
- * the ThemeProvider. Selection is the entry primitive (mouse drag or keyboard
- * span on one native renderer selection); annotation text lives in the rail
- * while the document keeps only the highlight, and one selected id drives
- * both sides.
- */
-
 import React, {
   useCallback,
   useEffect,
@@ -68,7 +57,11 @@ import {
   THREAD_CHORD_ENTRIES,
   TREE_CHORD_ENTRIES,
 } from "./thread-chords";
-import { DiffSheet, type DiffFoldControls, type DiffSheetProps } from "./components/DiffSheet";
+import {
+  DiffContentView,
+  type DiffFoldControls,
+  type DiffContentViewProps,
+} from "./components/DiffContentView";
 import { commentCountsByFile, marksByRows, type DiffRow } from "./view-diff";
 import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
 import { PrototypeSheet } from "./components/PrototypeSheet";
@@ -149,7 +142,7 @@ function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean)
 
 /** The inline-commenting props the diff sheet shares with the thread view, wired once by the app. */
 type DiffSurfaceProps = Pick<
-  DiffSheetProps,
+  DiffContentViewProps,
   | "session"
   | "quickActions"
   | "observer"
@@ -192,7 +185,7 @@ function ChangesTabBody(props: {
   }
 
   return (
-    <DiffSheet
+    <DiffContentView
       rows={props.rows}
       marks={marks}
       {...props.surface}
@@ -990,8 +983,9 @@ export function App({
             loadChanges={() => controller.repoChanges()}
             loadProjectFiles={() => controller.repoFiles()}
             reloadKey={activeSession.id}
-            // a diff review opens a changed file as its captured diff; other threads show live contents
-            onOpenChangedFile={(path) => workbench.openFile(path, isDiff ? "diff" : "contents")}
+            // the Changes navigator always opens a changed file as a diff - a diff review shows its
+            // captured snapshot, every other thread the live working-tree diff
+            onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
             onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
             commentCounts={diffCommentCounts}
             theme={theme}
