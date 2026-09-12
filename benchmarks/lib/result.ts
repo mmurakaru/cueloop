@@ -66,8 +66,7 @@ export type BenchmarkRun = v.InferOutput<typeof BenchmarkRunSchema>;
 
 /** Fold the samples of one metric into its result row. */
 export function aggregateMetric(name: string, samples: number[]): MetricResult {
-  const metric = name.includes("/") ? name.slice(name.indexOf("/") + 1) : name;
-  const classification = classifyMetric(metric);
+  const classification = classifyMetric(splitMetricName(name).metric);
 
   return {
     name,
@@ -79,9 +78,18 @@ export function aggregateMetric(name: string, samples: number[]): MetricResult {
   };
 }
 
-/** A value in its unit for a table: ms with two decimals, bytes as MiB, counts as is. */
-export function formatMetricValue(value: number, unit: MetricUnit): string {
-  if (Number.isNaN(value)) return "-";
+/** `<script>/<metric>` split; a bare name has an empty script. */
+export function splitMetricName(name: string): { script: string; metric: string } {
+  const slash = name.indexOf("/");
+
+  return slash === -1
+    ? { script: "", metric: name }
+    : { script: name.slice(0, slash), metric: name.slice(slash + 1) };
+}
+
+/** A value in its unit for a table: ms with two decimals, bytes as MiB, counts as is; "-" for none. */
+export function formatMetricValue(value: number | null, unit: MetricUnit): string {
+  if (value === null || Number.isNaN(value)) return "-";
   if (unit === "ms") return `${value.toFixed(2)} ms`;
   if (unit === "bytes") return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
   if (unit === "boolean") return value ? "yes" : "no";

@@ -10,6 +10,15 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      allow_benchmark_regression:
+        description: "Publish even if the benchmark gate finds a regression (needs a reason)"
+        type: boolean
+        default: false
+      benchmark_regression_reason:
+        description: "Why the regression is acceptable for this release"
+        type: string
+        default: ""
 
 concurrency:
   group: release-${{ github.ref }}
@@ -56,6 +65,11 @@ jobs:
       tag: ${{ steps.check.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
+      - name: Require a reason for an accepted benchmark regression
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_benchmark_regression && inputs.benchmark_regression_reason == '' }}
+        run: |
+          echo "benchmark_regression_reason is required when allow_benchmark_regression is set" >&2
+          exit 1
       - id: check
         run: |
           version=$(jq -r .version packages/cli/package.json)
@@ -128,10 +142,62 @@ jobs:
           path: packages/cli/dist/cueloop-${{ matrix.target }}
           if-no-files-found: error
 
+  # Measure the previous published binary and the fresh one on the same runner,
+  # interleaved, and refuse to stage a release that got materially slower.
+  benchmark-gate:
+    name: Benchmark gate ${{ matrix.target }}
+    needs: [guard, build]
+    if: needs.guard.outputs.publish == 'true'
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: darwin-arm64
+            runner: macos-15
+          - target: darwin-x64
+            runner: macos-15-intel
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v8
+        with:
+          name: cueloop-${{ matrix.target }}
+          path: dist/head
+      - name: Compare head against the previous release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          # empty unless a manual run accepts a regression with a reason (validated in guard)
+          ACCEPT_REASON: ${{ (github.event_name == 'workflow_dispatch' && inputs.allow_benchmark_regression && inputs.benchmark_regression_reason) || '' }}
+        run: |
+          bun run scripts/benchmarks/gate.ts \
+            --target "${{ matrix.target }}" \
+            --head "dist/head/cueloop-${{ matrix.target }}" \
+            --head-version "${{ needs.guard.outputs.version }}" \
+            --out "dist/benchmark-${{ matrix.target }}.json" \
+            --summary "$GITHUB_STEP_SUMMARY" \
+            --accept-reason "$ACCEPT_REASON"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: benchmark-${{ matrix.target }}
+          path: dist/benchmark-${{ matrix.target }}.json
+          if-no-files-found: ignore
+
   # A draft is invisible to install.sh / Homebrew until the publish path flips it.
   stage:
     name: Stage draft release
-    needs: [guard, build]
+    needs: [guard, build, benchmark-gate]
     if: needs.guard.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     permissions:
@@ -227,6 +293,19 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Verify the published release
         run: bun run verify:published
+      - uses: actions/download-artifact@v8
+        with:
+          path: benchmarks-out
+          pattern: benchmark-*
+          merge-multiple: true
+      - name: Attach the benchmark comparisons to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.guard.outputs.tag }}
+        run: |
+          if ls benchmarks-out/benchmark-*.json >/dev/null 2>&1; then
+            gh release upload "$TAG" benchmarks-out/benchmark-*.json --clobber
+          fi
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}

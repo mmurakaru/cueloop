@@ -8,7 +8,9 @@ import {
   formatMetricValue,
   formatRunTable,
   percentile,
+  splitMetricName,
 } from "../../benchmarks/lib/result";
+import { collectSamples, foldSamples } from "../../benchmarks/lib/sampler";
 
 describe("classifyMetric", () => {
   test("reads unit and gating from the name suffix", () => {
@@ -109,5 +111,24 @@ describe("formatting", () => {
     // Then every round ran and the time is non-negative
     expect(calls).toBe(25);
     expect(elapsed).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("sampling", () => {
+  test("samples collect per script and metric and fold into rows", () => {
+    // Given two cold runs of one script
+    const samples = new Map<string, number[]>();
+
+    collectSamples(samples, "a", new Map([["startup_ms", 90]]));
+    collectSamples(samples, "a", new Map([["startup_ms", 110]]));
+
+    // When folded
+    const rows = foldSamples(samples);
+
+    // Then one row keyed by script and metric holds both samples
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ name: "a/startup_ms", samples: [90, 110], median: 90 });
+    expect(splitMetricName("a/startup_ms")).toEqual({ script: "a", metric: "startup_ms" });
+    expect(splitMetricName("bare")).toEqual({ script: "", metric: "bare" });
   });
 });
