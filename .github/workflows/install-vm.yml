@@ -27,6 +27,9 @@ permissions:
   contents: read
 
 jobs:
+  # x64 only: GitHub's free hosted arm64 Linux runners do not expose /dev/kvm,
+  # so a Firecracker guest cannot boot there. arm64 clean-machine coverage waits
+  # on KVM reaching those runners (or a self-hosted arm64 host).
   vm:
     name: ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
@@ -37,8 +40,6 @@ jobs:
         include:
           - arch: x64
             runner: ubuntu-latest
-          - arch: arm64
-            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -54,7 +55,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           SCENARIO: ${{ github.event.inputs.scenario }}
-        run: bun run test:install-vm -- --scenario "$SCENARIO"
+        run: |
+          # pass --scenario only when the dispatch input names one; empty runs all
+          if [ -n "$SCENARIO" ]; then
+            bun run test:install-vm -- --scenario "$SCENARIO"
+          else
+            bun run test:install-vm
+          fi
       - name: Upload run artifacts
         if: always()
         uses: actions/upload-artifact@v7
