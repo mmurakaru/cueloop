@@ -6,7 +6,9 @@ runner or a container that ships node, bun, git, and a shared kernel. That
 catches installer bugs that only show on a fresh machine: a missing shared
 library, an empty PATH, an unset HOME, a daemon left running, or no network.
 
-Covers Linux x64 and arm64. macOS clean-machine coverage stays on the hosted
+Covers Linux x64. GitHub's free hosted arm64 Linux runners do not expose
+`/dev/kvm`, so a guest cannot boot there yet; the arm64 pins are kept ready for
+when KVM reaches those runners. macOS clean-machine coverage stays on the hosted
 `macos-*` runners in the [install matrix](../matrix/README.md).
 
 ## Why not on pull requests
