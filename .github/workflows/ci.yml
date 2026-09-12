@@ -37,6 +37,19 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run test:pty
 
+  install-sh:
+    # The curl installer under dash as /bin/sh and GNU coreutils; the macOS
+    # test job already covers bash-as-sh and BSD userland.
+    name: Installer on Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bun test --timeout 60000 ./test/install
+
   native:
     name: Native shim
     runs-on: macos-latest

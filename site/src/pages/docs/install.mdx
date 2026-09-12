@@ -17,10 +17,29 @@ too if you already live in one.
 <InstallTabs client:load />
 
 The curl script detects your OS and architecture, downloads the matching binary
-from GitHub Releases, and installs it to ~/.local/bin (or a writable system
-directory). The binary bundles its own runtime, so it needs neither Node nor a
-separate Bun. Homebrew installs the same binary and keeps it current with a
+from GitHub Releases, verifies its checksum, and installs it to /usr/local/bin
+when that is writable, else to ~/.local/bin. The binary bundles its own runtime,
+so it needs neither Node nor a separate Bun. Homebrew installs the same binary and keeps it current with a
 plain brew upgrade.
+
+### Installer options
+
+The curl script takes two flags and reads a few environment variables. None
+are needed for a normal install.
+
+| Setting                                          | Effect                                                                                     |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `--no-modify-path` or `CUELOOP_NO_MODIFY_PATH=1` | Print the PATH line instead of adding it to your shell rc                                  |
+| `--help`                                         | Print the options                                                                          |
+| `CUELOOP_INSTALL_DIR`                            | Install into this directory (default: `/usr/local/bin` when writable, else `~/.local/bin`) |
+| `CUELOOP_VERSION`                                | Pin a version such as `0.1.0` (or its tag `cueloop@0.1.0`) instead of the newest release   |
+| `CUELOOP_NO_BANNER`                              | Skip the logo                                                                              |
+| `CUELOOP_RELEASES_API`, `CUELOOP_DOWNLOAD_BASE`  | Read the release listing and binaries from another server, for mirrors and tests           |
+
+The install directory is added to your PATH once, in the rc file of your login
+shell (`.zshrc`, the first existing of `.bashrc`, `.bash_profile`, `.profile`,
+fish's `config.fish`, or `.profile` for any other shell). Inside GitHub Actions
+it is appended to `GITHUB_PATH` instead. A rerun that finds the requested version installed downloads nothing.
 
 <div class="callout callout--note">
   <div class="callout__label">Using npm, bun, or pnpm? Pin your Node version</div>A global npm-style
