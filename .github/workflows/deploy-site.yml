@@ -41,6 +41,14 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
+      - name: Fetch the benchmark history for the trend page
+        run: |
+          mkdir -p site/src/data
+          if git fetch --depth 1 origin bench-history 2>/dev/null; then
+            git show origin/bench-history:benchmarks/history/linux-x64.ndjson > site/src/data/bench-history.ndjson
+          else
+            : > site/src/data/bench-history.ndjson
+          fi
       - name: Install
         working-directory: site
         run: bun install --frozen-lockfile
@@ -57,32 +65,19 @@ jobs:
           # branch=main is the production alias; any other branch is a preview.
           # workflow_dispatch always targets production regardless of the ref.
           command: pages deploy dist --project-name=cueloop-site --branch=${{ github.event_name == 'workflow_dispatch' && 'main' || github.head_ref || github.ref_name }}
-      - name: Comment preview URL
+      - name: Write the preview comment body
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v9
+        run: |
+          mkdir -p dist
+          {
+            printf '%s\n' '<!-- cueloop-site-preview -->'
+            printf '**Site preview deployed** -> %s\n\n' "${{ steps.deploy.outputs.deployment-url }}"
+            printf 'From `%s`.\n' "${GITHUB_SHA::7}"
+          } > dist/site-preview.md
+        working-directory: site
+      - name: Post or update the preview comment
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/sticky-comment
         with:
-          script: |
-            const url = "${{ steps.deploy.outputs.deployment-url }}";
-            const marker = "<!-- cueloop-site-preview -->";
-            const body = `${marker}\n**Site preview deployed** → ${url}\n\nFrom \`${context.sha.slice(0, 7)}\`.`;
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const existing = comments.find((comment) => comment.body?.includes(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+          marker: "<!-- cueloop-site-preview -->"
+          body-file: site/dist/site-preview.md

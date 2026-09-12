@@ -1,0 +1,39 @@
+---
+layout: ../../../layouts/DocsLayout.astro
+title: Performance
+eyebrow: Docs · Reference
+lede: How fast cueloop stays over time - the benchmark medians recorded on every push to main, and how the release gate holds the line.
+prev: { title: "Keyboard & mouse", href: "/docs/reference/keyboard/" }
+next: { title: "Sharing over SSH", href: "/docs/sharing/" }
+---
+
+import BenchTrend from "../../../components/BenchTrend.astro";
+
+Every push to main runs the benchmark suite once on a shared Linux runner and
+records the median of three cold samples per metric. The charts below are those
+records, newest on the right. They show drift across many small commits; a
+single point is noise, a slope is a finding.
+
+<BenchTrend />
+
+## What the numbers mean
+
+- **Render to ready** is the time from mounting the review to the app's ready
+  signal, with the daemon already running. It is the cost of the artifact, not
+  of launching the binary.
+- **Key press latency** is a caret move timed until the painted frame settles,
+  as the in-process median and p95. It carries a fixed measurement cost of a
+  few milliseconds, so compare the lines, not the absolute values.
+- **Parsing** batches fast operations so their totals clear the release gate's
+  5 ms floor; the batch sizes are constant, so the lines are comparable.
+- **Retained memory** is heap in use after a full collection.
+
+## How releases are guarded
+
+The numbers here are informational. The release workflow separately measures
+the previous published binary against the fresh one on the same runner,
+interleaved, and refuses to stage a release whose startup or first frame got
+materially slower: at least 15 percent and 5 milliseconds. A pull request also
+receives a comment comparing its head against its merge base with the same
+thresholds, which never blocks a merge. Details live in the repository's
+benchmarks README.
