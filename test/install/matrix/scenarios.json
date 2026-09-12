@@ -1,0 +1,26 @@
+[
+  {
+    "name": "curl-clean",
+    "description": "curl installer on a clean machine, no Node or Bun on PATH"
+  },
+  {
+    "name": "curl-rerun",
+    "description": "a second install of the same version downloads nothing"
+  },
+  {
+    "name": "curl-upgrade",
+    "description": "the previous version is replaced by the target version"
+  },
+  {
+    "name": "npm",
+    "description": "the published CLI installs as a global npm package and runs"
+  },
+  {
+    "name": "brew",
+    "description": "the Homebrew formula installs and passes its test block"
+  },
+  {
+    "name": "plugin",
+    "description": "the Claude Code plugin manifest is valid and version-matched"
+  }
+]

@@ -28,9 +28,9 @@ export const RELEASE_ASSETS = [
   "cueloop-linux-x64",
 ];
 
-/** A stand-in binary: prints its version on `--version`, else a marker line. */
+/** A stand-in binary: reports its version, a usage line, else a marker line. */
 export function testBinaryScript(version: string): string {
-  return `#!/bin/sh\ncase "\${1:-}" in --version) printf '%s\\n' '${version}' ;; *) printf 'installed test binary\\n' ;; esac\n`;
+  return `#!/bin/sh\ncase "\${1:-}" in --version) printf '%s\\n' '${version}' ;; --help|-h) printf 'Usage: cueloop [command]\\n' ;; *) printf 'installed test binary\\n' ;; esac\n`;
 }
 
 export interface TestReleaseServer {
@@ -49,7 +49,7 @@ export interface TestReleaseServer {
 }
 
 /** checksums.txt in the release workflow's `sha256sum` format: two spaces between hash and name. */
-function checksumsText(binary: string, corrupt: boolean): string {
+export function checksumsText(binary: string, corrupt: boolean): string {
   const hash = corrupt
     ? "0".repeat(64)
     : new Bun.CryptoHasher("sha256").update(binary).digest("hex");
