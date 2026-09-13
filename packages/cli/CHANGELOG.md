@@ -1,5 +1,20 @@
 # cueloop
 
+## 0.1.0-alpha.73
+
+### Minor Changes
+
+- [#423](https://github.com/mmurakaru/cueloop/pull/423) [`0f3d4f7`](https://github.com/mmurakaru/cueloop/commit/0f3d4f706dcb97823df4e1386202c1de51739931) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Added `cueloop stop` and `cueloop restart` to control the local daemon, and `cueloop update` now stops the running daemon after installing a newer build. The daemon refuses cross-version connections, so a client left talking to a stale daemon fails with "not connected" when it tries to comment; self-healing on update, plus an explicit `restart`, clears that without a manual process kill. `stop` prefers the owner-gated shutdown request and falls back to signalling the daemon's pid when a version-mismatched daemon refuses the handshake.
+
+### Patch Changes
+
+- [#421](https://github.com/mmurakaru/cueloop/pull/421) [`8a60c4f`](https://github.com/mmurakaru/cueloop/commit/8a60c4f4cdcf1592efaa29e9d76eeb8ebf2081c6) Thanks [@mmurakaru](https://github.com/mmurakaru)! - `cueloop update` now prints its progress (current version, checking, updating, restart notice) to stdout instead of stderr, so ordinary status no longer shows up as red error text in terminals that color stderr. Genuine failures still go to stderr.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.73
+  - @cueloop/client@0.1.0-alpha.73
+  - @cueloop/daemon@0.1.0-alpha.73
+  - @cueloop/schema@0.1.0-alpha.73
+
 ## 0.1.0-alpha.72
 
 ### Patch Changes
