@@ -97,6 +97,8 @@ export interface SessionClient {
   repoChanges?(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]>;
   /** The live working-tree diff (patch plus per-file contents) at `cwd`. */
   repoDiff?(cwd: string): Promise<WorkingTreeDiff>;
+  /** Find-or-create the per-repo workbench thread for `cwd`, so a bare launch's first comment persists. */
+  sessionWorkbench?(cwd: string): Promise<ReviewSession>;
   /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */
   sessionNavigate(
     id: string,
@@ -471,6 +473,9 @@ export class DaemonClient implements SessionClient {
       { cwd },
       v.object({ patch: v.string(), files: v.array(DiffFileContentsSchema) }),
     );
+  }
+  sessionWorkbench(cwd: string): Promise<ReviewSession> {
+    return this.request("session.workbench", { cwd }, SessionRecordSchema);
   }
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {

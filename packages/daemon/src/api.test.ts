@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonCore, verdictResponse } from "./api";
@@ -911,5 +911,58 @@ describe("tree primitives", () => {
     ]);
     expect(rerouted.annotations.map((annotation) => annotation.id)).toEqual(["a1"]);
     expect(rerouted.annotations[0]!.resolution).toBeUndefined();
+  });
+});
+
+describe("workbench session", () => {
+  function makeRepo(): string {
+    const root = mkdtempSync(join(tmpdir(), "cueloop-wb-repo-"));
+
+    // a unique seed file so each repo's root commit is a distinct SHA (empty commits in the same
+    // second hash identically) - the root commit is the per-project key under test
+    writeFileSync(join(root, "seed.txt"), root);
+    Bun.spawnSync(["git", "-C", root, "init", "-q"]);
+    Bun.spawnSync(["git", "-C", root, "config", "user.email", "t@e.st"]);
+    Bun.spawnSync(["git", "-C", root, "config", "user.name", "T"]);
+    Bun.spawnSync(["git", "-C", root, "add", "-A"]);
+    Bun.spawnSync(["git", "-C", root, "commit", "-q", "-m", "seed"]);
+
+    return root;
+  }
+
+  test("creates a diff-backed, workbench-marked thread and attaches idempotently", async () => {
+    const repo = makeRepo();
+
+    try {
+      const first = await core.workbenchSession(repo);
+
+      expect(first.artifact.meta.workbench).toBe(true);
+      expect(first.artifact.type).toBe("diff");
+      expect(first.workspace.rootCommit).toBeTruthy();
+
+      // a second call for the same repo returns the same thread, never a duplicate
+      const second = await core.workbenchSession(repo);
+
+      expect(second.id).toBe(first.id);
+      expect(core.sessionList().filter((s) => s.artifact.meta.workbench).length).toBe(1);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test("keys the workbench by root commit: different repos get different threads", async () => {
+    const repoA = makeRepo();
+    const repoB = makeRepo();
+
+    try {
+      const a = await core.workbenchSession(repoA);
+      const b = await core.workbenchSession(repoB);
+
+      expect(a.id).not.toBe(b.id);
+      expect(a.workspace.rootCommit).not.toBe(b.workspace.rootCommit);
+    } finally {
+      rmSync(repoA, { recursive: true, force: true });
+      rmSync(repoB, { recursive: true, force: true });
+    }
   });
 });

@@ -186,6 +186,7 @@ describe("wire pins", () => {
     pr: "org/repo#1",
     herdrPane: "%7",
     title: "Plan",
+    workbench: false,
   };
   const fullAnchor: Required<Anchor> = {
     quote: "q",

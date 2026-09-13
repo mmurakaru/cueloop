@@ -375,6 +375,36 @@ export class DaemonCore {
     return workingTreeDiff(cwd);
   }
 
+  /**
+   * The per-repo workbench thread for `cwd`: a self-initiated review of the current checkout, keyed by
+   * the repo's root-commit identity (a standalone bucket when there is none). Returns the existing one
+   * or lazily creates it with the working-tree diff as its artifact, so a bare launch persists its
+   * first comment without an agent submission. Owner-only.
+   */
+  async workbenchSession(cwd: string): Promise<ReviewSession> {
+    const workspace = await resolveWorkspace(cwd);
+    const existing = this.store
+      .list()
+      .find(
+        (session) =>
+          session.artifact.meta.workbench === true &&
+          (session.workspace.rootCommit ?? null) === (workspace.rootCommit ?? null),
+      );
+
+    if (existing) return existing;
+    const diff = await workingTreeDiff(cwd);
+
+    return this.sessionCreate({
+      workspace,
+      artifact: {
+        type: "diff",
+        content: diff.patch,
+        files: diff.files,
+        meta: { workbench: true, title: "Workbench", cwd },
+      },
+    });
+  }
+
   sessionSetShareId(id: string, shareId: string): ReviewSession {
     const session = this.mutable(id);
 

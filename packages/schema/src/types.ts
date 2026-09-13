@@ -64,6 +64,8 @@ export interface ArtifactMeta {
   /** herdr pane the submitting agent runs in - the review returns focus there. */
   herdrPane?: string;
   title?: string;
+  /** A self-initiated per-repo workbench thread (a bare launch's first comment), not an agent submission. */
+  workbench?: boolean;
 }
 
 /** Full old/new contents of one changed file, keyed by its repo-relative path. */
