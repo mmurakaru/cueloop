@@ -38,11 +38,11 @@ test("the compiled binary resolves its install target to its own directory, neve
     stdout: "pipe",
     stderr: "pipe",
   });
-  const [stderr, code] = await Promise.all([new Response(proc.stderr).text(), proc.exited]);
+  const [stdout, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
 
-  // realpath canonicalizes the macOS /var -> /private/var symlink, which the
-  // binary's own path resolution also applies.
+  // progress prints to stdout (not an error); realpath canonicalizes the macOS
+  // /var -> /private/var symlink, which the binary's own path resolution also applies.
   expect(code).toBe(0);
-  expect(stderr).toContain(`cueloop would update in ${realpathSync(installRoot)}`);
-  expect(stderr).not.toContain("$bunfs");
+  expect(stdout).toContain(`cueloop would update in ${realpathSync(installRoot)}`);
+  expect(stdout).not.toContain("$bunfs");
 });
