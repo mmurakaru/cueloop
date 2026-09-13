@@ -42,7 +42,7 @@ import { groupInbox, projectName, threadTitle } from "./components/session-tree"
 import { ThreadTree } from "./components/ThreadTree";
 import { ChangesFileTree } from "./components/ChangesColumn";
 import { ProjectTreeView } from "./components/ProjectTreeView";
-import { FileContentsView } from "./components/FileContentsView";
+import { AnnotatableFileView } from "./components/AnnotatableFileView";
 import { AppShell, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
 import type { EditorTab } from "./components/editor-grid";
@@ -63,7 +63,7 @@ import {
   type DiffContentViewProps,
 } from "./components/DiffContentView";
 import { commentCountsByFile, fileTargetMarks, marksByRows, type DiffRow } from "./view-diff";
-import { annotationTarget } from "@cueloop/schema";
+import { annotationTarget, type Anchor } from "@cueloop/schema";
 import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
@@ -222,11 +222,35 @@ function GridTabContent(props: {
   split?: boolean;
   dimmed: boolean;
   readFile: (path: string) => Promise<string | null>;
+  /** Persist a comment on a project file; the file view built the anchor against its own lines. */
+  onAddFileComment: (path: string, anchor: Anchor, body: string) => void;
   theme: Theme;
 }): React.ReactNode {
   const { tab } = props;
   if (tab.kind === "file" && tab.fileView === "contents" && tab.path !== undefined) {
-    return <FileContentsView path={tab.path} loadContents={props.readFile} theme={props.theme} />;
+    const filePath = tab.path;
+
+    return (
+      <AnnotatableFileView
+        path={filePath}
+        loadContents={props.readFile}
+        session={props.surface.session}
+        quickActions={props.surface.quickActions}
+        observer={props.surface.observer}
+        resolved={props.surface.resolved}
+        suspended={props.surface.suspended}
+        focusedAnnotationId={props.surface.focusedAnnotationId}
+        onFocusAnnotation={props.surface.onFocusAnnotation}
+        onComposingChange={props.surface.onComposingChange}
+        onCursorChange={props.surface.onCursorChange}
+        onObserverBlocked={props.surface.onObserverBlocked}
+        onAddComment={(anchor, body) => props.onAddFileComment(filePath, anchor, body)}
+        onReply={props.surface.onReply}
+        onUpdateAnnotation={props.surface.onUpdateAnnotation}
+        onExit={props.surface.onExit}
+        theme={props.theme}
+      />
+    );
   }
   if (tab.kind !== "file") {
     return (
@@ -1006,6 +1030,9 @@ export function App({
                 split={diffView === "split" && workbench.zoomed}
                 dimmed={walking}
                 readFile={(path) => controller.repoReadFile(path)}
+                onAddFileComment={(path, anchor, body) =>
+                  void controller.addComment(anchor, { kind: "file", path, rev: "worktree" }, body)
+                }
                 theme={theme}
               />
             )}
