@@ -578,12 +578,17 @@ export class DaemonCore {
     return session;
   }
 
-  sessionResolve(id: string, verdictKind: VerdictKind, summary: string): ReviewSession {
+  sessionResolve(
+    id: string,
+    verdictKind: VerdictKind,
+    summary: string,
+    actionBodies?: Record<string, string>,
+  ): ReviewSession {
     const session = this.mutable(id);
     const verdict: Verdict = {
       kind: verdictKind,
       summary,
-      feedback: feedbackForSession(session, verdictKind, summary),
+      feedback: feedbackForSession(session, verdictKind, summary, actionBodies),
       resolvedAt: new Date().toISOString(),
     };
 

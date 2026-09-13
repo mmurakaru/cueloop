@@ -368,4 +368,25 @@ describe("renderFeedback target grouping", () => {
     // the file note's path is the heading, not an inline "(in ...)" locator on the artifact list
     expect(feedback).not.toContain("(in src/a.ts)");
   });
+
+  test("a quick-action reference expands to its body; an unknown skill reference passes through", () => {
+    const feedback = renderFeedback({
+      verdictKind: "comment",
+      summary: "",
+      artifactContent: PLAN,
+      annotations: [
+        makeAnnotation({
+          anchor: { quote: "Storage", prefix: "", suffix: "" },
+          body: "/restate-simplified and also /vitest-patterns here",
+        }),
+      ],
+      artifactPath: "docs/plan.md",
+      actionBodies: { "restate-simplified": "Restate this as the simplest thing that works." },
+    });
+
+    expect(feedback).toContain("Restate this as the simplest thing that works.");
+    // the unknown reference (a user skill) is left verbatim for the harness to resolve
+    expect(feedback).toContain("/vitest-patterns");
+    expect(feedback).not.toContain("/restate-simplified");
+  });
 });

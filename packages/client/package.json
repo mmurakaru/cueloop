@@ -20,7 +20,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./config": "./src/config.ts"
+    "./config": "./src/config.ts",
+    "./slash-palette": "./src/slash-palette.ts"
   },
   "publishConfig": {
     "access": "public"

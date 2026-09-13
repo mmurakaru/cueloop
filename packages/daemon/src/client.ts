@@ -118,7 +118,12 @@ export interface SessionClient {
   sessionDelete(id: string): Promise<void>;
   /** Record the caller's own identity name (collaborator self-naming on a share). */
   sessionSetSelfName(id: string, name: string): Promise<ReviewSession>;
-  sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession>;
+  sessionResolve(
+    id: string,
+    verdictKind: VerdictKind,
+    summary: string,
+    actionBodies?: Record<string, string>,
+  ): Promise<ReviewSession>;
   close(): void;
 }
 
@@ -494,8 +499,17 @@ export class DaemonClient implements SessionClient {
   sessionSetSelfName(id: string, _name: string): Promise<ReviewSession> {
     return this.sessionGet(id);
   }
-  sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession> {
-    return this.request("session.resolve", { id, verdictKind, summary }, SessionRecordSchema);
+  sessionResolve(
+    id: string,
+    verdictKind: VerdictKind,
+    summary: string,
+    actionBodies?: Record<string, string>,
+  ): Promise<ReviewSession> {
+    return this.request(
+      "session.resolve",
+      { id, verdictKind, summary, actionBodies },
+      SessionRecordSchema,
+    );
   }
   sessionSubmitRevision(
     id: string,

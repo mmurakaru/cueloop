@@ -62,7 +62,8 @@ import type { FileDiffMetadata } from "@pierre/diffs";
 import { firstUnviewedIndex, walkFiles, type WalkFile } from "./walk";
 import { editInEditor } from "./editor";
 import { focusHerdrPane } from "./herdr";
-import { persistAutoClose, type AutoClose, type CueloopConfig } from "./config";
+import { persistAutoClose, type AutoClose, type CueloopConfig, type QuickAction } from "./config";
+import { slashItemsFrom } from "./slash-palette";
 
 /**
  * Post-submit lifecycle (a review pane should hand you back to the agent,
@@ -349,6 +350,7 @@ class Controller implements ReviewController {
   };
   private listeners = new Set<() => void>();
   private autoClose: AutoClose = "off";
+  private quickActions: QuickAction[] = [];
   private editor: string | undefined;
   private exporters: BundledExporter[] = [];
   private readonly clock: Clock;
@@ -445,6 +447,7 @@ class Controller implements ReviewController {
 
   applyConfig(config: CueloopConfig): void {
     this.autoClose = config.ui.autoClose;
+    this.quickActions = config.actions;
     this.editor = config.ui.editor;
     void loadBundledExporters(config.integrations).then((exporters) => {
       this.exporters = exporters;
@@ -1234,7 +1237,10 @@ class Controller implements ReviewController {
 
     if (!session) return;
     this.walkLeave();
-    this.client!.sessionResolve(session.id, verdict, summary)
+    const actionBodies = Object.fromEntries(
+      slashItemsFrom(this.quickActions).map((item) => [item.name, item.body]),
+    );
+    this.client!.sessionResolve(session.id, verdict, summary, actionBodies)
       .then((resolved) => {
         // The completion overlay heading already states the verdict, so the
         // status line stays empty here - only export/error messages fill it.

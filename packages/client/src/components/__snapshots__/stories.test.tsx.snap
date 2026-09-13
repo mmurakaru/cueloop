@@ -27,14 +27,14 @@ exports[`stories catalog Chrome/AnnotationCards/FocusedCard renders, snapshots, 
 `;
 
 exports[`stories catalog Chrome/AnnotationCards/SlashPaletteOpen renders, snapshots, and carries its colors: Chrome/AnnotationCards/SlashPaletteOpen 1`] = `
-"     action:zoom-out-research-in-depth Research the broader problem, prior art, and       
-   →laction:restate-simplified         Restate this as the simplest thing that works and  
-   cuaction:out-of-scope               This is out of scope for the task, so capture it   
-   as                                                                                     
-     action:let-s-chat-about-this      Do not implement yet, and surface the open         
-   quaction:prototype-this             Build a throwaway prototype to answer the question,
-                                                                                          
+"     /zoom-out-research-in-depth  Research the broader problem, prior art, and alternative
+   → /restate-simplified          Restate this as the simplest thing that works and cut th
+     /out-of-scope                This is out of scope for the task, so capture it as a fo
+     /let-s-chat-about-this       Do not implement yet, and surface the open questions and
+     /prototype-this              Build a throwaway prototype to answer the question, skip
    (2/7)                                                                                  
+                                                                                          
+                                                                                          
 "
 `;
 

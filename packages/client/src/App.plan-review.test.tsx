@@ -8,7 +8,8 @@ import React from "react";
 import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
-import { DEFAULT_QUICK_ACTIONS, quickActionBody } from "./config";
+import { DEFAULT_QUICK_ACTIONS } from "./config";
+import { slashItemsFrom } from "./slash-palette";
 import {
   clickText,
   dragText,
@@ -338,7 +339,7 @@ describe("edit-exit reconciliation", () => {
 });
 
 describe("the quick-action palette", () => {
-  test("/ lists the quick actions and a pick seeds the comment with the preset body", async () => {
+  test("/ lists the quick actions and a pick inserts the reference, not the body", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -351,11 +352,12 @@ describe("the quick-action palette", () => {
     await press(setup, "enter");
     await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert - a comment annotation was created with the second default's body
+    // Assert - the comment holds the /name reference, not the expanded body
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
+    const secondName = slashItemsFrom(DEFAULT_QUICK_ACTIONS)[1]!.name;
 
     expect(stored.annotations[0]!.kind).toBe("comment");
-    expect(stored.annotations[0]!.body).toBe(quickActionBody(DEFAULT_QUICK_ACTIONS[1]!));
+    expect(stored.annotations[0]!.body.trim()).toBe(`/${secondName}`);
   });
 });
