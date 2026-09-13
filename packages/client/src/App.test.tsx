@@ -244,7 +244,8 @@ describe("no-thread shell", () => {
     // Arrange
     const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
-    await waitForText(setup, "cueloop");
+    // the Welcome playground measures its width before it paints, so wait for its copy, not the header
+    await waitForText(setup, "Getting started");
 
     // Assert - the same shell header, the disposable Welcome tab, and the pending thread
     const frame = setup.captureCharFrame();

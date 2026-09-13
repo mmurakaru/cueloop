@@ -3,6 +3,7 @@ import React, { useEffect, useState, type Dispatch, type SetStateAction } from "
 import type { DiffFileContents, ReviewSession, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
+import type { QuickAction } from "./config";
 import type { Mode, TreeAsk } from "./intent-dispatch";
 import type { Intent } from "./keymap";
 import type { ReviewController, ToastState } from "./session-controller";
@@ -17,7 +18,7 @@ import type { InboxRow } from "./components/session-tree";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { ThreadTree } from "./components/ThreadTree";
-import { WelcomeSurface } from "./components/WelcomeSurface";
+import { WelcomePlayground } from "./components/WelcomePlayground";
 import { AppShell, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
 import { ProjectTreeView } from "./components/ProjectTreeView";
@@ -151,6 +152,8 @@ export function NoThreadShell(props: {
   pinnedIds: ReadonlySet<string>;
   onPin: (id: string) => void;
   onRename: (id: string, title: string) => void;
+  /** Drives the "/" quick actions and skills in the welcome playground's composer. */
+  quickActions: QuickAction[];
 }): React.ReactNode {
   const {
     rows,
@@ -166,6 +169,7 @@ export function NoThreadShell(props: {
     pinnedIds,
     onPin,
     onRename,
+    quickActions,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
   // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
@@ -228,7 +232,11 @@ export function NoThreadShell(props: {
             zoomed={workbench.zoomed}
             renderTab={(tab) =>
               tab.kind === "welcome" ? (
-                <WelcomeSurface version={CLIENT_VERSION} theme={theme} />
+                <WelcomePlayground
+                  version={CLIENT_VERSION}
+                  quickActions={quickActions}
+                  theme={theme}
+                />
               ) : (
                 <FileContentsView
                   path={tab.path ?? ""}

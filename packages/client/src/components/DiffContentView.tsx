@@ -451,9 +451,14 @@ function useSyntaxHighlights(rows: DiffRow[]): Map<number, SyntaxSpan[]> {
   useEffect(() => {
     let active = true;
 
-    void highlightDiffRows(rows).then((byRow) => {
-      if (active) setHighlighted({ rows, byRow });
-    });
+    // a highlighter torn down mid-init (a fast unmount) rejects the pending pass; the rows just
+    // stay unhighlighted, so swallow it rather than let it surface as an unhandled rejection
+    highlightDiffRows(rows).then(
+      (byRow) => {
+        if (active) setHighlighted({ rows, byRow });
+      },
+      () => {},
+    );
 
     return () => {
       active = false;

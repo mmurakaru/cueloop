@@ -800,6 +800,7 @@ export function App({
         pinnedIds={pinnedIds}
         onPin={togglePin}
         onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
+        quickActions={quickActions}
       />
     ) : (
       <ConnectingScreen theme={theme} />

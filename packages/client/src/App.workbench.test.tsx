@@ -330,6 +330,8 @@ describe("the bare-launch welcome shell", () => {
   test("a bare launch rides a Welcome tab in the editor while the Thread pane waits empty", async () => {
     const setup = await renderWelcome();
 
+    // the Welcome playground measures its width before it paints, so wait for its copy
+    await waitForText(setup, "Getting started");
     const frame = setup.captureCharFrame();
     // the getting-started surface is an editor tab, not the thread pane
     expect(frame.split("\n")[HEADER_ROW]!).toContain("Welcome");
