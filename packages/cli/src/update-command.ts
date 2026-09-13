@@ -164,8 +164,11 @@ export async function runUpdate(deps: UpdateDeps, dryRun: boolean): Promise<numb
   const exitCode = await deps.runInstaller(targetInstallDir);
 
   if (exitCode === 0) {
-    // the running daemon is still the old build; stop it so the next launch autostarts the new one
-    await deps.stopDaemon();
+    try {
+      await deps.stopDaemon();
+    } catch {
+      // stopping the old daemon is cleanup; it must never fail an install that already succeeded
+    }
     deps.out("Update ran successfully! Please restart cueloop.");
   }
 

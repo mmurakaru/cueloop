@@ -129,6 +129,23 @@ describe(runUpdate, () => {
     expect(deps.lines).toContain("Update ran successfully! Please restart cueloop.");
   });
 
+  test("a failing daemon stop never fails an install that already succeeded", async () => {
+    // Arrange - the install succeeds but the cleanup stop rejects
+    const deps = depsSpy({
+      fetchLatestVersion: mock(async () => "0.1.0-alpha.99"),
+      stopDaemon: mock(async () => {
+        throw new Error("pid file vanished");
+      }),
+    });
+
+    // Act
+    const code = await runUpdate(deps, false);
+
+    // Assert - the update still reports success
+    expect(code).toBe(0);
+    expect(deps.lines).toContain("Update ran successfully! Please restart cueloop.");
+  });
+
   test("proceeds with the update when the latest version cannot be determined", async () => {
     // Arrange - releases API unreachable
     const deps = depsSpy({ fetchLatestVersion: mock(async () => undefined) });
