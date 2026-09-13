@@ -65,35 +65,39 @@ export function slashFilter(items: SlashItem[], query: string): SlashItem[] {
 }
 
 /**
- * A skill invoked mid-sentence: the trailing "/word" token when text already
- * precedes it (a draft that starts with "/" is the palette, not an inline
- * completion). Newline-safe, since the token may sit at the start of a new line.
+ * The "/word" token the caret is writing right now: the trailing run since the
+ * last whitespace, at the start of the draft or after it. Null once a space
+ * closes the token, so each new "/" reopens the palette and skills chain.
+ * Newline-safe, since the token may sit at the start of a new line.
  */
-export function inlineSlashToken(text: string): string | null {
-  if (text.startsWith("/")) return null;
+export function activeSlashToken(text: string): string | null {
   const match = /(?:^|\s)(\/[a-zA-Z0-9-]*)$/.exec(text);
 
   return match ? match[1]! : null;
 }
 
-export interface InlineSlash {
-  token: string;
-  suggestion: SlashItem;
-}
-
-/** The inline completion state: the trailing "/word" and its closest item, or null. */
-export function resolveInlineSuggestion(
-  slashActive: boolean,
+/**
+ * The character ranges of every completed "/name" in the draft that names a real
+ * action or skill, so a surface can paint the references. A half-typed "/na" is
+ * not a reference yet, so it stays unpainted until the palette completes it.
+ */
+export function skillReferenceRanges(
   text: string,
-  items: SlashItem[],
-): InlineSlash | null {
-  if (slashActive) return null;
-  const token = inlineSlashToken(text);
+  names: ReadonlySet<string>,
+): Array<{ start: number; end: number }> {
+  const ranges: Array<{ start: number; end: number }> = [];
+  const pattern = /(?:^|\s)(\/[a-zA-Z0-9-]+)/g;
 
-  if (token === null) return null;
-  const suggestion = slashFilter(items, token.slice(1))[0];
+  for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
+    const token = match[1]!;
 
-  return suggestion ? { token, suggestion } : null;
+    if (!names.has(token.slice(1))) continue;
+    const start = match.index + match[0].length - token.length;
+
+    ranges.push({ start, end: start + token.length });
+  }
+
+  return ranges;
 }
 
 /** Quick actions and user skills in one palette; a quick action wins a name collision (it expands). */

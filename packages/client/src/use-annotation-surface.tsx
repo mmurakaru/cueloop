@@ -37,12 +37,7 @@ import {
 } from "./thread-selection";
 import { annotationPaletteFor, type AnnotationPalette } from "./annotation-palette";
 import { printableSequence, type MarkRange, type VisualLine } from "./mark-runs";
-import {
-  mergeSlashItems,
-  resolveInlineSuggestion,
-  slashFilter,
-  slashItemsFrom,
-} from "./slash-palette";
+import { activeSlashToken, mergeSlashItems, slashFilter, slashItemsFrom } from "./slash-palette";
 import { SlashSkillsContext } from "./skills";
 import { discussionsFrom, type Discussion } from "./discussions";
 import {
@@ -313,10 +308,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
   const skills = useContext(SlashSkillsContext);
   const paletteItems = mergeSlashItems(slashItemsFrom(quickActions), skills);
-  // open only while typing the token: a leading "/" with no space yet
-  const slashActive = compose !== null && /^\/\S*$/.test(composeText);
-  const slashItems = slashActive ? slashFilter(paletteItems, composeText.slice(1).trim()) : [];
-  const inlineSlash = resolveInlineSuggestion(slashActive, composeText, paletteItems);
+  // the "/word" the caret is on, anywhere in the draft, so each new "/" reopens the palette
+  const slashToken = compose !== null ? activeSlashToken(composeText) : null;
+  const slashActive = slashToken !== null;
+  const slashItems = slashToken !== null ? slashFilter(paletteItems, slashToken.slice(1)) : [];
 
   const saveComment = (body: string): void => {
     // the body saves verbatim - typed newlines are the author's choice;
@@ -431,23 +426,15 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       return true;
     }
     if (key.name === "return" || key.name === "tab") {
-      openCompose({ ...activeCompose, seed: `/${slashItems[selected]!.name} ` });
+      const token = activeSlashToken(composeText) ?? "";
+      const prefix = composeText.slice(0, composeText.length - token.length);
+
+      openCompose({ ...activeCompose, seed: `${prefix}/${slashItems[selected]!.name} ` });
 
       return true;
     }
 
     return false;
-  };
-
-  /** Tab completes the trailing "/word" to the matched skill's full name, then a space to chain. */
-  const handleInlineSlashKey = (key: KeyEvent, activeCompose: ComposeState): boolean => {
-    if (inlineSlash === null || key.name !== "tab") return false;
-    const cut = composeText.length - inlineSlash.token.length;
-    const completed = `${composeText.slice(0, cut)}/${inlineSlash.suggestion.name} `;
-
-    openCompose({ ...activeCompose, seed: completed });
-
-    return true;
   };
 
   /** Pre-mount window: buffer printables, honor a fast cmd+enter or newline. */
@@ -491,7 +478,6 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       return closeCompose();
     }
     if (handleSlashKey(key, activeCompose)) return;
-    if (handleInlineSlashKey(key, activeCompose)) return;
     if (!composerReady.current) handlePremountKey(key, activeCompose);
   };
 
@@ -673,15 +659,13 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       onInput={setComposeText}
     />
   ) : null;
-  // one node below the composer: the palette list for a leading "/", otherwise the
-  // inline completion hint. Renders null when neither applies, so it always pushes.
+  // the palette list below the composer while the caret is on a "/word"; null otherwise, so it pushes
   const paletteNode = (
     <ComposerPalette
       key="composer-palette"
       slashActive={slashActive}
       slashItems={slashItems}
       slashIndex={slashIndex}
-      inline={inlineSlash}
       tokens={tokens}
     />
   );

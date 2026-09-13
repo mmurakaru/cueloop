@@ -28,7 +28,6 @@ import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
 import { useComponentTheme } from "./theme-context";
 
 export { lighten } from "../annotation-palette";
-export { inlineSlashToken, resolveInlineSuggestion } from "../slash-palette";
 
 /**
  * How a block's rows are painted: heading weight, muted kinds, the list or

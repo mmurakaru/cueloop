@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { inlineSlashToken, scoreMatch, slashFilter, type SlashItem } from "./slash-palette";
+import { activeSlashToken, scoreMatch, slashFilter, type SlashItem } from "./slash-palette";
 
 function item(name: string): SlashItem {
   return { name, description: name, body: name };
@@ -46,9 +46,15 @@ describe("slashFilter", () => {
   });
 });
 
-describe("inlineSlashToken", () => {
-  test("finds a trailing /word only when text precedes it", () => {
-    expect(inlineSlashToken("use /vitest-patt")).toBe("/vitest-patt");
-    expect(inlineSlashToken("/vitest-patt")).toBeNull();
+describe("activeSlashToken", () => {
+  test("finds the caret's /word at the start or after a space, so each new / reopens the palette", () => {
+    expect(activeSlashToken("/vitest-patt")).toBe("/vitest-patt");
+    expect(activeSlashToken("use /vitest-patt")).toBe("/vitest-patt");
+    expect(activeSlashToken("/zoom-out hello world /")).toBe("/");
+  });
+
+  test("closes on the space that ends the token, and ignores prose", () => {
+    expect(activeSlashToken("/zoom-out ")).toBeNull();
+    expect(activeSlashToken("just some prose")).toBeNull();
   });
 });
