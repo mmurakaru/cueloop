@@ -27,6 +27,7 @@ import {
   switchBranch,
   viewOfPath,
   type Annotation,
+  type AnnotationTarget,
   type DiffFileContents,
   type ReviewSession,
   type SessionHistory,
@@ -44,7 +45,7 @@ import {
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
-import { diffRowBlocks, diffRows, fileChangeCounts, type DiffRow } from "./view-diff";
+import { diffRowBlocks, diffRows, fileChangeCounts, fileRowRange, type DiffRow } from "./view-diff";
 import { applyFold } from "./diff-fold";
 import { copyToClipboard } from "./clipboard";
 import {
@@ -254,6 +255,8 @@ export interface ReviewController {
     end: number,
     body: string,
     endDisplayIndex?: number,
+    /** The surface being annotated; a `file` target anchors into the Changes diff rows. */
+    target?: AnnotationTarget,
   ): string | undefined;
   /**
    * Reply to `rootAnnotationId`: the reply shares the root's anchor and names
@@ -981,13 +984,37 @@ class Controller implements ReviewController {
     end: number,
     body: string,
     endDisplayIndex: number = displayIndex,
+    target: AnnotationTarget = { kind: "artifact" },
   ): string | undefined {
     const session = this.snapshot.session;
 
     if (!session) return undefined;
     let anchor;
+    let resolvedTarget = target;
+    // a file target (a Changes-panel diff note) and a diff artifact both anchor into the diff rows
+    const onDiff = target.kind === "file" || session.artifact.type === "diff";
 
-    if (session.artifact.type === "diff") {
+    if (target.kind === "file") {
+      // a Changes-panel note anchors within its own file's rows, so a quote never attaches across
+      // files; a selection that spills into the next file is clamped back to the file it started in
+      const rows = this.rows();
+      const startRow = rows[displayIndex];
+      const path = startRow?.file ?? "";
+      const range = fileRowRange(rows, path);
+      const base = range?.start ?? 0;
+      const fileRows = range ? rows.slice(range.start, range.end) : rows;
+      const lastInFile = fileRows.length - 1;
+      const clamp = (index: number): number => Math.max(0, Math.min(index - base, lastInFile));
+
+      anchor = makeAnchor(
+        diffRowBlocks(fileRows),
+        clamp(displayIndex),
+        start,
+        end,
+        clamp(endDisplayIndex),
+      );
+      resolvedTarget = { kind: "file", path, rev: startRow?.kind === "del" ? "head" : "worktree" };
+    } else if (onDiff) {
       // rows are the diff's blocks: a span over one or more code rows anchors with the
       // same quote, context, and position selectors a plan span does
       anchor = makeAnchor(diffRowBlocks(this.rows()), displayIndex, start, end, endDisplayIndex);
@@ -1005,7 +1032,11 @@ class Controller implements ReviewController {
         workIndexOf(endDisplayIndex),
       );
     }
-    const wire = { id: newAnnotationId(), kind, anchor, body };
+    // absent target means the reviewed artifact, so keep artifact notes free of the field
+    const wire =
+      resolvedTarget.kind === "artifact"
+        ? { id: newAnnotationId(), kind, anchor, body }
+        : { id: newAnnotationId(), kind, anchor, body, target: resolvedTarget };
     const persisted = this.client!.sessionAnnotate(session.id, wire);
 
     this.apply(persisted);
@@ -1019,14 +1050,16 @@ class Controller implements ReviewController {
     const root = session?.annotations.find((annotation) => annotation.id === rootAnnotationId);
 
     if (!session || !root) return undefined;
-    // a reply to a reply still hangs off the discussion's root comment
-    const wire = {
+    // a reply to a reply still hangs off the discussion's root comment, and shares its target
+    // so it renders and resolves on the same surface
+    const base = {
       id: newAnnotationId(),
       kind: "comment",
       anchor: root.anchor,
       body,
       replyTo: root.replyTo ?? root.id,
     };
+    const wire = root.target ? { ...base, target: root.target } : base;
     const persisted = this.client!.sessionAnnotate(session.id, wire);
 
     this.apply(persisted);

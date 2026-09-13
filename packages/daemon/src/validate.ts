@@ -15,6 +15,7 @@ import {
   SCHEMA_VERSION,
   type Anchor,
   type Annotation,
+  type AnnotationTarget,
   type Artifact,
   type ArtifactMeta,
   type DiffFileContents,
@@ -86,12 +87,20 @@ export const AnchorSchema = v.object({
   selector: v.optional(v.string()),
 } satisfies EntriesOf<Anchor>);
 
+/** The surface a note was made on; absent means the reviewed artifact. */
+export const AnnotationTargetSchema: v.GenericSchema<AnnotationTarget> = v.variant("kind", [
+  v.object({ kind: v.literal("artifact") }),
+  v.object({ kind: v.literal("file"), path: NonEmpty, rev: v.picklist(["worktree", "head"]) }),
+  v.object({ kind: v.literal("welcome") }),
+]);
+
 /** Wire annotations arrive without createdAt - the daemon stamps it. */
 export const AnnotationSchema = v.object({
   id: NonEmpty,
   /** Open kind set: the built-in is comment. */
   kind: NonEmpty,
   anchor: AnchorSchema,
+  target: v.optional(AnnotationTargetSchema),
   body: v.string(),
   orphan: v.optional(v.boolean()),
   author: v.optional(v.string()),

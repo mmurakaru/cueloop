@@ -21,6 +21,7 @@ import {
   viewOfPath,
   isAddressed,
   isAgentNote,
+  annotationTarget,
   isMarkdownArtifact,
   MAIN_BRANCH,
   parseBlocks,
@@ -610,7 +611,9 @@ export class DaemonCore {
         annotation.resolution = { revision: revisionNumber, source: "agent" };
       } else if (
         revisedBlocks !== null &&
-        // a selector-anchored comment (a pixel prototype element) never drifts on a vanished quote
+        // only a note on the artifact drifts against the artifact's revision; a selector-anchored
+        // pixel element or a file-targeted Changes-diff note anchors elsewhere
+        annotationTarget(annotation).kind === "artifact" &&
         !annotation.anchor.selector &&
         resolveAnchor(annotation.anchor, revisedBlocks) === null
       ) {

@@ -6,6 +6,7 @@
  */
 
 import {
+  annotationTarget,
   isAddressed,
   isAgentNote,
   type Annotation,
@@ -127,13 +128,23 @@ export function renderFeedback(input: FeedbackInput): string {
     );
     lines.push("");
     annotations.forEach((annotation, annotationIndex) => {
-      // a prototype selector anchor is never resolved or orphaned against blocks
+      // a prototype selector anchor and a file-target Changes-diff note both anchor off this
+      // document, so neither resolves or orphans against its blocks; each names its own location
       const selector = annotation.anchor.selector;
-      const resolved = selector ? null : resolveAnchor(annotation.anchor, blocks);
+      const target = annotationTarget(annotation);
+      const offDocument = selector !== undefined || target.kind === "file";
+      const resolved = offDocument ? null : resolveAnchor(annotation.anchor, blocks);
       const sectionTitle = resolved ? sectionOf(blocks, resolved.blockIndex) : "";
-      const location = selector ? ` (${selector})` : sectionTitle ? ` (§ ${sectionTitle})` : "";
+      const location =
+        target.kind === "file"
+          ? ` (in ${target.path})`
+          : selector
+            ? ` (${selector})`
+            : sectionTitle
+              ? ` (§ ${sectionTitle})`
+              : "";
       const orphanFlag =
-        !selector && resolved === null
+        !offDocument && resolved === null
           ? " [orphaned anchor: the quoted text is no longer present]"
           : "";
 

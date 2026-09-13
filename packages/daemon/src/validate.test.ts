@@ -201,6 +201,7 @@ describe("wire pins", () => {
     id: "a1",
     kind: "comment",
     anchor: fullAnchor,
+    target: { kind: "file", path: "src/x.ts", rev: "worktree" },
     body: "b",
     orphan: false,
     author: "SHA256:abc",

@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, mock, test } from "bun:test";
-import { SCHEMA_VERSION, type ReviewSession } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { createReviewController, type ShareTransport } from "./session-controller";
 import { mergeFromShare } from "./share";
@@ -114,6 +114,44 @@ describe("live working-tree diff for a non-diff thread", () => {
 
     // the live per-file contents let a non-diff thread expand a folded file too
     expect(controller.canExpandFile("src/x.ts")).toBe(true);
+
+    controller.close();
+  });
+
+  test("annotating the Changes diff stamps a file target anchored to the diff rows", async () => {
+    const session = planSession();
+    let sent: Annotation | undefined;
+    const client = {
+      ...fakeClient(session),
+      sessionAnnotate: async (_id: string, annotation: Annotation) => {
+        sent = annotation;
+
+        return { ...session, annotations: [{ ...annotation, createdAt: AT }] };
+      },
+    } satisfies SessionClient;
+    const controller = createReviewController({
+      sessionId: session.id,
+      openClient: async () => client,
+      shareTransport,
+    });
+    controller.connect();
+    await tick();
+    await controller.repoChanges();
+
+    // Act - comment the added line of the working-tree diff, as the Changes surface does
+    const rows = controller.rows();
+    const addIndex = rows.findIndex((row) => row.kind === "add");
+    const addText = rows[addIndex]!.text.replace(/\n$/, "");
+
+    controller.annotate("comment", addIndex, 0, addText.length, "eviction?", addIndex, {
+      kind: "file",
+      path: "",
+      rev: "worktree",
+    });
+
+    // Assert - the note carries the file target (path and rev filled from the row) and quotes the diff
+    expect(sent?.target).toEqual({ kind: "file", path: "src/x.ts", rev: "worktree" });
+    expect(sent?.anchor.quote).toContain("const a = 2");
 
     controller.close();
   });
