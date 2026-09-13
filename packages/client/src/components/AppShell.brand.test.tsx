@@ -50,10 +50,8 @@ describe("collapsed-sidebar brand row", () => {
     const brandRow = lines.findIndex((line) => line.includes("cueloop"));
     const toggleRow = lines.findIndex((line) => line.includes(NERD.sidebarLeftOff));
 
-    // the brand and the toggle share one row, never wrapping onto the underline
     expect(brandRow).toBeGreaterThanOrEqual(0);
     expect(toggleRow).toBe(brandRow);
-    // the title is clipped with an ellipsis, not shown whole and not hard-cut
     expect(lines[brandRow]).toContain("…");
     expect(lines[brandRow]).not.toContain(LONG_TITLE);
   });

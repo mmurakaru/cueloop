@@ -70,11 +70,9 @@ describe("editing an expanded action", () => {
     await settle(setup);
     await settle(setup);
 
-    // the title field is focused first: typing extends the prompt
     await typeText(setup, "!");
     expect(prompts.at(-1)).toBe("Ship it!");
 
-    // enter steps focus to the description, where typing extends the metadata
     setup.mockInput.pressKey("RETURN");
     await settle(setup);
     await typeText(setup, "X");

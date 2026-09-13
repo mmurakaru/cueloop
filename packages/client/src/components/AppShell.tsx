@@ -10,6 +10,7 @@ import { useTerminalDimensions } from "@opentui/react";
 import type { BoxRenderable } from "@opentui/core";
 import { DARK, type Theme } from "../theme";
 import { useFrameMeasure } from "../use-frame-measure";
+import { truncateTitle } from "./truncate-title";
 import { PanelColumn } from "./PanelColumn";
 import { IconButton } from "./primitives/IconButton";
 import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
@@ -26,8 +27,7 @@ function HeaderTitle({ title, color }: { title: string; color: string }): React.
     (left, right) => left === right,
     0,
   );
-  const clipped =
-    width > 0 && title.length > width ? `${title.slice(0, Math.max(0, width - 1))}…` : title;
+  const clipped = width > 0 ? truncateTitle(title, width) : title;
 
   return (
     <box ref={boxRef} style={{ flexShrink: 1, minWidth: 0 }}>

@@ -21,4 +21,11 @@ describe("truncateTitle", () => {
   test("a zero width yields an empty string", () => {
     expect(truncateTitle("anything", 0)).toBe("");
   });
+
+  test("clips by code point, never splitting an astral character into a replacement glyph", () => {
+    const clipped = truncateTitle("🚀🚀🚀🚀🚀", 3);
+
+    expect(clipped).toBe("🚀🚀…");
+    expect(clipped).not.toContain("�");
+  });
 });
