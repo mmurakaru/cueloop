@@ -16,6 +16,7 @@ import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
 import { openReview, verdictResponse } from "@cueloop/daemon/review";
 import { loadConfig, quickActionBody, resolveQuickAction } from "@cueloop/client/config";
+import { slashItemsFrom } from "@cueloop/client/slash-palette";
 import { parseArgs, stringFlag } from "./args";
 
 async function readStdin(): Promise<string> {
@@ -342,8 +343,15 @@ async function sessionResolveCommand({
 }: SessionContext): Promise<number> {
   const id = required(positional[1], "session id");
   const kind = v.parse(VerdictKindSchema, required(stringFlag(flags, "verdict"), "--verdict"));
+  // expand /name quick-action references in TUI-authored comments, so a CLI resolve sends the agent
+  // the action bodies too, not the bare references
+  const session = await client.sessionGet(id);
+  const actions = loadConfig({ repoRoot: session.workspace.repoRoot }).actions;
+  const actionBodies = Object.fromEntries(
+    slashItemsFrom(actions).map((item) => [item.name, item.body]),
+  );
 
-  out(await client.sessionResolve(id, kind, stringFlag(flags, "summary") ?? ""));
+  out(await client.sessionResolve(id, kind, stringFlag(flags, "summary") ?? "", actionBodies));
 
   return 0;
 }

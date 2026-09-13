@@ -33,9 +33,19 @@ export interface FeedbackInput {
   artifactPath?: string;
   /** Session id, so the document can teach the addressed-ids resubmit call. */
   sessionId?: string;
+  /** cueloop quick-action name -> body; a `/name` reference in a comment expands to it for the agent. */
+  actionBodies?: Record<string, string>;
 }
 
 const quoteLines = (text: string) => "> " + text.replace(/\n/g, "\n> ");
+
+function expandActionRefs(body: string, actionBodies: Record<string, string> | undefined): string {
+  if (!actionBodies) return body;
+
+  return body.replace(/(^|\s)\/([A-Za-z0-9-]+)/g, (whole, lead: string, name: string) =>
+    actionBodies[name] !== undefined ? `${lead}${actionBodies[name]}` : whole,
+  );
+}
 
 export function renderFeedback(input: FeedbackInput): string {
   // The document the agent revises: a reply's feedback references reply.md so
@@ -119,7 +129,16 @@ export function renderFeedback(input: FeedbackInput): string {
   }
 
   if (annotations.length) {
-    lines.push(...annotationSectionLines(annotations, blocks, path, isPrototype, repliesTo));
+    lines.push(
+      ...annotationSectionLines(
+        annotations,
+        blocks,
+        path,
+        isPrototype,
+        repliesTo,
+        input.actionBodies,
+      ),
+    );
     if (input.sessionId) {
       lines.push("## Reporting what you addressed");
       lines.push("");
@@ -154,6 +173,7 @@ function annotationSectionLines(
   path: string,
   isPrototype: boolean,
   repliesTo: (root: Annotation) => Annotation[],
+  actionBodies: Record<string, string> | undefined,
 ): string[] {
   const lines: string[] = [];
   const artifactNotes = annotations.filter(
@@ -176,14 +196,15 @@ function annotationSectionLines(
     lines.push("");
     lines.push(quoteLines(annotation.anchor.quote));
     lines.push("");
-    lines.push(annotation.body);
+    lines.push(expandActionRefs(annotation.body, actionBodies));
     lines.push("");
     const replies = repliesTo(annotation);
 
     if (replies.length > 0) {
       lines.push("Replies:");
       lines.push("");
-      for (const reply of replies) lines.push(`- ${reply.body.replace(/\n/g, "\n  ")}`);
+      for (const reply of replies)
+        lines.push(`- ${expandActionRefs(reply.body, actionBodies).replace(/\n/g, "\n  ")}`);
       lines.push("");
     }
     lines.push(`annotation id: \`${annotation.id}\``);
@@ -228,6 +249,7 @@ export function feedbackForSession(
   session: ReviewSession,
   verdictKind: VerdictKind,
   summary: string,
+  actionBodies?: Record<string, string>,
 ): string {
   return renderFeedback({
     verdictKind,
@@ -238,6 +260,7 @@ export function feedbackForSession(
     annotations: session.annotations,
     artifactPath: session.artifact.meta.prototypePath ?? session.artifact.meta.planPath,
     sessionId: session.id,
+    actionBodies,
   });
 }
 

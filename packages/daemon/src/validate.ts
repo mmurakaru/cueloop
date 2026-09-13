@@ -211,6 +211,7 @@ export const Params = {
     id: SessionId,
     verdictKind: v.picklist(["comment", "approve", "request_changes"]),
     summary: v.optional(v.string(), ""),
+    actionBodies: v.optional(v.record(v.string(), v.string())),
   }),
   "session.submitRevision": v.object({
     id: SessionId,
