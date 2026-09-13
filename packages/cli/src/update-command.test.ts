@@ -14,6 +14,7 @@ function depsSpy(
     installDir: () => "/Users/dev/.local/bin",
     fetchLatestVersion: mock(async () => "0.1.0-alpha.68"),
     runInstaller: mock(async () => 0),
+    stopDaemon: mock(async () => true),
     out: (message: string) => void lines.push(message),
     error: (message: string) => void errorLines.push(message),
     lines,
@@ -121,9 +122,10 @@ describe(runUpdate, () => {
     // Act
     const code = await runUpdate(deps, false);
 
-    // Assert
+    // Assert - it also stops the stale-version daemon so the next launch autostarts the new build
     expect(code).toBe(0);
     expect(deps.runInstaller).toHaveBeenCalledWith("/Users/dev/.local/bin");
+    expect(deps.stopDaemon).toHaveBeenCalledTimes(1);
     expect(deps.lines).toContain("Update ran successfully! Please restart cueloop.");
   });
 
@@ -148,8 +150,9 @@ describe(runUpdate, () => {
     // Act
     const code = await runUpdate(deps, false);
 
-    // Assert
+    // Assert - a failed install leaves the current daemon alone
     expect(code).toBe(1);
+    expect(deps.stopDaemon).not.toHaveBeenCalled();
     expect(deps.lines).not.toContain("Update ran successfully! Please restart cueloop.");
   });
 

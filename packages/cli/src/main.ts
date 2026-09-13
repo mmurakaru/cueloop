@@ -105,6 +105,8 @@ interface CommandHandlers {
 const commandHandlers: CommandHandlers = {
   session: (rest) => sessionCommand(rest),
   daemon: (rest) => daemonCommand(rest),
+  stop: async () => (await import("./daemon-control")).stopCommand(),
+  restart: async () => (await import("./daemon-control")).restartCommand(),
   plan: (rest) => planCommand(rest),
   reply: (rest) => replyCommand(rest),
   diff: (rest) => diffCommand(rest),
@@ -354,6 +356,8 @@ function printHelp(): void {
       "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the verdict (spawn detached)",
       "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
       "  cueloop daemon                   run the daemon in the foreground",
+      "  cueloop stop                     stop the local daemon",
+      "  cueloop restart                  stop the local daemon and start a fresh one",
       "  cueloop dev                      open the TUI on an isolated home seeded with example threads",
       "",
       "  cueloop -v, --version            print the installed version",
