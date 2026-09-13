@@ -111,6 +111,15 @@ export function useSettingsDialog(params: {
     setQuickActions(next);
     persistActions(next);
   };
+  const editActionPrompt = (index: number, prompt: string): void => {
+    // a blank title fails the config schema and would vanish on reload, so never persist one
+    if (prompt.trim().length === 0) return;
+    commitActions(
+      quickActions.map((action, actionIndex) =>
+        actionIndex === index ? { ...action, prompt } : action,
+      ),
+    );
+  };
   const editActionMetadata = (index: number, metadata: string): void =>
     commitActions(
       quickActions.map((action, actionIndex) =>
@@ -175,6 +184,7 @@ export function useSettingsDialog(params: {
             setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: index }));
             setActionsExpandedIndex((current) => (current === index ? null : index));
           }}
+          onEditPrompt={editActionPrompt}
           onEditMetadata={editActionMetadata}
           onReset={resetActions}
           onAdd={addAction}
@@ -215,8 +225,7 @@ export function useSettingsDialog(params: {
   };
 
   const onCategorySelect = (categoryId: string): void => {
-    // the nav tree carries a synthetic Settings group folder; clicking it must
-    // not become the active category, or the key handler dereferences nothing
+    // ignore a select that names no real category, so the key handler never dereferences nothing
     if (!settingsCategories.some((category) => category.id === categoryId)) return;
     setActionsExpandedIndex(null);
     setSettingsNav({ categoryId, rowIndex: 0, zone: "body" });
