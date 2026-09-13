@@ -203,7 +203,11 @@ export function AppShell({
                   </box>
                 }
                 // with the region closed, the reopen toggle rides the thread header instead of an empty column
-                headerRight={threadHeaderRight(threadActions, reopenRightControl, rightRegionClosed)}
+                headerRight={threadHeaderRight(
+                  threadActions,
+                  reopenRightControl,
+                  rightRegionClosed,
+                )}
                 theme={tokens}
               >
                 {threadPanel}

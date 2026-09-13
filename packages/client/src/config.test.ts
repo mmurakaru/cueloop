@@ -142,7 +142,7 @@ describe("loadConfig", () => {
     }
   });
 
-  test("[ui] diff_view loads the pre-rename \"unified\" value as \"stacked\"", () => {
+  test('[ui] diff_view loads the pre-rename "unified" value as "stacked"', () => {
     // Arrange - an upgrade must not flip a user who had persisted the old spelling
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-diff-"));
     const path = join(dir, "config.toml");

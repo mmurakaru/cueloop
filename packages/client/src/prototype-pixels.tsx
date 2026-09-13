@@ -11,7 +11,8 @@
 import React, { useEffect, useState } from "react";
 import type { PrototypeContentViewProps } from "./components/PrototypeContentView";
 
-type PixelPrototypeView = (typeof import("./components/PrototypeContentView"))["PrototypeContentView"];
+type PixelPrototypeView =
+  (typeof import("./components/PrototypeContentView"))["PrototypeContentView"];
 
 export function PrototypePixels(props: PrototypeContentViewProps): React.ReactNode {
   const [View, setView] = useState<PixelPrototypeView | null>(null);

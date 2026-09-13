@@ -646,8 +646,10 @@ export function App({
 
       setDiffView(next);
       persistDiffView(next);
-      if (next === "split" && !workbench.zoomed)
-        controller.setStatus("split diff shows when zoomed");
+      // every toggle names the new mode; picking split on a narrow pane also says it needs the wide layout
+      if (next === "stacked") controller.setStatus("stacked diff");
+      else if (workbench.zoomed) controller.setStatus("split diff");
+      else controller.setStatus("split diff shows when zoomed");
     },
   });
 

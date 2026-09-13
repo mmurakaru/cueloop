@@ -29,10 +29,7 @@ function Section({
   );
 }
 
-export function WelcomeSurface({
-  version,
-  theme,
-}: WelcomeSurfaceProps): React.ReactNode {
+export function WelcomeSurface({ version, theme }: WelcomeSurfaceProps): React.ReactNode {
   return (
     <box
       style={{

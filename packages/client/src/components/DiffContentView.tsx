@@ -591,9 +591,13 @@ export function DiffContentView({
     const barChar = isCaretRow ? "▎" : " ";
     const barColor = isCaretRow ? tokens.accent : tokens.textDim;
     const oldNumber =
-      row.kind === "add" ? " ".repeat(numberWidth) : String(row.oldLine ?? "").padStart(numberWidth);
+      row.kind === "add"
+        ? " ".repeat(numberWidth)
+        : String(row.oldLine ?? "").padStart(numberWidth);
     const newNumber =
-      row.kind === "del" ? " ".repeat(numberWidth) : String(row.newLine ?? "").padStart(numberWidth);
+      row.kind === "del"
+        ? " ".repeat(numberWidth)
+        : String(row.newLine ?? "").padStart(numberWidth);
     const gutterFor = (lineIndex: number): React.ReactNode => {
       if (split) {
         return lineIndex === 0 ? (
@@ -610,10 +614,14 @@ export function DiffContentView({
       return lineIndex === 0 ? (
         <>
           <span fg={barColor}>{barChar}</span>
-          <span fg={row.kind === "del" ? tokens.deletedForeground : tokens.textDim}>{oldNumber}</span>
-          <span fg={tokens.textDim}>{" "}</span>
-          <span fg={row.kind === "add" ? tokens.insertedForeground : tokens.textDim}>{newNumber}</span>
-          <span>{" "}</span>
+          <span fg={row.kind === "del" ? tokens.deletedForeground : tokens.textDim}>
+            {oldNumber}
+          </span>
+          <span fg={tokens.textDim}> </span>
+          <span fg={row.kind === "add" ? tokens.insertedForeground : tokens.textDim}>
+            {newNumber}
+          </span>
+          <span> </span>
           <span fg={rowBaseColor(row, tokens)}>{`${rowSign(row)} `}</span>
         </>
       ) : (
@@ -631,7 +639,10 @@ export function DiffContentView({
       const isLastLine = lineIndex === lines.length - 1;
 
       lineNodes.push(
-        <box key={`${keyPrefix}-line-${lineIndex}`} style={{ flexDirection: "row", backgroundColor: rowBg }}>
+        <box
+          key={`${keyPrefix}-line-${lineIndex}`}
+          style={{ flexDirection: "row", backgroundColor: rowBg }}
+        >
           <text
             selectable={false}
             fg={isCaretRow && lineIndex === 0 ? tokens.accent : tokens.textDim}

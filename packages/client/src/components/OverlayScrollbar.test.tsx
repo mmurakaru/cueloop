@@ -100,7 +100,8 @@ describe("the diff sheet's scrollbar", () => {
     // the overlay bar hides at rest; a scroll reveals the thumb
     const scroller = findById(setup.renderer.root, "diff-scroll");
 
-    if (!(scroller instanceof ScrollBoxRenderable)) throw new Error("diff-scroll is not a scrollbox");
+    if (!(scroller instanceof ScrollBoxRenderable))
+      throw new Error("diff-scroll is not a scrollbox");
     scroller.scrollTo(4);
     await setup.waitForVisualIdle();
     const frame = setup.captureCharFrame().split("\n");

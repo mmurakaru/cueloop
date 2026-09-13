@@ -214,8 +214,7 @@ async function prototypeCommand(argv: string[]): Promise<number> {
   const wantsOpen = "open" in parsed.flags || "latest" in parsed.flags;
   // a markdown design doc is the default; an .html entry is the opt-in pixel mockup
   const isHtmlPrototype = selector?.endsWith(".html") ?? false;
-  const isMarkdownPrototype =
-    selector?.endsWith(".md") || selector?.endsWith(".markdown") || false;
+  const isMarkdownPrototype = selector?.endsWith(".md") || selector?.endsWith(".markdown") || false;
   const looksLikeFile =
     selector !== undefined && !isSessionId(selector) && (isHtmlPrototype || isMarkdownPrototype);
 
