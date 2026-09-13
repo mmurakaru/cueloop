@@ -102,19 +102,28 @@ describe("the diff sheet's scrollbar", () => {
 
     if (!(scroller instanceof ScrollBoxRenderable))
       throw new Error("diff-scroll is not a scrollbox");
-    scroller.scrollTo(4);
-    await setup.waitForVisualIdle();
+    const countThumbRows = (): number =>
+      setup.captureSpans().lines.filter((line) => {
+        let column = 0;
+
+        for (const span of line.spans) {
+          column += span.text.length;
+          if (column >= width) return span.bg !== undefined && hex(span.bg) === DARK.textDim;
+        }
+
+        return false;
+      }).length;
+
+    // the overlay bar reveals on a scroll and hides after an idle delay; alternate the offset to
+    // re-trigger the reveal until the thumb is captured, so a slow CI settle never races the hide
+    let thumbRows = 0;
+
+    for (let attempt = 0; attempt < 20 && thumbRows === 0; attempt++) {
+      scroller.scrollTo(attempt % 2 === 0 ? 4 : 5);
+      await setup.waitForVisualIdle();
+      thumbRows = countThumbRows();
+    }
     const frame = setup.captureCharFrame().split("\n");
-    const thumbRows = setup.captureSpans().lines.filter((line) => {
-      let column = 0;
-
-      for (const span of line.spans) {
-        column += span.text.length;
-        if (column >= width) return span.bg !== undefined && hex(span.bg) === DARK.textDim;
-      }
-
-      return false;
-    }).length;
 
     // Assert - the thumb occupies the last column at the top (scroll offset 0), and the dot sits
     // to its left in the rail, so the order reads content, dots, scrollbar

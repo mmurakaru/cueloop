@@ -168,6 +168,23 @@ export function marksByRows(
   return marksByIndex;
 }
 
+/**
+ * A whole file rendered as context rows, so the diff sheet can show and annotate a plain file the
+ * same way it does a diff: every line is unchanged, numbered on both sides (the file view collapses
+ * that to one number). A trailing newline does not add an empty final row.
+ */
+export function fileContentsRows(path: string, contents: string): DiffRow[] {
+  const lines = contents.replace(/\n$/, "").split("\n");
+
+  return lines.map((text, index) => ({
+    kind: "ctx",
+    text,
+    file: path,
+    oldLine: index + 1,
+    newLine: index + 1,
+  }));
+}
+
 /** The contiguous row range a file occupies in the aggregate diff, or null when it is not shown. */
 export function fileRowRange(rows: DiffRow[], path: string): { start: number; end: number } | null {
   const start = rows.findIndex((row) => row.file === path);

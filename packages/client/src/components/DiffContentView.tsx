@@ -104,6 +104,8 @@ export interface DiffContentViewProps {
   fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
   /** Render old|new side by side instead of one inline column; the App gates this on zoom. */
   split?: boolean;
+  /** A plain-file view (all context rows): one line-number gutter, no +/- sign. */
+  fileView?: boolean;
   theme?: Theme;
 }
 
@@ -483,6 +485,7 @@ export function DiffContentView({
   fold,
   fileStats: fileStatsProp,
   split = false,
+  fileView = false,
   theme,
 }: DiffContentViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -526,10 +529,12 @@ export function DiffContentView({
     (left, right) => left === right,
     0,
   );
-  // two columns and a one-cell divider share the width; each column keeps its own gutter
-  const textWidth = split
-    ? Math.max(0, Math.floor((viewWidth - 1) / 2) - GUTTER_COLUMNS)
-    : Math.max(0, viewWidth - unifiedGutterColumns);
+  // a file view shows one number; split gives each column its own gutter; stacked shows old and new
+  const textWidth = fileView
+    ? Math.max(0, viewWidth - (numberWidth + 2))
+    : split
+      ? Math.max(0, Math.floor((viewWidth - 1) / 2) - GUTTER_COLUMNS)
+      : Math.max(0, viewWidth - unifiedGutterColumns);
 
   // Every visual line is its own text renderable (so a drag can hit-test it), and a large
   // diff has tens of thousands of them - more native text buffers than the renderer can
@@ -599,6 +604,18 @@ export function DiffContentView({
         ? " ".repeat(numberWidth)
         : String(row.newLine ?? "").padStart(numberWidth);
     const gutterFor = (lineIndex: number): React.ReactNode => {
+      if (fileView) {
+        // a plain file has no old/new sides, so one line number reads like an ordinary file viewer
+        return lineIndex === 0 ? (
+          <>
+            <span fg={barColor}>{barChar}</span>
+            <span fg={tokens.textDim}>{String(row.newLine ?? "").padStart(numberWidth)}</span>
+            <span> </span>
+          </>
+        ) : (
+          " ".repeat(numberWidth + 2)
+        );
+      }
       if (split) {
         return lineIndex === 0 ? (
           <>

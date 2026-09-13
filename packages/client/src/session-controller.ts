@@ -26,6 +26,7 @@ import {
   returnPaneFor,
   switchBranch,
   viewOfPath,
+  type Anchor,
   type Annotation,
   type AnnotationTarget,
   type DiffFileContents,
@@ -258,6 +259,8 @@ export interface ReviewController {
     /** The surface being annotated; a `file` target anchors into the Changes diff rows. */
     target?: AnnotationTarget,
   ): string | undefined;
+  /** Persist a comment whose anchor a surface already built (e.g. a file-contents view). */
+  addComment(anchor: Anchor, target: AnnotationTarget, body: string): string | undefined;
   /**
    * Reply to `rootAnnotationId`: the reply shares the root's anchor and names
    * it in replyTo, so the discussion stays one conversation. Returns the minted id.
@@ -1037,6 +1040,22 @@ class Controller implements ReviewController {
       resolvedTarget.kind === "artifact"
         ? { id: newAnnotationId(), kind, anchor, body }
         : { id: newAnnotationId(), kind, anchor, body, target: resolvedTarget };
+    const persisted = this.client!.sessionAnnotate(session.id, wire);
+
+    this.apply(persisted);
+    this.mirrorAnnotation(persisted, wire);
+
+    return wire.id;
+  }
+
+  addComment(anchor: Anchor, target: AnnotationTarget, body: string): string | undefined {
+    const session = this.snapshot.session;
+
+    if (!session) return undefined;
+    const wire =
+      target.kind === "artifact"
+        ? { id: newAnnotationId(), kind: "comment", anchor, body }
+        : { id: newAnnotationId(), kind: "comment", anchor, body, target };
     const persisted = this.client!.sessionAnnotate(session.id, wire);
 
     this.apply(persisted);
