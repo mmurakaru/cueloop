@@ -1,16 +1,15 @@
 import React from "react";
 import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
-import { PrototypeSheet } from "./PrototypeSheet";
+import { PrototypeContentView } from "./PrototypeContentView";
 
-export const meta: StoryMeta = { title: "Surfaces/PrototypeSheet" };
+export const meta: StoryMeta = { title: "Surfaces/PrototypeContentView" };
 
-// The story renderer reports no kitty graphics, so the sheet shows its fallback.
+// The story renderer reports no kitty graphics, so the view shows its fallback.
 export const Unsupported: Story = {
   render: () => (
-    <PrototypeSheet
+    <PrototypeContentView
       prototypePath="/tmp/example.html"
-      quickActions={[]}
       canComment={true}
       onCommentElement={() => {}}
     />

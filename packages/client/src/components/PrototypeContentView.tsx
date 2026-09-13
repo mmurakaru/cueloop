@@ -1,8 +1,9 @@
 /**
  * Prototype review surface: renders the HTML screenshot into a reserved cell
  * region via the kitty graphics protocol, and turns a click into a DOM-element
- * selection, so the shared marker actions bar and compose card annotate an
- * element rather than a text span. The image is painted directly (not through
+ * selection that opens the shared compose card - the same edit primitive plan
+ * and diff use - so a note anchors to an element rather than a text span. The
+ * image is painted directly (not through
  * OpenTUI's ImageRenderable, which does not display in every terminal): the
  * region's cells are never repainted, and the picture is re-placed after each
  * frame so it survives OpenTUI's own draws.
@@ -13,11 +14,9 @@ import type { BoxRenderable } from "@opentui/core";
 import * as v from "valibot";
 import { useKeyboard, useRenderer } from "@opentui/react";
 import type { Theme } from "../theme";
-import { quickActionBody, type QuickAction } from "../config";
 import { useComponentTheme } from "./theme-context";
-import { FRAME_BORDER_STYLE } from "./primitives/frame";
-import { MarkerPopover } from "./MarkerPopover";
-import { AnnotationCard } from "./AnnotationCard";
+import { Composer, DiscussionCard } from "./AnnotationCards";
+import { annotationPaletteFor } from "../annotation-palette";
 import {
   cssBoxToCell,
   imageCellToCss,
@@ -34,9 +33,8 @@ import {
   type CellRegion,
 } from "../kitty-image";
 
-export interface PrototypeSheetProps {
+export interface PrototypeContentViewProps {
   prototypePath: string;
-  quickActions: QuickAction[];
   canComment: boolean;
   onCommentElement: (element: PrototypeElement, body: string) => void;
   /** Signals when the inline compose owns the keyboard, so the app suppresses
@@ -50,7 +48,7 @@ export interface PrototypeSheetProps {
 
 type SheetStatus = "loading" | "ready" | "unsupported" | "error";
 
-const POPOVER_ROWS = 3;
+const OVERLAY_ROWS = 3;
 /** Compose-card width, so the floating composer reads like the plan/diff one
  *  instead of shrinking to its content. */
 const COMPOSE_COLS = 46;
@@ -123,16 +121,33 @@ function captureConfig(region: CellRegion, renderer: CaptureRenderer) {
   };
 }
 
-function PrototypeSheetImpl({
+/**
+ * The terminal's scheme, read from its reading-text color: a dark terminal
+ * carries light text, a light terminal dark text. Passed to the renderer as
+ * prefers-color-scheme so a theme-aware mockup emerges into the right surface.
+ */
+function terminalColorScheme(textColor: string): "dark" | "light" {
+  const hex = textColor.replace("#", "");
+
+  if (hex.length < 6) return "dark";
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+
+  return luminance > 0.5 ? "dark" : "light";
+}
+
+function PrototypeContentViewImpl({
   prototypePath,
-  quickActions,
   canComment,
   onCommentElement,
   onComposingChange,
   hidden = false,
   theme,
-}: PrototypeSheetProps): React.ReactNode {
+}: PrototypeContentViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+  const palette = annotationPaletteFor(tokens);
   const renderer = useRenderer();
   const regionRef = useRef<BoxRenderable | null>(null);
   const browserRef = useRef<PrototypeRenderer | null>(null);
@@ -156,9 +171,7 @@ function PrototypeSheetImpl({
     top: number;
     regionColumns: number;
   } | null>(null);
-  const [actionsOpen, setActionsOpen] = useState(false);
   const [composing, setComposing] = useState(false);
-  const [draftText, setDraftText] = useState("");
 
   const setPng = (png: Uint8Array): void => {
     pngRef.current = png;
@@ -247,6 +260,7 @@ function PrototypeSheetImpl({
           filePath: prototypePath,
           viewport: capture.viewport,
           deviceScaleFactor: capture.deviceScaleFactor,
+          colorScheme: terminalColorScheme(tokens.text),
         });
 
         // the sheet may have unmounted while Chromium was launching; close the
@@ -279,9 +293,7 @@ function PrototypeSheetImpl({
   const clearSelection = (): void => {
     setSelected(null);
     setOverlayCell(null);
-    setActionsOpen(false);
     setComposing(false);
-    setDraftText("");
   };
 
   // While the compose textarea owns the keyboard, the global keymap is
@@ -315,11 +327,17 @@ function PrototypeSheetImpl({
       setSelected(element);
       setOverlayCell({
         left: Math.max(0, cell.column - geometry.x),
-        top: Math.max(0, topRaw < POPOVER_ROWS ? topRaw + 1 : topRaw - POPOVER_ROWS),
+        top: Math.max(0, topRaw < OVERLAY_ROWS ? topRaw + 1 : topRaw - OVERLAY_ROWS),
         regionColumns: geometry.width,
       });
-      setActionsOpen(false);
-      setComposing(false);
+      // selecting an element opens the compose card directly, the same edit
+      // primitive plan and diff use - there is no intermediate marker toolbar
+      if (canComment) {
+        onComposingChange?.(true);
+        setComposing(true);
+      } else {
+        setComposing(false);
+      }
     })().catch((error) => {
       setErrorMessage(error instanceof Error ? error.message : String(error));
       setStatus("error");
@@ -346,8 +364,8 @@ function PrototypeSheetImpl({
     clearSelection();
   };
 
-  // the overlay carries an opaque fill so the popover and compose card read as
-  // solid cards over the image, matching the plan surface
+  // the overlay carries an opaque fill so the compose card reads as a solid
+  // card over the image, matching the plan surface
   const overlayStyle = {
     position: "absolute" as const,
     left: overlayCell?.left ?? 0,
@@ -370,9 +388,6 @@ function PrototypeSheetImpl({
       style={{
         flexGrow: 1,
         flexDirection: "column",
-        border: true,
-        borderStyle: FRAME_BORDER_STYLE,
-        borderColor: tokens.text,
       }}
     >
       <box
@@ -389,40 +404,25 @@ function PrototypeSheetImpl({
           <text fg={tokens.textDim}>{statusLine(status, errorMessage)}</text>
         </box>
       ) : null}
-      {selected && !composing ? (
-        <box style={overlayStyle}>
-          <MarkerPopover
-            view={actionsOpen ? "actions" : "toolbar"}
-            actions={quickActions}
-            actionIndex={0}
-            canCut={false}
-            onComment={() => {
-              if (!canComment) return;
-              onComposingChange?.(true);
-              setComposing(true);
-            }}
-            onCut={() => undefined}
-            onOpenActions={() => setActionsOpen(true)}
-            onClose={clearSelection}
-            onPickAction={(index) => commit(quickActionBody(quickActions[index]!))}
-            onBack={() => setActionsOpen(false)}
-            theme={theme}
-          />
-        </box>
-      ) : null}
       {selected && composing ? (
         <box style={composeStyle}>
-          <AnnotationCard
-            kind="comment"
-            quote={selected.quote}
-            draft={{
-              text: draftText,
-              onInput: setDraftText,
-              onSave: () => commit(draftText),
-              onSubmit: () => commit(draftText),
-              onCancel: clearSelection,
-            }}
-            theme={theme}
+          <DiscussionCard
+            tokens={tokens}
+            segments={[
+              {
+                color: palette.cardEdge,
+                node: (
+                  <Composer
+                    seed=""
+                    glyph="●"
+                    tokens={tokens}
+                    onSave={commit}
+                    onReady={() => undefined}
+                    onInput={() => undefined}
+                  />
+                ),
+              },
+            ]}
           />
         </box>
       ) : null}
@@ -432,10 +432,10 @@ function PrototypeSheetImpl({
 
 /**
  * Memoized so an unrelated App re-render (status ticks, a rail-width drag) does
- * not re-render the sheet; the parent passes a stable onCommentElement so the
+ * not re-render the view; the parent passes a stable onCommentElement so the
  * shallow prop compare holds.
  */
-export const PrototypeSheet = React.memo(PrototypeSheetImpl);
+export const PrototypeContentView = React.memo(PrototypeContentViewImpl);
 
 function statusLine(status: SheetStatus, errorMessage: string): string {
   if (status === "loading") return "rendering prototype…";

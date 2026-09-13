@@ -2,9 +2,10 @@
 // thread. A click jumps to that thread; the open thread stays highlighted. Renders
 // nothing when collapsed so the thread reclaims the width.
 
+import { ScrollArea } from "./ScrollArea";
 import React from "react";
 import type { Theme } from "../theme";
-import { InboxList } from "./InboxList";
+import { ThreadTree } from "./ThreadTree";
 import type { InboxRow } from "./session-tree";
 
 export interface ThreadsSidebarProps {
@@ -51,8 +52,8 @@ export function ThreadsSidebar({
         borderColor: theme?.border,
       }}
     >
-      <scrollbox style={{ flexGrow: 1 }} focused={false}>
-        <InboxList
+      <ScrollArea>
+        <ThreadTree
           rows={rows}
           cursor={cursor}
           activeId={activeId}
@@ -64,7 +65,7 @@ export function ThreadsSidebar({
           onRename={onRename}
           theme={theme}
         />
-      </scrollbox>
+      </ScrollArea>
     </box>
   );
 }

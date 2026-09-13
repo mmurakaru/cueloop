@@ -1,10 +1,10 @@
 import React, { useRef } from "react";
 import type { ScrollBoxRenderable } from "@opentui/core";
 import { DARK } from "../theme";
-import { SurfaceScrollbar } from "./SurfaceScrollbar";
+import { OverlayScrollbar } from "./OverlayScrollbar";
 import type { Story, StoryMeta } from "./story";
 
-export const meta: StoryMeta = { title: "Chrome/SurfaceScrollbar" };
+export const meta: StoryMeta = { title: "Chrome/OverlayScrollbar" };
 
 function TallSurface(): React.ReactNode {
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
@@ -21,14 +21,13 @@ function TallSurface(): React.ReactNode {
           <text key={index} fg={DARK.textMuted}>{`row ${index + 1}`}</text>
         ))}
       </scrollbox>
-      <SurfaceScrollbar scrollbox={scrollRef} />
+      <OverlayScrollbar scrollbox={scrollRef} />
     </box>
   );
 }
 
-// The mirrored bar: content three times the viewport puts a thumb a third as tall at the top.
-export const ThumbAtTop: Story = {
+// At rest the overlay bar is hidden; the thumb only appears while the surface is scrolling.
+export const AtRest: Story = {
   render: () => <TallSurface />,
-  expectedColors: [DARK.textDim],
   size: { width: 24, height: 8 },
 };

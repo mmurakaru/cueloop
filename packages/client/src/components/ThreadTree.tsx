@@ -1,5 +1,5 @@
 /**
- * The pending-review inbox: a Pinned / Projects / Threads tree. Selection stays
+ * The sidebar thread tree: a Pinned / Projects / Threads listing. Selection stays
  * with the keyboard grammar - the cursor indexes the flat thread order and this
  * component renders the snapshot. A hovered or selected thread reveals a kebab
  * that opens an inline pin / rename / delete menu; long titles fade on the right
@@ -14,7 +14,7 @@ import { NERD } from "./primitives/icons";
 import { fadeTitle } from "./fade-title";
 import { threadTitle, type InboxRow } from "./session-tree";
 
-export interface InboxListProps {
+export interface ThreadTreeProps {
   rows: InboxRow[];
   cursor: number;
   /** The open thread's id; highlights it instead of the cursor (the left sidebar case). */
@@ -148,7 +148,7 @@ function ThreadRow(props: ThreadRowProps): React.ReactNode {
   );
 }
 
-export function InboxList({
+export function ThreadTree({
   rows,
   cursor,
   activeId,
@@ -159,7 +159,7 @@ export function InboxList({
   onPin,
   onRename,
   theme,
-}: InboxListProps): React.ReactNode {
+}: ThreadTreeProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const [actionsForId, setActionsForId] = useState<string | null>(null);
   // leave room for the 3-char prefix, the border, and the hover kebab so a row
@@ -168,9 +168,9 @@ export function InboxList({
   const closeMenu = (): void => setActionsForId(null);
 
   return (
-    <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1, paddingTop: 1 }}>
+    <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1 }}>
       {rows.length === 0 ? (
-        <text fg={tokens.textDim}>nothing waiting for review</text>
+        <text fg={tokens.textDim}>no threads</text>
       ) : (
         rows.map((row) => {
           if (row.kind === "section") {
