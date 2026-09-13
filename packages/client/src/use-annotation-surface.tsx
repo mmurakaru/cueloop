@@ -12,7 +12,7 @@
  * cards this hook builds under the visual line a span ends on.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
 import type { ReviewSession } from "@cueloop/schema";
@@ -37,7 +37,13 @@ import {
 } from "./thread-selection";
 import { annotationPaletteFor, type AnnotationPalette } from "./annotation-palette";
 import { printableSequence, type MarkRange, type VisualLine } from "./mark-runs";
-import { resolveInlineSuggestion, slashFilter, slashItemsFrom } from "./slash-palette";
+import {
+  mergeSlashItems,
+  resolveInlineSuggestion,
+  slashFilter,
+  slashItemsFrom,
+} from "./slash-palette";
+import { SlashSkillsContext } from "./skills";
 import { discussionsFrom, type Discussion } from "./discussions";
 import {
   CommentRow,
@@ -305,14 +311,12 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     setCompose(null);
     setComposeText("");
   };
+  const skills = useContext(SlashSkillsContext);
+  const paletteItems = mergeSlashItems(slashItemsFrom(quickActions), skills);
   // open only while typing the token: a leading "/" with no space yet
   const slashActive = compose !== null && /^\/\S*$/.test(composeText);
-  const slashItems = slashActive
-    ? slashFilter(slashItemsFrom(quickActions), composeText.slice(1).trim())
-    : [];
-  // inline skill completion: the trailing "/word" token and its closest match,
-  // offered as a hint below the composer that tab completes to the full name
-  const inlineSlash = resolveInlineSuggestion(slashActive, composeText, quickActions);
+  const slashItems = slashActive ? slashFilter(paletteItems, composeText.slice(1).trim()) : [];
+  const inlineSlash = resolveInlineSuggestion(slashActive, composeText, paletteItems);
 
   const saveComment = (body: string): void => {
     // the body saves verbatim - typed newlines are the author's choice;

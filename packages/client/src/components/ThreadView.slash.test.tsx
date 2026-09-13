@@ -8,6 +8,8 @@ import { settle, typeText } from "../test-support";
 import { buildDisplay, marksByDisplay } from "../view-plan";
 import { fixturePlanSession } from "./story-fixtures";
 import { inlineSlashToken, resolveInlineSuggestion, ThreadView } from "./ThreadView";
+import { slashItemsFrom, type SlashItem } from "../slash-palette";
+import { SlashSkillsContext } from "../skills";
 
 const SKILLS: QuickAction[] = [
   { prompt: "typescript magician" },
@@ -66,24 +68,67 @@ describe("inlineSlashToken", () => {
 
 describe("resolveInlineSuggestion", () => {
   test("offers the fuzzy closest skill for the trailing token", () => {
-    const inline = resolveInlineSuggestion(false, "run /type", SKILLS);
+    const inline = resolveInlineSuggestion(false, "run /type", slashItemsFrom(SKILLS));
 
     expect(inline?.token).toBe("/type");
     expect(inline?.suggestion.name).toBe("typescript-magician");
   });
 
   test("prefers a prefix match over a subsequence match", () => {
-    const inline = resolveInlineSuggestion(false, "run /impl", SKILLS);
+    const inline = resolveInlineSuggestion(false, "run /impl", slashItemsFrom(SKILLS));
 
     expect(inline?.suggestion.name).toBe("implement");
   });
 
   test("stays silent while the palette owns a leading slash", () => {
-    expect(resolveInlineSuggestion(true, "/type", SKILLS)).toBeNull();
+    expect(resolveInlineSuggestion(true, "/type", slashItemsFrom(SKILLS))).toBeNull();
   });
 
   test("returns null when nothing matches the token", () => {
-    expect(resolveInlineSuggestion(false, "run /zzzz", SKILLS)).toBeNull();
+    expect(resolveInlineSuggestion(false, "run /zzzz", slashItemsFrom(SKILLS))).toBeNull();
+  });
+});
+
+async function mountComposerWithSkills(skills: SlashItem[]) {
+  const display = buildDisplay(PLAN, undefined);
+  const setup = await testRender(
+    <SlashSkillsContext.Provider value={skills}>
+      <ThreadView
+        session={fixturePlanSession({
+          artifact: { type: "plan", content: PLAN, meta: { title: "Plan" } },
+        })}
+        display={display}
+        marks={marksByDisplay([], display)}
+        quickActions={SKILLS}
+        observer={false}
+        onAnnotate={() => {}}
+        onReply={() => {}}
+        onUpdateAnnotation={() => {}}
+        onExit={() => {}}
+      />
+    </SlashSkillsContext.Provider>,
+    { width: 72, height: 20 },
+  );
+
+  await settle(setup);
+  await settle(setup);
+
+  return setup;
+}
+
+describe("skills in the palette", () => {
+  test("a skill from context lists in the / palette and a pick inserts its /name", async () => {
+    const setup = await mountComposerWithSkills([
+      { name: "vitest-patterns", description: "patterns for vitest", body: "" },
+    ]);
+
+    await typeText(setup, "/vitest");
+    expect(setup.captureCharFrame()).toContain("/vitest-patterns");
+
+    setup.mockInput.pressKey("RETURN");
+    await settle(setup);
+    // the reference lands in the draft, exactly like a quick action
+    expect(setup.captureCharFrame()).toContain("/vitest-patterns");
   });
 });
 

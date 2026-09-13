@@ -142,6 +142,25 @@ describe("loadConfig", () => {
     }
   });
 
+  test("[skills] path overrides the default and a malformed value never discards the config", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-skills-"));
+    const path = join(dir, "config.toml");
+
+    try {
+      writeFileSync(path, `[skills]\npath = "/custom/skills"\n`);
+      expect(loadConfig({ userConfigPath: path }).skillsPath).toBe("/custom/skills");
+
+      // a wrong-typed path falls back to the default without dropping the sibling [keys] setting
+      writeFileSync(path, `[skills]\npath = 123\n\n[keys]\ncomment = "z"\n`);
+      const config = loadConfig({ userConfigPath: path });
+
+      expect(config.keys["comment"]).toEqual(["z"]);
+      expect(config.skillsPath).toContain(".agents");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('[ui] diff_view loads the pre-rename "unified" value as "stacked"', () => {
     // Arrange - an upgrade must not flip a user who had persisted the old spelling
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-diff-"));
