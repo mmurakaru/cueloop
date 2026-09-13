@@ -1,18 +1,20 @@
 /**
  * The inline comment pieces every annotated surface renders: the composer (a
- * textarea in a card row), the "/" palette and inline completion hint below it,
- * the edge-segmented discussion card, and one comment row. The plan thread view
+ * textarea in a card row), the "/" actions-and-skills palette below it, the
+ * edge-segmented discussion card, and one comment row. The plan thread view
  * and the diff sheet both draw their comments with these, so a discussion looks
  * and behaves the same on prose and on code.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useLayoutEffect, useRef, useState } from "react";
 import type { BoxRenderable, KeyBinding, TextareaRenderable } from "@opentui/core";
 import type { Annotation } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { lighten } from "../annotation-palette";
 import { useFrameMeasure } from "../use-frame-measure";
-import type { InlineSlash, SlashItem } from "../slash-palette";
+import { skillReferenceRanges, type SlashItem } from "../slash-palette";
+import { PaletteNamesContext } from "../skills";
+import { referenceStyleFor } from "./syntax-highlight";
 
 /* -------------------------------------------------------------- composer */
 
@@ -52,18 +54,32 @@ export function Composer({
   tokens: Theme;
   onSave: (body: string) => void;
   onReady: () => void;
-  onInput: (text: string) => void;
+  onInput: (text: string, caret: number) => void;
 }): React.ReactNode {
   const editorRef = useRef<TextareaRenderable | null>(null);
   const [rows, setRows] = useState(1);
+  // action and skill names whose "/name" references paint in the accent color
+  const referenceNames = useContext(PaletteNamesContext);
 
-  // once per mount (the composer is keyed by its seed): later re-renders
-  // must NOT reset the caret, or input lands before a just-typed newline
-  useEffect(() => {
+  const paintReferences = (editor: TextareaRenderable): void => {
+    const { styleId } = referenceStyleFor(tokens);
+
+    editor.editBuffer.clearAllHighlights();
+    for (const range of skillReferenceRanges(editor.plainText, referenceNames)) {
+      editor.editBuffer.addHighlightByCharRange({ ...range, styleId });
+    }
+  };
+
+  // synchronously at commit, before the next tty key is read: signalling readiness in a
+  // post-paint effect lets a fast burst race the mount, splitting input between the seed
+  // buffer and this textarea out of order (#365)
+  useLayoutEffect(() => {
     const editor = editorRef.current;
 
     if (!editor) return;
     editor.cursorOffset = seed.length;
+    editor.editBuffer.setSyntaxStyle(referenceStyleFor(tokens).style);
+    paintReferences(editor);
     setRows(composeRowCount(editor.plainText, editor.width));
     onReady();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,8 +99,9 @@ export function Composer({
           const editor = editorRef.current;
 
           if (!editor) return;
+          paintReferences(editor);
           setRows(composeRowCount(editor.plainText, editor.width));
-          onInput(editor.plainText);
+          onInput(editor.plainText, editor.cursorOffset);
         }}
         style={{
           height: rows,
@@ -139,40 +156,27 @@ function SlashList({
   );
 }
 
-/** Below the composer: the palette list for a leading "/", else the inline tab-hint, else nothing. */
+/** Below the composer: the actions/skills list while the caret is on a "/word", else nothing. */
 export function ComposerPalette({
   slashActive,
   slashItems,
   slashIndex,
-  inline,
   tokens,
 }: {
   slashActive: boolean;
   slashItems: SlashItem[];
   slashIndex: number;
-  inline: InlineSlash | null;
   tokens: Theme;
 }): React.ReactNode {
-  if (slashActive) {
-    return (
-      <box style={{ flexDirection: "column", marginLeft: 3 }}>
-        <SlashList
-          items={slashItems}
-          selected={Math.min(slashIndex, Math.max(0, slashItems.length - 1))}
-          tokens={tokens}
-        />
-      </box>
-    );
-  }
-  if (inline === null) return null;
+  if (!slashActive) return null;
 
   return (
-    <box style={{ flexDirection: "row", marginLeft: 3 }}>
-      <text>
-        <span fg={tokens.textDim}>{"⇥ "}</span>
-        <span fg={tokens.accent}>{`/${inline.suggestion.name}`}</span>
-        <span fg={tokens.textDim}>{`  ${inline.suggestion.description}`}</span>
-      </text>
+    <box style={{ flexDirection: "column", marginLeft: 3 }}>
+      <SlashList
+        items={slashItems}
+        selected={Math.min(slashIndex, Math.max(0, slashItems.length - 1))}
+        tokens={tokens}
+      />
     </box>
   );
 }

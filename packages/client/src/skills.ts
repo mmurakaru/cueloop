@@ -66,3 +66,10 @@ export function loadSkills(dir: string): SlashItem[] {
 
 /** Skills reach the composer palette through context, so no surface needs a new prop to list them. */
 export const SlashSkillsContext = createContext<SlashItem[]>([]);
+
+/**
+ * The action and skill names every composer paints as "/name" references. Held in
+ * context so each surface - the plan thread, the diff sheet, the prototype - reads
+ * the same palette without threading a prop.
+ */
+export const PaletteNamesContext = createContext<ReadonlySet<string>>(new Set());

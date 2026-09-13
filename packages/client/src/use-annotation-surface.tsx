@@ -38,8 +38,9 @@ import {
 import { annotationPaletteFor, type AnnotationPalette } from "./annotation-palette";
 import { printableSequence, type MarkRange, type VisualLine } from "./mark-runs";
 import {
+  activeSlashToken,
+  isStandaloneSlashQuery,
   mergeSlashItems,
-  resolveInlineSuggestion,
   slashFilter,
   slashItemsFrom,
 } from "./slash-palette";
@@ -233,6 +234,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [composeText, setComposeText] = useState("");
+  const [caretOffset, setCaretOffset] = useState(0);
   const [slashIndex, setSlashIndex] = useState(0);
   const composerReady = useRef(false);
   const composeRef = useRef<ComposeState | null>(null);
@@ -304,19 +306,26 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     composeRef.current = state;
     setCompose(state);
     setComposeText(state.seed);
+    setCaretOffset(state.seed.length);
     setSlashIndex(0);
   };
   const closeCompose = (): void => {
     composeRef.current = null;
     setCompose(null);
     setComposeText("");
+    setCaretOffset(0);
   };
   const skills = useContext(SlashSkillsContext);
   const paletteItems = mergeSlashItems(slashItemsFrom(quickActions), skills);
-  // open only while typing the token: a leading "/" with no space yet
-  const slashActive = compose !== null && /^\/\S*$/.test(composeText);
-  const slashItems = slashActive ? slashFilter(paletteItems, composeText.slice(1).trim()) : [];
-  const inlineSlash = resolveInlineSuggestion(slashActive, composeText, paletteItems);
+  // the "/word" under the caret, anywhere in the draft, so each new "/" reopens the palette
+  const slashToken = compose !== null ? activeSlashToken(composeText, caretOffset) : null;
+  const slashActive = slashToken !== null;
+  const slashItems = slashToken !== null ? slashFilter(paletteItems, slashToken.slice(1)) : [];
+
+  // a fresh token starts its selection at the top, so an earlier Down never leaks into it
+  useEffect(() => {
+    if (slashActive) setSlashIndex(0);
+  }, [slashActive]);
 
   const saveComment = (body: string): void => {
     // the body saves verbatim - typed newlines are the author's choice;
@@ -357,11 +366,13 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     });
   };
 
-  // clicking away from an open composer commits the draft (blur-save);
-  // a half-typed slash query is never a comment, so it discards instead
+  // clicking away commits the draft (blur-save); only a standalone "/query" is a palette
+  // artifact, so prose that merely ends in a "/name" still saves
   const blurSaveCompose = (): void => {
     if (!composeRef.current) return;
-    if (slashActive || composeText.trim().length === 0) return closeCompose();
+    if (isStandaloneSlashQuery(composeText) || composeText.trim().length === 0) {
+      return closeCompose();
+    }
     saveComment(composeText);
   };
 
@@ -431,23 +442,19 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       return true;
     }
     if (key.name === "return" || key.name === "tab") {
-      openCompose({ ...activeCompose, seed: `/${slashItems[selected]!.name} ` });
+      const token = activeSlashToken(composeText, caretOffset) ?? "";
+      const cut = caretOffset - token.length;
+      const insertion = `/${slashItems[selected]!.name} `;
+      const seed = composeText.slice(0, cut) + insertion + composeText.slice(caretOffset);
+
+      openCompose({ ...activeCompose, seed });
+      // land the caret just after the inserted reference, not at the end of a chained draft
+      setCaretOffset(cut + insertion.length);
 
       return true;
     }
 
     return false;
-  };
-
-  /** Tab completes the trailing "/word" to the matched skill's full name, then a space to chain. */
-  const handleInlineSlashKey = (key: KeyEvent, activeCompose: ComposeState): boolean => {
-    if (inlineSlash === null || key.name !== "tab") return false;
-    const cut = composeText.length - inlineSlash.token.length;
-    const completed = `${composeText.slice(0, cut)}/${inlineSlash.suggestion.name} `;
-
-    openCompose({ ...activeCompose, seed: completed });
-
-    return true;
   };
 
   /** Pre-mount window: buffer printables, honor a fast cmd+enter or newline. */
@@ -458,6 +465,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       composeRef.current = grown;
       setComposeText(grown.seed);
+      setCaretOffset(grown.seed.length);
 
       return setCompose(grown);
     }
@@ -468,6 +476,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
       composeRef.current = grown;
       setComposeText(grown.seed);
+      setCaretOffset(grown.seed.length);
       setCompose(grown);
     }
   };
@@ -491,7 +500,6 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       return closeCompose();
     }
     if (handleSlashKey(key, activeCompose)) return;
-    if (handleInlineSlashKey(key, activeCompose)) return;
     if (!composerReady.current) handlePremountKey(key, activeCompose);
   };
 
@@ -670,18 +678,19 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       tokens={tokens}
       onSave={saveComment}
       onReady={() => (composerReady.current = true)}
-      onInput={setComposeText}
+      onInput={(text, caret) => {
+        setComposeText(text);
+        setCaretOffset(caret);
+      }}
     />
   ) : null;
-  // one node below the composer: the palette list for a leading "/", otherwise the
-  // inline completion hint. Renders null when neither applies, so it always pushes.
+  // the palette list below the composer while the caret is on a "/word"; null otherwise, so it pushes
   const paletteNode = (
     <ComposerPalette
       key="composer-palette"
       slashActive={slashActive}
       slashItems={slashItems}
       slashIndex={slashIndex}
-      inline={inlineSlash}
       tokens={tokens}
     />
   );

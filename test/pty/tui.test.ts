@@ -8,7 +8,7 @@
  * (`bun run test:pty`); the tests share one session and run in file order.
  */
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect } from "bun:test";
 import { launchPlanReview, PTY_TIER_ENABLED, ptyTest } from "../helpers/pty-reviews";
 import type { PtyTuiSession } from "../helpers/pty-tui-session";
 import { createTestReviewHome, type TestReviewHome } from "../helpers/review-home";
@@ -70,10 +70,23 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
     },
   );
 
-  // The composer reorders characters that arrive about 1 ms apart (#365); when
-  // that is fixed, this proves it: `await session.type("needs a test", 1)` then
-  // wait for "● needs a test".
-  test.todo("a 1 ms burst of typed characters lands in order (#365)", () => {});
+  ptyTest("a 1 ms burst of typed characters lands in order (#365)", async () => {
+    // Arrange - caret on the first paragraph
+    await session.press("down");
+    await session.press("down");
+
+    // Act - a burst arriving ~1 ms apart, the paste/key-repeat/automation path
+    await session.type("needs a test", 1);
+
+    // Assert - the draft holds the characters in arrival order
+    await session.waitForText("● needs a test", { what: "the in-order burst draft" });
+
+    await session.press("escape");
+    await session.waitForScreen((screen) => !screen.includes("needs a test"), {
+      what: "the draft to close",
+    });
+    await session.press("escape");
+  });
 
   ptyTest("resize does not crash and the document survives both directions", async () => {
     // Act - shrink, then grow back; SIGWINCH must repaint, not kill

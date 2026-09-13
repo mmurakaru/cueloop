@@ -64,36 +64,50 @@ export function slashFilter(items: SlashItem[], query: string): SlashItem[] {
   return scored.toSorted((left, right) => right.score - left.score).map((entry) => entry.item);
 }
 
+// a skill or action name: the grammar loadSkills and slashItemsFrom can produce, so a "/name"
+// token closes only on whitespace or another slash, never inside a valid underscore-or-hyphen name
+const SLASH_TOKEN = /(?:^|\s)(\/[a-zA-Z0-9_-]*)$/;
+
 /**
- * A skill invoked mid-sentence: the trailing "/word" token when text already
- * precedes it (a draft that starts with "/" is the palette, not an inline
- * completion). Newline-safe, since the token may sit at the start of a new line.
+ * The "/word" token the caret is writing right now: the run from the last
+ * whitespace up to the caret, at the start of the draft or after it. Null once a
+ * space closes the token, so each new "/" reopens the palette and skills chain.
+ * Caret-aware, so editing an earlier "/name" targets it, not a trailing token.
  */
-export function inlineSlashToken(text: string): string | null {
-  if (text.startsWith("/")) return null;
-  const match = /(?:^|\s)(\/[a-zA-Z0-9-]*)$/.exec(text);
+export function activeSlashToken(text: string, caret: number): string | null {
+  const head = text.slice(0, Math.max(0, Math.min(caret, text.length)));
+  const match = SLASH_TOKEN.exec(head);
 
   return match ? match[1]! : null;
 }
 
-export interface InlineSlash {
-  token: string;
-  suggestion: SlashItem;
+/** True while the whole draft is just a "/query" - the palette owns it, so a blur discards it. */
+export function isStandaloneSlashQuery(text: string): boolean {
+  return /^\/\S*$/.test(text.trim());
 }
 
-/** The inline completion state: the trailing "/word" and its closest item, or null. */
-export function resolveInlineSuggestion(
-  slashActive: boolean,
+/**
+ * The character ranges of every completed "/name" in the draft that names a real
+ * action or skill, so a surface can paint the references. A half-typed "/na" is
+ * not a reference yet, so it stays unpainted until the palette completes it.
+ */
+export function skillReferenceRanges(
   text: string,
-  items: SlashItem[],
-): InlineSlash | null {
-  if (slashActive) return null;
-  const token = inlineSlashToken(text);
+  names: ReadonlySet<string>,
+): Array<{ start: number; end: number }> {
+  const ranges: Array<{ start: number; end: number }> = [];
+  const pattern = /(?:^|\s)(\/[a-zA-Z0-9_-]+)/g;
 
-  if (token === null) return null;
-  const suggestion = slashFilter(items, token.slice(1))[0];
+  for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
+    const token = match[1]!;
 
-  return suggestion ? { token, suggestion } : null;
+    if (!names.has(token.slice(1))) continue;
+    const start = match.index + match[0].length - token.length;
+
+    ranges.push({ start, end: start + token.length });
+  }
+
+  return ranges;
 }
 
 /** Quick actions and user skills in one palette; a quick action wins a name collision (it expands). */
