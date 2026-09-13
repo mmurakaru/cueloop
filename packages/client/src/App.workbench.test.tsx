@@ -303,11 +303,11 @@ describe("the four-pane workbench", () => {
     const setup = await renderApp();
 
     // the tip is not painted until the pointer is over the control
-    expect(setup.captureCharFrame()).not.toContain("Toggle Right Sidebar");
+    expect(setup.captureCharFrame()).not.toContain("Toggle Sidebar");
 
     await setup.mockMouse.moveTo(rightToggleColumn(setup), HEADER_ROW);
     // the label surfaces at the root, escaping the header cell that would otherwise clip it
-    await waitForText(setup, "Toggle Right Sidebar");
+    await waitForText(setup, "Toggle Sidebar");
   });
 });
 

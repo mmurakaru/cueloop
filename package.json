@@ -10,6 +10,7 @@
     "dev": "bun run packages/cli/src/main.ts dev",
     "dev:watch": "CUELOOP_DEV_WATCH=1 bun --watch packages/cli/src/main.ts dev",
     "stories": "bun run packages/client/src/components/stories-app.tsx",
+    "stories:watch": "bun --watch packages/client/src/components/stories-app.tsx",
     "test": "bun test --timeout 60000 ./packages ./test",
     "test:pty": "CUELOOP_RUN_PTY=1 bun test --timeout 60000 ./test/pty",
     "test:install-vm": "bun run test/install/vm/runner.ts",
