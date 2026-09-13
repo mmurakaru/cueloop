@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { diffRowAnchor, diffRows } from "./view-diff";
+import { makeAnchor, type Annotation } from "@cueloop/schema";
+import { diffRowAnchor, diffRowBlocks, diffRows, fileRowRange, fileTargetMarks } from "./view-diff";
 
 const PATCH = `diff --git a/src/store.ts b/src/store.ts
 index 111..222 100644
@@ -65,5 +66,47 @@ describe("diffRowAnchor", () => {
     expect(anchor.quote).toContain("new Map()");
     expect(anchor.prefix.length).toBeGreaterThan(0);
     expect(anchor.suffix.length).toBeGreaterThan(0);
+  });
+});
+
+describe("fileTargetMarks", () => {
+  // two files whose added line is byte-identical; a note on one must never mark the other
+  const TWO_FILE = `diff --git a/a.ts b/a.ts
+--- a/a.ts
++++ b/a.ts
+@@ -1,1 +1,2 @@
+ const keep = 0;
++const dup = 1;
+diff --git a/b.ts b/b.ts
+--- a/b.ts
++++ b/b.ts
+@@ -1,1 +1,2 @@
+ const keep = 0;
++const dup = 1;
+`;
+
+  test("a file-target note marks only its own file, never identical text in another", () => {
+    // Arrange - anchor the added line inside a.ts, file-relative like the controller does
+    const rows = diffRows(TWO_FILE);
+    const range = fileRowRange(rows, "a.ts")!;
+    const fileRows = rows.slice(range.start, range.end);
+    const addRelative = fileRows.findIndex((row) => row.kind === "add");
+    const quote = fileRows[addRelative]!.text.replace(/\n$/, "");
+    const anchor = makeAnchor(diffRowBlocks(fileRows), addRelative, 0, quote.length, addRelative);
+    const annotation: Annotation = {
+      id: "a1",
+      kind: "comment",
+      anchor,
+      target: { kind: "file", path: "a.ts", rev: "worktree" },
+      body: "note",
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+
+    // Act
+    const marked = [...fileTargetMarks([annotation], rows).keys()];
+
+    // Assert - every marked row sits inside a.ts's range, and b.ts's identical line is untouched
+    expect(marked.length).toBeGreaterThan(0);
+    expect(marked.every((index) => index >= range.start && index < range.end)).toBe(true);
   });
 });

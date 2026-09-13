@@ -62,7 +62,7 @@ import {
   type DiffFoldControls,
   type DiffContentViewProps,
 } from "./components/DiffContentView";
-import { commentCountsByFile, marksByRows, type DiffRow } from "./view-diff";
+import { commentCountsByFile, fileTargetMarks, marksByRows, type DiffRow } from "./view-diff";
 import { annotationTarget } from "@cueloop/schema";
 import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
@@ -174,18 +174,18 @@ function ChangesTabBody(props: {
   theme: Theme;
 }): React.ReactNode {
   const annotations = props.surface.session.annotations;
-  // a diff thread's Changes view is the artifact; any other thread's is the working-tree diff, whose
-  // notes carry a file target - each surface paints only the notes that anchor to it
+  // a diff thread's Changes view is the artifact itself; any other thread's is the working-tree diff,
+  // whose notes carry a file target and resolve per file - each surface paints only its own notes
   const forArtifact = props.surface.session.artifact.type === "diff";
   const marks = useMemo(
     () =>
-      marksByRows(
-        annotations.filter(
-          (annotation) => (annotationTarget(annotation).kind === "artifact") === forArtifact,
-        ),
-        props.rows,
-        props.surface.focusedAnnotationId,
-      ),
+      forArtifact
+        ? marksByRows(
+            annotations.filter((annotation) => annotationTarget(annotation).kind === "artifact"),
+            props.rows,
+            props.surface.focusedAnnotationId,
+          )
+        : fileTargetMarks(annotations, props.rows, props.surface.focusedAnnotationId),
     [annotations, forArtifact, props.rows, props.surface.focusedAnnotationId],
   );
 

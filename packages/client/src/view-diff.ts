@@ -7,6 +7,7 @@
 
 import { parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
 import {
+  annotationTarget,
   isAddressed,
   resolveAnchor,
   type Annotation,
@@ -165,6 +166,69 @@ export function marksByRows(
   }
 
   return marksByIndex;
+}
+
+/** The contiguous row range a file occupies in the aggregate diff, or null when it is not shown. */
+export function fileRowRange(rows: DiffRow[], path: string): { start: number; end: number } | null {
+  const start = rows.findIndex((row) => row.file === path);
+
+  if (start === -1) return null;
+  let end = start;
+
+  while (end < rows.length && rows[end]!.file === path) end++;
+
+  return { start, end };
+}
+
+/**
+ * Marks for file-target notes on the aggregate working-tree diff. Each note resolves against only
+ * its own file's rows, then the row index and span shift back to aggregate coordinates - so a quote
+ * never attaches to the same text in another file or on the opposite diff side.
+ */
+export function fileTargetMarks(
+  annotations: Annotation[],
+  rows: DiffRow[],
+  focusedId?: string,
+): Map<number, Mark[]> {
+  const byFile = new Map<string, Annotation[]>();
+
+  for (const annotation of annotations) {
+    const target = annotationTarget(annotation);
+
+    if (target.kind !== "file") continue;
+    const forPath = byFile.get(target.path) ?? [];
+
+    forPath.push(annotation);
+    byFile.set(target.path, forPath);
+  }
+  const result = new Map<number, Mark[]>();
+
+  for (const [path, fileAnnotations] of byFile) {
+    const range = fileRowRange(rows, path);
+
+    if (!range) continue;
+    const base = range.start;
+    const fileMarks = marksByRows(fileAnnotations, rows.slice(range.start, range.end), focusedId);
+
+    for (const [relativeRow, marks] of fileMarks) {
+      result.set(
+        relativeRow + base,
+        marks.map((mark) =>
+          mark.span
+            ? {
+                ...mark,
+                span: {
+                  start: { ...mark.span.start, blockIndex: mark.span.start.blockIndex + base },
+                  end: { ...mark.span.end, blockIndex: mark.span.end.blockIndex + base },
+                },
+              }
+            : mark,
+        ),
+      );
+    }
+  }
+
+  return result;
 }
 
 /**

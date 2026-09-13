@@ -45,7 +45,7 @@ import {
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
-import { diffRowBlocks, diffRows, fileChangeCounts, type DiffRow } from "./view-diff";
+import { diffRowBlocks, diffRows, fileChangeCounts, fileRowRange, type DiffRow } from "./view-diff";
 import { applyFold } from "./diff-fold";
 import { copyToClipboard } from "./clipboard";
 import {
@@ -994,21 +994,30 @@ class Controller implements ReviewController {
     // a file target (a Changes-panel diff note) and a diff artifact both anchor into the diff rows
     const onDiff = target.kind === "file" || session.artifact.type === "diff";
 
-    if (onDiff) {
+    if (target.kind === "file") {
+      // a Changes-panel note anchors within its own file's rows, so a quote never attaches across
+      // files; a selection that spills into the next file is clamped back to the file it started in
+      const rows = this.rows();
+      const startRow = rows[displayIndex];
+      const path = startRow?.file ?? "";
+      const range = fileRowRange(rows, path);
+      const base = range?.start ?? 0;
+      const fileRows = range ? rows.slice(range.start, range.end) : rows;
+      const lastInFile = fileRows.length - 1;
+      const clamp = (index: number): number => Math.max(0, Math.min(index - base, lastInFile));
+
+      anchor = makeAnchor(
+        diffRowBlocks(fileRows),
+        clamp(displayIndex),
+        start,
+        end,
+        clamp(endDisplayIndex),
+      );
+      resolvedTarget = { kind: "file", path, rev: startRow?.kind === "del" ? "head" : "worktree" };
+    } else if (onDiff) {
       // rows are the diff's blocks: a span over one or more code rows anchors with the
       // same quote, context, and position selectors a plan span does
-      const rows = this.rows();
-
-      anchor = makeAnchor(diffRowBlocks(rows), displayIndex, start, end, endDisplayIndex);
-      if (target.kind === "file") {
-        const row = rows[displayIndex];
-
-        resolvedTarget = {
-          kind: "file",
-          path: row?.file ?? "",
-          rev: row?.kind === "del" ? "head" : "worktree",
-        };
-      }
+      anchor = makeAnchor(diffRowBlocks(this.rows()), displayIndex, start, end, endDisplayIndex);
     } else {
       const display = this.display();
       const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);
