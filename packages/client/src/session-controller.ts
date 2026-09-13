@@ -1073,8 +1073,16 @@ class Controller implements ReviewController {
   async commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void> {
     if (!this.snapshot.session) {
       if (this.client?.sessionWorkbench === undefined) return;
-      const workbench = await this.client.sessionWorkbench(this.options.cwd ?? process.cwd());
+      let workbench;
 
+      try {
+        workbench = await this.client.sessionWorkbench(this.options.cwd ?? process.cwd());
+      } catch (cause) {
+        // the composer already closed, so a lost first comment must at least surface, not vanish
+        this.setStatus(String(cause instanceof Error ? cause.message : cause));
+
+        return;
+      }
       // adopt the thread as active (the shell flips to the thread view) and let the inbox catch up
       this.update({ session: workbench });
       void this.refreshInbox();

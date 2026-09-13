@@ -950,6 +950,35 @@ describe("workbench session", () => {
     }
   });
 
+  test("a resolved workbench is not reused; a fresh one is created past it", async () => {
+    const repo = makeRepo();
+
+    try {
+      const first = await core.workbenchSession(repo);
+
+      core.sessionResolve(first.id, "comment", "");
+      const second = await core.workbenchSession(repo);
+
+      expect(second.id).not.toBe(first.id);
+      expect(second.status).toBe("pending");
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
+  test("concurrent bare launches for one repo share a single workbench", async () => {
+    const repo = makeRepo();
+
+    try {
+      const [a, b] = await Promise.all([core.workbenchSession(repo), core.workbenchSession(repo)]);
+
+      expect(a.id).toBe(b.id);
+      expect(core.sessionList().filter((s) => s.artifact.meta.workbench).length).toBe(1);
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  });
+
   test("keys the workbench by root commit: different repos get different threads", async () => {
     const repoA = makeRepo();
     const repoB = makeRepo();
