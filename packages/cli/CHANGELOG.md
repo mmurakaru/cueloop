@@ -1,5 +1,19 @@
 # cueloop
 
+## 0.1.0-alpha.72
+
+### Patch Changes
+
+- [#413](https://github.com/mmurakaru/cueloop/pull/413) [`cf72af0`](https://github.com/mmurakaru/cueloop/commit/cf72af0274a127424fc9b58acbe7cdd634cb0d8b) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The comment composer no longer reorders characters that arrive faster than it settles: a fast paste, key repeat, or automation used to scramble the draft (e.g. "needs a test" became "anee testds"). The textarea now claims input synchronously at mount, so every character lands in the order it was typed, and a whole-string paste opens a draft with the full text.
+
+  The "/" palette reopens for each "/word" the caret writes, so several actions or skills chain in one comment with prose between them. A completed "/name" reference paints in the accent color in every composer - the plan thread, the diff sheet, and the prototype - through one shared palette context.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.72
+  - @cueloop/client@0.1.0-alpha.72
+  - @cueloop/daemon@0.1.0-alpha.72
+  - @cueloop/schema@0.1.0-alpha.72
+
 ## 0.1.0-alpha.71
 
 ### Patch Changes
