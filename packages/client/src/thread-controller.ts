@@ -268,6 +268,14 @@ export interface ReviewController {
    * first write a browse-only launch makes - nothing is on disk until it runs.
    */
   commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void>;
+  /** As commentOnWorkbench, for a note drawn on the bare-launch Changes diff (row coords, file target). */
+  commentOnWorkbenchDiff(
+    displayIndex: number,
+    start: number,
+    end: number,
+    endDisplayIndex: number,
+    body: string,
+  ): Promise<void>;
   /**
    * Reply to `rootAnnotationId`: the reply shares the root's anchor and names
    * it in replyTo, so the discussion stays one conversation. Returns the minted id.
@@ -1073,24 +1081,47 @@ class Controller implements ReviewController {
     return wire.id;
   }
 
-  async commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void> {
-    if (!this.snapshot.session) {
-      if (this.client?.sessionWorkbench === undefined) return;
-      let workbench;
+  /** Find-or-create the per-repo workbench thread and adopt it as active; true once a session exists. */
+  private async ensureWorkbenchSession(): Promise<boolean> {
+    if (this.snapshot.session) return true;
+    if (this.client?.sessionWorkbench === undefined) return false;
+    let workbench;
 
-      try {
-        workbench = await this.client.sessionWorkbench(this.options.cwd ?? process.cwd());
-      } catch (cause) {
-        // the composer already closed, so a lost first comment must at least surface, not vanish
-        this.setStatus(String(cause instanceof Error ? cause.message : cause));
+    try {
+      workbench = await this.client.sessionWorkbench(this.options.cwd ?? process.cwd());
+    } catch (cause) {
+      // the composer already closed, so a lost first comment must at least surface, not vanish
+      this.setStatus(String(cause instanceof Error ? cause.message : cause));
 
-        return;
-      }
-      // adopt the thread as active (the shell flips to the thread view) and let the inbox catch up
-      this.update({ session: workbench });
-      void this.refreshInbox();
+      return false;
     }
+    // adopt the thread as active (the shell flips to the thread view) and let the inbox catch up
+    this.update({ session: workbench });
+    void this.refreshInbox();
+
+    return true;
+  }
+
+  async commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void> {
+    if (!(await this.ensureWorkbenchSession())) return;
     this.addComment(anchor, target, body);
+  }
+
+  /** A first comment on the bare-launch Changes diff: promote to the workbench thread, then anchor it in the diff rows. */
+  async commentOnWorkbenchDiff(
+    displayIndex: number,
+    start: number,
+    end: number,
+    endDisplayIndex: number,
+    body: string,
+  ): Promise<void> {
+    if (!(await this.ensureWorkbenchSession())) return;
+    // annotate re-derives the file path and rev from the diff row it lands on
+    this.annotate("comment", displayIndex, start, end, body, endDisplayIndex, {
+      kind: "file",
+      path: "",
+      rev: "worktree",
+    });
   }
 
   reply(rootAnnotationId: string, body: string): string | undefined {

@@ -96,6 +96,7 @@ function baseController(): ReviewController {
     annotate: mock(() => undefined),
     addComment: mock(() => undefined),
     commentOnWorkbench: mock(() => Promise.resolve()),
+    commentOnWorkbenchDiff: mock(() => Promise.resolve()),
     reply: mock(() => undefined),
     annotatePrototype: mock(() => undefined),
     updateAnnotation: mock(),
