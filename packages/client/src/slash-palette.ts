@@ -81,17 +81,24 @@ export interface InlineSlash {
   suggestion: SlashItem;
 }
 
-/** The inline completion state: the trailing "/word" and its closest skill, or null. */
+/** The inline completion state: the trailing "/word" and its closest item, or null. */
 export function resolveInlineSuggestion(
   slashActive: boolean,
   text: string,
-  quickActions: QuickAction[],
+  items: SlashItem[],
 ): InlineSlash | null {
   if (slashActive) return null;
   const token = inlineSlashToken(text);
 
   if (token === null) return null;
-  const suggestion = slashFilter(slashItemsFrom(quickActions), token.slice(1))[0];
+  const suggestion = slashFilter(items, token.slice(1))[0];
 
   return suggestion ? { token, suggestion } : null;
+}
+
+/** Quick actions and user skills in one palette; a quick action wins a name collision (it expands). */
+export function mergeSlashItems(actions: SlashItem[], skills: SlashItem[]): SlashItem[] {
+  const taken = new Set(actions.map((action) => action.name));
+
+  return [...actions, ...skills.filter((skill) => !taken.has(skill.name))];
 }

@@ -8,6 +8,7 @@ import { settle, typeText } from "../test-support";
 import { buildDisplay, marksByDisplay } from "../view-plan";
 import { fixturePlanSession } from "./story-fixtures";
 import { inlineSlashToken, resolveInlineSuggestion, ThreadView } from "./ThreadView";
+import { slashItemsFrom } from "../slash-palette";
 
 const SKILLS: QuickAction[] = [
   { prompt: "typescript magician" },
@@ -66,24 +67,24 @@ describe("inlineSlashToken", () => {
 
 describe("resolveInlineSuggestion", () => {
   test("offers the fuzzy closest skill for the trailing token", () => {
-    const inline = resolveInlineSuggestion(false, "run /type", SKILLS);
+    const inline = resolveInlineSuggestion(false, "run /type", slashItemsFrom(SKILLS));
 
     expect(inline?.token).toBe("/type");
     expect(inline?.suggestion.name).toBe("typescript-magician");
   });
 
   test("prefers a prefix match over a subsequence match", () => {
-    const inline = resolveInlineSuggestion(false, "run /impl", SKILLS);
+    const inline = resolveInlineSuggestion(false, "run /impl", slashItemsFrom(SKILLS));
 
     expect(inline?.suggestion.name).toBe("implement");
   });
 
   test("stays silent while the palette owns a leading slash", () => {
-    expect(resolveInlineSuggestion(true, "/type", SKILLS)).toBeNull();
+    expect(resolveInlineSuggestion(true, "/type", slashItemsFrom(SKILLS))).toBeNull();
   });
 
   test("returns null when nothing matches the token", () => {
-    expect(resolveInlineSuggestion(false, "run /zzzz", SKILLS)).toBeNull();
+    expect(resolveInlineSuggestion(false, "run /zzzz", slashItemsFrom(SKILLS))).toBeNull();
   });
 });
 

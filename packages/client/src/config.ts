@@ -109,6 +109,8 @@ export interface CueloopConfig {
   authors: Record<string, string>;
   /** Marker-popover quick actions ([[actions]] tables); the 5 defaults when unset. */
   actions: QuickAction[];
+  /** Directory of user-level skills surfaced in the "/" palette ([skills] path); ~/.agents/skills default. */
+  skillsPath: string;
   integrations: IntegrationsConfig;
   /** Opt-in experimental features ([experimental] table); all default off. */
   experimental: ExperimentalConfig;
@@ -144,6 +146,15 @@ export const DEFAULT_KEYS: CueloopConfig["keys"] = {
   walk: ["w"],
 };
 
+const SkillsSectionSchema = v.object({ path: v.optional(v.string()) });
+
+function skillsPathFrom(
+  raw: v.InferOutput<typeof SkillsSectionSchema> | undefined,
+  fallback: string,
+): string {
+  return raw?.path?.trim() ? raw.path.trim() : fallback;
+}
+
 const ConfigDocumentSchema = v.object({
   actions: v.optional(v.array(v.unknown())),
   authors: v.optional(v.unknown()),
@@ -152,6 +163,7 @@ const ConfigDocumentSchema = v.object({
   theme: v.optional(v.unknown()),
   ui: v.optional(v.unknown()),
   experimental: v.optional(v.unknown()),
+  skills: v.optional(SkillsSectionSchema),
 });
 
 const QuickActionSchema = v.object({
@@ -236,6 +248,7 @@ function layer(
     ui: { ...base.ui },
     authors: { ...base.authors },
     actions: [...base.actions],
+    skillsPath: base.skillsPath,
     integrations: { obsidian: { ...base.integrations.obsidian } },
     experimental: { ...base.experimental },
   };
@@ -247,6 +260,7 @@ function layer(
   const experimental = v.safeParse(ExperimentalSchema, raw.experimental);
 
   if (actions) out.actions = actions;
+  out.skillsPath = skillsPathFrom(raw.skills, base.skillsPath);
   if (authors.success) {
     for (const [id, value] of Object.entries(authors.output)) {
       const name = v.safeParse(v.string(), value);
@@ -295,6 +309,7 @@ export function loadConfig(
     },
     authors: {},
     actions: [...DEFAULT_QUICK_ACTIONS],
+    skillsPath: join(homedir(), ".agents", "skills"),
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
     experimental: { prototypePixels: false },
   };
