@@ -5,9 +5,9 @@ import { resolveInstallDir, runUpdate, type UpdateDeps } from "./update-command"
 
 function depsSpy(
   overrides: Partial<UpdateDeps> = {},
-): UpdateDeps & { lines: string[]; errLines: string[] } {
+): UpdateDeps & { lines: string[]; errorLines: string[] } {
   const lines: string[] = [];
-  const errLines: string[] = [];
+  const errorLines: string[] = [];
 
   return {
     currentVersion: "0.1.0-alpha.68",
@@ -15,9 +15,9 @@ function depsSpy(
     fetchLatestVersion: mock(async () => "0.1.0-alpha.68"),
     runInstaller: mock(async () => 0),
     out: (message: string) => void lines.push(message),
-    err: (message: string) => void errLines.push(message),
+    error: (message: string) => void errorLines.push(message),
     lines,
-    errLines,
+    errorLines,
     ...overrides,
   };
 }
@@ -162,7 +162,21 @@ describe(runUpdate, () => {
 
     // Assert - the failure goes to stderr, and no progress prints to stdout
     expect(code).toBe(1);
-    expect(deps.errLines[0]).toContain("must be an absolute path");
+    expect(deps.errorLines[0]).toContain("must be an absolute path");
+    expect(deps.lines).toHaveLength(0);
+    expect(deps.runInstaller).not.toHaveBeenCalled();
+  });
+
+  test("reports an unresolvable install dir on stderr with no stdout progress", async () => {
+    // Arrange - neither an override, the binary path, nor HOME resolves a target
+    const deps = depsSpy({ installDir: () => undefined });
+
+    // Act
+    const code = await runUpdate(deps, false);
+
+    // Assert
+    expect(code).toBe(1);
+    expect(deps.errorLines[0]).toContain("HOME is not set");
     expect(deps.lines).toHaveLength(0);
     expect(deps.runInstaller).not.toHaveBeenCalled();
   });
