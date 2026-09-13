@@ -18,6 +18,31 @@ export function sessionsDir(home = cueloopHome()): string {
   return join(home, "sessions");
 }
 
+/** Thread files live here, one JSONL per thread, under a per-project bucket. */
+export function threadsDir(home = cueloopHome()): string {
+  return join(home, "threads");
+}
+
+/** A git commit is lowercase hex; anything else is not a real root commit. */
+const COMMIT_SHA = /^[0-9a-f]{7,64}$/;
+
+/**
+ * The per-project bucket for a workspace: its durable root-commit SHA, or a shared standalone bucket.
+ * A value that is not a commit SHA (including path-traversal segments an IPC caller could smuggle in)
+ * is refused to the standalone bucket, so a bucket name can never escape the threads directory.
+ */
+export function threadBucket(rootCommit: string | undefined, home = cueloopHome()): string {
+  const bucket =
+    rootCommit && COMMIT_SHA.test(rootCommit) ? rootCommit.slice(0, 12) : "_standalone";
+
+  return join(threadsDir(home), bucket);
+}
+
+/** Where the one-time migration parks the old whole-record JSON files, so a downgrade can still read them. */
+export function migratedSessionsDir(home = cueloopHome()): string {
+  return join(home, "sessions.migrated");
+}
+
 export function reportsDir(home = cueloopHome()): string {
   return join(home, "reports");
 }
