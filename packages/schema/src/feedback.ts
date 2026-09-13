@@ -6,6 +6,7 @@
  */
 
 import {
+  annotationTarget,
   isAddressed,
   isAgentNote,
   type Annotation,
@@ -44,7 +45,12 @@ export function renderFeedback(input: FeedbackInput): string {
   // feedback - and annotations a previous revision already addressed stay out
   // of the next document, so the agent only ever sees the open items
   const open = input.annotations.filter(
-    (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
+    (annotation) =>
+      !isAgentNote(annotation) &&
+      !isAddressed(annotation) &&
+      // only artifact notes resolve against this document; file-target Changes-diff notes
+      // are grouped into their own sections separately
+      annotationTarget(annotation).kind === "artifact",
   );
   // a discussion is one item: the root comment, then its replies in order. A
   // reply whose root was addressed leaves with it; only a reply whose root is

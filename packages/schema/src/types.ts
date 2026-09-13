@@ -126,6 +126,23 @@ export interface Anchor {
 export type AnnotationKind = "comment" | (string & {});
 
 /**
+ * The surface an annotation was made on. Name-only: the ref names the surface and the
+ * client loads that surface's text to resolve the quote anchor. Absent means the session's
+ * reviewed artifact, so every existing annotation keeps its meaning with no data change.
+ * A `file` target's `rev` doubles as the diff side: worktree for an added or context row,
+ * head for a deletion.
+ */
+export type AnnotationTarget =
+  | { kind: "artifact" }
+  | { kind: "file"; path: string; rev: "worktree" | "head" }
+  | { kind: "welcome" };
+
+/** The target an annotation resolves against; absent records mean the reviewed artifact. */
+export function annotationTarget(annotation: Pick<Annotation, "target">): AnnotationTarget {
+  return annotation.target ?? { kind: "artifact" };
+}
+
+/**
  * Agent-authored context, not reviewer feedback: the guided walk's per-file
  * notes (kind "note", anchored by the file path). Excluded from the feedback
  * document and the reviewer's pending counts - an agent must never receive
@@ -139,6 +156,8 @@ export interface Annotation {
   id: string;
   kind: AnnotationKind;
   anchor: Anchor;
+  /** The surface this note was made on; absent means the session's reviewed artifact. */
+  target?: AnnotationTarget;
   /** Comment body. */
   body: string;
   /** Set by resolution when the quote can no longer be found. */

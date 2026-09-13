@@ -27,6 +27,7 @@ import {
   switchBranch,
   viewOfPath,
   type Annotation,
+  type AnnotationTarget,
   type DiffFileContents,
   type ReviewSession,
   type SessionHistory,
@@ -254,6 +255,8 @@ export interface ReviewController {
     end: number,
     body: string,
     endDisplayIndex?: number,
+    /** The surface being annotated; a `file` target anchors into the Changes diff rows. */
+    target?: AnnotationTarget,
   ): string | undefined;
   /**
    * Reply to `rootAnnotationId`: the reply shares the root's anchor and names
@@ -981,16 +984,31 @@ class Controller implements ReviewController {
     end: number,
     body: string,
     endDisplayIndex: number = displayIndex,
+    target: AnnotationTarget = { kind: "artifact" },
   ): string | undefined {
     const session = this.snapshot.session;
 
     if (!session) return undefined;
     let anchor;
+    let resolvedTarget = target;
+    // a file target (a Changes-panel diff note) and a diff artifact both anchor into the diff rows
+    const onDiff = target.kind === "file" || session.artifact.type === "diff";
 
-    if (session.artifact.type === "diff") {
+    if (onDiff) {
       // rows are the diff's blocks: a span over one or more code rows anchors with the
       // same quote, context, and position selectors a plan span does
-      anchor = makeAnchor(diffRowBlocks(this.rows()), displayIndex, start, end, endDisplayIndex);
+      const rows = this.rows();
+
+      anchor = makeAnchor(diffRowBlocks(rows), displayIndex, start, end, endDisplayIndex);
+      if (target.kind === "file") {
+        const row = rows[displayIndex];
+
+        resolvedTarget = {
+          kind: "file",
+          path: row?.file ?? "",
+          rev: row?.kind === "del" ? "head" : "worktree",
+        };
+      }
     } else {
       const display = this.display();
       const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);
@@ -1005,7 +1023,11 @@ class Controller implements ReviewController {
         workIndexOf(endDisplayIndex),
       );
     }
-    const wire = { id: newAnnotationId(), kind, anchor, body };
+    // absent target means the reviewed artifact, so keep artifact notes free of the field
+    const wire =
+      resolvedTarget.kind === "artifact"
+        ? { id: newAnnotationId(), kind, anchor, body }
+        : { id: newAnnotationId(), kind, anchor, body, target: resolvedTarget };
     const persisted = this.client!.sessionAnnotate(session.id, wire);
 
     this.apply(persisted);
@@ -1019,14 +1041,16 @@ class Controller implements ReviewController {
     const root = session?.annotations.find((annotation) => annotation.id === rootAnnotationId);
 
     if (!session || !root) return undefined;
-    // a reply to a reply still hangs off the discussion's root comment
-    const wire = {
+    // a reply to a reply still hangs off the discussion's root comment, and shares its target
+    // so it renders and resolves on the same surface
+    const base = {
       id: newAnnotationId(),
       kind: "comment",
       anchor: root.anchor,
       body,
       replyTo: root.replyTo ?? root.id,
     };
+    const wire = root.target ? { ...base, target: root.target } : base;
     const persisted = this.client!.sessionAnnotate(session.id, wire);
 
     this.apply(persisted);

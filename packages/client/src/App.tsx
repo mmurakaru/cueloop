@@ -63,6 +63,7 @@ import {
   type DiffContentViewProps,
 } from "./components/DiffContentView";
 import { commentCountsByFile, marksByRows, type DiffRow } from "./view-diff";
+import { annotationTarget } from "@cueloop/schema";
 import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
@@ -172,10 +173,20 @@ function ChangesTabBody(props: {
   dimmed: boolean;
   theme: Theme;
 }): React.ReactNode {
+  const annotations = props.surface.session.annotations;
+  // a diff thread's Changes view is the artifact; any other thread's is the working-tree diff, whose
+  // notes carry a file target - each surface paints only the notes that anchor to it
+  const forArtifact = props.surface.session.artifact.type === "diff";
   const marks = useMemo(
     () =>
-      marksByRows(props.surface.session.annotations, props.rows, props.surface.focusedAnnotationId),
-    [props.surface.session.annotations, props.rows, props.surface.focusedAnnotationId],
+      marksByRows(
+        annotations.filter(
+          (annotation) => (annotationTarget(annotation).kind === "artifact") === forArtifact,
+        ),
+        props.rows,
+        props.surface.focusedAnnotationId,
+      ),
+    [annotations, forArtifact, props.rows, props.surface.focusedAnnotationId],
   );
 
   if (props.rows.length === 0) {
@@ -528,7 +539,14 @@ export function App({
   const marks = useMemo(
     () =>
       session
-        ? marksByDisplay(session.annotations, display, pulsedAnnotationId ?? undefined)
+        ? marksByDisplay(
+            // the plan thread shows only artifact notes; Changes-diff notes render on that surface
+            session.annotations.filter(
+              (annotation) => annotationTarget(annotation).kind === "artifact",
+            ),
+            display,
+            pulsedAnnotationId ?? undefined,
+          )
         : new Map<number, Mark[]>(),
     [session, display, pulsedAnnotationId],
   );
@@ -952,9 +970,7 @@ export function App({
                   session: activeSession,
                   quickActions,
                   observer,
-                  // a non-diff thread's Changes view is a live working-tree diff for reading only;
-                  // comments there would misanchor, since the thread anchors in plan coordinates
-                  commentsEnabled: isDiff,
+                  commentsEnabled: true,
                   resolved,
                   suspended: threadViewSuspended || !groupFocused,
                   onComposingChange: setThreadComposing,
@@ -967,6 +983,8 @@ export function App({
                   onCursorChange: setCursor,
                   focusedAnnotationId,
                   onFocusAnnotation: setFocusedAnnotationId,
+                  // a diff thread's Changes view is the artifact itself; any other thread's is the
+                  // live working-tree diff, so its notes carry a file target and anchor there
                   onAnnotate: (span, body) =>
                     void controller.annotate(
                       "comment",
@@ -975,6 +993,7 @@ export function App({
                       span.end.char,
                       body,
                       span.end.blockIndex,
+                      isDiff ? { kind: "artifact" } : { kind: "file", path: "", rev: "worktree" },
                     ),
                   onReply: (rootAnnotationId, body) =>
                     void controller.reply(rootAnnotationId, body),
