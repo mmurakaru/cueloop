@@ -21,7 +21,7 @@ const SKILLS: QuickAction[] = [
 
 const PLAN = "# Plan\n\nRefine the store before the rewrite lands.\n";
 
-function hex(color: RGBA): string {
+function colorToHex(color: RGBA): string {
   const [red, green, blue] = color.toInts();
 
   return "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
@@ -135,7 +135,7 @@ describe("the palette reopens per token and chains skills", () => {
 
     const accentText = setup
       .captureSpans()
-      .lines.flatMap((line) => line.spans.filter((span) => hex(span.fg) === DARK.accent))
+      .lines.flatMap((line) => line.spans.filter((span) => colorToHex(span.fg) === DARK.accent))
       .map((span) => span.text)
       .join("");
 

@@ -54,7 +54,7 @@ export function Composer({
   tokens: Theme;
   onSave: (body: string) => void;
   onReady: () => void;
-  onInput: (text: string) => void;
+  onInput: (text: string, caret: number) => void;
 }): React.ReactNode {
   const editorRef = useRef<TextareaRenderable | null>(null);
   const [rows, setRows] = useState(1);
@@ -101,7 +101,7 @@ export function Composer({
           if (!editor) return;
           paintReferences(editor);
           setRows(composeRowCount(editor.plainText, editor.width));
-          onInput(editor.plainText);
+          onInput(editor.plainText, editor.cursorOffset);
         }}
         style={{
           height: rows,

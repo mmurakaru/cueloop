@@ -64,16 +64,26 @@ export function slashFilter(items: SlashItem[], query: string): SlashItem[] {
   return scored.toSorted((left, right) => right.score - left.score).map((entry) => entry.item);
 }
 
+// a skill or action name: the grammar loadSkills and slashItemsFrom can produce, so a "/name"
+// token closes only on whitespace or another slash, never inside a valid underscore-or-hyphen name
+const SLASH_TOKEN = /(?:^|\s)(\/[a-zA-Z0-9_-]*)$/;
+
 /**
- * The "/word" token the caret is writing right now: the trailing run since the
- * last whitespace, at the start of the draft or after it. Null once a space
- * closes the token, so each new "/" reopens the palette and skills chain.
- * Newline-safe, since the token may sit at the start of a new line.
+ * The "/word" token the caret is writing right now: the run from the last
+ * whitespace up to the caret, at the start of the draft or after it. Null once a
+ * space closes the token, so each new "/" reopens the palette and skills chain.
+ * Caret-aware, so editing an earlier "/name" targets it, not a trailing token.
  */
-export function activeSlashToken(text: string): string | null {
-  const match = /(?:^|\s)(\/[a-zA-Z0-9-]*)$/.exec(text);
+export function activeSlashToken(text: string, caret: number): string | null {
+  const head = text.slice(0, Math.max(0, Math.min(caret, text.length)));
+  const match = SLASH_TOKEN.exec(head);
 
   return match ? match[1]! : null;
+}
+
+/** True while the whole draft is just a "/query" - the palette owns it, so a blur discards it. */
+export function isStandaloneSlashQuery(text: string): boolean {
+  return /^\/\S*$/.test(text.trim());
 }
 
 /**
@@ -86,7 +96,7 @@ export function skillReferenceRanges(
   names: ReadonlySet<string>,
 ): Array<{ start: number; end: number }> {
   const ranges: Array<{ start: number; end: number }> = [];
-  const pattern = /(?:^|\s)(\/[a-zA-Z0-9-]+)/g;
+  const pattern = /(?:^|\s)(\/[a-zA-Z0-9_-]+)/g;
 
   for (let match = pattern.exec(text); match !== null; match = pattern.exec(text)) {
     const token = match[1]!;
