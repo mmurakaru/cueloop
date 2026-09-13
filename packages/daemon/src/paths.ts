@@ -18,6 +18,21 @@ export function sessionsDir(home = cueloopHome()): string {
   return join(home, "sessions");
 }
 
+/** Thread files live here, one JSONL per thread, under a per-project bucket. */
+export function threadsDir(home = cueloopHome()): string {
+  return join(home, "threads");
+}
+
+/** The per-project bucket for a workspace: its durable root-commit SHA, or a shared standalone bucket. */
+export function threadBucket(rootCommit: string | undefined, home = cueloopHome()): string {
+  return join(threadsDir(home), rootCommit ? rootCommit.slice(0, 12) : "_standalone");
+}
+
+/** Where the one-time migration parks the old whole-record JSON files, so a downgrade can still read them. */
+export function migratedSessionsDir(home = cueloopHome()): string {
+  return join(home, "sessions.migrated");
+}
+
 export function reportsDir(home = cueloopHome()): string {
   return join(home, "reports");
 }
