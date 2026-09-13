@@ -23,7 +23,7 @@ import { AppShell, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
 import { ProjectTreeView } from "./components/ProjectTreeView";
 import { ChangesFileTree } from "./components/ChangesColumn";
-import { FileContentsView } from "./components/FileContentsView";
+import { BareWorkbenchFileView } from "./components/BareWorkbenchFileView";
 import { useChangesWorkbench } from "./use-changes-workbench";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
@@ -242,9 +242,12 @@ export function NoThreadShell(props: {
                   theme={theme}
                 />
               ) : (
-                <FileContentsView
+                <BareWorkbenchFileView
                   path={tab.path ?? ""}
-                  loadContents={(path) => controller.repoReadFile(path)}
+                  controller={controller}
+                  quickActions={quickActions}
+                  onComposingChange={onWelcomeComposingChange}
+                  onExit={() => {}}
                   theme={theme}
                 />
               )

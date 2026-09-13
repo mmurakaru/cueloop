@@ -91,6 +91,8 @@ export class DaemonCore {
    * result, so overlapping captures never write an older patch over a newer one.
    */
   private readonly diffRefreshGenerations = new Map<string, number>();
+  /** In-flight workbench creations keyed by project, so concurrent bare launches share one thread. */
+  private readonly workbenchCreation = new Map<string, Promise<ReviewSession>>();
 
   constructor(home: string) {
     this.store = new SessionStore(home);
@@ -373,6 +375,51 @@ export class DaemonCore {
    */
   repoDiff(cwd: string): Promise<WorkingTreeDiff> {
     return workingTreeDiff(cwd);
+  }
+
+  /**
+   * The per-repo workbench thread for `cwd`: a self-initiated review of the current checkout, keyed by
+   * the repo's root-commit identity (a standalone bucket when there is none). Returns the existing one
+   * or lazily creates it with the working-tree diff as its artifact, so a bare launch persists its
+   * first comment without an agent submission. Owner-only.
+   */
+  async workbenchSession(cwd: string): Promise<ReviewSession> {
+    const workspace = await resolveWorkspace(cwd);
+    const key = workspace.rootCommit ?? "_standalone";
+    // an open workbench is reused; a resolved one is immutable and would reject the note, so a fresh
+    // one is created past it
+    const open = this.store
+      .list()
+      .find(
+        (session) =>
+          session.artifact.meta.workbench === true &&
+          session.status !== "resolved" &&
+          (session.workspace.rootCommit ?? "_standalone") === key,
+      );
+
+    if (open) return open;
+    // serialize concurrent bare launches for the same repo onto one creation, so they share a thread
+    const inFlight = this.workbenchCreation.get(key);
+
+    if (inFlight) return inFlight;
+    const creation = workingTreeDiff(cwd).then((diff) =>
+      this.sessionCreate({
+        workspace,
+        artifact: {
+          type: "diff",
+          content: diff.patch,
+          files: diff.files,
+          meta: { workbench: true, title: "Workbench", cwd },
+        },
+      }),
+    );
+
+    this.workbenchCreation.set(key, creation);
+    try {
+      return await creation;
+    } finally {
+      this.workbenchCreation.delete(key);
+    }
   }
 
   sessionSetShareId(id: string, shareId: string): ReviewSession {
