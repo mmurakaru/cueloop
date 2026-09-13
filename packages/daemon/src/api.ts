@@ -610,6 +610,8 @@ export class DaemonCore {
         annotation.resolution = { revision: revisionNumber, source: "agent" };
       } else if (
         revisedBlocks !== null &&
+        // a selector-anchored comment (a pixel prototype element) never drifts on a vanished quote
+        !annotation.anchor.selector &&
         resolveAnchor(annotation.anchor, revisedBlocks) === null
       ) {
         annotation.resolution = { revision: revisionNumber, source: "drift" };

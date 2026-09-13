@@ -2,7 +2,7 @@
 layout: ../../../layouts/DocsLayout.astro
 title: The review primitives
 eyebrow: Docs · Concepts
-lede: One primitive per artifact type. plan for plans, reply for an agent's message, diff for the working tree, prototype for rendered HTML, review for pull requests - and bare cueloop for the inbox across all of them.
+lede: One primitive per artifact type. plan for plans, reply for an agent's message, diff for the working tree, prototype for a component design doc, review for pull requests - and bare cueloop for the inbox across all of them.
 prev: { title: "Annotations", href: "/docs/concepts/annotations/" }
 next: { title: "Branches and checkpoints", href: "/docs/concepts/history/" }
 ---
@@ -15,7 +15,7 @@ next: { title: "Branches and checkpoints", href: "/docs/concepts/history/" }
       how <code>diff</code> creates a review from your working tree
     </li>
     <li>
-      how <code>review</code> posts a verdict back to a pull request
+      how <code>review</code> posts a decision back to a pull request
     </li>
   </ul>
 </div>
@@ -31,7 +31,7 @@ cueloop reply           # latest pending reply review
 cueloop diff            # latest pending diff review
 cueloop prototype       # latest pending prototype review
 cueloop review          # latest pending pull-request review
-cueloop review 42       # pull PR 42 in and post the verdict back to it
+cueloop review 42       # pull PR 42 in and post the decision back to it
 ```
 
 ## plan
@@ -45,8 +45,8 @@ flight at once.
 `cueloop reply` opens the latest pending reply review. A reply is the agent's
 previous message, submitted for review before you act on it. It is a markdown
 artifact, so it renders and behaves exactly like a plan: you select spans,
-comment, edit the wording directly, and cast a verdict that goes back to the
-agent as structured feedback.
+comment, edit the wording directly, and send a decision back to the agent as
+structured feedback.
 
 ## diff
 
@@ -58,16 +58,18 @@ yourself.
 
 ## prototype
 
-`cueloop prototype` opens the latest pending prototype review. Give it an HTML
-file and `cueloop prototype mockup.html` renders that mockup in the terminal and
-creates a review of it: you click an element in the rendered page and anchor a
-comment to it, the same way a plan anchors comments to sentences.
+`cueloop prototype` opens the latest pending prototype review. Give it a Markdown
+file and `cueloop prototype Combobox.md` creates a review of a component design doc:
+the prop API, how it composes from existing primitives, and the callstack it fits
+into. You anchor comments to its lines, the same way a plan anchors comments to
+sentences. Reviewing a rendered pixel mockup instead is an opt-in experimental mode
+(`[experimental] prototype_pixels`).
 
 ## review
 
 `cueloop review` opens the latest pending pull-request review. Give it a PR and
 `cueloop review <pr>` pulls that specific pull request in, lets you annotate it,
-and posts the verdict back to the pull request itself.
+and posts the decision back to the pull request itself.
 
 ## refine - the retrospective
 

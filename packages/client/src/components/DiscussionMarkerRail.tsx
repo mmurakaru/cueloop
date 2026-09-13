@@ -14,7 +14,7 @@ import type { Discussion } from "../discussions";
 import { useFrameMeasure } from "../use-frame-measure";
 import { useComponentTheme } from "./theme-context";
 import { useRootOverlay } from "./RootOverlay";
-import { SurfaceScrollbar } from "./SurfaceScrollbar";
+import { OverlayScrollbar } from "./OverlayScrollbar";
 
 interface HoveredMarker {
   key: string;
@@ -175,7 +175,7 @@ export function DiscussionMarkerRail({
         onHover={setHovered}
         onJump={onJump}
       />
-      {scrollbox ? <SurfaceScrollbar scrollbox={scrollbox} theme={theme} /> : null}
+      {scrollbox ? <OverlayScrollbar scrollbox={scrollbox} theme={theme} /> : null}
     </>
   );
 }

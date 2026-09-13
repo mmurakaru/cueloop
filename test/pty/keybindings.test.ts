@@ -181,8 +181,10 @@ describe("thread view chords in a diff review", () => {
     await pressChordForToast(session, "diff", "⌥u", "removal restored");
   });
 
-  ptyTest("⌥d explains that the split view needs the zoomed layout", async () => {
-    // Act + Assert
+  ptyTest("⌥d toggles the diff layout and warns that split needs the wide pane", async () => {
+    // Act + Assert - the default is split, so the first press drops to stacked, the next re-selects
+    // split on this narrow pane and earns the hint
+    await pressChord(session, "diff", "⌥d", "stacked diff");
     await pressChordForToast(session, "diff", "⌥d", "split diff shows when zoomed");
   });
 
@@ -264,11 +266,11 @@ describe("thread view chords in a diff review", () => {
     // Act - two comments on two lines
     await session.type("first note");
     await session.waitForText("● first note", { what: "the first draft" });
-    await pressChordForToast(session, "thread", "⌃enter", "comment added");
+    await pressChord(session, "thread", "⌃enter", (screen) => !screen.includes("enter save"));
     await session.click("count = 1");
     await session.type("second note");
     await session.waitForText("● second note", { what: "the second draft" });
-    await pressChordForToast(session, "thread", "⌃enter", "comment added");
+    await pressChord(session, "thread", "⌃enter", (screen) => !screen.includes("enter save"));
 
     // Assert - both cards are on screen
     expect(session.text()).toContain("● first note");

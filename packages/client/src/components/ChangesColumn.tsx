@@ -3,6 +3,7 @@
 // so the diff reclaims the width. Mirrors the left Threads column on the far side.
 // Co-located here: the state hook that opens it by context and the header toggle.
 
+import { ScrollArea } from "./ScrollArea";
 import React, { useMemo, useState } from "react";
 import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
 import type { Theme } from "../theme";
@@ -115,7 +116,7 @@ export function ChangesFileTree({
   }, [nodes, collapsedIds]);
 
   return (
-    <scrollbox style={{ flexGrow: 1 }} focused={false}>
+    <ScrollArea>
       <Tree
         nodes={nodes}
         expandedIds={expandedIds}
@@ -135,7 +136,7 @@ export function ChangesFileTree({
         }
         theme={theme}
       />
-    </scrollbox>
+    </ScrollArea>
   );
 }
 

@@ -91,9 +91,11 @@ function EditorTabButton({
   );
 }
 
-/** Cells a tab occupies: its padding, the label, the close cell and its padding, the right rule. */
-function tabCellWidth(tab: EditorTab): number {
-  return tab.label.length + 5;
+/** Cells a tab occupies: padding, label, the ` ● N` comment badge when present, the close cell, the right rule. */
+export function tabCellWidth(tab: EditorTab, commentCount = 0): number {
+  const badge = commentCount > 0 ? 3 + String(commentCount).length : 0;
+
+  return tab.label.length + 5 + badge;
 }
 
 /** The run of tabs `[first, end)` the strip shows. */
@@ -108,9 +110,11 @@ export function visibleTabWindow(
   firstVisible: number,
   activeIndex: number,
   stripWidth: number,
+  commentCount: (tab: EditorTab) => number = () => 0,
 ): TabWindow {
   // unmeasured strip: show everything, the header clips until the width is known
   if (stripWidth <= 0) return { first: 0, end: tabs.length };
+  const width = (index: number): number => tabCellWidth(tabs[index]!, commentCount(tabs[index]!));
   const fitEnd = (first: number): number => {
     let used = first > 0 ? 1 : 0;
     let end = first;
@@ -118,8 +122,8 @@ export function visibleTabWindow(
     while (end < tabs.length) {
       const remaining = end + 1 < tabs.length ? 1 : 0;
 
-      if (used + tabCellWidth(tabs[end]!) + remaining > stripWidth) break;
-      used += tabCellWidth(tabs[end]!);
+      if (used + width(end) + remaining > stripWidth) break;
+      used += width(end);
       end++;
     }
 
@@ -192,12 +196,22 @@ function EditorGroupPane({
     0,
   );
   const [firstVisible, setFirstVisible] = useState(0);
+  // a zoom re-anchors the strip to the leftmost tab, so the new width fills from the left
+  // and the step markers disappear when every tab now fits
+  const [wasZoomed, setWasZoomed] = useState(props.zoomed);
+
+  if (wasZoomed !== props.zoomed) {
+    setWasZoomed(props.zoomed);
+    setFirstVisible(0);
+  }
   const activeIndex = Math.max(
     0,
     group.tabs.findIndex((tab) => tab.id === active?.id),
   );
   // derived every render: the manual offset is a floor the active tab can pull the window past
-  const tabWindow = visibleTabWindow(group.tabs, firstVisible, activeIndex, stripWidth);
+  const tabWindow = visibleTabWindow(group.tabs, firstVisible, activeIndex, stripWidth, (tab) =>
+    tab.path ? (props.commentCounts?.get(tab.path) ?? 0) : 0,
+  );
 
   return (
     <box
@@ -227,8 +241,16 @@ function EditorGroupPane({
           style={{ flexDirection: "row", flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0 }}
         >
           {tabWindow.first > 0 ? (
-            <box onMouseUp={() => setFirstVisible(tabWindow.first - 1)} style={{ flexShrink: 0 }}>
-              <text fg={tokens.textDim}>{"‹"}</text>
+            <box
+              onMouseUp={(event) => {
+                event.stopPropagation();
+                setFirstVisible(tabWindow.first - 1);
+              }}
+              style={{ flexShrink: 0 }}
+            >
+              <text fg={tokens.textDim} selectable={false}>
+                {"‹"}
+              </text>
             </box>
           ) : null}
           {group.tabs.slice(tabWindow.first, tabWindow.end).map((tab) => (
@@ -243,29 +265,37 @@ function EditorGroupPane({
             />
           ))}
           {tabWindow.end < group.tabs.length ? (
-            <box onMouseUp={() => setFirstVisible(tabWindow.first + 1)} style={{ flexShrink: 0 }}>
-              <text fg={tokens.textDim}>{"›"}</text>
+            <box
+              onMouseUp={(event) => {
+                event.stopPropagation();
+                setFirstVisible(tabWindow.first + 1);
+              }}
+              style={{ flexShrink: 0 }}
+            >
+              <text fg={tokens.textDim} selectable={false}>
+                {"›"}
+              </text>
             </box>
           ) : null}
         </box>
         <box style={{ flexDirection: "row", flexShrink: 0, paddingLeft: 1, paddingRight: 1 }}>
-          <IconButton glyph="search" onPress={() => {}} marginRight={2} theme={tokens} />
-          <IconButton
-            glyph={NERD.zoom}
-            active={props.zoomed}
-            onPress={props.onZoom}
-            tip={props.zoomed ? "Zoom Out" : "Zoom In"}
-            marginRight={isFile ? 2 : 0}
-            theme={tokens}
-          />
+          {/* search sits out until it does something; split takes its place */}
           {isFile ? (
             <IconButton
               glyph="split"
               active={menuOpen}
               onPress={() => setMenuOpen((open) => !open)}
+              marginRight={2}
               theme={tokens}
             />
           ) : null}
+          <IconButton
+            glyph={NERD.zoom}
+            active={props.zoomed}
+            onPress={props.onZoom}
+            tip={props.zoomed ? "Zoom Out" : "Zoom In"}
+            theme={tokens}
+          />
         </box>
       </box>
       {menuOpen ? (

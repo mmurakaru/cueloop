@@ -67,14 +67,14 @@ cueloop review <pr>   # pull a pull request in and review it
 ```
 
 Inside a review you read the artifact, annotate the exact lines that matter, and
-send a verdict. The verdict is the structured result your agent waits on.
+send a decision. The decision is the structured result your agent waits on.
 
 ## Wire an agent
 
 The point of cueloop is the gate between what an agent proposes and what it does.
 For Claude Code or Codex, the plan gate opens a review and blocks on your
-verdict before the agent starts to build. The agent stays paused until you
-send a verdict, and it builds only when you approve.
+decision before the agent starts to build. The agent stays paused until you
+send a decision, and it builds only when you approve.
 
 See [Agent integration](/docs/agents/) for the exact hook setup.
 

@@ -50,6 +50,10 @@ const ROSE_PINE_MOON: Theme = {
   markCommentBackground: "#382a37",
   insertedForeground: "#9ccfd8",
   deletedForeground: "#eb6f92",
+  insertedBackground: "#243a3f",
+  insertedEmphasisBackground: "#31555c",
+  deletedBackground: "#3a2530",
+  deletedEmphasisBackground: "#563643",
   backdrop: "transparent",
 };
 
@@ -71,6 +75,10 @@ const CATPPUCCIN_MOCHA: Theme = {
   markCommentBackground: "#33222b",
   insertedForeground: "#a6e3a1",
   deletedForeground: "#f38ba8",
+  insertedBackground: "#26372b",
+  insertedEmphasisBackground: "#375140",
+  deletedBackground: "#382530",
+  deletedEmphasisBackground: "#553844",
   backdrop: "transparent",
 };
 
@@ -92,6 +100,10 @@ const TOKYO_NIGHT: Theme = {
   markCommentBackground: "#2f2230",
   insertedForeground: "#9ece6a",
   deletedForeground: "#f7768e",
+  insertedBackground: "#233028",
+  insertedEmphasisBackground: "#33493a",
+  deletedBackground: "#32232e",
+  deletedEmphasisBackground: "#4d3543",
   backdrop: "transparent",
 };
 
@@ -113,6 +125,10 @@ const GRUVBOX_DARK: Theme = {
   markCommentBackground: "#3a2823",
   insertedForeground: "#b8bb26",
   deletedForeground: "#fb4934",
+  insertedBackground: "#333521",
+  insertedEmphasisBackground: "#4a4d2c",
+  deletedBackground: "#3c2a24",
+  deletedEmphasisBackground: "#5a3a30",
   backdrop: "transparent",
 };
 
@@ -134,6 +150,10 @@ const NORD: Theme = {
   markCommentBackground: "#3a2f33",
   insertedForeground: "#a3be8c",
   deletedForeground: "#bf616a",
+  insertedBackground: "#333d33",
+  insertedEmphasisBackground: "#454f42",
+  deletedBackground: "#3c2f33",
+  deletedEmphasisBackground: "#544045",
   backdrop: "transparent",
 };
 

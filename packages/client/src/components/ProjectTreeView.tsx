@@ -2,6 +2,7 @@
 // Folders start collapsed and expand on click; a file click opens it as a tab. The caller keys this
 // on the session id so switching sessions remounts it and never shows the previous repository's paths.
 
+import { ScrollArea } from "./ScrollArea";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
@@ -60,7 +61,7 @@ export function ProjectTreeView({
   }
 
   return (
-    <scrollbox style={{ flexGrow: 1 }} focused={false}>
+    <ScrollArea>
       <Tree
         nodes={nodes}
         expandedIds={expandedIds}
@@ -77,6 +78,6 @@ export function ProjectTreeView({
         }
         theme={theme}
       />
-    </scrollbox>
+    </ScrollArea>
   );
 }

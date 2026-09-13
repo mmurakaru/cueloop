@@ -39,7 +39,7 @@ import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { groupInbox, projectName, threadTitle } from "./components/session-tree";
-import { InboxList } from "./components/InboxList";
+import { ThreadTree } from "./components/ThreadTree";
 import { ChangesFileTree } from "./components/ChangesColumn";
 import { ProjectTreeView } from "./components/ProjectTreeView";
 import { FileContentsView } from "./components/FileContentsView";
@@ -64,13 +64,14 @@ import {
 } from "./components/DiffContentView";
 import { commentCountsByFile, marksByRows, type DiffRow } from "./view-diff";
 import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
-import { PrototypeSheet } from "./components/PrototypeSheet";
+import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
 import {
   buildRenderFlags,
   buildSubmitConfirmState,
   computeRoleCapabilities,
   deriveReviewFlags,
+  isPixelPrototypeMode,
   isCompletionOverlayPhase,
   isWalking,
   resolveOverlay,
@@ -379,8 +380,8 @@ export function App({
 
     return () => controller.close();
   }, [controller]);
-  // stable across renders so the memoized PrototypeSheet is not re-rendered by
-  // unrelated App state (status ticks, a rail-width drag)
+  // stable across renders so the memoized PrototypeContentView is not
+  // re-rendered by unrelated App state (status ticks, a rail-width drag)
   const onCommentPrototype = useCallback(
     (element: PrototypeElement, body: string) =>
       controller.annotatePrototype(element.selector, element.quote, body),
@@ -431,7 +432,7 @@ export function App({
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
-  const [diffView, setDiffView] = useState<DiffViewMode>("unified");
+  const [diffView, setDiffView] = useState<DiffViewMode>("split");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<RailTab>("review");
@@ -451,10 +452,13 @@ export function App({
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
   const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
+  // opt-in: render a prototype as a kitty pixel mockup instead of the markdown doc
+  const [prototypePixels, setPrototypePixels] = useState(false);
 
   useEffect(() => {
     const config = loadConfig({ repoRoot: session?.workspace.repoRoot });
 
+    setPrototypePixels(config.experimental.prototypePixels);
     keysRef.current = config.keys;
     keyBindings.setKeys(config.keys);
     setTheme(composeTheme(config.ui.theme, config.themeOverrides, appearance));
@@ -539,6 +543,13 @@ export function App({
     return ids;
   }, [marks]);
   const { isDiff, isPrototype, resolved } = deriveReviewFlags(session);
+  // a prototype is a markdown design doc by default; only the opt-in experimental
+  // pixel mode (flag on + an HTML entry) renders it as a kitty mockup instead
+  const isPixelPrototype = isPixelPrototypeMode(
+    isPrototype,
+    prototypePixels,
+    session?.artifact.meta.prototypePath,
+  );
   // comments per changed-file path, for the changed-files tree and tab badges
   const diffCommentCounts = useMemo(
     () => (session && isDiff ? commentCountsByFile(session, rows) : undefined),
@@ -546,9 +557,9 @@ export function App({
   );
   // entering a diff opens the right region in changed-files mode; a plan or reply opens it closed
   workbench.syncSession(session?.id, isDiff);
-  // plans and replies open in the thread view, diffs in the diff sheet: both drive the shared
-  // annotation surface and own the document grammar; only the prototype keeps the keymap
-  const threadViewActive = session !== null && !isPrototype;
+  // plans, replies, and the default (markdown) prototype open in the thread view, diffs in the
+  // diff sheet: both drive the shared annotation surface; only the pixel prototype keeps the keymap
+  const threadViewActive = session !== null && !isPixelPrototype;
   const [threadComposing, setThreadComposing] = useState(false);
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   // sort position per annotation so the rail interleaves annotation and removal
@@ -631,12 +642,14 @@ export function App({
     runEditorHandOff,
     openCardEdit,
     toggleDiffView: () => {
-      const next: DiffViewMode = diffView === "unified" ? "split" : "unified";
+      const next: DiffViewMode = diffView === "stacked" ? "split" : "stacked";
 
       setDiffView(next);
       persistDiffView(next);
-      if (next === "split" && !workbench.zoomed)
-        controller.setStatus("split diff shows when zoomed");
+      // every toggle names the new mode; picking split on a narrow pane also says it needs the wide layout
+      if (next === "stacked") controller.setStatus("stacked diff");
+      else if (workbench.zoomed) controller.setStatus("split diff");
+      else controller.setStatus("split diff shows when zoomed");
     },
   });
 
@@ -786,7 +799,7 @@ export function App({
     session: activeSession,
     isOwner,
     isDiff,
-    isPrototype,
+    isPixelPrototype,
     resolved,
     menuDialog,
     resolvedIds,
@@ -822,7 +835,7 @@ export function App({
         onOpenMenu={() => setMenuDialog("settings")}
         threadsPanel={
           <scrollbox style={{ flexGrow: 1 }} focused={false}>
-            <InboxList
+            <ThreadTree
               rows={grouped.rows}
               cursor={inboxCursor}
               activeId={activeSession.id}
@@ -853,10 +866,9 @@ export function App({
         threadPanel={
           <box style={{ flexGrow: 1, flexDirection: "column" }}>
             <box style={{ flexGrow: 1, flexDirection: "row" }}>
-              {isPrototype ? (
-                <PrototypeSheet
+              {isPixelPrototype ? (
+                <PrototypePixels
                   prototypePath={prototypePath}
-                  quickActions={quickActions}
                   canComment={prototypeCanComment}
                   onCommentElement={onCommentPrototype}
                   onComposingChange={setPrototypeComposing}

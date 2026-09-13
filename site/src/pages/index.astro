@@ -44,7 +44,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
       </h1>
       <p class="hero__lede">
         cueloop opens your agent's plan or diff in the terminal, where you
-        annotate the lines and send back a verdict it acts on.
+        annotate the lines and send back a decision it acts on.
       </p>
       <div class="hero__meta">
         <span>Runs in your terminal</span>
@@ -61,23 +61,23 @@ import InstallTabs from "../components/InstallTabs.tsx";
       <div class="hero__showcase">
         <img
           class="shot shot--dark"
-          srcset="/landing/plan-dark-1240.webp 1240w, /landing/plan-dark-2480.webp 2480w, /landing/plan-dark-3720.webp 3720w, /landing/plan-dark-4960.webp 4960w"
+          srcset="/landing/plan-dark-1240.webp 1240w, /landing/plan-dark-2480.webp 2480w"
           sizes="(min-width: 900px) 1104px, 92vw"
           src="/landing/plan-dark-2480.webp"
           width="2480"
-          height="1275"
+          height="1468"
           decoding="async"
-          alt="A cueloop plan review in the terminal: a sync-engine plan with the marker popover open on a line, and reviewer comments from you and a teammate in the side rail."
+          alt="A cueloop plan review in the terminal: an offline sync-engine plan with reviewer comments from you and a teammate anchored to the lines."
         />
         <img
           class="shot shot--light"
-          srcset="/landing/plan-light-1240.webp 1240w, /landing/plan-light-2480.webp 2480w, /landing/plan-light-3720.webp 3720w, /landing/plan-light-4960.webp 4960w"
+          srcset="/landing/plan-light-1240.webp 1240w, /landing/plan-light-2480.webp 2480w"
           sizes="(min-width: 900px) 1104px, 92vw"
           src="/landing/plan-light-2480.webp"
           width="2480"
-          height="1275"
+          height="1468"
           decoding="async"
-          alt="A cueloop plan review in the terminal: a sync-engine plan with the marker popover open on a line, and reviewer comments from you and a teammate in the side rail."
+          alt="A cueloop plan review in the terminal: an offline sync-engine plan with reviewer comments from you and a teammate anchored to the lines."
         />
       </div>
     </div>
@@ -93,7 +93,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
         <h2>A gate between the plan and the code.</h2>
         <p style="color:var(--ink-soft)">
           Your agent proposes a change and waits for your call. You read it in
-          the terminal and reply with a verdict it can act on. Nothing leaves
+          the terminal and reply with a decision it can act on. Nothing leaves
           the command line.
         </p>
       </div>
@@ -103,7 +103,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
           <h3>The agent hands off</h3>
           <p>
             At the plan gate or after a diff, the agent opens a cueloop review
-            and waits for your verdict instead of charging ahead.
+            and waits for your decision instead of charging ahead.
           </p>
         </div>
         <div class="cell">
@@ -116,7 +116,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
         </div>
         <div class="cell">
           <span class="cell__index">[ decide ]</span>
-          <h3>The verdict returns</h3>
+          <h3>The decision returns</h3>
           <p>
             Comment, approve, or request changes. Your notes become a structured
             feedback document the agent reads and acts on.
@@ -137,7 +137,7 @@ import InstallTabs from "../components/InstallTabs.tsx";
             One primitive per artifact. <code>cueloop plan</code> opens the latest
             plan an agent proposed. <code>cueloop diff</code> reviews the working
             tree. <code>cueloop review</code> pulls a pull request into the same
-            surface and posts the verdict back to the PR.
+            surface and posts the decision back to the PR.
           </p>
           <div style="margin-top:1.5rem">
             <a class="btn btn--ghost" href="/docs/concepts/plan-diff-review/"
@@ -152,10 +152,10 @@ import InstallTabs from "../components/InstallTabs.tsx";
             sizes="(min-width: 900px) 520px, 92vw"
             src="/landing/diff-dark-1400.webp"
             width="1400"
-            height="936"
+            height="829"
             loading="lazy"
             decoding="async"
-            alt="A cueloop diff review of an error-handling change: the compose card open on a line, with comments from you and a teammate anchored inline and in the rail."
+            alt="A cueloop diff review of an error-handling change: comments from you and a teammate anchored to the changed lines, with the changed file listed alongside."
           />
           <img
             class="shot shot--light"
@@ -163,10 +163,10 @@ import InstallTabs from "../components/InstallTabs.tsx";
             sizes="(min-width: 900px) 520px, 92vw"
             src="/landing/diff-light-1400.webp"
             width="1400"
-            height="936"
+            height="829"
             loading="lazy"
             decoding="async"
-            alt="A cueloop diff review of an error-handling change: the compose card open on a line, with comments from you and a teammate anchored inline and in the rail."
+            alt="A cueloop diff review of an error-handling change: comments from you and a teammate anchored to the changed lines, with the changed file listed alongside."
           />
         </div>
       </div>
@@ -179,12 +179,12 @@ import InstallTabs from "../components/InstallTabs.tsx";
       <div class="split split--reverse reveal">
         <div>
           <span class="eyebrow eyebrow--index">03 &middot; Prototype review</span>
-          <h2 style="margin-top:0.9rem">Review the UI, not just the code.</h2>
+          <h2 style="margin-top:0.9rem">Prototype.</h2>
           <p style="margin-top:1rem;color:var(--ink-soft);max-width:46ch">
-            <code>cueloop prototype</code> renders an HTML mockup right in the
-            terminal. Click an element to comment on it - the button, the
-            state, the spacing - and your notes anchor to it, same as a
-            line in a diff.
+            <code>cueloop prototype</code> opens a component design doc: the prop
+            API, how it composes from primitives you already have, and the
+            callstack it fits into. You annotate it line by line, the same way you
+            annotate a plan or a diff.
           </p>
           <div style="margin-top:1.5rem">
             <a class="btn btn--ghost" href="/docs/reference/commands/#open-a-review">The prototype primitive</a>
@@ -197,10 +197,10 @@ import InstallTabs from "../components/InstallTabs.tsx";
             sizes="(min-width: 900px) 520px, 92vw"
             src="/landing/prototype-dark-1400.webp"
             width="1400"
-            height="853"
+            height="911"
             loading="lazy"
             decoding="async"
-            alt="A cueloop prototype review: a rendered buttons component that emerges into the terminal theme, with reviewer comments from you and two teammates in the side rail."
+            alt="A cueloop prototype review: a component design doc shown as text, its prop API and composition tree, with reviewer comments from you and a teammate anchored to the lines."
           />
           <img
             class="shot shot--light"
@@ -208,10 +208,10 @@ import InstallTabs from "../components/InstallTabs.tsx";
             sizes="(min-width: 900px) 520px, 92vw"
             src="/landing/prototype-light-1400.webp"
             width="1400"
-            height="853"
+            height="911"
             loading="lazy"
             decoding="async"
-            alt="A cueloop prototype review: a rendered buttons component that emerges into the terminal theme, with reviewer comments from you and two teammates in the side rail."
+            alt="A cueloop prototype review: a component design doc shown as text, its prop API and composition tree, with reviewer comments from you and a teammate anchored to the lines."
           />
         </div>
       </div>
@@ -298,9 +298,9 @@ import InstallTabs from "../components/InstallTabs.tsx";
         style="text-align:center;display:grid;gap:1.5rem;justify-items:center;padding-block:2rem"
       >
         <span class="eyebrow">Get started</span>
-        <h2 style="max-width:18ch">Put a reviewer between your agent and your codebase.</h2>
+        <h2 style="max-width:18ch">Review agent-authored work.</h2>
         <div class="hero__actions" style="justify-content:center">
-          <CopyCommand command="npm i -g cueloop" client:visible />
+          <CopyCommand command="curl -fsSL https://cueloop.dev/install.sh | sh" client:visible />
           <a class="btn" href="/docs/install/">Quickstart</a>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { ScrollArea } from "./components/ScrollArea";
 import React, { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import type { DiffFileContents, ReviewSession, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
@@ -15,7 +16,7 @@ import { ThemeProvider } from "./components/theme-context";
 import type { InboxRow } from "./components/session-tree";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
-import { InboxList } from "./components/InboxList";
+import { ThreadTree } from "./components/ThreadTree";
 import { WelcomeSurface } from "./components/WelcomeSurface";
 import { AppShell, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
@@ -179,8 +180,8 @@ export function NoThreadShell(props: {
         onToggleSidebar={onToggleSidebar}
         onOpenMenu={onOpenMenu}
         threadsPanel={
-          <scrollbox style={{ flexGrow: 1 }} focused={false}>
-            <InboxList
+          <ScrollArea>
+            <ThreadTree
               rows={rows}
               cursor={inboxCursor}
               pinnedIds={pinnedIds}
@@ -193,7 +194,7 @@ export function NoThreadShell(props: {
               onRename={onRename}
               theme={theme}
             />
-          </scrollbox>
+          </ScrollArea>
         }
         threadTitle=""
         threadPanel={
@@ -205,7 +206,7 @@ export function NoThreadShell(props: {
               justifyContent: "center",
             }}
           >
-            <text fg={theme.textDim}>Select a thread</text>
+            <text fg={theme.textDim}>{rows.length === 0 ? "no threads" : "Select a thread"}</text>
           </box>
         }
         changesOpen={workbench.changesOpen}

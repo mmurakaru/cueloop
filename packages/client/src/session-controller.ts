@@ -1010,7 +1010,6 @@ class Controller implements ReviewController {
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
-    this.setStatus("comment added");
 
     return wire.id;
   }
@@ -1032,7 +1031,6 @@ class Controller implements ReviewController {
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
-    this.setStatus("reply added");
 
     return wire.id;
   }
@@ -1047,7 +1045,6 @@ class Controller implements ReviewController {
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
-    this.setStatus("comment added");
 
     return wire.id;
   }

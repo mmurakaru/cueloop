@@ -1,7 +1,7 @@
-/** Prototype review end to end: a click on the rendered page selects a DOM element, the marker actions bar opens, a typed comment saves through the controller, and the annotation shows in the rail. The headless browser is replaced with a fake so no Chrome or kitty output is needed. Char-frame assertions over the real App and a real in-process daemon. */
+/** Prototype review end to end, in the opt-in EXPERIMENTAL pixel mode ([experimental] prototype_pixels): a click on the rendered page selects a DOM element and opens the compose card directly - the same inline composer plan and diff use - a typed comment saves through the controller on cmd+enter, and the annotation anchors to the element's selector. The headless browser is replaced with a fake so no Chrome or kitty output is needed. Char-frame assertions over the real App and a real in-process daemon. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
@@ -60,7 +60,9 @@ let restoreUserConfig: () => void;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-prototype-"));
-  restoreUserConfig = isolateUserConfig(home);
+  // the pixel mockup is opt-in; these tests exercise that experimental path
+  writeFileSync(join(home, "config.toml"), "[experimental]\nprototype_pixels = true\n");
+  restoreUserConfig = isolateUserConfig(home, "config.toml");
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
   session = server.core.sessionCreate({
@@ -94,16 +96,6 @@ async function renderApp() {
   return setup;
 }
 
-type Setup = Awaited<ReturnType<typeof renderApp>>;
-
-async function clickText(setup: Setup, needle: string): Promise<void> {
-  const lines = setup.captureCharFrame().split("\n");
-  const row = lines.findIndex((line) => line.includes(needle));
-
-  await setup.mockMouse.click(lines[row]!.indexOf(needle) + 1, row);
-  await setup.renderOnce();
-}
-
 describe("prototype review", () => {
   test("click an element, comment on it, and it saves to the daemon", async () => {
     // Arrange - wait until the fake browser produced its first screenshot, so
@@ -112,21 +104,20 @@ describe("prototype review", () => {
 
     await waitForState(setup, () => rendered);
     await settle(setup);
-    // selecting an element must not re-screenshot the page (the popover-click
-    // lag regression): the highlight is the popover, not a fresh Chromium capture
+    // selecting an element must not re-screenshot the page (the compose-open
+    // lag regression): the click opens the composer, not a fresh Chromium capture
     const screenshotsAfterLoad = screenshotCount;
 
-    // Act
+    // Act - a click opens the compose card directly on the element
     await setup.mockMouse.click(6, 6);
-    await waitForText(setup, "comment");
+    await waitForText(setup, "●");
     expect(screenshotCount).toBe(screenshotsAfterLoad);
-    await clickText(setup, "comment");
-    await waitForText(setup, "write a note");
     // the keymap-suppression flag must propagate before typing so keys reach the
     // textarea, not the global keymap
     await settle(setup);
     await typeText(setup, "tighten the padding");
-    await press(setup, "enter");
+    // cmd+enter sends, matching the plan and diff composer; plain enter is a newline
+    setup.mockInput.pressKey("RETURN", { meta: true });
 
     // Assert - the annotation is stored against the element's selector
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
@@ -144,16 +135,14 @@ describe("prototype review", () => {
     await waitForState(setup, () => rendered);
     await settle(setup);
     await setup.mockMouse.click(6, 6);
-    await waitForText(setup, "comment");
-    await clickText(setup, "comment");
-    await waitForText(setup, "write a note");
+    await waitForText(setup, "●");
     await settle(setup);
 
     // Act
     await press(setup, "escape");
 
     // Assert - the composer closes and nothing was saved
-    await waitForTextGone(setup, "write a note");
+    await waitForTextGone(setup, "●");
     expect(server.core.sessionGet(session.id).annotations).toHaveLength(0);
   });
 
@@ -167,13 +156,13 @@ describe("prototype review", () => {
     // open a selection, then scroll: the scroll drops it (it would drift once
     // the page moves under it)
     await setup.mockMouse.click(6, 6);
-    await waitForText(setup, "comment");
+    await waitForText(setup, "●");
     // scrolling moves the page, so it DOES re-screenshot (unlike a click)
     const screenshotsBeforeScroll = screenshotCount;
 
     await setup.mockMouse.scroll(6, 6, "down");
     await waitForState(setup, () => scrollDeltas.length === 1);
-    await waitForTextGone(setup, "comment");
+    await waitForTextGone(setup, "●");
     await waitForState(setup, () => screenshotCount > screenshotsBeforeScroll);
 
     // Act - scroll back up

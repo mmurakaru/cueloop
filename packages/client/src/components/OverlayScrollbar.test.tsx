@@ -6,15 +6,27 @@
 
 import { describe, expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
+import { ScrollBoxRenderable, type Renderable } from "@opentui/core";
 import React from "react";
 import { DiffContentView } from "./DiffContentView";
 import { diffRows, marksByRows } from "../view-diff";
 import { allowEventLoopUpdates } from "../test-support";
 import { fixtureDiffSession } from "./story-fixtures";
 import { DARK } from "../theme";
-import { thumbGeometry } from "./SurfaceScrollbar";
+import { thumbGeometry } from "./OverlayScrollbar";
 
 const noop = (): void => {};
+
+function findById(node: Renderable, id: string): Renderable | undefined {
+  if (node.id === id) return node;
+  for (const child of node.getChildren()) {
+    const found = findById(child, id);
+
+    if (found) return found;
+  }
+
+  return undefined;
+}
 
 function hex(color: { toInts(): [number, number, number, number] }): string {
   const [red, green, blue] = color.toInts();
@@ -84,6 +96,13 @@ describe("the diff sheet's scrollbar", () => {
     );
 
     allowEventLoopUpdates();
+    await setup.waitForVisualIdle();
+    // the overlay bar hides at rest; a scroll reveals the thumb
+    const scroller = findById(setup.renderer.root, "diff-scroll");
+
+    if (!(scroller instanceof ScrollBoxRenderable))
+      throw new Error("diff-scroll is not a scrollbox");
+    scroller.scrollTo(4);
     await setup.waitForVisualIdle();
     const frame = setup.captureCharFrame().split("\n");
     const thumbRows = setup.captureSpans().lines.filter((line) => {

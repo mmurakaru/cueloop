@@ -142,9 +142,9 @@ export function useSettingsDialog(params: {
         },
         {
           key: "diffView",
-          label: "Diff view (when zoomed)",
+          label: "Diff view (when wide)",
           kind: "cycle",
-          options: ["Unified", "Split"],
+          options: ["Split", "Stacked"],
         },
       ],
     },
@@ -191,7 +191,7 @@ export function useSettingsDialog(params: {
   ];
   const settingsValues = {
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
-    diffView: diffView === "split" ? "Split" : "Unified",
+    diffView: diffView === "split" ? "Split" : "Stacked",
     theme: THEME_LABELS[themeName],
   };
   const cycleSetting = (rowKey: string): void => {
@@ -201,7 +201,7 @@ export function useSettingsDialog(params: {
       setAutoClose(next);
       persistAutoClose(next);
     } else if (rowKey === "diffView") {
-      const next: DiffViewMode = diffView === "unified" ? "split" : "unified";
+      const next: DiffViewMode = diffView === "stacked" ? "split" : "stacked";
 
       setDiffView(next);
       persistDiffView(next);

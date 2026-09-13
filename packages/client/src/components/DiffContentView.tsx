@@ -41,8 +41,23 @@ const REJECTED_ATTRIBUTES = createTextAttributes({ strikethrough: true, dim: tru
 /** A file band renders its name in bold between an equal rule above and below. */
 const FILE_HEADER_ATTRIBUTES = createTextAttributes({ bold: true });
 
-/** The gutter before a code line: caret bar, four-digit line number, a space, the sign, a space. */
+/** The split-view gutter before a code line: caret bar, four-digit line number, a space, the sign, a space. */
 const GUTTER_COLUMNS = 8;
+
+/** The stacked gutter around its two line-number columns: caret bar, the space between them, a space, the sign, a space. */
+const UNIFIED_GUTTER_CHROME = 5;
+
+/** The widest line number in the diff, so the stacked gutter's two columns stay as narrow as the file allows. */
+function lineNumberWidth(rows: DiffRow[]): number {
+  let width = 1;
+
+  for (const row of rows) {
+    if (row.oldLine !== undefined) width = Math.max(width, String(row.oldLine).length);
+    if (row.newLine !== undefined) width = Math.max(width, String(row.newLine).length);
+  }
+
+  return width;
+}
 
 /** The per-file fold controls the file band renders; absent in read-only story renders. */
 export interface DiffFoldControls {
@@ -122,6 +137,26 @@ function FileCountsBadge({
   );
 }
 
+/** The file band's expand-all-lines toggle: the word "expand" stays put, its color carries the state
+ *  (active white when the file is expanded, inactive gray when collapsed to changes) so nothing shifts. */
+function ExpandToggle({
+  expanded,
+  onToggle,
+  tokens,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  tokens: Theme;
+}): React.ReactNode {
+  return (
+    <box onMouseUp={onToggle} style={{ alignSelf: "center" }}>
+      <text fg={expanded ? tokens.text : tokens.textDim} style={{ wrapMode: "none" }}>
+        expand
+      </text>
+    </box>
+  );
+}
+
 /**
  * A file band: chevron, bold name, and the added/removed counts between an equal rule above and
  * below. `fold` absent (story renders) drops the controls.
@@ -175,10 +210,10 @@ function FileBand({
             />
           ) : null}
           {fold && canExpand ? (
-            <IconButton
-              glyph={NERD.unfold}
-              onPress={() => fold.onToggleExpand(file)}
-              tip={expanded ? "Collapse to changes" : "Expand all lines"}
+            <ExpandToggle
+              expanded={expanded}
+              onToggle={() => fold.onToggleExpand(file)}
+              tokens={tokens}
             />
           ) : null}
         </box>
@@ -295,6 +330,7 @@ function codeLineSpans(
   lineStart: number,
   lineRanges: MarkRange[],
   fgByColumn: string[],
+  emphasisBgByColumn: Array<string | undefined>,
   rejected: boolean,
   tokens: Theme,
   palette: AnnotationPalette,
@@ -303,11 +339,18 @@ function codeLineSpans(
   let column = 0;
 
   for (const run of runsFor(lineText, lineRanges)) {
-    const bg = run.caretOnly ? palette.caretCell : run.marked ? palette.markBackdrop : undefined;
+    // a caret or a comment mark owns the whole run's backdrop; otherwise the changed-word tint (if any)
+    // shows per column and the row box paints the soft band behind the rest
+    const runBackground = run.caretOnly
+      ? palette.caretCell
+      : run.marked
+        ? palette.markBackdrop
+        : undefined;
     const attributes = (run.marked ? UNDERLINE : 0) | (rejected ? REJECTED_ATTRIBUTES : 0);
 
     for (const character of run.text) {
       const fg = rejected ? tokens.textDim : (fgByColumn[lineStart + column] ?? tokens.textMuted);
+      const bg = runBackground ?? emphasisBgByColumn[lineStart + column];
       const previous = spans[spans.length - 1];
 
       if (
@@ -352,6 +395,45 @@ function rowBaseColor(row: DiffRow, tokens: Theme): string {
     : row.kind === "del"
       ? tokens.deletedForeground
       : tokens.textMuted;
+}
+
+/** The soft band behind a whole added/removed row; context rows carry no band. */
+function rowBackground(row: DiffRow, tokens: Theme): string | undefined {
+  return row.kind === "add"
+    ? tokens.insertedBackground
+    : row.kind === "del"
+      ? tokens.deletedBackground
+      : undefined;
+}
+
+/** The stronger tint behind an add/del row's gutter chip and its intra-line changed words. */
+function rowEmphasisBackground(row: DiffRow, tokens: Theme): string | undefined {
+  return row.kind === "add"
+    ? tokens.insertedEmphasisBackground
+    : row.kind === "del"
+      ? tokens.deletedEmphasisBackground
+      : undefined;
+}
+
+/** Per-column emphasis backdrop: the changed words of a modified line, else none. */
+function emphasisBackgroundColumns(
+  text: string,
+  intraline: IntralineRun[] | undefined,
+  emphasisBackground: string | undefined,
+): Array<string | undefined> {
+  const columns: Array<string | undefined> = Array.from({ length: text.length }, () => undefined);
+
+  if (!intraline || !emphasisBackground) return columns;
+  let offset = 0;
+
+  for (const run of intraline) {
+    if (run.changed)
+      for (let index = 0; index < run.text.length && offset + index < text.length; index++)
+        columns[offset + index] = emphasisBackground;
+    offset += run.text.length;
+  }
+
+  return columns;
 }
 
 /** Async tree-sitter highlights, discarded when they belong to superseded rows. */
@@ -431,6 +513,8 @@ export function DiffContentView({
     onExit,
   });
   const { palette } = surface;
+  const numberWidth = useMemo(() => lineNumberWidth(rows), [rows]);
+  const unifiedGutterColumns = numberWidth * 2 + UNIFIED_GUTTER_CHROME;
   const intralineByRow = useMemo(() => intralineRunsByRow(rows), [rows]);
   const syntaxByRow = useSyntaxHighlights(rows);
   const splitRows = useMemo(() => (split ? splitDiffRows(rows) : []), [split, rows]);
@@ -445,7 +529,7 @@ export function DiffContentView({
   // two columns and a one-cell divider share the width; each column keeps its own gutter
   const textWidth = split
     ? Math.max(0, Math.floor((viewWidth - 1) / 2) - GUTTER_COLUMNS)
-    : Math.max(0, viewWidth - GUTTER_COLUMNS);
+    : Math.max(0, viewWidth - unifiedGutterColumns);
 
   // Every visual line is its own text renderable (so a drag can hit-test it), and a large
   // diff has tens of thousands of them - more native text buffers than the renderer can
@@ -493,10 +577,60 @@ export function DiffContentView({
       syntaxByRow.get(rowIndex),
       tokens,
     );
+    const emphasisBgByColumn = emphasisBackgroundColumns(
+      text,
+      intralineByRow.get(rowIndex),
+      rowEmphasisBackground(row, tokens),
+    );
+    const rowBg = rowBackground(row, tokens);
     const rejected = rejectedRows.has(rowIndex);
     const isCaretRow = paintMarks && surface.head.blockIndex === rowIndex;
-    const lineNumber = row.kind === "del" ? row.oldLine : row.newLine;
-    const gutter = `${isCaretRow ? "▎" : " "}${String(lineNumber ?? "").padStart(4, " ")} ${rowSign(row)} `;
+    // split view carries one number per side; the stacked view shows the old and new numbers together
+    const splitLineNumber = row.kind === "del" ? row.oldLine : row.newLine;
+    const splitGutter = `${isCaretRow ? "▎" : " "}${String(splitLineNumber ?? "").padStart(4, " ")} ${rowSign(row)} `;
+    const barChar = isCaretRow ? "▎" : " ";
+    const barColor = isCaretRow ? tokens.accent : tokens.textDim;
+    const oldNumber =
+      row.kind === "add"
+        ? " ".repeat(numberWidth)
+        : String(row.oldLine ?? "").padStart(numberWidth);
+    const newNumber =
+      row.kind === "del"
+        ? " ".repeat(numberWidth)
+        : String(row.newLine ?? "").padStart(numberWidth);
+    const gutterFor = (lineIndex: number): React.ReactNode => {
+      if (split) {
+        return lineIndex === 0 ? (
+          <>
+            <span fg={isCaretRow ? tokens.accent : tokens.textDim}>{splitGutter.slice(0, 6)}</span>
+            <span fg={rowBaseColor(row, tokens)}>{splitGutter.slice(6)}</span>
+          </>
+        ) : (
+          " ".repeat(GUTTER_COLUMNS)
+        );
+      }
+      // stacked: caret bar, old new (each tinted red/green on its side), then the change sign;
+      // the numbers sit on the row's soft band, only the changed code carries the brighter backdrop
+      return lineIndex === 0 ? (
+        <>
+          <span fg={barColor}>{barChar}</span>
+          <span fg={row.kind === "del" ? tokens.deletedForeground : tokens.textDim}>
+            {oldNumber}
+          </span>
+          <span fg={tokens.textDim}> </span>
+          <span fg={row.kind === "add" ? tokens.insertedForeground : tokens.textDim}>
+            {newNumber}
+          </span>
+          <span> </span>
+          <span fg={rowBaseColor(row, tokens)}>{`${rowSign(row)} `}</span>
+        </>
+      ) : (
+        <>
+          <span fg={barColor}>{barChar}</span>
+          {" ".repeat(unifiedGutterColumns - 1)}
+        </>
+      );
+    };
     const lineNodes: React.ReactNode[] = [];
     const cards: React.ReactNode[] = [];
 
@@ -505,20 +639,16 @@ export function DiffContentView({
       const isLastLine = lineIndex === lines.length - 1;
 
       lineNodes.push(
-        <box key={`${keyPrefix}-line-${lineIndex}`} style={{ flexDirection: "row" }}>
+        <box
+          key={`${keyPrefix}-line-${lineIndex}`}
+          style={{ flexDirection: "row", backgroundColor: rowBg }}
+        >
           <text
             selectable={false}
             fg={isCaretRow && lineIndex === 0 ? tokens.accent : tokens.textDim}
             style={{ flexShrink: 0, wrapMode: "none" }}
           >
-            {lineIndex === 0 ? (
-              <>
-                <span fg={isCaretRow ? tokens.accent : tokens.textDim}>{gutter.slice(0, 6)}</span>
-                <span fg={rowBaseColor(row, tokens)}>{gutter.slice(6)}</span>
-              </>
-            ) : (
-              " ".repeat(GUTTER_COLUMNS)
-            )}
+            {gutterFor(lineIndex)}
           </text>
           <text
             selectable={false}
@@ -531,6 +661,7 @@ export function DiffContentView({
               line.start,
               lineMarkRanges(ranges, line),
               fgByColumn,
+              emphasisBgByColumn,
               rejected,
               tokens,
               palette,

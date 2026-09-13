@@ -1036,14 +1036,20 @@ pre {
   --m: 12px;
 }
 
-/* Product snapshot images (plan / diff / prototype): the shadow + rounded
-   corners are baked into the transparent PNG, so the element only needs to
-   scale down responsively and never overflow its column on mobile. */
+/* Product snapshot images (plan / diff / prototype): raw rectangular captures.
+   The container rounds the corners and casts the shadow, so both are tunable
+   here without re-encoding the webp; the element scales down responsively and
+   never overflows its column on mobile. */
 .shot {
   display: block;
   width: 100%;
   height: auto;
   max-width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 28px 70px -30px rgba(0, 0, 0, 0.6);
+}
+html[data-theme="light"] .shot {
+  box-shadow: 0 24px 60px -30px rgba(20, 18, 12, 0.3);
 }
 
 /* One capture per theme: show the variant that matches the active theme. The

@@ -1,145 +1,5 @@
 // Bun Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`stories catalog Cards/AnnotationCard/CommentDraft renders, snapshots, and carries its colors: Cards/AnnotationCard/CommentDraft 1`] = `
-"╭─ comment on "persists sessions" ─────────────────────────────────────────────╮
-│ Which daemon?                                                                │
-│  Save    Cancel                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Cards/AnnotationCard/SavedCollaborator renders, snapshots, and carries its colors: Cards/AnnotationCard/SavedCollaborator 1`] = `
-"╭─ COMMENT · Priya ────────────────────────────────────────────────────────────╮
-│ "persists sessions"                                                          │
-│ Which daemon owns this?                                                      │
-╰──────────────────────────────────────────────────────────────────────────────╯
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Cards/AnnotationCard/SavedEditing renders, snapshots, and carries its colors: Cards/AnnotationCard/SavedEditing 1`] = `
-"╭─ COMMENT · me ───────────────────────────────────────────────────────────────╮
-│ "move the store"                                                             │
-│ new body                                                                     │
-│  Save    Cancel                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Cards/AnnotationCard/SavedOrphan renders, snapshots, and carries its colors: Cards/AnnotationCard/SavedOrphan 1`] = `
-"╭─ COMMENT · me · ORPHANED ────────────────────────────────────────────────────╮
-│ "a removed passage"                                                          │
-│ The passage is gone.                                                         │
-╰──────────────────────────────────────────────────────────────────────────────╯
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Cards/AnnotationCard/SavedSelected renders, snapshots, and carries its colors: Cards/AnnotationCard/SavedSelected 1`] = `
-"╭─ COMMENT · me ───────────────────────────────────────────────────────────────╮
-│ "persists sessions"                                                          │
-│ Which daemon owns this?                                                      │
-╰──────────────────────────────────────────────────────────────────────────────╯
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
 exports[`stories catalog Chrome/AnnotationCards/FocusedCard renders, snapshots, and carries its colors: Chrome/AnnotationCards/FocusedCard 1`] = `
 "                                                            
   ╻────────────────────────────────────────────────────────┐
@@ -277,12 +137,12 @@ exports[`stories catalog Chrome/Breadcrumb/SessionHeader renders, snapshots, and
 exports[`stories catalog Surfaces/ChangesColumn/Changed renders, snapshots, and carries its colors: Surfaces/ChangesColumn/Changed 1`] = `
 "│  packages                                                
 │    client/src                                            
-│      App.tsx               M                             
+│      App.tsx              M                              
 │      components                                          
-│        ChangesColumn.tsx   A                             
+│        ChangesColumn.tsx  A                              
 │    daemon/src                                            
-│      review.ts             D                             
-│  README.md                 M                             
+│      review.ts            D                              
+│  README.md                M                              
 │                                                           
 │                                                           
 │                                                           
@@ -537,14 +397,14 @@ exports[`stories catalog Surfaces/DiffContentView/AnnotatedLine renders, snapsho
  src/store.ts                                                                    +1 -1    
  ─────────────────────────────────────────────────────────────────────────────────────    
   @@ -1,4 +1,4 @@                                                                         
- ▎   1   export class Store {                                                             
-     2 -   private items = [];                                                            
-     2 +   private items = new Map();                                                     
+ ▎1 1   export class Store {                                                              
+  2   -   private items = [];                                                             
+    2 +   private items = new Map();                                                      
                                                                                           
    ╷─────────────────────────────────────────────────────────────────────────────────┐ ○  
    │ ● Map needs an eviction story.                                                  │    
    ╵─────────────────────────────────────────────────────────────────────────────────┘    
-     3   }                                                                                
+  3 3   }                                                                                 
                                                                                           
                                                                                           
                                                                                           
@@ -559,10 +419,10 @@ exports[`stories catalog Surfaces/DiffContentView/CaretOnFirstLine renders, snap
  src/store.ts                                                                    +1 -1    
  ─────────────────────────────────────────────────────────────────────────────────────    
   @@ -1,4 +1,4 @@                                                                         
- ▎   1   export class Store {                                                             
-     2 -   private items = [];                                                            
-     2 +   private items = new Map();                                                     
-     3   }                                                                                
+ ▎1 1   export class Store {                                                              
+  2   -   private items = [];                                                             
+    2 +   private items = new Map();                                                      
+  3 3   }                                                                                 
                                                                                           
                                                                                           
                                                                                           
@@ -579,10 +439,10 @@ exports[`stories catalog Surfaces/DiffContentView/IntralineWordDiff renders, sna
  src/store.ts                                                                    +1 -1    
  ─────────────────────────────────────────────────────────────────────────────────────    
   @@ -1,4 +1,4 @@                                                                         
- ▎   1   export class Store {                                                             
-     2 -   private items = [];                                                            
-     2 +   private items = new Map();                                                     
-     3   }                                                                                
+ ▎1 1   export class Store {                                                              
+  2   -   private items = [];                                                             
+    2 +   private items = new Map();                                                      
+  3 3   }                                                                                 
                                                                                           
                                                                                           
                                                                                           
@@ -599,10 +459,10 @@ exports[`stories catalog Surfaces/DiffContentView/SignedRows renders, snapshots,
  src/store.ts                                                                    +1 -1    
  ─────────────────────────────────────────────────────────────────────────────────────    
   @@ -1,4 +1,4 @@                                                                         
- ▎   1   export class Store {                                                             
-     2 -   private items = [];                                                            
-     2 +   private items = new Map();                                                     
-     3   }                                                                                
+ ▎1 1   export class Store {                                                              
+  2   -   private items = [];                                                             
+    2 +   private items = new Map();                                                      
+  3 3   }                                                                                 
                                                                                           
                                                                                           
                                                                                           
@@ -651,7 +511,7 @@ exports[`stories catalog Chrome/DiscussionMarkerRail/Dots renders, snapshots, an
 `;
 
 exports[`stories catalog Surfaces/EditorGrid/OneGroup renders, snapshots, and carries its colors: Surfaces/EditorGrid/OneGroup 1`] = `
-" Changes   │ App.tsx   │                                              search  ⛶ 
+" Changes   │ App.tsx   │                                                      ⛶ 
 ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                                                                                 
  the whole diff                                                                 
@@ -671,7 +531,7 @@ exports[`stories catalog Surfaces/EditorGrid/OneGroup renders, snapshots, and ca
 `;
 
 exports[`stories catalog Surfaces/EditorGrid/SplitGroups renders, snapshots, and carries its colors: Surfaces/EditorGrid/SplitGroups 1`] = `
-" plugin.json   │                 search  ⛶  split │ plugin.json   │                 search  ⛶  split
+" plugin.json   │                         split  ⛶ │ plugin.json   │                         split  ⛶
 ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾│‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
                                                   │                                                 
  .claude-plugin/plugin.json                       │ .claude-plugin/plugin.json                      
@@ -706,34 +566,6 @@ exports[`stories catalog Surfaces/FileContentsView/Loaded renders, snapshots, an
 "
 `;
 
-exports[`stories catalog Surfaces/InboxList/Empty renders, snapshots, and carries its colors: Surfaces/InboxList/Empty 1`] = `
-"                                                                                
- nothing waiting for review                                                     
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Surfaces/InboxList/TwoPending renders, snapshots, and carries its colors: Surfaces/InboxList/TwoPending 1`] = `
-"                                                                                
- Projects                                                                       
-   widget                                                                      
-    Migration Plan                                                              
- Threads                                                                        
-    working tree                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-                                                                                
-"
-`;
-
 exports[`stories catalog Overlays/KeybindsDialog/Cheatsheet renders, snapshots, and carries its colors: Overlays/KeybindsDialog/Cheatsheet 1`] = `
 "                                                                      
                                                                       
@@ -762,34 +594,6 @@ exports[`stories catalog Overlays/KeybindsDialog/Cheatsheet renders, snapshots, 
 "
 `;
 
-exports[`stories catalog Overlays/MarkerPopover/ActionsList renders, snapshots, and carries its colors: Overlays/MarkerPopover/ActionsList 1`] = `
-"╭───────────────────────────────╮                           
-│ comment · cut · actions · [x] │                           
-╰───────────────────────────────╯                           
-╭───────────────────────────────────╮                       
-│   Zoom out, research in depth     │                       
-│   Restate simplified              │                       
-│ › Out of scope                    │                       
-│   Let's chat about this           │                       
-"
-`;
-
-exports[`stories catalog Overlays/MarkerPopover/Toolbar renders, snapshots, and carries its colors: Overlays/MarkerPopover/Toolbar 1`] = `
-"╭───────────────────────────────╮                           
-│ comment · cut · actions · [x] │                           
-╰───────────────────────────────╯                           
-                                                            
-"
-`;
-
-exports[`stories catalog Overlays/MarkerPopover/ToolbarNoCut renders, snapshots, and carries its colors: Overlays/MarkerPopover/ToolbarNoCut 1`] = `
-"╭─────────────────────────╮                                 
-│ comment · actions · [x] │                                 
-╰─────────────────────────╯                                 
-                                                            
-"
-`;
-
 exports[`stories catalog Chrome/MenuBar/Open renders, snapshots, and carries its colors: Chrome/MenuBar/Open 1`] = `
 "                                                            
                                                             
@@ -799,6 +603,18 @@ exports[`stories catalog Chrome/MenuBar/Open renders, snapshots, and carries its
  ╰──────────────╯                                           
                                                             
                                                             
+"
+`;
+
+exports[`stories catalog Chrome/OverlayScrollbar/AtRest renders, snapshots, and carries its colors: Chrome/OverlayScrollbar/AtRest 1`] = `
+"row 1                   
+row 2                   
+row 3                   
+row 4                   
+row 5                   
+row 6                   
+row 7                   
+row 8                   
 "
 `;
 
@@ -930,31 +746,31 @@ exports[`stories catalog Overlays/PromptDialog/RenameAuthor renders, snapshots, 
 "
 `;
 
-exports[`stories catalog Surfaces/PrototypeSheet/Unsupported renders, snapshots, and carries its colors: Surfaces/PrototypeSheet/Unsupported 1`] = `
-"╭──────────────────────────────────────────────────────────────────────────────╮
-│                                                                              │
-│  rendering prototype…                                                        │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-│                                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
+exports[`stories catalog Surfaces/PrototypeContentView/Unsupported renders, snapshots, and carries its colors: Surfaces/PrototypeContentView/Unsupported 1`] = `
+"                                                                                
+  rendering prototype…                                                          
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
 "
 `;
 
@@ -965,6 +781,18 @@ exports[`stories catalog Layout/RootOverlay/FloatingNode renders, snapshots, and
       │ floating overlay │              
       └──────────────────┘              
                                         
+"
+`;
+
+exports[`stories catalog Chrome/ScrollArea/AtRest renders, snapshots, and carries its colors: Chrome/ScrollArea/AtRest 1`] = `
+"row 1                   
+row 2                   
+row 3                   
+row 4                   
+row 5                   
+row 6                   
+row 7                   
+row 8                   
 "
 `;
 
@@ -1112,18 +940,6 @@ exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, an
 "
 `;
 
-exports[`stories catalog Chrome/SurfaceScrollbar/ThumbAtTop renders, snapshots, and carries its colors: Chrome/SurfaceScrollbar/ThumbAtTop 1`] = `
-"row 1                   
-row 2                   
-row 3                   
-row 4                   
-row 5                   
-row 6                   
-row 7                   
-row 8                   
-"
-`;
-
 exports[`stories catalog Chrome/ThreadFooter/Default renders, snapshots, and carries its colors: Chrome/ThreadFooter/Default 1`] = `
 "────────────────────────────────────────────────────────────────────────────────
   cueloop / main                                                  send message 
@@ -1133,6 +949,34 @@ exports[`stories catalog Chrome/ThreadFooter/Default renders, snapshots, and car
 exports[`stories catalog Chrome/ThreadFooter/ReadOnly renders, snapshots, and carries its colors: Chrome/ThreadFooter/ReadOnly 1`] = `
 "────────────────────────────────────────────────────────────────────────────────
   cueloop / design/tui                                            send message 
+"
+`;
+
+exports[`stories catalog Surfaces/ThreadTree/Empty renders, snapshots, and carries its colors: Surfaces/ThreadTree/Empty 1`] = `
+" no threads                                                                     
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Surfaces/ThreadTree/TwoPending renders, snapshots, and carries its colors: Surfaces/ThreadTree/TwoPending 1`] = `
+" Projects                                                                       
+   widget                                                                      
+    Migration Plan                                                              
+ Threads                                                                        
+    working tree                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
 "
 `;
 
@@ -1175,12 +1019,12 @@ exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, a
 `;
 
 exports[`stories catalog Surfaces/ThreadsSidebar/Open renders, snapshots, and carries its colors: Surfaces/ThreadsSidebar/Open 1`] = `
-"                             │                              
- Projects                    │                              
+" Projects                    │                              
    widget                   │                              
     Migration Plan           │                              
  Threads                     │                              
     working tree             │                              
+                             │                              
                              │                              
                              │                              
                              │                              
@@ -1399,20 +1243,20 @@ exports[`stories catalog Overlays/WalkWizard/WithAgentNote renders, snapshots, a
 `;
 
 exports[`stories catalog Surfaces/WelcomeSurface/Welcome renders, snapshots, and carries its colors: Surfaces/WelcomeSurface/Welcome 1`] = `
-"                                                            
-  Welcome to cueloop                                        
-  a review loop for coding agents                           
+"  Getting started                                           
+  comment on agent-authored work                            
                                                             
   Start                                                     
-  · select a thread on the left                             
-  · or run cueloop plan / cueloop diff from a repo          
+  · select a thread                                         
+  · inspect files and changes                               
                                                             
   Learn                                                     
-  · docs        www.cueloop.dev                             
-  · changelog   www.cueloop.dev/changelog                   
+  · docs        https://cueloop.dev/docs/                   
                                                             
-  What's new                                                
+  Version                                                   
   · cueloop v0.1.0-alpha.66                                 
+                                                            
+                                                            
                                                             
                                                             
 "

@@ -1,13 +1,13 @@
 import React from "react";
 import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
-import { InboxList } from "./InboxList";
+import { ThreadTree } from "./ThreadTree";
 import { groupInbox } from "./session-tree";
 import { fixtureDiffSession, fixturePlanSession } from "./story-fixtures";
 
-export const meta: StoryMeta = { title: "Surfaces/InboxList" };
+export const meta: StoryMeta = { title: "Surfaces/ThreadTree" };
 
-/** InboxList is the body under App's header/menu chrome; a frame gives it height. */
+/** ThreadTree is the body under App's header/menu chrome; a frame gives it height. */
 function BodyFrame({ children }: { children: React.ReactNode }): React.ReactNode {
   return <box style={{ flexDirection: "column", width: "100%", height: "100%" }}>{children}</box>;
 }
@@ -28,7 +28,7 @@ export const TwoPending: Story = {
 
     return (
       <BodyFrame>
-        <InboxList rows={rows} cursor={0} />
+        <ThreadTree rows={rows} cursor={0} />
       </BodyFrame>
     );
   },
@@ -39,7 +39,7 @@ export const TwoPending: Story = {
 export const Empty: Story = {
   render: () => (
     <BodyFrame>
-      <InboxList rows={[]} cursor={0} />
+      <ThreadTree rows={[]} cursor={0} />
     </BodyFrame>
   ),
   size: { width: 80, height: 8 },

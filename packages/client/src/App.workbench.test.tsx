@@ -189,17 +189,17 @@ describe("the four-pane workbench", () => {
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
   });
 
-  test("the right-sidebar toggle collapses the region to a rail and reopens it", async () => {
+  test("the right-sidebar toggle closes the region and its header toggle reopens it", async () => {
     const setup = await renderApp();
 
     await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
     await waitForState(setup, () => !setup.captureCharFrame().includes("store.ts"));
 
-    // the right region is closed: no Changes editor, no Project tree toggles
+    // the right region is closed: no Changes editor, no Project tree toggles, no gutter
     expect(setup.captureCharFrame()).not.toContain("store.ts");
     expect(diffToggleColumn(setup)).toBe(-1);
 
-    // the collapsed rail shows the outline (off) variant; its toggle reopens the region
+    // the reopen toggle (outline/off variant) rides the thread header; clicking it reopens the region
     await setup.mockMouse.click(railToggleColumn(setup), HEADER_ROW);
     await waitForText(setup, "store.ts");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
@@ -277,7 +277,7 @@ describe("the four-pane workbench", () => {
 /** The bare-launch (no thread) shell is the same four panes as a thread: the Thread pane waits in its
  * empty state and a disposable Welcome tab rides in the Changes editor. The right-region toggles behave
  * like the thread shell, dismissing Welcome collapses the editor without stranding an empty screen, and
- * the collapsed rail draws its divider in the header only. */
+ * a closed right region moves its reopen toggle into the header rather than leaving a gutter. */
 describe("the bare-launch welcome shell", () => {
   let welcomeHome: string;
   let welcomeRepo: string;
@@ -333,9 +333,9 @@ describe("the bare-launch welcome shell", () => {
     const frame = setup.captureCharFrame();
     // the getting-started surface is an editor tab, not the thread pane
     expect(frame.split("\n")[HEADER_ROW]!).toContain("Welcome");
-    expect(frame).toContain("Welcome to cueloop");
+    expect(frame).toContain("Getting started");
     // the Thread pane shows its empty state until a thread is opened
-    expect(frame).toContain("Select a thread");
+    expect(frame).toContain("no threads");
   });
 
   test("dismissing the Welcome tab collapses the editor without stranding an empty screen", async () => {
@@ -346,13 +346,13 @@ describe("the bare-launch welcome shell", () => {
     await setup.mockMouse.click(welcome.column + 8, welcome.row);
     await waitForState(
       setup,
-      () => !setup.captureCharFrame().includes("review loop for coding agents"),
+      () => !setup.captureCharFrame().includes("comment on agent-authored work"),
     );
 
     // the Threads sidebar and the Thread empty state remain - never a blank shell
     const frame = setup.captureCharFrame();
     expect(frame).toContain("cueloop");
-    expect(frame).toContain("Select a thread");
+    expect(frame).toContain("no threads");
   });
 
   test("the changed-files and tree toggles switch navigator mode without collapsing", async () => {
@@ -370,20 +370,20 @@ describe("the bare-launch welcome shell", () => {
     await waitForState(setup, () => !setup.captureCharFrame().includes("src"));
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
 
-    // the sidebar toggle collapses the region to a rail
+    // the sidebar toggle closes the region
     await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
     await waitForState(setup, () => diffToggleColumn(setup) === -1);
   });
 
-  test("the collapsed rail draws its divider in the header only, not full-height", async () => {
+  test("a closed region draws its reopen divider in the header only, not full-height", async () => {
     const setup = await renderWelcome();
 
-    // collapse the right region so only the rail remains
+    // close the right region so only the header toggle remains
     await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
     await waitForState(setup, () => diffToggleColumn(setup) === -1);
 
     const lines = setup.captureCharFrame().split("\n");
-    // the rail's divider sits at the far right; find its column on the header row
+    // the reopen toggle's divider sits at the far right; find its column on the header row
     const headerDivider = lines[HEADER_ROW]!.lastIndexOf("│");
     expect(headerDivider).toBeGreaterThan(0);
     // that column stays clear below the two-row header - no full-height column rule

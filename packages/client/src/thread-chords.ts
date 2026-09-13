@@ -33,7 +33,7 @@ export const DIFF_CHORD_ENTRIES = [
   { keys: "⌥x / ⌥X", label: "reject the change / the hunk" },
   { keys: "⌥u", label: "restore the last rejection" },
   { keys: "⌥c", label: "collapse the file to its band" },
-  { keys: "⌥d", label: "unified / split (when zoomed)" },
+  { keys: "⌥d", label: "split / stacked (when wide)" },
   { keys: "⌥k", label: "start the guided walk" },
 ] as const;
 
