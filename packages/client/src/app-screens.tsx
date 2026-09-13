@@ -187,7 +187,11 @@ export function NoThreadShell(props: {
   // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
   const workbench = useChangesWorkbench({ seed: "welcome" });
   // the Changes tree opens a file's working-tree diff; the Project tree opens read-only contents
-  const openChangedFile = (path: string): void => workbench.openFile(path, "diff");
+  const openChangedFile = (path: string): void => {
+    // no thread means no live-diff refresh loop, so re-capture on open or a long-lived shell goes stale
+    void controller.repoChanges();
+    workbench.openFile(path, "diff");
+  };
   const openProjectFile = (path: string): void => workbench.openFile(path, "contents");
   // a bare launch has no thread yet, so the diff renders against a draft session; the first note
   // promotes it to the per-repo workbench thread (commentOnWorkbenchDiff)
