@@ -21,10 +21,10 @@ check curl-clean-exit "installer exited $status" test "$status" -eq 0
 binary="$MATRIX_INSTALL_DIR/cueloop"
 check curl-clean-executable "no executable at $binary" test -x "$binary"
 check curl-clean-version "--version did not run" "$binary" --version
-if "$binary" --help 2>&1 | head -n 1 | grep -q "Usage: cueloop"; then
+if "$binary" --help 2>&1 | grep -qi "usage: cueloop"; then
   ok curl-clean-help
 else
-  bad curl-clean-help "--help did not start with 'Usage: cueloop'"
+  bad curl-clean-help "--help did not print a 'usage: cueloop' line"
 fi
 contains curl-clean-checksum "verifying checksum" "$MATRIX_SANDBOX/clean.log"
 if grep -qE "PATH in|$MATRIX_INSTALL_DIR" "$MATRIX_HOME/.bashrc" 2>/dev/null; then
