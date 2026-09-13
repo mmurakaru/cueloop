@@ -1,6 +1,6 @@
-// The thread's bottom band: a header-like bar shown only under the always-visible
-// thread column. It carries the repo/branch context on the left and a written,
-// clickable "Send message" control on the right.
+// The thread's bottom band: a header-like bar under the thread column, or the
+// Changes column when a zoom drops the thread column. It carries the repo/branch
+// context on the left and a written, clickable "Send message" control on the right.
 
 import React from "react";
 import { DARK, type Theme } from "../theme";
