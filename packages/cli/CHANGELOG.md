@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.71
+
+### Patch Changes
+
+- [#411](https://github.com/mmurakaru/cueloop/pull/411) [`7d5b2f5`](https://github.com/mmurakaru/cueloop/commit/7d5b2f53f0e3c77223f1c120b174d636a1fcbb61) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The thread footer, with its repo/branch context and "send message" control, now rides the Changes pane while a zoom has hidden the Thread pane. Zooming the diff no longer strands the reviewer without a way to send a message.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.71
+  - @cueloop/client@0.1.0-alpha.71
+  - @cueloop/daemon@0.1.0-alpha.71
+  - @cueloop/schema@0.1.0-alpha.71
+
 ## 0.1.0-alpha.70
 
 ### Minor Changes
