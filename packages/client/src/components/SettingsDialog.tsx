@@ -1,6 +1,6 @@
 /**
- * The settings overlay: a centered Dialog whose left nav is a tree - a Settings
- * group over its categories, plus Keybinds as a sibling leaf - and whose right
+ * The settings overlay: a centered Dialog whose left nav lists the categories as
+ * first-level leaves (General, Appearance, Actions, Keybinds), and whose right
  * body shows the active category's typed rows or the keybinds cheatsheet. The
  * component is controlled: the caller owns the open flag, the active
  * category/row/zone, and value changes, so the app's keyboard grammar (and the
@@ -48,17 +48,8 @@ export interface SettingsDialogProps {
   theme?: Theme;
 }
 
-/** The left nav tree: a Settings group over its categories, then Keybinds as a leaf. */
 function navTree(categories: SettingsCategory[]): TreeNode[] {
-  const children = categories
-    .filter((category) => category.id !== KEYBINDS_CATEGORY_ID)
-    .map((category) => ({ id: category.id, label: category.name }));
-  const nodes: TreeNode[] = [{ id: "settings", label: "Settings", children }];
-  const keybinds = categories.find((category) => category.id === KEYBINDS_CATEGORY_ID);
-
-  if (keybinds !== undefined) nodes.push({ id: keybinds.id, label: keybinds.name });
-
-  return nodes;
+  return categories.map((category) => ({ id: category.id, label: category.name }));
 }
 
 function KeybindsBody({
@@ -122,7 +113,7 @@ export function SettingsDialog({
         <box style={{ flexDirection: "column", width: 20, paddingLeft: 1, paddingRight: 1 }}>
           <Tree
             nodes={navTree(categories)}
-            expandedIds={new Set(["settings"])}
+            expandedIds={new Set<string>()}
             selectedId={category.id}
             hideIcons
             onSelect={onCategorySelect}

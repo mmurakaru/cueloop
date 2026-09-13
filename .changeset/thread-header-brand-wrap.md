@@ -2,4 +2,11 @@
 "cueloop": patch
 ---
 
-The thread header keeps the gear, the Threads toggle, and the "cueloop" mark on one line when the sidebar is collapsed. A long thread title used to squeeze the brand until the toggle and mark wrapped onto the header's underline row; the title now tails off in an ellipsis instead. The right-sidebar toggle's tooltip reads "Toggle Sidebar".
+A batch of TUI refinements:
+
+- The collapsed-sidebar thread header keeps the gear, the Threads toggle, and the "cueloop" mark on one line; a long title tails off in an ellipsis instead of wrapping the brand onto the underline row. The right-sidebar tooltip reads "Toggle Sidebar".
+- The sidebar thread list clips long titles with an ellipsis rather than a gradient fade.
+- The Settings dialog nav lists General, Appearance, Actions, and Keybinds as first-level entries; the redundant "Settings" group header is gone.
+- The Actions editor makes both the action title and its system prompt editable.
+- The verdict card drops its "send message" border title (the send button already says it).
+- Every overlay uses square corners instead of rounded.

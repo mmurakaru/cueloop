@@ -111,6 +111,12 @@ export function useSettingsDialog(params: {
     setQuickActions(next);
     persistActions(next);
   };
+  const editActionPrompt = (index: number, prompt: string): void =>
+    commitActions(
+      quickActions.map((action, actionIndex) =>
+        actionIndex === index ? { ...action, prompt } : action,
+      ),
+    );
   const editActionMetadata = (index: number, metadata: string): void =>
     commitActions(
       quickActions.map((action, actionIndex) =>
@@ -175,6 +181,7 @@ export function useSettingsDialog(params: {
             setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: index }));
             setActionsExpandedIndex((current) => (current === index ? null : index));
           }}
+          onEditPrompt={editActionPrompt}
           onEditMetadata={editActionMetadata}
           onReset={resetActions}
           onAdd={addAction}

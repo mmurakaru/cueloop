@@ -1,10 +1,10 @@
-/** The Actions editor scrolls to keep the selected row in view when the list outgrows the pane. */
+/** The Actions editor scrolls the list, and an expanded row edits both the title and the description. */
 
 import { describe, expect, test } from "bun:test";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import type { QuickAction } from "../config";
-import { settle } from "../test-support";
+import { settle, typeText } from "../test-support";
 import { QuickActionsEditor } from "./quick-actions-editor";
 
 const MANY: QuickAction[] = Array.from({ length: 14 }, (_, index) => ({
@@ -18,6 +18,7 @@ async function mount(selectedIndex: number) {
       selectedIndex={selectedIndex}
       expandedIndex={null}
       onToggleExpand={() => {}}
+      onEditPrompt={() => {}}
       onEditMetadata={() => {}}
       onReset={() => {}}
       onAdd={() => {}}
@@ -43,6 +44,41 @@ describe("QuickActionsEditor scrolling", () => {
     expect(lines.some((line) => line.includes("Action number 1"))).toBe(true);
     // a bottom row is scrolled out of the clipped pane, not overlaid onto a visible one
     expect(setup.captureCharFrame()).not.toContain("Action number 13");
+
+    setup.renderer.destroy();
+  });
+});
+
+describe("editing an expanded action", () => {
+  test("an expanded row edits both the title and the description", async () => {
+    const prompts: string[] = [];
+    const metadatas: string[] = [];
+    const setup = await testRender(
+      <QuickActionsEditor
+        actions={[{ prompt: "Ship it", metadata: "be terse" }]}
+        selectedIndex={0}
+        expandedIndex={0}
+        onToggleExpand={() => {}}
+        onEditPrompt={(_index, prompt) => prompts.push(prompt)}
+        onEditMetadata={(_index, metadata) => metadatas.push(metadata)}
+        onReset={() => {}}
+        onAdd={() => {}}
+      />,
+      { width: 60, height: 8 },
+    );
+
+    await settle(setup);
+    await settle(setup);
+
+    // the title field is focused first: typing extends the prompt
+    await typeText(setup, "!");
+    expect(prompts.at(-1)).toBe("Ship it!");
+
+    // enter steps focus to the description, where typing extends the metadata
+    setup.mockInput.pressKey("RETURN");
+    await settle(setup);
+    await typeText(setup, "X");
+    expect(metadatas.at(-1)).toBe("be terseX");
 
     setup.renderer.destroy();
   });

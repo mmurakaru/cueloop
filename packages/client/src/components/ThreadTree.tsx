@@ -2,8 +2,8 @@
  * The sidebar thread tree: a Pinned / Projects / Threads listing. Selection stays
  * with the keyboard grammar - the cursor indexes the flat thread order and this
  * component renders the snapshot. A hovered or selected thread reveals a kebab
- * that opens an inline pin / rename / delete menu; long titles fade on the right
- * instead of wrapping. App supplies the surrounding chrome.
+ * that opens an inline pin / rename / delete menu; a long title clips to an
+ * ellipsis rather than wrapping. App supplies the surrounding chrome.
  */
 
 import React, { useState } from "react";
@@ -11,7 +11,7 @@ import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { IconButton } from "./primitives/IconButton";
 import { NERD } from "./primitives/icons";
-import { fadeTitle } from "./fade-title";
+import { truncateTitle } from "./truncate-title";
 import { threadTitle, type InboxRow } from "./session-tree";
 
 export interface ThreadTreeProps {
@@ -94,15 +94,7 @@ interface ThreadRowProps {
 function ThreadRow(props: ThreadRowProps): React.ReactNode {
   const { title, selected, pinned, titleWidth, menuOpen, onToggleMenu, tokens, theme } = props;
   const [hovered, setHovered] = useState(false);
-  // the tail fades toward the row's own background, so it masks out instead of
-  // leaving a colored band over the selected (elevated) or hovered (panel) row
-  const rowBackground = selected ? tokens.elevated : hovered ? tokens.panel : tokens.background;
-  const segments = fadeTitle(
-    title,
-    titleWidth,
-    selected ? tokens.accent : tokens.textMuted,
-    rowBackground,
-  );
+  const clippedTitle = truncateTitle(title, titleWidth);
   const hasActions =
     props.onPin !== undefined || props.onRename !== undefined || props.onDelete !== undefined;
 
@@ -116,13 +108,9 @@ function ThreadRow(props: ThreadRowProps): React.ReactNode {
           backgroundColor: selected ? tokens.elevated : hovered ? tokens.panel : undefined,
         }}
       >
-        <text>
+        <text wrapMode="none">
           <span fg={tokens.textDim}>{pinned ? ` ${NERD.pin} ` : "   "}</span>
-          {segments.map((segment, index) => (
-            <span key={index} fg={segment.fg}>
-              {segment.text}
-            </span>
-          ))}
+          <span fg={selected ? tokens.accent : tokens.textMuted}>{clippedTitle}</span>
         </text>
         <box style={{ flexGrow: 1 }} />
         {(hovered || menuOpen) && hasActions ? (

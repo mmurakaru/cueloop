@@ -25,6 +25,7 @@ export const Collapsed: Story = {
         selectedIndex={0}
         expandedIndex={null}
         onToggleExpand={noop}
+        onEditPrompt={() => {}}
         onEditMetadata={noop}
         onReset={noop}
         onAdd={noop}
@@ -43,6 +44,7 @@ export const RowExpanded: Story = {
         selectedIndex={1}
         expandedIndex={1}
         onToggleExpand={noop}
+        onEditPrompt={() => {}}
         onEditMetadata={noop}
         onReset={noop}
         onAdd={noop}

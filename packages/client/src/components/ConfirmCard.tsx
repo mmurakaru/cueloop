@@ -98,7 +98,6 @@ export function ConfirmCard({
 
   return (
     <Card
-      title=" send message "
       contentRows={CONFIRM_CONTENT_ROWS + (viewedSummary !== undefined ? 2 : 0)}
       borderColor={tokens.text}
       backgroundColor={tokens.elevated}

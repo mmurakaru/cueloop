@@ -1,5 +1,5 @@
 /**
- * Bordered rounded box with an optional title. The card owns the
+ * Bordered box with an optional title. The card owns the
  * height-derivation rule: its height is always the declared content row
  * count plus the two border rows, so layout math and the mounted box can
  * never drift apart - border-collapse bugs die here.
