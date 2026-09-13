@@ -3,11 +3,21 @@
 // opens it - so this ephemeral view lives only until that first note promotes it to a real thread.
 
 import React from "react";
-import { SCHEMA_VERSION, type Anchor, type ReviewSession } from "@cueloop/schema";
+import {
+  SCHEMA_VERSION,
+  type Anchor,
+  type AnnotationTarget,
+  type ReviewSession,
+} from "@cueloop/schema";
 import type { Theme } from "../theme";
 import type { QuickAction } from "../config";
-import type { ReviewController } from "../session-controller";
 import { AnnotatableFileView } from "./AnnotatableFileView";
+
+/** The controller slice this view needs: read a file, and route a comment to the workbench thread. */
+export interface WorkbenchCommenter {
+  repoReadFile(path: string): Promise<string | null>;
+  commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void>;
+}
 
 /** An empty, unsaved thread: it holds no notes, just enough shape for the annotation surface. */
 function draftThread(): ReviewSession {
@@ -26,8 +36,10 @@ function draftThread(): ReviewSession {
 
 export interface BareWorkbenchFileViewProps {
   path: string;
-  controller: ReviewController;
+  controller: WorkbenchCommenter;
   quickActions: QuickAction[];
+  /** Reports whether the composer is open, so the shell suspends its inbox keys while typing. */
+  onComposingChange?: (composing: boolean) => void;
   onExit: () => void;
   theme?: Theme;
 }
@@ -40,6 +52,7 @@ export function BareWorkbenchFileView(props: BareWorkbenchFileViewProps): React.
       session={draftThread()}
       quickActions={props.quickActions}
       observer={false}
+      onComposingChange={props.onComposingChange}
       onAddComment={(anchor: Anchor, body: string) =>
         void props.controller.commentOnWorkbench(
           anchor,

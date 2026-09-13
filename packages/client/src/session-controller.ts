@@ -1070,11 +1070,7 @@ class Controller implements ReviewController {
     return wire.id;
   }
 
-  async commentOnWorkbench(
-    anchor: Anchor,
-    target: AnnotationTarget,
-    body: string,
-  ): Promise<void> {
+  async commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void> {
     if (!this.snapshot.session) {
       if (this.client?.sessionWorkbench === undefined) return;
       const workbench = await this.client.sessionWorkbench(this.options.cwd ?? process.cwd());

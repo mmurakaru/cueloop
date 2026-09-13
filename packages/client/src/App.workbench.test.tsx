@@ -322,6 +322,38 @@ describe("the bare-launch welcome shell", () => {
     expect(setup.captureCharFrame()).toContain("README.md");
   });
 
+  test("the first comment in the bare shell creates and persists a per-repo workbench thread", async () => {
+    const setup = await renderWelcome();
+
+    // open a project file in the bare shell (no thread yet - nothing on disk)
+    expect(welcomeServer.core.sessionList().length).toBe(0);
+    await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
+    await waitForText(setup, "README.md");
+    const readme = locateText(setup, "README.md");
+    await setup.mockMouse.click(readme.column, readme.row);
+    await waitForText(setup, "edited in the working tree");
+
+    // comment on a line - the first note find-or-creates the workbench thread
+    const line = "edited in the working tree";
+    await dragText(setup, line, line, line.length);
+    await typeText(setup, "workbench note");
+    await pressKey(setup, "RETURN", { meta: true });
+
+    // the daemon persisted one per-repo workbench thread carrying the note
+    await waitForState(setup, () =>
+      welcomeServer.core.sessionList().some((thread) => thread.artifact.meta.workbench === true),
+    );
+    const workbench = welcomeServer.core
+      .sessionList()
+      .find((thread) => thread.artifact.meta.workbench === true)!;
+    expect(workbench.workspace.rootCommit).toBeTruthy();
+    await waitForState(setup, () =>
+      welcomeServer.core
+        .sessionGet(workbench.id)
+        .annotations.some((note) => note.body.includes("workbench note")),
+    );
+  });
+
   test("the changes tree lists the launch repo's working-tree changes", async () => {
     const setup = await renderWelcome();
 
