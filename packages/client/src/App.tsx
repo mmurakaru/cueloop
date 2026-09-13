@@ -878,6 +878,17 @@ export function App({
     dispatch({ type: "openSubmit" });
   };
 
+  // follows the reviewer: rides in the Changes pane when a zoom has dropped the Thread pane
+  const threadFooter = (
+    <ThreadFooter
+      repo={projectName(activeSession.workspace)}
+      branch={activeSession.workspace.branch}
+      onSubmit={onSubmitRequest}
+      canSubmit={canSubmitReview(isOwner, resolved, observer)}
+      theme={theme}
+    />
+  );
+
   return (
     <SlashSkillsContext.Provider value={skills}>
       <ThemeProvider theme={theme}>
@@ -969,13 +980,7 @@ export function App({
                   />
                 )}
               </box>
-              <ThreadFooter
-                repo={projectName(activeSession.workspace)}
-                branch={activeSession.workspace.branch}
-                onSubmit={onSubmitRequest}
-                canSubmit={canSubmitReview(isOwner, resolved, observer)}
-                theme={theme}
-              />
+              {threadFooter}
             </box>
           }
           changesOpen={workbench.changesOpen}
@@ -985,6 +990,7 @@ export function App({
           onToggleRight={workbench.toggleRight}
           projectMode={workbench.projectMode}
           zoomHideThread={workbench.zoomed}
+          changesFooter={threadFooter}
           changesPanel={
             <EditorGrid
               tree={workbench.grid}

@@ -80,6 +80,47 @@ describe("zoom icon in the shell", () => {
     }
   }
 
+  test("the footer rides the Changes pane only while the Thread pane is zoomed away", async () => {
+    async function footerVisible(zoomed: boolean): Promise<boolean> {
+      const setup = await testRender(
+        <AppShell
+          sidebarOpen={false}
+          onToggleSidebar={() => {}}
+          onOpenMenu={() => {}}
+          threadsPanel={<text>threads</text>}
+          threadTitle="thread"
+          threadPanel={<text>body</text>}
+          changesOpen
+          projectOpen
+          onToggleChanges={() => {}}
+          onToggleProject={() => {}}
+          onToggleRight={() => {}}
+          projectMode="changes"
+          zoomHideThread={zoomed}
+          projectPanel={<text>project</text>}
+          changesFooter={<text>send message</text>}
+          changesPanel={<text>diff</text>}
+        />,
+        { width: 160, height: 8 },
+      );
+
+      allowEventLoopUpdates();
+      await setup.waitForVisualIdle();
+      const shown = setup.captureCharFrame().includes("send message");
+
+      setup.renderer.destroy();
+
+      return shown;
+    }
+
+    // Act
+    const [zoomed, unzoomed] = await Promise.all([footerVisible(true), footerVisible(false)]);
+
+    // Assert - the Thread pane carries the footer normally, so it must not double up in Changes
+    expect(zoomed).toBe(true);
+    expect(unzoomed).toBe(false);
+  });
+
   test("the icon clears the Project border by its padding in both states", async () => {
     // Act
     const setupColumns = await Promise.all([

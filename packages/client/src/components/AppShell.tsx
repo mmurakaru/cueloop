@@ -37,6 +37,8 @@ export interface AppShellProps {
   projectMode: ProjectPanelMode;
   /** The Changes editor grid; rendered only when changesOpen. */
   changesPanel?: React.ReactNode;
+  /** The thread footer, shown beneath the Changes grid while the Thread pane is zoomed away. */
+  changesFooter?: React.ReactNode;
   projectPanel: React.ReactNode;
   /** Hide the Thread pane so Changes fills the middle (zoom); the sidebars stay. */
   zoomHideThread?: boolean;
@@ -90,6 +92,7 @@ export function AppShell({
   onToggleRight,
   projectMode,
   changesPanel,
+  changesFooter,
   projectPanel,
   zoomHideThread,
   footer,
@@ -227,7 +230,8 @@ export function AppShell({
                   borderColor: tokens.border,
                 }}
               >
-                {changesPanel}
+                <box style={{ flexGrow: 1, minHeight: 0 }}>{changesPanel}</box>
+                {zoomHideThread ? changesFooter : null}
               </box>
             ) : null}
             {projectOpen ? (
