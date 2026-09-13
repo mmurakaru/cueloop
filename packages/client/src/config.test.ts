@@ -521,6 +521,7 @@ describe("the /lgtm default quick action", () => {
     const lgtm = DEFAULT_QUICK_ACTIONS.find((action) => action.prompt.toLowerCase() === "lgtm");
 
     expect(lgtm).toBeDefined();
-    expect(quickActionBody(lgtm!)).toContain("This looks good to me.");
+    // the reference is /lgtm, so the label is the prompt; it expands like every action (label, then note)
+    expect(quickActionBody(lgtm!)).toBe("LGTM\n\nThis looks good to me.");
   });
 });

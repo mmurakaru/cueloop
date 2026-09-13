@@ -6,8 +6,8 @@
  * the app owns the actions, the selection, and which row is expanded.
  */
 
-import React, { useRef } from "react";
-import type { KeyBinding, TextareaRenderable } from "@opentui/core";
+import React, { useEffect, useRef } from "react";
+import type { KeyBinding, ScrollBoxRenderable, TextareaRenderable } from "@opentui/core";
 import type { QuickAction } from "../config";
 import type { Theme } from "../theme";
 import { ScrollArea } from "./ScrollArea";
@@ -41,6 +41,11 @@ export function QuickActionsEditor({
   theme,
 }: QuickActionsEditorProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollChildIntoView(`action-row-${selectedIndex}`);
+  }, [selectedIndex]);
 
   return (
     <box style={{ flexDirection: "column", flexGrow: 1 }}>
@@ -53,10 +58,11 @@ export function QuickActionsEditor({
         </box>
       </box>
       <box style={{ height: 1 }} />
-      <ScrollArea>
+      <ScrollArea scrollRef={scrollRef}>
         {actions.map((action, index) => (
           <ActionRow
             key={index}
+            rowId={`action-row-${index}`}
             action={action}
             isSelected={index === selectedIndex}
             isExpanded={index === expandedIndex}
@@ -66,6 +72,7 @@ export function QuickActionsEditor({
           />
         ))}
         <box
+          id={`action-row-${actions.length}`}
           style={{ backgroundColor: selectedIndex === actions.length ? tokens.border : undefined }}
           onMouseUp={onAdd}
         >
@@ -77,6 +84,7 @@ export function QuickActionsEditor({
 }
 
 function ActionRow({
+  rowId,
   action,
   isSelected,
   isExpanded,
@@ -84,6 +92,7 @@ function ActionRow({
   onEditMetadata,
   theme,
 }: {
+  rowId: string;
   action: QuickAction;
   isSelected: boolean;
   isExpanded: boolean;
@@ -95,7 +104,7 @@ function ActionRow({
   const inputRef = useRef<TextareaRenderable | null>(null);
 
   return (
-    <box style={{ flexDirection: "column" }}>
+    <box id={rowId} style={{ flexDirection: "column" }}>
       <box
         style={{ backgroundColor: isSelected ? tokens.border : undefined }}
         onMouseUp={onToggleExpand}
