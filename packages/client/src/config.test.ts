@@ -391,7 +391,7 @@ describe("quick actions ([[actions]])", () => {
 
     // Assert
     expect(config.actions).toEqual(DEFAULT_QUICK_ACTIONS);
-    expect(config.actions).toHaveLength(7);
+    expect(config.actions).toHaveLength(8);
   });
 
   test("configured actions replace the defaults, with optional metadata", () => {
@@ -532,5 +532,15 @@ describe("[authors] rename map", () => {
     persistAuthorName("SHA256:abc+def/gh", "Alexa", path);
     expect(loadConfig({ userConfigPath: path }).authors["SHA256:abc+def/gh"]).toBe("Alexa");
     rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("the /lgtm default quick action", () => {
+  test("expands to a terse approving note", () => {
+    const lgtm = DEFAULT_QUICK_ACTIONS.find((action) => action.prompt.toLowerCase() === "lgtm");
+
+    expect(lgtm).toBeDefined();
+    // the reference is /lgtm, so the label is the prompt; it expands like every action (label, then note)
+    expect(quickActionBody(lgtm!)).toBe("LGTM\n\nThis looks good to me.");
   });
 });

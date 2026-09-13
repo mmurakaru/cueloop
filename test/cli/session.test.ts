@@ -302,9 +302,10 @@ describe("cueloop session (black box)", () => {
     );
 
     // Assert
-    expect(actions).toHaveLength(7);
+    expect(actions).toHaveLength(8);
     expect(actions[0]).toMatchObject({ index: 1, prompt: "Zoom out, research in depth" });
     expect(actions[2]).toMatchObject({ index: 3, prompt: "Out of scope" });
+    expect(actions[7]).toMatchObject({ index: 8, prompt: "LGTM" });
   });
 
   test("annotate --reply-to borrows the root's anchor and links the reply to it", async () => {

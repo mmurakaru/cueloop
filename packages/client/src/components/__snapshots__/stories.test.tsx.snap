@@ -32,7 +32,7 @@ exports[`stories catalog Chrome/AnnotationCards/SlashPaletteOpen renders, snapsh
      /out-of-scope                This is out of scope for the task, so capture it as a fo
      /let-s-chat-about-this       Do not implement yet, and surface the open questions and
      /prototype-this              Build a throwaway prototype to answer the question, skip
-   (2/7)                                                                                  
+   (2/8)                                                                                  
                                                                                           
                                                                                           
 "
@@ -1726,9 +1726,9 @@ exports[`stories catalog Chrome/QuickActionsEditor/Collapsed renders, snapshots,
     Characterize the current behavior with test…      
   ▸ Consider existing repo patterns                   
     Follow the nearest existing pattern in this…      
+  ▸ LGTM                                              
+    This looks good to me.                            
   + Add action                                        
-                                                      
-                                                      
                                                       
                                                       
 "
@@ -1741,7 +1741,7 @@ exports[`stories catalog Chrome/QuickActionsEditor/RowExpanded renders, snapshot
   ▸ Zoom out, research in depth                       
     Research the broader problem, prior art, an…      
   ▾ Restate simplified                                
-    > Restate this as the simplest thing that works an
+    > Restate this as the simplest thing that works   
   ▸ Out of scope                                      
     This is out of scope for the task, so captu…      
   ▸ Let's chat about this                             
@@ -1752,9 +1752,9 @@ exports[`stories catalog Chrome/QuickActionsEditor/RowExpanded renders, snapshot
     Characterize the current behavior with test…      
   ▸ Consider existing repo patterns                   
     Follow the nearest existing pattern in this…      
+  ▸ LGTM                                              
+    This looks good to me.                            
   + Add action                                        
-                                                      
-                                                      
                                                       
                                                       
 "
