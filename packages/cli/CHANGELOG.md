@@ -1,5 +1,42 @@
 # cueloop
 
+## 0.1.0-alpha.70
+
+### Minor Changes
+
+- [#394](https://github.com/mmurakaru/cueloop/pull/394) [`9d324f0`](https://github.com/mmurakaru/cueloop/commit/9d324f07842abbcae957c3f12920edf771711180) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Comment on any project file, not just a diff. Open a file from the Changes tree and select a line to leave a comment anchored to it, the same gesture as a plan or diff. The file reads with ordinary line numbers; your notes ride along with the file.
+
+- [#393](https://github.com/mmurakaru/cueloop/pull/393) [`8a1b082`](https://github.com/mmurakaru/cueloop/commit/8a1b082500348159fe2adb9caba7977960380ec1) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Comment on the working-tree diff from any review. The Changes panel is annotatable no matter how you opened the review, not just from `cueloop diff`: a note there attaches to the file and line it marks and re-anchors as the diff changes. Each surface shows only its own notes - the plan keeps its notes, the diff keeps the ones left on it.
+
+- [#395](https://github.com/mmurakaru/cueloop/pull/395) [`86c0f23`](https://github.com/mmurakaru/cueloop/commit/86c0f23dc164e3e1d8ef3806e1b472e10687acfe) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Feedback groups notes by where you left them. When you submit, the document your agent reads keeps the artifact's notes in one section and gives each file its own section, so a comment left on a file comes back beside that file rather than mixed into the plan.
+
+- [#396](https://github.com/mmurakaru/cueloop/pull/396) [`fa2811e`](https://github.com/mmurakaru/cueloop/commit/fa2811e21cf68e8c355d645f93df741269800dd9) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Threads are stored per project on disk. Each thread is an append-only log under a folder keyed by the repository's identity, so your review history is organized by project and survives moving or re-cloning the repo. Existing reviews migrate automatically on first launch.
+
+- [#404](https://github.com/mmurakaru/cueloop/pull/404) [`3bc9c8c`](https://github.com/mmurakaru/cueloop/commit/3bc9c8cc2cf93050413eaddc38035b5b9a5ac538) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A bare `cueloop` launch is now a real workbench: browse the current checkout and your project files freely, and the first comment you leave lazily creates a per-repo thread that persists across restarts and is shareable like any review. Nothing is written to disk until you comment, and the thread is keyed by the repository's identity, so every launch in that repo reattaches to the same workbench.
+
+- [#408](https://github.com/mmurakaru/cueloop/pull/408) [`e49bf3d`](https://github.com/mmurakaru/cueloop/commit/e49bf3dedbcbebf599c9f05abf84945fa423a8bf) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Added a built-in `/lgtm` quick action - a quick thumbs-up. Picking it inserts `/lgtm`, which expands for the agent to a terse "LGTM - This looks good to me." The quick-actions settings editor now scrolls and keeps the selected row in view, so a longer action list never overflows the dialog.
+
+- [#385](https://github.com/mmurakaru/cueloop/pull/385) [`f91175e`](https://github.com/mmurakaru/cueloop/commit/f91175eda0712eaa3cfb96ce3a21a386a484e08e) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Make the `prototype` review a component design doc by default. `cueloop prototype <file.md>` opens a Markdown proposal - the component's prop API, how it composes from existing primitives, and the callstack it sits in - reviewed as text, so annotations anchor to lines the same way a plan or diff does. The prototype skill prompts the agent to author those three sections.
+
+  Rendering an HTML mockup as terminal pixels is now an opt-in experimental mode (`[experimental] prototype_pixels`); its renderer is code-split so none of the pixel/browser path loads into the runtime unless the flag is on. A closed right region now moves its reopen toggle into the header instead of leaving an empty gutter, and the landing page shots are refreshed to the current terminal UI.
+
+  Scrollbars are now overlays across every view: the bar appears while a surface is scrolling and hides once it goes idle, instead of sitting permanently on any overflowing pane. Reviewer decisions are no longer called "verdicts" in the copy.
+
+- [#407](https://github.com/mmurakaru/cueloop/pull/407) [`3af5f02`](https://github.com/mmurakaru/cueloop/commit/3af5f028305a3d96c975510e5d88f70869b8408f) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The "/" palette now lists your user-level skills alongside cueloop's quick actions. Skills are discovered from `~/.agents/skills` by default (each `<name>/SKILL.md` with a name and description in its frontmatter); set `[skills] path` in your config to point elsewhere. Picking a skill inserts its `/name` and sends it to the agent as-is, since any harness already has it; a quick action of the same name takes precedence.
+
+- [#405](https://github.com/mmurakaru/cueloop/pull/405) [`ac85fc2`](https://github.com/mmurakaru/cueloop/commit/ac85fc25c409704ecf39001fc4f14996be601fbf) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Quick actions in the "/" palette insert a compact reference (a highlighted `/name`) instead of dumping the full prompt into your comment. The reference stays in the comment for you to read, and expands to its full text only when the review is sent to the agent. The palette now lays the name and description out in two columns (the description no longer wraps under the name), ranks matches by a fuzzy score, and tab-completes.
+
+- [#397](https://github.com/mmurakaru/cueloop/pull/397) [`f22619c`](https://github.com/mmurakaru/cueloop/commit/f22619c1208d7ce84f571830b796ec1bea5c1e40) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The welcome page is a live comment playground. Select its text and start typing to leave a comment, exactly as you would on a file or a diff, and type "/" while composing to see the quick actions and skills. Notes made here are a warm-up: they show inline but are never saved.
+
+### Patch Changes
+
+- [#410](https://github.com/mmurakaru/cueloop/pull/410) [`0749d76`](https://github.com/mmurakaru/cueloop/commit/0749d7659a0628af158ffabea95083aa2ff53b28) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Rename the internal `ReviewSession` type to `Thread`, the product's word for the artifact you review: the schema interface, the daemon store and record validators, and the client controller module all follow. The JSON-RPC `session.*` methods and the `cueloop session` CLI verbs are unchanged, so installed agent adapters and scripts keep working. `session.comment` joins as the primary annotate method; `session.annotate` stays as an accepted alias.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.70
+  - @cueloop/client@0.1.0-alpha.70
+  - @cueloop/daemon@0.1.0-alpha.70
+  - @cueloop/schema@0.1.0-alpha.70
+
 ## 0.1.0-alpha.69
 
 ### Patch Changes
