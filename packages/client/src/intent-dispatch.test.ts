@@ -97,6 +97,7 @@ function baseController(): ReviewController {
     restoreCuration: mock(),
     edit: mock(),
     annotate: mock(() => undefined),
+    addComment: mock(() => undefined),
     reply: mock(() => undefined),
     annotatePrototype: mock(() => undefined),
     updateAnnotation: mock(),

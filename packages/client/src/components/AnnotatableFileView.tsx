@@ -81,11 +81,12 @@ export function AnnotatableFileView(props: AnnotatableFileViewProps): React.Reac
   }
 
   const rows = fileContentsRows(props.path, loaded.lines.join("\n"));
-  // the file's own notes: a file target for this path, whether it was left on the diff or here
+  // the file's worktree notes: these rows are the current file, so a head-side (deleted-line) note
+  // must stay orphaned here rather than rebind to similar surviving text
   const fileNotes = props.session.annotations.filter((annotation) => {
     const target = annotationTarget(annotation);
 
-    return target.kind === "file" && target.path === props.path;
+    return target.kind === "file" && target.path === props.path && target.rev === "worktree";
   });
 
   return (

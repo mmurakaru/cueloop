@@ -62,4 +62,41 @@ describe("AnnotatableFileView", () => {
 
     setup.renderer.destroy();
   });
+
+  test("a head-side (deleted-line) note never rebinds onto the current file", async () => {
+    const session = planSession();
+    // a note left on the removed side of this file: the worktree view must not show it
+    session.annotations = [
+      {
+        id: "h1",
+        kind: "comment",
+        anchor: { quote: "return a + b", prefix: "", suffix: "" },
+        target: { kind: "file", path: "src/add.ts", rev: "head" },
+        body: "deleted-side note",
+        createdAt: "2026-01-01T00:00:00Z",
+      },
+    ];
+    const setup = await testRender(
+      <AnnotatableFileView
+        path="src/add.ts"
+        loadContents={() => Promise.resolve(SAMPLE)}
+        session={session}
+        quickActions={[]}
+        observer={false}
+        onAddComment={noop}
+        onReply={noop}
+        onUpdateAnnotation={noop}
+        onExit={noop}
+        theme={DARK}
+      />,
+      { width: 64, height: 12 },
+    );
+
+    await waitForText(setup, "return a + b");
+
+    // Assert - the current file shows, but the head-side note is not attached to it
+    expect(setup.captureCharFrame()).not.toContain("deleted-side note");
+
+    setup.renderer.destroy();
+  });
 });
