@@ -22,6 +22,12 @@ export interface Theme {
   markCommentBackground: string;
   insertedForeground: string;
   deletedForeground: string;
+  /** The band behind a whole added line, and the stronger tint under its intra-line changed words. */
+  insertedBackground: string;
+  insertedEmphasisBackground: string;
+  /** The band behind a whole removed line, and the stronger tint under its intra-line changed words. */
+  deletedBackground: string;
+  deletedEmphasisBackground: string;
   /** Layer behind centered dialogs; transparent keeps the session visible. */
   backdrop: string;
 }
@@ -42,6 +48,10 @@ export function dimmedTheme(theme: Theme): Theme {
     blue: theme.textDim,
     insertedForeground: theme.textDim,
     deletedForeground: theme.textDim,
+    insertedBackground: theme.panel,
+    insertedEmphasisBackground: theme.elevated,
+    deletedBackground: theme.panel,
+    deletedEmphasisBackground: theme.elevated,
   };
 }
 
@@ -63,6 +73,10 @@ export const DARK: Theme = {
   markCommentBackground: "#3d2a2e",
   insertedForeground: "#62d96b",
   deletedForeground: "#ff6b6b",
+  insertedBackground: "#16321d",
+  insertedEmphasisBackground: "#245c30",
+  deletedBackground: "#341c1f",
+  deletedEmphasisBackground: "#5a2a2e",
   backdrop: "transparent",
 };
 
@@ -89,5 +103,9 @@ export const LIGHT: Theme = {
   markCommentBackground: "#f2e2e8",
   insertedForeground: "#2f8a3e",
   deletedForeground: "#c0392b",
+  insertedBackground: "#d8f5dd",
+  insertedEmphasisBackground: "#a9e6b6",
+  deletedBackground: "#fbdcdc",
+  deletedEmphasisBackground: "#f5b7b7",
   backdrop: "transparent",
 };

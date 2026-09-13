@@ -92,7 +92,7 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
     { commands: ["cancel_overlay"], label: "cancel" },
   ],
   submit: [
-    { commands: ["cycle_verdict_left", "cycle_verdict_right"], label: "verdict", labelFirst: true },
+    { commands: ["cycle_verdict_left", "cycle_verdict_right"], label: "decision", labelFirst: true },
     { commands: ["submit_verdict"], label: "submit" },
     { commands: ["cancel_submit"], label: "cancel" },
   ],

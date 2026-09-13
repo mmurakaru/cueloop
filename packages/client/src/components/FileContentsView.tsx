@@ -1,8 +1,9 @@
 // A Changes file tab in contents mode: a workspace file rendered read-only with line numbers.
-// Loads on mount and whenever the path changes; a null read shows a "could not read" hint.
+// Loads on mount and whenever the path changes; a null read renders a centered "File deleted".
 // Syntax highlighting comes from the native code renderable (tree-sitter), with the language
 // auto-detected from the path; unknown languages simply render unstyled.
 
+import { ScrollArea } from "./ScrollArea";
 import React, { useEffect, useRef, useState } from "react";
 import type { CodeRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
@@ -60,16 +61,20 @@ export function FileContentsView({
     );
   }
   if (loaded.lines === null) {
+    // a file that no longer reads in the Changes/Project view is one the working tree deleted;
+    // the bottom pad lifts the text one row so it lines up with the footer-shortened thread empty state
     return (
-      <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
-        <text fg={tokens.textDim}>{`could not read ${path}`}</text>
+      <box
+        style={{ flexGrow: 1, alignItems: "center", justifyContent: "center", paddingBottom: 2 }}
+      >
+        <text fg={tokens.textDim}>File deleted</text>
       </box>
     );
   }
   const content = loaded.lines.join("\n");
 
   return (
-    <scrollbox style={{ flexGrow: 1 }} focused={false}>
+    <ScrollArea>
       <line-number
         target={codeTarget ?? undefined}
         showLineNumbers
@@ -87,6 +92,6 @@ export function FileContentsView({
           style={{ wrapMode: "none", fg: tokens.text }}
         />
       </line-number>
-    </scrollbox>
+    </ScrollArea>
   );
 }

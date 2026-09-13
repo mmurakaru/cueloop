@@ -26,8 +26,9 @@ export interface IntegrationsConfig {
 /** Post-submit behavior: "off" prompts, 0 closes instantly, N counts down. */
 export type AutoClose = "off" | number;
 
-/** How the Changes diff renders: one inline column, or old|new side by side (only when zoomed). */
-export type DiffViewMode = "unified" | "split";
+/** How the Changes diff renders when wide: old|new side by side, or one stacked column. A narrow
+ *  (unzoomed) pane has no room for two columns, so it is always stacked regardless of this choice. */
+export type DiffViewMode = "split" | "stacked";
 
 /** One marker-popover quick action: a preset comment body, plus optional extra lines. */
 export interface QuickAction {
@@ -99,7 +100,7 @@ export interface CueloopConfig {
     editor?: string;
     /** The selected theme preset name; its tokens are the base for `theme`, before any `[theme]` overrides. */
     theme: ThemeName;
-    /** How the Changes diff renders when zoomed: one inline column or old|new side by side. */
+    /** How the Changes diff renders when wide: old|new side by side or one stacked column. */
     diffView: DiffViewMode;
     /** Session ids the user has pinned to the top of the sidebar; client-local view state. */
     pins: string[];
@@ -109,6 +110,13 @@ export interface CueloopConfig {
   /** Marker-popover quick actions ([[actions]] tables); the 5 defaults when unset. */
   actions: QuickAction[];
   integrations: IntegrationsConfig;
+  /** Opt-in experimental features ([experimental] table); all default off. */
+  experimental: ExperimentalConfig;
+}
+
+export interface ExperimentalConfig {
+  /** Render a prototype as a pixel mockup (kitty graphics) instead of the default markdown design doc. */
+  prototypePixels: boolean;
 }
 
 /** Every action in the grammar, with its default binding(s). */
@@ -143,6 +151,7 @@ const ConfigDocumentSchema = v.object({
   keys: v.optional(v.unknown()),
   theme: v.optional(v.unknown()),
   ui: v.optional(v.unknown()),
+  experimental: v.optional(v.unknown()),
 });
 
 const QuickActionSchema = v.object({
@@ -165,7 +174,7 @@ const UiSchema = v.object({
   ),
   editor: v.fallback(v.optional(v.string()), undefined),
   theme: v.fallback(v.optional(v.string()), undefined),
-  diff_view: v.fallback(v.optional(v.picklist(["unified", "split"])), undefined),
+  diff_view: v.fallback(v.optional(v.picklist(["split", "stacked"])), undefined),
   pins: v.fallback(v.optional(v.array(v.string())), undefined),
 });
 const ObsidianSchema = v.object({
@@ -176,6 +185,9 @@ const ObsidianSchema = v.object({
   exportOn: v.fallback(v.optional(v.picklist(["approve", "resolve", "manual"])), undefined),
 });
 const IntegrationsSchema = v.object({ obsidian: v.optional(ObsidianSchema) });
+const ExperimentalSchema = v.object({
+  prototype_pixels: v.fallback(v.optional(v.boolean()), undefined),
+});
 const ThemeOverridesSchema = v.record(v.string(), v.unknown());
 
 function isThemeToken(token: string): token is keyof Theme {
@@ -225,12 +237,14 @@ function layer(
     authors: { ...base.authors },
     actions: [...base.actions],
     integrations: { obsidian: { ...base.integrations.obsidian } },
+    experimental: { ...base.experimental },
   };
   const actions = parseActions(raw.actions);
   const authors = v.safeParse(AuthorsSchema, raw.authors);
   const keys = v.safeParse(KeysSchema, raw.keys);
   const ui = v.safeParse(UiSchema, raw.ui);
   const integrations = v.safeParse(IntegrationsSchema, raw.integrations);
+  const experimental = v.safeParse(ExperimentalSchema, raw.experimental);
 
   if (actions) out.actions = actions;
   if (authors.success) {
@@ -257,6 +271,9 @@ function layer(
   if (integrations.success && integrations.output.obsidian) {
     mergeObsidian(out.integrations.obsidian, integrations.output.obsidian);
   }
+  if (experimental.success && experimental.output.prototype_pixels !== undefined) {
+    out.experimental.prototypePixels = experimental.output.prototype_pixels;
+  }
 
   return out;
 }
@@ -271,12 +288,13 @@ export function loadConfig(
     ui: {
       autoClose: "off",
       theme: DEFAULT_THEME_NAME,
-      diffView: "unified",
+      diffView: "split",
       pins: [],
     },
     authors: {},
     actions: [...DEFAULT_QUICK_ACTIONS],
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
+    experimental: { prototypePixels: false },
   };
   // Theme name and per-token overrides are separate concerns, composed once
   // after all layers: the last file to set [ui] theme wins, and every [theme]

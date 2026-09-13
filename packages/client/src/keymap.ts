@@ -372,7 +372,7 @@ function navigationIntent(action: string | undefined): Intent[] | null {
 }
 
 /** Ungated view toggles in the diff: right folds a file to its band, left unfolds it, s flips
- *  unified/split (split lays out only when the Changes pane is zoomed). */
+ *  split/stacked (split lays out only when the Changes pane is wide/zoomed). */
 function viewToggleIntent(action: string | undefined): Intent[] | null {
   if (action === "collapse_file") return [{ type: "foldFile" }];
   if (action === "expand_file") return [{ type: "unfoldFile" }];

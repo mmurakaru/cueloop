@@ -22,7 +22,8 @@ export interface WorkspaceKey {
  * What kind of artifact a review session holds. `plan` and `reply` are both
  * markdown documents (see isMarkdownArtifact) - a plan is a proposal written
  * forward, a reply is the agent's previous message pulled back for review.
- * `diff` is a unified-diff patch; `prototype` is a rendered HTML page.
+ * `diff` is a unified-diff patch; `prototype` is a component design doc (API /
+ * Composition / Callstack) in markdown, with an opt-in experimental pixel mode.
  *
  * One runtime union: every consumer that names the supported set - daemon
  * wire validation, CLI flag parsing, adapter tool schemas - derives from this
@@ -38,13 +39,15 @@ export function isArtifactType(value: string): value is ArtifactType {
 }
 
 /**
- * Markdown artifacts (plan, reply) are block-parsed and quote-anchored, so they
- * share the plan render path, first-heading title derivation, and revision
- * drift-assist. A diff (a patch) and a prototype (HTML/DOM) do not - keep this
- * the one place that names the set, so a new markdown primitive joins here once.
+ * Markdown artifacts (plan, reply, prototype) are block-parsed and quote-anchored,
+ * so they share the plan render path, first-heading title derivation, and revision
+ * drift-assist. A prototype is a component design doc (API / Composition / Callstack)
+ * by default; its opt-in experimental pixel mode is a client render override, not a
+ * different artifact. A diff (a patch) does not - keep this the one place that names
+ * the set, so a new markdown primitive joins here once.
  */
 export function isMarkdownArtifact(type: ArtifactType): boolean {
-  return type === "plan" || type === "reply";
+  return type === "plan" || type === "reply" || type === "prototype";
 }
 
 export interface ArtifactMeta {

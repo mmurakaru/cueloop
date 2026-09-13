@@ -47,6 +47,34 @@ export interface AppShellProps {
   projectWidth?: number;
 }
 
+/** The right region's reserved width: the open project pane, nothing when the region is closed, else the collapsed rail. */
+function rightRegionColumns(
+  projectOpen: boolean,
+  projectWidth: number,
+  rightRegionClosed: boolean,
+  collapsedRailWidth: number,
+): number {
+  if (projectOpen) return projectWidth;
+
+  return rightRegionClosed ? 0 : collapsedRailWidth;
+}
+
+/** The Thread header's right cluster: the owner actions, plus the reopen control when the region is closed. */
+function threadHeaderRight(
+  threadActions: React.ReactNode,
+  reopenControl: React.ReactNode,
+  showReopen: boolean,
+): React.ReactNode {
+  if (!showReopen) return threadActions;
+
+  return (
+    <box style={{ flexDirection: "row", alignItems: "center" }}>
+      {threadActions ? <box style={{ paddingRight: 2 }}>{threadActions}</box> : null}
+      {reopenControl}
+    </box>
+  );
+}
+
 export function AppShell({
   sidebarOpen,
   onToggleSidebar,
@@ -72,15 +100,21 @@ export function AppShell({
 }: AppShellProps): React.ReactNode {
   const tokens = theme ?? DARK;
   const { width: terminalWidth } = useTerminalDimensions();
+  // with both panels closed the right region collapses to nothing: the reopen toggle
+  // rides the thread header, and the middle reclaims the width the rail would have taken
+  const rightRegionClosed = !projectOpen && !changesOpen;
   // Thread and Changes would otherwise split the middle as two flexBasis-0 items, and Yoga adds the
   // Changes left border on top of its share: at even widths the halves come out fractional, the
   // Changes side rounds up, and the row overflows a cell under the Project border. Sizing the Thread
   // pane to a whole number leaves Changes the lone flex item, which lays out exactly.
   const collapsedRailWidth = 4;
-  const middleWidth =
-    terminalWidth -
-    (sidebarOpen ? threadsWidth : 0) -
-    (projectOpen ? projectWidth : collapsedRailWidth);
+  const rightRegionWidth = rightRegionColumns(
+    projectOpen,
+    projectWidth,
+    rightRegionClosed,
+    collapsedRailWidth,
+  );
+  const middleWidth = terminalWidth - (sidebarOpen ? threadsWidth : 0) - rightRegionWidth;
   const threadPaneWidth =
     changesOpen && !zoomHideThread ? Math.max(20, Math.floor(middleWidth / 2)) : undefined;
 
@@ -127,6 +161,21 @@ export function AppShell({
     </box>
   );
 
+  // the reopen control - a divider tick then the toggle - shared by the collapsed
+  // rail and, when the rail is suppressed, the thread header
+  const reopenRightControl = (
+    <>
+      <text fg={tokens.border}>{"│"}</text>
+      <IconButton
+        glyph={NERD.sidebarRightOff}
+        onPress={onToggleRight}
+        tip="Toggle Right Sidebar"
+        marginLeft={1}
+        theme={tokens}
+      />
+    </>
+  );
+
   return (
     <box
       style={{
@@ -153,7 +202,8 @@ export function AppShell({
                     {threadTitle ? <text fg={tokens.textDim}>{threadTitle}</text> : null}
                   </box>
                 }
-                headerRight={threadActions}
+                // with the region closed, the reopen toggle rides the thread header instead of an empty column
+                headerRight={threadHeaderRight(threadActions, reopenRightControl, rightRegionClosed)}
                 theme={tokens}
               >
                 {threadPanel}
@@ -186,8 +236,8 @@ export function AppShell({
               >
                 {projectPanel}
               </PanelColumn>
-            ) : (
-              // collapsed: a divider tick above the continuous header underline holds the reopen toggle;
+            ) : rightRegionClosed ? null : (
+              // Changes open but Project closed: a divider tick above the continuous header underline holds the reopen toggle;
               // the rule lives in the header only, never running the pane's full height. The extra column
               // of right padding keeps the reopen icon off the terminal's last column, which squeezes it
               <box style={{ flexDirection: "column", width: 4 }}>
@@ -204,14 +254,7 @@ export function AppShell({
                     borderColor: tokens.border,
                   }}
                 >
-                  <text fg={tokens.border}>{"│"}</text>
-                  <IconButton
-                    glyph={NERD.sidebarRightOff}
-                    onPress={onToggleRight}
-                    tip="Toggle Right Sidebar"
-                    marginLeft={1}
-                    theme={tokens}
-                  />
+                  {reopenRightControl}
                 </box>
               </box>
             )}

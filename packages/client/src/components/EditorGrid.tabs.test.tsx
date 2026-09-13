@@ -39,6 +39,19 @@ describe("visibleTabWindow", () => {
     // Act / Assert
     expect(visibleTabWindow(wide, 0, 0, 10)).toEqual({ first: 0, end: 1 });
   });
+
+  test("the comment badge counts toward a tab's width, so a commented run does not overflow", () => {
+    // Arrange - three 9-cell tabs fit a 27-cell strip exactly with no badge
+    const three = ["aaaa", "bbbb", "cccc"].map((name) => fileTab(name, name, "diff"));
+
+    // Act - without badges all three fit; a ` ● 2` badge on each widens them past the strip
+    const bare = visibleTabWindow(three, 0, 0, 27);
+    const badged = visibleTabWindow(three, 0, 0, 27, () => 2);
+
+    // Assert - the badge width narrows the window rather than clipping the last tab
+    expect(bare.end).toBe(3);
+    expect(badged.end).toBeLessThan(3);
+  });
 });
 
 const NAMES = [
@@ -90,8 +103,8 @@ describe("editor tab strip", () => {
     expect(row).toContain("Changes ");
     expect(row).toContain("AppShell.tsx ");
     expect(row).toContain("DiffContentView.tsx ");
-    // and the header controls sit at the right edge, past the clipped strip
-    expect(row.trimEnd().endsWith(`search  ${NERD.zoom}`)).toBe(true);
+    // and the header controls sit at the right edge, past the clipped strip (search is out for now)
+    expect(row.trimEnd().endsWith(NERD.zoom)).toBe(true);
   });
 
   test("the strip scrolls to reveal the active tab", async () => {

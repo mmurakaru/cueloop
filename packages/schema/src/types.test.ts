@@ -29,11 +29,11 @@ describe("verdictAllows", () => {
 });
 
 describe("isMarkdownArtifact", () => {
-  test("plan and reply are markdown; diff and prototype are not", () => {
+  test("plan, reply, and prototype are markdown; diff is not", () => {
     expect(isMarkdownArtifact("plan")).toBe(true);
     expect(isMarkdownArtifact("reply")).toBe(true);
+    expect(isMarkdownArtifact("prototype")).toBe(true);
     expect(isMarkdownArtifact("diff")).toBe(false);
-    expect(isMarkdownArtifact("prototype")).toBe(false);
   });
 });
 

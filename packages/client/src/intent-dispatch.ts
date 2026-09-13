@@ -113,7 +113,7 @@ export interface IntentDispatchDeps {
   selectCardFromDocument: (annotationId: string) => void;
   runEditorHandOff: () => void;
   openCardEdit: (annotationId: string) => void;
-  /** Flip unified/split diff and persist it (App-owned); split lays out only when zoomed. */
+  /** Flip split/stacked diff and persist it (App-owned); split lays out only when wide/zoomed. */
   toggleDiffView: () => void;
 }
 

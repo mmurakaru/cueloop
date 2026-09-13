@@ -249,7 +249,7 @@ describe("no-thread shell", () => {
     // Assert - the same shell header, the disposable Welcome tab, and the pending thread
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("Welcome to cueloop");
+    expect(frame).toContain("Getting started");
     expect(frame).toContain("Migration Plan");
     expect(frame).not.toContain("· resume"); // the bespoke inbox header is retired
 
@@ -269,7 +269,7 @@ describe("no-thread shell", () => {
     });
     const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
-    await waitForText(setup, "Welcome to cueloop");
+    await waitForText(setup, "Getting started");
     await waitForText(setup, "Other Plan"); // the sidebar opens by default here
 
     // Act - open the thread under the cursor
@@ -308,12 +308,12 @@ describe("no-thread shell", () => {
     // Arrange
     const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
-    await waitForText(setup, "Welcome to cueloop");
+    await waitForText(setup, "Getting started");
 
     // Assert - Welcome fills the thread pane (not a Changes tab); the right region stays collapsed
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("Welcome to cueloop");
+    expect(frame).toContain("Getting started");
     expect(frame).not.toContain("Changes"); // the Changes editor is closed on a bare launch
     expect(frame).toContain("Migration Plan"); // the sidebar lists the pending thread
   });
@@ -322,7 +322,7 @@ describe("no-thread shell", () => {
     // Arrange
     const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
-    await waitForText(setup, "Welcome to cueloop");
+    await waitForText(setup, "Getting started");
 
     // Act - open the settings dialog from the top-left gear (the Threads panel header, row 0)
     await setup.mockMouse.click(1, 0);

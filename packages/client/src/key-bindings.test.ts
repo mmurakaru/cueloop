@@ -115,7 +115,7 @@ describe("getActiveKeys-generated status hints", () => {
 
   test("submit hint", () => {
     expect(bindings({ overlay: "submit" }).statusHint("submit")).toBe(
-      "verdict ←/→ · enter submit · esc cancel",
+      "decision ←/→ · enter submit · esc cancel",
     );
   });
 

@@ -126,19 +126,17 @@ describe("loadConfig", () => {
     }
   });
 
-  test("[ui] diff_view defaults to unified and parses split", () => {
+  test("[ui] diff_view defaults to split and parses stacked", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-diff-"));
     const path = join(dir, "config.toml");
 
-    writeFileSync(path, `[ui]\ndiff_view = "split"\n`);
+    writeFileSync(path, `[ui]\ndiff_view = "stacked"\n`);
 
     try {
       // Assert
-      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.diffView).toBe(
-        "unified",
-      );
-      expect(loadConfig({ userConfigPath: path }).ui.diffView).toBe("split");
+      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.diffView).toBe("split");
+      expect(loadConfig({ userConfigPath: path }).ui.diffView).toBe("stacked");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

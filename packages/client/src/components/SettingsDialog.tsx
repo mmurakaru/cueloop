@@ -7,6 +7,7 @@
  * stories catalog) drive it without a second key handler inside.
  */
 
+import { ScrollArea } from "./ScrollArea";
 import React from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import type { Theme } from "../theme";
@@ -68,7 +69,7 @@ function KeybindsBody({
   tokens: Theme;
 }): React.ReactNode {
   return (
-    <scrollbox style={{ flexGrow: 1 }} focused={false}>
+    <ScrollArea>
       {sections.map((section) => (
         <box key={section.title} style={{ flexDirection: "column" }}>
           <text fg={tokens.accent}>{section.title}</text>
@@ -81,7 +82,7 @@ function KeybindsBody({
           <text> </text>
         </box>
       ))}
-    </scrollbox>
+    </ScrollArea>
   );
 }
 

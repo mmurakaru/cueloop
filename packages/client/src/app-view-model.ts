@@ -29,6 +29,19 @@ export function isWalking(isDiff: boolean, walk: { index: number } | null): bool
   return isDiff && walk !== null;
 }
 
+/**
+ * A prototype renders as a kitty pixel mockup only in the opt-in experimental mode:
+ * the flag is on and the artifact carries an HTML entry. Otherwise it is the default
+ * markdown design doc, rendered through the thread/markdown path.
+ */
+export function isPixelPrototypeMode(
+  isPrototype: boolean,
+  prototypePixels: boolean,
+  prototypePath: string | undefined,
+): boolean {
+  return isPrototype && prototypePixels && Boolean(prototypePath);
+}
+
 export function resolveOverlay(
   mode: Mode,
   completionPhase: Completion["phase"],
@@ -92,19 +105,20 @@ export function buildRenderFlags(params: {
   session: ReviewSession;
   isOwner: boolean;
   isDiff: boolean;
-  isPrototype: boolean;
+  isPixelPrototype: boolean;
   resolved: boolean;
   menuDialog: "keybinds" | "settings" | null;
   resolvedIds: Set<string>;
 }) {
-  const { session, isOwner, isDiff, isPrototype, resolved, menuDialog, resolvedIds } = params;
+  const { session, isOwner, isDiff, isPixelPrototype, resolved, menuDialog, resolvedIds } = params;
 
   return {
     showOwnerActions: isOwner && !isDiff && !resolved,
     prototypeCanComment: isOwner && !resolved,
     chromeHidden: menuDialog !== null,
     prototypePath: session.artifact.meta.prototypePath ?? "",
-    railResolvedIds: isDiff || isPrototype ? null : resolvedIds,
+    // a markdown prototype interleaves resolved cards like a plan; only the pixel mockup opts out
+    railResolvedIds: isDiff || isPixelPrototype ? null : resolvedIds,
   };
 }
 
