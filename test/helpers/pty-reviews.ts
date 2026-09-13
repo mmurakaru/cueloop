@@ -6,7 +6,7 @@
  */
 
 import { test } from "bun:test";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { createTestGitRepo, type TestChangedFile, type TestGitRepo } from "./git-repo";
 import { launchTuiSession, ptyTuiAvailable, type PtyTuiSession } from "./pty-tui-session";
 import type { TestReviewHome } from "./review-home";
@@ -66,7 +66,7 @@ export interface LaunchReviewOptions {
 export async function launchPlanReview(
   reviewHome: TestReviewHome,
   options: LaunchReviewOptions = {},
-): Promise<{ session: PtyTuiSession; review: ReviewSession }> {
+): Promise<{ session: PtyTuiSession; review: Thread }> {
   const review = reviewHome.createPlanSession(ROLLOUT_PLAN, "Rollout Plan");
   const session = launchTuiSession({
     home: reviewHome.home,
@@ -87,7 +87,7 @@ export async function launchDiffReview(
   reviewHome: TestReviewHome,
   files: TestChangedFile[],
   options: LaunchReviewOptions = {},
-): Promise<{ session: PtyTuiSession; review: ReviewSession; repo: TestGitRepo }> {
+): Promise<{ session: PtyTuiSession; review: Thread; repo: TestGitRepo }> {
   const repo = createTestGitRepo(files);
   const diff = await repo.diff();
   const review = reviewHome.createDiffSession(diff.patch, diff.files);

@@ -8,11 +8,11 @@
  * later, host-driven. No import-time side effects.
  */
 
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 
 /** Exporters ship resolved sessions somewhere (notes vaults, forges). */
 export type Exporter = (
-  session: ReviewSession,
+  session: Thread,
 ) => Promise<{ success: boolean; path?: string; error?: string }>;
 
 export interface ExtensionAPI {

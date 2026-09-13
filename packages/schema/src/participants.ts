@@ -5,7 +5,7 @@
  * "author name" lands here.
  */
 
-import type { Identity, ReviewSession } from "./types";
+import type { Identity, Thread } from "./types";
 
 /**
  * Return the session with `author` present in the participant registry, setting
@@ -13,11 +13,7 @@ import type { Identity, ReviewSession } from "./types";
  * rail renders anonymous) and never erases a name a past visit set. Immutable:
  * the input session is not mutated.
  */
-export function registerParticipant(
-  session: ReviewSession,
-  author: string,
-  name?: string,
-): ReviewSession {
+export function registerParticipant(session: Thread, author: string, name?: string): Thread {
   const participants = session.participants ?? [];
   const existing = participants.find((participant) => participant.id === author);
   const trimmed = name?.trim();

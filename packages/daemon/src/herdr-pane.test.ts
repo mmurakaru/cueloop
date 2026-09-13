@@ -4,7 +4,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { openHerdrPane, openHerdrPaneForReview } from "./herdr-pane";
 import type { HerdrTabPersistence } from "./herdr-pane";
 import type { HerdrTabHandle } from "./herdr-tab-store";
@@ -58,7 +58,7 @@ function fakePersistence(initial: HerdrTabHandle | null = null) {
   };
 }
 
-function newSession(overrides: Partial<ReviewSession> = {}): ReviewSession {
+function newSession(overrides: Partial<Thread> = {}): Thread {
   return {
     schemaVersion: "1",
     id: "ses_new1",

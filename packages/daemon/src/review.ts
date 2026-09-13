@@ -12,7 +12,7 @@ import {
   newAnnotationId,
   type ArtifactType,
   type DiffFileContents,
-  type ReviewSession,
+  type Thread,
   type WorkspaceKey,
 } from "@cueloop/schema";
 import { verdictResponse } from "./api";
@@ -129,7 +129,7 @@ export interface AwaitVerdictOptions {
   /** Chunk length for the poll loop; between chunks the session is re-read for progress. */
   pollMs?: number;
   /** Called with the fresh session after each chunk that is still pending. */
-  onProgress?: (session: ReviewSession) => void;
+  onProgress?: (session: Thread) => void;
   signal?: AbortSignal;
 }
 
@@ -137,13 +137,13 @@ export interface AwaitVerdictOptions {
 export interface VerdictOutcome {
   allow: boolean;
   feedback: string;
-  session: ReviewSession;
+  session: Thread;
 }
 
 export class ReviewHandle {
   constructor(
     private readonly client: DaemonClient,
-    readonly session: ReviewSession,
+    readonly session: Thread,
   ) {}
 
   get id(): string {
@@ -184,7 +184,7 @@ export class ReviewHandle {
   }
 }
 
-function outcome(session: ReviewSession): VerdictOutcome {
+function outcome(session: Thread): VerdictOutcome {
   return { ...verdictResponse(session), session };
 }
 

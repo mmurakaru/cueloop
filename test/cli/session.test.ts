@@ -17,7 +17,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { cliJson, runCli } from "../helpers/cli";
 
 const PLAN = "# Plan\n\n## Steps\n\nDo the migration in two phases.\n";
@@ -52,7 +52,7 @@ describe("cueloop session (black box)", () => {
 
     // Assert
     expect(created.code).toBe(0);
-    const session = cliJson<ReviewSession>(created);
+    const session = cliJson<Thread>(created);
 
     expect(session.id.startsWith("ses_")).toBe(true);
     expect(session.artifact.content).toBe(PLAN);
@@ -70,7 +70,7 @@ describe("cueloop session (black box)", () => {
 
     // Assert
     expect(created.code).toBe(0);
-    const session = cliJson<ReviewSession>(created);
+    const session = cliJson<Thread>(created);
 
     expect(session.artifact.type).toBe("reply");
     expect(session.artifact.meta.title).toBe("Findings");
@@ -88,15 +88,13 @@ describe("cueloop session (black box)", () => {
 
   test("list and get see the session from a fresh process", async () => {
     // Act
-    const list = cliJson<ReviewSession[]>(
-      await runCli(home, ["session", "list", "--status", "pending"]),
-    );
+    const list = cliJson<Thread[]>(await runCli(home, ["session", "list", "--status", "pending"]));
 
     // Assert
     expect(list.some((candidate) => candidate.id === sessionId)).toBe(true);
 
     // Act
-    const got = cliJson<ReviewSession>(await runCli(home, ["session", "get", sessionId]));
+    const got = cliJson<Thread>(await runCli(home, ["session", "get", sessionId]));
 
     // Assert
     expect(got.artifact.meta.title).toBe("Migration");
@@ -157,7 +155,7 @@ describe("cueloop session (black box)", () => {
 
   test("revision reopens through the CLI", async () => {
     // Act
-    const revised = cliJson<ReviewSession>(
+    const revised = cliJson<Thread>(
       await runCli(
         home,
         ["session", "submit-revision", sessionId],
@@ -172,13 +170,13 @@ describe("cueloop session (black box)", () => {
 
   test("--addressed marks the reported annotation addressed on resubmit", async () => {
     // Arrange
-    const before = cliJson<ReviewSession>(await runCli(home, ["session", "get", sessionId]));
+    const before = cliJson<Thread>(await runCli(home, ["session", "get", sessionId]));
     const annotationId = before.annotations[0]!.id;
 
     expect(before.annotations[0]!.resolution).toBeUndefined();
 
     // Act
-    const revised = cliJson<ReviewSession>(
+    const revised = cliJson<Thread>(
       await runCli(
         home,
         ["session", "submit-revision", sessionId, "--addressed", annotationId],
@@ -211,7 +209,7 @@ describe("cueloop session (black box)", () => {
 
     // Assert
     expect(created.code).toBe(0);
-    const session = cliJson<ReviewSession>(created);
+    const session = cliJson<Thread>(created);
     const lines = readFileSync(logPath, "utf8").split("\n").filter(Boolean);
 
     expect(lines).toEqual([
@@ -249,7 +247,7 @@ describe("cueloop session (black box)", () => {
 
   test("annotate --author registers the collaborator in the participant registry", async () => {
     // Act
-    const annotated = cliJson<ReviewSession>(
+    const annotated = cliJson<Thread>(
       await runCli(home, [
         "session",
         "annotate",
@@ -278,7 +276,7 @@ describe("cueloop session (black box)", () => {
 
   test("annotate --action expands the quick-action into the body", async () => {
     // Act
-    const annotated = cliJson<ReviewSession>(
+    const annotated = cliJson<Thread>(
       await runCli(
         home,
         ["session", "annotate", sessionId, "--quote", "two phases", "--action", "Out of scope"],
@@ -312,7 +310,7 @@ describe("cueloop session (black box)", () => {
 
   test("annotate --reply-to borrows the root's anchor and links the reply to it", async () => {
     // Arrange
-    const withRoot = cliJson<ReviewSession>(
+    const withRoot = cliJson<Thread>(
       await runCli(home, [
         "session",
         "annotate",
@@ -342,7 +340,7 @@ describe("cueloop session (black box)", () => {
       "--author",
       "SHA256:ana",
     ]);
-    const nested = cliJson<ReviewSession>(
+    const nested = cliJson<Thread>(
       await runCli(home, [
         "session",
         "annotate",
@@ -368,7 +366,7 @@ describe("cueloop session (black box)", () => {
 
   test("annotate --selector anchors a prototype comment to an element", async () => {
     // Act
-    const annotated = cliJson<ReviewSession>(
+    const annotated = cliJson<Thread>(
       await runCli(home, [
         "session",
         "annotate",
@@ -430,7 +428,7 @@ describe("cueloop session (black box)", () => {
     expect(refused.code).not.toBe(0);
 
     // Act: hers goes; the owner removes its own without naming anyone
-    const afterAna = cliJson<ReviewSession>(
+    const afterAna = cliJson<Thread>(
       await runCli(home, [
         "session",
         "remove",
@@ -442,7 +440,7 @@ describe("cueloop session (black box)", () => {
         "SHA256:ana",
       ]),
     );
-    const afterOwn = cliJson<ReviewSession>(
+    const afterOwn = cliJson<Thread>(
       await runCli(home, ["session", "remove", sessionId, "own_rm"]),
     );
 
@@ -453,7 +451,7 @@ describe("cueloop session (black box)", () => {
 
   test("name-self registers the display name of the author an agent acts as", async () => {
     // Act
-    const named = cliJson<ReviewSession>(
+    const named = cliJson<Thread>(
       await runCli(home, [
         "session",
         "name-self",
@@ -477,7 +475,7 @@ describe("cueloop session (black box)", () => {
     await Bun.sleep(600);
 
     // Act: a comment lands while it listens
-    const annotated = cliJson<ReviewSession>(
+    const annotated = cliJson<Thread>(
       await runCli(home, [
         "session",
         "annotate",
@@ -501,11 +499,11 @@ describe("cueloop session (black box)", () => {
 
   test("cut and restore edit the working copy through the daemon and leave reviewer revisions", async () => {
     // Arrange: block 2 of the plan is its first paragraph
-    const before = cliJson<ReviewSession>(await runCli(home, ["session", "get", sessionId]));
+    const before = cliJson<Thread>(await runCli(home, ["session", "get", sessionId]));
     const paragraph = before.artifact.content.split("\n\n")[2]!;
 
     // Act
-    const cut = cliJson<ReviewSession>(await runCli(home, ["session", "cut", sessionId, "2"]));
+    const cut = cliJson<Thread>(await runCli(home, ["session", "cut", sessionId, "2"]));
 
     // Assert
     expect(cut.workingCopy).toBeDefined();
@@ -514,7 +512,7 @@ describe("cueloop session (black box)", () => {
 
     // Act: put it back where it came from
     const blockLine = before.artifact.content.split("\n").indexOf(paragraph.split("\n")[0]!);
-    const restored = cliJson<ReviewSession>(
+    const restored = cliJson<Thread>(
       await runCli(home, ["session", "restore", sessionId, "2", "--line", String(blockLine)]),
     );
 
@@ -537,7 +535,7 @@ describe("cueloop session (black box)", () => {
     expect(refused.stderr).toContain("only a diff review");
 
     // Act
-    const viewed = cliJson<ReviewSession>(
+    const viewed = cliJson<Thread>(
       await runCli(home, ["session", "set-viewed", sessionId, "plan.md"]),
     );
 
@@ -547,12 +545,10 @@ describe("cueloop session (black box)", () => {
 
   test("label, branch, switch, navigate, and fork walk the session's tree", async () => {
     // Arrange: a labelled checkpoint, then a comment on a side branch
-    const labelled = cliJson<ReviewSession>(
-      await runCli(home, ["session", "label", sessionId, "start"]),
-    );
+    const labelled = cliJson<Thread>(await runCli(home, ["session", "label", sessionId, "start"]));
     const start = labelled.history!.tips.main!;
 
-    cliJson<ReviewSession>(await runCli(home, ["session", "branch", sessionId, "alt"]));
+    cliJson<Thread>(await runCli(home, ["session", "branch", sessionId, "alt"]));
     await runCli(home, [
       "session",
       "annotate",
@@ -564,16 +560,12 @@ describe("cueloop session (black box)", () => {
     ]);
 
     // Act
-    const onMain = cliJson<ReviewSession>(
-      await runCli(home, ["session", "switch", sessionId, "main"]),
-    );
-    const onAlt = cliJson<ReviewSession>(
-      await runCli(home, ["session", "switch", sessionId, "alt"]),
-    );
-    const moved = cliJson<ReviewSession>(
+    const onMain = cliJson<Thread>(await runCli(home, ["session", "switch", sessionId, "main"]));
+    const onAlt = cliJson<Thread>(await runCli(home, ["session", "switch", sessionId, "alt"]));
+    const moved = cliJson<Thread>(
       await runCli(home, ["session", "navigate", sessionId, start, "--summary", "left alt"]),
     );
-    const fork = cliJson<ReviewSession>(await runCli(home, ["session", "fork", sessionId]));
+    const fork = cliJson<Thread>(await runCli(home, ["session", "fork", sessionId]));
 
     // Assert
     expect(labelled.history!.labels[start]).toBe("start");
@@ -607,7 +599,7 @@ describe("cueloop session (black box)", () => {
       join(repo, ".cueloop", "config.toml"),
       `[[actions]]\nprompt = "Repo special"\nmetadata = "the repo-local system prompt"\n`,
     );
-    const scoped = cliJson<ReviewSession>(
+    const scoped = cliJson<Thread>(
       await runCli(
         home,
         ["session", "create", "--type", "plan", "--title", "Scoped", "--cwd", repo],
@@ -621,7 +613,7 @@ describe("cueloop session (black box)", () => {
         CUELOOP_CONFIG: join(home, "no-such-config.toml"),
       }),
     );
-    const annotated = cliJson<ReviewSession>(
+    const annotated = cliJson<Thread>(
       await runCli(
         home,
         ["session", "annotate", scoped.id, "--quote", "two phases", "--action", "Repo special"],
@@ -640,7 +632,7 @@ describe("cueloop session (black box)", () => {
 
   test("--role agent is capped at the daemon: annotate allowed, resolve forbidden", async () => {
     // Arrange
-    const capped = cliJson<ReviewSession>(
+    const capped = cliJson<Thread>(
       await runCli(
         home,
         ["session", "create", "--type", "plan", "--title", "Capped"],

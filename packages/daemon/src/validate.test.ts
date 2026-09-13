@@ -11,12 +11,12 @@ import {
   ArtifactSchema,
   IdentitySchema,
   RevisionSchema,
-  SessionRecordSchema,
+  ThreadRecordSchema,
   VerdictSchema,
   WorkspaceSchema,
   isKnownMethod,
   parseParams,
-  validateSessionRecord,
+  validateThreadRecord,
 } from "./validate";
 import {
   ARTIFACT_TYPES,
@@ -26,7 +26,7 @@ import {
   type Artifact,
   type ArtifactMeta,
   type Identity,
-  type ReviewSession,
+  type Thread,
   type Revision,
   type Verdict,
   type WorkspaceKey,
@@ -132,7 +132,7 @@ describe("parseParams", () => {
   });
 });
 
-describe("validateSessionRecord", () => {
+describe("validateThreadRecord", () => {
   const record = {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
@@ -146,12 +146,12 @@ describe("validateSessionRecord", () => {
   };
 
   test("accepts a valid record", () => {
-    expect(validateSessionRecord(record).ok).toBe(true);
+    expect(validateThreadRecord(record).ok).toBe(true);
   });
 
   test("rejects a foreign schema version with a readable reason", () => {
     // Act
-    const result = validateSessionRecord({ ...record, schemaVersion: "99" });
+    const result = validateThreadRecord({ ...record, schemaVersion: "99" });
 
     // Assert
     expect(result.ok).toBe(false);
@@ -160,7 +160,7 @@ describe("validateSessionRecord", () => {
 
   test("rejects a structurally broken record", () => {
     // Act
-    const result = validateSessionRecord({ ...record, revisions: "nope" });
+    const result = validateThreadRecord({ ...record, revisions: "nope" });
 
     // Assert
     expect(result.ok).toBe(false);
@@ -235,7 +235,7 @@ describe("wire pins", () => {
     name: "Al",
     handle: "abc",
   };
-  const fullSession: Required<ReviewSession> = {
+  const fullSession: Required<Thread> = {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
     workspace: fullWorkspace,
@@ -298,7 +298,7 @@ describe("wire pins", () => {
     };
 
     // Act
-    const parsed = validateSessionRecord(record);
+    const parsed = validateThreadRecord(record);
 
     // Assert
     expect(parsed.ok).toBe(false);
@@ -317,9 +317,9 @@ describe("wire pins", () => {
     expect(entryKeys(RevisionSchema)).toEqual(keys(fullRevision));
     expect(entryKeys(VerdictSchema)).toEqual(keys(fullVerdict));
     expect(entryKeys(IdentitySchema)).toEqual(keys(fullIdentity));
-    expect(entryKeys(SessionRecordSchema)).toEqual(keys(fullSession));
+    expect(entryKeys(ThreadRecordSchema)).toEqual(keys(fullSession));
     // persisted annotations carry the stamped createdAt
-    const stored = SessionRecordSchema.entries.annotations.item;
+    const stored = ThreadRecordSchema.entries.annotations.item;
 
     expect(entryKeys(stored)).toEqual(keys(fullAnnotation));
   });

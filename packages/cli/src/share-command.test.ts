@@ -4,12 +4,12 @@ import {
   historyFromLinear,
   SCHEMA_VERSION,
   type Annotation,
-  type ReviewSession,
+  type Thread,
 } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { pullSession, shareSession, type PullDeps, type ShareDeps } from "./share-command";
 
-function sessionFixture(id: string, overrides: Partial<ReviewSession> = {}): ReviewSession {
+function sessionFixture(id: string, overrides: Partial<Thread> = {}): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id,
@@ -40,12 +40,13 @@ const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
 /** A SessionClient that answers get/list from a fixed list and records the share/merge primitives. */
-function fakeClient(sessions: ReviewSession[]): SessionClient {
+function fakeClient(sessions: Thread[]): SessionClient {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
     sessionGet: async (id: string) => sessions.find((session) => session.id === id)!,
     sessionList: async () => sessions,
+    sessionComment: unimplemented("sessionComment"),
     sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
@@ -113,7 +114,7 @@ describe(shareSession, () => {
   test("publishes the named session and reports the copied ssh line", async () => {
     // Arrange
     const publish = mock(
-      async (session: ReviewSession) => (
+      async (session: Thread) => (
         expect(session.id).toBe("ses_2"),
         { line: "ssh p_abc123xy@cueloop.dev", copied: true }
       ),
@@ -135,7 +136,7 @@ describe(shareSession, () => {
   test("without an id, shares the most recent session", async () => {
     // Arrange
     const publish = mock(
-      async (session: ReviewSession) => (
+      async (session: Thread) => (
         expect(session.id).toBe("ses_2"),
         { line: "ssh p_zzzzzzzz@cueloop.dev", copied: true }
       ),
@@ -211,7 +212,7 @@ describe(shareSession, () => {
   });
 });
 
-function pullDepsSpy(remote: ReviewSession): PullDeps & { lines: string[] } {
+function pullDepsSpy(remote: Thread): PullDeps & { lines: string[] } {
   const lines: string[] = [];
 
   return {

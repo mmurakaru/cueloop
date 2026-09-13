@@ -1,12 +1,12 @@
 import { ScrollArea } from "./components/ScrollArea";
 import React, { useEffect, useState, type Dispatch, type SetStateAction } from "react";
-import type { DiffFileContents, ReviewSession, VerdictKind } from "@cueloop/schema";
+import type { DiffFileContents, Thread, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
 import type { QuickAction } from "./config";
 import type { Mode, TreeAsk } from "./intent-dispatch";
 import type { Intent } from "./keymap";
-import type { ReviewController, ToastState } from "./session-controller";
+import type { ReviewController, ToastState } from "./thread-controller";
 import { noteForFile } from "./walk";
 import type { WalkFile } from "./walk";
 import type { CheatsheetSection } from "./key-bindings";
@@ -297,7 +297,7 @@ export function NoThreadShell(props: {
 
 export function CompletionScreen(props: {
   theme: Theme;
-  session: ReviewSession;
+  session: Thread;
   verdict: VerdictKind;
   completion: { phase: "prompt" } | { phase: "counting"; remaining: number };
   status: string;
@@ -340,7 +340,7 @@ export function TrailingOverlays(props: {
   walk: { index: number } | null;
   walkFileList: WalkFile[];
   viewedPaths: Set<string>;
-  session: ReviewSession;
+  session: Thread;
   terminalWidth: number;
   theme: Theme;
   mode: Mode;

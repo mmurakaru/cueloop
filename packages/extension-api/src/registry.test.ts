@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { Registry } from "./registry";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 
-const SESSION: ReviewSession = {
+const SESSION: Thread = {
   schemaVersion: "1",
   id: "ses_x",
   workspace: { repoRoot: "/repo", branch: "main" },

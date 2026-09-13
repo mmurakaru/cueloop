@@ -308,6 +308,11 @@ export class DaemonServer {
 
       return this.core.sessionAnnotate(params.id, params.annotation, params.authorName);
     },
+    "session.comment": (_connection, request) => {
+      const params = parseParams("session.comment", request.params);
+
+      return this.core.sessionAnnotate(params.id, params.annotation, params.authorName);
+    },
     "session.removeAnnotation": (connection, request) => {
       const params = parseParams("session.removeAnnotation", request.params);
 

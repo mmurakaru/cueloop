@@ -41,7 +41,7 @@ Claude Code plugin (`/cueloop:plan`, `/cueloop:diff`, `/cueloop:review`):
 | package | description |
 | --- | --- |
 | [`cueloop`](https://www.npmjs.com/package/cueloop) | the CLI and TUI |
-| [`@cueloop/schema`](https://www.npmjs.com/package/@cueloop/schema) | the ReviewSession primitive, anchors, feedback serialization |
+| [`@cueloop/schema`](https://www.npmjs.com/package/@cueloop/schema) | the Thread primitive, anchors, feedback serialization |
 | [`@cueloop/daemon`](https://www.npmjs.com/package/@cueloop/daemon) | the session daemon and its client |
 | [`@cueloop/client`](https://www.npmjs.com/package/@cueloop/client) | the review UI |
 | [`@cueloop/extension-api`](https://www.npmjs.com/package/@cueloop/extension-api) | the typed extension contract |

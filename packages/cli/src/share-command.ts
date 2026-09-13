@@ -15,7 +15,7 @@ import {
   type ShareResult,
   type ShareTarget,
 } from "@cueloop/client";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 
 export interface ShareParams {
   sessionId?: string;
@@ -27,12 +27,12 @@ export interface ShareParams {
 }
 
 export interface ShareDeps {
-  publish: (session: ReviewSession, target: ShareTarget) => Promise<ShareResult>;
+  publish: (session: Thread, target: ShareTarget) => Promise<ShareResult>;
   out: (message: string) => void;
 }
 
 export interface PullDeps {
-  pull: (shareId: string, target: ShareTarget) => Promise<ReviewSession>;
+  pull: (shareId: string, target: ShareTarget) => Promise<Thread>;
   out: (message: string) => void;
 }
 
@@ -122,10 +122,7 @@ export async function pullSession(
 }
 
 /** The named session, or the most recent one when no id is given. */
-async function pickSession(
-  client: SessionClient,
-  sessionId?: string,
-): Promise<ReviewSession | null> {
+async function pickSession(client: SessionClient, sessionId?: string): Promise<Thread | null> {
   if (sessionId) return client.sessionGet(sessionId);
   const sessions = await client.sessionList();
 
@@ -136,7 +133,7 @@ async function pickSession(
 async function pickSharedSession(
   client: SessionClient,
   sessionId?: string,
-): Promise<ReviewSession | null> {
+): Promise<Thread | null> {
   if (sessionId) {
     const session = await client.sessionGet(sessionId);
 

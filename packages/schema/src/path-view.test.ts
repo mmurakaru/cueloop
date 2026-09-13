@@ -8,7 +8,7 @@ import {
   type SessionHistory,
 } from "./history";
 import { applyPathView, viewFollowing, viewOfPath } from "./path-view";
-import type { Annotation, ReviewSession } from "./types";
+import type { Annotation, Thread } from "./types";
 
 const AT = "2026-09-01T10:00:00.000Z";
 
@@ -101,7 +101,7 @@ describe("viewOfPath", () => {
 describe("applyPathView", () => {
   test("writes the view into the record and removes the fields the view leaves empty", () => {
     // Arrange
-    const session: ReviewSession = {
+    const session: Thread = {
       schemaVersion: "1",
       id: "ses_1",
       workspace: { repoRoot: "/repo", branch: "main" },
@@ -139,7 +139,7 @@ describe("viewFollowing", () => {
     history = navigateTo(history, history.entries[1]!.id);
     history = createBranch(history, "alt");
     history = appendEntry(history, { type: "comment", annotationId: "b1", createdAt: AT }).history;
-    const session: ReviewSession = {
+    const session: Thread = {
       schemaVersion: "1",
       id: "ses_1",
       workspace: { repoRoot: "/repo", branch: "main" },
@@ -177,7 +177,7 @@ describe("viewFollowing", () => {
       verdict: null,
       createdAt: AT,
     });
-    const session: ReviewSession = {
+    const session: Thread = {
       schemaVersion: "1",
       id: "ses_1",
       workspace: { repoRoot: "/repo", branch: "main" },

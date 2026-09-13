@@ -4,7 +4,7 @@ import {
   removalEntries,
   validateHistory,
   type Annotation,
-  type ReviewSession,
+  type Thread,
 } from "@cueloop/schema";
 import { packSessionBlob, unpackSessionBlob } from "@cueloop/daemon/share-blob";
 import { BlobSessionClient, type ShareWriteBack } from "./blob-session-client";
@@ -19,7 +19,7 @@ const PLANNER_NOTE: Annotation = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
-function sessionWith(annotations: Annotation[]): ReviewSession {
+function sessionWith(annotations: Annotation[]): Thread {
   return {
     schemaVersion: "1",
     id: "ses_1",
@@ -79,7 +79,7 @@ describe("collaborator write-back", () => {
     };
   });
 
-  async function storedSession(): Promise<ReviewSession> {
+  async function storedSession(): Promise<Thread> {
     return unpackSessionBlob(
       openBlob(writeBack.masterKey, "p_abc123xy", (await store.get("p_abc123xy"))!),
     );

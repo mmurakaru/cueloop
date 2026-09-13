@@ -20,7 +20,7 @@ import {
   type ServerChannel,
   type Session,
 } from "ssh2";
-import type { Annotation, ReviewSession } from "@cueloop/schema";
+import type { Annotation, Thread } from "@cueloop/schema";
 import { AnnotationSchema } from "@cueloop/daemon/validate";
 import { App } from "@cueloop/client";
 import {
@@ -59,7 +59,7 @@ export const WATCH_HEARTBEAT_MS = 30_000;
 export type WatchFrame =
   | { type: "ready" }
   | { type: "ping" }
-  | { type: "session"; session: ReviewSession };
+  | { type: "session"; session: Thread };
 
 export interface GatewayOptions {
   store: ShareStore;
@@ -539,9 +539,9 @@ function errorMessage(cause: unknown): string {
 
 /** Union the owner's own notes into the blob by id, never clobbering a collaborator's. */
 function mergeOwnerAnnotations(
-  session: ReviewSession,
+  session: Thread,
   incoming: Array<Omit<Annotation, "createdAt">>,
-): ReviewSession {
+): Thread {
   const byId = new Map(session.annotations.map((annotation) => [annotation.id, annotation]));
   const now = new Date().toISOString();
 

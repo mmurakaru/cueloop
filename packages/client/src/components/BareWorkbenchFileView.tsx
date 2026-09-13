@@ -3,12 +3,7 @@
 // opens it - so this ephemeral view lives only until that first note promotes it to a real thread.
 
 import React from "react";
-import {
-  SCHEMA_VERSION,
-  type Anchor,
-  type AnnotationTarget,
-  type ReviewSession,
-} from "@cueloop/schema";
+import { SCHEMA_VERSION, type Anchor, type AnnotationTarget, type Thread } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import type { QuickAction } from "../config";
 import { AnnotatableFileView } from "./AnnotatableFileView";
@@ -20,7 +15,7 @@ export interface WorkbenchCommenter {
 }
 
 /** An empty, unsaved thread: it holds no notes, just enough shape for the annotation surface. */
-function draftThread(): ReviewSession {
+function draftThread(): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "workbench-draft",

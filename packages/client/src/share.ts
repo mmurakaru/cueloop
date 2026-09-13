@@ -12,13 +12,8 @@ import {
   SHARE_UPLOAD_USER,
   packSessionBlob,
 } from "@cueloop/daemon/share-blob";
-import {
-  removalEntries,
-  viewFollowing,
-  type Annotation,
-  type ReviewSession,
-} from "@cueloop/schema";
-import { SessionRecordSchema } from "@cueloop/daemon/validate";
+import { removalEntries, viewFollowing, type Annotation, type Thread } from "@cueloop/schema";
+import { ThreadRecordSchema } from "@cueloop/daemon/validate";
 import type { SharedMerge } from "@cueloop/daemon/client";
 import * as v from "valibot";
 import { copyToClipboard } from "./clipboard";
@@ -42,7 +37,7 @@ export function shareIdFromLine(line: string): string | undefined {
 
 /** Upload the session to the gateway and copy the resulting ssh line. */
 export async function publishShare(
-  session: ReviewSession,
+  session: Thread,
   target: ShareTarget = {},
 ): Promise<ShareResult> {
   const { stdout, stderr, code } = await runShareSsh(
@@ -67,16 +62,16 @@ export async function publishShare(
  * the fingerprint that uploaded it through, so collaborator notes reach the
  * planner without exposing the master key.
  */
-export async function pullShare(shareId: string, target: ShareTarget = {}): Promise<ReviewSession> {
+export async function pullShare(shareId: string, target: ShareTarget = {}): Promise<Thread> {
   const { stdout, stderr, code } = await runShareSsh("cueloop-pull", Buffer.from(shareId), target);
 
   if (code !== 0) throw new Error(`gateway pull failed: ${stderr.trim() || `ssh exited ${code}`}`);
 
-  return v.parse(SessionRecordSchema, JSON.parse(stdout));
+  return v.parse(ThreadRecordSchema, JSON.parse(stdout));
 }
 
 /** A share's collaborator notes: the ones a viewer authored (author stamped). */
-export function collaboratorAnnotations(session: ReviewSession): Annotation[] {
+export function collaboratorAnnotations(session: Thread): Annotation[] {
   return session.annotations.filter((annotation) => annotation.author);
 }
 
@@ -84,7 +79,7 @@ export function collaboratorAnnotations(session: ReviewSession): Annotation[] {
  * What a pulled share hands the local merge: collaborators' notes, the
  * participant registry, and the removals the share recorded, by entry id.
  */
-export function mergeFromShare(remote: ReviewSession): SharedMerge {
+export function mergeFromShare(remote: Thread): SharedMerge {
   const merge: SharedMerge = { annotations: collaboratorAnnotations(remote) };
 
   if (remote.participants) merge.participants = remote.participants;
@@ -120,7 +115,7 @@ export async function pushShare(
 
 export interface ShareWatchHandlers {
   /** The whole session record, each time the share changes. */
-  onSession: (session: ReviewSession) => void;
+  onSession: (session: Thread) => void;
   /** The stream ended, for any reason; the caller decides whether to reconnect. */
   onClose: (reason: string) => void;
 }
@@ -128,7 +123,7 @@ export interface ShareWatchHandlers {
 const WatchFrameSchema = v.variant("type", [
   v.object({ type: v.literal("ready") }),
   v.object({ type: v.literal("ping") }),
-  v.object({ type: v.literal("session"), session: SessionRecordSchema }),
+  v.object({ type: v.literal("session"), session: ThreadRecordSchema }),
 ]);
 
 /**

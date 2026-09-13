@@ -38,7 +38,7 @@ All persistence lives in a new server/storage/ module. Sessions are written
 as one JSON document per session, through a temp file and an atomic rename,
 so a crash can never leave a torn file on disk.
 
-- server/storage/store.ts - the SessionStore class
+- server/storage/store.ts - the ThreadStore class
 - server/storage/schema.ts - the on-disk record shape
 
 ## Phase 2: Recovery

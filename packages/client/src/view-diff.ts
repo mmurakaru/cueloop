@@ -12,7 +12,7 @@ import {
   resolveAnchor,
   type Annotation,
   type Block,
-  type ReviewSession,
+  type Thread,
 } from "@cueloop/schema";
 import { spanRangeInBlock, type TextSpan } from "./thread-selection";
 import type { Mark } from "./view-plan";
@@ -253,7 +253,7 @@ export function fileTargetMarks(
  * replies) toward the file its span ends in. Feeds the changed-files tree and tab badges, so a
  * file whose tab is closed still shows it carries feedback.
  */
-export function commentCountsByFile(session: ReviewSession, rows: DiffRow[]): Map<string, number> {
+export function commentCountsByFile(session: Thread, rows: DiffRow[]): Map<string, number> {
   const discussions = discussionsFrom(session, marksByRows(session.annotations, rows));
   const counts = new Map<string, number>();
 

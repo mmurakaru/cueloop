@@ -3,7 +3,7 @@
 ## purpose
 
 - Terminal-first review surface for coding agents. The product is the primitive:
-  a ReviewSession anyone can render, annotate, and extend.
+  a Thread anyone can render, annotate, and extend.
 - One loop: an agent submits an artifact and blocks; a human annotates and returns
   a verdict; annotations serialize into structured feedback the agent acts on.
 - Canonical decisions live in the GitHub map issue (#1) and its closed tickets.
@@ -20,7 +20,7 @@
 
 ```
 packages/
-  schema/         ReviewSession types, block model, anchors, diff, feedback.md.
+  schema/         Thread types, block model, anchors, diff, feedback.md.
                   Pure TS, zero deps. Imports nothing from other packages.
   daemon/         Socket server (NDJSON + events), session store, wait broker.
   client/         The TUI (OpenTUI React): shell, projection renderer, selection.

@@ -6,11 +6,11 @@ import {
   SCHEMA_VERSION,
   type DiffFileContents,
   type HunkRejection,
-  type ReviewSession,
+  type Thread,
 } from "@cueloop/schema";
 import { curateDiff } from "@cueloop/daemon/curate";
 import type { SessionClient } from "@cueloop/daemon/client";
-import { createReviewController } from "./session-controller";
+import { createReviewController } from "./thread-controller";
 
 const PATCH = `diff --git a/src/store.ts b/src/store.ts
 index 111..222 100644
@@ -32,7 +32,7 @@ const FILES: DiffFileContents[] = [
   },
 ];
 
-function diffSession(files?: DiffFileContents[]): ReviewSession {
+function diffSession(files?: DiffFileContents[]): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_diff",
@@ -54,7 +54,7 @@ const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
 /** A fake client that records the working copy the controller writes. */
-function fakeClient(initial: ReviewSession, sink: WorkingCopySink): SessionClient {
+function fakeClient(initial: Thread, sink: WorkingCopySink): SessionClient {
   let session = initial;
 
   return {
@@ -62,6 +62,7 @@ function fakeClient(initial: ReviewSession, sink: WorkingCopySink): SessionClien
     subscribe: async () => {},
     sessionGet: async () => session,
     sessionList: async () => [session],
+    sessionComment: unimplemented("sessionComment"),
     sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: mock(async (_id: string, content: string | undefined) => {
@@ -126,7 +127,7 @@ function fakeClient(initial: ReviewSession, sink: WorkingCopySink): SessionClien
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-async function connected(session: ReviewSession) {
+async function connected(session: Thread) {
   const sink: WorkingCopySink = {};
   const client = fakeClient(session, sink);
   const controller = createReviewController({
@@ -302,7 +303,7 @@ const PLAN_CONTENT = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
 // the working copy with the "Second paragraph." block cut out
 const PLAN_CUT = "# Title\n\nFirst paragraph.\n";
 
-function planSession(workingCopy?: string): ReviewSession {
+function planSession(workingCopy?: string): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_plan",
@@ -371,7 +372,7 @@ const TAIL_PATCH = `diff --git a/src/store.ts b/src/store.ts
 +  private items = new Map();
 `;
 
-function tailSession(): ReviewSession {
+function tailSession(): Thread {
   return {
     ...diffSession(),
     artifact: {

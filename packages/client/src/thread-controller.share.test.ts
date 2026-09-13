@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, mock, test, type Mock } from "bun:test";
 import { ManualClock } from "@opentui/core/testing";
-import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Annotation, type Thread } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
 import {
   createReviewController,
   SHARE_RECONNECT_MAX_MS,
   SHARE_RECONNECT_MIN_MS,
   type ShareTransport,
-} from "./session-controller";
+} from "./thread-controller";
 import { mergeFromShare, type ShareWatchHandlers } from "./share";
 
 const publishShare = mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: true }));
-let remote: ReviewSession;
+let remote: Thread;
 const pullShare = mock(async () => remote);
 const pushShare = mock(
   async (_shareId: string, _annotations: Array<Omit<Annotation, "createdAt">>) => {},
@@ -27,7 +27,7 @@ const shareTransport: ShareTransport = {
   mergeFromShare,
 };
 
-function sessionFixture(overrides: Partial<ReviewSession> = {}): ReviewSession {
+function sessionFixture(overrides: Partial<Thread> = {}): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
@@ -54,19 +54,20 @@ function annotation(id: string, author: string): Annotation {
 }
 
 interface FakeSessionClient extends SessionClient {
-  sessionAnnotate: Mock<SessionClient["sessionAnnotate"]>;
+  sessionComment: Mock<SessionClient["sessionComment"]>;
 }
 
 const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
-function fakeClient(session: ReviewSession): FakeSessionClient {
+function fakeClient(session: Thread): FakeSessionClient {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
     sessionGet: async () => session,
     sessionList: async () => [session],
-    sessionAnnotate: mock<SessionClient["sessionAnnotate"]>(async () => session),
+    sessionComment: mock<SessionClient["sessionComment"]>(async () => session),
+    sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
     sessionCutBlock: unimplemented("sessionCutBlock"),
@@ -100,7 +101,7 @@ function fakeClient(session: ReviewSession): FakeSessionClient {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 async function connectedController(
-  session: ReviewSession,
+  session: Thread,
   clock?: ManualClock,
   transport: ShareTransport = shareTransport,
 ): Promise<{ controller: ReturnType<typeof createReviewController>; client: FakeSessionClient }> {
@@ -233,7 +234,7 @@ describe("mirror on annotate", () => {
       sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }),
     );
 
-    client.sessionAnnotate.mockImplementationOnce(async () => {
+    client.sessionComment.mockImplementationOnce(async () => {
       throw new Error("session is resolved");
     });
 
@@ -259,7 +260,7 @@ describe("reply", () => {
     await tick();
 
     // Assert
-    const wire = client.sessionAnnotate.mock.calls.at(-1)![1];
+    const wire = client.sessionComment.mock.calls.at(-1)![1];
 
     expect(wire).toEqual({
       id: id!,
@@ -287,7 +288,7 @@ describe("reply", () => {
     await tick();
 
     // Assert
-    expect(client.sessionAnnotate.mock.calls.at(-1)?.[1]).toMatchObject({
+    expect(client.sessionComment.mock.calls.at(-1)?.[1]).toMatchObject({
       id: "a2",
       body: "revised reply",
       replyTo: "a1",
@@ -310,7 +311,7 @@ describe("reply", () => {
     await tick();
 
     // Assert
-    expect(client.sessionAnnotate.mock.calls.at(-1)?.[1]).toMatchObject({ replyTo: "a1" });
+    expect(client.sessionComment.mock.calls.at(-1)?.[1]).toMatchObject({ replyTo: "a1" });
   });
 
   test("replying to an unknown annotation does nothing", async () => {
@@ -319,7 +320,7 @@ describe("reply", () => {
 
     // Act + Assert
     expect(controller.reply("missing", "x")).toBeUndefined();
-    expect(client.sessionAnnotate).not.toHaveBeenCalled();
+    expect(client.sessionComment).not.toHaveBeenCalled();
   });
 });
 

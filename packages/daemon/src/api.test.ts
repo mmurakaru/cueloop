@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonCore, verdictResponse } from "./api";
-import { SessionStore } from "./store";
+import { ThreadStore } from "./store";
 import { derivePath, tipOf, type Artifact, type WorkspaceKey } from "@cueloop/schema";
 import { MAX_BLOB_BYTES, packSessionBlob, unpackSessionBlob } from "./share-blob";
 
@@ -420,7 +420,7 @@ describe("persistence and recovery", () => {
     // Arrange
     core.sessionCreate({ workspace: WS, artifact: PLAN });
     await Bun.write(join(home, "sessions", "broken.json"), "{ not json");
-    const store = new SessionStore(home);
+    const store = new ThreadStore(home);
 
     // Act
     const report = store.recover();
@@ -558,7 +558,7 @@ describe("the session history records every write as an entry", () => {
     const legacy = { ...created };
 
     delete legacy.history;
-    new SessionStore(home).upsert(legacy);
+    new ThreadStore(home).upsert(legacy);
 
     // Act
     const rebooted = new DaemonCore(home);

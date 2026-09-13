@@ -30,7 +30,7 @@ import {
   type Annotation,
   type AnnotationTarget,
   type DiffFileContents,
-  type ReviewSession,
+  type Thread,
   type SessionHistory,
   type VerdictKind,
 } from "@cueloop/schema";
@@ -124,8 +124,8 @@ function planCutId(base: { lineStart: number; lineEnd: number }): string {
 }
 
 export interface ControllerSnapshot {
-  session: ReviewSession | null;
-  inbox: ReviewSession[] | null;
+  session: Thread | null;
+  inbox: Thread[] | null;
   status: string;
   toast: ToastState | null;
   error: string | null;
@@ -360,7 +360,7 @@ class Controller implements ReviewController {
   private shareStop: (() => void) | null = null;
   private shareRun: object | null = null;
   /** Projections keyed by session identity (and the live diff for non-diff threads) so renders reuse one computation. */
-  private derivedFor: ReviewSession | null = null;
+  private derivedFor: Thread | null = null;
   /** The launch/workspace repo's live working-tree diff, feeding the Changes view for non-diff threads. */
   private liveDiff: LiveWorkingDiff | null = null;
   private derivedForLiveDiff: LiveWorkingDiff | null = null;
@@ -661,7 +661,7 @@ class Controller implements ReviewController {
   }
 
   /** Optimistic apply: the daemon response is the next session snapshot. */
-  private apply(mutation: Promise<ReviewSession>): void {
+  private apply(mutation: Promise<Thread>): void {
     mutation
       .then((session) => this.update({ session }))
       .catch((cause: unknown) =>
@@ -674,7 +674,7 @@ class Controller implements ReviewController {
    * builds on the first instead of on the stale snapshot. Answers arrive in
    * request order over the socket and replace the guess with the daemon's copy.
    */
-  private applyOptimistic(expected: ReviewSession, mutation: Promise<ReviewSession>): void {
+  private applyOptimistic(expected: Thread, mutation: Promise<Thread>): void {
     this.update({ session: expected });
     mutation
       .then((session) => this.update({ session }))
@@ -762,7 +762,7 @@ class Controller implements ReviewController {
     );
 
     if (baseIndex === -1) return;
-    const expected: ReviewSession = {
+    const expected: Thread = {
       ...session,
       workingCopy: restoreBlock(base, working, block.base, line),
     };
@@ -847,7 +847,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return;
-    const expected: ReviewSession = { ...session, curation: rejections };
+    const expected: Thread = { ...session, curation: rejections };
 
     if (!rejections.length) delete expected.curation;
     this.applyOptimistic(expected, this.client!.sessionCurate(session.id, rejections));
@@ -980,7 +980,7 @@ class Controller implements ReviewController {
    * resolving stay stored (the feedback serializer flags orphaned anchors);
    * the count feeds the one-line banner above the sheet.
    */
-  private reconcileAnnotations(session: ReviewSession, editedContent: string): void {
+  private reconcileAnnotations(session: Thread, editedContent: string): void {
     const editedBlocks = parseBlocks(editedContent);
     const orphanCount = session.annotations.filter(
       (annotation) => resolveAnchor(annotation.anchor, editedBlocks) === null,
@@ -1049,7 +1049,7 @@ class Controller implements ReviewController {
       resolvedTarget.kind === "artifact"
         ? { id: newAnnotationId(), kind, anchor, body }
         : { id: newAnnotationId(), kind, anchor, body, target: resolvedTarget };
-    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    const persisted = this.client!.sessionComment(session.id, wire);
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
@@ -1065,7 +1065,7 @@ class Controller implements ReviewController {
       target.kind === "artifact"
         ? { id: newAnnotationId(), kind: "comment", anchor, body }
         : { id: newAnnotationId(), kind: "comment", anchor, body, target };
-    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    const persisted = this.client!.sessionComment(session.id, wire);
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
@@ -1108,7 +1108,7 @@ class Controller implements ReviewController {
       replyTo: root.replyTo ?? root.id,
     };
     const wire = root.target ? { ...base, target: root.target } : base;
-    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    const persisted = this.client!.sessionComment(session.id, wire);
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
@@ -1122,7 +1122,7 @@ class Controller implements ReviewController {
     if (!session) return undefined;
     const anchor = { quote, prefix: "", suffix: "", selector };
     const wire = { id: newAnnotationId(), kind: "comment", anchor, body };
-    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    const persisted = this.client!.sessionComment(session.id, wire);
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
@@ -1147,7 +1147,7 @@ class Controller implements ReviewController {
     };
 
     if (existing.replyTo !== undefined) wire.replyTo = existing.replyTo;
-    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    const persisted = this.client!.sessionComment(session.id, wire);
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
@@ -1156,7 +1156,7 @@ class Controller implements ReviewController {
 
   // push only after the local write lands, so a rejected write never leaks to the share
   private mirrorAnnotation(
-    persisted: Promise<ReviewSession>,
+    persisted: Promise<Thread>,
     annotation: Omit<Annotation, "createdAt">,
   ): void {
     const session = this.snapshot.session;
@@ -1391,12 +1391,8 @@ class Controller implements ReviewController {
    * Show a moved tree at once - the record re-derived from its new path - and
    * let the daemon's answer replace it. A refused move surfaces as status.
    */
-  private moveTree(
-    session: ReviewSession,
-    history: SessionHistory,
-    request: () => Promise<ReviewSession>,
-  ): void {
-    const expected: ReviewSession = { ...session, history };
+  private moveTree(session: Thread, history: SessionHistory, request: () => Promise<Thread>): void {
+    const expected: Thread = { ...session, history };
 
     applyPathView(
       expected,
@@ -1421,7 +1417,7 @@ class Controller implements ReviewController {
       .catch(() => {});
   }
 
-  private mergeShared(remote: ReviewSession): Promise<void> {
+  private mergeShared(remote: Thread): Promise<void> {
     const session = this.snapshot.session;
 
     if (!session || !this.client) return Promise.resolve();

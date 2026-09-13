@@ -20,7 +20,7 @@ import {
   type ArtifactMeta,
   type DiffFileContents,
   type Identity,
-  type ReviewSession,
+  type Thread,
   type HunkRejection,
   type Revision,
   type SessionHistory,
@@ -149,6 +149,12 @@ export const Params = {
     ),
   }),
   "session.annotate": v.object({
+    id: SessionId,
+    annotation: AnnotationSchema,
+    authorName: v.optional(v.string()),
+  }),
+  // "session.comment" is the primary annotate method; "session.annotate" stays an accepted alias
+  "session.comment": v.object({
     id: SessionId,
     annotation: AnnotationSchema,
     authorName: v.optional(v.string()),
@@ -315,7 +321,7 @@ export const SessionHistorySchema = v.pipe(
 );
 
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
-export const SessionRecordSchema = v.object({
+export const ThreadRecordSchema = v.object({
   schemaVersion: v.literal(SCHEMA_VERSION),
   id: NonEmpty,
   workspace: WorkspaceSchema,
@@ -343,12 +349,12 @@ export const SessionRecordSchema = v.object({
   shareBranch: v.optional(v.string()),
   owner: v.optional(v.string()),
   participants: v.optional(v.array(IdentitySchema)),
-} satisfies EntriesOf<ReviewSession>);
+} satisfies EntriesOf<Thread>);
 
-export function validateSessionRecord(
+export function validateThreadRecord(
   raw: Parameters<typeof v.safeParse>[1],
-): { ok: true; value: v.InferOutput<typeof SessionRecordSchema> } | { ok: false; error: string } {
-  const result = v.safeParse(SessionRecordSchema, raw);
+): { ok: true; value: v.InferOutput<typeof ThreadRecordSchema> } | { ok: false; error: string } {
+  const result = v.safeParse(ThreadRecordSchema, raw);
 
   if (result.success) return { ok: true, value: result.output };
   const issue = result.issues[0]!;
@@ -356,3 +362,8 @@ export function validateSessionRecord(
 
   return { ok: false, error: `${path ? path + ": " : ""}${issue.message}` };
 }
+
+/** @deprecated use ThreadRecordSchema */
+export const SessionRecordSchema = ThreadRecordSchema;
+/** @deprecated use validateThreadRecord */
+export const validateSessionRecord = validateThreadRecord;

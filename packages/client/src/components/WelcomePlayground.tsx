@@ -10,7 +10,7 @@ import {
   newAnnotationId,
   SCHEMA_VERSION,
   type Annotation,
-  type ReviewSession,
+  type Thread,
 } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import type { QuickAction } from "../config";
@@ -55,7 +55,7 @@ function welcomeCopy(version: string): string {
 
 /** An ephemeral thread that holds nothing but the playground's notes, so the surface groups
  *  discussions exactly as a real review does without any of it reaching the daemon. */
-function playgroundThread(annotations: Annotation[]): ReviewSession {
+function playgroundThread(annotations: Annotation[]): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "welcome",

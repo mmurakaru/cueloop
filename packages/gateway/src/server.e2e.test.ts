@@ -13,7 +13,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "ssh2";
-import { SCHEMA_VERSION, type ReviewSession } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Thread } from "@cueloop/schema";
 import { packSessionBlob } from "@cueloop/daemon/share-blob";
 import { generateMasterKey, openBlob } from "./crypto";
 import { unpackSessionBlob } from "@cueloop/daemon/share-blob";
@@ -24,7 +24,7 @@ import { MemoryShareStore } from "./store";
 const MASTER = generateMasterKey();
 
 const PLAN = "# Rollout Plan\n\nShip the store move behind a flag.\n";
-const SESSION: ReviewSession = {
+const SESSION: Thread = {
   schemaVersion: SCHEMA_VERSION,
   id: "ses_test_1",
   workspace: { repoRoot: "/repo", branch: "main" },
@@ -461,7 +461,7 @@ describe("planner pull", () => {
 
     // Act
     const result = await sharePull(handle.port, id, CLIENT_KEY);
-    const pulled: ReviewSession = JSON.parse(result.out);
+    const pulled: Thread = JSON.parse(result.out);
 
     // Assert
     expect(result.code).toBe(0);
@@ -589,14 +589,14 @@ function shareWatch(
   shareId: string,
   privateKey: string,
 ): Promise<{
-  nextSession: () => Promise<ReviewSession>;
+  nextSession: () => Promise<Thread>;
   close: () => void;
   refused: Promise<{ err: string; code: number | null }>;
 }> {
   return new Promise((resolve, reject) => {
     const conn = new Client();
-    const sessions: ReviewSession[] = [];
-    const waiters: Array<(session: ReviewSession) => void> = [];
+    const sessions: Thread[] = [];
+    const waiters: Array<(session: Thread) => void> = [];
     let buffered = "";
     let err = "";
     let code: number | null = null;

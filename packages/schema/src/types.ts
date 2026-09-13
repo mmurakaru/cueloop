@@ -1,5 +1,5 @@
 /**
- * The ReviewSession primitive. Everything in cueloop renders, annotates, or
+ * The Thread primitive. Everything in cueloop renders, annotates, or
  * resolves this one noun. This module is pure data shapes - no IO, no
  * dependencies beyond the history shapes.
  */
@@ -230,7 +230,7 @@ export interface Identity {
   handle?: string;
 }
 
-export interface ReviewSession {
+export interface Thread {
   schemaVersion: string;
   id: string;
   workspace: WorkspaceKey;
@@ -283,6 +283,9 @@ export interface ReviewSession {
    */
   participants?: Identity[];
 }
+
+/** @deprecated use Thread */
+export type ReviewSession = Thread;
 
 /** comment and request_changes both map to deny in agent-native contracts. */
 export function verdictAllows(kind: VerdictKind): boolean {

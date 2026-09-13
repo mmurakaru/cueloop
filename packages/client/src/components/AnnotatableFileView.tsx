@@ -4,7 +4,7 @@
 // hold the notes; the bare-launch welcome shell uses the read-only FileContentsView instead.
 
 import React, { useEffect, useRef, useState } from "react";
-import { makeAnchor, annotationTarget, type Anchor, type ReviewSession } from "@cueloop/schema";
+import { makeAnchor, annotationTarget, type Anchor, type Thread } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import type { QuickAction } from "../config";
 import { useComponentTheme } from "./theme-context";
@@ -14,7 +14,7 @@ import { diffRowBlocks, fileContentsRows, marksByRows } from "../view-diff";
 export interface AnnotatableFileViewProps {
   path: string;
   loadContents: (path: string) => Promise<string | null>;
-  session: ReviewSession;
+  session: Thread;
   quickActions: QuickAction[];
   observer: boolean;
   resolved?: boolean;
