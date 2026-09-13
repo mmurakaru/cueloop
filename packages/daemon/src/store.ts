@@ -92,14 +92,20 @@ export class SessionStore implements SessionRepository {
         if (!file.endsWith(".jsonl")) continue;
         const filePath = join(bucketPath, file);
         try {
-          const { session, lines } = readThread(filePath);
+          const { session, lines, torn } = readThread(filePath);
 
           this.sessions.set(session.id, session);
           this.files.set(session.id, filePath);
           this.lineCounts.set(session.id, lines);
           report.recovered.push(session.id);
-        } catch (err) {
-          report.skipped.push({ file, error: err instanceof Error ? err.message : String(err) });
+          // a torn trailing fragment would fuse with the next append and lose that update, so rewrite
+          // the log to a single clean snapshot line now that the last valid record is in hand
+          if (torn) this.writeWhole(session);
+        } catch (error) {
+          report.skipped.push({
+            file,
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
       }
     }
@@ -125,11 +131,21 @@ export class SessionStore implements SessionRepository {
 
         if (!parsed.ok) throw new Error(`invalid record - ${parsed.error}`);
         session = withHistory(parsed.value);
-      } catch (err) {
-        report.skipped.push({ file, error: err instanceof Error ? err.message : String(err) });
+      } catch (error) {
+        report.skipped.push({
+          file,
+          error: error instanceof Error ? error.message : String(error),
+        });
         continue;
       }
-      this.writeWhole(session);
+      const targetPath = join(
+        threadBucket(session.workspace.rootCommit, this.home),
+        `${session.id}.jsonl`,
+      );
+
+      // after a rollback a newer JSONL can already hold this thread; never overwrite it with the
+      // older legacy snapshot - the existing log stays authoritative and the threads scan recovers it
+      if (!existsSync(targetPath)) this.writeWhole(session);
       // forget the in-memory tracking migration seeded: the threads scan is the one recovery path
       this.files.delete(session.id);
       this.lineCounts.delete(session.id);
@@ -189,7 +205,11 @@ export class SessionStore implements SessionRepository {
   }
 }
 
-/** Read a thread log: the last valid snapshot line wins, so a crash's torn trailing line is skipped. */
+/**
+ * Read a thread log: the last valid snapshot line wins, so a crash's torn trailing line is skipped.
+ * `torn` is true when that winning line was not the last physical line - the caller rewrites the log
+ * so the next append starts on a clean boundary instead of fusing onto the torn fragment.
+ */
 function readThread(filePath: string) {
   const allLines = readFileSync(filePath, "utf8")
     .split("\n")
@@ -205,7 +225,13 @@ function readThread(filePath: string) {
     }
     const parsed = validateSessionRecord(record);
 
-    if (parsed.ok) return { session: withHistory(parsed.value), lines: allLines.length };
+    if (parsed.ok) {
+      return {
+        session: withHistory(parsed.value),
+        lines: allLines.length,
+        torn: index !== allLines.length - 1,
+      };
+    }
   }
   throw new Error("no valid record line");
 }

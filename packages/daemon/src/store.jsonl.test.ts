@@ -39,6 +39,16 @@ describe("JSONL thread store", () => {
     expect(readdirSync(bucket)).toContain("ses_a.jsonl");
   });
 
+  test("a non-commit rootCommit (path traversal) cannot escape the threads directory", () => {
+    const home = tmpHome();
+    const escape = threadBucket("../../../etc/cueloop", home);
+    const standalone = threadBucket(undefined, home);
+
+    // a value that is not a real commit SHA is refused to the standalone bucket, never a parent path
+    expect(escape).toBe(standalone);
+    expect(escape.startsWith(join(home, "threads"))).toBe(true);
+  });
+
   test("a repo-less thread lands in the standalone bucket", () => {
     const home = tmpHome();
     const store = new SessionStore(home);
@@ -66,16 +76,45 @@ describe("JSONL thread store", () => {
     expect(readdirSync(migratedSessionsDir(home))).toContain("ses_old.json");
   });
 
+  test("migration never overwrites a newer JSONL with an older legacy snapshot", () => {
+    const home = tmpHome();
+    // a newer JSONL already holds this thread (e.g. written after a rollback)
+    const store = new SessionStore(home);
+    store.recover();
+    store.upsert(
+      createTestSessionRecord("ses_x", "2026-09-01T00:00:00.000Z", {
+        status: "pending",
+        workspace: { repoRoot: "/repo", branch: "newer" },
+      }),
+    );
+    // an older legacy JSON for the same thread is restored alongside it
+    mkdirSync(sessionsDir(home), { recursive: true });
+    writeFileSync(
+      join(sessionsDir(home), "ses_x.json"),
+      JSON.stringify(
+        createTestSessionRecord("ses_x", "2026-09-01T00:00:00.000Z", {
+          workspace: { repoRoot: "/repo", branch: "older" },
+        }),
+      ),
+    );
+
+    const reopened = new SessionStore(home);
+    reopened.recover();
+    // the newer JSONL wins; the legacy snapshot is parked, not applied
+    expect(reopened.get("ses_x")?.workspace.branch).toBe("newer");
+    expect(readdirSync(migratedSessionsDir(home))).toContain("ses_x.json");
+  });
+
   test("a long log compacts to a single line, and the record survives it", () => {
     const home = tmpHome();
     const store = new SessionStore(home);
     store.recover();
     // more upserts than the compaction threshold
-    for (let n = 0; n < 60; n++) {
+    for (let iteration = 0; iteration < 60; iteration++) {
       store.upsert(
         createTestSessionRecord("ses_a", "2026-09-01T00:00:00.000Z", {
           status: "pending",
-          workspace: { repoRoot: "/repo", branch: `b${n}` },
+          workspace: { repoRoot: "/repo", branch: `b${iteration}` },
         }),
       );
     }
@@ -105,5 +144,16 @@ describe("JSONL thread store", () => {
     const report = reopened.recover();
     expect(report.recovered).toEqual(["ses_a"]);
     expect(reopened.get("ses_a")?.id).toBe("ses_a");
+
+    // an update after a torn recovery must not fuse onto the torn fragment and vanish on restart
+    reopened.upsert(
+      createTestSessionRecord("ses_a", "2026-09-01T00:00:00.000Z", {
+        status: "pending",
+        workspace: { repoRoot: "/repo", branch: "after-tear" },
+      }),
+    );
+    const restarted = new SessionStore(home);
+    restarted.recover();
+    expect(restarted.get("ses_a")?.workspace.branch).toBe("after-tear");
   });
 });
