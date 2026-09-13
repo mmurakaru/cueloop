@@ -435,7 +435,12 @@ export class DaemonServer {
     "session.resolve": (_connection, request) => {
       const params = parseParams("session.resolve", request.params);
 
-      return this.core.sessionResolve(params.id, params.verdictKind, params.summary);
+      return this.core.sessionResolve(
+        params.id,
+        params.verdictKind,
+        params.summary,
+        params.actionBodies,
+      );
     },
     "session.submitRevision": (_connection, request) => {
       const params = parseParams("session.submitRevision", request.params);

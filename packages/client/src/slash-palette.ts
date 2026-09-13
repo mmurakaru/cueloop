@@ -23,28 +23,42 @@ export function slashItemsFrom(quickActions: QuickAction[]): SlashItem[] {
   }));
 }
 
-/** Prefix beats substring beats subsequence. */
-export function slashFilter(items: SlashItem[], query: string): SlashItem[] {
-  const needle = query.toLowerCase();
+const WORD_BOUNDARY = /[\s\-_./:]/;
 
-  if (needle.length === 0) return items;
+/** Order-preserving subsequence score, or null when a query character is missing; higher is better. */
+export function scoreMatch(name: string, query: string): number | null {
+  if (query.length === 0) return 0;
+  const lowerName = name.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+
+  if (lowerName === lowerQuery) return 1000;
+  if (lowerName.startsWith(lowerQuery)) return 500 - name.length;
+  let score = 0;
+  let cursor = 0;
+  let run = 0;
+
+  for (const character of lowerQuery) {
+    const found = lowerName.indexOf(character, cursor);
+
+    if (found === -1) return null;
+    run = found === cursor ? run + 1 : 0;
+    score += found === cursor ? 5 + run : 1;
+    if (found === 0 || WORD_BOUNDARY.test(lowerName[found - 1]!)) score += 10;
+    score -= found - cursor;
+    cursor = found + 1;
+  }
+
+  return score;
+}
+
+export function slashFilter(items: SlashItem[], query: string): SlashItem[] {
+  if (query.length === 0) return items;
   const scored: Array<{ item: SlashItem; score: number }> = [];
 
   for (const item of items) {
-    const name = item.name.toLowerCase();
-    let score = 0;
+    const score = scoreMatch(item.name, query);
 
-    if (name.startsWith(needle)) score = 3;
-    else if (name.includes(needle)) score = 2;
-    else {
-      let matched = 0;
-
-      for (const character of name) {
-        if (character === needle[matched]) matched++;
-      }
-      if (matched === needle.length) score = 1;
-    }
-    if (score > 0) scored.push({ item, score });
+    if (score !== null) scored.push({ item, score });
   }
 
   return scored.toSorted((left, right) => right.score - left.score).map((entry) => entry.item);

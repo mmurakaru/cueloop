@@ -305,7 +305,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     setCompose(null);
     setComposeText("");
   };
-  const slashActive = compose !== null && composeText.startsWith("/");
+  // open only while typing the token: a leading "/" with no space yet
+  const slashActive = compose !== null && /^\/\S*$/.test(composeText);
   const slashItems = slashActive
     ? slashFilter(slashItemsFrom(quickActions), composeText.slice(1).trim())
     : [];
@@ -426,7 +427,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       return true;
     }
     if (key.name === "return" || key.name === "tab") {
-      openCompose({ ...activeCompose, seed: slashItems[selected]!.body });
+      openCompose({ ...activeCompose, seed: `/${slashItems[selected]!.name} ` });
 
       return true;
     }
