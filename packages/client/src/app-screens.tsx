@@ -188,8 +188,9 @@ export function NoThreadShell(props: {
   const workbench = useChangesWorkbench({ seed: "welcome" });
   // the Changes tree opens a file's working-tree diff; the Project tree opens read-only contents
   const openChangedFile = (path: string): void => {
-    // no thread means no live-diff refresh loop, so re-capture on open or a long-lived shell goes stale
-    void controller.repoChanges();
+    // no thread means no live-diff refresh loop, so re-capture on open or a long-lived shell goes
+    // stale; the catch keeps a fire-and-forget refresh from throwing when the shell tears down
+    void controller.repoChanges().catch(() => undefined);
     workbench.openFile(path, "diff");
   };
   const openProjectFile = (path: string): void => workbench.openFile(path, "contents");
