@@ -116,26 +116,20 @@ function SlashList({
 
   if (items.length === 0) return <text fg={tokens.textDim}>no matching actions</text>;
 
-  const nameColumn = Math.min(32, Math.max(14, ...visible.map((item) => item.name.length + 3)));
+  const nameColumn = Math.min(36, Math.max(16, ...visible.map((item) => item.name.length + 5)));
 
   return (
     <box style={{ flexDirection: "column" }}>
       {visible.map((item, offset) => {
         const index = start + offset;
         const isSelected = index === selected;
+        const name = `${isSelected ? "→ " : "  "}/${item.name}`.padEnd(nameColumn);
 
         return (
-          <box key={item.name} style={{ flexDirection: "row" }}>
-            <text
-              fg={isSelected ? tokens.accent : tokens.textMuted}
-              style={{ width: nameColumn, flexShrink: 0, wrapMode: "none" }}
-            >
-              {`${isSelected ? "→ " : "  "}/${item.name}`}
-            </text>
-            <text fg={tokens.textDim} style={{ flexGrow: 1, flexShrink: 1 }}>
-              {item.description}
-            </text>
-          </box>
+          <text key={item.name} style={{ flexShrink: 0, wrapMode: "none" }}>
+            <span fg={isSelected ? tokens.accent : tokens.textMuted}>{name}</span>
+            <span fg={tokens.textDim}>{item.description}</span>
+          </text>
         );
       })}
       {items.length > WINDOW ? (
