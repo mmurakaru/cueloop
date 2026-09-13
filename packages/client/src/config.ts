@@ -70,6 +70,10 @@ export const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
     metadata:
       "Follow the nearest existing pattern in this codebase rather than introducing a new one.",
   },
+  {
+    prompt: "LGTM",
+    metadata: "This looks good to me.",
+  },
 ];
 
 /** The comment body a quick action expands to: the prompt, then its system prompt when set. */

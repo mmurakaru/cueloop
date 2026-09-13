@@ -10,6 +10,7 @@ import React, { useRef } from "react";
 import type { KeyBinding, TextareaRenderable } from "@opentui/core";
 import type { QuickAction } from "../config";
 import type { Theme } from "../theme";
+import { ScrollArea } from "./ScrollArea";
 import { useComponentTheme } from "./theme-context";
 
 // ⏎ never inserts a newline: a system prompt is one line, esc closes the editor.
@@ -52,23 +53,25 @@ export function QuickActionsEditor({
         </box>
       </box>
       <box style={{ height: 1 }} />
-      {actions.map((action, index) => (
-        <ActionRow
-          key={index}
-          action={action}
-          isSelected={index === selectedIndex}
-          isExpanded={index === expandedIndex}
-          onToggleExpand={() => onToggleExpand(index)}
-          onEditMetadata={(metadata) => onEditMetadata(index, metadata)}
-          theme={theme}
-        />
-      ))}
-      <box
-        style={{ backgroundColor: selectedIndex === actions.length ? tokens.border : undefined }}
-        onMouseUp={onAdd}
-      >
-        <text fg={tokens.textMuted}>+ Add action</text>
-      </box>
+      <ScrollArea>
+        {actions.map((action, index) => (
+          <ActionRow
+            key={index}
+            action={action}
+            isSelected={index === selectedIndex}
+            isExpanded={index === expandedIndex}
+            onToggleExpand={() => onToggleExpand(index)}
+            onEditMetadata={(metadata) => onEditMetadata(index, metadata)}
+            theme={theme}
+          />
+        ))}
+        <box
+          style={{ backgroundColor: selectedIndex === actions.length ? tokens.border : undefined }}
+          onMouseUp={onAdd}
+        >
+          <text fg={tokens.textMuted}>+ Add action</text>
+        </box>
+      </ScrollArea>
     </box>
   );
 }
