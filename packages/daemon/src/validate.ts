@@ -58,6 +58,7 @@ export const ArtifactMetaSchema = v.object({
   pr: v.optional(v.string()),
   herdrPane: v.optional(v.string()),
   title: v.optional(v.string()),
+  workbench: v.optional(v.boolean()),
 } satisfies EntriesOf<ArtifactMeta>);
 
 export const DiffFileContentsSchema = v.object({
@@ -182,6 +183,7 @@ export const Params = {
   "repo.fileContents": v.object({ cwd: NonEmpty, path: NonEmpty }),
   "repo.changes": v.object({ cwd: NonEmpty }),
   "repo.diff": v.object({ cwd: NonEmpty }),
+  "session.workbench": v.object({ cwd: NonEmpty }),
   "session.navigate": v.object({
     id: SessionId,
     entryId: NonEmpty,

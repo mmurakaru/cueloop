@@ -408,6 +408,8 @@ export class DaemonServer {
       this.core.repoChanges(parseParams("repo.changes", request.params).cwd),
     "repo.diff": (_connection, request) =>
       this.core.repoDiff(parseParams("repo.diff", request.params).cwd),
+    "session.workbench": (_connection, request) =>
+      this.core.workbenchSession(parseParams("session.workbench", request.params).cwd),
     "session.refreshDiff": (_connection, request) => {
       const params = parseParams("session.refreshDiff", request.params);
 

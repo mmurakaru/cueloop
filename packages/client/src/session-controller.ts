@@ -263,6 +263,12 @@ export interface ReviewController {
   /** Persist a comment whose anchor a surface already built (e.g. a file-contents view). */
   addComment(anchor: Anchor, target: AnnotationTarget, body: string): string | undefined;
   /**
+   * Comment from the bare launch shell, where no thread is open: find-or-create the per-repo
+   * workbench thread, open it (the shell becomes a thread view), then add the comment. This is the
+   * first write a browse-only launch makes - nothing is on disk until it runs.
+   */
+  commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void>;
+  /**
    * Reply to `rootAnnotationId`: the reply shares the root's anchor and names
    * it in replyTo, so the discussion stays one conversation. Returns the minted id.
    */
@@ -1065,6 +1071,26 @@ class Controller implements ReviewController {
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
+  }
+
+  async commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void> {
+    if (!this.snapshot.session) {
+      if (this.client?.sessionWorkbench === undefined) return;
+      let workbench;
+
+      try {
+        workbench = await this.client.sessionWorkbench(this.options.cwd ?? process.cwd());
+      } catch (cause) {
+        // the composer already closed, so a lost first comment must at least surface, not vanish
+        this.setStatus(String(cause instanceof Error ? cause.message : cause));
+
+        return;
+      }
+      // adopt the thread as active (the shell flips to the thread view) and let the inbox catch up
+      this.update({ session: workbench });
+      void this.refreshInbox();
+    }
+    this.addComment(anchor, target, body);
   }
 
   reply(rootAnnotationId: string, body: string): string | undefined {
