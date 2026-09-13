@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, mock, test, type Mock } from "bun:test";
 import { ManualClock } from "@opentui/core/testing";
-import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Annotation, type Thread } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
 import {
   createReviewController,
   SHARE_RECONNECT_MAX_MS,
   SHARE_RECONNECT_MIN_MS,
   type ShareTransport,
-} from "./session-controller";
+} from "./thread-controller";
 import { mergeFromShare, type ShareWatchHandlers } from "./share";
 
 const publishShare = mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", copied: true }));
-let remote: ReviewSession;
+let remote: Thread;
 const pullShare = mock(async () => remote);
 const pushShare = mock(
   async (_shareId: string, _annotations: Array<Omit<Annotation, "createdAt">>) => {},
@@ -27,7 +27,7 @@ const shareTransport: ShareTransport = {
   mergeFromShare,
 };
 
-function sessionFixture(overrides: Partial<ReviewSession> = {}): ReviewSession {
+function sessionFixture(overrides: Partial<Thread> = {}): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
@@ -60,12 +60,13 @@ interface FakeSessionClient extends SessionClient {
 const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
-function fakeClient(session: ReviewSession): FakeSessionClient {
+function fakeClient(session: Thread): FakeSessionClient {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
     sessionGet: async () => session,
     sessionList: async () => [session],
+    sessionComment: unimplemented("sessionComment"),
     sessionAnnotate: mock<SessionClient["sessionAnnotate"]>(async () => session),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
@@ -100,7 +101,7 @@ function fakeClient(session: ReviewSession): FakeSessionClient {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 async function connectedController(
-  session: ReviewSession,
+  session: Thread,
   clock?: ManualClock,
   transport: ShareTransport = shareTransport,
 ): Promise<{ controller: ReturnType<typeof createReviewController>; client: FakeSessionClient }> {

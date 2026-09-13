@@ -11,7 +11,7 @@ import {
   isAgentNote,
   type Annotation,
   type ArtifactType,
-  type ReviewSession,
+  type Thread,
   type VerdictKind,
 } from "./types";
 import { parseBlocks, sectionOf, type Block } from "./markdown";
@@ -246,7 +246,7 @@ function annotationSectionLines(
 }
 
 export function feedbackForSession(
-  session: ReviewSession,
+  session: Thread,
   verdictKind: VerdictKind,
   summary: string,
   actionBodies?: Record<string, string>,

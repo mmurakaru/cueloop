@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { ReviewSession, WorkspaceKey } from "@cueloop/schema";
+import type { Thread, WorkspaceKey } from "@cueloop/schema";
 import { groupInbox, projectName } from "./session-tree";
 
-function session(id: string, title: string, rootCommit?: string, remote?: string): ReviewSession {
+function session(id: string, title: string, rootCommit?: string, remote?: string): Thread {
   const workspace: WorkspaceKey = { repoRoot: `/home/dev/${id}-checkout`, branch: "main" };
   if (rootCommit !== undefined) workspace.rootCommit = rootCommit;
   if (remote !== undefined) workspace.remote = remote;

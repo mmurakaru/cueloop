@@ -1,5 +1,5 @@
 /**
- * The share-blob wire format: how a ReviewSession travels from `cueloop share`
+ * The share-blob wire format: how a Thread travels from `cueloop share`
  * to the gateway. The planner's CLI packs (this is the only thing it can do -
  * it holds no encryption key); the gateway unpacks, then encrypts for R2.
  *
@@ -10,8 +10,8 @@
  */
 
 import { gzipSync, gunzipSync } from "node:zlib";
-import type { ReviewSession } from "@cueloop/schema";
-import { validateSessionRecord } from "./validate";
+import type { Thread } from "@cueloop/schema";
+import { validateThreadRecord } from "./validate";
 
 /** Decompressed ceiling for one shared session (ADR 0004's payload cap). */
 export const MAX_BLOB_BYTES = 1024 * 1024;
@@ -24,12 +24,12 @@ export const DEFAULT_SHARE_HOST = "cueloop.dev";
 export const DEFAULT_SHARE_PORT = 22;
 
 /** Serialise + compress a session for upload. */
-export function packSessionBlob(session: ReviewSession): Buffer {
+export function packSessionBlob(session: Thread): Buffer {
   return gzipSync(Buffer.from(JSON.stringify(session), "utf8"));
 }
 
 /** Decompress + validate an uploaded blob, or throw a precise reason. */
-export function unpackSessionBlob(bytes: Uint8Array): ReviewSession {
+export function unpackSessionBlob(bytes: Uint8Array): Thread {
   let json: string;
 
   try {
@@ -47,7 +47,7 @@ export function unpackSessionBlob(bytes: Uint8Array): ReviewSession {
   } catch {
     throw new Error("blob is not valid JSON");
   }
-  const parsed = validateSessionRecord(raw);
+  const parsed = validateThreadRecord(raw);
 
   if (!parsed.ok) throw new Error(`blob is not a valid session: ${parsed.error}`);
 

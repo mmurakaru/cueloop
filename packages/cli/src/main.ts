@@ -24,7 +24,7 @@ import { sessionCommand } from "./session-commands";
 import { CLI_VERSION } from "./version";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { workingTreeDiff } from "@cueloop/daemon/working-tree";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
 
 const argv = process.argv.slice(2);
@@ -162,13 +162,13 @@ function openSelector(parsed: ParsedArgs): string | undefined {
  * one caller that needs a scope-specific hint (a clean working tree).
  */
 async function openReviewOfKind(
-  match: (session: ReviewSession) => boolean,
+  match: (session: Thread) => boolean,
   label: string,
   selector: string | undefined,
   emptyMessage?: string,
 ): Promise<number> {
   const client = await DaemonClient.connect({ autostart: true });
-  let sessions: ReviewSession[];
+  let sessions: Thread[];
 
   try {
     sessions = await client.sessionList();

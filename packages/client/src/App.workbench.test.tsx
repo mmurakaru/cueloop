@@ -13,7 +13,7 @@ import { join } from "node:path";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import {
   dragText,
@@ -42,7 +42,7 @@ let home: string;
 let repo: string;
 let restoreUserConfig: () => void;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 
 /** A throwaway git repo so the Project tree (git ls-files) and file contents resolve without a real checkout. */
 function makeRepo(): string {

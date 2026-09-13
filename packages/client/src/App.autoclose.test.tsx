@@ -8,7 +8,7 @@ import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { ManualClock } from "@opentui/core/testing";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import { isolateUserConfig, press, settle, waitForText, pressKey } from "./test-support";
 
@@ -16,7 +16,7 @@ const PLAN = "# Plan\n\nShip the thing.\n";
 
 let home: string;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 let configPath: string;
 let restoreUserConfig: () => void;
 let clock: ManualClock;

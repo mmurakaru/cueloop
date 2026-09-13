@@ -6,7 +6,7 @@
  */
 
 import React, { useEffect, useRef, useState } from "react";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { FRAME_BORDER_STYLE } from "./primitives/frame";
@@ -51,7 +51,7 @@ export function planHandoffBriefing(sessionId: string): string {
 
 /** Props for the Agent tab body: the session under review plus the launch callbacks. */
 export interface AgentLauncherProps {
-  session: ReviewSession;
+  session: Thread;
   /**
    * Fallback launch when no embedded terminal ships for this platform: run the
    * harness in a herdr split. seedText is the plan-context briefing.

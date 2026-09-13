@@ -6,7 +6,7 @@
  * walks, so the keyboard grammar keeps a single index across the two groups.
  */
 
-import type { ReviewSession, WorkspaceKey } from "@cueloop/schema";
+import type { Thread, WorkspaceKey } from "@cueloop/schema";
 
 /** A repo's display name: the remote basename when present, else the working-tree folder name. */
 export function projectName(workspace: WorkspaceKey): string {
@@ -33,31 +33,31 @@ export function projectName(workspace: WorkspaceKey): string {
 export type InboxRow =
   | { kind: "section"; id: string; label: string }
   | { kind: "project"; id: string; label: string }
-  | { kind: "thread"; id: string; session: ReviewSession; selectionIndex: number };
+  | { kind: "thread"; id: string; session: Thread; selectionIndex: number };
 
 export interface GroupedInbox {
   rows: InboxRow[];
   /** Threads in display order; the inbox cursor indexes this. */
-  ordered: ReviewSession[];
+  ordered: Thread[];
 }
 
-function threadTitle(session: ReviewSession): string {
+function threadTitle(session: Thread): string {
   return session.artifact.meta.title ?? session.id;
 }
 
 interface ProjectGroup {
   name: string;
-  sessions: ReviewSession[];
+  sessions: Thread[];
 }
 
 /** Group pending sessions into Pinned, then Projects (by root commit), then standalone Threads. */
 export function groupInbox(
-  sessions: readonly ReviewSession[],
+  sessions: readonly Thread[],
   pinnedIds?: ReadonlySet<string>,
 ): GroupedInbox {
-  const pinned: ReviewSession[] = [];
+  const pinned: Thread[] = [];
   const projects = new Map<string, ProjectGroup>();
-  const standalone: ReviewSession[] = [];
+  const standalone: Thread[] = [];
 
   for (const session of sessions) {
     if (pinnedIds?.has(session.id) === true) {
@@ -77,8 +77,8 @@ export function groupInbox(
   }
 
   const rows: InboxRow[] = [];
-  const ordered: ReviewSession[] = [];
-  const pushThread = (session: ReviewSession): void => {
+  const ordered: Thread[] = [];
+  const pushThread = (session: Thread): void => {
     rows.push({ kind: "thread", id: session.id, session, selectionIndex: ordered.length });
     ordered.push(session);
   };

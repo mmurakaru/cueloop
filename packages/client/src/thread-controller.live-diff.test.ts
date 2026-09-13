@@ -6,9 +6,9 @@
  */
 
 import { describe, expect, mock, test } from "bun:test";
-import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Annotation, type Thread } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
-import { createReviewController, type ShareTransport } from "./session-controller";
+import { createReviewController, type ShareTransport } from "./thread-controller";
 import { mergeFromShare } from "./share";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -31,7 +31,7 @@ const FILES = [
 ];
 
 const shareTransport: ShareTransport = {
-  publish: mock(async (session: ReviewSession) => ({
+  publish: mock(async (session: Thread) => ({
     line: `ssh p_${session.id}@cueloop.dev`,
     copied: true,
   })),
@@ -43,7 +43,7 @@ const shareTransport: ShareTransport = {
   mergeFromShare,
 };
 
-function planSession(id = "ses_plan", repoRoot = "/repo"): ReviewSession {
+function planSession(id = "ses_plan", repoRoot = "/repo"): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id,
@@ -60,12 +60,13 @@ function planSession(id = "ses_plan", repoRoot = "/repo"): ReviewSession {
 const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
-function fakeClient(session: ReviewSession): SessionClient {
+function fakeClient(session: Thread): SessionClient {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
     sessionGet: async () => session,
     sessionList: async () => [session],
+    sessionComment: unimplemented("sessionComment"),
     sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),

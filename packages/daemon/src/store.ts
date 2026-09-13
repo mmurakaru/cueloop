@@ -7,7 +7,7 @@
  * that fail to parse are skipped and reported, never deleted; records from before histories existed
  * are given one on read.
  *
- * `SessionRepository` is the contract every adapter satisfies; the conformance
+ * `ThreadRepository` is the contract every adapter satisfies; the conformance
  * suite in ./testing/store-conformance.ts pins it for the file store and the
  * in-memory store alike.
  */
@@ -24,9 +24,9 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { historyFromLinear, type ReviewSession } from "@cueloop/schema";
+import { historyFromLinear, type Thread } from "@cueloop/schema";
 import { migratedSessionsDir, sessionsDir, threadBucket, threadsDir } from "./paths";
-import { validateSessionRecord } from "./validate";
+import { validateThreadRecord } from "./validate";
 
 /** A thread's log is rewritten to a single snapshot line once it grows past this many, so an
  *  active thread's file never bloats unbounded while writes stay cheap appends in between. */
@@ -38,13 +38,13 @@ export interface RecoveryReport {
 }
 
 /** What the daemon needs from session storage. */
-export interface SessionRepository {
+export interface ThreadRepository {
   /** Load what is stored; called once on boot. */
   recover(): RecoveryReport;
-  get(id: string): ReviewSession | undefined;
+  get(id: string): Thread | undefined;
   /** Every session, oldest first. */
-  list(): ReviewSession[];
-  upsert(session: ReviewSession): void;
+  list(): Thread[];
+  upsert(session: Thread): void;
   /** True when a session was removed. */
   delete(id: string): boolean;
 }
@@ -54,19 +54,19 @@ export interface SessionRepository {
  * one. A record with no revision has no head to derive from and keeps
  * reading without a history - migration never loses a record.
  */
-export function withHistory(session: ReviewSession): ReviewSession {
+export function withHistory(session: Thread): Thread {
   if (session.history || session.revisions.length === 0) return session;
 
   return { ...session, history: historyFromLinear(session) };
 }
 
 /** Records in the order `list()` promises: oldest first. */
-function oldestFirst(sessions: Iterable<ReviewSession>): ReviewSession[] {
+function oldestFirst(sessions: Iterable<Thread>): Thread[] {
   return [...sessions].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
-export class SessionStore implements SessionRepository {
-  private sessions = new Map<string, ReviewSession>();
+export class ThreadStore implements ThreadRepository {
+  private sessions = new Map<string, Thread>();
   /** id -> its JSONL path (the bucket depends on the record's root commit, so it is tracked). */
   private files = new Map<string, string>();
   /** id -> lines in its log, so upsert knows when to compact instead of append. */
@@ -124,10 +124,10 @@ export class SessionStore implements SessionRepository {
     for (const file of readdirSync(legacyDir)) {
       if (!file.endsWith(".json")) continue;
       const legacyPath = join(legacyDir, file);
-      let session: ReviewSession;
+      let session: Thread;
 
       try {
-        const parsed = validateSessionRecord(JSON.parse(readFileSync(legacyPath, "utf8")));
+        const parsed = validateThreadRecord(JSON.parse(readFileSync(legacyPath, "utf8")));
 
         if (!parsed.ok) throw new Error(`invalid record - ${parsed.error}`);
         session = withHistory(parsed.value);
@@ -155,7 +155,7 @@ export class SessionStore implements SessionRepository {
   }
 
   /** Rewrite the thread to a single snapshot line, atomically - the first write and every compaction. */
-  private writeWhole(session: ReviewSession): void {
+  private writeWhole(session: Thread): void {
     const filePath =
       this.files.get(session.id) ??
       join(threadBucket(session.workspace.rootCommit, this.home), `${session.id}.jsonl`);
@@ -169,15 +169,15 @@ export class SessionStore implements SessionRepository {
     this.lineCounts.set(session.id, 1);
   }
 
-  get(id: string): ReviewSession | undefined {
+  get(id: string): Thread | undefined {
     return this.sessions.get(id);
   }
 
-  list(): ReviewSession[] {
+  list(): Thread[] {
     return oldestFirst(this.sessions.values());
   }
 
-  upsert(session: ReviewSession): void {
+  upsert(session: Thread): void {
     this.sessions.set(session.id, session);
     const filePath = this.files.get(session.id);
     const lines = this.lineCounts.get(session.id) ?? 0;
@@ -223,7 +223,7 @@ function readThread(filePath: string) {
     } catch {
       continue;
     }
-    const parsed = validateSessionRecord(record);
+    const parsed = validateThreadRecord(record);
 
     if (parsed.ok) {
       return {
@@ -241,8 +241,8 @@ function readThread(filePath: string) {
  * in for what a file store finds on recovery, so validation and migration are
  * exercised the same way.
  */
-export class MemorySessionStore implements SessionRepository {
-  private sessions = new Map<string, ReviewSession>();
+export class MemoryThreadStore implements ThreadRepository {
+  private sessions = new Map<string, Thread>();
 
   constructor(private readonly seed: unknown[] = []) {}
 
@@ -250,7 +250,7 @@ export class MemorySessionStore implements SessionRepository {
     const report: RecoveryReport = { recovered: [], skipped: [] };
 
     this.seed.forEach((record, index) => {
-      const parsed = validateSessionRecord(record);
+      const parsed = validateThreadRecord(record);
 
       if (!parsed.ok) {
         report.skipped.push({ file: `seed[${index}]`, error: `invalid record - ${parsed.error}` });
@@ -266,15 +266,15 @@ export class MemorySessionStore implements SessionRepository {
     return report;
   }
 
-  get(id: string): ReviewSession | undefined {
+  get(id: string): Thread | undefined {
     return this.sessions.get(id);
   }
 
-  list(): ReviewSession[] {
+  list(): Thread[] {
     return oldestFirst(this.sessions.values());
   }
 
-  upsert(session: ReviewSession): void {
+  upsert(session: Thread): void {
     this.sessions.set(session.id, session);
   }
 

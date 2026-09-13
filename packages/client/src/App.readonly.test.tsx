@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
 import { DaemonServer } from "@cueloop/daemon";
-import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
+import { makeAnchor, parseBlocks, type Thread } from "@cueloop/schema";
 import { App } from "./App";
 import {
   clickText,
@@ -34,7 +34,7 @@ The daemon persists sessions to disk atomically.
 let home: string;
 let restoreUserConfig: () => void;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-observer-"));

@@ -37,14 +37,14 @@ import {
   type NewEntry,
   type Artifact,
   type Identity,
-  type ReviewSession,
+  type Thread,
   type SessionHistory,
   type Verdict,
   type VerdictKind,
   type WorkspaceKey,
 } from "@cueloop/schema";
 import { curateDiff } from "./curate";
-import { SessionStore, withHistory } from "./store";
+import { ThreadStore, withHistory } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
 import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
 import { DiffWatcher } from "./diff-watcher";
@@ -78,9 +78,9 @@ export interface DaemonEvent {
 type EventListener = (event: DaemonEvent) => void;
 
 export class DaemonCore {
-  readonly store: SessionStore;
+  readonly store: ThreadStore;
   readonly herdrTabs: HerdrTabStore;
-  private waiters = new Map<string, ((session: ReviewSession) => void)[]>();
+  private waiters = new Map<string, ((session: Thread) => void)[]>();
   private listeners = new Set<EventListener>();
   private seq = 0;
   /** Drives diff hot-reload: watches each live diff session's repo for working-tree changes. */
@@ -92,10 +92,10 @@ export class DaemonCore {
    */
   private readonly diffRefreshGenerations = new Map<string, number>();
   /** In-flight workbench creations keyed by project, so concurrent bare launches share one thread. */
-  private readonly workbenchCreation = new Map<string, Promise<ReviewSession>>();
+  private readonly workbenchCreation = new Map<string, Promise<Thread>>();
 
   constructor(home: string) {
-    this.store = new SessionStore(home);
+    this.store = new ThreadStore(home);
     this.store.recover();
     pruneExpiredSessions(this.store, resolveCleanupPeriodDays(), Date.now());
     this.herdrTabs = new HerdrTabStore(home);
@@ -136,9 +136,9 @@ export class DaemonCore {
     return this.store.list().some((session) => session.status === "pending");
   }
 
-  sessionCreate(params: { workspace: WorkspaceKey; artifact: Artifact }): ReviewSession {
+  sessionCreate(params: { workspace: WorkspaceKey; artifact: Artifact }): Thread {
     const now = new Date().toISOString();
-    const session: ReviewSession = {
+    const session: Thread = {
       schemaVersion: SCHEMA_VERSION,
       id: this.newSessionId(now),
       workspace: params.workspace,
@@ -163,7 +163,7 @@ export class DaemonCore {
     return `ses_${now.replace(/\D/g, "").slice(0, 14)}_${(++this.seq).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   }
 
-  sessionGet(id: string): ReviewSession {
+  sessionGet(id: string): Thread {
     const session = this.store.get(id);
 
     if (!session) throw new DaemonError("not_found", `no session ${id}`);
@@ -174,7 +174,7 @@ export class DaemonCore {
   sessionList(filter?: {
     status?: "pending" | "resolved";
     workspace?: Partial<WorkspaceKey>;
-  }): ReviewSession[] {
+  }): Thread[] {
     return this.store.list().filter((session) => {
       if (filter?.status && session.status !== filter.status) return false;
       if (filter?.workspace?.repoRoot && session.workspace.repoRoot !== filter.workspace.repoRoot)
@@ -191,7 +191,7 @@ export class DaemonCore {
    * otherwise parks until sessionResolve fires or timeoutMs elapses (null =
    * still pending - the caller re-polls later; the verdict is never lost).
    */
-  sessionWait(id: string, timeoutMs: number): Promise<ReviewSession | null> {
+  sessionWait(id: string, timeoutMs: number): Promise<Thread | null> {
     const current = this.sessionGet(id);
 
     if (current.status === "resolved") return Promise.resolve(current);
@@ -207,7 +207,7 @@ export class DaemonCore {
         if (waiterIndex !== -1) list.splice(waiterIndex, 1);
         resolve(null);
       }, timeoutMs);
-      const waiter = (session: ReviewSession) => {
+      const waiter = (session: Thread) => {
         if (done) return;
         done = true;
         clearTimeout(timer);
@@ -227,7 +227,7 @@ export class DaemonCore {
     id: string,
     annotation: Omit<Annotation, "createdAt">,
     authorName?: string,
-  ): ReviewSession {
+  ): Thread {
     const session = this.mutable(id);
     // a welcome-playground note is ephemeral by design: never persisted, so never fed back
     if (annotationTarget(annotation).kind === "welcome") return session;
@@ -265,7 +265,7 @@ export class DaemonCore {
    * agent acting as that author and may remove only that author's comments;
    * the owner (no `onBehalfOf`) may remove any.
    */
-  sessionRemoveAnnotation(id: string, annotationId: string, onBehalfOf?: string): ReviewSession {
+  sessionRemoveAnnotation(id: string, annotationId: string, onBehalfOf?: string): Thread {
     const session = this.mutable(id);
     const target = session.annotations.find((candidate) => candidate.id === annotationId);
 
@@ -292,7 +292,7 @@ export class DaemonCore {
   }
 
   /** Register a display name for a participant; how a collaborator or an agent names itself. */
-  sessionSetParticipantName(id: string, author: string, name: string): ReviewSession {
+  sessionSetParticipantName(id: string, author: string, name: string): Thread {
     const session = this.mutable(id);
 
     session.participants = registerParticipant(session, author, name).participants;
@@ -303,7 +303,7 @@ export class DaemonCore {
   }
 
   /** The reviewer's working copy; undefined clears it (revert all edits). */
-  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): ReviewSession {
+  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Thread {
     const session = this.mutable(id);
     const entryId = this.applyWorkingCopy(session, workingCopy);
 
@@ -318,7 +318,7 @@ export class DaemonCore {
    * marks, so concurrent or stale clients converge instead of overwriting
    * each other. An empty array is the explicit reset.
    */
-  sessionSetViewed(id: string, viewedPaths: string[]): ReviewSession {
+  sessionSetViewed(id: string, viewedPaths: string[]): Thread {
     const session = this.mutable(id);
 
     if (viewedPaths.length === 0) delete session.viewedPaths;
@@ -330,7 +330,7 @@ export class DaemonCore {
   }
 
   /** Rename a session's display title; an empty title clears it back to the derived default. */
-  sessionSetTitle(id: string, title: string): ReviewSession {
+  sessionSetTitle(id: string, title: string): Thread {
     const session = this.mutable(id);
     const trimmed = title.trim();
 
@@ -383,7 +383,7 @@ export class DaemonCore {
    * or lazily creates it with the working-tree diff as its artifact, so a bare launch persists its
    * first comment without an agent submission. Owner-only.
    */
-  async workbenchSession(cwd: string): Promise<ReviewSession> {
+  async workbenchSession(cwd: string): Promise<Thread> {
     const workspace = await resolveWorkspace(cwd);
     const key = workspace.rootCommit ?? "_standalone";
     // an open workbench is reused; a resolved one is immutable and would reject the note, so a fresh
@@ -422,7 +422,7 @@ export class DaemonCore {
     }
   }
 
-  sessionSetShareId(id: string, shareId: string): ReviewSession {
+  sessionSetShareId(id: string, shareId: string): Thread {
     const session = this.mutable(id);
 
     session.shareId = shareId;
@@ -447,7 +447,7 @@ export class DaemonCore {
    * Cut one block of the reviewer's working copy - the `blockIndex`-th block
    * of the working text - so it serializes into the diff the agent receives.
    */
-  sessionCutBlock(id: string, blockIndex: number): ReviewSession {
+  sessionCutBlock(id: string, blockIndex: number): Thread {
     const session = this.mutable(id);
     const working = session.workingCopy ?? session.artifact.content;
     const block = parseBlocks(working)[blockIndex];
@@ -467,7 +467,7 @@ export class DaemonCore {
    * revision - into the working copy before `line` (default: the end). A copy
    * that reads as the submitted revision again is dropped, not stored.
    */
-  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): ReviewSession {
+  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Thread {
     const session = this.mutable(id);
     const base = session.artifact.content;
     const block = parseBlocks(base)[baseBlockIndex];
@@ -500,7 +500,7 @@ export class DaemonCore {
    * patch they leave, or clears when nothing is rejected. Needs the full file
    * contents a working-tree diff carries; a PR diff cannot be curated.
    */
-  sessionCurate(id: string, rejections: HunkRejection[]): ReviewSession {
+  sessionCurate(id: string, rejections: HunkRejection[]): Thread {
     const session = this.mutable(id);
 
     if (session.artifact.type !== "diff") {
@@ -530,7 +530,7 @@ export class DaemonCore {
    * on their own name). Everything lands on the branch the share follows, and
    * the record then shows its current path again, wherever the owner stands.
    */
-  sessionMergeShared(id: string, incoming: SharedMerge): ReviewSession {
+  sessionMergeShared(id: string, incoming: SharedMerge): Thread {
     const session = this.mutable(id);
     const branch = this.shareBranchOf(session);
     const known = new Set(
@@ -583,7 +583,7 @@ export class DaemonCore {
     verdictKind: VerdictKind,
     summary: string,
     actionBodies?: Record<string, string>,
-  ): ReviewSession {
+  ): Thread {
     const session = this.mutable(id);
     const verdict: Verdict = {
       kind: verdictKind,
@@ -626,7 +626,7 @@ export class DaemonCore {
     id: string,
     content: string,
     addressedAnnotationIds: string[] = [],
-  ): ReviewSession {
+  ): Thread {
     const session = this.sessionGet(id);
     const now = new Date().toISOString();
     const revisionNumber = session.revisions.length + 1;
@@ -688,7 +688,7 @@ export class DaemonCore {
    * summary records them as a branch-summary entry at the target. The view
    * follows the path: on `main`, the agent's next revision lands there.
    */
-  sessionNavigate(id: string, entryId: string, summary?: string, branch?: string): ReviewSession {
+  sessionNavigate(id: string, entryId: string, summary?: string, branch?: string): Thread {
     const session = this.mutable(id);
     const moved = this.tree(id, () => {
       const history = this.historyOf(session);
@@ -706,7 +706,7 @@ export class DaemonCore {
   }
 
   /** Start a branch at the current tip and switch to it; `main` stays where it is. */
-  sessionBranch(id: string, name: string): ReviewSession {
+  sessionBranch(id: string, name: string): Thread {
     const session = this.mutable(id);
 
     this.refreshView(
@@ -718,7 +718,7 @@ export class DaemonCore {
     return session;
   }
 
-  sessionSwitch(id: string, branch: string): ReviewSession {
+  sessionSwitch(id: string, branch: string): Thread {
     const session = this.mutable(id);
 
     this.refreshView(
@@ -731,7 +731,7 @@ export class DaemonCore {
   }
 
   /** Name the current tip as a checkpoint to navigate back to. */
-  sessionLabel(id: string, label: string): ReviewSession {
+  sessionLabel(id: string, label: string): Thread {
     const session = this.mutable(id);
 
     session.history = labelTip(this.historyOf(session), label);
@@ -746,13 +746,13 @@ export class DaemonCore {
    * comments, labels, and participant names travel; verdicts, edits, and the
    * share do not. A resolved session can be forked.
    */
-  sessionFork(id: string): ReviewSession {
+  sessionFork(id: string): Thread {
     const source = this.sessionGet(id);
     const history = this.tree(id, () => forkHistory(this.historyOf(source)));
     const now = new Date().toISOString();
     const known = [...source.annotations, ...(source.shelvedAnnotations ?? [])];
     const view = viewOfPath(history, known);
-    const fork: ReviewSession = {
+    const fork: Thread = {
       schemaVersion: SCHEMA_VERSION,
       id: this.newSessionId(now),
       workspace: source.workspace,
@@ -832,12 +832,12 @@ export class DaemonCore {
     }
   }
 
-  private watchIfDiffSession(session: ReviewSession): void {
+  private watchIfDiffSession(session: Thread): void {
     if (isLiveDiffSession(session))
       this.diffWatcher.trackDiffRepo(session.workspace.repoRoot, session.id);
   }
 
-  private unwatchIfDiffSession(session: ReviewSession): void {
+  private unwatchIfDiffSession(session: Thread): void {
     if (session.artifact.type === "diff")
       this.diffWatcher.untrackDiffRepo(session.workspace.repoRoot, session.id);
   }
@@ -846,10 +846,7 @@ export class DaemonCore {
    * Set or clear the working copy and, when the reviewer's text changed, record
    * it as a reviewer revision on the current branch. Returns that entry's id.
    */
-  private applyWorkingCopy(
-    session: ReviewSession,
-    workingCopy: string | undefined,
-  ): string | undefined {
+  private applyWorkingCopy(session: Thread, workingCopy: string | undefined): string | undefined {
     const before = session.workingCopy ?? session.artifact.content;
     const next =
       workingCopy === undefined || workingCopy === session.artifact.content
@@ -871,7 +868,7 @@ export class DaemonCore {
   }
 
   /** The session's history; a record without a revision has none and cannot be moved through. */
-  private historyOf(session: ReviewSession): SessionHistory {
+  private historyOf(session: Thread): SessionHistory {
     const history = withHistory(session).history;
 
     if (!history) throw new DaemonError("invalid_params", `session ${session.id} has no history`);
@@ -890,7 +887,7 @@ export class DaemonCore {
   }
 
   /** Store a moved history and make the record show its active path. */
-  private refreshView(session: ReviewSession, history: SessionHistory): void {
+  private refreshView(session: Thread, history: SessionHistory): void {
     session.history = history;
     applyPathView(
       session,
@@ -900,7 +897,7 @@ export class DaemonCore {
   }
 
   /** Append an entry on the session's current branch; a session without a head has no history to extend. */
-  private record(session: ReviewSession, entry: NewEntry): string | undefined {
+  private record(session: Thread, entry: NewEntry): string | undefined {
     const history = withHistory(session).history;
 
     if (!history) return undefined;
@@ -912,12 +909,12 @@ export class DaemonCore {
   }
 
   /** Append an entry on main, leaving the reviewer's current branch where it is. */
-  private recordOnMain(session: ReviewSession, entry: NewEntry): string | undefined {
+  private recordOnMain(session: Thread, entry: NewEntry): string | undefined {
     return this.recordOn(session, MAIN_BRANCH, entry);
   }
 
   /** Append an entry on a named branch, leaving the reviewer's current branch where it is. */
-  private recordOn(session: ReviewSession, branch: string, entry: NewEntry): string | undefined {
+  private recordOn(session: Thread, branch: string, entry: NewEntry): string | undefined {
     const history = withHistory(session).history;
 
     if (!history) return undefined;
@@ -929,13 +926,13 @@ export class DaemonCore {
   }
 
   /** The branch a share follows; a share made before branches existed follows main. */
-  private shareBranchOf(session: ReviewSession): string {
+  private shareBranchOf(session: Thread): string {
     const branch = session.shareBranch ?? MAIN_BRANCH;
 
     return session.history?.tips[branch] === undefined ? MAIN_BRANCH : branch;
   }
 
-  private mutable(id: string): ReviewSession {
+  private mutable(id: string): Thread {
     const session = this.sessionGet(id);
 
     if (session.status === "resolved")
@@ -953,11 +950,7 @@ export { DaemonError };
  * revision's text, and a comment addressed by a revision off the fork's path
  * is open again.
  */
-function forkedAnnotation(
-  annotation: Annotation,
-  source: ReviewSession,
-  fork: ReviewSession,
-): Annotation {
+function forkedAnnotation(annotation: Annotation, source: Thread, fork: Thread): Annotation {
   const { resolution, ...open } = annotation;
 
   if (resolution === undefined) return { ...annotation };
@@ -972,12 +965,12 @@ function forkedAnnotation(
 }
 
 /** A pending diff session: the state that warrants hot-reload watching of its working tree. */
-function isLiveDiffSession(session: ReviewSession): boolean {
+function isLiveDiffSession(session: Thread): boolean {
   return session.status === "pending" && session.artifact.type === "diff";
 }
 
 /** Convenience for adapters: map a resolved session to the agent contract. */
-export function verdictResponse(session: ReviewSession) {
+export function verdictResponse(session: Thread) {
   if (!session.verdict) throw new DaemonError("pending", "session has no verdict");
 
   return { allow: verdictAllows(session.verdict.kind), feedback: session.verdict.feedback };

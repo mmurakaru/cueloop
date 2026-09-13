@@ -1,5 +1,5 @@
 import React from "react";
-import { SCHEMA_VERSION, type ReviewSession } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Thread } from "@cueloop/schema";
 import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { AnnotatableFileView } from "./AnnotatableFileView";
@@ -8,7 +8,7 @@ export const meta: StoryMeta = { title: "Surfaces/AnnotatableFileView" };
 
 const SAMPLE = `export function add(a: number, b: number): number {\n  return a + b;\n}\n`;
 
-const SESSION: ReviewSession = {
+const SESSION: Thread = {
   schemaVersion: SCHEMA_VERSION,
   id: "ses_story",
   workspace: { repoRoot: "/repo", branch: "main" },

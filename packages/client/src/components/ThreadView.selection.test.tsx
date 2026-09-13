@@ -29,7 +29,7 @@ const STANZA_ROWS = [
   "so a crash can never leave a torn file on disk.",
 ];
 const STANZA = STANZA_ROWS.join("\n");
-const BULLETS = ["store.ts - the SessionStore class", "schema.ts - the on-disk record shape"];
+const BULLETS = ["store.ts - the ThreadStore class", "schema.ts - the on-disk record shape"];
 const PLAN = `# Plan\n\n${PARAGRAPH}\n\n${STANZA}\n\n- ${BULLETS[0]}\n- ${BULLETS[1]}\n`;
 /** Display block indices: title, paragraph, stanza, two bullets. */
 const STANZA_BLOCK = 2;
@@ -479,8 +479,8 @@ describe("marking across blocks", () => {
     await setup.mockMouse.pressDown(torn.column, torn.row);
     await settle(setup);
 
-    // Act: onto "Session" in the first bullet
-    await setup.mockMouse.moveTo(bullet.column + BULLETS[0]!.indexOf("Session") + 7, bullet.row);
+    // Act: onto "Thread" in the first bullet
+    await setup.mockMouse.moveTo(bullet.column + BULLETS[0]!.indexOf("Thread") + 6, bullet.row);
     await settle(setup);
 
     // Assert: two rows, the blank row between them untouched
@@ -488,7 +488,7 @@ describe("marking across blocks", () => {
 
     expect([...rows.keys()]).toEqual([torn.row, bullet.row]);
     expect(rows.get(torn.row)).toBe("torn file on disk.");
-    expect(rows.get(bullet.row)).toBe("store.ts - the Session");
+    expect(rows.get(bullet.row)).toBe("store.ts - the Thread");
   });
 
   test("a drag across two bullets marks both", async () => {
@@ -506,7 +506,7 @@ describe("marking across blocks", () => {
     // Assert
     const rows = highlightedByRow();
 
-    expect(rows.get(first.row)).toBe("the SessionStore class");
+    expect(rows.get(first.row)).toBe("the ThreadStore class");
     expect(rows.get(second.row)).toBe("schema.ts");
     expect(rows.size).toBe(2);
   });

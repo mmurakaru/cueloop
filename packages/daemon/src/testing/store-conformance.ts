@@ -8,21 +8,21 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { SCHEMA_VERSION, type ReviewSession } from "@cueloop/schema";
-import type { SessionRepository } from "../store";
+import { SCHEMA_VERSION, type Thread } from "@cueloop/schema";
+import type { ThreadRepository } from "../store";
 
 export interface StoreHarness {
   /** A fresh, empty adapter that will recover `records` on `recover()`. */
-  open: (records: unknown[]) => SessionRepository;
+  open: (records: unknown[]) => ThreadRepository;
   /** A new adapter over whatever `store` persisted, as after a daemon restart. */
-  restart: (store: SessionRepository) => SessionRepository;
+  restart: (store: ThreadRepository) => ThreadRepository;
 }
 
-export function createTestSessionRecord(
+export function createTestThreadRecord(
   id: string,
   createdAt: string,
-  overrides: Partial<ReviewSession> = {},
-): ReviewSession {
+  overrides: Partial<Thread> = {},
+): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id,
@@ -37,15 +37,15 @@ export function createTestSessionRecord(
   };
 }
 
-export function runSessionStoreConformance(name: string, harness: StoreHarness): void {
+export function runThreadStoreConformance(name: string, harness: StoreHarness): void {
   describe(`${name} - session repository contract`, () => {
     test("a stored session reads back whole and lists oldest first", () => {
       // Arrange
       const store = harness.open([]);
 
       store.recover();
-      const newer = createTestSessionRecord("ses_b", "2026-09-02T00:00:00.000Z");
-      const older = createTestSessionRecord("ses_a", "2026-09-01T00:00:00.000Z");
+      const newer = createTestThreadRecord("ses_b", "2026-09-02T00:00:00.000Z");
+      const older = createTestThreadRecord("ses_a", "2026-09-01T00:00:00.000Z");
 
       // Act
       store.upsert(newer);
@@ -62,11 +62,11 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
       const store = harness.open([]);
 
       store.recover();
-      store.upsert(createTestSessionRecord("ses_a", "2026-09-01T00:00:00.000Z"));
+      store.upsert(createTestThreadRecord("ses_a", "2026-09-01T00:00:00.000Z"));
 
       // Act
       store.upsert(
-        createTestSessionRecord("ses_a", "2026-09-01T00:00:00.000Z", { status: "resolved" }),
+        createTestThreadRecord("ses_a", "2026-09-01T00:00:00.000Z", { status: "resolved" }),
       );
 
       // Assert
@@ -82,8 +82,8 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
       const store = harness.open([]);
 
       store.recover();
-      store.upsert(createTestSessionRecord("ses_keep", "2026-09-01T00:00:00.000Z"));
-      store.upsert(createTestSessionRecord("ses_gone", "2026-09-02T00:00:00.000Z"));
+      store.upsert(createTestThreadRecord("ses_keep", "2026-09-01T00:00:00.000Z"));
+      store.upsert(createTestThreadRecord("ses_gone", "2026-09-02T00:00:00.000Z"));
       store.delete("ses_gone");
 
       // Act
@@ -98,7 +98,7 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
 
     test("a record without a history reads as a one-branch tree whose head is the artifact", () => {
       // Arrange: written before histories existed, with two revisions and a comment
-      const legacy = createTestSessionRecord("ses_old", "2026-09-01T00:00:00.000Z", {
+      const legacy = createTestThreadRecord("ses_old", "2026-09-01T00:00:00.000Z", {
         artifact: { type: "plan", content: "v2", meta: {} },
         revisions: [
           { revision: 1, content: "v1", submittedAt: "2026-09-01T00:00:00.000Z" },
@@ -135,7 +135,7 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
     test("a record with no revision still recovers, without a history", () => {
       // Arrange
       const store = harness.open([
-        createTestSessionRecord("ses_empty", "2026-09-01T00:00:00.000Z", { revisions: [] }),
+        createTestThreadRecord("ses_empty", "2026-09-01T00:00:00.000Z", { revisions: [] }),
       ]);
 
       // Act
@@ -148,7 +148,7 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
 
     test("a record that already carries a history keeps it untouched", () => {
       // Arrange
-      const withTree = createTestSessionRecord("ses_tree", "2026-09-01T00:00:00.000Z", {
+      const withTree = createTestThreadRecord("ses_tree", "2026-09-01T00:00:00.000Z", {
         history: {
           entries: [
             {
@@ -177,7 +177,7 @@ export function runSessionStoreConformance(name: string, harness: StoreHarness):
     test("a record that fails validation is skipped and reported, never dropped from the report", () => {
       // Arrange
       const store = harness.open([
-        createTestSessionRecord("ses_good", "2026-09-01T00:00:00.000Z"),
+        createTestThreadRecord("ses_good", "2026-09-01T00:00:00.000Z"),
         { schemaVersion: SCHEMA_VERSION, id: "ses_bad" },
       ]);
 

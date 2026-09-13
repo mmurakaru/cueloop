@@ -7,9 +7,9 @@ import { join } from "node:path";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
-import type { ShareTransport } from "./session-controller";
+import type { ShareTransport } from "./thread-controller";
 import {
   clickText,
   isolateUserConfig,
@@ -38,7 +38,7 @@ const PLAN = `# Migration Plan\n\n## Context\n\nThe daemon persists sessions to 
 let home: string;
 let restoreUserConfig: () => void;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-toast-"));

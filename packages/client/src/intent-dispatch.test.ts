@@ -7,9 +7,9 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import type { SetStateAction } from "react";
-import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Annotation, type Thread } from "@cueloop/schema";
 import { createIntentDispatch, type IntentDispatchDeps } from "./intent-dispatch";
-import type { ControllerSnapshot, CurationItem, ReviewController } from "./session-controller";
+import type { ControllerSnapshot, CurationItem, ReviewController } from "./thread-controller";
 import type { DisplayBlock } from "./view-plan";
 import type { TreeRow } from "./tree-view";
 
@@ -28,10 +28,7 @@ function annotation(id: string, overrides: Partial<Annotation> = {}): Annotation
   };
 }
 
-function sessionWith(
-  annotations: Annotation[],
-  overrides: Partial<ReviewSession> = {},
-): ReviewSession {
+function sessionWith(annotations: Annotation[], overrides: Partial<Thread> = {}): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",

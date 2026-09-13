@@ -31,7 +31,7 @@ import {
   type ThemeName,
 } from "./theme-presets";
 import type { Theme } from "./theme";
-import { createReviewController, type ShareTransport } from "./session-controller";
+import { createReviewController, type ShareTransport } from "./thread-controller";
 import type { SessionClient } from "@cueloop/daemon/client";
 import { createIntentDispatch, type Mode, type RailTab } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
@@ -66,7 +66,7 @@ import {
 } from "./components/DiffContentView";
 import { commentCountsByFile, fileTargetMarks, marksByRows, type DiffRow } from "./view-diff";
 import { annotationTarget, type Anchor } from "@cueloop/schema";
-import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
+import type { DiffFileContents, Thread } from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
 import {
@@ -357,8 +357,8 @@ function ProjectPanelBody(props: {
 /** The render tree has left the connecting screen: an error, a session, or the no-thread shell. */
 function usableScreenReached(
   error: string | null,
-  session: ReviewSession | null,
-  inbox: ReviewSession[] | null,
+  session: Thread | null,
+  inbox: Thread[] | null,
 ): boolean {
   return Boolean(error) || session !== null || inbox !== null;
 }

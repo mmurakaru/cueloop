@@ -1,8 +1,8 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { ReviewSession, VerdictKind } from "@cueloop/schema";
+import type { Thread, VerdictKind } from "@cueloop/schema";
 import type { Mode } from "./intent-dispatch";
 import type { Intent, KeyState } from "./keymap";
-import type { Completion } from "./session-controller";
+import type { Completion } from "./thread-controller";
 import type { WalkFile } from "./walk";
 import { viewedCount } from "./walk";
 import type { ConfirmCardProps } from "./components/ConfirmCard";
@@ -17,7 +17,7 @@ export function computeRoleCapabilities(
   return { observer, isOwner: !observer && role === "owner" };
 }
 
-export function deriveReviewFlags(session: ReviewSession | null) {
+export function deriveReviewFlags(session: Thread | null) {
   return {
     isDiff: session?.artifact.type === "diff",
     isPrototype: session?.artifact.type === "prototype",
@@ -72,7 +72,7 @@ export function isCompletionOverlayPhase(
 }
 
 export function buildHeaderItems(params: {
-  session: ReviewSession;
+  session: Thread;
   resolved: boolean;
   observer: boolean;
   role: "owner" | "observer" | "collaborator";
@@ -102,7 +102,7 @@ export function buildHeaderItems(params: {
 }
 
 export function buildRenderFlags(params: {
-  session: ReviewSession;
+  session: Thread;
   isOwner: boolean;
   isDiff: boolean;
   isPixelPrototype: boolean;
@@ -132,7 +132,7 @@ export function buildSubmitConfirmState(
   deps: DraftHandlerDeps & {
     mode: Mode;
     isDiff: boolean;
-    session: ReviewSession;
+    session: Thread;
     walkFileList: WalkFile[];
     viewedPaths: Set<string>;
   },

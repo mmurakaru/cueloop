@@ -1,6 +1,6 @@
 /** Shared fixture data for the stories catalog: one plan session, one diff. */
 
-import type { Annotation, ReviewSession } from "@cueloop/schema";
+import type { Annotation, Thread } from "@cueloop/schema";
 import { buildDisplay, marksByDisplay } from "../view-plan";
 import { diffRows } from "../view-diff";
 
@@ -51,7 +51,7 @@ export const FIXTURE_ANNOTATIONS: Annotation[] = [
   },
 ];
 
-export function fixturePlanSession(overrides: Partial<ReviewSession> = {}): ReviewSession {
+export function fixturePlanSession(overrides: Partial<Thread> = {}): Thread {
   return {
     schemaVersion: "1",
     id: "s_story_plan",
@@ -70,7 +70,7 @@ export function fixturePlanSession(overrides: Partial<ReviewSession> = {}): Revi
   };
 }
 
-export function fixtureDiffSession(overrides: Partial<ReviewSession> = {}): ReviewSession {
+export function fixtureDiffSession(overrides: Partial<Thread> = {}): Thread {
   return {
     schemaVersion: "1",
     id: "s_story_diff",

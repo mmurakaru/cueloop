@@ -4,8 +4,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Annotation, ReviewSession, Verdict, VerdictKind } from "@cueloop/schema";
-import { SessionStore } from "@cueloop/daemon/store";
+import type { Annotation, Thread, Verdict, VerdictKind } from "@cueloop/schema";
+import { ThreadStore } from "@cueloop/daemon/store";
 import { reportsDir } from "@cueloop/daemon/paths";
 import { buildRefineReport, refineCommand } from "./refine-command";
 
@@ -29,8 +29,8 @@ function verdict(kind: VerdictKind): Verdict {
 
 function session(
   id: string,
-  overrides: Partial<ReviewSession> & { type?: ReviewSession["artifact"]["type"] } = {},
-): ReviewSession {
+  overrides: Partial<Thread> & { type?: Thread["artifact"]["type"] } = {},
+): Thread {
   const { type, ...rest } = overrides;
 
   return {
@@ -87,7 +87,7 @@ describe("refineCommand", () => {
   test("writes a report, skips signal-free sessions, and consumes only resolved sessions", async () => {
     // Arrange
     const home = tempHome();
-    const store = new SessionStore(home);
+    const store = new ThreadStore(home);
 
     store.upsert(session("ses_a", { verdict: verdict("approve"), status: "resolved" }));
     store.upsert(
@@ -120,7 +120,7 @@ describe("refineCommand", () => {
   test("re-analyzes a resolved session that is reopened and resolved again with new feedback", async () => {
     // Arrange
     const home = tempHome();
-    const store = new SessionStore(home);
+    const store = new ThreadStore(home);
 
     store.upsert(
       session("ses_x", {

@@ -14,7 +14,7 @@
 
 import React, { useEffect, useRef } from "react";
 import type { ScrollBoxRenderable } from "@opentui/core";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { displayText, type DisplayBlock, type Mark } from "../view-plan";
 import type { TextSpan } from "../thread-selection";
 import type { QuickAction } from "../config";
@@ -104,7 +104,7 @@ export const THREAD_VIEW_CHEATSHEET: CheatsheetSection[] = [
 ];
 
 export interface ThreadViewProps {
-  session: ReviewSession;
+  session: Thread;
   display: DisplayBlock[];
   marks: Map<number, Mark[]>;
   quickActions: QuickAction[];

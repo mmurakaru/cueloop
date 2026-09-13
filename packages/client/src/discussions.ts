@@ -5,7 +5,7 @@
  * plan thread view and the diff sheet group the same way.
  */
 
-import type { Annotation, ReviewSession } from "@cueloop/schema";
+import type { Annotation, Thread } from "@cueloop/schema";
 import type { Mark } from "./view-plan";
 import { comparePositions, type TextSpan } from "./thread-selection";
 
@@ -29,7 +29,7 @@ export function spanKey(span: TextSpan): string {
  * read as one conversation); replies join the discussion their replyTo names, or
  * stand as roots when that root is gone.
  */
-export function discussionsFrom(session: ReviewSession, marks: Map<number, Mark[]>): Discussion[] {
+export function discussionsFrom(session: Thread, marks: Map<number, Mark[]>): Discussion[] {
   const byId = new Map(session.annotations.map((annotation) => [annotation.id, annotation]));
   const spanOf = new Map<string, TextSpan>();
 

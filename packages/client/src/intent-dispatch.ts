@@ -8,10 +8,10 @@
  */
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { isAddressed, isAgentNote, type ReviewSession, type VerdictKind } from "@cueloop/schema";
+import { isAddressed, isAgentNote, type Thread, type VerdictKind } from "@cueloop/schema";
 import { displayText, spanKey, startSpan, type DisplayBlock, type SpanState } from "./view-plan";
 import type { DiffRow } from "./view-diff";
-import type { ReviewController } from "./session-controller";
+import type { ReviewController } from "./thread-controller";
 import type { Intent } from "./keymap";
 import type { TreeRow } from "./tree-view";
 import { quickActionBody, type QuickAction } from "./config";
@@ -54,13 +54,13 @@ export function activeSpanState(mode: Mode): SpanState | null {
  * annotation a revision already addressed is settled - it neither blocks the
  * verdict default nor re-enters the next feedback document.
  */
-export function reviewerAnnotations(session: ReviewSession) {
+export function reviewerAnnotations(session: Thread) {
   return session.annotations.filter(
     (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
   );
 }
 
-export function defaultVerdict(session: ReviewSession): VerdictKind {
+export function defaultVerdict(session: Thread): VerdictKind {
   return reviewerAnnotations(session).length || session.workingCopy !== undefined
     ? "request_changes"
     : "approve";
@@ -80,10 +80,10 @@ export interface IntentDispatchDeps {
   display: DisplayBlock[];
   rows: DiffRow[];
   cursor: number;
-  inbox: ReviewSession[] | null;
+  inbox: Thread[] | null;
   inboxCursor: number;
   mode: Mode;
-  session: ReviewSession | null;
+  session: Thread | null;
   focusedAnnotationId: string | undefined;
   /** The curation item selected for undo, if any. */
   selectedCurationId: string | undefined;

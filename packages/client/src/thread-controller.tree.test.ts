@@ -12,10 +12,10 @@ import {
   SCHEMA_VERSION,
   switchBranch,
   type Annotation,
-  type ReviewSession,
+  type Thread,
 } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
-import { createReviewController, type ShareTransport } from "./session-controller";
+import { createReviewController, type ShareTransport } from "./thread-controller";
 import { mergeFromShare } from "./share";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -31,8 +31,8 @@ function annotation(id: string, body: string): Annotation {
 }
 
 /** A plan with one comment on main and its history. */
-function sessionFixture(): ReviewSession {
-  const session: ReviewSession = {
+function sessionFixture(): Thread {
+  const session: Thread = {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
     workspace: { repoRoot: "/repo", branch: "main" },
@@ -49,7 +49,7 @@ function sessionFixture(): ReviewSession {
   return session;
 }
 
-const publish = mock(async (session: ReviewSession) => ({
+const publish = mock(async (session: Thread) => ({
   line: `ssh p_${session.id}@cueloop.dev`,
   copied: true,
 }));
@@ -67,14 +67,15 @@ const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
 /** Tree requests never resolve here: what the controller shows is its own guess. */
-const pending = () => new Promise<ReviewSession>(() => {});
+const pending = () => new Promise<Thread>(() => {});
 
-function fakeClient(session: ReviewSession) {
+function fakeClient(session: Thread) {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
     sessionGet: async () => session,
     sessionList: async () => [session],
+    sessionComment: unimplemented("sessionComment"),
     sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),

@@ -218,7 +218,7 @@ describe("anchors spanning blocks", () => {
 All persistence lives in a new module,
 so a crash can never leave a torn file on disk.
 
-- server/storage/store.ts - the SessionStore class
+- server/storage/store.ts - the ThreadStore class
 - server/storage/schema.ts - the on-disk record shape
 
 ## Phase 2
@@ -235,7 +235,7 @@ so a crash can never leave a torn file on disk.
     expect(anchor.quote).toBe(
       [
         "so a crash can never leave a torn file on disk.",
-        "server/storage/store.ts - the SessionStore class",
+        "server/storage/store.ts - the ThreadStore class",
         "server/storage/schema.ts",
       ].join(BLOCK_SEPARATOR),
     );
@@ -282,7 +282,7 @@ so a crash can never leave a torn file on disk.
 
   test("re-binds fuzzily after a light edit inside the span", () => {
     // Arrange
-    const edited = parseBlocks(SPANNING_DOC.replace("SessionStore class", "SessionStore type"));
+    const edited = parseBlocks(SPANNING_DOC.replace("ThreadStore class", "ThreadStore type"));
 
     // Act
     const resolved = resolveAnchor(anchor, edited);
@@ -308,7 +308,7 @@ so a crash can never leave a torn file on disk.
     // simulate the stale case directly
     const staleAnchor = {
       ...anchor,
-      quote: `${BLOCK_SEPARATOR}server/storage/store.ts - the SessionStore class`,
+      quote: `${BLOCK_SEPARATOR}server/storage/store.ts - the ThreadStore class`,
     };
 
     // Act

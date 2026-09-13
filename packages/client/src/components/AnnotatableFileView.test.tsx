@@ -6,14 +6,14 @@
 import { describe, expect, mock, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import React from "react";
-import { SCHEMA_VERSION, type Anchor, type ReviewSession } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Anchor, type Thread } from "@cueloop/schema";
 import { AnnotatableFileView } from "./AnnotatableFileView";
 import { DARK } from "../theme";
 import { dragText, typeText, pressKey, waitForText } from "../test-support";
 
 const SAMPLE = "export function add(a: number, b: number) {\n  return a + b;\n}\n";
 
-function planSession(): ReviewSession {
+function planSession(): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_plan",

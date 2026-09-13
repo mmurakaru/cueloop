@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import {
   isolateUserConfig,
@@ -33,7 +33,7 @@ Move the store atomically.
 let home: string;
 let vault: string;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 let restoreUserConfig: () => void;
 
 beforeEach(() => {

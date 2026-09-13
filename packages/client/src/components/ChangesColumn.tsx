@@ -5,7 +5,7 @@
 
 import { ScrollArea } from "./ScrollArea";
 import React, { useMemo, useState } from "react";
-import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
+import type { DiffFileContents, Thread } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import type { DiffRow } from "../view-diff";
 import { Tree } from "./primitives/Tree";
@@ -28,7 +28,7 @@ export interface DiffColumnsState {
  * Resets on session change via the guarded render-time pattern, no effect.
  */
 export function useDiffColumns(params: {
-  session: ReviewSession | null;
+  session: Thread | null;
   rows: DiffRow[];
   cursor: number;
   setCursor: (index: number) => void;

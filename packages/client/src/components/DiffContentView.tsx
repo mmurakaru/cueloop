@@ -10,7 +10,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createTextAttributes, type ScrollBoxRenderable } from "@opentui/core";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { diffRowText, fileChangeCounts, type DiffRow, type Mark } from "../view-diff";
 import type { TextSpan } from "../thread-selection";
 import type { QuickAction } from "../config";
@@ -71,7 +71,7 @@ export interface DiffFoldControls {
 
 export interface DiffContentViewProps {
   rows: DiffRow[];
-  session: ReviewSession;
+  session: Thread;
   /** Annotations resolved onto rows (marksByRows), with char ranges and spans. */
   marks: Map<number, Mark[]>;
   quickActions: QuickAction[];

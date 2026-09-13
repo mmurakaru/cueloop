@@ -15,7 +15,7 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import type { Mark } from "./view-plan";
 import type { QuickAction } from "./config";
 import type { Theme } from "./theme";
@@ -74,7 +74,7 @@ export interface ComposeState {
 
 export interface AnnotationSurfaceOptions {
   source: LineSource;
-  session: ReviewSession;
+  session: Thread;
   marks: Map<number, Mark[]>;
   quickActions: QuickAction[];
   tokens: Theme;

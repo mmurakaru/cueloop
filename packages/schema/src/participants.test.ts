@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { registerParticipant } from "./participants";
-import { SCHEMA_VERSION, type ReviewSession } from "./types";
+import { SCHEMA_VERSION, type Thread } from "./types";
 
-function emptySession(): ReviewSession {
+function emptySession(): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",

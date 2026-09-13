@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { cliJson, runCli } from "../helpers/cli";
 
 const FIXTURE_DIFF = [
@@ -94,8 +94,8 @@ async function createResolvedSession(
   pr: string,
   verdict: string,
   summary: string,
-): Promise<ReviewSession> {
-  const created = cliJson<ReviewSession>(
+): Promise<Thread> {
+  const created = cliJson<Thread>(
     await runCli(home, ["review", pr, "--no-tui"], undefined, ghEnv()),
   );
   const runResult = await runCli(home, [
@@ -110,7 +110,7 @@ async function createResolvedSession(
 
   expect(runResult.code).toBe(0);
 
-  return cliJson<ReviewSession>(runResult);
+  return cliJson<Thread>(runResult);
 }
 
 describe("cueloop review (black box)", () => {
@@ -120,7 +120,7 @@ describe("cueloop review (black box)", () => {
 
     // Assert
     expect(runResult.code).toBe(0);
-    const session = cliJson<ReviewSession>(runResult);
+    const session = cliJson<Thread>(runResult);
 
     expect(session.id.startsWith("ses_")).toBe(true);
     expect(session.status).toBe("pending");
@@ -221,7 +221,7 @@ describe("cueloop review-post (black box)", () => {
 
   test("annotations flow into the posted body through feedback.md", async () => {
     // Arrange
-    const created = cliJson<ReviewSession>(
+    const created = cliJson<Thread>(
       await runCli(home, ["review", "45", "--no-tui"], undefined, ghEnv()),
     );
 
@@ -266,7 +266,7 @@ describe("cueloop review-post (black box)", () => {
 
   test("unresolved session posts nothing and exits 1", async () => {
     // Arrange
-    const created = cliJson<ReviewSession>(
+    const created = cliJson<Thread>(
       await runCli(home, ["review", "46", "--no-tui"], undefined, ghEnv()),
     );
     const before = ghCalls().length;
