@@ -2,7 +2,7 @@
 layout: ../../../layouts/DocsLayout.astro
 title: Branches and checkpoints
 eyebrow: Docs · Concepts
-lede: A session's history is a tree, not a line. Every revision, comment, and verdict is an entry; a branch is a named tip; what you see is the path from that tip back to the start. Nothing is ever deleted.
+lede: A session's history is a tree, not a line. Every revision, comment, and decision is an entry; a branch is a named tip; what you see is the path from that tip back to the start. Nothing is ever deleted.
 prev: { title: "The review primitives", href: "/docs/concepts/plan-diff-review/" }
 next: { title: "Commands", href: "/docs/reference/commands/" }
 ---
@@ -17,7 +17,7 @@ next: { title: "Commands", href: "/docs/reference/commands/" }
 </div>
 
 Every change to a session is an **entry**: an agent revision, a reviewer's
-edit, a comment, a comment's removal, a verdict. Each entry points at the one
+edit, a comment, a comment's removal, a decision. Each entry points at the one
 before it, so the entries form a tree. A **branch** is a named tip in that
 tree; `main` is the agent's line and always exists. The **path** is the chain
 from the current branch's tip back to the first revision, and the path decides
@@ -62,7 +62,7 @@ branch, a label, a move back - is the owner's.
 
 A **fork** copies the current path into a new session: its revisions, the
 comments open on it, its checkpoints, and the names of everyone who took part.
-The fork starts pending, with no verdict, no edits, and no share, and it
+The fork starts pending, with no decision, no edits, and no share, and it
 records the session it came from. A resolved review can be forked to carry a
 finished plan into a new round.
 

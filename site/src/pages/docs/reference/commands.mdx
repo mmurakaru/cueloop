@@ -20,7 +20,7 @@ cueloop <session-id>        # open one session by its ses_… id
 cueloop plan [id|title]     # latest pending plan, or one you name
 cueloop reply [id|title]    # latest pending reply review
 cueloop diff [id|title]     # working-tree diff review
-cueloop prototype [file]    # review a rendered HTML mockup
+cueloop prototype [file]    # review a component design doc (Markdown)
 cueloop review <pr>         # pull a pull request in and review it
 ```
 
@@ -29,14 +29,15 @@ cueloop review <pr>         # pull a pull request in and review it
   address a specific one.
 - **`cueloop reply`** opens the latest pending reply review - an agent's message
   submitted for review before you act on it. It reads like a plan: same
-  annotations, same verdicts.
+  annotations, same decisions.
 - **`cueloop diff`** is dual-mode: on a dirty working tree with no argument it
   _creates_ a review from the current changes (untracked files included); with a
   selector, or on a clean tree, it opens the latest pending diff review.
-- **`cueloop prototype`** is dual-mode: with an HTML file it renders the mockup
-  in the terminal and _creates_ a review you annotate by clicking an element;
-  with no file (or `--latest` / `--open`) it opens the latest pending prototype
-  review.
+- **`cueloop prototype`** is dual-mode: with a Markdown file it _creates_ a review
+  of a component design doc (its prop API, composition, and callstack) that you
+  annotate by line; with no file (or `--latest` / `--open`) it opens the latest
+  pending prototype review. An `.html` file instead creates the opt-in experimental
+  pixel mockup (`[experimental] prototype_pixels`).
 - **`cueloop review <pr>`** is dual-mode too: a bare `review` (or `--latest` /
   `--open` / a `ses_…` id) opens a pending pull-request review, while any other
   value is treated as a PR reference and pulls that PR in via `gh`.
@@ -77,8 +78,8 @@ See [Sharing over SSH](/docs/sharing/) for the whole loop.
 cueloop review-post <session-id> <pr>
 ```
 
-Posts a resolved session's verdict back to a pull request as a real
-`gh pr review`, without opening the UI. Verdicts map directly:
+Posts a resolved session's decision back to a pull request as a real
+`gh pr review`, without opening the UI. Decisions map directly:
 
 ```text
 approve          → gh pr review --approve
@@ -86,7 +87,7 @@ request changes  → gh pr review --request-changes
 comment          → gh pr review --comment
 ```
 
-The verdict's feedback becomes the review body.
+The decision's feedback becomes the review body.
 
 ## Scripting and the daemon
 
@@ -108,7 +109,7 @@ Everything a reviewer does to a discussion has its primitive:
 ```bash
 cueloop session annotate <id> --quote "two phases" --body "Why two?"     # a comment
 cueloop session annotate <id> --reply-to <comment-id> --body "Rollout."  # a reply, on the root's anchor
-cueloop session annotate <id> --selector "main > h1" --body "Too loud."  # a prototype comment, by element
+cueloop session annotate <id> --selector "main > h1" --body "Too loud."  # a pixel-prototype comment, by element (experimental)
 cueloop session remove <id> <comment-id>                                 # remove a comment
 cueloop session name-self <id> "Ana" --author <fingerprint>              # the display name of an author
 cueloop session events <id> [--once]                                     # follow the session: one JSON line per change
@@ -130,7 +131,7 @@ working-tree diff carries; a PR diff cannot be curated. Every cut, restore, and
 curation appends a reviewer revision to the session history.
 
 A session's history is a tree of entries - revisions, comments, removals,
-verdicts - with named branches; what the session shows is the path from the
+decisions - with named branches; what the session shows is the path from the
 current branch's tip back to the root. The owner walks that tree:
 
 ```bash
@@ -148,7 +149,7 @@ reaches are shelved, not dropped, and return when a move brings them back. The
 agent's revisions always land on `main`, wherever its tip sits, so navigating
 `main` back to a checkpoint is how the next round starts from there. A fork
 carries the path's revisions, open comments, labels, and participant names; it
-starts pending, without verdict, edits, or share, and names its parent. Fork
+starts pending, without a decision, edits, or share, and names its parent. Fork
 and share in one step hands the same artifact to two people with separate
 discussions.
 
