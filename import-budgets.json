@@ -36,6 +36,6 @@
   "moduleImportBudget": 20,
   "moduleBudgets": {
     "packages/client/src/App.tsx": 38,
-    "packages/client/src/app-screens.tsx": 27
+    "packages/client/src/app-screens.tsx": 28
   }
 }

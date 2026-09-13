@@ -1258,23 +1258,27 @@ exports[`stories catalog Overlays/WalkWizard/WithAgentNote renders, snapshots, a
 "
 `;
 
-exports[`stories catalog Surfaces/WelcomeSurface/Welcome renders, snapshots, and carries its colors: Surfaces/WelcomeSurface/Welcome 1`] = `
-"  Getting started                                           
-  comment on agent-authored work                            
-                                                            
-  Start                                                     
-  · select a thread                                         
-  · inspect files and changes                               
-                                                            
-  Learn                                                     
-  · docs        https://cueloop.dev/docs/                   
-                                                            
-  Version                                                   
-  · cueloop v0.1.0-alpha.66                                 
-                                                            
-                                                            
-                                                            
-                                                            
+exports[`stories catalog Surfaces/WelcomePlayground/Welcome renders, snapshots, and carries its colors: Surfaces/WelcomePlayground/Welcome 1`] = `
+" ▎ 1 Getting started                                                    
+   2 Comment on agent-authored work.                                    
+   3                                                                    
+   4 This page is a playground. Nothing you write here is saved.        
+   5                                                                    
+   6 Select the line below and start typing to leave your first         
+     comment:                                                           
+   7                                                                    
+   8     The quick brown fox jumps over the lazy dog.                   
+   9                                                                    
+  10 While composing, type "/" to see the quick actions and skills.     
+  11                                                                    
+  12 Start                                                              
+  13   - select a thread                                                
+  14   - inspect files and changes                                      
+  15                                                                    
+  16 Learn                                                              
+  17   - docs        https://cueloop.dev/docs/                          
+  18                                                                    
+  19 Version                                                            
 "
 `;
 

@@ -604,6 +604,7 @@ export function App({
   const threadViewActive = session !== null && !isPixelPrototype;
   const [threadComposing, setThreadComposing] = useState(false);
   const [prototypeComposing, setPrototypeComposing] = useState(false);
+  const [welcomeComposing, setWelcomeComposing] = useState(false);
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
   // annotation resolves to the display index it marked
@@ -720,9 +721,9 @@ export function App({
 
       return;
     }
-    // The prototype compose textarea owns the keyboard while open: let it receive
-    // the typed note instead of the global keymap acting on each letter.
-    if (prototypeComposing) return;
+    // A compose textarea owns the keyboard while open: let it receive the typed note instead of the
+    // global keymap acting on each letter (the prototype, and the bare-shell welcome playground).
+    if (prototypeComposing || welcomeComposing) return;
     if (menuDialog === "settings") return void handleSettingsKey(key.name);
     if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
     // the toast is non-modal: escape only dismisses it when nothing else owns
@@ -800,6 +801,8 @@ export function App({
         pinnedIds={pinnedIds}
         onPin={togglePin}
         onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
+        quickActions={quickActions}
+        onWelcomeComposingChange={setWelcomeComposing}
       />
     ) : (
       <ConnectingScreen theme={theme} />
