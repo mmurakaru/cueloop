@@ -268,6 +268,13 @@ jobs:
         with:
           bun-version: 1.3.14
       - run: bun install --frozen-lockfile
+      # The draft is untagged until publish, so download-by-tag 404s; serve this run's build artifacts.
+      - name: Stage the built binaries as the current release
+        uses: actions/download-artifact@v8
+        with:
+          path: assets/${{ needs.guard.outputs.tag }}
+          pattern: cueloop-*
+          merge-multiple: true
       - name: Run the installer against the staged release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -275,8 +282,8 @@ jobs:
           TAG: ${{ needs.guard.outputs.tag }}
           VERSION: ${{ needs.guard.outputs.version }}
         run: |
-          mkdir -p "assets/${TAG}"
-          gh release download "$TAG" --dir "assets/${TAG}"
+          # checksums.txt over the staged binaries, exactly as the draft carries it
+          (cd "assets/${TAG}" && sha256sum cueloop-* > checksums.txt)
           scenarios="curl-clean curl-rerun plugin"
           previous_version=""
           # serve the previous published release too, when one exists, so the
