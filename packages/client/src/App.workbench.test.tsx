@@ -396,6 +396,20 @@ describe("the bare-launch welcome shell", () => {
     expect(setup.captureCharFrame()).toContain("README.md");
   });
 
+  test("clicking a changed file in the bare shell opens its diff, not its contents", async () => {
+    const setup = await renderWelcome();
+
+    await waitForText(setup, "README.md");
+    const readme = locateText(setup, "README.md");
+    await setup.mockMouse.click(readme.column, readme.row);
+
+    // a diff shows both the removed old line and the added new line; contents would show only the new
+    await waitForText(setup, "A tiny tracked repo.");
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("A tiny tracked repo.");
+    expect(frame).toContain("edited in the working tree");
+  });
+
   test("a bare launch rides a Welcome tab in the editor while the Thread pane waits empty", async () => {
     const setup = await renderWelcome();
 

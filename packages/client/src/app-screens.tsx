@@ -1,5 +1,5 @@
 import { ScrollArea } from "./components/ScrollArea";
-import React, { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import React, { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { DiffFileContents, Thread, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
@@ -23,7 +23,8 @@ import { AppShell, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
 import { ProjectTreeView } from "./components/ProjectTreeView";
 import { ChangesFileTree } from "./components/ChangesColumn";
-import { BareWorkbenchFileView } from "./components/BareWorkbenchFileView";
+import { BareWorkbenchFileView, draftThread } from "./components/BareWorkbenchFileView";
+import { GridTabContent, type DiffSurfaceProps } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
@@ -88,15 +89,22 @@ export function MenuChrome(props: {
 }
 
 /** The welcome shell's Project pane: the launch repo's changed files in changes mode, its full tree otherwise. */
+/** A shared empty rejected-rows set: the bare-launch diff rejects nothing, and this keeps a stable ref. */
+const EMPTY_ROWS: Set<number> = new Set();
+
 function WelcomeProjectPanel({
   mode,
   controller,
-  onOpenFile,
+  onOpenChangedFile,
+  onOpenProjectFile,
   theme,
 }: {
   mode: ProjectPanelMode;
   controller: ReviewController;
-  onOpenFile: (path: string) => void;
+  /** Changes tree click -> open the file's working-tree diff. */
+  onOpenChangedFile: (path: string) => void;
+  /** Project tree click -> open the file's read-only contents. */
+  onOpenProjectFile: (path: string) => void;
   theme: Theme;
 }): React.ReactNode {
   const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
@@ -119,13 +127,13 @@ function WelcomeProjectPanel({
   }, [controller]);
 
   if (mode === "changes") {
-    return <ChangesFileTree files={changes} onSelectFile={onOpenFile} theme={theme} />;
+    return <ChangesFileTree files={changes} onSelectFile={onOpenChangedFile} theme={theme} />;
   }
 
   return (
     <ProjectTreeView
       loadFiles={() => controller.repoFiles()}
-      onSelectFile={onOpenFile}
+      onSelectFile={onOpenProjectFile}
       theme={theme}
     />
   );
@@ -178,7 +186,41 @@ export function NoThreadShell(props: {
   // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
   // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
   const workbench = useChangesWorkbench({ seed: "welcome" });
-  const openRepoFile = (path: string): void => workbench.openFile(path, "contents");
+  // the Changes tree opens a file's working-tree diff; the Project tree opens read-only contents
+  const openChangedFile = (path: string): void => {
+    // no thread means no live-diff refresh loop, so re-capture on open or a long-lived shell goes
+    // stale; the catch keeps a fire-and-forget refresh from throwing when the shell tears down
+    void controller.repoChanges().catch(() => undefined);
+    workbench.openFile(path, "diff");
+  };
+  const openProjectFile = (path: string): void => workbench.openFile(path, "contents");
+  // a bare launch has no thread yet, so the diff renders against a draft session; the first note
+  // promotes it to the per-repo workbench thread (commentOnWorkbenchDiff)
+  const draft = useMemo(() => draftThread(), []);
+  const bareSurface: DiffSurfaceProps = {
+    session: draft,
+    quickActions,
+    observer: false,
+    commentsEnabled: true,
+    resolved: false,
+    suspended: false,
+    onComposingChange: onWelcomeComposingChange,
+    onObserverBlocked: () => {},
+    onCursorChange: () => {},
+    focusedAnnotationId: undefined,
+    onFocusAnnotation: () => {},
+    onAnnotate: (span, body) =>
+      void controller.commentOnWorkbenchDiff(
+        span.start.blockIndex,
+        span.start.char,
+        span.end.char,
+        span.end.blockIndex,
+        body,
+      ),
+    onReply: () => undefined,
+    onUpdateAnnotation: () => {},
+    onExit: () => {},
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -241,13 +283,30 @@ export function NoThreadShell(props: {
                   onComposingChange={onWelcomeComposingChange}
                   theme={theme}
                 />
-              ) : (
+              ) : tab.fileView === "contents" ? (
                 <BareWorkbenchFileView
                   path={tab.path ?? ""}
                   controller={controller}
                   quickActions={quickActions}
                   onComposingChange={onWelcomeComposingChange}
                   onExit={() => {}}
+                  theme={theme}
+                />
+              ) : (
+                <GridTabContent
+                  tab={tab}
+                  rows={controller.rows()}
+                  surface={bareSurface}
+                  rejectedRows={EMPTY_ROWS}
+                  dimmed={false}
+                  readFile={(path) => controller.repoReadFile(path)}
+                  onAddFileComment={(path, anchor, body) =>
+                    void controller.commentOnWorkbench(
+                      anchor,
+                      { kind: "file", path, rev: "worktree" },
+                      body,
+                    )
+                  }
                   theme={theme}
                 />
               )
@@ -259,7 +318,8 @@ export function NoThreadShell(props: {
           <WelcomeProjectPanel
             mode={workbench.projectMode}
             controller={controller}
-            onOpenFile={openRepoFile}
+            onOpenChangedFile={openChangedFile}
+            onOpenProjectFile={openProjectFile}
             theme={theme}
           />
         }
