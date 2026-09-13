@@ -38,6 +38,24 @@ describe("loadSkills", () => {
   test("a missing skills directory yields no skills", () => {
     expect(loadSkills(join(tmpdir(), "cueloop-does-not-exist-xyz"))).toEqual([]);
   });
+
+  test("CRLF delimiters parse, and a quoted name is unquoted", () => {
+    const root = mkdtempSync(join(tmpdir(), "cueloop-skills-crlf-"));
+
+    try {
+      mkdirSync(join(root, "review"));
+      writeFileSync(
+        join(root, "review", "SKILL.md"),
+        '---\r\nname: "review"\r\ndescription: Review the change.\r\n---\r\n',
+      );
+      const skills = loadSkills(root);
+
+      // no stray quotes and no CRLF-broken frontmatter
+      expect(skills.map((skill) => skill.name)).toEqual(["review"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("mergeSlashItems", () => {

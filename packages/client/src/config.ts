@@ -163,7 +163,7 @@ const ConfigDocumentSchema = v.object({
   theme: v.optional(v.unknown()),
   ui: v.optional(v.unknown()),
   experimental: v.optional(v.unknown()),
-  skills: v.optional(SkillsSectionSchema),
+  skills: v.fallback(v.optional(SkillsSectionSchema), undefined),
 });
 
 const QuickActionSchema = v.object({
