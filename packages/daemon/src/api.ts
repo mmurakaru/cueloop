@@ -227,6 +227,8 @@ export class DaemonCore {
     authorName?: string,
   ): ReviewSession {
     const session = this.mutable(id);
+    // a welcome-playground note is ephemeral by design: never persisted, so never fed back
+    if (annotationTarget(annotation).kind === "welcome") return session;
     const existing = session.annotations.findIndex((candidate) => candidate.id === annotation.id);
     const full: Annotation = { ...annotation, createdAt: new Date().toISOString() };
 
