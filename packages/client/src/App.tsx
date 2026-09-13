@@ -878,7 +878,6 @@ export function App({
     dispatch({ type: "openSubmit" });
   };
 
-  // follows the reviewer: rides in the Changes pane when a zoom has dropped the Thread pane
   const threadFooter = (
     <ThreadFooter
       repo={projectName(activeSession.workspace)}

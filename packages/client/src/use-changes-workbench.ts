@@ -64,6 +64,8 @@ export function useChangesWorkbench(options?: ChangesWorkbenchOptions): ChangesW
     setChangesOpen(isDiff);
     setProjectMode(isDiff ? "changes" : "tree");
     rememberedChanges.current = isDiff;
+    // a non-diff thread has no Changes editor; leaving zoom on would strand the hidden Thread pane
+    if (!isDiff) setZoomed(false);
     setGrid(makeGroup([changesTab()]));
     setFocusedGroup(null);
   };

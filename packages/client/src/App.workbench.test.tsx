@@ -247,6 +247,40 @@ describe("the four-pane workbench", () => {
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
   });
 
+  test("selecting a non-diff thread while zoomed exits zoom and restores the Thread pane", async () => {
+    // a second, non-diff thread to navigate to; its sync has no Changes editor to fill a zoom
+    server.core.sessionCreate({
+      workspace: { repoRoot: repo, branch: "main" },
+      artifact: {
+        type: "plan",
+        content: "# Zoomed Plan\n\nReview this plan.\n",
+        meta: { title: "Zoomed Plan" },
+      },
+    });
+    const setup = await renderApp();
+
+    // open the collapsed Threads sidebar first (its toggle sits three cells left of the brand); the
+    // brand rides the Thread header, which zoom then hides, so it must be reached before zooming
+    const brand = locateText(setup, "cueloop");
+    await setup.mockMouse.click(brand.column - 3, brand.row);
+    await waitForText(setup, "Zoomed Plan");
+
+    // zoom the diff - the Thread pane hides and the footer rides the Changes pane
+    const zoom = locateText(setup, NERD.zoom);
+    await setup.mockMouse.click(zoom.column, zoom.row);
+    await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
+
+    // switch to the plan thread: it has no Changes editor, so a stranded zoom would blank the middle
+    const planRow = locateText(setup, "Zoomed Plan");
+    await setup.mockMouse.click(planRow.column, planRow.row);
+    await waitForText(setup, "Review this plan.");
+
+    const frame = setup.captureCharFrame();
+    // the Thread pane is back with the plan, and the diff's Changes editor is gone - never a blank middle
+    expect(frame).toContain("Review this plan.");
+    expect(frame).not.toContain("store.ts");
+  });
+
   test("toggling the right sidebar while zoomed exits zoom and restores the Thread pane", async () => {
     const setup = await renderApp();
 
