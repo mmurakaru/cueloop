@@ -184,7 +184,7 @@ jobs:
     # Every PR ships a changeset (empty is fine for docs/CI-only changes:
     # `bunx changeset --empty`). Release PRs are exempt.
     name: Changeset present
-    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/') && !startsWith(github.head_ref, 'dependabot/')
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'changeset-release/') && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
