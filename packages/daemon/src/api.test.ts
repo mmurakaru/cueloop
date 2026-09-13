@@ -64,6 +64,23 @@ describe("session lifecycle", () => {
     expect(core.sessionGet(session.id).annotations.length).toBe(0);
   });
 
+  test("a welcome-playground note is ephemeral: never persisted", () => {
+    // Arrange
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    // Act
+    core.sessionAnnotate(session.id, {
+      id: "w1",
+      kind: "comment",
+      anchor: { quote: "start", prefix: "", suffix: "" },
+      target: { kind: "welcome" },
+      body: "just trying it",
+    });
+
+    // Assert - the onboarding playground stores nothing
+    expect(core.sessionGet(session.id).annotations.length).toBe(0);
+  });
+
   test("annotate with an author registers them in the participant registry", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
