@@ -142,6 +142,21 @@ describe("loadConfig", () => {
     }
   });
 
+  test("[ui] diff_view loads the pre-rename \"unified\" value as \"stacked\"", () => {
+    // Arrange - an upgrade must not flip a user who had persisted the old spelling
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-diff-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, `[ui]\ndiff_view = "unified"\n`);
+
+    try {
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.diffView).toBe("stacked");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("[ui] theme defaults to the branded cueloop preset", () => {
     // Act
     const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });

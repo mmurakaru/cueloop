@@ -174,7 +174,7 @@ const UiSchema = v.object({
   ),
   editor: v.fallback(v.optional(v.string()), undefined),
   theme: v.fallback(v.optional(v.string()), undefined),
-  diff_view: v.fallback(v.optional(v.picklist(["split", "stacked"])), undefined),
+  diff_view: v.fallback(v.optional(v.picklist(["split", "stacked", "unified"])), undefined),
   pins: v.fallback(v.optional(v.array(v.string())), undefined),
 });
 const ObsidianSchema = v.object({
@@ -265,7 +265,9 @@ function layer(
   if (ui.success) {
     if (ui.output.auto_close !== undefined) out.ui.autoClose = ui.output.auto_close;
     if (ui.output.editor?.trim()) out.ui.editor = ui.output.editor.trim();
-    if (ui.output.diff_view !== undefined) out.ui.diffView = ui.output.diff_view;
+    // "unified" is the pre-rename spelling of "stacked"; keep loading it so an upgrade never flips the layout
+    if (ui.output.diff_view !== undefined)
+      out.ui.diffView = ui.output.diff_view === "unified" ? "stacked" : ui.output.diff_view;
     if (ui.output.pins !== undefined) out.ui.pins = ui.output.pins;
   }
   if (integrations.success && integrations.output.obsidian) {
