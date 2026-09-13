@@ -124,7 +124,7 @@ describe("live working-tree diff for a non-diff thread", () => {
     let sent: Annotation | undefined;
     const client = {
       ...fakeClient(session),
-      sessionAnnotate: async (_id: string, annotation: Annotation) => {
+      sessionComment: async (_id: string, annotation: Annotation) => {
         sent = annotation;
 
         return { ...session, annotations: [{ ...annotation, createdAt: AT }] };

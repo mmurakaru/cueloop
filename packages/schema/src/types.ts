@@ -284,6 +284,9 @@ export interface Thread {
   participants?: Identity[];
 }
 
+/** @deprecated use Thread */
+export type ReviewSession = Thread;
+
 /** comment and request_changes both map to deny in agent-native contracts. */
 export function verdictAllows(kind: VerdictKind): boolean {
   return kind === "approve";

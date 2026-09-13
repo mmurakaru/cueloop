@@ -362,3 +362,8 @@ export function validateThreadRecord(
 
   return { ok: false, error: `${path ? path + ": " : ""}${issue.message}` };
 }
+
+/** @deprecated use ThreadRecordSchema */
+export const SessionRecordSchema = ThreadRecordSchema;
+/** @deprecated use validateThreadRecord */
+export const validateSessionRecord = validateThreadRecord;

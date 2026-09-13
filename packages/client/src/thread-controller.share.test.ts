@@ -54,7 +54,7 @@ function annotation(id: string, author: string): Annotation {
 }
 
 interface FakeSessionClient extends SessionClient {
-  sessionAnnotate: Mock<SessionClient["sessionAnnotate"]>;
+  sessionComment: Mock<SessionClient["sessionComment"]>;
 }
 
 const unimplemented = (member: string) => () =>
@@ -66,8 +66,8 @@ function fakeClient(session: Thread): FakeSessionClient {
     subscribe: async () => {},
     sessionGet: async () => session,
     sessionList: async () => [session],
-    sessionComment: unimplemented("sessionComment"),
-    sessionAnnotate: mock<SessionClient["sessionAnnotate"]>(async () => session),
+    sessionComment: mock<SessionClient["sessionComment"]>(async () => session),
+    sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
     sessionCutBlock: unimplemented("sessionCutBlock"),
@@ -234,7 +234,7 @@ describe("mirror on annotate", () => {
       sessionFixture({ shareId: "p_abc123xy", annotations: [annotation("a1", "SHA256:me")] }),
     );
 
-    client.sessionAnnotate.mockImplementationOnce(async () => {
+    client.sessionComment.mockImplementationOnce(async () => {
       throw new Error("session is resolved");
     });
 
@@ -260,7 +260,7 @@ describe("reply", () => {
     await tick();
 
     // Assert
-    const wire = client.sessionAnnotate.mock.calls.at(-1)![1];
+    const wire = client.sessionComment.mock.calls.at(-1)![1];
 
     expect(wire).toEqual({
       id: id!,
@@ -288,7 +288,7 @@ describe("reply", () => {
     await tick();
 
     // Assert
-    expect(client.sessionAnnotate.mock.calls.at(-1)?.[1]).toMatchObject({
+    expect(client.sessionComment.mock.calls.at(-1)?.[1]).toMatchObject({
       id: "a2",
       body: "revised reply",
       replyTo: "a1",
@@ -311,7 +311,7 @@ describe("reply", () => {
     await tick();
 
     // Assert
-    expect(client.sessionAnnotate.mock.calls.at(-1)?.[1]).toMatchObject({ replyTo: "a1" });
+    expect(client.sessionComment.mock.calls.at(-1)?.[1]).toMatchObject({ replyTo: "a1" });
   });
 
   test("replying to an unknown annotation does nothing", async () => {
@@ -320,7 +320,7 @@ describe("reply", () => {
 
     // Act + Assert
     expect(controller.reply("missing", "x")).toBeUndefined();
-    expect(client.sessionAnnotate).not.toHaveBeenCalled();
+    expect(client.sessionComment).not.toHaveBeenCalled();
   });
 });
 

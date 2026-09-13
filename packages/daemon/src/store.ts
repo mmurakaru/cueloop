@@ -282,3 +282,14 @@ export class MemoryThreadStore implements ThreadRepository {
     return this.sessions.delete(id);
   }
 }
+
+/** @deprecated use ThreadRepository */
+export type SessionRepository = ThreadRepository;
+/** @deprecated use ThreadStore */
+export const SessionStore = ThreadStore;
+/** @deprecated use ThreadStore */
+export type SessionStore = ThreadStore;
+/** @deprecated use MemoryThreadStore */
+export const MemorySessionStore = MemoryThreadStore;
+/** @deprecated use MemoryThreadStore */
+export type MemorySessionStore = MemoryThreadStore;

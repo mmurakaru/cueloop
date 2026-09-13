@@ -1049,7 +1049,7 @@ class Controller implements ReviewController {
       resolvedTarget.kind === "artifact"
         ? { id: newAnnotationId(), kind, anchor, body }
         : { id: newAnnotationId(), kind, anchor, body, target: resolvedTarget };
-    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    const persisted = this.client!.sessionComment(session.id, wire);
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
@@ -1065,7 +1065,7 @@ class Controller implements ReviewController {
       target.kind === "artifact"
         ? { id: newAnnotationId(), kind: "comment", anchor, body }
         : { id: newAnnotationId(), kind: "comment", anchor, body, target };
-    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    const persisted = this.client!.sessionComment(session.id, wire);
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
@@ -1108,7 +1108,7 @@ class Controller implements ReviewController {
       replyTo: root.replyTo ?? root.id,
     };
     const wire = root.target ? { ...base, target: root.target } : base;
-    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    const persisted = this.client!.sessionComment(session.id, wire);
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
@@ -1122,7 +1122,7 @@ class Controller implements ReviewController {
     if (!session) return undefined;
     const anchor = { quote, prefix: "", suffix: "", selector };
     const wire = { id: newAnnotationId(), kind: "comment", anchor, body };
-    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    const persisted = this.client!.sessionComment(session.id, wire);
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
@@ -1147,7 +1147,7 @@ class Controller implements ReviewController {
     };
 
     if (existing.replyTo !== undefined) wire.replyTo = existing.replyTo;
-    const persisted = this.client!.sessionAnnotate(session.id, wire);
+    const persisted = this.client!.sessionComment(session.id, wire);
 
     this.apply(persisted);
     this.mirrorAnnotation(persisted, wire);
