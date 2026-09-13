@@ -117,7 +117,10 @@ export interface UpdateDeps {
   installDir: () => string | undefined;
   fetchLatestVersion: () => Promise<string | undefined>;
   runInstaller: (targetInstallDir: string) => Promise<number>;
+  /** Progress and status, on stdout - not an error, so it must not read as one. */
   out: (message: string) => void;
+  /** A failure that ends the run, on stderr. */
+  err: (message: string) => void;
 }
 
 /**
@@ -130,12 +133,12 @@ export async function runUpdate(deps: UpdateDeps, dryRun: boolean): Promise<numb
   const targetInstallDir = deps.installDir();
 
   if (targetInstallDir === undefined) {
-    deps.out("cueloop update: HOME is not set and the current binary path is unknown");
+    deps.err("cueloop update: HOME is not set and the current binary path is unknown");
 
     return 1;
   }
   if (!targetInstallDir.startsWith("/")) {
-    deps.out("cueloop update: CUELOOP_INSTALL_DIR must be an absolute path");
+    deps.err("cueloop update: CUELOOP_INSTALL_DIR must be an absolute path");
 
     return 1;
   }
@@ -170,7 +173,8 @@ export async function updateCommand(argv: string[] = []): Promise<number> {
       installDir: () => resolveInstallDir(process.execPath, process.env),
       fetchLatestVersion,
       runInstaller,
-      out: (message) => console.error(message),
+      out: (message) => console.log(message),
+      err: (message) => console.error(message),
     },
     argv.includes("--dry-run"),
   );

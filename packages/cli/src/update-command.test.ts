@@ -3,8 +3,11 @@
 import { describe, expect, mock, test } from "bun:test";
 import { resolveInstallDir, runUpdate, type UpdateDeps } from "./update-command";
 
-function depsSpy(overrides: Partial<UpdateDeps> = {}): UpdateDeps & { lines: string[] } {
+function depsSpy(
+  overrides: Partial<UpdateDeps> = {},
+): UpdateDeps & { lines: string[]; errLines: string[] } {
   const lines: string[] = [];
+  const errLines: string[] = [];
 
   return {
     currentVersion: "0.1.0-alpha.68",
@@ -12,7 +15,9 @@ function depsSpy(overrides: Partial<UpdateDeps> = {}): UpdateDeps & { lines: str
     fetchLatestVersion: mock(async () => "0.1.0-alpha.68"),
     runInstaller: mock(async () => 0),
     out: (message: string) => void lines.push(message),
+    err: (message: string) => void errLines.push(message),
     lines,
+    errLines,
     ...overrides,
   };
 }
@@ -155,9 +160,10 @@ describe(runUpdate, () => {
     // Act
     const code = await runUpdate(deps, false);
 
-    // Assert
+    // Assert - the failure goes to stderr, and no progress prints to stdout
     expect(code).toBe(1);
-    expect(deps.lines[0]).toContain("must be an absolute path");
+    expect(deps.errLines[0]).toContain("must be an absolute path");
+    expect(deps.lines).toHaveLength(0);
     expect(deps.runInstaller).not.toHaveBeenCalled();
   });
 });
