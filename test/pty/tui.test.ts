@@ -29,7 +29,9 @@ afterAll(async () => {
 });
 
 describe("PTY tier: the real TUI in a pseudo-terminal", () => {
-  ptyTest("initial render paints the plan, the header actions, and the footer", () => {
+  ptyTest("initial render paints the plan, the header actions, and the footer", async () => {
+    // the footer paints a frame after the body, so wait for it before reading the whole screen
+    await session.waitForText("repo / main");
     // Assert - the screen grid holds the title, the body, the header actions, and the footer
     const screen = session.text();
 
