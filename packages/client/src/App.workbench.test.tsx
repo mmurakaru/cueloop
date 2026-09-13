@@ -16,8 +16,11 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { ReviewSession } from "@cueloop/schema";
 import { App } from "./App";
 import {
+  dragText,
   isolateUserConfig,
   locateText,
+  pressKey,
+  typeText,
   waitForState,
   waitForText,
   renderReadyApp,
@@ -338,6 +341,34 @@ describe("the bare-launch welcome shell", () => {
     expect(frame).toContain("Getting started");
     // the Thread pane shows its empty state until a thread is opened
     expect(frame).toContain("no threads");
+  });
+
+  test("typing in the welcome composer never reaches the inbox keys", async () => {
+    // a pending thread in the sidebar so the inbox keys (delete, open) have a target to act on
+    welcomeServer.core.sessionCreate({
+      workspace: { repoRoot: welcomeRepo, branch: "main" },
+      artifact: { type: "plan", content: "# Seeded\n", meta: { title: "Seeded Plan" } },
+    });
+    const setup = await testRender(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
+      { width: 160, height: 28 },
+    );
+    await waitForText(setup, "quick brown fox");
+
+    // open the playground composer, then type letters that are also inbox keys (j, k, d), one at a
+    // time as a person would - each keystroke settles a frame, the way real input arrives
+    await dragText(setup, "quick brown fox", "quick brown fox", "quick brown fox".length);
+    for (const character of "note: jkd") await typeText(setup, character);
+    await waitForText(setup, "note: jkd");
+
+    // the letters landed in the note, not the inbox: no delete confirmation opened
+    expect(setup.captureCharFrame()).not.toContain("This removes the plan");
+
+    // Cmd+Enter saves the note; it must not dispatch openSession and replace the playground
+    await pressKey(setup, "RETURN", { meta: true });
+    expect(setup.captureCharFrame()).toContain("Getting started");
+
+    setup.renderer.destroy();
   });
 
   test("dismissing the Welcome tab collapses the editor without stranding an empty screen", async () => {

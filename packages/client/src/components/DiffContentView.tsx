@@ -451,13 +451,15 @@ function useSyntaxHighlights(rows: DiffRow[]): Map<number, SyntaxSpan[]> {
   useEffect(() => {
     let active = true;
 
-    // a highlighter torn down mid-init (a fast unmount) rejects the pending pass; the rows just
-    // stay unhighlighted, so swallow it rather than let it surface as an unhandled rejection
     highlightDiffRows(rows).then(
       (byRow) => {
         if (active) setHighlighted({ rows, byRow });
       },
-      () => {},
+      (error) => {
+        // a highlighter torn down mid-init rejects after unmount (active === false): expected, silent.
+        // a rejection while still mounted is a real failure - surface it and leave the rows unhighlighted
+        if (active) console.error("diff syntax highlighting failed", error);
+      },
     );
 
     return () => {

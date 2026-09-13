@@ -154,6 +154,8 @@ export function NoThreadShell(props: {
   onRename: (id: string, title: string) => void;
   /** Drives the "/" quick actions and skills in the welcome playground's composer. */
   quickActions: QuickAction[];
+  /** Reports the welcome composer's open state, so the shell suspends its inbox keys while typing. */
+  onWelcomeComposingChange: (composing: boolean) => void;
 }): React.ReactNode {
   const {
     rows,
@@ -170,6 +172,7 @@ export function NoThreadShell(props: {
     onPin,
     onRename,
     quickActions,
+    onWelcomeComposingChange,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
   // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
@@ -235,6 +238,7 @@ export function NoThreadShell(props: {
                 <WelcomePlayground
                   version={CLIENT_VERSION}
                   quickActions={quickActions}
+                  onComposingChange={onWelcomeComposingChange}
                   theme={theme}
                 />
               ) : (

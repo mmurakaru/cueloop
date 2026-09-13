@@ -20,6 +20,8 @@ import { diffRowBlocks, fileContentsRows, marksByRows } from "../view-diff";
 export interface WelcomePlaygroundProps {
   version: string;
   quickActions: QuickAction[];
+  /** Reports whether the playground composer is open, so the shell suspends its inbox keys while typing. */
+  onComposingChange?: (composing: boolean) => void;
   theme?: Theme;
 }
 
@@ -84,6 +86,7 @@ export function WelcomePlayground(props: WelcomePlaygroundProps): React.ReactNod
       observer={false}
       commentsEnabled
       fileView
+      onComposingChange={props.onComposingChange}
       onAnnotate={(span, body) =>
         setAnnotations((current) => [
           ...current,
