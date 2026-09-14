@@ -878,10 +878,10 @@ exports[`stories catalog Overlays/SettingsDialog/AppearanceThemed renders, snaps
                                                                                                     
                                                                                                     
             ┌─ Settings ───────────────────────────────────────────────────────────────┐            
-            │  General           │  Appearance                                         │            
-            │  Display           │  the color theme                                    │            
+            │  General           │   Theme                    Rosé Pine Moon           │            
+            │  Display           │                                                     │            
             │  Appearance        │                                                     │            
-            │                    │   Theme                    Rosé Pine Moon           │            
+            │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
@@ -912,11 +912,11 @@ exports[`stories catalog Overlays/SettingsDialog/BodyZone renders, snapshots, an
                                                                                                     
                                                                                                     
             ┌─ Settings ───────────────────────────────────────────────────────────────┐            
-            │  General           │  Display                                            │            
-            │  Display           │  plan width and chrome                              │            
+            │  General           │   Plan width               default                  │            
+            │  Display           │   Line numbers             on                       │            
             │  Appearance        │                                                     │            
-            │                    │   Plan width               default                  │            
-            │                    │   Line numbers             on                       │            
+            │                    │                                                     │            
+            │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
@@ -946,11 +946,11 @@ exports[`stories catalog Overlays/SettingsDialog/NavZone renders, snapshots, and
                                                                                                     
                                                                                                     
             ┌─ Settings ───────────────────────────────────────────────────────────────┐            
-            │  General           │  General                                            │            
-            │  Display           │  identity and submission                            │            
+            │  General           │   Display name             amber-heron              │            
+            │  Display           │   Auto-close on submit     3s                       │            
             │  Appearance        │                                                     │            
-            │                    │   Display name             amber-heron              │            
-            │                    │   Auto-close on submit     3s                       │            
+            │                    │                                                     │            
+            │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
@@ -1753,8 +1753,7 @@ exports[`stories catalog Primitives/Tree/ProjectsThreads renders, snapshots, and
 `;
 
 exports[`stories catalog Chrome/QuickActionsEditor/Collapsed renders, snapshots, and carries its colors: Chrome/QuickActionsEditor/Collapsed 1`] = `
-"  click a prompt to edit its system  reset to         
-  prompt                             defaults ▸       
+"                                   reset to defaults ▸
                                                       
   ▸ Zoom out, research in depth                       
     Research the broader problem, prior art, an…      
@@ -1775,12 +1774,12 @@ exports[`stories catalog Chrome/QuickActionsEditor/Collapsed renders, snapshots,
   + Add action                                        
                                                       
                                                       
+                                                      
 "
 `;
 
 exports[`stories catalog Chrome/QuickActionsEditor/RowExpanded renders, snapshots, and carries its colors: Chrome/QuickActionsEditor/RowExpanded 1`] = `
-"  click a prompt to edit its system  reset to         
-  prompt                             defaults ▸       
+"                                   reset to defaults ▸
                                                       
   ▸ Zoom out, research in depth                       
     Research the broader problem, prior art, an…      
@@ -1799,6 +1798,7 @@ exports[`stories catalog Chrome/QuickActionsEditor/RowExpanded renders, snapshot
   ▸ LGTM                                              
     This looks good to me.                            
   + Add action                                        
+                                                      
                                                       
                                                       
 "

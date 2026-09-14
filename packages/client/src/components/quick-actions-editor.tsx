@@ -52,9 +52,7 @@ export function QuickActionsEditor({
   return (
     <box style={{ flexDirection: "column", flexGrow: 1 }}>
       <box style={{ flexDirection: "row" }}>
-        <box style={{ flexGrow: 1 }}>
-          <text fg={tokens.textDim}>click a prompt to edit its system prompt</text>
-        </box>
+        <box style={{ flexGrow: 1 }} />
         <box onMouseUp={onReset}>
           <text fg={tokens.textDim}>reset to defaults ▸</text>
         </box>

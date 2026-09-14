@@ -21,7 +21,6 @@ import { CycleRow, TextRow, ToggleRow, type SettingsRowDescriptor } from "./Sett
 export interface SettingsCategory {
   id: string;
   name: string;
-  description: string;
   rows: SettingsRowDescriptor[];
   /** A bespoke body (e.g. the quick-actions editor) rendered instead of typed rows. */
   customBody?: React.ReactNode;
@@ -123,9 +122,6 @@ export function SettingsDialog({
         </box>
         <box style={{ borderStyle: "single", border: ["left"], borderColor: tokens.border }} />
         <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 2, paddingRight: 1 }}>
-          <text fg={tokens.text}>{category.name}</text>
-          <text fg={tokens.textDim}>{category.description}</text>
-          <box style={{ height: 1 }} />
           {onKeybinds ? <KeybindsBody sections={keybindsSections} tokens={tokens} /> : null}
           {onKeybinds ? null : category.customBody}
           {onKeybinds

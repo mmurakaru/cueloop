@@ -10,7 +10,6 @@ const CATEGORIES: SettingsCategory[] = [
   {
     id: "general",
     name: "General",
-    description: "identity and submission",
     rows: [
       { key: "displayName", label: "Display name", kind: "text" },
       {
@@ -24,7 +23,6 @@ const CATEGORIES: SettingsCategory[] = [
   {
     id: "display",
     name: "Display",
-    description: "plan width and chrome",
     rows: [
       {
         key: "planWidth",
@@ -38,7 +36,6 @@ const CATEGORIES: SettingsCategory[] = [
   {
     id: "appearance",
     name: "Appearance",
-    description: "the color theme",
     rows: [
       {
         key: "theme",

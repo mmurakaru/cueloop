@@ -141,7 +141,6 @@ export function useSettingsDialog(params: {
     {
       id: "general",
       name: "General",
-      description: "submission behaviour",
       rows: [
         {
           key: "autoClose",
@@ -151,7 +150,7 @@ export function useSettingsDialog(params: {
         },
         {
           key: "diffView",
-          label: "Diff view (when wide)",
+          label: "Diff view",
           kind: "cycle",
           options: ["Split", "Stacked"],
         },
@@ -160,7 +159,6 @@ export function useSettingsDialog(params: {
     {
       id: "appearance",
       name: "Appearance",
-      description: "the color theme",
       rows: [
         {
           key: "theme",
@@ -173,7 +171,6 @@ export function useSettingsDialog(params: {
     {
       id: "actions",
       name: "Actions",
-      description: "quick-action comments",
       rows: [],
       customBody: (
         <QuickActionsEditor
@@ -195,7 +192,6 @@ export function useSettingsDialog(params: {
     {
       id: "keybinds",
       name: "Keybinds",
-      description: "keyboard reference",
       rows: [],
     },
   ];
