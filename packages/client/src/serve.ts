@@ -37,12 +37,14 @@ async function captureFrozenArtifact(
   sessionId: string | undefined,
 ): Promise<Artifact | undefined> {
   if (sessionId === undefined) return undefined;
+
   const probe = await DaemonClient.connect({ home, autostart: true });
 
   try {
     const thread = await probe.sessionGet(sessionId).catch(() => undefined);
 
     if (thread === undefined) return undefined;
+
     const snapshot = await snapshotWorkbench(thread, (root) => probe.repoDiff(root));
 
     return snapshot === thread ? undefined : snapshot.artifact;

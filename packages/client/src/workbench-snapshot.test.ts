@@ -2,7 +2,7 @@
  * reviewer, who cannot see the owner's tree, reads a stable snapshot; any other thread passes through. */
 
 import { describe, expect, mock, test } from "bun:test";
-import type { Thread } from "@cueloop/schema";
+import { historyFromLinear, viewFollowing, type Thread } from "@cueloop/schema";
 import { snapshotWorkbench } from "./workbench-snapshot";
 
 const AT = "2026-01-01T00:00:00.000Z";
@@ -49,12 +49,24 @@ describe("snapshotWorkbench", () => {
     // the live diff is pinned into the artifact
     expect(frozen.artifact.content).toBe("FRESH PATCH");
     expect(frozen.artifact.files).toEqual(LIVE.files);
-    // dropping meta.workbench routes the remote through the frozen-diff render path; other meta stays
-    expect(frozen.artifact.meta.workbench).toBeUndefined();
+    // the snapshot marker pins the render; the workbench marker stays so file-targeted feedback still paints
+    expect(frozen.artifact.meta.snapshot).toBe(true);
+    expect(frozen.artifact.meta.workbench).toBe(true);
     expect(frozen.artifact.meta.title).toBe("Workbench");
     // the thread is otherwise intact - same id, workspace, and annotations
     expect(frozen.id).toBe("ses_wb");
     expect(frozen.annotations).toHaveLength(1);
+  });
+
+  test("recaptures history so the share path rebuilds the fresh content, not the stale head", async () => {
+    // a workbench thread carries branch history whose head is the creation-time capture
+    const base = diffThread({ workbench: true });
+    const withHistory: Thread = { ...base, history: historyFromLinear(base) };
+
+    const frozen = await snapshotWorkbench(withHistory, async () => LIVE);
+
+    // viewFollowing (the share path) rebuilds content from history - it must yield the fresh patch
+    expect(viewFollowing(frozen).artifact.content).toBe("FRESH PATCH");
   });
 
   test("passes a plain diff review through untouched and never queries the tree", async () => {

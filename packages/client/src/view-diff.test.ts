@@ -172,4 +172,12 @@ describe("changesMarks", () => {
     // the same file-targeted note is not an artifact note, so a frozen review leaves it unpainted
     expect([...changesMarks(session, rows).keys()].length).toBe(0);
   });
+
+  test("a shared snapshot still paints the workbench's file-targeted feedback", () => {
+    const rows = diffRows(PATCH);
+    // a served/shared snapshot keeps the workbench marker, so its notes stay file-targeted and visible
+    const session = diffThread({ workbench: true, snapshot: true }, [fileNote(rows)]);
+
+    expect([...changesMarks(session, rows).keys()].length).toBeGreaterThan(0);
+  });
 });

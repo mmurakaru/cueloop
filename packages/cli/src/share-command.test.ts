@@ -162,11 +162,12 @@ describe(shareSession, () => {
     // Act
     const code = await shareSession(client, { sessionId: "ses_wb" }, deps);
 
-    // Assert - the remote gets the fresh snapshot, and the workbench flag is gone so it renders frozen
+    // Assert - the remote gets the fresh snapshot, marked so it renders frozen while keeping its notes
     expect(code).toBe(0);
     expect(published?.artifact.content).toBe("FRESH");
     expect(published?.artifact.files).toHaveLength(1);
-    expect(published?.artifact.meta.workbench).toBeUndefined();
+    expect(published?.artifact.meta.snapshot).toBe(true);
+    expect(published?.artifact.meta.workbench).toBe(true);
   });
 
   test("without an id, shares the most recent session", async () => {

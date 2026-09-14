@@ -187,6 +187,7 @@ describe("wire pins", () => {
     herdrPane: "%7",
     title: "Plan",
     workbench: false,
+    snapshot: false,
   };
   const fullAnchor: Required<Anchor> = {
     quote: "q",

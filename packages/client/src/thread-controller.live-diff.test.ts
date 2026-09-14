@@ -301,7 +301,7 @@ describe("serve mode pins the served thread to a frozen snapshot", () => {
             status: "modified",
           },
         ],
-        meta: {},
+        meta: { workbench: true, snapshot: true },
       },
     });
     controller.connect();

@@ -248,22 +248,34 @@ export function fileTargetMarks(
   return result;
 }
 
-/** A plain diff review pins the patch it captured; a workbench thread reflects the live working tree. */
-export function pinsFrozenDiff(session: Thread | null): boolean {
+/** A plain diff review's notes anchor to the artifact itself; a working-tree diff's notes target files. */
+export function annotatesArtifact(session: Thread | null): boolean {
   return session?.artifact.type === "diff" && session.artifact.meta.workbench !== true;
 }
 
 /**
- * The marks a Changes surface paints. A pinned diff review is the artifact itself, so only its
- * artifact-anchored notes belong; a workbench thread and any other thread show the live working-tree
- * diff, whose notes carry a file target and resolve per file - so a refresh never rebinds one across files.
+ * Render the diff from the pinned artifact rather than the live working tree: a plain diff review (the
+ * artifact is the diff), or a shared/served snapshot of a workbench thread (the remote has no tree).
+ */
+export function readsFrozenDiff(session: Thread | null): boolean {
+  return (
+    session?.artifact.type === "diff" &&
+    (session.artifact.meta.workbench !== true || session.artifact.meta.snapshot === true)
+  );
+}
+
+/**
+ * The marks a Changes surface paints. A plain diff review is the artifact itself, so only its
+ * artifact-anchored notes belong; a workbench thread (live or a frozen snapshot) and every other thread
+ * show a working-tree diff, whose notes carry a file target and resolve per file - so a refresh never
+ * rebinds one across files, and a snapshot still surfaces the feedback already on the thread.
  */
 export function changesMarks(
   session: Thread,
   rows: DiffRow[],
   focusedId?: string,
 ): Map<number, Mark[]> {
-  if (pinsFrozenDiff(session)) {
+  if (annotatesArtifact(session)) {
     const artifactNotes = session.annotations.filter(
       (annotation) => annotationTarget(annotation).kind === "artifact",
     );

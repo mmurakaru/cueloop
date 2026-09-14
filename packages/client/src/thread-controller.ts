@@ -52,7 +52,7 @@ import {
   diffRows,
   fileChangeCounts,
   fileRowRange,
-  pinsFrozenDiff,
+  readsFrozenDiff,
   type DiffRow,
 } from "./view-diff";
 import { applyFold } from "./diff-fold";
@@ -498,7 +498,7 @@ class Controller implements ReviewController {
   // ── derived projections ─────────────────────
   private ensureDerived(): void {
     const session = this.snapshot.session;
-    const frozenDiff = pinsFrozenDiff(session);
+    const frozenDiff = readsFrozenDiff(session);
     // a plain diff thread reads its pinned capture; a workbench thread and every other thread reflect the live working tree
     const liveDiff = frozenDiff ? null : this.liveDiff;
 
@@ -530,7 +530,7 @@ class Controller implements ReviewController {
   private foldFiles(): readonly DiffFileContents[] | undefined {
     const session = this.snapshot.session;
 
-    return pinsFrozenDiff(session) ? session!.artifact.files : this.liveDiff?.files;
+    return readsFrozenDiff(session) ? session!.artifact.files : this.liveDiff?.files;
   }
 
   treeRows(): TreeRow[] {
@@ -644,7 +644,7 @@ class Controller implements ReviewController {
   async repoChanges(): Promise<readonly DiffFileContents[]> {
     // a plain diff review pins its captured snapshot; a workbench thread and every other thread reflect the live working tree
     const session = this.snapshot.session;
-    if (pinsFrozenDiff(session)) return session!.artifact.files ?? [];
+    if (readsFrozenDiff(session)) return session!.artifact.files ?? [];
     // eager: capture the live working-tree diff so the Changes navigator and its file tabs render a real diff
     if (this.client?.repoDiff !== undefined) {
       const diff = await this.client.repoDiff(this.sidebarRepoRoot());
