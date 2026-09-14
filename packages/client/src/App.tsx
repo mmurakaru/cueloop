@@ -86,7 +86,7 @@ import {
   TrailingOverlays,
 } from "./app-screens";
 /** A toast clears itself after this idle; esc dismisses it sooner. */
-const TOAST_DISMISS_MS = 4000;
+const TOAST_DISMISS_MS = 2000;
 
 export interface AppProps {
   home?: string;
