@@ -5,8 +5,29 @@ import { test, expect } from "bun:test";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { PromptDialog } from "./PromptDialog";
-import { locateText, settle } from "../test-support";
+import { locateText, settle, typeText } from "../test-support";
 import { DARK } from "../theme";
+
+test("the input is focused on open, so typing lands in the dialog", async () => {
+  const inputs: string[] = [];
+  const setup = await testRender(
+    <PromptDialog
+      isOpen
+      title=" rename thread "
+      label="new title for this thread:"
+      value="hi"
+      onInput={(text) => inputs.push(text)}
+      theme={DARK}
+    />,
+    { width: 60, height: 12 },
+  );
+  await settle(setup);
+
+  await typeText(setup, "!");
+  expect(inputs.at(-1)).toBe("hi!");
+
+  setup.renderer.destroy();
+});
 
 test("clicking save fires onSave and clicking cancel fires onCancel", async () => {
   let saved = 0;

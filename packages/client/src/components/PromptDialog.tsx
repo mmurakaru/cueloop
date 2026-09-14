@@ -45,8 +45,11 @@ export function PromptDialog({
   const inputRef = useRef<TextareaRenderable | null>(null);
 
   useEffect(() => {
+    if (!inputRef.current) return;
+    // claim focus on open so typing lands in the dialog, not whatever was focused behind it
+    inputRef.current.focus();
     // open with the caret after the seeded value, like a text field
-    if (inputRef.current) inputRef.current.cursorOffset = value.length;
+    inputRef.current.cursorOffset = value.length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (!isOpen) return null;
