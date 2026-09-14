@@ -440,6 +440,22 @@ describe("the bare-launch welcome shell", () => {
     expect(setup.captureCharFrame()).not.toContain("README.md");
   });
 
+  test("a hand-edited off+zoom layout drops the zoom so the center is not stranded blank", async () => {
+    // zoom fills the middle with the Changes editor; with the region off there is none, so honoring zoom
+    // would hide the Thread pane over a blank center. The Thread placeholder must still render.
+    const setup = await testRender(
+      <App
+        home={welcomeHome}
+        sessionId={undefined}
+        cwd={welcomeRepo}
+        layout={{ threads: true, rightSidebar: "off", zoomChanges: true }}
+      />,
+      { width: 180, height: 14 },
+    );
+    await waitForText(setup, "no threads");
+    expect(setup.captureCharFrame()).toContain("no threads");
+  });
+
   test("closing the right region on the vanilla shell remembers it for the next launch", async () => {
     const setup = await testRender(
       <App

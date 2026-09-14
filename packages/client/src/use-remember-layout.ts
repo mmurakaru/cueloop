@@ -10,6 +10,7 @@ import { layoutFromPanes, type LaunchLayout } from "./launch-layout";
  */
 export function useRememberLayout(
   layout: LaunchLayout | undefined,
+  active: boolean,
   threads: boolean,
   changesOpen: boolean,
   projectOpen: boolean,
@@ -23,7 +24,8 @@ export function useRememberLayout(
 
       return;
     }
-    if (layout === undefined) return;
+    // only the active workbench persists: on a bare launch App's unused panes must not clobber the shell's
+    if (!active || layout === undefined) return;
     persistLayout(layoutFromPanes({ threads, changesOpen, projectOpen, zoomChanges }));
-  }, [layout, threads, changesOpen, projectOpen, zoomChanges]);
+  }, [active, layout, threads, changesOpen, projectOpen, zoomChanges]);
 }

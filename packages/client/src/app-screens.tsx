@@ -194,6 +194,7 @@ export function NoThreadShell(props: {
   // the vanilla shell remembers the composition the user leaves it in, for the next bare launch
   useRememberLayout(
     layout,
+    true,
     sidebarOpen,
     workbench.changesOpen,
     workbench.projectOpen,

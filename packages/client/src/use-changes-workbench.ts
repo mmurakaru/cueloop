@@ -39,11 +39,15 @@ function initialPanes(options?: ChangesWorkbenchOptions): InitialPanes {
   const layout = options?.layout;
 
   if (layout) {
+    const changesOpen = layout.rightSidebar === "changes";
+
     return {
       projectOpen: layout.rightSidebar !== "off",
-      changesOpen: layout.rightSidebar === "changes",
+      changesOpen,
       projectMode: layout.rightSidebar === "project" ? "tree" : "changes",
-      zoomed: layout.zoomChanges,
+      // zoom fills the middle with the Changes editor, so a hand-edited layout that zooms without one
+      // would strand a blank center with the Thread pane hidden; only honor zoom when Changes is open
+      zoomed: layout.zoomChanges && changesOpen,
     };
   }
   const welcomeSeed = options?.seed === "welcome";

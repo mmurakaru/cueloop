@@ -314,9 +314,11 @@ export function App({
   const [sidebarOpen, setSidebarOpen] = useState(() => initialThreadsOpen(layout, sessionId));
   // the Changes + Project right region and its editor grid (tabs, splits, zoom)
   const workbench = useChangesWorkbench({ layout });
-  // a create-command session remembers pane toggles for the next bare launch (no-ops for a bare thread open)
+  // only the session view persists from here; the bare shell owns its own (NoThreadShell), so this
+  // workbench stays inactive with no session and never clobbers what the shell saved
   useRememberLayout(
     layout,
+    session !== null,
     sidebarOpen,
     workbench.changesOpen,
     workbench.projectOpen,

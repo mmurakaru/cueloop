@@ -335,7 +335,6 @@ describe("loadConfig", () => {
         zoomChanges: false,
       });
 
-      // a later change rewrites the table in place
       // Act
       persistLayout({ threads: true, rightSidebar: "off", zoomChanges: true }, path);
 
