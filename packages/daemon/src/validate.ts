@@ -59,6 +59,7 @@ export const ArtifactMetaSchema = v.object({
   herdrPane: v.optional(v.string()),
   title: v.optional(v.string()),
   workbench: v.optional(v.boolean()),
+  snapshot: v.optional(v.boolean()),
 } satisfies EntriesOf<ArtifactMeta>);
 
 export const DiffFileContentsSchema = v.object({

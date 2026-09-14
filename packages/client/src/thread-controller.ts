@@ -29,6 +29,7 @@ import {
   type Anchor,
   type Annotation,
   type AnnotationTarget,
+  type Artifact,
   type DiffFileContents,
   type Thread,
   type SessionHistory,
@@ -51,10 +52,11 @@ import {
   diffRows,
   fileChangeCounts,
   fileRowRange,
-  pinsFrozenDiff,
+  readsFrozenDiff,
   type DiffRow,
 } from "./view-diff";
 import { applyFold } from "./diff-fold";
+import { snapshotWorkbench } from "./workbench-snapshot";
 import { copyToClipboard } from "./clipboard";
 import {
   changeRejectionForRow,
@@ -187,6 +189,8 @@ export interface ReviewControllerOptions {
    */
   openClient?: () => Promise<SessionClient>;
   shareTransport?: ShareTransport;
+  /** Serve mode: pin this frozen diff onto the served thread so an observer sees a stable snapshot. */
+  servedArtifact?: Artifact;
 }
 
 export interface ReviewController {
@@ -410,8 +414,17 @@ class Controller implements ReviewController {
   getSnapshot = (): ControllerSnapshot => this.snapshot;
 
   private update(patch: Partial<ControllerSnapshot>): void {
-    this.snapshot = { ...this.snapshot, ...patch };
+    this.snapshot = { ...this.snapshot, ...this.freezeServed(patch) };
     for (const listener of this.listeners) listener();
+  }
+
+  /** Serve mode pins the served thread's diff to a snapshot; its annotations and the rest stay live. */
+  private freezeServed(patch: Partial<ControllerSnapshot>): Partial<ControllerSnapshot> {
+    const served = this.options.servedArtifact;
+
+    if (!served || !patch.session || patch.session.id !== this.options.sessionId) return patch;
+
+    return { ...patch, session: { ...patch.session, artifact: served } };
   }
 
   connect(): void {
@@ -485,7 +498,7 @@ class Controller implements ReviewController {
   // ── derived projections ─────────────────────
   private ensureDerived(): void {
     const session = this.snapshot.session;
-    const frozenDiff = pinsFrozenDiff(session);
+    const frozenDiff = readsFrozenDiff(session);
     // a plain diff thread reads its pinned capture; a workbench thread and every other thread reflect the live working tree
     const liveDiff = frozenDiff ? null : this.liveDiff;
 
@@ -517,7 +530,7 @@ class Controller implements ReviewController {
   private foldFiles(): readonly DiffFileContents[] | undefined {
     const session = this.snapshot.session;
 
-    return pinsFrozenDiff(session) ? session!.artifact.files : this.liveDiff?.files;
+    return readsFrozenDiff(session) ? session!.artifact.files : this.liveDiff?.files;
   }
 
   treeRows(): TreeRow[] {
@@ -631,7 +644,7 @@ class Controller implements ReviewController {
   async repoChanges(): Promise<readonly DiffFileContents[]> {
     // a plain diff review pins its captured snapshot; a workbench thread and every other thread reflect the live working tree
     const session = this.snapshot.session;
-    if (pinsFrozenDiff(session)) return session!.artifact.files ?? [];
+    if (readsFrozenDiff(session)) return session!.artifact.files ?? [];
     // eager: capture the live working-tree diff so the Changes navigator and its file tabs render a real diff
     if (this.client?.repoDiff !== undefined) {
       const diff = await this.client.repoDiff(this.sidebarRepoRoot());
@@ -1308,13 +1321,22 @@ class Controller implements ReviewController {
       );
   }
 
+  /** A workbench thread renders live locally; freeze its diff so a remote reviewer gets a stable snapshot. */
+  private freezeForShare(session: Thread): Promise<Thread> {
+    const repoDiff = this.client?.repoDiff;
+
+    return repoDiff
+      ? snapshotWorkbench(session, (root) => repoDiff.call(this.client, root))
+      : Promise.resolve(session);
+  }
+
   share(): void {
     const session = this.snapshot.session;
 
     if (!session) return;
     this.setStatus("sharing…");
-    this.shareTransport
-      .publish(session)
+    this.freezeForShare(session)
+      .then((shared) => this.shareTransport.publish(shared))
       .then(async ({ line, copied }) => {
         // Stamp the id back so a later pull knows which share to collect from.
         const shareId = this.shareTransport.parseShareId(line);
@@ -1411,7 +1433,8 @@ class Controller implements ReviewController {
     client
       .sessionFork(session.id)
       .then(async (fork) => {
-        const { line, copied } = await this.shareTransport.publish(fork);
+        const shared = await this.freezeForShare(fork);
+        const { line, copied } = await this.shareTransport.publish(shared);
         const shareId = this.shareTransport.parseShareId(line);
 
         if (shareId) await client.sessionSetShareId(fork.id, shareId);

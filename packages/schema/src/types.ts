@@ -66,6 +66,8 @@ export interface ArtifactMeta {
   title?: string;
   /** A self-initiated per-repo workbench thread (a bare launch's first comment), not an agent submission. */
   workbench?: boolean;
+  /** A frozen point-in-time capture of a workbench thread's diff, for a remote reviewer who has no working tree. */
+  snapshot?: boolean;
 }
 
 /** Full old/new contents of one changed file, keyed by its repo-relative path. */

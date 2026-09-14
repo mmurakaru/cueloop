@@ -12,6 +12,7 @@ import {
   publishShare,
   pullShare,
   shareIdFromLine,
+  snapshotWorkbench,
   type ShareResult,
   type ShareTarget,
 } from "@cueloop/client";
@@ -81,7 +82,11 @@ export async function shareSession(
     return 1;
   }
   const session = params.fork ? await client.sessionFork(picked.id) : picked;
-  const { line, copied } = await deps.publish(session, { host: params.host, port: params.port });
+  // a workbench thread renders live locally; freeze its diff so the remote reviewer gets a stable snapshot
+  const shared = client.repoDiff
+    ? await snapshotWorkbench(session, client.repoDiff.bind(client))
+    : session;
+  const { line, copied } = await deps.publish(shared, { host: params.host, port: params.port });
   const shareId = shareIdFromLine(line);
 
   if (shareId) await client.sessionSetShareId(session.id, shareId);

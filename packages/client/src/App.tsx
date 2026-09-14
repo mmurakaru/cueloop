@@ -62,7 +62,7 @@ import {
 import { type DiffFoldControls } from "./components/DiffContentView";
 import { commentCountsByFile } from "./view-diff";
 import { annotationTarget } from "@cueloop/schema";
-import type { DiffFileContents, Thread } from "@cueloop/schema";
+import type { Artifact, DiffFileContents, Thread } from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
 import {
@@ -125,6 +125,8 @@ export interface AppProps {
   appearance?: Appearance;
   /** The pane composition to open in; a create-command sets it, a bare launch restores the remembered one. */
   layout?: LaunchLayout;
+  /** Serve mode: the frozen working-tree diff an observer reads for the served workbench thread. */
+  servedArtifact?: Artifact;
 }
 
 /** True while the drop-up or one of its dialogs is open and owns the keyboard. */
@@ -244,6 +246,7 @@ export function App({
   selfAuthor,
   appearance = "dark",
   layout,
+  servedArtifact,
 }: AppProps): React.ReactNode {
   const { observer, isOwner } = computeRoleCapabilities(readOnly, role);
   const controller = useMemo(
@@ -257,6 +260,7 @@ export function App({
         clock,
         openClient,
         shareTransport,
+        servedArtifact,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home, sessionId],
