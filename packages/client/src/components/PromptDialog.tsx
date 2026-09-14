@@ -22,9 +22,7 @@ export interface PromptDialogProps {
   value: string;
   placeholder?: string;
   onInput: (text: string) => void;
-  /** Clicking "save" commits, like pressing enter. */
   onSave?: () => void;
-  /** Clicking "cancel" dismisses, like pressing esc. */
   onCancel?: () => void;
   theme?: Theme;
 }
@@ -46,9 +44,7 @@ export function PromptDialog({
 
   useEffect(() => {
     if (!inputRef.current) return;
-    // claim focus on open so typing lands in the dialog, not whatever was focused behind it
     inputRef.current.focus();
-    // open with the caret after the seeded value, like a text field
     inputRef.current.cursorOffset = value.length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -44,7 +44,6 @@ export interface SettingsDialogProps {
   activeZone: "nav" | "body";
   onCategorySelect: (categoryId: string) => void;
   onRowActivate: (row: SettingsRowDescriptor) => void;
-  /** Close the dialog - esc, or a click on the backdrop outside the panel. */
   onClose: () => void;
   theme?: Theme;
 }

@@ -17,7 +17,7 @@ export interface DialogProps {
   height: number;
   /** Solid panel fill for content-heavy dialogs; default transparent. */
   background?: string;
-  /** Dismiss when the backdrop (outside the panel) is clicked; a click inside never fires it. */
+  /** Dismiss on a click outside the panel. */
   onDismiss?: () => void;
   theme?: Theme;
   children: React.ReactNode;
