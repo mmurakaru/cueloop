@@ -84,7 +84,7 @@ export function groupInbox(
   };
 
   if (pinned.length > 0) {
-    rows.push({ kind: "section", id: "section:pinned", label: "Pinned" });
+    rows.push({ kind: "section", id: "section:pinned", label: "Starred" });
     for (const session of pinned) pushThread(session);
   }
 

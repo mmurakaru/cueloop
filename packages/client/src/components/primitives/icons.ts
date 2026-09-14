@@ -13,7 +13,7 @@ export const NERD = {
   copy: "",
   unfold: "",
   kebab: "⋮",
-  pin: "⚑",
+  star: "★",
   close: "✕",
   listTree: "",
   sidebarLeft: "",

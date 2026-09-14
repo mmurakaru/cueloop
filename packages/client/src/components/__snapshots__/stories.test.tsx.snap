@@ -1044,9 +1044,9 @@ exports[`stories catalog Surfaces/ThreadTree/TwoPending renders, snapshots, and 
 " Projects                                                                       
    widget                                                                      
     Migration Plan                                                              
+                                                                                
  Threads                                                                        
     working tree                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1098,9 +1098,9 @@ exports[`stories catalog Surfaces/ThreadsSidebar/Open renders, snapshots, and ca
 " Projects                    │                              
    widget                   │                              
     Migration Plan           │                              
+                             │                              
  Threads                     │                              
     working tree             │                              
-                             │                              
                              │                              
                              │                              
                              │                              

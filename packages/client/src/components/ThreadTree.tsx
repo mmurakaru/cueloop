@@ -1,5 +1,5 @@
 /**
- * The sidebar thread tree: a Pinned / Projects / Threads listing. Selection stays
+ * The sidebar thread tree: a Starred / Projects / Threads listing. Selection stays
  * with the keyboard grammar - the cursor indexes the flat thread order and this
  * component renders the snapshot. A hovered or selected thread reveals a kebab
  * that opens a floating pin / rename / delete menu below the row (so the list
@@ -23,7 +23,7 @@ export interface ThreadTreeProps {
   cursor: number;
   /** The open thread's id; highlights it instead of the cursor (the left sidebar case). */
   activeId?: string;
-  /** Ids of pinned threads; a pinned row carries the pin glyph and the menu offers Unpin. */
+  /** Ids of starred threads; a starred row carries the star glyph and the menu offers Unstar. */
   pinnedIds?: ReadonlySet<string>;
   /** The column width, so titles fade to fit one line. */
   width?: number;
@@ -31,7 +31,7 @@ export interface ThreadTreeProps {
   onSelect?: (sessionId: string) => void;
   /** Ask to delete a thread (the menu's Delete, wired to the confirm dialog). */
   onRequestDelete?: (id: string, title: string) => void;
-  /** Toggle a thread's pinned state (the menu's Pin/Unpin). */
+  /** Toggle a thread's starred state (the menu's Star/Unstar). */
   onPin?: (id: string) => void;
   /** Rename a thread's title (the menu's Rename). */
   onRename?: (id: string, title: string) => void;
@@ -72,7 +72,7 @@ function ActionsMenu({
         backgroundColor: tokens.elevated,
       }}
     >
-      {item(pinned ? "unpin" : "pin", tokens.text, onPin)}
+      {item(pinned ? "unstar" : "star", tokens.text, onPin)}
       {item("rename", tokens.text, onRename)}
       {item("delete", tokens.red, onDelete)}
     </box>
@@ -155,7 +155,7 @@ function ThreadRow(props: ThreadRowProps): React.ReactNode {
         }}
       >
         <text wrapMode="none">
-          <span fg={tokens.textDim}>{pinned ? ` ${NERD.pin} ` : "   "}</span>
+          <span fg={tokens.textDim}>{pinned ? ` ${NERD.star} ` : "   "}</span>
           <span fg={selected ? tokens.accent : tokens.textMuted}>{clippedTitle}</span>
         </text>
         <box style={{ flexGrow: 1 }} />
@@ -197,10 +197,10 @@ export function ThreadTree({
       {rows.length === 0 ? (
         <text fg={tokens.textDim}>no threads</text>
       ) : (
-        rows.map((row) => {
+        rows.map((row, index) => {
           if (row.kind === "section") {
             return (
-              <text key={row.id} fg={tokens.textDim}>
+              <text key={row.id} fg={tokens.textDim} style={{ marginTop: index > 0 ? 1 : 0 }}>
                 {row.label}
               </text>
             );
