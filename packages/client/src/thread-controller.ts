@@ -130,7 +130,6 @@ function planCutId(base: { lineStart: number; lineEnd: number }): string {
   return `plan:${base.lineStart}-${base.lineEnd}`;
 }
 
-
 export interface ControllerSnapshot {
   session: Thread | null;
   inbox: Thread[] | null;
