@@ -15,6 +15,8 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
+import { loadConfig } from "./config";
+import { planLayout, reviewLayout } from "./launch-layout";
 import {
   dragText,
   isolateUserConfig,
@@ -247,6 +249,29 @@ describe("the four-pane workbench", () => {
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
   });
 
+  test("a create-command session remembers its zoom toggle for the next bare launch", async () => {
+    // a create-command opens the review zoomed; toggling zoom off must persist to the remembered layout
+    const setup = await renderReadyApp(
+      <App home={home} sessionId={session.id} layout={reviewLayout()} />,
+      {
+        width: 160,
+        height: 20,
+      },
+    );
+    await waitForText(setup, "store.ts");
+
+    const zoom = locateText(setup, NERD.zoom);
+    await setup.mockMouse.click(zoom.column, zoom.row);
+    await waitForState(
+      setup,
+      () =>
+        loadConfig({ userConfigPath: process.env.CUELOOP_CONFIG }).ui.layout?.zoomChanges === false,
+    );
+    expect(loadConfig({ userConfigPath: process.env.CUELOOP_CONFIG }).ui.layout?.zoomChanges).toBe(
+      false,
+    );
+  });
+
   test("selecting a non-diff thread while zoomed exits zoom and restores the Thread pane", async () => {
     // a second, non-diff thread to navigate to; its sync has no Changes editor to fill a zoom
     server.core.sessionCreate({
@@ -394,6 +419,68 @@ describe("the bare-launch welcome shell", () => {
     // changes mode is the default; the edited README shows with its status
     await waitForText(setup, "README.md");
     expect(setup.captureCharFrame()).toContain("README.md");
+  });
+
+  test("a review layout opens the Changes panel, listing the working-tree changes", async () => {
+    const setup = await testRender(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} layout={reviewLayout()} />,
+      { width: 180, height: 14 },
+    );
+    await waitForText(setup, "README.md");
+    expect(setup.captureCharFrame()).toContain("README.md");
+  });
+
+  test("a plan layout opens with the right region closed, so no Changes panel shows", async () => {
+    const setup = await testRender(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} layout={planLayout()} />,
+      { width: 180, height: 14 },
+    );
+    await waitForText(setup, "cueloop");
+    // rightSidebar "off": neither the Changes list nor the launch repo's files paint
+    expect(setup.captureCharFrame()).not.toContain("README.md");
+  });
+
+  test("a hand-edited off+zoom layout drops the zoom so the center is not stranded blank", async () => {
+    // zoom fills the middle with the Changes editor; with the region off there is none, so honoring zoom
+    // would hide the Thread pane over a blank center. The Thread placeholder must still render.
+    const setup = await testRender(
+      <App
+        home={welcomeHome}
+        sessionId={undefined}
+        cwd={welcomeRepo}
+        layout={{ threads: true, rightSidebar: "off", zoomChanges: true }}
+      />,
+      { width: 180, height: 14 },
+    );
+    await waitForText(setup, "no threads");
+    expect(setup.captureCharFrame()).toContain("no threads");
+  });
+
+  test("closing the right region on the vanilla shell remembers it for the next launch", async () => {
+    const setup = await testRender(
+      <App
+        home={welcomeHome}
+        sessionId={undefined}
+        cwd={welcomeRepo}
+        layout={{ threads: true, rightSidebar: "changes", zoomChanges: false }}
+      />,
+      { width: 180, height: 14 },
+    );
+    await waitForText(setup, "README.md");
+
+    // close the Changes/Project region; the remembered layout follows it to "off"
+    await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
+    await waitForState(
+      setup,
+      () =>
+        loadConfig({ userConfigPath: process.env.CUELOOP_CONFIG }).ui.layout?.rightSidebar ===
+        "off",
+    );
+    expect(loadConfig({ userConfigPath: process.env.CUELOOP_CONFIG }).ui.layout).toEqual({
+      threads: true,
+      rightSidebar: "off",
+      zoomChanges: false,
+    });
   });
 
   test("clicking a changed file in the bare shell opens its diff, not its contents", async () => {

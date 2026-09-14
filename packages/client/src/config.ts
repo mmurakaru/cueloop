@@ -14,6 +14,7 @@ import { dirname } from "node:path";
 import * as v from "valibot";
 import { DARK, type Theme } from "./theme";
 import { DEFAULT_THEME_NAME, isThemeName, themeForName, type ThemeName } from "./theme-presets";
+import type { LaunchLayout } from "./launch-layout";
 
 export interface KeymapConfig {
   [action: string]: string | string[];
@@ -108,6 +109,8 @@ export interface CueloopConfig {
     diffView: DiffViewMode;
     /** Session ids the user has pinned to the top of the sidebar; client-local view state. */
     pins: string[];
+    /** The last pane layout a bare launch restores; unset until the user changes one. */
+    layout?: LaunchLayout;
   };
   /** Planner-local author renames: identity id → display name ([authors] table). */
   authors: Record<string, string>;
@@ -192,6 +195,16 @@ const UiSchema = v.object({
   theme: v.fallback(v.optional(v.string()), undefined),
   diff_view: v.fallback(v.optional(v.picklist(["split", "stacked", "unified"])), undefined),
   pins: v.fallback(v.optional(v.array(v.string())), undefined),
+  layout: v.fallback(
+    v.optional(
+      v.object({
+        threads: v.fallback(v.optional(v.boolean()), undefined),
+        right_sidebar: v.fallback(v.optional(v.picklist(["changes", "project", "off"])), undefined),
+        zoom_changes: v.fallback(v.optional(v.boolean()), undefined),
+      }),
+    ),
+    undefined,
+  ),
 });
 const ObsidianSchema = v.object({
   vault: v.fallback(v.optional(v.string()), undefined),
@@ -241,6 +254,23 @@ function mergeObsidian(
   if (obsidian.exportOn !== undefined) target.exportOn = obsidian.exportOn;
 }
 
+/** Fold a parsed `[ui]` table onto the accumulated ui config, field by present field. */
+function applyUi(ui: CueloopConfig["ui"], parsed: v.InferOutput<typeof UiSchema>): void {
+  if (parsed.auto_close !== undefined) ui.autoClose = parsed.auto_close;
+  if (parsed.editor?.trim()) ui.editor = parsed.editor.trim();
+  // "unified" is the pre-rename spelling of "stacked"; keep loading it so an upgrade never flips the layout
+  if (parsed.diff_view !== undefined)
+    ui.diffView = parsed.diff_view === "unified" ? "stacked" : parsed.diff_view;
+  if (parsed.pins !== undefined) ui.pins = parsed.pins;
+  if (parsed.layout !== undefined) {
+    ui.layout = {
+      threads: parsed.layout.threads ?? true,
+      rightSidebar: parsed.layout.right_sidebar ?? "changes",
+      zoomChanges: parsed.layout.zoom_changes ?? false,
+    };
+  }
+}
+
 function layer(
   base: CueloopConfig,
   raw: v.InferOutput<typeof ConfigDocumentSchema>,
@@ -280,14 +310,7 @@ function layer(
         out.keys[action] = Array.isArray(combo.output) ? combo.output : [combo.output];
     }
   }
-  if (ui.success) {
-    if (ui.output.auto_close !== undefined) out.ui.autoClose = ui.output.auto_close;
-    if (ui.output.editor?.trim()) out.ui.editor = ui.output.editor.trim();
-    // "unified" is the pre-rename spelling of "stacked"; keep loading it so an upgrade never flips the layout
-    if (ui.output.diff_view !== undefined)
-      out.ui.diffView = ui.output.diff_view === "unified" ? "stacked" : ui.output.diff_view;
-    if (ui.output.pins !== undefined) out.ui.pins = ui.output.pins;
-  }
+  if (ui.success) applyUi(out.ui, ui.output);
   if (integrations.success && integrations.output.obsidian) {
     mergeObsidian(out.integrations.obsidian, integrations.output.obsidian);
   }
@@ -453,6 +476,13 @@ export function persistDiffView(mode: DiffViewMode, userConfigPath?: string): vo
 /** Persist the pinned-thread ids (`[ui] pins`) into the user config. */
 export function persistPins(ids: readonly string[], userConfigPath?: string): void {
   persistUiSetting("pins", `[${ids.map(tomlString).join(", ")}]`, userConfigPath);
+}
+
+/** Persist the last pane layout (`[ui] layout`) so a bare launch restores it. */
+export function persistLayout(layout: LaunchLayout, userConfigPath?: string): void {
+  const table = `{ threads = ${layout.threads}, right_sidebar = "${layout.rightSidebar}", zoom_changes = ${layout.zoomChanges} }`;
+
+  persistUiSetting("layout", table, userConfigPath);
 }
 
 function escapeRegExp(text: string): string {

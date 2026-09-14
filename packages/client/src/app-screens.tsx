@@ -4,6 +4,8 @@ import type { DiffFileContents, Thread, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
 import type { QuickAction } from "./config";
+import type { LaunchLayout } from "./launch-layout";
+import { useRememberLayout } from "./use-remember-layout";
 import type { Mode, TreeAsk } from "./intent-dispatch";
 import type { Intent } from "./keymap";
 import type { ReviewController, ToastState } from "./thread-controller";
@@ -164,6 +166,8 @@ export function NoThreadShell(props: {
   quickActions: QuickAction[];
   /** Reports the welcome composer's open state, so the shell suspends its inbox keys while typing. */
   onWelcomeComposingChange: (composing: boolean) => void;
+  /** The pane composition this vanilla launch restores; changes here are remembered for the next one. */
+  layout?: LaunchLayout;
 }): React.ReactNode {
   const {
     rows,
@@ -181,11 +185,21 @@ export function NoThreadShell(props: {
     onRename,
     quickActions,
     onWelcomeComposingChange,
+    layout,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
   // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
   // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
-  const workbench = useChangesWorkbench({ seed: "welcome" });
+  const workbench = useChangesWorkbench({ seed: "welcome", layout });
+  // the vanilla shell remembers the composition the user leaves it in, for the next bare launch
+  useRememberLayout(
+    layout,
+    true,
+    sidebarOpen,
+    workbench.changesOpen,
+    workbench.projectOpen,
+    workbench.zoomed,
+  );
   // the Changes tree opens a file's working-tree diff; the Project tree opens read-only contents
   const openChangedFile = (path: string): void => {
     // no thread means no live-diff refresh loop, so re-capture on open or a long-lived shell goes

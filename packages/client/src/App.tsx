@@ -47,6 +47,8 @@ import { AppShell, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
 import { GridTabContent } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
+import { useRememberLayout } from "./use-remember-layout";
+import type { LaunchLayout } from "./launch-layout";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
@@ -121,6 +123,8 @@ export interface AppProps {
    * light-on-light. Defaults to dark - the historical assumption.
    */
   appearance?: Appearance;
+  /** The pane composition to open in; a create-command sets it, a bare launch restores the remembered one. */
+  layout?: LaunchLayout;
 }
 
 /** True while the drop-up or one of its dialogs is open and owns the keyboard. */
@@ -218,6 +222,14 @@ function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): Che
   ];
 }
 
+/** The Threads sidebar opens from the launch layout; a bare launch opens it only on the inbox. */
+function initialThreadsOpen(
+  layout: LaunchLayout | undefined,
+  sessionId: string | undefined,
+): boolean {
+  return layout ? layout.threads : sessionId === undefined;
+}
+
 export function App({
   home,
   sessionId,
@@ -231,6 +243,7 @@ export function App({
   role = "owner",
   selfAuthor,
   appearance = "dark",
+  layout,
 }: AppProps): React.ReactNode {
   const { observer, isOwner } = computeRoleCapabilities(readOnly, role);
   const controller = useMemo(
@@ -298,9 +311,19 @@ export function App({
   // picking a thread keeps the sidebar as it was. It opens when the app lands with
   // nothing selected (pick a thread) and stays collapsed on a direct thread open,
   // where the thread owns the width.
-  const [sidebarOpen, setSidebarOpen] = useState(sessionId === undefined);
+  const [sidebarOpen, setSidebarOpen] = useState(() => initialThreadsOpen(layout, sessionId));
   // the Changes + Project right region and its editor grid (tabs, splits, zoom)
-  const workbench = useChangesWorkbench();
+  const workbench = useChangesWorkbench({ layout });
+  // only the session view persists from here; the bare shell owns its own (NoThreadShell), so this
+  // workbench stays inactive with no session and never clobbers what the shell saved
+  useRememberLayout(
+    layout,
+    session !== null,
+    sidebarOpen,
+    workbench.changesOpen,
+    workbench.projectOpen,
+    workbench.zoomed,
+  );
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
@@ -650,6 +673,7 @@ export function App({
             onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
             quickActions={quickActions}
             onWelcomeComposingChange={setWelcomeComposing}
+            layout={layout}
           />
         </PaletteNamesContext.Provider>
       </SlashSkillsContext.Provider>

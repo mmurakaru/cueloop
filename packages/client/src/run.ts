@@ -4,10 +4,14 @@ import React from "react";
 import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
+import { loadConfig } from "./config";
+import { defaultLayout, type LaunchLayout } from "./launch-layout";
 
 export interface RunClientOptions {
   sessionId?: string;
   home?: string;
+  /** The layout a create-command opens in; omit to restore the remembered one, then the default. */
+  layout?: LaunchLayout;
 }
 
 /** OSC background query budget: brief so a terminal that never answers falls back to dark. */
@@ -16,6 +20,11 @@ const THEME_QUERY_TIMEOUT_MS = 200;
 export async function runClient(options: RunClientOptions): Promise<number> {
   // mouse movement reporting makes multiplexers forward drags to the app,
   // so the renderer's native selection is the drag driver
+  // a create-command dictates its layout; a bare inbox launch restores the remembered one, then the
+  // default; opening a specific thread carries no layout, so its own pane sync drives the composition
+  const layout =
+    options.layout ??
+    (options.sessionId === undefined ? (loadConfig().ui.layout ?? defaultLayout()) : undefined);
   const renderer = await createCliRenderer({ enableMouseMovement: true });
   const appearance =
     (await renderer.waitForThemeMode(THEME_QUERY_TIMEOUT_MS).catch(() => null)) ?? "dark";
@@ -42,6 +51,7 @@ export async function runClient(options: RunClientOptions): Promise<number> {
         home: options.home,
         sessionId: options.sessionId,
         appearance,
+        layout,
         onExit: shutdown,
       }),
     );
