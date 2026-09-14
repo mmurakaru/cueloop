@@ -106,6 +106,7 @@ export function useSettingsDialog(params: {
     zone: "body",
   });
   const [actionsExpandedIndex, setActionsExpandedIndex] = useState<number | null>(null);
+  const [actionsExpandedField, setActionsExpandedField] = useState<"prompt" | "metadata">("prompt");
 
   const commitActions = (next: QuickAction[]): void => {
     setQuickActions(next);
@@ -177,8 +178,10 @@ export function useSettingsDialog(params: {
           actions={quickActions}
           selectedIndex={settingsNav.categoryId === "actions" ? settingsNav.rowIndex : -1}
           expandedIndex={actionsExpandedIndex}
-          onToggleExpand={(index) => {
+          expandedField={actionsExpandedField}
+          onToggleExpand={(index, field) => {
             setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: index }));
+            setActionsExpandedField(field);
             setActionsExpandedIndex((current) => (current === index ? null : index));
           }}
           onEditPrompt={editActionPrompt}
@@ -254,7 +257,10 @@ export function useSettingsDialog(params: {
       if (moved) return void setSettingsNav(moved);
       if (ACTIVATE_KEYS.has(name)) {
         if (settingsNav.rowIndex === quickActions.length) addAction();
-        else setActionsExpandedIndex(settingsNav.rowIndex);
+        else {
+          setActionsExpandedField("prompt");
+          setActionsExpandedIndex(settingsNav.rowIndex);
+        }
       }
 
       return;

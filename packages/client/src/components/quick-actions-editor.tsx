@@ -22,8 +22,10 @@ export interface QuickActionsEditorProps {
   selectedIndex: number;
   /** The row whose system-prompt input is open and focused, or null. */
   expandedIndex: number | null;
-  /** Select and toggle a row's editor open/closed. */
-  onToggleExpand: (index: number) => void;
+  /** Which field the open editor focuses first - set by the clicked row. */
+  expandedField: "prompt" | "metadata";
+  /** Select and toggle a row's editor open/closed, focusing the given field. */
+  onToggleExpand: (index: number, field: "prompt" | "metadata") => void;
   onEditPrompt: (index: number, prompt: string) => void;
   onEditMetadata: (index: number, metadata: string) => void;
   onReset: () => void;
@@ -35,6 +37,7 @@ export function QuickActionsEditor({
   actions,
   selectedIndex,
   expandedIndex,
+  expandedField,
   onToggleExpand,
   onEditPrompt,
   onEditMetadata,
@@ -66,7 +69,8 @@ export function QuickActionsEditor({
             action={action}
             isSelected={index === selectedIndex}
             isExpanded={index === expandedIndex}
-            onToggleExpand={() => onToggleExpand(index)}
+            initialField={expandedField}
+            onToggleExpand={(field) => onToggleExpand(index, field)}
             onEditPrompt={(prompt) => onEditPrompt(index, prompt)}
             onEditMetadata={(metadata) => onEditMetadata(index, metadata)}
             theme={theme}
@@ -89,6 +93,7 @@ function ActionRow({
   action,
   isSelected,
   isExpanded,
+  initialField,
   onToggleExpand,
   onEditPrompt,
   onEditMetadata,
@@ -98,7 +103,8 @@ function ActionRow({
   action: QuickAction;
   isSelected: boolean;
   isExpanded: boolean;
-  onToggleExpand: () => void;
+  initialField: "prompt" | "metadata";
+  onToggleExpand: (field: "prompt" | "metadata") => void;
   onEditPrompt: (prompt: string) => void;
   onEditMetadata: (metadata: string) => void;
   theme?: Theme;
@@ -111,9 +117,10 @@ function ActionRow({
         <ActionEditor
           action={action}
           isSelected={isSelected}
+          initialField={initialField}
           onEditPrompt={onEditPrompt}
           onEditMetadata={onEditMetadata}
-          onDone={onToggleExpand}
+          onDone={() => onToggleExpand("prompt")}
           tokens={tokens}
         />
       </box>
@@ -124,12 +131,12 @@ function ActionRow({
     <box id={rowId} style={{ flexDirection: "column" }}>
       <box
         style={{ backgroundColor: isSelected ? tokens.border : undefined }}
-        onMouseUp={onToggleExpand}
+        onMouseUp={() => onToggleExpand("prompt")}
       >
-        <text fg={isSelected ? tokens.text : tokens.textMuted}>{`▸ ${action.prompt}`}</text>
+        <text fg={isSelected ? tokens.text : tokens.textMuted}>{action.prompt}</text>
       </box>
       {action.metadata ? (
-        <box style={{ paddingLeft: 2 }}>
+        <box onMouseUp={() => onToggleExpand("metadata")}>
           <text fg={tokens.textDim}>{truncateMetadata(action.metadata)}</text>
         </box>
       ) : null}
@@ -139,12 +146,13 @@ function ActionRow({
 
 /**
  * The two-field editor for an expanded row: the action title over its system
- * prompt. Mounts fresh per expand, so focus starts on the title without a reset
- * effect; ⏎ steps title -> description -> close, and a click focuses either.
+ * prompt. Mounts fresh per expand, so focus starts on the clicked field without a
+ * reset effect; ⏎ steps title -> description -> close, and a click focuses either.
  */
 function ActionEditor({
   action,
   isSelected,
+  initialField,
   onEditPrompt,
   onEditMetadata,
   onDone,
@@ -152,6 +160,7 @@ function ActionEditor({
 }: {
   action: QuickAction;
   isSelected: boolean;
+  initialField: "prompt" | "metadata";
   onEditPrompt: (prompt: string) => void;
   onEditMetadata: (metadata: string) => void;
   onDone: () => void;
@@ -159,7 +168,7 @@ function ActionEditor({
 }): React.ReactNode {
   const promptRef = useRef<TextareaRenderable | null>(null);
   const metadataRef = useRef<TextareaRenderable | null>(null);
-  const [activeField, setActiveField] = useState<"prompt" | "metadata">("prompt");
+  const [activeField, setActiveField] = useState<"prompt" | "metadata">(initialField);
 
   // the focused field types from its end, not from the caret parked at the start
   useEffect(() => {
@@ -182,9 +191,6 @@ function ActionEditor({
       <box
         style={{ flexDirection: "row", backgroundColor: isSelected ? tokens.border : undefined }}
       >
-        <box style={{ width: 2, flexShrink: 0 }}>
-          <text fg={isSelected ? tokens.text : tokens.textMuted}>{"▾ "}</text>
-        </box>
         <textarea
           ref={promptRef}
           focused={activeField === "prompt"}
@@ -197,10 +203,7 @@ function ActionEditor({
           style={fieldStyle}
         />
       </box>
-      <box style={{ flexDirection: "row", paddingLeft: 2 }}>
-        <box style={{ width: 2, flexShrink: 0 }}>
-          <text fg={tokens.textDim}>{">"}</text>
-        </box>
+      <box style={{ flexDirection: "row" }}>
         <textarea
           ref={metadataRef}
           focused={activeField === "metadata"}
