@@ -40,7 +40,14 @@ export function ConfirmDialog({
   if (!isOpen) return null;
 
   return (
-    <Dialog isOpen title={title} width={Math.min(54, terminalWidth - 6)} height={7} theme={theme}>
+    <Dialog
+      isOpen
+      title={title}
+      width={Math.min(54, terminalWidth - 6)}
+      height={7}
+      onDismiss={onCancel}
+      theme={theme}
+    >
       <box
         style={{
           flexDirection: "column",

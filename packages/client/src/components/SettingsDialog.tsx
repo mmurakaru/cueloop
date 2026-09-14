@@ -44,6 +44,8 @@ export interface SettingsDialogProps {
   activeZone: "nav" | "body";
   onCategorySelect: (categoryId: string) => void;
   onRowActivate: (row: SettingsRowDescriptor) => void;
+  /** Close the dialog - esc, or a click on the backdrop outside the panel. */
+  onClose: () => void;
   theme?: Theme;
 }
 
@@ -87,6 +89,7 @@ export function SettingsDialog({
   activeZone,
   onCategorySelect,
   onRowActivate,
+  onClose,
   theme,
 }: SettingsDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -106,6 +109,7 @@ export function SettingsDialog({
       width={Math.min(76, terminalWidth - 6)}
       height={Math.min(22, terminalHeight - 4)}
       background={tokens.elevated}
+      onDismiss={onClose}
       theme={theme}
     >
       <box style={{ flexDirection: "row", flexGrow: 1 }}>

@@ -17,6 +17,8 @@ export interface DialogProps {
   height: number;
   /** Solid panel fill for content-heavy dialogs; default transparent. */
   background?: string;
+  /** Dismiss when the backdrop (outside the panel) is clicked; a click inside never fires it. */
+  onDismiss?: () => void;
   theme?: Theme;
   children: React.ReactNode;
 }
@@ -27,6 +29,7 @@ export function Dialog({
   width,
   height,
   background,
+  onDismiss,
   theme,
   children,
 }: DialogProps): React.ReactNode {
@@ -36,6 +39,7 @@ export function Dialog({
 
   return (
     <box
+      onMouseUp={onDismiss}
       style={{
         position: "absolute",
         left: 0,
@@ -48,6 +52,7 @@ export function Dialog({
       }}
     >
       <box
+        onMouseUp={(event) => event.stopPropagation()}
         style={{
           width,
           height,

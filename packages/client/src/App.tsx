@@ -652,6 +652,7 @@ export function App({
       settingsNav={settingsNav}
       onCategorySelect={onCategorySelect}
       cycleSetting={cycleSetting}
+      onClose={() => setMenuDialog(null)}
     />
   );
 
@@ -963,6 +964,7 @@ export function App({
             />
             {submitConfirmState !== null ? (
               <box
+                onMouseUp={submitConfirmState.onCancel}
                 style={{
                   position: "absolute",
                   left: 0,
@@ -973,7 +975,9 @@ export function App({
                   alignItems: "center",
                 }}
               >
-                <ConfirmCard {...submitConfirmState} theme={theme} />
+                <box onMouseUp={(event) => event.stopPropagation()}>
+                  <ConfirmCard {...submitConfirmState} theme={theme} />
+                </box>
               </box>
             ) : null}
             {menuChrome}

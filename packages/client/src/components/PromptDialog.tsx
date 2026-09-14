@@ -58,6 +58,7 @@ export function PromptDialog({
       width={Math.min(54, terminalWidth - 6)}
       height={7}
       background={tokens.elevated}
+      onDismiss={onCancel}
       theme={theme}
     >
       <box

@@ -58,6 +58,7 @@ export function MenuChrome(props: {
   settingsNav: SettingsNav;
   onCategorySelect: (categoryId: string) => void;
   cycleSetting: (rowKey: string) => void;
+  onClose: () => void;
 }): React.ReactNode {
   const {
     menuDialog,
@@ -68,6 +69,7 @@ export function MenuChrome(props: {
     settingsNav,
     onCategorySelect,
     cycleSetting,
+    onClose,
   } = props;
 
   // the gear opens the settings dialog directly; Keybinds is a leaf in its tree nav
@@ -85,6 +87,7 @@ export function MenuChrome(props: {
       activeZone={settingsNav.zone}
       onCategorySelect={onCategorySelect}
       onRowActivate={(row) => cycleSetting(row.key)}
+      onClose={onClose}
       theme={theme}
     />
   );

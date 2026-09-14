@@ -68,6 +68,7 @@ export const NavZone: Story = {
       activeZone="nav"
       onCategorySelect={() => {}}
       onRowActivate={() => {}}
+      onClose={() => {}}
     />
   ),
   expectedColors: [DARK.accent],
@@ -87,6 +88,7 @@ export const BodyZone: Story = {
       activeZone="body"
       onCategorySelect={() => {}}
       onRowActivate={() => {}}
+      onClose={() => {}}
     />
   ),
   expectedColors: [DARK.green],
@@ -106,6 +108,7 @@ export const AppearanceThemed: Story = {
       activeZone="body"
       onCategorySelect={() => {}}
       onRowActivate={() => {}}
+      onClose={() => {}}
       theme={THEME_PRESETS["rose-pine-moon"]}
     />
   ),
