@@ -6,9 +6,9 @@
  */
 
 import React, { useMemo } from "react";
-import { annotationTarget, type Anchor } from "@cueloop/schema";
+import { type Anchor } from "@cueloop/schema";
 import { dimmedTheme, type Theme } from "../theme";
-import { marksByRows, fileTargetMarks, type DiffRow } from "../view-diff";
+import { changesMarks, type DiffRow } from "../view-diff";
 import {
   DiffContentView,
   type DiffFoldControls,
@@ -48,20 +48,10 @@ export function ChangesTabBody(props: {
   dimmed: boolean;
   theme: Theme;
 }): React.ReactNode {
-  const annotations = props.surface.session.annotations;
-  // a diff thread's Changes view is the artifact itself; any other thread's is the working-tree diff,
-  // whose notes carry a file target and resolve per file - each surface paints only its own notes
-  const forArtifact = props.surface.session.artifact.type === "diff";
+  const session = props.surface.session;
   const marks = useMemo(
-    () =>
-      forArtifact
-        ? marksByRows(
-            annotations.filter((annotation) => annotationTarget(annotation).kind === "artifact"),
-            props.rows,
-            props.surface.focusedAnnotationId,
-          )
-        : fileTargetMarks(annotations, props.rows, props.surface.focusedAnnotationId),
-    [annotations, forArtifact, props.rows, props.surface.focusedAnnotationId],
+    () => changesMarks(session, props.rows, props.surface.focusedAnnotationId),
+    [session, props.rows, props.surface.focusedAnnotationId],
   );
 
   if (props.rows.length === 0) {

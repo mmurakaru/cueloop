@@ -46,7 +46,14 @@ import {
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
-import { diffRowBlocks, diffRows, fileChangeCounts, fileRowRange, type DiffRow } from "./view-diff";
+import {
+  diffRowBlocks,
+  diffRows,
+  fileChangeCounts,
+  fileRowRange,
+  pinsFrozenDiff,
+  type DiffRow,
+} from "./view-diff";
 import { applyFold } from "./diff-fold";
 import { copyToClipboard } from "./clipboard";
 import {
@@ -123,10 +130,6 @@ function planCutId(base: { lineStart: number; lineEnd: number }): string {
   return `plan:${base.lineStart}-${base.lineEnd}`;
 }
 
-/** A plain diff review pins the patch it captured; a workbench thread reflects the live working tree. */
-function pinsFrozenDiff(session: Thread | null): boolean {
-  return session?.artifact.type === "diff" && session.artifact.meta.workbench !== true;
-}
 
 export interface ControllerSnapshot {
   session: Thread | null;
