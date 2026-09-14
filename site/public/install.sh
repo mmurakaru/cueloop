@@ -215,9 +215,8 @@ resolve_tag() {
   spinner_start "finding the latest release"
   fetch_to "$RELEASES_API" "${temporary_directory}/releases.json" ||
     error "could not reach the GitHub releases API."
-  # match only the CLI package's own tags and take the first (newest); `grep -o` emits one match
-  # per line so this holds whether the API returns pretty or minified (single-line) JSON - a proxy
-  # that strips newlines must not let a greedy match skip to the oldest scoped tag on the page
+  # `grep -o` yields one tag per line, so the first (newest) wins even when a proxy minifies the JSON
+  # to one line - a greedy match would otherwise fall through to the oldest scoped tag on the page
   tag="$(grep -oE "\"tag_name\"[[:space:]]*:[[:space:]]*\"${RELEASE_TAG_PREFIX}[^\"]*\"" "${temporary_directory}/releases.json" |
     head -n1 |
     sed -e 's/^.*:[[:space:]]*"//' -e 's/"$//')"

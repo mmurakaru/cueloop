@@ -217,11 +217,9 @@ describe("a fresh install", () => {
   }
 
   test("picks the CLI's own newest tag, not a scoped tag last in minified JSON", async () => {
-    // Given a listing (single-line, as a reformatting proxy returns) whose last tag is a scoped package
-    // When the installer resolves the newest release
+    // the fixture lists a scoped tag last in minified JSON; resolution must still pick the CLI release
     const result = await runInstaller({});
 
-    // Then it installs the cueloop CLI release, never the trailing scoped-package tag
     expectCleanExit(result);
     expect(installedVersion()).toBe(GOOD_VERSION);
     expect(result.stderr).not.toContain(SCOPED_PACKAGE_TAG);

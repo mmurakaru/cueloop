@@ -19,10 +19,7 @@ export const BAD_CHECKSUM_VERSION = "900.0.2";
 export const NO_CHECKSUMS_VERSION = "900.0.3";
 /** A release the listing names but whose assets were never uploaded. */
 export const MISSING_ASSET_VERSION = "900.0.4";
-/**
- * A scoped-package tag the same release train publishes, listed after the CLI's own tag. Resolution
- * must skip it (it carries no CLI binary); it guards against a greedy match falling through to it.
- */
+/** A scoped-package tag listed after the CLI's own; resolution must skip it (no CLI binary). */
 export const SCOPED_PACKAGE_TAG = "@cueloop/schema@900.0.0";
 
 /** The asset names the release workflow uploads. */
@@ -74,8 +71,7 @@ export function startTestReleaseServer(): TestReleaseServer {
 
       requests.push(path);
       if (path === "/releases") {
-        // Response.json emits minified (single-line) JSON, as a JSON-reformatting proxy would; the
-        // scoped tag sits last so a greedy tag match would wrongly skip to it instead of the CLI's own.
+        // Response.json is minified like a reformatting proxy; the scoped tag sits last to trap a greedy match
         return Response.json([
           { tag_name: `cueloop@${GOOD_VERSION}` },
           { tag_name: SCOPED_PACKAGE_TAG },
