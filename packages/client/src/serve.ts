@@ -20,10 +20,36 @@ import React from "react";
 import { createRoot } from "@opentui/react";
 import { createServer } from "@opentui/ssh";
 import { cueloopHome } from "@cueloop/daemon";
+import { DaemonClient } from "@cueloop/daemon/client";
+import type { Artifact } from "@cueloop/schema";
 import { App } from "./App";
+import { snapshotWorkbench } from "./workbench-snapshot";
 
 /** OSC background query budget: brief so a terminal that never answers falls back to dark. */
 const THEME_QUERY_TIMEOUT_MS = 200;
+
+/**
+ * The frozen diff an observer reads for a served workbench thread: captured once at serve time, so a
+ * late local edit never shifts it. Undefined when nothing is served or the thread is not a workbench.
+ */
+async function captureFrozenArtifact(
+  home: string,
+  sessionId: string | undefined,
+): Promise<Artifact | undefined> {
+  if (sessionId === undefined) return undefined;
+  const probe = await DaemonClient.connect({ home, autostart: true });
+
+  try {
+    const thread = await probe.sessionGet(sessionId).catch(() => undefined);
+
+    if (thread === undefined) return undefined;
+    const snapshot = await snapshotWorkbench(thread, (root) => probe.repoDiff(root));
+
+    return snapshot === thread ? undefined : snapshot.artifact;
+  } finally {
+    probe.close();
+  }
+}
 
 export interface ServeOptions {
   /** TCP port for the SSH listener; 0 picks an ephemeral port. Default 2222. */
@@ -53,6 +79,8 @@ export async function serveClient(options: ServeOptions = {}): Promise<ServeHand
 
   mkdirSync(sshDir, { recursive: true, mode: 0o700 });
 
+  const servedArtifact = await captureFrozenArtifact(home, options.sessionId);
+
   const server = createServer({
     // password-less by design; see the trust model in the module comment
     auth: "open",
@@ -73,6 +101,7 @@ export async function serveClient(options: ServeOptions = {}): Promise<ServeHand
         sessionId: options.sessionId,
         readOnly: true,
         appearance,
+        servedArtifact,
         // q disconnects only this observer, never the server
         onExit: () => session.end(),
       }),
