@@ -297,8 +297,8 @@ describe("no-thread shell", () => {
     await setup.mockMouse.moveTo(row.column, row.row);
     await waitForText(setup, "⋮");
     await clickText(setup, "⋮");
-    await waitForText(setup, "Pin");
-    await clickText(setup, "Pin");
+    await waitForText(setup, "pin");
+    await clickText(setup, "pin");
 
     // Assert - a Pinned section now holds the thread
     await waitForText(setup, "Pinned");
