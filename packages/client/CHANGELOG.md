@@ -1,5 +1,15 @@
 # @cueloop/client
 
+## 0.1.0-alpha.74
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.74
+  - @cueloop/extension-api@0.1.0-alpha.74
+  - @cueloop/integration-obsidian@0.1.0-alpha.74
+  - @cueloop/schema@0.1.0-alpha.74
+
 ## 0.1.0-alpha.73
 
 ### Patch Changes
