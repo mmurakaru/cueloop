@@ -1,5 +1,34 @@
 # cueloop
 
+## 0.1.0-alpha.74
+
+### Minor Changes
+
+- [#431](https://github.com/mmurakaru/cueloop/pull/431) [`28a4a7d`](https://github.com/mmurakaru/cueloop/commit/28a4a7d62ef6978f2e37f7c609284efc48e7b227) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The Changes panel now renders a file's working-tree diff on a bare `cueloop` launch, before any thread exists. Clicking a changed file in the Changes tree opens its diff (red/green for a modified file, all-additions for a new one) instead of read-only contents; the Project tree still opens contents. The first comment on a bare-launch diff promotes the per-repo workbench thread and anchors the note, as before. The diff renderer (`GridTabContent`) is shared between the thread workbench and the bare-launch shell so a changed file looks and behaves the same in both.
+
+- [#433](https://github.com/mmurakaru/cueloop/pull/433) [`ade7710`](https://github.com/mmurakaru/cueloop/commit/ade77108a7da6b386a8987038a8968616ccb41ad) Thanks [@mmurakaru](https://github.com/mmurakaru)! - `cueloop diff` now opens the per-repo workbench instead of pinning a standalone diff sheet. It find-or-creates the repo's workbench thread (the same one a bare launch creates on its first comment) and opens it in the review layout - changes panel zoomed, changes tab active - so it is annotatable right away. The Changes tab renders the live working tree, so re-running `cueloop diff` after more edits shows the current diff and reuses the same thread rather than spawning a new one. The workbench thread stays a pure annotation container: a diff review still pins its captured patch, but a workbench thread reflects the live tree.
+
+- [#432](https://github.com/mmurakaru/cueloop/pull/432) [`c3d861f`](https://github.com/mmurakaru/cueloop/commit/c3d861f94569e27a2d0d65511a99ebcf63551ab9) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Each launch opens in a pane layout chosen by how it started. `cueloop diff` and `cueloop review` open the Changes diff zoomed and front-and-centre; `cueloop plan` and `cueloop reply` fill the middle with the thread pane and close the right region. A bare `cueloop` remembers the last layout you left, restoring which sidebars were open and whether the Changes panel was zoomed, and falls back to the inbox with the diff zoomed on first run. Opening a specific thread by id keeps letting that thread drive its own panes. The remembered layout persists to `[ui] layout` in the config.
+
+- [#434](https://github.com/mmurakaru/cueloop/pull/434) [`6bd2b39`](https://github.com/mmurakaru/cueloop/commit/6bd2b39814cd243fdad5dafc8c48a06efaa84c19) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Sharing or serving a workbench thread now freezes a snapshot of the working-tree diff for the remote reviewer, who cannot see your tree. `cueloop share` pins the current diff into the shared artifact (and drops the workbench marker) so the link stays stable no matter how you edit on; `cueloop serve` captures the diff once at serve time and splices it into what each observer reads, while their annotations and the rest of the thread stay live. Your own local session keeps rendering the live working tree.
+
+### Patch Changes
+
+- [#429](https://github.com/mmurakaru/cueloop/pull/429) [`0f082ba`](https://github.com/mmurakaru/cueloop/commit/0f082ba68ad9021a715ce58d6494a970805f2b64) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A batch of TUI refinements:
+
+  - The collapsed-sidebar thread header keeps the gear, the Threads toggle, and the "cueloop" mark on one line; a long title tails off in an ellipsis instead of wrapping the brand onto the underline row. The right-sidebar tooltip reads "Toggle Sidebar".
+  - The sidebar thread list clips long titles with an ellipsis rather than a gradient fade.
+  - The Settings dialog nav lists General, Appearance, Actions, and Keybinds as first-level entries; the redundant "Settings" group header is gone.
+  - The Actions editor makes both the action title and its system prompt editable.
+  - The verdict card drops its "send message" border title (the send button already says it).
+  - Every overlay uses square corners instead of rounded.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.74
+  - @cueloop/client@0.1.0-alpha.74
+  - @cueloop/daemon@0.1.0-alpha.74
+  - @cueloop/schema@0.1.0-alpha.74
+
 ## 0.1.0-alpha.73
 
 ### Minor Changes
