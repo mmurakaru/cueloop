@@ -69,7 +69,12 @@ export function startTestReleaseServer(): TestReleaseServer {
 
       requests.push(path);
       if (path === "/releases") {
-        return Response.json([{ tag_name: `cueloop@${GOOD_VERSION}` }]);
+        // Response.json emits minified (single-line) JSON, as a JSON-reformatting proxy would; the
+        // scoped tag sits last so a greedy tag match would wrongly skip to it instead of the CLI's own.
+        return Response.json([
+          { tag_name: `cueloop@${GOOD_VERSION}` },
+          { tag_name: "@cueloop/schema@0.1.0-alpha.1" },
+        ]);
       }
       const download = /^\/download\/cueloop@([^/]+)\/([^/]+)$/.exec(path);
 
