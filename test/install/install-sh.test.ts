@@ -24,6 +24,7 @@ import {
   MISSING_ASSET_VERSION,
   NO_CHECKSUMS_VERSION,
   RELEASE_ASSETS,
+  SCOPED_PACKAGE_TAG,
   startTestReleaseServer,
   testBinaryScript,
   type TestReleaseServer,
@@ -220,10 +221,10 @@ describe("a fresh install", () => {
     // When the installer resolves the newest release
     const result = await runInstaller({});
 
-    // Then it installs the cueloop CLI release, never the trailing @cueloop/schema tag
+    // Then it installs the cueloop CLI release, never the trailing scoped-package tag
     expectCleanExit(result);
     expect(installedVersion()).toBe(GOOD_VERSION);
-    expect(result.stderr).not.toContain("@cueloop/schema");
+    expect(result.stderr).not.toContain(SCOPED_PACKAGE_TAG);
   });
 
   test("says so when the directory is already on PATH", async () => {
