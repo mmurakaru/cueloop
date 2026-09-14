@@ -54,7 +54,7 @@ export function QuickActionsEditor({
       <box style={{ flexDirection: "row" }}>
         <box style={{ flexGrow: 1 }} />
         <box onMouseUp={onReset}>
-          <text fg={tokens.textDim}>reset to defaults ▸</text>
+          <text fg={tokens.textDim}>reset</text>
         </box>
       </box>
       <box style={{ height: 1 }} />

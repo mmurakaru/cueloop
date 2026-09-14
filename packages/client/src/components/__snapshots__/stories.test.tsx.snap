@@ -1753,7 +1753,7 @@ exports[`stories catalog Primitives/Tree/ProjectsThreads renders, snapshots, and
 `;
 
 exports[`stories catalog Chrome/QuickActionsEditor/Collapsed renders, snapshots, and carries its colors: Chrome/QuickActionsEditor/Collapsed 1`] = `
-"                                   reset to defaults ▸
+"                                                 reset
                                                       
   ▸ Zoom out, research in depth                       
     Research the broader problem, prior art, an…      
@@ -1779,7 +1779,7 @@ exports[`stories catalog Chrome/QuickActionsEditor/Collapsed renders, snapshots,
 `;
 
 exports[`stories catalog Chrome/QuickActionsEditor/RowExpanded renders, snapshots, and carries its colors: Chrome/QuickActionsEditor/RowExpanded 1`] = `
-"                                   reset to defaults ▸
+"                                                 reset
                                                       
   ▸ Zoom out, research in depth                       
     Research the broader problem, prior art, an…      
