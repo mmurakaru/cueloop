@@ -4,6 +4,7 @@
 
 import { useRef, useState } from "react";
 import type { ProjectPanelMode } from "./components/AppShell";
+import type { LaunchLayout } from "./launch-layout";
 import {
   activateTab,
   addTab,
@@ -22,6 +23,37 @@ import {
 /** Seed the workbench for a bare launch: the region opens on a disposable Welcome tab. */
 export interface ChangesWorkbenchOptions {
   seed?: "changes" | "welcome";
+  /** The launch layout the right region opens in; overrides the seed's defaults. */
+  layout?: LaunchLayout;
+}
+
+interface InitialPanes {
+  projectOpen: boolean;
+  changesOpen: boolean;
+  projectMode: ProjectPanelMode;
+  zoomed: boolean;
+}
+
+/** The right region's opening state: from the launch layout when given, else the welcome-seed defaults. */
+function initialPanes(options?: ChangesWorkbenchOptions): InitialPanes {
+  const layout = options?.layout;
+
+  if (layout) {
+    return {
+      projectOpen: layout.rightSidebar !== "off",
+      changesOpen: layout.rightSidebar === "changes",
+      projectMode: layout.rightSidebar === "project" ? "tree" : "changes",
+      zoomed: layout.zoomChanges,
+    };
+  }
+  const welcomeSeed = options?.seed === "welcome";
+
+  return {
+    projectOpen: welcomeSeed,
+    changesOpen: welcomeSeed,
+    projectMode: "changes",
+    zoomed: false,
+  };
 }
 
 export interface ChangesWorkbench {
@@ -46,10 +78,11 @@ export interface ChangesWorkbench {
 
 export function useChangesWorkbench(options?: ChangesWorkbenchOptions): ChangesWorkbench {
   const welcomeSeed = options?.seed === "welcome";
-  const [projectOpen, setProjectOpen] = useState(welcomeSeed);
-  const [changesOpen, setChangesOpen] = useState(welcomeSeed);
-  const [projectMode, setProjectMode] = useState<ProjectPanelMode>("changes");
-  const [zoomed, setZoomed] = useState(false);
+  const initial = initialPanes(options);
+  const [projectOpen, setProjectOpen] = useState(initial.projectOpen);
+  const [changesOpen, setChangesOpen] = useState(initial.changesOpen);
+  const [projectMode, setProjectMode] = useState<ProjectPanelMode>(initial.projectMode);
+  const [zoomed, setZoomed] = useState(initial.zoomed);
   const [grid, setGrid] = useState<EditorNode>(() =>
     makeGroup([welcomeSeed ? welcomeTab() : changesTab()]),
   );
