@@ -248,6 +248,32 @@ export function fileTargetMarks(
   return result;
 }
 
+/** A plain diff review pins the patch it captured; a workbench thread reflects the live working tree. */
+export function pinsFrozenDiff(session: Thread | null): boolean {
+  return session?.artifact.type === "diff" && session.artifact.meta.workbench !== true;
+}
+
+/**
+ * The marks a Changes surface paints. A pinned diff review is the artifact itself, so only its
+ * artifact-anchored notes belong; a workbench thread and any other thread show the live working-tree
+ * diff, whose notes carry a file target and resolve per file - so a refresh never rebinds one across files.
+ */
+export function changesMarks(
+  session: Thread,
+  rows: DiffRow[],
+  focusedId?: string,
+): Map<number, Mark[]> {
+  if (pinsFrozenDiff(session)) {
+    const artifactNotes = session.annotations.filter(
+      (annotation) => annotationTarget(annotation).kind === "artifact",
+    );
+
+    return marksByRows(artifactNotes, rows, focusedId);
+  }
+
+  return fileTargetMarks(session.annotations, rows, focusedId);
+}
+
 /**
  * Comments per file path across the diff: each discussion counts its comments (root plus
  * replies) toward the file its span ends in. Feeds the changed-files tree and tab badges, so a

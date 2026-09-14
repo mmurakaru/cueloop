@@ -23,9 +23,8 @@ import {
 import { sessionCommand } from "./session-commands";
 import { CLI_VERSION } from "./version";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { workingTreeDiff } from "@cueloop/daemon/working-tree";
 import type { Thread } from "@cueloop/schema";
-import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
+import { openReview } from "@cueloop/daemon/review";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -249,12 +248,12 @@ async function prototypeCommand(argv: string[]): Promise<number> {
 }
 
 /**
- * `cueloop diff` disambiguates create from open by intent:
+ * `cueloop diff` opens the repo's workbench in the review layout:
  *   - a selector (`cueloop diff <id|title>`) or an explicit `--open`/`--latest`
- *     opens a pending diff review;
- *   - otherwise a dirty working tree still creates a review as before;
- *   - a clean working tree carries no create input, so it opens the latest
- *     pending diff review instead of erroring.
+ *     opens a specific pending diff thread;
+ *   - a bare `cueloop diff` find-or-creates the per-repo workbench thread - a live-diff
+ *     annotation container - so it is immediately annotatable and always shows the
+ *     current working tree, reusing the same thread across re-runs.
  */
 async function diffCommand(argv: string[]): Promise<number> {
   const parsed = parseArgs(argv);
@@ -263,30 +262,12 @@ async function diffCommand(argv: string[]): Promise<number> {
 
   if (wantsOpen) return openReviewOfKind(isDiffReview, "diff", selector, "review");
 
-  const workspace = await resolveWorkspace();
-  const diff = await workingTreeDiff();
-
-  if (!diff.patch.trim()) {
-    return openReviewOfKind(
-      isDiffReview,
-      "diff",
-      undefined,
-      "review",
-      "working tree is clean and no pending diff review - nothing to open",
-    );
-  }
   const client = await DaemonClient.connect({ autostart: true });
-  const review = await openReview(client, {
-    type: "diff",
-    content: diff.patch,
-    files: diff.files,
-    workspace,
-    title: `working tree @ ${workspace.branch}`,
-  });
+  const workbench = await client.sessionWorkbench(process.cwd());
 
   client.close();
 
-  return runTui(review.id, "review");
+  return runTui(workbench.id, "review");
 }
 
 /**
