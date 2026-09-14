@@ -24,6 +24,7 @@ import {
   MISSING_ASSET_VERSION,
   NO_CHECKSUMS_VERSION,
   RELEASE_ASSETS,
+  SCOPED_PACKAGE_TAG,
   startTestReleaseServer,
   testBinaryScript,
   type TestReleaseServer,
@@ -214,6 +215,15 @@ describe("a fresh install", () => {
       expect(result.stderr).toContain(`export PATH="${server.installDir}:$PATH"`);
     });
   }
+
+  test("picks the CLI's own newest tag, not a scoped tag last in minified JSON", async () => {
+    // the fixture lists a scoped tag last in minified JSON; resolution must still pick the CLI release
+    const result = await runInstaller({});
+
+    expectCleanExit(result);
+    expect(installedVersion()).toBe(GOOD_VERSION);
+    expect(result.stderr).not.toContain(SCOPED_PACKAGE_TAG);
+  });
 
   test("says so when the directory is already on PATH", async () => {
     // When installed with the install dir already on PATH
