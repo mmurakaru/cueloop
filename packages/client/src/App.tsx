@@ -810,7 +810,7 @@ export function App({
                     />
                   ) : isDiff ? (
                     <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
-                      <text fg={theme.textDim}>review the changes on the right</text>
+                      <text fg={theme.textDim}>Select a thread</text>
                     </box>
                   ) : (
                     <ThreadView

@@ -239,11 +239,11 @@ describe("the four-pane workbench", () => {
 
     const zoom = locateText(setup, NERD.zoom);
     await setup.mockMouse.click(zoom.column, zoom.row);
-    await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
+    await waitForState(setup, () => !setup.captureCharFrame().includes("Select a thread"));
 
     const frame = setup.captureCharFrame();
     // the Thread pane's prompt is gone...
-    expect(frame).not.toContain("review the changes");
+    expect(frame).not.toContain("Select a thread");
     // ...while the Changes editor and Project sidebar stay
     expect(frame).toContain("store.ts");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
@@ -293,7 +293,7 @@ describe("the four-pane workbench", () => {
     // zoom the diff - the Thread pane hides and the footer rides the Changes pane
     const zoom = locateText(setup, NERD.zoom);
     await setup.mockMouse.click(zoom.column, zoom.row);
-    await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
+    await waitForState(setup, () => !setup.captureCharFrame().includes("Select a thread"));
 
     // switch to the plan thread: it has no Changes editor, so a stranded zoom would blank the middle
     const planRow = locateText(setup, "Zoomed Plan");
@@ -312,13 +312,13 @@ describe("the four-pane workbench", () => {
     // zoom the Changes editor - the Thread pane hides
     const zoom = locateText(setup, NERD.zoom);
     await setup.mockMouse.click(zoom.column, zoom.row);
-    await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
+    await waitForState(setup, () => !setup.captureCharFrame().includes("Select a thread"));
 
     // toggling the right sidebar off must not strand a blank screen: zoom exits, the Thread pane returns
     await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
-    await waitForText(setup, "review the changes");
+    await waitForText(setup, "Select a thread");
     const frame = setup.captureCharFrame();
-    expect(frame).toContain("review the changes");
+    expect(frame).toContain("Select a thread");
     // the right region is collapsed and the Changes editor is gone
     expect(frame).not.toContain("store.ts");
     expect(diffToggleColumn(setup)).toBe(-1);
@@ -452,8 +452,8 @@ describe("the bare-launch welcome shell", () => {
       />,
       { width: 180, height: 14 },
     );
-    await waitForText(setup, "no threads");
-    expect(setup.captureCharFrame()).toContain("no threads");
+    await waitForText(setup, "Select a thread");
+    expect(setup.captureCharFrame()).toContain("Select a thread");
   });
 
   test("closing the right region on the vanilla shell remembers it for the next launch", async () => {
@@ -507,7 +507,7 @@ describe("the bare-launch welcome shell", () => {
     expect(frame.split("\n")[HEADER_ROW]!).toContain("Welcome");
     expect(frame).toContain("Getting started");
     // the Thread pane shows its empty state until a thread is opened
-    expect(frame).toContain("no threads");
+    expect(frame).toContain("Select a thread");
   });
 
   test("typing in the welcome composer never reaches the inbox keys", async () => {
@@ -552,7 +552,7 @@ describe("the bare-launch welcome shell", () => {
     // the Threads sidebar and the Thread empty state remain - never a blank shell
     const frame = setup.captureCharFrame();
     expect(frame).toContain("cueloop");
-    expect(frame).toContain("no threads");
+    expect(frame).toContain("Select a thread");
   });
 
   test("the changed-files and tree toggles switch navigator mode without collapsing", async () => {

@@ -269,7 +269,7 @@ export function NoThreadShell(props: {
               justifyContent: "center",
             }}
           >
-            <text fg={theme.textDim}>{rows.length === 0 ? "no threads" : "Select a thread"}</text>
+            <text fg={theme.textDim}>Select a thread</text>
           </box>
         }
         changesOpen={workbench.changesOpen}
