@@ -361,6 +361,11 @@ export function NoThreadShell(props: {
             value={mode.text}
             placeholder="a short title"
             onInput={(text) => setMode({ ...mode, text })}
+            onSave={() => {
+              controller.renameSession(mode.sessionId, mode.text.trim());
+              setMode({ type: "normal" });
+            }}
+            onCancel={() => setMode({ type: "normal" })}
             theme={theme}
           />
         ) : null}
@@ -464,6 +469,8 @@ export function TrailingOverlays(props: {
           value={mode.text}
           placeholder="their name"
           onInput={(text) => setMode({ ...mode, text })}
+          onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
       ) : null}
@@ -475,6 +482,8 @@ export function TrailingOverlays(props: {
           value={mode.text}
           placeholder="a short title"
           onInput={(text) => setMode({ ...mode, text })}
+          onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
       ) : null}
@@ -486,6 +495,8 @@ export function TrailingOverlays(props: {
           value={mode.text}
           placeholder="your name"
           onInput={(text) => setMode({ ...mode, text })}
+          onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
       ) : null}
@@ -497,6 +508,8 @@ export function TrailingOverlays(props: {
           value={mode.text}
           placeholder={TREE_PROMPTS[mode.ask].placeholder}
           onInput={(text) => setMode({ ...mode, text })}
+          onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
       ) : null}

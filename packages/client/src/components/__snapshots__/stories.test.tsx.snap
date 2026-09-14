@@ -793,7 +793,7 @@ exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, 
      │ Your name (optional) - it attributes the notes     │     
      │ you leave:                                         │     
      │ your name                                          │     
-     │ enter save · esc cancel                            │     
+     │ enter save   esc cancel                            │     
      └────────────────────────────────────────────────────┘     
                                                                 
                                                                 
@@ -813,7 +813,7 @@ exports[`stories catalog Overlays/PromptDialog/RenameAuthor renders, snapshots, 
      │ Display name for this collaborator:                │     
      │ Robin                                              │     
      │                                                    │     
-     │ enter save · esc cancel                            │     
+     │ enter save   esc cancel                            │     
      └────────────────────────────────────────────────────┘     
                                                                 
                                                                 

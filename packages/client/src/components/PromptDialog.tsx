@@ -22,6 +22,10 @@ export interface PromptDialogProps {
   value: string;
   placeholder?: string;
   onInput: (text: string) => void;
+  /** Clicking "save" commits, like pressing enter. */
+  onSave?: () => void;
+  /** Clicking "cancel" dismisses, like pressing esc. */
+  onCancel?: () => void;
   theme?: Theme;
 }
 
@@ -32,6 +36,8 @@ export function PromptDialog({
   value,
   placeholder,
   onInput,
+  onSave,
+  onCancel,
   theme,
 }: PromptDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -80,7 +86,14 @@ export function PromptDialog({
           }}
         />
         <box style={{ flexGrow: 1 }} />
-        <text fg={tokens.textDim}>enter save · esc cancel</text>
+        <box style={{ flexDirection: "row" }}>
+          <box onMouseUp={onSave} style={{ marginRight: 3 }}>
+            <text fg={tokens.textDim}>enter save</text>
+          </box>
+          <box onMouseUp={onCancel}>
+            <text fg={tokens.textDim}>esc cancel</text>
+          </box>
+        </box>
       </box>
     </Dialog>
   );
