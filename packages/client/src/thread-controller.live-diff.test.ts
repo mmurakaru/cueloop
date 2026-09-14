@@ -197,3 +197,78 @@ describe("live working-tree diff for a non-diff thread", () => {
     controller.close();
   });
 });
+
+const STALE_PATCH = `diff --git a/src/stale.ts b/src/stale.ts
+--- a/src/stale.ts
++++ b/src/stale.ts
+@@ -1,1 +1,1 @@
+-const s = 1;
++const s = 2;
+`;
+
+const STALE_FILES = [
+  {
+    path: "src/stale.ts",
+    oldContents: "const s = 1;\n",
+    newContents: "const s = 2;\n",
+    status: "modified" as const,
+  },
+];
+
+/** A `type:"diff"` thread with a captured snapshot; `meta.workbench` decides frozen vs live. */
+function diffSession(meta: Thread["artifact"]["meta"], id = "ses_diff"): Thread {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    id,
+    workspace: { repoRoot: "/repo", branch: "main" },
+    artifact: { type: "diff", content: STALE_PATCH, files: STALE_FILES, meta },
+    revisions: [{ revision: 1, content: STALE_PATCH, submittedAt: AT }],
+    annotations: [],
+    verdict: null,
+    status: "pending",
+    createdAt: AT,
+  };
+}
+
+describe("frozen vs live diff by thread kind", () => {
+  test("a workbench thread renders the live working tree, not its captured snapshot", async () => {
+    const session = diffSession({ workbench: true, title: "Workbench" });
+    const controller = createReviewController({
+      sessionId: session.id,
+      openClient: async () => fakeClient(session),
+      shareTransport,
+    });
+    controller.connect();
+    await tick();
+
+    // the live repoDiff (src/x.ts) wins over the frozen capture (src/stale.ts)
+    const changes = await controller.repoChanges();
+
+    expect(changes.map((file) => file.path)).toEqual(["src/x.ts"]);
+    expect(controller.rows().some((row) => row.file === "src/x.ts")).toBe(true);
+    expect(controller.rows().some((row) => row.file === "src/stale.ts")).toBe(false);
+
+    controller.close();
+  });
+
+  test("a plain diff review pins its captured snapshot and never queries the live tree", async () => {
+    const session = diffSession({});
+    const repoDiff = mock(async () => ({ patch: PATCH, files: FILES }));
+    const client = { ...fakeClient(session), repoDiff } satisfies SessionClient;
+    const controller = createReviewController({
+      sessionId: session.id,
+      openClient: async () => client,
+      shareTransport,
+    });
+    controller.connect();
+    await tick();
+
+    const changes = await controller.repoChanges();
+
+    expect(changes.map((file) => file.path)).toEqual(["src/stale.ts"]);
+    expect(controller.rows().some((row) => row.file === "src/stale.ts")).toBe(true);
+    expect(repoDiff).not.toHaveBeenCalled();
+
+    controller.close();
+  });
+});
