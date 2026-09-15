@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { nextFocusPane, threadsNavHandled, visiblePanes } from "./App";
+import { appLeaderHandled, nextFocusPane, threadsNavHandled, visiblePanes } from "./App";
 
 describe("threads keyboard nav", () => {
   const base = () => {
@@ -78,5 +78,57 @@ describe("pane focus cycle", () => {
     expect(nextFocusPane("project", panes, false)).toBe("threads");
     expect(nextFocusPane("threads", panes, true)).toBe("project");
     expect(nextFocusPane("changes", [], false)).toBe("changes");
+  });
+
+  test("appLeaderHandled captures the leader for the sidebar panes, then the next key", () => {
+    const leaderCombos = ["ctrl+g"];
+    const pending = { current: false };
+    const ran: string[] = [];
+    const call = (
+      focusedPane: "threads" | "project" | "thread" | "changes",
+      key: { name: string; ctrl?: boolean },
+    ) =>
+      appLeaderHandled({
+        focusedPane,
+        key,
+        leaderCombos,
+        pending,
+        runLeaderCommand: (pressed) => ran.push(pressed.name),
+      });
+
+    expect(call("threads", { name: "g", ctrl: true })).toBe(true);
+    expect(pending.current).toBe(true);
+    expect(call("threads", { name: "tab" })).toBe(true);
+    expect(pending.current).toBe(false);
+    expect(ran).toEqual(["tab"]);
+  });
+
+  test("appLeaderHandled defers on the content panes and swallows escape without a command", () => {
+    const leaderCombos = ["ctrl+g"];
+    let ran = false;
+    const runLeaderCommand = () => (ran = true);
+
+    expect(
+      appLeaderHandled({
+        focusedPane: "thread",
+        key: { name: "ctrl+g" },
+        leaderCombos,
+        pending: { current: false },
+        runLeaderCommand,
+      }),
+    ).toBe(false);
+
+    const pending = { current: true };
+    expect(
+      appLeaderHandled({
+        focusedPane: "project",
+        key: { name: "escape" },
+        leaderCombos,
+        pending,
+        runLeaderCommand,
+      }),
+    ).toBe(true);
+    expect(pending.current).toBe(false);
+    expect(ran).toBe(false);
   });
 });

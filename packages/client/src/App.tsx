@@ -57,6 +57,7 @@ import {
   dispatchLeaderCommand,
   leaderCombosFor,
   leaderHint,
+  matchesLeader,
   railChordEntries,
   resolveThreadChord,
   THREAD_CHORD_ENTRIES,
@@ -282,6 +283,31 @@ export function threadsNavHandled(params: {
   }
   if (key.name === "return" || key.name === "enter") {
     params.openSession();
+
+    return true;
+  }
+
+  return false;
+}
+
+export function appLeaderHandled(params: {
+  focusedPane: FocusPane;
+  key: { name: string; shift?: boolean; ctrl?: boolean; meta?: boolean; super?: boolean };
+  leaderCombos: readonly string[];
+  pending: { current: boolean };
+  runLeaderCommand: (key: { name: string; shift?: boolean }) => void;
+}): boolean {
+  const { focusedPane, key, leaderCombos, pending, runLeaderCommand } = params;
+
+  if (focusedPane !== "threads" && focusedPane !== "project") return false;
+  if (pending.current) {
+    pending.current = false;
+    if (key.name !== "escape") runLeaderCommand(key);
+
+    return true;
+  }
+  if (matchesLeader(key, leaderCombos)) {
+    pending.current = true;
 
     return true;
   }
@@ -664,6 +690,7 @@ export function App({
   const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
 
   const leaderCombos = leaderCombosFor(keysRef.current.leader);
+  const leaderPending = useRef(false);
   const cyclePanes = (backward: boolean): void =>
     setFocusedPane((current) =>
       nextFocusPane(
@@ -683,6 +710,8 @@ export function App({
   };
 
   useKeyboard((key) => {
+    if (appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand }))
+      return;
     if (
       threadsNavHandled({
         focusedPane,
