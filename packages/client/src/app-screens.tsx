@@ -134,7 +134,14 @@ function WelcomeProjectPanel({
   }, [controller]);
 
   if (mode === "changes") {
-    return <ChangesFileTree files={changes} onSelectFile={onOpenChangedFile} theme={theme} />;
+    return (
+      <ChangesFileTree
+        files={changes}
+        onSelectFile={onOpenChangedFile}
+        focused={focused}
+        theme={theme}
+      />
+    );
   }
 
   return (

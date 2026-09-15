@@ -188,6 +188,7 @@ function ProjectPanelBody(props: {
         files={changes}
         onSelectFile={props.onOpenChangedFile}
         commentCounts={props.commentCounts}
+        focused={props.focused}
         theme={props.theme}
       />
     );
@@ -710,7 +711,9 @@ export function App({
   };
 
   useKeyboard((key) => {
-    if (appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand }))
+    if (
+      appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand })
+    )
       return;
     if (
       threadsNavHandled({
