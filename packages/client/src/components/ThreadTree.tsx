@@ -23,6 +23,7 @@ export interface ThreadTreeProps {
   cursor: number;
   /** The open thread's id; highlights it instead of the cursor (the left sidebar case). */
   activeId?: string;
+  focused?: boolean;
   /** Ids of starred threads; a starred row carries the star glyph and the menu offers Unstar. */
   pinnedIds?: ReadonlySet<string>;
   /** The column width, so titles fade to fit one line. */
@@ -177,6 +178,7 @@ export function ThreadTree({
   rows,
   cursor,
   activeId,
+  focused = false,
   pinnedIds,
   width = 30,
   onSelect,
@@ -222,7 +224,9 @@ export function ThreadTree({
             <ThreadRow
               key={row.id}
               title={title}
-              selected={activeId !== undefined ? activeId === id : row.selectionIndex === cursor}
+              selected={
+                focused || activeId === undefined ? row.selectionIndex === cursor : activeId === id
+              }
               pinned={pinnedIds?.has(id) ?? false}
               titleWidth={titleWidth}
               menuOpen={actionsForId === id}

@@ -259,6 +259,36 @@ function surfaceSuspended(base: boolean, focusedPane: FocusPane, pane: FocusPane
   return base || focusedPane !== pane;
 }
 
+export function threadsNavHandled(params: {
+  focusedPane: FocusPane;
+  quiet: boolean;
+  key: { name: string };
+  count: number;
+  setInboxCursor: (update: (cursor: number) => number) => void;
+  openSession: () => void;
+}): boolean {
+  const { focusedPane, quiet, key, count } = params;
+
+  if (focusedPane !== "threads" || !quiet || count === 0) return false;
+  if (key.name === "j" || key.name === "down") {
+    params.setInboxCursor((cursor) => Math.min(cursor + 1, count - 1));
+
+    return true;
+  }
+  if (key.name === "k" || key.name === "up") {
+    params.setInboxCursor((cursor) => Math.max(cursor - 1, 0));
+
+    return true;
+  }
+  if (key.name === "return" || key.name === "enter") {
+    params.openSession();
+
+    return true;
+  }
+
+  return false;
+}
+
 export function visiblePanes(
   sidebarOpen: boolean,
   threadShown: boolean,
@@ -653,6 +683,17 @@ export function App({
   };
 
   useKeyboard((key) => {
+    if (
+      threadsNavHandled({
+        focusedPane,
+        quiet: overlay === "none" && !menuOwnsKeyboard && !threadComposing,
+        key,
+        count: grouped.ordered.length,
+        setInboxCursor,
+        openSession: () => dispatch({ type: "openSession" }),
+      })
+    )
+      return;
     // The thread view owns the document grammar while active (its own
     // useKeyboard handles marks, comments, and ctrl+q); the session chords
     // (submit, share, edit, walk, the rail) resolve here, and the keymap only
@@ -848,7 +889,6 @@ export function App({
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((open) => !open)}
             onOpenMenu={() => setMenuDialog("settings")}
-            focusedPane={focusedPane}
             onFocusPane={setFocusedPane}
             threadsPanel={
               <scrollbox style={{ flexGrow: 1 }} focused={false}>
@@ -856,6 +896,7 @@ export function App({
                   rows={grouped.rows}
                   cursor={inboxCursor}
                   activeId={activeSession.id}
+                  focused={focusedPane === "threads"}
                   pinnedIds={pinnedIds}
                   width={30}
                   onSelect={(id) => controller.open(id)}

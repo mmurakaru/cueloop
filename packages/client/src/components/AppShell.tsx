@@ -69,7 +69,6 @@ export interface AppShellProps {
   theme?: Theme;
   threadsWidth?: number;
   projectWidth?: number;
-  focusedPane?: FocusPane;
   onFocusPane?: (pane: FocusPane) => void;
 }
 
@@ -126,7 +125,6 @@ export function AppShell({
   theme,
   threadsWidth = 30,
   projectWidth = 32,
-  focusedPane,
   onFocusPane,
 }: AppShellProps): React.ReactNode {
   const tokens = theme ?? DARK;
@@ -224,7 +222,6 @@ export function AppShell({
                 width={threadsWidth}
                 border="right"
                 header={brandChrome}
-                focused={focusedPane === "threads"}
                 onFocus={() => onFocusPane?.("threads")}
                 theme={tokens}
               >
@@ -250,7 +247,6 @@ export function AppShell({
                   reopenRightControl,
                   rightRegionClosed,
                 )}
-                focused={focusedPane === "thread"}
                 onFocus={() => onFocusPane?.("thread")}
                 theme={tokens}
               >
@@ -269,7 +265,7 @@ export function AppShell({
                   // zoom drops the Thread pane, whose sidebar rule already divides here, so drop this
                   // one then to avoid a double border
                   border: zoomHideThread ? [] : ["left"],
-                  borderColor: focusedPane === "changes" ? tokens.accent : tokens.border,
+                  borderColor: tokens.border,
                 }}
               >
                 <box style={{ flexGrow: 1, minHeight: 0 }}>{changesPanel}</box>
@@ -282,7 +278,6 @@ export function AppShell({
                 border="left"
                 header={null}
                 headerRight={projectToggles}
-                focused={focusedPane === "project"}
                 onFocus={() => onFocusPane?.("project")}
                 theme={tokens}
               >

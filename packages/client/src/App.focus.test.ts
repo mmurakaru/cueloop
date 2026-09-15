@@ -1,5 +1,63 @@
 import { describe, expect, test } from "bun:test";
-import { nextFocusPane, visiblePanes } from "./App";
+import { nextFocusPane, threadsNavHandled, visiblePanes } from "./App";
+
+describe("threads keyboard nav", () => {
+  const base = () => {
+    let cursor = 1;
+    let opened = 0;
+
+    return {
+      setInboxCursor: (update: (c: number) => number) => (cursor = update(cursor)),
+      openSession: () => (opened += 1),
+      read: () => ({
+        get cursor() {
+          return cursor;
+        },
+        get opened() {
+          return opened;
+        },
+      }),
+    };
+  };
+
+  test("moves the cursor and opens only when the Threads pane is quiet and focused", () => {
+    const spy = base();
+    const call = (name: string) =>
+      threadsNavHandled({
+        focusedPane: "threads",
+        quiet: true,
+        key: { name },
+        count: 3,
+        setInboxCursor: spy.setInboxCursor,
+        openSession: spy.openSession,
+      });
+
+    expect(call("down")).toBe(true);
+    expect(spy.read().cursor).toBe(2);
+    expect(call("down")).toBe(true); // clamps at the last row
+    expect(spy.read().cursor).toBe(2);
+    expect(call("k")).toBe(true);
+    expect(spy.read().cursor).toBe(1);
+    expect(call("return")).toBe(true);
+    expect(spy.read().opened).toBe(1);
+  });
+
+  test("defers when another pane is focused, keys are owned elsewhere, or the inbox is empty", () => {
+    const spy = base();
+    const params = {
+      quiet: true,
+      key: { name: "down" },
+      count: 3,
+      setInboxCursor: spy.setInboxCursor,
+      openSession: spy.openSession,
+    };
+
+    expect(threadsNavHandled({ ...params, focusedPane: "changes" })).toBe(false);
+    expect(threadsNavHandled({ ...params, focusedPane: "threads", quiet: false })).toBe(false);
+    expect(threadsNavHandled({ ...params, focusedPane: "threads", count: 0 })).toBe(false);
+    expect(spy.read().cursor).toBe(1);
+  });
+});
 
 describe("pane focus cycle", () => {
   test("visiblePanes lists only the open panes, in reading order", () => {

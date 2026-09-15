@@ -44,7 +44,6 @@ export interface PanelColumnProps {
   header: React.ReactNode;
   /** Right-aligned header controls (toggles, search). */
   headerRight?: React.ReactNode;
-  focused?: boolean;
   onFocus?: () => void;
   children: React.ReactNode;
   theme?: Theme;
@@ -55,7 +54,6 @@ export function PanelColumn({
   border,
   header,
   headerRight,
-  focused,
   onFocus,
   children,
   theme,
@@ -72,7 +70,7 @@ export function PanelColumn({
         flexDirection: "column",
         borderStyle: "single",
         border: border ? [border] : [],
-        borderColor: focused ? theme?.accent : theme?.border,
+        borderColor: theme?.border,
       }}
     >
       <box

@@ -252,13 +252,13 @@ export function NoThreadShell(props: {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={onToggleSidebar}
         onOpenMenu={onOpenMenu}
-        focusedPane={focusedPane}
         onFocusPane={onFocusPane}
         threadsPanel={
           <ScrollArea>
             <ThreadTree
               rows={rows}
               cursor={inboxCursor}
+              focused={focusedPane === "threads"}
               pinnedIds={pinnedIds}
               width={30}
               onSelect={(id) => controller.open(id)}
