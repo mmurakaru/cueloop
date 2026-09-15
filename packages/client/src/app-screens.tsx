@@ -23,7 +23,7 @@ import { ThreadTree } from "./components/ThreadTree";
 import { WelcomePlayground } from "./components/WelcomePlayground";
 import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
-import { MenuControlProvider, useMenuControlState } from "./components/menu-control";
+import { MenuControlProvider, type MenuControlApi } from "./components/menu-control";
 import { ProjectTreeView } from "./components/ProjectTreeView";
 import { ChangesFileTree } from "./components/ChangesColumn";
 import { BareWorkbenchFileView, draftThread } from "./components/BareWorkbenchFileView";
@@ -175,6 +175,8 @@ export function NoThreadShell(props: {
   onToggleSidebar: () => void;
   focusedPane: FocusPane;
   onFocusPane: (pane: FocusPane) => void;
+  /** App owns the one open-menu id, so the bare shell's menus share App's modal keyboard handling. */
+  menuControl: MenuControlApi;
   pinnedIds: ReadonlySet<string>;
   onPin: (id: string) => void;
   onRename: (id: string, title: string) => void;
@@ -198,6 +200,7 @@ export function NoThreadShell(props: {
     onToggleSidebar,
     focusedPane,
     onFocusPane,
+    menuControl,
     pinnedIds,
     onPin,
     onRename,
@@ -206,7 +209,6 @@ export function NoThreadShell(props: {
     layout,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
-  const menuControl = useMenuControlState();
   // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
   // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
   const workbench = useChangesWorkbench({ seed: "welcome", layout });

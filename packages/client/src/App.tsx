@@ -364,6 +364,24 @@ export function nextFocusPane(
   return panes[(index + step + panes.length) % panes.length] ?? current;
 }
 
+/** The panes that can own the keyboard: a diff's Thread pane is an inert placeholder, so it is out. */
+function navigableFocusPanes(
+  sidebarOpen: boolean,
+  zoomed: boolean,
+  isDiff: boolean,
+  changesOpen: boolean,
+  projectOpen: boolean,
+): FocusPane[] {
+  return visiblePanes(sidebarOpen, !zoomed && !isDiff, changesOpen, projectOpen);
+}
+
+/** The layout hid or inert-ed the focused pane: fall back to the first navigable one, else stay put. */
+export function reconciledFocus(navigable: FocusPane[], focusedPane: FocusPane): FocusPane | null {
+  if (navigable.length === 0 || navigable.includes(focusedPane)) return null;
+
+  return navigable[0] ?? null;
+}
+
 export function App({
   home,
   sessionId,
@@ -713,14 +731,22 @@ export function App({
 
   const leaderCombos = leaderCombosFor(keysRef.current.leader);
   const leaderPending = useRef(false);
+  const navigablePanes = navigableFocusPanes(
+    sidebarOpen,
+    workbench.zoomed,
+    isDiff,
+    workbench.changesOpen,
+    workbench.projectOpen,
+  );
+  useEffect(() => {
+    // the bare shell drives its panes from its own workbench, so only reconcile against this one
+    if (!session) return;
+    const next = reconciledFocus(navigablePanes, focusedPane);
+
+    if (next) setFocusedPane(next);
+  }, [session, navigablePanes, focusedPane]);
   const cyclePanes = (backward: boolean): void =>
-    setFocusedPane((current) =>
-      nextFocusPane(
-        current,
-        visiblePanes(sidebarOpen, !workbench.zoomed, workbench.changesOpen, workbench.projectOpen),
-        backward,
-      ),
-    );
+    setFocusedPane((current) => nextFocusPane(current, navigablePanes, backward));
   const runLeaderCommand = (key: { name: string; shift?: boolean }): void => {
     if (key.name === "tab") return cyclePanes(Boolean(key.shift));
 
@@ -848,6 +874,7 @@ export function App({
             onToggleSidebar={() => setSidebarOpen((open) => !open)}
             focusedPane={focusedPane}
             onFocusPane={setFocusedPane}
+            menuControl={menuControl}
             pinnedIds={pinnedIds}
             onPin={togglePin}
             onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}

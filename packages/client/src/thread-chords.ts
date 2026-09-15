@@ -58,7 +58,7 @@ export function leaderHint(combos: readonly string[]): string {
 }
 
 export function matchesLeader(
-  key: { ctrl?: boolean; meta?: boolean; super?: boolean; name: string },
+  key: { ctrl?: boolean; meta?: boolean; shift?: boolean; super?: boolean; name: string },
   combos: readonly string[],
 ): boolean {
   return combos.some((combo) => {
@@ -67,6 +67,7 @@ export function matchesLeader(
     return (
       key.name.toLowerCase() === name.toLowerCase() &&
       Boolean(key.ctrl) === (mods.includes("ctrl") || mods.includes("control")) &&
+      Boolean(key.shift) === mods.includes("shift") &&
       Boolean(key.super) === (mods.includes("cmd") || mods.includes("super")) &&
       Boolean(key.meta) ===
         (mods.includes("meta") || mods.includes("alt") || mods.includes("option"))

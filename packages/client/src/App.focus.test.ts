@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { appLeaderHandled, nextFocusPane, threadsNavHandled, visiblePanes } from "./App";
+import {
+  appLeaderHandled,
+  nextFocusPane,
+  reconciledFocus,
+  threadsNavHandled,
+  visiblePanes,
+} from "./App";
 
 describe("threads keyboard nav", () => {
   const base = () => {
@@ -7,7 +13,7 @@ describe("threads keyboard nav", () => {
     let opened = 0;
 
     return {
-      setInboxCursor: (update: (c: number) => number) => (cursor = update(cursor)),
+      setInboxCursor: (update: (cursor: number) => number) => (cursor = update(cursor)),
       openSession: () => (opened += 1),
       read: () => ({
         get cursor() {
@@ -78,6 +84,13 @@ describe("pane focus cycle", () => {
     expect(nextFocusPane("project", panes, false)).toBe("threads");
     expect(nextFocusPane("threads", panes, true)).toBe("project");
     expect(nextFocusPane("changes", [], false)).toBe("changes");
+  });
+
+  test("reconciledFocus falls back only when the focused pane is not navigable", () => {
+    expect(reconciledFocus(["threads", "changes"], "threads")).toBeNull();
+    expect(reconciledFocus(["threads", "changes"], "thread")).toBe("threads");
+    expect(reconciledFocus(["changes", "project"], "thread")).toBe("changes");
+    expect(reconciledFocus([], "thread")).toBeNull();
   });
 
   test("appLeaderHandled captures the leader for the sidebar panes, then the next key", () => {
