@@ -60,6 +60,42 @@ async function mountComposerWithSkills(skills: SlashItem[] = [], width = 72) {
 
 const mountComposer = () => mountComposerWithSkills();
 
+describe("the command leader", () => {
+  test("the leader chord then a letter runs a command instead of composing a comment", async () => {
+    const commands: string[] = [];
+    const display = buildDisplay(PLAN, undefined);
+    const setup = await testRender(
+      <ThreadView
+        session={fixturePlanSession({
+          artifact: { type: "plan", content: PLAN, meta: { title: "Plan" } },
+        })}
+        display={display}
+        marks={marksByDisplay([], display)}
+        quickActions={[]}
+        observer={false}
+        leaderCombos={["ctrl+g"]}
+        onLeaderCommand={(key) => commands.push(key.name)}
+        onAnnotate={() => {}}
+        onReply={() => {}}
+        onUpdateAnnotation={() => {}}
+        onExit={() => {}}
+      />,
+      { width: 72, height: 20 },
+    );
+    await settle(setup);
+
+    setup.mockInput.pressKey("g", { ctrl: true });
+    setup.mockInput.pressKey("x");
+    await settle(setup);
+
+    // the command fired and no composer opened (a bare "x" would have started a draft)
+    expect(commands).toEqual(["x"]);
+    expect(setup.captureCharFrame()).not.toContain("enter save");
+
+    setup.renderer.destroy();
+  });
+});
+
 describe("skills in the palette", () => {
   test("a skill from context lists in the / palette and a pick inserts its /name", async () => {
     const setup = await mountComposerWithSkills([

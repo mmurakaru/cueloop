@@ -12,13 +12,19 @@
 
 import { afterAll, beforeAll, describe, expect } from "bun:test";
 import {
-  DIFF_CHORD_ENTRIES,
-  RAIL_CHORD_ENTRIES,
+  DEFAULT_LEADER,
+  diffChordEntries,
+  leaderHint,
+  railChordEntries,
   THREAD_CHORD_ENTRIES,
-  TREE_CHORD_ENTRIES,
+  treeChordEntries,
 } from "../../packages/client/src/thread-chords";
 import type { TestGitRepo } from "../helpers/git-repo";
-import { cheatsheetChordKeyPress, cheatsheetEntryChords } from "../helpers/pty-key-codes";
+import {
+  cheatsheetChordKeyPress,
+  cheatsheetChordKeyPresses,
+  cheatsheetEntryChords,
+} from "../helpers/pty-key-codes";
 import {
   EDIT_MARKER,
   OTHER_CHANGE,
@@ -36,12 +42,15 @@ import {
 } from "../helpers/pty-tui-session";
 import { createTestReviewHome, type TestReviewHome } from "../helpers/review-home";
 
+/** The default leader glyph plus a space, e.g. "⌃g ", so a chord reads "⌃g x". */
+const LEAD = leaderHint([DEFAULT_LEADER]);
+
 /** The chord tables the cheatsheet renders, by the name the coverage test reports. */
 const CHORD_TABLES = {
-  diff: DIFF_CHORD_ENTRIES,
+  diff: diffChordEntries(LEAD),
   thread: THREAD_CHORD_ENTRIES,
-  rail: RAIL_CHORD_ENTRIES,
-  tree: TREE_CHORD_ENTRIES,
+  rail: railChordEntries(LEAD),
+  tree: treeChordEntries(LEAD),
 } as const;
 
 type ChordTable = keyof typeof CHORD_TABLES;
@@ -50,11 +59,11 @@ type ChordTable = keyof typeof CHORD_TABLES;
 const UNWIRED_CHORDS = new Map([
   ["rail ⌥w", "no handler for widen the rail (#366)"],
   ["rail ⌥s", "no handler for narrow the rail (#366)"],
-  ["rail ⌥e", "the card edit mode has no rendering in the current shell (#366)"],
+  [`rail ${LEAD}e`, "the card edit mode has no rendering in the current shell (#366)"],
   ["thread ⌃r", "no handler for cycle the rail (#366)"],
-  ["tree ⌥t", "the tree rail tab is state only, no component renders it (#366)"],
-  ["tree ⌥n", "moves a tree selection that is never drawn (#366)"],
-  ["tree ⌥p", "moves a tree selection that is never drawn (#366)"],
+  [`tree ${LEAD}t`, "the tree rail tab is state only, no component renders it (#366)"],
+  [`tree ${LEAD}n`, "moves a tree selection that is never drawn (#366)"],
+  [`tree ${LEAD}p`, "moves a tree selection that is never drawn (#366)"],
 ]);
 
 /** Every `table chord` pair a test pressed and asserted on. */
@@ -83,7 +92,11 @@ async function pressChord(
 ): Promise<string> {
   const predicate =
     expected instanceof Function ? expected : (screen: string) => screen.includes(expected);
-  const screen = await session.pressAndWaitForScreen(cheatsheetChordKeyPress(chord), predicate, {
+  const presses = cheatsheetChordKeyPresses(chord);
+
+  // a leader chord is two keystrokes: send the leader, then the letter we wait on
+  for (const press of presses.slice(0, -1)) await session.press(press);
+  const screen = await session.pressAndWaitForScreen(presses.at(-1)!, predicate, {
     what: `the effect of ${chord}`,
     ...options,
   });
@@ -160,14 +173,14 @@ describe("thread view chords in a diff review", () => {
     await pressChordForToast(
       session,
       "diff",
-      "⌥x",
+      `${LEAD}x`,
       "change rejected - dropped from the working copy",
     );
     const curated = reviewHome.server.core.sessionGet(reviewId).workingCopy;
 
     expect(curated).toBeDefined();
     expect(curated).not.toContain("new Map()");
-    await pressChordForToast(session, "diff", "⌥u", "removal restored");
+    await pressChordForToast(session, "diff", `${LEAD}u`, "removal restored");
   });
 
   ptyTest("⌥X rejects the whole hunk and ⌥u restores it", async () => {
@@ -175,17 +188,17 @@ describe("thread view chords in a diff review", () => {
     await pressChordForToast(
       session,
       "diff",
-      "⌥X",
+      `${LEAD}X`,
       "hunk rejected - dropped from the working copy",
     );
-    await pressChordForToast(session, "diff", "⌥u", "removal restored");
+    await pressChordForToast(session, "diff", `${LEAD}u`, "removal restored");
   });
 
   ptyTest("⌥d toggles the diff layout and warns that split needs the wide pane", async () => {
     // Act + Assert - the default is split, so the first press drops to stacked, the next re-selects
     // split on this narrow pane and earns the hint
-    await pressChord(session, "diff", "⌥d", "stacked diff");
-    await pressChordForToast(session, "diff", "⌥d", "split diff shows when zoomed");
+    await pressChord(session, "diff", `${LEAD}d`, "stacked diff");
+    await pressChordForToast(session, "diff", `${LEAD}d`, "split diff shows when zoomed");
   });
 
   ptyTest("⌥c folds the file to its band; clicking the band's chevron unfolds it", async () => {
@@ -193,7 +206,7 @@ describe("thread view chords in a diff review", () => {
     await pressChord(
       session,
       "diff",
-      "⌥c",
+      `${LEAD}c`,
       (screen) => screen.includes("src/store.ts") && !screen.includes("new Map()"),
     );
     // the chevron sits two cells left of the file name
@@ -206,7 +219,7 @@ describe("thread view chords in a diff review", () => {
 
   ptyTest("⌥k starts the guided walk, ] and [ step through files, escape leaves it", async () => {
     // Act + Assert
-    await pressChord(session, "diff", "⌥k", "file 1 of 2 · 0 viewed");
+    await pressChord(session, "diff", `${LEAD}k`, "file 1 of 2 · 0 viewed");
     await session.pressAndWaitForScreen(
       "]",
       (screen) => screen.includes("file 2 of 2 · 1 viewed"),
@@ -279,42 +292,49 @@ describe("thread view chords in a diff review", () => {
 
   ptyTest("⌥n and ⌥p move the focus between cards", async () => {
     // Act + Assert - the focused card draws a heavy left border
-    const screen = await pressChord(session, "rail", "⌥n", (frame) =>
+    const screen = await pressChord(session, "rail", `${LEAD}n`, (frame) =>
       /┃ ● (first|second) note/.test(frame),
     );
     const [focused, other] = /┃ ● first note/.test(screen)
       ? ["first", "second"]
       : ["second", "first"];
 
-    await pressChord(session, "rail", "⌥n", `┃ ● ${other} note`);
-    await pressChord(session, "rail", "⌥p", `┃ ● ${focused} note`);
+    await pressChord(session, "rail", `${LEAD}n`, `┃ ● ${other} note`);
+    await pressChord(session, "rail", `${LEAD}p`, `┃ ● ${focused} note`);
   });
 
   ptyTest("⌥r on your own card explains there is nothing to rename", async () => {
     // Act + Assert
-    await pressChordForToast(session, "rail", "⌥r", "that is your own note - nothing to rename");
+    await pressChordForToast(
+      session,
+      "rail",
+      `${LEAD}r`,
+      "that is your own note - nothing to rename",
+    );
   });
 
   ptyTest("⌥⌫ deletes the focused card", async () => {
     // Arrange
-    await pressChord(session, "rail", "⌥n", (screen) => /┃ ● (first|second) note/.test(screen));
+    await pressChord(session, "rail", `${LEAD}n`, (screen) =>
+      /┃ ● (first|second) note/.test(screen),
+    );
 
     // Act + Assert
-    await pressChordForToast(session, "rail", "⌥⌫", "annotation deleted");
+    await pressChordForToast(session, "rail", `${LEAD}⌫`, "annotation deleted");
   });
 
   ptyTest("the tree chords label, branch, go, fork, and fork-share the history", async () => {
     // Act + Assert - each chord answers with its prompt or toast
-    await pressChordForToast(session, "tree", "⌥l", "Name for this checkpoint:");
-    await pressChordForToast(session, "tree", "⌥b", "Name for the new branch:");
-    await pressChordForToast(session, "tree", "⌥g", "already at the tip");
-    await pressChordForToast(session, "tree", "⌥f", "you are on the fork now", {
+    await pressChordForToast(session, "tree", `${LEAD}l`, "Name for this checkpoint:");
+    await pressChordForToast(session, "tree", `${LEAD}b`, "Name for the new branch:");
+    await pressChordForToast(session, "tree", `${LEAD}g`, "already at the tip");
+    await pressChordForToast(session, "tree", `${LEAD}f`, "you are on the fork now", {
       timeoutMs: 10_000,
     });
     await pressChordForToast(
       session,
       "tree",
-      "⌥h",
+      `${LEAD}h`,
       `fork and share failed: gateway upload failed: ${OFFLINE_SSH_MESSAGE}`,
       { timeoutMs: 10_000 },
     );
@@ -344,8 +364,8 @@ describe("thread view chords in a plan review", () => {
     await session.press("down");
 
     // Act + Assert
-    await pressChordForToast(session, "rail", "⌥x", "block cut");
-    await pressChord(session, "rail", "⌥u", ROLLOUT_PLAN_LAST_LINE);
+    await pressChordForToast(session, "rail", `${LEAD}x`, "block cut");
+    await pressChord(session, "rail", `${LEAD}u`, ROLLOUT_PLAN_LAST_LINE);
   });
 
   ptyTest("⌃e hands the plan to the editor and resumes with its edit", async () => {

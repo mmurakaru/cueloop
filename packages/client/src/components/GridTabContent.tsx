@@ -34,6 +34,8 @@ export type DiffSurfaceProps = Pick<
   | "onAnnotate"
   | "onReply"
   | "onUpdateAnnotation"
+  | "leaderCombos"
+  | "onLeaderCommand"
   | "onExit"
 >;
 

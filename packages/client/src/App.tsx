@@ -53,11 +53,14 @@ import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
-  DIFF_CHORD_ENTRIES,
-  RAIL_CHORD_ENTRIES,
+  diffChordEntries,
+  dispatchLeaderCommand,
+  leaderCombosFor,
+  leaderHint,
+  railChordEntries,
   resolveThreadChord,
   THREAD_CHORD_ENTRIES,
-  TREE_CHORD_ENTRIES,
+  treeChordEntries,
 } from "./thread-chords";
 import { type DiffFoldControls } from "./components/DiffContentView";
 import { commentCountsByFile } from "./view-diff";
@@ -207,7 +210,11 @@ function usableScreenReached(
 }
 
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
-function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
+function cheatsheetFor(
+  keyBindings: KeyBindings,
+  threadViewActive: boolean,
+  hint: string,
+): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
 
   if (!threadViewActive) {
@@ -217,9 +224,9 @@ function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): Che
   return [
     ...THREAD_VIEW_CHEATSHEET,
     { title: "Session", entries: [...THREAD_CHORD_ENTRIES] },
-    { title: "Diff", entries: [...DIFF_CHORD_ENTRIES] },
-    { title: "Rail", entries: [...RAIL_CHORD_ENTRIES] },
-    { title: "Tree", entries: [...TREE_CHORD_ENTRIES] },
+    { title: "Diff", entries: diffChordEntries(hint) },
+    { title: "Rail", entries: railChordEntries(hint) },
+    { title: "Tree", entries: treeChordEntries(hint) },
     ...base.filter((section) => section.title === "Agent terminal"),
   ];
 }
@@ -575,6 +582,14 @@ export function App({
   // from the thread view; the view suspends its own grammar meanwhile
   const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
 
+  const leaderCombos = leaderCombosFor(keysRef.current.leader);
+  const runLeaderCommand = (key: { name: string; shift?: boolean }): void =>
+    dispatchLeaderCommand(
+      key,
+      { composing: threadComposing, isOwner, resolved, treeActive: railTab === "tree", isDiff },
+      dispatch,
+    );
+
   useKeyboard((key) => {
     // The thread view owns the document grammar while active (its own
     // useKeyboard handles marks, comments, and ctrl+q); the session chords
@@ -646,7 +661,7 @@ export function App({
     <MenuChrome
       menuDialog={menuDialog}
       theme={theme}
-      keybindsSections={cheatsheetFor(keyBindings, threadViewActive)}
+      keybindsSections={cheatsheetFor(keyBindings, threadViewActive, leaderHint(leaderCombos))}
       settingsCategories={settingsCategories}
       settingsValues={settingsValues}
       settingsNav={settingsNav}
@@ -819,6 +834,8 @@ export function App({
                       suspended={threadViewSuspended}
                       editOrphanCount={editOrphanCount}
                       onComposingChange={setThreadComposing}
+                      leaderCombos={leaderCombos}
+                      onLeaderCommand={runLeaderCommand}
                       resolved={resolved}
                       onObserverBlocked={(reason) =>
                         controller.setStatus(
@@ -912,6 +929,8 @@ export function App({
                       onReply: (rootAnnotationId, body) =>
                         void controller.reply(rootAnnotationId, body),
                       onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
+                      leaderCombos,
+                      onLeaderCommand: runLeaderCommand,
                       onExit: () => onExit?.(0),
                     }}
                     rejectedRows={rejectedRows}

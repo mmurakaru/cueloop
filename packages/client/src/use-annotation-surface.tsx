@@ -37,6 +37,7 @@ import {
 } from "./thread-selection";
 import { annotationPaletteFor, type AnnotationPalette } from "./annotation-palette";
 import { printableSequence, type MarkRange, type VisualLine } from "./mark-runs";
+import { matchesLeader } from "./thread-chords";
 import {
   activeSlashToken,
   isStandaloneSlashQuery,
@@ -103,6 +104,8 @@ export interface AnnotationSurfaceOptions {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  leaderCombos?: readonly string[];
+  onLeaderCommand?: (key: KeyEvent) => void;
   onExit: () => void;
 }
 
@@ -176,6 +179,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    leaderCombos,
+    onLeaderCommand,
     onExit,
   } = options;
   const palette = annotationPaletteFor(tokens);
@@ -190,6 +195,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return { head: start, anchor: start };
   });
   const [compose, setCompose] = useState<ComposeState | null>(null);
+  // a ref, not state: a rapid leader-then-key pair is read in one synchronous handler run
+  const leaderPending = useRef(false);
 
   useEffect(() => {
     onComposingChange?.(compose !== null);
@@ -657,9 +664,25 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     if (activeCompose) return handleComposeKey(key, activeCompose);
     if (key.name === "escape") {
+      if (leaderPending.current) {
+        leaderPending.current = false;
+
+        return;
+      }
       if (focusedDiscussion !== null) return setFocusedDiscussion(null);
 
       return collapseCaret();
+    }
+    if (leaderPending.current) {
+      leaderPending.current = false;
+      onLeaderCommand?.(key);
+
+      return;
+    }
+    if (leaderCombos && matchesLeader(key, leaderCombos)) {
+      leaderPending.current = true;
+
+      return;
     }
     if (handleDiscussionVerb(key)) return;
     if (handleCaretKey(key)) return;

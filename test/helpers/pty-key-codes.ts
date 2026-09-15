@@ -167,3 +167,12 @@ export function cheatsheetChordKeyPress(chord: string): PtyKeyPress {
 export function cheatsheetEntryChords(keys: string): string[] {
   return keys.split(" / ");
 }
+
+/**
+ * The key presses for a chord: one per space-separated part, so a leader
+ * sequence like "⌃g x" sends the leader chord then the letter, and a single
+ * chord like "⌥x" sends one press.
+ */
+export function cheatsheetChordKeyPresses(chord: string): PtyKeyPress[] {
+  return chord.split(" ").map(cheatsheetChordKeyPress);
+}

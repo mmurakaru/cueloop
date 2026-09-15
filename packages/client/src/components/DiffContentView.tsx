@@ -9,7 +9,7 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createTextAttributes, type ScrollBoxRenderable } from "@opentui/core";
+import { createTextAttributes, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core";
 import type { Thread } from "@cueloop/schema";
 import { diffRowText, fileChangeCounts, type DiffRow, type Mark } from "../view-diff";
 import type { TextSpan } from "../thread-selection";
@@ -95,6 +95,8 @@ export interface DiffContentViewProps {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  leaderCombos?: readonly string[];
+  onLeaderCommand?: (key: KeyEvent) => void;
   onExit: () => void;
   /** Row indices the owner rejected during curation; drawn struck through. */
   rejectedRows?: Set<number>;
@@ -487,6 +489,8 @@ export function DiffContentView({
   onAnnotate,
   onReply,
   onUpdateAnnotation,
+  leaderCombos,
+  onLeaderCommand,
   onExit,
   rejectedRows = EMPTY_REJECTED,
   fold,
@@ -520,6 +524,8 @@ export function DiffContentView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    leaderCombos,
+    onLeaderCommand,
     onExit,
   });
   const { palette } = surface;
