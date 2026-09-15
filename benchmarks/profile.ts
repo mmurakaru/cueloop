@@ -1,10 +1,12 @@
 /**
- * Run one benchmark script under Bun's CPU profiler and print the `.cpuprofile` path to open in
- * speedscope or Chrome DevTools. The iterate-fast loop for a hot path:
+ * Run one benchmark script under Bun's CPU or heap profiler and print the artifact paths. Each run
+ * writes a binary profile (open the `.cpuprofile` in speedscope, the `.heapsnapshot` in DevTools) plus
+ * a readable `.md` report. The iterate-fast loop for a hot path:
  *
- *   bun run benchmarks/profile.ts --script interaction-mouse
+ *   bun run benchmarks/profile.ts --script interaction-mouse           # CPU
+ *   bun run benchmarks/profile.ts --script interaction-mouse --heap    # allocations
  *
- * Needs Bun >= 1.3.0 (older Bun silently ignores --cpu-prof). Profiles land in benchmarks/profiles/.
+ * Needs Bun >= 1.3.0 (older Bun silently ignores the flags). Profiles land in benchmarks/profiles/.
  */
 
 import { mkdirSync } from "node:fs";
@@ -13,18 +15,22 @@ import { parseArgs } from "node:util";
 import { profileScript } from "./lib/sampler";
 
 const { values } = parseArgs({
-  options: { script: { type: "string" }, out: { type: "string" } },
+  options: { script: { type: "string" }, out: { type: "string" }, heap: { type: "boolean" } },
 });
 
 if (values.script === undefined) {
-  process.stderr.write("usage: bun run benchmarks/profile.ts --script <name> [--out <dir>]\n");
+  process.stderr.write("usage: bun run benchmarks/profile.ts --script <name> [--heap] [--out <dir>]\n");
   process.exit(1);
 }
 
 const profileDir = values.out ?? join(import.meta.dir, "profiles");
 mkdirSync(profileDir, { recursive: true });
 
-const { metrics, profilePath } = await profileScript(values.script, profileDir);
+const { metrics, artifacts } = await profileScript(
+  values.script,
+  profileDir,
+  values.heap === true ? "heap" : "cpu",
+);
 
 for (const [name, value] of metrics) process.stdout.write(`METRIC ${name}=${value}\n`);
-process.stdout.write(`PROFILE ${profilePath}\n`);
+for (const artifact of artifacts) process.stdout.write(`PROFILE ${artifact}\n`);
