@@ -5,7 +5,7 @@
  * rows. A script that runs past the timeout is a hang and is killed.
  */
 
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hermeticCueloopEnvironment } from "../../test/helpers/env";
@@ -17,15 +17,17 @@ const BENCHMARKS_DIR = join(import.meta.dir, "..");
 /** A script that runs longer than this is a hang, not a slow benchmark. */
 const SCRIPT_TIMEOUT_MS = 5 * 60_000;
 
-/** Run `script` once in a fresh process and return its metrics; stderr passes through. */
-export async function sampleScript(
+/** Run `script` in a fresh process with `bunFlags` ahead of `run`, and collect its `METRIC` lines. */
+async function runScriptProcess(
   script: string,
-  extraEnv: Record<string, string> = {},
+  extraEnv: Record<string, string>,
+  bunFlags: readonly string[],
 ): Promise<Map<string, number>> {
   const home = mkdtempSync(join(tmpdir(), "cueloop-bench-"));
 
   try {
-    const proc = Bun.spawn([process.execPath, "run", join(BENCHMARKS_DIR, `${script}.ts`)], {
+    const argv = [process.execPath, ...bunFlags, "run", join(BENCHMARKS_DIR, `${script}.ts`)];
+    const proc = Bun.spawn(argv, {
       env: hermeticCueloopEnvironment(home, extraEnv),
       stdout: "pipe",
       stderr: "inherit",
@@ -53,6 +55,42 @@ export async function sampleScript(
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
+}
+
+/** Run `script` once in a fresh process and return its metrics; stderr passes through. */
+export function sampleScript(
+  script: string,
+  extraEnv: Record<string, string> = {},
+): Promise<Map<string, number>> {
+  return runScriptProcess(script, extraEnv, []);
+}
+
+export interface ScriptProfile {
+  metrics: Map<string, number>;
+  profilePath: string;
+}
+
+/** Run `script` once under Bun's V8 CPU profiler, writing a `.cpuprofile` into `profileDir`. Needs Bun >= 1.3.0. */
+export async function profileScript(
+  script: string,
+  profileDir: string,
+  extraEnv: Record<string, string> = {},
+): Promise<ScriptProfile> {
+  const profileName = `${script}-${Date.now()}.cpuprofile`;
+  const metrics = await runScriptProcess(script, extraEnv, [
+    "--cpu-prof",
+    `--cpu-prof-dir=${profileDir}`,
+    `--cpu-prof-name=${profileName}`,
+  ]);
+  const profilePath = join(profileDir, profileName);
+
+  if (!existsSync(profilePath)) {
+    throw new Error(
+      `CPU profile not written to ${profilePath} - Bun ${Bun.version} is below 1.3.0 or the flag was ignored`,
+    );
+  }
+
+  return { metrics, profilePath };
 }
 
 /** Append one sample run's metrics into the per-metric sample lists, keyed `<script>/<metric>`. */

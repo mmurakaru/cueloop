@@ -12,6 +12,9 @@ dist/
 
 # local benchmark runs
 benchmarks/results/
+benchmarks/profiles/
+*.cpuprofile
+*.heapsnapshot
 .bench-tmp/
 
 # install-vm and other scratch output
