@@ -965,7 +965,14 @@ export function App({
                       hidden={chromeHidden}
                     />
                   ) : isDiff ? (
-                    <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
+                    <box
+                      style={{
+                        flexGrow: 1,
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
                       <text fg={theme.textDim}>Select a thread</text>
                     </box>
                   ) : (
