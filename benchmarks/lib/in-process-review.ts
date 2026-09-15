@@ -11,13 +11,14 @@ import type { DiffFileContents } from "@cueloop/schema";
 import { App } from "../../packages/client/src/App";
 import {
   allowEventLoopUpdates,
+  clickText,
   isolateUserConfig,
   press,
   renderReadyApp,
 } from "../../packages/client/src/test-support";
 import { HERMETIC_HERDR_ENV } from "../../test/helpers/env";
 import { createTestReviewHome, type TestReviewHome } from "../../test/helpers/review-home";
-import { timeRepeatedAsync } from "./metric";
+import { timeMsAsync, timeRepeatedAsync } from "./metric";
 
 // a script run outside the sampler must not reach a developer's live herdr session
 Object.assign(process.env, HERMETIC_HERDR_ENV);
@@ -89,6 +90,24 @@ export function renderDiffReview(
  */
 export function timePresses(setup: ReadyAppSetup, key: string, count: number): Promise<number[]> {
   return timeRepeatedAsync(count, () => press(setup, key));
+}
+
+/**
+ * Milliseconds to open each file by clicking its changed-files tree row, timed until the painted
+ * frame settles. Each name must be a row not yet open, so its only frame hit is the tree row.
+ */
+export async function timeFileOpens(
+  setup: ReadyAppSetup,
+  filenames: readonly string[],
+): Promise<number[]> {
+  const openMs: number[] = [];
+
+  for (const filename of filenames) {
+    // eslint-disable-next-line no-await-in-loop
+    openMs.push(await timeMsAsync(() => clickText(setup, filename)));
+  }
+
+  return openMs;
 }
 
 /** Run `measure` over a review, tear it down, and exit: the metrics are out and queued renderer work must not hold the process. */

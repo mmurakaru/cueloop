@@ -22,6 +22,7 @@ export const SOURCE_SCRIPTS = [
   "artifact-parse",
   "daemon-roundtrip",
   "interaction-latency",
+  "interaction-mouse",
   "large-stream",
   "non-ascii-stream",
 ];
@@ -33,6 +34,7 @@ const DEFAULT_SCRIPTS = [
   "daemon-roundtrip",
   "tui-first-frame",
   "interaction-latency",
+  "interaction-mouse",
   "large-stream",
   "non-ascii-stream",
 ];
