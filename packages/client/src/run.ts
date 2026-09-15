@@ -5,7 +5,8 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
 import { loadConfig } from "./config";
-import { flushPerfTimings, perfMark } from "./perf/perf-timings";
+import { perfMark } from "./perf/perf-timings";
+import { reportPerfMarks } from "./perf/perf-report";
 import { defaultLayout, type LaunchLayout } from "./launch-layout";
 
 export interface RunClientOptions {
@@ -63,7 +64,7 @@ export async function runClient(options: RunClientOptions): Promise<number> {
         onExit: shutdown,
         onReady: () => {
           perfMark("firstFrame");
-          flushPerfTimings("startup");
+          reportPerfMarks("startup");
         },
       }),
     );
