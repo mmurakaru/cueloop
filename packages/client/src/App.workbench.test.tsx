@@ -510,6 +510,26 @@ describe("the bare-launch welcome shell", () => {
     expect(frame).toContain("Select a thread");
   });
 
+  test("the Threads sidebar owns the keyboard until a pane is clicked, so nav never touches the editor", async () => {
+    const setup = await renderReadyApp(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
+      { width: 160, height: 24 },
+    );
+    await waitForText(setup, "Getting started");
+
+    // focus starts on the Threads sidebar: a letter drives the inbox, it never drafts in the editor
+    await typeText(setup, "zzz");
+    expect(setup.captureCharFrame()).not.toContain("zzz");
+
+    // clicking a line in the Welcome editor focuses that pane; now typing composes there
+    const line = locateText(setup, "quick brown fox");
+    await setup.mockMouse.click(line.column, line.row);
+    await typeText(setup, "note");
+    await waitForText(setup, "● note");
+
+    setup.renderer.destroy();
+  });
+
   test("typing in the welcome composer never reaches the inbox keys", async () => {
     // a pending thread in the sidebar so the inbox keys (delete, open) have a target to act on
     welcomeServer.core.sessionCreate({

@@ -69,7 +69,11 @@ export interface AppShellProps {
   theme?: Theme;
   threadsWidth?: number;
   projectWidth?: number;
+  focusedPane?: FocusPane;
+  onFocusPane?: (pane: FocusPane) => void;
 }
+
+export type FocusPane = "threads" | "thread" | "changes" | "project";
 
 /** The right region's reserved width: the open project pane, nothing when the region is closed, else the collapsed rail. */
 function rightRegionColumns(
@@ -122,6 +126,8 @@ export function AppShell({
   theme,
   threadsWidth = 30,
   projectWidth = 32,
+  focusedPane,
+  onFocusPane,
 }: AppShellProps): React.ReactNode {
   const tokens = theme ?? DARK;
   const { width: terminalWidth } = useTerminalDimensions();
@@ -214,7 +220,14 @@ export function AppShell({
         <TooltipProvider theme={tokens}>
           <box style={{ flexGrow: 1, flexDirection: "row" }}>
             {sidebarOpen ? (
-              <PanelColumn width={threadsWidth} border="right" header={brandChrome} theme={tokens}>
+              <PanelColumn
+                width={threadsWidth}
+                border="right"
+                header={brandChrome}
+                focused={focusedPane === "threads"}
+                onFocus={() => onFocusPane?.("threads")}
+                theme={tokens}
+              >
                 {threadsPanel}
               </PanelColumn>
             ) : null}
@@ -237,6 +250,8 @@ export function AppShell({
                   reopenRightControl,
                   rightRegionClosed,
                 )}
+                focused={focusedPane === "thread"}
+                onFocus={() => onFocusPane?.("thread")}
                 theme={tokens}
               >
                 {threadPanel}
@@ -244,6 +259,7 @@ export function AppShell({
             ) : null}
             {changesOpen ? (
               <box
+                onMouseDown={() => onFocusPane?.("changes")}
                 style={{
                   flexDirection: "column",
                   flexGrow: 1,
@@ -253,7 +269,7 @@ export function AppShell({
                   // zoom drops the Thread pane, whose sidebar rule already divides here, so drop this
                   // one then to avoid a double border
                   border: zoomHideThread ? [] : ["left"],
-                  borderColor: tokens.border,
+                  borderColor: focusedPane === "changes" ? tokens.accent : tokens.border,
                 }}
               >
                 <box style={{ flexGrow: 1, minHeight: 0 }}>{changesPanel}</box>
@@ -266,6 +282,8 @@ export function AppShell({
                 border="left"
                 header={null}
                 headerRight={projectToggles}
+                focused={focusedPane === "project"}
+                onFocus={() => onFocusPane?.("project")}
                 theme={tokens}
               >
                 {projectPanel}

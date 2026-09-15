@@ -43,7 +43,7 @@ import { groupInbox, projectName, threadTitle } from "./components/session-tree"
 import { ThreadTree } from "./components/ThreadTree";
 import { ChangesFileTree } from "./components/ChangesColumn";
 import { ProjectTreeView } from "./components/ProjectTreeView";
-import { AppShell, type ProjectPanelMode } from "./components/AppShell";
+import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
 import { GridTabContent } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
@@ -239,6 +239,24 @@ function initialThreadsOpen(
   return layout ? layout.threads : sessionId === undefined;
 }
 
+function initialFocusedPane(sessionId: string | undefined, zoomed: boolean): FocusPane {
+  if (sessionId === undefined) return "threads";
+
+  return zoomed ? "changes" : "thread";
+}
+
+function bareShellDefersKeys(
+  sessionIsNull: boolean,
+  overlayIsNone: boolean,
+  focusedPane: FocusPane,
+): boolean {
+  return sessionIsNull && overlayIsNone && focusedPane !== "threads";
+}
+
+function surfaceSuspended(base: boolean, focusedPane: FocusPane, pane: FocusPane): boolean {
+  return base || focusedPane !== pane;
+}
+
 export function App({
   home,
   sessionId,
@@ -325,6 +343,9 @@ export function App({
   const [sidebarOpen, setSidebarOpen] = useState(() => initialThreadsOpen(layout, sessionId));
   // the Changes + Project right region and its editor grid (tabs, splits, zoom)
   const workbench = useChangesWorkbench({ layout });
+  const [focusedPane, setFocusedPane] = useState<FocusPane>(() =>
+    initialFocusedPane(sessionId, workbench.zoomed),
+  );
   // only the session view persists from here; the bare shell owns its own (NoThreadShell), so this
   // workbench stays inactive with no session and never clobbers what the shell saved
   useRememberLayout(
@@ -617,6 +638,7 @@ export function App({
     // escape, so an open overlay (compose, submit, prompt, walk) still cancels
     if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span")
       return controller.dismissToast();
+    if (bareShellDefersKeys(session === null, overlay === "none", focusedPane)) return;
     const state = buildKeyState({
       keys: keysRef.current,
       observer,
@@ -688,6 +710,8 @@ export function App({
             onOpenMenu={() => setMenuDialog("settings")}
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((open) => !open)}
+            focusedPane={focusedPane}
+            onFocusPane={setFocusedPane}
             pinnedIds={pinnedIds}
             onPin={togglePin}
             onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
@@ -783,6 +807,8 @@ export function App({
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((open) => !open)}
             onOpenMenu={() => setMenuDialog("settings")}
+            focusedPane={focusedPane}
+            onFocusPane={setFocusedPane}
             threadsPanel={
               <scrollbox style={{ flexGrow: 1 }} focused={false}>
                 <ThreadTree
@@ -831,7 +857,7 @@ export function App({
                   ) : (
                     <ThreadView
                       session={activeSession}
-                      suspended={threadViewSuspended}
+                      suspended={surfaceSuspended(threadViewSuspended, focusedPane, "thread")}
                       editOrphanCount={editOrphanCount}
                       onComposingChange={setThreadComposing}
                       leaderCombos={leaderCombos}
@@ -901,7 +927,11 @@ export function App({
                       observer,
                       commentsEnabled: true,
                       resolved,
-                      suspended: threadViewSuspended || !groupFocused,
+                      suspended: surfaceSuspended(
+                        threadViewSuspended || !groupFocused,
+                        focusedPane,
+                        "changes",
+                      ),
                       onComposingChange: setThreadComposing,
                       onObserverBlocked: (reason) =>
                         controller.setStatus(

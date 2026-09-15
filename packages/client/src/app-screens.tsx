@@ -21,7 +21,7 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { ThreadTree } from "./components/ThreadTree";
 import { WelcomePlayground } from "./components/WelcomePlayground";
-import { AppShell, type ProjectPanelMode } from "./components/AppShell";
+import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
 import { ProjectTreeView } from "./components/ProjectTreeView";
 import { ChangesFileTree } from "./components/ChangesColumn";
@@ -162,6 +162,8 @@ export function NoThreadShell(props: {
   /** Shared with the thread view, so picking a thread preserves the sidebar. */
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  focusedPane: FocusPane;
+  onFocusPane: (pane: FocusPane) => void;
   pinnedIds: ReadonlySet<string>;
   onPin: (id: string) => void;
   onRename: (id: string, title: string) => void;
@@ -183,6 +185,8 @@ export function NoThreadShell(props: {
     onOpenMenu,
     sidebarOpen,
     onToggleSidebar,
+    focusedPane,
+    onFocusPane,
     pinnedIds,
     onPin,
     onRename,
@@ -220,7 +224,7 @@ export function NoThreadShell(props: {
     observer: false,
     commentsEnabled: true,
     resolved: false,
-    suspended: false,
+    suspended: focusedPane !== "changes",
     onComposingChange: onWelcomeComposingChange,
     onObserverBlocked: () => {},
     onCursorChange: () => {},
@@ -245,6 +249,8 @@ export function NoThreadShell(props: {
         sidebarOpen={sidebarOpen}
         onToggleSidebar={onToggleSidebar}
         onOpenMenu={onOpenMenu}
+        focusedPane={focusedPane}
+        onFocusPane={onFocusPane}
         threadsPanel={
           <ScrollArea>
             <ThreadTree
@@ -298,6 +304,7 @@ export function NoThreadShell(props: {
                   version={CLIENT_VERSION}
                   quickActions={quickActions}
                   onComposingChange={onWelcomeComposingChange}
+                  suspended={focusedPane !== "changes"}
                   theme={theme}
                 />
               ) : tab.fileView === "contents" ? (
