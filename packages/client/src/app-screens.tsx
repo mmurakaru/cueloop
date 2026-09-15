@@ -102,6 +102,7 @@ function WelcomeProjectPanel({
   controller,
   onOpenChangedFile,
   onOpenProjectFile,
+  focused,
   theme,
 }: {
   mode: ProjectPanelMode;
@@ -110,6 +111,7 @@ function WelcomeProjectPanel({
   onOpenChangedFile: (path: string) => void;
   /** Project tree click -> open the file's read-only contents. */
   onOpenProjectFile: (path: string) => void;
+  focused?: boolean;
   theme: Theme;
 }): React.ReactNode {
   const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
@@ -139,6 +141,7 @@ function WelcomeProjectPanel({
     <ProjectTreeView
       loadFiles={() => controller.repoFiles()}
       onSelectFile={onOpenProjectFile}
+      focused={focused}
       theme={theme}
     />
   );
@@ -344,6 +347,7 @@ export function NoThreadShell(props: {
             controller={controller}
             onOpenChangedFile={openChangedFile}
             onOpenProjectFile={openProjectFile}
+            focused={focusedPane === "project"}
             theme={theme}
           />
         }

@@ -156,6 +156,7 @@ function ProjectPanelBody(props: {
   onOpenChangedFile: (path: string) => void;
   onOpenProjectFile: (path: string) => void;
   commentCounts?: ReadonlyMap<string, number>;
+  focused?: boolean;
   theme: Theme;
 }): React.ReactNode {
   const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
@@ -195,6 +196,7 @@ function ProjectPanelBody(props: {
       key={props.reloadKey}
       loadFiles={props.loadProjectFiles}
       onSelectFile={props.onOpenProjectFile}
+      focused={props.focused}
       theme={props.theme}
     />
   );
@@ -1032,6 +1034,7 @@ export function App({
                 onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
                 onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
                 commentCounts={diffCommentCounts}
+                focused={focusedPane === "project"}
                 theme={theme}
               />
             }
