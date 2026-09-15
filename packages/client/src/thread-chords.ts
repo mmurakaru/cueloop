@@ -30,7 +30,6 @@ export interface ThreadChordContext {
 
 export const DEFAULT_LEADER = "ctrl+g";
 
-/** The configured leader combos, or the default when none is set. */
 export function leaderCombosFor(configured: readonly string[] | undefined): readonly string[] {
   return configured ?? [DEFAULT_LEADER];
 }
@@ -52,14 +51,12 @@ function comboParts(combo: string) {
   return { mods: parts.slice(0, -1).map((part) => part.toLowerCase()), name: parts.at(-1) ?? "" };
 }
 
-/** The leader's cheatsheet glyph, followed by a space (e.g. "⌃g "). */
 export function leaderHint(combos: readonly string[]): string {
   const { mods, name } = comboParts(combos[0] ?? DEFAULT_LEADER);
 
   return `${mods.map((mod) => MOD_GLYPHS.get(mod) ?? mod).join("")}${name} `;
 }
 
-/** True when the key event is the configured leader chord. */
 export function matchesLeader(
   key: { ctrl?: boolean; meta?: boolean; super?: boolean; name: string },
   combos: readonly string[],
@@ -165,7 +162,6 @@ export function resolveLeaderCommand(
   );
 }
 
-/** Run the command a key names after the leader; a shifted letter reads as its uppercase form. */
 export function dispatchLeaderCommand(
   key: { name: string; shift?: boolean },
   context: ThreadChordContext,

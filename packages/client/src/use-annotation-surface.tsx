@@ -195,7 +195,6 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return { head: start, anchor: start };
   });
   const [compose, setCompose] = useState<ComposeState | null>(null);
-  // a ref, not state: a rapid leader-then-key pair is read in one synchronous handler run
   const leaderPending = useRef(false);
 
   useEffect(() => {
