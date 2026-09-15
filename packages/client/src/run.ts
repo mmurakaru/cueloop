@@ -26,6 +26,11 @@ export async function runClient(options: RunClientOptions): Promise<number> {
     options.layout ??
     (options.sessionId === undefined ? (loadConfig().ui.layout ?? defaultLayout()) : undefined);
   const renderer = await createCliRenderer({ enableMouseMovement: true });
+  // re-assert mouse reporting on focus-in: a multiplexer can drop it, stranding the pointer in native selection
+  renderer.on("focus", () => {
+    renderer.useMouse = false;
+    renderer.useMouse = true;
+  });
   const appearance =
     (await renderer.waitForThemeMode(THEME_QUERY_TIMEOUT_MS).catch(() => null)) ?? "dark";
 

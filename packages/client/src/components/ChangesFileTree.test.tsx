@@ -1,18 +1,28 @@
-/** The Project tree navigates by keyboard when focused: j/k move the cursor, tab folds a folder or
- * opens a file. */
+/** The changed-files tree navigates by keyboard when focused: j/k move the cursor, tab folds a folder
+ * or opens a file. */
 
 import { test, expect } from "bun:test";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
-import { ProjectTreeView } from "./ProjectTreeView";
+import type { DiffFileContents } from "@cueloop/schema";
+import { ChangesFileTree } from "./ChangesColumn";
 import { settle, waitForText } from "../test-support";
 import { DARK } from "../theme";
 
-test("tab expands a folder, then j moves down and tab opens the file", async () => {
+const file = (path: string): DiffFileContents => ({
+  path,
+  oldContents: "",
+  newContents: "x",
+  status: "modified",
+});
+
+const files = [file("src/a.ts"), file("src/b.ts")];
+
+test("j moves onto a file and tab opens it", async () => {
   const opened: string[] = [];
   const setup = await testRender(
-    <ProjectTreeView
-      loadFiles={async () => ["src/a.ts", "README.md"]}
+    <ChangesFileTree
+      files={files}
       onSelectFile={(path) => opened.push(path)}
       focused
       theme={DARK}
@@ -20,13 +30,9 @@ test("tab expands a folder, then j moves down and tab opens the file", async () 
     { width: 40, height: 12 },
   );
   await settle(setup);
-  await waitForText(setup, "src");
-
-  // cursor starts on the "src" folder; tab expands it
-  setup.mockInput.pressKey("TAB");
   await waitForText(setup, "a.ts");
 
-  // j moves onto the file, tab opens it
+  // folders open by default; cursor starts on the "src" folder, j steps onto a.ts
   setup.mockInput.pressKey("j");
   await settle(setup);
   setup.mockInput.pressKey("TAB");
@@ -37,22 +43,18 @@ test("tab expands a folder, then j moves down and tab opens the file", async () 
   setup.renderer.destroy();
 });
 
-test("without focus the keyboard does nothing", async () => {
+test("without focus the keyboard opens nothing", async () => {
   const opened: string[] = [];
   const setup = await testRender(
-    <ProjectTreeView
-      loadFiles={async () => ["src/a.ts"]}
-      onSelectFile={(path) => opened.push(path)}
-      theme={DARK}
-    />,
+    <ChangesFileTree files={files} onSelectFile={(path) => opened.push(path)} theme={DARK} />,
     { width: 40, height: 12 },
   );
   await settle(setup);
-  await waitForText(setup, "src");
+  await waitForText(setup, "a.ts");
 
+  setup.mockInput.pressKey("j");
   setup.mockInput.pressKey("TAB");
   await settle(setup);
-  expect(setup.captureCharFrame()).not.toContain("a.ts");
   expect(opened).toEqual([]);
 
   setup.renderer.destroy();

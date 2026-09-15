@@ -22,7 +22,7 @@ async function brandFrame(): Promise<string[]> {
       onOpenMenu={() => {}}
       threadsPanel={<text>threads</text>}
       threadTitle={LONG_TITLE}
-      threadPanel={<text>review the changes on the right</text>}
+      threadPanel={<text>Select a thread</text>}
       changesOpen
       projectOpen
       onToggleChanges={() => {}}

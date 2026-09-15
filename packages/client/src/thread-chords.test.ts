@@ -1,7 +1,39 @@
 import { describe, expect, test } from "bun:test";
-import { resolveThreadChord } from "./thread-chords";
+import {
+  DEFAULT_LEADER,
+  leaderHint,
+  matchesLeader,
+  resolveLeaderCommand,
+  resolveThreadChord,
+} from "./thread-chords";
 
 const owner = { composing: false, isOwner: true, resolved: false, treeActive: false };
+
+describe("the command leader", () => {
+  test("matchesLeader recognizes the configured chord and nothing else", () => {
+    expect(matchesLeader({ ctrl: true, name: "g" }, [DEFAULT_LEADER])).toBe(true);
+    expect(matchesLeader({ ctrl: true, name: "G" }, [DEFAULT_LEADER])).toBe(true);
+    expect(matchesLeader({ name: "g" }, [DEFAULT_LEADER])).toBe(false);
+    expect(matchesLeader({ ctrl: true, name: "x" }, [DEFAULT_LEADER])).toBe(false);
+    expect(matchesLeader({ ctrl: true, meta: true, name: "g" }, [DEFAULT_LEADER])).toBe(false);
+    expect(matchesLeader({ name: "," }, [","])).toBe(true);
+  });
+
+  test("leaderHint renders the glyph plus a trailing space", () => {
+    expect(leaderHint(["ctrl+g"])).toBe("⌃g ");
+    expect(leaderHint([","])).toBe(", ");
+  });
+
+  test("a key after the leader runs the same intent as its Option chord", () => {
+    const diff = { ...owner, isDiff: true };
+
+    expect(resolveLeaderCommand({ name: "x" }, diff)).toEqual({ type: "rejectChange" });
+    expect(resolveLeaderCommand({ name: "X" }, diff)).toEqual({ type: "rejectHunk" });
+    expect(resolveLeaderCommand({ name: "x" }, owner)).toEqual({ type: "cut" });
+    expect(resolveLeaderCommand({ name: "return" }, owner)).toEqual({ type: "openSubmit" });
+    expect(resolveLeaderCommand({ name: "x" }, { ...owner, composing: true })).toBeNull();
+  });
+});
 
 describe("resolveThreadChord", () => {
   test("ctrl+enter opens the submit overlay for an owner with an open review", () => {

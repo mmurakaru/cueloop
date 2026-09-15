@@ -13,7 +13,7 @@
  */
 
 import React, { useEffect, useRef } from "react";
-import type { ScrollBoxRenderable } from "@opentui/core";
+import type { KeyEvent, ScrollBoxRenderable } from "@opentui/core";
 import type { Thread } from "@cueloop/schema";
 import { displayText, type DisplayBlock, type Mark } from "../view-plan";
 import type { TextSpan } from "../thread-selection";
@@ -127,6 +127,8 @@ export interface ThreadViewProps {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  leaderCombos?: readonly string[];
+  onLeaderCommand?: (key: KeyEvent) => void;
   onExit: () => void;
   theme?: Theme;
 }
@@ -148,6 +150,8 @@ export function ThreadView({
   onAnnotate,
   onReply,
   onUpdateAnnotation,
+  leaderCombos,
+  onLeaderCommand,
   onExit,
   theme,
 }: ThreadViewProps): React.ReactNode {
@@ -174,6 +178,8 @@ export function ThreadView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    leaderCombos,
+    onLeaderCommand,
     onExit,
   });
   const { palette, discussions } = surface;

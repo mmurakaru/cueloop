@@ -151,6 +151,7 @@ export const DEFAULT_KEYS: CueloopConfig["keys"] = {
   share: ["S"],
   quit: ["q"],
   walk: ["w"],
+  leader: ["ctrl+g"],
 };
 
 const SkillsSectionSchema = v.object({ path: v.optional(v.string()) });

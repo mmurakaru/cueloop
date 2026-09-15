@@ -69,7 +69,10 @@ export interface AppShellProps {
   theme?: Theme;
   threadsWidth?: number;
   projectWidth?: number;
+  onFocusPane?: (pane: FocusPane) => void;
 }
+
+export type FocusPane = "threads" | "thread" | "changes" | "project";
 
 /** The right region's reserved width: the open project pane, nothing when the region is closed, else the collapsed rail. */
 function rightRegionColumns(
@@ -122,6 +125,7 @@ export function AppShell({
   theme,
   threadsWidth = 30,
   projectWidth = 32,
+  onFocusPane,
 }: AppShellProps): React.ReactNode {
   const tokens = theme ?? DARK;
   const { width: terminalWidth } = useTerminalDimensions();
@@ -214,7 +218,13 @@ export function AppShell({
         <TooltipProvider theme={tokens}>
           <box style={{ flexGrow: 1, flexDirection: "row" }}>
             {sidebarOpen ? (
-              <PanelColumn width={threadsWidth} border="right" header={brandChrome} theme={tokens}>
+              <PanelColumn
+                width={threadsWidth}
+                border="right"
+                header={brandChrome}
+                onFocus={() => onFocusPane?.("threads")}
+                theme={tokens}
+              >
                 {threadsPanel}
               </PanelColumn>
             ) : null}
@@ -237,6 +247,7 @@ export function AppShell({
                   reopenRightControl,
                   rightRegionClosed,
                 )}
+                onFocus={() => onFocusPane?.("thread")}
                 theme={tokens}
               >
                 {threadPanel}
@@ -244,6 +255,7 @@ export function AppShell({
             ) : null}
             {changesOpen ? (
               <box
+                onMouseDown={() => onFocusPane?.("changes")}
                 style={{
                   flexDirection: "column",
                   flexGrow: 1,
@@ -266,6 +278,7 @@ export function AppShell({
                 border="left"
                 header={null}
                 headerRight={projectToggles}
+                onFocus={() => onFocusPane?.("project")}
                 theme={tokens}
               >
                 {projectPanel}

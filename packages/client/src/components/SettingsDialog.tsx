@@ -21,7 +21,6 @@ import { CycleRow, TextRow, ToggleRow, type SettingsRowDescriptor } from "./Sett
 export interface SettingsCategory {
   id: string;
   name: string;
-  description: string;
   rows: SettingsRowDescriptor[];
   /** A bespoke body (e.g. the quick-actions editor) rendered instead of typed rows. */
   customBody?: React.ReactNode;
@@ -45,6 +44,7 @@ export interface SettingsDialogProps {
   activeZone: "nav" | "body";
   onCategorySelect: (categoryId: string) => void;
   onRowActivate: (row: SettingsRowDescriptor) => void;
+  onClose: () => void;
   theme?: Theme;
 }
 
@@ -88,6 +88,7 @@ export function SettingsDialog({
   activeZone,
   onCategorySelect,
   onRowActivate,
+  onClose,
   theme,
 }: SettingsDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -107,6 +108,7 @@ export function SettingsDialog({
       width={Math.min(76, terminalWidth - 6)}
       height={Math.min(22, terminalHeight - 4)}
       background={tokens.elevated}
+      onDismiss={onClose}
       theme={theme}
     >
       <box style={{ flexDirection: "row", flexGrow: 1 }}>
@@ -123,9 +125,6 @@ export function SettingsDialog({
         </box>
         <box style={{ borderStyle: "single", border: ["left"], borderColor: tokens.border }} />
         <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 2, paddingRight: 1 }}>
-          <text fg={tokens.text}>{category.name}</text>
-          <text fg={tokens.textDim}>{category.description}</text>
-          <box style={{ height: 1 }} />
           {onKeybinds ? <KeybindsBody sections={keybindsSections} tokens={tokens} /> : null}
           {onKeybinds ? null : category.customBody}
           {onKeybinds

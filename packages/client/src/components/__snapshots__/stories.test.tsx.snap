@@ -793,7 +793,7 @@ exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, 
      │ Your name (optional) - it attributes the notes     │     
      │ you leave:                                         │     
      │ your name                                          │     
-     │ enter save · esc cancel                            │     
+     │ enter save   esc cancel                            │     
      └────────────────────────────────────────────────────┘     
                                                                 
                                                                 
@@ -813,7 +813,7 @@ exports[`stories catalog Overlays/PromptDialog/RenameAuthor renders, snapshots, 
      │ Display name for this collaborator:                │     
      │ Robin                                              │     
      │                                                    │     
-     │ enter save · esc cancel                            │     
+     │ enter save   esc cancel                            │     
      └────────────────────────────────────────────────────┘     
                                                                 
                                                                 
@@ -878,10 +878,10 @@ exports[`stories catalog Overlays/SettingsDialog/AppearanceThemed renders, snaps
                                                                                                     
                                                                                                     
             ┌─ Settings ───────────────────────────────────────────────────────────────┐            
-            │  General           │  Appearance                                         │            
-            │  Display           │  the color theme                                    │            
+            │  General           │   Theme                    Rosé Pine Moon           │            
+            │  Display           │                                                     │            
             │  Appearance        │                                                     │            
-            │                    │   Theme                    Rosé Pine Moon           │            
+            │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
@@ -912,11 +912,11 @@ exports[`stories catalog Overlays/SettingsDialog/BodyZone renders, snapshots, an
                                                                                                     
                                                                                                     
             ┌─ Settings ───────────────────────────────────────────────────────────────┐            
-            │  General           │  Display                                            │            
-            │  Display           │  plan width and chrome                              │            
+            │  General           │   Plan width               default                  │            
+            │  Display           │   Line numbers             on                       │            
             │  Appearance        │                                                     │            
-            │                    │   Plan width               default                  │            
-            │                    │   Line numbers             on                       │            
+            │                    │                                                     │            
+            │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
@@ -946,11 +946,11 @@ exports[`stories catalog Overlays/SettingsDialog/NavZone renders, snapshots, and
                                                                                                     
                                                                                                     
             ┌─ Settings ───────────────────────────────────────────────────────────────┐            
-            │  General           │  General                                            │            
-            │  Display           │  identity and submission                            │            
+            │  General           │   Display name             amber-heron              │            
+            │  Display           │   Auto-close on submit     3s                       │            
             │  Appearance        │                                                     │            
-            │                    │   Display name             amber-heron              │            
-            │                    │   Auto-close on submit     3s                       │            
+            │                    │                                                     │            
+            │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
             │                    │                                                     │            
@@ -1044,9 +1044,9 @@ exports[`stories catalog Surfaces/ThreadTree/TwoPending renders, snapshots, and 
 " Projects                                                                       
    widget                                                                      
     Migration Plan                                                              
+                                                                                
  Threads                                                                        
     working tree                                                                
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -1098,9 +1098,9 @@ exports[`stories catalog Surfaces/ThreadsSidebar/Open renders, snapshots, and ca
 " Projects                    │                              
    widget                   │                              
     Migration Plan           │                              
+                             │                              
  Threads                     │                              
     working tree             │                              
-                             │                              
                              │                              
                              │                              
                              │                              
@@ -1753,52 +1753,52 @@ exports[`stories catalog Primitives/Tree/ProjectsThreads renders, snapshots, and
 `;
 
 exports[`stories catalog Chrome/QuickActionsEditor/Collapsed renders, snapshots, and carries its colors: Chrome/QuickActionsEditor/Collapsed 1`] = `
-"  click a prompt to edit its system  reset to         
-  prompt                             defaults ▸       
+"                                                 reset
                                                       
-  ▸ Zoom out, research in depth                       
-    Research the broader problem, prior art, an…      
-  ▸ Restate simplified                                
-    Restate this as the simplest thing that wor…      
-  ▸ Out of scope                                      
-    This is out of scope for the task, so captu…      
-  ▸ Let's chat about this                             
-    Do not implement yet, and surface the open …      
-  ▸ Prototype this                                    
-    Build a throwaway prototype to answer the q…      
-  ▸ Ensure 0 regressions                              
-    Characterize the current behavior with test…      
-  ▸ Consider existing repo patterns                   
-    Follow the nearest existing pattern in this…      
-  ▸ LGTM                                              
-    This looks good to me.                            
+  Zoom out, research in depth                         
+  Research the broader problem, prior art, an…        
+  Restate simplified                                  
+  Restate this as the simplest thing that wor…        
+  Out of scope                                        
+  This is out of scope for the task, so captu…        
+  Let's chat about this                               
+  Do not implement yet, and surface the open …        
+  Prototype this                                      
+  Build a throwaway prototype to answer the q…        
+  Ensure 0 regressions                                
+  Characterize the current behavior with test…        
+  Consider existing repo patterns                     
+  Follow the nearest existing pattern in this…        
+  LGTM                                                
+  This looks good to me.                              
   + Add action                                        
+                                                      
                                                       
                                                       
 "
 `;
 
 exports[`stories catalog Chrome/QuickActionsEditor/RowExpanded renders, snapshots, and carries its colors: Chrome/QuickActionsEditor/RowExpanded 1`] = `
-"  click a prompt to edit its system  reset to         
-  prompt                             defaults ▸       
+"                                                 reset
                                                       
-  ▸ Zoom out, research in depth                       
-    Research the broader problem, prior art, an…      
-  ▾ Restate simplified                                
-    > Restate this as the simplest thing that works   
-  ▸ Out of scope                                      
-    This is out of scope for the task, so captu…      
-  ▸ Let's chat about this                             
-    Do not implement yet, and surface the open …      
-  ▸ Prototype this                                    
-    Build a throwaway prototype to answer the q…      
-  ▸ Ensure 0 regressions                              
-    Characterize the current behavior with test…      
-  ▸ Consider existing repo patterns                   
-    Follow the nearest existing pattern in this…      
-  ▸ LGTM                                              
-    This looks good to me.                            
+  Zoom out, research in depth                         
+  Research the broader problem, prior art, an…        
+  Restate simplified                                  
+  Restate this as the simplest thing that works and   
+  Out of scope                                        
+  This is out of scope for the task, so captu…        
+  Let's chat about this                               
+  Do not implement yet, and surface the open …        
+  Prototype this                                      
+  Build a throwaway prototype to answer the q…        
+  Ensure 0 regressions                                
+  Characterize the current behavior with test…        
+  Consider existing repo patterns                     
+  Follow the nearest existing pattern in this…        
+  LGTM                                                
+  This looks good to me.                              
   + Add action                                        
+                                                      
                                                       
                                                       
 "
@@ -1885,5 +1885,14 @@ exports[`stories catalog Foundations/Theme/ProviderSwap renders, snapshots, and 
                                                                                 
                                                                                 
                                                                                 
+"
+`;
+
+exports[`stories catalog Layout/MenuControl/OneOpenAtATime renders, snapshots, and carries its colors: Layout/MenuControl/OneOpenAtATime 1`] = `
+"                              
+ alpha: open                  
+ beta: closed                 
+                              
+                              
 "
 `;

@@ -106,6 +106,7 @@ export function useSettingsDialog(params: {
     zone: "body",
   });
   const [actionsExpandedIndex, setActionsExpandedIndex] = useState<number | null>(null);
+  const [actionsExpandedField, setActionsExpandedField] = useState<"prompt" | "metadata">("prompt");
 
   const commitActions = (next: QuickAction[]): void => {
     setQuickActions(next);
@@ -141,7 +142,6 @@ export function useSettingsDialog(params: {
     {
       id: "general",
       name: "General",
-      description: "submission behaviour",
       rows: [
         {
           key: "autoClose",
@@ -151,7 +151,7 @@ export function useSettingsDialog(params: {
         },
         {
           key: "diffView",
-          label: "Diff view (when wide)",
+          label: "Diff view",
           kind: "cycle",
           options: ["Split", "Stacked"],
         },
@@ -160,7 +160,6 @@ export function useSettingsDialog(params: {
     {
       id: "appearance",
       name: "Appearance",
-      description: "the color theme",
       rows: [
         {
           key: "theme",
@@ -173,15 +172,16 @@ export function useSettingsDialog(params: {
     {
       id: "actions",
       name: "Actions",
-      description: "quick-action comments",
       rows: [],
       customBody: (
         <QuickActionsEditor
           actions={quickActions}
           selectedIndex={settingsNav.categoryId === "actions" ? settingsNav.rowIndex : -1}
           expandedIndex={actionsExpandedIndex}
-          onToggleExpand={(index) => {
+          expandedField={actionsExpandedField}
+          onToggleExpand={(index, field) => {
             setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: index }));
+            setActionsExpandedField(field);
             setActionsExpandedIndex((current) => (current === index ? null : index));
           }}
           onEditPrompt={editActionPrompt}
@@ -195,7 +195,6 @@ export function useSettingsDialog(params: {
     {
       id: "keybinds",
       name: "Keybinds",
-      description: "keyboard reference",
       rows: [],
     },
   ];
@@ -258,7 +257,10 @@ export function useSettingsDialog(params: {
       if (moved) return void setSettingsNav(moved);
       if (ACTIVATE_KEYS.has(name)) {
         if (settingsNav.rowIndex === quickActions.length) addAction();
-        else setActionsExpandedIndex(settingsNav.rowIndex);
+        else {
+          setActionsExpandedField("prompt");
+          setActionsExpandedIndex(settingsNav.rowIndex);
+        }
       }
 
       return;

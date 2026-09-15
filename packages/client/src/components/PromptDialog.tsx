@@ -22,6 +22,8 @@ export interface PromptDialogProps {
   value: string;
   placeholder?: string;
   onInput: (text: string) => void;
+  onSave?: () => void;
+  onCancel?: () => void;
   theme?: Theme;
 }
 
@@ -32,6 +34,8 @@ export function PromptDialog({
   value,
   placeholder,
   onInput,
+  onSave,
+  onCancel,
   theme,
 }: PromptDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -39,8 +43,9 @@ export function PromptDialog({
   const inputRef = useRef<TextareaRenderable | null>(null);
 
   useEffect(() => {
-    // open with the caret after the seeded value, like a text field
-    if (inputRef.current) inputRef.current.cursorOffset = value.length;
+    if (!inputRef.current) return;
+    inputRef.current.focus();
+    inputRef.current.cursorOffset = value.length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (!isOpen) return null;
@@ -52,6 +57,7 @@ export function PromptDialog({
       width={Math.min(54, terminalWidth - 6)}
       height={7}
       background={tokens.elevated}
+      onDismiss={onCancel}
       theme={theme}
     >
       <box
@@ -80,7 +86,14 @@ export function PromptDialog({
           }}
         />
         <box style={{ flexGrow: 1 }} />
-        <text fg={tokens.textDim}>enter save · esc cancel</text>
+        <box style={{ flexDirection: "row" }}>
+          <box onMouseUp={onSave} style={{ marginRight: 3 }}>
+            <text fg={tokens.textDim}>enter save</text>
+          </box>
+          <box onMouseUp={onCancel}>
+            <text fg={tokens.textDim}>esc cancel</text>
+          </box>
+        </box>
       </box>
     </Dialog>
   );

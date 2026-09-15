@@ -285,24 +285,27 @@ describe("no-thread shell", () => {
     expect(frame).toContain("Other Plan");
   });
 
-  test("the row kebab menu pins a thread into a Pinned section", async () => {
+  test("the row kebab menu stars a thread into a Starred section", async () => {
     // Arrange
     const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "Migration Plan");
 
-    // Act - hover the row to reveal its kebab, open the menu, and pick Pin
+    // Act - hover the row to reveal its kebab, open the menu, and pick Star
     const row = locateText(setup, "Migration Plan");
 
     await setup.mockMouse.moveTo(row.column, row.row);
     await waitForText(setup, "⋮");
     await clickText(setup, "⋮");
-    await waitForText(setup, "Pin");
-    await clickText(setup, "Pin");
+    // "star" alone collides with "Getting started" in the welcome pane, so target the menu via its
+    // unique "rename" row - the star action sits directly above it
+    await waitForText(setup, "rename");
+    const rename = locateText(setup, "rename");
+    await setup.mockMouse.click(rename.column, rename.row - 1);
 
-    // Assert - a Pinned section now holds the thread
-    await waitForText(setup, "Pinned");
-    expect(frameRow(setup, "Migration Plan")).toBeGreaterThan(frameRow(setup, "Pinned"));
+    // Assert - a Starred section now holds the thread
+    await waitForText(setup, "Starred");
+    expect(frameRow(setup, "Migration Plan")).toBeGreaterThan(frameRow(setup, "Starred"));
   });
 
   test("a bare launch shows the Welcome surface with the right region collapsed", async () => {

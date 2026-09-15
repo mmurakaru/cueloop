@@ -22,6 +22,7 @@ export interface WelcomePlaygroundProps {
   quickActions: QuickAction[];
   /** Reports whether the playground composer is open, so the shell suspends its inbox keys while typing. */
   onComposingChange?: (composing: boolean) => void;
+  suspended?: boolean;
   theme?: Theme;
 }
 
@@ -86,6 +87,7 @@ export function WelcomePlayground(props: WelcomePlaygroundProps): React.ReactNod
       observer={false}
       commentsEnabled
       fileView
+      suspended={props.suspended}
       onComposingChange={props.onComposingChange}
       onAnnotate={(span, body) =>
         setAnnotations((current) => [

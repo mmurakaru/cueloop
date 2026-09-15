@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import type { QuickAction } from "../config";
-import { settle, typeText } from "../test-support";
+import { locateText, settle, typeText } from "../test-support";
 import { QuickActionsEditor } from "./quick-actions-editor";
 
 const MANY: QuickAction[] = Array.from({ length: 14 }, (_, index) => ({
@@ -17,6 +17,7 @@ async function mount(selectedIndex: number) {
       actions={MANY}
       selectedIndex={selectedIndex}
       expandedIndex={null}
+      expandedField="prompt"
       onToggleExpand={() => {}}
       onEditPrompt={() => {}}
       onEditMetadata={() => {}}
@@ -58,6 +59,7 @@ describe("editing an expanded action", () => {
         actions={[{ prompt: "Ship it", metadata: "be terse" }]}
         selectedIndex={0}
         expandedIndex={0}
+        expandedField="prompt"
         onToggleExpand={() => {}}
         onEditPrompt={(_index, prompt) => prompts.push(prompt)}
         onEditMetadata={(_index, metadata) => metadatas.push(metadata)}
@@ -77,6 +79,38 @@ describe("editing an expanded action", () => {
     await settle(setup);
     await typeText(setup, "X");
     expect(metadatas.at(-1)).toBe("be terseX");
+
+    setup.renderer.destroy();
+  });
+
+  test("clicking the description row opens the editor on the metadata field directly", async () => {
+    const toggles: Array<{ index: number; field: "prompt" | "metadata" }> = [];
+    const setup = await testRender(
+      <QuickActionsEditor
+        actions={[{ prompt: "Ship it", metadata: "be terse" }]}
+        selectedIndex={0}
+        expandedIndex={null}
+        expandedField="prompt"
+        onToggleExpand={(index, field) => toggles.push({ index, field })}
+        onEditPrompt={() => {}}
+        onEditMetadata={() => {}}
+        onReset={() => {}}
+        onAdd={() => {}}
+      />,
+      { width: 60, height: 8 },
+    );
+    await settle(setup);
+
+    // clicking the title opens the title field; clicking the description opens the metadata field
+    const title = locateText(setup, "Ship it");
+    await setup.mockMouse.click(title.column, title.row);
+    const description = locateText(setup, "be terse");
+    await setup.mockMouse.click(description.column, description.row);
+
+    expect(toggles).toEqual([
+      { index: 0, field: "prompt" },
+      { index: 0, field: "metadata" },
+    ]);
 
     setup.renderer.destroy();
   });
