@@ -9,16 +9,24 @@ export interface PhaseMark {
 const phaseMarks: PhaseMark[] = [];
 let lastMarkAt: number | null = null;
 
-function perfTimingEnabled(): boolean {
-  return process.env.CUELOOP_PERF === "1";
+/** Marks record when the stderr timer (CUELOOP_PERF=1) or the kundi exporter (OTEL endpoint) is on. */
+function perfInstrumentationEnabled(): boolean {
+  return process.env.CUELOOP_PERF === "1" || process.env.OTEL_EXPORTER_OTLP_ENDPOINT !== undefined;
 }
 
 /** Record the elapsed ms since the previous mark (or process start) under `label`. */
 export function perfMark(label: string): void {
-  if (!perfTimingEnabled()) return;
+  if (!perfInstrumentationEnabled()) return;
   const now = performance.now();
   phaseMarks.push({ label, elapsedMs: now - (lastMarkAt ?? 0) });
   lastMarkAt = now;
+}
+
+/** Drain the recorded marks for a reporter to format or export; empties the buffer for the next scope. */
+export function takePerfMarks(): PhaseMark[] {
+  lastMarkAt = null;
+
+  return phaseMarks.splice(0, phaseMarks.length);
 }
 
 /** Render phase deltas as the stderr block: a header, one indented row per mark, a summed TOTAL. */
@@ -27,12 +35,4 @@ export function formatPerfBlock(scope: string, marks: readonly PhaseMark[]): str
   const rows = marks.map((mark) => `  ${mark.label}  ${mark.elapsedMs.toFixed(1)}ms`);
 
   return [`--- perf ${scope} ---`, ...rows, `  TOTAL  ${totalMs.toFixed(1)}ms`, ""].join("\n");
-}
-
-/** Write the recorded phase deltas for `scope` to stderr, then reset for the next scope. */
-export function flushPerfTimings(scope: string): void {
-  if (!perfTimingEnabled() || phaseMarks.length === 0) return;
-  process.stderr.write(formatPerfBlock(scope, phaseMarks));
-  phaseMarks.length = 0;
-  lastMarkAt = null;
 }
