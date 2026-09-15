@@ -1,5 +1,19 @@
 # cueloop
 
+## 0.1.0-alpha.76
+
+### Minor Changes
+
+- [#439](https://github.com/mmurakaru/cueloop/pull/439) [`3e217f2`](https://github.com/mmurakaru/cueloop/commit/3e217f257363eed9ea695bcc470117d8a65a7ad5) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The workbench now has a unified pane focus model: exactly one of Threads, Thread, Changes, or Project owns the keyboard, shown by a selected-item backdrop that moves with the arrow keys or `j`/`k` and opens with Enter or Tab. Sidebar navigation no longer moves the caret in the open thread. A rebindable command leader reaches structural commands, and the leader then Tab cycles focus between panes. The project tree and the changed-files tree navigate by keyboard when focused, and the editor split control is a floating popover you drive with the arrow keys. Menus are single-open, so opening one closes any other. Rounding out the pass: the pinned sidebar section is now Starred, dialogs capture focus on open and dismiss on an outside click, empty states are centered, the footer branch truncates rather than wraps, and the pointer no longer sticks in text selection after the terminal drops mouse reporting.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.76
+  - @cueloop/client@0.1.0-alpha.76
+  - @cueloop/daemon@0.1.0-alpha.76
+  - @cueloop/schema@0.1.0-alpha.76
+
 ## 0.1.0-alpha.75
 
 ### Patch Changes
