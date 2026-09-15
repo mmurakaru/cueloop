@@ -1887,3 +1887,12 @@ exports[`stories catalog Foundations/Theme/ProviderSwap renders, snapshots, and 
                                                                                 
 "
 `;
+
+exports[`stories catalog Layout/MenuControl/OneOpenAtATime renders, snapshots, and carries its colors: Layout/MenuControl/OneOpenAtATime 1`] = `
+"                              
+ alpha: open                  
+ beta: closed                 
+                              
+                              
+"
+`;
