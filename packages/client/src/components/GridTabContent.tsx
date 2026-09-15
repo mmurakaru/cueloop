@@ -58,7 +58,14 @@ export function ChangesTabBody(props: {
 
   if (props.rows.length === 0) {
     return (
-      <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+      <box
+        style={{
+          flexGrow: 1,
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <text fg={props.theme.textDim}>No changes</text>
       </box>
     );
