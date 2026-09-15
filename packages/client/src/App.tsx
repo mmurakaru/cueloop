@@ -257,6 +257,34 @@ function surfaceSuspended(base: boolean, focusedPane: FocusPane, pane: FocusPane
   return base || focusedPane !== pane;
 }
 
+export function visiblePanes(
+  sidebarOpen: boolean,
+  threadShown: boolean,
+  changesOpen: boolean,
+  projectOpen: boolean,
+): FocusPane[] {
+  const panes: FocusPane[] = [];
+
+  if (sidebarOpen) panes.push("threads");
+  if (threadShown) panes.push("thread");
+  if (changesOpen) panes.push("changes");
+  if (projectOpen) panes.push("project");
+
+  return panes;
+}
+
+export function nextFocusPane(
+  current: FocusPane,
+  panes: FocusPane[],
+  backward: boolean,
+): FocusPane {
+  if (panes.length === 0) return current;
+  const index = panes.indexOf(current);
+  const step = backward ? -1 : 1;
+
+  return panes[(index + step + panes.length) % panes.length] ?? current;
+}
+
 export function App({
   home,
   sessionId,
@@ -604,12 +632,23 @@ export function App({
   const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
 
   const leaderCombos = leaderCombosFor(keysRef.current.leader);
-  const runLeaderCommand = (key: { name: string; shift?: boolean }): void =>
+  const cyclePanes = (backward: boolean): void =>
+    setFocusedPane((current) =>
+      nextFocusPane(
+        current,
+        visiblePanes(sidebarOpen, !workbench.zoomed, workbench.changesOpen, workbench.projectOpen),
+        backward,
+      ),
+    );
+  const runLeaderCommand = (key: { name: string; shift?: boolean }): void => {
+    if (key.name === "tab") return cyclePanes(Boolean(key.shift));
+
     dispatchLeaderCommand(
       key,
       { composing: threadComposing, isOwner, resolved, treeActive: railTab === "tree", isDiff },
       dispatch,
     );
+  };
 
   useKeyboard((key) => {
     // The thread view owns the document grammar while active (its own

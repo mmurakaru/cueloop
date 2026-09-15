@@ -70,6 +70,14 @@ The Option chords below still work where a terminal delivers them (`option+x`
 is the same as `ctrl+g x`), but the leader is the portable path - Option is not
 reliable across terminals, especially macOS Terminal.app.
 
+## Panes and focus
+
+The workbench has four panes: Threads, Thread, Changes, and Project. One pane
+owns the keyboard at a time; click a pane to focus it, or press the leader then
+`tab` (`shift+tab` for the previous) to cycle. Only the focused pane responds to
+navigation keys, so moving through the Threads sidebar never moves the caret in
+the editor.
+
 ## The session
 
 Everything that acts on the review as a whole sits on a ctrl chord, which
