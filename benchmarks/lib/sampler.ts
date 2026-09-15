@@ -5,7 +5,7 @@
  * rows. A script that runs past the timeout is a hang and is killed.
  */
 
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { hermeticCueloopEnvironment } from "../../test/helpers/env";
@@ -67,30 +67,40 @@ export function sampleScript(
 
 export interface ScriptProfile {
   metrics: Map<string, number>;
-  profilePath: string;
+  /** Absolute paths the profiler wrote: a binary profile plus a readable markdown report. */
+  artifacts: string[];
 }
 
-/** Run `script` once under Bun's V8 CPU profiler, writing a `.cpuprofile` into `profileDir`. Needs Bun >= 1.3.0. */
+/** "cpu" writes a `.cpuprofile` (speedscope), "heap" a `.heapsnapshot`; both add a markdown report. */
+export type ProfileKind = "cpu" | "heap";
+
+function profileFlags(kind: ProfileKind, dir: string, name: string): string[] {
+  if (kind === "heap") {
+    return ["--heap-prof", "--heap-prof-md", `--heap-prof-dir=${dir}`, `--heap-prof-name=${name}`];
+  }
+
+  return ["--cpu-prof", "--cpu-prof-md", `--cpu-prof-dir=${dir}`, `--cpu-prof-name=${name}`];
+}
+
+/** Run `script` once under Bun's `kind` profiler into a fresh dir under `outDir`; returns what landed. Needs Bun >= 1.3.0. */
 export async function profileScript(
   script: string,
-  profileDir: string,
+  outDir: string,
+  kind: ProfileKind,
   extraEnv: Record<string, string> = {},
 ): Promise<ScriptProfile> {
-  const profileName = `${script}-${Date.now()}.cpuprofile`;
-  const metrics = await runScriptProcess(script, extraEnv, [
-    "--cpu-prof",
-    `--cpu-prof-dir=${profileDir}`,
-    `--cpu-prof-name=${profileName}`,
-  ]);
-  const profilePath = join(profileDir, profileName);
+  const runDir = join(outDir, `${script}-${kind}-${Date.now()}`);
+  mkdirSync(runDir, { recursive: true });
+  const metrics = await runScriptProcess(script, extraEnv, profileFlags(kind, runDir, script));
+  const artifacts = readdirSync(runDir).map((file) => join(runDir, file));
 
-  if (!existsSync(profilePath)) {
+  if (artifacts.length === 0) {
     throw new Error(
-      `CPU profile not written to ${profilePath} - Bun ${Bun.version} is below 1.3.0 or the flag was ignored`,
+      `no ${kind} profile written to ${runDir} - Bun ${Bun.version} is below 1.3.0 or the flag was ignored`,
     );
   }
 
-  return { metrics, profilePath };
+  return { metrics, artifacts };
 }
 
 /** Append one sample run's metrics into the per-metric sample lists, keyed `<script>/<metric>`. */
