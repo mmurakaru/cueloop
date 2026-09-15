@@ -5,6 +5,7 @@ import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
 import { loadConfig } from "./config";
+import { flushPerfTimings, perfMark } from "./perf/perf-timings";
 import { defaultLayout, type LaunchLayout } from "./launch-layout";
 
 export interface RunClientOptions {
@@ -26,6 +27,7 @@ export async function runClient(options: RunClientOptions): Promise<number> {
     options.layout ??
     (options.sessionId === undefined ? (loadConfig().ui.layout ?? defaultLayout()) : undefined);
   const renderer = await createCliRenderer({ enableMouseMovement: true });
+  perfMark("renderer");
   // re-assert mouse reporting on focus-in: a multiplexer can drop it, stranding the pointer in native selection
   renderer.on("focus", () => {
     renderer.useMouse = false;
@@ -33,6 +35,7 @@ export async function runClient(options: RunClientOptions): Promise<number> {
   });
   const appearance =
     (await renderer.waitForThemeMode(THEME_QUERY_TIMEOUT_MS).catch(() => null)) ?? "dark";
+  perfMark("themeQuery");
 
   return new Promise<number>((resolve) => {
     let exited = false;
@@ -58,7 +61,12 @@ export async function runClient(options: RunClientOptions): Promise<number> {
         appearance,
         layout,
         onExit: shutdown,
+        onReady: () => {
+          perfMark("firstFrame");
+          flushPerfTimings("startup");
+        },
       }),
     );
+    perfMark("render");
   });
 }
