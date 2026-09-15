@@ -23,6 +23,7 @@ import { ThreadTree } from "./components/ThreadTree";
 import { WelcomePlayground } from "./components/WelcomePlayground";
 import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
+import { MenuControlProvider, useMenuControlState } from "./components/menu-control";
 import { ProjectTreeView } from "./components/ProjectTreeView";
 import { ChangesFileTree } from "./components/ChangesColumn";
 import { BareWorkbenchFileView, draftThread } from "./components/BareWorkbenchFileView";
@@ -205,6 +206,7 @@ export function NoThreadShell(props: {
     layout,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
+  const menuControl = useMenuControlState();
   // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
   // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
   const workbench = useChangesWorkbench({ seed: "welcome", layout });
@@ -234,7 +236,7 @@ export function NoThreadShell(props: {
     observer: false,
     commentsEnabled: true,
     resolved: false,
-    suspended: focusedPane !== "changes",
+    suspended: focusedPane !== "changes" || menuControl.openMenuId !== null,
     onComposingChange: onWelcomeComposingChange,
     onObserverBlocked: () => {},
     onCursorChange: () => {},
@@ -255,142 +257,146 @@ export function NoThreadShell(props: {
 
   return (
     <ThemeProvider theme={theme}>
-      <AppShell
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={onToggleSidebar}
-        onOpenMenu={onOpenMenu}
-        onFocusPane={onFocusPane}
-        threadsPanel={
-          <ScrollArea>
-            <ThreadTree
-              rows={rows}
-              cursor={inboxCursor}
-              focused={focusedPane === "threads"}
-              pinnedIds={pinnedIds}
-              width={30}
-              onSelect={(id) => controller.open(id)}
-              onRequestDelete={(id, title) =>
-                setMode({ type: "confirmDelete", sessionId: id, title })
+      <MenuControlProvider value={menuControl}>
+        <AppShell
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={onToggleSidebar}
+          onOpenMenu={onOpenMenu}
+          onFocusPane={onFocusPane}
+          threadsPanel={
+            <ScrollArea>
+              <ThreadTree
+                rows={rows}
+                cursor={inboxCursor}
+                focused={focusedPane === "threads"}
+                pinnedIds={pinnedIds}
+                width={30}
+                onSelect={(id) => controller.open(id)}
+                onRequestDelete={(id, title) =>
+                  setMode({ type: "confirmDelete", sessionId: id, title })
+                }
+                onPin={onPin}
+                onRename={onRename}
+                theme={theme}
+              />
+            </ScrollArea>
+          }
+          threadTitle=""
+          threadPanel={
+            <box
+              style={{
+                flexGrow: 1,
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <text fg={theme.textDim}>Select a thread</text>
+            </box>
+          }
+          changesOpen={workbench.changesOpen}
+          projectOpen={workbench.projectOpen}
+          onToggleChanges={workbench.toggleChanges}
+          onToggleProject={workbench.toggleProject}
+          onToggleRight={workbench.toggleRight}
+          projectMode={workbench.projectMode}
+          zoomHideThread={workbench.zoomed}
+          changesPanel={
+            <EditorGrid
+              tree={workbench.grid}
+              focusedGroupId={workbench.activeGroup}
+              onFocusGroup={workbench.focusGroup}
+              onActivateTab={workbench.activate}
+              onCloseTab={workbench.close}
+              onSplit={workbench.split}
+              onZoom={workbench.toggleZoom}
+              zoomed={workbench.zoomed}
+              renderTab={(tab) =>
+                tab.kind === "welcome" ? (
+                  <WelcomePlayground
+                    version={CLIENT_VERSION}
+                    quickActions={quickActions}
+                    onComposingChange={onWelcomeComposingChange}
+                    suspended={focusedPane !== "changes" || menuControl.openMenuId !== null}
+                    theme={theme}
+                  />
+                ) : tab.fileView === "contents" ? (
+                  <BareWorkbenchFileView
+                    path={tab.path ?? ""}
+                    controller={controller}
+                    quickActions={quickActions}
+                    onComposingChange={onWelcomeComposingChange}
+                    onExit={() => {}}
+                    theme={theme}
+                  />
+                ) : (
+                  <GridTabContent
+                    tab={tab}
+                    rows={controller.rows()}
+                    surface={bareSurface}
+                    rejectedRows={EMPTY_ROWS}
+                    dimmed={false}
+                    readFile={(path) => controller.repoReadFile(path)}
+                    onAddFileComment={(path, anchor, body) =>
+                      void controller.commentOnWorkbench(
+                        anchor,
+                        { kind: "file", path, rev: "worktree" },
+                        body,
+                      )
+                    }
+                    theme={theme}
+                  />
+                )
               }
-              onPin={onPin}
-              onRename={onRename}
               theme={theme}
             />
-          </ScrollArea>
-        }
-        threadTitle=""
-        threadPanel={
-          <box
-            style={{
-              flexGrow: 1,
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <text fg={theme.textDim}>Select a thread</text>
-          </box>
-        }
-        changesOpen={workbench.changesOpen}
-        projectOpen={workbench.projectOpen}
-        onToggleChanges={workbench.toggleChanges}
-        onToggleProject={workbench.toggleProject}
-        onToggleRight={workbench.toggleRight}
-        projectMode={workbench.projectMode}
-        zoomHideThread={workbench.zoomed}
-        changesPanel={
-          <EditorGrid
-            tree={workbench.grid}
-            focusedGroupId={workbench.activeGroup}
-            onFocusGroup={workbench.focusGroup}
-            onActivateTab={workbench.activate}
-            onCloseTab={workbench.close}
-            onSplit={workbench.split}
-            onZoom={workbench.toggleZoom}
-            zoomed={workbench.zoomed}
-            renderTab={(tab) =>
-              tab.kind === "welcome" ? (
-                <WelcomePlayground
-                  version={CLIENT_VERSION}
-                  quickActions={quickActions}
-                  onComposingChange={onWelcomeComposingChange}
-                  suspended={focusedPane !== "changes"}
-                  theme={theme}
-                />
-              ) : tab.fileView === "contents" ? (
-                <BareWorkbenchFileView
-                  path={tab.path ?? ""}
-                  controller={controller}
-                  quickActions={quickActions}
-                  onComposingChange={onWelcomeComposingChange}
-                  onExit={() => {}}
-                  theme={theme}
-                />
-              ) : (
-                <GridTabContent
-                  tab={tab}
-                  rows={controller.rows()}
-                  surface={bareSurface}
-                  rejectedRows={EMPTY_ROWS}
-                  dimmed={false}
-                  readFile={(path) => controller.repoReadFile(path)}
-                  onAddFileComment={(path, anchor, body) =>
-                    void controller.commentOnWorkbench(
-                      anchor,
-                      { kind: "file", path, rev: "worktree" },
-                      body,
-                    )
-                  }
-                  theme={theme}
-                />
-              )
-            }
-            theme={theme}
-          />
-        }
-        projectPanel={
-          <WelcomeProjectPanel
-            mode={workbench.projectMode}
-            controller={controller}
-            onOpenChangedFile={openChangedFile}
-            onOpenProjectFile={openProjectFile}
-            focused={focusedPane === "project"}
-            theme={theme}
-          />
-        }
-        theme={theme}
-      >
-        {menuChrome}
-        <ConfirmDialog
-          isOpen={confirming !== null}
-          title=" Delete plan "
-          message={
-            confirming ? `Delete "${confirming.title}"? This removes the plan and its review.` : ""
           }
-          onConfirm={() => {
-            if (confirming) controller.deleteSession(confirming.sessionId);
-            setMode({ type: "normal" });
-          }}
-          onCancel={() => setMode({ type: "normal" })}
+          projectPanel={
+            <WelcomeProjectPanel
+              mode={workbench.projectMode}
+              controller={controller}
+              onOpenChangedFile={openChangedFile}
+              onOpenProjectFile={openProjectFile}
+              focused={focusedPane === "project"}
+              theme={theme}
+            />
+          }
           theme={theme}
-        />
-        {mode.type === "renameThread" ? (
-          <PromptDialog
-            isOpen
-            title=" rename thread "
-            label="new title for this thread:"
-            value={mode.text}
-            placeholder="a short title"
-            onInput={(text) => setMode({ ...mode, text })}
-            onSave={() => {
-              controller.renameSession(mode.sessionId, mode.text.trim());
+        >
+          {menuChrome}
+          <ConfirmDialog
+            isOpen={confirming !== null}
+            title=" Delete plan "
+            message={
+              confirming
+                ? `Delete "${confirming.title}"? This removes the plan and its review.`
+                : ""
+            }
+            onConfirm={() => {
+              if (confirming) controller.deleteSession(confirming.sessionId);
               setMode({ type: "normal" });
             }}
             onCancel={() => setMode({ type: "normal" })}
             theme={theme}
           />
-        ) : null}
-      </AppShell>
+          {mode.type === "renameThread" ? (
+            <PromptDialog
+              isOpen
+              title=" rename thread "
+              label="new title for this thread:"
+              value={mode.text}
+              placeholder="a short title"
+              onInput={(text) => setMode({ ...mode, text })}
+              onSave={() => {
+                controller.renameSession(mode.sessionId, mode.text.trim());
+                setMode({ type: "normal" });
+              }}
+              onCancel={() => setMode({ type: "normal" })}
+              theme={theme}
+            />
+          ) : null}
+        </AppShell>
+      </MenuControlProvider>
     </ThemeProvider>
   );
 }

@@ -13,6 +13,7 @@ import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { useFrameMeasure } from "../use-frame-measure";
 import { useRootOverlay } from "./RootOverlay";
+import { useMenuControl } from "./menu-control";
 import { IconButton } from "./primitives/IconButton";
 import { NERD } from "./primitives/icons";
 import { truncateTitle } from "./truncate-title";
@@ -188,11 +189,11 @@ export function ThreadTree({
   theme,
 }: ThreadTreeProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const [actionsForId, setActionsForId] = useState<string | null>(null);
+  const menuControl = useMenuControl();
   // leave room for the 3-char prefix, the border, and the hover kebab so a row
   // never wraps: the title fades to fit whatever is left
   const titleWidth = Math.max(8, width - 9);
-  const closeMenu = (): void => setActionsForId(null);
+  const closeMenu = (): void => menuControl.closeMenu();
 
   return (
     <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1 }}>
@@ -229,8 +230,8 @@ export function ThreadTree({
               }
               pinned={pinnedIds?.has(id) ?? false}
               titleWidth={titleWidth}
-              menuOpen={actionsForId === id}
-              onToggleMenu={() => setActionsForId(actionsForId === id ? null : id)}
+              menuOpen={menuControl.openMenuId === `thread:${id}`}
+              onToggleMenu={() => menuControl.toggleMenu(`thread:${id}`)}
               onSelect={onSelect ? () => onSelect(id) : undefined}
               onPin={onPin ? () => (onPin(id), closeMenu()) : undefined}
               onRename={onRename ? () => (onRename(id, title), closeMenu()) : undefined}

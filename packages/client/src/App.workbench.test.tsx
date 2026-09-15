@@ -1,8 +1,8 @@
 /** The four-pane workbench in the virtual terminal, mirroring the browser prototype's interactions:
  * a diff session lays out Threads | Thread | Changes editor | Project sidebar; the diff (±) and tree
  * toggles are mutually exclusive and switching to tree keeps the Changes editor open; a project-tree
- * file opens as a read-only contents tab; the split control offers four directions and Split Right makes
- * two editor groups; dismissing the Changes tab collapses the Changes pane but keeps the Project sidebar;
+ * file opens as a read-only contents tab; the split control offers four directions and the arrow keys
+ * split; dismissing the Changes tab collapses the Changes pane but keeps the Project sidebar;
  * the right-sidebar toggle collapses the region to a thin rail and reopens it; zoom hides the Thread pane
  * while the sidebars stay. */
 
@@ -152,7 +152,7 @@ describe("the four-pane workbench", () => {
     expect(frame.split("\n")[HEADER_ROW]!).toContain("README.md");
   });
 
-  test("the split control offers four directions and Split Right makes two groups", async () => {
+  test("the split control offers four directions and arrow-right makes two groups", async () => {
     const setup = await renderApp();
 
     await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
@@ -164,17 +164,16 @@ describe("the four-pane workbench", () => {
     // the split control appears only on a file tab
     const split = locateText(setup, "split");
     await setup.mockMouse.click(split.column, split.row);
-    await waitForText(setup, "Split Right");
+    await waitForText(setup, "right");
 
     const menu = setup.captureCharFrame();
-    expect(menu).toContain("Split Left");
-    expect(menu).toContain("Split Right");
-    expect(menu).toContain("Split Up");
-    expect(menu).toContain("Split Down");
+    expect(menu).toContain("left");
+    expect(menu).toContain("right");
+    expect(menu).toContain("up");
+    expect(menu).toContain("down");
 
-    const right = locateText(setup, "Split Right");
-    await setup.mockMouse.click(right.column, right.row);
-    // two editor groups now ride the header, each with its own split control
+    // the arrow keys drive the popover: right splits the group into two
+    await pressKey(setup, "ARROW_RIGHT");
     await waitForState(setup, () => setup.captureCharFrame().split("split").length - 1 >= 2);
     expect((setup.captureCharFrame().match(/README\.md/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });

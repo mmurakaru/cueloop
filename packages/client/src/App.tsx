@@ -42,6 +42,7 @@ import { Toolbar } from "./components/primitives/Toolbar";
 import { groupInbox, projectName, threadTitle } from "./components/session-tree";
 import { ThreadTree } from "./components/ThreadTree";
 import { ChangesFileTree } from "./components/ChangesColumn";
+import { MenuControlProvider, useMenuControlState } from "./components/menu-control";
 import { ProjectTreeView } from "./components/ProjectTreeView";
 import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
@@ -136,6 +137,25 @@ export interface AppProps {
 /** True while the drop-up or one of its dialogs is open and owns the keyboard. */
 function menuChromeOpen(menuDialog: "keybinds" | "settings" | null): boolean {
   return menuDialog !== null;
+}
+
+/** The drop-up chrome or a floating popover menu (thread actions, editor split) holds the keyboard. */
+function keyboardHeldByMenu(
+  menuDialog: "keybinds" | "settings" | null,
+  openMenuId: string | null,
+): boolean {
+  return menuChromeOpen(menuDialog) || openMenuId !== null;
+}
+
+/** A popover menu is open, so the shell keyboard is modal: escape closes it, every other key is swallowed. */
+function menuModalHandled(
+  menuControl: { openMenuId: string | null; closeMenu: () => void },
+  key: { name: string },
+): boolean {
+  if (menuControl.openMenuId === null) return false;
+  if (key.name === "escape") menuControl.closeMenu();
+
+  return true;
 }
 
 /** True while a menu or an overlay owns the keyboard instead of the thread view. */
@@ -685,7 +705,8 @@ export function App({
 
   const overlay = resolveOverlay(mode, completion.phase, walking);
 
-  const menuOwnsKeyboard = menuChromeOpen(menuDialog);
+  const menuControl = useMenuControlState();
+  const menuOwnsKeyboard = keyboardHeldByMenu(menuDialog, menuControl.openMenuId);
   // an overlay (submit, walk, prompt, confirm) or the menu takes the keyboard
   // from the thread view; the view suspends its own grammar meanwhile
   const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
@@ -711,6 +732,7 @@ export function App({
   };
 
   useKeyboard((key) => {
+    if (menuModalHandled(menuControl, key)) return;
     if (
       appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand })
     )
@@ -917,242 +939,244 @@ export function App({
     <SlashSkillsContext.Provider value={skills}>
       <PaletteNamesContext.Provider value={paletteNames}>
         <ThemeProvider theme={theme}>
-          <AppShell
-            sidebarOpen={sidebarOpen}
-            onToggleSidebar={() => setSidebarOpen((open) => !open)}
-            onOpenMenu={() => setMenuDialog("settings")}
-            onFocusPane={setFocusedPane}
-            threadsPanel={
-              <scrollbox style={{ flexGrow: 1 }} focused={false}>
-                <ThreadTree
-                  rows={grouped.rows}
-                  cursor={inboxCursor}
-                  activeId={activeSession.id}
-                  focused={focusedPane === "threads"}
-                  pinnedIds={pinnedIds}
-                  width={30}
-                  onSelect={(id) => controller.open(id)}
-                  onPin={togglePin}
-                  onRename={(id, title) =>
-                    setMode({ type: "renameThread", sessionId: id, text: title })
-                  }
-                  theme={theme}
-                />
-              </scrollbox>
-            }
-            threadTitle={threadTitle(activeSession)}
-            threadActions={
-              showOwnerActions ? (
-                <Toolbar>
-                  <Button onPress={onEditRequest} theme={theme}>
-                    {" edit "}
-                  </Button>
-                  <Button onPress={onShareRequest} theme={theme}>
-                    {" share "}
-                  </Button>
-                </Toolbar>
-              ) : undefined
-            }
-            threadPanel={
-              <box style={{ flexGrow: 1, flexDirection: "column" }}>
-                <box style={{ flexGrow: 1, flexDirection: "row" }}>
-                  {isPixelPrototype ? (
-                    <PrototypePixels
-                      prototypePath={prototypePath}
-                      canComment={prototypeCanComment}
-                      onCommentElement={onCommentPrototype}
-                      onComposingChange={setPrototypeComposing}
-                      hidden={chromeHidden}
-                    />
-                  ) : isDiff ? (
-                    <box
-                      style={{
-                        flexGrow: 1,
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <text fg={theme.textDim}>Select a thread</text>
-                    </box>
-                  ) : (
-                    <ThreadView
-                      session={activeSession}
-                      suspended={surfaceSuspended(threadViewSuspended, focusedPane, "thread")}
-                      editOrphanCount={editOrphanCount}
-                      onComposingChange={setThreadComposing}
-                      leaderCombos={leaderCombos}
-                      onLeaderCommand={runLeaderCommand}
-                      resolved={resolved}
-                      onObserverBlocked={(reason) =>
-                        controller.setStatus(
-                          reason === "observer"
-                            ? "observer - read-only"
-                            : "review submitted - read-only",
-                        )
-                      }
-                      onCursorChange={setCursor}
-                      focusedAnnotationId={focusedAnnotationId}
-                      onFocusAnnotation={setFocusedAnnotationId}
-                      display={display}
-                      marks={marks}
-                      quickActions={quickActions}
-                      observer={observer}
-                      onAnnotate={(span, body) =>
-                        void controller.annotate(
-                          "comment",
-                          span.start.blockIndex,
-                          span.start.char,
-                          span.end.char,
-                          body,
-                          span.end.blockIndex,
-                        )
-                      }
-                      onReply={(rootAnnotationId, body) =>
-                        void controller.reply(rootAnnotationId, body)
-                      }
-                      onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
-                      onExit={() => onExit?.(0)}
-                    />
-                  )}
-                </box>
-                {threadFooter}
-              </box>
-            }
-            changesOpen={workbench.changesOpen}
-            projectOpen={workbench.projectOpen}
-            onToggleChanges={workbench.toggleChanges}
-            onToggleProject={workbench.toggleProject}
-            onToggleRight={workbench.toggleRight}
-            projectMode={workbench.projectMode}
-            zoomHideThread={workbench.zoomed}
-            changesFooter={threadFooter}
-            changesPanel={
-              <EditorGrid
-                tree={workbench.grid}
-                focusedGroupId={workbench.activeGroup}
-                commentCounts={diffCommentCounts}
-                onFocusGroup={workbench.focusGroup}
-                onActivateTab={workbench.activate}
-                onCloseTab={workbench.close}
-                onSplit={workbench.split}
-                onZoom={workbench.toggleZoom}
-                zoomed={workbench.zoomed}
-                renderTab={(tab, groupFocused) => (
-                  <GridTabContent
-                    tab={tab}
-                    rows={rows}
-                    surface={{
-                      session: activeSession,
-                      quickActions,
-                      observer,
-                      commentsEnabled: true,
-                      resolved,
-                      suspended: surfaceSuspended(
-                        threadViewSuspended || !groupFocused,
-                        focusedPane,
-                        "changes",
-                      ),
-                      onComposingChange: setThreadComposing,
-                      onObserverBlocked: (reason) =>
-                        controller.setStatus(
-                          reason === "observer"
-                            ? "observer - read-only"
-                            : "review submitted - read-only",
-                        ),
-                      onCursorChange: setCursor,
-                      focusedAnnotationId,
-                      onFocusAnnotation: setFocusedAnnotationId,
-                      // a diff thread's Changes view is the artifact itself; any other thread's is the
-                      // live working-tree diff, so its notes carry a file target and anchor there
-                      onAnnotate: (span, body) =>
-                        void controller.annotate(
-                          "comment",
-                          span.start.blockIndex,
-                          span.start.char,
-                          span.end.char,
-                          body,
-                          span.end.blockIndex,
-                          isDiff
-                            ? { kind: "artifact" }
-                            : { kind: "file", path: "", rev: "worktree" },
-                        ),
-                      onReply: (rootAnnotationId, body) =>
-                        void controller.reply(rootAnnotationId, body),
-                      onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
-                      leaderCombos,
-                      onLeaderCommand: runLeaderCommand,
-                      onExit: () => onExit?.(0),
-                    }}
-                    rejectedRows={rejectedRows}
-                    fold={diffFold}
-                    fileStats={controller.fileStats()}
-                    split={diffView === "split" && workbench.zoomed}
-                    dimmed={walking}
-                    readFile={(path) => controller.repoReadFile(path)}
-                    onAddFileComment={(path, anchor, body) =>
-                      void controller.addComment(
-                        anchor,
-                        { kind: "file", path, rev: "worktree" },
-                        body,
-                      )
+          <MenuControlProvider value={menuControl}>
+            <AppShell
+              sidebarOpen={sidebarOpen}
+              onToggleSidebar={() => setSidebarOpen((open) => !open)}
+              onOpenMenu={() => setMenuDialog("settings")}
+              onFocusPane={setFocusedPane}
+              threadsPanel={
+                <scrollbox style={{ flexGrow: 1 }} focused={false}>
+                  <ThreadTree
+                    rows={grouped.rows}
+                    cursor={inboxCursor}
+                    activeId={activeSession.id}
+                    focused={focusedPane === "threads"}
+                    pinnedIds={pinnedIds}
+                    width={30}
+                    onSelect={(id) => controller.open(id)}
+                    onPin={togglePin}
+                    onRename={(id, title) =>
+                      setMode({ type: "renameThread", sessionId: id, text: title })
                     }
                     theme={theme}
                   />
-                )}
-                theme={theme}
-              />
-            }
-            projectPanel={
-              <ProjectPanelBody
-                mode={workbench.projectMode}
-                loadChanges={() => controller.repoChanges()}
-                loadProjectFiles={() => controller.repoFiles()}
-                reloadKey={activeSession.id}
-                // the Changes navigator always opens a changed file as a diff - a diff review shows its
-                // captured snapshot, every other thread the live working-tree diff
-                onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
-                onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
-                commentCounts={diffCommentCounts}
-                focused={focusedPane === "project"}
-                theme={theme}
-              />
-            }
-            theme={theme}
-          >
-            <TrailingOverlays
-              walking={walking}
-              walk={walk}
-              walkFileList={walkFileList}
-              viewedPaths={viewedPaths}
-              session={activeSession}
-              terminalWidth={terminalWidth}
-              theme={theme}
-              mode={mode}
-              toast={toast}
-              setMode={setMode}
-              dispatch={dispatch}
-            />
-            {submitConfirmState !== null ? (
-              <box
-                onMouseUp={submitConfirmState.onCancel}
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: "100%",
-                  height: "100%",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <box onMouseUp={(event) => event.stopPropagation()}>
-                  <ConfirmCard {...submitConfirmState} theme={theme} />
+                </scrollbox>
+              }
+              threadTitle={threadTitle(activeSession)}
+              threadActions={
+                showOwnerActions ? (
+                  <Toolbar>
+                    <Button onPress={onEditRequest} theme={theme}>
+                      {" edit "}
+                    </Button>
+                    <Button onPress={onShareRequest} theme={theme}>
+                      {" share "}
+                    </Button>
+                  </Toolbar>
+                ) : undefined
+              }
+              threadPanel={
+                <box style={{ flexGrow: 1, flexDirection: "column" }}>
+                  <box style={{ flexGrow: 1, flexDirection: "row" }}>
+                    {isPixelPrototype ? (
+                      <PrototypePixels
+                        prototypePath={prototypePath}
+                        canComment={prototypeCanComment}
+                        onCommentElement={onCommentPrototype}
+                        onComposingChange={setPrototypeComposing}
+                        hidden={chromeHidden}
+                      />
+                    ) : isDiff ? (
+                      <box
+                        style={{
+                          flexGrow: 1,
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <text fg={theme.textDim}>Select a thread</text>
+                      </box>
+                    ) : (
+                      <ThreadView
+                        session={activeSession}
+                        suspended={surfaceSuspended(threadViewSuspended, focusedPane, "thread")}
+                        editOrphanCount={editOrphanCount}
+                        onComposingChange={setThreadComposing}
+                        leaderCombos={leaderCombos}
+                        onLeaderCommand={runLeaderCommand}
+                        resolved={resolved}
+                        onObserverBlocked={(reason) =>
+                          controller.setStatus(
+                            reason === "observer"
+                              ? "observer - read-only"
+                              : "review submitted - read-only",
+                          )
+                        }
+                        onCursorChange={setCursor}
+                        focusedAnnotationId={focusedAnnotationId}
+                        onFocusAnnotation={setFocusedAnnotationId}
+                        display={display}
+                        marks={marks}
+                        quickActions={quickActions}
+                        observer={observer}
+                        onAnnotate={(span, body) =>
+                          void controller.annotate(
+                            "comment",
+                            span.start.blockIndex,
+                            span.start.char,
+                            span.end.char,
+                            body,
+                            span.end.blockIndex,
+                          )
+                        }
+                        onReply={(rootAnnotationId, body) =>
+                          void controller.reply(rootAnnotationId, body)
+                        }
+                        onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
+                        onExit={() => onExit?.(0)}
+                      />
+                    )}
+                  </box>
+                  {threadFooter}
                 </box>
-              </box>
-            ) : null}
-            {menuChrome}
-          </AppShell>
+              }
+              changesOpen={workbench.changesOpen}
+              projectOpen={workbench.projectOpen}
+              onToggleChanges={workbench.toggleChanges}
+              onToggleProject={workbench.toggleProject}
+              onToggleRight={workbench.toggleRight}
+              projectMode={workbench.projectMode}
+              zoomHideThread={workbench.zoomed}
+              changesFooter={threadFooter}
+              changesPanel={
+                <EditorGrid
+                  tree={workbench.grid}
+                  focusedGroupId={workbench.activeGroup}
+                  commentCounts={diffCommentCounts}
+                  onFocusGroup={workbench.focusGroup}
+                  onActivateTab={workbench.activate}
+                  onCloseTab={workbench.close}
+                  onSplit={workbench.split}
+                  onZoom={workbench.toggleZoom}
+                  zoomed={workbench.zoomed}
+                  renderTab={(tab, groupFocused) => (
+                    <GridTabContent
+                      tab={tab}
+                      rows={rows}
+                      surface={{
+                        session: activeSession,
+                        quickActions,
+                        observer,
+                        commentsEnabled: true,
+                        resolved,
+                        suspended: surfaceSuspended(
+                          threadViewSuspended || !groupFocused,
+                          focusedPane,
+                          "changes",
+                        ),
+                        onComposingChange: setThreadComposing,
+                        onObserverBlocked: (reason) =>
+                          controller.setStatus(
+                            reason === "observer"
+                              ? "observer - read-only"
+                              : "review submitted - read-only",
+                          ),
+                        onCursorChange: setCursor,
+                        focusedAnnotationId,
+                        onFocusAnnotation: setFocusedAnnotationId,
+                        // a diff thread's Changes view is the artifact itself; any other thread's is the
+                        // live working-tree diff, so its notes carry a file target and anchor there
+                        onAnnotate: (span, body) =>
+                          void controller.annotate(
+                            "comment",
+                            span.start.blockIndex,
+                            span.start.char,
+                            span.end.char,
+                            body,
+                            span.end.blockIndex,
+                            isDiff
+                              ? { kind: "artifact" }
+                              : { kind: "file", path: "", rev: "worktree" },
+                          ),
+                        onReply: (rootAnnotationId, body) =>
+                          void controller.reply(rootAnnotationId, body),
+                        onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
+                        leaderCombos,
+                        onLeaderCommand: runLeaderCommand,
+                        onExit: () => onExit?.(0),
+                      }}
+                      rejectedRows={rejectedRows}
+                      fold={diffFold}
+                      fileStats={controller.fileStats()}
+                      split={diffView === "split" && workbench.zoomed}
+                      dimmed={walking}
+                      readFile={(path) => controller.repoReadFile(path)}
+                      onAddFileComment={(path, anchor, body) =>
+                        void controller.addComment(
+                          anchor,
+                          { kind: "file", path, rev: "worktree" },
+                          body,
+                        )
+                      }
+                      theme={theme}
+                    />
+                  )}
+                  theme={theme}
+                />
+              }
+              projectPanel={
+                <ProjectPanelBody
+                  mode={workbench.projectMode}
+                  loadChanges={() => controller.repoChanges()}
+                  loadProjectFiles={() => controller.repoFiles()}
+                  reloadKey={activeSession.id}
+                  // the Changes navigator always opens a changed file as a diff - a diff review shows its
+                  // captured snapshot, every other thread the live working-tree diff
+                  onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
+                  onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
+                  commentCounts={diffCommentCounts}
+                  focused={focusedPane === "project"}
+                  theme={theme}
+                />
+              }
+              theme={theme}
+            >
+              <TrailingOverlays
+                walking={walking}
+                walk={walk}
+                walkFileList={walkFileList}
+                viewedPaths={viewedPaths}
+                session={activeSession}
+                terminalWidth={terminalWidth}
+                theme={theme}
+                mode={mode}
+                toast={toast}
+                setMode={setMode}
+                dispatch={dispatch}
+              />
+              {submitConfirmState !== null ? (
+                <box
+                  onMouseUp={submitConfirmState.onCancel}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <box onMouseUp={(event) => event.stopPropagation()}>
+                    <ConfirmCard {...submitConfirmState} theme={theme} />
+                  </box>
+                </box>
+              ) : null}
+              {menuChrome}
+            </AppShell>
+          </MenuControlProvider>
         </ThemeProvider>
       </PaletteNamesContext.Provider>
     </SlashSkillsContext.Provider>
