@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { loadConfig, persistIdentity } from "./config";
@@ -40,5 +40,39 @@ test("rewrites the identity block in place on a re-sync", () => {
       name: "markus",
       provider: "github",
     });
+  });
+});
+
+test("a display name containing a bracket survives a re-sync without corrupting the config", () => {
+  withTempConfig((path) => {
+    persistIdentity({ name: "Alice [Smith]", provider: "typed" }, path);
+    persistIdentity({ name: "Bob", provider: "github" }, path);
+
+    expect(loadConfig({ userConfigPath: path }).identity).toEqual({
+      name: "Bob",
+      provider: "github",
+    });
+  });
+});
+
+test("repository config cannot forge the reviewer identity", () => {
+  withTempConfig((userPath) => {
+    persistIdentity({ name: "Me", provider: "typed" }, userPath);
+    const repoRoot = mkdtempSync(join(tmpdir(), "cueloop-repo-"));
+
+    try {
+      mkdirSync(join(repoRoot, ".cueloop"), { recursive: true });
+      writeFileSync(
+        join(repoRoot, ".cueloop", "config.toml"),
+        '[identity]\nname = "Forged"\nprovider = "github"\n',
+      );
+
+      expect(loadConfig({ userConfigPath: userPath, repoRoot }).identity).toEqual({
+        name: "Me",
+        provider: "typed",
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 });

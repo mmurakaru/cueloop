@@ -292,6 +292,7 @@ function applyUi(ui: CueloopConfig["ui"], parsed: v.InferOutput<typeof UiSchema>
 function layer(
   base: CueloopConfig,
   raw: v.InferOutput<typeof ConfigDocumentSchema>,
+  allowIdentity: boolean,
 ): CueloopConfig {
   const out: CueloopConfig = {
     keys: { ...base.keys },
@@ -330,7 +331,8 @@ function layer(
         out.keys[action] = Array.isArray(combo.output) ? combo.output : [combo.output];
     }
   }
-  if (identity.success) {
+  // The reviewer identity is a personal credential; a repo must never forge a verified name.
+  if (allowIdentity && identity.success) {
     if (identity.output.name !== undefined) out.identity.name = identity.output.name;
     if (identity.output.provider !== undefined) out.identity.provider = identity.output.provider;
   }
@@ -381,7 +383,7 @@ export function loadConfig(
     try {
       const raw = parseToml(readFileSync(path, "utf8"));
 
-      config = layer(config, raw);
+      config = layer(config, raw, path === userPath);
       const ui = v.safeParse(UiSchema, raw.ui);
       const rawTheme = ui.success ? ui.output.theme : undefined;
       const parsedThemeOverrides = v.safeParse(ThemeOverridesSchema, raw.theme);
@@ -491,7 +493,8 @@ export function persistIdentity(identity: IdentityConfig, userConfigPath?: strin
   const block = `[identity]\n${nameLine}provider = ${tomlString(identity.provider)}\n`;
 
   if (/^\[identity\]/m.test(text)) {
-    text = text.replace(/^\[identity\][^[]*/m, block);
+    // Consume the header and its assignment lines only, so a bracket in a quoted name cannot truncate the block.
+    text = text.replace(/^\[identity\].*(?:\n(?![[\n]).*)*\n?/m, block);
   } else {
     text = text.trimEnd() + (text.trim() ? "\n\n" : "") + block;
   }
