@@ -86,6 +86,7 @@ export function useSettingsDialog(params: {
   identityName?: string;
   identityProvider: "typed" | "github";
   onSyncGithubIdentity: () => void;
+  onRenameDisplayName: () => void;
 }): SettingsDialogModel {
   const {
     theme,
@@ -104,6 +105,7 @@ export function useSettingsDialog(params: {
     identityName,
     identityProvider,
     onSyncGithubIdentity,
+    onRenameDisplayName,
   } = params;
 
   const [settingsNav, setSettingsNav] = useState<SettingsNav>({
@@ -240,6 +242,8 @@ export function useSettingsDialog(params: {
       persistTheme(next);
     } else if (rowKey === "syncGithub") {
       onSyncGithubIdentity();
+    } else if (rowKey === "displayName") {
+      onRenameDisplayName();
     }
   };
 

@@ -635,6 +635,10 @@ export function App({
     identityName: identity.name,
     identityProvider: identity.provider,
     onSyncGithubIdentity: syncGithubIdentity,
+    onRenameDisplayName: () => {
+      setMenuDialog(null);
+      setMode({ type: "renameSelf", text: identity.name ?? "" });
+    },
   });
 
   // ── derived view model ──────────────────────
@@ -753,6 +757,11 @@ export function App({
       setAuthorNames((prev) => ({ ...prev, [id]: name }));
     },
     renameThread: (id: string, title: string) => controller.renameSession(id, title),
+    setLocalIdentityName: (name: string) => {
+      const next: IdentityConfig = name ? { name, provider: "typed" } : { provider: "typed" };
+      setIdentity(next);
+      persistIdentity(next);
+    },
     liveInput,
     setCursor,
     setInboxCursor,
