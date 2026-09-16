@@ -29,7 +29,9 @@ test("buildOtlpTracePayload carries service.name and maps scalar attributes to O
   expect(payload).toEqual({
     resourceSpans: [
       {
-        resource: { attributes: [{ key: "service.name", value: { stringValue: "cueloop-client" } }] },
+        resource: {
+          attributes: [{ key: "service.name", value: { stringValue: "cueloop-client" } }],
+        },
         scopeSpans: [
           {
             spans: [

@@ -19,7 +19,9 @@ const { values } = parseArgs({
 });
 
 if (values.script === undefined) {
-  process.stderr.write("usage: bun run benchmarks/profile.ts --script <name> [--heap] [--out <dir>]\n");
+  process.stderr.write(
+    "usage: bun run benchmarks/profile.ts --script <name> [--heap] [--out <dir>]\n",
+  );
   process.exit(1);
 }
 
