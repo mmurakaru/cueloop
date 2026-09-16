@@ -48,7 +48,12 @@ function accentTitle(setup: Awaited<ReturnType<typeof renderReadyApp>>): string 
   for (const line of setup.captureSpans().lines) {
     for (const span of line.spans) {
       const rgb = span.fg?.toInts();
-      if (rgb && rgb[0] === ACCENT_DARK[0] && rgb[1] === ACCENT_DARK[1] && rgb[2] === ACCENT_DARK[2]) {
+      if (
+        rgb &&
+        rgb[0] === ACCENT_DARK[0] &&
+        rgb[1] === ACCENT_DARK[1] &&
+        rgb[2] === ACCENT_DARK[2]
+      ) {
         const text = span.text.trim();
         if (text.includes("review")) return text;
       }
@@ -60,10 +65,10 @@ function accentTitle(setup: Awaited<ReturnType<typeof renderReadyApp>>): string 
 
 test("ctrl+q quits even when a menu holds the keyboard", async () => {
   let exitCode: number | undefined;
-  const setup = await renderReadyApp(
-    <App home={home} onExit={(code) => (exitCode = code)} />,
-    { width: 120, height: 32 },
-  );
+  const setup = await renderReadyApp(<App home={home} onExit={(code) => (exitCode = code)} />, {
+    width: 120,
+    height: 32,
+  });
   await waitForText(setup, "review");
 
   // open the settings dialog from the top-left gear - it takes the keyboard

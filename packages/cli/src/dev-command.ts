@@ -14,7 +14,11 @@ import { resolveWorkspace } from "@cueloop/daemon/review";
 /** Bump whenever the seed content below changes, so a long-lived dev home refreshes instead of keeping
  *  stale threads (an old seed's diff had no files, which showed as "No changes"). */
 const SEED_VERSION = 2;
-const SEED_TITLES = new Set(["Read the repository", "Review the accent change", "A standalone thought"]);
+const SEED_TITLES = new Set([
+  "Read the repository",
+  "Review the accent change",
+  "A standalone thought",
+]);
 
 const SEED_PLAN = `# Read the repository
 
