@@ -125,7 +125,7 @@ export const FullAnnotationSchema = v.object({
 
 export const IdentitySchema = v.object({
   id: NonEmpty,
-  provider: v.literal("ssh"),
+  provider: v.picklist(["ssh", "github"]),
   name: v.optional(v.string()),
   handle: v.optional(v.string()),
 } satisfies EntriesOf<Identity>);
