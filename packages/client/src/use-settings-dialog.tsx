@@ -83,6 +83,9 @@ export function useSettingsDialog(params: {
   quickActions: QuickAction[];
   setQuickActions: Dispatch<SetStateAction<QuickAction[]>>;
   setMenuDialog: Dispatch<SetStateAction<"keybinds" | "settings" | null>>;
+  identityName?: string;
+  identityProvider: "typed" | "github";
+  onSyncGithubIdentity: () => void;
 }): SettingsDialogModel {
   const {
     theme,
@@ -98,6 +101,9 @@ export function useSettingsDialog(params: {
     quickActions,
     setQuickActions,
     setMenuDialog,
+    identityName,
+    identityProvider,
+    onSyncGithubIdentity,
   } = params;
 
   const [settingsNav, setSettingsNav] = useState<SettingsNav>({
@@ -158,6 +164,15 @@ export function useSettingsDialog(params: {
       ],
     },
     {
+      id: "account",
+      name: "Account",
+      rows: [
+        { key: "displayName", label: "Display name", kind: "text" },
+        { key: "identitySource", label: "Source", kind: "text" },
+        { key: "syncGithub", label: "Sync from GitHub", kind: "text" },
+      ],
+    },
+    {
       id: "appearance",
       name: "Appearance",
       rows: [
@@ -202,6 +217,9 @@ export function useSettingsDialog(params: {
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
     diffView: diffView === "split" ? "Split" : "Stacked",
     theme: THEME_LABELS[themeName],
+    displayName: identityName ?? "-- not set --",
+    identitySource: identityProvider === "github" ? "GitHub" : "typed",
+    syncGithub: "enter to sync",
   };
   const cycleSetting = (rowKey: string): void => {
     if (rowKey === "autoClose") {
@@ -220,6 +238,8 @@ export function useSettingsDialog(params: {
       setThemeName(next);
       setTheme(composeTheme(next, themeOverrides, appearance));
       persistTheme(next);
+    } else if (rowKey === "syncGithub") {
+      onSyncGithubIdentity();
     }
   };
 
