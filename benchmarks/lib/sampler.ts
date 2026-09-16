@@ -26,19 +26,27 @@ async function runScriptProcess(
   const home = mkdtempSync(join(tmpdir(), "cueloop-bench-"));
 
   try {
-    const argv = [process.execPath, ...bunFlags, "run", join(BENCHMARKS_DIR, `${script}.ts`)];
-    const proc = Bun.spawn(argv, {
+    const processArguments = [
+      process.execPath,
+      ...bunFlags,
+      "run",
+      join(BENCHMARKS_DIR, `${script}.ts`),
+    ];
+    const benchmarkProcess = Bun.spawn(processArguments, {
       env: hermeticCueloopEnvironment(home, extraEnv),
       stdout: "pipe",
       stderr: "inherit",
       timeout: SCRIPT_TIMEOUT_MS,
       killSignal: "SIGKILL",
     });
-    const [stdout, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+    const [stdout, code] = await Promise.all([
+      new Response(benchmarkProcess.stdout).text(),
+      benchmarkProcess.exited,
+    ]);
 
     if (code !== 0) {
-      const timedOut = proc.signalCode
-        ? ` (${proc.signalCode}, likely the ${SCRIPT_TIMEOUT_MS / 1000}s timeout)`
+      const timedOut = benchmarkProcess.signalCode
+        ? ` (${benchmarkProcess.signalCode}, likely the ${SCRIPT_TIMEOUT_MS / 1000}s timeout)`
         : "";
 
       throw new Error(`benchmark ${script} exited with code ${code}${timedOut}`);
@@ -71,15 +79,35 @@ export interface ScriptProfile {
   artifacts: string[];
 }
 
-/** "cpu" writes a `.cpuprofile` (speedscope), "heap" a `.heapsnapshot`; both add a markdown report. */
+/** "cpu" writes a `.cpuprofile`, "heap" a heap sampling report; both add a readable markdown report. */
 export type ProfileKind = "cpu" | "heap";
 
-function profileFlags(kind: ProfileKind, dir: string, name: string): string[] {
+function profileFlags(kind: ProfileKind, profileDirectory: string, name: string): string[] {
   if (kind === "heap") {
-    return ["--heap-prof", "--heap-prof-md", `--heap-prof-dir=${dir}`, `--heap-prof-name=${name}`];
+    return [
+      "--heap-prof",
+      "--heap-prof-md",
+      `--heap-prof-dir=${profileDirectory}`,
+      `--heap-prof-name=${name}`,
+    ];
   }
 
-  return ["--cpu-prof", "--cpu-prof-md", `--cpu-prof-dir=${dir}`, `--cpu-prof-name=${name}`];
+  return [
+    "--cpu-prof",
+    "--cpu-prof-md",
+    `--cpu-prof-dir=${profileDirectory}`,
+    `--cpu-prof-name=${name}`,
+  ];
+}
+
+/** A CPU run must write its binary `.cpuprofile` and a `.md` report; a heap run writes its markdown report. */
+function profileComplete(kind: ProfileKind, artifacts: readonly string[]): boolean {
+  if (kind === "heap") return artifacts.length > 0;
+
+  return (
+    artifacts.some((path) => path.endsWith(".cpuprofile")) &&
+    artifacts.some((path) => path.endsWith(".md"))
+  );
 }
 
 /** Run `script` once under Bun's `kind` profiler into a fresh dir under `outDir`; returns what landed. Needs Bun >= 1.3.0. */
@@ -94,9 +122,9 @@ export async function profileScript(
   const metrics = await runScriptProcess(script, extraEnv, profileFlags(kind, runDir, script));
   const artifacts = readdirSync(runDir).map((file) => join(runDir, file));
 
-  if (artifacts.length === 0) {
+  if (!profileComplete(kind, artifacts)) {
     throw new Error(
-      `no ${kind} profile written to ${runDir} - Bun ${Bun.version} is below 1.3.0 or the flag was ignored`,
+      `incomplete ${kind} profile in ${runDir} (got ${artifacts.length} file(s)) - Bun ${Bun.version} is below 1.3.0 or a flag was ignored`,
     );
   }
 

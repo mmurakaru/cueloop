@@ -120,7 +120,9 @@ export async function postOtlpTrace(
   const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
   if (endpoint === undefined || spans.length === 0) return;
 
-  await fetch(`${endpoint}/v1/traces`, {
+  // strip a trailing slash so an endpoint like "http://host:4318/" does not become "//v1/traces"
+  const base = endpoint.replace(/\/+$/, "");
+  await fetch(`${base}/v1/traces`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(buildOtlpTracePayload(serviceName, spans)),

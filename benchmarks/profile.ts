@@ -1,7 +1,7 @@
 /**
  * Run one benchmark script under Bun's CPU or heap profiler and print the artifact paths. Each run
- * writes a binary profile (open the `.cpuprofile` in speedscope, the `.heapsnapshot` in DevTools) plus
- * a readable `.md` report. The iterate-fast loop for a hot path:
+ * writes a V8 binary profile (`.cpuprofile` for a flamegraph tool, `.heapsnapshot` for a heap viewer)
+ * plus a readable `.md` report. The iterate-fast loop for a hot path:
  *
  *   bun run benchmarks/profile.ts --script interaction-mouse           # CPU
  *   bun run benchmarks/profile.ts --script interaction-mouse --heap    # allocations

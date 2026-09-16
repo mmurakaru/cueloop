@@ -101,7 +101,8 @@ test("postOtlpTrace POSTs OTLP JSON to /v1/traces when the endpoint is set", asy
       return new Response("{}");
     },
   });
-  process.env.OTEL_EXPORTER_OTLP_ENDPOINT = `http://127.0.0.1:${server.port}`;
+  // a trailing slash must not double up into "//v1/traces"
+  process.env.OTEL_EXPORTER_OTLP_ENDPOINT = `http://127.0.0.1:${server.port}/`;
   try {
     await postOtlpTrace("cueloop-client", [span]);
   } finally {
