@@ -596,17 +596,26 @@ export function App({
     if (!known) setMode({ type: "nameSelf", text: "" });
   }, [role, selfAuthor, session]);
 
-  const syncGithubIdentity = (): void => {
-    void resolveGithubIdentity().then((github) => {
-      if (!github) return controller.setStatus("GitHub not connected - run gh auth login");
-      const next: IdentityConfig = {
-        name: github.name?.trim() || github.login,
-        provider: "github",
-      };
-
-      setIdentity(next);
+  // Bumped on every identity change so a slow GitHub sync that lands after a newer rename is discarded.
+  const identityGenerationRef = useRef(0);
+  const applyIdentity = (next: IdentityConfig): void => {
+    identityGenerationRef.current += 1;
+    setIdentity(next);
+    try {
       persistIdentity(next);
-      controller.setStatus(`identity synced from GitHub - ${next.name}`);
+    } catch {
+      controller.setStatus("could not save identity to config");
+    }
+  };
+  const syncGithubIdentity = (): void => {
+    const generation = (identityGenerationRef.current += 1);
+    void resolveGithubIdentity().then((github) => {
+      if (identityGenerationRef.current !== generation) return;
+      if (!github) return controller.setStatus("GitHub not connected - run gh auth login");
+      const name = github.name?.trim() || github.login;
+
+      applyIdentity({ name, provider: "github" });
+      controller.setStatus(`identity synced from GitHub - ${name}`);
     });
   };
 
@@ -758,9 +767,7 @@ export function App({
     },
     renameThread: (id: string, title: string) => controller.renameSession(id, title),
     setLocalIdentityName: (name: string) => {
-      const next: IdentityConfig = name ? { name, provider: "typed" } : { provider: "typed" };
-      setIdentity(next);
-      persistIdentity(next);
+      applyIdentity(name ? { name, provider: "typed" } : { provider: "typed" });
     },
     liveInput,
     setCursor,
@@ -963,6 +970,11 @@ export function App({
     );
 
   const activeSession = session;
+  const resolveAuthorLabel = authorLabelResolver(
+    identity.name,
+    activeSession.participants,
+    authorNames,
+  );
 
   if (isCompletionOverlayPhase(completion) && activeSession.verdict)
     return (
@@ -1136,11 +1148,7 @@ export function App({
                           void controller.reply(rootAnnotationId, body)
                         }
                         onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
-                        resolveAuthorLabel={authorLabelResolver(
-                          identity.name,
-                          activeSession.participants,
-                          authorNames,
-                        )}
+                        resolveAuthorLabel={resolveAuthorLabel}
                         onExit={() => onExit?.(0)}
                       />
                     )}
@@ -1209,6 +1217,7 @@ export function App({
                         onReply: (rootAnnotationId, body) =>
                           void controller.reply(rootAnnotationId, body),
                         onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
+                        resolveAuthorLabel,
                         leaderCombos,
                         onLeaderCommand: runLeaderCommand,
                         onExit: () => onExit?.(0),

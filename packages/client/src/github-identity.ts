@@ -1,9 +1,4 @@
-/**
- * The signed-in GitHub identity, read once from the local gh command-line tool.
- * Lets a reviewer stamp their verified login as a display name with no prompt
- * and no browser. Returns null when gh is absent or logged out, so a caller
- * falls back to a typed or anonymous name.
- */
+/** The signed-in GitHub identity from the local gh tool, or null when gh cannot answer. */
 
 import * as v from "valibot";
 
