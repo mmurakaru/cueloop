@@ -1,10 +1,9 @@
-/** WCAG colour maths for the visual-regression layer: relative luminance and the contrast ratio used
- * to gate that text stays readable in both the dark and light themes. sRGB channels are 0-255. */
+/** WCAG relative luminance and contrast ratio for the visual-regression accessibility gate. */
 
-export type Rgb = readonly [number, number, number];
+export type RgbColor = readonly [number, number, number];
 
-/** Parse a `#rrggbb` hex colour into an sRGB triple. */
-export function rgbFromHex(hex: string): Rgb {
+/** Parse a `#rrggbb` hexadecimal colour into an sRGB triple (channels 0-255). */
+export function rgbColorFromHex(hex: string): RgbColor {
   const value = hex.replace("#", "");
 
   return [
@@ -15,7 +14,7 @@ export function rgbFromHex(hex: string): Rgb {
 }
 
 /** WCAG relative luminance of an sRGB colour, 0 (black) to 1 (white). */
-export function relativeLuminance(rgb: Rgb): number {
+export function relativeLuminance(rgb: RgbColor): number {
   const linear = rgb.map((channel) => {
     const ratio = channel / 255;
 
@@ -26,7 +25,7 @@ export function relativeLuminance(rgb: Rgb): number {
 }
 
 /** WCAG contrast ratio between two sRGB colours, 1 (identical) to 21 (black on white). */
-export function contrastRatio(foreground: Rgb, background: Rgb): number {
+export function contrastRatio(foreground: RgbColor, background: RgbColor): number {
   const lighter = Math.max(relativeLuminance(foreground), relativeLuminance(background));
   const darker = Math.min(relativeLuminance(foreground), relativeLuminance(background));
 

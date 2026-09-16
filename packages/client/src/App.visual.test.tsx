@@ -1,44 +1,29 @@
-/** Scene visual regression: the workbench rendered in both themes. Clicking a sidebar thread must paint
- * its title in that theme's accent - proving the theme applied and the click feedback works in dark and
- * light. Colours come from captureSpans, so a theme regression fails here even though char text is equal. */
+/** Scene visual regression: clicking a sidebar thread paints its title in the theme's accent, in both
+ * themes. Colours come from captureSpans, so a theme or click-feedback regression fails here. */
 
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import React from "react";
-import { DaemonServer } from "@cueloop/daemon";
 import { App } from "./App";
 import { clickText, isolateUserConfig, renderReadyApp, waitForText } from "./test-support";
 import { themeForName } from "./theme-presets";
-import { rgbFromHex } from "./visual/contrast";
+import { rgbColorFromHex } from "./visual/contrast";
+import { createTestReviewHome, type TestReviewHome } from "../../../test/helpers/review-home";
 
-let home: string;
-let restore: () => void;
-let server: DaemonServer;
+let reviewHome: TestReviewHome;
+let restoreUserConfig: () => void;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), "cueloop-visual-"));
-  restore = isolateUserConfig(home);
-  server = new DaemonServer({ home, idleExitMs: 0 });
-  server.start();
-  server.core.sessionCreate({
-    workspace: { repoRoot: "/repo", branch: "main" },
-    artifact: { type: "plan", content: "# First review\n", meta: { title: "First review" } },
-  });
-  server.core.sessionCreate({
-    workspace: { repoRoot: "/repo", branch: "main" },
-    artifact: { type: "plan", content: "# Second review\n", meta: { title: "Second review" } },
-  });
+  reviewHome = createTestReviewHome();
+  restoreUserConfig = isolateUserConfig(reviewHome.home);
+  reviewHome.createPlanSession("# First review\n", "First review");
+  reviewHome.createPlanSession("# Second review\n", "Second review");
 });
 afterEach(() => {
-  restore();
-  server.stop();
-  rmSync(home, { recursive: true, force: true });
+  restoreUserConfig();
+  reviewHome.cleanup();
 });
 
-/** Whether any span containing `needle` is painted in `color` (the thread header also carries the title
- *  in a dim colour, so we look for the accent row rather than the first match). */
+/** Whether any span containing `needle` is painted in `color` (the thread header carries the title dimly). */
 function hasSpanColor(
   setup: Awaited<ReturnType<typeof renderReadyApp>>,
   needle: string,
@@ -57,8 +42,8 @@ function hasSpanColor(
 
 for (const mode of ["dark", "light"] as const) {
   test(`clicking a thread paints it in the ${mode} accent`, async () => {
-    const accent = rgbFromHex(themeForName("cueloop", mode).accent);
-    const setup = await renderReadyApp(<App home={home} appearance={mode} />, {
+    const accent = rgbColorFromHex(themeForName("cueloop", mode).accent);
+    const setup = await renderReadyApp(<App home={reviewHome.home} appearance={mode} />, {
       width: 120,
       height: 32,
     });
