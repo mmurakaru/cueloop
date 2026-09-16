@@ -24,7 +24,9 @@ for (const mode of ["dark", "light"] as const) {
     const theme = themeForName("cueloop", mode);
     const background = TERMINAL_BACKGROUND[mode];
 
-    expect(contrastRatio(rgbFromHex(theme.text), background)).toBeGreaterThanOrEqual(MIN_TEXT_CONTRAST);
+    expect(contrastRatio(rgbFromHex(theme.text), background)).toBeGreaterThanOrEqual(
+      MIN_TEXT_CONTRAST,
+    );
     expect(contrastRatio(rgbFromHex(theme.textMuted), background)).toBeGreaterThanOrEqual(
       MIN_ACCENT_CONTRAST,
     );
