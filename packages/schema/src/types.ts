@@ -224,8 +224,8 @@ export type SessionStatus = "pending" | "resolved";
 export interface Identity {
   /** Stable identity key; equals an annotation's `author`. */
   id: string;
-  /** Identity source. One value today; widen the union when OAuth lands. */
-  provider: "ssh";
+  /** Identity source: the SSH key that authored, or a verified GitHub login. */
+  provider: "ssh" | "github";
   /** Display name; absent = the collaborator stayed anonymous. */
   name?: string;
   /** Provider handle: a github login, an email, or a short fingerprint. */
