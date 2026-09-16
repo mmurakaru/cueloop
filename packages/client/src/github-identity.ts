@@ -25,13 +25,13 @@ function githubCliBinary(): string {
 /** Read the authenticated GitHub login and name, or null when gh cannot answer. */
 export async function resolveGithubIdentity(): Promise<GithubIdentity | null> {
   try {
-    const process = Bun.spawn(
+    const githubProcess = Bun.spawn(
       [githubCliBinary(), "api", "user", "--jq", "{login: .login, name: .name}"],
       { stdout: "pipe", stderr: "ignore" },
     );
     const [output, exitCode] = await Promise.all([
-      new Response(process.stdout).text(),
-      process.exited,
+      new Response(githubProcess.stdout).text(),
+      githubProcess.exited,
     ]);
 
     if (exitCode !== 0) return null;
