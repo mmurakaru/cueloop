@@ -648,9 +648,10 @@ class Controller implements ReviewController {
     // eager: capture the live working-tree diff so the Changes navigator and its file tabs render a real diff
     if (this.client?.repoDiff !== undefined) {
       const diff = await this.client.repoDiff(this.sidebarRepoRoot());
-      // a thread switch during the request would let this response overwrite the new
-      // thread's diff, showing changes from the wrong repo; drop it when the session moved on
-      if (this.snapshot.session !== session) return diff.files;
+      // a thread switch during the request would let this response overwrite the new thread's diff,
+      // showing changes from the wrong repo; compare the thread id, not the object, so an unrelated
+      // re-render that replaced the snapshot for the SAME thread does not drop its diff to "No changes"
+      if (this.snapshot.session?.id !== session?.id) return diff.files;
       this.liveDiff = diff;
       // rows() derive from the fresh patch; re-render so an open diff tab repaints
       this.update({});
