@@ -132,7 +132,9 @@ function alignedPairs(deletionTexts: string[], additionTexts: string[]): Array<[
   let additionOffset = 0;
   const wordsOf = lineWordSetCache();
 
-  for (const op of lcsDiff(deletionTexts, additionTexts, (a, b) => linesSimilar(wordsOf, a, b))) {
+  for (const op of lcsDiff(deletionTexts, additionTexts, (deletionText, additionText) =>
+    linesSimilar(wordsOf, deletionText, additionText),
+  )) {
     if (op.kind === "ctx") {
       pairs.push([deletionOffset, additionOffset]);
       deletionOffset++;
