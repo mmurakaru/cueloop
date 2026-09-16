@@ -16,8 +16,9 @@ export interface RunClientOptions {
   layout?: LaunchLayout;
 }
 
-/** OSC background query budget: brief so a terminal that never answers falls back to dark. */
-const THEME_QUERY_TIMEOUT_MS = 200;
+/** OSC background query budget: long enough for a terminal to answer, short enough that one that never
+ *  does not stall the launch; a non-answering terminal falls back to dark after this. */
+const THEME_QUERY_TIMEOUT_MS = 100;
 
 export async function runClient(options: RunClientOptions): Promise<number> {
   // mouse movement reporting makes multiplexers forward drags to the app,
@@ -37,6 +38,8 @@ export async function runClient(options: RunClientOptions): Promise<number> {
     renderer.useMouse = false;
     renderer.useMouse = true;
   });
+  // block first paint on the theme query only briefly, so an answering terminal paints its real theme
+  // with no flash while a non-answering one falls back to dark within the budget
   const appearance =
     (await renderer.waitForThemeMode(THEME_QUERY_TIMEOUT_MS).catch(() => null)) ?? "dark";
   perfMark("themeQuery");
