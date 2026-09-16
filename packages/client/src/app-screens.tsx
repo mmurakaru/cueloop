@@ -164,6 +164,8 @@ function WelcomeProjectPanel({
 export function NoThreadShell(props: {
   rows: InboxRow[];
   inboxCursor: number;
+  /** Open a sidebar thread and move the cursor onto it, so the row shows its selected backdrop at once. */
+  onOpenThread: (id: string) => void;
   mode: Mode;
   theme: Theme;
   controller: ReviewController;
@@ -190,6 +192,7 @@ export function NoThreadShell(props: {
   const {
     rows,
     inboxCursor,
+    onOpenThread,
     mode,
     theme,
     controller,
@@ -273,7 +276,7 @@ export function NoThreadShell(props: {
                 focused={focusedPane === "threads"}
                 pinnedIds={pinnedIds}
                 width={30}
-                onSelect={(id) => controller.open(id)}
+                onSelect={onOpenThread}
                 onRequestDelete={(id, title) =>
                   setMode({ type: "confirmDelete", sessionId: id, title })
                 }
