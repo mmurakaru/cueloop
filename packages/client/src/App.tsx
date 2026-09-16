@@ -147,6 +147,27 @@ function keyboardHeldByMenu(
   return menuChromeOpen(menuDialog) || openMenuId !== null;
 }
 
+/** A non-modal toast: escape dismisses it only when nothing else owns escape (no overlay, not span mode). */
+export function toastDismissRequested(
+  toastOpen: boolean,
+  key: { name: string },
+  overlay: KeyState["overlay"],
+  spanMode: boolean,
+): boolean {
+  return toastOpen && key.name === "escape" && overlay === "none" && !spanMode;
+}
+
+/** ctrl+q quits from anywhere, ahead of every focus/menu/overlay gate, with no confirmation. */
+export function quitKeyHandled(
+  key: { name: string; ctrl?: boolean },
+  onExit?: (code: number) => void,
+): boolean {
+  if (!key.ctrl || key.name !== "q") return false;
+  onExit?.(0);
+
+  return true;
+}
+
 /** A popover menu is open, so the shell keyboard is modal: escape closes it, every other key is swallowed. */
 function menuModalHandled(
   menuControl: { openMenuId: string | null; closeMenu: () => void },
@@ -756,8 +777,16 @@ export function App({
       dispatch,
     );
   };
+  // clicking a sidebar thread moves the cursor onto it too, so the row shows its selected backdrop at once
+  const openThread = (id: string): void => {
+    const index = grouped.ordered.findIndex((thread) => thread.id === id);
+
+    if (index >= 0) setInboxCursor(() => index);
+    controller.open(id);
+  };
 
   useKeyboard((key) => {
+    if (quitKeyHandled(key, onExit)) return;
     if (menuModalHandled(menuControl, key)) return;
     if (
       appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand })
@@ -798,7 +827,7 @@ export function App({
     if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
     // the toast is non-modal: escape only dismisses it when nothing else owns
     // escape, so an open overlay (compose, submit, prompt, walk) still cancels
-    if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span")
+    if (toastDismissRequested(toast !== null, key, overlay, mode.type === "span"))
       return controller.dismissToast();
     if (bareShellDefersKeys(session === null, overlay === "none", focusedPane)) return;
     const state = buildKeyState({
@@ -864,6 +893,7 @@ export function App({
           <NoThreadShell
             rows={grouped.rows}
             inboxCursor={inboxCursor}
+            onOpenThread={openThread}
             mode={mode}
             theme={theme}
             controller={controller}
@@ -981,7 +1011,7 @@ export function App({
                     focused={focusedPane === "threads"}
                     pinnedIds={pinnedIds}
                     width={30}
-                    onSelect={(id) => controller.open(id)}
+                    onSelect={openThread}
                     onPin={togglePin}
                     onRename={(id, title) =>
                       setMode({ type: "renameThread", sessionId: id, text: title })

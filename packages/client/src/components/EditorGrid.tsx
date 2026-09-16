@@ -208,6 +208,7 @@ function EditorGroupPane({
     }),
     (left, right) => left.x === right.x && left.y === right.y && left.width === right.width,
     { x: 0, y: 0, width: 0 },
+    menuOpen,
   );
   const active = group.tabs.find((tab) => tab.id === group.activeTabId) ?? group.tabs[0];
   const isFile = active?.kind === "file";

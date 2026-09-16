@@ -83,12 +83,30 @@ export function intralineRunsByRow(rows: DiffRow[]): Map<number, IntralineRun[]>
 /** Lines this similar (word-set overlap) are treated as the same line edited. */
 const SIMILAR_MIN_WORD_OVERLAP = 0.3;
 
+/** Lower-cased word set of a line for the similarity gate, cached per distinct line within a block so
+ *  the LCS grid tokenizes each line once instead of once per comparison. */
+function lineWordSetCache(): (text: string) => ReadonlySet<string> {
+  const cache = new Map<string, ReadonlySet<string>>();
+
+  return (text) => {
+    const cached = cache.get(text);
+    if (cached !== undefined) return cached;
+    const words = new Set(text.toLowerCase().split(/\s+/).filter(Boolean));
+    cache.set(text, words);
+
+    return words;
+  };
+}
+
 /** Whether two lines are the same line edited, by case-insensitive word-set
  *  overlap - the matching gate, distinct from the case-sensitive word diff. */
-function linesSimilar(oldText: string, newText: string): boolean {
-  const words = (text: string) => new Set(text.toLowerCase().split(/\s+/).filter(Boolean));
-  const oldWords = words(oldText);
-  const newWords = words(newText);
+function linesSimilar(
+  wordsOf: (text: string) => ReadonlySet<string>,
+  oldText: string,
+  newText: string,
+): boolean {
+  const oldWords = wordsOf(oldText);
+  const newWords = wordsOf(newText);
 
   if (oldWords.size === 0 && newWords.size === 0) return true;
   let intersection = 0;
@@ -112,8 +130,11 @@ function alignedPairs(deletionTexts: string[], additionTexts: string[]): Array<[
   const pairs: Array<[number, number]> = [];
   let deletionOffset = 0;
   let additionOffset = 0;
+  const wordsOf = lineWordSetCache();
 
-  for (const op of lcsDiff(deletionTexts, additionTexts, linesSimilar)) {
+  for (const op of lcsDiff(deletionTexts, additionTexts, (deletionText, additionText) =>
+    linesSimilar(wordsOf, deletionText, additionText),
+  )) {
     if (op.kind === "ctx") {
       pairs.push([deletionOffset, additionOffset]);
       deletionOffset++;

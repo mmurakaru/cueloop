@@ -109,6 +109,7 @@ function ThreadRow(props: ThreadRowProps): React.ReactNode {
     }),
     (left, right) => left.x === right.x && left.y === right.y && left.width === right.width,
     { x: 0, y: 0, width: 0 },
+    menuOpen,
   );
   const clippedTitle = truncateTitle(title, titleWidth);
   const hasActions =
