@@ -83,7 +83,8 @@ export async function runClient(options: RunClientOptions): Promise<number> {
       .waitForThemeMode(THEME_QUERY_TIMEOUT_MS)
       .then((mode) => {
         perfMark("themeQuery");
-        if (mode && mode !== "dark") renderApp(mode);
+        // the query can answer after a fast quit; never render onto a destroyed renderer
+        if (!exited && mode && mode !== "dark") renderApp(mode);
       })
       .catch(() => {});
   });
