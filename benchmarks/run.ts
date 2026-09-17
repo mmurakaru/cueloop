@@ -21,6 +21,7 @@ import { collectSamples, foldSamples, sampleScript } from "./lib/sampler";
 export const SOURCE_SCRIPTS = [
   "artifact-parse",
   "daemon-roundtrip",
+  "launch-many-threads",
   "interaction-latency",
   "interaction-mouse",
   "large-stream",
@@ -32,6 +33,7 @@ const DEFAULT_SCRIPTS = [
   "binary-startup",
   "artifact-parse",
   "daemon-roundtrip",
+  "launch-many-threads",
   "tui-first-frame",
   "interaction-latency",
   "interaction-mouse",
