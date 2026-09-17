@@ -49,7 +49,10 @@ import { runCollaboratorJoin, type CollaboratorJoinOutcome } from "./collaborato
 const PushPayloadSchema = v.object({
   shareId: v.optional(v.unknown()),
   annotations: v.optional(v.unknown()),
+  access: v.optional(v.unknown()),
 });
+
+const ShareAccessPushSchema = v.object({ githubLogins: v.array(v.string()) });
 const TransportErrorSchema = v.object({
   level: v.optional(v.string()),
   code: v.optional(v.string()),
@@ -425,10 +428,12 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       if (session.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can push to it");
+      // the owner can also update the private-share allowlist on the stored blob, so an existing link enforces it
+      const access = v.safeParse(ShareAccessPushSchema, payload.access);
+      const merged = mergeOwnerAnnotations(session, annotations.output);
+      const withAccess = access.success ? { ...merged, access: access.output } : merged;
       // Round-trip validates the pushed notes: a malformed one throws here, so the stored blob stays intact.
-      const next = unpackSessionBlob(
-        packSessionBlob(mergeOwnerAnnotations(session, annotations.output)),
-      );
+      const next = unpackSessionBlob(packSessionBlob(withAccess));
 
       await store.put(
         shareId.output,

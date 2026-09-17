@@ -88,6 +88,8 @@ export interface SessionClient {
   sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<Thread>;
   /** Replace a diff review's reject decisions; the working copy follows. */
   sessionCurate(id: string, rejections: HunkRejection[]): Promise<Thread>;
+  /** Replace the private-share allowlist of GitHub logins; presence marks the share private. */
+  sessionSetAccess(id: string, githubLogins: string[]): Promise<Thread>;
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<Thread>;
   /** Rename a session's display title; an empty title restores the derived default. */
   sessionSetTitle(id: string, title: string): Promise<Thread>;
@@ -449,6 +451,9 @@ export class DaemonClient implements SessionClient {
   }
   sessionCurate(id: string, rejections: HunkRejection[]): Promise<Thread> {
     return this.request("session.curate", { id, rejections }, ThreadRecordSchema);
+  }
+  sessionSetAccess(id: string, githubLogins: string[]): Promise<Thread> {
+    return this.request("session.setAccess", { id, githubLogins }, ThreadRecordSchema);
   }
   sessionSetViewed(id: string, viewedPaths: string[]): Promise<Thread> {
     return this.request("session.setViewed", { id, viewedPaths }, ThreadRecordSchema);

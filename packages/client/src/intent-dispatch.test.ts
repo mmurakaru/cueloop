@@ -108,6 +108,7 @@ function baseController(): ReviewController {
     walkLeave: mock(),
     submit: mock(),
     share: mock(),
+    setShareAccess: mock(),
     treeRows: mock(() => []),
     goToEntry: mock(),
     branch: mock(),

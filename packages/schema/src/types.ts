@@ -232,6 +232,11 @@ export interface Identity {
   handle?: string;
 }
 
+/** Owner-set access control for a private share: only these GitHub logins may open it. Absent = a public share. */
+export interface ShareAccess {
+  githubLogins: string[];
+}
+
 export interface Thread {
   schemaVersion: string;
   id: string;
@@ -278,6 +283,8 @@ export interface Thread {
   shareBranch?: string;
   /** SSH fingerprint that created the share; the gateway stamps it to gate pulls. */
   owner?: string;
+  /** Owner-set allowlist of GitHub logins for a private share; absent = public. */
+  access?: ShareAccess;
   /**
    * Identities that authored annotations here, keyed by id (union-by-id, like
    * annotations). The gateway records a collaborator's identity and chosen name;

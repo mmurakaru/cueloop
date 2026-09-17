@@ -1,4 +1,4 @@
-// Bun Snapshot v1, https://goo.gl/fbAQLP
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
 exports[`stories catalog Surfaces/AnnotatableFileView/Loaded renders, snapshots, and carries its colors: Surfaces/AnnotatableFileView/Loaded 1`] = `
 " ▎1 export function add(a: number, b: number): number {     
@@ -670,6 +670,50 @@ exports[`stories catalog Overlays/KeybindsDialog/Cheatsheet renders, snapshots, 
 "
 `;
 
+exports[`stories catalog Dialogs/ManageAccess/Empty renders, snapshots, and carries its colors: Dialogs/ManageAccess/Empty 1`] = `
+"                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+   ┌─ Manage access ────────────────────────────────────┐   
+   │ Only these GitHub users can open the private link. │   
+   │                                                    │   
+   │ no one yet - add a handle below                    │   
+   │                                                    │   
+   │                                                    │   
+   │ @handle                                            │   
+   │ add   create link   close                          │   
+   └────────────────────────────────────────────────────┘   
+                                                            
+                                                            
+                                                            
+                                                            
+"
+`;
+
+exports[`stories catalog Dialogs/ManageAccess/WithHandles renders, snapshots, and carries its colors: Dialogs/ManageAccess/WithHandles 1`] = `
+"                                                            
+                                                            
+                                                            
+                                                            
+   ┌─ Manage access ────────────────────────────────────┐   
+   │ Only these GitHub users can open the private link. │   
+   │                                                    │   
+   │ @octocat                                    remove │   
+   │ @hubot                                      remove │   
+   │                                                    │   
+   │                                                    │   
+   │                                                    │   
+   │ @handle                                            │   
+   │ add   create link   close                          │   
+   └────────────────────────────────────────────────────┘   
+                                                            
+                                                            
+                                                            
+"
+`;
+
 exports[`stories catalog Chrome/MenuBar/Open renders, snapshots, and carries its colors: Chrome/MenuBar/Open 1`] = `
 "                                                            
                                                             
@@ -999,6 +1043,16 @@ exports[`stories catalog Chrome/SettingsRows/AllKinds renders, snapshots, and ca
                                                                                 
                                                                                 
                                                                                 
+"
+`;
+
+exports[`stories catalog Chrome/ShareMenu/Closed renders, snapshots, and carries its colors: Chrome/ShareMenu/Closed 1`] = `
+"   share                                
+                                        
+                                        
+                                        
+                                        
+                                        
 "
 `;
 
@@ -1367,6 +1421,15 @@ exports[`stories catalog Chrome/AgentLauncher/Launcher renders, snapshots, and c
                                         
                                         
                                         
+"
+`;
+
+exports[`stories catalog Layout/MenuControl/OneOpenAtATime renders, snapshots, and carries its colors: Layout/MenuControl/OneOpenAtATime 1`] = `
+"                              
+ alpha: open                  
+ beta: closed                 
+                              
+                              
 "
 `;
 
@@ -1885,24 +1948,5 @@ exports[`stories catalog Foundations/Theme/ProviderSwap renders, snapshots, and 
                                                                                 
                                                                                 
                                                                                 
-"
-`;
-
-exports[`stories catalog Layout/MenuControl/OneOpenAtATime renders, snapshots, and carries its colors: Layout/MenuControl/OneOpenAtATime 1`] = `
-"                              
- alpha: open                  
- beta: closed                 
-                              
-                              
-"
-`;
-
-exports[`stories catalog Chrome/ShareMenu/Closed renders, snapshots, and carries its colors: Chrome/ShareMenu/Closed 1`] = `
-"   share                                
-                                        
-                                        
-                                        
-                                        
-                                        
 "
 `;

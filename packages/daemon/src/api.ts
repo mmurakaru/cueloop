@@ -432,6 +432,17 @@ export class DaemonCore {
     return session;
   }
 
+  /** Set the private-share allowlist of GitHub logins; presence marks the share private. */
+  sessionSetAccess(id: string, githubLogins: string[]): Thread {
+    const session = this.mutable(id);
+
+    session.access = { githubLogins };
+    this.store.upsert(session);
+    this.emit("session.updated", id);
+
+    return session;
+  }
+
   /** Remove a session for good (inbox delete); resolved or pending, both go. */
   sessionDelete(id: string): void {
     const session = this.store.get(id);
