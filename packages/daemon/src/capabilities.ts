@@ -35,6 +35,7 @@ const PRIMITIVE_ROLES = {
   "session.cutBlock": "owner",
   "session.restoreBlock": "owner",
   "session.curate": "owner",
+  "session.setAccess": "owner",
   "session.setViewed": "owner",
   "session.setTitle": "owner",
   // reading the local working tree is the owner's alone; a share carries no repo to read

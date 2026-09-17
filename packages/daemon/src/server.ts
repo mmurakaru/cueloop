@@ -385,6 +385,11 @@ export class DaemonServer {
 
       return this.core.sessionCurate(params.id, params.rejections);
     },
+    "session.setAccess": (_connection, request) => {
+      const params = parseParams("session.setAccess", request.params);
+
+      return this.core.sessionSetAccess(params.id, params.githubLogins);
+    },
     "session.setViewed": (_connection, request) => {
       const params = parseParams("session.setViewed", request.params);
 

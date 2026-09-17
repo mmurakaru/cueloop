@@ -281,6 +281,7 @@ describe("wire pins", () => {
     createdAt: "now",
     shareId: "p_abc123xy",
     owner: "SHA256:owner",
+    access: { githubLogins: ["octocat"] },
     participants: [fullIdentity],
   };
 

@@ -24,6 +24,7 @@ import {
   type HunkRejection,
   type Revision,
   type SessionHistory,
+  type ShareAccess,
   validateHistory,
   type Verdict,
   type WorkspaceKey,
@@ -204,6 +205,7 @@ export const Params = {
   "session.fork": v.object({ id: SessionId }),
   "session.refreshDiff": v.object({ id: SessionId }),
   "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
+  "session.setAccess": v.object({ id: SessionId, githubLogins: v.array(NonEmpty) }),
   "session.delete": v.object({ id: SessionId }),
   "session.mergeShared": v.object({
     id: SessionId,
@@ -349,6 +351,9 @@ export const ThreadRecordSchema = v.object({
   shareId: v.optional(v.string()),
   shareBranch: v.optional(v.string()),
   owner: v.optional(v.string()),
+  access: v.optional(
+    v.object({ githubLogins: v.array(NonEmpty) } satisfies EntriesOf<ShareAccess>),
+  ),
   participants: v.optional(v.array(IdentitySchema)),
 } satisfies EntriesOf<Thread>);
 

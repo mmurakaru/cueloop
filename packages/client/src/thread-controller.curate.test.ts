@@ -109,6 +109,7 @@ function fakeClient(initial: Thread, sink: WorkingCopySink): SessionClient {
 
       return session;
     }),
+    sessionSetAccess: unimplemented("sessionSetAccess"),
     sessionNavigate: unimplemented("sessionNavigate"),
     sessionBranch: unimplemented("sessionBranch"),
     sessionSwitch: unimplemented("sessionSwitch"),
