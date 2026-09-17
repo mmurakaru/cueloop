@@ -117,6 +117,23 @@ describe("runCollaboratorJoin", () => {
     expect(await pending).toEqual({ kind: "skipped" });
   });
 
+  test("a disconnect while the device flow is pending aborts it and resolves to anonymous", async () => {
+    const channel = createTestJoinChannel();
+    const { fetch } = createTestDeviceFlowFetch({});
+    const pending = runCollaboratorJoin({
+      channel,
+      size: SIZE,
+      clientId: "Iv-1",
+      dependencies: { fetch, sleep: neverSleep },
+    });
+
+    channel.emitKey("\r");
+    await tick();
+    channel.emitClose();
+
+    expect(await pending).toEqual({ kind: "skipped" });
+  });
+
   test("the copy key writes the clipboard sequence and marks the link copied", async () => {
     const channel = createTestJoinChannel();
     const { fetch } = createTestDeviceFlowFetch({});

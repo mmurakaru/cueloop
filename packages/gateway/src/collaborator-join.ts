@@ -19,8 +19,10 @@ export interface JoinScreenSize {
 /** The minimal SSH channel surface the flow reads keys from and draws onto. */
 export interface JoinChannel {
   write: (data: string) => void;
-  on: (event: "data", listener: (chunk: Buffer) => void) => void;
-  removeListener: (event: "data", listener: (chunk: Buffer) => void) => void;
+  on(event: "data", listener: (chunk: Buffer) => void): void;
+  on(event: "close", listener: () => void): void;
+  removeListener(event: "data", listener: (chunk: Buffer) => void): void;
+  removeListener(event: "close", listener: () => void): void;
 }
 
 export type CollaboratorJoinOutcome =
@@ -164,9 +166,18 @@ export async function runCollaboratorJoin(options: {
           draw();
         }
       };
+      // A disconnect after the flow starts must abort the device-flow polling, not leave it running.
+      const onClose = (): void => {
+        abort.abort();
+        resolve({ kind: "skipped" });
+      };
 
       channel.on("data", listener);
-      stopKeys = () => channel.removeListener("data", listener);
+      channel.on("close", onClose);
+      stopKeys = () => {
+        channel.removeListener("data", listener);
+        channel.removeListener("close", onClose);
+      };
     });
     // A device-flow error (network, parse) becomes an anonymous skip, never an unhandled rejection.
     const resolved = resolveCollaboratorIdentity(clientId, {
