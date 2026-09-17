@@ -744,6 +744,8 @@ export function App({
     }
   };
 
+  const menuControl = useMenuControlState();
+
   // ── keyboard grammar: build state, reduce, dispatch ──
   const dispatch = createIntentDispatch({
     controller,
@@ -767,6 +769,7 @@ export function App({
       setAuthorNames((prev) => ({ ...prev, [id]: name }));
     },
     renameThread: (id: string, title: string) => controller.renameSession(id, title),
+    openShareMenu: () => menuControl.toggleMenu("share"),
     setLocalIdentityName: (name: string) => {
       applyIdentity(name ? { name, provider: "typed" } : { provider: "typed" });
     },
@@ -796,7 +799,6 @@ export function App({
 
   const overlay = resolveOverlay(mode, completion.phase, walking);
 
-  const menuControl = useMenuControlState();
   const menuOwnsKeyboard = keyboardHeldByMenu(menuDialog, menuControl.openMenuId);
   // an overlay (submit, walk, prompt, confirm) or the menu takes the keyboard
   // from the thread view; the view suspends its own grammar meanwhile

@@ -144,6 +144,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     renameAuthor: mock(),
     renameThread: mock(),
     setLocalIdentityName: mock(),
+    openShareMenu: mock(),
     liveInput: { current: "" },
     setCursor: mock(),
     setInboxCursor: mock(),
@@ -384,7 +385,7 @@ describe("openSubmit", () => {
 });
 
 describe("share", () => {
-  test("dispatches to the controller's share", () => {
+  test("opens the share popover so the shortcut offers the public/private choice", () => {
     // Arrange
     const deps = makeDeps();
     const dispatch = createIntentDispatch(deps);
@@ -393,7 +394,8 @@ describe("share", () => {
     dispatch({ type: "share" });
 
     // Assert
-    expect(deps.controller.share).toHaveBeenCalled();
+    expect(deps.openShareMenu).toHaveBeenCalled();
+    expect(deps.controller.share).not.toHaveBeenCalled();
   });
 });
 
