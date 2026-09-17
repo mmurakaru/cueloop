@@ -1950,3 +1950,35 @@ exports[`stories catalog Foundations/Theme/ProviderSwap renders, snapshots, and 
                                                                                 
 "
 `;
+
+exports[`stories catalog Dialogs/ShareChoice/PrivateSelected renders, snapshots, and carries its colors: Dialogs/ShareChoice/PrivateSelected 1`] = `
+"                                                            
+                                                            
+                                                            
+       ┌─ Share ────────────────────────────────────┐       
+       │   public link                              │       
+       │ › private link                             │       
+       │                                            │       
+       │                                            │       
+       │ ↑↓ choose · enter select · esc cancel      │       
+       └────────────────────────────────────────────┘       
+                                                            
+                                                            
+"
+`;
+
+exports[`stories catalog Dialogs/ShareChoice/PublicSelected renders, snapshots, and carries its colors: Dialogs/ShareChoice/PublicSelected 1`] = `
+"                                                            
+                                                            
+                                                            
+       ┌─ Share ────────────────────────────────────┐       
+       │ › public link                              │       
+       │   private link                             │       
+       │                                            │       
+       │                                            │       
+       │ ↑↓ choose · enter select · esc cancel      │       
+       └────────────────────────────────────────────┘       
+                                                            
+                                                            
+"
+`;

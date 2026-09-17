@@ -57,6 +57,7 @@ export function resolveOverlay(
     mode.type === "treePrompt"
   )
     return "prompt";
+  if (mode.type === "shareChoice") return "shareChoice";
   if (mode.type === "spanActions") return "spanActions";
   if (completionPhase === "prompt") return "completion-prompt";
   if (completionPhase === "counting") return "completion-counting";

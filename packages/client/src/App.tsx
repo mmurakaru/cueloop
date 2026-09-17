@@ -42,7 +42,7 @@ import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { useReadySignal } from "./ready-signal";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
-import { ShareMenu } from "./components/ShareMenu";
+import { ShareChoiceDialog, SHARE_CHOICES } from "./components/ShareChoiceDialog";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { groupInbox, projectName, threadTitle } from "./components/session-tree";
 import { ThreadTree } from "./components/ThreadTree";
@@ -193,6 +193,49 @@ function menuModalHandled(
 /** True while a menu or an overlay owns the keyboard instead of the thread view. */
 function keyboardOwnedElsewhere(menuOwnsKeyboard: boolean, overlay: KeyState["overlay"]): boolean {
   return menuOwnsKeyboard || overlay !== "none";
+}
+
+/** The highlighted share option, or the public default when the choice is closed. */
+function shareChoiceIndex(mode: Mode): number {
+  return mode.type === "shareChoice" ? mode.index : 0;
+}
+
+interface ShareChoiceActions {
+  setMode: (mode: Mode) => void;
+  isOwner: boolean;
+  publish: () => void;
+  openManageAccess: () => void;
+}
+
+/**
+ * An app-level dialog owns the keyboard while open: the manage-access dialog takes its own keys,
+ * and the share choice moves the highlight, commits on enter, and cancels on escape. Returns true
+ * when a dialog consumed the key so the caller stops the grammar.
+ */
+function appDialogOwnsKey(
+  accessDialogOpen: boolean,
+  mode: Mode,
+  key: { name: string },
+  actions: ShareChoiceActions,
+): boolean {
+  if (accessDialogOpen) return true;
+  if (mode.type !== "shareChoice") return false;
+  if (key.name === "escape") actions.setMode({ type: "normal" });
+  else if (key.name === "down" || key.name === "j")
+    actions.setMode({
+      type: "shareChoice",
+      index: Math.min(SHARE_CHOICES.length - 1, mode.index + 1),
+    });
+  else if (key.name === "up" || key.name === "k")
+    actions.setMode({ type: "shareChoice", index: Math.max(0, mode.index - 1) });
+  else if (key.name === "return" || key.name === "enter") {
+    const picked = SHARE_CHOICES[mode.index]?.choice;
+    actions.setMode({ type: "normal" });
+    if (actions.isOwner && picked === "private") actions.openManageAccess();
+    else if (actions.isOwner) actions.publish();
+  }
+
+  return true;
 }
 
 /** The footer submit fires only for the owner of an unresolved review, never an observer. */
@@ -805,8 +848,8 @@ export function App({
 
   const menuControl = useMenuControlState();
   const menuOwnsKeyboard = keyboardHeldByMenu(menuDialog, menuControl.openMenuId);
-  // an overlay (submit, walk, prompt, confirm) or the menu takes the keyboard
-  // from the thread view; the view suspends its own grammar meanwhile
+  // an overlay (submit, walk, prompt, confirm, share choice) or the menu takes the
+  // keyboard from the thread view; the view suspends its own grammar meanwhile
   const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
 
   const leaderCombos = leaderCombosFor(keysRef.current.leader);
@@ -846,8 +889,16 @@ export function App({
 
   useKeyboard((key) => {
     if (quitKeyHandled(key, onExit)) return;
-    // the manage-access dialog owns its own keys (type, add, remove, escape); the grammar stays quiet
-    if (accessDialogOpen) return;
+    // an app-level dialog (manage-access, share choice) owns the keyboard while open
+    if (
+      appDialogOwnsKey(accessDialogOpen, mode, key, {
+        setMode,
+        isOwner,
+        publish: () => controller.share(),
+        openManageAccess: () => setAccessDialogOpen(true),
+      })
+    )
+      return;
     if (menuModalHandled(menuControl, key)) return;
     if (
       appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand })
@@ -1034,13 +1085,13 @@ export function App({
     runEditorHandOff();
   };
 
-  // the share popover's public choice: publish the plan, copy the ssh line
+  // the share choice's public option: publish the plan, copy the ssh line
   const onShareRequest = (): void => {
     if (!isOwner) return controller.setStatus("only the plan owner can share");
     controller.share();
   };
 
-  // the share popover's private choice opens the manage-access allowlist surface
+  // the share choice's private option opens the manage-access allowlist surface
   const onPrivateShareRequest = (): void => {
     if (!isOwner) return controller.setStatus("only the plan owner can share");
     setAccessDialogOpen(true);
@@ -1100,11 +1151,9 @@ export function App({
                     <Button onPress={onEditRequest} theme={theme}>
                       {" edit "}
                     </Button>
-                    <ShareMenu
-                      onPublicShare={onShareRequest}
-                      onPrivateShare={onPrivateShareRequest}
-                      theme={theme}
-                    />
+                    <Button onPress={() => dispatch({ type: "share" })} theme={theme}>
+                      {" share "}
+                    </Button>
                   </Toolbar>
                 ) : undefined
               }
@@ -1320,6 +1369,14 @@ export function App({
                   controller.share();
                 }}
                 onClose={() => setAccessDialogOpen(false)}
+                theme={theme}
+              />
+              <ShareChoiceDialog
+                isOpen={mode.type === "shareChoice"}
+                selectedIndex={shareChoiceIndex(mode)}
+                onPublicShare={onShareRequest}
+                onPrivateShare={onPrivateShareRequest}
+                onClose={() => setMode({ type: "normal" })}
                 theme={theme}
               />
               {menuChrome}
