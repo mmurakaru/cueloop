@@ -385,7 +385,7 @@ describe("openSubmit", () => {
 });
 
 describe("share", () => {
-  test("dispatches to the controller's share", () => {
+  test("opens the public/private choice overlay instead of publishing directly", () => {
     // Arrange
     const deps = makeDeps();
     const dispatch = createIntentDispatch(deps);
@@ -394,7 +394,8 @@ describe("share", () => {
     dispatch({ type: "share" });
 
     // Assert
-    expect(deps.controller.share).toHaveBeenCalled();
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "shareChoice", index: 0 });
+    expect(deps.controller.share).not.toHaveBeenCalled();
   });
 });
 

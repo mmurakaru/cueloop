@@ -1,4 +1,4 @@
-/** The share toast is non-modal: while it is up, escape still cancels an open overlay. */
+/** The share shortcut opens an app-level public/private choice reachable from any view. */
 
 import { afterEach, beforeEach, describe, mock, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -10,19 +10,10 @@ import { DaemonServer } from "@cueloop/daemon";
 import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import type { ShareTransport } from "./thread-controller";
-import {
-  clickText,
-  isolateUserConfig,
-  press,
-  pressKey,
-  typeText,
-  waitForText,
-  waitForTextGone,
-} from "./test-support";
+import { isolateUserConfig, press, pressKey, waitForText, waitForTextGone } from "./test-support";
 
-const publishShare = mock(async () => ({ line: "ssh p_share01@cueloop.dev", copied: true }));
 const shareTransport: ShareTransport = {
-  publish: publishShare,
+  publish: mock(async () => ({ line: "ssh p_share01@cueloop.dev", copied: true })),
   pull: mock(async () => {
     throw new Error("Unexpected share pull");
   }),
@@ -41,7 +32,7 @@ let server: DaemonServer;
 let session: Thread;
 
 beforeEach(() => {
-  home = mkdtempSync(join(tmpdir(), "cueloop-toast-"));
+  home = mkdtempSync(join(tmpdir(), "cueloop-share-choice-"));
   restoreUserConfig = isolateUserConfig(home);
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
@@ -60,32 +51,55 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-describe("share toast", () => {
-  test("escape cancels an open composer even while the toast is up", async () => {
+describe("share choice", () => {
+  test("the shortcut opens the public/private choice", async () => {
     // Arrange
     const setup = await testRender(
       <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
-      {
-        width: 120,
-        height: 32,
-      },
+      { width: 120, height: 32 },
     );
-
     await waitForText(setup, "cueloop");
 
-    // Act: share opens the choice, enter picks public and raises the toast, then a composer under it
+    // Act
+    await pressKey(setup, "s", { ctrl: true });
+
+    // Assert
+    await waitForText(setup, "public link");
+    await waitForText(setup, "private link");
+  });
+
+  test("the private choice opens the manage-access surface", async () => {
+    // Arrange
+    const setup = await testRender(
+      <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
+      { width: 120, height: 32 },
+    );
+    await waitForText(setup, "cueloop");
+
+    // Act: open the choice, move to private, select it
+    await pressKey(setup, "s", { ctrl: true });
+    await waitForText(setup, "private link");
+    await press(setup, "down");
+    await press(setup, "enter");
+
+    // Assert
+    await waitForText(setup, "Manage access");
+  });
+
+  test("escape cancels the choice without sharing", async () => {
+    // Arrange
+    const setup = await testRender(
+      <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
+      { width: 120, height: 32 },
+    );
+    await waitForText(setup, "cueloop");
+
+    // Act
     await pressKey(setup, "s", { ctrl: true });
     await waitForText(setup, "public link");
-    await press(setup, "enter");
-    await waitForText(setup, "share link copied");
-    await clickText(setup, "daemon");
-    await typeText(setup, "x");
-    await waitForText(setup, "● x");
-
-    // Act: escape must reach the composer, not get eaten by the toast
     await press(setup, "escape");
 
-    // Assert: the composer closed on the first escape
-    await waitForTextGone(setup, "● x");
+    // Assert
+    await waitForTextGone(setup, "public link");
   });
 });
