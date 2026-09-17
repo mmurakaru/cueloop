@@ -57,6 +57,7 @@ import { useRememberLayout } from "./use-remember-layout";
 import type { LaunchLayout } from "./launch-layout";
 import { ThreadFooter } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
+import { ManageAccessDialog } from "./components/ManageAccessDialog";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
   diffChordEntries,
@@ -142,6 +143,11 @@ export interface AppProps {
 /** True while the drop-up or one of its dialogs is open and owns the keyboard. */
 function menuChromeOpen(menuDialog: "keybinds" | "settings" | null): boolean {
   return menuDialog !== null;
+}
+
+/** The private-share allowlist for a session, or an empty list for a public one. */
+function allowedGithubLogins(session: Thread | null): string[] {
+  return session?.access?.githubLogins ?? [];
 }
 
 /** The drop-up chrome or a floating popover menu (thread actions, editor split) holds the keyboard. */
@@ -522,6 +528,7 @@ export function App({
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
+  const [accessDialogOpen, setAccessDialogOpen] = useState(false);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
   const [diffView, setDiffView] = useState<DiffViewMode>("split");
@@ -839,6 +846,8 @@ export function App({
 
   useKeyboard((key) => {
     if (quitKeyHandled(key, onExit)) return;
+    // the manage-access dialog owns its own keys (type, add, remove, escape); the grammar stays quiet
+    if (accessDialogOpen) return;
     if (menuModalHandled(menuControl, key)) return;
     if (
       appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand })
@@ -1031,11 +1040,12 @@ export function App({
     controller.share();
   };
 
-  // the share popover's private choice: manage-access lands with the allowlist slice
+  // the share popover's private choice opens the manage-access allowlist surface
   const onPrivateShareRequest = (): void => {
     if (!isOwner) return controller.setStatus("only the plan owner can share");
-    controller.setStatus("private shares - manage access is coming soon");
+    setAccessDialogOpen(true);
   };
+  const allowedLogins = allowedGithubLogins(session);
 
   // clicking the rail Submit button: same read-only answer as the submit key
   const onSubmitRequest = (): void => {
@@ -1298,6 +1308,16 @@ export function App({
                   </box>
                 </box>
               ) : null}
+              <ManageAccessDialog
+                isOpen={accessDialogOpen}
+                logins={allowedLogins}
+                onAdd={(login) => controller.setShareAccess([...allowedLogins, login])}
+                onRemove={(login) =>
+                  controller.setShareAccess(allowedLogins.filter((entry) => entry !== login))
+                }
+                onClose={() => setAccessDialogOpen(false)}
+                theme={theme}
+              />
               {menuChrome}
             </AppShell>
           </MenuControlProvider>

@@ -309,6 +309,8 @@ export interface ReviewController {
   submit(verdict: VerdictKind, summary: string): void;
   /** Publish the current session as a share; the ssh line lands on the clipboard. */
   share(): void;
+  /** Replace the private-share allowlist of GitHub logins for the current session. Owner only. */
+  setShareAccess(githubLogins: string[]): void;
   /** The session tree as rows for the rail's Tree tab, cached per session identity. */
   treeRows(): TreeRow[];
   /**
@@ -880,6 +882,15 @@ class Controller implements ReviewController {
 
     if (!rejections.length) delete expected.curation;
     this.applyOptimistic(expected, this.client!.sessionCurate(session.id, rejections));
+  }
+
+  setShareAccess(githubLogins: string[]): void {
+    const session = this.snapshot.session;
+
+    if (!session) return;
+    const expected: Thread = { ...session, access: { githubLogins } };
+
+    this.applyOptimistic(expected, this.client!.sessionSetAccess(session.id, githubLogins));
   }
 
   rejectedRows(): Set<number> {
