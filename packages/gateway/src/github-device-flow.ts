@@ -8,11 +8,10 @@ const USER_ENDPOINT = "https://api.github.com/user";
 const DEVICE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const DEVICE_CODE_LIFETIME_SECONDS = 15 * 60;
 
-/** The one call this module makes: a request in, a Response out. */
 export type FetchFunction = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 /** Injected IO so tests run with no network and no real waiting. */
-export interface DeviceFlowDeps {
+export interface DeviceFlowDependencies {
   fetch: FetchFunction;
   sleep: (milliseconds: number) => Promise<void>;
 }
@@ -47,7 +46,7 @@ const DeviceCodeSchema = v.object({
   device_code: v.string(),
   user_code: v.string(),
   verification_uri: v.string(),
-  verification_uri_complete: v.string(),
+  verification_uri_complete: v.optional(v.string()),
   expires_in: v.number(),
   interval: v.number(),
 });
@@ -71,20 +70,23 @@ export function githubClientId(env: NodeJS.ProcessEnv = process.env): string | u
 /** Ask GitHub for a device and user code for this app, requesting no scope. */
 export async function requestDeviceCode(
   clientId: string,
-  deps: DeviceFlowDeps,
+  dependencies: DeviceFlowDependencies,
 ): Promise<DeviceCodeGrant> {
-  const response = await deps.fetch(DEVICE_CODE_ENDPOINT, {
+  const response = await dependencies.fetch(DEVICE_CODE_ENDPOINT, {
     method: "POST",
     headers: { accept: "application/json", "content-type": "application/json" },
     body: JSON.stringify({ client_id: clientId }),
   });
   const parsed = v.parse(DeviceCodeSchema, await response.json());
+  // GitHub omits verification_uri_complete, so build the pre-filled link ourselves.
+  const verificationUriComplete =
+    parsed.verification_uri_complete ?? `${parsed.verification_uri}?user_code=${parsed.user_code}`;
 
   return {
     deviceCode: parsed.device_code,
     userCode: parsed.user_code,
     verificationUri: parsed.verification_uri,
-    verificationUriComplete: parsed.verification_uri_complete,
+    verificationUriComplete,
     expiresInSeconds: parsed.expires_in,
     intervalSeconds: parsed.interval,
   };
@@ -95,14 +97,14 @@ export async function pollForUserToken(
   clientId: string,
   deviceCode: string,
   intervalSeconds: number,
-  deps: DeviceFlowDeps,
+  dependencies: DeviceFlowDependencies,
 ): Promise<TokenPollOutcome> {
   let waitSeconds = intervalSeconds;
   const maxAttempts = Math.ceil(DEVICE_CODE_LIFETIME_SECONDS / Math.max(intervalSeconds, 1)) + 5;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    await deps.sleep(waitSeconds * 1000);
-    const response = await deps.fetch(ACCESS_TOKEN_ENDPOINT, {
+    await dependencies.sleep(waitSeconds * 1000);
+    const response = await dependencies.fetch(ACCESS_TOKEN_ENDPOINT, {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json" },
       body: JSON.stringify({
@@ -117,6 +119,7 @@ export async function pollForUserToken(
     if (parsed.error === "authorization_pending") continue;
     if (parsed.error === "slow_down") {
       waitSeconds = parsed.interval ?? waitSeconds + 5;
+
       continue;
     }
     if (parsed.error === "access_denied") return { kind: "failed", reason: "access_denied" };
@@ -131,9 +134,9 @@ export async function pollForUserToken(
 /** Read the authorized user's login and name; the token is used here and never returned. */
 export async function fetchGithubLoginAndName(
   token: string,
-  deps: DeviceFlowDeps,
+  dependencies: DeviceFlowDependencies,
 ): Promise<{ login: string; name?: string }> {
-  const response = await deps.fetch(USER_ENDPOINT, {
+  const response = await dependencies.fetch(USER_ENDPOINT, {
     headers: {
       accept: "application/vnd.github+json",
       authorization: `Bearer ${token}`,
@@ -148,7 +151,7 @@ export async function fetchGithubLoginAndName(
 /** Run the whole device flow and return only the resolved identity; the access token never leaves this function. */
 export async function resolveCollaboratorIdentity(
   clientId: string,
-  options: DeviceFlowDeps & { onVerification: (prompt: VerificationPrompt) => void },
+  options: DeviceFlowDependencies & { onVerification: (prompt: VerificationPrompt) => void },
 ): Promise<IdentityOutcome> {
   const grant = await requestDeviceCode(clientId, options);
 
