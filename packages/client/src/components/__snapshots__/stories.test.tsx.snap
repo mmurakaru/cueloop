@@ -17,10 +17,10 @@ exports[`stories catalog Surfaces/AnnotatableFileView/Loaded renders, snapshots,
 `;
 
 exports[`stories catalog Chrome/AnnotationCards/FocusedCard renders, snapshots, and carries its colors: Chrome/AnnotationCards/FocusedCard 1`] = `
-"                                                            
-  ╻────────────────────────────────────────────────────────┐
+"  ╻────────────────────────────────────────────────────────┐
   ┃ ● Needs an eviction story.                             │
   ╹────────────────────────────────────────────────────────┘
+                                                            
                                                             
                                                             
 "
@@ -39,11 +39,11 @@ exports[`stories catalog Chrome/AnnotationCards/SlashPaletteOpen renders, snapsh
 `;
 
 exports[`stories catalog Chrome/AnnotationCards/TwoVoices renders, snapshots, and carries its colors: Chrome/AnnotationCards/TwoVoices 1`] = `
-"                                                            
-  ╷────────────────────────────────────────────────────────┐
+"  ╷────────────────────────────────────────────────────────┐
   │ ● Which daemon?                                        │
   │ ○ The one the CLI spawns.                              │
   ╵────────────────────────────────────────────────────────┘
+                                                            
                                                             
                                                             
                                                             
@@ -432,11 +432,11 @@ exports[`stories catalog Surfaces/DiffContentView/AnnotatedLine renders, snapsho
  ▎1 1   export class Store {                                                              
   2   -   private items = [];                                                             
     2 +   private items = new Map();                                                      
-                                                                                          
-   ╷─────────────────────────────────────────────────────────────────────────────────┐ ○  
-   │ ● Map needs an eviction story.                                                  │    
+   ╷─────────────────────────────────────────────────────────────────────────────────┐    
+   │ ● Map needs an eviction story.                                                  │ ○  
    ╵─────────────────────────────────────────────────────────────────────────────────┘    
   3 3   }                                                                                 
+                                                                                          
                                                                                           
                                                                                           
                                                                                           
@@ -513,11 +513,11 @@ exports[`stories catalog Surfaces/DiffContentView/SplitView renders, snapshots, 
   @@ -1,4 +1,4 @@                                                                                                       
      1   export class Store {                             │▎   1   export class Store {                                 
      2 -   private items = [];                            │    2 +   private items = new Map();                         
-                                                          │                                                             
                                                           │  ╷─────────────────────────────────────────────────────┐    
-                                                          │  │ ● Map needs an eviction story.                      │ ○  
-                                                          │  ╵─────────────────────────────────────────────────────┘    
+                                                          │  │ ● Map needs an eviction story.                      │    
+                                                          │  ╵─────────────────────────────────────────────────────┘ ○  
      3   }                                                │    3   }                                                    
+                                                                                                                        
                                                                                                                         
                                                                                                                         
                                                                                                                         
@@ -1046,13 +1046,35 @@ exports[`stories catalog Chrome/SettingsRows/AllKinds renders, snapshots, and ca
 "
 `;
 
-exports[`stories catalog Chrome/ShareMenu/Closed renders, snapshots, and carries its colors: Chrome/ShareMenu/Closed 1`] = `
-"   share                                
-                                        
-                                        
-                                        
-                                        
-                                        
+exports[`stories catalog Dialogs/ShareChoice/PrivateSelected renders, snapshots, and carries its colors: Dialogs/ShareChoice/PrivateSelected 1`] = `
+"                                                            
+                                                            
+                                                            
+       ┌─ Share ────────────────────────────────────┐       
+       │   public link                              │       
+       │ › private link                             │       
+       │                                            │       
+       │                                            │       
+       │ ↑↓ choose · enter select · esc cancel      │       
+       └────────────────────────────────────────────┘       
+                                                            
+                                                            
+"
+`;
+
+exports[`stories catalog Dialogs/ShareChoice/PublicSelected renders, snapshots, and carries its colors: Dialogs/ShareChoice/PublicSelected 1`] = `
+"                                                            
+                                                            
+                                                            
+       ┌─ Share ────────────────────────────────────┐       
+       │ › public link                              │       
+       │   private link                             │       
+       │                                            │       
+       │                                            │       
+       │ ↑↓ choose · enter select · esc cancel      │       
+       └────────────────────────────────────────────┘       
+                                                            
+                                                            
 "
 `;
 
@@ -1117,7 +1139,6 @@ exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, a
   Context                                                                                           
                                                                                                     
   The daemon persists sessions to disk atomically.                                                  
-                                                                                                    
   ╷────────────────────────────────────────────────────────────────────────────────────────────┐    
   │ ● Which daemon owns this?                                                                  │    
   ╵────────────────────────────────────────────────────────────────────────────────────────────┘    
@@ -1125,17 +1146,18 @@ exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, a
   Steps                                                                                             
                                                                                                     
   · move the store                                                                                  
-                                                                                                    
   ╷────────────────────────────────────────────────────────────────────────────────────────────┐    
-  │ ● move the store behind one interface                                                      │ ○  
-  ╵────────────────────────────────────────────────────────────────────────────────────────────┘ ○  
-  · add recovery                                                                                    
-                                                                                                    
+  │ ● move the store behind one interface                                                      │    
+  ╵────────────────────────────────────────────────────────────────────────────────────────────┘    
+  · add recovery                                                                                 ○  
+                                                                                                 ○  
   ts                                                                                                
   export function persist(session: Session): void {                                                 
     // one JSON document per session                                                                
     writeAtomically(pathFor(session.id), serialize(session));                                       
   }                                                                                                 
+                                                                                                    
+                                                                                                    
                                                                                                     
                                                                                                     
                                                                                                     
@@ -1948,37 +1970,5 @@ exports[`stories catalog Foundations/Theme/ProviderSwap renders, snapshots, and 
                                                                                 
                                                                                 
                                                                                 
-"
-`;
-
-exports[`stories catalog Dialogs/ShareChoice/PrivateSelected renders, snapshots, and carries its colors: Dialogs/ShareChoice/PrivateSelected 1`] = `
-"                                                            
-                                                            
-                                                            
-       ┌─ Share ────────────────────────────────────┐       
-       │   public link                              │       
-       │ › private link                             │       
-       │                                            │       
-       │                                            │       
-       │ ↑↓ choose · enter select · esc cancel      │       
-       └────────────────────────────────────────────┘       
-                                                            
-                                                            
-"
-`;
-
-exports[`stories catalog Dialogs/ShareChoice/PublicSelected renders, snapshots, and carries its colors: Dialogs/ShareChoice/PublicSelected 1`] = `
-"                                                            
-                                                            
-                                                            
-       ┌─ Share ────────────────────────────────────┐       
-       │ › public link                              │       
-       │   private link                             │       
-       │                                            │       
-       │                                            │       
-       │ ↑↓ choose · enter select · esc cancel      │       
-       └────────────────────────────────────────────┘       
-                                                            
-                                                            
 "
 `;

@@ -247,7 +247,7 @@ export function DiscussionCard({
   });
 
   return (
-    <box style={{ flexDirection: "row", marginTop: 1, marginLeft: 2 }}>
+    <box style={{ flexDirection: "row", marginTop: 0, marginLeft: 2 }}>
       <text selectable={false} style={{ flexShrink: 0, width: 1 }}>
         {edgeRows.map((row, index) => (
           <span key={index} fg={row.color}>
