@@ -42,6 +42,9 @@ import { GatewayMetrics, startMetricsServer } from "./metrics";
 import { TokenBucket } from "./rate-limit";
 import { SHARE_UPLOAD_USER, isShareId, mintShareId } from "./share-id";
 import { WatchedShareStore, type ShareStore } from "./store";
+import { registerParticipant } from "@cueloop/schema";
+import { githubClientId } from "./github-device-flow";
+import { runCollaboratorJoin } from "./collaborator-join";
 
 const PushPayloadSchema = v.object({
   shareId: v.optional(v.unknown()),
@@ -223,6 +226,31 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       return end(channel, 1);
     }
     try {
+      const clientId = githubClientId();
+
+      if (clientId) {
+        const joined = await runCollaboratorJoin({
+          channel,
+          size: pty,
+          clientId,
+          dependencies: {
+            fetch,
+            sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+          },
+        });
+
+        if (joined.kind === "identity") {
+          session = registerParticipant(
+            session,
+            identity.fingerprint,
+            joined.name ?? joined.login,
+            {
+              provider: "github",
+              handle: joined.login,
+            },
+          );
+        }
+      }
       // Every viewer is a collaborator: they annotate, and each note unions
       // back into the stored blob stamped with their fingerprint. They cannot
       // edit the plan or submit a verdict (the App's collaborator role).
