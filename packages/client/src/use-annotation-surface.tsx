@@ -15,7 +15,7 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
-import type { Thread } from "@cueloop/schema";
+import type { Annotation, Thread } from "@cueloop/schema";
 import type { Mark } from "./view-plan";
 import type { QuickAction } from "./config";
 import type { Theme } from "./theme";
@@ -104,6 +104,8 @@ export interface AnnotationSurfaceOptions {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  /** The author's display name for a comment's hover tooltip; the rail resolves it against the participant registry. */
+  resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
   leaderCombos?: readonly string[];
   onLeaderCommand?: (key: KeyEvent) => void;
   onExit: () => void;
@@ -179,6 +181,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    resolveAuthorLabel,
     leaderCombos,
     onLeaderCommand,
     onExit,
@@ -735,7 +738,12 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
         node: editingHere ? (
           composerNode
         ) : (
-          <CommentRow key={annotation.id} annotation={annotation} tokens={tokens} />
+          <CommentRow
+            key={annotation.id}
+            annotation={annotation}
+            tokens={tokens}
+            authorLabel={resolveAuthorLabel?.(annotation)}
+          />
         ),
       };
     });

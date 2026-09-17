@@ -10,7 +10,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createTextAttributes, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core";
-import type { Thread } from "@cueloop/schema";
+import type { Annotation, Thread } from "@cueloop/schema";
 import { diffRowText, fileChangeCounts, type DiffRow, type Mark } from "../view-diff";
 import type { TextSpan } from "../thread-selection";
 import type { QuickAction } from "../config";
@@ -95,6 +95,8 @@ export interface DiffContentViewProps {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  /** The author's display name for a comment's hover tooltip. */
+  resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
   leaderCombos?: readonly string[];
   onLeaderCommand?: (key: KeyEvent) => void;
   onExit: () => void;
@@ -489,6 +491,7 @@ export function DiffContentView({
   onAnnotate,
   onReply,
   onUpdateAnnotation,
+  resolveAuthorLabel,
   leaderCombos,
   onLeaderCommand,
   onExit,
@@ -524,6 +527,7 @@ export function DiffContentView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    resolveAuthorLabel,
     leaderCombos,
     onLeaderCommand,
     onExit,

@@ -4,7 +4,13 @@
 // hold the notes; the bare-launch welcome shell uses the read-only FileContentsView instead.
 
 import React, { useEffect, useRef, useState } from "react";
-import { makeAnchor, annotationTarget, type Anchor, type Thread } from "@cueloop/schema";
+import {
+  makeAnchor,
+  annotationTarget,
+  type Anchor,
+  type Annotation,
+  type Thread,
+} from "@cueloop/schema";
 import type { Theme } from "../theme";
 import type { QuickAction } from "../config";
 import { useComponentTheme } from "./theme-context";
@@ -28,6 +34,7 @@ export interface AnnotatableFileViewProps {
   onAddComment: (anchor: Anchor, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
   onExit: () => void;
   theme?: Theme;
 }
@@ -119,6 +126,7 @@ export function AnnotatableFileView(props: AnnotatableFileViewProps): React.Reac
       }
       onReply={props.onReply}
       onUpdateAnnotation={props.onUpdateAnnotation}
+      resolveAuthorLabel={props.resolveAuthorLabel}
       onExit={props.onExit}
       theme={props.theme}
     />
