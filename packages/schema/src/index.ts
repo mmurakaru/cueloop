@@ -1,5 +1,6 @@
 export * from "./types";
 export * from "./participants";
+export * from "./share-access";
 export * from "./markdown";
 export * from "./inline";
 export * from "./working-copy";
