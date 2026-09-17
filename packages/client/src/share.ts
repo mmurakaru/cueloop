@@ -12,7 +12,13 @@ import {
   SHARE_UPLOAD_USER,
   packSessionBlob,
 } from "@cueloop/daemon/share-blob";
-import { removalEntries, viewFollowing, type Annotation, type Thread } from "@cueloop/schema";
+import {
+  removalEntries,
+  viewFollowing,
+  type Annotation,
+  type ShareAccess,
+  type Thread,
+} from "@cueloop/schema";
 import { ThreadRecordSchema } from "@cueloop/daemon/validate";
 import type { SharedMerge } from "@cueloop/daemon/client";
 import * as v from "valibot";
@@ -102,11 +108,13 @@ export function mergeFromShare(remote: Thread): SharedMerge {
 export async function pushShare(
   shareId: string,
   annotations: Array<Omit<Annotation, "createdAt">>,
+  access?: ShareAccess,
   target: ShareTarget = {},
 ): Promise<void> {
+  const payload = access ? { shareId, annotations, access } : { shareId, annotations };
   const { stderr, code } = await runShareSsh(
     "cueloop-push",
-    Buffer.from(JSON.stringify({ shareId, annotations })),
+    Buffer.from(JSON.stringify(payload)),
     target,
   );
 

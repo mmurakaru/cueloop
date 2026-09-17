@@ -888,9 +888,12 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session) return;
-    const expected: Thread = { ...session, access: { githubLogins } };
+    const access = { githubLogins };
+    const expected: Thread = { ...session, access };
 
     this.applyOptimistic(expected, this.client!.sessionSetAccess(session.id, githubLogins));
+    // an already-shared link must enforce the new access, so push it up to the gateway blob
+    if (session.shareId) void this.shareTransport.push(session.shareId, [], access).catch(() => {});
   }
 
   rejectedRows(): Set<number> {
