@@ -16,6 +16,7 @@ function AccessHarness({ initial }: { initial: string[] }): React.ReactNode {
         logins={logins}
         onAdd={(login) => setLogins((prev) => [...prev, login])}
         onRemove={(login) => setLogins((prev) => prev.filter((entry) => entry !== login))}
+        onCreateLink={() => {}}
         onClose={() => setOpen(false)}
         theme={DARK}
       />
@@ -56,6 +57,31 @@ describe("ManageAccessDialog", () => {
     await clickText(setup, "add");
 
     expect(locateTextInFrame(setup.captureCharFrame(), "@octocat")).not.toBeNull();
+  });
+
+  test("clicking create link publishes the private link", async () => {
+    let created = false;
+    const setup = await testRender(
+      <box style={{ width: 60, height: 18 }}>
+        <ManageAccessDialog
+          isOpen
+          logins={["octocat"]}
+          onAdd={() => {}}
+          onRemove={() => {}}
+          onCreateLink={() => {
+            created = true;
+          }}
+          onClose={() => {}}
+          theme={DARK}
+        />
+      </box>,
+      { width: 60, height: 18 },
+    );
+
+    await settle(setup);
+    await clickText(setup, "create link");
+
+    expect(created).toBe(true);
   });
 
   test("clicking close dismisses the dialog", async () => {

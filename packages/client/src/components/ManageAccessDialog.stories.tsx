@@ -12,6 +12,7 @@ export const WithHandles: Story = {
       logins={["octocat", "hubot"]}
       onAdd={() => {}}
       onRemove={() => {}}
+      onCreateLink={() => {}}
       onClose={() => {}}
       theme={DARK}
     />
@@ -26,6 +27,7 @@ export const Empty: Story = {
       logins={[]}
       onAdd={() => {}}
       onRemove={() => {}}
+      onCreateLink={() => {}}
       onClose={() => {}}
       theme={DARK}
     />

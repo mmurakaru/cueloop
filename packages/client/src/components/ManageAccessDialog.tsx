@@ -20,6 +20,8 @@ export interface ManageAccessDialogProps {
   logins: string[];
   onAdd: (login: string) => void;
   onRemove: (login: string) => void;
+  /** Publish the private link with the current allowlist and copy its connection line. */
+  onCreateLink: () => void;
   onClose: () => void;
   theme?: Theme;
 }
@@ -29,6 +31,7 @@ export function ManageAccessDialog({
   logins,
   onAdd,
   onRemove,
+  onCreateLink,
   onClose,
   theme,
 }: ManageAccessDialogProps): React.ReactNode {
@@ -103,6 +106,9 @@ export function ManageAccessDialog({
         <box style={{ flexDirection: "row" }}>
           <box onMouseUp={addDraft} style={{ marginRight: 3 }}>
             <text fg={tokens.accent}>add</text>
+          </box>
+          <box onMouseUp={onCreateLink} style={{ marginRight: 3 }}>
+            <text fg={tokens.accent}>create link</text>
           </box>
           <box onMouseUp={onClose}>
             <text fg={tokens.textDim}>close</text>

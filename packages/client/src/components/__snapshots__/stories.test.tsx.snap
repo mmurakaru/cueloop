@@ -683,7 +683,7 @@ exports[`stories catalog Dialogs/ManageAccess/Empty renders, snapshots, and carr
    │                                                    │   
    │                                                    │   
    │ @handle                                            │   
-   │ add   close                                        │   
+   │ add   create link   close                          │   
    └────────────────────────────────────────────────────┘   
                                                             
                                                             
@@ -706,7 +706,7 @@ exports[`stories catalog Dialogs/ManageAccess/WithHandles renders, snapshots, an
    │                                                    │   
    │                                                    │   
    │ @handle                                            │   
-   │ add   close                                        │   
+   │ add   create link   close                          │   
    └────────────────────────────────────────────────────┘   
                                                             
                                                             

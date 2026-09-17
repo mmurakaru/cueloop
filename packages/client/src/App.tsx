@@ -1315,6 +1315,10 @@ export function App({
                 onRemove={(login) =>
                   controller.setShareAccess(allowedLogins.filter((entry) => entry !== login))
                 }
+                onCreateLink={() => {
+                  setAccessDialogOpen(false);
+                  controller.share();
+                }}
                 onClose={() => setAccessDialogOpen(false)}
                 theme={theme}
               />
