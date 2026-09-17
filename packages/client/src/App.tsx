@@ -207,6 +207,40 @@ interface ShareChoiceActions {
   openManageAccess: () => void;
 }
 
+/** Move the share-choice highlight by one row, clamped to the list. */
+function movedShareChoice(index: number, delta: number): Mode {
+  const next = Math.min(SHARE_CHOICES.length - 1, Math.max(0, index + delta));
+
+  return { type: "shareChoice", index: next };
+}
+
+/** Commit the highlighted share option: public publishes a link, private opens manage-access. */
+function commitShareChoice(index: number, actions: ShareChoiceActions): void {
+  const picked = SHARE_CHOICES[index]?.choice;
+
+  actions.setMode({ type: "normal" });
+
+  if (!actions.isOwner) return;
+
+  if (picked === "private") actions.openManageAccess();
+  else actions.publish();
+}
+
+/** Route one key to the open share choice: escape cancels, arrows move, enter commits. */
+function handleShareChoiceKey(
+  index: number,
+  key: { name: string },
+  actions: ShareChoiceActions,
+): void {
+  if (key.name === "escape") return actions.setMode({ type: "normal" });
+
+  if (key.name === "down" || key.name === "j") return actions.setMode(movedShareChoice(index, 1));
+
+  if (key.name === "up" || key.name === "k") return actions.setMode(movedShareChoice(index, -1));
+
+  if (key.name === "return" || key.name === "enter") commitShareChoice(index, actions);
+}
+
 /**
  * An app-level dialog owns the keyboard while open: the manage-access dialog takes its own keys,
  * and the share choice moves the highlight, commits on enter, and cancels on escape. Returns true
@@ -219,21 +253,10 @@ function appDialogOwnsKey(
   actions: ShareChoiceActions,
 ): boolean {
   if (accessDialogOpen) return true;
+
   if (mode.type !== "shareChoice") return false;
-  if (key.name === "escape") actions.setMode({ type: "normal" });
-  else if (key.name === "down" || key.name === "j")
-    actions.setMode({
-      type: "shareChoice",
-      index: Math.min(SHARE_CHOICES.length - 1, mode.index + 1),
-    });
-  else if (key.name === "up" || key.name === "k")
-    actions.setMode({ type: "shareChoice", index: Math.max(0, mode.index - 1) });
-  else if (key.name === "return" || key.name === "enter") {
-    const picked = SHARE_CHOICES[mode.index]?.choice;
-    actions.setMode({ type: "normal" });
-    if (actions.isOwner && picked === "private") actions.openManageAccess();
-    else if (actions.isOwner) actions.publish();
-  }
+
+  handleShareChoiceKey(mode.index, key, actions);
 
   return true;
 }
