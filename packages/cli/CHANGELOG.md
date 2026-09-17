@@ -1,5 +1,29 @@
 # cueloop
 
+## 0.1.0-alpha.77
+
+### Minor Changes
+
+- [#454](https://github.com/mmurakaru/cueloop/pull/454) [`9155958`](https://github.com/mmurakaru/cueloop/commit/9155958290a6728871bf80419ab558d079533ecc) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Collaborators can connect GitHub when they open a shared review: a join splash then a connect screen run GitHub's device flow, and the verified login signs their comments with a recognizable name. Connecting is optional - escape stays anonymous - and the token is discarded after one identity lookup.
+
+- [#460](https://github.com/mmurakaru/cueloop/pull/460) [`bdd09aa`](https://github.com/mmurakaru/cueloop/commit/bdd09aa60212f54205ce67e7c0b46e0f49e56d2d) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The gateway now enforces the private-share allowlist: a private share renders only for a collaborator who authenticated a GitHub identity and whose verified login is on the allowlist (matched case-insensitively). Anyone else is refused before the shared view opens. Public shares are unchanged.
+
+- [#459](https://github.com/mmurakaru/cueloop/pull/459) [`d663f4c`](https://github.com/mmurakaru/cueloop/commit/d663f4cb88c771e20ed24f064e5960adb33e064a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A private share now carries an owner-managed allowlist of GitHub logins. The share popover's private option opens a manage-access surface where the owner adds and removes GitHub handles; the list persists with the thread and is editable after the link is created.
+
+- [#451](https://github.com/mmurakaru/cueloop/pull/451) [`d5950dd`](https://github.com/mmurakaru/cueloop/commit/d5950dd7f21a9f92f1b8965d7b4213cb1c98a947) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reviewer identity: an Account settings tab shows your display name and syncs it from your signed-in GitHub account with no prompt, and hovering a comment's author dot shows who wrote it.
+
+- [#461](https://github.com/mmurakaru/cueloop/pull/461) [`0f3a0e8`](https://github.com/mmurakaru/cueloop/commit/0f3a0e8fe640a13119c91949132eadb66569ca19) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reach the share public/private choice from the keyboard in any view. The share shortcut opens an app-level choice overlay - public publishes a link for anyone, private opens the manage-access allowlist - and the header share button opens the same surface, so a keyboard user in the working-tree diff gets the private option that used to live only in the header popover.
+
+- [#455](https://github.com/mmurakaru/cueloop/pull/455) [`38c5b6b`](https://github.com/mmurakaru/cueloop/commit/38c5b6bf1c6d07fc2f9c79926c2130e00e2dc289) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Share now opens a popover to choose a public link (open to anyone with the link) or a private link (invite by identity). The public choice publishes and copies the connection line as before.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.77
+  - @cueloop/client@0.1.0-alpha.77
+  - @cueloop/daemon@0.1.0-alpha.77
+  - @cueloop/schema@0.1.0-alpha.77
+
 ## 0.1.0-alpha.76
 
 ### Minor Changes
