@@ -532,6 +532,19 @@ export function TrailingOverlays(props: {
           theme={theme}
         />
       ) : null}
+      {mode.type === "renameSelf" ? (
+        <PromptDialog
+          isOpen
+          title=" Display name "
+          label="Your display name - it attributes the notes you leave:"
+          value={mode.text}
+          placeholder="your name"
+          onInput={(text) => setMode({ ...mode, text })}
+          onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
+          theme={theme}
+        />
+      ) : null}
       {mode.type === "treePrompt" ? (
         <PromptDialog
           isOpen

@@ -114,6 +114,8 @@ export interface CueloopConfig {
   };
   /** Planner-local author renames: identity id → display name ([authors] table). */
   authors: Record<string, string>;
+  /** The local reviewer's own display name, and whether it was typed or synced from GitHub ([identity] table). */
+  identity: IdentityConfig;
   /** Marker-popover quick actions ([[actions]] tables); the 5 defaults when unset. */
   actions: QuickAction[];
   /** Directory of user-level skills surfaced in the "/" palette ([skills] path); ~/.agents/skills default. */
@@ -126,6 +128,15 @@ export interface CueloopConfig {
 export interface ExperimentalConfig {
   /** Render a prototype as a pixel mockup (kitty graphics) instead of the default markdown design doc. */
   prototypePixels: boolean;
+}
+
+/** Where a display name came from: typed by the user, or verified from a GitHub login. */
+export type IdentityProvider = "typed" | "github";
+
+export interface IdentityConfig {
+  /** The reviewer's own display name; absent until they set or sync one. */
+  name?: string;
+  provider: IdentityProvider;
 }
 
 /** Every action in the grammar, with its default binding(s). */
@@ -166,12 +177,18 @@ function skillsPathFrom(
 const ConfigDocumentSchema = v.object({
   actions: v.optional(v.array(v.unknown())),
   authors: v.optional(v.unknown()),
+  identity: v.optional(v.unknown()),
   integrations: v.optional(v.unknown()),
   keys: v.optional(v.unknown()),
   theme: v.optional(v.unknown()),
   ui: v.optional(v.unknown()),
   experimental: v.optional(v.unknown()),
   skills: v.fallback(v.optional(SkillsSectionSchema), undefined),
+});
+
+const IdentitySchema = v.object({
+  name: v.fallback(v.optional(v.string()), undefined),
+  provider: v.fallback(v.optional(v.picklist(["typed", "github"])), undefined),
 });
 
 const QuickActionSchema = v.object({
@@ -275,6 +292,7 @@ function applyUi(ui: CueloopConfig["ui"], parsed: v.InferOutput<typeof UiSchema>
 function layer(
   base: CueloopConfig,
   raw: v.InferOutput<typeof ConfigDocumentSchema>,
+  allowIdentity: boolean,
 ): CueloopConfig {
   const out: CueloopConfig = {
     keys: { ...base.keys },
@@ -282,6 +300,7 @@ function layer(
     themeOverrides: { ...base.themeOverrides },
     ui: { ...base.ui },
     authors: { ...base.authors },
+    identity: { ...base.identity },
     actions: [...base.actions],
     skillsPath: base.skillsPath,
     integrations: { obsidian: { ...base.integrations.obsidian } },
@@ -289,6 +308,7 @@ function layer(
   };
   const actions = parseActions(raw.actions);
   const authors = v.safeParse(AuthorsSchema, raw.authors);
+  const identity = v.safeParse(IdentitySchema, raw.identity);
   const keys = v.safeParse(KeysSchema, raw.keys);
   const ui = v.safeParse(UiSchema, raw.ui);
   const integrations = v.safeParse(IntegrationsSchema, raw.integrations);
@@ -310,6 +330,11 @@ function layer(
       if (combo.success)
         out.keys[action] = Array.isArray(combo.output) ? combo.output : [combo.output];
     }
+  }
+  // The reviewer identity is a personal credential; a repo must never forge a verified name.
+  if (allowIdentity && identity.success) {
+    if (identity.output.name !== undefined) out.identity.name = identity.output.name;
+    if (identity.output.provider !== undefined) out.identity.provider = identity.output.provider;
   }
   if (ui.success) applyUi(out.ui, ui.output);
   if (integrations.success && integrations.output.obsidian) {
@@ -336,6 +361,7 @@ export function loadConfig(
       pins: [],
     },
     authors: {},
+    identity: { provider: "typed" },
     actions: [...DEFAULT_QUICK_ACTIONS],
     skillsPath: join(homedir(), ".agents", "skills"),
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
@@ -357,7 +383,7 @@ export function loadConfig(
     try {
       const raw = parseToml(readFileSync(path, "utf8"));
 
-      config = layer(config, raw);
+      config = layer(config, raw, path === userPath);
       const ui = v.safeParse(UiSchema, raw.ui);
       const rawTheme = ui.success ? ui.output.theme : undefined;
       const parsedThemeOverrides = v.safeParse(ThemeOverridesSchema, raw.theme);
@@ -455,6 +481,23 @@ export function persistActions(actions: QuickAction[], userConfigPath?: string):
     .join("\n\n");
 
   text = blocks ? `${text ? `${text}\n\n` : ""}${blocks}\n` : `${text}\n`;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, text);
+}
+
+/** Persist the reviewer's own display name and its provider (`[identity]`) into the user config. */
+export function persistIdentity(identity: IdentityConfig, userConfigPath?: string): void {
+  const path = userConfigPathFrom(userConfigPath);
+  let text = existsSync(path) ? readFileSync(path, "utf8") : "";
+  const nameLine = identity.name === undefined ? "" : `name = ${tomlString(identity.name)}\n`;
+  const block = `[identity]\n${nameLine}provider = ${tomlString(identity.provider)}\n`;
+
+  if (/^\[identity\]/m.test(text)) {
+    // Consume the header and its assignment lines only, so a bracket in a quoted name cannot truncate the block.
+    text = text.replace(/^\[identity\].*(?:\n(?![[\n]).*)*\n?/m, block);
+  } else {
+    text = text.trimEnd() + (text.trim() ? "\n\n" : "") + block;
+  }
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, text);
 }

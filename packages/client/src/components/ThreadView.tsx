@@ -14,7 +14,7 @@
 
 import React, { useEffect, useRef } from "react";
 import type { KeyEvent, ScrollBoxRenderable } from "@opentui/core";
-import type { Thread } from "@cueloop/schema";
+import type { Annotation, Thread } from "@cueloop/schema";
 import { displayText, type DisplayBlock, type Mark } from "../view-plan";
 import type { TextSpan } from "../thread-selection";
 import type { QuickAction } from "../config";
@@ -127,6 +127,8 @@ export interface ThreadViewProps {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  /** The author's display name for a comment's hover tooltip. */
+  resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
   leaderCombos?: readonly string[];
   onLeaderCommand?: (key: KeyEvent) => void;
   onExit: () => void;
@@ -150,6 +152,7 @@ export function ThreadView({
   onAnnotate,
   onReply,
   onUpdateAnnotation,
+  resolveAuthorLabel,
   leaderCombos,
   onLeaderCommand,
   onExit,
@@ -178,6 +181,7 @@ export function ThreadView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    resolveAuthorLabel,
     leaderCombos,
     onLeaderCommand,
     onExit,

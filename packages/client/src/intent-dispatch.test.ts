@@ -143,6 +143,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     quickActions: [],
     renameAuthor: mock(),
     renameThread: mock(),
+    setLocalIdentityName: mock(),
     liveInput: { current: "" },
     setCursor: mock(),
     setInboxCursor: mock(),
@@ -545,6 +546,18 @@ describe("rename author", () => {
 
     // Assert
     expect(deps.renameAuthor).toHaveBeenCalledWith("SHA256:x", "Alex");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+
+  test("confirmDialog in renameSelf mode sets the trimmed local identity name and closes", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "renameSelf", text: "  Robin  " } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "confirmDialog" });
+
+    // Assert
+    expect(deps.setLocalIdentityName).toHaveBeenCalledWith("Robin");
     expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
   });
 });

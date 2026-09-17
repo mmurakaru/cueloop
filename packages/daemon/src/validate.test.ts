@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import * as v from "valibot";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -344,5 +345,23 @@ describe("wire pins", () => {
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
+  });
+});
+
+describe("IdentitySchema provider", () => {
+  test("accepts a verified github identity", () => {
+    const parsed = v.safeParse(IdentitySchema, {
+      id: "SHA256:abc",
+      provider: "github",
+      name: "markus",
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  test("rejects an unknown provider", () => {
+    const parsed = v.safeParse(IdentitySchema, { id: "SHA256:abc", provider: "email" });
+
+    expect(parsed.success).toBe(false);
   });
 });

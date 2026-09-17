@@ -15,11 +15,15 @@ import {
   loadConfig,
   persistAuthorName,
   persistDiffView,
+  persistIdentity,
   persistPins,
   type AutoClose,
   type DiffViewMode,
+  type IdentityConfig,
   type QuickAction,
 } from "./config";
+import { resolveDisplayName } from "./attribution";
+import { resolveGithubIdentity } from "./github-identity";
 import { loadSkills, PaletteNamesContext, SlashSkillsContext } from "./skills";
 import { mergeSlashItems, slashItemsFrom, type SlashItem } from "./slash-palette";
 import {
@@ -67,7 +71,7 @@ import {
 import { type DiffFoldControls } from "./components/DiffContentView";
 import { commentCountsByFile } from "./view-diff";
 import { annotationTarget } from "@cueloop/schema";
-import type { Artifact, DiffFileContents, Thread } from "@cueloop/schema";
+import type { Annotation, Artifact, DiffFileContents, Identity, Thread } from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
 import {
@@ -187,6 +191,18 @@ function keyboardOwnedElsewhere(menuOwnsKeyboard: boolean, overlay: KeyState["ov
 /** The footer submit fires only for the owner of an unresolved review, never an observer. */
 function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean): boolean {
   return isOwner && !resolved && !observer;
+}
+
+/** The author display name for a comment's hover tooltip: the reviewer's own name for their notes, else the resolved collaborator name. */
+function authorLabelResolver(
+  ownName: string | undefined,
+  participants: Identity[] | undefined,
+  overrides: Record<string, string>,
+): (annotation: Annotation) => string | undefined {
+  return (annotation) =>
+    annotation.author === undefined
+      ? (ownName ?? "you")
+      : resolveDisplayName(annotation.author, participants, overrides);
 }
 
 /** The Project pane body: the resolved repo's changed files in changes mode, its full tree otherwise. */
@@ -526,6 +542,7 @@ export function App({
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME_NAME);
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
+  const [identity, setIdentity] = useState<IdentityConfig>({ provider: "typed" });
   const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
   const [skills, setSkills] = useState<SlashItem[]>([]);
   const paletteNames = useMemo(
@@ -545,6 +562,7 @@ export function App({
     setThemeName(config.ui.theme);
     setThemeOverrides(config.themeOverrides);
     setAuthorNames(config.authors);
+    setIdentity(config.identity);
     setQuickActions(config.actions);
     setSkills(loadSkills(config.skillsPath));
     setAutoClose(config.ui.autoClose);
@@ -578,6 +596,29 @@ export function App({
     if (!known) setMode({ type: "nameSelf", text: "" });
   }, [role, selfAuthor, session]);
 
+  // Bumped on every identity change so a slow GitHub sync that lands after a newer rename is discarded.
+  const identityGenerationRef = useRef(0);
+  const applyIdentity = (next: IdentityConfig): void => {
+    identityGenerationRef.current += 1;
+    setIdentity(next);
+    try {
+      persistIdentity(next);
+    } catch {
+      controller.setStatus("could not save identity to config");
+    }
+  };
+  const syncGithubIdentity = (): void => {
+    const generation = (identityGenerationRef.current += 1);
+    void resolveGithubIdentity().then((github) => {
+      if (identityGenerationRef.current !== generation) return;
+      if (!github) return controller.setStatus("GitHub not connected - run gh auth login");
+      const name = github.name?.trim() || github.login;
+
+      applyIdentity({ name, provider: "github" });
+      controller.setStatus(`identity synced from GitHub - ${name}`);
+    });
+  };
+
   // ── settings dialog: config-backed model, navigation, persistence ──
   const {
     settingsNav,
@@ -600,6 +641,13 @@ export function App({
     quickActions,
     setQuickActions,
     setMenuDialog,
+    identityName: identity.name,
+    identityProvider: identity.provider,
+    onSyncGithubIdentity: syncGithubIdentity,
+    onRenameDisplayName: () => {
+      setMenuDialog(null);
+      setMode({ type: "renameSelf", text: identity.name ?? "" });
+    },
   });
 
   // ── derived view model ──────────────────────
@@ -718,6 +766,9 @@ export function App({
       setAuthorNames((prev) => ({ ...prev, [id]: name }));
     },
     renameThread: (id: string, title: string) => controller.renameSession(id, title),
+    setLocalIdentityName: (name: string) => {
+      applyIdentity(name ? { name, provider: "typed" } : { provider: "typed" });
+    },
     liveInput,
     setCursor,
     setInboxCursor,
@@ -919,6 +970,11 @@ export function App({
     );
 
   const activeSession = session;
+  const resolveAuthorLabel = authorLabelResolver(
+    identity.name,
+    activeSession.participants,
+    authorNames,
+  );
 
   if (isCompletionOverlayPhase(completion) && activeSession.verdict)
     return (
@@ -1092,6 +1148,7 @@ export function App({
                           void controller.reply(rootAnnotationId, body)
                         }
                         onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
+                        resolveAuthorLabel={resolveAuthorLabel}
                         onExit={() => onExit?.(0)}
                       />
                     )}
@@ -1160,6 +1217,7 @@ export function App({
                         onReply: (rootAnnotationId, body) =>
                           void controller.reply(rootAnnotationId, body),
                         onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
+                        resolveAuthorLabel,
                         leaderCombos,
                         onLeaderCommand: runLeaderCommand,
                         onExit: () => onExit?.(0),

@@ -7,9 +7,15 @@
  */
 
 import React, { useContext, useLayoutEffect, useRef, useState } from "react";
-import type { BoxRenderable, KeyBinding, TextareaRenderable } from "@opentui/core";
+import type {
+  BoxRenderable,
+  KeyBinding,
+  MouseEvent as TerminalMouseEvent,
+  TextareaRenderable,
+} from "@opentui/core";
 import type { Annotation } from "@cueloop/schema";
 import type { Theme } from "../theme";
+import { useTooltip } from "./Tooltip";
 import { lighten } from "../annotation-palette";
 import { useFrameMeasure } from "../use-frame-measure";
 import { skillReferenceRanges, type SlashItem } from "../slash-palette";
@@ -281,22 +287,34 @@ export function DiscussionCard({
 export function CommentRow({
   annotation,
   tokens,
+  authorLabel,
 }: {
   annotation: Annotation;
   tokens: Theme;
+  /** The author's resolved display name, shown as a tooltip when the dot is hovered. */
+  authorLabel?: string;
 }): React.ReactNode {
   // own comments (no author) wear the filled dot, collaborators the outline
   const own = annotation.author === undefined;
   const glyph = own ? "●" : "○";
   const glyphColor = own ? tokens.text : tokens.textMuted;
+  const { showTooltip, hideTooltip } = useTooltip();
+  const dotHover = authorLabel
+    ? {
+        onMouseOver: (event: TerminalMouseEvent) => showTooltip(authorLabel, event.x, event.y),
+        onMouseOut: hideTooltip,
+      }
+    : {};
 
   return (
     <box style={{ flexDirection: "column" }}>
       {annotation.body.split("\n").map((line, lineIndex) => (
         <box key={lineIndex} style={{ flexDirection: "row" }}>
-          <text selectable={false} fg={glyphColor} style={{ flexShrink: 0 }}>
-            {lineIndex === 0 ? `${glyph} ` : "  "}
-          </text>
+          <box style={{ flexShrink: 0 }} {...(lineIndex === 0 ? dotHover : {})}>
+            <text selectable={false} fg={glyphColor}>
+              {lineIndex === 0 ? `${glyph} ` : "  "}
+            </text>
+          </box>
           <text fg={tokens.text} style={{ wrapMode: "word", flexGrow: 1, flexShrink: 1 }}>
             {line}
           </text>
