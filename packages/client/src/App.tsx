@@ -42,6 +42,7 @@ import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { useReadySignal } from "./ready-signal";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
+import { ShareMenu } from "./components/ShareMenu";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { groupInbox, projectName, threadTitle } from "./components/session-tree";
 import { ThreadTree } from "./components/ThreadTree";
@@ -1024,10 +1025,16 @@ export function App({
     runEditorHandOff();
   };
 
-  // clicking the header Share button: publish the plan, copy the ssh line
+  // the share popover's public choice: publish the plan, copy the ssh line
   const onShareRequest = (): void => {
     if (!isOwner) return controller.setStatus("only the plan owner can share");
     controller.share();
+  };
+
+  // the share popover's private choice: manage-access lands with the allowlist slice
+  const onPrivateShareRequest = (): void => {
+    if (!isOwner) return controller.setStatus("only the plan owner can share");
+    controller.setStatus("private shares - manage access is coming soon");
   };
 
   // clicking the rail Submit button: same read-only answer as the submit key
@@ -1083,9 +1090,11 @@ export function App({
                     <Button onPress={onEditRequest} theme={theme}>
                       {" edit "}
                     </Button>
-                    <Button onPress={onShareRequest} theme={theme}>
-                      {" share "}
-                    </Button>
+                    <ShareMenu
+                      onPublicShare={onShareRequest}
+                      onPrivateShare={onPrivateShareRequest}
+                      theme={theme}
+                    />
                   </Toolbar>
                 ) : undefined
               }
