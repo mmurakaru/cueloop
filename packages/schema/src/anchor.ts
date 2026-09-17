@@ -139,22 +139,25 @@ function findExactCandidates(anchor: Anchor, blocks: Block[], quote: string): Ca
  */
 const FUZZY_CONTEXT_TIE_BREAK = 0.01;
 
-/** Block indices to scan, the anchor's hinted block first, then the rest in order. */
+/** Block indices to scan, spiralling out from the anchor's hinted block: hint, hint+1, hint-1, ... */
 function blockScanOrder(hint: number | undefined, count: number): number[] {
   if (count <= 0) return [];
   const first = Number.isInteger(hint) ? Math.min(Math.max(hint!, 0), count - 1) : 0;
   const order = [first];
 
-  for (let index = 0; index < count; index++) if (index !== first) order.push(index);
+  for (const step of Array.from({ length: count - 1 }, (_unused, index) => index + 1)) {
+    if (first + step < count) order.push(first + step);
+    if (first - step >= 0) order.push(first - step);
+  }
 
   return order;
 }
 
 /**
- * The best fuzzy window per block, ranked by similarity with context as a tiebreak.
- * One work budget is shared across every block scan so a stale anchor costs a single
- * budget total, not one per block; the anchor's own block is scanned first so an
- * exhausted budget never drops the window the anchor most likely still points at.
+ * The best fuzzy window per block, ranked by similarity with context as a tiebreak. One work budget
+ * is shared across every block scan, so a stale anchor costs a single budget total, not one per
+ * block. Blocks are scanned outward from the anchor's hint, so a quote nudged a few blocks by an
+ * edit is reached before the budget runs out; a passage that moved far or is truly gone orphans.
  */
 function findFuzzyCandidates(
   anchor: Anchor,

@@ -355,4 +355,40 @@ describe("fuzzy work budget", () => {
     expect(resolved?.strategy).toBe("fuzzy");
     expect(elapsed).toBeLessThan(2000);
   });
+
+  test("still binds when a distinctive quote moved down a few blocks and was edited", () => {
+    // Arrange - a distinctive quote among unrelated blocks; the agent inserts paragraphs above it
+    // (shifting it down) and edits one word, so exact/normalized miss and the outward scan must
+    // reach the shifted block before the shared budget runs out
+    const original =
+      "The canonical migration store commits every session write atomically along one path.";
+    const plan = (target: string): string => {
+      const lines = ["# Plan", ""];
+
+      for (let index = 0; index < 40; index++) {
+        lines.push(
+          index === 20
+            ? target
+            : `Filler paragraph ${index} covers an unrelated topic in its own words.`,
+          "",
+        );
+      }
+
+      return lines.join("\n");
+    };
+    const before = parseBlocks(plan(original));
+    const quoted = before.findIndex((block) => block.text === original);
+    const anchor = makeAnchor(before, quoted, 0, original.length);
+    const edited = original.replace("atomically", "carefully");
+    const shifted = parseBlocks(
+      plan(edited).replace("# Plan\n", "# Plan\n\nInserted A.\n\nInserted B.\n\nInserted C.\n"),
+    );
+
+    // Act
+    const resolved = resolveAnchor(anchor, shifted);
+
+    // Assert - rebinds via fuzzy onto the shifted block, not orphaned or bound to a neighbour
+    expect(resolved?.strategy).toBe("fuzzy");
+    expect(shifted[resolved!.blockIndex]!.text).toBe(edited);
+  });
 });
