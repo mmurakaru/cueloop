@@ -132,6 +132,20 @@ function planCutId(base: { lineStart: number; lineEnd: number }): string {
   return `plan:${base.lineStart}-${base.lineEnd}`;
 }
 
+/**
+ * Whether two records of the same thread yield the same document projection (display, rows, files,
+ * models). Those derive only from the artifact content and the working copy, so an update that
+ * touched only annotations, status, or the verdict leaves them identical - the projection can be
+ * reused rather than re-parsed. Content and working copy are strings, compared here by value.
+ */
+export function sameDerivationInputs(previous: Thread, next: Thread): boolean {
+  return (
+    previous.id === next.id &&
+    previous.artifact.content === next.artifact.content &&
+    previous.workingCopy === next.workingCopy
+  );
+}
+
 export interface ControllerSnapshot {
   session: Thread | null;
   inbox: Thread[] | null;
@@ -498,6 +512,41 @@ class Controller implements ReviewController {
   }
 
   // ── derived projections ─────────────────────
+  /**
+   * The projection reuses when the same thread's derivation inputs are unchanged. display, rows,
+   * files, and models derive only from the artifact and working copy - never from annotations,
+   * status, or the verdict - so an update that touched only those produces an all-new session
+   * record but an identical projection.
+   */
+  private reusesDerived(session: Thread, liveDiff: LiveWorkingDiff | null): boolean {
+    return (
+      this.derivedFor !== null &&
+      this.derivedForLiveDiff === liveDiff &&
+      sameDerivationInputs(this.derivedFor, session)
+    );
+  }
+
+  private buildDerived(
+    session: Thread | null,
+    frozenDiff: boolean,
+    liveDiff: LiveWorkingDiff | null,
+  ): DerivedSessionProjection {
+    const content = frozenDiff ? session!.artifact.content : (liveDiff?.patch ?? "");
+    const files = frozenDiff ? (session?.artifact.files ?? []) : (liveDiff?.files ?? []);
+    const rows = content ? diffRows(content) : [];
+    const models = new Map<string, FileDiffMetadata>();
+
+    for (const file of files) models.set(file.path, parseFileDiff(file));
+
+    return {
+      display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
+      rows,
+      files: walkFiles(rows),
+      models,
+      tree: session?.history ? treeRows(session.history) : [],
+    };
+  }
+
   private ensureDerived(): void {
     const session = this.snapshot.session;
     const frozenDiff = readsFrozenDiff(session);
@@ -505,27 +554,21 @@ class Controller implements ReviewController {
     const liveDiff = frozenDiff ? null : this.liveDiff;
 
     if (this.derivedFor === session && this.derivedForLiveDiff === liveDiff) return;
-    // fold state belongs to the session, so a live-tree refresh keeps it; only a new session resets it
-    if (this.derivedFor !== session) {
+    // reuse the parsed projection across an update that left the inputs unchanged; only the cheap tree can differ
+    if (session !== null && this.reusesDerived(session, liveDiff)) {
+      this.derivedFor = session;
+      this.derived = { ...this.derived, tree: session.history ? treeRows(session.history) : [] };
+
+      return;
+    }
+    // a different thread resets fold state; a same-thread re-derivation (content edit) keeps it
+    if (this.derivedFor?.id !== session?.id) {
       this.collapsedFiles.clear();
       this.expandedFiles.clear();
     }
     this.derivedFor = session;
     this.derivedForLiveDiff = liveDiff;
-
-    const content = frozenDiff ? session!.artifact.content : (liveDiff?.patch ?? "");
-    const files = frozenDiff ? (session?.artifact.files ?? []) : (liveDiff?.files ?? []);
-    const rows = content ? diffRows(content) : [];
-    const models = new Map<string, FileDiffMetadata>();
-
-    for (const file of files) models.set(file.path, parseFileDiff(file));
-    this.derived = {
-      display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
-      rows,
-      files: walkFiles(rows),
-      models,
-      tree: session?.history ? treeRows(session.history) : [],
-    };
+    this.derived = this.buildDerived(session, frozenDiff, liveDiff);
   }
 
   /** The per-file contents that back the current rows: a diff thread's capture, else the live working tree. */
