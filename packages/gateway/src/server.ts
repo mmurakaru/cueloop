@@ -42,7 +42,7 @@ import { GatewayMetrics, startMetricsServer } from "./metrics";
 import { TokenBucket } from "./rate-limit";
 import { SHARE_UPLOAD_USER, isShareId, mintShareId } from "./share-id";
 import { WatchedShareStore, type ShareStore } from "./store";
-import { registerParticipant, type ParticipantSource } from "@cueloop/schema";
+import { isShareViewerAllowed, registerParticipant, type ParticipantSource } from "@cueloop/schema";
 import { githubClientId } from "./github-device-flow";
 import { runCollaboratorJoin, type CollaboratorJoinOutcome } from "./collaborator-join";
 
@@ -229,6 +229,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       const clientId = githubClientId();
       let participantName: string | undefined;
       let participantSource: ParticipantSource | undefined;
+      let verifiedGithubLogin: string | undefined;
 
       if (clientId) {
         // A GitHub outage must never close an otherwise-valid share; fall through to anonymous.
@@ -243,6 +244,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         }).catch((): CollaboratorJoinOutcome => ({ kind: "skipped" }));
 
         if (joined.kind === "identity") {
+          verifiedGithubLogin = joined.login;
           participantName = joined.name ?? joined.login;
           participantSource = { provider: "github", handle: joined.login };
           session = registerParticipant(
@@ -252,6 +254,14 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
             participantSource,
           );
         }
+      }
+      // A private share renders only for an authenticated login on its allowlist; a public share is unchanged.
+      if (session.access && !isShareViewerAllowed(session.access, verifiedGithubLogin)) {
+        channel.stderr.write(
+          "cueloop: this is a private share; connect GitHub as an allowed collaborator to view it\r\n",
+        );
+
+        return end(channel, 1);
       }
       // Every viewer is a collaborator: they annotate, and each note unions
       // back into the stored blob stamped with their fingerprint. They cannot
