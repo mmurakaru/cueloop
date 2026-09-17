@@ -146,6 +146,27 @@ export function sameDerivationInputs(previous: Thread, next: Thread): boolean {
   );
 }
 
+/**
+ * The session with `annotation` upserted, for an optimistic paint the instant the composer closes
+ * rather than after the daemon round-trip - otherwise a saved comment blinks out until the write
+ * lands. An edit keeps the note in place and its timestamp; a new note appends. The daemon's record
+ * replaces this guess when the write returns.
+ */
+export function withAnnotationUpserted(
+  session: Thread,
+  annotation: Omit<Annotation, "createdAt">,
+): Thread {
+  const index = session.annotations.findIndex((entry) => entry.id === annotation.id);
+  const createdAt = index >= 0 ? session.annotations[index]!.createdAt : new Date().toISOString();
+  const optimistic: Annotation = { ...annotation, createdAt };
+  const annotations =
+    index >= 0
+      ? session.annotations.map((entry) => (entry.id === annotation.id ? optimistic : entry))
+      : [...session.annotations, optimistic];
+
+  return { ...session, annotations };
+}
+
 export interface ControllerSnapshot {
   session: Thread | null;
   inbox: Thread[] | null;
@@ -1137,7 +1158,7 @@ class Controller implements ReviewController {
         : { id: newAnnotationId(), kind, anchor, body, target: resolvedTarget };
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1153,7 +1174,7 @@ class Controller implements ReviewController {
         : { id: newAnnotationId(), kind: "comment", anchor, body, target };
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1219,7 +1240,7 @@ class Controller implements ReviewController {
     const wire = root.target ? { ...base, target: root.target } : base;
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1233,7 +1254,7 @@ class Controller implements ReviewController {
     const wire = { id: newAnnotationId(), kind: "comment", anchor, body };
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1258,7 +1279,7 @@ class Controller implements ReviewController {
     if (existing.replyTo !== undefined) wire.replyTo = existing.replyTo;
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
     this.setStatus("annotation updated");
   }
