@@ -34,14 +34,15 @@ const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
 const PRIVACY_LINE = "privacy https://cueloop.dev/privacy   support support@cueloop.dev";
 
-/** Classify a single keypress; a lone escape byte skips, a trailing sequence does not. */
+/** Classify a keypress from a byte chunk that may coalesce several keys or a paste. */
 export function interpretJoinKey(chunk: Buffer): JoinKey {
-  if (chunk.length !== 1) return "other";
-  const byte = chunk[0];
+  // A lone escape (or ctrl-c) skips; an escape that begins a CSI sequence (arrow keys) does not.
+  if (chunk.length === 1 && (chunk[0] === 0x1b || chunk[0] === 0x03)) return "escape";
 
-  if (byte === 0x0d || byte === 0x0a) return "enter";
-  if (byte === 0x1b || byte === 0x03) return "escape";
-  if (byte === 0x75 || byte === 0x55) return "copy";
+  for (const byte of chunk) {
+    if (byte === 0x0d || byte === 0x0a) return "enter";
+    if (byte === 0x75 || byte === 0x55) return "copy";
+  }
 
   return "other";
 }
@@ -149,12 +150,15 @@ export async function runCollaboratorJoin(options: {
       if (prompt) channel.write(renderConnectScreen(size, prompt, copied));
     };
     let stopKeys = (): void => {};
+    const abort = new AbortController();
     const skipped = new Promise<CollaboratorJoinOutcome>((resolve) => {
       const listener = (chunk: Buffer): void => {
         const key = interpretJoinKey(chunk);
 
-        if (key === "escape") resolve({ kind: "skipped" });
-        else if (key === "copy" && prompt) {
+        if (key === "escape") {
+          abort.abort();
+          resolve({ kind: "skipped" });
+        } else if (key === "copy" && prompt) {
           copied = true;
           channel.write(clipboardCopySequence(prompt.verificationUriComplete));
           draw();
@@ -164,17 +168,21 @@ export async function runCollaboratorJoin(options: {
       channel.on("data", listener);
       stopKeys = () => channel.removeListener("data", listener);
     });
+    // A device-flow error (network, parse) becomes an anonymous skip, never an unhandled rejection.
     const resolved = resolveCollaboratorIdentity(clientId, {
       ...dependencies,
+      signal: abort.signal,
       onVerification: (next) => {
         prompt = next;
         draw();
       },
-    }).then<CollaboratorJoinOutcome>((outcome) =>
-      outcome.kind === "identity"
-        ? { kind: "identity", login: outcome.login, name: outcome.name }
-        : { kind: "skipped" },
-    );
+    })
+      .then<CollaboratorJoinOutcome>((outcome) =>
+        outcome.kind === "identity"
+          ? { kind: "identity", login: outcome.login, name: outcome.name }
+          : { kind: "skipped" },
+      )
+      .catch((): CollaboratorJoinOutcome => ({ kind: "skipped" }));
     const outcome = await Promise.race([resolved, skipped]);
 
     stopKeys();

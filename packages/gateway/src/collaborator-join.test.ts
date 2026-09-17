@@ -29,6 +29,12 @@ describe("interpretJoinKey", () => {
     expect(interpretJoinKey(Buffer.from("x"))).toBe("other");
     expect(interpretJoinKey(Buffer.from("\x1b[A"))).toBe("other");
   });
+
+  test("finds a recognized key inside a coalesced or pasted chunk", () => {
+    expect(interpretJoinKey(Buffer.from("\x1b[Ax\r"))).toBe("enter");
+    expect(interpretJoinKey(Buffer.from("paste-u"))).toBe("copy");
+    expect(interpretJoinKey(Buffer.from("no-keys-here"))).toBe("other");
+  });
 });
 
 describe("render", () => {
@@ -92,6 +98,23 @@ describe("runCollaboratorJoin", () => {
     channel.emitKey("\r");
 
     expect(await pending).toEqual({ kind: "identity", login: "robin", name: "Robin" });
+  });
+
+  test("a device-flow failure resolves to anonymous, never rejecting", async () => {
+    const channel = createTestJoinChannel();
+    const fetch = async (): Promise<Response> => {
+      throw new Error("github unreachable");
+    };
+    const pending = runCollaboratorJoin({
+      channel,
+      size: SIZE,
+      clientId: "Iv-1",
+      dependencies: { fetch, sleep: immediateSleep },
+    });
+
+    channel.emitKey("\r");
+
+    expect(await pending).toEqual({ kind: "skipped" });
   });
 
   test("the copy key writes the clipboard sequence and marks the link copied", async () => {
