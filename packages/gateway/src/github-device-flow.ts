@@ -32,7 +32,7 @@ export interface VerificationPrompt {
 }
 
 /** Why a device-flow poll ended without a token. */
-export type DeviceFlowFailure = "access_denied" | "expired_token" | "unexpected";
+export type DeviceFlowFailure = "access_denied" | "expired_token" | "aborted" | "unexpected";
 
 export type TokenPollOutcome =
   | { kind: "token"; token: string }
@@ -98,12 +98,17 @@ export async function pollForUserToken(
   deviceCode: string,
   intervalSeconds: number,
   dependencies: DeviceFlowDependencies,
+  signal?: AbortSignal,
 ): Promise<TokenPollOutcome> {
   let waitSeconds = intervalSeconds;
   const maxAttempts = Math.ceil(DEVICE_CODE_LIFETIME_SECONDS / Math.max(intervalSeconds, 1)) + 5;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (signal?.aborted) return { kind: "failed", reason: "aborted" };
+
     await dependencies.sleep(waitSeconds * 1000);
+
+    if (signal?.aborted) return { kind: "failed", reason: "aborted" };
     const response = await dependencies.fetch(ACCESS_TOKEN_ENDPOINT, {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json" },
@@ -151,7 +156,10 @@ export async function fetchGithubLoginAndName(
 /** Run the whole device flow and return only the resolved identity; the access token never leaves this function. */
 export async function resolveCollaboratorIdentity(
   clientId: string,
-  options: DeviceFlowDependencies & { onVerification: (prompt: VerificationPrompt) => void },
+  options: DeviceFlowDependencies & {
+    onVerification: (prompt: VerificationPrompt) => void;
+    signal?: AbortSignal;
+  },
 ): Promise<IdentityOutcome> {
   const grant = await requestDeviceCode(clientId, options);
 
@@ -165,6 +173,7 @@ export async function resolveCollaboratorIdentity(
     grant.deviceCode,
     grant.intervalSeconds,
     options,
+    options.signal,
   );
 
   if (outcome.kind === "failed") return outcome;

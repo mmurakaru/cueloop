@@ -55,4 +55,33 @@ describe("registerParticipant", () => {
     // Assert
     expect(next.participants).toEqual([{ id: "SHA256:ana", provider: "ssh", name: "Ana" }]);
   });
+
+  test("records a verified github source with its login handle", () => {
+    // Act
+    const next = registerParticipant(emptySession(), "SHA256:ana", "Ana", {
+      provider: "github",
+      handle: "ana",
+    });
+
+    // Assert
+    expect(next.participants).toEqual([
+      { id: "SHA256:ana", provider: "github", name: "Ana", handle: "ana" },
+    ]);
+  });
+
+  test("a later nameless write preserves the github provider and handle", () => {
+    // Arrange
+    const verified = registerParticipant(emptySession(), "SHA256:ana", "Ana", {
+      provider: "github",
+      handle: "ana",
+    });
+
+    // Act
+    const next = registerParticipant(verified, "SHA256:ana");
+
+    // Assert
+    expect(next.participants).toEqual([
+      { id: "SHA256:ana", provider: "github", name: "Ana", handle: "ana" },
+    ]);
+  });
 });

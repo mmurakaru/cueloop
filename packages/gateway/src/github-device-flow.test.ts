@@ -77,6 +77,24 @@ describe("pollForUserToken", () => {
     expect(denied).toEqual({ kind: "failed", reason: "access_denied" });
     expect(expired).toEqual({ kind: "failed", reason: "expired_token" });
   });
+
+  test("an aborted signal stops the poll before any request", async () => {
+    const controller = new AbortController();
+
+    controller.abort();
+    const { fetch, bodies } = createTestDeviceFlowFetch({ token: [{ access_token: "tok-1" }] });
+
+    const outcome = await pollForUserToken(
+      "c",
+      "d",
+      5,
+      { fetch, sleep: noSleep },
+      controller.signal,
+    );
+
+    expect(outcome).toEqual({ kind: "failed", reason: "aborted" });
+    expect(bodies).toEqual([]);
+  });
 });
 
 describe("fetchGithubLoginAndName", () => {
