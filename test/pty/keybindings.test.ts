@@ -249,16 +249,20 @@ describe("thread view chords in a diff review", () => {
     await pressEscapeUntilGone(session, "[Approve]");
   });
 
-  ptyTest("⌃s reports the share failure when the gateway is unreachable", async () => {
-    // Act + Assert - the harness puts a failing ssh on PATH, so the toast carries its stderr
-    await pressChordForToast(
-      session,
-      "thread",
-      "⌃s",
-      `share failed: gateway upload failed: ${OFFLINE_SSH_MESSAGE}`,
-      { timeoutMs: 10_000 },
-    );
-  });
+  ptyTest(
+    "⌃s opens the share popover; the public link reports the failure when unreachable",
+    async () => {
+      // ⌃s now offers the public/private choice; the harness's failing ssh makes the public publish report its stderr
+      await pressChord(session, "thread", "⌃s", "public link");
+      const failure = `share failed: gateway upload failed: ${OFFLINE_SSH_MESSAGE}`;
+
+      await session.pressAndWaitForScreen("enter", (screen) => screen.includes(failure), {
+        timeoutMs: 10_000,
+        what: "the share-failure toast",
+      });
+      await pressEscapeUntilGone(session, failure);
+    },
+  );
 
   ptyTest("⌃e hands the diff to the editor; an instant return asks whether to wait", async () => {
     // Act + Assert - an editor that returns at once is treated as a GUI editor, so the tty asks
