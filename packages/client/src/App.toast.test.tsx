@@ -73,10 +73,8 @@ describe("share toast", () => {
 
     await waitForText(setup, "cueloop");
 
-    // Act: share opens the popover, the public choice raises the toast, then open a composer under it
+    // Act: share raises the toast, then open a composer under it by typing
     await pressKey(setup, "s", { ctrl: true });
-    await waitForText(setup, "public link");
-    await clickText(setup, "public link");
     await waitForText(setup, "share link copied");
     await clickText(setup, "daemon");
     await typeText(setup, "x");

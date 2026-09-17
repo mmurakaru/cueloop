@@ -101,8 +101,6 @@ export interface IntentDispatchDeps {
   renameThread: (id: string, title: string) => void;
   /** Set the local reviewer's typed display name and persist it (App-owned). */
   setLocalIdentityName: (name: string) => void;
-  /** Open the share popover so the shortcut offers the public/private choice, not an immediate publish. */
-  openShareMenu: () => void;
 
   liveInput: MutableRefObject<string>;
 
@@ -388,7 +386,7 @@ function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispa
 }
 
 function handleShare(_intent: IntentOfType<"share">, deps: IntentDispatchDeps): void {
-  deps.openShareMenu();
+  deps.controller.share();
 }
 
 function handleCut(_intent: IntentOfType<"cut">, deps: IntentDispatchDeps): void {
