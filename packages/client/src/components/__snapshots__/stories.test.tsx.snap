@@ -351,13 +351,13 @@ exports[`stories catalog Overlays/CompletionOverlay/FeedbackCounting renders, sn
 `;
 
 exports[`stories catalog Cards/ConfirmCard/ApproveDefault renders, snapshots, and carries its colors: Cards/ConfirmCard/ApproveDefault 1`] = `
-"┌──────────────────────────────────────┐
-│  Comment  [Approve]  Changes         │
-│                                      │
-│ summary for the agent (optional)     │
-│                                      │
-│  send message    Cancel              │
-└──────────────────────────────────────┘
+"┌────────────────────────────────┐      
+│  Comment  [Approve]  Changes   │      
+│                                │      
+│ summary for the agent (optional│      
+│                                │      
+│  send message    Cancel        │      
+└────────────────────────────────┘      
                                         
                                         
                                         
@@ -369,13 +369,13 @@ exports[`stories catalog Cards/ConfirmCard/ApproveDefault renders, snapshots, an
 `;
 
 exports[`stories catalog Cards/ConfirmCard/RequestChanges renders, snapshots, and carries its colors: Cards/ConfirmCard/RequestChanges 1`] = `
-"┌──────────────────────────────────────┐
-│  Comment   Approve  [Changes]        │
-│                                      │
-│ Tighten the steps.                   │
-│                                      │
-│  send message    Cancel              │
-└──────────────────────────────────────┘
+"┌────────────────────────────────┐      
+│  Comment   Approve  [Changes]  │      
+│                                │      
+│ Tighten the steps.             │      
+│                                │      
+│  send message    Cancel        │      
+└────────────────────────────────┘      
                                         
                                         
                                         
@@ -387,15 +387,15 @@ exports[`stories catalog Cards/ConfirmCard/RequestChanges renders, snapshots, an
 `;
 
 exports[`stories catalog Cards/ConfirmCard/WithViewedSummary renders, snapshots, and carries its colors: Cards/ConfirmCard/WithViewedSummary 1`] = `
-"┌──────────────────────────────────────┐
-│ 2/3 files viewed                     │
-│                                      │
-│  Comment  [Approve]  Changes         │
-│                                      │
-│ summary for the agent (optional)     │
-│                                      │
-│  send message    Cancel              │
-└──────────────────────────────────────┘
+"┌────────────────────────────────┐      
+│ 2/3 files viewed               │      
+│                                │      
+│  Comment  [Approve]  Changes   │      
+│                                │      
+│ summary for the agent (optional│      
+│                                │      
+│  send message    Cancel        │      
+└────────────────────────────────┘      
                                         
                                         
                                         

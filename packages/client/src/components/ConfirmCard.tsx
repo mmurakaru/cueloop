@@ -6,12 +6,15 @@
  */
 
 import React from "react";
+import { useTerminalDimensions } from "@opentui/react";
 import type { VerdictKind } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { Card } from "./primitives/Card";
 import { Button } from "./primitives/Button";
 import { Toolbar } from "./primitives/Toolbar";
+
+const SUBMIT_CARD_MAX_WIDTH = 96;
 
 export const VERDICTS: VerdictKind[] = ["comment", "approve", "request_changes"];
 
@@ -95,10 +98,13 @@ export function ConfirmCard({
   theme,
 }: ConfirmCardProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+  const { width: terminalWidth } = useTerminalDimensions();
+  const cardWidth = Math.max(24, Math.min(terminalWidth - 6, SUBMIT_CARD_MAX_WIDTH));
 
   return (
     <Card
       contentRows={CONFIRM_CONTENT_ROWS + (viewedSummary !== undefined ? 2 : 0)}
+      width={cardWidth}
       borderColor={tokens.text}
       backgroundColor={tokens.elevated}
       theme={theme}
