@@ -243,6 +243,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [composeText, setComposeText] = useState("");
+  const composeTextRef = useRef("");
+  const setDraft = (text: string): void => {
+    composeTextRef.current = text;
+    setComposeText(text);
+  };
   const [caretOffset, setCaretOffset] = useState(0);
   const [slashIndex, setSlashIndex] = useState(0);
   const composerReady = useRef(false);
@@ -314,14 +319,14 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     composerReady.current = false;
     composeRef.current = state;
     setCompose(state);
-    setComposeText(state.seed);
+    setDraft(state.seed);
     setCaretOffset(state.seed.length);
     setSlashIndex(0);
   };
   const closeCompose = (): void => {
     composeRef.current = null;
     setCompose(null);
-    setComposeText("");
+    setDraft("");
     setCaretOffset(0);
   };
   const skills = useContext(SlashSkillsContext);
@@ -473,7 +478,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       const grown = { ...activeCompose, seed: `${activeCompose.seed}\n` };
 
       composeRef.current = grown;
-      setComposeText(grown.seed);
+      setDraft(grown.seed);
       setCaretOffset(grown.seed.length);
 
       return setCompose(grown);
@@ -484,7 +489,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       const grown = { ...activeCompose, seed: activeCompose.seed + sequence };
 
       composeRef.current = grown;
-      setComposeText(grown.seed);
+      setDraft(grown.seed);
       setCaretOffset(grown.seed.length);
       setCompose(grown);
     }
@@ -503,7 +508,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     // (an edit of an existing comment is never deleted this way)
     if (
       key.name === "backspace" &&
-      composeText.length === 0 &&
+      composeTextRef.current.length === 0 &&
       activeCompose.editAnnotationId === null
     ) {
       return closeCompose();
@@ -704,7 +709,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       onSave={saveComment}
       onReady={() => (composerReady.current = true)}
       onInput={(text, caret) => {
-        setComposeText(text);
+        setDraft(text);
         setCaretOffset(caret);
       }}
     />
