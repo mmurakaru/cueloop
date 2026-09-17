@@ -1896,3 +1896,13 @@ exports[`stories catalog Layout/MenuControl/OneOpenAtATime renders, snapshots, a
                               
 "
 `;
+
+exports[`stories catalog Chrome/ShareMenu/Closed renders, snapshots, and carries its colors: Chrome/ShareMenu/Closed 1`] = `
+"   share                                
+                                        
+                                        
+                                        
+                                        
+                                        
+"
+`;
