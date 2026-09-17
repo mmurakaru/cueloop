@@ -42,6 +42,9 @@ import { GatewayMetrics, startMetricsServer } from "./metrics";
 import { TokenBucket } from "./rate-limit";
 import { SHARE_UPLOAD_USER, isShareId, mintShareId } from "./share-id";
 import { WatchedShareStore, type ShareStore } from "./store";
+import { registerParticipant, type ParticipantSource } from "@cueloop/schema";
+import { githubClientId } from "./github-device-flow";
+import { runCollaboratorJoin, type CollaboratorJoinOutcome } from "./collaborator-join";
 
 const PushPayloadSchema = v.object({
   shareId: v.optional(v.unknown()),
@@ -223,6 +226,33 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       return end(channel, 1);
     }
     try {
+      const clientId = githubClientId();
+      let participantName: string | undefined;
+      let participantSource: ParticipantSource | undefined;
+
+      if (clientId) {
+        // A GitHub outage must never close an otherwise-valid share; fall through to anonymous.
+        const joined = await runCollaboratorJoin({
+          channel,
+          size: pty,
+          clientId,
+          dependencies: {
+            fetch,
+            sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+          },
+        }).catch((): CollaboratorJoinOutcome => ({ kind: "skipped" }));
+
+        if (joined.kind === "identity") {
+          participantName = joined.name ?? joined.login;
+          participantSource = { provider: "github", handle: joined.login };
+          session = registerParticipant(
+            session,
+            identity.fingerprint,
+            participantName,
+            participantSource,
+          );
+        }
+      }
       // Every viewer is a collaborator: they annotate, and each note unions
       // back into the stored blob stamped with their fingerprint. They cannot
       // edit the plan or submit a verdict (the App's collaborator role).
@@ -231,6 +261,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         masterKey: options.masterKey,
         shareId,
         author: identity.fingerprint,
+        participantName,
+        participantSource,
         changes: store,
       });
       let handle: ChannelRender | null = null;
