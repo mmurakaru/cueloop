@@ -18,7 +18,7 @@
 
 import type { Anchor } from "./types";
 import { type Block, stripLeadingBlockMarker } from "./markdown";
-import { fuzzyFindBestMatch } from "./fuzzy";
+import { fuzzyFindBestMatch, newFuzzyBudget } from "./fuzzy";
 
 /** Characters of surrounding text captured as prefix/suffix selectors. */
 const ANCHOR_CONTEXT_CHARS = 24;
@@ -139,7 +139,23 @@ function findExactCandidates(anchor: Anchor, blocks: Block[], quote: string): Ca
  */
 const FUZZY_CONTEXT_TIE_BREAK = 0.01;
 
-/** The best fuzzy window per block, ranked by similarity with context as a tiebreak. */
+/** Block indices to scan, the anchor's hinted block first, then the rest in order. */
+function blockScanOrder(hint: number | undefined, count: number): number[] {
+  if (count <= 0) return [];
+  const first = Number.isInteger(hint) ? Math.min(Math.max(hint!, 0), count - 1) : 0;
+  const order = [first];
+
+  for (let index = 0; index < count; index++) if (index !== first) order.push(index);
+
+  return order;
+}
+
+/**
+ * The best fuzzy window per block, ranked by similarity with context as a tiebreak.
+ * One work budget is shared across every block scan so a stale anchor costs a single
+ * budget total, not one per block; the anchor's own block is scanned first so an
+ * exhausted budget never drops the window the anchor most likely still points at.
+ */
 function findFuzzyCandidates(
   anchor: Anchor,
   blocks: Block[],
@@ -147,17 +163,21 @@ function findFuzzyCandidates(
   minimumSimilarity: number,
 ): Candidate[] {
   const candidates: Candidate[] = [];
+  const budget = newFuzzyBudget();
 
-  blocks.forEach((block, blockIndex) => {
-    const match = fuzzyFindBestMatch(needle, block.text, minimumSimilarity);
+  for (const blockIndex of blockScanOrder(anchor.blockIndex, blocks.length)) {
+    const block = blocks[blockIndex]!;
+    const match = fuzzyFindBestMatch(needle, block.text, minimumSimilarity, budget);
 
-    if (match === null) return;
-    const score =
-      match.similarity +
-      contextScore(anchor, blockIndex, block, match.start, match.end) * FUZZY_CONTEXT_TIE_BREAK;
+    if (match !== null) {
+      const score =
+        match.similarity +
+        contextScore(anchor, blockIndex, block, match.start, match.end) * FUZZY_CONTEXT_TIE_BREAK;
 
-    candidates.push({ blockIndex, start: match.start, end: match.end, score });
-  });
+      candidates.push({ blockIndex, start: match.start, end: match.end, score });
+    }
+    if (budget.remaining <= 0) break;
+  }
 
   return candidates;
 }
