@@ -82,6 +82,7 @@ function fakeClient(session: Thread) {
     sessionCutBlock: unimplemented("sessionCutBlock"),
     sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
     sessionCurate: unimplemented("sessionCurate"),
+    sessionSetAccess: unimplemented("sessionSetAccess"),
     sessionNavigate: mock(pending),
     sessionBranch: mock(pending),
     sessionSwitch: mock(pending),

@@ -226,6 +226,21 @@ describe("share upload then view", () => {
     expect(frames).toContain("Rollout Plan");
   });
 
+  test("refuses a private share to a viewer who cannot authenticate an allowed login", async () => {
+    // Arrange - a private share; the test gateway has no GitHub app, so a viewer cannot authenticate
+    const privateSession: Thread = { ...SESSION, access: { githubLogins: ["octocat"] } };
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(privateSession)));
+
+    // Act
+    const frames = await shellCapture(handle.port, id, (frame) =>
+      frame.includes("this is a private share"),
+    );
+
+    // Assert - the refusal shows and the plan never renders
+    expect(frames).toContain("this is a private share");
+    expect(frames).not.toContain("Rollout Plan");
+  });
+
   test("quitting restores the terminal so the client is not left spewing mouse reports", async () => {
     // Arrange
     const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));

@@ -42,14 +42,17 @@ import { GatewayMetrics, startMetricsServer } from "./metrics";
 import { TokenBucket } from "./rate-limit";
 import { SHARE_UPLOAD_USER, isShareId, mintShareId } from "./share-id";
 import { WatchedShareStore, type ShareStore } from "./store";
-import { registerParticipant, type ParticipantSource } from "@cueloop/schema";
+import { isShareViewerAllowed, registerParticipant, type ParticipantSource } from "@cueloop/schema";
 import { githubClientId } from "./github-device-flow";
 import { runCollaboratorJoin, type CollaboratorJoinOutcome } from "./collaborator-join";
 
 const PushPayloadSchema = v.object({
   shareId: v.optional(v.unknown()),
   annotations: v.optional(v.unknown()),
+  access: v.optional(v.unknown()),
 });
+
+const ShareAccessPushSchema = v.object({ githubLogins: v.array(v.string()) });
 const TransportErrorSchema = v.object({
   level: v.optional(v.string()),
   code: v.optional(v.string()),
@@ -229,6 +232,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       const clientId = githubClientId();
       let participantName: string | undefined;
       let participantSource: ParticipantSource | undefined;
+      let verifiedGithubLogin: string | undefined;
 
       if (clientId) {
         // A GitHub outage must never close an otherwise-valid share; fall through to anonymous.
@@ -243,6 +247,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         }).catch((): CollaboratorJoinOutcome => ({ kind: "skipped" }));
 
         if (joined.kind === "identity") {
+          verifiedGithubLogin = joined.login;
           participantName = joined.name ?? joined.login;
           participantSource = { provider: "github", handle: joined.login };
           session = registerParticipant(
@@ -252,6 +257,14 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
             participantSource,
           );
         }
+      }
+      // A private share renders only for an authenticated login on its allowlist; a public share is unchanged.
+      if (session.access && !isShareViewerAllowed(session.access, verifiedGithubLogin)) {
+        channel.stderr.write(
+          "cueloop: this is a private share; connect GitHub as an allowed collaborator to view it\r\n",
+        );
+
+        return end(channel, 1);
       }
       // Every viewer is a collaborator: they annotate, and each note unions
       // back into the stored blob stamped with their fingerprint. They cannot
@@ -425,10 +438,12 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       if (session.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can push to it");
+      // the owner can also update the private-share allowlist on the stored blob, so an existing link enforces it
+      const access = v.safeParse(ShareAccessPushSchema, payload.access);
+      const merged = mergeOwnerAnnotations(session, annotations.output);
+      const withAccess = access.success ? { ...merged, access: access.output } : merged;
       // Round-trip validates the pushed notes: a malformed one throws here, so the stored blob stays intact.
-      const next = unpackSessionBlob(
-        packSessionBlob(mergeOwnerAnnotations(session, annotations.output)),
-      );
+      const next = unpackSessionBlob(packSessionBlob(withAccess));
 
       await store.put(
         shareId.output,

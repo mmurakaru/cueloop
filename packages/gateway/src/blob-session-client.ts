@@ -135,6 +135,10 @@ export class BlobSessionClient implements SessionClient {
     return rejectReadOnly();
   }
 
+  sessionSetAccess(): Promise<Thread> {
+    return rejectReadOnly();
+  }
+
   sessionSetViewed(): Promise<Thread> {
     return rejectReadOnly();
   }

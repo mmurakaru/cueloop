@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, mock, test, type Mock } from "bun:test";
 import { ManualClock } from "@opentui/core/testing";
-import { SCHEMA_VERSION, type Annotation, type Thread } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Annotation, type ShareAccess, type Thread } from "@cueloop/schema";
 import type { SessionClient } from "@cueloop/daemon/client";
 import {
   createReviewController,
@@ -14,7 +14,11 @@ const publishShare = mock(async () => ({ line: "ssh p_abc123xy@cueloop.dev", cop
 let remote: Thread;
 const pullShare = mock(async () => remote);
 const pushShare = mock(
-  async (_shareId: string, _annotations: Array<Omit<Annotation, "createdAt">>) => {},
+  async (
+    _shareId: string,
+    _annotations: Array<Omit<Annotation, "createdAt">>,
+    _access?: ShareAccess,
+  ) => {},
 );
 
 const shareTransport: ShareTransport = {
@@ -73,6 +77,7 @@ function fakeClient(session: Thread): FakeSessionClient {
     sessionCutBlock: unimplemented("sessionCutBlock"),
     sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
     sessionCurate: unimplemented("sessionCurate"),
+    sessionSetAccess: mock(async () => session),
     sessionNavigate: unimplemented("sessionNavigate"),
     sessionBranch: unimplemented("sessionBranch"),
     sessionSwitch: unimplemented("sessionSwitch"),
@@ -146,6 +151,35 @@ describe("share", () => {
       title: "share link copied",
     });
     expect(controller.getSnapshot().status).not.toContain("ssh p_abc123xy@cueloop.dev");
+  });
+});
+
+describe("setShareAccess", () => {
+  test("pushes the allowlist up to the gateway when the plan is already shared", async () => {
+    // Arrange
+    pushShare.mockClear();
+    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }));
+
+    // Act
+    controller.setShareAccess(["octocat"]);
+    await tick();
+
+    // Assert - the existing link must enforce the new access, so it rides the push
+    expect(pushShare.mock.calls[0]?.[0]).toBe("p_abc123xy");
+    expect(pushShare.mock.calls[0]?.[2]).toEqual({ githubLogins: ["octocat"] });
+  });
+
+  test("does not push when the plan was never shared", async () => {
+    // Arrange
+    pushShare.mockClear();
+    const { controller } = await connectedController(sessionFixture());
+
+    // Act
+    controller.setShareAccess(["octocat"]);
+    await tick();
+
+    // Assert
+    expect(pushShare).not.toHaveBeenCalled();
   });
 });
 
