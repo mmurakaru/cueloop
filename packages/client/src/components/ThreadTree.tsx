@@ -79,7 +79,7 @@ function ActionsMenu({
     >
       {item(pinned ? "unstar" : "star", tokens.text, onPin)}
       {item("rename", tokens.text, onRename)}
-      {item("delete", tokens.red, onDelete)}
+      {item("delete", tokens.text, onDelete)}
     </box>
   );
 }

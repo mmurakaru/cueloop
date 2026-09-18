@@ -416,16 +416,16 @@ exports[`stories catalog Cards/ConfirmCard/WithViewedSummary renders, snapshots,
 "
 `;
 
-exports[`stories catalog Overlays/ConfirmDialog/DeletePlan renders, snapshots, and carries its colors: Overlays/ConfirmDialog/DeletePlan 1`] = `
+exports[`stories catalog Overlays/ConfirmDialog/DeleteThread renders, snapshots, and carries its colors: Overlays/ConfirmDialog/DeleteThread 1`] = `
 "                                                                
                                                                 
                                                                 
                                                                 
                                                                 
-     ┌─ Delete plan ──────────────────────────────────────┐     
+     ┌─ delete thread ────────────────────────────────────┐     
      │                                                    │     
-     │ Delete "Auth rollout"? This removes the plan and   │     
-     │ its review.                                        │     
+     │ Delete "Auth rollout"? This removes the thread.    │     
+     │                                                    │     
      │                                                    │     
      │  delete    cancel                                  │     
      └────────────────────────────────────────────────────┘     

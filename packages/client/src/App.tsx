@@ -1167,6 +1167,9 @@ export function App({
                     onRename={(id, title) =>
                       setMode({ type: "renameThread", sessionId: id, text: title })
                     }
+                    onRequestDelete={(id, title) =>
+                      setMode({ type: "confirmDelete", sessionId: id, title })
+                    }
                     theme={theme}
                   />
                 </scrollbox>

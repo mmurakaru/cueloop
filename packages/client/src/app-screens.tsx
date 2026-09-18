@@ -371,12 +371,8 @@ export function NoThreadShell(props: {
           {menuChrome}
           <ConfirmDialog
             isOpen={confirming !== null}
-            title=" Delete plan "
-            message={
-              confirming
-                ? `Delete "${confirming.title}"? This removes the plan and its review.`
-                : ""
-            }
+            title=" delete thread "
+            message={confirming ? `Delete "${confirming.title}"? This removes the thread.` : ""}
             onConfirm={() => {
               if (confirming) controller.deleteSession(confirming.sessionId);
               setMode({ type: "normal" });
@@ -519,6 +515,16 @@ export function TrailingOverlays(props: {
           placeholder="a short title"
           onInput={(text) => setMode({ ...mode, text })}
           onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
+          theme={theme}
+        />
+      ) : null}
+      {mode.type === "confirmDelete" ? (
+        <ConfirmDialog
+          isOpen
+          title=" delete thread "
+          message={`Delete "${mode.title}"? This removes the thread.`}
+          onConfirm={() => dispatch({ type: "confirmDialog" })}
           onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
