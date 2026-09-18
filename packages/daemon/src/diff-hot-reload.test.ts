@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonCore } from "./api";
@@ -161,6 +161,49 @@ describe("session.refreshDiff", () => {
     // once - the generation guard keeps the older capture from regressing it
     expect(first.changed || second.changed).toBe(true);
     expect(core.sessionGet(session.id).artifact.content).toContain("+export const a = 7;");
+  });
+});
+
+describe("PR review sessions", () => {
+  test("refresh re-pulls the PR diff via gh and never clobbers it with the working tree", async () => {
+    // Given a stub gh that reports a PR diff distinct from the local working tree
+    const ghStub = join(repo, "gh-stub.sh");
+
+    writeFileSync(
+      ghStub,
+      '#!/bin/sh\ncase "$2" in\n  diff) printf "STUB PR DIFF\\n" ;;\n  view) printf "sha-2\\n" ;;\nesac\n',
+    );
+    chmodSync(ghStub, 0o755);
+    const previousGh = process.env.CUELOOP_GH;
+
+    process.env.CUELOOP_GH = ghStub;
+
+    try {
+      // Given a PR review over the same repo root, and a local working-tree change present
+      const workspace = await resolveWorkspace(repo);
+      const artifact: Artifact = {
+        type: "diff",
+        content: "OLD PR DIFF\n",
+        files: [],
+        meta: { pr: "org/repo#1" },
+      };
+      const session = core.sessionCreate({ workspace, artifact });
+
+      writeFileSync(join(repo, "a.ts"), "export const a = 123;\n");
+
+      // When the diff is refreshed
+      const result = await core.sessionRefreshDiff(session.id);
+
+      // Then it carries the PR diff from gh, not the local working-tree change
+      expect(result.changed).toBe(true);
+      const refreshed = core.sessionGet(session.id);
+
+      expect(refreshed.artifact.content).toContain("STUB PR DIFF");
+      expect(refreshed.artifact.content).not.toContain("export const a = 123;");
+    } finally {
+      if (previousGh === undefined) delete process.env.CUELOOP_GH;
+      else process.env.CUELOOP_GH = previousGh;
+    }
   });
 });
 
