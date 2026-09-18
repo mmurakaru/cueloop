@@ -99,8 +99,8 @@ describe("send message confirm", () => {
     const frame = setup.captureCharFrame();
 
     expect(frame).toContain("[Approve]");
-    expect(frame).toContain(" send message ");
-    expect(frame).toContain(" Cancel ");
+    expect(frame).toContain(" send ");
+    expect(frame).toContain(" cancel ");
   });
 
   test("left/right cycles the verdict selector in the overlay", async () => {
@@ -146,7 +146,7 @@ describe("send message confirm", () => {
     // Assert - a bare ESC settles after the parser's escape-sequence window
     const frame = await waitForTextGone(setup, "[Approve]");
 
-    expect(frame).not.toContain(" Cancel ");
+    expect(frame).not.toContain(" cancel ");
   });
 
   test("enter in the overlay resolves the session through the controller", async () => {
@@ -214,7 +214,7 @@ describe("send message confirm", () => {
     const frame = setup.captureCharFrame();
 
     expect(frame).not.toContain("[Changes]");
-    expect(frame).not.toContain(" Cancel ");
+    expect(frame).not.toContain(" cancel ");
     expect(server.core.sessionGet(session.id).status).toBe("pending");
   });
 });

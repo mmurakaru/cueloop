@@ -388,7 +388,6 @@ export function NoThreadShell(props: {
             <PromptDialog
               isOpen
               title=" rename thread "
-              label="new title for this thread:"
               value={mode.text}
               placeholder="a short title"
               onInput={(text) => setMode({ ...mode, text })}
@@ -412,8 +411,11 @@ export function CompletionScreen(props: {
   verdict: VerdictKind;
   completion: { phase: "prompt" } | { phase: "counting"; remaining: number };
   status: string;
+  onClose: () => void;
+  onBackToPlan: () => void;
+  onAlways: () => void;
 }): React.ReactNode {
-  const { theme, session, verdict, completion, status } = props;
+  const { theme, session, verdict, completion, status, onClose, onBackToPlan, onAlways } = props;
 
   return (
     <ThemeProvider theme={theme}>
@@ -421,6 +423,9 @@ export function CompletionScreen(props: {
         verdict={verdict}
         completion={completion}
         status={status}
+        onClose={onClose}
+        onBackToPlan={onBackToPlan}
+        onAlways={onAlways}
         returnsTo={
           returnPaneFor(session.artifact.meta.herdrPane)
             ? (session.artifact.meta.agent ?? "the agent")
@@ -510,7 +515,6 @@ export function TrailingOverlays(props: {
         <PromptDialog
           isOpen
           title=" rename thread "
-          label="new title for this thread:"
           value={mode.text}
           placeholder="a short title"
           onInput={(text) => setMode({ ...mode, text })}

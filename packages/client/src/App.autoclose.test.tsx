@@ -74,8 +74,8 @@ describe("completion overlay", () => {
     const frame = await waitForText(setup, "closing in 5s");
 
     expect(frame).toContain("review approved");
-    expect(frame).toContain("close [return]");
-    expect(frame).toContain("return to plan [esc]");
+    expect(frame).toContain("close");
+    expect(frame).toContain("back to plan");
 
     // Act
     await press(setup, "enter");

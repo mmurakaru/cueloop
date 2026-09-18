@@ -320,8 +320,8 @@ exports[`stories catalog Overlays/CompletionOverlay/ApprovedPrompt renders, snap
                                                                                 
                  The agent has your approval and is unblocked.                  
                                                                                 
-               close [return] · return to plan [esc] · always [a]               
                                                                                 
+                         close    back to plan    always                        
                                                                                 
                                                                                 
                                                                                 
@@ -348,9 +348,9 @@ exports[`stories catalog Overlays/CompletionOverlay/FeedbackCounting renders, sn
                  The agent has your feedback and is unblocked.                  
                       returning to agent/worker-3 on close                      
                        exported to vault/cueloop/plan.md                        
+                                 closing in 3s                                  
                                                                                 
-       close [return] · closing in 3s · return to plan [esc] · always [a]       
-                                                                                
+                         close    back to plan    always                        
                                                                                 
                                                                                 
                                                                                 
@@ -368,7 +368,7 @@ exports[`stories catalog Cards/ConfirmCard/ApproveDefault renders, snapshots, an
 │                                │      
 │  summary for the agent (       │      
 │                                │      
-│  send message    Cancel        │      
+│  send    cancel                │      
 └────────────────────────────────┘      
                                         
                                         
@@ -386,7 +386,7 @@ exports[`stories catalog Cards/ConfirmCard/RequestChanges renders, snapshots, an
 │                                │      
 │  Tighten the steps.            │      
 │                                │      
-│  send message    Cancel        │      
+│  send    cancel                │      
 └────────────────────────────────┘      
                                         
                                         
@@ -406,7 +406,7 @@ exports[`stories catalog Cards/ConfirmCard/WithViewedSummary renders, snapshots,
 │                                │      
 │  summary for the agent (       │      
 │                                │      
-│  send message    Cancel        │      
+│  send    cancel                │      
 └────────────────────────────────┘      
                                         
                                         
@@ -427,7 +427,7 @@ exports[`stories catalog Overlays/ConfirmDialog/DeletePlan renders, snapshots, a
      │ Delete "Auth rollout"? This removes the plan and   │     
      │ its review.                                        │     
      │                                                    │     
-     │  Delete  Cancel esc                                │     
+     │  delete    cancel                                  │     
      └────────────────────────────────────────────────────┘     
                                                                 
                                                                 
@@ -695,7 +695,7 @@ exports[`stories catalog Dialogs/ManageAccess/Empty renders, snapshots, and carr
    │                                                    │   
    │                                                    │   
    │ @handle                                            │   
-   │ add   create link   close                          │   
+   │  add    create link    close                       │   
    └────────────────────────────────────────────────────┘   
                                                             
                                                             
@@ -718,7 +718,7 @@ exports[`stories catalog Dialogs/ManageAccess/WithHandles renders, snapshots, an
    │                                                    │   
    │                                                    │   
    │ @handle                                            │   
-   │ add   create link   close                          │   
+   │  add    create link    close                       │   
    └────────────────────────────────────────────────────┘   
                                                             
                                                             
@@ -849,7 +849,7 @@ exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, 
      │ Your name (optional) - it attributes the notes     │     
      │ you leave:                                         │     
      │ your name                                          │     
-     │ enter save   esc cancel                            │     
+     │  save    cancel                                    │     
      └────────────────────────────────────────────────────┘     
                                                                 
                                                                 
@@ -869,7 +869,7 @@ exports[`stories catalog Overlays/PromptDialog/RenameAuthor renders, snapshots, 
      │ Display name for this collaborator:                │     
      │ Robin                                              │     
      │                                                    │     
-     │ enter save   esc cancel                            │     
+     │  save    cancel                                    │     
      └────────────────────────────────────────────────────┘     
                                                                 
                                                                 
@@ -1067,7 +1067,7 @@ exports[`stories catalog Dialogs/ShareChoice/PrivateSelected renders, snapshots,
        │ › private link                             │       
        │                                            │       
        │                                            │       
-       │ ↑↓ choose · enter select · esc cancel      │       
+       │                                            │       
        └────────────────────────────────────────────┘       
                                                             
                                                             
@@ -1083,7 +1083,7 @@ exports[`stories catalog Dialogs/ShareChoice/PublicSelected renders, snapshots, 
        │   private link                             │       
        │                                            │       
        │                                            │       
-       │ ↑↓ choose · enter select · esc cancel      │       
+       │                                            │       
        └────────────────────────────────────────────┘       
                                                             
                                                             
@@ -1332,7 +1332,7 @@ exports[`stories catalog Overlays/WalkWizard/EndCard renders, snapshots, and car
     ┌─ walk complete ──────────────────────────────────────────────────────┐    
     │ every file viewed (3/3)                                              │    
     │                                                                      │    
-    │  Submit review    [ back                                             │    
+    │  submit    back                                                      │    
     └──────────────────────────────────────────────────────────────────────┘    
                                                                                 
                                                                                 
@@ -1360,7 +1360,7 @@ exports[`stories catalog Overlays/WalkWizard/EndCardPartialPass renders, snapsho
     ┌─ walk complete ──────────────────────────────────────────────────────┐    
     │ 1 of 3 files viewed                                                  │    
     │                                                                      │    
-    │  Submit review    [ back                                             │    
+    │  submit    back                                                      │    
     └──────────────────────────────────────────────────────────────────────┘    
                                                                                 
                                                                                 
@@ -1694,6 +1694,20 @@ exports[`stories catalog Primitives/Dialog/Open renders, snapshots, and carries 
                                                             
                                                             
                                                             
+"
+`;
+
+exports[`stories catalog Primitives/DialogActions/DeleteCancel renders, snapshots, and carries its colors: Primitives/DialogActions/DeleteCancel 1`] = `
+" delete    cancel                       
+                                        
+                                        
+"
+`;
+
+exports[`stories catalog Primitives/DialogActions/SaveCancel renders, snapshots, and carries its colors: Primitives/DialogActions/SaveCancel 1`] = `
+" save    cancel                         
+                                        
+                                        
 "
 `;
 

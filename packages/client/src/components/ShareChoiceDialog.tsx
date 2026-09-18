@@ -74,8 +74,6 @@ export function ShareChoiceDialog({
             </text>
           </box>
         ))}
-        <box style={{ flexGrow: 1 }} />
-        <text fg={tokens.textDim}>↑↓ choose · enter select · esc cancel</text>
       </box>
     </Dialog>
   );

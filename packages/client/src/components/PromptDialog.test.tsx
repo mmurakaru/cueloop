@@ -47,12 +47,12 @@ test("clicking save fires onSave and clicking cancel fires onCancel", async () =
   );
   await settle(setup);
 
-  const save = locateText(setup, "enter save");
+  const save = locateText(setup, "save");
   await setup.mockMouse.click(save.column, save.row);
   expect(saved).toBe(1);
   expect(cancelled).toBe(0);
 
-  const cancel = locateText(setup, "esc cancel");
+  const cancel = locateText(setup, "cancel");
   await setup.mockMouse.click(cancel.column, cancel.row);
   expect(cancelled).toBe(1);
   expect(saved).toBe(1);

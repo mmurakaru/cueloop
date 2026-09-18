@@ -16,8 +16,7 @@ import { useComponentTheme } from "./theme-context";
 import { Card } from "./primitives/Card";
 import { composeRowCount } from "./AnnotationCards";
 import { SlashComposer } from "./SlashComposer";
-import { Button } from "./primitives/Button";
-import { Toolbar } from "./primitives/Toolbar";
+import { DialogActions } from "./primitives/DialogActions";
 
 const SUBMIT_CARD_MAX_WIDTH = 48;
 const PALETTE_WINDOW = 5;
@@ -128,7 +127,7 @@ export function ConfirmCard({
     <Card
       contentRows={contentRows}
       width={cardWidth}
-      borderColor={tokens.text}
+      borderColor={tokens.accent}
       backgroundColor={tokens.elevated}
       theme={theme}
     >
@@ -149,14 +148,7 @@ export function ConfirmCard({
         onInput={onInput}
       />
       <box style={{ height: 1 }} />
-      <Toolbar>
-        <Button variant="solid" marginRight={2} onPress={onSubmit} theme={theme}>
-          {" send message "}
-        </Button>
-        <Button onPress={onCancel} theme={theme}>
-          {" Cancel "}
-        </Button>
-      </Toolbar>
+      <DialogActions confirmLabel="send" onConfirm={onSubmit} onCancel={onCancel} theme={theme} />
     </Card>
   );
 }

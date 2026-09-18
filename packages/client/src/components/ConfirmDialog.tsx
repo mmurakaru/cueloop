@@ -10,8 +10,7 @@ import { useTerminalDimensions } from "@opentui/react";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { Dialog } from "./primitives/Dialog";
-import { Button } from "./primitives/Button";
-import { Toolbar } from "./primitives/Toolbar";
+import { DialogActions } from "./primitives/DialogActions";
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
@@ -28,8 +27,8 @@ export function ConfirmDialog({
   isOpen,
   title,
   message,
-  confirmLabel = "Delete",
-  cancelLabel = "Cancel",
+  confirmLabel = "delete",
+  cancelLabel = "cancel",
   onConfirm,
   onCancel,
   theme,
@@ -45,6 +44,7 @@ export function ConfirmDialog({
       title={title}
       width={Math.min(54, terminalWidth - 6)}
       height={7}
+      background={tokens.elevated}
       onDismiss={onCancel}
       theme={theme}
     >
@@ -59,14 +59,13 @@ export function ConfirmDialog({
       >
         <text fg={tokens.text}>{message}</text>
         <box style={{ flexGrow: 1 }} />
-        <Toolbar>
-          <Button variant="solid" onPress={onConfirm} theme={theme}>
-            {` ${confirmLabel} `}
-          </Button>
-          <Button onPress={onCancel} theme={theme}>
-            {` ${cancelLabel} esc `}
-          </Button>
-        </Toolbar>
+        <DialogActions
+          confirmLabel={confirmLabel}
+          cancelLabel={cancelLabel}
+          onConfirm={onConfirm}
+          onCancel={onCancel}
+          theme={theme}
+        />
       </box>
     </Dialog>
   );

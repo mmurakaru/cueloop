@@ -11,6 +11,7 @@ import type { KeyBinding, TextareaRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { Dialog } from "./primitives/Dialog";
+import { DialogActions } from "./primitives/DialogActions";
 
 // ⏎ submits (suppresses the textarea's default newline); the grammar owns save.
 const PROMPT_KEY_BINDINGS: KeyBinding[] = [{ name: "return", action: "submit" }];
@@ -18,7 +19,7 @@ const PROMPT_KEY_BINDINGS: KeyBinding[] = [{ name: "return", action: "submit" }]
 export interface PromptDialogProps {
   isOpen: boolean;
   title?: string;
-  label: string;
+  label?: string;
   value: string;
   placeholder?: string;
   onInput: (text: string) => void;
@@ -69,7 +70,7 @@ export function PromptDialog({
           paddingTop: 1,
         }}
       >
-        <text fg={tokens.textDim}>{label}</text>
+        {label ? <text fg={tokens.textDim}>{label}</text> : null}
         <textarea
           ref={inputRef}
           focused
@@ -86,14 +87,12 @@ export function PromptDialog({
           }}
         />
         <box style={{ flexGrow: 1 }} />
-        <box style={{ flexDirection: "row" }}>
-          <box onMouseUp={onSave} style={{ marginRight: 3 }}>
-            <text fg={tokens.textDim}>enter save</text>
-          </box>
-          <box onMouseUp={onCancel}>
-            <text fg={tokens.textDim}>esc cancel</text>
-          </box>
-        </box>
+        <DialogActions
+          confirmLabel="save"
+          onConfirm={() => onSave?.()}
+          onCancel={() => onCancel?.()}
+          theme={theme}
+        />
       </box>
     </Dialog>
   );
