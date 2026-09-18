@@ -62,11 +62,17 @@ function centerBlock(lines: readonly string[], size: JoinScreenSize): string {
   return out;
 }
 
+function alignedLogo(): string[] {
+  const width = Math.max(...CUELOOP_LOGO_LINES.map((line) => [...line].length));
+
+  return CUELOOP_LOGO_LINES.map((line) => line + " ".repeat(width - [...line].length));
+}
+
 /** The first screen: the cueloop mark, a join prompt, and the honest data-use line. */
 export function renderJoinSplash(size: JoinScreenSize): string {
   return centerBlock(
     [
-      ...CUELOOP_LOGO_LINES,
+      ...alignedLogo(),
       "",
       "cueloop",
       "",

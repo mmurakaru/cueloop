@@ -46,6 +46,33 @@ describe("render", () => {
     expect(frame).toContain("service security");
   });
 
+  test("the logo lines share one column so the art stays aligned, like the install script", () => {
+    const escape = String.fromCharCode(27);
+    const logoColumns = renderJoinSplash(SIZE)
+      .split(escape)
+      .map((segment) => segment.match(/^\[\d+;(\d+)H([^]*)$/))
+      .filter((match) => match !== null && /[⠀-⣿]/.test(match[2]!))
+      .map((match) => Number(match![1]));
+
+    expect(logoColumns.length).toBeGreaterThan(1);
+    expect(new Set(logoColumns).size).toBe(1);
+  });
+
+  test("story: the join splash", () => {
+    expect(renderJoinSplash(SIZE)).toMatchSnapshot();
+  });
+
+  test("story: the connect screen with the browser link", () => {
+    const prompt = {
+      verificationUri: "https://github.com/login/device",
+      verificationUriComplete: "https://github.com/login/device?user_code=WXYZ-1234",
+      userCode: "WXYZ-1234",
+    };
+
+    expect(renderConnectScreen(SIZE, prompt, false)).toMatchSnapshot();
+    expect(renderConnectScreen(SIZE, prompt, true)).toMatchSnapshot();
+  });
+
   test("connect screen shows the assurance, the link, and the copy affordance", () => {
     const prompt = {
       verificationUri: "https://github.com/login/device",
