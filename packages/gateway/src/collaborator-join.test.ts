@@ -73,7 +73,7 @@ describe("render", () => {
     expect(renderConnectScreen(SIZE, prompt, true)).toMatchSnapshot();
   });
 
-  test("connect screen shows the assurance, the link, and the copy affordance", () => {
+  test("connect screen shows the assurance, the link, the code, and the copy affordance", () => {
     const prompt = {
       verificationUri: "https://github.com/login/device",
       verificationUriComplete: "https://github.com/login/device?user_code=WXYZ-1234",
@@ -81,9 +81,10 @@ describe("render", () => {
     };
 
     expect(renderConnectScreen(SIZE, prompt, false)).toContain("connect github");
-    expect(renderConnectScreen(SIZE, prompt, false)).toContain(prompt.verificationUriComplete);
-    expect(renderConnectScreen(SIZE, prompt, false)).toContain("u  copy url");
-    expect(renderConnectScreen(SIZE, prompt, true)).toContain("link copied");
+    expect(renderConnectScreen(SIZE, prompt, false)).toContain(prompt.verificationUri);
+    expect(renderConnectScreen(SIZE, prompt, false)).toContain(prompt.userCode);
+    expect(renderConnectScreen(SIZE, prompt, false)).toContain("u  copy code");
+    expect(renderConnectScreen(SIZE, prompt, true)).toContain("code copied");
   });
 
   test("clipboard sequence base64-encodes the url in OSC 52", () => {
@@ -161,7 +162,7 @@ describe("runCollaboratorJoin", () => {
     expect(await pending).toEqual({ kind: "skipped" });
   });
 
-  test("the copy key writes the clipboard sequence and marks the link copied", async () => {
+  test("the copy key writes the clipboard sequence and marks the code copied", async () => {
     const channel = createTestJoinChannel();
     const { fetch } = createTestDeviceFlowFetch({});
     const pending = runCollaboratorJoin({
@@ -174,10 +175,10 @@ describe("runCollaboratorJoin", () => {
     channel.emitKey("\r");
     await tick();
     channel.emitKey("u");
-    const copied = clipboardCopySequence(TEST_GRANT_BODY.verification_uri_complete);
+    const copied = clipboardCopySequence(TEST_GRANT_BODY.user_code);
 
     expect(channel.writes.some((frame) => frame.includes(copied))).toBe(true);
-    expect(channel.writes.some((frame) => frame.includes("link copied"))).toBe(true);
+    expect(channel.writes.some((frame) => frame.includes("code copied"))).toBe(true);
 
     channel.emitKey("\x1b");
     expect(await pending).toEqual({ kind: "skipped" });

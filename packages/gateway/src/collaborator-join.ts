@@ -87,7 +87,8 @@ export function renderJoinSplash(size: JoinScreenSize): string {
   );
 }
 
-/** The second screen: the no-scopes assurance, the pre-filled link, and the copy affordance. */
+// GitHub routes the code-carrying URL through account selection and drops the code, so the box on the
+// next page is empty; the collaborator must type the code, and this screen gives them both parts plainly.
 export function renderConnectScreen(
   size: JoinScreenSize,
   prompt: VerificationPrompt,
@@ -100,9 +101,10 @@ export function renderConnectScreen(
       "cueloop recognizes you when you return. No account permissions are requested,",
       "and the token is discarded after one identity lookup.",
       "",
-      prompt.verificationUriComplete,
+      `open this link:   ${prompt.verificationUri}`,
+      `enter this code:  ${prompt.userCode}`,
       "",
-      copied ? "link copied - paste in your browser" : "u  copy url",
+      copied ? "code copied - paste it on the page" : "u  copy code",
       "",
       "waiting for authorization...",
       "",
@@ -112,7 +114,7 @@ export function renderConnectScreen(
   );
 }
 
-/** OSC 52 write so the collaborator's own terminal copies the link to its clipboard. */
+/** OSC 52 write so the collaborator's own terminal copies `text` to its clipboard. */
 export function clipboardCopySequence(text: string): string {
   return `\x1b]52;c;${Buffer.from(text).toString("base64")}\x07`;
 }
@@ -168,7 +170,7 @@ export async function runCollaboratorJoin(options: {
           resolve({ kind: "skipped" });
         } else if (key === "copy" && prompt) {
           copied = true;
-          channel.write(clipboardCopySequence(prompt.verificationUriComplete));
+          channel.write(clipboardCopySequence(prompt.userCode));
           draw();
         }
       };

@@ -2016,15 +2016,15 @@ exports[`stories catalog Collaborator Join/ConnectScreen renders, snapshots, and
                                                                                 
                                                                                 
                                                                                 
-                                                                                
                                  connect github                                 
                                                                                 
  cueloop recognizes you when you return. No account permissions are requested,  
              and the token is discarded after one identity lookup.              
                                                                                 
-              https://github.com/login/device?user_code=WXYZ-1234               
+               open this link:   https://github.com/login/device                
+                          enter this code:  WXYZ-1234                           
                                                                                 
-                                  u  copy url                                   
+                                  u  copy code                                  
                                                                                 
                           waiting for authorization...                          
                                                                                 
@@ -2046,15 +2046,15 @@ exports[`stories catalog Collaborator Join/ConnectScreenLinkCopied renders, snap
                                                                                 
                                                                                 
                                                                                 
-                                                                                
                                  connect github                                 
                                                                                 
  cueloop recognizes you when you return. No account permissions are requested,  
              and the token is discarded after one identity lookup.              
                                                                                 
-              https://github.com/login/device?user_code=WXYZ-1234               
+               open this link:   https://github.com/login/device                
+                          enter this code:  WXYZ-1234                           
                                                                                 
-                      link copied - paste in your browser                       
+                       code copied - paste it on the page                       
                                                                                 
                           waiting for authorization...                          
                                                                                 
