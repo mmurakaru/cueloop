@@ -98,8 +98,14 @@ async function runInstaller(targetInstallDir: string): Promise<number> {
       stdin: "pipe",
       stdout: "inherit",
       stderr: "inherit",
-      // an update replaces the binary in place; it never edits the user's shell rc
-      env: { ...process.env, CUELOOP_INSTALL_DIR: targetInstallDir, CUELOOP_NO_MODIFY_PATH: "1" },
+      // an update replaces the binary in place; it never edits the shell rc, and
+      // skips the installer's first-run logo and get-started hint
+      env: {
+        ...process.env,
+        CUELOOP_INSTALL_DIR: targetInstallDir,
+        CUELOOP_NO_MODIFY_PATH: "1",
+        CUELOOP_UPDATE: "1",
+      },
     });
 
     child.stdin.write(parsed.output);
