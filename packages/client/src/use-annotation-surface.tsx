@@ -40,6 +40,7 @@ import { printableSequence, type MarkRange, type VisualLine } from "./mark-runs"
 import { matchesLeader } from "./thread-chords";
 import {
   activeSlashToken,
+  insertSlashItem,
   isStandaloneSlashQuery,
   mergeSlashItems,
   slashFilter,
@@ -456,14 +457,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       return true;
     }
     if (key.name === "return" || key.name === "tab") {
-      const token = activeSlashToken(composeText, caretOffset) ?? "";
-      const cut = caretOffset - token.length;
-      const insertion = `/${slashItems[selected]!.name} `;
-      const seed = composeText.slice(0, cut) + insertion + composeText.slice(caretOffset);
+      const inserted = insertSlashItem(composeText, caretOffset, slashItems[selected]!.name);
 
-      openCompose({ ...activeCompose, seed });
-      // land the caret just after the inserted reference, not at the end of a chained draft
-      setCaretOffset(cut + insertion.length);
+      openCompose({ ...activeCompose, seed: inserted.text });
+      setCaretOffset(inserted.caret);
 
       return true;
     }
