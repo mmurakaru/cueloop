@@ -49,12 +49,11 @@ export function interpretJoinKey(chunk: Buffer): JoinKey {
   return "other";
 }
 
-function wrapToWidth(line: string, width: number): string[] {
-  if ([...line].length <= width) return [line];
+function packGreedy(words: string[], width: number): string[] {
   const rows: string[] = [];
   let current = "";
 
-  for (const word of line.split(" ")) {
+  for (const word of words) {
     const candidate = current === "" ? word : `${current} ${word}`;
 
     if (current !== "" && [...candidate].length > width) {
@@ -67,6 +66,30 @@ function wrapToWidth(line: string, width: number): string[] {
   if (current !== "") rows.push(current);
 
   return rows;
+}
+
+// Balanced wrap: use the fewest rows the width allows, then tighten to the narrowest width that still
+// fits in that many rows, so lines even out and no last row is left with a lone word.
+function wrapToWidth(line: string, width: number): string[] {
+  if ([...line].length <= width) return [line];
+  const words = line.split(" ");
+  const minRows = packGreedy(words, width).length;
+  let low = Math.max(...words.map((word) => [...word].length));
+  let high = width;
+  let best = width;
+
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+
+    if (packGreedy(words, mid).length <= minRows) {
+      best = mid;
+      high = mid - 1;
+    } else {
+      low = mid + 1;
+    }
+  }
+
+  return packGreedy(words, best);
 }
 
 function centerBlock(lines: readonly string[], size: JoinScreenSize): string {
@@ -116,15 +139,19 @@ export function renderConnectScreen(
   prompt: VerificationPrompt,
   copied: boolean,
 ): string {
+  const labelWidth = Math.max("open this link:".length, "enter this code:".length);
+  const linkLine = `${"open this link:".padStart(labelWidth)}  ${prompt.verificationUri}`;
+  const codeLine = `${"enter this code:".padStart(labelWidth)}  ${prompt.userCode}`;
+  const pairWidth = Math.max(linkLine.length, codeLine.length);
+
   return centerBlock(
     [
       "connect github",
       "",
-      "cueloop recognizes you when you return. No account permissions are requested,",
-      "and the token is discarded after one identity lookup.",
+      "cueloop recognizes you when you return. No account permissions are requested, and the token is discarded after one identity lookup.",
       "",
-      `open this link:   ${prompt.verificationUri}`,
-      `enter this code:  ${prompt.userCode}`,
+      linkLine.padEnd(pairWidth),
+      codeLine.padEnd(pairWidth),
       "",
       copied ? "code copied - paste it on the page" : "u  copy code",
       "",
