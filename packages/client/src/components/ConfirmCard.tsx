@@ -19,7 +19,7 @@ import { SlashComposer } from "./SlashComposer";
 import { Button } from "./primitives/Button";
 import { Toolbar } from "./primitives/Toolbar";
 
-const SUBMIT_CARD_MAX_WIDTH = 96;
+const SUBMIT_CARD_MAX_WIDTH = 48;
 const PALETTE_WINDOW = 5;
 
 export const VERDICTS: VerdictKind[] = ["comment", "approve", "request_changes"];
@@ -76,7 +76,7 @@ function VerdictSelector({
   const tokens = useComponentTheme(theme);
 
   return (
-    <box style={{ flexDirection: "row", height: 1 }}>
+    <box style={{ flexDirection: "row", height: 1, width: "100%", justifyContent: "center" }}>
       {VERDICTS.map((candidate) => (
         <box
           key={candidate}
