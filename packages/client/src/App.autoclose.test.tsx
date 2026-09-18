@@ -57,7 +57,7 @@ type Setup = Awaited<ReturnType<typeof renderApp>>;
 
 async function submitApprove(setup: Setup): Promise<void> {
   await pressKey(setup, "RETURN", { meta: true }); // open submit (approve default: no pending items)
-  await press(setup, "enter"); // confirm
+  await pressKey(setup, "RETURN", { meta: true }); // confirm
   await waitForText(setup, "review approved");
 }
 

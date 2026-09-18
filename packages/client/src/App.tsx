@@ -1086,6 +1086,7 @@ export function App({
     session: activeSession,
     walkFileList,
     viewedPaths,
+    quickActions,
     liveInput,
     setMode,
     dispatch,

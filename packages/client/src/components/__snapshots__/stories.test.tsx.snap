@@ -354,7 +354,7 @@ exports[`stories catalog Cards/ConfirmCard/ApproveDefault renders, snapshots, an
 "┌────────────────────────────────┐      
 │  Comment  [Approve]  Changes   │      
 │                                │      
-│ summary for the agent (optional│      
+│  summary for the agent (       │      
 │                                │      
 │  send message    Cancel        │      
 └────────────────────────────────┘      
@@ -372,7 +372,7 @@ exports[`stories catalog Cards/ConfirmCard/RequestChanges renders, snapshots, an
 "┌────────────────────────────────┐      
 │  Comment   Approve  [Changes]  │      
 │                                │      
-│ Tighten the steps.             │      
+│  Tighten the steps.            │      
 │                                │      
 │  send message    Cancel        │      
 └────────────────────────────────┘      
@@ -392,7 +392,7 @@ exports[`stories catalog Cards/ConfirmCard/WithViewedSummary renders, snapshots,
 │                                │      
 │  Comment  [Approve]  Changes   │      
 │                                │      
-│ summary for the agent (optional│      
+│  summary for the agent (       │      
 │                                │      
 │  send message    Cancel        │      
 └────────────────────────────────┘      

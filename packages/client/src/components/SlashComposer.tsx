@@ -21,6 +21,7 @@ export interface SlashComposerProps {
   tokens: Theme;
   onSubmit: (text: string) => void;
   onInput?: (text: string) => void;
+  placeholder?: string;
 }
 
 export function SlashComposer({
@@ -30,6 +31,7 @@ export function SlashComposer({
   tokens,
   onSubmit,
   onInput,
+  placeholder,
 }: SlashComposerProps): React.ReactNode {
   const skills = useContext(SlashSkillsContext);
   const [mountSeed, setMountSeed] = useState(seed);
@@ -65,6 +67,7 @@ export function SlashComposer({
         seed={mountSeed}
         glyph={glyph}
         tokens={tokens}
+        placeholder={placeholder}
         onReady={() => {}}
         onSave={onSubmit}
         onInput={(next, nextCaret) => {

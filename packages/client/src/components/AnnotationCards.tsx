@@ -35,7 +35,7 @@ const COMPOSE_KEY_BINDINGS: KeyBinding[] = [
   { name: "return", shift: true, action: "newline" },
 ];
 
-function composeRowCount(text: string, contentWidth: number): number {
+export function composeRowCount(text: string, contentWidth: number): number {
   const usableWidth = contentWidth > 0 ? contentWidth : Number.MAX_SAFE_INTEGER;
   let visualRowCount = 0;
 
@@ -54,6 +54,7 @@ export function Composer({
   onSave,
   onReady,
   onInput,
+  placeholder,
 }: {
   seed: string;
   glyph: string;
@@ -61,6 +62,7 @@ export function Composer({
   onSave: (body: string) => void;
   onReady: () => void;
   onInput: (text: string, caret: number) => void;
+  placeholder?: string;
 }): React.ReactNode {
   const editorRef = useRef<TextareaRenderable | null>(null);
   const [rows, setRows] = useState(1);
@@ -98,6 +100,8 @@ export function Composer({
         ref={editorRef}
         focused
         initialValue={seed}
+        placeholder={placeholder}
+        placeholderColor={tokens.textDim}
         cursorStyle={{ style: "block", blinking: true }}
         keyBindings={COMPOSE_KEY_BINDINGS}
         onSubmit={() => onSave(editorRef.current?.plainText ?? "")}

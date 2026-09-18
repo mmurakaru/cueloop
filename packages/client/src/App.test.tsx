@@ -207,7 +207,7 @@ describe("submit", () => {
 
     // Act
     await type(setup, "Expand the steps.");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "feedback sent");
@@ -231,7 +231,7 @@ describe("submit", () => {
     await waitForText(setup, "[Approve]"); // no pending items → approve default
 
     // Act
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).verdict !== undefined);

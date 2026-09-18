@@ -13,7 +13,6 @@ import {
   clickText,
   dragText,
   isolateUserConfig,
-  press,
   pressKey,
   renderReadyApp,
   typeText,
@@ -95,7 +94,7 @@ describe("diff review", () => {
 
     // Act - submit with the session chord (cmd+enter, no composer open), confirm request_changes
     await pressKey(setup, "RETURN", { meta: true });
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "feedback sent");

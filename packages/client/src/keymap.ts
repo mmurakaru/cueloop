@@ -193,7 +193,6 @@ function submitOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
   const name = key.name;
 
   if (name === "escape") return [{ type: "closeOverlay" }];
-  if (name === "return" || name === "enter") return [{ type: "submitVerdict" }];
   if (name === "left" || name === "right") {
     return [{ type: "cycleVerdict", direction: name === "left" ? -1 : 1 }];
   }

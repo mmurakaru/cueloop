@@ -162,7 +162,7 @@ describe("send message confirm", () => {
 
     // Act
     await setup.mockInput.typeText("Tighten the steps.");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert - the completion flow after submit is unchanged
     await waitForText(setup, "feedback sent");
@@ -170,6 +170,20 @@ describe("send message confirm", () => {
 
     expect(stored.status).toBe("resolved");
     expect(stored.verdict!.kind).toBe("request_changes");
+  });
+
+  test("typing / in the summary opens the skills/actions palette", async () => {
+    // Arrange
+    seedAnnotations(1);
+    const setup = await renderApp();
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "[Changes]");
+
+    // Act
+    await setup.mockInput.typeText("/restate");
+
+    // Assert - the same slash palette the inline composer shows
+    await waitForText(setup, "restate-simplified");
   });
 
   test("read-only observers cannot open the confirm overlay", async () => {

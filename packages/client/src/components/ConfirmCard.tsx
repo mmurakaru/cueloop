@@ -5,16 +5,22 @@
  * derives from the content rows through Card, so layout and render never drift.
  */
 
-import React from "react";
+import React, { useContext } from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import type { VerdictKind } from "@cueloop/schema";
 import type { Theme } from "../theme";
+import type { QuickAction } from "../config";
+import { SlashSkillsContext } from "../skills";
+import { activeSlashToken, mergeSlashItems, slashFilter, slashItemsFrom } from "../slash-palette";
 import { useComponentTheme } from "./theme-context";
 import { Card } from "./primitives/Card";
+import { composeRowCount } from "./AnnotationCards";
+import { SlashComposer } from "./SlashComposer";
 import { Button } from "./primitives/Button";
 import { Toolbar } from "./primitives/Toolbar";
 
 const SUBMIT_CARD_MAX_WIDTH = 96;
+const PALETTE_WINDOW = 5;
 
 export const VERDICTS: VerdictKind[] = ["comment", "approve", "request_changes"];
 
@@ -37,6 +43,7 @@ export interface ConfirmCardProps {
   onSelectVerdict: (verdict: VerdictKind) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  quickActions: QuickAction[];
   theme?: Theme;
 }
 
@@ -95,15 +102,31 @@ export function ConfirmCard({
   onSelectVerdict,
   onSubmit,
   onCancel,
+  quickActions,
   theme,
 }: ConfirmCardProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+  const skills = useContext(SlashSkillsContext);
   const { width: terminalWidth } = useTerminalDimensions();
   const cardWidth = Math.max(24, Math.min(terminalWidth - 6, SUBMIT_CARD_MAX_WIDTH));
 
+  const composerRows = composeRowCount(summary, cardWidth - 4);
+  const token = activeSlashToken(summary, summary.length);
+  const paletteItems =
+    token !== null
+      ? slashFilter(mergeSlashItems(slashItemsFrom(quickActions), skills), token.slice(1))
+      : [];
+  const paletteRows =
+    paletteItems.length > 0
+      ? Math.min(PALETTE_WINDOW, paletteItems.length) +
+        (paletteItems.length > PALETTE_WINDOW ? 1 : 0)
+      : 0;
+  const contentRows =
+    CONFIRM_CONTENT_ROWS - 1 + composerRows + paletteRows + (viewedSummary !== undefined ? 2 : 0);
+
   return (
     <Card
-      contentRows={CONFIRM_CONTENT_ROWS + (viewedSummary !== undefined ? 2 : 0)}
+      contentRows={contentRows}
       width={cardWidth}
       borderColor={tokens.text}
       backgroundColor={tokens.elevated}
@@ -113,11 +136,17 @@ export function ConfirmCard({
       {viewedSummary !== undefined ? <box style={{ height: 1 }} /> : null}
       <VerdictSelector verdict={verdict} onSelectVerdict={onSelectVerdict} theme={theme} />
       <box style={{ height: 1 }} />
-      <input
-        focused
-        value={summary}
-        onInput={onInput}
+      <SlashComposer
+        seed={summary}
+        glyph=""
+        quickActions={quickActions}
+        tokens={tokens}
         placeholder="summary for the agent (optional)"
+        onSubmit={(text) => {
+          onInput(text);
+          onSubmit();
+        }}
+        onInput={onInput}
       />
       <box style={{ height: 1 }} />
       <Toolbar>
