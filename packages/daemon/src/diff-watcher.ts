@@ -7,16 +7,17 @@
  */
 
 import { watch, type FSWatcher } from "node:fs";
-import { sep } from "node:path";
+import { isAbsolute, join, sep } from "node:path";
 
 /** Debounce window: a save or a checkout writes many files in a burst; collapse them into one re-capture. */
 const DIFF_REFRESH_DEBOUNCE_MS = 300;
 
 /**
- * Paths whose churn must never trigger a diff refresh. git rewrites `.git`
- * metadata (the index, lock files) on every read `cueloop diff` itself runs, so
- * watching it would loop; `node_modules` churns on installs and is never review
- * content.
+ * Working-tree paths whose churn must never trigger a diff refresh. All of
+ * `.git` is excluded from the recursive tree watch - the relevant git metadata
+ * is watched narrowly instead (HEAD, refs, packed-refs) so its own read churn
+ * (the index, lock files) cannot loop. `node_modules` churns on installs and is
+ * never review content.
  */
 function isIgnoredWatchPath(relativePath: string): boolean {
   const segments = relativePath.split(sep);
@@ -24,8 +25,39 @@ function isIgnoredWatchPath(relativePath: string): boolean {
   return segments.includes(".git") || segments.includes("node_modules");
 }
 
+/** The git-metadata filenames whose change means `git diff HEAD` moved: a checkout, a commit, or a reset. */
+function isRefChange(filename: string): boolean {
+  return filename === "HEAD" || filename === "packed-refs";
+}
+
+/**
+ * A repo's git dir (HEAD and the index live here) and common dir (refs and
+ * packed-refs live here). They differ inside a linked worktree. Null when the
+ * root is not a git repo or git is unavailable.
+ */
+function resolveGitDirs(repoRoot: string): { gitDir: string; commonDir: string } | null {
+  const result = Bun.spawnSync(["git", "rev-parse", "--absolute-git-dir", "--git-common-dir"], {
+    cwd: repoRoot,
+    stdout: "pipe",
+    stderr: "ignore",
+  });
+
+  if (result.exitCode !== 0) return null;
+  const [gitDir, commonRaw] = result.stdout.toString().trim().split("\n");
+
+  if (!gitDir) return null;
+  const commonDir = commonRaw
+    ? isAbsolute(commonRaw)
+      ? commonRaw
+      : join(repoRoot, commonRaw)
+    : gitDir;
+
+  return { gitDir, commonDir };
+}
+
 interface RepoWatch {
-  handle: FSWatcher;
+  /** The recursive working-tree watch plus the narrow git-metadata watches; all close together. */
+  handles: FSWatcher[];
   /** Live diff session ids sharing this repo root; the watch closes when the last one leaves. */
   sessionIds: Set<string>;
   debounce: ReturnType<typeof setTimeout> | null;
@@ -51,21 +83,65 @@ export class DiffWatcher {
 
       return;
     }
-    let handle: FSWatcher;
+    const handles: FSWatcher[] = [];
 
-    try {
-      handle = watch(repoRoot, { recursive: true }, (_event, filename) => {
-        if (filename !== null && isIgnoredWatchPath(filename.toString())) return;
-        this.scheduleRepoRefresh(repoRoot);
-      });
-    } catch {
+    // the working tree, minus .git and node_modules; a tracked-file change re-captures
+    if (
+      !this.watchInto(handles, repoRoot, { recursive: true }, (filename) => {
+        if (!isIgnoredWatchPath(filename)) this.scheduleRepoRefresh(repoRoot);
+      })
+    ) {
       // repo root gone or not watchable on this platform: skip, no hot-reload here
       return;
     }
-    // a watcher error (the root is deleted mid-review) must not take down the
-    // daemon; the inherited EventEmitter `on` is absent from Bun's FSWatcher type
-    handle.on("error", () => {});
-    this.repoWatches.set(repoRoot, { handle, sessionIds: new Set([sessionId]), debounce: null });
+
+    // git metadata: a commit, checkout, or reset moves `git diff HEAD` without
+    // touching any working-tree file, so those never reach the tree watch above.
+    const gitDirs = resolveGitDirs(repoRoot);
+
+    if (gitDirs) {
+      // HEAD and packed-refs sit beside the index; the index rewrites on our own
+      // reads, so only HEAD/packed-refs here - watching the index would loop
+      this.watchInto(handles, gitDirs.gitDir, { recursive: false }, (filename) => {
+        if (isRefChange(filename)) this.scheduleRepoRefresh(repoRoot);
+      });
+      // a commit or reset updates refs/heads/<branch>; any ref move re-captures
+      this.watchInto(handles, join(gitDirs.commonDir, "refs"), { recursive: true }, () =>
+        this.scheduleRepoRefresh(repoRoot),
+      );
+      if (gitDirs.commonDir !== gitDirs.gitDir)
+        this.watchInto(handles, gitDirs.commonDir, { recursive: false }, (filename) => {
+          if (isRefChange(filename)) this.scheduleRepoRefresh(repoRoot);
+        });
+    }
+
+    this.repoWatches.set(repoRoot, { handles, sessionIds: new Set([sessionId]), debounce: null });
+  }
+
+  /**
+   * Open one watcher and add it to `handles`; returns whether it opened. A
+   * watcher error (the path is deleted mid-review) is swallowed - hot-reload is
+   * best-effort and must never take down the daemon. The inherited EventEmitter
+   * `on` is absent from Bun's FSWatcher type.
+   */
+  private watchInto(
+    handles: FSWatcher[],
+    path: string,
+    options: { recursive: boolean },
+    onFile: (filename: string) => void,
+  ): boolean {
+    try {
+      const handle = watch(path, options, (_event, filename) => {
+        if (filename !== null) onFile(filename.toString());
+      });
+
+      handle.on("error", () => {});
+      handles.push(handle);
+
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /** Drop one diff session; close the repo watch once no diff session tracks it. */
@@ -76,7 +152,7 @@ export class DiffWatcher {
     repoWatch.sessionIds.delete(sessionId);
     if (repoWatch.sessionIds.size > 0) return;
     if (repoWatch.debounce !== null) clearTimeout(repoWatch.debounce);
-    repoWatch.handle.close();
+    for (const handle of repoWatch.handles) handle.close();
     this.repoWatches.delete(repoRoot);
   }
 
@@ -95,7 +171,7 @@ export class DiffWatcher {
   close(): void {
     for (const repoWatch of this.repoWatches.values()) {
       if (repoWatch.debounce !== null) clearTimeout(repoWatch.debounce);
-      repoWatch.handle.close();
+      for (const handle of repoWatch.handles) handle.close();
     }
     this.repoWatches.clear();
   }

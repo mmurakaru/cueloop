@@ -226,4 +226,27 @@ describe("the fs watcher drives hot-reload", () => {
     }
     expect(content).toContain("+export const a = 42;");
   }, 12_000);
+
+  test("a commit refreshes the diff even though no working-tree file changed", async () => {
+    // Given an open diff session showing an uncommitted change to a.ts
+    writeFileSync(join(repo, "a.ts"), "export const a = 5;\n");
+    const session = await openDiffSession();
+
+    expect(core.sessionGet(session.id).artifact.content).toContain("+export const a = 5;");
+
+    // When the change is committed - moving refs/HEAD, touching no working-tree file -
+    // the working tree now equals HEAD, so `git diff HEAD` is empty
+    git(["add", "a.ts"], repo);
+    git(["commit", "-qm", "land a"], repo);
+
+    // Then the git-metadata watch drives a re-capture and the diff empties out
+    const deadline = Date.now() + 8_000;
+    let content = core.sessionGet(session.id).artifact.content;
+
+    while (content.includes("+export const a = 5;") && Date.now() < deadline) {
+      await Bun.sleep(100);
+      content = core.sessionGet(session.id).artifact.content;
+    }
+    expect(content).not.toContain("+export const a = 5;");
+  }, 12_000);
 });
