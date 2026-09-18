@@ -42,7 +42,12 @@ import { GatewayMetrics, startMetricsServer } from "./metrics";
 import { TokenBucket } from "./rate-limit";
 import { SHARE_UPLOAD_USER, isShareId, mintShareId } from "./share-id";
 import { WatchedShareStore, type ShareStore } from "./store";
-import { isShareViewerAllowed, registerParticipant, type ParticipantSource } from "@cueloop/schema";
+import {
+  isShareViewerAllowed,
+  registerParticipant,
+  registeredGithubLogin,
+  type ParticipantSource,
+} from "@cueloop/schema";
 import { githubClientId } from "./github-device-flow";
 import { runCollaboratorJoin, type CollaboratorJoinOutcome } from "./collaborator-join";
 
@@ -234,7 +239,11 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       let participantSource: ParticipantSource | undefined;
       let verifiedGithubLogin: string | undefined;
 
-      if (clientId) {
+      const knownLogin = registeredGithubLogin(session, identity.fingerprint);
+
+      if (knownLogin !== undefined) {
+        verifiedGithubLogin = knownLogin;
+      } else if (clientId) {
         // A GitHub outage must never close an otherwise-valid share; fall through to anonymous.
         const joined = await runCollaboratorJoin({
           channel,
