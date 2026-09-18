@@ -1351,7 +1351,6 @@ class Controller implements ReviewController {
 
     this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
-    this.setStatus("annotation updated");
   }
 
   // push only after the local write lands, so a rejected write never leaks to the share

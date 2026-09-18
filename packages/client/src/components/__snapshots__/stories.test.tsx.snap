@@ -1154,11 +1154,11 @@ exports[`stories catalog Surfaces/ThreadTree/Empty renders, snapshots, and carri
 
 exports[`stories catalog Surfaces/ThreadTree/TwoPending renders, snapshots, and carries its colors: Surfaces/ThreadTree/TwoPending 1`] = `
 " Projects                                                                       
-   widget                                                                      
-    Migration Plan                                                              
+   widget                                                                       
+     Migration Plan                                                             
                                                                                 
  Threads                                                                        
-    working tree                                                                
+   working tree                                                                 
                                                                                 
                                                                                 
                                                                                 
@@ -1208,11 +1208,11 @@ exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, a
 
 exports[`stories catalog Surfaces/ThreadsSidebar/Open renders, snapshots, and carries its colors: Surfaces/ThreadsSidebar/Open 1`] = `
 " Projects                    │                              
-   widget                   │                              
-    Migration Plan           │                              
+   widget                    │                              
+     Migration Plan          │                              
                              │                              
  Threads                     │                              
-    working tree             │                              
+   working tree              │                              
                              │                              
                              │                              
                              │                              
@@ -1230,7 +1230,7 @@ exports[`stories catalog Overlays/Toast/ShareLink renders, snapshots, and carrie
                │                             │              
                │ ssh review-4f2a@cueloop.dev │              
                │                             │              
-               │                       [esc] │              
+               │                             │              
                └─────────────────────────────┘              
                                                             
                                                             
