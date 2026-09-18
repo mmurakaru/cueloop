@@ -7,6 +7,7 @@
  */
 
 import React, { useContext, useLayoutEffect, useRef, useState } from "react";
+import { usePaste } from "@opentui/react";
 import type {
   BoxRenderable,
   KeyBinding,
@@ -18,6 +19,7 @@ import type { Theme } from "../theme";
 import { useTooltip } from "./Tooltip";
 import { lighten } from "../annotation-palette";
 import { useFrameMeasure } from "../use-frame-measure";
+import { imagePlaceholder, looksLikeBinaryPaste } from "../pasted-image";
 import { skillReferenceRanges, type SlashItem } from "../slash-palette";
 import { PaletteNamesContext } from "../skills";
 import { referenceStyleFor } from "./syntax-highlight";
@@ -65,9 +67,19 @@ export function Composer({
   placeholder?: string;
 }): React.ReactNode {
   const editorRef = useRef<TextareaRenderable | null>(null);
+  const pastedImageCount = useRef(0);
   const [rows, setRows] = useState(1);
   // action and skill names whose "/name" references paint in the accent color
   const referenceNames = useContext(PaletteNamesContext);
+
+  usePaste((event) => {
+    const editor = editorRef.current;
+
+    if (!editor || !editor.focused || !looksLikeBinaryPaste(event.bytes)) return;
+    event.preventDefault();
+    pastedImageCount.current += 1;
+    editor.editBuffer.insertText(imagePlaceholder(pastedImageCount.current));
+  });
 
   const paintReferences = (editor: TextareaRenderable): void => {
     const { styleId } = referenceStyleFor(tokens);

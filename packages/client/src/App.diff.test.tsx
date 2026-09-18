@@ -104,6 +104,19 @@ describe("diff review", () => {
     expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
   });
 
+  test("pasting an image into a diff comment drops in an [Image #n] placeholder", async () => {
+    // Arrange - mark the added line and open the inline comment composer
+    const setup = await renderApp();
+    await dragText(setup, "new Map()", "new Map()", "new Map()".length);
+    await typeText(setup, "see ");
+
+    // Act - a burst of control bytes stands in for the binary an image paste delivers
+    await setup.mockInput.pasteBracketedText("");
+
+    // Assert - the same placeholder the summary composer shows
+    await waitForText(setup, "see [Image #1]");
+  });
+
   test("a comment reopens with its mark painted on the code", async () => {
     // Arrange - a stored comment anchored to the added line's words
     server.core.sessionAnnotate(session.id, {

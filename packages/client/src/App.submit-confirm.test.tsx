@@ -186,6 +186,21 @@ describe("send message confirm", () => {
     await waitForText(setup, "restate-simplified");
   });
 
+  test("pasting an image into the summary drops in an [Image #n] placeholder", async () => {
+    // Arrange
+    const setup = await renderApp();
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "[Approve]");
+
+    // Act - a burst of control bytes stands in for the binary an image paste delivers
+    await setup.mockInput.typeText("look at this ");
+    await setup.mockInput.pasteBracketedText("");
+
+    // Assert - the raw bytes never reach the draft; a numbered placeholder does
+    await waitForText(setup, "[Image #1]");
+    expect(setup.captureCharFrame()).toContain("look at this [Image #1]");
+  });
+
   test("read-only observers cannot open the confirm overlay", async () => {
     // Arrange
     seedAnnotations(1);
