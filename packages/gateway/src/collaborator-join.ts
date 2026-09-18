@@ -34,7 +34,7 @@ export type JoinKey = "enter" | "escape" | "copy" | "other";
 const CLEAR_SCREEN = "\x1b[2J\x1b[H";
 const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
-const PRIVACY_LINE = "privacy https://cueloop.dev/privacy   support support@cueloop.dev";
+const PRIVACY_LINE = "privacy https://cueloop.dev/privacy   support hello@cueloop.dev";
 
 /** Classify a keypress from a byte chunk that may coalesce several keys or a paste. */
 export function interpretJoinKey(chunk: Buffer): JoinKey {
@@ -49,11 +49,56 @@ export function interpretJoinKey(chunk: Buffer): JoinKey {
   return "other";
 }
 
+function packGreedy(words: string[], width: number): string[] {
+  const rows: string[] = [];
+  let current = "";
+
+  for (const word of words) {
+    const candidate = current === "" ? word : `${current} ${word}`;
+
+    if (current !== "" && [...candidate].length > width) {
+      rows.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current !== "") rows.push(current);
+
+  return rows;
+}
+
+// Balanced wrap: use the fewest rows the width allows, then tighten to the narrowest width that still
+// fits in that many rows, so lines even out and no last row is left with a lone word.
+function wrapToWidth(line: string, width: number): string[] {
+  if ([...line].length <= width) return [line];
+  const words = line.split(" ");
+  const minRows = packGreedy(words, width).length;
+  let low = Math.max(...words.map((word) => [...word].length));
+  let high = width;
+  let best = width;
+
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+
+    if (packGreedy(words, mid).length <= minRows) {
+      best = mid;
+      high = mid - 1;
+    } else {
+      low = mid + 1;
+    }
+  }
+
+  return packGreedy(words, best);
+}
+
 function centerBlock(lines: readonly string[], size: JoinScreenSize): string {
-  const top = Math.max(0, Math.floor((size.rows - lines.length) / 2));
+  const usable = Math.max(1, size.cols - 4);
+  const wrapped = lines.flatMap((line) => wrapToWidth(line, usable));
+  const top = Math.max(0, Math.floor((size.rows - wrapped.length) / 2));
   let out = CLEAR_SCREEN;
 
-  for (const [index, line] of lines.entries()) {
+  for (const [index, line] of wrapped.entries()) {
     const column = Math.max(1, Math.floor((size.cols - [...line].length) / 2) + 1);
 
     out += `\x1b[${top + index + 1};${column}H${line}`;
@@ -62,18 +107,24 @@ function centerBlock(lines: readonly string[], size: JoinScreenSize): string {
   return out;
 }
 
+function alignedLogo(): string[] {
+  const width = Math.max(...CUELOOP_LOGO_LINES.map((line) => [...line].length));
+
+  return CUELOOP_LOGO_LINES.map((line) => line + " ".repeat(width - [...line].length));
+}
+
 /** The first screen: the cueloop mark, a join prompt, and the honest data-use line. */
 export function renderJoinSplash(size: JoinScreenSize): string {
   return centerBlock(
     [
-      ...CUELOOP_LOGO_LINES,
+      ...alignedLogo(),
       "",
       "cueloop",
       "",
       "enter  join      esc  skip",
       "",
-      "Connect GitHub to sign your review comments with your name.",
-      "Your GitHub identity links to your SSH key; connection metadata is kept for service security.",
+      "Connect GitHub to sign your comments with your name.",
+      "No repo or account access is requested; your name is read once.",
       "",
       PRIVACY_LINE,
     ],
@@ -81,22 +132,28 @@ export function renderJoinSplash(size: JoinScreenSize): string {
   );
 }
 
-/** The second screen: the no-scopes assurance, the pre-filled link, and the copy affordance. */
+// GitHub routes the code-carrying URL through account selection and drops the code, so the box on the
+// next page is empty; the collaborator must type the code, and this screen gives them both parts plainly.
 export function renderConnectScreen(
   size: JoinScreenSize,
   prompt: VerificationPrompt,
   copied: boolean,
 ): string {
+  const labelWidth = Math.max("open this link:".length, "enter this code:".length);
+  const linkLine = `${"open this link:".padStart(labelWidth)}  ${prompt.verificationUri}`;
+  const codeLine = `${"enter this code:".padStart(labelWidth)}  ${prompt.userCode}`;
+  const pairWidth = Math.max(linkLine.length, codeLine.length);
+
   return centerBlock(
     [
       "connect github",
       "",
-      "cueloop recognizes you when you return. No account permissions are requested,",
-      "and the token is discarded after one identity lookup.",
+      "cueloop recognizes you when you return. No account permissions are requested, and the token is discarded after one identity lookup.",
       "",
-      prompt.verificationUriComplete,
+      linkLine.padEnd(pairWidth),
+      codeLine.padEnd(pairWidth),
       "",
-      copied ? "link copied - paste in your browser" : "u  copy url",
+      copied ? "code copied - paste it on the page" : "u  copy code",
       "",
       "waiting for authorization...",
       "",
@@ -106,7 +163,7 @@ export function renderConnectScreen(
   );
 }
 
-/** OSC 52 write so the collaborator's own terminal copies the link to its clipboard. */
+/** OSC 52 write so the collaborator's own terminal copies `text` to its clipboard. */
 export function clipboardCopySequence(text: string): string {
   return `\x1b]52;c;${Buffer.from(text).toString("base64")}\x07`;
 }
@@ -162,7 +219,7 @@ export async function runCollaboratorJoin(options: {
           resolve({ kind: "skipped" });
         } else if (key === "copy" && prompt) {
           copied = true;
-          channel.write(clipboardCopySequence(prompt.verificationUriComplete));
+          channel.write(clipboardCopySequence(prompt.userCode));
           draw();
         }
       };

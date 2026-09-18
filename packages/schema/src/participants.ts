@@ -18,6 +18,12 @@ export interface ParticipantSource {
   handle?: string;
 }
 
+export function registeredGithubLogin(session: Thread, author: string): string | undefined {
+  const existing = (session.participants ?? []).find((participant) => participant.id === author);
+
+  return existing?.provider === "github" ? existing.handle : undefined;
+}
+
 export function registerParticipant(
   session: Thread,
   author: string,

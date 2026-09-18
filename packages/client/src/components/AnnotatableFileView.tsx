@@ -1,6 +1,6 @@
 // A project file shown as its own annotatable surface: the file's lines render through the diff
 // sheet as context rows (one line-number gutter, no +/- sign), so selecting text leaves a comment
-// anchored to the file exactly as a plan or diff comment is. Used where a review session exists to
+// anchored to the file exactly as a plan or diff comment is. Used where a thread exists to
 // hold the notes; the bare-launch welcome shell uses the read-only FileContentsView instead.
 
 import React, { useEffect, useRef, useState } from "react";

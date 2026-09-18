@@ -36,16 +36,16 @@ function stripTrailingNewline(text: string): string {
   return text.replace(/\n$/, "");
 }
 
-/**
- * Char-precise intra-line runs for modified diff rows. Within a change block - a
- * run of deletions immediately followed by additions - lines are aligned to their
- * real counterpart (see alignedPairs) and each matched pair is word-diffed so the
- * removed/added words are marked changed. Rows with no counterpart (pure add, pure
- * delete, or an unmatched line in a shifted block) are omitted, so the caller
- * renders those as a single run. Each row's runs concatenate back to that row's text.
- */
-export function intralineRunsByRow(rows: DiffRow[]): Map<number, IntralineRun[]> {
-  const runsByRow = new Map<number, IntralineRun[]>();
+/** A change block: a run of deletion rows immediately followed by addition rows. */
+interface IntralineBlock {
+  deletionStart: number;
+  additionStart: number;
+  end: number;
+}
+
+/** The change blocks in row order, found in one cheap pass (no word diff yet). */
+function intralineBlocks(rows: DiffRow[]): IntralineBlock[] {
+  const blocks: IntralineBlock[] = [];
   let index = 0;
 
   while (index < rows.length) {
@@ -59,22 +59,91 @@ export function intralineRunsByRow(rows: DiffRow[]): Map<number, IntralineRun[]>
     const additionStart = index;
 
     while (index < rows.length && rows[index]!.kind === "add") index++;
-    const deletionTexts = rows
-      .slice(deletionStart, additionStart)
-      .map((row) => stripTrailingNewline(row.text));
-    const additionTexts = rows
-      .slice(additionStart, index)
-      .map((row) => stripTrailingNewline(row.text));
+    blocks.push({ deletionStart, additionStart, end: index });
+  }
 
-    for (const [deletionOffset, additionOffset] of alignedPairs(deletionTexts, additionTexts)) {
-      const changes = wordLevelChanges(
-        deletionTexts[deletionOffset]!,
-        additionTexts[additionOffset]!,
-      );
+  return blocks;
+}
 
-      runsByRow.set(deletionStart + deletionOffset, sideRuns(changes, "removed"));
-      runsByRow.set(additionStart + additionOffset, sideRuns(changes, "added"));
-    }
+/** Word-diff one change block into [rowIndex, runs] pairs; unmatched rows get no entry. */
+function blockRunEntries(rows: DiffRow[], block: IntralineBlock): Array<[number, IntralineRun[]]> {
+  const deletionTexts = rows
+    .slice(block.deletionStart, block.additionStart)
+    .map((row) => stripTrailingNewline(row.text));
+  const additionTexts = rows
+    .slice(block.additionStart, block.end)
+    .map((row) => stripTrailingNewline(row.text));
+  const entries: Array<[number, IntralineRun[]]> = [];
+
+  for (const [deletionOffset, additionOffset] of alignedPairs(deletionTexts, additionTexts)) {
+    const changes = wordLevelChanges(
+      deletionTexts[deletionOffset]!,
+      additionTexts[additionOffset]!,
+    );
+
+    entries.push([block.deletionStart + deletionOffset, sideRuns(changes, "removed")]);
+    entries.push([block.additionStart + additionOffset, sideRuns(changes, "added")]);
+  }
+
+  return entries;
+}
+
+/** The change block whose rows cover `rowIndex`, by binary search over the ordered blocks. */
+function blockContaining(blocks: IntralineBlock[], rowIndex: number): number | undefined {
+  let low = 0;
+  let high = blocks.length - 1;
+
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const block = blocks[mid]!;
+
+    if (rowIndex < block.deletionStart) high = mid - 1;
+    else if (rowIndex >= block.end) low = mid + 1;
+    else return mid;
+  }
+
+  return undefined;
+}
+
+/** A row's intra-line runs, resolved on demand. */
+export interface IntralineResolver {
+  runsForRow(rowIndex: number): IntralineRun[] | undefined;
+}
+
+/**
+ * Char-precise intra-line runs for modified diff rows, computed lazily. The change blocks are found
+ * up front in one cheap pass; a block is word-diffed only when a row inside it is first asked for,
+ * so a virtualized diff pays for the rows on screen, not for the whole file. Within a change block -
+ * deletions immediately followed by additions - lines align to their real counterpart (alignedPairs)
+ * and each matched pair is word-diffed; unmatched rows get no runs, so the caller renders those whole.
+ */
+export function createIntralineResolver(rows: DiffRow[]): IntralineResolver {
+  const blocks = intralineBlocks(rows);
+  const computed = new Set<number>();
+  const runsByRow = new Map<number, IntralineRun[]>();
+
+  return {
+    runsForRow(rowIndex) {
+      const blockIndex = blockContaining(blocks, rowIndex);
+
+      if (blockIndex === undefined) return undefined;
+      if (!computed.has(blockIndex)) {
+        computed.add(blockIndex);
+        for (const [row, runs] of blockRunEntries(rows, blocks[blockIndex]!))
+          runsByRow.set(row, runs);
+      }
+
+      return runsByRow.get(rowIndex);
+    },
+  };
+}
+
+/** Every modified row's intra-line runs, eagerly. Prefer createIntralineResolver on a hot path. */
+export function intralineRunsByRow(rows: DiffRow[]): Map<number, IntralineRun[]> {
+  const runsByRow = new Map<number, IntralineRun[]>();
+
+  for (const block of intralineBlocks(rows)) {
+    for (const [row, runs] of blockRunEntries(rows, block)) runsByRow.set(row, runs);
   }
 
   return runsByRow;

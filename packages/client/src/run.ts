@@ -4,6 +4,7 @@ import React from "react";
 import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
+import type { Appearance } from "./theme-presets";
 import { loadConfig } from "./config";
 import { perfMark } from "./perf/perf-timings";
 import { reportPerfMarks } from "./perf/perf-report";
@@ -38,12 +39,6 @@ export async function runClient(options: RunClientOptions): Promise<number> {
     renderer.useMouse = false;
     renderer.useMouse = true;
   });
-  // block first paint on the theme query only briefly, so an answering terminal paints its real theme
-  // with no flash while a non-answering one falls back to dark within the budget
-  const appearance =
-    (await renderer.waitForThemeMode(THEME_QUERY_TIMEOUT_MS).catch(() => null)) ?? "dark";
-  perfMark("themeQuery");
-
   return new Promise<number>((resolve) => {
     let exited = false;
     const shutdown = (code: number): void => {
@@ -61,19 +56,36 @@ export async function runClient(options: RunClientOptions): Promise<number> {
     process.once("SIGHUP", () => shutdown(0));
     process.once("SIGTERM", () => shutdown(0));
 
-    createRoot(renderer).render(
-      React.createElement(App, {
-        home: options.home,
-        sessionId: options.sessionId,
-        appearance,
-        layout,
-        onExit: shutdown,
-        onReady: () => {
-          perfMark("firstFrame");
-          reportPerfMarks("startup");
-        },
-      }),
-    );
+    const root = createRoot(renderer);
+    const renderApp = (appearance: Appearance): void => {
+      root.render(
+        React.createElement(App, {
+          home: options.home,
+          sessionId: options.sessionId,
+          appearance,
+          layout,
+          onExit: shutdown,
+          onReady: () => {
+            perfMark("firstFrame");
+            reportPerfMarks("startup");
+          },
+        }),
+      );
+    };
+
+    // Paint immediately with the default appearance; the OSC theme query resolves off the
+    // first-paint path and upgrades the theme in place when the terminal answers, so launch
+    // never blocks on it. A non-answering terminal simply stays dark.
+    renderApp("dark");
     perfMark("render");
+
+    void renderer
+      .waitForThemeMode(THEME_QUERY_TIMEOUT_MS)
+      .then((mode) => {
+        perfMark("themeQuery");
+        // the query can answer after a fast quit; never render onto a destroyed renderer
+        if (!exited && mode && mode !== "dark") renderApp(mode);
+      })
+      .catch(() => {});
   });
 }

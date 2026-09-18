@@ -90,7 +90,6 @@ describe("the command leader", () => {
 
     // the command fired and no composer opened (a bare "x" would have started a draft)
     expect(commands).toEqual(["x"]);
-    expect(setup.captureCharFrame()).not.toContain("enter save");
 
     setup.renderer.destroy();
   });

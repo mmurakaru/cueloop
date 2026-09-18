@@ -85,6 +85,11 @@ function hasBenchmarks(tree: Tree): boolean {
   return existsSync(join(tree.directory, "benchmarks", "run.ts"));
 }
 
+/** Whether a tree carries this script; a benchmark added on head has no base file to compare. */
+function hasScript(tree: Tree, script: string): boolean {
+  return existsSync(join(tree.directory, "benchmarks", `${script}.ts`));
+}
+
 /** One cold sample of `script` from a tree's own sampler; its metrics, keyed by bare metric name. */
 async function sampleTree(
   tree: Tree,
@@ -116,12 +121,16 @@ async function measureTrees(
   const baseAvailable = hasBenchmarks(options.base);
 
   for (const script of SOURCE_SCRIPTS) {
+    const baseHasScript = baseAvailable && hasScript(options.base, script);
+    const headHasScript = hasScript(options.head, script);
+
     for (let sample = 0; sample < options.samples; sample++) {
       const headFirst = sample % 2 === 0;
       const order: ("head" | "base")[] = headFirst ? ["head", "base"] : ["base", "head"];
 
       for (const side of order) {
-        if (side === "base" && !baseAvailable) continue;
+        if (side === "base" && !baseHasScript) continue;
+        if (side === "head" && !headHasScript) continue;
         console.error(`pr-compare: ${script} sample ${sample + 1}/${options.samples} ${side}`);
         const tree = side === "head" ? options.head : options.base;
         const into = side === "head" ? headSamples : baseSamples;

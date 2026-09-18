@@ -1,5 +1,5 @@
 /**
- * The review-session controller: every daemon round-trip and mutation
+ * The thread controller: every daemon round-trip and mutation
  * primitive behind one React-free object. It owns connect/autostart/subscribe,
  * the session/inbox/status/error snapshot, optimistic apply, the mutation
  * primitives (cut/edit/annotate/submit/...), and the post-submit completion
@@ -130,6 +130,41 @@ export function curationItemId(rejection: HunkRejection): string {
 /** Stable id for a plan cut's rail item, keyed on its fixed base-content line range. */
 function planCutId(base: { lineStart: number; lineEnd: number }): string {
   return `plan:${base.lineStart}-${base.lineEnd}`;
+}
+
+/**
+ * Whether two records of the same thread yield the same document projection (display, rows, files,
+ * models). Those derive only from the artifact content and the working copy, so an update that
+ * touched only annotations, status, or the verdict leaves them identical - the projection can be
+ * reused rather than re-parsed. Content and working copy are strings, compared here by value.
+ */
+export function sameDerivationInputs(previous: Thread, next: Thread): boolean {
+  return (
+    previous.id === next.id &&
+    previous.artifact.content === next.artifact.content &&
+    previous.workingCopy === next.workingCopy
+  );
+}
+
+/**
+ * The session with `annotation` upserted, for an optimistic paint the instant the composer closes
+ * rather than after the daemon round-trip - otherwise a saved comment blinks out until the write
+ * lands. An edit keeps the note in place and its timestamp; a new note appends. The daemon's record
+ * replaces this guess when the write returns.
+ */
+export function withAnnotationUpserted(
+  session: Thread,
+  annotation: Omit<Annotation, "createdAt">,
+): Thread {
+  const index = session.annotations.findIndex((entry) => entry.id === annotation.id);
+  const createdAt = index >= 0 ? session.annotations[index]!.createdAt : new Date().toISOString();
+  const optimistic: Annotation = { ...annotation, createdAt };
+  const annotations =
+    index >= 0
+      ? session.annotations.map((entry) => (entry.id === annotation.id ? optimistic : entry))
+      : [...session.annotations, optimistic];
+
+  return { ...session, annotations };
 }
 
 export interface ControllerSnapshot {
@@ -345,6 +380,9 @@ interface DerivedSessionProjection {
   display: DisplayBlock[];
   rows: DiffRow[];
   files: WalkFile[];
+  /** Raw per-file contents; parsed into a model lazily on first curation touch, not all upfront. */
+  fileContents: Map<string, DiffFileContents>;
+  /** Parsed file models, filled on demand from fileContents and memoized here. */
   models: Map<string, FileDiffMetadata>;
   tree: TreeRow[];
 }
@@ -354,6 +392,15 @@ interface LiveWorkingDiff {
   patch: string;
   files: readonly DiffFileContents[];
 }
+
+interface DerivedCacheEntry {
+  derivedFor: Thread;
+  derivedForLiveDiff: LiveWorkingDiff | null;
+  derived: DerivedSessionProjection;
+}
+
+/** Recently-viewed threads whose parsed projection is kept for an instant return; oldest evicted first. */
+const DERIVED_CACHE_LIMIT = 8;
 
 class Controller implements ReviewController {
   readonly readOnly: boolean;
@@ -389,9 +436,12 @@ class Controller implements ReviewController {
     display: [],
     rows: [],
     files: [],
+    fileContents: new Map(),
     models: new Map(),
     tree: [],
   };
+  /** Recently-viewed threads' parsed projections, so returning to a thread reuses its work instead of re-parsing. */
+  private derivedCache = new Map<string, DerivedCacheEntry>();
   /** File paths whose diff body is folded to just the file band. */
   private collapsedFiles = new Set<string>();
   /** File paths woven to their full contents (unchanged lines shown as context). */
@@ -498,6 +548,57 @@ class Controller implements ReviewController {
   }
 
   // ── derived projections ─────────────────────
+  /**
+   * The projection reuses when the same thread's derivation inputs are unchanged. display, rows,
+   * files, and models derive only from the artifact and working copy - never from annotations,
+   * status, or the verdict - so an update that touched only those produces an all-new session
+   * record but an identical projection.
+   */
+  private reusesDerived(session: Thread, liveDiff: LiveWorkingDiff | null): boolean {
+    return (
+      this.derivedFor !== null &&
+      this.derivedForLiveDiff === liveDiff &&
+      sameDerivationInputs(this.derivedFor, session)
+    );
+  }
+
+  private buildDerived(
+    session: Thread | null,
+    frozenDiff: boolean,
+    liveDiff: LiveWorkingDiff | null,
+  ): DerivedSessionProjection {
+    const content = frozenDiff ? session!.artifact.content : (liveDiff?.patch ?? "");
+    const files = frozenDiff ? (session?.artifact.files ?? []) : (liveDiff?.files ?? []);
+    const rows = content ? diffRows(content) : [];
+    const fileContents = new Map<string, DiffFileContents>();
+
+    for (const file of files) fileContents.set(file.path, file);
+
+    return {
+      display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
+      rows,
+      files: walkFiles(rows),
+      fileContents,
+      models: new Map<string, FileDiffMetadata>(),
+      tree: session?.history ? treeRows(session.history) : [],
+    };
+  }
+
+  /** The parsed model for a changed file, computed on first touch and memoized in the projection. */
+  private fileModel(path: string): FileDiffMetadata | undefined {
+    const cached = this.derived.models.get(path);
+
+    if (cached) return cached;
+    const contents = this.derived.fileContents.get(path);
+
+    if (!contents) return undefined;
+    const model = parseFileDiff(contents);
+
+    this.derived.models.set(path, model);
+
+    return model;
+  }
+
   private ensureDerived(): void {
     const session = this.snapshot.session;
     const frozenDiff = readsFrozenDiff(session);
@@ -505,27 +606,60 @@ class Controller implements ReviewController {
     const liveDiff = frozenDiff ? null : this.liveDiff;
 
     if (this.derivedFor === session && this.derivedForLiveDiff === liveDiff) return;
-    // fold state belongs to the session, so a live-tree refresh keeps it; only a new session resets it
-    if (this.derivedFor !== session) {
+    // reuse the parsed projection across an update that left the inputs unchanged; only the cheap tree can differ
+    if (session !== null && this.reusesDerived(session, liveDiff)) {
+      this.derivedFor = session;
+      this.derived = { ...this.derived, tree: session.history ? treeRows(session.history) : [] };
+
+      return;
+    }
+    // a different thread resets fold state; a same-thread re-derivation (content edit) keeps it
+    if (this.derivedFor?.id !== session?.id) {
       this.collapsedFiles.clear();
       this.expandedFiles.clear();
     }
+    // returning to a recently-viewed thread whose inputs are unchanged reuses its parsed projection
+    const cached = session !== null ? this.derivedCache.get(session.id) : undefined;
+
+    if (
+      cached &&
+      cached.derivedForLiveDiff === liveDiff &&
+      sameDerivationInputs(cached.derivedFor, session!)
+    ) {
+      this.derivedFor = session;
+      this.derivedForLiveDiff = liveDiff;
+      this.derived = {
+        ...cached.derived,
+        tree: session!.history ? treeRows(session!.history) : [],
+      };
+      this.rememberDerived(session!, liveDiff, this.derived);
+
+      return;
+    }
     this.derivedFor = session;
     this.derivedForLiveDiff = liveDiff;
+    this.derived = this.buildDerived(session, frozenDiff, liveDiff);
+    if (session !== null) this.rememberDerived(session, liveDiff, this.derived);
+  }
 
-    const content = frozenDiff ? session!.artifact.content : (liveDiff?.patch ?? "");
-    const files = frozenDiff ? (session?.artifact.files ?? []) : (liveDiff?.files ?? []);
-    const rows = content ? diffRows(content) : [];
-    const models = new Map<string, FileDiffMetadata>();
+  /** Keep the freshest projections per thread, evicting the least-recently-used past the cap. */
+  private rememberDerived(
+    session: Thread,
+    liveDiff: LiveWorkingDiff | null,
+    derived: DerivedSessionProjection,
+  ): void {
+    this.derivedCache.delete(session.id);
+    this.derivedCache.set(session.id, {
+      derivedFor: session,
+      derivedForLiveDiff: liveDiff,
+      derived,
+    });
+    while (this.derivedCache.size > DERIVED_CACHE_LIMIT) {
+      const oldest = this.derivedCache.keys().next().value;
 
-    for (const file of files) models.set(file.path, parseFileDiff(file));
-    this.derived = {
-      display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
-      rows,
-      files: walkFiles(rows),
-      models,
-      tree: session?.history ? treeRows(session.history) : [],
-    };
+      if (oldest === undefined) break;
+      this.derivedCache.delete(oldest);
+    }
   }
 
   /** The per-file contents that back the current rows: a diff thread's capture, else the live working tree. */
@@ -821,7 +955,7 @@ class Controller implements ReviewController {
 
       return null;
     }
-    const model = this.derived.models.get(row.file);
+    const model = this.fileModel(row.file);
 
     if (!model) return null;
 
@@ -902,7 +1036,7 @@ class Controller implements ReviewController {
     const rejected = new Set<number>();
 
     this.derived.rows.forEach((row, index) => {
-      const model = this.derived.models.get(row.file);
+      const model = this.fileModel(row.file);
 
       if (model && isRowRejected(row.file, model, row, this.rejections)) rejected.add(index);
     });
@@ -979,7 +1113,7 @@ class Controller implements ReviewController {
 
   /** The change/deletion rows a rejection covers, for its preview and reveal row. */
   private rowsForRejection(rejection: HunkRejection): DiffRow[] {
-    const model = this.derived.models.get(rejection.path);
+    const model = this.fileModel(rejection.path);
 
     if (!model) return [];
     const rows: DiffRow[] = [];
@@ -1094,7 +1228,7 @@ class Controller implements ReviewController {
         : { id: newAnnotationId(), kind, anchor, body, target: resolvedTarget };
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1110,7 +1244,7 @@ class Controller implements ReviewController {
         : { id: newAnnotationId(), kind: "comment", anchor, body, target };
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1176,7 +1310,7 @@ class Controller implements ReviewController {
     const wire = root.target ? { ...base, target: root.target } : base;
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1190,7 +1324,7 @@ class Controller implements ReviewController {
     const wire = { id: newAnnotationId(), kind: "comment", anchor, body };
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1215,9 +1349,8 @@ class Controller implements ReviewController {
     if (existing.replyTo !== undefined) wire.replyTo = existing.replyTo;
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
-    this.setStatus("annotation updated");
   }
 
   // push only after the local write lands, so a rejected write never leaks to the share

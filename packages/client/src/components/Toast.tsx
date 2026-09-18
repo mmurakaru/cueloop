@@ -34,11 +34,6 @@ export function Toast({ title, body, theme }: ToastProps): React.ReactNode {
         }}
       >
         <text fg={tokens.text}>{body}</text>
-        <box style={{ flexGrow: 1 }} />
-        <box style={{ flexDirection: "row" }}>
-          <box style={{ flexGrow: 1 }} />
-          <text fg={tokens.textDim}>[esc]</text>
-        </box>
       </box>
     </Dialog>
   );

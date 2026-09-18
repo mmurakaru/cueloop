@@ -4,6 +4,7 @@ import type { Mode } from "./intent-dispatch";
 import type { Intent, KeyState } from "./keymap";
 import type { Completion } from "./thread-controller";
 import type { WalkFile } from "./walk";
+import type { QuickAction } from "./config";
 import { viewedCount } from "./walk";
 import type { ConfirmCardProps } from "./components/ConfirmCard";
 import type { BreadcrumbItem } from "./components/Breadcrumb";
@@ -136,6 +137,7 @@ export function buildSubmitConfirmState(
     session: Thread;
     walkFileList: WalkFile[];
     viewedPaths: Set<string>;
+    quickActions: QuickAction[];
   },
 ): Omit<ConfirmCardProps, "theme"> | null {
   const { mode, isDiff, session, walkFileList, viewedPaths, liveInput, setMode, dispatch } = deps;
@@ -145,6 +147,7 @@ export function buildSubmitConfirmState(
   return {
     verdict: mode.verdict,
     summary: mode.summary,
+    quickActions: deps.quickActions,
     viewedSummary:
       isDiff && session.viewedPaths !== undefined
         ? `${viewedCount(walkFileList, viewedPaths)}/${walkFileList.length} files viewed`

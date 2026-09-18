@@ -13,6 +13,7 @@
  */
 
 import React, { useEffect, useRef } from "react";
+import { useTerminalDimensions } from "@opentui/react";
 import type { KeyEvent, ScrollBoxRenderable } from "@opentui/core";
 import type { Annotation, Thread } from "@cueloop/schema";
 import { displayText, type DisplayBlock, type Mark } from "../view-plan";
@@ -23,9 +24,13 @@ import type { Theme } from "../theme";
 import { BOLD, CUT, UNDERLINE } from "../annotation-palette";
 import { lineMarkRanges, runsFor, wrapLines, type MarkRange, type VisualLine } from "../mark-runs";
 import { useFrameMeasure } from "../use-frame-measure";
+import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
 import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
 import { useComponentTheme } from "./theme-context";
+
+/** Blocks kept mounted beyond the viewport, so a scroll step or a drag past the edge never shows a gap. */
+const OVERSCAN_BLOCKS = 8;
 
 export { lighten } from "../annotation-palette";
 
@@ -188,18 +193,36 @@ export function ThreadView({
   });
   const { palette, discussions } = surface;
   const scrollRef = useRef<ScrollBoxRenderable | null>(null);
+  const { height: terminalHeight } = useTerminalDimensions();
   const viewWidth = useFrameMeasure(
     () => scrollRef.current?.content?.width ?? 0,
     (left, right) => left === right,
     0,
   );
 
+  // only the viewport's blocks (plus an overscan) mount; a block is estimated at its wrapped-line
+  // count until its box, cards included, is measured. The initial viewport seeds the first render so a
+  // freshly mounted thread (a switch from a diff, another project) windows its first paint rather than
+  // building every block, and never flashes blank.
+  const estimateBlockRows = (index: number): number => {
+    const block = display[index];
+
+    if (!block) return 1;
+    const usable = viewWidth > 0 ? Math.max(1, viewWidth - 6) : 40;
+    const lines = Math.max(1, Math.ceil(displayText(block).length / usable));
+
+    return lines + (index === 0 ? 0 : 1);
+  };
+  const virtual = useTerminalVirtualizer({
+    scrollbox: scrollRef,
+    count: display.length,
+    estimateSize: estimateBlockRows,
+    overscan: OVERSCAN_BLOCKS,
+  });
+
   useEffect(() => {
-    try {
-      scrollRef.current?.scrollChildIntoView(`discussion-block-${surface.revealBlockIndex}`);
-    } catch {
-      // best-effort reveal
-    }
+    virtual.scrollToIndex(surface.revealBlockIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surface.revealBlockIndex]);
 
   interface LineContext {
@@ -295,16 +318,52 @@ export function ThreadView({
         </text>
       ) : null;
 
+    // the leading gap rides inside the measured box (not marginTop, which sits outside it) so the
+    // virtualizer's spacer math counts it
+    const leadingGap =
+      blockIndex === 0 || tight ? null : <box key="lead-gap" style={{ height: 1 }} />;
+
     return (
       <box
         key={`discussion-block-${blockIndex}`}
         id={`discussion-block-${blockIndex}`}
-        style={{ flexDirection: "column", marginTop: blockIndex === 0 || tight ? 0 : 1 }}
+        ref={virtual.measureRef(blockIndex)}
+        style={{ flexDirection: "column" }}
       >
+        {leadingGap}
         {languageRow}
         {lineRows}
       </box>
     );
+  };
+
+  const virtualBlocks = (): React.ReactNode[] => {
+    const nodes: React.ReactNode[] = [];
+    const firstItem = virtual.items[0];
+    const lastItem = virtual.items.at(-1);
+
+    // the very first render has no measured viewport yet, so the virtualizer's window is empty; paint a
+    // viewport-worth from the top rather than blank or the whole document, then it takes over next frame
+    if (!firstItem || !lastItem) {
+      let mountedRows = 0;
+
+      for (let index = 0; index < display.length; index++) {
+        nodes.push(blockNodeFor(index));
+        mountedRows += estimateBlockRows(index);
+        if (mountedRows > terminalHeight + OVERSCAN_BLOCKS) break;
+      }
+
+      return nodes;
+    }
+    if (firstItem.start > 0) {
+      nodes.push(<box key="spacer-above" style={{ height: firstItem.start }} />);
+    }
+    for (const item of virtual.items) nodes.push(blockNodeFor(item.index));
+    const below = virtual.totalSize - lastItem.end;
+
+    if (below > 0) nodes.push(<box key="spacer-below" style={{ height: below }} />);
+
+    return nodes;
   };
 
   return (
@@ -324,7 +383,7 @@ export function ThreadView({
           focused={false}
           verticalScrollbarOptions={{ visible: false }}
         >
-          {display.map((_block, blockIndex) => blockNodeFor(blockIndex))}
+          {virtualBlocks()}
         </scrollbox>
       </box>
       <DiscussionMarkerRail

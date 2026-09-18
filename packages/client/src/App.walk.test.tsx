@@ -162,7 +162,7 @@ describe("the guided walk", () => {
     expect(setup.captureCharFrame()).toContain("3/3 files viewed");
 
     // Act
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).status === "resolved");
@@ -253,7 +253,7 @@ describe("the guided walk", () => {
     await pressKey(setup, "RETURN", { meta: true });
     // nothing pending despite the note, so the confirm card defaults to approve
     await waitForText(setup, "[Approve]");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).status === "resolved");

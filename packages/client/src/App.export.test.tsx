@@ -18,7 +18,6 @@ import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import {
   isolateUserConfig,
-  press,
   waitForState,
   waitForText,
   pressKey,
@@ -81,7 +80,7 @@ describe("obsidian export on resolve", () => {
     await waitForText(setup, "[Approve]");
 
     // Act
-    await press(setup, "enter"); // submit
+    await pressKey(setup, "RETURN", { meta: true }); // submit
 
     // Assert
     // the export is an async round-trip after resolve; the status line lands

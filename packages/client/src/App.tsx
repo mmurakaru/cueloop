@@ -1068,6 +1068,9 @@ export function App({
         verdict={activeSession.verdict.kind}
         completion={completion}
         status={status}
+        onClose={() => dispatch({ type: "finishReview" })}
+        onBackToPlan={() => dispatch({ type: "dismissCompletion" })}
+        onAlways={() => dispatch({ type: "optInAutoClose" })}
       />
     );
 
@@ -1086,6 +1089,7 @@ export function App({
     session: activeSession,
     walkFileList,
     viewedPaths,
+    quickActions,
     liveInput,
     setMode,
     dispatch,

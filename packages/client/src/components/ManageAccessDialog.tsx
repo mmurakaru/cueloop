@@ -11,6 +11,8 @@ import type { KeyBinding, TextareaRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { Dialog } from "./primitives/Dialog";
+import { Button } from "./primitives/Button";
+import { Toolbar } from "./primitives/Toolbar";
 
 // enter adds the handle rather than inserting a newline into the one-line field
 const ADD_KEY_BINDINGS: KeyBinding[] = [{ name: "return", action: "submit" }];
@@ -103,17 +105,17 @@ export function ManageAccessDialog({
             }}
           />
         </box>
-        <box style={{ flexDirection: "row" }}>
-          <box onMouseUp={addDraft} style={{ marginRight: 3 }}>
-            <text fg={tokens.accent}>add</text>
-          </box>
-          <box onMouseUp={onCreateLink} style={{ marginRight: 3 }}>
-            <text fg={tokens.accent}>create link</text>
-          </box>
-          <box onMouseUp={onClose}>
-            <text fg={tokens.textDim}>close</text>
-          </box>
-        </box>
+        <Toolbar>
+          <Button marginRight={2} onPress={addDraft} theme={theme}>
+            {" add "}
+          </Button>
+          <Button variant="solid" marginRight={2} onPress={onCreateLink} theme={theme}>
+            {" create link "}
+          </Button>
+          <Button onPress={onClose} theme={theme}>
+            {" close "}
+          </Button>
+        </Toolbar>
       </box>
     </Dialog>
   );

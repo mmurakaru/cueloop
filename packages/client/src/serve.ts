@@ -1,6 +1,6 @@
 /**
  * SSH-served TUI: `cueloop serve` lets teammates join a
- * review session over plain ssh. Every SSH connection renders <App> in
+ * thread over plain ssh. Every SSH connection renders <App> in
  * observer mode (readOnly) against the same local daemon; the one writable
  * controller stays the local owner's own `cueloop` TUI.
  *

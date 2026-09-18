@@ -42,6 +42,9 @@ export interface ThreadTreeProps {
 
 const MENU_WIDTH = 12;
 
+/** Columns per nesting level in the sidebar cascade: section → project → thread. */
+const SIDEBAR_INDENT = 2;
+
 function ActionsMenu({
   pinned,
   onPin,
@@ -85,6 +88,7 @@ interface ThreadRowProps {
   title: string;
   selected: boolean;
   pinned: boolean;
+  depth: number;
   titleWidth: number;
   menuOpen: boolean;
   onToggleMenu: () => void;
@@ -97,7 +101,8 @@ interface ThreadRowProps {
 }
 
 function ThreadRow(props: ThreadRowProps): React.ReactNode {
-  const { title, selected, pinned, titleWidth, menuOpen, onToggleMenu, tokens, theme } = props;
+  const { title, selected, pinned, depth, titleWidth, menuOpen, onToggleMenu, tokens, theme } =
+    props;
   const [hovered, setHovered] = useState(false);
   const rowRef = useRef<BoxRenderable | null>(null);
   const { setOverlay, clearOverlay } = useRootOverlay();
@@ -157,8 +162,8 @@ function ThreadRow(props: ThreadRowProps): React.ReactNode {
           backgroundColor: selected ? tokens.elevated : hovered ? tokens.panel : undefined,
         }}
       >
-        <text wrapMode="none">
-          <span fg={tokens.textDim}>{pinned ? ` ${NERD.star} ` : "   "}</span>
+        <box style={{ width: depth * SIDEBAR_INDENT, flexShrink: 0 }} />
+        <text wrapMode="none" style={{ flexShrink: 1 }}>
           <span fg={selected ? tokens.accent : tokens.textMuted}>{clippedTitle}</span>
         </text>
         <box style={{ flexGrow: 1 }} />
@@ -212,8 +217,7 @@ export function ThreadTree({
 
           if (row.kind === "project") {
             return (
-              <text key={row.id}>
-                <span fg={tokens.blue}>{` ${NERD.folderOpen} `}</span>
+              <text key={row.id} wrapMode="none" style={{ marginLeft: SIDEBAR_INDENT }}>
                 <span fg={tokens.textMuted}>{row.label}</span>
               </text>
             );
@@ -230,7 +234,8 @@ export function ThreadTree({
                 focused || activeId === undefined ? row.selectionIndex === cursor : activeId === id
               }
               pinned={pinnedIds?.has(id) ?? false}
-              titleWidth={titleWidth}
+              depth={row.depth}
+              titleWidth={Math.max(8, titleWidth - (row.depth - 1) * SIDEBAR_INDENT)}
               menuOpen={menuControl.openMenuId === `thread:${id}`}
               onToggleMenu={() => menuControl.toggleMenu(`thread:${id}`)}
               onSelect={onSelect ? () => onSelect(id) : undefined}

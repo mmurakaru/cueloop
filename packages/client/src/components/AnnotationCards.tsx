@@ -7,6 +7,7 @@
  */
 
 import React, { useContext, useLayoutEffect, useRef, useState } from "react";
+import { usePaste } from "@opentui/react";
 import type {
   BoxRenderable,
   KeyBinding,
@@ -18,6 +19,7 @@ import type { Theme } from "../theme";
 import { useTooltip } from "./Tooltip";
 import { lighten } from "../annotation-palette";
 import { useFrameMeasure } from "../use-frame-measure";
+import { imagePlaceholder, looksLikeBinaryPaste } from "../pasted-image";
 import { skillReferenceRanges, type SlashItem } from "../slash-palette";
 import { PaletteNamesContext } from "../skills";
 import { referenceStyleFor } from "./syntax-highlight";
@@ -35,7 +37,7 @@ const COMPOSE_KEY_BINDINGS: KeyBinding[] = [
   { name: "return", shift: true, action: "newline" },
 ];
 
-function composeRowCount(text: string, contentWidth: number): number {
+export function composeRowCount(text: string, contentWidth: number): number {
   const usableWidth = contentWidth > 0 ? contentWidth : Number.MAX_SAFE_INTEGER;
   let visualRowCount = 0;
 
@@ -54,6 +56,7 @@ export function Composer({
   onSave,
   onReady,
   onInput,
+  placeholder,
 }: {
   seed: string;
   glyph: string;
@@ -61,11 +64,22 @@ export function Composer({
   onSave: (body: string) => void;
   onReady: () => void;
   onInput: (text: string, caret: number) => void;
+  placeholder?: string;
 }): React.ReactNode {
   const editorRef = useRef<TextareaRenderable | null>(null);
+  const pastedImageCount = useRef(0);
   const [rows, setRows] = useState(1);
   // action and skill names whose "/name" references paint in the accent color
   const referenceNames = useContext(PaletteNamesContext);
+
+  usePaste((event) => {
+    const editor = editorRef.current;
+
+    if (!editor || !editor.focused || !looksLikeBinaryPaste(event.bytes)) return;
+    event.preventDefault();
+    pastedImageCount.current += 1;
+    editor.editBuffer.insertText(imagePlaceholder(pastedImageCount.current));
+  });
 
   const paintReferences = (editor: TextareaRenderable): void => {
     const { styleId } = referenceStyleFor(tokens);
@@ -98,6 +112,8 @@ export function Composer({
         ref={editorRef}
         focused
         initialValue={seed}
+        placeholder={placeholder}
+        placeholderColor={tokens.textDim}
         cursorStyle={{ style: "block", blinking: true }}
         keyBindings={COMPOSE_KEY_BINDINGS}
         onSubmit={() => onSave(editorRef.current?.plainText ?? "")}
@@ -247,7 +263,7 @@ export function DiscussionCard({
   });
 
   return (
-    <box style={{ flexDirection: "row", marginTop: 1, marginLeft: 2 }}>
+    <box style={{ flexDirection: "row", marginTop: 0, marginLeft: 2 }}>
       <text selectable={false} style={{ flexShrink: 0, width: 1 }}>
         {edgeRows.map((row, index) => (
           <span key={index} fg={row.color}>

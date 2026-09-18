@@ -14,6 +14,7 @@ export interface CardProps {
   title?: string;
   /** Number of content rows inside the border; the box adds the two border rows. */
   contentRows: number;
+  width?: number;
   borderColor?: string;
   backgroundColor?: string;
   marginLeft?: number;
@@ -30,6 +31,7 @@ export function cardHeight(contentRows: number): number {
 export function Card({
   title,
   contentRows,
+  width,
   borderColor,
   backgroundColor,
   marginLeft,
@@ -43,6 +45,7 @@ export function Card({
     <box
       style={{
         height: cardHeight(contentRows),
+        width,
         marginLeft,
         marginRight,
         border: true,

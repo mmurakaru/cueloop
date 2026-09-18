@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { registerParticipant } from "./participants";
+import { registerParticipant, registeredGithubLogin } from "./participants";
 import { SCHEMA_VERSION, type Thread } from "./types";
 
 function emptySession(): Thread {
@@ -83,5 +83,23 @@ describe("registerParticipant", () => {
     expect(next.participants).toEqual([
       { id: "SHA256:ana", provider: "github", name: "Ana", handle: "ana" },
     ]);
+  });
+});
+
+describe("registeredGithubLogin", () => {
+  test("returns the handle a fingerprint verified on a past visit", () => {
+    const session = registerParticipant(emptySession(), "SHA256:ana", "Ana", {
+      provider: "github",
+      handle: "ana-gh",
+    });
+
+    expect(registeredGithubLogin(session, "SHA256:ana")).toBe("ana-gh");
+  });
+
+  test("returns undefined for an ssh-only or unknown participant", () => {
+    const session = registerParticipant(emptySession(), "SHA256:ana", "Ana");
+
+    expect(registeredGithubLogin(session, "SHA256:ana")).toBeUndefined();
+    expect(registeredGithubLogin(session, "SHA256:unknown")).toBeUndefined();
   });
 });

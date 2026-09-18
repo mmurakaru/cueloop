@@ -1,5 +1,5 @@
 // A Changes/Project file tab in contents mode: a workspace file rendered read-only with line
-// numbers, for surfaces with no review session to anchor notes to (the bare-launch welcome shell).
+// numbers, for surfaces with no thread to anchor notes to (the bare-launch welcome shell).
 // Loads on mount and whenever the path changes; a null read renders a centered "File deleted".
 // Syntax highlighting comes from the native code renderable (tree-sitter), the language
 // auto-detected from the path; unknown languages simply render unstyled.
