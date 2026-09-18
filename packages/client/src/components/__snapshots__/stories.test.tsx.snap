@@ -2018,7 +2018,8 @@ exports[`stories catalog Collaborator Join/ConnectScreen renders, snapshots, and
                                                                                 
                                  connect github                                 
                                                                                 
- cueloop recognizes you when you return. No account permissions are requested,  
+       cueloop recognizes you when you return. No account permissions are       
+                                   requested,                                   
              and the token is discarded after one identity lookup.              
                                                                                 
                open this link:   https://github.com/login/device                
@@ -2029,7 +2030,6 @@ exports[`stories catalog Collaborator Join/ConnectScreen renders, snapshots, and
                           waiting for authorization...                          
                                                                                 
                                    esc  back                                    
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -2048,7 +2048,8 @@ exports[`stories catalog Collaborator Join/ConnectScreenLinkCopied renders, snap
                                                                                 
                                  connect github                                 
                                                                                 
- cueloop recognizes you when you return. No account permissions are requested,  
+       cueloop recognizes you when you return. No account permissions are       
+                                   requested,                                   
              and the token is discarded after one identity lookup.              
                                                                                 
                open this link:   https://github.com/login/device                
@@ -2059,7 +2060,6 @@ exports[`stories catalog Collaborator Join/ConnectScreenLinkCopied renders, snap
                           waiting for authorization...                          
                                                                                 
                                    esc  back                                    
-                                                                                
                                                                                 
                                                                                 
                                                                                 
@@ -2091,10 +2091,10 @@ exports[`stories catalog Collaborator Join/JoinSplash renders, snapshots, and ca
                            enter  join      esc  skip                           
                                                                                 
           Connect GitHub to sign your review comments with your name.           
-Your GitHub identity links to your SSH key; connection metadata is kept for serv
+  Your GitHub identity links to your SSH key; connection metadata is kept for   
+                               service security.                                
                                                                                 
-       privacy https://cueloop.dev/privacy   support support@cueloop.dev        
-                                                                                
+        privacy https://cueloop.dev/privacy   support hello@cueloop.dev         
                                                                                 
 "
 `;

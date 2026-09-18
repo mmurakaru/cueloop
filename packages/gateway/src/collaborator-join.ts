@@ -34,7 +34,7 @@ export type JoinKey = "enter" | "escape" | "copy" | "other";
 const CLEAR_SCREEN = "\x1b[2J\x1b[H";
 const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
-const PRIVACY_LINE = "privacy https://cueloop.dev/privacy   support support@cueloop.dev";
+const PRIVACY_LINE = "privacy https://cueloop.dev/privacy   support hello@cueloop.dev";
 
 /** Classify a keypress from a byte chunk that may coalesce several keys or a paste. */
 export function interpretJoinKey(chunk: Buffer): JoinKey {
@@ -49,11 +49,33 @@ export function interpretJoinKey(chunk: Buffer): JoinKey {
   return "other";
 }
 
+function wrapToWidth(line: string, width: number): string[] {
+  if ([...line].length <= width) return [line];
+  const rows: string[] = [];
+  let current = "";
+
+  for (const word of line.split(" ")) {
+    const candidate = current === "" ? word : `${current} ${word}`;
+
+    if (current !== "" && [...candidate].length > width) {
+      rows.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current !== "") rows.push(current);
+
+  return rows;
+}
+
 function centerBlock(lines: readonly string[], size: JoinScreenSize): string {
-  const top = Math.max(0, Math.floor((size.rows - lines.length) / 2));
+  const usable = Math.max(1, size.cols - 4);
+  const wrapped = lines.flatMap((line) => wrapToWidth(line, usable));
+  const top = Math.max(0, Math.floor((size.rows - wrapped.length) / 2));
   let out = CLEAR_SCREEN;
 
-  for (const [index, line] of lines.entries()) {
+  for (const [index, line] of wrapped.entries()) {
     const column = Math.max(1, Math.floor((size.cols - [...line].length) / 2) + 1);
 
     out += `\x1b[${top + index + 1};${column}H${line}`;
