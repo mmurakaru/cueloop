@@ -43,7 +43,7 @@ describe("render", () => {
 
     expect(frame).toContain("cueloop");
     expect(frame).toContain("enter  join");
-    expect(frame).toContain("service security");
+    expect(frame).toContain("account access");
   });
 
   test("the logo lines share one column so the art stays aligned, like the install script", () => {
