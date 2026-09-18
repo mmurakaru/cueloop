@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
+import * as intraline from "./diff-intraline";
 import {
   createIntralineResolver,
   intralineRunsByRow,
@@ -197,5 +198,41 @@ describe("createIntralineResolver", () => {
     const resolver = createIntralineResolver(rows);
 
     expect(resolver.runsForRow(0)).toBe(resolver.runsForRow(0));
+  });
+
+  // The performance guard: a virtualized diff must word-diff only the change blocks whose rows are on
+  // screen. This is deterministic (a call count, not a wall-clock), so it fails on any machine if a
+  // future change makes the resolver eager again - the regression the nav-latency benchmark would show.
+  test("word-diffs only the accessed block, not the whole diff", () => {
+    // Arrange - 50 independent change blocks, each a single del/add pair separated by context
+    const rows: DiffRow[] = [];
+
+    for (let block = 0; block < 50; block++) {
+      rows.push(
+        line("ctx", `ctx ${block}`),
+        line("del", `old ${block}`),
+        line("add", `new ${block}`),
+      );
+    }
+    const spy = spyOn(intraline, "wordLevelChanges");
+
+    try {
+      // Act - the eager pass word-diffs every block
+      spy.mockClear();
+      intralineRunsByRow(rows);
+      const eagerCalls = spy.mock.calls.length;
+
+      // Act - the resolver word-diffs only the one block whose row is asked for
+      spy.mockClear();
+      const resolver = createIntralineResolver(rows);
+      resolver.runsForRow(1); // a row in block 0
+      const oneBlockCalls = spy.mock.calls.length;
+
+      // Assert - eager pays for all 50 blocks; lazy pays for one
+      expect(eagerCalls).toBe(50);
+      expect(oneBlockCalls).toBe(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
