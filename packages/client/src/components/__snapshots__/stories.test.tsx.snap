@@ -50,6 +50,18 @@ exports[`stories catalog Chrome/AnnotationCards/TwoVoices renders, snapshots, an
 "
 `;
 
+exports[`stories catalog Primitives/AnsiScreen/Positioned renders, snapshots, and carries its colors: Primitives/AnsiScreen/Positioned 1`] = `
+"                                            
+   Hello from                               
+                                            
+     raw, positioned ANSI                   
+                                            
+                                            
+                                            
+                                            
+"
+`;
+
 exports[`stories catalog Chrome/AppHeader/NoThread renders, snapshots, and carries its colors: Chrome/AppHeader/NoThread 1`] = `
 "                                                                                
     cueloop                                                                  
@@ -1992,6 +2004,96 @@ exports[`stories catalog Foundations/Theme/ProviderSwap renders, snapshots, and 
                                                                                 
                                                                                 
                                                                                 
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Collaborator Join/ConnectScreen renders, snapshots, and carries its colors: Collaborator Join/ConnectScreen 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                 connect github                                 
+                                                                                
+ cueloop recognizes you when you return. No account permissions are requested,  
+             and the token is discarded after one identity lookup.              
+                                                                                
+              https://github.com/login/device?user_code=WXYZ-1234               
+                                                                                
+                                  u  copy url                                   
+                                                                                
+                          waiting for authorization...                          
+                                                                                
+                                   esc  back                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Collaborator Join/ConnectScreenLinkCopied renders, snapshots, and carries its colors: Collaborator Join/ConnectScreenLinkCopied 1`] = `
+"                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                 connect github                                 
+                                                                                
+ cueloop recognizes you when you return. No account permissions are requested,  
+             and the token is discarded after one identity lookup.              
+                                                                                
+              https://github.com/login/device?user_code=WXYZ-1234               
+                                                                                
+                      link copied - paste in your browser                       
+                                                                                
+                          waiting for authorization...                          
+                                                                                
+                                   esc  back                                    
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Collaborator Join/JoinSplash renders, snapshots, and carries its colors: Collaborator Join/JoinSplash 1`] = `
+"                                                                                
+                           ⠀⠀⠀⠀⠀⠀⠀⣀⣀⣀⣀⠀⣠⢤⣄⡸⢷⣲⢤⣀                                 
+                           ⠀⠀⢀⡤⠖⠛⠉⠉⠀⠀⠈⠙⢎⢣⠀⠉⠙⠮⡙⢮⠑⢦⡀                              
+                           ⠀⢰⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⡎⣇⠀⠀⠀⠘⣆⢣⠀⠙⢆                             
+                           ⠀⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢹⢸⠀⠀⠀⠀⠘⡌⡇⠀⠈⢧                            
+                           ⠀⢧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⢸⠀⠀⠀⠀⠀⣇⢳⠀⠀⠈⣇                           
+                           ⡷⣜⢦⡀⠀⠀⠀⠀⠀⠀⠀⠀⢠⢇⡏⠀⠀⠀⠀⠀⡕⢸⠀⠀⠀⢸                           
+                           ⢇⠈⠳⢭⣗⣶⠤⢤⣤⣤⠤⠴⣫⠞⠀⠀⠀⠀⠀⢀⡇⡎⠀⠀⠀⢸                           
+                           ⣈⢣⡀⠀⠀⠉⠉⠙⠛⠛⠋⠉⠁⠀⠀⠀⠀⠀⢀⠞⡼⠁⠀⠀⠀⢸                           
+                           ⢻⠓⢝⡢⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡴⣫⠞⠀⠀⠀⠀⢀⡏                           
+                           ⠈⢧⠀⠙⠲⢽⣲⠤⣤⣀⣀⣀⣀⣀⣠⠴⣫⠞⠁⠀⠀⠀⠀⢀⡞                            
+                           ⠀⠀⠳⣄⠀⠀⠈⠉⠓⠒⠺⠿⠿⠖⠒⠋⠀⠀⠀⠀⠀⠀⣠⠎                             
+                           ⠀⠀⠀⠈⠳⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⠞⠁                              
+                           ⠀⠀⠀⠀⠀⠀⠙⠲⠤⣄⣀⣀⣀⣀⣀⣀⣤⠴⠒⠋                                 
+                           ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠁                                      
+                                                                                
+                                    cueloop                                     
+                                                                                
+                           enter  join      esc  skip                           
+                                                                                
+          Connect GitHub to sign your review comments with your name.           
+Your GitHub identity links to your SSH key; connection metadata is kept for serv
+                                                                                
+       privacy https://cueloop.dev/privacy   support support@cueloop.dev        
                                                                                 
                                                                                 
 "
