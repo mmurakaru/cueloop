@@ -1092,6 +1092,30 @@ exports[`stories catalog Layout/ShellHeader/ReviewSurface renders, snapshots, an
 "
 `;
 
+exports[`stories catalog Chrome/SlashComposer/Empty renders, snapshots, and carries its colors: Chrome/SlashComposer/Empty 1`] = `
+" ●                                                          
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+"
+`;
+
+exports[`stories catalog Chrome/SlashComposer/WithDraft renders, snapshots, and carries its colors: Chrome/SlashComposer/WithDraft 1`] = `
+" ● looks good, ship it                                      
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+"
+`;
+
 exports[`stories catalog Chrome/ThreadFooter/Default renders, snapshots, and carries its colors: Chrome/ThreadFooter/Default 1`] = `
 "────────────────────────────────────────────────────────────────────────────────
   cueloop / main                                                  send message 
