@@ -801,9 +801,36 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const endsInLine = (end: number): boolean => end - 1 >= line.start && end - 1 < line.end;
     const nodes: React.ReactNode[] = [];
     const composeHere = compose && compose.blockIndex === blockIndex;
+    const newComposeHere = Boolean(composeHere && compose.discussionKey === null && composerNode);
+    const composeAnchoredHere =
+      newComposeHere && (compose!.span ? endsInLine(compose!.span.end.char) : isLastLine);
+    const composeStart = compose?.span?.start;
+
+    const pushComposeCard = (): void => {
+      nodes.push(
+        <DiscussionCard
+          key="compose-new"
+          tokens={tokens}
+          segments={[{ color: palette.cardEdge, node: composerNode }]}
+        />,
+      );
+      nodes.push(paletteNode);
+    };
+
+    // the draft sorts in by its span start, the same order discussionsFrom lands it on save, so a
+    // new comment sits in its final position while typing instead of appending to the stack
+    let composePending = composeAnchoredHere;
 
     for (const discussion of discussions) {
       if (discussion.blockIndex !== blockIndex || !endsInLine(discussion.span.end.char)) continue;
+      if (
+        composePending &&
+        composeStart &&
+        comparePositions(composeStart, discussion.span.start) < 0
+      ) {
+        pushComposeCard();
+        composePending = false;
+      }
       const composingHere = Boolean(composeHere && compose.discussionKey === discussion.key);
 
       if (folded.has(discussion.key) && !composingHere) {
@@ -813,20 +840,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       nodes.push(discussionCardFor(discussion, composingHere));
       if (composingHere) nodes.push(paletteNode);
     }
-    if (composeHere && compose.discussionKey === null && composerNode) {
-      const anchoredHere = compose.span ? endsInLine(compose.span.end.char) : isLastLine;
-
-      if (anchoredHere) {
-        nodes.push(
-          <DiscussionCard
-            key="compose-new"
-            tokens={tokens}
-            segments={[{ color: palette.cardEdge, node: composerNode }]}
-          />,
-        );
-        nodes.push(paletteNode);
-      }
-    }
+    if (composePending) pushComposeCard();
 
     return nodes;
   };

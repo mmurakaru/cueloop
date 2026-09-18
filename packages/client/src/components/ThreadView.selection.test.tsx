@@ -810,3 +810,45 @@ describe("discussion identity", () => {
     expect(annotate).not.toHaveBeenCalled();
   });
 });
+
+describe("a new comment sorts into place while typing", () => {
+  const blocks = parseBlocks(PLAN);
+  const anchorOn = (word: string): Annotation["anchor"] =>
+    makeAnchor(blocks, 1, PARAGRAPH.indexOf(word), PARAGRAPH.indexOf(word) + word.length);
+  const early: Annotation = {
+    id: "early",
+    kind: "comment",
+    anchor: anchorOn("persists"),
+    body: "alpha-note",
+    createdAt: "2026-09-01T10:00:00Z",
+  };
+  const late: Annotation = {
+    id: "late",
+    kind: "comment",
+    anchor: anchorOn("atomically"),
+    body: "omega-note",
+    createdAt: "2026-09-01T10:01:00Z",
+  };
+
+  test("a draft anchored between two comments renders between them, not appended to the stack", async () => {
+    // Arrange - two comments on the same line, one earlier and one later than the draft's word
+    setup.renderer.destroy();
+    await mount([early, late]);
+
+    // Act - mark a word between them and start typing a new comment
+    const sessions = locate("sessions");
+
+    await setup.mockMouse.doubleClick(sessions.column + 2, sessions.row);
+    await settle(setup);
+    await typeText(setup, "midway-note");
+    await settle(setup);
+
+    // Assert - the draft sits where it will land on save (by span start), not at the end
+    const rows = setup.captureCharFrame().split("\n");
+    const rowOf = (needle: string): number => rows.findIndex((row) => row.includes(needle));
+
+    expect(rowOf("alpha-note")).toBeGreaterThanOrEqual(0);
+    expect(rowOf("midway-note")).toBeGreaterThan(rowOf("alpha-note"));
+    expect(rowOf("omega-note")).toBeGreaterThan(rowOf("midway-note"));
+  });
+});
