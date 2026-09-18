@@ -1,5 +1,28 @@
 # cueloop
 
+## 0.1.0-alpha.78
+
+### Patch Changes
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`123b3e7`](https://github.com/mmurakaru/cueloop/commit/123b3e780c4a7d0fb41e055ef2c3c045df2c2c0a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The send-message summary is now the same composer as inline comments: enter breaks the line, cmd or ctrl and enter sends, and typing a slash opens the same actions-and-skills palette. A pasted image collapses to a numbered placeholder instead of dumping raw bytes into the draft, in both the summary and inline comments. A returning collaborator is no longer re-prompted to connect GitHub for a share they already joined. The join-splash logo is aligned to match the install script.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`7ed5a43`](https://github.com/mmurakaru/cueloop/commit/7ed5a436351cd8079a63c20b033bb20cc6c47272) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Navigating between threads is now instant, even with many projects and large reviews open. Opening a diff no longer word-diffs every line of the whole file up front - only the lines on screen - and opening or switching to a plan no longer builds every block before the first frame, just the ones in view. Under a worst-case load (several projects, large annotated plans, big diffs) the click-to-first-byte drops from about 108ms to about 21ms for a diff and from about 57ms to about 28ms for a plan.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`5cf9149`](https://github.com/mmurakaru/cueloop/commit/5cf9149ad5555a63ddb1e902808b5f7c5f176647) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Faster launch and navigation, and fix a freeze on stale annotations. A stale multi-block annotation no longer freezes the review while its quote is re-matched (the fuzzy search now shares one work budget across an anchor's blocks instead of spending it per block; a 160-block plan drops from ~16s to ~0.3s). The first frame paints before the terminal's theme query instead of after it (cold launch ~320ms to ~257ms). A session update that only changed annotations or status now reuses the parsed document projection instead of re-parsing the whole document. A saved comment paints immediately instead of blinking out until the daemon write returns.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`a81ae19`](https://github.com/mmurakaru/cueloop/commit/a81ae19ed46f12f03c98ad9478b1d37524ac0b5b) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The threads sidebar is cleaner: no star or folder glyphs, and it cascades by nesting so a project's threads sit indented under the project name. Transient notices lose their stray "[esc]" hint, and the redundant "annotation updated" status is gone.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`807b9c8`](https://github.com/mmurakaru/cueloop/commit/807b9c8c8f4307f483e7beac485f7c70ed540f21) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The primitive is now called a thread everywhere - the UI strings, the docs, and the concepts page - matching how it is used; the wire and CLI vocabulary is unchanged. The GitHub connect screens over SSH also read better: they show the short link and the code to type (GitHub no longer prefills it), align cleanly, wrap without clipping, and the data-use line no longer overstates what is kept.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`6f6d935`](https://github.com/mmurakaru/cueloop/commit/6f6d935ff240b61e6f35760321f61db2811a9b50) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Switching between threads is faster. A recently-viewed thread keeps its parsed projection in a small per-thread cache, so returning to it reuses the work instead of re-parsing the diff or plan. A changed file's model is parsed on first curation touch rather than for every file when a diff opens, which the virtualized diff view never needed up front. Opening a large diff is about a fifth faster at the p95 and returns to it are cheaper.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`fade841`](https://github.com/mmurakaru/cueloop/commit/fade841e18837d920e858c0a46748540aad37826) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Overlays now share one language. Confirm, rename, submit, delete, the guided-walk end card, share, manage-access, and the completion screen all use the same lowercase word-buttons on an accent frame, instead of a mix of clickable text, key-hint captions, and bracketed labels. Keys still work; the keybinds sheet remains where they are documented.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.78
+  - @cueloop/client@0.1.0-alpha.78
+  - @cueloop/daemon@0.1.0-alpha.78
+  - @cueloop/schema@0.1.0-alpha.78
+
 ## 0.1.0-alpha.77
 
 ### Minor Changes
