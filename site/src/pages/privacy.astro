@@ -1,0 +1,77 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const updated = "September 18, 2026";
+---
+
+<BaseLayout
+  title="Privacy - cueloop"
+  description="What cueloop collects, what it does not, and what the hosted SSH gateway handles when you share or join a review."
+>
+  <section class="section">
+    <div class="container">
+      <div class="prose">
+        <p><a href="/">← cueloop</a></p>
+        <h1>Privacy</h1>
+        <p>Last updated: {updated}</p>
+
+        <p>
+          cueloop is a terminal-first review tool for coding agents. This page explains what stays on
+          your machine, what the hosted SSH gateway at cueloop.dev handles when you share or join a
+          review, and what we never do with your data.
+        </p>
+
+        <h2>cueloop is local-first</h2>
+        <p>
+          When you review a plan or a diff, everything runs in your terminal. The artifact under
+          review, your annotations, and your code live on your own machine. None of it reaches
+          cueloop.dev unless you explicitly share a review.
+        </p>
+
+        <h2>The hosted SSH gateway (cueloop.dev)</h2>
+        <p>
+          Sharing a review over SSH, or joining one someone shared with you, is the only time your
+          data passes through our servers. Here is what that involves.
+        </p>
+        <ul>
+          <li>
+            <strong>GitHub sign-in.</strong> So your review comments carry your name, we sign you in
+            through GitHub's device flow. We request no account or repository permissions, and we read
+            your GitHub username once - the sign-in token is discarded immediately after that lookup.
+            You can skip signing in and take part anonymously.
+          </li>
+          <li>
+            <strong>Shared review content.</strong> The artifact and annotations you share are relayed
+            through the gateway so the people you shared with can open them, and are kept only while
+            the share is active.
+          </li>
+          <li>
+            <strong>Connection details.</strong> Your SSH key fingerprint and basic connection
+            metadata are kept for a limited time to run the service securely and to prevent abuse.
+          </li>
+        </ul>
+
+        <h2>What we do not do</h2>
+        <ul>
+          <li>We do not sell or rent your data.</li>
+          <li>We do not run advertising or third-party trackers.</li>
+          <li>We do not read your code beyond what you explicitly choose to share.</li>
+        </ul>
+
+        <h2>Open source and self-hosting</h2>
+        <p>
+          cueloop is <a href="https://github.com/mmurakaru/cueloop">open source</a>. You can run your
+          own gateway, in which case none of the above touches our servers - your shares stay entirely
+          within infrastructure you control.
+        </p>
+
+        <h2>Your choices</h2>
+        <p>
+          For questions about this policy, or to ask us to remove data associated with your account,
+          email <a href="mailto:support@cueloop.dev">support@cueloop.dev</a>. If our practices change,
+          we will update this page and its date above.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
