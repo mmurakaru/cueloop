@@ -8,7 +8,7 @@ import type { SessionHistory } from "./history";
 
 export const SCHEMA_VERSION = "1";
 
-/** A workspace is a repo/branch context holding review sessions. */
+/** A workspace is a repo/branch context holding threads. */
 export interface WorkspaceKey {
   repoRoot: string;
   branch: string;
@@ -19,7 +19,7 @@ export interface WorkspaceKey {
 }
 
 /**
- * What kind of artifact a review session holds. `plan` and `reply` are both
+ * What kind of artifact a thread holds. `plan` and `reply` are both
  * markdown documents (see isMarkdownArtifact) - a plan is a proposal written
  * forward, a reply is the agent's previous message pulled back for review.
  * `diff` is a unified-diff patch; `prototype` is a component design doc (API /
@@ -292,9 +292,6 @@ export interface Thread {
    */
   participants?: Identity[];
 }
-
-/** @deprecated use Thread */
-export type ReviewSession = Thread;
 
 /** comment and request_changes both map to deny in agent-native contracts. */
 export function verdictAllows(kind: VerdictKind): boolean {

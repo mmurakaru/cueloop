@@ -1,5 +1,5 @@
 /**
- * The review-session controller: every daemon round-trip and mutation
+ * The thread controller: every daemon round-trip and mutation
  * primitive behind one React-free object. It owns connect/autostart/subscribe,
  * the session/inbox/status/error snapshot, optimistic apply, the mutation
  * primitives (cut/edit/annotate/submit/...), and the post-submit completion

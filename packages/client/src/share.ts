@@ -1,5 +1,5 @@
 /**
- * Publish a review session as a share: pack it, stream it to the gateway's
+ * Publish a thread as a share: pack it, stream it to the gateway's
  * `share` user over SSH, and copy the returned `ssh p_…@host` line to the
  * clipboard. The planner holds no key, so all this side does is upload; the
  * gateway seals and stores. Used by both `cueloop share` and the in-TUI
