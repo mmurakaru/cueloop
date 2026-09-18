@@ -18,7 +18,7 @@ import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { IconButton } from "./primitives/IconButton";
 import { NERD } from "./primitives/icons";
-import { intralineRunsByRow, type IntralineRun } from "../diff-intraline";
+import { createIntralineResolver, type IntralineRun } from "../diff-intraline";
 import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
 import { splitDiffRows, type SplitLine, type SplitRow } from "../split-diff";
 import { UNDERLINE, type AnnotationPalette } from "../annotation-palette";
@@ -535,7 +535,7 @@ export function DiffContentView({
   const { palette } = surface;
   const numberWidth = useMemo(() => lineNumberWidth(rows), [rows]);
   const unifiedGutterColumns = numberWidth * 2 + UNIFIED_GUTTER_CHROME;
-  const intralineByRow = useMemo(() => intralineRunsByRow(rows), [rows]);
+  const intralineResolver = useMemo(() => createIntralineResolver(rows), [rows]);
   const syntaxByRow = useSyntaxHighlights(rows);
   const splitRows = useMemo(() => (split ? splitDiffRows(rows) : []), [split, rows]);
   const localStats = useMemo(() => fileChangeCounts(rows), [rows]);
@@ -595,13 +595,13 @@ export function DiffContentView({
     const fgByColumn = foregroundColumns(
       text,
       rowBaseColor(row, tokens),
-      intralineByRow.get(rowIndex),
+      intralineResolver.runsForRow(rowIndex),
       syntaxByRow.get(rowIndex),
       tokens,
     );
     const emphasisBgByColumn = emphasisBackgroundColumns(
       text,
-      intralineByRow.get(rowIndex),
+      intralineResolver.runsForRow(rowIndex),
       rowEmphasisBackground(row, tokens),
     );
     const rowBg = rowBackground(row, tokens);
