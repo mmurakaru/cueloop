@@ -380,6 +380,9 @@ interface DerivedSessionProjection {
   display: DisplayBlock[];
   rows: DiffRow[];
   files: WalkFile[];
+  /** Raw per-file contents; parsed into a model lazily on first curation touch, not all upfront. */
+  fileContents: Map<string, DiffFileContents>;
+  /** Parsed file models, filled on demand from fileContents and memoized here. */
   models: Map<string, FileDiffMetadata>;
   tree: TreeRow[];
 }
@@ -389,6 +392,15 @@ interface LiveWorkingDiff {
   patch: string;
   files: readonly DiffFileContents[];
 }
+
+interface DerivedCacheEntry {
+  derivedFor: Thread;
+  derivedForLiveDiff: LiveWorkingDiff | null;
+  derived: DerivedSessionProjection;
+}
+
+/** Recently-viewed threads whose parsed projection is kept for an instant return; oldest evicted first. */
+const DERIVED_CACHE_LIMIT = 8;
 
 class Controller implements ReviewController {
   readonly readOnly: boolean;
@@ -424,9 +436,12 @@ class Controller implements ReviewController {
     display: [],
     rows: [],
     files: [],
+    fileContents: new Map(),
     models: new Map(),
     tree: [],
   };
+  /** Recently-viewed threads' parsed projections, so returning to a thread reuses its work instead of re-parsing. */
+  private derivedCache = new Map<string, DerivedCacheEntry>();
   /** File paths whose diff body is folded to just the file band. */
   private collapsedFiles = new Set<string>();
   /** File paths woven to their full contents (unchanged lines shown as context). */
@@ -555,17 +570,33 @@ class Controller implements ReviewController {
     const content = frozenDiff ? session!.artifact.content : (liveDiff?.patch ?? "");
     const files = frozenDiff ? (session?.artifact.files ?? []) : (liveDiff?.files ?? []);
     const rows = content ? diffRows(content) : [];
-    const models = new Map<string, FileDiffMetadata>();
+    const fileContents = new Map<string, DiffFileContents>();
 
-    for (const file of files) models.set(file.path, parseFileDiff(file));
+    for (const file of files) fileContents.set(file.path, file);
 
     return {
       display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
       rows,
       files: walkFiles(rows),
-      models,
+      fileContents,
+      models: new Map<string, FileDiffMetadata>(),
       tree: session?.history ? treeRows(session.history) : [],
     };
+  }
+
+  /** The parsed model for a changed file, computed on first touch and memoized in the projection. */
+  private fileModel(path: string): FileDiffMetadata | undefined {
+    const cached = this.derived.models.get(path);
+
+    if (cached) return cached;
+    const contents = this.derived.fileContents.get(path);
+
+    if (!contents) return undefined;
+    const model = parseFileDiff(contents);
+
+    this.derived.models.set(path, model);
+
+    return model;
   }
 
   private ensureDerived(): void {
@@ -587,9 +618,48 @@ class Controller implements ReviewController {
       this.collapsedFiles.clear();
       this.expandedFiles.clear();
     }
+    // returning to a recently-viewed thread whose inputs are unchanged reuses its parsed projection
+    const cached = session !== null ? this.derivedCache.get(session.id) : undefined;
+
+    if (
+      cached &&
+      cached.derivedForLiveDiff === liveDiff &&
+      sameDerivationInputs(cached.derivedFor, session!)
+    ) {
+      this.derivedFor = session;
+      this.derivedForLiveDiff = liveDiff;
+      this.derived = {
+        ...cached.derived,
+        tree: session!.history ? treeRows(session!.history) : [],
+      };
+      this.rememberDerived(session!, liveDiff, this.derived);
+
+      return;
+    }
     this.derivedFor = session;
     this.derivedForLiveDiff = liveDiff;
     this.derived = this.buildDerived(session, frozenDiff, liveDiff);
+    if (session !== null) this.rememberDerived(session, liveDiff, this.derived);
+  }
+
+  /** Keep the freshest projections per thread, evicting the least-recently-used past the cap. */
+  private rememberDerived(
+    session: Thread,
+    liveDiff: LiveWorkingDiff | null,
+    derived: DerivedSessionProjection,
+  ): void {
+    this.derivedCache.delete(session.id);
+    this.derivedCache.set(session.id, {
+      derivedFor: session,
+      derivedForLiveDiff: liveDiff,
+      derived,
+    });
+    while (this.derivedCache.size > DERIVED_CACHE_LIMIT) {
+      const oldest = this.derivedCache.keys().next().value;
+
+      if (oldest === undefined) break;
+      this.derivedCache.delete(oldest);
+    }
   }
 
   /** The per-file contents that back the current rows: a diff thread's capture, else the live working tree. */
@@ -885,7 +955,7 @@ class Controller implements ReviewController {
 
       return null;
     }
-    const model = this.derived.models.get(row.file);
+    const model = this.fileModel(row.file);
 
     if (!model) return null;
 
@@ -966,7 +1036,7 @@ class Controller implements ReviewController {
     const rejected = new Set<number>();
 
     this.derived.rows.forEach((row, index) => {
-      const model = this.derived.models.get(row.file);
+      const model = this.fileModel(row.file);
 
       if (model && isRowRejected(row.file, model, row, this.rejections)) rejected.add(index);
     });
@@ -1043,7 +1113,7 @@ class Controller implements ReviewController {
 
   /** The change/deletion rows a rejection covers, for its preview and reveal row. */
   private rowsForRejection(rejection: HunkRejection): DiffRow[] {
-    const model = this.derived.models.get(rejection.path);
+    const model = this.fileModel(rejection.path);
 
     if (!model) return [];
     const rows: DiffRow[] = [];
