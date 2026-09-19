@@ -307,6 +307,8 @@ export interface ReviewController {
   restoreCuration(id: string): void;
   /** The $EDITOR hand-off on the working copy. */
   edit(): void;
+  /** Track an edited thread body as the working copy and re-resolve annotations against it. */
+  saveEditedBody(content: string): void;
   /**
    * Anchor and store an annotation; both plan and diff anchor constructions.
    * `end` is an offset within `endDisplayIndex` (the same block by default).
@@ -1195,14 +1197,21 @@ class Controller implements ReviewController {
     try {
       const result = editInEditor(this.working(), "plan.md", { editor: this.editor });
 
-      if (result.changed) {
-        this.setWorkingCopy(result.content);
-        this.reconcileAnnotations(session, result.content);
-        this.setStatus("edits tracked - one diff");
-      } else this.setStatus("no changes");
+      if (result.changed) this.saveEditedBody(result.content);
+      else this.setStatus("no changes");
     } catch (err) {
       this.setStatus(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  saveEditedBody(content: string): void {
+    const session = this.snapshot.session;
+
+    if (!session || session.status === "resolved") return;
+    if (content === this.working()) return void this.setStatus("no changes");
+    this.setWorkingCopy(content);
+    this.reconcileAnnotations(session, content);
+    this.setStatus("edits tracked - one diff");
   }
 
   /**

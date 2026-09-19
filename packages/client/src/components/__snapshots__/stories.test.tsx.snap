@@ -2225,6 +2225,7 @@ exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, 
 "
 `;
 
+
 exports[`stories catalog Surfaces/MarkdownThreadEditor/Editing renders, snapshots, and carries its colors: Surfaces/MarkdownThreadEditor/Editing 1`] = `
 "# Rollout Plan                                              
                                                             
@@ -2239,6 +2240,6 @@ Ship the **store move** behind a \`flag\`.
                                                             
                                                             
                                                             
-Ln 1/7  Col 1                            ⏎ save · esc cancel
+Ln 1/7  Col 1                        ⌘⏎ or esc  save & close
 "
 `;

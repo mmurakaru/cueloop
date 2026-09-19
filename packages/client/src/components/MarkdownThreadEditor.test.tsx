@@ -11,8 +11,7 @@ describe("MarkdownThreadEditor", () => {
       <MarkdownThreadEditor
         initialText={"# Title\n\nbody text here\n"}
         theme={DARK}
-        onSaveMarkdown={() => {}}
-        onCancelEdit={() => {}}
+        onExitEditor={() => {}}
       />,
       { width: 50, height: 12 },
     );
@@ -23,8 +22,7 @@ describe("MarkdownThreadEditor", () => {
     expect(frame).toContain("Title");
     expect(frame).toContain("body text here");
     expect(frame).toContain("Ln 1/4");
-    expect(frame).toContain("save");
-    expect(frame).toContain("cancel");
+    expect(frame).toContain("save & close");
     setup.renderer.destroy();
   });
 });

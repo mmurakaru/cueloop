@@ -4,8 +4,9 @@
  * bold, italic, inline and fenced code, links, list and quote markers - and
  * reports the caret line and column, replacing the external-editor hand-off so
  * editing needs no per-user editor configuration. cmd, meta, or ctrl + enter
- * saves and exits; plain enter breaks the line; escape cancels. The raw markdown
- * stays visible - a concealed rendered preview is a later layer.
+ * and escape both save the working copy and close (leaving is loss-free, like
+ * the editor hand-off it replaces); plain enter breaks the line. The raw
+ * markdown stays visible - a concealed rendered preview is a later layer.
  */
 
 import React, { useLayoutEffect, useRef, useState } from "react";
@@ -19,10 +20,8 @@ export interface MarkdownThreadEditorProps {
   /** The thread body's working copy; the editor opens on this markdown text. */
   initialText: string;
   theme: Theme;
-  /** Called with the edited markdown when the reviewer saves (cmd, meta, or ctrl + enter). */
-  onSaveMarkdown: (text: string) => void;
-  /** Called when the reviewer leaves without saving (escape). */
-  onCancelEdit: () => void;
+  /** Called with the edited markdown when the reviewer leaves (cmd/ctrl+enter or escape); both save. */
+  onExitEditor: (text: string) => void;
 }
 
 // cmd, meta, or ctrl + enter saves (super under the kitty protocol, meta where
@@ -46,8 +45,7 @@ interface MarkdownEditorPosition {
 export function MarkdownThreadEditor({
   initialText,
   theme,
-  onSaveMarkdown,
-  onCancelEdit,
+  onExitEditor,
 }: MarkdownThreadEditorProps): React.ReactNode {
   const editorRef = useRef<TextareaRenderable | null>(null);
   const [position, setPosition] = useState<MarkdownEditorPosition>({
@@ -55,6 +53,9 @@ export function MarkdownThreadEditor({
     column: 1,
     lineCount: initialText.split("\n").length,
   });
+
+  const exitWithCurrentText = (): void =>
+    onExitEditor(editorRef.current?.plainText ?? initialText);
 
   const paintMarkdown = (editor: TextareaRenderable): void => {
     const { styleIdFor } = markdownEditorStyle(theme);
@@ -81,7 +82,7 @@ export function MarkdownThreadEditor({
   }, []);
 
   useKeyboard((key) => {
-    if (key.name === "escape") onCancelEdit();
+    if (key.name === "escape") exitWithCurrentText();
   });
 
   return (
@@ -93,7 +94,7 @@ export function MarkdownThreadEditor({
         keyBindings={MARKDOWN_EDITOR_KEY_BINDINGS}
         wrapMode="word"
         cursorStyle={{ style: "block", blinking: true }}
-        onSubmit={() => onSaveMarkdown(editorRef.current?.plainText ?? initialText)}
+        onSubmit={exitWithCurrentText}
         onCursorChange={(event) =>
           setPosition((prior) => ({
             ...prior,
@@ -121,7 +122,7 @@ export function MarkdownThreadEditor({
   );
 }
 
-/** The one-row footer under the editor: caret line and column, total lines, and the save and cancel hints. */
+/** The one-row footer under the editor: caret line and column, total lines, and the save-and-close hint. */
 function MarkdownEditorStatus({
   position,
   theme,
@@ -133,7 +134,7 @@ function MarkdownEditorStatus({
     <box style={{ flexDirection: "row", flexShrink: 0 }}>
       <text fg={theme.textMuted}>{`Ln ${position.line}/${position.lineCount}  Col ${position.column}`}</text>
       <box style={{ flexGrow: 1 }} />
-      <text fg={theme.textDim}>{"⏎ save · esc cancel"}</text>
+      <text fg={theme.textDim}>{"⌘⏎ or esc  save & close"}</text>
     </box>
   );
 }

@@ -43,28 +43,39 @@ function lineStartOffsets(source: string): number[] {
   return offsets;
 }
 
-/** Match a strong, emphasis, inline-code, or link token and its inner content, one caret token at a time. */
+// A strong, emphasis, inline-code, or link token. Underscore emphasis is guarded by \w boundaries so
+// snake_case never italicizes (CommonMark's intra-word rule); asterisk emphasis needs a non-space edge,
+// so "2 * 3" stays plain. Inline code matches a balanced backtick run; a link is [text](href).
 const INLINE_TOKEN =
-  /(\*\*|__)(?=\S)(.+?)(?<=\S)\1|(\*|_)(?=\S)(.+?)(?<=\S)\3|(`+)(.+?)\5|(\[)([^\]]+)(\]\()([^)]+)(\))/g;
+  /\*\*(?=\S)(?:.+?)(?<=\S)\*\*|(?<!\w)__(?=\S)(?:.+?)(?<=\S)__(?!\w)|\*(?=\S)(?:.+?)(?<=\S)\*|(?<!\w)_(?=\S)(?:.+?)(?<=\S)_(?!\w)|(`+)(?:.+?)\1|\[[^\]]+\]\([^)]+\)/g;
+
+/** Length of the run of `char` that a token opens with (the emphasis or code delimiter width). */
+function openingRunLength(token: string, char: string): number {
+  let length = 0;
+  while (token[length] === char) length++;
+
+  return length;
+}
 
 /** Push emphasis, inline-code, and link ranges found in one text span, with markers dimmed and inner content grouped. */
 function scanInlineTokens(text: string, base: number, into: MarkdownHighlightRange[]): void {
   INLINE_TOKEN.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = INLINE_TOKEN.exec(text)) !== null) {
+    const token = match[0];
     const start = base + match.index;
-    const end = start + match[0].length;
+    const end = start + token.length;
 
-    if (match[1] !== undefined) {
-      pushDelimited(into, start, end, match[1].length, "strong");
-    } else if (match[3] !== undefined) {
-      pushDelimited(into, start, end, match[3].length, "emphasis");
-    } else if (match[5] !== undefined) {
-      pushDelimited(into, start, end, match[5].length, "code");
+    if (token.startsWith("**") || token.startsWith("__")) {
+      pushDelimited(into, start, end, 2, "strong");
+    } else if (token.startsWith("*") || token.startsWith("_")) {
+      pushDelimited(into, start, end, 1, "emphasis");
+    } else if (token.startsWith("`")) {
+      pushDelimited(into, start, end, openingRunLength(token, "`"), "code");
     } else {
-      // [text](href): dim the brackets and parens, leave the link text and href in the link color
+      // [text](href): dim the brackets and href wrapper, leave the link text in the link color
       const textStart = start + 1;
-      const textEnd = textStart + (match[8]?.length ?? 0);
+      const textEnd = start + token.indexOf("](");
 
       into.push({ start, end: textStart, group: "marker" });
       into.push({ start: textStart, end: textEnd, group: "link" });

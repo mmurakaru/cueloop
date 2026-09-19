@@ -6,7 +6,7 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import type { Clock } from "@opentui/core";
 import { marksByDisplay, type Mark } from "./view-plan";
 import {
@@ -54,11 +54,13 @@ import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/Ap
 import { EditorGrid } from "./components/EditorGrid";
 import { GridTabContent } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
+import { useThreadBodyEditing } from "./use-thread-body-editing";
 import { useRememberLayout } from "./use-remember-layout";
 import type { LaunchLayout } from "./launch-layout";
 import { ThreadFooter, THREAD_FOOTER_HEIGHT } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
+import { MarkdownThreadEditor } from "./components/MarkdownThreadEditor";
 import {
   diffChordEntries,
   dispatchLeaderCommand,
@@ -219,6 +221,33 @@ function keyboardOwnedElsewhere(
 /** The footer submit fires only for the owner of an unresolved review, never an observer. */
 function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean): boolean {
   return isOwner && !resolved && !observer;
+}
+
+/** The thread body edits inline only for its owner, on an unresolved markdown thread (never a diff). */
+function canEditThreadBody(
+  threadViewActive: boolean,
+  isDiff: boolean,
+  isOwner: boolean,
+  resolved: boolean,
+): boolean {
+  return threadViewActive && !isDiff && isOwner && !resolved;
+}
+
+/** Pick the thread pane's body: the pixel prototype, the diff placeholder, the inline editor, or the read-only view. */
+function chooseThreadBody(choice: {
+  isPixelPrototype: boolean;
+  isDiff: boolean;
+  editingBody: boolean;
+  prototype: React.ReactNode;
+  diffPlaceholder: React.ReactNode;
+  editor: React.ReactNode;
+  threadView: React.ReactNode;
+}): React.ReactNode {
+  if (choice.isPixelPrototype) return choice.prototype;
+  if (choice.isDiff) return choice.diffPlaceholder;
+  if (choice.editingBody) return choice.editor;
+
+  return choice.threadView;
 }
 
 /** The author display name for a comment's hover tooltip: the reviewer's own name for their notes, else the resolved collaborator name. */
@@ -504,7 +533,6 @@ export function App({
 
     return controller.startShareSync();
   }, [isOwner, session?.id, threadShared, controller]);
-  const renderer = useRenderer();
   const { width: terminalWidth } = useTerminalDimensions();
 
   // ── view state ──────────────────────────────
@@ -730,6 +758,13 @@ export function App({
   const [threadComposing, setThreadComposing] = useState(false);
   const [prototypeComposing, setPrototypeComposing] = useState(false);
   const [welcomeComposing, setWelcomeComposing] = useState(false);
+  // inline body edit: the markdown editor owns the thread pane and all keys while open
+  const canEditBody = canEditThreadBody(threadViewActive, isDiff, isOwner, resolved);
+  const bodyEditing = useThreadBodyEditing({
+    controller,
+    sessionId: session?.id,
+    canEdit: canEditBody,
+  });
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
   // annotation resolves to the display index it marked
@@ -764,15 +799,7 @@ export function App({
     setMode({ type: "railEdit", id: annotation.id, text: annotation.body });
   };
 
-  /** The $EDITOR hand-off releases the terminal: suspend, edit, resume. */
-  const runEditorHandOff = (): void => {
-    renderer?.suspend();
-    try {
-      controller.edit();
-    } finally {
-      renderer?.resume();
-    }
-  };
+  const openBodyEditor = bodyEditing.openEditor;
 
   // ── keyboard grammar: build state, reduce, dispatch ──
   const dispatch = createIntentDispatch({
@@ -810,7 +837,7 @@ export function App({
     setSelectedCurationId,
     setPulsedAnnotationId,
     selectCardFromDocument,
-    runEditorHandOff,
+    openBodyEditor,
     openCardEdit,
     toggleDiffView: () => {
       const next: DiffViewMode = diffView === "stacked" ? "split" : "stacked";
@@ -875,6 +902,8 @@ export function App({
 
   useKeyboard((key) => {
     if (quitKeyHandled(key, onExit)) return;
+    // the inline body editor owns the pane and every key while open (it handles its own escape)
+    if (bodyEditing.editing) return;
     // the share dialog owns its own keys while open; the shell grammar stands down
     if (shareDialogOpen) return;
     if (menuModalHandled(menuControl, key)) return;
@@ -1064,7 +1093,7 @@ export function App({
     // this is owner-only; stay silent rather than nag if it is ever reached.
     if (!isOwner) return;
     if (resolved) return controller.setStatus("review submitted - read-only");
-    runEditorHandOff();
+    openBodyEditor();
   };
 
   // clicking the rail Submit button: same read-only answer as the submit key
@@ -1132,66 +1161,80 @@ export function App({
               threadPanel={
                 <box style={{ flexGrow: 1, flexDirection: "column" }}>
                   <box style={{ flexGrow: 1, flexDirection: "row" }}>
-                    {isPixelPrototype ? (
-                      <PrototypePixels
-                        prototypePath={prototypePath}
-                        canComment={prototypeCanComment}
-                        onCommentElement={onCommentPrototype}
-                        onComposingChange={setPrototypeComposing}
-                        hidden={chromeHidden}
-                      />
-                    ) : isDiff ? (
-                      <box
-                        style={{
-                          flexGrow: 1,
-                          flexDirection: "column",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <text fg={theme.textDim}>Select a thread</text>
-                      </box>
-                    ) : (
-                      <ThreadView
-                        session={activeSession}
-                        suspended={surfaceSuspended(threadViewSuspended, focusedPane, "thread")}
-                        editOrphanCount={editOrphanCount}
-                        onComposingChange={setThreadComposing}
-                        leaderCombos={leaderCombos}
-                        onLeaderCommand={runLeaderCommand}
-                        resolved={resolved}
-                        onObserverBlocked={(reason) =>
-                          controller.setStatus(
-                            reason === "observer"
-                              ? "observer - read-only"
-                              : "review submitted - read-only",
-                          )
-                        }
-                        onCursorChange={setCursor}
-                        focusedAnnotationId={focusedAnnotationId}
-                        onFocusAnnotation={setFocusedAnnotationId}
-                        display={display}
-                        marks={marks}
-                        quickActions={quickActions}
-                        observer={observer}
-                        onAnnotate={(span, body) =>
-                          void controller.annotate(
-                            "comment",
-                            span.start.blockIndex,
-                            span.start.char,
-                            span.end.char,
-                            body,
-                            span.end.blockIndex,
-                          )
-                        }
-                        onReply={(rootAnnotationId, body) =>
-                          void controller.reply(rootAnnotationId, body)
-                        }
-                        onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
-                        resolveAuthorLabel={resolveAuthorLabel}
-                        onExit={() => onExit?.(0)}
-                      />
-                    )}
+                    {chooseThreadBody({
+                      isPixelPrototype,
+                      isDiff,
+                      editingBody: bodyEditing.editing,
+                      prototype: (
+                        <PrototypePixels
+                          prototypePath={prototypePath}
+                          canComment={prototypeCanComment}
+                          onCommentElement={onCommentPrototype}
+                          onComposingChange={setPrototypeComposing}
+                          hidden={chromeHidden}
+                        />
+                      ),
+                      diffPlaceholder: (
+                        <box
+                          style={{
+                            flexGrow: 1,
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <text fg={theme.textDim}>Select a thread</text>
+                        </box>
+                      ),
+                      editor: (
+                        <MarkdownThreadEditor
+                          initialText={controller.working()}
+                          theme={theme}
+                          onExitEditor={bodyEditing.exitEditor}
+                        />
+                      ),
+                      threadView: (
+                        <ThreadView
+                          session={activeSession}
+                          suspended={surfaceSuspended(threadViewSuspended, focusedPane, "thread")}
+                          editOrphanCount={editOrphanCount}
+                          onComposingChange={setThreadComposing}
+                          leaderCombos={leaderCombos}
+                          onLeaderCommand={runLeaderCommand}
+                          resolved={resolved}
+                          onObserverBlocked={(reason) =>
+                            controller.setStatus(
+                              reason === "observer"
+                                ? "observer - read-only"
+                                : "review submitted - read-only",
+                            )
+                          }
+                          onCursorChange={setCursor}
+                          focusedAnnotationId={focusedAnnotationId}
+                          onFocusAnnotation={setFocusedAnnotationId}
+                          display={display}
+                          marks={marks}
+                          quickActions={quickActions}
+                          observer={observer}
+                          onAnnotate={(span, body) =>
+                            void controller.annotate(
+                              "comment",
+                              span.start.blockIndex,
+                              span.start.char,
+                              span.end.char,
+                              body,
+                              span.end.blockIndex,
+                            )
+                          }
+                          onReply={(rootAnnotationId, body) =>
+                            void controller.reply(rootAnnotationId, body)
+                          }
+                          onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
+                          resolveAuthorLabel={resolveAuthorLabel}
+                          onExit={() => onExit?.(0)}
+                        />
+                      ),
+                    })}
                   </box>
                   {threadFooter}
                 </box>

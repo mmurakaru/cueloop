@@ -61,4 +61,16 @@ describe("markdownHighlightRanges", () => {
   test("plain prose yields no ranges", () => {
     expect(markdownHighlightRanges("just words here")).toEqual([]);
   });
+
+  test("underscores inside a word never italicize", () => {
+    expect(markdownHighlightRanges("call snake_case_var here")).toEqual([]);
+  });
+
+  test("an asterisk with spaces around it is not emphasis", () => {
+    expect(markdownHighlightRanges("compute 2 * 3 now")).toEqual([]);
+  });
+
+  test("underscore emphasis at word boundaries still resolves", () => {
+    expect(painted("an _idea_ blooms")).toContainEqual({ text: "idea", group: "emphasis" });
+  });
 });
