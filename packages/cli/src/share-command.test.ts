@@ -53,6 +53,7 @@ function fakeClient(sessions: Thread[]): SessionClient {
     sessionCutBlock: unimplemented("sessionCutBlock"),
     sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
     sessionCurate: unimplemented("sessionCurate"),
+    sessionSetAccess: unimplemented("sessionSetAccess"),
     sessionNavigate: unimplemented("sessionNavigate"),
     sessionBranch: unimplemented("sessionBranch"),
     sessionSwitch: unimplemented("sessionSwitch"),
@@ -73,6 +74,7 @@ function fakeClient(sessions: Thread[]): SessionClient {
 
       return session;
     }),
+    sessionSetShares: mock(async (id: string) => sessions.find((c) => c.id === id)!),
     sessionMergeShared: mock(
       async (
         id: string,
@@ -131,6 +133,43 @@ describe(shareSession, () => {
     // Assert
     expect(code).toBe(0);
     expect(deps.lines).toEqual(["share link copied - ssh p_abc123xy@cueloop.dev"]);
+  });
+
+  test("freezes a workbench thread's live diff into the shared artifact", async () => {
+    // Arrange - a workbench thread (renders live locally) plus a daemon that reports a fresh diff
+    const workbench = sessionFixture("ses_wb", {
+      artifact: {
+        type: "diff",
+        content: "STALE",
+        files: [],
+        meta: { workbench: true, title: "Workbench" },
+      },
+    });
+    const client = {
+      ...fakeClient([workbench]),
+      repoDiff: async () => ({
+        patch: "FRESH",
+        files: [{ path: "x.ts", oldContents: "", newContents: "y\n", status: "added" as const }],
+      }),
+    };
+    let published: Thread | undefined;
+    const deps = depsSpy({
+      publish: mock(async (session: Thread) => {
+        published = session;
+
+        return { line: "ssh p_abc123xy@cueloop.dev", copied: true };
+      }),
+    });
+
+    // Act
+    const code = await shareSession(client, { sessionId: "ses_wb" }, deps);
+
+    // Assert - the remote gets the fresh snapshot, marked so it renders frozen while keeping its notes
+    expect(code).toBe(0);
+    expect(published?.artifact.content).toBe("FRESH");
+    expect(published?.artifact.files).toHaveLength(1);
+    expect(published?.artifact.meta.snapshot).toBe(true);
+    expect(published?.artifact.meta.workbench).toBe(true);
   });
 
   test("without an id, shares the most recent session", async () => {

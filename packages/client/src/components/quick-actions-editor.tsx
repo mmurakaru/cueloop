@@ -6,7 +6,7 @@
  * the app owns the actions, the selection, and which row is expanded.
  */
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { KeyBinding, ScrollBoxRenderable, TextareaRenderable } from "@opentui/core";
 import type { QuickAction } from "../config";
 import type { Theme } from "../theme";
@@ -22,8 +22,11 @@ export interface QuickActionsEditorProps {
   selectedIndex: number;
   /** The row whose system-prompt input is open and focused, or null. */
   expandedIndex: number | null;
-  /** Select and toggle a row's system-prompt input open/closed. */
-  onToggleExpand: (index: number) => void;
+  /** Which field the open editor focuses first - set by the clicked row. */
+  expandedField: "prompt" | "metadata";
+  /** Select and toggle a row's editor open/closed, focusing the given field. */
+  onToggleExpand: (index: number, field: "prompt" | "metadata") => void;
+  onEditPrompt: (index: number, prompt: string) => void;
   onEditMetadata: (index: number, metadata: string) => void;
   onReset: () => void;
   onAdd: () => void;
@@ -34,7 +37,9 @@ export function QuickActionsEditor({
   actions,
   selectedIndex,
   expandedIndex,
+  expandedField,
   onToggleExpand,
+  onEditPrompt,
   onEditMetadata,
   onReset,
   onAdd,
@@ -50,11 +55,9 @@ export function QuickActionsEditor({
   return (
     <box style={{ flexDirection: "column", flexGrow: 1 }}>
       <box style={{ flexDirection: "row" }}>
-        <box style={{ flexGrow: 1 }}>
-          <text fg={tokens.textDim}>click a prompt to edit its system prompt</text>
-        </box>
+        <box style={{ flexGrow: 1 }} />
         <box onMouseUp={onReset}>
-          <text fg={tokens.textDim}>reset to defaults ▸</text>
+          <text fg={tokens.textDim}>reset</text>
         </box>
       </box>
       <box style={{ height: 1 }} />
@@ -66,7 +69,9 @@ export function QuickActionsEditor({
             action={action}
             isSelected={index === selectedIndex}
             isExpanded={index === expandedIndex}
-            onToggleExpand={() => onToggleExpand(index)}
+            initialField={expandedField}
+            onToggleExpand={(field) => onToggleExpand(index, field)}
+            onEditPrompt={(prompt) => onEditPrompt(index, prompt)}
             onEditMetadata={(metadata) => onEditMetadata(index, metadata)}
             theme={theme}
           />
@@ -88,7 +93,9 @@ function ActionRow({
   action,
   isSelected,
   isExpanded,
+  initialField,
   onToggleExpand,
+  onEditPrompt,
   onEditMetadata,
   theme,
 }: {
@@ -96,51 +103,120 @@ function ActionRow({
   action: QuickAction;
   isSelected: boolean;
   isExpanded: boolean;
-  onToggleExpand: () => void;
+  initialField: "prompt" | "metadata";
+  onToggleExpand: (field: "prompt" | "metadata") => void;
+  onEditPrompt: (prompt: string) => void;
   onEditMetadata: (metadata: string) => void;
   theme?: Theme;
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const inputRef = useRef<TextareaRenderable | null>(null);
+
+  if (isExpanded) {
+    return (
+      <box id={rowId} style={{ flexDirection: "column" }}>
+        <ActionEditor
+          action={action}
+          isSelected={isSelected}
+          initialField={initialField}
+          onEditPrompt={onEditPrompt}
+          onEditMetadata={onEditMetadata}
+          onDone={() => onToggleExpand("prompt")}
+          tokens={tokens}
+        />
+      </box>
+    );
+  }
 
   return (
     <box id={rowId} style={{ flexDirection: "column" }}>
       <box
         style={{ backgroundColor: isSelected ? tokens.border : undefined }}
-        onMouseUp={onToggleExpand}
+        onMouseUp={() => onToggleExpand("prompt")}
       >
-        <text fg={isSelected ? tokens.text : tokens.textMuted}>
-          {`${isExpanded ? "▾ " : "▸ "}${action.prompt}`}
-        </text>
+        <text fg={isSelected ? tokens.text : tokens.textMuted}>{action.prompt}</text>
       </box>
-      {isExpanded ? (
-        <box style={{ flexDirection: "row", paddingLeft: 2 }}>
-          <box style={{ width: 2, flexShrink: 0 }}>
-            <text fg={tokens.textDim}>{">"}</text>
-          </box>
-          <textarea
-            ref={inputRef}
-            focused
-            initialValue={action.metadata ?? ""}
-            placeholder="extra system prompt appended to this comment (optional)"
-            keyBindings={ACTION_INPUT_KEY_BINDINGS}
-            onContentChange={() => onEditMetadata(inputRef.current?.plainText ?? "")}
-            style={{
-              height: 1,
-              flexGrow: 1,
-              backgroundColor: tokens.elevated,
-              focusedBackgroundColor: tokens.elevated,
-              textColor: tokens.text,
-              focusedTextColor: tokens.text,
-            }}
-          />
-        </box>
-      ) : action.metadata ? (
-        <box style={{ paddingLeft: 2 }}>
+      {action.metadata ? (
+        <box onMouseUp={() => onToggleExpand("metadata")}>
           <text fg={tokens.textDim}>{truncateMetadata(action.metadata)}</text>
         </box>
       ) : null}
     </box>
+  );
+}
+
+/**
+ * The two-field editor for an expanded row: the action title over its system
+ * prompt. Mounts fresh per expand, so focus starts on the clicked field without a
+ * reset effect; ⏎ steps title -> description -> close, and a click focuses either.
+ */
+function ActionEditor({
+  action,
+  isSelected,
+  initialField,
+  onEditPrompt,
+  onEditMetadata,
+  onDone,
+  tokens,
+}: {
+  action: QuickAction;
+  isSelected: boolean;
+  initialField: "prompt" | "metadata";
+  onEditPrompt: (prompt: string) => void;
+  onEditMetadata: (metadata: string) => void;
+  onDone: () => void;
+  tokens: Theme;
+}): React.ReactNode {
+  const promptRef = useRef<TextareaRenderable | null>(null);
+  const metadataRef = useRef<TextareaRenderable | null>(null);
+  const [activeField, setActiveField] = useState<"prompt" | "metadata">(initialField);
+
+  // the focused field types from its end, not from the caret parked at the start
+  useEffect(() => {
+    const editor = activeField === "prompt" ? promptRef.current : metadataRef.current;
+
+    if (editor) editor.cursorOffset = editor.plainText.length;
+  }, [activeField]);
+
+  const fieldStyle = {
+    height: 1,
+    flexGrow: 1,
+    backgroundColor: tokens.elevated,
+    focusedBackgroundColor: tokens.elevated,
+    textColor: tokens.text,
+    focusedTextColor: tokens.text,
+  } as const;
+
+  return (
+    <>
+      <box
+        style={{ flexDirection: "row", backgroundColor: isSelected ? tokens.border : undefined }}
+      >
+        <textarea
+          ref={promptRef}
+          focused={activeField === "prompt"}
+          initialValue={action.prompt}
+          placeholder="action title"
+          keyBindings={ACTION_INPUT_KEY_BINDINGS}
+          onMouseUp={() => setActiveField("prompt")}
+          onSubmit={() => setActiveField("metadata")}
+          onContentChange={() => onEditPrompt(promptRef.current?.plainText ?? "")}
+          style={fieldStyle}
+        />
+      </box>
+      <box style={{ flexDirection: "row" }}>
+        <textarea
+          ref={metadataRef}
+          focused={activeField === "metadata"}
+          initialValue={action.metadata ?? ""}
+          placeholder="extra system prompt appended to this comment (optional)"
+          keyBindings={ACTION_INPUT_KEY_BINDINGS}
+          onMouseUp={() => setActiveField("metadata")}
+          onSubmit={onDone}
+          onContentChange={() => onEditMetadata(metadataRef.current?.plainText ?? "")}
+          style={fieldStyle}
+        />
+      </box>
+    </>
   );
 }
 

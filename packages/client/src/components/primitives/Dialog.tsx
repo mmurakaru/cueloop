@@ -8,7 +8,7 @@
 import React from "react";
 import type { Theme } from "../../theme";
 import { useComponentTheme } from "../theme-context";
-import { FRAME_BORDER_STYLE } from "./frame";
+import { FRAME_BORDER_STYLE, frameTitle } from "./frame";
 
 export interface DialogProps {
   isOpen: boolean;
@@ -17,6 +17,8 @@ export interface DialogProps {
   height: number;
   /** Solid panel fill for content-heavy dialogs; default transparent. */
   background?: string;
+  /** Dismiss on a click outside the panel. */
+  onDismiss?: () => void;
   theme?: Theme;
   children: React.ReactNode;
 }
@@ -27,6 +29,7 @@ export function Dialog({
   width,
   height,
   background,
+  onDismiss,
   theme,
   children,
 }: DialogProps): React.ReactNode {
@@ -36,6 +39,7 @@ export function Dialog({
 
   return (
     <box
+      onMouseUp={onDismiss}
       style={{
         position: "absolute",
         left: 0,
@@ -48,6 +52,7 @@ export function Dialog({
       }}
     >
       <box
+        onMouseUp={(event) => event.stopPropagation()}
         style={{
           width,
           height,
@@ -57,7 +62,7 @@ export function Dialog({
           backgroundColor: background,
           flexDirection: "column",
         }}
-        title={title}
+        title={frameTitle(title)}
       >
         {children}
       </box>

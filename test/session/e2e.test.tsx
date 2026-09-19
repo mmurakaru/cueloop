@@ -14,7 +14,6 @@ import { DaemonClient } from "@cueloop/daemon/client";
 import { App } from "../../packages/client/src/App";
 import {
   dragText,
-  press,
   pressKey,
   renderReadyApp,
   typeText,
@@ -228,7 +227,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       await pressKey(setup, "RETURN", { meta: true }); // open submit (request_changes default with pending item)
       await waitForText(setup, "[Changes]");
       await typeText(setup, "Too aggressive.");
-      await press(setup, "enter");
+      await pressKey(setup, "RETURN", { meta: true });
 
       // Assert - the detached wake injects feedback.md into the inbox
       const frames = await inbox.frames;

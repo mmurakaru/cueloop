@@ -5,7 +5,7 @@ description: Put the current working-tree changes in front of the user as a cuel
 
 # cueloop diff review
 
-Capture the working tree into a review session so the user annotates the
+Capture the working tree into a thread so the user annotates the
 actual changes line by line.
 
 ## Steps

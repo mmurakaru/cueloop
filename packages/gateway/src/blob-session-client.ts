@@ -17,6 +17,7 @@ import {
   registerParticipant,
   type Annotation,
   type NewEntry,
+  type ParticipantSource,
   type Thread,
 } from "@cueloop/schema";
 import type { EventFrame, SessionClient } from "@cueloop/daemon/client";
@@ -31,6 +32,10 @@ export interface ShareWriteBack {
   shareId: string;
   /** The collaborator's SSH fingerprint, stamped on the notes they author. */
   author: string;
+  /** A verified display name (e.g. from GitHub) to persist on the author's participant record. */
+  participantName?: string;
+  /** The verified identity source, so a comment stamps the github provider and handle, not anonymous ssh. */
+  participantSource?: ParticipantSource;
   /** Timestamp source; injectable so tests are deterministic. */
   now?: () => string;
   /** When present, the viewer follows the share live: each write re-reads the blob and emits session.updated. */
@@ -130,6 +135,10 @@ export class BlobSessionClient implements SessionClient {
     return rejectReadOnly();
   }
 
+  sessionSetAccess(): Promise<Thread> {
+    return rejectReadOnly();
+  }
+
   sessionSetViewed(): Promise<Thread> {
     return rejectReadOnly();
   }
@@ -159,6 +168,10 @@ export class BlobSessionClient implements SessionClient {
   }
 
   sessionSetShareId(): Promise<Thread> {
+    return rejectReadOnly();
+  }
+
+  sessionSetShares(): Promise<Thread> {
     return rejectReadOnly();
   }
 
@@ -251,9 +264,14 @@ function upsertAnnotation(
         { type: "comment", annotationId: stamped.id, createdAt: stamped.createdAt },
       );
 
-  // Leaving a note registers the author in the participant registry, so a
-  // collaborator who skipped naming resolves to anonymous, not a raw fingerprint.
-  return registerParticipant(noted, writeBack.author);
+  // Leaving a note registers the author, carrying any verified github name and handle
+  // so a comment persists the connected identity, not an anonymous fingerprint.
+  return registerParticipant(
+    noted,
+    writeBack.author,
+    writeBack.participantName,
+    writeBack.participantSource,
+  );
 }
 
 /**

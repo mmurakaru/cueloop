@@ -38,7 +38,9 @@ const shareTransport: ShareTransport = {
   pull: mock(async () => planSession()),
   push: mock(async () => {}),
   watch: () => () => {},
+  revoke: async () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
   mergeFromShare,
 };
@@ -73,6 +75,7 @@ function fakeClient(session: Thread): SessionClient {
     sessionCutBlock: unimplemented("sessionCutBlock"),
     sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
     sessionCurate: unimplemented("sessionCurate"),
+    sessionSetAccess: unimplemented("sessionSetAccess"),
     sessionNavigate: unimplemented("sessionNavigate"),
     sessionBranch: unimplemented("sessionBranch"),
     sessionSwitch: unimplemented("sessionSwitch"),
@@ -81,6 +84,7 @@ function fakeClient(session: Thread): SessionClient {
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetTitle: unimplemented("sessionSetTitle"),
     sessionSetShareId: unimplemented("sessionSetShareId"),
+    sessionSetShares: unimplemented("sessionSetShares"),
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),
@@ -193,6 +197,125 @@ describe("live working-tree diff for a non-diff thread", () => {
     // the active thread keeps B's changes; A's late response is dropped
     expect(controller.rows().some((row) => row.file === "src/y.ts")).toBe(true);
     expect(controller.rows().some((row) => row.file === "src/x.ts")).toBe(false);
+
+    controller.close();
+  });
+});
+
+const STALE_PATCH = `diff --git a/src/stale.ts b/src/stale.ts
+--- a/src/stale.ts
++++ b/src/stale.ts
+@@ -1,1 +1,1 @@
+-const s = 1;
++const s = 2;
+`;
+
+const STALE_FILES = [
+  {
+    path: "src/stale.ts",
+    oldContents: "const s = 1;\n",
+    newContents: "const s = 2;\n",
+    status: "modified" as const,
+  },
+];
+
+/** A `type:"diff"` thread with a captured snapshot; `meta.workbench` decides frozen vs live. */
+function diffSession(meta: Thread["artifact"]["meta"], id = "ses_diff"): Thread {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    id,
+    workspace: { repoRoot: "/repo", branch: "main" },
+    artifact: { type: "diff", content: STALE_PATCH, files: STALE_FILES, meta },
+    revisions: [{ revision: 1, content: STALE_PATCH, submittedAt: AT }],
+    annotations: [],
+    verdict: null,
+    status: "pending",
+    createdAt: AT,
+  };
+}
+
+describe("frozen vs live diff by thread kind", () => {
+  test("a workbench thread renders the live working tree, not its captured snapshot", async () => {
+    const session = diffSession({ workbench: true, title: "Workbench" });
+    const controller = createReviewController({
+      sessionId: session.id,
+      openClient: async () => fakeClient(session),
+      shareTransport,
+    });
+    controller.connect();
+    await tick();
+
+    // the live repoDiff (src/x.ts) wins over the frozen capture (src/stale.ts)
+    const changes = await controller.repoChanges();
+
+    expect(changes.map((file) => file.path)).toEqual(["src/x.ts"]);
+    expect(controller.rows().some((row) => row.file === "src/x.ts")).toBe(true);
+    expect(controller.rows().some((row) => row.file === "src/stale.ts")).toBe(false);
+
+    controller.close();
+  });
+
+  test("a plain diff review pins its captured snapshot and never queries the live tree", async () => {
+    const session = diffSession({});
+    const repoDiff = mock(async () => ({ patch: PATCH, files: FILES }));
+    const client = { ...fakeClient(session), repoDiff } satisfies SessionClient;
+    const controller = createReviewController({
+      sessionId: session.id,
+      openClient: async () => client,
+      shareTransport,
+    });
+    controller.connect();
+    await tick();
+
+    const changes = await controller.repoChanges();
+
+    expect(changes.map((file) => file.path)).toEqual(["src/stale.ts"]);
+    expect(controller.rows().some((row) => row.file === "src/stale.ts")).toBe(true);
+    expect(repoDiff).not.toHaveBeenCalled();
+
+    controller.close();
+  });
+});
+
+const SERVED_PATCH = `diff --git a/src/served.ts b/src/served.ts
+--- a/src/served.ts
++++ b/src/served.ts
+@@ -1,1 +1,1 @@
+-const served = 0;
++const served = 1;
+`;
+
+describe("serve mode pins the served thread to a frozen snapshot", () => {
+  test("the served artifact wins over the thread's own capture and the live tree", async () => {
+    const session = diffSession({ workbench: true });
+    const repoDiff = mock(async () => ({ patch: PATCH, files: FILES }));
+    const client = { ...fakeClient(session), repoDiff } satisfies SessionClient;
+    const controller = createReviewController({
+      sessionId: session.id,
+      openClient: async () => client,
+      shareTransport,
+      servedArtifact: {
+        type: "diff",
+        content: SERVED_PATCH,
+        files: [
+          {
+            path: "src/served.ts",
+            oldContents: "const served = 0;\n",
+            newContents: "const served = 1;\n",
+            status: "modified",
+          },
+        ],
+        meta: { workbench: true, snapshot: true },
+      },
+    });
+    controller.connect();
+    await tick();
+
+    // the observer sees the frozen served snapshot, not the thread's stale capture nor the live tree
+    expect(controller.rows().some((row) => row.file === "src/served.ts")).toBe(true);
+    expect(controller.rows().some((row) => row.file === "src/stale.ts")).toBe(false);
+    expect(controller.rows().some((row) => row.file === "src/x.ts")).toBe(false);
+    expect(repoDiff).not.toHaveBeenCalled();
 
     controller.close();
   });

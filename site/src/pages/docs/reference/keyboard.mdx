@@ -2,7 +2,7 @@
 layout: ../../../layouts/DocsLayout.astro
 title: Keyboard & mouse
 eyebrow: Docs · Reference
-lede: The thread view reads a plan or reply as one thread with discussions pinned to its text. Mark text with the mouse or the keyboard, type to comment, and send with cmd+enter. These keys belong to the view and are not rebindable.
+lede: The thread view reads a plan or reply as one thread with discussions pinned to its text. Mark text with the mouse or the keyboard, type to comment, and send with cmd+enter. Structural commands sit behind a command leader you can rebind.
 prev: { title: "Configuration", href: "/docs/reference/configuration/" }
 next: { title: "Sharing over SSH", href: "/docs/sharing/" }
 ---
@@ -58,10 +58,30 @@ carries the text of every block it covers, and the card sits under the last one.
   default. Add <code>keybind = super+enter=unbind</code> to its config, or send with ctrl+enter.
 </div>
 
+## The command leader
+
+Letters type a comment, so the structural commands - the rail, curation, the
+diff, and the tree - sit behind a **command leader**: press the leader, then a
+letter. The default leader is `ctrl+g`, chosen because it is free, delivered
+reliably by every terminal, and never gets in the way of typing. Rebind it in
+the [`[keys]` table](/docs/reference/configuration/#keys) under `leader`.
+
+The Option chords below still work where a terminal delivers them (`option+x`
+is the same as `ctrl+g x`), but the leader is the portable path because Option
+is not reliable across all terminal configurations.
+
+## Panes and focus
+
+The workbench has four panes: Threads, Thread, Changes, and Project. One pane
+owns the keyboard at a time; click a pane to focus it, or press the leader then
+`tab` (`shift+tab` for the previous) to cycle. Only the focused pane responds to
+navigation keys, so moving through the Threads sidebar never moves the caret in
+the editor.
+
 ## The session
 
-Letters type a comment, so everything that acts on the review as a whole
-sits on a ctrl chord.
+Everything that acts on the review as a whole sits on a ctrl chord, which
+terminals deliver reliably.
 
 | Input        | What it does                                     |
 | ------------ | ------------------------------------------------ |
@@ -72,34 +92,34 @@ sits on a ctrl chord.
 
 ## The rail and curation
 
-Option plus a letter drives the review rail and the curation of the plan.
+The leader plus a letter drives the review rail and the curation of the plan.
 
-| Input                   | What it does                    |
-| ----------------------- | ------------------------------- |
-| `option+n` / `option+p` | focus the next or previous card |
-| `option+e`              | edit the focused card in place  |
-| `option+backspace`      | delete the focused card         |
-| `option+r`              | rename a collaborator           |
-| `option+x`              | cut the block under the caret   |
-| `option+u`              | restore the last cut            |
-| `option+w` / `option+s` | widen or narrow the rail        |
+| Input                       | What it does                    |
+| --------------------------- | ------------------------------- |
+| `ctrl+g` `n` / `ctrl+g` `p` | focus the next or previous card |
+| `ctrl+g` `e`                | edit the focused card in place  |
+| `ctrl+g` `backspace`        | delete the focused card         |
+| `ctrl+g` `r`                | rename a collaborator           |
+| `ctrl+g` `x`                | cut the block under the caret   |
+| `ctrl+g` `u`                | restore the last cut            |
+| `option+w` / `option+s`     | widen or narrow the rail        |
 
 ## The tree
 
 The rail's Tree tab shows the session's history: revisions, comments,
 checkpoints, and branches, with the path you are on bright and the current tip
-marked. Option plus a letter walks it; the buttons under the tree reach the
+marked. The leader plus a letter walks it; the buttons under the tree reach the
 same primitives with the mouse, and clicking a selected row goes there.
 
-| Input                   | What it does                                              |
-| ----------------------- | --------------------------------------------------------- |
-| `option+t`              | show or hide the tree                                     |
-| `option+n` / `option+p` | select the next or previous entry (while the tree shows)  |
-| `option+g`              | go to the entry: switch to its branch, or move back to it |
-| `option+b`              | start a branch at the tip                                 |
-| `option+l`              | label the tip as a checkpoint                             |
-| `option+f`              | fork the path into a new session                          |
-| `option+h`              | fork and hand off: share the fork                         |
+| Input                       | What it does                                              |
+| --------------------------- | --------------------------------------------------------- |
+| `ctrl+g` `t`                | show or hide the tree                                     |
+| `ctrl+g` `n` / `ctrl+g` `p` | select the next or previous entry (while the tree shows)  |
+| `ctrl+g` `g`                | go to the entry: switch to its branch, or move back to it |
+| `ctrl+g` `b`                | start a branch at the tip                                 |
+| `ctrl+g` `l`                | label the tip as a checkpoint                             |
+| `ctrl+g` `f`                | fork the path into a new session                          |
+| `ctrl+g` `h`                | fork and hand off: share the fork                         |
 
 Moving the tree is the owner's; a collaborator reads it. A move back asks for
 an optional summary of what you leave behind.

@@ -5,13 +5,21 @@
  * derives from the content rows through Card, so layout and render never drift.
  */
 
-import React from "react";
+import React, { useContext } from "react";
+import { useTerminalDimensions } from "@opentui/react";
 import type { VerdictKind } from "@cueloop/schema";
 import type { Theme } from "../theme";
+import type { QuickAction } from "../config";
+import { SlashSkillsContext } from "../skills";
+import { activeSlashToken, mergeSlashItems, slashFilter, slashItemsFrom } from "../slash-palette";
 import { useComponentTheme } from "./theme-context";
 import { Card } from "./primitives/Card";
-import { Button } from "./primitives/Button";
-import { Toolbar } from "./primitives/Toolbar";
+import { composeRowCount } from "./AnnotationCards";
+import { SlashComposer } from "./SlashComposer";
+import { DialogActions } from "./primitives/DialogActions";
+
+const SUBMIT_CARD_MAX_WIDTH = 48;
+const PALETTE_WINDOW = 5;
 
 export const VERDICTS: VerdictKind[] = ["comment", "approve", "request_changes"];
 
@@ -34,6 +42,7 @@ export interface ConfirmCardProps {
   onSelectVerdict: (verdict: VerdictKind) => void;
   onSubmit: () => void;
   onCancel: () => void;
+  quickActions: QuickAction[];
   theme?: Theme;
 }
 
@@ -66,7 +75,7 @@ function VerdictSelector({
   const tokens = useComponentTheme(theme);
 
   return (
-    <box style={{ flexDirection: "row", height: 1 }}>
+    <box style={{ flexDirection: "row", height: 1, width: "100%", justifyContent: "center" }}>
       {VERDICTS.map((candidate) => (
         <box
           key={candidate}
@@ -92,15 +101,33 @@ export function ConfirmCard({
   onSelectVerdict,
   onSubmit,
   onCancel,
+  quickActions,
   theme,
 }: ConfirmCardProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
+  const skills = useContext(SlashSkillsContext);
+  const { width: terminalWidth } = useTerminalDimensions();
+  const cardWidth = Math.max(24, Math.min(terminalWidth - 6, SUBMIT_CARD_MAX_WIDTH));
+
+  const composerRows = composeRowCount(summary, cardWidth - 4);
+  const token = activeSlashToken(summary, summary.length);
+  const paletteItems =
+    token !== null
+      ? slashFilter(mergeSlashItems(slashItemsFrom(quickActions), skills), token.slice(1))
+      : [];
+  const paletteRows =
+    paletteItems.length > 0
+      ? Math.min(PALETTE_WINDOW, paletteItems.length) +
+        (paletteItems.length > PALETTE_WINDOW ? 1 : 0)
+      : 0;
+  const contentRows =
+    CONFIRM_CONTENT_ROWS - 1 + composerRows + paletteRows + (viewedSummary !== undefined ? 2 : 0);
 
   return (
     <Card
-      title=" send message "
-      contentRows={CONFIRM_CONTENT_ROWS + (viewedSummary !== undefined ? 2 : 0)}
-      borderColor={tokens.text}
+      contentRows={contentRows}
+      width={cardWidth}
+      borderColor={tokens.accent}
       backgroundColor={tokens.elevated}
       theme={theme}
     >
@@ -108,21 +135,20 @@ export function ConfirmCard({
       {viewedSummary !== undefined ? <box style={{ height: 1 }} /> : null}
       <VerdictSelector verdict={verdict} onSelectVerdict={onSelectVerdict} theme={theme} />
       <box style={{ height: 1 }} />
-      <input
-        focused
-        value={summary}
-        onInput={onInput}
+      <SlashComposer
+        seed={summary}
+        glyph=""
+        quickActions={quickActions}
+        tokens={tokens}
         placeholder="summary for the agent (optional)"
+        onSubmit={(text) => {
+          onInput(text);
+          onSubmit();
+        }}
+        onInput={onInput}
       />
       <box style={{ height: 1 }} />
-      <Toolbar>
-        <Button variant="solid" marginRight={2} onPress={onSubmit} theme={theme}>
-          {" send message "}
-        </Button>
-        <Button onPress={onCancel} theme={theme}>
-          {" Cancel "}
-        </Button>
-      </Toolbar>
+      <DialogActions confirmLabel="send" onConfirm={onSubmit} onCancel={onCancel} theme={theme} />
     </Card>
   );
 }
