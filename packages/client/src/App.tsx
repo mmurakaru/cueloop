@@ -6,7 +6,7 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock } from "@opentui/core";
 import { marksByDisplay, type Mark } from "./view-plan";
 import {
@@ -555,6 +555,7 @@ export function App({
 
     return controller.startShareSync();
   }, [isOwner, session?.id, threadShared, controller]);
+  const renderer = useRenderer();
   const { width: terminalWidth } = useTerminalDimensions();
 
   // ── view state ──────────────────────────────
@@ -823,7 +824,20 @@ export function App({
     setMode({ type: "railEdit", id: annotation.id, text: annotation.body });
   };
 
-  const openBodyEditor = bodyEditing.openEditor;
+  // a markdown thread edits inline; a diff is not markdown, so it keeps the external-editor hand-off
+  const openBodyEditor = (): void => {
+    if (canEditBody) {
+      bodyEditing.openEditor();
+
+      return;
+    }
+    renderer?.suspend();
+    try {
+      controller.edit();
+    } finally {
+      renderer?.resume();
+    }
+  };
 
   // ── keyboard grammar: build state, reduce, dispatch ──
   const dispatch = createIntentDispatch({

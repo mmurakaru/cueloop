@@ -374,9 +374,19 @@ describe("thread view chords in a plan review", () => {
     await pressChord(session, "rail", `${LEAD}u`, ROLLOUT_PLAN_LAST_LINE);
   });
 
-  ptyTest("⌃e hands the plan to the editor and resumes with its edit", async () => {
-    // Act + Assert
-    await pressChord(session, "thread", "⌃e", EDIT_MARKER, { timeoutMs: 15_000 });
+  ptyTest("⌃e opens the inline editor; typed text edits the body and ⌃enter saves it", async () => {
+    // Act - open the inline markdown editor, type into the body, and save-close
+    await pressChord(session, "thread", "⌃e", "save & close", { timeoutMs: 15_000 });
+    await session.type("EDITOK ");
+
+    // Assert - ⌃enter closes the editor and the edit shows in the read-only view
+    await pressChord(
+      session,
+      "thread",
+      "⌃enter",
+      (screen) => screen.includes("EDITOK") && !screen.includes("save & close"),
+      { timeoutMs: 15_000 },
+    );
   });
 });
 
