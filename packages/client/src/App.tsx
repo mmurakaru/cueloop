@@ -940,7 +940,7 @@ export function App({
 
   useKeyboard((key) => {
     if (quitKeyHandled(key, onExit)) return;
-    // the inline body editor owns the pane and every key while open (it handles its own escape)
+    // the inline body editor owns the pane and every key while open
     if (bodyEditing.editing) return;
     // the share dialog owns its own keys while open; the shell grammar stands down
     if (shareDialogOpen) return;

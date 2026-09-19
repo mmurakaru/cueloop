@@ -32,8 +32,7 @@ function lineStartOffsets(source: string): number[] {
   return offsets;
 }
 
-// Inline code (a balanced backtick run) grays out; a [text](href) link colors as one run. Nothing else
-// inline is styled - bold and emphasis stay plain source.
+// gray a balanced backtick run and color a [text](href) link; bold and emphasis stay plain source
 const INLINE_TOKEN = /(`+)(?:.+?)\1|\[[^\]]+\]\([^)]+\)/g;
 
 /** Gray inline code and color links found in one text span; other inline markup stays plain. */
