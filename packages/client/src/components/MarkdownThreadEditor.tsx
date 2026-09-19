@@ -4,9 +4,11 @@
  * marker dims and its title bolds, links color, inline and fenced code gray -
  * and reports the caret line and column, replacing the external-editor hand-off so
  * editing needs no per-user editor configuration. cmd, meta, or ctrl + enter
- * and escape both save the working copy and close (leaving is loss-free, like
- * the editor hand-off it replaces); plain enter breaks the line. The raw
- * markdown stays visible - a concealed rendered preview is a later layer.
+ * saves the working copy and closes (loss-free, like the hand-off it replaces),
+ * as does the header edit/normal toggle; plain enter breaks the line. Escape is
+ * a no-op inside the editor, matching a modeless IDE - you leave by an explicit
+ * action, not by escaping the text. The raw markdown stays visible - a concealed
+ * rendered preview is a later layer.
  */
 
 import React, { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
@@ -28,15 +30,15 @@ export interface MarkdownEditorHandle {
   requestExit: () => void;
 }
 
-// cmd, meta, or ctrl + enter and escape all save and close (super under the
-// kitty protocol, meta where cmd arrives ESC-prefixed, ctrl as the terminal
-// fallback); plain enter breaks the line, so the whole body edits like a normal
-// editor. escape binds to submit because the textarea captures it otherwise.
+// cmd, meta, or ctrl + enter saves and closes (super under the kitty protocol,
+// meta where cmd arrives ESC-prefixed, ctrl as the terminal fallback); plain
+// enter breaks the line, so the whole body edits like a normal editor. Escape is
+// left unbound - a modeless editor is not escaped out of; you leave by the
+// header toggle or the save chord.
 const MARKDOWN_EDITOR_KEY_BINDINGS: KeyBinding[] = [
   { name: "return", super: true, action: "submit" },
   { name: "return", meta: true, action: "submit" },
   { name: "return", ctrl: true, action: "submit" },
-  { name: "escape", action: "submit" },
   { name: "return", action: "newline" },
   { name: "return", shift: true, action: "newline" },
 ];
@@ -138,7 +140,7 @@ function MarkdownEditorStatus({
         fg={theme.textMuted}
       >{`Ln ${position.line}/${position.lineCount}  Col ${position.column}`}</text>
       <box style={{ flexGrow: 1 }} />
-      <text fg={theme.textDim}>{"⌘⏎ or esc  save & close"}</text>
+      <text fg={theme.textDim}>{"⌘⏎ save & close"}</text>
     </box>
   );
 }
