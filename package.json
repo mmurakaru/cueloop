@@ -29,8 +29,8 @@
     "sync:dist-tags": "bun run scripts/sync-dist-tags.ts"
   },
   "devDependencies": {
-    "@changesets/changelog-github": "^1.0.0",
-    "@changesets/cli": "^3.0.1",
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.2",
     "@cueloop/client": "workspace:*",
     "@cueloop/daemon": "workspace:*",
     "@cueloop/schema": "workspace:*",
