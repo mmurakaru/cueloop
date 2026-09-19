@@ -48,6 +48,20 @@ interface MarkdownEditorPosition {
   lineCount: number;
 }
 
+/** For each offset 0..length, the count of newlines before it, mapping a source offset to the buffer's newline-excluded offset. */
+function newlinePrefixCounts(text: string): number[] {
+  const counts = Array.from({ length: text.length + 1 }, () => 0);
+  let seen = 0;
+
+  for (let index = 0; index < text.length; index++) {
+    counts[index] = seen;
+    if (text[index] === "\n") seen += 1;
+  }
+  counts[text.length] = seen;
+
+  return counts;
+}
+
 export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThreadEditorProps>(
   function MarkdownThreadEditor({ initialText, theme, onExitEditor }, handleRef): React.ReactNode {
     const editorRef = useRef<TextareaRenderable | null>(null);
@@ -64,12 +78,16 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
 
     const paintMarkdown = (editor: TextareaRenderable): void => {
       const { styleIdFor } = markdownEditorStyle(theme);
+      const text = editor.plainText;
+      // addHighlightByCharRange counts offsets with newlines excluded, so map source offsets down by the
+      // newlines before them - otherwise a highlight drifts one cell per preceding line
+      const newlinesBefore = newlinePrefixCounts(text);
 
       editor.editBuffer.clearAllHighlights();
-      for (const range of markdownHighlightRanges(editor.plainText)) {
+      for (const range of markdownHighlightRanges(text)) {
         editor.editBuffer.addHighlightByCharRange({
-          start: range.start,
-          end: range.end,
+          start: range.start - newlinesBefore[range.start]!,
+          end: range.end - newlinesBefore[range.end]!,
           styleId: styleIdFor(range.group),
         });
       }

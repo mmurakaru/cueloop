@@ -48,6 +48,33 @@ describe("MarkdownThreadEditor", () => {
     setup.renderer.destroy();
   });
 
+  test("highlights align to the exact characters across lines (no newline drift)", async () => {
+    const setup = await testRender(
+      <MarkdownThreadEditor
+        initialText={"# Head\n\nrun `code` now\n"}
+        theme={DARK}
+        onExitEditor={() => {}}
+      />,
+      { width: 40, height: 10 },
+    );
+
+    await settle(setup);
+    const spans = setup.captureSpans().lines.flatMap((line) => line.spans);
+    const hexOf = (color: { toInts: () => number[] }): string =>
+      "#" +
+      color
+        .toInts()
+        .slice(0, 3)
+        .map((part) => part.toString(16).padStart(2, "0"))
+        .join("");
+    // the code highlight must cover exactly `code`, not a drifted slice like "ode` "
+    const codeSpan = spans.find((span) => span.text === "`code`");
+
+    expect(codeSpan).toBeDefined();
+    expect(codeSpan?.fg && hexOf(codeSpan.fg)).toBe(DARK.textDim);
+    setup.renderer.destroy();
+  });
+
   test("escape is a no-op - it never leaves the editor (IDE convention)", async () => {
     let exits = 0;
     const setup = await testRender(

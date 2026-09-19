@@ -1197,21 +1197,23 @@ class Controller implements ReviewController {
     try {
       const result = editInEditor(this.working(), "plan.md", { editor: this.editor });
 
-      if (result.changed) this.saveEditedBody(result.content);
-      else this.setStatus("no changes");
+      if (result.changed) {
+        this.saveEditedBody(result.content);
+        this.setStatus("edits tracked - one diff");
+      } else this.setStatus("no changes");
     } catch (err) {
       this.setStatus(err instanceof Error ? err.message : String(err));
     }
   }
 
+  // no toast: leaving the inline editor is a quiet return to the read-only view
   saveEditedBody(content: string): void {
     const session = this.snapshot.session;
 
     if (!session || session.status === "resolved") return;
-    if (content === this.working()) return void this.setStatus("no changes");
+    if (content === this.working()) return;
     this.setWorkingCopy(content);
     this.reconcileAnnotations(session, content);
-    this.setStatus("edits tracked - one diff");
   }
 
   /**
