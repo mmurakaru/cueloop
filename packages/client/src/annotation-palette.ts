@@ -11,6 +11,7 @@ import type { Theme } from "./theme";
 export const UNDERLINE = createTextAttributes({ underline: true });
 export const CUT = createTextAttributes({ strikethrough: true, dim: true });
 export const BOLD = createTextAttributes({ bold: true });
+export const ITALIC = createTextAttributes({ italic: true });
 
 /** The marked-words treatment: a violet backdrop under an underline. */
 const MARK_BACKDROP_DARK = "#463852";

@@ -9,10 +9,14 @@ import {
   renderedOffsetAtOrAfter,
   renderedOffsetAtOrBefore,
   renderedOffsetFor,
+  renderedSpanToWork,
+  renderedStyleRuns,
+  renderedText,
   safeLinkHref,
   spanFromRange,
   spanKey,
   startSpan,
+  styledRunsFor,
   workRangeForRendered,
 } from "./view-plan";
 import { cutBlock, parseBlocks, restoreBlock, restoreLine, type Annotation } from "@cueloop/schema";
@@ -273,9 +277,9 @@ describe("rendered/work offset mapping", () => {
     const rendered = renderedOffsetFor(runs, wordsAt)!;
 
     // Assert
-    const renderedText = runs.map((run) => run.text).join("");
+    const renderedString = runs.map((run) => run.text).join("");
 
-    expect(renderedText.slice(rendered, rendered + "words".length)).toBe("words");
+    expect(renderedString.slice(rendered, rendered + "words".length)).toBe("words");
     // reading a rendered selection over "words" recovers the work range
     expect(workRangeForRendered(runs, rendered, rendered + "words".length)).toEqual({
       start: wordsAt,
@@ -287,11 +291,11 @@ describe("rendered/work offset mapping", () => {
     // Arrange
     const block = buildDisplay("old words\n", "new words\n")[0]!;
     const runs = blockRuns(block, true);
-    const renderedText = runs.map((run) => run.text).join("");
+    const renderedString = runs.map((run) => run.text).join("");
 
     // Act
     // select everything rendered: the work range is the whole work text
-    const range = workRangeForRendered(runs, 0, renderedText.length)!;
+    const range = workRangeForRendered(runs, 0, renderedString.length)!;
 
     // Assert
     expect(displayText(block).slice(range.start, range.end)).toBe(displayText(block));
@@ -319,9 +323,9 @@ describe("rendered/work offset mapping", () => {
     const renderedEnd = renderedOffsetAtOrBefore(runs, spanEnd - 1)!;
 
     // Assert
-    const renderedText = runs.map((run) => run.text).join("");
+    const renderedString = runs.map((run) => run.text).join("");
 
-    expect(renderedText.slice(renderedStart, renderedEnd + 1)).toBe("very");
+    expect(renderedString.slice(renderedStart, renderedEnd + 1)).toBe("very");
     // exact hits behave like renderedOffsetFor
     expect(renderedOffsetAtOrAfter(runs, 0)).toBe(0);
     expect(renderedOffsetAtOrBefore(runs, 0)).toBe(0);
@@ -402,5 +406,51 @@ describe("cut / restore round-trip", () => {
     // Assert
     expect(restored).toBeUndefined();
     expect(buildDisplay(BASE, restored).every((block) => block.type === "same")).toBe(true);
+  });
+});
+
+describe("rendered-text projection (markers concealed)", () => {
+  const linkedBlock = () => buildDisplay("Use the `flag` and see [docs](https://x.dev).")[0]!;
+
+  test("renderedText drops inline markers, keeping visible characters", () => {
+    expect(renderedText(linkedBlock())).toBe("Use the flag and see docs.");
+  });
+
+  test("renderedText leaves a table block's source verbatim", () => {
+    const table = buildDisplay("| a | b |\n| --- | --- |\n| 1 | 2 |")[0]!;
+
+    expect(table.kind).toBe("table");
+    expect(renderedText(table)).toBe("| a | b |\n| --- | --- |\n| 1 | 2 |");
+  });
+
+  test("renderedSpanToWork maps a rendered link label back to its work offsets", () => {
+    const display = buildDisplay("Use the `flag` and see [docs](https://x.dev).");
+    // "docs" sits at rendered offset 21 ("Use the flag and see ".length)
+    const work = renderedSpanToWork(display, 0, 0, 21, 25);
+    const workText = display[0]!.work!.text;
+
+    expect(workText.slice(work.start, work.end)).toBe("docs");
+  });
+
+  test("renderedSpanToWork maps rendered inline code back to the backtick content", () => {
+    const display = buildDisplay("Use the `flag` and see docs.");
+    // "flag" sits at rendered offset 8 ("Use the ".length)
+    const work = renderedSpanToWork(display, 0, 0, 8, 12);
+
+    expect(display[0]!.work!.text.slice(work.start, work.end)).toBe("flag");
+  });
+
+  test("styledRunsFor colors a link run and marks the covered stretch", () => {
+    const linkRow = buildDisplay("see [docs](https://x.dev) now")[0]!;
+    const roleRuns = renderedStyleRuns(linkRow);
+    // "see docs now"; mark the whole "docs" label (rendered offsets 4..8)
+    const runs = styledRunsFor(roleRuns, { start: 0, end: renderedText(linkRow).length }, [
+      { start: 4, end: 8 },
+    ]);
+    const link = runs.find((run) => run.role === "link")!;
+
+    expect(link.text).toBe("docs");
+    expect(link.marked).toBe(true);
+    expect(runs.find((run) => run.text === "see ")!.marked).toBe(false);
   });
 });

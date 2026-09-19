@@ -134,6 +134,22 @@ exports[`stories catalog Layout/AppShell/FourPane renders, snapshots, and carrie
 "
 `;
 
+exports[`stories catalog Surfaces/BareWorkbenchFileView/Loaded renders, snapshots, and carries its colors: Surfaces/BareWorkbenchFileView/Loaded 1`] = `
+" ▎1 export function add(a: number, b: number): number {     
+  2   return a + b;                                         
+  3 }                                                       
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+                                                            
+"
+`;
+
 exports[`stories catalog Chrome/Breadcrumb/SessionHeader renders, snapshots, and carries its colors: Chrome/Breadcrumb/SessionHeader 1`] = `
 " cueloop · Migration Plan · rev 2 · resolved: approve                           
                                                                                 
@@ -420,6 +436,28 @@ exports[`stories catalog Overlays/ConfirmDialog/DeleteThread renders, snapshots,
 "
 `;
 
+exports[`stories catalog Surfaces/DiffContentView/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffContentView/AnnotatedLine 1`] = `
+" ─────────────────────────────────────────────────────────────────────────────────────    
+ src/store.ts                                                                    +1 -1    
+ ─────────────────────────────────────────────────────────────────────────────────────    
+  @@ -1,4 +1,4 @@                                                                         
+ ▎1 1   export class Store {                                                              
+  2   -   private items = [];                                                             
+    2 +   private items = new Map();                                                      
+   ╷─────────────────────────────────────────────────────────────────────────────────┐    
+   │ ● Map needs an eviction story.                                                  │ ○  
+   ╵─────────────────────────────────────────────────────────────────────────────────┘    
+  3 3   }                                                                                 
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
 exports[`stories catalog Surfaces/DiffContentView/CaretOnFirstLine renders, snapshots, and carries its colors: Surfaces/DiffContentView/CaretOnFirstLine 1`] = `
 " ─────────────────────────────────────────────────────────────────────────────────────    
  src/store.ts                                                                    +1 -1    
@@ -616,6 +654,26 @@ exports[`stories catalog Surfaces/GridTabContent/FileDiffTab renders, snapshots,
 "
 `;
 
+exports[`stories catalog Inputs/HandleChips/Empty renders, snapshots, and carries its colors: Inputs/HandleChips/Empty 1`] = `
+"                                                
+ @handle                                        
+                                                
+                                                
+                                                
+                                                
+"
+`;
+
+exports[`stories catalog Inputs/HandleChips/WithHandles renders, snapshots, and carries its colors: Inputs/HandleChips/WithHandles 1`] = `
+"                                                
+  @octocat      @hubot     @handle              
+                                                
+                                                
+                                                
+                                                
+"
+`;
+
 exports[`stories catalog Overlays/KeybindsDialog/Cheatsheet renders, snapshots, and carries its colors: Overlays/KeybindsDialog/Cheatsheet 1`] = `
 "                                                                      
                                                                       
@@ -641,6 +699,47 @@ exports[`stories catalog Overlays/KeybindsDialog/Cheatsheet renders, snapshots, 
                                                                       
                                                                       
                                                                       
+"
+`;
+
+exports[`stories catalog Surfaces/MarkdownGridBlock/Frontmatter renders, snapshots, and carries its colors: Surfaces/MarkdownGridBlock/Frontmatter 1`] = `
+"  ┌────────┬────────────────┐                                 
+  │ title  │ Migration Plan │                                 
+  ├────────┼────────────────┤                                 
+  │ owner  │ platform team  │                                 
+  ├────────┼────────────────┤                                 
+  │ status │ in review      │                                 
+  └────────┴────────────────┘                                 
+                                                              
+                                                              
+"
+`;
+
+exports[`stories catalog Surfaces/MarkdownGridBlock/Table renders, snapshots, and carries its colors: Surfaces/MarkdownGridBlock/Table 1`] = `
+"  Name    Size                                                
+  ────────────                                                
+  daemon    12                                                
+  client     7                                                
+                                                              
+                                                              
+"
+`;
+
+exports[`stories catalog Surfaces/MarkdownThreadEditor/Editing renders, snapshots, and carries its colors: Surfaces/MarkdownThreadEditor/Editing 1`] = `
+"# Rollout Plan                                                
+                                                              
+Ship the store move behind a \`flag\`. See [docs](https://x.dev)
+.                                                             
+                                                              
+- first step                                                  
+- second step                                                 
+                                                              
+                                                              
+                                                              
+                                                              
+                                                              
+                                                              
+Ln 1/7  Col 1                                  ⌘⏎ save & close
 "
 `;
 
@@ -756,6 +855,26 @@ exports[`stories catalog Surfaces/ProjectTreeView/Loaded renders, snapshots, and
 "
 `;
 
+exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, and carries its colors: Overlays/PromptDialog/NameYourself 1`] = `
+"                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+     ┌─ welcome ──────────────────────────────────────────┐     
+     │                                                    │     
+     │ Your name (optional) - it attributes the notes you │     
+     │ leave:                                             │     
+     │ your name                                          │     
+     │  save    cancel                                    │     
+     └────────────────────────────────────────────────────┘     
+                                                                
+                                                                
+                                                                
+                                                                
+"
+`;
+
 exports[`stories catalog Overlays/PromptDialog/RenameAuthor renders, snapshots, and carries its colors: Overlays/PromptDialog/RenameAuthor 1`] = `
 "                                                                
                                                                 
@@ -826,6 +945,108 @@ row 8
 "
 `;
 
+exports[`stories catalog Overlays/SettingsDialog/AppearanceThemed renders, snapshots, and carries its colors: Overlays/SettingsDialog/AppearanceThemed 1`] = `
+"                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+            ┌─ settings ───────────────────────────────────────────────────────────────┐            
+            │  General           │   Theme                    Rosé Pine Moon           │            
+            │  Display           │                                                     │            
+            │  Appearance        │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │ j/k row · l/space change · h back · esc close    cueloop v0.1.0-alpha.32 │            
+            └──────────────────────────────────────────────────────────────────────────┘            
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+"
+`;
+
+exports[`stories catalog Overlays/SettingsDialog/BodyZone renders, snapshots, and carries its colors: Overlays/SettingsDialog/BodyZone 1`] = `
+"                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+            ┌─ settings ───────────────────────────────────────────────────────────────┐            
+            │  General           │   Plan width               default                  │            
+            │  Display           │   Line numbers             on                       │            
+            │  Appearance        │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │ j/k row · l/space change · h back · esc close    cueloop v0.1.0-alpha.32 │            
+            └──────────────────────────────────────────────────────────────────────────┘            
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+"
+`;
+
+exports[`stories catalog Overlays/SettingsDialog/NavZone renders, snapshots, and carries its colors: Overlays/SettingsDialog/NavZone 1`] = `
+"                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+            ┌─ settings ───────────────────────────────────────────────────────────────┐            
+            │  General           │   Display name             amber-heron              │            
+            │  Display           │   Auto-close on submit     3s                       │            
+            │  Appearance        │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │                    │                                                     │            
+            │ j/k nav · l/tab open · esc close                 cueloop v0.1.0-alpha.32 │            
+            └──────────────────────────────────────────────────────────────────────────┘            
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+"
+`;
+
 exports[`stories catalog Chrome/SettingsRows/AllKinds renders, snapshots, and carries its colors: Chrome/SettingsRows/AllKinds 1`] = `
 " Line numbers             on                                                    
  Hide whitespace          off                                                   
@@ -849,6 +1070,146 @@ exports[`stories catalog Chrome/SettingsRows/AllKinds renders, snapshots, and ca
                                                                                 
                                                                                 
                                                                                 
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Dialogs/Share/AuthWizard renders, snapshots, and carries its colors: Dialogs/Share/AuthWizard 1`] = `
+"                                                                                
+                                                                                
+   ┌─ share ────────────────────────────────────────────────────────────────┐   
+   │  link name                                                             │   
+   │  reviewers                                                             │   
+   │                                                                        │   
+   │  require auth                                                    (  ●) │   
+   │                                                                        │   
+   │   @octocat      @hubot     @handle                                     │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │   create    cancel                                                     │   
+   │ ↑/↓ move · space toggle · enter save · esc back                        │   
+   └────────────────────────────────────────────────────────────────────────┘   
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Dialogs/Share/EmptyList renders, snapshots, and carries its colors: Dialogs/Share/EmptyList 1`] = `
+"                                                                                
+                                                                                
+   ┌─ share ────────────────────────────────────────────────────────────────┐   
+   │  share externally    │                                                 │   
+   │  export              │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                    + new link                   │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │ j/k nav · l/enter open · esc close                                     │   
+   └────────────────────────────────────────────────────────────────────────┘   
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Dialogs/Share/ExportComingSoon renders, snapshots, and carries its colors: Dialogs/Share/ExportComingSoon 1`] = `
+"                                                                                
+                                                                                
+   ┌─ share ────────────────────────────────────────────────────────────────┐   
+   │  share externally    │                                                 │   
+   │  export              │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                   coming soon                   │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │ j/k nav · l/enter open · esc close                                     │   
+   └────────────────────────────────────────────────────────────────────────┘   
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Dialogs/Share/NewLinkWizard renders, snapshots, and carries its colors: Dialogs/Share/NewLinkWizard 1`] = `
+"                                                                                
+                                                                                
+   ┌─ share ────────────────────────────────────────────────────────────────┐   
+   │  link name                                                             │   
+   │  Improve retry logic                                                   │   
+   │                                                                        │   
+   │  require auth                                                    (●  ) │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │                                                                        │   
+   │   create    cancel                                                     │   
+   │ ↑/↓ move · space toggle · enter save · esc back                        │   
+   └────────────────────────────────────────────────────────────────────────┘   
+                                                                                
+                                                                                
+"
+`;
+
+exports[`stories catalog Dialogs/Share/WithLinks renders, snapshots, and carries its colors: Dialogs/Share/WithLinks 1`] = `
+"                                                                                
+                                                                                
+   ┌─ share ────────────────────────────────────────────────────────────────┐   
+   │  share externally    │  links created for Improve retry logic          │   
+   │  export              │                                                 │   
+   │                      │   reviewers                        copy link  ⋮ │   
+   │                      │   p_ef34gh@cueloop.dev             copy link  ⋮ │   
+   │                      │                                                 │   
+   │                      │   + new link                                    │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │                      │                                                 │   
+   │ j/k nav · l/enter open · esc close                                     │   
+   └────────────────────────────────────────────────────────────────────────┘   
                                                                                 
                                                                                 
 "
@@ -935,8 +1296,10 @@ exports[`stories catalog Surfaces/ThreadTree/TwoPending renders, snapshots, and 
 exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, and carries its colors: Surfaces/ThreadView/InlineThreads 1`] = `
 "                                                                                                    
   Migration Plan                                                                                    
+  ──────────────────────────────────────────────────────────────────────────────────────────        
                                                                                                     
   Context                                                                                           
+  ──────────────────────────────────────────────────────────────────────────────────────────        
                                                                                                     
   The daemon persists sessions to disk atomically.                                                  
   ╷────────────────────────────────────────────────────────────────────────────────────────────┐    
@@ -944,21 +1307,19 @@ exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, a
   ╵────────────────────────────────────────────────────────────────────────────────────────────┘    
                                                                                                     
   Steps                                                                                             
+  ──────────────────────────────────────────────────────────────────────────────────────────        
                                                                                                     
   · move the store                                                                                  
-  ╷────────────────────────────────────────────────────────────────────────────────────────────┐    
-  │ ● move the store behind one interface                                                      │    
+  ╷────────────────────────────────────────────────────────────────────────────────────────────┐ ○  
+  │ ● move the store behind one interface                                                      │ ○  
   ╵────────────────────────────────────────────────────────────────────────────────────────────┘    
-  · add recovery                                                                                 ○  
-                                                                                                 ○  
+  · add recovery                                                                                    
+                                                                                                    
   ts                                                                                                
   export function persist(session: Session): void {                                                 
     // one JSON document per session                                                                
     writeAtomically(pathFor(session.id), serialize(session));                                       
   }                                                                                                 
-                                                                                                    
-                                                                                                    
-                                                                                                    
                                                                                                     
                                                                                                     
                                                                                                     
@@ -1902,346 +2263,5 @@ exports[`stories catalog Collaborator Join/JoinSplash renders, snapshots, and ca
         privacy https://cueloop.dev/privacy   support hello@cueloop.dev         
                                                                                 
                                                                                 
-"
-`;
-
-exports[`stories catalog Overlays/SettingsDialog/AppearanceThemed renders, snapshots, and carries its colors: Overlays/SettingsDialog/AppearanceThemed 1`] = `
-"                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-            ┌─ settings ───────────────────────────────────────────────────────────────┐            
-            │  General           │   Theme                    Rosé Pine Moon           │            
-            │  Display           │                                                     │            
-            │  Appearance        │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │ j/k row · l/space change · h back · esc close    cueloop v0.1.0-alpha.32 │            
-            └──────────────────────────────────────────────────────────────────────────┘            
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-"
-`;
-
-exports[`stories catalog Overlays/SettingsDialog/BodyZone renders, snapshots, and carries its colors: Overlays/SettingsDialog/BodyZone 1`] = `
-"                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-            ┌─ settings ───────────────────────────────────────────────────────────────┐            
-            │  General           │   Plan width               default                  │            
-            │  Display           │   Line numbers             on                       │            
-            │  Appearance        │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │ j/k row · l/space change · h back · esc close    cueloop v0.1.0-alpha.32 │            
-            └──────────────────────────────────────────────────────────────────────────┘            
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-"
-`;
-
-exports[`stories catalog Overlays/SettingsDialog/NavZone renders, snapshots, and carries its colors: Overlays/SettingsDialog/NavZone 1`] = `
-"                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-            ┌─ settings ───────────────────────────────────────────────────────────────┐            
-            │  General           │   Display name             amber-heron              │            
-            │  Display           │   Auto-close on submit     3s                       │            
-            │  Appearance        │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │                    │                                                     │            
-            │ j/k nav · l/tab open · esc close                 cueloop v0.1.0-alpha.32 │            
-            └──────────────────────────────────────────────────────────────────────────┘            
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-"
-`;
-
-exports[`stories catalog Inputs/HandleChips/Empty renders, snapshots, and carries its colors: Inputs/HandleChips/Empty 1`] = `
-"                                                
- @handle                                        
-                                                
-                                                
-                                                
-                                                
-"
-`;
-
-exports[`stories catalog Inputs/HandleChips/WithHandles renders, snapshots, and carries its colors: Inputs/HandleChips/WithHandles 1`] = `
-"                                                
-  @octocat      @hubot     @handle              
-                                                
-                                                
-                                                
-                                                
-"
-`;
-
-exports[`stories catalog Dialogs/Share/AuthWizard renders, snapshots, and carries its colors: Dialogs/Share/AuthWizard 1`] = `
-"                                                                                
-                                                                                
-   ┌─ share ────────────────────────────────────────────────────────────────┐   
-   │  link name                                                             │   
-   │  reviewers                                                             │   
-   │                                                                        │   
-   │  require auth                                                    (  ●) │   
-   │                                                                        │   
-   │   @octocat      @hubot     @handle                                     │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │   create    cancel                                                     │   
-   │ ↑/↓ move · space toggle · enter save · esc back                        │   
-   └────────────────────────────────────────────────────────────────────────┘   
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Dialogs/Share/EmptyList renders, snapshots, and carries its colors: Dialogs/Share/EmptyList 1`] = `
-"                                                                                
-                                                                                
-   ┌─ share ────────────────────────────────────────────────────────────────┐   
-   │  share externally    │                                                 │   
-   │  export              │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                    + new link                   │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │ j/k nav · l/enter open · esc close                                     │   
-   └────────────────────────────────────────────────────────────────────────┘   
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Dialogs/Share/ExportComingSoon renders, snapshots, and carries its colors: Dialogs/Share/ExportComingSoon 1`] = `
-"                                                                                
-                                                                                
-   ┌─ share ────────────────────────────────────────────────────────────────┐   
-   │  share externally    │                                                 │   
-   │  export              │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                   coming soon                   │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │ j/k nav · l/enter open · esc close                                     │   
-   └────────────────────────────────────────────────────────────────────────┘   
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Dialogs/Share/NewLinkWizard renders, snapshots, and carries its colors: Dialogs/Share/NewLinkWizard 1`] = `
-"                                                                                
-                                                                                
-   ┌─ share ────────────────────────────────────────────────────────────────┐   
-   │  link name                                                             │   
-   │  Improve retry logic                                                   │   
-   │                                                                        │   
-   │  require auth                                                    (●  ) │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │                                                                        │   
-   │   create    cancel                                                     │   
-   │ ↑/↓ move · space toggle · enter save · esc back                        │   
-   └────────────────────────────────────────────────────────────────────────┘   
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Dialogs/Share/WithLinks renders, snapshots, and carries its colors: Dialogs/Share/WithLinks 1`] = `
-"                                                                                
-                                                                                
-   ┌─ share ────────────────────────────────────────────────────────────────┐   
-   │  share externally    │  links created for Improve retry logic          │   
-   │  export              │                                                 │   
-   │                      │   reviewers                        copy link  ⋮ │   
-   │                      │   p_ef34gh@cueloop.dev             copy link  ⋮ │   
-   │                      │                                                 │   
-   │                      │   + new link                                    │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │                      │                                                 │   
-   │ j/k nav · l/enter open · esc close                                     │   
-   └────────────────────────────────────────────────────────────────────────┘   
-                                                                                
-                                                                                
-"
-`;
-
-exports[`stories catalog Surfaces/BareWorkbenchFileView/Loaded renders, snapshots, and carries its colors: Surfaces/BareWorkbenchFileView/Loaded 1`] = `
-" ▎1 export function add(a: number, b: number): number {     
-  2   return a + b;                                         
-  3 }                                                       
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-"
-`;
-
-exports[`stories catalog Surfaces/DiffContentView/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffContentView/AnnotatedLine 1`] = `
-" ─────────────────────────────────────────────────────────────────────────────────────    
- src/store.ts                                                                    +1 -1    
- ─────────────────────────────────────────────────────────────────────────────────────    
-  @@ -1,4 +1,4 @@                                                                         
- ▎1 1   export class Store {                                                              
-  2   -   private items = [];                                                             
-    2 +   private items = new Map();                                                      
-   ╷─────────────────────────────────────────────────────────────────────────────────┐    
-   │ ● Map needs an eviction story.                                                  │ ○  
-   ╵─────────────────────────────────────────────────────────────────────────────────┘    
-  3 3   }                                                                                 
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-"
-`;
-
-exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, and carries its colors: Overlays/PromptDialog/NameYourself 1`] = `
-"                                                                
-                                                                
-                                                                
-                                                                
-                                                                
-     ┌─ welcome ──────────────────────────────────────────┐     
-     │                                                    │     
-     │ Your name (optional) - it attributes the notes you │     
-     │ leave:                                             │     
-     │ your name                                          │     
-     │  save    cancel                                    │     
-     └────────────────────────────────────────────────────┘     
-                                                                
-                                                                
-                                                                
-                                                                
-"
-`;
-
-
-
-
-exports[`stories catalog Surfaces/MarkdownThreadEditor/Editing renders, snapshots, and carries its colors: Surfaces/MarkdownThreadEditor/Editing 1`] = `
-"# Rollout Plan                                                
-                                                              
-Ship the store move behind a \`flag\`. See [docs](https://x.dev)
-.                                                             
-                                                              
-- first step                                                  
-- second step                                                 
-                                                              
-                                                              
-                                                              
-                                                              
-                                                              
-                                                              
-Ln 1/7  Col 1                                  ⌘⏎ save & close
 "
 `;

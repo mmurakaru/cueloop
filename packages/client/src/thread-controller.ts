@@ -50,7 +50,7 @@ import {
   shareIdFromLine,
   formatShareLine,
 } from "./share";
-import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
+import { buildDisplay, nextWorkBlock, renderedSpanToWork, type DisplayBlock } from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
 import {
   diffRowBlocks,
@@ -1277,12 +1277,15 @@ class Controller implements ReviewController {
       const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);
       const workIndexOf = (index: number): number =>
         display.slice(0, index + 1).filter((entry) => entry.work).length - 1;
+      // the plan surface hands back rendered offsets (inline markers concealed); the quote is cut
+      // from work text, so map the selection onto the work characters it covers first
+      const work = renderedSpanToWork(display, displayIndex, endDisplayIndex, start, end);
 
       anchor = makeAnchor(
         workBlocks,
         workIndexOf(displayIndex),
-        start,
-        end,
+        work.start,
+        work.end,
         workIndexOf(endDisplayIndex),
       );
     }
