@@ -13,9 +13,10 @@ import { ThemeProvider } from "./theme-context";
 import { buildStoryTree, loadStories, type LoadedStory } from "./story";
 import { PaneGrid } from "./PaneGrid";
 import { ShellHeader } from "./ShellHeader";
+import { AnsiScreen } from "./AnsiScreen";
 import { Tree } from "./primitives/Tree";
 import { NERD } from "./primitives/icons";
-import { allFolderIds, flattenTree } from "./primitives/tree-model";
+import { flattenTree } from "./primitives/tree-model";
 
 interface StoriesAppProps {
   stories: LoadedStory[];
@@ -30,8 +31,8 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
   );
   const firstStoryId = `${stories[0]!.moduleTitle}/${stories[0]!.storyName}`;
 
-  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() =>
-    allFolderIds(treeNodes),
+  const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(
+    () => new Set(treeNodes.filter((node) => node.children !== undefined).map((node) => node.id)),
   );
   const [selectedId, setSelectedId] = useState(firstStoryId);
   const [openedId, setOpenedId] = useState(firstStoryId);
@@ -126,7 +127,15 @@ function StoriesApp({ stories, onExit }: StoriesAppProps): React.ReactNode {
             <scrollbox style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }} focused={false}>
               {/* remount per story so component-local state never leaks across */}
               <box key={openedId} style={{ flexDirection: "column" }}>
-                {opened.story.render()}
+                {opened.story.ansi ? (
+                  <AnsiScreen
+                    ansi={opened.story.ansi()}
+                    cols={opened.story.size?.width ?? 80}
+                    rows={opened.story.size?.height ?? 24}
+                  />
+                ) : (
+                  opened.story.render?.()
+                )}
               </box>
             </scrollbox>
           ) : (

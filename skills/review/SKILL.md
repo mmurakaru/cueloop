@@ -1,6 +1,6 @@
 ---
 name: review
-description: Pull a GitHub PR into a cueloop review session. Use when the user asks to review a pull request in cueloop; the verdict posts back to the PR as a real review.
+description: Pull a GitHub PR into a cueloop thread. Use when the user asks to review a pull request in cueloop; the verdict posts back to the PR as a real review.
 ---
 
 # cueloop PR review

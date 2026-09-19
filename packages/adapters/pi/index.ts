@@ -211,7 +211,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
     });
 
     pi.registerCommand("review", {
-      description: "Show the status of the current cueloop review session",
+      description: "Show the status of the current cueloop thread",
       handler: async (_args, context) => {
         const notify = (message: string) => context.ui?.notify?.(message, "info");
         let client: DaemonClient;
@@ -230,7 +230,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
             notify(
               pending.length > 0
                 ? `no review opened from this session; ${pending.length} cueloop session(s) pending overall`
-                : "no cueloop review sessions",
+                : "no cueloop threads",
             );
 
             return;

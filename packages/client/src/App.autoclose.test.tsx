@@ -57,7 +57,7 @@ type Setup = Awaited<ReturnType<typeof renderApp>>;
 
 async function submitApprove(setup: Setup): Promise<void> {
   await pressKey(setup, "RETURN", { meta: true }); // open submit (approve default: no pending items)
-  await press(setup, "enter"); // confirm
+  await pressKey(setup, "RETURN", { meta: true }); // confirm
   await waitForText(setup, "review approved");
 }
 
@@ -74,8 +74,8 @@ describe("completion overlay", () => {
     const frame = await waitForText(setup, "closing in 5s");
 
     expect(frame).toContain("review approved");
-    expect(frame).toContain("close [return]");
-    expect(frame).toContain("return to plan [esc]");
+    expect(frame).toContain("close");
+    expect(frame).toContain("back to plan");
 
     // Act
     await press(setup, "enter");

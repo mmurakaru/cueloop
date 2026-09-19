@@ -35,11 +35,14 @@ export interface SettingsDialogModel {
   cycleSetting: (rowKey: string) => void;
   handleSettingsKey: (name: string) => void;
   onCategorySelect: (categoryId: string) => void;
+  /** Open the settings dialog focused on the left nav, from a fresh state. */
+  openSettings: () => void;
 }
 
 const DOWN_KEYS = new Set(["j", "down"]);
 const UP_KEYS = new Set(["k", "up"]);
-const ENTER_BODY_KEYS = new Set(["l", "tab", "return"]);
+const ENTER_BODY_KEYS = new Set(["l", "right", "tab", "return"]);
+const BACK_TO_NAV_KEYS = new Set(["h", "left", "tab"]);
 const ACTIVATE_KEYS = new Set(["return", "space", "l"]);
 
 function moveNavZone(
@@ -64,7 +67,7 @@ function moveNavZone(
 function moveBodyRow(name: string, nav: SettingsNav, rowCount: number): SettingsNav | null {
   if (DOWN_KEYS.has(name)) return { ...nav, rowIndex: Math.min(rowCount - 1, nav.rowIndex + 1) };
   if (UP_KEYS.has(name)) return { ...nav, rowIndex: Math.max(0, nav.rowIndex - 1) };
-  if (name === "h" || name === "tab") return { ...nav, zone: "nav" };
+  if (BACK_TO_NAV_KEYS.has(name)) return { ...nav, zone: "nav" };
 
   return null;
 }
@@ -83,6 +86,10 @@ export function useSettingsDialog(params: {
   quickActions: QuickAction[];
   setQuickActions: Dispatch<SetStateAction<QuickAction[]>>;
   setMenuDialog: Dispatch<SetStateAction<"keybinds" | "settings" | null>>;
+  identityName?: string;
+  identityProvider: "typed" | "github";
+  onSyncGithubIdentity: () => void;
+  onRenameDisplayName: () => void;
 }): SettingsDialogModel {
   const {
     theme,
@@ -98,18 +105,33 @@ export function useSettingsDialog(params: {
     quickActions,
     setQuickActions,
     setMenuDialog,
+    identityName,
+    identityProvider,
+    onSyncGithubIdentity,
+    onRenameDisplayName,
   } = params;
 
+  // open focused on the left nav, so up/down browses categories until l/tab/enter enters the body
   const [settingsNav, setSettingsNav] = useState<SettingsNav>({
     categoryId: "general",
     rowIndex: 0,
-    zone: "body",
+    zone: "nav",
   });
   const [actionsExpandedIndex, setActionsExpandedIndex] = useState<number | null>(null);
+  const [actionsExpandedField, setActionsExpandedField] = useState<"prompt" | "metadata">("prompt");
 
   const commitActions = (next: QuickAction[]): void => {
     setQuickActions(next);
     persistActions(next);
+  };
+  const editActionPrompt = (index: number, prompt: string): void => {
+    // a blank title fails the config schema and would vanish on reload, so never persist one
+    if (prompt.trim().length === 0) return;
+    commitActions(
+      quickActions.map((action, actionIndex) =>
+        actionIndex === index ? { ...action, prompt } : action,
+      ),
+    );
   };
   const editActionMetadata = (index: number, metadata: string): void =>
     commitActions(
@@ -132,7 +154,6 @@ export function useSettingsDialog(params: {
     {
       id: "general",
       name: "General",
-      description: "submission behaviour",
       rows: [
         {
           key: "autoClose",
@@ -142,16 +163,24 @@ export function useSettingsDialog(params: {
         },
         {
           key: "diffView",
-          label: "Diff view (when wide)",
+          label: "Diff view",
           kind: "cycle",
           options: ["Split", "Stacked"],
         },
       ],
     },
     {
+      id: "account",
+      name: "Account",
+      rows: [
+        { key: "displayName", label: "Display name", kind: "text" },
+        { key: "identitySource", label: "Source", kind: "text" },
+        { key: "syncGithub", label: "Sync from GitHub", kind: "text" },
+      ],
+    },
+    {
       id: "appearance",
       name: "Appearance",
-      description: "the color theme",
       rows: [
         {
           key: "theme",
@@ -164,17 +193,19 @@ export function useSettingsDialog(params: {
     {
       id: "actions",
       name: "Actions",
-      description: "quick-action comments",
       rows: [],
       customBody: (
         <QuickActionsEditor
           actions={quickActions}
           selectedIndex={settingsNav.categoryId === "actions" ? settingsNav.rowIndex : -1}
           expandedIndex={actionsExpandedIndex}
-          onToggleExpand={(index) => {
+          expandedField={actionsExpandedField}
+          onToggleExpand={(index, field) => {
             setSettingsNav((state) => ({ ...state, zone: "body", rowIndex: index }));
+            setActionsExpandedField(field);
             setActionsExpandedIndex((current) => (current === index ? null : index));
           }}
+          onEditPrompt={editActionPrompt}
           onEditMetadata={editActionMetadata}
           onReset={resetActions}
           onAdd={addAction}
@@ -185,7 +216,6 @@ export function useSettingsDialog(params: {
     {
       id: "keybinds",
       name: "Keybinds",
-      description: "keyboard reference",
       rows: [],
     },
   ];
@@ -193,6 +223,9 @@ export function useSettingsDialog(params: {
     autoClose: autoClose === "off" ? "off" : `${autoClose}s`,
     diffView: diffView === "split" ? "Split" : "Stacked",
     theme: THEME_LABELS[themeName],
+    displayName: identityName ?? "-- not set --",
+    identitySource: identityProvider === "github" ? "GitHub" : "typed",
+    syncGithub: "enter to sync",
   };
   const cycleSetting = (rowKey: string): void => {
     if (rowKey === "autoClose") {
@@ -211,12 +244,21 @@ export function useSettingsDialog(params: {
       setThemeName(next);
       setTheme(composeTheme(next, themeOverrides, appearance));
       persistTheme(next);
+    } else if (rowKey === "syncGithub") {
+      onSyncGithubIdentity();
+    } else if (rowKey === "displayName") {
+      onRenameDisplayName();
     }
   };
 
+  const openSettings = (): void => {
+    setSettingsNav({ categoryId: "general", rowIndex: 0, zone: "nav" });
+    setActionsExpandedIndex(null);
+    setMenuDialog("settings");
+  };
+
   const onCategorySelect = (categoryId: string): void => {
-    // the nav tree carries a synthetic Settings group folder; clicking it must
-    // not become the active category, or the key handler dereferences nothing
+    // ignore a select that names no real category, so the key handler never dereferences nothing
     if (!settingsCategories.some((category) => category.id === categoryId)) return;
     setActionsExpandedIndex(null);
     setSettingsNav({ categoryId, rowIndex: 0, zone: "body" });
@@ -249,7 +291,10 @@ export function useSettingsDialog(params: {
       if (moved) return void setSettingsNav(moved);
       if (ACTIVATE_KEYS.has(name)) {
         if (settingsNav.rowIndex === quickActions.length) addAction();
-        else setActionsExpandedIndex(settingsNav.rowIndex);
+        else {
+          setActionsExpandedField("prompt");
+          setActionsExpandedIndex(settingsNav.rowIndex);
+        }
       }
 
       return;
@@ -270,5 +315,6 @@ export function useSettingsDialog(params: {
     cycleSetting,
     handleSettingsKey,
     onCategorySelect,
+    openSettings,
   };
 }

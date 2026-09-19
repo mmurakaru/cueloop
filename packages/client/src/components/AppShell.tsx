@@ -5,9 +5,12 @@
 // always present when the region is on, Changes rides on top of it, and a thin rail holds the sidebar
 // toggle when the region is closed. Each pane owns its own header controls; the thread header never does.
 
-import React from "react";
+import React, { useRef } from "react";
 import { useTerminalDimensions } from "@opentui/react";
+import type { BoxRenderable } from "@opentui/core";
 import { DARK, type Theme } from "../theme";
+import { useFrameMeasure } from "../use-frame-measure";
+import { truncateTitle } from "./truncate-title";
 import { PanelColumn } from "./PanelColumn";
 import { IconButton } from "./primitives/IconButton";
 import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
@@ -15,6 +18,25 @@ import { TooltipProvider } from "./Tooltip";
 import { RootOverlayProvider } from "./RootOverlay";
 
 export type ProjectPanelMode = "changes" | "tree";
+
+/** The thread title on one line: it shrinks with the header and tails off in an ellipsis rather than wrapping. */
+function HeaderTitle({ title, color }: { title: string; color: string }): React.ReactNode {
+  const boxRef = useRef<BoxRenderable | null>(null);
+  const width = useFrameMeasure(
+    () => boxRef.current?.width ?? 0,
+    (left, right) => left === right,
+    0,
+  );
+  const clipped = width > 0 ? truncateTitle(title, width) : title;
+
+  return (
+    <box ref={boxRef} style={{ flexShrink: 1, minWidth: 0 }}>
+      <text fg={color} wrapMode="none">
+        {clipped}
+      </text>
+    </box>
+  );
+}
 
 export interface AppShellProps {
   sidebarOpen: boolean;
@@ -47,7 +69,10 @@ export interface AppShellProps {
   theme?: Theme;
   threadsWidth?: number;
   projectWidth?: number;
+  onFocusPane?: (pane: FocusPane) => void;
 }
+
+export type FocusPane = "threads" | "thread" | "changes" | "project";
 
 /** The right region's reserved width: the open project pane, nothing when the region is closed, else the collapsed rail. */
 function rightRegionColumns(
@@ -100,6 +125,7 @@ export function AppShell({
   theme,
   threadsWidth = 30,
   projectWidth = 32,
+  onFocusPane,
 }: AppShellProps): React.ReactNode {
   const tokens = theme ?? DARK;
   const { width: terminalWidth } = useTerminalDimensions();
@@ -158,7 +184,7 @@ export function AppShell({
       <IconButton
         glyph={NERD.sidebarRight}
         onPress={onToggleRight}
-        tip="Toggle Right Sidebar"
+        tip="Toggle Sidebar"
         theme={tokens}
       />
     </box>
@@ -172,7 +198,7 @@ export function AppShell({
       <IconButton
         glyph={NERD.sidebarRightOff}
         onPress={onToggleRight}
-        tip="Toggle Right Sidebar"
+        tip="Toggle Sidebar"
         marginLeft={1}
         theme={tokens}
       />
@@ -192,7 +218,13 @@ export function AppShell({
         <TooltipProvider theme={tokens}>
           <box style={{ flexGrow: 1, flexDirection: "row" }}>
             {sidebarOpen ? (
-              <PanelColumn width={threadsWidth} border="right" header={brandChrome} theme={tokens}>
+              <PanelColumn
+                width={threadsWidth}
+                border="right"
+                header={brandChrome}
+                onFocus={() => onFocusPane?.("threads")}
+                theme={tokens}
+              >
                 {threadsPanel}
               </PanelColumn>
             ) : null}
@@ -200,9 +232,13 @@ export function AppShell({
               <PanelColumn
                 width={threadPaneWidth}
                 header={
-                  <box style={{ flexDirection: "row" }}>
-                    {!sidebarOpen ? <box style={{ paddingRight: 2 }}>{brandChrome}</box> : null}
-                    {threadTitle ? <text fg={tokens.textDim}>{threadTitle}</text> : null}
+                  <box style={{ flexDirection: "row", minWidth: 0 }}>
+                    {!sidebarOpen ? (
+                      <box style={{ paddingRight: 2, flexShrink: 0 }}>{brandChrome}</box>
+                    ) : null}
+                    {threadTitle ? (
+                      <HeaderTitle title={threadTitle} color={tokens.textDim} />
+                    ) : null}
                   </box>
                 }
                 // with the region closed, the reopen toggle rides the thread header instead of an empty column
@@ -211,6 +247,7 @@ export function AppShell({
                   reopenRightControl,
                   rightRegionClosed,
                 )}
+                onFocus={() => onFocusPane?.("thread")}
                 theme={tokens}
               >
                 {threadPanel}
@@ -218,6 +255,7 @@ export function AppShell({
             ) : null}
             {changesOpen ? (
               <box
+                onMouseDown={() => onFocusPane?.("changes")}
                 style={{
                   flexDirection: "column",
                   flexGrow: 1,
@@ -240,6 +278,7 @@ export function AppShell({
                 border="left"
                 header={null}
                 headerRight={projectToggles}
+                onFocus={() => onFocusPane?.("project")}
                 theme={tokens}
               >
                 {projectPanel}

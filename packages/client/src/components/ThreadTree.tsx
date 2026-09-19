@@ -1,17 +1,22 @@
 /**
- * The sidebar thread tree: a Pinned / Projects / Threads listing. Selection stays
+ * The sidebar thread tree: a Starred / Projects / Threads listing. Selection stays
  * with the keyboard grammar - the cursor indexes the flat thread order and this
  * component renders the snapshot. A hovered or selected thread reveals a kebab
- * that opens an inline pin / rename / delete menu; long titles fade on the right
- * instead of wrapping. App supplies the surrounding chrome.
+ * that opens a floating pin / rename / delete menu below the row (so the list
+ * never shifts); a long title clips to an ellipsis rather than wrapping. App
+ * supplies the surrounding chrome.
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import type { BoxRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
+import { useFrameMeasure } from "../use-frame-measure";
+import { useRootOverlay } from "./RootOverlay";
+import { useMenuControl } from "./menu-control";
 import { IconButton } from "./primitives/IconButton";
 import { NERD } from "./primitives/icons";
-import { fadeTitle } from "./fade-title";
+import { truncateTitle } from "./truncate-title";
 import { threadTitle, type InboxRow } from "./session-tree";
 
 export interface ThreadTreeProps {
@@ -19,7 +24,8 @@ export interface ThreadTreeProps {
   cursor: number;
   /** The open thread's id; highlights it instead of the cursor (the left sidebar case). */
   activeId?: string;
-  /** Ids of pinned threads; a pinned row carries the pin glyph and the menu offers Unpin. */
+  focused?: boolean;
+  /** Ids of starred threads; a starred row carries the star glyph and the menu offers Unstar. */
   pinnedIds?: ReadonlySet<string>;
   /** The column width, so titles fade to fit one line. */
   width?: number;
@@ -27,12 +33,17 @@ export interface ThreadTreeProps {
   onSelect?: (sessionId: string) => void;
   /** Ask to delete a thread (the menu's Delete, wired to the confirm dialog). */
   onRequestDelete?: (id: string, title: string) => void;
-  /** Toggle a thread's pinned state (the menu's Pin/Unpin). */
+  /** Toggle a thread's starred state (the menu's Star/Unstar). */
   onPin?: (id: string) => void;
   /** Rename a thread's title (the menu's Rename). */
   onRename?: (id: string, title: string) => void;
   theme?: Theme;
 }
+
+const MENU_WIDTH = 12;
+
+/** Columns per nesting level in the sidebar cascade: section → project → thread. */
+const SIDEBAR_INDENT = 2;
 
 function ActionsMenu({
   pinned,
@@ -47,31 +58,28 @@ function ActionsMenu({
   onDelete?: () => void;
   tokens: Theme;
 }): React.ReactNode {
-  const item = (
-    glyph: string,
-    label: string,
-    color: string,
-    onPick?: () => void,
-  ): React.ReactNode =>
+  const item = (label: string, color: string, onPick?: () => void): React.ReactNode =>
     onPick !== undefined ? (
-      <box onMouseUp={onPick} style={{ flexDirection: "row", paddingLeft: 4, paddingRight: 1 }}>
-        <text fg={color}>{`${glyph} ${label}`}</text>
+      <box onMouseUp={onPick} style={{ paddingLeft: 1, paddingRight: 1 }}>
+        <text fg={color}>{label}</text>
       </box>
     ) : null;
 
   return (
     <box
+      onMouseUp={(event) => event.stopPropagation()}
       style={{
+        width: MENU_WIDTH,
         flexDirection: "column",
-        marginLeft: 3,
+        border: true,
         borderStyle: "single",
-        border: ["left"],
         borderColor: tokens.border,
+        backgroundColor: tokens.elevated,
       }}
     >
-      {item(NERD.pin, pinned ? "Unpin" : "Pin", tokens.text, onPin)}
-      {item(NERD.file, "Rename", tokens.text, onRename)}
-      {item(NERD.close, "Delete", tokens.red, onDelete)}
+      {item(pinned ? "unstar" : "star", tokens.text, onPin)}
+      {item("rename", tokens.text, onRename)}
+      {item("delete", tokens.text, onDelete)}
     </box>
   );
 }
@@ -80,6 +88,7 @@ interface ThreadRowProps {
   title: string;
   selected: boolean;
   pinned: boolean;
+  depth: number;
   titleWidth: number;
   menuOpen: boolean;
   onToggleMenu: () => void;
@@ -92,23 +101,60 @@ interface ThreadRowProps {
 }
 
 function ThreadRow(props: ThreadRowProps): React.ReactNode {
-  const { title, selected, pinned, titleWidth, menuOpen, onToggleMenu, tokens, theme } = props;
+  const { title, selected, pinned, depth, titleWidth, menuOpen, onToggleMenu, tokens, theme } =
+    props;
   const [hovered, setHovered] = useState(false);
-  // the tail fades toward the row's own background, so it masks out instead of
-  // leaving a colored band over the selected (elevated) or hovered (panel) row
-  const rowBackground = selected ? tokens.elevated : hovered ? tokens.panel : tokens.background;
-  const segments = fadeTitle(
-    title,
-    titleWidth,
-    selected ? tokens.accent : tokens.textMuted,
-    rowBackground,
+  const rowRef = useRef<BoxRenderable | null>(null);
+  const { setOverlay, clearOverlay } = useRootOverlay();
+  const anchor = useFrameMeasure(
+    () => ({
+      x: rowRef.current?.x ?? 0,
+      y: rowRef.current?.y ?? 0,
+      width: rowRef.current?.width ?? 0,
+    }),
+    (left, right) => left.x === right.x && left.y === right.y && left.width === right.width,
+    { x: 0, y: 0, width: 0 },
+    menuOpen,
   );
+  const clippedTitle = truncateTitle(title, titleWidth);
   const hasActions =
     props.onPin !== undefined || props.onRename !== undefined || props.onDelete !== undefined;
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    // the full-screen box closes the menu on an outside click; the menu drops from under the kebab
+    setOverlay(
+      "thread-menu",
+      <box
+        onMouseUp={onToggleMenu}
+        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+      >
+        <box
+          style={{
+            position: "absolute",
+            top: anchor.y + 1,
+            left: Math.max(0, anchor.x + anchor.width - MENU_WIDTH),
+          }}
+        >
+          <ActionsMenu
+            pinned={pinned}
+            onPin={props.onPin}
+            onRename={props.onRename}
+            onDelete={props.onDelete}
+            tokens={tokens}
+          />
+        </box>
+      </box>,
+    );
+
+    return () => clearOverlay("thread-menu");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuOpen, anchor, pinned, tokens]);
 
   return (
     <box style={{ flexDirection: "column" }} onMouseOut={() => setHovered(false)}>
       <box
+        ref={rowRef}
         onMouseUp={props.onSelect}
         onMouseOver={() => setHovered(true)}
         style={{
@@ -116,13 +162,9 @@ function ThreadRow(props: ThreadRowProps): React.ReactNode {
           backgroundColor: selected ? tokens.elevated : hovered ? tokens.panel : undefined,
         }}
       >
-        <text>
-          <span fg={tokens.textDim}>{pinned ? ` ${NERD.pin} ` : "   "}</span>
-          {segments.map((segment, index) => (
-            <span key={index} fg={segment.fg}>
-              {segment.text}
-            </span>
-          ))}
+        <box style={{ width: depth * SIDEBAR_INDENT, flexShrink: 0 }} />
+        <text wrapMode="none" style={{ flexShrink: 1 }}>
+          <span fg={selected ? tokens.accent : tokens.textMuted}>{clippedTitle}</span>
         </text>
         <box style={{ flexGrow: 1 }} />
         {(hovered || menuOpen) && hasActions ? (
@@ -135,15 +177,6 @@ function ThreadRow(props: ThreadRowProps): React.ReactNode {
           />
         ) : null}
       </box>
-      {menuOpen ? (
-        <ActionsMenu
-          pinned={pinned}
-          onPin={props.onPin}
-          onRename={props.onRename}
-          onDelete={props.onDelete}
-          tokens={tokens}
-        />
-      ) : null}
     </box>
   );
 }
@@ -152,6 +185,7 @@ export function ThreadTree({
   rows,
   cursor,
   activeId,
+  focused = false,
   pinnedIds,
   width = 30,
   onSelect,
@@ -161,21 +195,21 @@ export function ThreadTree({
   theme,
 }: ThreadTreeProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const [actionsForId, setActionsForId] = useState<string | null>(null);
+  const menuControl = useMenuControl();
   // leave room for the 3-char prefix, the border, and the hover kebab so a row
   // never wraps: the title fades to fit whatever is left
   const titleWidth = Math.max(8, width - 9);
-  const closeMenu = (): void => setActionsForId(null);
+  const closeMenu = (): void => menuControl.closeMenu();
 
   return (
     <box style={{ flexGrow: 1, flexDirection: "column", paddingLeft: 1 }}>
       {rows.length === 0 ? (
         <text fg={tokens.textDim}>no threads</text>
       ) : (
-        rows.map((row) => {
+        rows.map((row, index) => {
           if (row.kind === "section") {
             return (
-              <text key={row.id} fg={tokens.textDim}>
+              <text key={row.id} fg={tokens.textDim} style={{ marginTop: index > 0 ? 1 : 0 }}>
                 {row.label}
               </text>
             );
@@ -183,8 +217,7 @@ export function ThreadTree({
 
           if (row.kind === "project") {
             return (
-              <text key={row.id}>
-                <span fg={tokens.blue}>{` ${NERD.folderOpen} `}</span>
+              <text key={row.id} wrapMode="none" style={{ marginLeft: SIDEBAR_INDENT }}>
                 <span fg={tokens.textMuted}>{row.label}</span>
               </text>
             );
@@ -197,11 +230,14 @@ export function ThreadTree({
             <ThreadRow
               key={row.id}
               title={title}
-              selected={activeId !== undefined ? activeId === id : row.selectionIndex === cursor}
+              selected={
+                focused || activeId === undefined ? row.selectionIndex === cursor : activeId === id
+              }
               pinned={pinnedIds?.has(id) ?? false}
-              titleWidth={titleWidth}
-              menuOpen={actionsForId === id}
-              onToggleMenu={() => setActionsForId(actionsForId === id ? null : id)}
+              depth={row.depth}
+              titleWidth={Math.max(8, titleWidth - (row.depth - 1) * SIDEBAR_INDENT)}
+              menuOpen={menuControl.openMenuId === `thread:${id}`}
+              onToggleMenu={() => menuControl.toggleMenu(`thread:${id}`)}
               onSelect={onSelect ? () => onSelect(id) : undefined}
               onPin={onPin ? () => (onPin(id), closeMenu()) : undefined}
               onRename={onRename ? () => (onRename(id, title), closeMenu()) : undefined}

@@ -25,6 +25,8 @@ export interface ShareStore {
   put(id: string, bytes: Uint8Array): Promise<void>;
   /** The stored bytes, or null when no blob exists for that id or it has expired. */
   get(id: string): Promise<Uint8Array | null>;
+  /** Remove the blob for an id; a no-op when it is already absent, so revoke is idempotent. */
+  delete(id: string): Promise<void>;
 }
 
 /** "This share changed" notifications, per share id. */
@@ -50,6 +52,12 @@ export class WatchedShareStore implements ShareStore, ShareChangeFeed {
   async put(id: string, bytes: Uint8Array): Promise<void> {
     await this.inner.put(id, bytes);
     // listeners run after the put resolves and never fail the write
+    for (const listener of this.listeners.get(id) ?? []) queueMicrotask(listener);
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.inner.delete(id);
+    // a live viewer's watch re-reads and finds the share gone
     for (const listener of this.listeners.get(id) ?? []) queueMicrotask(listener);
   }
 
@@ -89,6 +97,10 @@ export class MemoryShareStore implements ShareStore {
 
     return entry.bytes;
   }
+
+  async delete(id: string): Promise<void> {
+    this.blobs.delete(id);
+  }
 }
 
 /** Cloudflare R2 over the S3 protocol, via Bun's built-in client. */
@@ -123,6 +135,11 @@ export class R2ShareStore implements ShareStore {
 
       return null;
     }
+  }
+
+  async delete(id: string): Promise<void> {
+    // deleting an absent object is not an error on S3/R2, so revoke stays idempotent
+    await this.client.file(id).delete();
   }
 }
 

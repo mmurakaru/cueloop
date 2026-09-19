@@ -320,3 +320,75 @@ so a crash can never leave a torn file on disk.
     expect(resolved?.endBlockIndex).toBe(secondBullet - 1);
   });
 });
+
+describe("fuzzy work budget", () => {
+  function largePlan(paragraphs: number): string {
+    const lines = ["# Plan", ""];
+
+    for (let index = 0; index < paragraphs; index++) {
+      lines.push(
+        `This is paragraph number ${index} describing the migration of the session store and its atomic write path in enough prose to be a realistic block a reviewer might quote.`,
+        "",
+      );
+    }
+
+    return lines.join("\n");
+  }
+
+  test("a stale anchor over a large plan stays bounded across all its blocks", () => {
+    // Arrange - a 160-block plan whose quoted paragraph was edited so the exact text is gone,
+    // forcing the fuzzy tier over every block; a per-block budget would freeze for many seconds
+    const blocks = parseBlocks(largePlan(160));
+    const quoted = Math.floor(blocks.length / 2);
+    const anchor = makeAnchor(blocks, quoted, 0, Math.min(blocks[quoted]!.text.length, 140));
+    const edited = blocks.map((block) => ({
+      ...block,
+      text: block.text.replaceAll("migration", "rollout").replaceAll("session", "record"),
+    }));
+
+    // Act
+    const started = Date.now();
+    const resolved = resolveAnchor(anchor, edited);
+    const elapsed = Date.now() - started;
+
+    // Assert - it rebinds via the fuzzy tier, and one shared budget keeps it far under a freeze
+    expect(resolved?.strategy).toBe("fuzzy");
+    expect(elapsed).toBeLessThan(2000);
+  });
+
+  test("still binds when a distinctive quote moved down a few blocks and was edited", () => {
+    // Arrange - a distinctive quote among unrelated blocks; the agent inserts paragraphs above it
+    // (shifting it down) and edits one word, so exact/normalized miss and the outward scan must
+    // reach the shifted block before the shared budget runs out
+    const original =
+      "The canonical migration store commits every session write atomically along one path.";
+    const plan = (target: string): string => {
+      const lines = ["# Plan", ""];
+
+      for (let index = 0; index < 40; index++) {
+        lines.push(
+          index === 20
+            ? target
+            : `Filler paragraph ${index} covers an unrelated topic in its own words.`,
+          "",
+        );
+      }
+
+      return lines.join("\n");
+    };
+    const before = parseBlocks(plan(original));
+    const quoted = before.findIndex((block) => block.text === original);
+    const anchor = makeAnchor(before, quoted, 0, original.length);
+    const edited = original.replace("atomically", "carefully");
+    const shifted = parseBlocks(
+      plan(edited).replace("# Plan\n", "# Plan\n\nInserted A.\n\nInserted B.\n\nInserted C.\n"),
+    );
+
+    // Act
+    const resolved = resolveAnchor(anchor, shifted);
+
+    // Assert - rebinds via fuzzy onto the shifted block, not orphaned or bound to a neighbour
+    expect(resolved?.strategy).toBe("fuzzy");
+    expect(shifted[resolved!.blockIndex]!.text).toBe(edited);
+  });
+});

@@ -13,17 +13,34 @@ import type { Identity, Thread } from "./types";
  * rail renders anonymous) and never erases a name a past visit set. Immutable:
  * the input session is not mutated.
  */
-export function registerParticipant(session: Thread, author: string, name?: string): Thread {
+export interface ParticipantSource {
+  provider: "ssh" | "github";
+  handle?: string;
+}
+
+export function registeredGithubLogin(session: Thread, author: string): string | undefined {
+  const existing = (session.participants ?? []).find((participant) => participant.id === author);
+
+  return existing?.provider === "github" ? existing.handle : undefined;
+}
+
+export function registerParticipant(
+  session: Thread,
+  author: string,
+  name?: string,
+  source?: ParticipantSource,
+): Thread {
   const participants = session.participants ?? [];
   const existing = participants.find((participant) => participant.id === author);
   const trimmed = name?.trim();
 
-  if (existing && !trimmed) return session;
-  const next: Identity = {
-    id: author,
-    provider: "ssh",
-    ...(trimmed ? { name: trimmed } : existing?.name ? { name: existing.name } : {}),
-  };
+  if (existing && !trimmed && !source) return session;
+  const resolvedName = trimmed ?? existing?.name;
+  const resolvedHandle = source?.handle ?? existing?.handle;
+  const next: Identity = { id: author, provider: source?.provider ?? existing?.provider ?? "ssh" };
+
+  if (resolvedName) next.name = resolvedName;
+  if (resolvedHandle) next.handle = resolvedHandle;
 
   return {
     ...session,

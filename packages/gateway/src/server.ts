@@ -42,11 +42,22 @@ import { GatewayMetrics, startMetricsServer } from "./metrics";
 import { TokenBucket } from "./rate-limit";
 import { SHARE_UPLOAD_USER, isShareId, mintShareId } from "./share-id";
 import { WatchedShareStore, type ShareStore } from "./store";
+import {
+  isShareViewerAllowed,
+  registerParticipant,
+  registeredGithubLogin,
+  type ParticipantSource,
+} from "@cueloop/schema";
+import { githubClientId } from "./github-device-flow";
+import { runCollaboratorJoin, type CollaboratorJoinOutcome } from "./collaborator-join";
 
 const PushPayloadSchema = v.object({
   shareId: v.optional(v.unknown()),
   annotations: v.optional(v.unknown()),
+  access: v.optional(v.unknown()),
 });
+
+const ShareAccessPushSchema = v.object({ githubLogins: v.array(v.string()) });
 const TransportErrorSchema = v.object({
   level: v.optional(v.string()),
   code: v.optional(v.string()),
@@ -184,6 +195,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       if (info.command === "cueloop-pull") void handlePull(channel, identity);
       else if (info.command === "cueloop-push") void handlePush(channel, identity);
       else if (info.command === "cueloop-watch") void handleWatch(channel, identity);
+      else if (info.command === "cueloop-revoke") void handleRevoke(channel, identity);
       else void handleUpload(channel, identity, remoteIp);
     });
   }
@@ -223,6 +235,47 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       return end(channel, 1);
     }
     try {
+      const clientId = githubClientId();
+      let participantName: string | undefined;
+      let participantSource: ParticipantSource | undefined;
+      let verifiedGithubLogin: string | undefined;
+
+      const knownLogin = registeredGithubLogin(session, identity.fingerprint);
+
+      if (knownLogin !== undefined) {
+        verifiedGithubLogin = knownLogin;
+      } else if (clientId) {
+        // A GitHub outage must never close an otherwise-valid share; fall through to anonymous.
+        const joined = await runCollaboratorJoin({
+          channel,
+          size: pty,
+          clientId,
+          dependencies: {
+            fetch,
+            sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+          },
+        }).catch((): CollaboratorJoinOutcome => ({ kind: "skipped" }));
+
+        if (joined.kind === "identity") {
+          verifiedGithubLogin = joined.login;
+          participantName = joined.name ?? joined.login;
+          participantSource = { provider: "github", handle: joined.login };
+          session = registerParticipant(
+            session,
+            identity.fingerprint,
+            participantName,
+            participantSource,
+          );
+        }
+      }
+      // A private share renders only for an authenticated login on its allowlist; a public share is unchanged.
+      if (session.access && !isShareViewerAllowed(session.access, verifiedGithubLogin)) {
+        channel.stderr.write(
+          "cueloop: this is a private share; connect GitHub as an allowed collaborator to view it\r\n",
+        );
+
+        return end(channel, 1);
+      }
       // Every viewer is a collaborator: they annotate, and each note unions
       // back into the stored blob stamped with their fingerprint. They cannot
       // edit the plan or submit a verdict (the App's collaborator role).
@@ -231,6 +284,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
         masterKey: options.masterKey,
         shareId,
         author: identity.fingerprint,
+        participantName,
+        participantSource,
         changes: store,
       });
       let handle: ChannelRender | null = null;
@@ -393,10 +448,21 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       if (session.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can push to it");
+      // the owner can also update the link's access on the stored blob: an allowlist makes
+      // it private, the literal "public" clears it, and an absent field leaves it unchanged
+      const access = v.safeParse(ShareAccessPushSchema, payload.access);
+      const merged = mergeOwnerAnnotations(session, annotations.output);
+      let withAccess = merged;
+
+      if (payload.access === "public") {
+        const { access: _cleared, ...rest } = merged;
+
+        withAccess = rest;
+      } else if (access.success) {
+        withAccess = { ...merged, access: access.output };
+      }
       // Round-trip validates the pushed notes: a malformed one throws here, so the stored blob stays intact.
-      const next = unpackSessionBlob(
-        packSessionBlob(mergeOwnerAnnotations(session, annotations.output)),
-      );
+      const next = unpackSessionBlob(packSessionBlob(withAccess));
 
       await store.put(
         shareId.output,
@@ -408,6 +474,37 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       onError(err);
       metrics.recordShare("push", "error", elapsed(startedAt));
       fail(channel, "could not update this share");
+    }
+  }
+
+  /**
+   * The owner revokes a share: delete the blob so the link stops resolving.
+   * Owner-only (the blob records the planner's key fingerprint), and idempotent
+   * - an absent or already-expired share reports success so revoke-on-delete
+   * never fails the local delete.
+   */
+  async function handleRevoke(channel: ServerChannel, identity: Identity): Promise<void> {
+    const startedAt = Date.now();
+
+    try {
+      const shareId = (await readCapped(channel, 256)).toString("utf8").trim();
+
+      if (!isShareId(shareId)) return void fail(channel, "not a share id");
+      const stored = await store.get(shareId);
+
+      if (stored) {
+        const session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
+
+        if (session.owner !== identity.fingerprint)
+          return void fail(channel, "only the planner who shared this can revoke it");
+        await store.delete(shareId);
+      }
+      metrics.recordShare("revoke", "ok", elapsed(startedAt));
+      end(channel, 0);
+    } catch (err) {
+      onError(err);
+      metrics.recordShare("revoke", "error", elapsed(startedAt));
+      fail(channel, "could not revoke this share");
     }
   }
 
@@ -466,6 +563,15 @@ function meterStore(store: ShareStore, metrics: GatewayMetrics): ShareStore {
         metrics.recordR2("put", "ok");
       } catch (err) {
         metrics.recordR2("put", "error");
+        throw err;
+      }
+    },
+    async delete(id) {
+      try {
+        await store.delete(id);
+        metrics.recordR2("delete", "ok");
+      } catch (err) {
+        metrics.recordR2("delete", "error");
         throw err;
       }
     },

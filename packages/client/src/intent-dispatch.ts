@@ -39,6 +39,7 @@ export type Mode =
   | { type: "rename"; authorId: string; text: string }
   | { type: "renameThread"; sessionId: string; text: string }
   | { type: "nameSelf"; text: string }
+  | { type: "renameSelf"; text: string }
   | { type: "treePrompt"; ask: TreeAsk; entryId?: string; text: string };
 
 /** What a tree prompt asks for: a branch name, a checkpoint name, or the summary a move back leaves. */
@@ -98,6 +99,8 @@ export interface IntentDispatchDeps {
   renameAuthor: (id: string, name: string) => void;
   /** Rename a thread's title through the daemon. */
   renameThread: (id: string, title: string) => void;
+  /** Set the local reviewer's typed display name and persist it (App-owned). */
+  setLocalIdentityName: (name: string) => void;
 
   liveInput: MutableRefObject<string>;
 
@@ -115,6 +118,8 @@ export interface IntentDispatchDeps {
   openCardEdit: (annotationId: string) => void;
   /** Flip split/stacked diff and persist it (App-owned); split lays out only when wide/zoomed. */
   toggleDiffView: () => void;
+  /** Open the share dialog (App-owned); the dialog owns its own keys and links. */
+  openShareDialog: () => void;
 }
 
 type IntentOfType<Kind extends Intent["type"]> = Extract<Intent, { type: Kind }>;
@@ -238,6 +243,7 @@ function handleConfirmDialog(
   else if (mode.type === "rename") deps.renameAuthor(mode.authorId, mode.text.trim());
   else if (mode.type === "renameThread") deps.renameThread(mode.sessionId, mode.text.trim());
   else if (mode.type === "nameSelf") controller.setSelfName(mode.text.trim());
+  else if (mode.type === "renameSelf") deps.setLocalIdentityName(mode.text.trim());
   else if (mode.type === "treePrompt") confirmTreePrompt(mode, deps);
   deps.setMode({ type: "normal" });
 }
@@ -381,8 +387,9 @@ function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispa
   deps.setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
 }
 
+// share opens the share dialog; it owns its own keys, links list, and publish wizard
 function handleShare(_intent: IntentOfType<"share">, deps: IntentDispatchDeps): void {
-  deps.controller.share();
+  deps.openShareDialog();
 }
 
 function handleCut(_intent: IntentOfType<"cut">, deps: IntentDispatchDeps): void {

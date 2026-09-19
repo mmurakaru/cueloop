@@ -15,7 +15,7 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import type { KeyEvent, MouseEvent as TerminalMouseEvent, TextRenderable } from "@opentui/core";
 import { useKeyboard } from "@opentui/react";
-import type { Thread } from "@cueloop/schema";
+import type { Annotation, Thread } from "@cueloop/schema";
 import type { Mark } from "./view-plan";
 import type { QuickAction } from "./config";
 import type { Theme } from "./theme";
@@ -37,8 +37,10 @@ import {
 } from "./thread-selection";
 import { annotationPaletteFor, type AnnotationPalette } from "./annotation-palette";
 import { printableSequence, type MarkRange, type VisualLine } from "./mark-runs";
+import { matchesLeader } from "./thread-chords";
 import {
   activeSlashToken,
+  insertSlashItem,
   isStandaloneSlashQuery,
   mergeSlashItems,
   slashFilter,
@@ -103,6 +105,10 @@ export interface AnnotationSurfaceOptions {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  /** The author's display name for a comment's hover tooltip; the rail resolves it against the participant registry. */
+  resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
+  leaderCombos?: readonly string[];
+  onLeaderCommand?: (key: KeyEvent) => void;
   onExit: () => void;
 }
 
@@ -176,6 +182,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    resolveAuthorLabel,
+    leaderCombos,
+    onLeaderCommand,
     onExit,
   } = options;
   const palette = annotationPaletteFor(tokens);
@@ -190,6 +199,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return { head: start, anchor: start };
   });
   const [compose, setCompose] = useState<ComposeState | null>(null);
+  const leaderPending = useRef(false);
 
   useEffect(() => {
     onComposingChange?.(compose !== null);
@@ -234,6 +244,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const [composeText, setComposeText] = useState("");
+  const composeTextRef = useRef("");
+  const setDraft = (text: string): void => {
+    composeTextRef.current = text;
+    setComposeText(text);
+  };
   const [caretOffset, setCaretOffset] = useState(0);
   const [slashIndex, setSlashIndex] = useState(0);
   const composerReady = useRef(false);
@@ -305,14 +320,14 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     composerReady.current = false;
     composeRef.current = state;
     setCompose(state);
-    setComposeText(state.seed);
+    setDraft(state.seed);
     setCaretOffset(state.seed.length);
     setSlashIndex(0);
   };
   const closeCompose = (): void => {
     composeRef.current = null;
     setCompose(null);
-    setComposeText("");
+    setDraft("");
     setCaretOffset(0);
   };
   const skills = useContext(SlashSkillsContext);
@@ -442,14 +457,10 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       return true;
     }
     if (key.name === "return" || key.name === "tab") {
-      const token = activeSlashToken(composeText, caretOffset) ?? "";
-      const cut = caretOffset - token.length;
-      const insertion = `/${slashItems[selected]!.name} `;
-      const seed = composeText.slice(0, cut) + insertion + composeText.slice(caretOffset);
+      const inserted = insertSlashItem(composeText, caretOffset, slashItems[selected]!.name);
 
-      openCompose({ ...activeCompose, seed });
-      // land the caret just after the inserted reference, not at the end of a chained draft
-      setCaretOffset(cut + insertion.length);
+      openCompose({ ...activeCompose, seed: inserted.text });
+      setCaretOffset(inserted.caret);
 
       return true;
     }
@@ -464,7 +475,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       const grown = { ...activeCompose, seed: `${activeCompose.seed}\n` };
 
       composeRef.current = grown;
-      setComposeText(grown.seed);
+      setDraft(grown.seed);
       setCaretOffset(grown.seed.length);
 
       return setCompose(grown);
@@ -475,7 +486,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       const grown = { ...activeCompose, seed: activeCompose.seed + sequence };
 
       composeRef.current = grown;
-      setComposeText(grown.seed);
+      setDraft(grown.seed);
       setCaretOffset(grown.seed.length);
       setCompose(grown);
     }
@@ -494,7 +505,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     // (an edit of an existing comment is never deleted this way)
     if (
       key.name === "backspace" &&
-      composeText.length === 0 &&
+      composeTextRef.current.length === 0 &&
       activeCompose.editAnnotationId === null
     ) {
       return closeCompose();
@@ -657,9 +668,25 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     if (activeCompose) return handleComposeKey(key, activeCompose);
     if (key.name === "escape") {
+      if (leaderPending.current) {
+        leaderPending.current = false;
+
+        return;
+      }
       if (focusedDiscussion !== null) return setFocusedDiscussion(null);
 
       return collapseCaret();
+    }
+    if (leaderPending.current) {
+      leaderPending.current = false;
+      onLeaderCommand?.(key);
+
+      return;
+    }
+    if (leaderCombos && matchesLeader(key, leaderCombos)) {
+      leaderPending.current = true;
+
+      return;
     }
     if (handleDiscussionVerb(key)) return;
     if (handleCaretKey(key)) return;
@@ -679,7 +706,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       onSave={saveComment}
       onReady={() => (composerReady.current = true)}
       onInput={(text, caret) => {
-        setComposeText(text);
+        setDraft(text);
         setCaretOffset(caret);
       }}
     />
@@ -713,7 +740,12 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
         node: editingHere ? (
           composerNode
         ) : (
-          <CommentRow key={annotation.id} annotation={annotation} tokens={tokens} />
+          <CommentRow
+            key={annotation.id}
+            annotation={annotation}
+            tokens={tokens}
+            authorLabel={resolveAuthorLabel?.(annotation)}
+          />
         ),
       };
     });
@@ -769,9 +801,36 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const endsInLine = (end: number): boolean => end - 1 >= line.start && end - 1 < line.end;
     const nodes: React.ReactNode[] = [];
     const composeHere = compose && compose.blockIndex === blockIndex;
+    const newComposeHere = Boolean(composeHere && compose.discussionKey === null && composerNode);
+    const composeAnchoredHere =
+      newComposeHere && (compose!.span ? endsInLine(compose!.span.end.char) : isLastLine);
+    const composeStart = compose?.span?.start;
+
+    const pushComposeCard = (): void => {
+      nodes.push(
+        <DiscussionCard
+          key="compose-new"
+          tokens={tokens}
+          segments={[{ color: palette.cardEdge, node: composerNode }]}
+        />,
+      );
+      nodes.push(paletteNode);
+    };
+
+    // the draft sorts in by its span start, the same order discussionsFrom lands it on save, so a
+    // new comment sits in its final position while typing instead of appending to the stack
+    let composePending = composeAnchoredHere;
 
     for (const discussion of discussions) {
       if (discussion.blockIndex !== blockIndex || !endsInLine(discussion.span.end.char)) continue;
+      if (
+        composePending &&
+        composeStart &&
+        comparePositions(composeStart, discussion.span.start) < 0
+      ) {
+        pushComposeCard();
+        composePending = false;
+      }
       const composingHere = Boolean(composeHere && compose.discussionKey === discussion.key);
 
       if (folded.has(discussion.key) && !composingHere) {
@@ -781,20 +840,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       nodes.push(discussionCardFor(discussion, composingHere));
       if (composingHere) nodes.push(paletteNode);
     }
-    if (composeHere && compose.discussionKey === null && composerNode) {
-      const anchoredHere = compose.span ? endsInLine(compose.span.end.char) : isLastLine;
-
-      if (anchoredHere) {
-        nodes.push(
-          <DiscussionCard
-            key="compose-new"
-            tokens={tokens}
-            segments={[{ color: palette.cardEdge, node: composerNode }]}
-          />,
-        );
-        nodes.push(paletteNode);
-      }
-    }
+    if (composePending) pushComposeCard();
 
     return nodes;
   };

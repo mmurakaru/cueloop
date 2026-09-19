@@ -8,7 +8,7 @@ import type { SessionHistory } from "./history";
 
 export const SCHEMA_VERSION = "1";
 
-/** A workspace is a repo/branch context holding review sessions. */
+/** A workspace is a repo/branch context holding threads. */
 export interface WorkspaceKey {
   repoRoot: string;
   branch: string;
@@ -19,7 +19,7 @@ export interface WorkspaceKey {
 }
 
 /**
- * What kind of artifact a review session holds. `plan` and `reply` are both
+ * What kind of artifact a thread holds. `plan` and `reply` are both
  * markdown documents (see isMarkdownArtifact) - a plan is a proposal written
  * forward, a reply is the agent's previous message pulled back for review.
  * `diff` is a unified-diff patch; `prototype` is a component design doc (API /
@@ -66,6 +66,8 @@ export interface ArtifactMeta {
   title?: string;
   /** A self-initiated per-repo workbench thread (a bare launch's first comment), not an agent submission. */
   workbench?: boolean;
+  /** A frozen point-in-time capture of a workbench thread's diff, for a remote reviewer who has no working tree. */
+  snapshot?: boolean;
 }
 
 /** Full old/new contents of one changed file, keyed by its repo-relative path. */
@@ -222,12 +224,38 @@ export type SessionStatus = "pending" | "resolved";
 export interface Identity {
   /** Stable identity key; equals an annotation's `author`. */
   id: string;
-  /** Identity source. One value today; widen the union when OAuth lands. */
-  provider: "ssh";
+  /** Identity source: the SSH key that authored, or a verified GitHub login. */
+  provider: "ssh" | "github";
   /** Display name; absent = the collaborator stayed anonymous. */
   name?: string;
   /** Provider handle: a github login, an email, or a short fingerprint. */
   handle?: string;
+}
+
+/** Owner-set access control for a private share: only these GitHub logins may open it. Absent = a public share. */
+export interface ShareAccess {
+  githubLogins: string[];
+}
+
+/**
+ * One published share link for a thread. A thread can have several, each an
+ * independent gateway blob keyed by its own `id`. `name` is a local-only label
+ * to tell links apart; `requireAuth` gates the link behind the `allowlist` of
+ * GitHub logins (empty + requireAuth is a private link with no one added yet).
+ */
+export interface ShareLink {
+  /** The share id (`p_…`), the link's address and gateway blob key. */
+  id: string;
+  /** A local, cosmetic label for the list; never leaves the planner's machine. */
+  name?: string;
+  /** True = private (only `allowlist` may open it); false = public. */
+  requireAuth: boolean;
+  /** GitHub logins allowed when `requireAuth`; ignored when public. */
+  allowlist: string[];
+  /** SSH fingerprint that created the link; the gateway stamps it to gate pulls/pushes/revokes. */
+  owner?: string;
+  /** The branch this link follows and shows collaborators; `main` when absent. */
+  shareBranch?: string;
 }
 
 export interface Thread {
@@ -270,12 +298,16 @@ export interface Thread {
   shelvedAnnotations?: Annotation[];
   /** The session this one was forked from. */
   parentSessionId?: string;
-  /** Share id once published; lets the planner pull collaborator notes back. */
+  /** Published share links for this thread; each is an independent gateway blob. Migrated from the legacy scalar fields on read. */
+  shares?: ShareLink[];
+  /** @deprecated Legacy single-share id; migrated into `shares` on read. */
   shareId?: string;
-  /** The branch the share follows and shows collaborators; `main` when absent. */
+  /** @deprecated Legacy single-share branch; migrated into `shares` on read. */
   shareBranch?: string;
-  /** SSH fingerprint that created the share; the gateway stamps it to gate pulls. */
+  /** @deprecated Legacy single-share owner fingerprint; migrated into `shares` on read. */
   owner?: string;
+  /** @deprecated Legacy single-share allowlist; migrated into `shares` on read. */
+  access?: ShareAccess;
   /**
    * Identities that authored annotations here, keyed by id (union-by-id, like
    * annotations). The gateway records a collaborator's identity and chosen name;
@@ -283,9 +315,6 @@ export interface Thread {
    */
   participants?: Identity[];
 }
-
-/** @deprecated use Thread */
-export type ReviewSession = Thread;
 
 /** comment and request_changes both map to deny in agent-native contracts. */
 export function verdictAllows(kind: VerdictKind): boolean {

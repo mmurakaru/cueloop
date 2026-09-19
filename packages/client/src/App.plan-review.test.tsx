@@ -228,6 +228,22 @@ describe("the mark stays painted while composing", () => {
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(THREAD_MARK));
   }, 60_000);
+
+  test("backspace on an empty draft dismisses the composer back to the mark", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    // Act: mark, type one character, then delete it and backspace again on the now-empty draft
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await type(setup, "x");
+    await waitForText(setup, "● x");
+    await press(setup, "backspace");
+    await press(setup, "backspace");
+
+    // Assert: the composer is gone and the mark stays, ready to re-type
+    await waitForTextGone(setup, "● x");
+    expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
+  }, 60_000);
 });
 
 describe("compose newline convention", () => {
@@ -295,7 +311,7 @@ describe("quick-actions settings editor", () => {
     // Act - open Settings from the top-left gear, enter Actions, expand the first action, type
     await setup.mockMouse.click(1, 0);
     await waitForText(setup, "Keybinds");
-    await clickText(setup, "Settings");
+    await clickText(setup, "settings");
     await clickText(setup, "Actions");
     await clickText(setup, "Zoom out, research in depth");
     await type(setup, "CUSTOM");

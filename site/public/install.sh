@@ -16,6 +16,7 @@
 #                           cueloop@0.1.0 (default: the newest release)
 #   CUELOOP_NO_MODIFY_PATH  same as --no-modify-path when set
 #   CUELOOP_NO_BANNER       skip the logo
+#   CUELOOP_UPDATE          in-place update: skip the logo and the get-started hint
 #   CUELOOP_RELEASES_API    the releases listing to read the newest tag from
 #   CUELOOP_DOWNLOAD_BASE   the URL below which <tag>/<asset> lives
 #
@@ -124,6 +125,7 @@ cleanup() {
 banner() {
   [ -t 2 ] || return 0
   [ "${CUELOOP_NO_BANNER:-}" = "" ] || return 0
+  [ "${CUELOOP_UPDATE:-}" = "" ] || return 0
   case "${TERM:-}" in dumb) return 0 ;; esac
   printf '\n' >&2
   printf '%s\n' "$LOGO" | while IFS= read -r line; do
@@ -152,6 +154,7 @@ Environment:
                           cueloop@0.1.0 (default: the newest release)
   CUELOOP_NO_MODIFY_PATH  same as --no-modify-path when set
   CUELOOP_NO_BANNER       skip the logo
+  CUELOOP_UPDATE          in-place update: skip the logo and the get-started hint
   CUELOOP_RELEASES_API    the releases listing to read the newest tag from
   CUELOOP_DOWNLOAD_BASE   the URL below which <tag>/<asset> lives
 USAGE
@@ -215,8 +218,11 @@ resolve_tag() {
   spinner_start "finding the latest release"
   fetch_to "$RELEASES_API" "${temporary_directory}/releases.json" ||
     error "could not reach the GitHub releases API."
-  tag="$(grep -m1 "\"tag_name\"[[:space:]]*:[[:space:]]*\"${RELEASE_TAG_PREFIX}" "${temporary_directory}/releases.json" |
-    sed -e 's/.*"tag_name"[[:space:]]*:[[:space:]]*"//' -e 's/".*//')"
+  # `grep -o` yields one tag per line, so the first (newest) wins even when a proxy minifies the JSON
+  # to one line - a greedy match would otherwise fall through to the oldest scoped tag on the page
+  tag="$(grep -oE "\"tag_name\"[[:space:]]*:[[:space:]]*\"${RELEASE_TAG_PREFIX}[^\"]*\"" "${temporary_directory}/releases.json" |
+    head -n1 |
+    sed -e 's/^.*:[[:space:]]*"//' -e 's/"$//')"
   [ "$tag" != "" ] || error "no cueloop release found for ${REPO} yet."
   spinner_finish
 }
@@ -340,6 +346,8 @@ path_hint() {
 }
 
 finish_path() {
+  # an in-place update never touches PATH and the user already has cueloop running
+  [ "${CUELOOP_UPDATE:-}" = "" ] || return 0
   case ":${PATH}:" in
     *":${install_dir}:"*) info "Run ${BOLD}cueloop${RESET} to get started" ;;
     *)

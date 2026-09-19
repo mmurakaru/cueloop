@@ -24,6 +24,8 @@ import {
   type HunkRejection,
   type Revision,
   type SessionHistory,
+  type ShareAccess,
+  type ShareLink,
   validateHistory,
   type Verdict,
   type WorkspaceKey,
@@ -59,6 +61,7 @@ export const ArtifactMetaSchema = v.object({
   herdrPane: v.optional(v.string()),
   title: v.optional(v.string()),
   workbench: v.optional(v.boolean()),
+  snapshot: v.optional(v.boolean()),
 } satisfies EntriesOf<ArtifactMeta>);
 
 export const DiffFileContentsSchema = v.object({
@@ -124,10 +127,19 @@ export const FullAnnotationSchema = v.object({
 
 export const IdentitySchema = v.object({
   id: NonEmpty,
-  provider: v.literal("ssh"),
+  provider: v.picklist(["ssh", "github"]),
   name: v.optional(v.string()),
   handle: v.optional(v.string()),
 } satisfies EntriesOf<Identity>);
+
+export const ShareLinkSchema = v.object({
+  id: NonEmpty,
+  name: v.optional(v.string()),
+  requireAuth: v.boolean(),
+  allowlist: v.array(NonEmpty),
+  owner: v.optional(v.string()),
+  shareBranch: v.optional(v.string()),
+} satisfies EntriesOf<ShareLink>);
 
 export const Params = {
   "session.create": v.object({ workspace: WorkspaceSchema, artifact: ArtifactSchema }),
@@ -203,6 +215,8 @@ export const Params = {
   "session.fork": v.object({ id: SessionId }),
   "session.refreshDiff": v.object({ id: SessionId }),
   "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
+  "session.setShares": v.object({ id: SessionId, shares: v.array(ShareLinkSchema) }),
+  "session.setAccess": v.object({ id: SessionId, githubLogins: v.array(NonEmpty) }),
   "session.delete": v.object({ id: SessionId }),
   "session.mergeShared": v.object({
     id: SessionId,
@@ -345,9 +359,13 @@ export const ThreadRecordSchema = v.object({
   createdAt: v.string(),
   shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
   parentSessionId: v.optional(v.string()),
+  shares: v.optional(v.array(ShareLinkSchema)),
   shareId: v.optional(v.string()),
   shareBranch: v.optional(v.string()),
   owner: v.optional(v.string()),
+  access: v.optional(
+    v.object({ githubLogins: v.array(NonEmpty) } satisfies EntriesOf<ShareAccess>),
+  ),
   participants: v.optional(v.array(IdentitySchema)),
 } satisfies EntriesOf<Thread>);
 

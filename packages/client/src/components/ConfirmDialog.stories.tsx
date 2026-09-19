@@ -7,12 +7,12 @@ export const meta: StoryMeta = { title: "Overlays/ConfirmDialog" };
 
 const callbacks = { onConfirm: () => {}, onCancel: () => {} };
 
-export const DeletePlan: Story = {
+export const DeleteThread: Story = {
   render: () => (
     <ConfirmDialog
       isOpen
-      title=" Delete plan "
-      message={'Delete "Auth rollout"? This removes the plan and its review.'}
+      title=" delete thread "
+      message={'Delete "Auth rollout"? This removes the thread.'}
       {...callbacks}
     />
   ),

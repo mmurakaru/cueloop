@@ -5,11 +5,13 @@
  * stories file fails the harness, so the safety net cannot silently thin.
  */
 
+import React from "react";
 import { describe, expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import { RGBA } from "@opentui/core";
 import { componentFilesMissingStories, loadStories } from "./story";
-import { allowEventLoopUpdates } from "../test-support";
+import { AnsiScreen } from "./AnsiScreen";
+import { settle } from "../test-support";
 
 const stories = await loadStories();
 
@@ -34,12 +36,18 @@ describe("stories catalog", () => {
     test(`${moduleTitle}/${storyName} renders, snapshots, and carries its colors`, async () => {
       // Arrange
       const size = story.size ?? { width: 80, height: 24 };
+      const node = story.ansi ? (
+        <AnsiScreen ansi={story.ansi()} cols={size.width} rows={size.height} />
+      ) : (
+        story.render!()
+      );
 
       // Act
-      const setup = await testRender(story.render(), size);
+      const setup = await testRender(node, size);
 
-      allowEventLoopUpdates();
-      await setup.waitForVisualIdle();
+      // settle, not just visual-idle: async stories (a file read, a virtualizer's
+      // first measure) commit after React's own scheduler, invisible to idle
+      await settle(setup);
       const frame = setup.captureCharFrame();
 
       // Assert
