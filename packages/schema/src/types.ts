@@ -1,5 +1,5 @@
 /**
- * The ReviewSession primitive. Everything in cueloop renders, annotates, or
+ * The Thread primitive. Everything in cueloop renders, annotates, or
  * resolves this one noun. This module is pure data shapes - no IO, no
  * dependencies beyond the history shapes.
  */
@@ -8,7 +8,7 @@ import type { SessionHistory } from "./history";
 
 export const SCHEMA_VERSION = "1";
 
-/** A workspace is a repo/branch context holding review sessions. */
+/** A workspace is a repo/branch context holding threads. */
 export interface WorkspaceKey {
   repoRoot: string;
   branch: string;
@@ -19,10 +19,11 @@ export interface WorkspaceKey {
 }
 
 /**
- * What kind of artifact a review session holds. `plan` and `reply` are both
+ * What kind of artifact a thread holds. `plan` and `reply` are both
  * markdown documents (see isMarkdownArtifact) - a plan is a proposal written
  * forward, a reply is the agent's previous message pulled back for review.
- * `diff` is a unified-diff patch; `prototype` is a rendered HTML page.
+ * `diff` is a unified-diff patch; `prototype` is a component design doc (API /
+ * Composition / Callstack) in markdown, with an opt-in experimental pixel mode.
  *
  * One runtime union: every consumer that names the supported set - daemon
  * wire validation, CLI flag parsing, adapter tool schemas - derives from this
@@ -38,13 +39,15 @@ export function isArtifactType(value: string): value is ArtifactType {
 }
 
 /**
- * Markdown artifacts (plan, reply) are block-parsed and quote-anchored, so they
- * share the plan render path, first-heading title derivation, and revision
- * drift-assist. A diff (a patch) and a prototype (HTML/DOM) do not - keep this
- * the one place that names the set, so a new markdown primitive joins here once.
+ * Markdown artifacts (plan, reply, prototype) are block-parsed and quote-anchored,
+ * so they share the plan render path, first-heading title derivation, and revision
+ * drift-assist. A prototype is a component design doc (API / Composition / Callstack)
+ * by default; its opt-in experimental pixel mode is a client render override, not a
+ * different artifact. A diff (a patch) does not - keep this the one place that names
+ * the set, so a new markdown primitive joins here once.
  */
 export function isMarkdownArtifact(type: ArtifactType): boolean {
-  return type === "plan" || type === "reply";
+  return type === "plan" || type === "reply" || type === "prototype";
 }
 
 export interface ArtifactMeta {
@@ -61,6 +64,10 @@ export interface ArtifactMeta {
   /** herdr pane the submitting agent runs in - the review returns focus there. */
   herdrPane?: string;
   title?: string;
+  /** A self-initiated per-repo workbench thread (a bare launch's first comment), not an agent submission. */
+  workbench?: boolean;
+  /** A frozen point-in-time capture of a workbench thread's diff, for a remote reviewer who has no working tree. */
+  snapshot?: boolean;
 }
 
 /** Full old/new contents of one changed file, keyed by its repo-relative path. */
@@ -123,6 +130,23 @@ export interface Anchor {
 export type AnnotationKind = "comment" | (string & {});
 
 /**
+ * The surface an annotation was made on. Name-only: the ref names the surface and the
+ * client loads that surface's text to resolve the quote anchor. Absent means the session's
+ * reviewed artifact, so every existing annotation keeps its meaning with no data change.
+ * A `file` target's `rev` doubles as the diff side: worktree for an added or context row,
+ * head for a deletion.
+ */
+export type AnnotationTarget =
+  | { kind: "artifact" }
+  | { kind: "file"; path: string; rev: "worktree" | "head" }
+  | { kind: "welcome" };
+
+/** The target an annotation resolves against; absent records mean the reviewed artifact. */
+export function annotationTarget(annotation: Pick<Annotation, "target">): AnnotationTarget {
+  return annotation.target ?? { kind: "artifact" };
+}
+
+/**
  * Agent-authored context, not reviewer feedback: the guided walk's per-file
  * notes (kind "note", anchored by the file path). Excluded from the feedback
  * document and the reviewer's pending counts - an agent must never receive
@@ -136,6 +160,8 @@ export interface Annotation {
   id: string;
   kind: AnnotationKind;
   anchor: Anchor;
+  /** The surface this note was made on; absent means the session's reviewed artifact. */
+  target?: AnnotationTarget;
   /** Comment body. */
   body: string;
   /** Set by resolution when the quote can no longer be found. */
@@ -198,15 +224,41 @@ export type SessionStatus = "pending" | "resolved";
 export interface Identity {
   /** Stable identity key; equals an annotation's `author`. */
   id: string;
-  /** Identity source. One value today; widen the union when OAuth lands. */
-  provider: "ssh";
+  /** Identity source: the SSH key that authored, or a verified GitHub login. */
+  provider: "ssh" | "github";
   /** Display name; absent = the collaborator stayed anonymous. */
   name?: string;
   /** Provider handle: a github login, an email, or a short fingerprint. */
   handle?: string;
 }
 
-export interface ReviewSession {
+/** Owner-set access control for a private share: only these GitHub logins may open it. Absent = a public share. */
+export interface ShareAccess {
+  githubLogins: string[];
+}
+
+/**
+ * One published share link for a thread. A thread can have several, each an
+ * independent gateway blob keyed by its own `id`. `name` is a local-only label
+ * to tell links apart; `requireAuth` gates the link behind the `allowlist` of
+ * GitHub logins (empty + requireAuth is a private link with no one added yet).
+ */
+export interface ShareLink {
+  /** The share id (`p_…`), the link's address and gateway blob key. */
+  id: string;
+  /** A local, cosmetic label for the list; never leaves the planner's machine. */
+  name?: string;
+  /** True = private (only `allowlist` may open it); false = public. */
+  requireAuth: boolean;
+  /** GitHub logins allowed when `requireAuth`; ignored when public. */
+  allowlist: string[];
+  /** SSH fingerprint that created the link; the gateway stamps it to gate pulls/pushes/revokes. */
+  owner?: string;
+  /** The branch this link follows and shows collaborators; `main` when absent. */
+  shareBranch?: string;
+}
+
+export interface Thread {
   schemaVersion: string;
   id: string;
   workspace: WorkspaceKey;
@@ -246,12 +298,16 @@ export interface ReviewSession {
   shelvedAnnotations?: Annotation[];
   /** The session this one was forked from. */
   parentSessionId?: string;
-  /** Share id once published; lets the planner pull collaborator notes back. */
+  /** Published share links for this thread; each is an independent gateway blob. Migrated from the legacy scalar fields on read. */
+  shares?: ShareLink[];
+  /** @deprecated Legacy single-share id; migrated into `shares` on read. */
   shareId?: string;
-  /** The branch the share follows and shows collaborators; `main` when absent. */
+  /** @deprecated Legacy single-share branch; migrated into `shares` on read. */
   shareBranch?: string;
-  /** SSH fingerprint that created the share; the gateway stamps it to gate pulls. */
+  /** @deprecated Legacy single-share owner fingerprint; migrated into `shares` on read. */
   owner?: string;
+  /** @deprecated Legacy single-share allowlist; migrated into `shares` on read. */
+  access?: ShareAccess;
   /**
    * Identities that authored annotations here, keyed by id (union-by-id, like
    * annotations). The gateway records a collaborator's identity and chosen name;

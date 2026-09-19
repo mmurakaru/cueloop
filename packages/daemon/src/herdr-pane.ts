@@ -6,7 +6,7 @@
  * and never blocks review creation; each spawn is bounded by a timeout.
  */
 
-import { detectHerdr, type HerdrEnv, type ReviewSession } from "@cueloop/schema";
+import { detectHerdr, type HerdrEnv, type Thread } from "@cueloop/schema";
 import * as v from "valibot";
 import type { HerdrTabHandle } from "./herdr-tab-store";
 
@@ -117,7 +117,7 @@ function focusHerdrTab(binPath: string, tabId: string): void {
  * its handle. No-op outside herdr.
  */
 export async function openHerdrPaneForReview(
-  session: ReviewSession,
+  session: Thread,
   persistence: HerdrTabPersistence,
   env: HerdrEnv = process.env,
 ): Promise<void> {

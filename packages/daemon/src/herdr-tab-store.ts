@@ -1,7 +1,7 @@
 /**
  * herdr adapter scratch, kept out of the core session record: the tab cueloop
  * opened to render each review, keyed by session id. One JSON map, atomic write.
- * The core `ReviewSession` never mentions herdr; this side-store is the whole
+ * The core `Thread` never mentions herdr; this side-store is the whole
  * leak boundary.
  */
 

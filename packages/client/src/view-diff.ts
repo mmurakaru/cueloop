@@ -7,11 +7,12 @@
 
 import { parsePatchFiles, type FileDiffMetadata } from "@pierre/diffs";
 import {
+  annotationTarget,
   isAddressed,
   resolveAnchor,
   type Annotation,
   type Block,
-  type ReviewSession,
+  type Thread,
 } from "@cueloop/schema";
 import { spanRangeInBlock, type TextSpan } from "./thread-selection";
 import type { Mark } from "./view-plan";
@@ -168,11 +169,129 @@ export function marksByRows(
 }
 
 /**
+ * A whole file rendered as context rows, so the diff sheet can show and annotate a plain file the
+ * same way it does a diff: every line is unchanged, numbered on both sides (the file view collapses
+ * that to one number). A trailing newline does not add an empty final row.
+ */
+export function fileContentsRows(path: string, contents: string): DiffRow[] {
+  const lines = contents.replace(/\n$/, "").split("\n");
+
+  return lines.map((text, index) => ({
+    kind: "ctx",
+    text,
+    file: path,
+    oldLine: index + 1,
+    newLine: index + 1,
+  }));
+}
+
+/** The contiguous row range a file occupies in the aggregate diff, or null when it is not shown. */
+export function fileRowRange(rows: DiffRow[], path: string): { start: number; end: number } | null {
+  const start = rows.findIndex((row) => row.file === path);
+
+  if (start === -1) return null;
+  let end = start;
+
+  while (end < rows.length && rows[end]!.file === path) end++;
+
+  return { start, end };
+}
+
+/**
+ * Marks for file-target notes on the aggregate working-tree diff. Each note resolves against only
+ * its own file's rows, then the row index and span shift back to aggregate coordinates - so a quote
+ * never attaches to the same text in another file or on the opposite diff side.
+ */
+export function fileTargetMarks(
+  annotations: Annotation[],
+  rows: DiffRow[],
+  focusedId?: string,
+): Map<number, Mark[]> {
+  const byFile = new Map<string, Annotation[]>();
+
+  for (const annotation of annotations) {
+    const target = annotationTarget(annotation);
+
+    if (target.kind !== "file") continue;
+    const forPath = byFile.get(target.path) ?? [];
+
+    forPath.push(annotation);
+    byFile.set(target.path, forPath);
+  }
+  const result = new Map<number, Mark[]>();
+
+  for (const [path, fileAnnotations] of byFile) {
+    const range = fileRowRange(rows, path);
+
+    if (!range) continue;
+    const base = range.start;
+    const fileMarks = marksByRows(fileAnnotations, rows.slice(range.start, range.end), focusedId);
+
+    for (const [relativeRow, marks] of fileMarks) {
+      result.set(
+        relativeRow + base,
+        marks.map((mark) =>
+          mark.span
+            ? {
+                ...mark,
+                span: {
+                  start: { ...mark.span.start, blockIndex: mark.span.start.blockIndex + base },
+                  end: { ...mark.span.end, blockIndex: mark.span.end.blockIndex + base },
+                },
+              }
+            : mark,
+        ),
+      );
+    }
+  }
+
+  return result;
+}
+
+/** A plain diff review's notes anchor to the artifact itself; a working-tree diff's notes target files. */
+export function annotatesArtifact(session: Thread | null): boolean {
+  return session?.artifact.type === "diff" && session.artifact.meta.workbench !== true;
+}
+
+/**
+ * Render the diff from the pinned artifact rather than the live working tree: a plain diff review (the
+ * artifact is the diff), or a shared/served snapshot of a workbench thread (the remote has no tree).
+ */
+export function readsFrozenDiff(session: Thread | null): boolean {
+  return (
+    session?.artifact.type === "diff" &&
+    (session.artifact.meta.workbench !== true || session.artifact.meta.snapshot === true)
+  );
+}
+
+/**
+ * The marks a Changes surface paints. A plain diff review is the artifact itself, so only its
+ * artifact-anchored notes belong; a workbench thread (live or a frozen snapshot) and every other thread
+ * show a working-tree diff, whose notes carry a file target and resolve per file - so a refresh never
+ * rebinds one across files, and a snapshot still surfaces the feedback already on the thread.
+ */
+export function changesMarks(
+  session: Thread,
+  rows: DiffRow[],
+  focusedId?: string,
+): Map<number, Mark[]> {
+  if (annotatesArtifact(session)) {
+    const artifactNotes = session.annotations.filter(
+      (annotation) => annotationTarget(annotation).kind === "artifact",
+    );
+
+    return marksByRows(artifactNotes, rows, focusedId);
+  }
+
+  return fileTargetMarks(session.annotations, rows, focusedId);
+}
+
+/**
  * Comments per file path across the diff: each discussion counts its comments (root plus
  * replies) toward the file its span ends in. Feeds the changed-files tree and tab badges, so a
  * file whose tab is closed still shows it carries feedback.
  */
-export function commentCountsByFile(session: ReviewSession, rows: DiffRow[]): Map<string, number> {
+export function commentCountsByFile(session: Thread, rows: DiffRow[]): Map<string, number> {
   const discussions = discussionsFrom(session, marksByRows(session.annotations, rows));
   const counts = new Map<string, number>();
 

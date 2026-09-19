@@ -10,13 +10,12 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { App } from "../../packages/client/src/App";
 import {
   dragText,
-  press,
   pressKey,
+  renderReadyApp,
   typeText,
   waitForText,
 } from "../../packages/client/src/test-support";
@@ -135,7 +134,7 @@ function spawnHook(plan: string, options: SpawnHookOptions = {}): HookRun {
  */
 async function waitForPendingSession(
   hook?: HookRun,
-  predicate?: (session: ReviewSession) => boolean,
+  predicate?: (session: Thread) => boolean,
 ): Promise<string> {
   const client = await DaemonClient.connect({ home, autostart: true });
   const deadline = Date.now() + POLL_TIMEOUT_MS;
@@ -212,7 +211,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
         undefined,
         (candidate) => candidate.artifact.meta.agentSessionId === "cc-deny",
       );
-      const setup = await testRender(<App home={home} sessionId={sessionId} />, {
+      const setup = await renderReadyApp(<App home={home} sessionId={sessionId} />, {
         width: 120,
         height: 30,
       });
@@ -228,7 +227,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       await pressKey(setup, "RETURN", { meta: true }); // open submit (request_changes default with pending item)
       await waitForText(setup, "[Changes]");
       await typeText(setup, "Too aggressive.");
-      await press(setup, "enter");
+      await pressKey(setup, "RETURN", { meta: true });
 
       // Assert - the detached wake injects feedback.md into the inbox
       const frames = await inbox.frames;

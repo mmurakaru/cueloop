@@ -25,7 +25,7 @@ export const docsNav: NavGroup[] = [
   {
     title: "Concepts",
     items: [
-      { title: "The review session", href: "/docs/concepts/review-session/" },
+      { title: "The thread", href: "/docs/concepts/thread/" },
       { title: "Annotations", href: "/docs/concepts/annotations/" },
       { title: "The review primitives", href: "/docs/concepts/plan-diff-review/" },
       { title: "Branches and checkpoints", href: "/docs/concepts/history/" },
@@ -37,6 +37,7 @@ export const docsNav: NavGroup[] = [
       { title: "Commands", href: "/docs/reference/commands/" },
       { title: "Configuration", href: "/docs/reference/configuration/" },
       { title: "Keyboard & mouse", href: "/docs/reference/keyboard/" },
+      { title: "Performance", href: "/docs/reference/performance/" },
     ],
   },
   {

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { DaemonServer } from "./server";
 import { DaemonClient } from "./client";
 import { awaitResolve, openReview, resolveWorkspace } from "./review";
@@ -246,7 +246,7 @@ describe("awaitVerdict: chunked loop (the pi shape)", () => {
   test("onProgress sees fresh sessions between chunks; the verdict ends the loop", async () => {
     // Arrange
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
-    const seen: ReviewSession[] = [];
+    const seen: Thread[] = [];
     const waiting = review.awaitVerdict({
       timeoutMs: Infinity,
       pollMs: 100,

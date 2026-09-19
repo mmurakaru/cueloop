@@ -1,5 +1,5 @@
 /**
- * A review session's history as an append-only tree of entries. Each entry
+ * A thread's history as an append-only tree of entries. Each entry
  * points at its parent; a branch is a named tip; the active path is the chain
  * from the current branch's tip back to the root. Nothing is ever deleted:
  * navigating moves a tip, a comment removal is its own entry, a fork copies a
@@ -10,7 +10,7 @@
  * feedback document read what this module derives.
  */
 
-import type { Annotation, ReviewSession, Verdict } from "./types";
+import type { Annotation, Thread, Verdict } from "./types";
 
 export type EntryAuthor = "agent" | "reviewer";
 
@@ -361,7 +361,7 @@ export function removalEntries(
  * Deterministic: the same record migrates to the same ids.
  */
 export function historyFromLinear(
-  session: Pick<ReviewSession, "id" | "revisions" | "annotations" | "verdict" | "createdAt">,
+  session: Pick<Thread, "id" | "revisions" | "annotations" | "verdict" | "createdAt">,
 ): SessionHistory {
   const entries: SessionEntry[] = [];
   let parentId: string | null = null;

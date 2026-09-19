@@ -59,8 +59,8 @@ describe("submit overlay", () => {
   const keyState = state({ overlay: "submit" });
   const table: [string, Intent[]][] = [
     ["escape", [{ type: "closeOverlay" }]],
-    ["return", [{ type: "submitVerdict" }]],
-    ["enter", [{ type: "submitVerdict" }]],
+    ["return", []],
+    ["enter", []],
     ["left", [{ type: "cycleVerdict", direction: -1 }]],
     ["right", [{ type: "cycleVerdict", direction: 1 }]],
     ["j", []],

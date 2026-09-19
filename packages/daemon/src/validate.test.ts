@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import * as v from "valibot";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,12 +12,12 @@ import {
   ArtifactSchema,
   IdentitySchema,
   RevisionSchema,
-  SessionRecordSchema,
+  ThreadRecordSchema,
   VerdictSchema,
   WorkspaceSchema,
   isKnownMethod,
   parseParams,
-  validateSessionRecord,
+  validateThreadRecord,
 } from "./validate";
 import {
   ARTIFACT_TYPES,
@@ -26,7 +27,7 @@ import {
   type Artifact,
   type ArtifactMeta,
   type Identity,
-  type ReviewSession,
+  type Thread,
   type Revision,
   type Verdict,
   type WorkspaceKey,
@@ -132,7 +133,7 @@ describe("parseParams", () => {
   });
 });
 
-describe("validateSessionRecord", () => {
+describe("validateThreadRecord", () => {
   const record = {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
@@ -146,12 +147,12 @@ describe("validateSessionRecord", () => {
   };
 
   test("accepts a valid record", () => {
-    expect(validateSessionRecord(record).ok).toBe(true);
+    expect(validateThreadRecord(record).ok).toBe(true);
   });
 
   test("rejects a foreign schema version with a readable reason", () => {
     // Act
-    const result = validateSessionRecord({ ...record, schemaVersion: "99" });
+    const result = validateThreadRecord({ ...record, schemaVersion: "99" });
 
     // Assert
     expect(result.ok).toBe(false);
@@ -160,7 +161,7 @@ describe("validateSessionRecord", () => {
 
   test("rejects a structurally broken record", () => {
     // Act
-    const result = validateSessionRecord({ ...record, revisions: "nope" });
+    const result = validateThreadRecord({ ...record, revisions: "nope" });
 
     // Assert
     expect(result.ok).toBe(false);
@@ -186,6 +187,8 @@ describe("wire pins", () => {
     pr: "org/repo#1",
     herdrPane: "%7",
     title: "Plan",
+    workbench: false,
+    snapshot: false,
   };
   const fullAnchor: Required<Anchor> = {
     quote: "q",
@@ -201,6 +204,7 @@ describe("wire pins", () => {
     id: "a1",
     kind: "comment",
     anchor: fullAnchor,
+    target: { kind: "file", path: "src/x.ts", rev: "worktree" },
     body: "b",
     orphan: false,
     author: "SHA256:abc",
@@ -233,7 +237,7 @@ describe("wire pins", () => {
     name: "Al",
     handle: "abc",
   };
-  const fullSession: Required<ReviewSession> = {
+  const fullSession: Required<Thread> = {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
     workspace: fullWorkspace,
@@ -275,8 +279,19 @@ describe("wire pins", () => {
     verdict: fullVerdict,
     status: "pending",
     createdAt: "now",
+    shares: [
+      {
+        id: "p_abc123xy",
+        name: "review link",
+        requireAuth: true,
+        allowlist: ["octocat"],
+        owner: "SHA256:owner",
+        shareBranch: "main",
+      },
+    ],
     shareId: "p_abc123xy",
     owner: "SHA256:owner",
+    access: { githubLogins: ["octocat"] },
     participants: [fullIdentity],
   };
 
@@ -296,7 +311,7 @@ describe("wire pins", () => {
     };
 
     // Act
-    const parsed = validateSessionRecord(record);
+    const parsed = validateThreadRecord(record);
 
     // Assert
     expect(parsed.ok).toBe(false);
@@ -315,9 +330,9 @@ describe("wire pins", () => {
     expect(entryKeys(RevisionSchema)).toEqual(keys(fullRevision));
     expect(entryKeys(VerdictSchema)).toEqual(keys(fullVerdict));
     expect(entryKeys(IdentitySchema)).toEqual(keys(fullIdentity));
-    expect(entryKeys(SessionRecordSchema)).toEqual(keys(fullSession));
+    expect(entryKeys(ThreadRecordSchema)).toEqual(keys(fullSession));
     // persisted annotations carry the stamped createdAt
-    const stored = SessionRecordSchema.entries.annotations.item;
+    const stored = ThreadRecordSchema.entries.annotations.item;
 
     expect(entryKeys(stored)).toEqual(keys(fullAnnotation));
   });
@@ -341,5 +356,23 @@ describe("wire pins", () => {
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
+  });
+});
+
+describe("IdentitySchema provider", () => {
+  test("accepts a verified github identity", () => {
+    const parsed = v.safeParse(IdentitySchema, {
+      id: "SHA256:abc",
+      provider: "github",
+      name: "markus",
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  test("rejects an unknown provider", () => {
+    const parsed = v.safeParse(IdentitySchema, { id: "SHA256:abc", provider: "email" });
+
+    expect(parsed.success).toBe(false);
   });
 });

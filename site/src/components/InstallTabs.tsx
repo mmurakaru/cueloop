@@ -46,7 +46,6 @@ const METHODS: Method[] = [
   { id: "bun", label: "bun", command: "bun add -g cueloop" },
   { id: "pnpm", label: "pnpm", command: "pnpm add -g cueloop" },
   { id: "mise", label: "mise", command: "mise use -g npm:cueloop" },
-  { id: "nix", label: "nix", command: "nix run github:mmurakaru/cueloop" },
 ];
 
 function CommandRow({ command, metal }: { command: string; metal?: boolean }) {

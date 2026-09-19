@@ -26,6 +26,7 @@ import {
   type Response,
 } from "./protocol";
 import { cueloopHome, lockPath, ownerTokenPath, pidPath, socketPath } from "./paths";
+import { DAEMON_VERSION } from "./version";
 import { randomBytes } from "node:crypto";
 
 interface Connection {
@@ -44,6 +45,8 @@ export interface DaemonOptions {
   /** Idle-exit delay; 0 disables (tests, foreground runs). */
   idleExitMs?: number;
   onIdleExit?: () => void;
+  /** The version the ping handshake reports; defaults to this build. Tests override it to pose as a stale daemon. */
+  version?: string;
 }
 
 /**
@@ -64,11 +67,13 @@ export class DaemonServer {
   private ownerToken = "";
   private readonly idleExitMs: number;
   private readonly onIdleExit: () => void;
+  private readonly version: string;
 
   constructor(options: DaemonOptions = {}) {
     this.home = options.home ?? cueloopHome();
     this.idleExitMs = options.idleExitMs ?? 15 * 60 * 1000;
     this.onIdleExit = options.onIdleExit ?? (() => process.exit(0));
+    this.version = options.version ?? DAEMON_VERSION;
     mkdirSync(this.home, { recursive: true, mode: 0o700 });
     this.core = new DaemonCore(this.home);
     this.core.onEvent((event) => this.broadcast(event));
@@ -256,7 +261,7 @@ export class DaemonServer {
   }
 
   private readonly handlers: Record<MethodName, MethodHandler> = {
-    "daemon.ping": () => ({ pid: process.pid }),
+    "daemon.ping": () => ({ pid: process.pid, version: this.version }),
     "daemon.hello": (connection, request) => {
       const params = parseParams("daemon.hello", request.params);
 
@@ -300,6 +305,11 @@ export class DaemonServer {
     },
     "session.annotate": (_connection, request) => {
       const params = parseParams("session.annotate", request.params);
+
+      return this.core.sessionAnnotate(params.id, params.annotation, params.authorName);
+    },
+    "session.comment": (_connection, request) => {
+      const params = parseParams("session.comment", request.params);
 
       return this.core.sessionAnnotate(params.id, params.annotation, params.authorName);
     },
@@ -375,6 +385,11 @@ export class DaemonServer {
 
       return this.core.sessionCurate(params.id, params.rejections);
     },
+    "session.setAccess": (_connection, request) => {
+      const params = parseParams("session.setAccess", request.params);
+
+      return this.core.sessionSetAccess(params.id, params.githubLogins);
+    },
     "session.setViewed": (_connection, request) => {
       const params = parseParams("session.setViewed", request.params);
 
@@ -401,6 +416,10 @@ export class DaemonServer {
     },
     "repo.changes": (_connection, request) =>
       this.core.repoChanges(parseParams("repo.changes", request.params).cwd),
+    "repo.diff": (_connection, request) =>
+      this.core.repoDiff(parseParams("repo.diff", request.params).cwd),
+    "session.workbench": (_connection, request) =>
+      this.core.workbenchSession(parseParams("session.workbench", request.params).cwd),
     "session.refreshDiff": (_connection, request) => {
       const params = parseParams("session.refreshDiff", request.params);
 
@@ -410,6 +429,11 @@ export class DaemonServer {
       const params = parseParams("session.setShareId", request.params);
 
       return this.core.sessionSetShareId(params.id, params.shareId);
+    },
+    "session.setShares": (_connection, request) => {
+      const params = parseParams("session.setShares", request.params);
+
+      return this.core.sessionSetShares(params.id, params.shares);
     },
     "session.delete": (_connection, request) => {
       this.core.sessionDelete(parseParams("session.delete", request.params).id);
@@ -428,7 +452,12 @@ export class DaemonServer {
     "session.resolve": (_connection, request) => {
       const params = parseParams("session.resolve", request.params);
 
-      return this.core.sessionResolve(params.id, params.verdictKind, params.summary);
+      return this.core.sessionResolve(
+        params.id,
+        params.verdictKind,
+        params.summary,
+        params.actionBodies,
+      );
     },
     "session.submitRevision": (_connection, request) => {
       const params = parseParams("session.submitRevision", request.params);

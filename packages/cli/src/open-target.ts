@@ -16,7 +16,7 @@
  * ever resolves to its own artifact kind.
  */
 
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 
 /**
  * The primitive scopes, kept disjoint on purpose so a single session never resolves
@@ -25,19 +25,19 @@ import type { ReviewSession } from "@cueloop/schema";
  * diff scope must exclude those - otherwise `cueloop diff` and `cueloop
  * review` would both open the same pending PR review.
  */
-export function isPlanReview(session: ReviewSession): boolean {
+export function isPlanReview(session: Thread): boolean {
   return session.artifact.type === "plan";
 }
-export function isReplyReview(session: ReviewSession): boolean {
+export function isReplyReview(session: Thread): boolean {
   return session.artifact.type === "reply";
 }
-export function isPrototypeReview(session: ReviewSession): boolean {
+export function isPrototypeReview(session: Thread): boolean {
   return session.artifact.type === "prototype";
 }
-export function isDiffReview(session: ReviewSession): boolean {
+export function isDiffReview(session: Thread): boolean {
   return session.artifact.type === "diff" && session.artifact.meta.pr === undefined;
 }
-export function isPrReview(session: ReviewSession): boolean {
+export function isPrReview(session: Thread): boolean {
   return session.artifact.type === "diff" && session.artifact.meta.pr !== undefined;
 }
 
@@ -48,7 +48,7 @@ export function isSessionId(value: string): boolean {
 
 export interface OpenTargetQuery {
   /** Only sessions this predicate accepts are eligible - the primitive's artifact scope. */
-  match: (session: ReviewSession) => boolean;
+  match: (session: Thread) => boolean;
   /** Positional id-or-title selector; absent means "latest pending". */
   selector?: string;
 }
@@ -60,11 +60,11 @@ export type OpenTarget =
   | { kind: "ambiguous"; selector: string; titles: string[] };
 
 /** Most-recent-first, so the head of a sorted list is always the latest. */
-function newestFirst(left: ReviewSession, right: ReviewSession): number {
+function newestFirst(left: Thread, right: Thread): number {
   return right.createdAt.localeCompare(left.createdAt);
 }
 
-export function resolveOpenTarget(sessions: ReviewSession[], query: OpenTargetQuery): OpenTarget {
+export function resolveOpenTarget(sessions: Thread[], query: OpenTargetQuery): OpenTarget {
   const scoped = sessions.filter(query.match);
 
   if (query.selector === undefined) {

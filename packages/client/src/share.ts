@@ -1,5 +1,5 @@
 /**
- * Publish a review session as a share: pack it, stream it to the gateway's
+ * Publish a thread as a share: pack it, stream it to the gateway's
  * `share` user over SSH, and copy the returned `ssh p_…@host` line to the
  * clipboard. The planner holds no key, so all this side does is upload; the
  * gateway seals and stores. Used by both `cueloop share` and the in-TUI
@@ -16,9 +16,10 @@ import {
   removalEntries,
   viewFollowing,
   type Annotation,
-  type ReviewSession,
+  type ShareAccess,
+  type Thread,
 } from "@cueloop/schema";
-import { SessionRecordSchema } from "@cueloop/daemon/validate";
+import { ThreadRecordSchema } from "@cueloop/daemon/validate";
 import type { SharedMerge } from "@cueloop/daemon/client";
 import * as v from "valibot";
 import { copyToClipboard } from "./clipboard";
@@ -40,9 +41,14 @@ export function shareIdFromLine(line: string): string | undefined {
   return line.match(/^ssh (\S+)@/)?.[1];
 }
 
+/** The paste line for a share id: `ssh p_…@host`. Used to copy an existing link. */
+export function formatShareLine(shareId: string, target: ShareTarget = {}): string {
+  return `ssh ${shareId}@${target.host ?? DEFAULT_SHARE_HOST}`;
+}
+
 /** Upload the session to the gateway and copy the resulting ssh line. */
 export async function publishShare(
-  session: ReviewSession,
+  session: Thread,
   target: ShareTarget = {},
 ): Promise<ShareResult> {
   const { stdout, stderr, code } = await runShareSsh(
@@ -67,16 +73,16 @@ export async function publishShare(
  * the fingerprint that uploaded it through, so collaborator notes reach the
  * planner without exposing the master key.
  */
-export async function pullShare(shareId: string, target: ShareTarget = {}): Promise<ReviewSession> {
+export async function pullShare(shareId: string, target: ShareTarget = {}): Promise<Thread> {
   const { stdout, stderr, code } = await runShareSsh("cueloop-pull", Buffer.from(shareId), target);
 
   if (code !== 0) throw new Error(`gateway pull failed: ${stderr.trim() || `ssh exited ${code}`}`);
 
-  return v.parse(SessionRecordSchema, JSON.parse(stdout));
+  return v.parse(ThreadRecordSchema, JSON.parse(stdout));
 }
 
 /** A share's collaborator notes: the ones a viewer authored (author stamped). */
-export function collaboratorAnnotations(session: ReviewSession): Annotation[] {
+export function collaboratorAnnotations(session: Thread): Annotation[] {
   return session.annotations.filter((annotation) => annotation.author);
 }
 
@@ -84,7 +90,7 @@ export function collaboratorAnnotations(session: ReviewSession): Annotation[] {
  * What a pulled share hands the local merge: collaborators' notes, the
  * participant registry, and the removals the share recorded, by entry id.
  */
-export function mergeFromShare(remote: ReviewSession): SharedMerge {
+export function mergeFromShare(remote: Thread): SharedMerge {
   const merge: SharedMerge = { annotations: collaboratorAnnotations(remote) };
 
   if (remote.participants) merge.participants = remote.participants;
@@ -107,20 +113,31 @@ export function mergeFromShare(remote: ReviewSession): SharedMerge {
 export async function pushShare(
   shareId: string,
   annotations: Array<Omit<Annotation, "createdAt">>,
+  // ShareAccess sets a private allowlist; "public" clears it (makes the link public); undefined leaves it
+  access?: ShareAccess | "public",
   target: ShareTarget = {},
 ): Promise<void> {
+  const payload = access ? { shareId, annotations, access } : { shareId, annotations };
   const { stderr, code } = await runShareSsh(
     "cueloop-push",
-    Buffer.from(JSON.stringify({ shareId, annotations })),
+    Buffer.from(JSON.stringify(payload)),
     target,
   );
 
   if (code !== 0) throw new Error(`gateway push failed: ${stderr.trim() || `ssh exited ${code}`}`);
 }
 
+/** Revoke a share: the gateway deletes the blob so its link stops resolving. Owner-gated; idempotent. */
+export async function revokeShare(shareId: string, target: ShareTarget = {}): Promise<void> {
+  const { stderr, code } = await runShareSsh("cueloop-revoke", Buffer.from(shareId), target);
+
+  if (code !== 0)
+    throw new Error(`gateway revoke failed: ${stderr.trim() || `ssh exited ${code}`}`);
+}
+
 export interface ShareWatchHandlers {
   /** The whole session record, each time the share changes. */
-  onSession: (session: ReviewSession) => void;
+  onSession: (session: Thread) => void;
   /** The stream ended, for any reason; the caller decides whether to reconnect. */
   onClose: (reason: string) => void;
 }
@@ -128,7 +145,7 @@ export interface ShareWatchHandlers {
 const WatchFrameSchema = v.variant("type", [
   v.object({ type: v.literal("ready") }),
   v.object({ type: v.literal("ping") }),
-  v.object({ type: v.literal("session"), session: SessionRecordSchema }),
+  v.object({ type: v.literal("session"), session: ThreadRecordSchema }),
 ]);
 
 /**

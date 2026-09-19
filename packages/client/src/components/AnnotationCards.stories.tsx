@@ -78,7 +78,6 @@ export const SlashPaletteOpen: Story = {
       slashActive
       slashItems={slashItemsFrom(DEFAULT_QUICK_ACTIONS)}
       slashIndex={1}
-      inline={null}
       tokens={DARK}
     />
   ),

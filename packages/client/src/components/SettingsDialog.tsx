@@ -1,12 +1,13 @@
 /**
- * The settings overlay: a centered Dialog whose left nav is a tree - a Settings
- * group over its categories, plus Keybinds as a sibling leaf - and whose right
+ * The settings overlay: a centered Dialog whose left nav lists the categories as
+ * first-level leaves (General, Appearance, Actions, Keybinds), and whose right
  * body shows the active category's typed rows or the keybinds cheatsheet. The
  * component is controlled: the caller owns the open flag, the active
  * category/row/zone, and value changes, so the app's keyboard grammar (and the
  * stories catalog) drive it without a second key handler inside.
  */
 
+import { ScrollArea } from "./ScrollArea";
 import React from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import type { Theme } from "../theme";
@@ -20,7 +21,6 @@ import { CycleRow, TextRow, ToggleRow, type SettingsRowDescriptor } from "./Sett
 export interface SettingsCategory {
   id: string;
   name: string;
-  description: string;
   rows: SettingsRowDescriptor[];
   /** A bespoke body (e.g. the quick-actions editor) rendered instead of typed rows. */
   customBody?: React.ReactNode;
@@ -44,20 +44,12 @@ export interface SettingsDialogProps {
   activeZone: "nav" | "body";
   onCategorySelect: (categoryId: string) => void;
   onRowActivate: (row: SettingsRowDescriptor) => void;
+  onClose: () => void;
   theme?: Theme;
 }
 
-/** The left nav tree: a Settings group over its categories, then Keybinds as a leaf. */
 function navTree(categories: SettingsCategory[]): TreeNode[] {
-  const children = categories
-    .filter((category) => category.id !== KEYBINDS_CATEGORY_ID)
-    .map((category) => ({ id: category.id, label: category.name }));
-  const nodes: TreeNode[] = [{ id: "settings", label: "Settings", children }];
-  const keybinds = categories.find((category) => category.id === KEYBINDS_CATEGORY_ID);
-
-  if (keybinds !== undefined) nodes.push({ id: keybinds.id, label: keybinds.name });
-
-  return nodes;
+  return categories.map((category) => ({ id: category.id, label: category.name }));
 }
 
 function KeybindsBody({
@@ -68,7 +60,7 @@ function KeybindsBody({
   tokens: Theme;
 }): React.ReactNode {
   return (
-    <scrollbox style={{ flexGrow: 1 }} focused={false}>
+    <ScrollArea>
       {sections.map((section) => (
         <box key={section.title} style={{ flexDirection: "column" }}>
           <text fg={tokens.accent}>{section.title}</text>
@@ -81,7 +73,7 @@ function KeybindsBody({
           <text> </text>
         </box>
       ))}
-    </scrollbox>
+    </ScrollArea>
   );
 }
 
@@ -96,6 +88,7 @@ export function SettingsDialog({
   activeZone,
   onCategorySelect,
   onRowActivate,
+  onClose,
   theme,
 }: SettingsDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -115,15 +108,17 @@ export function SettingsDialog({
       width={Math.min(76, terminalWidth - 6)}
       height={Math.min(22, terminalHeight - 4)}
       background={tokens.elevated}
+      onDismiss={onClose}
       theme={theme}
     >
       <box style={{ flexDirection: "row", flexGrow: 1 }}>
         <box style={{ flexDirection: "column", width: 20, paddingLeft: 1, paddingRight: 1 }}>
           <Tree
             nodes={navTree(categories)}
-            expandedIds={new Set(["settings"])}
+            expandedIds={new Set<string>()}
             selectedId={category.id}
             hideIcons
+            selectedBackground={tokens.border}
             onSelect={onCategorySelect}
             onToggle={onCategorySelect}
             theme={theme}
@@ -131,9 +126,6 @@ export function SettingsDialog({
         </box>
         <box style={{ borderStyle: "single", border: ["left"], borderColor: tokens.border }} />
         <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 2, paddingRight: 1 }}>
-          <text fg={tokens.text}>{category.name}</text>
-          <text fg={tokens.textDim}>{category.description}</text>
-          <box style={{ height: 1 }} />
           {onKeybinds ? <KeybindsBody sections={keybindsSections} tokens={tokens} /> : null}
           {onKeybinds ? null : category.customBody}
           {onKeybinds

@@ -2,16 +2,16 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import * as v from "valibot";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { MemorySessionStore, SessionStore, type SessionRepository } from "./store";
+import { MemoryThreadStore, ThreadStore, type ThreadRepository } from "./store";
 import { sessionsDir } from "./paths";
-import { runSessionStoreConformance } from "./testing/store-conformance";
+import { runThreadStoreConformance } from "./testing/store-conformance";
 
-const homes = new WeakMap<SessionRepository, string>();
+const homes = new WeakMap<ThreadRepository, string>();
 
-runSessionStoreConformance("file store", {
+runThreadStoreConformance("file store", {
   open: (records) => {
     const home = mkdtempSync(join(tmpdir(), "cueloop-store-"));
-    const store = new SessionStore(home);
+    const store = new ThreadStore(home);
 
     // records land on disk the way an earlier daemon would have written them;
     // the file name comes from the record's id when it has one
@@ -26,7 +26,7 @@ runSessionStoreConformance("file store", {
     return store;
   },
   restart: (store) => {
-    const reopened = new SessionStore(homes.get(store)!);
+    const reopened = new ThreadStore(homes.get(store)!);
 
     homes.set(reopened, homes.get(store)!);
 
@@ -34,8 +34,8 @@ runSessionStoreConformance("file store", {
   },
 });
 
-runSessionStoreConformance("memory store", {
-  open: (records) => new MemorySessionStore(records),
+runThreadStoreConformance("memory store", {
+  open: (records) => new MemoryThreadStore(records),
   // nothing persists past the instance: a restart recovers what it was seeded with
-  restart: (store) => new MemorySessionStore(store.list()),
+  restart: (store) => new MemoryThreadStore(store.list()),
 });

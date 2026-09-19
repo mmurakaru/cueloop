@@ -12,9 +12,9 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@cueloop/client": "0.1.0-alpha.67",
-    "@cueloop/daemon": "0.1.0-alpha.67",
-    "@cueloop/schema": "0.1.0-alpha.67",
+    "@cueloop/client": "0.1.0-alpha.78",
+    "@cueloop/daemon": "0.1.0-alpha.78",
+    "@cueloop/schema": "0.1.0-alpha.78",
     "@opentui/core": "^0.5.8",
     "@opentui/react": "^0.5.8",
     "react": "^19.2.0",
@@ -22,7 +22,7 @@
     "valibot": "^1.4.2"
   },
   "devDependencies": {
-    "@types/ssh2": "^1.15.5"
+    "@types/ssh2": "^1.15.6"
   },
   "engines": {
     "bun": ">=1.3.0"

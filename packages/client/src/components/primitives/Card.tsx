@@ -1,5 +1,5 @@
 /**
- * Bordered rounded box with an optional title. The card owns the
+ * Bordered box with an optional title. The card owns the
  * height-derivation rule: its height is always the declared content row
  * count plus the two border rows, so layout math and the mounted box can
  * never drift apart - border-collapse bugs die here.
@@ -8,12 +8,13 @@
 import React from "react";
 import type { Theme } from "../../theme";
 import { useComponentTheme } from "../theme-context";
-import { FRAME_BORDER_STYLE } from "./frame";
+import { FRAME_BORDER_STYLE, frameTitle } from "./frame";
 
 export interface CardProps {
   title?: string;
   /** Number of content rows inside the border; the box adds the two border rows. */
   contentRows: number;
+  width?: number;
   borderColor?: string;
   backgroundColor?: string;
   marginLeft?: number;
@@ -30,6 +31,7 @@ export function cardHeight(contentRows: number): number {
 export function Card({
   title,
   contentRows,
+  width,
   borderColor,
   backgroundColor,
   marginLeft,
@@ -43,6 +45,7 @@ export function Card({
     <box
       style={{
         height: cardHeight(contentRows),
+        width,
         marginLeft,
         marginRight,
         border: true,
@@ -52,7 +55,7 @@ export function Card({
         flexDirection: "column",
         paddingLeft: 1,
       }}
-      title={title}
+      title={frameTitle(title)}
     >
       {children}
     </box>

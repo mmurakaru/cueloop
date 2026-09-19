@@ -7,10 +7,59 @@
  */
 
 import { join } from "node:path";
-import type { TestRendererSetup } from "@opentui/core/testing";
+import { cloneElement, isValidElement, type ReactNode } from "react";
+import type { TestRendererOptions, TestRendererSetup } from "@opentui/core/testing";
+import { testRender } from "@opentui/react/test-utils";
+import type { AppProps } from "./App";
 
-/** Pass budget for waits that include daemon or subprocess round-trips. */
-export const WAIT_PASSES = { maxPasses: 400 };
+/**
+ * A probe for the App's ready signal in an in-process suite: pass `onReady`
+ * to the App and await `ready` before the first interaction, instead of
+ * waiting for a piece of text and hoping the keyboard is bound by then.
+ */
+export interface AppReadyProbe {
+  /** Pass as the App's `onReady` prop. */
+  onReady: () => void;
+  /** Resolves once the App has fired its ready signal. */
+  ready: Promise<void>;
+}
+
+export function appReadyProbe(): AppReadyProbe {
+  let resolve: () => void = () => {};
+  const ready = new Promise<void>((done) => {
+    resolve = done;
+  });
+
+  return { onReady: () => resolve(), ready };
+}
+
+/**
+ * Boot an App element and resolve once it has fired its ready signal: the
+ * first usable screen is painted and its keyboard handlers are subscribed.
+ * Every App suite starts here so no boot waits on a piece of text and hopes.
+ */
+export async function renderReadyApp(
+  element: ReactNode,
+  options: TestRendererOptions,
+): Promise<TestRendererSetup> {
+  if (!isValidElement<AppProps>(element)) throw new Error("renderReadyApp needs an App element");
+  const probe = appReadyProbe();
+  const setup = await testRender(cloneElement(element, { onReady: probe.onReady }), options);
+
+  await probe.ready;
+
+  return setup;
+}
+
+/**
+ * The CUELOOP_CONFIG path that isolates a test from the developer's real user
+ * config: a file inside the test home that does not exist unless the test
+ * writes it. Subprocess harnesses set this in the child env; in-process suites
+ * use `isolateUserConfig`.
+ */
+export function isolatedUserConfigPath(home: string, fileName = "no-config.toml"): string {
+  return join(home, fileName);
+}
 
 /**
  * Isolate the user config: point CUELOOP_CONFIG into the test home so
@@ -20,10 +69,10 @@ export const WAIT_PASSES = { maxPasses: 400 };
  * defaults; pass a file name for suites that write and assert a config of
  * their own. Call in beforeEach; invoke the returned restore in afterEach.
  */
-export function isolateUserConfig(home: string, fileName = "no-config.toml"): () => void {
+export function isolateUserConfig(home: string, fileName?: string): () => void {
   const priorUserConfig = process.env.CUELOOP_CONFIG;
 
-  process.env.CUELOOP_CONFIG = join(home, fileName);
+  process.env.CUELOOP_CONFIG = isolatedUserConfigPath(home, fileName);
 
   return () => {
     if (priorUserConfig === undefined) delete process.env.CUELOOP_CONFIG;
@@ -114,17 +163,27 @@ export interface FrameLocation {
   column: number;
 }
 
-/** Locate the first visual line containing the needle: 0-based row and start column. */
-export function locateText(setup: TestRendererSetup, needle: string): FrameLocation {
-  const frame = setup.captureCharFrame();
-
+/** Locate the first line of a text frame containing the needle; null when absent. */
+export function locateTextInFrame(frame: string, needle: string): FrameLocation | null {
   for (const [row, line] of frame.split("\n").entries()) {
     const column = line.indexOf(needle);
 
     if (column !== -1) return { row, column };
   }
 
-  throw new Error(`locateText ${JSON.stringify(needle)} not found.\nframe:\n${frame}`);
+  return null;
+}
+
+/** Locate the first visual line containing the needle: 0-based row and start column. */
+export function locateText(setup: TestRendererSetup, needle: string): FrameLocation {
+  const frame = setup.captureCharFrame();
+  const location = locateTextInFrame(frame, needle);
+
+  if (location === null) {
+    throw new Error(`locateText ${JSON.stringify(needle)} not found.\nframe:\n${frame}`);
+  }
+
+  return location;
 }
 
 /** The 0-based visual row of the needle - for relative vertical-layout assertions. */

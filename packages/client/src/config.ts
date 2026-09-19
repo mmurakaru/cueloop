@@ -14,6 +14,7 @@ import { dirname } from "node:path";
 import * as v from "valibot";
 import { DARK, type Theme } from "./theme";
 import { DEFAULT_THEME_NAME, isThemeName, themeForName, type ThemeName } from "./theme-presets";
+import type { LaunchLayout } from "./launch-layout";
 
 export interface KeymapConfig {
   [action: string]: string | string[];
@@ -26,8 +27,9 @@ export interface IntegrationsConfig {
 /** Post-submit behavior: "off" prompts, 0 closes instantly, N counts down. */
 export type AutoClose = "off" | number;
 
-/** How the Changes diff renders: one inline column, or old|new side by side (only when zoomed). */
-export type DiffViewMode = "unified" | "split";
+/** How the Changes diff renders when wide: old|new side by side, or one stacked column. A narrow
+ *  (unzoomed) pane has no room for two columns, so it is always stacked regardless of this choice. */
+export type DiffViewMode = "split" | "stacked";
 
 /** One marker-popover quick action: a preset comment body, plus optional extra lines. */
 export interface QuickAction {
@@ -69,6 +71,10 @@ export const DEFAULT_QUICK_ACTIONS: QuickAction[] = [
     metadata:
       "Follow the nearest existing pattern in this codebase rather than introducing a new one.",
   },
+  {
+    prompt: "LGTM",
+    metadata: "This looks good to me.",
+  },
 ];
 
 /** The comment body a quick action expands to: the prompt, then its system prompt when set. */
@@ -99,16 +105,38 @@ export interface CueloopConfig {
     editor?: string;
     /** The selected theme preset name; its tokens are the base for `theme`, before any `[theme]` overrides. */
     theme: ThemeName;
-    /** How the Changes diff renders when zoomed: one inline column or old|new side by side. */
+    /** How the Changes diff renders when wide: old|new side by side or one stacked column. */
     diffView: DiffViewMode;
     /** Session ids the user has pinned to the top of the sidebar; client-local view state. */
     pins: string[];
+    /** The last pane layout a bare launch restores; unset until the user changes one. */
+    layout?: LaunchLayout;
   };
   /** Planner-local author renames: identity id → display name ([authors] table). */
   authors: Record<string, string>;
+  /** The local reviewer's own display name, and whether it was typed or synced from GitHub ([identity] table). */
+  identity: IdentityConfig;
   /** Marker-popover quick actions ([[actions]] tables); the 5 defaults when unset. */
   actions: QuickAction[];
+  /** Directory of user-level skills surfaced in the "/" palette ([skills] path); ~/.agents/skills default. */
+  skillsPath: string;
   integrations: IntegrationsConfig;
+  /** Opt-in experimental features ([experimental] table); all default off. */
+  experimental: ExperimentalConfig;
+}
+
+export interface ExperimentalConfig {
+  /** Render a prototype as a pixel mockup (kitty graphics) instead of the default markdown design doc. */
+  prototypePixels: boolean;
+}
+
+/** Where a display name came from: typed by the user, or verified from a GitHub login. */
+export type IdentityProvider = "typed" | "github";
+
+export interface IdentityConfig {
+  /** The reviewer's own display name; absent until they set or sync one. */
+  name?: string;
+  provider: IdentityProvider;
 }
 
 /** Every action in the grammar, with its default binding(s). */
@@ -134,15 +162,33 @@ export const DEFAULT_KEYS: CueloopConfig["keys"] = {
   share: ["S"],
   quit: ["q"],
   walk: ["w"],
+  leader: ["ctrl+g"],
 };
+
+const SkillsSectionSchema = v.object({ path: v.optional(v.string()) });
+
+function skillsPathFrom(
+  raw: v.InferOutput<typeof SkillsSectionSchema> | undefined,
+  fallback: string,
+): string {
+  return raw?.path?.trim() ? raw.path.trim() : fallback;
+}
 
 const ConfigDocumentSchema = v.object({
   actions: v.optional(v.array(v.unknown())),
   authors: v.optional(v.unknown()),
+  identity: v.optional(v.unknown()),
   integrations: v.optional(v.unknown()),
   keys: v.optional(v.unknown()),
   theme: v.optional(v.unknown()),
   ui: v.optional(v.unknown()),
+  experimental: v.optional(v.unknown()),
+  skills: v.fallback(v.optional(SkillsSectionSchema), undefined),
+});
+
+const IdentitySchema = v.object({
+  name: v.fallback(v.optional(v.string()), undefined),
+  provider: v.fallback(v.optional(v.picklist(["typed", "github"])), undefined),
 });
 
 const QuickActionSchema = v.object({
@@ -165,8 +211,18 @@ const UiSchema = v.object({
   ),
   editor: v.fallback(v.optional(v.string()), undefined),
   theme: v.fallback(v.optional(v.string()), undefined),
-  diff_view: v.fallback(v.optional(v.picklist(["unified", "split"])), undefined),
+  diff_view: v.fallback(v.optional(v.picklist(["split", "stacked", "unified"])), undefined),
   pins: v.fallback(v.optional(v.array(v.string())), undefined),
+  layout: v.fallback(
+    v.optional(
+      v.object({
+        threads: v.fallback(v.optional(v.boolean()), undefined),
+        right_sidebar: v.fallback(v.optional(v.picklist(["changes", "project", "off"])), undefined),
+        zoom_changes: v.fallback(v.optional(v.boolean()), undefined),
+      }),
+    ),
+    undefined,
+  ),
 });
 const ObsidianSchema = v.object({
   vault: v.fallback(v.optional(v.string()), undefined),
@@ -176,6 +232,9 @@ const ObsidianSchema = v.object({
   exportOn: v.fallback(v.optional(v.picklist(["approve", "resolve", "manual"])), undefined),
 });
 const IntegrationsSchema = v.object({ obsidian: v.optional(ObsidianSchema) });
+const ExperimentalSchema = v.object({
+  prototype_pixels: v.fallback(v.optional(v.boolean()), undefined),
+});
 const ThemeOverridesSchema = v.record(v.string(), v.unknown());
 
 function isThemeToken(token: string): token is keyof Theme {
@@ -213,9 +272,27 @@ function mergeObsidian(
   if (obsidian.exportOn !== undefined) target.exportOn = obsidian.exportOn;
 }
 
+/** Fold a parsed `[ui]` table onto the accumulated ui config, field by present field. */
+function applyUi(ui: CueloopConfig["ui"], parsed: v.InferOutput<typeof UiSchema>): void {
+  if (parsed.auto_close !== undefined) ui.autoClose = parsed.auto_close;
+  if (parsed.editor?.trim()) ui.editor = parsed.editor.trim();
+  // "unified" is the pre-rename spelling of "stacked"; keep loading it so an upgrade never flips the layout
+  if (parsed.diff_view !== undefined)
+    ui.diffView = parsed.diff_view === "unified" ? "stacked" : parsed.diff_view;
+  if (parsed.pins !== undefined) ui.pins = parsed.pins;
+  if (parsed.layout !== undefined) {
+    ui.layout = {
+      threads: parsed.layout.threads ?? true,
+      rightSidebar: parsed.layout.right_sidebar ?? "changes",
+      zoomChanges: parsed.layout.zoom_changes ?? false,
+    };
+  }
+}
+
 function layer(
   base: CueloopConfig,
   raw: v.InferOutput<typeof ConfigDocumentSchema>,
+  allowIdentity: boolean,
 ): CueloopConfig {
   const out: CueloopConfig = {
     keys: { ...base.keys },
@@ -223,16 +300,22 @@ function layer(
     themeOverrides: { ...base.themeOverrides },
     ui: { ...base.ui },
     authors: { ...base.authors },
+    identity: { ...base.identity },
     actions: [...base.actions],
+    skillsPath: base.skillsPath,
     integrations: { obsidian: { ...base.integrations.obsidian } },
+    experimental: { ...base.experimental },
   };
   const actions = parseActions(raw.actions);
   const authors = v.safeParse(AuthorsSchema, raw.authors);
+  const identity = v.safeParse(IdentitySchema, raw.identity);
   const keys = v.safeParse(KeysSchema, raw.keys);
   const ui = v.safeParse(UiSchema, raw.ui);
   const integrations = v.safeParse(IntegrationsSchema, raw.integrations);
+  const experimental = v.safeParse(ExperimentalSchema, raw.experimental);
 
   if (actions) out.actions = actions;
+  out.skillsPath = skillsPathFrom(raw.skills, base.skillsPath);
   if (authors.success) {
     for (const [id, value] of Object.entries(authors.output)) {
       const name = v.safeParse(v.string(), value);
@@ -248,14 +331,17 @@ function layer(
         out.keys[action] = Array.isArray(combo.output) ? combo.output : [combo.output];
     }
   }
-  if (ui.success) {
-    if (ui.output.auto_close !== undefined) out.ui.autoClose = ui.output.auto_close;
-    if (ui.output.editor?.trim()) out.ui.editor = ui.output.editor.trim();
-    if (ui.output.diff_view !== undefined) out.ui.diffView = ui.output.diff_view;
-    if (ui.output.pins !== undefined) out.ui.pins = ui.output.pins;
+  // The reviewer identity is a personal credential; a repo must never forge a verified name.
+  if (allowIdentity && identity.success) {
+    if (identity.output.name !== undefined) out.identity.name = identity.output.name;
+    if (identity.output.provider !== undefined) out.identity.provider = identity.output.provider;
   }
+  if (ui.success) applyUi(out.ui, ui.output);
   if (integrations.success && integrations.output.obsidian) {
     mergeObsidian(out.integrations.obsidian, integrations.output.obsidian);
+  }
+  if (experimental.success && experimental.output.prototype_pixels !== undefined) {
+    out.experimental.prototypePixels = experimental.output.prototype_pixels;
   }
 
   return out;
@@ -271,12 +357,15 @@ export function loadConfig(
     ui: {
       autoClose: "off",
       theme: DEFAULT_THEME_NAME,
-      diffView: "unified",
+      diffView: "split",
       pins: [],
     },
     authors: {},
+    identity: { provider: "typed" },
     actions: [...DEFAULT_QUICK_ACTIONS],
+    skillsPath: join(homedir(), ".agents", "skills"),
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
+    experimental: { prototypePixels: false },
   };
   // Theme name and per-token overrides are separate concerns, composed once
   // after all layers: the last file to set [ui] theme wins, and every [theme]
@@ -294,7 +383,7 @@ export function loadConfig(
     try {
       const raw = parseToml(readFileSync(path, "utf8"));
 
-      config = layer(config, raw);
+      config = layer(config, raw, path === userPath);
       const ui = v.safeParse(UiSchema, raw.ui);
       const rawTheme = ui.success ? ui.output.theme : undefined;
       const parsedThemeOverrides = v.safeParse(ThemeOverridesSchema, raw.theme);
@@ -396,6 +485,23 @@ export function persistActions(actions: QuickAction[], userConfigPath?: string):
   writeFileSync(path, text);
 }
 
+/** Persist the reviewer's own display name and its provider (`[identity]`) into the user config. */
+export function persistIdentity(identity: IdentityConfig, userConfigPath?: string): void {
+  const path = userConfigPathFrom(userConfigPath);
+  let text = existsSync(path) ? readFileSync(path, "utf8") : "";
+  const nameLine = identity.name === undefined ? "" : `name = ${tomlString(identity.name)}\n`;
+  const block = `[identity]\n${nameLine}provider = ${tomlString(identity.provider)}\n`;
+
+  if (/^\[identity\]/m.test(text)) {
+    // Consume the header and its assignment lines only, so a bracket in a quoted name cannot truncate the block.
+    text = text.replace(/^\[identity\].*(?:\n(?![[\n]).*)*\n?/m, block);
+  } else {
+    text = text.trimEnd() + (text.trim() ? "\n\n" : "") + block;
+  }
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, text);
+}
+
 /** Persist the auto-close choice (`[ui] auto_close`) into the user config. */
 export function persistAutoClose(value: AutoClose, userConfigPath?: string): void {
   persistUiSetting("auto_close", value === "off" ? '"off"' : String(value), userConfigPath);
@@ -414,6 +520,13 @@ export function persistDiffView(mode: DiffViewMode, userConfigPath?: string): vo
 /** Persist the pinned-thread ids (`[ui] pins`) into the user config. */
 export function persistPins(ids: readonly string[], userConfigPath?: string): void {
   persistUiSetting("pins", `[${ids.map(tomlString).join(", ")}]`, userConfigPath);
+}
+
+/** Persist the last pane layout (`[ui] layout`) so a bare launch restores it. */
+export function persistLayout(layout: LaunchLayout, userConfigPath?: string): void {
+  const table = `{ threads = ${layout.threads}, right_sidebar = "${layout.rightSidebar}", zoom_changes = ${layout.zoomChanges} }`;
+
+  persistUiSetting("layout", table, userConfigPath);
 }
 
 function escapeRegExp(text: string): string {

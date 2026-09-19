@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/client",
-  "version": "0.1.0-alpha.67",
+  "version": "0.1.0-alpha.78",
   "description": "The cueloop review UI: projection renderer, keyboard grammar, review rail",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -20,16 +20,17 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./config": "./src/config.ts"
+    "./config": "./src/config.ts",
+    "./slash-palette": "./src/slash-palette.ts"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@cueloop/daemon": "0.1.0-alpha.67",
-    "@cueloop/extension-api": "0.1.0-alpha.67",
-    "@cueloop/integration-obsidian": "0.1.0-alpha.67",
-    "@cueloop/schema": "0.1.0-alpha.67",
+    "@cueloop/daemon": "0.1.0-alpha.78",
+    "@cueloop/extension-api": "0.1.0-alpha.78",
+    "@cueloop/integration-obsidian": "0.1.0-alpha.78",
+    "@cueloop/schema": "0.1.0-alpha.78",
     "@opentui/core": "^0.5.8",
     "@opentui/keymap": "0.5.8",
     "@opentui/react": "^0.5.8",
@@ -37,13 +38,14 @@
     "@pierre/diffs": "^1.3.6",
     "@tanstack/virtual-core": "^3.17.9",
     "diff": "^9",
-    "puppeteer-core": "^25.8.0",
+    "puppeteer-core": "^25.9.0",
     "react": "^19.2.0",
-    "valibot": "^1.4.2"
+    "valibot": "^1.4.2",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",
-    "@types/ssh2": "^1.15.5",
+    "@types/ssh2": "^1.15.6",
     "ssh2": "^1.17.0"
   },
   "engines": {

@@ -1,0 +1,155 @@
+name: install matrix
+
+# The published install paths, exercised on a broad spread of machines every
+# week and on demand: the curl installer on hosted macOS and Linux plus four
+# bare Linux distributions, the global npm package, and the Homebrew formula.
+# This verifies the real published release; the release workflow gates the same
+# curl scenarios against the staged binaries before publish.
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The newest published release is the target; the one below it is the upgrade
+  # baseline. Both feed the scenarios as CUELOOP_* overrides.
+  resolve:
+    name: Resolve versions
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.pick.outputs.version }}
+      previous: ${{ steps.pick.outputs.previous }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          # semver-correct newest and next-below, shared with the release gate
+          newest_tag=$(bun -e 'import { resolveLatestReleaseTag } from "./scripts/benchmarks/previous-release"; console.log(await resolveLatestReleaseTag())')
+          version="${newest_tag#cueloop@}"
+          previous_tag=$(VERSION="$version" bun -e 'import { resolvePreviousReleaseTag } from "./scripts/benchmarks/previous-release"; console.log(await resolvePreviousReleaseTag(process.env.VERSION))' 2>/dev/null || true)
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "previous=${previous_tag#cueloop@}" >> "$GITHUB_OUTPUT"
+
+  # The curl installer, the npm package, and (on macOS) the Homebrew formula on
+  # the OSes we ship binaries for.
+  hosted:
+    name: ${{ matrix.runner }}
+    needs: resolve
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            scenarios: curl-clean curl-rerun curl-upgrade npm plugin brew
+          - runner: macos-15-intel
+            scenarios: curl-clean curl-rerun curl-upgrade npm plugin brew
+          - runner: ubuntu-24.04
+            scenarios: curl-clean curl-rerun curl-upgrade npm plugin
+          - runner: ubuntu-24.04-arm
+            scenarios: curl-clean curl-rerun curl-upgrade npm plugin
+    env:
+      CUELOOP_VERSION: ${{ needs.resolve.outputs.version }}
+      CUELOOP_MATRIX_PREVIOUS_VERSION: ${{ needs.resolve.outputs.previous }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Run install scenarios
+        run: |
+          # shellcheck disable=SC2086
+          sh test/install/matrix/run.sh ${{ matrix.scenarios }}
+
+  # The curl installer on bare Linux distributions with no Node and no Bun:
+  # proves `curl | sh` works from a clean base image. The scenarios are pure
+  # POSIX, so run.sh needs no toolchain in the container.
+  containers:
+    name: ${{ matrix.image }}
+    needs: resolve
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - debian:stable-slim
+          - fedora:latest
+          - archlinux:latest
+          - alpine:latest
+    env:
+      CUELOOP_VERSION: ${{ needs.resolve.outputs.version }}
+      CUELOOP_MATRIX_PREVIOUS_VERSION: ${{ needs.resolve.outputs.previous }}
+    steps:
+      - name: Install prerequisites
+        shell: sh
+        run: |
+          if command -v apt-get >/dev/null 2>&1; then
+            apt-get update && apt-get install -y curl ca-certificates git
+          elif command -v dnf >/dev/null 2>&1; then
+            dnf install -y curl ca-certificates git
+          elif command -v pacman >/dev/null 2>&1; then
+            pacman -Sy --noconfirm curl ca-certificates git
+          elif command -v apk >/dev/null 2>&1; then
+            # gcompat and libstdc++ let the runner's glibc node run the JS actions
+            apk add --no-cache curl ca-certificates git bash coreutils grep sed gcompat libstdc++
+          fi
+      - uses: actions/checkout@v7
+      - name: Run install scenarios
+        shell: sh
+        run: sh test/install/matrix/run.sh curl-clean curl-rerun curl-upgrade plugin
+
+  # The npm package on Windows: the global launcher is a .cmd shim there.
+  windows:
+    name: windows-latest
+    needs: resolve
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    env:
+      CUELOOP_VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Run install scenarios
+        run: sh test/install/matrix/run.sh npm plugin
+
+  # A scheduled failure is invisible unless it is filed; comment on the open
+  # tracking issue if there is one, else open it. Manual runs stay quiet.
+  report-failure:
+    name: Report failure
+    needs: [resolve, hosted, containers, windows]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create install-matrix-failure --color b60205 \
+            --description "The weekly install matrix failed" 2>/dev/null || true
+          body="The weekly install matrix failed. Run: ${RUN_URL}"
+          existing=$(gh issue list --state open --label install-matrix-failure \
+            --json number -q '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "Install matrix is failing" \
+              --label install-matrix-failure --body "$body"
+          fi

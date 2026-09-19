@@ -12,10 +12,11 @@ import {
   publishShare,
   pullShare,
   shareIdFromLine,
+  snapshotWorkbench,
   type ShareResult,
   type ShareTarget,
 } from "@cueloop/client";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 
 export interface ShareParams {
   sessionId?: string;
@@ -27,12 +28,12 @@ export interface ShareParams {
 }
 
 export interface ShareDeps {
-  publish: (session: ReviewSession, target: ShareTarget) => Promise<ShareResult>;
+  publish: (session: Thread, target: ShareTarget) => Promise<ShareResult>;
   out: (message: string) => void;
 }
 
 export interface PullDeps {
-  pull: (shareId: string, target: ShareTarget) => Promise<ReviewSession>;
+  pull: (shareId: string, target: ShareTarget) => Promise<Thread>;
   out: (message: string) => void;
 }
 
@@ -81,7 +82,11 @@ export async function shareSession(
     return 1;
   }
   const session = params.fork ? await client.sessionFork(picked.id) : picked;
-  const { line, copied } = await deps.publish(session, { host: params.host, port: params.port });
+  // a workbench thread renders live locally; freeze its diff so the remote reviewer gets a stable snapshot
+  const shared = client.repoDiff
+    ? await snapshotWorkbench(session, client.repoDiff.bind(client))
+    : session;
+  const { line, copied } = await deps.publish(shared, { host: params.host, port: params.port });
   const shareId = shareIdFromLine(line);
 
   if (shareId) await client.sessionSetShareId(session.id, shareId);
@@ -122,10 +127,7 @@ export async function pullSession(
 }
 
 /** The named session, or the most recent one when no id is given. */
-async function pickSession(
-  client: SessionClient,
-  sessionId?: string,
-): Promise<ReviewSession | null> {
+async function pickSession(client: SessionClient, sessionId?: string): Promise<Thread | null> {
   if (sessionId) return client.sessionGet(sessionId);
   const sessions = await client.sessionList();
 
@@ -136,7 +138,7 @@ async function pickSession(
 async function pickSharedSession(
   client: SessionClient,
   sessionId?: string,
-): Promise<ReviewSession | null> {
+): Promise<Thread | null> {
   if (sessionId) {
     const session = await client.sessionGet(sessionId);
 

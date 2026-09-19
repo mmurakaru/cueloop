@@ -18,12 +18,12 @@ test("renders the loaded file contents", async () => {
   await waitForText(setup, "const answer = 42;");
 });
 
-test("shows a not-found hint when the file cannot be read", async () => {
+test("shows a centered File deleted message when the file cannot be read", async () => {
   const setup = await testRender(
     <FileContentsView path="missing.ts" loadContents={() => Promise.resolve(null)} theme={DARK} />,
     { width: 60, height: 10 },
   );
 
-  await waitForText(setup, "could not read missing.ts");
-  expect(setup.captureCharFrame()).toContain("could not read missing.ts");
+  await waitForText(setup, "File deleted");
+  expect(setup.captureCharFrame()).toContain("File deleted");
 });

@@ -7,9 +7,9 @@ import { join } from "node:path";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
-import type { ShareTransport } from "./session-controller";
+import type { ShareTransport } from "./thread-controller";
 import {
   clickText,
   isolateUserConfig,
@@ -28,7 +28,9 @@ const shareTransport: ShareTransport = {
   }),
   push: mock(async () => {}),
   watch: () => () => {},
+  revoke: async () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
   collaboratorAnnotations: () => [],
   mergeFromShare: () => ({ annotations: [] }),
 };
@@ -38,7 +40,7 @@ const PLAN = `# Migration Plan\n\n## Context\n\nThe daemon persists sessions to 
 let home: string;
 let restoreUserConfig: () => void;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-toast-"));
@@ -73,9 +75,16 @@ describe("share toast", () => {
 
     await waitForText(setup, "cueloop");
 
-    // Act: share raises the toast, then open a composer under it by typing
+    // Act: share opens the dialog, the new-link wizard publishes and raises the toast, then a composer under it
     await pressKey(setup, "s", { ctrl: true });
-    await waitForText(setup, "share link copied");
+    await waitForText(setup, "+ new link");
+    await press(setup, "enter"); // step into the links body
+    await press(setup, "enter"); // activate "+ new link" - the wizard opens
+    await waitForText(setup, "link name");
+    await press(setup, "enter"); // the name field submits and creates the link
+    await waitForText(setup, "link copied");
+    await press(setup, "escape"); // close the dialog; the non-modal toast stays up
+    await waitForTextGone(setup, "share externally");
     await clickText(setup, "daemon");
     await typeText(setup, "x");
     await waitForText(setup, "● x");

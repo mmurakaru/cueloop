@@ -6,14 +6,15 @@
  */
 
 import {
+  annotationTarget,
   isAddressed,
   isAgentNote,
   type Annotation,
   type ArtifactType,
-  type ReviewSession,
+  type Thread,
   type VerdictKind,
 } from "./types";
-import { parseBlocks, sectionOf } from "./markdown";
+import { parseBlocks, sectionOf, type Block } from "./markdown";
 import { resolveAnchor } from "./anchor";
 import { unifiedDiffText } from "./diff";
 
@@ -32,9 +33,19 @@ export interface FeedbackInput {
   artifactPath?: string;
   /** Session id, so the document can teach the addressed-ids resubmit call. */
   sessionId?: string;
+  /** cueloop quick-action name -> body; a `/name` reference in a comment expands to it for the agent. */
+  actionBodies?: Record<string, string>;
 }
 
 const quoteLines = (text: string) => "> " + text.replace(/\n/g, "\n> ");
+
+function expandActionRefs(body: string, actionBodies: Record<string, string> | undefined): string {
+  if (!actionBodies) return body;
+
+  return body.replace(/(^|\s)\/([A-Za-z0-9-]+)/g, (whole, lead: string, name: string) =>
+    actionBodies[name] !== undefined ? `${lead}${actionBodies[name]}` : whole,
+  );
+}
 
 export function renderFeedback(input: FeedbackInput): string {
   // The document the agent revises: a reply's feedback references reply.md so
@@ -118,44 +129,16 @@ export function renderFeedback(input: FeedbackInput): string {
   }
 
   if (annotations.length) {
-    lines.push(`## Annotations (${annotations.length})`);
-    lines.push("");
     lines.push(
-      isPrototype
-        ? `Address every item. Locate each one in ${path} by its CSS selector.`
-        : `Address every item. Locate each one in ${path} by its quoted text.`,
+      ...annotationSectionLines(
+        annotations,
+        blocks,
+        path,
+        isPrototype,
+        repliesTo,
+        input.actionBodies,
+      ),
     );
-    lines.push("");
-    annotations.forEach((annotation, annotationIndex) => {
-      // a prototype selector anchor is never resolved or orphaned against blocks
-      const selector = annotation.anchor.selector;
-      const resolved = selector ? null : resolveAnchor(annotation.anchor, blocks);
-      const sectionTitle = resolved ? sectionOf(blocks, resolved.blockIndex) : "";
-      const location = selector ? ` (${selector})` : sectionTitle ? ` (§ ${sectionTitle})` : "";
-      const orphanFlag =
-        !selector && resolved === null
-          ? " [orphaned anchor: the quoted text is no longer present]"
-          : "";
-
-      lines.push(
-        `### ${annotationIndex + 1}. ${capitalize(annotation.kind)}${location}${orphanFlag}`,
-      );
-      lines.push("");
-      lines.push(quoteLines(annotation.anchor.quote));
-      lines.push("");
-      lines.push(annotation.body);
-      lines.push("");
-      const replies = repliesTo(annotation);
-
-      if (replies.length > 0) {
-        lines.push("Replies:");
-        lines.push("");
-        for (const reply of replies) lines.push(`- ${reply.body.replace(/\n/g, "\n  ")}`);
-        lines.push("");
-      }
-      lines.push(`annotation id: \`${annotation.id}\``);
-      lines.push("");
-    });
     if (input.sessionId) {
       lines.push("## Reporting what you addressed");
       lines.push("");
@@ -179,10 +162,94 @@ export function renderFeedback(input: FeedbackInput): string {
   return lines.join("\n");
 }
 
+/**
+ * The annotation body of the feedback, grouped by the surface each note was made on: the reviewed
+ * artifact first (resolved against its blocks for a section locator), then one section per file, so a
+ * note left on a file comes back beside that file rather than mixed into the plan's list.
+ */
+function annotationSectionLines(
+  annotations: Annotation[],
+  blocks: Block[],
+  path: string,
+  isPrototype: boolean,
+  repliesTo: (root: Annotation) => Annotation[],
+  actionBodies: Record<string, string> | undefined,
+): string[] {
+  const lines: string[] = [];
+  const artifactNotes = annotations.filter(
+    (annotation) => annotationTarget(annotation).kind === "artifact",
+  );
+  const fileGroups = new Map<string, Annotation[]>();
+
+  for (const annotation of annotations) {
+    const target = annotationTarget(annotation);
+
+    if (target.kind !== "file") continue;
+    const group = fileGroups.get(target.path) ?? [];
+
+    group.push(annotation);
+    fileGroups.set(target.path, group);
+  }
+
+  const pushNote = (annotation: Annotation, index: number, location: string, orphan: string) => {
+    lines.push(`### ${index + 1}. ${capitalize(annotation.kind)}${location}${orphan}`);
+    lines.push("");
+    lines.push(quoteLines(annotation.anchor.quote));
+    lines.push("");
+    lines.push(expandActionRefs(annotation.body, actionBodies));
+    lines.push("");
+    const replies = repliesTo(annotation);
+
+    if (replies.length > 0) {
+      lines.push("Replies:");
+      lines.push("");
+      for (const reply of replies)
+        lines.push(`- ${expandActionRefs(reply.body, actionBodies).replace(/\n/g, "\n  ")}`);
+      lines.push("");
+    }
+    lines.push(`annotation id: \`${annotation.id}\``);
+    lines.push("");
+  };
+
+  if (artifactNotes.length) {
+    lines.push(`## Annotations (${artifactNotes.length})`);
+    lines.push("");
+    lines.push(
+      isPrototype
+        ? `Address every item. Locate each one in ${path} by its CSS selector.`
+        : `Address every item. Locate each one in ${path} by its quoted text.`,
+    );
+    lines.push("");
+    artifactNotes.forEach((annotation, index) => {
+      // a prototype selector anchor never resolves or orphans against blocks; a quote anchor does
+      const selector = annotation.anchor.selector;
+      const resolved = selector ? null : resolveAnchor(annotation.anchor, blocks);
+      const sectionTitle = resolved ? sectionOf(blocks, resolved.blockIndex) : "";
+      const location = selector ? ` (${selector})` : sectionTitle ? ` (§ ${sectionTitle})` : "";
+      const orphan =
+        !selector && resolved === null
+          ? " [orphaned anchor: the quoted text is no longer present]"
+          : "";
+
+      pushNote(annotation, index, location, orphan);
+    });
+  }
+  for (const [filePath, notes] of fileGroups) {
+    lines.push(`## ${filePath} (${notes.length})`);
+    lines.push("");
+    lines.push(`Address every item. Locate each one in ${filePath} by its quoted text.`);
+    lines.push("");
+    notes.forEach((annotation, index) => pushNote(annotation, index, "", ""));
+  }
+
+  return lines;
+}
+
 export function feedbackForSession(
-  session: ReviewSession,
+  session: Thread,
   verdictKind: VerdictKind,
   summary: string,
+  actionBodies?: Record<string, string>,
 ): string {
   return renderFeedback({
     verdictKind,
@@ -193,6 +260,7 @@ export function feedbackForSession(
     annotations: session.annotations,
     artifactPath: session.artifact.meta.prototypePath ?? session.artifact.meta.planPath,
     sessionId: session.id,
+    actionBodies,
   });
 }
 

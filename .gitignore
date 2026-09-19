@@ -6,3 +6,16 @@ dist/
 
 # native libghostty-vt build workspace (artifacts are vendored under packages/client/native)
 .libghostty-build/
+
+# bun build --compile scratch files
+.*.bun-build
+
+# local benchmark runs
+benchmarks/results/
+benchmarks/profiles/
+*.cpuprofile
+*.heapsnapshot
+.bench-tmp/
+
+# install-vm and other scratch output
+tmp/

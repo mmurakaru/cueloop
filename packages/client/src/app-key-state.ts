@@ -1,4 +1,4 @@
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import type { Mode } from "./intent-dispatch";
 import type { KeyState } from "./keymap";
 import type { DisplayBlock } from "./view-plan";
@@ -10,11 +10,11 @@ export function buildKeyState(params: {
   observer: boolean;
   isOwner: boolean;
   overlay: KeyState["overlay"];
-  session: ReviewSession | null;
+  session: Thread | null;
   isDiff: boolean;
   mode: Mode;
   resolved: boolean;
-  inbox: ReviewSession[] | null;
+  inbox: Thread[] | null;
   focusedAnnotationId: string | undefined;
   walk: { index: number } | null;
   walkFileList: WalkFile[];

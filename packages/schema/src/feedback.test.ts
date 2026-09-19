@@ -329,3 +329,64 @@ describe("renderFeedback", () => {
     expect(feedback).not.toContain("orphaned anchor");
   });
 });
+
+describe("renderFeedback target grouping", () => {
+  test("file notes group under their own path section, apart from the artifact", () => {
+    const feedback = renderFeedback({
+      verdictKind: "request_changes",
+      summary: "",
+      artifactContent: PLAN,
+      artifactPath: "docs/plan.md",
+      annotations: [
+        makeAnnotation({
+          id: "art1",
+          anchor: { quote: "Sessions are written", prefix: "", suffix: "" },
+          body: "artifact note",
+        }),
+        makeAnnotation({
+          id: "f1",
+          anchor: { quote: "const a = 1", prefix: "", suffix: "" },
+          target: { kind: "file", path: "src/a.ts", rev: "worktree" },
+          body: "file a note",
+        }),
+        makeAnnotation({
+          id: "f2",
+          anchor: { quote: "const b = 2", prefix: "", suffix: "" },
+          target: { kind: "file", path: "src/b.ts", rev: "worktree" },
+          body: "file b note",
+        }),
+      ],
+    });
+
+    // Assert - the artifact keeps its section; each file gets its own, with its note
+    expect(feedback).toContain("## Annotations (1)");
+    expect(feedback).toContain("artifact note");
+    expect(feedback).toContain("## src/a.ts (1)");
+    expect(feedback).toContain("file a note");
+    expect(feedback).toContain("## src/b.ts (1)");
+    expect(feedback).toContain("file b note");
+    // the file note's path is the heading, not an inline "(in ...)" locator on the artifact list
+    expect(feedback).not.toContain("(in src/a.ts)");
+  });
+
+  test("a quick-action reference expands to its body; an unknown skill reference passes through", () => {
+    const feedback = renderFeedback({
+      verdictKind: "comment",
+      summary: "",
+      artifactContent: PLAN,
+      annotations: [
+        makeAnnotation({
+          anchor: { quote: "Storage", prefix: "", suffix: "" },
+          body: "/restate-simplified and also /vitest-patterns here",
+        }),
+      ],
+      artifactPath: "docs/plan.md",
+      actionBodies: { "restate-simplified": "Restate this as the simplest thing that works." },
+    });
+
+    expect(feedback).toContain("Restate this as the simplest thing that works.");
+    // the unknown reference (a user skill) is left verbatim for the harness to resolve
+    expect(feedback).toContain("/vitest-patterns");
+    expect(feedback).not.toContain("/restate-simplified");
+  });
+});

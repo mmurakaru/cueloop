@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonCore } from "./api";
@@ -164,6 +164,49 @@ describe("session.refreshDiff", () => {
   });
 });
 
+describe("PR review sessions", () => {
+  test("refresh re-pulls the PR diff via gh and never clobbers it with the working tree", async () => {
+    // Given a stub gh that reports a PR diff distinct from the local working tree
+    const ghStub = join(repo, "gh-stub.sh");
+
+    writeFileSync(
+      ghStub,
+      '#!/bin/sh\ncase "$2" in\n  diff) printf "STUB PR DIFF\\n" ;;\n  view) printf "sha-2\\n" ;;\nesac\n',
+    );
+    chmodSync(ghStub, 0o755);
+    const previousGh = process.env.CUELOOP_GH;
+
+    process.env.CUELOOP_GH = ghStub;
+
+    try {
+      // Given a PR review over the same repo root, and a local working-tree change present
+      const workspace = await resolveWorkspace(repo);
+      const artifact: Artifact = {
+        type: "diff",
+        content: "OLD PR DIFF\n",
+        files: [],
+        meta: { pr: "org/repo#1" },
+      };
+      const session = core.sessionCreate({ workspace, artifact });
+
+      writeFileSync(join(repo, "a.ts"), "export const a = 123;\n");
+
+      // When the diff is refreshed
+      const result = await core.sessionRefreshDiff(session.id);
+
+      // Then it carries the PR diff from gh, not the local working-tree change
+      expect(result.changed).toBe(true);
+      const refreshed = core.sessionGet(session.id);
+
+      expect(refreshed.artifact.content).toContain("STUB PR DIFF");
+      expect(refreshed.artifact.content).not.toContain("export const a = 123;");
+    } finally {
+      if (previousGh === undefined) delete process.env.CUELOOP_GH;
+      else process.env.CUELOOP_GH = previousGh;
+    }
+  });
+});
+
 describe("the fs watcher drives hot-reload", () => {
   test("a working-tree change under a live diff session refreshes it in place", async () => {
     // Given a live diff session whose repo the daemon is watching
@@ -182,5 +225,48 @@ describe("the fs watcher drives hot-reload", () => {
       content = core.sessionGet(session.id).artifact.content;
     }
     expect(content).toContain("+export const a = 42;");
+  }, 12_000);
+
+  test("watches a directory created after open, so a change inside it refreshes", async () => {
+    // Given an open diff session over a repo that had no such directory
+    const session = await openDiffSession();
+
+    // When a new directory appears, the watcher extends into it (a recursive watch got this free)
+    mkdirSync(join(repo, "pkg"));
+    await Bun.sleep(500);
+    writeFileSync(join(repo, "pkg", "inside.ts"), "export const inside = 1;\n");
+
+    // Then a change inside the new directory drives a re-capture
+    const deadline = Date.now() + 8_000;
+    let content = core.sessionGet(session.id).artifact.content;
+
+    while (!content.includes("+export const inside = 1;") && Date.now() < deadline) {
+      await Bun.sleep(100);
+      content = core.sessionGet(session.id).artifact.content;
+    }
+    expect(content).toContain("+export const inside = 1;");
+  }, 12_000);
+
+  test("a commit refreshes the diff even though no working-tree file changed", async () => {
+    // Given an open diff session showing an uncommitted change to a.ts
+    writeFileSync(join(repo, "a.ts"), "export const a = 5;\n");
+    const session = await openDiffSession();
+
+    expect(core.sessionGet(session.id).artifact.content).toContain("+export const a = 5;");
+
+    // When the change is committed - moving refs/HEAD, touching no working-tree file -
+    // the working tree now equals HEAD, so `git diff HEAD` is empty
+    git(["add", "a.ts"], repo);
+    git(["commit", "-qm", "land a"], repo);
+
+    // Then the git-metadata watch drives a re-capture and the diff empties out
+    const deadline = Date.now() + 8_000;
+    let content = core.sessionGet(session.id).artifact.content;
+
+    while (content.includes("+export const a = 5;") && Date.now() < deadline) {
+      await Bun.sleep(100);
+      content = core.sessionGet(session.id).artifact.content;
+    }
+    expect(content).not.toContain("+export const a = 5;");
   }, 12_000);
 });

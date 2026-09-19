@@ -13,6 +13,8 @@ export interface TreeProps {
   showStatus?: boolean;
   /** Drop the folder/file glyph prefix, for a plain text tree (e.g. the settings nav). */
   hideIcons?: boolean;
+  /** The selected row's backdrop; defaults to `elevated` (invisible on an elevated dialog, use `border` there). */
+  selectedBackground?: string;
   indentWidth?: number;
   icons?: TreeIcons;
   onSelect?: (id: string) => void;
@@ -41,6 +43,7 @@ export function Tree({
   flattenEmptyDirectories,
   showStatus,
   hideIcons,
+  selectedBackground,
   indentWidth = 2,
   icons = NERD_TREE_ICONS,
   onSelect,
@@ -48,6 +51,7 @@ export function Tree({
   theme,
 }: TreeProps): React.ReactNode {
   const tokens = theme ?? DARK;
+  const selectedBackdrop = selectedBackground ?? tokens.elevated;
   const rows = flattenTree(nodes, { expandedIds, flattenEmptyDirectories });
 
   return (
@@ -71,7 +75,7 @@ export function Tree({
               flexDirection: "row",
               paddingLeft: 1 + row.depth * indentWidth,
               paddingRight: 1,
-              backgroundColor: selected ? tokens.elevated : undefined,
+              backgroundColor: selected ? selectedBackdrop : undefined,
             }}
             onMouseUp={() => (row.isFolder ? onToggle?.(row.id) : onSelect?.(row.id))}
           >

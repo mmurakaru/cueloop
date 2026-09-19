@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import * as v from "valibot";
-import type { SessionStore } from "./store";
+import type { ThreadStore } from "./store";
 
 export const DEFAULT_CLEANUP_PERIOD_DAYS = 30;
 export const LATEST_REPORT_FILENAME = "report.md";
@@ -68,7 +68,7 @@ export function isExpired(createdAt: string, periodDays: number, nowMs: number):
 }
 
 export function pruneExpiredSessions(
-  store: SessionStore,
+  store: ThreadStore,
   periodDays: number,
   nowMs: number,
 ): string[] {

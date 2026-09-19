@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { registerParticipant } from "./participants";
-import { SCHEMA_VERSION, type ReviewSession } from "./types";
+import { registerParticipant, registeredGithubLogin } from "./participants";
+import { SCHEMA_VERSION, type Thread } from "./types";
 
-function emptySession(): ReviewSession {
+function emptySession(): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
@@ -54,5 +54,52 @@ describe("registerParticipant", () => {
 
     // Assert
     expect(next.participants).toEqual([{ id: "SHA256:ana", provider: "ssh", name: "Ana" }]);
+  });
+
+  test("records a verified github source with its login handle", () => {
+    // Act
+    const next = registerParticipant(emptySession(), "SHA256:ana", "Ana", {
+      provider: "github",
+      handle: "ana",
+    });
+
+    // Assert
+    expect(next.participants).toEqual([
+      { id: "SHA256:ana", provider: "github", name: "Ana", handle: "ana" },
+    ]);
+  });
+
+  test("a later nameless write preserves the github provider and handle", () => {
+    // Arrange
+    const verified = registerParticipant(emptySession(), "SHA256:ana", "Ana", {
+      provider: "github",
+      handle: "ana",
+    });
+
+    // Act
+    const next = registerParticipant(verified, "SHA256:ana");
+
+    // Assert
+    expect(next.participants).toEqual([
+      { id: "SHA256:ana", provider: "github", name: "Ana", handle: "ana" },
+    ]);
+  });
+});
+
+describe("registeredGithubLogin", () => {
+  test("returns the handle a fingerprint verified on a past visit", () => {
+    const session = registerParticipant(emptySession(), "SHA256:ana", "Ana", {
+      provider: "github",
+      handle: "ana-gh",
+    });
+
+    expect(registeredGithubLogin(session, "SHA256:ana")).toBe("ana-gh");
+  });
+
+  test("returns undefined for an ssh-only or unknown participant", () => {
+    const session = registerParticipant(emptySession(), "SHA256:ana", "Ana");
+
+    expect(registeredGithubLogin(session, "SHA256:ana")).toBeUndefined();
+    expect(registeredGithubLogin(session, "SHA256:unknown")).toBeUndefined();
   });
 });

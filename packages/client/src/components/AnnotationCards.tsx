@@ -1,18 +1,28 @@
 /**
  * The inline comment pieces every annotated surface renders: the composer (a
- * textarea in a card row), the "/" palette and inline completion hint below it,
- * the edge-segmented discussion card, and one comment row. The plan thread view
+ * textarea in a card row), the "/" actions-and-skills palette below it, the
+ * edge-segmented discussion card, and one comment row. The plan thread view
  * and the diff sheet both draw their comments with these, so a discussion looks
  * and behaves the same on prose and on code.
  */
 
-import React, { useEffect, useRef, useState } from "react";
-import type { BoxRenderable, KeyBinding, TextareaRenderable } from "@opentui/core";
+import React, { useContext, useLayoutEffect, useRef, useState } from "react";
+import { usePaste } from "@opentui/react";
+import type {
+  BoxRenderable,
+  KeyBinding,
+  MouseEvent as TerminalMouseEvent,
+  TextareaRenderable,
+} from "@opentui/core";
 import type { Annotation } from "@cueloop/schema";
 import type { Theme } from "../theme";
+import { useTooltip } from "./Tooltip";
 import { lighten } from "../annotation-palette";
 import { useFrameMeasure } from "../use-frame-measure";
-import type { InlineSlash, SlashItem } from "../slash-palette";
+import { imagePlaceholder, looksLikeBinaryPaste } from "../pasted-image";
+import { skillReferenceRanges, type SlashItem } from "../slash-palette";
+import { PaletteNamesContext } from "../skills";
+import { referenceStyleFor } from "./syntax-highlight";
 
 /* -------------------------------------------------------------- composer */
 
@@ -27,7 +37,7 @@ const COMPOSE_KEY_BINDINGS: KeyBinding[] = [
   { name: "return", shift: true, action: "newline" },
 ];
 
-function composeRowCount(text: string, contentWidth: number): number {
+export function composeRowCount(text: string, contentWidth: number): number {
   const usableWidth = contentWidth > 0 ? contentWidth : Number.MAX_SAFE_INTEGER;
   let visualRowCount = 0;
 
@@ -46,24 +56,50 @@ export function Composer({
   onSave,
   onReady,
   onInput,
+  placeholder,
 }: {
   seed: string;
   glyph: string;
   tokens: Theme;
   onSave: (body: string) => void;
   onReady: () => void;
-  onInput: (text: string) => void;
+  onInput: (text: string, caret: number) => void;
+  placeholder?: string;
 }): React.ReactNode {
   const editorRef = useRef<TextareaRenderable | null>(null);
+  const pastedImageCount = useRef(0);
   const [rows, setRows] = useState(1);
+  // action and skill names whose "/name" references paint in the accent color
+  const referenceNames = useContext(PaletteNamesContext);
 
-  // once per mount (the composer is keyed by its seed): later re-renders
-  // must NOT reset the caret, or input lands before a just-typed newline
-  useEffect(() => {
+  usePaste((event) => {
+    const editor = editorRef.current;
+
+    if (!editor || !editor.focused || !looksLikeBinaryPaste(event.bytes)) return;
+    event.preventDefault();
+    pastedImageCount.current += 1;
+    editor.editBuffer.insertText(imagePlaceholder(pastedImageCount.current));
+  });
+
+  const paintReferences = (editor: TextareaRenderable): void => {
+    const { styleId } = referenceStyleFor(tokens);
+
+    editor.editBuffer.clearAllHighlights();
+    for (const range of skillReferenceRanges(editor.plainText, referenceNames)) {
+      editor.editBuffer.addHighlightByCharRange({ ...range, styleId });
+    }
+  };
+
+  // synchronously at commit, before the next tty key is read: signalling readiness in a
+  // post-paint effect lets a fast burst race the mount, splitting input between the seed
+  // buffer and this textarea out of order (#365)
+  useLayoutEffect(() => {
     const editor = editorRef.current;
 
     if (!editor) return;
     editor.cursorOffset = seed.length;
+    editor.editBuffer.setSyntaxStyle(referenceStyleFor(tokens).style);
+    paintReferences(editor);
     setRows(composeRowCount(editor.plainText, editor.width));
     onReady();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,6 +112,8 @@ export function Composer({
         ref={editorRef}
         focused
         initialValue={seed}
+        placeholder={placeholder}
+        placeholderColor={tokens.textDim}
         cursorStyle={{ style: "block", blinking: true }}
         keyBindings={COMPOSE_KEY_BINDINGS}
         onSubmit={() => onSave(editorRef.current?.plainText ?? "")}
@@ -83,8 +121,9 @@ export function Composer({
           const editor = editorRef.current;
 
           if (!editor) return;
+          paintReferences(editor);
           setRows(composeRowCount(editor.plainText, editor.width));
-          onInput(editor.plainText);
+          onInput(editor.plainText, editor.cursorOffset);
         }}
         style={{
           height: rows,
@@ -116,19 +155,19 @@ function SlashList({
 
   if (items.length === 0) return <text fg={tokens.textDim}>no matching actions</text>;
 
+  const nameColumn = Math.min(36, Math.max(16, ...visible.map((item) => item.name.length + 5)));
+
   return (
     <box style={{ flexDirection: "column" }}>
       {visible.map((item, offset) => {
         const index = start + offset;
         const isSelected = index === selected;
+        const name = `${isSelected ? "→ " : "  "}/${item.name}`.padEnd(nameColumn);
 
         return (
-          <text key={item.name} style={{ flexShrink: 1 }}>
-            <span fg={isSelected ? tokens.accent : tokens.textDim}>{isSelected ? "→ " : "  "}</span>
-            <span fg={isSelected ? tokens.text : tokens.textMuted}>
-              {`action:${item.name}`.padEnd(34)}
-            </span>
-            <span fg={tokens.textDim}>{item.description.slice(0, 52)}</span>
+          <text key={item.name} style={{ flexShrink: 0, wrapMode: "none" }}>
+            <span fg={isSelected ? tokens.accent : tokens.textMuted}>{name}</span>
+            <span fg={tokens.textDim}>{item.description}</span>
           </text>
         );
       })}
@@ -139,40 +178,27 @@ function SlashList({
   );
 }
 
-/** Below the composer: the palette list for a leading "/", else the inline tab-hint, else nothing. */
+/** Below the composer: the actions/skills list while the caret is on a "/word", else nothing. */
 export function ComposerPalette({
   slashActive,
   slashItems,
   slashIndex,
-  inline,
   tokens,
 }: {
   slashActive: boolean;
   slashItems: SlashItem[];
   slashIndex: number;
-  inline: InlineSlash | null;
   tokens: Theme;
 }): React.ReactNode {
-  if (slashActive) {
-    return (
-      <box style={{ flexDirection: "column", marginLeft: 3 }}>
-        <SlashList
-          items={slashItems}
-          selected={Math.min(slashIndex, Math.max(0, slashItems.length - 1))}
-          tokens={tokens}
-        />
-      </box>
-    );
-  }
-  if (inline === null) return null;
+  if (!slashActive) return null;
 
   return (
-    <box style={{ flexDirection: "row", marginLeft: 3 }}>
-      <text>
-        <span fg={tokens.textDim}>{"⇥ "}</span>
-        <span fg={tokens.accent}>{`/${inline.suggestion.name}`}</span>
-        <span fg={tokens.textDim}>{`  ${inline.suggestion.description}`}</span>
-      </text>
+    <box style={{ flexDirection: "column", marginLeft: 3 }}>
+      <SlashList
+        items={slashItems}
+        selected={Math.min(slashIndex, Math.max(0, slashItems.length - 1))}
+        tokens={tokens}
+      />
     </box>
   );
 }
@@ -237,7 +263,7 @@ export function DiscussionCard({
   });
 
   return (
-    <box style={{ flexDirection: "row", marginTop: 1, marginLeft: 2 }}>
+    <box style={{ flexDirection: "row", marginTop: 0, marginLeft: 2 }}>
       <text selectable={false} style={{ flexShrink: 0, width: 1 }}>
         {edgeRows.map((row, index) => (
           <span key={index} fg={row.color}>
@@ -277,22 +303,34 @@ export function DiscussionCard({
 export function CommentRow({
   annotation,
   tokens,
+  authorLabel,
 }: {
   annotation: Annotation;
   tokens: Theme;
+  /** The author's resolved display name, shown as a tooltip when the dot is hovered. */
+  authorLabel?: string;
 }): React.ReactNode {
   // own comments (no author) wear the filled dot, collaborators the outline
   const own = annotation.author === undefined;
   const glyph = own ? "●" : "○";
   const glyphColor = own ? tokens.text : tokens.textMuted;
+  const { showTooltip, hideTooltip } = useTooltip();
+  const dotHover = authorLabel
+    ? {
+        onMouseOver: (event: TerminalMouseEvent) => showTooltip(authorLabel, event.x, event.y),
+        onMouseOut: hideTooltip,
+      }
+    : {};
 
   return (
     <box style={{ flexDirection: "column" }}>
       {annotation.body.split("\n").map((line, lineIndex) => (
         <box key={lineIndex} style={{ flexDirection: "row" }}>
-          <text selectable={false} fg={glyphColor} style={{ flexShrink: 0 }}>
-            {lineIndex === 0 ? `${glyph} ` : "  "}
-          </text>
+          <box style={{ flexShrink: 0 }} {...(lineIndex === 0 ? dotHover : {})}>
+            <text selectable={false} fg={glyphColor}>
+              {lineIndex === 0 ? `${glyph} ` : "  "}
+            </text>
+          </box>
           <text fg={tokens.text} style={{ wrapMode: "word", flexGrow: 1, flexShrink: 1 }}>
             {line}
           </text>

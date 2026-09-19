@@ -28,16 +28,70 @@ export interface ThreadChordContext {
   isDiff?: boolean;
 }
 
-/** The diff-review chords: option plus a letter, acting on the caret's row or file. */
-export const DIFF_CHORD_ENTRIES = [
-  { keys: "⌥x / ⌥X", label: "reject the change / the hunk" },
-  { keys: "⌥u", label: "restore the last rejection" },
-  { keys: "⌥c", label: "collapse the file to its band" },
-  { keys: "⌥d", label: "unified / split (when zoomed)" },
-  { keys: "⌥k", label: "start the guided walk" },
-] as const;
+export const DEFAULT_LEADER = "ctrl+g";
 
-/** The cheatsheet rows for the chords, in the same order they are resolved. */
+export function leaderCombosFor(configured: readonly string[] | undefined): readonly string[] {
+  return configured ?? [DEFAULT_LEADER];
+}
+
+const MOD_GLYPHS = new Map<string, string>([
+  ["ctrl", "⌃"],
+  ["control", "⌃"],
+  ["meta", "⌥"],
+  ["alt", "⌥"],
+  ["option", "⌥"],
+  ["shift", "⇧"],
+  ["cmd", "⌘"],
+  ["super", "⌘"],
+]);
+
+function comboParts(combo: string) {
+  const parts = combo.split("+");
+
+  return { mods: parts.slice(0, -1).map((part) => part.toLowerCase()), name: parts.at(-1) ?? "" };
+}
+
+export function leaderHint(combos: readonly string[]): string {
+  const { mods, name } = comboParts(combos[0] ?? DEFAULT_LEADER);
+
+  return `${mods.map((mod) => MOD_GLYPHS.get(mod) ?? mod).join("")}${name} `;
+}
+
+export function matchesLeader(
+  key: { ctrl?: boolean; meta?: boolean; shift?: boolean; super?: boolean; name: string },
+  combos: readonly string[],
+): boolean {
+  return combos.some((combo) => {
+    const { mods, name } = comboParts(combo);
+
+    return (
+      key.name.toLowerCase() === name.toLowerCase() &&
+      Boolean(key.ctrl) === (mods.includes("ctrl") || mods.includes("control")) &&
+      Boolean(key.shift) === mods.includes("shift") &&
+      Boolean(key.super) === (mods.includes("cmd") || mods.includes("super")) &&
+      Boolean(key.meta) ===
+        (mods.includes("meta") || mods.includes("alt") || mods.includes("option"))
+    );
+  });
+}
+
+export interface ChordEntry {
+  keys: string;
+  label: string;
+}
+
+/** The diff-review chords: the leader (or Option) plus a letter, on the caret's row or file. */
+export function diffChordEntries(hint: string): ChordEntry[] {
+  return [
+    { keys: `${hint}x / ${hint}X`, label: "reject the change / the hunk" },
+    { keys: `${hint}u`, label: "restore the last rejection" },
+    { keys: `${hint}c`, label: "collapse the file to its band" },
+    { keys: `${hint}d`, label: "split / stacked (when wide)" },
+    { keys: `${hint}k`, label: "start the guided walk" },
+  ];
+}
+
+/** The session chords stay on Ctrl, which terminals deliver reliably. */
 export const THREAD_CHORD_ENTRIES = [
   { keys: "⌃enter", label: "submit the review" },
   { keys: "⌃e", label: "edit in $EDITOR" },
@@ -45,27 +99,31 @@ export const THREAD_CHORD_ENTRIES = [
   { keys: "⌃r", label: "cycle the rail" },
 ] as const;
 
-/** The rail and curation chords: option (alt) plus the plan sheet's old letter. */
-export const RAIL_CHORD_ENTRIES = [
-  { keys: "⌥n / ⌥p", label: "next / previous card" },
-  { keys: "⌥e", label: "edit the card" },
-  { keys: "⌥⌫", label: "delete the card" },
-  { keys: "⌥r", label: "rename the author" },
-  { keys: "⌥x", label: "cut the block" },
-  { keys: "⌥u", label: "restore the last cut" },
-  { keys: "⌥w / ⌥s", label: "widen / narrow the rail" },
-] as const;
+/** The rail and curation chords: the leader plus the plan sheet's old letter. */
+export function railChordEntries(hint: string): ChordEntry[] {
+  return [
+    { keys: `${hint}n / ${hint}p`, label: "next / previous card" },
+    { keys: `${hint}e`, label: "edit the card" },
+    { keys: `${hint}⌫`, label: "delete the card" },
+    { keys: `${hint}r`, label: "rename the author" },
+    { keys: `${hint}x`, label: "cut the block" },
+    { keys: `${hint}u`, label: "restore the last cut" },
+    { keys: "⌥w / ⌥s", label: "widen / narrow the rail" },
+  ];
+}
 
-/** The tree chords: option plus a letter, all on the rail's Tree tab. */
-export const TREE_CHORD_ENTRIES = [
-  { keys: "⌥t", label: "show / hide the tree" },
-  { keys: "⌥n / ⌥p", label: "next / previous entry" },
-  { keys: "⌥g", label: "go to the entry" },
-  { keys: "⌥b", label: "branch off the tip" },
-  { keys: "⌥l", label: "label a checkpoint" },
-  { keys: "⌥f", label: "fork the path" },
-  { keys: "⌥h", label: "fork and hand off" },
-] as const;
+/** The tree chords: the leader plus a letter, all on the rail's Tree tab. */
+export function treeChordEntries(hint: string): ChordEntry[] {
+  return [
+    { keys: `${hint}t`, label: "show / hide the tree" },
+    { keys: `${hint}n / ${hint}p`, label: "next / previous entry" },
+    { keys: `${hint}g`, label: "go to the entry" },
+    { keys: `${hint}b`, label: "branch off the tip" },
+    { keys: `${hint}l`, label: "label a checkpoint" },
+    { keys: `${hint}f`, label: "fork the path" },
+    { keys: `${hint}h`, label: "fork and hand off" },
+  ];
+}
 
 export function resolveThreadChord(
   key: ThreadChordKey,
@@ -87,6 +145,33 @@ export function resolveThreadChord(
     );
 
   return null;
+}
+
+export function resolveLeaderCommand(
+  key: ThreadChordKey,
+  context: ThreadChordContext,
+): Intent | null {
+  if (context.composing) return null;
+  if (key.name === "return" || key.name === "enter") {
+    if (!context.isOwner) return READ_ONLY;
+
+    return context.resolved ? null : { type: "openSubmit" };
+  }
+
+  return (
+    (context.isDiff && resolveDiffChord(key.name, context)) || resolveRailChord(key.name, context)
+  );
+}
+
+export function dispatchLeaderCommand(
+  key: { name: string; shift?: boolean },
+  context: ThreadChordContext,
+  dispatch: (intent: Intent) => void,
+): void {
+  const name = key.shift ? key.name.toUpperCase() : key.name;
+  const chord = resolveLeaderCommand({ name }, context);
+
+  if (chord) dispatch(chord);
 }
 
 /** The diff's row and file chords; null lets the rail chords answer the letter. */

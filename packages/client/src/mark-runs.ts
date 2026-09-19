@@ -111,10 +111,11 @@ export function lineMarkRanges(ranges: MarkRange[], line: VisualLine): MarkRange
     .filter((range) => range.end > range.start);
 }
 
-/** A printable character: single-width input that should reach a composer. */
+/** Printable input that should reach a composer: one key, or a whole pasted run in one event. */
 export function printableSequence(key: KeyEvent): string | null {
-  const printable =
-    key.sequence && key.sequence.length === 1 && !key.ctrl && !key.meta && key.sequence >= " ";
+  if (!key.sequence || key.ctrl || key.meta) return null;
+  // reject any run carrying a control byte, so escape sequences and \r\t\b never seed a draft
+  for (const character of key.sequence) if (character < " ") return null;
 
-  return printable ? key.sequence : null;
+  return key.sequence.length > 0 ? key.sequence : null;
 }

@@ -7,9 +7,9 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import type { SetStateAction } from "react";
-import { SCHEMA_VERSION, type Annotation, type ReviewSession } from "@cueloop/schema";
+import { SCHEMA_VERSION, type Annotation, type Thread } from "@cueloop/schema";
 import { createIntentDispatch, type IntentDispatchDeps } from "./intent-dispatch";
-import type { ControllerSnapshot, CurationItem, ReviewController } from "./session-controller";
+import type { ControllerSnapshot, CurationItem, ReviewController } from "./thread-controller";
 import type { DisplayBlock } from "./view-plan";
 import type { TreeRow } from "./tree-view";
 
@@ -28,10 +28,7 @@ function annotation(id: string, overrides: Partial<Annotation> = {}): Annotation
   };
 }
 
-function sessionWith(
-  annotations: Annotation[],
-  overrides: Partial<ReviewSession> = {},
-): ReviewSession {
+function sessionWith(annotations: Annotation[], overrides: Partial<Thread> = {}): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "ses_1",
@@ -97,6 +94,9 @@ function baseController(): ReviewController {
     restoreCuration: mock(),
     edit: mock(),
     annotate: mock(() => undefined),
+    addComment: mock(() => undefined),
+    commentOnWorkbench: mock(() => Promise.resolve()),
+    commentOnWorkbenchDiff: mock(() => Promise.resolve()),
     reply: mock(() => undefined),
     annotatePrototype: mock(() => undefined),
     updateAnnotation: mock(),
@@ -108,6 +108,13 @@ function baseController(): ReviewController {
     walkLeave: mock(),
     submit: mock(),
     share: mock(),
+    unshare: mock(),
+    setShareAccess: mock(),
+    shareLinks: mock(() => []),
+    createShareLink: mock(),
+    updateShareLink: mock(),
+    deleteShareLink: mock(),
+    copyShareLink: mock(),
     treeRows: mock(() => []),
     goToEntry: mock(),
     branch: mock(),
@@ -143,6 +150,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     quickActions: [],
     renameAuthor: mock(),
     renameThread: mock(),
+    setLocalIdentityName: mock(),
     liveInput: { current: "" },
     setCursor: mock(),
     setInboxCursor: mock(),
@@ -156,6 +164,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     runEditorHandOff: mock(),
     openCardEdit: mock(),
     toggleDiffView: mock(),
+    openShareDialog: mock(),
     ...overrides,
   };
 }
@@ -383,7 +392,7 @@ describe("openSubmit", () => {
 });
 
 describe("share", () => {
-  test("dispatches to the controller's share", () => {
+  test("opens the share dialog instead of publishing directly", () => {
     // Arrange
     const deps = makeDeps();
     const dispatch = createIntentDispatch(deps);
@@ -392,7 +401,8 @@ describe("share", () => {
     dispatch({ type: "share" });
 
     // Assert
-    expect(deps.controller.share).toHaveBeenCalled();
+    expect(deps.openShareDialog).toHaveBeenCalled();
+    expect(deps.controller.share).not.toHaveBeenCalled();
   });
 });
 
@@ -545,6 +555,18 @@ describe("rename author", () => {
 
     // Assert
     expect(deps.renameAuthor).toHaveBeenCalledWith("SHA256:x", "Alex");
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
+  });
+
+  test("confirmDialog in renameSelf mode sets the trimmed local identity name and closes", () => {
+    // Arrange
+    const deps = makeDeps({ mode: { type: "renameSelf", text: "  Robin  " } });
+
+    // Act
+    createIntentDispatch(deps)({ type: "confirmDialog" });
+
+    // Assert
+    expect(deps.setLocalIdentityName).toHaveBeenCalledWith("Robin");
     expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
   });
 });

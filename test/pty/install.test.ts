@@ -1,100 +1,111 @@
-import { expect, test } from "bun:test";
-import { readFileSync, rmSync } from "node:fs";
+/**
+ * The installer's terminal output: spinner frames and check marks on a
+ * capable tty, plain indented lines under TERM=dumb and when stderr is piped.
+ * Drives the real script in a pseudo terminal against the offline release
+ * server. Env-gated behind CUELOOP_RUN_PTY like the rest of the PTY tier; the
+ * piped-stderr case needs no tty and runs in the default group too.
+ */
+
+import { afterEach, beforeEach, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "../../packages/client/src/pty";
-import { createTestInstaller } from "../helpers/installer";
+import {
+  GOOD_VERSION,
+  startTestReleaseServer,
+  testBinaryScript,
+  type TestReleaseServer,
+} from "../helpers/install-fixtures";
+import { ptyTest } from "../helpers/pty-reviews";
 
-const installerPath = join(import.meta.dir, "../../site/public/install.sh");
-const terminalTest = process.env.CUELOOP_RUN_PTY ? test : test.skip;
+const INSTALLER = join(import.meta.dir, "../../site/public/install.sh");
+
+let server: TestReleaseServer;
+
+beforeEach(() => {
+  server = startTestReleaseServer();
+});
+
+afterEach(() => {
+  server.close();
+});
 
 for (const terminalName of ["xterm-256color", "dumb"]) {
-  terminalTest(`installer aligns progress in a ${terminalName} terminal`, async () => {
-    const { directory, environment, binaryContent } = createTestInstaller();
+  ptyTest(`installer aligns progress in a ${terminalName} terminal`, async () => {
+    // Arrange - the script on a real tty of the given kind
     let output = "";
-    const terminal = spawn("/bin/sh", [installerPath], {
+    const terminal = spawn("/bin/sh", [INSTALLER], {
       name: terminalName,
       cols: 160,
       rows: 40,
-      cwd: directory,
-      env: { ...environment, TERM: terminalName },
+      cwd: server.installDir,
+      env: { ...server.environment(), TERM: terminalName },
     });
 
-    try {
-      terminal.onData((chunk) => {
-        output += chunk;
-      });
-      const exitCode = await new Promise<number>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error("installer timed out")), 5000);
+    terminal.onData((chunk) => {
+      output += chunk;
+    });
 
-        terminal.onExit((event) => {
-          clearTimeout(timeout);
-          resolve(event.exitCode);
-        });
-      });
-      // eslint-disable-next-line no-control-regex -- Strip terminal styling before checking columns.
-      const plainOutput = output.replace(/\x1b\[[0-9;]*[mK]/g, "");
+    // Act
+    const exitCode = await new Promise<number>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("installer timed out")), 10_000);
 
-      expect({ exitCode, output: exitCode === 0 ? "" : output }).toEqual({
-        exitCode: 0,
-        output: "",
+      terminal.onExit((event) => {
+        clearTimeout(timeout);
+        resolve(event.exitCode);
       });
-      expect(readFileSync(join(directory, "cueloop"), "utf8")).toBe(binaryContent);
-      expect(plainOutput).not.toContain("cueloop:");
-      expect(plainOutput).toContain("    Run cueloop to get started");
-      for (const message of [
-        "finding the latest release",
-        "downloading",
-        "verifying checksum",
-        "installing",
-      ]) {
-        if (terminalName === "dumb") {
-          expect(plainOutput).toContain(`    ${message}`);
-          expect(output).not.toContain("\r\x1b[K");
-        } else {
-          expect(plainOutput).toContain(`  ✓ ${message}`);
-        }
+    });
+    // eslint-disable-next-line no-control-regex -- strip styling before checking columns
+    const plainOutput = output.replace(/\x1b\[[0-9;]*[mK]/g, "");
+
+    // Assert - a clean install, the banner only on a capable tty, and per-terminal progress rendering
+    expect(plainOutput).not.toContain("cueloop install failed");
+    expect(exitCode).toBe(0);
+    expect(readFileSync(server.installedBinary, "utf8")).toBe(testBinaryScript(GOOD_VERSION));
+    expect(plainOutput.includes("cueloop  review surface for coding agents")).toBe(
+      terminalName !== "dumb",
+    );
+    expect(plainOutput).toContain("    Then run cueloop to get started");
+    for (const message of ["finding the latest release", "verifying checksum"]) {
+      if (terminalName === "dumb") {
+        expect(plainOutput).toContain(`    ${message}`);
+        expect(plainOutput).not.toContain(`  ✓ ${message}`);
+      } else {
+        expect(plainOutput).toContain(`  ✓ ${message}`);
+        // every spinner frame and the final check mark put the message in the same column
+        const segments = plainOutput.split(/\r\n?/).filter((segment) => segment.includes(message));
+
+        expect(segments.length).toBeGreaterThan(1);
+        for (const segment of segments) expect(segment.indexOf(message)).toBe(4);
       }
-      if (terminalName !== "dumb") {
-        expect(plainOutput).toContain("  cueloop  review surface for coding agents");
-        const loadingLines = [
-          ...plainOutput.matchAll(/\r(  [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] finding the latest release)/g),
-        ];
-
-        expect(loadingLines.length).toBeGreaterThan(0);
-        for (const line of loadingLines) {
-          expect(Array.from(line[1]!).indexOf("f")).toBe(4);
-        }
-      }
-    } finally {
-      terminal.kill();
-      rmSync(directory, { recursive: true, force: true });
     }
+    if (terminalName === "dumb") expect(output).not.toContain("\r\x1b[K");
   });
 }
 
 test("installer keeps redirected progress aligned without terminal controls", async () => {
-  const { directory, environment, binaryContent } = createTestInstaller();
+  // Arrange - stderr piped, not a tty
+  const proc = Bun.spawn(["/bin/sh", INSTALLER], {
+    env: server.environment(),
+    stdout: "pipe",
+    stderr: "pipe",
+  });
 
-  try {
-    const process = Bun.spawn(["/bin/sh", installerPath], {
-      env: environment,
-      stdout: "pipe",
-      stderr: "pipe",
-    });
-    const output = await new Response(process.stderr).text();
+  // Act
+  const output = await new Response(proc.stderr).text();
+  const exitCode = await proc.exited;
 
-    const exitCode = await process.exited;
-
-    expect({ exitCode, output: exitCode === 0 ? "" : output }).toEqual({ exitCode: 0, output: "" });
-    expect(output.split("\n").filter(Boolean)).toEqual([
-      "    finding the latest release",
-      expect.stringMatching(/^    downloading cueloop-.* \(cueloop@test\)$/),
-      "    verifying checksum",
-      `    installing ${directory}/cueloop`,
-      "    Run cueloop to get started",
-    ]);
-    expect(readFileSync(join(directory, "cueloop"), "utf8")).toBe(binaryContent);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+  // Assert - plain four-space lines, one per step, and the PATH hint
+  expect(output).not.toContain("cueloop install failed");
+  expect(exitCode).toBe(0);
+  expect(output.split("\n").filter(Boolean)).toEqual([
+    "    finding the latest release",
+    expect.stringMatching(/^    downloading cueloop-.* \(cueloop@900\.0\.1\)$/),
+    "    verifying checksum",
+    `    installing ${server.installDir}/cueloop`,
+    `    ${server.installDir} is not on your PATH. Add it:`,
+    `    export PATH="${server.installDir}:$PATH"`,
+    "    Then run cueloop to get started",
+  ]);
+  expect(readFileSync(server.installedBinary, "utf8")).toBe(testBinaryScript(GOOD_VERSION));
 });

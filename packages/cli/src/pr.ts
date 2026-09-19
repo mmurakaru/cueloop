@@ -6,7 +6,7 @@
  * half for agents and scripts.
  */
 
-import type { ReviewSession, VerdictKind } from "@cueloop/schema";
+import type { Thread, VerdictKind } from "@cueloop/schema";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openReview } from "@cueloop/daemon/review";
 import { parseArgs } from "./args";
@@ -80,9 +80,9 @@ export async function reviewCommand(argv: string[]): Promise<number> {
     return 0;
   }
 
-  const { runClient } = await import("@cueloop/client");
+  const { runClient, reviewLayout } = await import("@cueloop/client");
 
-  await runClient({ sessionId: session.id });
+  await runClient({ sessionId: session.id, layout: reviewLayout() });
 
   const after = await getSession(session.id);
 
@@ -116,7 +116,7 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
   return postVerdict(session, pr);
 }
 
-async function getSession(id: string): Promise<ReviewSession> {
+async function getSession(id: string): Promise<Thread> {
   const client = await DaemonClient.connect({ autostart: true });
 
   try {
@@ -127,7 +127,7 @@ async function getSession(id: string): Promise<ReviewSession> {
 }
 
 /** Post the resolved session's verdict to the PR: feedback.md is the review body. */
-async function postVerdict(session: ReviewSession, pr: string): Promise<number> {
+async function postVerdict(session: Thread, pr: string): Promise<number> {
   const verdict = session.verdict!;
   const result = await gh([
     "pr",
