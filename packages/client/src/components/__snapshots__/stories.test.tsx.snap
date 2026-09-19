@@ -1238,6 +1238,24 @@ exports[`stories catalog Surfaces/ThreadsSidebar/Open renders, snapshots, and ca
 "
 `;
 
+exports[`stories catalog Overlays/Toast/LongMessage renders, snapshots, and carries its colors: Overlays/Toast/LongMessage 1`] = `
+"                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+             ┌──────────────────────────────────────────────────────────────┐             
+             │                                                              │             
+             │ could not stop sharing: gateway revoke failed - the share    │             
+             │ may already be gone, try again in a moment                   │             
+             │                                                              │             
+             └──────────────────────────────────────────────────────────────┘             
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+"
+`;
+
 exports[`stories catalog Overlays/Toast/ShareLink renders, snapshots, and carries its colors: Overlays/Toast/ShareLink 1`] = `
 "                                                            
                                                             
