@@ -657,6 +657,7 @@ export function App({
     cycleSetting,
     handleSettingsKey,
     onCategorySelect,
+    openSettings,
   } = useSettingsDialog({
     theme,
     appearance,
@@ -988,7 +989,7 @@ export function App({
             controller={controller}
             setMode={setMode}
             menuChrome={menuChrome}
-            onOpenMenu={() => setMenuDialog("settings")}
+            onOpenMenu={openSettings}
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((open) => !open)}
             focusedPane={focusedPane}
@@ -1092,7 +1093,7 @@ export function App({
             <AppShell
               sidebarOpen={sidebarOpen}
               onToggleSidebar={() => setSidebarOpen((open) => !open)}
-              onOpenMenu={() => setMenuDialog("settings")}
+              onOpenMenu={openSettings}
               onFocusPane={setFocusedPane}
               threadsPanel={
                 <scrollbox style={{ flexGrow: 1 }} focused={false}>
