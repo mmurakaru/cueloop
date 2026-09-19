@@ -135,9 +135,9 @@ exports[`stories catalog Layout/AppShell/FourPane renders, snapshots, and carrie
 `;
 
 exports[`stories catalog Surfaces/BareWorkbenchFileView/Loaded renders, snapshots, and carries its colors: Surfaces/BareWorkbenchFileView/Loaded 1`] = `
-" ▎1 export function add(a: number, b: number): number {     
-  2   return a + b;                                         
-  3 }                                                       
+"                                                            
+                                                            
+                                                            
                                                             
                                                             
                                                             
@@ -437,17 +437,17 @@ exports[`stories catalog Overlays/ConfirmDialog/DeleteThread renders, snapshots,
 `;
 
 exports[`stories catalog Surfaces/DiffContentView/AnnotatedLine renders, snapshots, and carries its colors: Surfaces/DiffContentView/AnnotatedLine 1`] = `
-" ─────────────────────────────────────────────────────────────────────────────────────    
- src/store.ts                                                                    +1 -1    
- ─────────────────────────────────────────────────────────────────────────────────────    
-  @@ -1,4 +1,4 @@                                                                         
- ▎1 1   export class Store {                                                              
-  2   -   private items = [];                                                             
-    2 +   private items = new Map();                                                      
-   ╷─────────────────────────────────────────────────────────────────────────────────┐    
-   │ ● Map needs an eviction story.                                                  │ ○  
-   ╵─────────────────────────────────────────────────────────────────────────────────┘    
-  3 3   }                                                                                 
+"                                                                                       ○  
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
                                                                                           
                                                                                           
                                                                                           
@@ -1784,6 +1784,16 @@ exports[`stories catalog Primitives/StatusBar/HintLine renders, snapshots, and c
                                                                                 
                                                                                 
                                                                                 
+"
+`;
+
+exports[`stories catalog Primitives/Switch/Off renders, snapshots, and carries its colors: Primitives/Switch/Off 1`] = `
+"(●  )   
+"
+`;
+
+exports[`stories catalog Primitives/Switch/On renders, snapshots, and carries its colors: Primitives/Switch/On 1`] = `
+"(  ●)   
 "
 `;
 
