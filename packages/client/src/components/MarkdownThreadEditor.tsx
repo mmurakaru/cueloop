@@ -39,6 +39,8 @@ const MARKDOWN_EDITOR_KEY_BINDINGS: KeyBinding[] = [
   { name: "return", super: true, action: "submit" },
   { name: "return", meta: true, action: "submit" },
   { name: "return", ctrl: true, action: "submit" },
+  { name: "a", super: true, action: "select-all" },
+  { name: "a", meta: true, action: "select-all" },
   { name: "return", action: "newline" },
   { name: "return", shift: true, action: "newline" },
 ];

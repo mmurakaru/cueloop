@@ -327,30 +327,25 @@ describe("quick-actions settings editor", () => {
 
 describe("edit-exit reconciliation", () => {
   test("an edit that removes an anchored passage orphans the annotation and shows the banner", async () => {
-    const script = join(home, "fake-editor.sh");
+    // Arrange - anchor a comment to a passage
+    const setup = await renderApp();
 
-    await Bun.write(script, `#!/bin/sh\nsed -i '' '/^The daemon persists/d' "$1"\n`);
-    Bun.spawnSync(["chmod", "+x", script]);
-    process.env.CUELOOP_EDITOR = script;
-    try {
-      // Arrange
-      const setup = await renderApp();
+    await clickText(setup, "daemon");
+    await type(setup, "Anchor me to the doomed passage.");
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
 
-      await clickText(setup, "daemon");
-      await type(setup, "Anchor me to the doomed passage.");
-      await pressKey(setup, "RETURN", { meta: true });
-      await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    // Act - open the inline editor, replace the whole body (dropping the passage), and leave
+    await pressKey(setup, "e", { ctrl: true });
+    await waitForText(setup, "save & close");
+    await pressKey(setup, "a", { meta: true });
+    await type(setup, "A fresh body with no anchored passage.");
+    await clickText(setup, "normal");
 
-      // Act
-      await pressKey(setup, "e", { ctrl: true });
-
-      // Assert - the thread view banner reports the orphaned annotation
-      await waitForText(setup, "1 annotation no longer match - the passage was removed.");
-      // the annotation is NOT deleted: the feedback serializer handles orphans
-      expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
-    } finally {
-      delete process.env.CUELOOP_EDITOR;
-    }
+    // Assert - the thread view banner reports the orphaned annotation
+    await waitForText(setup, "1 annotation no longer match - the passage was removed.");
+    // the annotation is NOT deleted: the feedback serializer handles orphans
+    expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
   });
 });
 
