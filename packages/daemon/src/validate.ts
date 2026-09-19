@@ -25,6 +25,7 @@ import {
   type Revision,
   type SessionHistory,
   type ShareAccess,
+  type ShareLink,
   validateHistory,
   type Verdict,
   type WorkspaceKey,
@@ -348,6 +349,18 @@ export const ThreadRecordSchema = v.object({
   createdAt: v.string(),
   shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
   parentSessionId: v.optional(v.string()),
+  shares: v.optional(
+    v.array(
+      v.object({
+        id: NonEmpty,
+        name: v.optional(v.string()),
+        requireAuth: v.boolean(),
+        allowlist: v.array(NonEmpty),
+        owner: v.optional(v.string()),
+        shareBranch: v.optional(v.string()),
+      } satisfies EntriesOf<ShareLink>),
+    ),
+  ),
   shareId: v.optional(v.string()),
   shareBranch: v.optional(v.string()),
   owner: v.optional(v.string()),
