@@ -60,6 +60,7 @@ const shareTransport: ShareTransport = {
   watch: () => () => {},
   revoke: async () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
   mergeFromShare,
 };
@@ -252,7 +253,9 @@ describe("tree primitives", () => {
     expect(forked.controller.getSnapshot().session!.id).toBe("ses_1_fork");
     expect(shared.controller.getSnapshot().session!.id).toBe("ses_1");
     expect(publish).toHaveBeenCalledWith(expect.objectContaining({ id: "ses_1_fork" }));
-    expect(shared.client.sessionSetShareId).toHaveBeenCalledWith("ses_1_fork", "p_ses_1_fork");
+    expect(shared.client.sessionSetShares).toHaveBeenCalledWith("ses_1_fork", [
+      { id: "p_ses_1_fork", requireAuth: false, allowlist: [], shareBranch: "main" },
+    ]);
     expect(shared.controller.getSnapshot().toast?.title).toBe("fork shared - link copied");
   });
 });

@@ -41,6 +41,11 @@ export function shareIdFromLine(line: string): string | undefined {
   return line.match(/^ssh (\S+)@/)?.[1];
 }
 
+/** The paste line for a share id: `ssh p_…@host`. Used to copy an existing link. */
+export function formatShareLine(shareId: string, target: ShareTarget = {}): string {
+  return `ssh ${shareId}@${target.host ?? DEFAULT_SHARE_HOST}`;
+}
+
 /** Upload the session to the gateway and copy the resulting ssh line. */
 export async function publishShare(
   session: Thread,
@@ -108,7 +113,8 @@ export function mergeFromShare(remote: Thread): SharedMerge {
 export async function pushShare(
   shareId: string,
   annotations: Array<Omit<Annotation, "createdAt">>,
-  access?: ShareAccess,
+  // ShareAccess sets a private allowlist; "public" clears it (makes the link public); undefined leaves it
+  access?: ShareAccess | "public",
   target: ShareTarget = {},
 ): Promise<void> {
   const payload = access ? { shareId, annotations, access } : { shareId, annotations };

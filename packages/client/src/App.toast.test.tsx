@@ -30,6 +30,7 @@ const shareTransport: ShareTransport = {
   watch: () => () => {},
   revoke: async () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
   collaboratorAnnotations: () => [],
   mergeFromShare: () => ({ annotations: [] }),
 };
@@ -78,7 +79,7 @@ describe("share toast", () => {
     await pressKey(setup, "s", { ctrl: true });
     await waitForText(setup, "public link");
     await press(setup, "enter");
-    await waitForText(setup, "share link copied");
+    await waitForText(setup, "link copied");
     await clickText(setup, "daemon");
     await typeText(setup, "x");
     await waitForText(setup, "● x");

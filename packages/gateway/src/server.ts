@@ -448,10 +448,19 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
 
       if (session.owner !== identity.fingerprint)
         return void fail(channel, "only the planner who shared this can push to it");
-      // the owner can also update the private-share allowlist on the stored blob, so an existing link enforces it
+      // the owner can also update the link's access on the stored blob: an allowlist makes
+      // it private, the literal "public" clears it, and an absent field leaves it unchanged
       const access = v.safeParse(ShareAccessPushSchema, payload.access);
       const merged = mergeOwnerAnnotations(session, annotations.output);
-      const withAccess = access.success ? { ...merged, access: access.output } : merged;
+      let withAccess = merged;
+
+      if (payload.access === "public") {
+        const { access: _cleared, ...rest } = merged;
+
+        withAccess = rest;
+      } else if (access.success) {
+        withAccess = { ...merged, access: access.output };
+      }
       // Round-trip validates the pushed notes: a malformed one throws here, so the stored blob stays intact.
       const next = unpackSessionBlob(packSessionBlob(withAccess));
 

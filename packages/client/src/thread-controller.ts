@@ -26,12 +26,14 @@ import {
   restoreLine,
   returnPaneFor,
   switchBranch,
+  threadShareLinks,
   viewOfPath,
   type Anchor,
   type Annotation,
   type AnnotationTarget,
   type Artifact,
   type DiffFileContents,
+  type ShareLink,
   type Thread,
   type SessionHistory,
   type VerdictKind,
@@ -46,6 +48,7 @@ import {
   revokeShare,
   watchShare,
   shareIdFromLine,
+  formatShareLine,
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
@@ -196,6 +199,7 @@ export interface ShareTransport {
   revoke: typeof revokeShare;
   watch: typeof watchShare;
   parseShareId: typeof shareIdFromLine;
+  formatShareLine: typeof formatShareLine;
   collaboratorAnnotations: typeof collaboratorAnnotations;
   mergeFromShare: typeof mergeFromShare;
 }
@@ -207,9 +211,17 @@ const DEFAULT_SHARE_TRANSPORT: ShareTransport = {
   push: pushShare,
   revoke: revokeShare,
   parseShareId: shareIdFromLine,
+  formatShareLine,
   collaboratorAnnotations,
   mergeFromShare,
 };
+
+/** The editable fields of a share link, as the share wizard collects them. */
+export interface NewShareLink {
+  name?: string;
+  requireAuth: boolean;
+  allowlist: string[];
+}
 
 export interface ReviewControllerOptions {
   home?: string;
@@ -346,12 +358,22 @@ export interface ReviewController {
   walkLeave(): void;
   /** Resolve the review, run the export, start the completion hand-back. */
   submit(verdict: VerdictKind, summary: string): void;
-  /** Publish the current session as a share; the ssh line lands on the clipboard. */
+  /** Publish the current session as a public share link; the ssh line lands on the clipboard. */
   share(): void;
-  /** Stop sharing the current session, revoking its link at the gateway. Owner only. */
+  /** Stop sharing the current session, revoking every link at the gateway. Owner only. */
   unshare(): void;
   /** Replace the private-share allowlist of GitHub logins for the current session. Owner only. */
   setShareAccess(githubLogins: string[]): void;
+  /** The current thread's share links (a legacy single share migrates to a one-element list). */
+  shareLinks(): ShareLink[];
+  /** Publish a new share link with the given name and auth; the ssh line lands on the clipboard. Owner only. */
+  createShareLink(input: NewShareLink): void;
+  /** Update a link's name and auth in place, re-pushing its access to the gateway. Owner only. */
+  updateShareLink(id: string, input: NewShareLink): void;
+  /** Revoke a link and remove it from the thread. Owner only. */
+  deleteShareLink(id: string): void;
+  /** Copy a link's ssh line to the clipboard. */
+  copyShareLink(id: string): void;
   /** The session tree as rows for the rail's Tree tab, cached per session identity. */
   treeRows(): TreeRow[];
   /**
@@ -876,11 +898,10 @@ class Controller implements ReviewController {
 
   deleteSession(id: string): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
-    // a deleted thread's share must not outlive it; revoke first, best-effort, so an
+    // a deleted thread's links must not outlive it; revoke every one first, best-effort, so an
     // unreachable gateway never blocks the local delete (the blob's 30-day TTL is the backstop)
-    const shareId = this.sessionRecord(id)?.shareId;
-
-    if (shareId) void this.shareTransport.revoke(shareId).catch(() => {});
+    for (const link of this.linksFor(this.sessionRecord(id)))
+      void this.shareTransport.revoke(link.id).catch(() => {});
     this.client
       ?.sessionDelete(id)
       .then(() => this.setStatus("thread deleted"))
@@ -894,6 +915,11 @@ class Controller implements ReviewController {
     if (this.snapshot.session?.id === id) return this.snapshot.session;
 
     return this.snapshot.inbox?.find((candidate) => candidate.id === id);
+  }
+
+  /** A thread's share links, migrating a legacy single share; empty when never shared. */
+  private linksFor(session: Thread | null | undefined): ShareLink[] {
+    return session ? (threadShareLinks(session) ?? []) : [];
   }
 
   renameSession(id: string, title: string): void {
@@ -1046,15 +1072,16 @@ class Controller implements ReviewController {
   }
 
   setShareAccess(githubLogins: string[]): void {
-    const session = this.snapshot.session;
+    if (this.readOnly) return this.setStatus("observer - read-only");
+    // legacy single-allowlist entry point: apply it to the thread's primary link
+    const primary = this.linksFor(this.snapshot.session)[0];
 
-    if (!session) return;
-    const access = { githubLogins };
-    const expected: Thread = { ...session, access };
-
-    this.applyOptimistic(expected, this.client!.sessionSetAccess(session.id, githubLogins));
-    // an already-shared link must enforce the new access, so push it up to the gateway blob
-    if (session.shareId) void this.shareTransport.push(session.shareId, [], access).catch(() => {});
+    if (!primary) return;
+    this.updateShareLink(primary.id, {
+      name: primary.name,
+      requireAuth: true,
+      allowlist: githubLogins,
+    });
   }
 
   rejectedRows(): Set<number> {
@@ -1386,12 +1413,16 @@ class Controller implements ReviewController {
     annotation: Omit<Annotation, "createdAt">,
   ): void {
     const session = this.snapshot.session;
-    const shareId = session?.shareId;
+    const branch = session?.history?.branch;
+    // each link follows one branch: a note lands on the links whose branch is the one being edited
+    const links = this.linksFor(session).filter(
+      (link) => branch === undefined || branch === (link.shareBranch ?? MAIN_BRANCH),
+    );
 
-    if (!shareId) return;
-    // the share follows one branch: a note left on another stays the owner's
-    if (session.history && session.history.branch !== (session.shareBranch ?? MAIN_BRANCH)) return;
-    void persisted.then(() => this.shareTransport.push(shareId, [annotation])).catch(() => {});
+    if (links.length === 0) return;
+    void persisted
+      .then(() => Promise.all(links.map((link) => this.shareTransport.push(link.id, [annotation]))))
+      .catch(() => {});
   }
 
   removeAnnotation(id: string): void {
@@ -1506,39 +1537,109 @@ class Controller implements ReviewController {
   }
 
   share(): void {
+    this.createShareLink({ requireAuth: false, allowlist: [] });
+  }
+
+  shareLinks(): ShareLink[] {
+    return this.linksFor(this.snapshot.session);
+  }
+
+  createShareLink(input: NewShareLink): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
     const session = this.snapshot.session;
 
-    if (!session) return;
+    if (!session || !this.client) return;
+    const client = this.client;
+    const shareBranch = session.history?.branch ?? MAIN_BRANCH;
+
     this.setStatus("sharing…");
     this.freezeForShare(session)
-      .then((shared) => this.shareTransport.publish(shared))
-      .then(async ({ line, copied }) => {
-        // Stamp the id back so a later pull knows which share to collect from.
-        const shareId = this.shareTransport.parseShareId(line);
+      .then((shared) => {
+        // bake this link's access into its own blob: an allowlist gates it, absent = public
+        const access = input.requireAuth ? { githubLogins: input.allowlist } : undefined;
 
-        if (shareId && this.client) await this.client.sessionSetShareId(session.id, shareId);
+        return this.shareTransport.publish({ ...shared, access, shareBranch });
+      })
+      .then(async ({ line, copied }) => {
+        const id = this.shareTransport.parseShareId(line);
+
+        if (!id) throw new Error("gateway returned no share id");
+        const link: ShareLink = {
+          id,
+          name: input.name?.trim() || undefined,
+          requireAuth: input.requireAuth,
+          allowlist: input.requireAuth ? input.allowlist : [],
+          shareBranch,
+        };
+
+        await client.sessionSetShares(session.id, [...this.linksFor(this.snapshot.session), link]);
         this.setStatus("");
-        this.showToast(line, copied ? "share link copied" : "share link");
+        this.showToast(line, copied ? "link copied" : "link created");
       })
       .catch((cause: unknown) =>
         this.setStatus(`share failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
   }
 
-  /** Stop sharing the open thread: revoke the gateway blob so its link stops resolving. */
+  updateShareLink(id: string, input: NewShareLink): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
+    const session = this.snapshot.session;
+
+    if (!session || !this.client) return;
+    const links = this.linksFor(session);
+
+    if (!links.some((link) => link.id === id)) return;
+    const allowlist = input.requireAuth ? input.allowlist : [];
+    // re-push the link's access to its blob: an allowlist for private, "public" clears it
+    void this.shareTransport
+      .push(id, [], input.requireAuth ? { githubLogins: allowlist } : "public")
+      .catch(() => {});
+    const next = links.map((link) =>
+      link.id === id
+        ? { ...link, name: input.name?.trim() || undefined, requireAuth: input.requireAuth, allowlist }
+        : link,
+    );
+
+    this.applyOptimistic(
+      { ...session, shares: next },
+      this.client.sessionSetShares(session.id, next),
+    );
+    this.setStatus("link updated");
+  }
+
+  deleteShareLink(id: string): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
+    const session = this.snapshot.session;
+
+    if (!session || !this.client) return;
+    const remaining = this.linksFor(session).filter((link) => link.id !== id);
+
+    void this.shareTransport.revoke(id).catch(() => {});
+    this.applyOptimistic(
+      { ...session, shares: remaining },
+      this.client.sessionSetShares(session.id, remaining),
+    );
+    this.setStatus("link revoked");
+  }
+
+  copyShareLink(id: string): void {
+    const line = this.shareTransport.formatShareLine(id);
+
+    void copyToClipboard(line).then((copied) => this.showToast(line, copied ? "link copied" : "link"));
+  }
+
+  /** Stop sharing the open thread: revoke every link so none of them resolve. */
   unshare(): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
     const session = this.snapshot.session;
-    const shareId = session?.shareId;
+    const links = this.linksFor(session);
 
-    if (!shareId) return this.setStatus("this thread is not shared");
+    if (!session || links.length === 0) return this.setStatus("this thread is not shared");
     this.stopShareSync();
-    this.shareTransport
-      .revoke(shareId)
+    void Promise.all(links.map((link) => this.shareTransport.revoke(link.id).catch(() => {})))
       .then(() => this.setStatus("sharing stopped"))
-      .catch((cause: unknown) =>
-        this.setStatus(`could not stop sharing: ${cause instanceof Error ? cause.message : String(cause)}`),
-      );
+      .catch(() => {});
+    void this.client?.sessionSetShares(session.id, []).catch(() => {});
   }
 
   goToEntry(entryId: string, summary?: string): void {
@@ -1624,11 +1725,15 @@ class Controller implements ReviewController {
     client
       .sessionFork(session.id)
       .then(async (fork) => {
+        const shareBranch = fork.history?.branch ?? MAIN_BRANCH;
         const shared = await this.freezeForShare(fork);
-        const { line, copied } = await this.shareTransport.publish(shared);
-        const shareId = this.shareTransport.parseShareId(line);
+        const { line, copied } = await this.shareTransport.publish({ ...shared, shareBranch });
+        const id = this.shareTransport.parseShareId(line);
 
-        if (shareId) await client.sessionSetShareId(fork.id, shareId);
+        if (id)
+          await client.sessionSetShares(fork.id, [
+            { id, requireAuth: false, allowlist: [], shareBranch },
+          ]);
         this.setStatus("");
         this.showToast(line, copied ? "fork shared - link copied" : "fork shared");
       })
@@ -1659,14 +1764,19 @@ class Controller implements ReviewController {
    * event path. Best-effort: a failed refresh is silent.
    */
   pullShared(): Promise<void> {
-    const session = this.snapshot.session;
+    const links = this.linksFor(this.snapshot.session);
 
-    if (!session?.shareId) return Promise.resolve();
+    if (links.length === 0) return Promise.resolve();
 
-    return this.shareTransport
-      .pull(session.shareId)
-      .then((remote) => this.mergeShared(remote))
-      .catch(() => {});
+    // pull every link's blob and union its collaborator notes back in
+    return Promise.all(
+      links.map((link) =>
+        this.shareTransport
+          .pull(link.id)
+          .then((remote) => this.mergeShared(remote))
+          .catch(() => {}),
+      ),
+    ).then(() => {});
   }
 
   private mergeShared(remote: Thread): Promise<void> {
@@ -1681,9 +1791,10 @@ class Controller implements ReviewController {
   }
 
   /**
-   * Follow the share live while it is open: one watch stream delivers every
-   * change as it lands; a pull on each (re)connect catches up on anything
-   * missed while the link was down, and a dropped link reconnects with
+   * Follow the thread's shares live while it is open. To bound idle cost at one
+   * connection per open thread (not one per link), a single watch stream follows
+   * the primary link for instant updates, while a pull on each (re)connect
+   * catches up every link's collaborator notes. A dropped link reconnects with
    * backoff. Returns a stop handle the caller runs on leave.
    */
   startShareSync(): () => void {
@@ -1694,7 +1805,7 @@ class Controller implements ReviewController {
 
     this.shareRun = run;
     const connect = (): void => {
-      const shareId = this.snapshot.session?.shareId;
+      const shareId = this.linksFor(this.snapshot.session)[0]?.id;
 
       if (this.shareRun !== run || this.closed || !shareId) return;
       void this.pullShared();

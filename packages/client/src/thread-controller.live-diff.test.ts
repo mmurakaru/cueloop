@@ -40,6 +40,7 @@ const shareTransport: ShareTransport = {
   watch: () => () => {},
   revoke: async () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
   mergeFromShare,
 };

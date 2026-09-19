@@ -17,7 +17,7 @@ const pushShare = mock(
   async (
     _shareId: string,
     _annotations: Array<Omit<Annotation, "createdAt">>,
-    _access?: ShareAccess,
+    _access?: ShareAccess | "public",
   ) => {},
 );
 
@@ -30,6 +30,7 @@ const shareTransport: ShareTransport = {
   watch: () => () => {},
   revoke: revokeShare,
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
   mergeFromShare,
 };
@@ -133,7 +134,7 @@ async function connectedController(
 }
 
 describe("share", () => {
-  test("stamps the returned share id back on the session", async () => {
+  test("publishes a public link and records it on the session", async () => {
     // Arrange
     const { controller, client } = await connectedController(sessionFixture());
 
@@ -141,8 +142,10 @@ describe("share", () => {
     controller.share();
     await tick();
 
-    // Assert
-    expect(client.sessionSetShareId).toHaveBeenCalledWith("ses_1", "p_abc123xy");
+    // Assert - a public link (no auth) is persisted with the returned id
+    expect(client.sessionSetShares).toHaveBeenCalledWith("ses_1", [
+      { id: "p_abc123xy", name: undefined, requireAuth: false, allowlist: [], shareBranch: "main" },
+    ]);
   });
 
   test("surfaces the ssh line as a toast, not an inline status", async () => {
@@ -156,7 +159,7 @@ describe("share", () => {
     // Assert
     expect(controller.getSnapshot().toast).toEqual({
       body: "ssh p_abc123xy@cueloop.dev",
-      title: "share link copied",
+      title: "link copied",
     });
     expect(controller.getSnapshot().status).not.toContain("ssh p_abc123xy@cueloop.dev");
   });
