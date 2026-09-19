@@ -6,11 +6,22 @@
  * so no content is ever lost.
  */
 
-export type BlockKind = "h1" | "h2" | "h3" | "p" | "li" | "oli" | "quote" | "code" | "hr";
+export type BlockKind =
+  | "h1"
+  | "h2"
+  | "h3"
+  | "p"
+  | "li"
+  | "oli"
+  | "quote"
+  | "code"
+  | "hr"
+  | "table"
+  | "frontmatter";
 
 export interface Block {
   kind: BlockKind;
-  /** Content with markers stripped; code blocks keep inner lines verbatim. */
+  /** Content with markers stripped; code, table, and frontmatter blocks keep inner lines verbatim. */
   text: string;
   /** For code blocks: the fence info string ("ts", "diff", ...). */
   lang?: string;
@@ -31,6 +42,27 @@ export function stripLeadingBlockMarker(line: string): string {
   return line.replace(LEADING_BLOCK_MARKER, "");
 }
 
+/** A GFM table delimiter row: one or more dash cells split by pipes, each optionally `:`-aligned. */
+function isTableDelimiterRow(line: string): boolean {
+  if (!line.includes("|")) return false;
+  const cells = line.trim().replace(/^\||\|$/g, "").split("|");
+
+  return cells.length >= 1 && cells.every((cell) => /^\s*:?-+:?\s*$/.test(cell));
+}
+
+/** A GFM table opens on a header row of pipe cells whose next line is a delimiter row. */
+function isTableStart(lines: string[], index: number): boolean {
+  const header = lines[index];
+  const delimiter = lines[index + 1];
+
+  return (
+    header !== undefined &&
+    header.includes("|") &&
+    delimiter !== undefined &&
+    isTableDelimiterRow(delimiter)
+  );
+}
+
 function isMarkerLine(line: string): boolean {
   return (
     line.startsWith("```") || LEADING_BLOCK_MARKER.test(line) || /^(---|\*\*\*|___)\s*$/.test(line)
@@ -45,6 +77,23 @@ export function parseBlocks(markdown: string): Block[] {
   while (lineIndex < lines.length) {
     const line = lines[lineIndex]!;
 
+    // YAML frontmatter: a --- fence on the very first line, closed by a second --- fence. A leading
+    // --- without a closing fence stays an hr (it falls through to the rule branch below).
+    if (lineIndex === 0 && line.trim() === "---") {
+      let close = 1;
+
+      while (close < lines.length && lines[close]!.trim() !== "---") close++;
+      if (close < lines.length) {
+        blocks.push({
+          kind: "frontmatter",
+          text: lines.slice(1, close).join("\n"),
+          lineStart: 0,
+          lineEnd: close,
+        });
+        lineIndex = close + 1;
+        continue;
+      }
+    }
     if (line.trim() === "") {
       lineIndex++;
       continue;
@@ -121,6 +170,22 @@ export function parseBlocks(markdown: string): Block[] {
         lineEnd: lineIndex,
       });
       lineIndex++;
+    } else if (isTableStart(lines, lineIndex)) {
+      const start = lineIndex;
+      const body: string[] = [lines[lineIndex]!, lines[lineIndex + 1]!];
+
+      lineIndex += 2;
+      // body rows run until a blank line, a fence, or a line without a pipe
+      while (
+        lineIndex < lines.length &&
+        lines[lineIndex]!.trim() !== "" &&
+        lines[lineIndex]!.includes("|") &&
+        !lines[lineIndex]!.startsWith("```")
+      ) {
+        body.push(lines[lineIndex]!);
+        lineIndex++;
+      }
+      blocks.push({ kind: "table", text: body.join("\n"), lineStart: start, lineEnd: lineIndex - 1 });
     } else {
       const start = lineIndex;
       const body: string[] = [];
@@ -128,7 +193,8 @@ export function parseBlocks(markdown: string): Block[] {
       while (
         lineIndex < lines.length &&
         lines[lineIndex]!.trim() !== "" &&
-        !isMarkerLine(lines[lineIndex]!)
+        !isMarkerLine(lines[lineIndex]!) &&
+        !isTableStart(lines, lineIndex)
       ) {
         body.push(lines[lineIndex]!);
         lineIndex++;
@@ -162,6 +228,10 @@ export function blockToMd(block: Block, ordinal = 1): string {
       return "```" + (block.lang ?? "") + "\n" + block.text + "\n```";
     case "hr":
       return "---";
+    case "frontmatter":
+      return "---\n" + block.text + "\n---";
+    case "table":
+      return block.text;
     default:
       return block.text;
   }

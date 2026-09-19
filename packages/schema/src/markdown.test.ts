@@ -102,13 +102,74 @@ describe("parseBlocks", () => {
 
   test("unknown constructs degrade to paragraphs, no content lost", () => {
     // Arrange
-    const md = "| a | b |\n|---|---|\n| 1 | 2 |";
+    const md = "<div>raw html</div>";
 
     // Act
     const blocks = parseBlocks(md);
 
     // Assert
-    expect(blocks.map((block) => block.text).join("\n")).toContain("| a | b |");
+    expect(blocks.map((block) => block.kind)).toEqual(["p"]);
+    expect(blocks[0]!.text).toBe("<div>raw html</div>");
+  });
+
+  test("a GFM table parses to one table block that keeps its source verbatim", () => {
+    // Arrange
+    const md = "before\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n\nafter";
+
+    // Act
+    const blocks = parseBlocks(md);
+
+    // Assert
+    expect(blocks.map((block) => block.kind)).toEqual(["p", "table", "p"]);
+    const table = blocks.find((block) => block.kind === "table")!;
+
+    expect(table.text).toBe("| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |");
+  });
+
+  test("a single-column table and an aligned delimiter still parse as a table", () => {
+    // Assert
+    expect(parseBlocks("| only |\n| --- |\n| one |")[0]!.kind).toBe("table");
+    expect(parseBlocks("| l | r |\n| :--- | ---: |\n| a | b |")[0]!.kind).toBe("table");
+  });
+
+  test("a plain rule line is an hr, never a table", () => {
+    // Assert
+    expect(parseBlocks("above\n\n---\n\nbelow").map((block) => block.kind)).toEqual([
+      "p",
+      "hr",
+      "p",
+    ]);
+  });
+
+  test("leading frontmatter parses to a frontmatter block, closed by its fence", () => {
+    // Arrange
+    const md = "---\ntitle: Plan\nowner: me\n---\n\n# Heading\n";
+
+    // Act
+    const blocks = parseBlocks(md);
+
+    // Assert
+    expect(blocks.map((block) => block.kind)).toEqual(["frontmatter", "h1"]);
+    expect(blocks[0]!.text).toBe("title: Plan\nowner: me");
+  });
+
+  test("a leading fence with no closing fence stays an hr, not frontmatter", () => {
+    // Assert
+    expect(parseBlocks("---\njust a paragraph\n").map((block) => block.kind)).toEqual(["hr", "p"]);
+  });
+
+  test("table and frontmatter round-trip through blockToMd", () => {
+    // Arrange
+    const md = "---\ntitle: Plan\n---\n\n| a | b |\n|---|---|\n| 1 | 2 |";
+    const blocks = parseBlocks(md);
+
+    // Act
+    const rebuilt = blocks.map((block) => blockToMd(block)).join("\n\n");
+
+    // Assert
+    expect(parseBlocks(rebuilt).map((block) => [block.kind, block.text])).toEqual(
+      blocks.map((block) => [block.kind, block.text]),
+    );
   });
 });
 
