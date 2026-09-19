@@ -190,9 +190,13 @@ function menuModalHandled(
   return true;
 }
 
-/** True while a menu or an overlay owns the keyboard instead of the thread view. */
-function keyboardOwnedElsewhere(menuOwnsKeyboard: boolean, overlay: KeyState["overlay"]): boolean {
-  return menuOwnsKeyboard || overlay !== "none";
+/** True while a menu, an overlay, or the manage-access dialog owns the keyboard instead of the thread view. */
+function keyboardOwnedElsewhere(
+  menuOwnsKeyboard: boolean,
+  overlay: KeyState["overlay"],
+  accessDialogOpen: boolean,
+): boolean {
+  return menuOwnsKeyboard || overlay !== "none" || accessDialogOpen;
 }
 
 /** The highlighted share option, or the public default when the choice is closed. */
@@ -871,9 +875,10 @@ export function App({
 
   const menuControl = useMenuControlState();
   const menuOwnsKeyboard = keyboardHeldByMenu(menuDialog, menuControl.openMenuId);
-  // an overlay (submit, walk, prompt, confirm, share choice) or the menu takes the
-  // keyboard from the thread view; the view suspends its own grammar meanwhile
-  const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
+  // an overlay (submit, walk, prompt, confirm, share choice), the manage-access
+  // dialog, or the menu takes the keyboard from the thread view; the view suspends
+  // its own grammar meanwhile so typing lands in the dialog, not the thread
+  const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay, accessDialogOpen);
 
   const leaderCombos = leaderCombosFor(keysRef.current.leader);
   const leaderPending = useRef(false);
