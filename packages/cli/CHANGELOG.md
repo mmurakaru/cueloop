@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.79
+
+### Patch Changes
+
+- [#466](https://github.com/mmurakaru/cueloop/pull/466) [`8a38a25`](https://github.com/mmurakaru/cueloop/commit/8a38a2537ea930b672519eaf1eed09b9523d0a82) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The Changes pane's "No changes" hint centers level with the thread pane's "Select a thread", offsetting for the thread footer's height.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.79
+  - @cueloop/client@0.1.0-alpha.79
+  - @cueloop/daemon@0.1.0-alpha.79
+  - @cueloop/schema@0.1.0-alpha.79
+
 ## 0.1.0-alpha.78
 
 ### Patch Changes
