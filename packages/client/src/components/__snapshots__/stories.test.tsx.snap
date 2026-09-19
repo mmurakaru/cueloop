@@ -687,16 +687,16 @@ exports[`stories catalog Dialogs/ManageAccess/Empty renders, snapshots, and carr
                                                             
                                                             
                                                             
-                                                            
-   ┌─ Manage access ────────────────────────────────────┐   
-   │ Only these GitHub users can open the private link. │   
-   │                                                    │   
-   │ no one yet - add a handle below                    │   
-   │                                                    │   
-   │                                                    │   
-   │ @handle                                            │   
-   │  add    create link    close                       │   
-   └────────────────────────────────────────────────────┘   
+      ┌─ Manage access ──────────────────────────────┐      
+      │ Only these GitHub users can open the         │      
+      │ private link.                                │      
+      │                                              │      
+      │                                              │      
+      │                                              │      
+      │ @handle                                      │      
+      │                                              │      
+      │  create    cancel                            │      
+      └──────────────────────────────────────────────┘      
                                                             
                                                             
                                                             
@@ -708,18 +708,18 @@ exports[`stories catalog Dialogs/ManageAccess/WithHandles renders, snapshots, an
 "                                                            
                                                             
                                                             
-                                                            
-   ┌─ Manage access ────────────────────────────────────┐   
-   │ Only these GitHub users can open the private link. │   
-   │                                                    │   
-   │ @octocat                                    remove │   
-   │ @hubot                                      remove │   
-   │                                                    │   
-   │                                                    │   
-   │                                                    │   
-   │ @handle                                            │   
-   │  add    create link    close                       │   
-   └────────────────────────────────────────────────────┘   
+      ┌─ Manage access ──────────────────────────────┐      
+      │ Only these GitHub users can open the         │      
+      │ private link.                                │      
+      │                                              │      
+      │ @octocat                              remove │      
+      │ @hubot                                remove │      
+      │                                              │      
+      │                                              │      
+      │ @handle                                      │      
+      │                                              │      
+      │  create    cancel                            │      
+      └──────────────────────────────────────────────┘      
                                                             
                                                             
                                                             

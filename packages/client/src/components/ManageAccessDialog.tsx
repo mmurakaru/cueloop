@@ -11,8 +11,7 @@ import type { KeyBinding, TextareaRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { Dialog } from "./primitives/Dialog";
-import { Button } from "./primitives/Button";
-import { Toolbar } from "./primitives/Toolbar";
+import { DialogActions } from "./primitives/DialogActions";
 
 // enter adds the handle rather than inserting a newline into the one-line field
 const ADD_KEY_BINDINGS: KeyBinding[] = [{ name: "return", action: "submit" }];
@@ -65,8 +64,8 @@ export function ManageAccessDialog({
     <Dialog
       isOpen
       title=" Manage access "
-      width={Math.min(54, terminalWidth - 6)}
-      height={Math.min(18, 9 + logins.length)}
+      width={Math.min(48, terminalWidth - 6)}
+      height={Math.min(18, 10 + logins.length)}
       background={tokens.elevated}
       onDismiss={onClose}
       theme={theme}
@@ -74,17 +73,13 @@ export function ManageAccessDialog({
       <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 1, paddingRight: 1 }}>
         <text fg={tokens.textDim}>Only these GitHub users can open the private link.</text>
         <box style={{ height: 1 }} />
-        {logins.length === 0 ? (
-          <text fg={tokens.textDim}>no one yet - add a handle below</text>
-        ) : (
-          logins.map((login) => (
-            <box key={login} onMouseUp={() => onRemove(login)} style={{ flexDirection: "row" }}>
-              <text fg={tokens.text}>{`@${login}`}</text>
-              <box style={{ flexGrow: 1 }} />
-              <text fg={tokens.textDim}>remove</text>
-            </box>
-          ))
-        )}
+        {logins.map((login) => (
+          <box key={login} onMouseUp={() => onRemove(login)} style={{ flexDirection: "row" }}>
+            <text fg={tokens.text}>{`@${login}`}</text>
+            <box style={{ flexGrow: 1 }} />
+            <text fg={tokens.textDim}>remove</text>
+          </box>
+        ))}
         <box style={{ flexGrow: 1 }} />
         <box style={{ flexDirection: "row" }}>
           <text fg={tokens.textDim}>{"@"}</text>
@@ -94,6 +89,7 @@ export function ManageAccessDialog({
             focused
             placeholder="handle"
             keyBindings={ADD_KEY_BINDINGS}
+            onSubmit={addDraft}
             onContentChange={() => setDraft(inputRef.current?.plainText ?? "")}
             style={{
               height: 1,
@@ -105,17 +101,13 @@ export function ManageAccessDialog({
             }}
           />
         </box>
-        <Toolbar>
-          <Button marginRight={2} onPress={addDraft} theme={theme}>
-            {" add "}
-          </Button>
-          <Button variant="solid" marginRight={2} onPress={onCreateLink} theme={theme}>
-            {" create link "}
-          </Button>
-          <Button onPress={onClose} theme={theme}>
-            {" close "}
-          </Button>
-        </Toolbar>
+        <box style={{ flexGrow: 1 }} />
+        <DialogActions
+          confirmLabel="create"
+          onConfirm={onCreateLink}
+          onCancel={onClose}
+          theme={theme}
+        />
       </box>
     </Dialog>
   );

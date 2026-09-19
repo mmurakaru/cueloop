@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import React, { useState } from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DARK } from "../theme";
-import { clickText, locateTextInFrame, settle, typeText } from "../test-support";
+import { clickText, locateTextInFrame, pressKey, settle, typeText } from "../test-support";
 import { ManageAccessDialog } from "./ManageAccessDialog";
 
 function AccessHarness({ initial }: { initial: string[] }): React.ReactNode {
@@ -50,16 +50,16 @@ describe("ManageAccessDialog", () => {
     expect(locateTextInFrame(setup.captureCharFrame(), "@hubot")).not.toBeNull();
   });
 
-  test("typing a handle and pressing add appends it to the allowlist", async () => {
+  test("typing a handle and pressing enter appends it to the allowlist", async () => {
     const setup = await renderAccess([]);
 
     await typeText(setup, "octocat");
-    await clickText(setup, "add");
+    await pressKey(setup, "RETURN");
 
     expect(locateTextInFrame(setup.captureCharFrame(), "@octocat")).not.toBeNull();
   });
 
-  test("clicking create link publishes the private link", async () => {
+  test("clicking create publishes the private link", async () => {
     let created = false;
     const setup = await testRender(
       <box style={{ width: 60, height: 18 }}>
@@ -79,15 +79,15 @@ describe("ManageAccessDialog", () => {
     );
 
     await settle(setup);
-    await clickText(setup, "create link");
+    await clickText(setup, "create");
 
     expect(created).toBe(true);
   });
 
-  test("clicking close dismisses the dialog", async () => {
+  test("clicking cancel dismisses the dialog", async () => {
     const setup = await renderAccess([]);
 
-    await clickText(setup, "close");
+    await clickText(setup, "cancel");
 
     expect(locateTextInFrame(setup.captureCharFrame(), "Manage access")).toBeNull();
   });
