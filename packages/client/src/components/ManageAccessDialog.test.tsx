@@ -67,6 +67,22 @@ describe("ManageAccessDialog", () => {
     expect(locateTextInFrame(setup.captureCharFrame(), "@hubot")).not.toBeNull();
   });
 
+  test("backspace on an empty input removes only the last handle, not all", async () => {
+    const setup = await renderAccess(["octocat", "hubot", "monalisa"]);
+
+    await pressKey(setup, "BACKSPACE");
+
+    // only the last chip goes; the rest survive one press
+    expect(locateTextInFrame(setup.captureCharFrame(), "@monalisa")).toBeNull();
+    expect(locateTextInFrame(setup.captureCharFrame(), "@hubot")).not.toBeNull();
+    expect(locateTextInFrame(setup.captureCharFrame(), "@octocat")).not.toBeNull();
+
+    // a second press removes the next one, still one at a time
+    await pressKey(setup, "BACKSPACE");
+    expect(locateTextInFrame(setup.captureCharFrame(), "@hubot")).toBeNull();
+    expect(locateTextInFrame(setup.captureCharFrame(), "@octocat")).not.toBeNull();
+  });
+
   test("typing a handle and pressing enter appends it to the draft", async () => {
     const setup = await renderAccess([]);
 

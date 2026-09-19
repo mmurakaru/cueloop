@@ -89,7 +89,12 @@ export function ManageAccessDialog({
     setLogins((current) => current.filter((entry) => entry !== login));
 
   useKeyboard((key) => {
-    if (isOpen && key.name === "escape") onClose();
+    if (!isOpen) return;
+    if (key.name === "escape") return onClose();
+    // backspace on an empty input drops the last chip, like a tag field
+    if (key.name === "backspace" && (inputRef.current?.plainText ?? "").length === 0) {
+      setLogins((current) => (current.length > 0 ? current.slice(0, -1) : current));
+    }
   });
 
   if (!isOpen) return null;
