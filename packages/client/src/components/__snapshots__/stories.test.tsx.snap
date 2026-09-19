@@ -689,7 +689,7 @@ exports[`stories catalog Dialogs/ManageAccess/Empty renders, snapshots, and carr
                                                             
                                                             
                                                             
-      ┌─ Manage access ──────────────────────────────┐      
+      ┌─ manage access ──────────────────────────────┐      
       │ Add GitHub handles of collaborators          │      
       │                                              │      
       │ @handle                                      │      
@@ -711,7 +711,7 @@ exports[`stories catalog Dialogs/ManageAccess/WithHandles renders, snapshots, an
                                                             
                                                             
                                                             
-      ┌─ Manage access ──────────────────────────────┐      
+      ┌─ manage access ──────────────────────────────┐      
       │ Add GitHub handles of collaborators          │      
       │                                              │      
       │ @octocat    @hubot    @handle                │      
@@ -844,7 +844,7 @@ exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, 
                                                                 
                                                                 
                                                                 
-     ┌─ Welcome ──────────────────────────────────────────┐     
+     ┌─ welcome ──────────────────────────────────────────┐     
      │                                                    │     
      │ Your name (optional) - it attributes the notes     │     
      │ you leave:                                         │     
@@ -864,7 +864,7 @@ exports[`stories catalog Overlays/PromptDialog/RenameAuthor renders, snapshots, 
                                                                 
                                                                 
                                                                 
-     ┌─ Rename author ────────────────────────────────────┐     
+     ┌─ rename author ────────────────────────────────────┐     
      │                                                    │     
      │ Display name for this collaborator:                │     
      │ Robin                                              │     
@@ -933,7 +933,7 @@ exports[`stories catalog Overlays/SettingsDialog/AppearanceThemed renders, snaps
                                                                                                     
                                                                                                     
                                                                                                     
-            ┌─ Settings ───────────────────────────────────────────────────────────────┐            
+            ┌─ settings ───────────────────────────────────────────────────────────────┐            
             │  General           │   Theme                    Rosé Pine Moon           │            
             │  Display           │                                                     │            
             │  Appearance        │                                                     │            
@@ -967,7 +967,7 @@ exports[`stories catalog Overlays/SettingsDialog/BodyZone renders, snapshots, an
                                                                                                     
                                                                                                     
                                                                                                     
-            ┌─ Settings ───────────────────────────────────────────────────────────────┐            
+            ┌─ settings ───────────────────────────────────────────────────────────────┐            
             │  General           │   Plan width               default                  │            
             │  Display           │   Line numbers             on                       │            
             │  Appearance        │                                                     │            
@@ -1001,7 +1001,7 @@ exports[`stories catalog Overlays/SettingsDialog/NavZone renders, snapshots, and
                                                                                                     
                                                                                                     
                                                                                                     
-            ┌─ Settings ───────────────────────────────────────────────────────────────┐            
+            ┌─ settings ───────────────────────────────────────────────────────────────┐            
             │  General           │   Display name             amber-heron              │            
             │  Display           │   Auto-close on submit     3s                       │            
             │  Appearance        │                                                     │            
@@ -1062,7 +1062,7 @@ exports[`stories catalog Dialogs/ShareChoice/AlreadyShared renders, snapshots, a
 "                                                            
                                                             
                                                             
-       ┌─ Share ────────────────────────────────────┐       
+       ┌─ share ────────────────────────────────────┐       
        │   public link                              │       
        │   private link                             │       
        │ › stop sharing                             │       
@@ -1078,7 +1078,7 @@ exports[`stories catalog Dialogs/ShareChoice/PrivateSelected renders, snapshots,
 "                                                            
                                                             
                                                             
-       ┌─ Share ────────────────────────────────────┐       
+       ┌─ share ────────────────────────────────────┐       
        │   public link                              │       
        │ › private link                             │       
        │                                            │       
@@ -1094,7 +1094,7 @@ exports[`stories catalog Dialogs/ShareChoice/PublicSelected renders, snapshots, 
 "                                                            
                                                             
                                                             
-       ┌─ Share ────────────────────────────────────┐       
+       ┌─ share ────────────────────────────────────┐       
        │ › public link                              │       
        │   private link                             │       
        │                                            │       

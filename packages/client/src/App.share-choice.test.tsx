@@ -84,7 +84,7 @@ describe("share choice", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "Manage access");
+    await waitForText(setup, "manage access");
   });
 
   test("escape cancels the choice without sharing", async () => {

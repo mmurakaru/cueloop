@@ -45,11 +45,11 @@ test("the Account settings tab shows the display name row and the GitHub sync ac
   const setup = await renderApp();
 
   await setup.mockMouse.click(1, 0);
-  await waitForText(setup, "Settings");
+  await waitForText(setup, "settings");
   const menu = setup.captureCharFrame().split("\n");
-  const settingsRow = menu.findIndex((line) => line.includes("Settings"));
+  const settingsRow = menu.findIndex((line) => line.includes("settings"));
 
-  await setup.mockMouse.click(menu[settingsRow]!.indexOf("Settings") + 1, settingsRow);
+  await setup.mockMouse.click(menu[settingsRow]!.indexOf("settings") + 1, settingsRow);
   await waitForText(setup, "Account");
   const dialog = setup.captureCharFrame().split("\n");
   const accountRow = dialog.findIndex((line) => line.includes("Account"));

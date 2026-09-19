@@ -8,7 +8,7 @@
 import React from "react";
 import type { Theme } from "../../theme";
 import { useComponentTheme } from "../theme-context";
-import { FRAME_BORDER_STYLE } from "./frame";
+import { FRAME_BORDER_STYLE, frameTitle } from "./frame";
 
 export interface CardProps {
   title?: string;
@@ -55,7 +55,7 @@ export function Card({
         flexDirection: "column",
         paddingLeft: 1,
       }}
-      title={title}
+      title={frameTitle(title)}
     >
       {children}
     </box>

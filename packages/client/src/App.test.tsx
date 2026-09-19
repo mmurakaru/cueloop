@@ -333,7 +333,7 @@ describe("no-thread shell", () => {
 
     // Assert - the settings dialog with its Keybinds leaf appears
     await waitForText(setup, "Keybinds");
-    expect(setup.captureCharFrame()).toContain("Settings");
+    expect(setup.captureCharFrame()).toContain("settings");
 
     // Act - escape closes the menu (not a trap), and the thread nav still works
     await press(setup, "escape");
@@ -385,13 +385,13 @@ describe("the thread view and the menu", () => {
     await setup.mockMouse.click(1, 0);
     await waitForText(setup, "Keybinds");
 
-    // the nav folder is the last "Settings" on screen (the first is the dialog title)
+    // the nav folder is the last "settings" on screen (the first is the dialog title)
     const lines = setup.captureCharFrame().split("\n");
     let folderRow = -1;
     let folderColumn = -1;
 
     lines.forEach((line, row) => {
-      const column = line.indexOf("Settings");
+      const column = line.indexOf("settings");
 
       if (column !== -1) {
         folderColumn = column;
