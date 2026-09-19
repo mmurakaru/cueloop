@@ -442,6 +442,8 @@ class Controller implements ReviewController {
   };
   /** Recently-viewed threads' parsed projections, so returning to a thread reuses its work instead of re-parsing. */
   private derivedCache = new Map<string, DerivedCacheEntry>();
+  /** The thread the view is on now; a revalidation for a since-abandoned thread is discarded. */
+  private viewingId: string | undefined;
   /** File paths whose diff body is folded to just the file band. */
   private collapsedFiles = new Set<string>();
   /** File paths woven to their full contents (unchanged lines shown as context). */
@@ -503,6 +505,7 @@ class Controller implements ReviewController {
         const inbox = await client.sessionList({ status: "pending" });
 
         if (this.options.sessionId) {
+          this.viewingId = this.options.sessionId;
           this.update({ session: await client.sessionGet(this.options.sessionId), inbox });
         } else {
           this.update({ inbox });
@@ -811,7 +814,11 @@ class Controller implements ReviewController {
   // surface that as an unhandled rejection.
   private async refreshSession(id: string): Promise<void> {
     try {
-      if (this.client) this.update({ session: await this.client.sessionGet(id) });
+      if (!this.client) return;
+      const session = await this.client.sessionGet(id);
+
+      // a rapid switch may have moved on during the fetch; never clobber the now-viewed thread
+      if (this.viewingId === session.id) this.update({ session });
     } catch (cause) {
       if (!this.closed) this.setStatus(cause instanceof Error ? cause.message : String(cause));
     }
@@ -853,10 +860,14 @@ class Controller implements ReviewController {
   // ── primitives ───────────────────────────────────
   open(id: string): void {
     this.locallyViewed.clear();
+    this.viewingId = id;
     const cached = this.snapshot.inbox?.find((candidate) => candidate.id === id);
 
+    // paint the sidebar copy at once for a snappy switch, then revalidate: the inbox
+    // copy trails the daemon for a live diff, whose session.updated refreshes the open
+    // thread but not the list, so a returned-to diff would otherwise show stale content
     if (cached) this.update({ session: cached });
-    else void this.refreshSession(id);
+    void this.refreshSession(id);
   }
 
   deleteSession(id: string): void {

@@ -143,4 +143,33 @@ describe("switching threads keeps the cached projection curatable", () => {
     expect(controller.getSnapshot().status).toContain("change rejected");
     expect(controller.getSnapshot().session?.workingCopy).toBe("");
   });
+
+  test("returning to a diff thread shows the daemon's latest, not the stale sidebar copy", async () => {
+    // The sidebar list trails the daemon for a hot-reloading diff (its session.updated
+    // refreshes the open thread, not the list). Returning to it must revalidate.
+    const staleA = diffSession("ses_a", PATCH_A, FILES_A);
+    const freshA = diffSession("ses_a", PATCH_B, FILES_B);
+    const other = diffSession("ses_b", PATCH_B, FILES_B);
+    const base = fakeClient([staleA, other]);
+    const controller = createReviewController({
+      sessionId: "ses_a",
+      openClient: async () => ({
+        ...base,
+        // the sidebar keeps the stale copy; the daemon serves the fresh one
+        sessionList: async () => [staleA, other],
+        sessionGet: async (id: string) => (id === "ses_a" ? freshA : other),
+      }),
+    });
+
+    controller.connect();
+    await tick();
+
+    // Visit B, then return to A - open() paints the stale sidebar copy, then revalidates
+    controller.open("ses_b");
+    await tick();
+    controller.open("ses_a");
+    await tick();
+
+    expect(controller.getSnapshot().session?.artifact.content).toBe(PATCH_B);
+  });
 });
