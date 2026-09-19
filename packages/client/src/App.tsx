@@ -56,7 +56,7 @@ import { GridTabContent } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
 import { useRememberLayout } from "./use-remember-layout";
 import type { LaunchLayout } from "./launch-layout";
-import { ThreadFooter } from "./components/ThreadFooter";
+import { ThreadFooter, THREAD_FOOTER_HEIGHT } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
@@ -1275,6 +1275,8 @@ export function App({
                           body,
                         )
                       }
+                      // zoomed, the footer already rides the Changes pane, so no extra offset is needed
+                      emptyBottomPadding={workbench.zoomed ? 0 : THREAD_FOOTER_HEIGHT}
                       theme={theme}
                     />
                   )}
