@@ -36,6 +36,7 @@ import {
   type HunkRejection,
   type NewEntry,
   type Artifact,
+  type ShareLink,
   type Identity,
   type Thread,
   type SessionHistory,
@@ -432,6 +433,21 @@ export class DaemonCore {
     const session = this.mutable(id);
 
     session.shareId = shareId;
+    this.store.upsert(session);
+    this.emit("session.updated", id);
+
+    return session;
+  }
+
+  /** Replace the thread's share links; the legacy single-share fields are dropped once shares[] is authoritative. */
+  sessionSetShares(id: string, shares: ShareLink[]): Thread {
+    const session = this.mutable(id);
+
+    session.shares = shares;
+    delete session.shareId;
+    delete session.access;
+    delete session.owner;
+    delete session.shareBranch;
     this.store.upsert(session);
     this.emit("session.updated", id);
 

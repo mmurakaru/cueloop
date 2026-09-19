@@ -96,6 +96,7 @@ function fakeClient(session: Thread) {
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetTitle: unimplemented("sessionSetTitle"),
     sessionSetShareId: mock(async (_id: string, _shareId: string) => session),
+    sessionSetShares: mock(async () => session),
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),

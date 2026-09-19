@@ -91,6 +91,11 @@ function fakeClient(session: Thread): FakeSessionClient {
     sessionSetShareId: mock(
       async (_id: string, shareId: string) => ((session.shareId = shareId), session),
     ),
+    sessionSetShares: mock(
+      async (_id: string, shares: import("@cueloop/schema").ShareLink[]) => (
+        (session.shares = shares), session
+      ),
+    ),
     sessionMergeShared: mock(async (_id: string, incoming: { annotations: Annotation[] }) => {
       const known = new Set(session.annotations.map((existing) => existing.id));
 

@@ -430,6 +430,11 @@ export class DaemonServer {
 
       return this.core.sessionSetShareId(params.id, params.shareId);
     },
+    "session.setShares": (_connection, request) => {
+      const params = parseParams("session.setShares", request.params);
+
+      return this.core.sessionSetShares(params.id, params.shares);
+    },
     "session.delete": (_connection, request) => {
       this.core.sessionDelete(parseParams("session.delete", request.params).id);
 

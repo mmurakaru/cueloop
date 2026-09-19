@@ -55,6 +55,7 @@ const PRIMITIVE_ROLES = {
   "session.fork": "owner",
   "session.refreshDiff": "owner",
   "session.setShareId": "owner",
+  "session.setShares": "owner",
   "session.delete": "owner",
   "session.mergeShared": "owner",
   "session.resolve": "owner",
