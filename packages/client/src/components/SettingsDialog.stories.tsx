@@ -10,7 +10,6 @@ const CATEGORIES: SettingsCategory[] = [
   {
     id: "general",
     name: "General",
-    description: "identity and submission",
     rows: [
       { key: "displayName", label: "Display name", kind: "text" },
       {
@@ -24,7 +23,6 @@ const CATEGORIES: SettingsCategory[] = [
   {
     id: "display",
     name: "Display",
-    description: "plan width and chrome",
     rows: [
       {
         key: "planWidth",
@@ -38,7 +36,6 @@ const CATEGORIES: SettingsCategory[] = [
   {
     id: "appearance",
     name: "Appearance",
-    description: "the color theme",
     rows: [
       {
         key: "theme",
@@ -71,6 +68,7 @@ export const NavZone: Story = {
       activeZone="nav"
       onCategorySelect={() => {}}
       onRowActivate={() => {}}
+      onClose={() => {}}
     />
   ),
   expectedColors: [DARK.accent],
@@ -90,6 +88,7 @@ export const BodyZone: Story = {
       activeZone="body"
       onCategorySelect={() => {}}
       onRowActivate={() => {}}
+      onClose={() => {}}
     />
   ),
   expectedColors: [DARK.green],
@@ -109,6 +108,7 @@ export const AppearanceThemed: Story = {
       activeZone="body"
       onCategorySelect={() => {}}
       onRowActivate={() => {}}
+      onClose={() => {}}
       theme={THEME_PRESETS["rose-pine-moon"]}
     />
   ),

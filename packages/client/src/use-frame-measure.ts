@@ -12,11 +12,14 @@ export function useFrameMeasure<T>(
   read: () => T,
   isEqual: (left: T, right: T) => boolean,
   initial: T,
+  active = true,
 ): T {
   const renderer = useRenderer();
   const [value, setValue] = useState(initial);
 
   useEffect(() => {
+    // a measurement only needed while a popover is open subscribes no per-frame listener when closed
+    if (!active) return;
     const measure = (): void => {
       const next = read();
 
@@ -32,7 +35,7 @@ export function useFrameMeasure<T>(
       renderer?.off("resize", measure);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderer]);
+  }, [renderer, active]);
 
   return value;
 }

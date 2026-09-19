@@ -3,16 +3,22 @@
 import { describe, expect, mock, test } from "bun:test";
 import { resolveInstallDir, runUpdate, type UpdateDeps } from "./update-command";
 
-function depsSpy(overrides: Partial<UpdateDeps> = {}): UpdateDeps & { lines: string[] } {
+function depsSpy(
+  overrides: Partial<UpdateDeps> = {},
+): UpdateDeps & { lines: string[]; errorLines: string[] } {
   const lines: string[] = [];
+  const errorLines: string[] = [];
 
   return {
     currentVersion: "0.1.0-alpha.68",
     installDir: () => "/Users/dev/.local/bin",
     fetchLatestVersion: mock(async () => "0.1.0-alpha.68"),
     runInstaller: mock(async () => 0),
+    stopDaemon: mock(async () => true),
     out: (message: string) => void lines.push(message),
+    error: (message: string) => void errorLines.push(message),
     lines,
+    errorLines,
     ...overrides,
   };
 }
@@ -116,9 +122,27 @@ describe(runUpdate, () => {
     // Act
     const code = await runUpdate(deps, false);
 
-    // Assert
+    // Assert - it also stops the stale-version daemon so the next launch autostarts the new build
     expect(code).toBe(0);
     expect(deps.runInstaller).toHaveBeenCalledWith("/Users/dev/.local/bin");
+    expect(deps.stopDaemon).toHaveBeenCalledTimes(1);
+    expect(deps.lines).toContain("Update ran successfully! Please restart cueloop.");
+  });
+
+  test("a failing daemon stop never fails an install that already succeeded", async () => {
+    // Arrange - the install succeeds but the cleanup stop rejects
+    const deps = depsSpy({
+      fetchLatestVersion: mock(async () => "0.1.0-alpha.99"),
+      stopDaemon: mock(async () => {
+        throw new Error("pid file vanished");
+      }),
+    });
+
+    // Act
+    const code = await runUpdate(deps, false);
+
+    // Assert - the update still reports success
+    expect(code).toBe(0);
     expect(deps.lines).toContain("Update ran successfully! Please restart cueloop.");
   });
 
@@ -143,8 +167,9 @@ describe(runUpdate, () => {
     // Act
     const code = await runUpdate(deps, false);
 
-    // Assert
+    // Assert - a failed install leaves the current daemon alone
     expect(code).toBe(1);
+    expect(deps.stopDaemon).not.toHaveBeenCalled();
     expect(deps.lines).not.toContain("Update ran successfully! Please restart cueloop.");
   });
 
@@ -155,9 +180,24 @@ describe(runUpdate, () => {
     // Act
     const code = await runUpdate(deps, false);
 
+    // Assert - the failure goes to stderr, and no progress prints to stdout
+    expect(code).toBe(1);
+    expect(deps.errorLines[0]).toContain("must be an absolute path");
+    expect(deps.lines).toHaveLength(0);
+    expect(deps.runInstaller).not.toHaveBeenCalled();
+  });
+
+  test("reports an unresolvable install dir on stderr with no stdout progress", async () => {
+    // Arrange - neither an override, the binary path, nor HOME resolves a target
+    const deps = depsSpy({ installDir: () => undefined });
+
+    // Act
+    const code = await runUpdate(deps, false);
+
     // Assert
     expect(code).toBe(1);
-    expect(deps.lines[0]).toContain("must be an absolute path");
+    expect(deps.errorLines[0]).toContain("HOME is not set");
+    expect(deps.lines).toHaveLength(0);
     expect(deps.runInstaller).not.toHaveBeenCalled();
   });
 });

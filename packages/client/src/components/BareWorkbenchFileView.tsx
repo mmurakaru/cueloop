@@ -15,7 +15,7 @@ export interface WorkbenchCommenter {
 }
 
 /** An empty, unsaved thread: it holds no notes, just enough shape for the annotation surface. */
-function draftThread(): Thread {
+export function draftThread(): Thread {
   return {
     schemaVersion: SCHEMA_VERSION,
     id: "workbench-draft",

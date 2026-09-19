@@ -1,6 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { makeAnchor, type Annotation } from "@cueloop/schema";
-import { diffRowAnchor, diffRowBlocks, diffRows, fileRowRange, fileTargetMarks } from "./view-diff";
+import { makeAnchor, type Annotation, type Thread } from "@cueloop/schema";
+import {
+  changesMarks,
+  diffRowAnchor,
+  diffRowBlocks,
+  diffRows,
+  fileRowRange,
+  fileTargetMarks,
+} from "./view-diff";
 
 const PATCH = `diff --git a/src/store.ts b/src/store.ts
 index 111..222 100644
@@ -108,5 +115,69 @@ diff --git a/b.ts b/b.ts
     // Assert - every marked row sits inside a.ts's range, and b.ts's identical line is untouched
     expect(marked.length).toBeGreaterThan(0);
     expect(marked.every((index) => index >= range.start && index < range.end)).toBe(true);
+  });
+});
+
+describe("changesMarks", () => {
+  const PATCH = `diff --git a/x.ts b/x.ts
+--- a/x.ts
++++ b/x.ts
+@@ -1,1 +1,2 @@
+ const keep = 0;
++const added = 1;
+`;
+
+  function diffThread(meta: Thread["artifact"]["meta"], annotations: Annotation[]): Thread {
+    return {
+      schemaVersion: "1",
+      id: "s_changes",
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: { type: "diff", content: PATCH, meta },
+      revisions: [{ revision: 1, content: PATCH, submittedAt: "2026-01-01T00:00:00Z" }],
+      annotations,
+      verdict: null,
+      status: "pending",
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+  }
+
+  function fileNote(rows: ReturnType<typeof diffRows>): Annotation {
+    const range = fileRowRange(rows, "x.ts")!;
+    const fileRows = rows.slice(range.start, range.end);
+    const addRelative = fileRows.findIndex((row) => row.kind === "add");
+    const quote = fileRows[addRelative]!.text.replace(/\n$/, "");
+    const anchor = makeAnchor(diffRowBlocks(fileRows), addRelative, 0, quote.length, addRelative);
+
+    return {
+      id: "f1",
+      kind: "comment",
+      anchor,
+      target: { kind: "file", path: "x.ts", rev: "worktree" },
+      body: "note",
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+  }
+
+  test("a workbench thread paints its file-targeted working-tree notes", () => {
+    const rows = diffRows(PATCH);
+    const session = diffThread({ workbench: true }, [fileNote(rows)]);
+
+    expect([...changesMarks(session, rows).keys()].length).toBeGreaterThan(0);
+  });
+
+  test("a pinned diff review paints only artifact notes, not the working tree's file targets", () => {
+    const rows = diffRows(PATCH);
+    const session = diffThread({}, [fileNote(rows)]);
+
+    // the same file-targeted note is not an artifact note, so a frozen review leaves it unpainted
+    expect([...changesMarks(session, rows).keys()].length).toBe(0);
+  });
+
+  test("a shared snapshot still paints the workbench's file-targeted feedback", () => {
+    const rows = diffRows(PATCH);
+    // a served/shared snapshot keeps the workbench marker, so its notes stay file-targeted and visible
+    const session = diffThread({ workbench: true, snapshot: true }, [fileNote(rows)]);
+
+    expect([...changesMarks(session, rows).keys()].length).toBeGreaterThan(0);
   });
 });

@@ -11,6 +11,7 @@ import type { KeyBinding, TextareaRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { Dialog } from "./primitives/Dialog";
+import { DialogActions } from "./primitives/DialogActions";
 
 // ⏎ submits (suppresses the textarea's default newline); the grammar owns save.
 const PROMPT_KEY_BINDINGS: KeyBinding[] = [{ name: "return", action: "submit" }];
@@ -18,10 +19,12 @@ const PROMPT_KEY_BINDINGS: KeyBinding[] = [{ name: "return", action: "submit" }]
 export interface PromptDialogProps {
   isOpen: boolean;
   title?: string;
-  label: string;
+  label?: string;
   value: string;
   placeholder?: string;
   onInput: (text: string) => void;
+  onSave?: () => void;
+  onCancel?: () => void;
   theme?: Theme;
 }
 
@@ -32,6 +35,8 @@ export function PromptDialog({
   value,
   placeholder,
   onInput,
+  onSave,
+  onCancel,
   theme,
 }: PromptDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -39,8 +44,9 @@ export function PromptDialog({
   const inputRef = useRef<TextareaRenderable | null>(null);
 
   useEffect(() => {
-    // open with the caret after the seeded value, like a text field
-    if (inputRef.current) inputRef.current.cursorOffset = value.length;
+    if (!inputRef.current) return;
+    inputRef.current.focus();
+    inputRef.current.cursorOffset = value.length;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   if (!isOpen) return null;
@@ -52,6 +58,7 @@ export function PromptDialog({
       width={Math.min(54, terminalWidth - 6)}
       height={7}
       background={tokens.elevated}
+      onDismiss={onCancel}
       theme={theme}
     >
       <box
@@ -63,7 +70,7 @@ export function PromptDialog({
           paddingTop: 1,
         }}
       >
-        <text fg={tokens.textDim}>{label}</text>
+        {label ? <text fg={tokens.textDim}>{label}</text> : null}
         <textarea
           ref={inputRef}
           focused
@@ -80,7 +87,12 @@ export function PromptDialog({
           }}
         />
         <box style={{ flexGrow: 1 }} />
-        <text fg={tokens.textDim}>enter save · esc cancel</text>
+        <DialogActions
+          confirmLabel="save"
+          onConfirm={() => onSave?.()}
+          onCancel={() => onCancel?.()}
+          theme={theme}
+        />
       </box>
     </Dialog>
   );

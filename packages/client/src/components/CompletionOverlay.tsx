@@ -8,6 +8,8 @@ import React from "react";
 import type { VerdictKind } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
+import { Toolbar } from "./primitives/Toolbar";
+import { Button } from "./primitives/Button";
 
 export interface CompletionOverlayProps {
   verdict: VerdictKind;
@@ -16,6 +18,9 @@ export interface CompletionOverlayProps {
   status: string;
   /** Where focus goes on close (the agent's pane), when known. */
   returnsTo?: string;
+  onClose: () => void;
+  onBackToPlan: () => void;
+  onAlways: () => void;
   theme?: Theme;
 }
 
@@ -24,6 +29,9 @@ export function CompletionOverlay({
   completion,
   status,
   returnsTo,
+  onClose,
+  onBackToPlan,
+  onAlways,
   theme,
 }: CompletionOverlayProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
@@ -49,12 +57,21 @@ export function CompletionOverlay({
       </text>
       {returnsTo ? <text fg={tokens.textDim}>returning to {returnsTo} on close</text> : null}
       {status ? <text fg={tokens.textDim}>{status}</text> : null}
+      {completion.phase === "counting" ? (
+        <text fg={tokens.textDim}>closing in {completion.remaining}s</text>
+      ) : null}
       <text> </text>
-      <text fg={tokens.textDim}>
-        close [return]
-        {completion.phase === "counting" ? ` · closing in ${completion.remaining}s` : ""}
-        {" · return to plan [esc] · always [a]"}
-      </text>
+      <Toolbar>
+        <Button variant="solid" marginRight={2} onPress={onClose} theme={theme}>
+          {" close "}
+        </Button>
+        <Button marginRight={2} onPress={onBackToPlan} theme={theme}>
+          {" back to plan "}
+        </Button>
+        <Button onPress={onAlways} theme={theme}>
+          {" always "}
+        </Button>
+      </Toolbar>
     </box>
   );
 }

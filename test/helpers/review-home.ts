@@ -1,6 +1,6 @@
 /**
  * A test review home: an isolated CUELOOP_HOME with an in-process daemon that
- * owns plan and diff review sessions, which subprocess tests (PTY tier, CLI
+ * owns plan and diff threads, which subprocess tests (PTY tier, CLI
  * tier) open by id. Nothing is checked in; the home is a temp dir removed by
  * `cleanup`.
  */
@@ -15,9 +15,9 @@ import type { Artifact, DiffFileContents, Thread } from "@cueloop/schema";
 export interface TestReviewHome {
   home: string;
   server: DaemonServer;
-  /** A plan review session over `markdown`; the title also becomes the plan path stem. */
+  /** A plan thread over `markdown`; the title also becomes the plan path stem. */
   createPlanSession(markdown: string, title?: string): Thread;
-  /** A diff review session over `patch`, with per-file contents when the test needs curation. */
+  /** A diff thread over `patch`, with per-file contents when the test needs curation. */
   createDiffSession(patch: string, files?: DiffFileContents[], title?: string): Thread;
   /** An executable `#!/bin/sh` script in the home with `body`; for stand-in editors and stub commands. */
   createShellScript(name: string, body: string): string;

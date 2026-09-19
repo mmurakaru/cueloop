@@ -1,5 +1,5 @@
 /**
- * A review session's history as an append-only tree of entries. Each entry
+ * A thread's history as an append-only tree of entries. Each entry
  * points at its parent; a branch is a named tip; the active path is the chain
  * from the current branch's tip back to the root. Nothing is ever deleted:
  * navigating moves a tip, a comment removal is its own entry, a fork copies a

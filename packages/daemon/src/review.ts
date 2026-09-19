@@ -196,7 +196,7 @@ export interface AwaitResolveOptions {
 }
 
 /**
- * Park until a review session resolves, then return the verdict outcome; null
+ * Park until a thread resolves, then return the verdict outcome; null
  * when the signal aborts first. Where ReviewHandle.awaitVerdict needs the handle
  * that opened the review, this needs only a session id - so a background waiter
  * that woke on a session it did not open (a detached Claude Code / Codex waiter,
@@ -220,7 +220,7 @@ export async function awaitResolve(
   return resolved === null ? null : outcome(resolved);
 }
 
-/** Open a review session (or revise the agent session's existing one) and hand back the wait surface. */
+/** Open a thread (or revise the agent session's existing one) and hand back the wait surface. */
 export async function openReview(
   client: DaemonClient,
   options: OpenReviewOptions,

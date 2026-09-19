@@ -9,8 +9,8 @@
  */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createTextAttributes, type ScrollBoxRenderable } from "@opentui/core";
-import type { Thread } from "@cueloop/schema";
+import { createTextAttributes, type KeyEvent, type ScrollBoxRenderable } from "@opentui/core";
+import type { Annotation, Thread } from "@cueloop/schema";
 import { diffRowText, fileChangeCounts, type DiffRow, type Mark } from "../view-diff";
 import type { TextSpan } from "../thread-selection";
 import type { QuickAction } from "../config";
@@ -18,7 +18,7 @@ import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { IconButton } from "./primitives/IconButton";
 import { NERD } from "./primitives/icons";
-import { intralineRunsByRow, type IntralineRun } from "../diff-intraline";
+import { createIntralineResolver, type IntralineRun } from "../diff-intraline";
 import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
 import { splitDiffRows, type SplitLine, type SplitRow } from "../split-diff";
 import { UNDERLINE, type AnnotationPalette } from "../annotation-palette";
@@ -95,6 +95,10 @@ export interface DiffContentViewProps {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  /** The author's display name for a comment's hover tooltip. */
+  resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
+  leaderCombos?: readonly string[];
+  onLeaderCommand?: (key: KeyEvent) => void;
   onExit: () => void;
   /** Row indices the owner rejected during curation; drawn struck through. */
   rejectedRows?: Set<number>;
@@ -381,7 +385,8 @@ function foregroundColumns(
   const columns: string[] = [];
 
   for (const span of coloredRowSpans(text, intraline, syntax, baseColor, tokens)) {
-    for (let index = 0; index < span.text.length; index++) columns.push(span.foreground);
+    // one color per code unit, matching the column model that indexes text by .length
+    columns.push(...Array.from({ length: span.text.length }, () => span.foreground));
   }
 
   return columns;
@@ -487,6 +492,9 @@ export function DiffContentView({
   onAnnotate,
   onReply,
   onUpdateAnnotation,
+  resolveAuthorLabel,
+  leaderCombos,
+  onLeaderCommand,
   onExit,
   rejectedRows = EMPTY_REJECTED,
   fold,
@@ -520,12 +528,15 @@ export function DiffContentView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    resolveAuthorLabel,
+    leaderCombos,
+    onLeaderCommand,
     onExit,
   });
   const { palette } = surface;
   const numberWidth = useMemo(() => lineNumberWidth(rows), [rows]);
   const unifiedGutterColumns = numberWidth * 2 + UNIFIED_GUTTER_CHROME;
-  const intralineByRow = useMemo(() => intralineRunsByRow(rows), [rows]);
+  const intralineResolver = useMemo(() => createIntralineResolver(rows), [rows]);
   const syntaxByRow = useSyntaxHighlights(rows);
   const splitRows = useMemo(() => (split ? splitDiffRows(rows) : []), [split, rows]);
   const localStats = useMemo(() => fileChangeCounts(rows), [rows]);
@@ -585,13 +596,13 @@ export function DiffContentView({
     const fgByColumn = foregroundColumns(
       text,
       rowBaseColor(row, tokens),
-      intralineByRow.get(rowIndex),
+      intralineResolver.runsForRow(rowIndex),
       syntaxByRow.get(rowIndex),
       tokens,
     );
     const emphasisBgByColumn = emphasisBackgroundColumns(
       text,
-      intralineByRow.get(rowIndex),
+      intralineResolver.runsForRow(rowIndex),
       rowEmphasisBackground(row, tokens),
     );
     const rowBg = rowBackground(row, tokens);
