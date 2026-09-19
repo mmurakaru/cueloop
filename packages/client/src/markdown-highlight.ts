@@ -40,10 +40,24 @@ function scanInlineTokens(text: string, base: number, into: MarkdownHighlightRan
   INLINE_TOKEN.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = INLINE_TOKEN.exec(text)) !== null) {
+    const token = match[0];
     const start = base + match.index;
-    const end = start + match[0].length;
+    const end = start + token.length;
 
-    into.push({ start, end, group: match[0].startsWith("`") ? "code" : "link" });
+    if (token.startsWith("`")) {
+      into.push({ start, end, group: "code" });
+      continue;
+    }
+    // a link colors its brackets and href; the [] label stays plain unless it is an @-scope, matching how a
+    // markdown source view paints links
+    const closeBracket = token.indexOf("]");
+
+    if (token.slice(1, closeBracket).startsWith("@")) {
+      into.push({ start, end, group: "link" });
+    } else {
+      into.push({ start, end: start + 1, group: "link" });
+      into.push({ start: start + closeBracket, end, group: "link" });
+    }
   }
 }
 

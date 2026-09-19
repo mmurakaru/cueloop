@@ -17,11 +17,18 @@ describe("markdownHighlightRanges", () => {
     ]);
   });
 
-  test("a link colors the whole [text](href) run", () => {
-    expect(painted("see [docs](https://x.dev)")).toContainEqual({
-      text: "[docs](https://x.dev)",
-      group: "link",
-    });
+  test("a plain link colors its brackets and href but leaves the label plain", () => {
+    const runs = painted("see [docs](https://x.dev)");
+
+    expect(runs).toContainEqual({ text: "[", group: "link" });
+    expect(runs).toContainEqual({ text: "](https://x.dev)", group: "link" });
+    expect(runs.some((run) => run.text.includes("docs"))).toBe(false);
+  });
+
+  test("an @-scope link label colors along with the brackets and href", () => {
+    expect(painted("[@pierre/diffs](https://npm/@pierre/diffs)")).toEqual([
+      { text: "[@pierre/diffs](https://npm/@pierre/diffs)", group: "link" },
+    ]);
   });
 
   test("inline code grays the whole backtick span", () => {
