@@ -172,7 +172,10 @@ function LinkRow({
         backgroundColor: selected ? tokens.border : undefined,
       }}
     >
-      <text fg={selected ? tokens.text : tokens.textMuted} style={{ wrapMode: "none", flexShrink: 1 }}>
+      <text
+        fg={selected ? tokens.text : tokens.textMuted}
+        style={{ wrapMode: "none", flexShrink: 1 }}
+      >
         {label}
       </text>
       <box style={{ flexGrow: 1 }} />

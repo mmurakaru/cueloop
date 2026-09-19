@@ -16,7 +16,10 @@ const TOAST_MAX_WIDTH = 64;
 export function Toast({ title, body, theme }: ToastProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth, height: terminalHeight } = useTerminalDimensions();
-  const width = Math.min(terminalWidth - 6, Math.max(28, Math.min(TOAST_MAX_WIDTH, body.length + 4)));
+  const width = Math.min(
+    terminalWidth - 6,
+    Math.max(28, Math.min(TOAST_MAX_WIDTH, body.length + 4)),
+  );
   // the message wraps at the content width, so grow the box to fit the wrapped lines
   const contentWidth = Math.max(1, width - 4);
   const lines = body

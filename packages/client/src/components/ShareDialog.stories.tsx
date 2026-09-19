@@ -27,7 +27,14 @@ export const EmptyList: Story = {
     shareDialogStore.getState().reset();
 
     return (
-      <ShareDialog isOpen threadName="Improve retry logic" links={[]} isOwner {...NOOP} theme={DARK} />
+      <ShareDialog
+        isOpen
+        threadName="Improve retry logic"
+        links={[]}
+        isOwner
+        {...NOOP}
+        theme={DARK}
+      />
     );
   },
   size: SIZE,
@@ -76,7 +83,14 @@ export const NewLinkWizard: Story = {
     shareDialogStore.getState().openWizard(newWizardDraft("Improve retry logic"));
 
     return (
-      <ShareDialog isOpen threadName="Improve retry logic" links={[]} isOwner {...NOOP} theme={DARK} />
+      <ShareDialog
+        isOpen
+        threadName="Improve retry logic"
+        links={[]}
+        isOwner
+        {...NOOP}
+        theme={DARK}
+      />
     );
   },
   size: SIZE,
@@ -93,7 +107,14 @@ export const AuthWizard: Story = {
     });
 
     return (
-      <ShareDialog isOpen threadName="Improve retry logic" links={[]} isOwner {...NOOP} theme={DARK} />
+      <ShareDialog
+        isOpen
+        threadName="Improve retry logic"
+        links={[]}
+        isOwner
+        {...NOOP}
+        theme={DARK}
+      />
     );
   },
   size: SIZE,

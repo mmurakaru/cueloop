@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  closePrototypeBrowser,
-  cssBoxToCell,
-  imageCellToCss,
-} from "./prototype-browser";
+import { closePrototypeBrowser, cssBoxToCell, imageCellToCss } from "./prototype-browser";
 
 const IMAGE = { x: 1, y: 1, width: 80, height: 40 };
 const VIEWPORT = { width: 1280, height: 720 };

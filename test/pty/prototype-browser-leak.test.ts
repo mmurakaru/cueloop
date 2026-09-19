@@ -73,29 +73,41 @@ async function browserPidAfterQuit(
 }
 
 describe("prototype browser leak", () => {
-  ptyTest("q exit closes the warm Chromium", async () => {
-    const result = await browserPidAfterQuit((proc) => {
-      proc.stdin.write("q");
-      proc.stdin.end();
-    });
+  ptyTest(
+    "q exit closes the warm Chromium",
+    async () => {
+      const result = await browserPidAfterQuit((proc) => {
+        proc.stdin.write("q");
+        proc.stdin.end();
+      });
 
-    if (result === "no-chrome") return;
-    expect(result.dead).toBe(true);
-  }, 30_000);
+      if (result === "no-chrome") return;
+      expect(result.dead).toBe(true);
+    },
+    30_000,
+  );
 
-  ptyTest("SIGTERM closes the warm Chromium", async () => {
-    const result = await browserPidAfterQuit((proc) => proc.kill("SIGTERM"));
+  ptyTest(
+    "SIGTERM closes the warm Chromium",
+    async () => {
+      const result = await browserPidAfterQuit((proc) => proc.kill("SIGTERM"));
 
-    if (result === "no-chrome") return;
-    expect(result.dead).toBe(true);
-  }, 30_000);
+      if (result === "no-chrome") return;
+      expect(result.dead).toBe(true);
+    },
+    30_000,
+  );
 
-  ptyTest("SIGHUP closes the warm Chromium", async () => {
-    const result = await browserPidAfterQuit((proc) => proc.kill("SIGHUP"));
+  ptyTest(
+    "SIGHUP closes the warm Chromium",
+    async () => {
+      const result = await browserPidAfterQuit((proc) => proc.kill("SIGHUP"));
 
-    if (result === "no-chrome") return;
-    expect(result.dead).toBe(true);
-  }, 30_000);
+      if (result === "no-chrome") return;
+      expect(result.dead).toBe(true);
+    },
+    30_000,
+  );
 });
 
 // keep the import used even when the tier is off, so the file type-checks cleanly

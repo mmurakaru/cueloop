@@ -94,7 +94,8 @@ function fakeClient(session: Thread): FakeSessionClient {
     ),
     sessionSetShares: mock(
       async (_id: string, shares: import("@cueloop/schema").ShareLink[]) => (
-        (session.shares = shares), session
+        (session.shares = shares),
+        session
       ),
     ),
     sessionMergeShared: mock(async (_id: string, incoming: { annotations: Annotation[] }) => {

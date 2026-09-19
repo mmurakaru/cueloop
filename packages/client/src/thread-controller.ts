@@ -1596,7 +1596,12 @@ class Controller implements ReviewController {
       .catch(() => {});
     const next = links.map((link) =>
       link.id === id
-        ? { ...link, name: input.name?.trim() || undefined, requireAuth: input.requireAuth, allowlist }
+        ? {
+            ...link,
+            name: input.name?.trim() || undefined,
+            requireAuth: input.requireAuth,
+            allowlist,
+          }
         : link,
     );
 
@@ -1625,7 +1630,9 @@ class Controller implements ReviewController {
   copyShareLink(id: string): void {
     const line = this.shareTransport.formatShareLine(id);
 
-    void copyToClipboard(line).then((copied) => this.showToast(line, copied ? "link copied" : "link"));
+    void copyToClipboard(line).then((copied) =>
+      this.showToast(line, copied ? "link copied" : "link"),
+    );
   }
 
   /** Stop sharing the open thread: revoke every link so none of them resolve. */

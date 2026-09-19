@@ -131,7 +131,8 @@ export async function pushShare(
 export async function revokeShare(shareId: string, target: ShareTarget = {}): Promise<void> {
   const { stderr, code } = await runShareSsh("cueloop-revoke", Buffer.from(shareId), target);
 
-  if (code !== 0) throw new Error(`gateway revoke failed: ${stderr.trim() || `ssh exited ${code}`}`);
+  if (code !== 0)
+    throw new Error(`gateway revoke failed: ${stderr.trim() || `ssh exited ${code}`}`);
 }
 
 export interface ShareWatchHandlers {

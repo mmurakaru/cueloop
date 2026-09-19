@@ -11,7 +11,15 @@ async function gh(args: string[]): Promise<{ code: number; stdout: string }> {
 
 /** The PR head commit sha, or null when gh is absent, unauthenticated, or the call fails. */
 export async function prHeadSha(pr: string): Promise<string | null> {
-  const { code, stdout } = await gh(["pr", "view", pr, "--json", "headRefOid", "-q", ".headRefOid"]);
+  const { code, stdout } = await gh([
+    "pr",
+    "view",
+    pr,
+    "--json",
+    "headRefOid",
+    "-q",
+    ".headRefOid",
+  ]);
 
   if (code !== 0) return null;
   const sha = stdout.trim();
