@@ -60,7 +60,6 @@ import type { LaunchLayout } from "./launch-layout";
 import { ThreadFooter, THREAD_FOOTER_HEIGHT } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
-import { MarkdownThreadEditor, type MarkdownEditorHandle } from "./components/MarkdownThreadEditor";
 import {
   diffChordEntries,
   dispatchLeaderCommand,
@@ -788,8 +787,6 @@ export function App({
     sessionId: session?.id,
     canEdit: canEditBody,
   });
-  const editorHandleRef = useRef<MarkdownEditorHandle | null>(null);
-  const exitBodyEditor = (): void => editorHandleRef.current?.requestExit();
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
   // annotation resolves to the display index it marked
@@ -1189,7 +1186,7 @@ export function App({
                   ? ownerThreadActions({
                       editing: bodyEditing.editing,
                       onEdit: onEditRequest,
-                      onExitEdit: exitBodyEditor,
+                      onExitEdit: bodyEditing.requestExit,
                       onShare: () => dispatch({ type: "share" }),
                       theme,
                     })
@@ -1223,14 +1220,7 @@ export function App({
                           <text fg={theme.textDim}>Select a thread</text>
                         </box>
                       ),
-                      editor: (
-                        <MarkdownThreadEditor
-                          ref={editorHandleRef}
-                          initialText={controller.working()}
-                          theme={theme}
-                          onExitEditor={bodyEditing.exitEditor}
-                        />
-                      ),
+                      editor: bodyEditing.renderEditor(theme),
                       threadView: (
                         <ThreadView
                           session={activeSession}
