@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { cssBoxToCell, imageCellToCss } from "./prototype-browser";
+import {
+  closePrototypeBrowser,
+  cssBoxToCell,
+  imageCellToCss,
+} from "./prototype-browser";
 
 const IMAGE = { x: 1, y: 1, width: 80, height: 40 };
 const VIEWPORT = { width: 1280, height: 720 };
@@ -52,5 +56,13 @@ describe("cssBoxToCell", () => {
 
     expect(cell.columns).toBe(1);
     expect(cell.rows).toBe(1);
+  });
+});
+
+describe("closePrototypeBrowser", () => {
+  test("is a safe no-op when no prototype browser was ever launched", async () => {
+    // the shutdown path calls this on every quit; with no warm Chromium it must not throw or load puppeteer
+    await expect(closePrototypeBrowser()).resolves.toBeUndefined();
+    await expect(closePrototypeBrowser()).resolves.toBeUndefined();
   });
 });
