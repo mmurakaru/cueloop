@@ -8,6 +8,7 @@
  */
 
 import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
+import { createStore, type StoreApi } from "zustand/vanilla";
 import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
 import {
   applyPathView,
@@ -411,7 +412,8 @@ class Controller implements ReviewController {
   readonly readOnly: boolean;
   private client: SessionClient | null = null;
   private closed = false;
-  private snapshot: ControllerSnapshot = {
+  /** The controller's state lives in a zustand store; internal reads go through the snapshot getter. */
+  private readonly store: StoreApi<ControllerSnapshot> = createStore<ControllerSnapshot>(() => ({
     session: null,
     inbox: null,
     status: "",
@@ -420,8 +422,10 @@ class Controller implements ReviewController {
     completion: { phase: "idle" },
     editOrphanCount: 0,
     walk: null,
-  };
-  private listeners = new Set<() => void>();
+  }));
+  private get snapshot(): ControllerSnapshot {
+    return this.store.getState();
+  }
   private autoClose: AutoClose = "off";
   private quickActions: QuickAction[] = [];
   private editor: string | undefined;
@@ -464,17 +468,12 @@ class Controller implements ReviewController {
     this.shareTransport = options.shareTransport ?? DEFAULT_SHARE_TRANSPORT;
   }
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener);
+  subscribe = (listener: () => void): (() => void) => this.store.subscribe(listener);
 
-    return () => this.listeners.delete(listener);
-  };
-
-  getSnapshot = (): ControllerSnapshot => this.snapshot;
+  getSnapshot = (): ControllerSnapshot => this.store.getState();
 
   private update(patch: Partial<ControllerSnapshot>): void {
-    this.snapshot = { ...this.snapshot, ...this.freezeServed(patch) };
-    for (const listener of this.listeners) listener();
+    this.store.setState(this.freezeServed(patch));
   }
 
   /** Serve mode pins the served thread's diff to a snapshot; its annotations and the rest stay live. */
