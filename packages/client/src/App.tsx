@@ -1393,14 +1393,12 @@ export function App({
                 </box>
               ) : null}
               <ManageAccessDialog
+                key={String(accessDialogOpen)}
                 isOpen={accessDialogOpen}
-                logins={allowedLogins}
-                onAdd={(login) => controller.setShareAccess([...allowedLogins, login])}
-                onRemove={(login) =>
-                  controller.setShareAccess(allowedLogins.filter((entry) => entry !== login))
-                }
-                onCreateLink={() => {
+                initialLogins={allowedLogins}
+                onCreate={(logins) => {
                   setAccessDialogOpen(false);
+                  controller.setShareAccess(logins);
                   controller.share();
                 }}
                 onClose={() => setAccessDialogOpen(false)}

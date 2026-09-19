@@ -1,7 +1,8 @@
 /**
  * Owner surface for a private share's allowlist: the GitHub logins allowed to
- * open the private link. Type a handle and add it; click a row to remove one.
- * Editing persists through the controller, so the list survives a reload.
+ * open the private link. Handles are a local draft here - add or remove them
+ * freely; nothing persists until create publishes the link, so closing discards
+ * the draft and no handles survive a cancel.
  */
 
 import React, { useEffect, useRef, useState } from "react";
@@ -33,14 +34,7 @@ function HandleChip({
     <box
       onMouseOver={() => setHovered(true)}
       onMouseOut={() => setHovered(false)}
-      style={{
-        flexDirection: "row",
-        flexShrink: 0,
-        marginRight: 1,
-        paddingLeft: 1,
-        paddingRight: 1,
-        backgroundColor: tokens.panel,
-      }}
+      style={{ flexDirection: "row", flexShrink: 0, marginRight: 2, backgroundColor: tokens.panel }}
     >
       <text fg={tokens.text} style={{ wrapMode: "none" }}>{`@${login}`}</text>
       <box
@@ -58,27 +52,25 @@ function HandleChip({
 
 export interface ManageAccessDialogProps {
   isOpen: boolean;
-  logins: string[];
-  onAdd: (login: string) => void;
-  onRemove: (login: string) => void;
-  /** Publish the private link with the current allowlist and copy its connection line. */
-  onCreateLink: () => void;
+  /** The allowlist to seed the draft with; edits stay local until create. */
+  initialLogins: string[];
+  /** Publish the private link with this allowlist and copy its connection line. */
+  onCreate: (logins: string[]) => void;
   onClose: () => void;
   theme?: Theme;
 }
 
 export function ManageAccessDialog({
   isOpen,
-  logins,
-  onAdd,
-  onRemove,
-  onCreateLink,
+  initialLogins,
+  onCreate,
   onClose,
   theme,
 }: ManageAccessDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth } = useTerminalDimensions();
   const inputRef = useRef<TextareaRenderable | null>(null);
+  const [logins, setLogins] = useState(initialLogins);
   const [draft, setDraft] = useState("");
   const [inputGeneration, setInputGeneration] = useState(0);
 
@@ -89,10 +81,12 @@ export function ManageAccessDialog({
   const addDraft = (): void => {
     const handle = draft.trim().replace(/^@/, "").toLowerCase();
 
-    if (handle && !logins.includes(handle)) onAdd(handle);
+    if (handle && !logins.includes(handle)) setLogins((current) => [...current, handle]);
     setDraft("");
     setInputGeneration((generation) => generation + 1);
   };
+  const removeLogin = (login: string): void =>
+    setLogins((current) => current.filter((entry) => entry !== login));
 
   useKeyboard((key) => {
     if (isOpen && key.name === "escape") onClose();
@@ -105,18 +99,23 @@ export function ManageAccessDialog({
       isOpen
       title=" Manage access "
       width={Math.min(48, terminalWidth - 6)}
-      height={Math.min(18, 10 + logins.length)}
+      height={7}
       background={tokens.elevated}
       onDismiss={onClose}
       theme={theme}
     >
       <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 1, paddingRight: 1 }}>
-        <text fg={tokens.textDim}>Add collaborators GitHub handles</text>
+        <text fg={tokens.textDim}>Add GitHub handles of collaborators</text>
         <box style={{ flexGrow: 1 }} />
         {/* chips and the input share one wrapping row: type, enter to add the next chip inline */}
         <box style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}>
           {logins.map((login) => (
-            <HandleChip key={login} login={login} onRemove={() => onRemove(login)} tokens={tokens} />
+            <HandleChip
+              key={login}
+              login={login}
+              onRemove={() => removeLogin(login)}
+              tokens={tokens}
+            />
           ))}
           <box style={{ flexDirection: "row", flexShrink: 0 }}>
             <text fg={tokens.textDim}>{"@"}</text>
@@ -142,7 +141,7 @@ export function ManageAccessDialog({
         <box style={{ flexGrow: 1 }} />
         <DialogActions
           confirmLabel="create"
-          onConfirm={onCreateLink}
+          onConfirm={() => onCreate(logins)}
           onCancel={onClose}
           theme={theme}
         />

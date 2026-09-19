@@ -687,16 +687,16 @@ exports[`stories catalog Dialogs/ManageAccess/Empty renders, snapshots, and carr
                                                             
                                                             
                                                             
+                                                            
+                                                            
       ┌─ Manage access ──────────────────────────────┐      
-      │ Add collaborators GitHub handles             │      
-      │                                              │      
-      │                                              │      
+      │ Add GitHub handles of collaborators          │      
       │                                              │      
       │ @handle                                      │      
       │                                              │      
-      │                                              │      
       │  create    cancel                            │      
       └──────────────────────────────────────────────┘      
+                                                            
                                                             
                                                             
                                                             
@@ -708,18 +708,18 @@ exports[`stories catalog Dialogs/ManageAccess/WithHandles renders, snapshots, an
 "                                                            
                                                             
                                                             
+                                                            
+                                                            
+                                                            
       ┌─ Manage access ──────────────────────────────┐      
-      │ Add collaborators GitHub handles             │      
+      │ Add GitHub handles of collaborators          │      
       │                                              │      
-      │                                              │      
-      │                                              │      
-      │                                              │      
-      │  @octocat     @hubot    @handle              │      
-      │                                              │      
-      │                                              │      
+      │ @octocat    @hubot    @handle                │      
       │                                              │      
       │  create    cancel                            │      
       └──────────────────────────────────────────────┘      
+                                                            
+                                                            
                                                             
                                                             
                                                             

@@ -6,27 +6,38 @@ import { clickText, locateTextInFrame, pressKey, settle, typeText } from "../tes
 import { NERD } from "./primitives/icons";
 import { ManageAccessDialog } from "./ManageAccessDialog";
 
-function AccessHarness({ initial }: { initial: string[] }): React.ReactNode {
-  const [logins, setLogins] = useState<string[]>(initial);
+function AccessHarness({
+  initial,
+  onCreate,
+}: {
+  initial: string[];
+  onCreate?: (logins: string[]) => void;
+}): React.ReactNode {
   const [open, setOpen] = useState(true);
 
   return (
     <box style={{ width: 60, height: 18 }}>
-      <ManageAccessDialog
-        isOpen={open}
-        logins={logins}
-        onAdd={(login) => setLogins((prev) => [...prev, login])}
-        onRemove={(login) => setLogins((prev) => prev.filter((entry) => entry !== login))}
-        onCreateLink={() => {}}
-        onClose={() => setOpen(false)}
-        theme={DARK}
-      />
+      {open ? (
+        <ManageAccessDialog
+          isOpen
+          initialLogins={initial}
+          onCreate={(logins) => onCreate?.(logins)}
+          onClose={() => setOpen(false)}
+          theme={DARK}
+        />
+      ) : null}
     </box>
   );
 }
 
-async function renderAccess(initial: string[]): Promise<Awaited<ReturnType<typeof testRender>>> {
-  const setup = await testRender(<AccessHarness initial={initial} />, { width: 60, height: 18 });
+async function renderAccess(
+  initial: string[],
+  onCreate?: (logins: string[]) => void,
+): Promise<Awaited<ReturnType<typeof testRender>>> {
+  const setup = await testRender(<AccessHarness initial={initial} onCreate={onCreate} />, {
+    width: 60,
+    height: 18,
+  });
 
   await settle(setup);
 
@@ -56,7 +67,7 @@ describe("ManageAccessDialog", () => {
     expect(locateTextInFrame(setup.captureCharFrame(), "@hubot")).not.toBeNull();
   });
 
-  test("typing a handle and pressing enter appends it to the allowlist", async () => {
+  test("typing a handle and pressing enter appends it to the draft", async () => {
     const setup = await renderAccess([]);
 
     await typeText(setup, "octocat");
@@ -65,29 +76,13 @@ describe("ManageAccessDialog", () => {
     expect(locateTextInFrame(setup.captureCharFrame(), "@octocat")).not.toBeNull();
   });
 
-  test("clicking create publishes the private link", async () => {
-    let created = false;
-    const setup = await testRender(
-      <box style={{ width: 60, height: 18 }}>
-        <ManageAccessDialog
-          isOpen
-          logins={["octocat"]}
-          onAdd={() => {}}
-          onRemove={() => {}}
-          onCreateLink={() => {
-            created = true;
-          }}
-          onClose={() => {}}
-          theme={DARK}
-        />
-      </box>,
-      { width: 60, height: 18 },
-    );
+  test("clicking create publishes with the drafted allowlist", async () => {
+    const created: string[][] = [];
+    const setup = await renderAccess(["octocat"], (logins) => created.push(logins));
 
-    await settle(setup);
     await clickText(setup, "create");
 
-    expect(created).toBe(true);
+    expect(created[0]).toEqual(["octocat"]);
   });
 
   test("clicking cancel dismisses the dialog", async () => {

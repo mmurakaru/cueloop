@@ -9,10 +9,8 @@ export const WithHandles: Story = {
   render: () => (
     <ManageAccessDialog
       isOpen
-      logins={["octocat", "hubot"]}
-      onAdd={() => {}}
-      onRemove={() => {}}
-      onCreateLink={() => {}}
+      initialLogins={["octocat", "hubot"]}
+      onCreate={() => {}}
       onClose={() => {}}
       theme={DARK}
     />
@@ -22,15 +20,7 @@ export const WithHandles: Story = {
 
 export const Empty: Story = {
   render: () => (
-    <ManageAccessDialog
-      isOpen
-      logins={[]}
-      onAdd={() => {}}
-      onRemove={() => {}}
-      onCreateLink={() => {}}
-      onClose={() => {}}
-      theme={DARK}
-    />
+    <ManageAccessDialog isOpen initialLogins={[]} onCreate={() => {}} onClose={() => {}} theme={DARK} />
   ),
   size: { width: 60, height: 18 },
 };
