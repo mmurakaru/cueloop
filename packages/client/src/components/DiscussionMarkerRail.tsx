@@ -160,9 +160,9 @@ export function DiscussionMarkerRail({
   // render the preview at the app root (above every pane rule); OpenTUI has no z-index, so an
   // absolute box inside this pane would be sliced by the next pane's border
   useEffect(() => {
-    setOverlay(preview());
+    setOverlay("discussion-preview", preview());
 
-    return () => clearOverlay();
+    return () => clearOverlay("discussion-preview");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hovered, discussions, tokens]);
 

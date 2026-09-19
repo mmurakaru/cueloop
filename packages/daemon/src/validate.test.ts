@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import * as v from "valibot";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -187,6 +188,7 @@ describe("wire pins", () => {
     herdrPane: "%7",
     title: "Plan",
     workbench: false,
+    snapshot: false,
   };
   const fullAnchor: Required<Anchor> = {
     quote: "q",
@@ -277,8 +279,19 @@ describe("wire pins", () => {
     verdict: fullVerdict,
     status: "pending",
     createdAt: "now",
+    shares: [
+      {
+        id: "p_abc123xy",
+        name: "review link",
+        requireAuth: true,
+        allowlist: ["octocat"],
+        owner: "SHA256:owner",
+        shareBranch: "main",
+      },
+    ],
     shareId: "p_abc123xy",
     owner: "SHA256:owner",
+    access: { githubLogins: ["octocat"] },
     participants: [fullIdentity],
   };
 
@@ -343,5 +356,23 @@ describe("wire pins", () => {
     } finally {
       rmSync(home, { recursive: true, force: true });
     }
+  });
+});
+
+describe("IdentitySchema provider", () => {
+  test("accepts a verified github identity", () => {
+    const parsed = v.safeParse(IdentitySchema, {
+      id: "SHA256:abc",
+      provider: "github",
+      name: "markus",
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
+  test("rejects an unknown provider", () => {
+    const parsed = v.safeParse(IdentitySchema, { id: "SHA256:abc", provider: "email" });
+
+    expect(parsed.success).toBe(false);
   });
 });

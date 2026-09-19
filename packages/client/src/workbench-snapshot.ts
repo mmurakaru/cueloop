@@ -1,0 +1,29 @@
+import { recaptureMainHead, type DiffFileContents, type Thread } from "@cueloop/schema";
+
+/** Reads the live working-tree diff for a repo root (the daemon's `repo.diff` RPC). */
+export type RepoDiff = (repoRoot: string) => Promise<{
+  patch: string;
+  files: DiffFileContents[];
+}>;
+
+/**
+ * Freeze a workbench thread's live working-tree diff into its artifact for a remote reviewer, who cannot
+ * see the owner's tree. The `snapshot` marker pins the render to this captured diff while keeping the
+ * workbench marker, so the reviewer still sees the file-targeted feedback already on the thread. Any other
+ * thread is already stable and passes through; the owner's own session keeps the original live thread.
+ */
+export async function snapshotWorkbench(session: Thread, repoDiff: RepoDiff): Promise<Thread> {
+  if (session.artifact.type !== "diff" || session.artifact.meta.workbench !== true) return session;
+
+  const { patch, files } = await repoDiff(session.workspace.repoRoot);
+  const artifact = {
+    ...session.artifact,
+    content: patch,
+    files,
+    meta: { ...session.artifact.meta, snapshot: true },
+  };
+  // the share path rebuilds content from history; recapture the branch head so it matches the fresh patch
+  const history = session.history ? recaptureMainHead(session.history, patch) : session.history;
+
+  return { ...session, artifact, history };
+}

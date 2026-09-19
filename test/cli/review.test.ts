@@ -40,10 +40,15 @@ function ghCalls(): string[][] {
     return [];
   }
 
-  return raw
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => v.parse(v.array(v.string()), JSON.parse(line)));
+  return (
+    raw
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => v.parse(v.array(v.string()), JSON.parse(line)))
+      // the daemon's PR head-poll runs on a timer and shares this log; drop it so a
+      // background poll never lands between a before/after count or as the last call
+      .filter((args) => !(args[0] === "pr" && args[1] === "view" && args.includes("headRefOid")))
+  );
 }
 
 function ghEnv() {

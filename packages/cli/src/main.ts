@@ -23,9 +23,8 @@ import {
 import { sessionCommand } from "./session-commands";
 import { CLI_VERSION } from "./version";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { workingTreeDiff } from "@cueloop/daemon/working-tree";
 import type { Thread } from "@cueloop/schema";
-import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
+import { openReview } from "@cueloop/daemon/review";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -105,6 +104,8 @@ interface CommandHandlers {
 const commandHandlers: CommandHandlers = {
   session: (rest) => sessionCommand(rest),
   daemon: (rest) => daemonCommand(rest),
+  stop: async () => (await import("./daemon-control")).stopCommand(),
+  restart: async () => (await import("./daemon-control")).restartCommand(),
   plan: (rest) => planCommand(rest),
   reply: (rest) => replyCommand(rest),
   diff: (rest) => diffCommand(rest),
@@ -165,6 +166,7 @@ async function openReviewOfKind(
   match: (session: Thread) => boolean,
   label: string,
   selector: string | undefined,
+  layout: "review" | "plan" | undefined,
   emptyMessage?: string,
 ): Promise<number> {
   const client = await DaemonClient.connect({ autostart: true });
@@ -177,7 +179,7 @@ async function openReviewOfKind(
   }
   const target = resolveOpenTarget(sessions, { match, selector });
 
-  if (target.kind === "session") return runTui(target.sessionId);
+  if (target.kind === "session") return runTui(target.sessionId, layout);
   if (target.kind === "no-pending" && emptyMessage !== undefined) {
     console.error(emptyMessage);
 
@@ -190,7 +192,7 @@ async function openReviewOfKind(
 
 /** `cueloop plan [id|title]` - open the latest pending plan, or address one. */
 async function planCommand(argv: string[]): Promise<number> {
-  return openReviewOfKind(isPlanReview, "plan", openSelector(parseArgs(argv)));
+  return openReviewOfKind(isPlanReview, "plan", openSelector(parseArgs(argv)), "plan");
 }
 
 /**
@@ -199,7 +201,7 @@ async function planCommand(argv: string[]): Promise<number> {
  * by the /cueloop:reply skill; the opener is scope-only, like plan.
  */
 async function replyCommand(argv: string[]): Promise<number> {
-  return openReviewOfKind(isReplyReview, "reply", openSelector(parseArgs(argv)));
+  return openReviewOfKind(isReplyReview, "reply", openSelector(parseArgs(argv)), "plan");
 }
 
 /**
@@ -219,7 +221,7 @@ async function prototypeCommand(argv: string[]): Promise<number> {
     selector !== undefined && !isSessionId(selector) && (isHtmlPrototype || isMarkdownPrototype);
 
   if (wantsOpen || !looksLikeFile)
-    return openReviewOfKind(isPrototypeReview, "prototype", selector);
+    return openReviewOfKind(isPrototypeReview, "prototype", selector, "plan");
 
   const path = resolve(selector);
   const content = await Bun.file(path)
@@ -242,47 +244,30 @@ async function prototypeCommand(argv: string[]): Promise<number> {
 
   client.close();
 
-  return runTui(review.id);
+  return runTui(review.id, "plan");
 }
 
 /**
- * `cueloop diff` disambiguates create from open by intent:
+ * `cueloop diff` opens the repo's workbench in the review layout:
  *   - a selector (`cueloop diff <id|title>`) or an explicit `--open`/`--latest`
- *     opens a pending diff review;
- *   - otherwise a dirty working tree still creates a review as before;
- *   - a clean working tree carries no create input, so it opens the latest
- *     pending diff review instead of erroring.
+ *     opens a specific pending diff thread;
+ *   - a bare `cueloop diff` find-or-creates the per-repo workbench thread - a live-diff
+ *     annotation container - so it is immediately annotatable and always shows the
+ *     current working tree, reusing the same thread across re-runs.
  */
 async function diffCommand(argv: string[]): Promise<number> {
   const parsed = parseArgs(argv);
   const selector = openSelector(parsed);
   const wantsOpen = selector !== undefined || "open" in parsed.flags || "latest" in parsed.flags;
 
-  if (wantsOpen) return openReviewOfKind(isDiffReview, "diff", selector);
+  if (wantsOpen) return openReviewOfKind(isDiffReview, "diff", selector, "review");
 
-  const workspace = await resolveWorkspace();
-  const diff = await workingTreeDiff();
-
-  if (!diff.patch.trim()) {
-    return openReviewOfKind(
-      isDiffReview,
-      "diff",
-      undefined,
-      "working tree is clean and no pending diff review - nothing to open",
-    );
-  }
   const client = await DaemonClient.connect({ autostart: true });
-  const review = await openReview(client, {
-    type: "diff",
-    content: diff.patch,
-    files: diff.files,
-    workspace,
-    title: `working tree @ ${workspace.branch}`,
-  });
+  const workbench = await client.sessionWorkbench(process.cwd());
 
   client.close();
 
-  return runTui(review.id);
+  return runTui(workbench.id, "review");
 }
 
 /**
@@ -308,13 +293,21 @@ async function reviewEntry(argv: string[]): Promise<number> {
     isPrReview,
     "PR",
     explicitOpen || looksLikeSessionId ? selector : undefined,
+    "review",
   );
 }
 
-async function runTui(sessionId?: string): Promise<number> {
-  const { runClient } = await import("@cueloop/client");
+/**
+ * A create-command dictates the pane composition it opens in; a bare launch (`layout`
+ * omitted) restores the remembered one. Resolve the factory here so the heavy client
+ * module stays lazily imported for non-TUI commands.
+ */
+async function runTui(sessionId?: string, layout?: "review" | "plan"): Promise<number> {
+  const { runClient, reviewLayout, planLayout } = await import("@cueloop/client");
+  const resolved =
+    layout === "review" ? reviewLayout() : layout === "plan" ? planLayout() : undefined;
 
-  return runClient({ sessionId });
+  return runClient({ sessionId, layout: resolved });
 }
 
 function printHelp(): void {
@@ -354,6 +347,8 @@ function printHelp(): void {
       "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the verdict (spawn detached)",
       "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
       "  cueloop daemon                   run the daemon in the foreground",
+      "  cueloop stop                     stop the local daemon",
+      "  cueloop restart                  stop the local daemon and start a fresh one",
       "  cueloop dev                      open the TUI on an isolated home seeded with example threads",
       "",
       "  cueloop -v, --version            print the installed version",

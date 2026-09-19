@@ -86,6 +86,17 @@ export function isStandaloneSlashQuery(text: string): boolean {
   return /^\/\S*$/.test(text.trim());
 }
 
+export function insertSlashItem(text: string, caret: number, itemName: string) {
+  const token = activeSlashToken(text, caret) ?? "";
+  const cut = caret - token.length;
+  const insertion = `/${itemName} `;
+
+  return {
+    text: text.slice(0, cut) + insertion + text.slice(caret),
+    caret: cut + insertion.length,
+  };
+}
+
 /**
  * The character ranges of every completed "/name" in the draft that names a real
  * action or skill, so a surface can paint the references. A half-typed "/na" is

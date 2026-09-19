@@ -1,9 +1,11 @@
 import { ScrollArea } from "./components/ScrollArea";
-import React, { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import React, { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { DiffFileContents, Thread, VerdictKind } from "@cueloop/schema";
 import { returnPaneFor } from "@cueloop/schema";
 import type { Theme } from "./theme";
 import type { QuickAction } from "./config";
+import type { LaunchLayout } from "./launch-layout";
+import { useRememberLayout } from "./use-remember-layout";
 import type { Mode, TreeAsk } from "./intent-dispatch";
 import type { Intent } from "./keymap";
 import type { ReviewController, ToastState } from "./thread-controller";
@@ -19,11 +21,13 @@ import { SettingsDialog } from "./components/SettingsDialog";
 import { CompletionOverlay } from "./components/CompletionOverlay";
 import { ThreadTree } from "./components/ThreadTree";
 import { WelcomePlayground } from "./components/WelcomePlayground";
-import { AppShell, type ProjectPanelMode } from "./components/AppShell";
+import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
+import { MenuControlProvider, type MenuControlApi } from "./components/menu-control";
 import { ProjectTreeView } from "./components/ProjectTreeView";
 import { ChangesFileTree } from "./components/ChangesColumn";
-import { BareWorkbenchFileView } from "./components/BareWorkbenchFileView";
+import { BareWorkbenchFileView, draftThread } from "./components/BareWorkbenchFileView";
+import { GridTabContent, type DiffSurfaceProps } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { PromptDialog } from "./components/PromptDialog";
@@ -55,6 +59,7 @@ export function MenuChrome(props: {
   settingsNav: SettingsNav;
   onCategorySelect: (categoryId: string) => void;
   cycleSetting: (rowKey: string) => void;
+  onClose: () => void;
 }): React.ReactNode {
   const {
     menuDialog,
@@ -65,6 +70,7 @@ export function MenuChrome(props: {
     settingsNav,
     onCategorySelect,
     cycleSetting,
+    onClose,
   } = props;
 
   // the gear opens the settings dialog directly; Keybinds is a leaf in its tree nav
@@ -82,21 +88,31 @@ export function MenuChrome(props: {
       activeZone={settingsNav.zone}
       onCategorySelect={onCategorySelect}
       onRowActivate={(row) => cycleSetting(row.key)}
+      onClose={onClose}
       theme={theme}
     />
   );
 }
 
 /** The welcome shell's Project pane: the launch repo's changed files in changes mode, its full tree otherwise. */
+/** A shared empty rejected-rows set: the bare-launch diff rejects nothing, and this keeps a stable ref. */
+const EMPTY_ROWS: Set<number> = new Set();
+
 function WelcomeProjectPanel({
   mode,
   controller,
-  onOpenFile,
+  onOpenChangedFile,
+  onOpenProjectFile,
+  focused,
   theme,
 }: {
   mode: ProjectPanelMode;
   controller: ReviewController;
-  onOpenFile: (path: string) => void;
+  /** Changes tree click -> open the file's working-tree diff. */
+  onOpenChangedFile: (path: string) => void;
+  /** Project tree click -> open the file's read-only contents. */
+  onOpenProjectFile: (path: string) => void;
+  focused?: boolean;
   theme: Theme;
 }): React.ReactNode {
   const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
@@ -119,13 +135,21 @@ function WelcomeProjectPanel({
   }, [controller]);
 
   if (mode === "changes") {
-    return <ChangesFileTree files={changes} onSelectFile={onOpenFile} theme={theme} />;
+    return (
+      <ChangesFileTree
+        files={changes}
+        onSelectFile={onOpenChangedFile}
+        focused={focused}
+        theme={theme}
+      />
+    );
   }
 
   return (
     <ProjectTreeView
       loadFiles={() => controller.repoFiles()}
-      onSelectFile={onOpenFile}
+      onSelectFile={onOpenProjectFile}
+      focused={focused}
       theme={theme}
     />
   );
@@ -140,6 +164,8 @@ function WelcomeProjectPanel({
 export function NoThreadShell(props: {
   rows: InboxRow[];
   inboxCursor: number;
+  /** Open a sidebar thread and move the cursor onto it, so the row shows its selected backdrop at once. */
+  onOpenThread: (id: string) => void;
   mode: Mode;
   theme: Theme;
   controller: ReviewController;
@@ -149,6 +175,10 @@ export function NoThreadShell(props: {
   /** Shared with the thread view, so picking a thread preserves the sidebar. */
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  focusedPane: FocusPane;
+  onFocusPane: (pane: FocusPane) => void;
+  /** App owns the one open-menu id, so the bare shell's menus share App's modal keyboard handling. */
+  menuControl: MenuControlApi;
   pinnedIds: ReadonlySet<string>;
   onPin: (id: string) => void;
   onRename: (id: string, title: string) => void;
@@ -156,10 +186,13 @@ export function NoThreadShell(props: {
   quickActions: QuickAction[];
   /** Reports the welcome composer's open state, so the shell suspends its inbox keys while typing. */
   onWelcomeComposingChange: (composing: boolean) => void;
+  /** The pane composition this vanilla launch restores; changes here are remembered for the next one. */
+  layout?: LaunchLayout;
 }): React.ReactNode {
   const {
     rows,
     inboxCursor,
+    onOpenThread,
     mode,
     theme,
     controller,
@@ -168,129 +201,202 @@ export function NoThreadShell(props: {
     onOpenMenu,
     sidebarOpen,
     onToggleSidebar,
+    focusedPane,
+    onFocusPane,
+    menuControl,
     pinnedIds,
     onPin,
     onRename,
     quickActions,
     onWelcomeComposingChange,
+    layout,
   } = props;
   const confirming = mode.type === "confirmDelete" ? mode : null;
   // The bare-launch shell is the same four panes as a thread: the Thread pane waits in its empty state
   // and a disposable Welcome tab rides in the Changes editor until a thread or diff is opened.
-  const workbench = useChangesWorkbench({ seed: "welcome" });
-  const openRepoFile = (path: string): void => workbench.openFile(path, "contents");
+  const workbench = useChangesWorkbench({ seed: "welcome", layout });
+  // the vanilla shell remembers the composition the user leaves it in, for the next bare launch
+  useRememberLayout(
+    layout,
+    true,
+    sidebarOpen,
+    workbench.changesOpen,
+    workbench.projectOpen,
+    workbench.zoomed,
+  );
+  // the Changes tree opens a file's working-tree diff; the Project tree opens read-only contents
+  const openChangedFile = (path: string): void => {
+    // no thread means no live-diff refresh loop, so re-capture on open or a long-lived shell goes
+    // stale; the catch keeps a fire-and-forget refresh from throwing when the shell tears down
+    void controller.repoChanges().catch(() => undefined);
+    workbench.openFile(path, "diff");
+  };
+  const openProjectFile = (path: string): void => workbench.openFile(path, "contents");
+  // a bare launch has no thread yet, so the diff renders against a draft session; the first note
+  // promotes it to the per-repo workbench thread (commentOnWorkbenchDiff)
+  const draft = useMemo(() => draftThread(), []);
+  const bareSurface: DiffSurfaceProps = {
+    session: draft,
+    quickActions,
+    observer: false,
+    commentsEnabled: true,
+    resolved: false,
+    suspended: focusedPane !== "changes" || menuControl.openMenuId !== null,
+    onComposingChange: onWelcomeComposingChange,
+    onObserverBlocked: () => {},
+    onCursorChange: () => {},
+    focusedAnnotationId: undefined,
+    onFocusAnnotation: () => {},
+    onAnnotate: (span, body) =>
+      void controller.commentOnWorkbenchDiff(
+        span.start.blockIndex,
+        span.start.char,
+        span.end.char,
+        span.end.blockIndex,
+        body,
+      ),
+    onReply: () => undefined,
+    onUpdateAnnotation: () => {},
+    onExit: () => {},
+  };
 
   return (
     <ThemeProvider theme={theme}>
-      <AppShell
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={onToggleSidebar}
-        onOpenMenu={onOpenMenu}
-        threadsPanel={
-          <ScrollArea>
-            <ThreadTree
-              rows={rows}
-              cursor={inboxCursor}
-              pinnedIds={pinnedIds}
-              width={30}
-              onSelect={(id) => controller.open(id)}
-              onRequestDelete={(id, title) =>
-                setMode({ type: "confirmDelete", sessionId: id, title })
+      <MenuControlProvider value={menuControl}>
+        <AppShell
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={onToggleSidebar}
+          onOpenMenu={onOpenMenu}
+          onFocusPane={onFocusPane}
+          threadsPanel={
+            <ScrollArea>
+              <ThreadTree
+                rows={rows}
+                cursor={inboxCursor}
+                focused={focusedPane === "threads"}
+                pinnedIds={pinnedIds}
+                width={30}
+                onSelect={onOpenThread}
+                onRequestDelete={(id, title) =>
+                  setMode({ type: "confirmDelete", sessionId: id, title })
+                }
+                onPin={onPin}
+                onRename={onRename}
+                theme={theme}
+              />
+            </ScrollArea>
+          }
+          threadTitle=""
+          threadPanel={
+            <box
+              style={{
+                flexGrow: 1,
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <text fg={theme.textDim}>Select a thread</text>
+            </box>
+          }
+          changesOpen={workbench.changesOpen}
+          projectOpen={workbench.projectOpen}
+          onToggleChanges={workbench.toggleChanges}
+          onToggleProject={workbench.toggleProject}
+          onToggleRight={workbench.toggleRight}
+          projectMode={workbench.projectMode}
+          zoomHideThread={workbench.zoomed}
+          changesPanel={
+            <EditorGrid
+              tree={workbench.grid}
+              focusedGroupId={workbench.activeGroup}
+              onFocusGroup={workbench.focusGroup}
+              onActivateTab={workbench.activate}
+              onCloseTab={workbench.close}
+              onSplit={workbench.split}
+              onZoom={workbench.toggleZoom}
+              zoomed={workbench.zoomed}
+              renderTab={(tab) =>
+                tab.kind === "welcome" ? (
+                  <WelcomePlayground
+                    version={CLIENT_VERSION}
+                    quickActions={quickActions}
+                    onComposingChange={onWelcomeComposingChange}
+                    suspended={focusedPane !== "changes" || menuControl.openMenuId !== null}
+                    theme={theme}
+                  />
+                ) : tab.fileView === "contents" ? (
+                  <BareWorkbenchFileView
+                    path={tab.path ?? ""}
+                    controller={controller}
+                    quickActions={quickActions}
+                    onComposingChange={onWelcomeComposingChange}
+                    onExit={() => {}}
+                    theme={theme}
+                  />
+                ) : (
+                  <GridTabContent
+                    tab={tab}
+                    rows={controller.rows()}
+                    surface={bareSurface}
+                    rejectedRows={EMPTY_ROWS}
+                    dimmed={false}
+                    readFile={(path) => controller.repoReadFile(path)}
+                    onAddFileComment={(path, anchor, body) =>
+                      void controller.commentOnWorkbench(
+                        anchor,
+                        { kind: "file", path, rev: "worktree" },
+                        body,
+                      )
+                    }
+                    theme={theme}
+                  />
+                )
               }
-              onPin={onPin}
-              onRename={onRename}
               theme={theme}
             />
-          </ScrollArea>
-        }
-        threadTitle=""
-        threadPanel={
-          <box
-            style={{
-              flexGrow: 1,
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <text fg={theme.textDim}>{rows.length === 0 ? "no threads" : "Select a thread"}</text>
-          </box>
-        }
-        changesOpen={workbench.changesOpen}
-        projectOpen={workbench.projectOpen}
-        onToggleChanges={workbench.toggleChanges}
-        onToggleProject={workbench.toggleProject}
-        onToggleRight={workbench.toggleRight}
-        projectMode={workbench.projectMode}
-        zoomHideThread={workbench.zoomed}
-        changesPanel={
-          <EditorGrid
-            tree={workbench.grid}
-            focusedGroupId={workbench.activeGroup}
-            onFocusGroup={workbench.focusGroup}
-            onActivateTab={workbench.activate}
-            onCloseTab={workbench.close}
-            onSplit={workbench.split}
-            onZoom={workbench.toggleZoom}
-            zoomed={workbench.zoomed}
-            renderTab={(tab) =>
-              tab.kind === "welcome" ? (
-                <WelcomePlayground
-                  version={CLIENT_VERSION}
-                  quickActions={quickActions}
-                  onComposingChange={onWelcomeComposingChange}
-                  theme={theme}
-                />
-              ) : (
-                <BareWorkbenchFileView
-                  path={tab.path ?? ""}
-                  controller={controller}
-                  quickActions={quickActions}
-                  onComposingChange={onWelcomeComposingChange}
-                  onExit={() => {}}
-                  theme={theme}
-                />
-              )
-            }
-            theme={theme}
-          />
-        }
-        projectPanel={
-          <WelcomeProjectPanel
-            mode={workbench.projectMode}
-            controller={controller}
-            onOpenFile={openRepoFile}
-            theme={theme}
-          />
-        }
-        theme={theme}
-      >
-        {menuChrome}
-        <ConfirmDialog
-          isOpen={confirming !== null}
-          title=" Delete plan "
-          message={
-            confirming ? `Delete "${confirming.title}"? This removes the plan and its review.` : ""
           }
-          onConfirm={() => {
-            if (confirming) controller.deleteSession(confirming.sessionId);
-            setMode({ type: "normal" });
-          }}
-          onCancel={() => setMode({ type: "normal" })}
+          projectPanel={
+            <WelcomeProjectPanel
+              mode={workbench.projectMode}
+              controller={controller}
+              onOpenChangedFile={openChangedFile}
+              onOpenProjectFile={openProjectFile}
+              focused={focusedPane === "project"}
+              theme={theme}
+            />
+          }
           theme={theme}
-        />
-        {mode.type === "renameThread" ? (
-          <PromptDialog
-            isOpen
-            title=" rename thread "
-            label="new title for this thread:"
-            value={mode.text}
-            placeholder="a short title"
-            onInput={(text) => setMode({ ...mode, text })}
+        >
+          {menuChrome}
+          <ConfirmDialog
+            isOpen={confirming !== null}
+            title=" delete thread "
+            message={confirming ? `Delete "${confirming.title}"? This removes the thread.` : ""}
+            onConfirm={() => {
+              if (confirming) controller.deleteSession(confirming.sessionId);
+              setMode({ type: "normal" });
+            }}
+            onCancel={() => setMode({ type: "normal" })}
             theme={theme}
           />
-        ) : null}
-      </AppShell>
+          {mode.type === "renameThread" ? (
+            <PromptDialog
+              isOpen
+              title=" rename thread "
+              value={mode.text}
+              placeholder="a short title"
+              onInput={(text) => setMode({ ...mode, text })}
+              onSave={() => {
+                controller.renameSession(mode.sessionId, mode.text.trim());
+                setMode({ type: "normal" });
+              }}
+              onCancel={() => setMode({ type: "normal" })}
+              theme={theme}
+            />
+          ) : null}
+        </AppShell>
+      </MenuControlProvider>
     </ThemeProvider>
   );
 }
@@ -301,8 +407,11 @@ export function CompletionScreen(props: {
   verdict: VerdictKind;
   completion: { phase: "prompt" } | { phase: "counting"; remaining: number };
   status: string;
+  onClose: () => void;
+  onBackToPlan: () => void;
+  onAlways: () => void;
 }): React.ReactNode {
-  const { theme, session, verdict, completion, status } = props;
+  const { theme, session, verdict, completion, status, onClose, onBackToPlan, onAlways } = props;
 
   return (
     <ThemeProvider theme={theme}>
@@ -310,6 +419,9 @@ export function CompletionScreen(props: {
         verdict={verdict}
         completion={completion}
         status={status}
+        onClose={onClose}
+        onBackToPlan={onBackToPlan}
+        onAlways={onAlways}
         returnsTo={
           returnPaneFor(session.artifact.meta.herdrPane)
             ? (session.artifact.meta.agent ?? "the agent")
@@ -390,6 +502,8 @@ export function TrailingOverlays(props: {
           value={mode.text}
           placeholder="their name"
           onInput={(text) => setMode({ ...mode, text })}
+          onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
       ) : null}
@@ -397,10 +511,21 @@ export function TrailingOverlays(props: {
         <PromptDialog
           isOpen
           title=" rename thread "
-          label="new title for this thread:"
           value={mode.text}
           placeholder="a short title"
           onInput={(text) => setMode({ ...mode, text })}
+          onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
+          theme={theme}
+        />
+      ) : null}
+      {mode.type === "confirmDelete" ? (
+        <ConfirmDialog
+          isOpen
+          title=" delete thread "
+          message={`Delete "${mode.title}"? This removes the thread.`}
+          onConfirm={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
       ) : null}
@@ -412,6 +537,21 @@ export function TrailingOverlays(props: {
           value={mode.text}
           placeholder="your name"
           onInput={(text) => setMode({ ...mode, text })}
+          onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
+          theme={theme}
+        />
+      ) : null}
+      {mode.type === "renameSelf" ? (
+        <PromptDialog
+          isOpen
+          title=" Display name "
+          label="Your display name - it attributes the notes you leave:"
+          value={mode.text}
+          placeholder="your name"
+          onInput={(text) => setMode({ ...mode, text })}
+          onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
       ) : null}
@@ -423,6 +563,8 @@ export function TrailingOverlays(props: {
           value={mode.text}
           placeholder={TREE_PROMPTS[mode.ask].placeholder}
           onInput={(text) => setMode({ ...mode, text })}
+          onSave={() => dispatch({ type: "confirmDialog" })}
+          onCancel={() => setMode({ type: "normal" })}
           theme={theme}
         />
       ) : null}

@@ -1,5 +1,65 @@
 # @cueloop/client
 
+## 0.1.0-alpha.78
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.78
+  - @cueloop/extension-api@0.1.0-alpha.78
+  - @cueloop/integration-obsidian@0.1.0-alpha.78
+  - @cueloop/schema@0.1.0-alpha.78
+
+## 0.1.0-alpha.77
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.77
+  - @cueloop/extension-api@0.1.0-alpha.77
+  - @cueloop/integration-obsidian@0.1.0-alpha.77
+  - @cueloop/schema@0.1.0-alpha.77
+
+## 0.1.0-alpha.76
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.76
+  - @cueloop/extension-api@0.1.0-alpha.76
+  - @cueloop/integration-obsidian@0.1.0-alpha.76
+  - @cueloop/schema@0.1.0-alpha.76
+
+## 0.1.0-alpha.75
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.75
+  - @cueloop/extension-api@0.1.0-alpha.75
+  - @cueloop/integration-obsidian@0.1.0-alpha.75
+  - @cueloop/schema@0.1.0-alpha.75
+
+## 0.1.0-alpha.74
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.74
+  - @cueloop/extension-api@0.1.0-alpha.74
+  - @cueloop/integration-obsidian@0.1.0-alpha.74
+  - @cueloop/schema@0.1.0-alpha.74
+
+## 0.1.0-alpha.73
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/daemon@0.1.0-alpha.73
+  - @cueloop/extension-api@0.1.0-alpha.73
+  - @cueloop/integration-obsidian@0.1.0-alpha.73
+  - @cueloop/schema@0.1.0-alpha.73
+
 ## 0.1.0-alpha.72
 
 ### Patch Changes

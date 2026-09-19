@@ -58,7 +58,9 @@ const shareTransport: ShareTransport = {
   pull: mock(async () => sessionFixture()),
   push: mock(async () => {}),
   watch: () => () => {},
+  revoke: async () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
   mergeFromShare,
 };
@@ -82,6 +84,7 @@ function fakeClient(session: Thread) {
     sessionCutBlock: unimplemented("sessionCutBlock"),
     sessionRestoreBlock: unimplemented("sessionRestoreBlock"),
     sessionCurate: unimplemented("sessionCurate"),
+    sessionSetAccess: unimplemented("sessionSetAccess"),
     sessionNavigate: mock(pending),
     sessionBranch: mock(pending),
     sessionSwitch: mock(pending),
@@ -94,6 +97,7 @@ function fakeClient(session: Thread) {
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetTitle: unimplemented("sessionSetTitle"),
     sessionSetShareId: mock(async (_id: string, _shareId: string) => session),
+    sessionSetShares: mock(async () => session),
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),
@@ -249,7 +253,9 @@ describe("tree primitives", () => {
     expect(forked.controller.getSnapshot().session!.id).toBe("ses_1_fork");
     expect(shared.controller.getSnapshot().session!.id).toBe("ses_1");
     expect(publish).toHaveBeenCalledWith(expect.objectContaining({ id: "ses_1_fork" }));
-    expect(shared.client.sessionSetShareId).toHaveBeenCalledWith("ses_1_fork", "p_ses_1_fork");
+    expect(shared.client.sessionSetShares).toHaveBeenCalledWith("ses_1_fork", [
+      { id: "p_ses_1_fork", requireAuth: false, allowlist: [], shareBranch: "main" },
+    ]);
     expect(shared.controller.getSnapshot().toast?.title).toBe("fork shared - link copied");
   });
 });
