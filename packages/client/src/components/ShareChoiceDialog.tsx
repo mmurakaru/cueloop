@@ -12,7 +12,7 @@ import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { Dialog } from "./primitives/Dialog";
 
-export type ShareChoice = "public" | "private";
+export type ShareChoice = "public" | "private" | "revoke";
 
 interface ShareChoiceRow {
   choice: ShareChoice;
@@ -24,6 +24,11 @@ export const SHARE_CHOICES: ShareChoiceRow[] = [
   { choice: "private", label: "private link" },
 ];
 
+/** The share options: the stop-sharing row shows only when the thread already has a live link. */
+export function shareChoicesFor(canRevoke: boolean): ShareChoiceRow[] {
+  return canRevoke ? [...SHARE_CHOICES, { choice: "revoke", label: "stop sharing" }] : SHARE_CHOICES;
+}
+
 export interface ShareChoiceDialogProps {
   isOpen: boolean;
   /** The highlighted row; the App drives it from the shareChoice mode. */
@@ -32,6 +37,10 @@ export interface ShareChoiceDialogProps {
   onPublicShare: () => void;
   /** Open the private-share manage-access allowlist surface. */
   onPrivateShare: () => void;
+  /** Revoke the current share; the row shows only when `canRevoke`. */
+  onStopSharing: () => void;
+  /** Whether the thread already has a live link, so stop-sharing is offered. */
+  canRevoke: boolean;
   onClose: () => void;
   theme?: Theme;
 }
@@ -41,16 +50,20 @@ export function ShareChoiceDialog({
   selectedIndex,
   onPublicShare,
   onPrivateShare,
+  onStopSharing,
+  canRevoke,
   onClose,
   theme,
 }: ShareChoiceDialogProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const { width: terminalWidth } = useTerminalDimensions();
+  const rows = shareChoicesFor(canRevoke);
 
   const pick = (choice: ShareChoice): void => {
     onClose();
     if (choice === "public") onPublicShare();
-    else onPrivateShare();
+    else if (choice === "private") onPrivateShare();
+    else onStopSharing();
   };
 
   if (!isOpen) return null;
@@ -66,7 +79,7 @@ export function ShareChoiceDialog({
       theme={theme}
     >
       <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 1, paddingRight: 1 }}>
-        {SHARE_CHOICES.map((row, index) => (
+        {rows.map((row, index) => (
           <box key={row.choice} onMouseUp={() => pick(row.choice)} style={{ flexDirection: "row" }}>
             <text fg={index === selectedIndex ? tokens.accent : tokens.text}>
               {index === selectedIndex ? "› " : "  "}

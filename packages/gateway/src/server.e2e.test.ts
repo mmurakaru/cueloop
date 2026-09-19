@@ -498,6 +498,66 @@ describe("planner pull", () => {
   });
 });
 
+/** Exec `cueloop-revoke` with `privateKey`, streaming the share id; capture stderr/exit. */
+function shareRevoke(
+  port: number,
+  shareId: string,
+  privateKey: string,
+): Promise<{ err: string; code: number | null }> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    let err = "";
+    let code: number | null = null;
+    const timer = setTimeout(() => reject(new Error("revoke timed out")), 8000);
+
+    conn
+      .on("ready", () => {
+        conn.exec("cueloop-revoke", (error, stream) => {
+          if (error) return reject(error);
+          // drain stdout so the ssh2 stream flows and our stdin end() reaches the server
+          stream.on("data", () => {});
+          stream.stderr.on("data", (chunk: Buffer) => (err += chunk.toString("utf8")));
+          stream.on("exit", (exitCode: number) => (code = exitCode));
+          stream.on("close", () => {
+            clearTimeout(timer);
+            conn.end();
+            resolve({ err, code });
+          });
+          stream.end(shareId);
+        });
+      })
+      .on("error", reject)
+      .connect({ host: "127.0.0.1", port, username: "share", privateKey });
+  });
+}
+
+describe("planner revoke", () => {
+  test("the owner revokes and the blob is gone, so the link stops resolving", async () => {
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+
+    const result = await shareRevoke(handle.port, id, CLIENT_KEY);
+
+    expect(result.code).toBe(0);
+    expect(await store.get(id)).toBeNull();
+  });
+
+  test("a fingerprint that did not share it is refused and the blob survives", async () => {
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+
+    const result = await shareRevoke(handle.port, id, OTHER_KEY);
+
+    expect(result.code).not.toBe(0);
+    expect(result.err).toContain("only the planner who shared this can revoke it");
+    expect(await store.get(id)).not.toBeNull();
+  });
+
+  test("revoking an absent share succeeds, so revoke-on-delete never fails", async () => {
+    const result = await shareRevoke(handle.port, "p_00000000", CLIENT_KEY);
+
+    expect(result.code).toBe(0);
+  });
+});
+
 /** Exec `cueloop-push` with `privateKey`, streaming {shareId, annotations}; capture stderr/exit. */
 function sharePush(
   port: number,

@@ -42,7 +42,7 @@ import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { useReadySignal } from "./ready-signal";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
-import { ShareChoiceDialog, SHARE_CHOICES } from "./components/ShareChoiceDialog";
+import { ShareChoiceDialog, shareChoicesFor } from "./components/ShareChoiceDialog";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { groupInbox, projectName, threadTitle } from "./components/session-tree";
 import { ThreadTree } from "./components/ThreadTree";
@@ -150,6 +150,11 @@ function allowedGithubLogins(session: Thread | null): string[] {
   return session?.access?.githubLogins ?? [];
 }
 
+/** Whether a thread already has a live share link, so stop-sharing is offered. */
+function isSharedThread(session: Thread | null): boolean {
+  return session?.shareId !== undefined;
+}
+
 /** The drop-up chrome or a floating popover menu (thread actions, editor split) holds the keyboard. */
 function keyboardHeldByMenu(
   menuDialog: "keybinds" | "settings" | null,
@@ -209,24 +214,28 @@ interface ShareChoiceActions {
   isOwner: boolean;
   publish: () => void;
   openManageAccess: () => void;
+  unshare: () => void;
+  /** Whether the current thread already has a live link, so stop-sharing is on the list. */
+  canRevoke: boolean;
 }
 
-/** Move the share-choice highlight by one row, clamped to the list. */
-function movedShareChoice(index: number, delta: number): Mode {
-  const next = Math.min(SHARE_CHOICES.length - 1, Math.max(0, index + delta));
+/** Move the share-choice highlight by one row, clamped to the list of `count` rows. */
+function movedShareChoice(index: number, delta: number, count: number): Mode {
+  const next = Math.min(count - 1, Math.max(0, index + delta));
 
   return { type: "shareChoice", index: next };
 }
 
-/** Commit the highlighted share option: public publishes a link, private opens manage-access. */
+/** Commit the highlighted share option: public publishes, private opens manage-access, revoke stops sharing. */
 function commitShareChoice(index: number, actions: ShareChoiceActions): void {
-  const picked = SHARE_CHOICES[index]?.choice;
+  const picked = shareChoicesFor(actions.canRevoke)[index]?.choice;
 
   actions.setMode({ type: "normal" });
 
   if (!actions.isOwner) return;
 
   if (picked === "private") actions.openManageAccess();
+  else if (picked === "revoke") actions.unshare();
   else actions.publish();
 }
 
@@ -236,11 +245,15 @@ function handleShareChoiceKey(
   key: { name: string },
   actions: ShareChoiceActions,
 ): void {
+  const count = shareChoicesFor(actions.canRevoke).length;
+
   if (key.name === "escape") return actions.setMode({ type: "normal" });
 
-  if (key.name === "down" || key.name === "j") return actions.setMode(movedShareChoice(index, 1));
+  if (key.name === "down" || key.name === "j")
+    return actions.setMode(movedShareChoice(index, 1, count));
 
-  if (key.name === "up" || key.name === "k") return actions.setMode(movedShareChoice(index, -1));
+  if (key.name === "up" || key.name === "k")
+    return actions.setMode(movedShareChoice(index, -1, count));
 
   if (key.name === "return" || key.name === "enter") commitShareChoice(index, actions);
 }
@@ -915,6 +928,9 @@ export function App({
     controller.open(id);
   };
 
+  // the thread already has a live link, so the share choice offers stop-sharing
+  const canRevoke = isSharedThread(session);
+
   useKeyboard((key) => {
     if (quitKeyHandled(key, onExit)) return;
     // an app-level dialog (manage-access, share choice) owns the keyboard while open
@@ -924,6 +940,8 @@ export function App({
         isOwner,
         publish: () => controller.share(),
         openManageAccess: () => setAccessDialogOpen(true),
+        unshare: () => controller.unshare(),
+        canRevoke,
       })
     )
       return;
@@ -1409,6 +1427,8 @@ export function App({
                 selectedIndex={shareChoiceIndex(mode)}
                 onPublicShare={onShareRequest}
                 onPrivateShare={onPrivateShareRequest}
+                onStopSharing={() => controller.unshare()}
+                canRevoke={canRevoke}
                 onClose={() => setMode({ type: "normal" })}
                 theme={theme}
               />

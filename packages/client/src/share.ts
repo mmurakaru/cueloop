@@ -121,6 +121,13 @@ export async function pushShare(
   if (code !== 0) throw new Error(`gateway push failed: ${stderr.trim() || `ssh exited ${code}`}`);
 }
 
+/** Revoke a share: the gateway deletes the blob so its link stops resolving. Owner-gated; idempotent. */
+export async function revokeShare(shareId: string, target: ShareTarget = {}): Promise<void> {
+  const { stderr, code } = await runShareSsh("cueloop-revoke", Buffer.from(shareId), target);
+
+  if (code !== 0) throw new Error(`gateway revoke failed: ${stderr.trim() || `ssh exited ${code}`}`);
+}
+
 export interface ShareWatchHandlers {
   /** The whole session record, each time the share changes. */
   onSession: (session: Thread) => void;

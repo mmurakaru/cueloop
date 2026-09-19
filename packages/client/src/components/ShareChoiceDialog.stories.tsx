@@ -12,6 +12,8 @@ export const PublicSelected: Story = {
       selectedIndex={0}
       onPublicShare={() => {}}
       onPrivateShare={() => {}}
+      onStopSharing={() => {}}
+      canRevoke={false}
       onClose={() => {}}
       theme={DARK}
     />
@@ -26,6 +28,24 @@ export const PrivateSelected: Story = {
       selectedIndex={1}
       onPublicShare={() => {}}
       onPrivateShare={() => {}}
+      onStopSharing={() => {}}
+      canRevoke={false}
+      onClose={() => {}}
+      theme={DARK}
+    />
+  ),
+  size: { width: 60, height: 12 },
+};
+
+export const AlreadyShared: Story = {
+  render: () => (
+    <ShareChoiceDialog
+      isOpen
+      selectedIndex={2}
+      onPublicShare={() => {}}
+      onPrivateShare={() => {}}
+      onStopSharing={() => {}}
+      canRevoke
       onClose={() => {}}
       theme={DARK}
     />

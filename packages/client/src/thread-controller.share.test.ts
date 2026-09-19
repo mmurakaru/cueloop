@@ -21,11 +21,14 @@ const pushShare = mock(
   ) => {},
 );
 
+const revokeShare = mock(async (_shareId: string) => {});
+
 const shareTransport: ShareTransport = {
   publish: publishShare,
   pull: pullShare,
   push: pushShare,
   watch: () => () => {},
+  revoke: revokeShare,
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
   mergeFromShare,
@@ -502,5 +505,48 @@ describe("startShareSync", () => {
     expect(streams[0]!.stopped).toBe(true);
     expect(streams).toHaveLength(2);
     expect(streams[1]!.stopped).toBe(false);
+  });
+});
+
+describe("revoke", () => {
+  test("unshare revokes the gateway blob for the shared thread", async () => {
+    revokeShare.mockClear();
+    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }));
+
+    controller.unshare();
+    await tick();
+
+    expect(revokeShare).toHaveBeenCalledWith("p_abc123xy");
+  });
+
+  test("unshare on an unshared thread is a no-op", async () => {
+    revokeShare.mockClear();
+    const { controller } = await connectedController(sessionFixture());
+
+    controller.unshare();
+    await tick();
+
+    expect(revokeShare).not.toHaveBeenCalled();
+  });
+
+  test("deleting a shared thread revokes its share first", async () => {
+    revokeShare.mockClear();
+    const session = sessionFixture({ shareId: "p_abc123xy" });
+    const client = fakeClient(session);
+
+    client.sessionDelete = mock(async () => {});
+    const controller = createReviewController({
+      sessionId: session.id,
+      openClient: async () => client,
+      shareTransport,
+    });
+
+    controller.connect();
+    await tick();
+    controller.deleteSession(session.id);
+    await tick();
+
+    expect(revokeShare).toHaveBeenCalledWith("p_abc123xy");
+    expect(client.sessionDelete).toHaveBeenCalledWith(session.id);
   });
 });

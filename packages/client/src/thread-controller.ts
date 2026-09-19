@@ -42,6 +42,7 @@ import {
   publishShare,
   pullShare,
   pushShare,
+  revokeShare,
   watchShare,
   shareIdFromLine,
 } from "./share";
@@ -191,6 +192,7 @@ export interface ShareTransport {
   publish: typeof publishShare;
   pull: typeof pullShare;
   push: typeof pushShare;
+  revoke: typeof revokeShare;
   watch: typeof watchShare;
   parseShareId: typeof shareIdFromLine;
   collaboratorAnnotations: typeof collaboratorAnnotations;
@@ -202,6 +204,7 @@ const DEFAULT_SHARE_TRANSPORT: ShareTransport = {
   pull: pullShare,
   watch: watchShare,
   push: pushShare,
+  revoke: revokeShare,
   parseShareId: shareIdFromLine,
   collaboratorAnnotations,
   mergeFromShare,
@@ -344,6 +347,8 @@ export interface ReviewController {
   submit(verdict: VerdictKind, summary: string): void;
   /** Publish the current session as a share; the ssh line lands on the clipboard. */
   share(): void;
+  /** Stop sharing the current session, revoking its link at the gateway. Owner only. */
+  unshare(): void;
   /** Replace the private-share allowlist of GitHub logins for the current session. Owner only. */
   setShareAccess(githubLogins: string[]): void;
   /** The session tree as rows for the rail's Tree tab, cached per session identity. */
@@ -872,12 +877,24 @@ class Controller implements ReviewController {
 
   deleteSession(id: string): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
+    // a deleted thread's share must not outlive it; revoke first, best-effort, so an
+    // unreachable gateway never blocks the local delete (the blob's 30-day TTL is the backstop)
+    const shareId = this.sessionRecord(id)?.shareId;
+
+    if (shareId) void this.shareTransport.revoke(shareId).catch(() => {});
     this.client
       ?.sessionDelete(id)
-      .then(() => this.setStatus("plan deleted"))
+      .then(() => this.setStatus("thread deleted"))
       .catch((cause: unknown) =>
         this.setStatus(`delete failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
+  }
+
+  /** The record for a thread id, whether it is the open thread or a sidebar row. */
+  private sessionRecord(id: string): Thread | undefined {
+    if (this.snapshot.session?.id === id) return this.snapshot.session;
+
+    return this.snapshot.inbox?.find((candidate) => candidate.id === id);
   }
 
   renameSession(id: string, title: string): void {
@@ -1506,6 +1523,22 @@ class Controller implements ReviewController {
       })
       .catch((cause: unknown) =>
         this.setStatus(`share failed: ${cause instanceof Error ? cause.message : String(cause)}`),
+      );
+  }
+
+  /** Stop sharing the open thread: revoke the gateway blob so its link stops resolving. */
+  unshare(): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
+    const session = this.snapshot.session;
+    const shareId = session?.shareId;
+
+    if (!shareId) return this.setStatus("this thread is not shared");
+    this.stopShareSync();
+    this.shareTransport
+      .revoke(shareId)
+      .then(() => this.setStatus("sharing stopped"))
+      .catch((cause: unknown) =>
+        this.setStatus(`could not stop sharing: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
   }
 

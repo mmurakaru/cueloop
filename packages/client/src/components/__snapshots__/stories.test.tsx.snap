@@ -1058,6 +1058,22 @@ exports[`stories catalog Chrome/SettingsRows/AllKinds renders, snapshots, and ca
 "
 `;
 
+exports[`stories catalog Dialogs/ShareChoice/AlreadyShared renders, snapshots, and carries its colors: Dialogs/ShareChoice/AlreadyShared 1`] = `
+"                                                            
+                                                            
+                                                            
+       ┌─ Share ────────────────────────────────────┐       
+       │   public link                              │       
+       │   private link                             │       
+       │ › stop sharing                             │       
+       │                                            │       
+       │                                            │       
+       └────────────────────────────────────────────┘       
+                                                            
+                                                            
+"
+`;
+
 exports[`stories catalog Dialogs/ShareChoice/PrivateSelected renders, snapshots, and carries its colors: Dialogs/ShareChoice/PrivateSelected 1`] = `
 "                                                            
                                                             

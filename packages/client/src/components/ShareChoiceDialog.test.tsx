@@ -8,24 +8,32 @@ import { ShareChoiceDialog } from "./ShareChoiceDialog";
 interface ShareCounts {
   publicShares: number;
   privateShares: number;
+  stopShares: number;
   closes: number;
 }
 
-async function renderDialog(selectedIndex = 0): Promise<{
+async function renderDialog(
+  selectedIndex = 0,
+  canRevoke = false,
+): Promise<{
   setup: Awaited<ReturnType<typeof testRender>>;
   counts: ShareCounts;
 }> {
-  const counts: ShareCounts = { publicShares: 0, privateShares: 0, closes: 0 };
+  const counts: ShareCounts = { publicShares: 0, privateShares: 0, stopShares: 0, closes: 0 };
   const setup = await testRender(
     <box style={{ width: 60, height: 12 }}>
       <ShareChoiceDialog
         isOpen
         selectedIndex={selectedIndex}
+        canRevoke={canRevoke}
         onPublicShare={() => {
           counts.publicShares += 1;
         }}
         onPrivateShare={() => {
           counts.privateShares += 1;
+        }}
+        onStopSharing={() => {
+          counts.stopShares += 1;
         }}
         onClose={() => {
           counts.closes += 1;
@@ -79,6 +87,21 @@ describe("ShareChoiceDialog", () => {
     expect(counts.closes).toBe(1);
   });
 
+  test("offers stop sharing only when the thread already has a link", async () => {
+    // not shared: no stop-sharing row
+    const { setup: plain } = await renderDialog(0, false);
+
+    expect(plain.captureCharFrame()).not.toContain("stop sharing");
+
+    // already shared: the row appears and revokes on click
+    const { setup, counts } = await renderDialog(2, true);
+
+    expect(setup.captureCharFrame()).toContain("stop sharing");
+    await clickText(setup, "stop sharing");
+    expect(counts.stopShares).toBe(1);
+    expect(counts.closes).toBe(1);
+  });
+
   test("renders nothing while closed", async () => {
     // Arrange + Act
     const setup = await testRender(
@@ -88,6 +111,8 @@ describe("ShareChoiceDialog", () => {
           selectedIndex={0}
           onPublicShare={() => {}}
           onPrivateShare={() => {}}
+          onStopSharing={() => {}}
+          canRevoke={false}
           onClose={() => {}}
           theme={DARK}
         />

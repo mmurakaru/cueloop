@@ -28,6 +28,7 @@ const shareTransport: ShareTransport = {
   }),
   push: mock(async () => {}),
   watch: () => () => {},
+  revoke: async () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
   collaboratorAnnotations: () => [],
   mergeFromShare: () => ({ annotations: [] }),

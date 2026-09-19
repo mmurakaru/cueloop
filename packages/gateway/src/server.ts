@@ -195,6 +195,7 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       if (info.command === "cueloop-pull") void handlePull(channel, identity);
       else if (info.command === "cueloop-push") void handlePush(channel, identity);
       else if (info.command === "cueloop-watch") void handleWatch(channel, identity);
+      else if (info.command === "cueloop-revoke") void handleRevoke(channel, identity);
       else void handleUpload(channel, identity, remoteIp);
     });
   }
@@ -467,6 +468,37 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
     }
   }
 
+  /**
+   * The owner revokes a share: delete the blob so the link stops resolving.
+   * Owner-only (the blob records the planner's key fingerprint), and idempotent
+   * - an absent or already-expired share reports success so revoke-on-delete
+   * never fails the local delete.
+   */
+  async function handleRevoke(channel: ServerChannel, identity: Identity): Promise<void> {
+    const startedAt = Date.now();
+
+    try {
+      const shareId = (await readCapped(channel, 256)).toString("utf8").trim();
+
+      if (!isShareId(shareId)) return void fail(channel, "not a share id");
+      const stored = await store.get(shareId);
+
+      if (stored) {
+        const session = unpackSessionBlob(openBlob(options.masterKey, shareId, stored));
+
+        if (session.owner !== identity.fingerprint)
+          return void fail(channel, "only the planner who shared this can revoke it");
+        await store.delete(shareId);
+      }
+      metrics.recordShare("revoke", "ok", elapsed(startedAt));
+      end(channel, 0);
+    } catch (err) {
+      onError(err);
+      metrics.recordShare("revoke", "error", elapsed(startedAt));
+      fail(channel, "could not revoke this share");
+    }
+  }
+
   const port = options.port ?? 22;
   const host = options.host ?? "0.0.0.0";
   const listened = await new Promise<{ host: string; port: number }>((resolve, reject) => {
@@ -522,6 +554,15 @@ function meterStore(store: ShareStore, metrics: GatewayMetrics): ShareStore {
         metrics.recordR2("put", "ok");
       } catch (err) {
         metrics.recordR2("put", "error");
+        throw err;
+      }
+    },
+    async delete(id) {
+      try {
+        await store.delete(id);
+        metrics.recordR2("delete", "ok");
+      } catch (err) {
+        metrics.recordR2("delete", "error");
         throw err;
       }
     },
