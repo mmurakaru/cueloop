@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DARK } from "../theme";
-import { settle } from "../test-support";
+import { press, settle } from "../test-support";
 import { MarkdownThreadEditor, type MarkdownEditorHandle } from "./MarkdownThreadEditor";
 
 describe("MarkdownThreadEditor", () => {
@@ -45,6 +45,27 @@ describe("MarkdownThreadEditor", () => {
     handleRef.current?.requestExit();
 
     expect(exitedWith).toBe("keep this");
+    setup.renderer.destroy();
+  });
+
+  test("escape is a no-op - it never leaves the editor (IDE convention)", async () => {
+    let exits = 0;
+    const setup = await testRender(
+      <MarkdownThreadEditor
+        initialText={"stay put"}
+        theme={DARK}
+        onExitEditor={() => {
+          exits += 1;
+        }}
+      />,
+      { width: 40, height: 8 },
+    );
+
+    await settle(setup);
+    await press(setup, "escape");
+
+    expect(exits).toBe(0);
+    expect(setup.captureCharFrame()).toContain("save & close");
     setup.renderer.destroy();
   });
 });

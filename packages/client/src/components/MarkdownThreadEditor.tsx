@@ -21,7 +21,7 @@ export interface MarkdownThreadEditorProps {
   /** The thread body's working copy; the editor opens on this markdown text. */
   initialText: string;
   theme: Theme;
-  /** Called with the edited markdown when the reviewer leaves (cmd/ctrl+enter, escape, or the header toggle); all save. */
+  /** Called with the edited markdown when the reviewer leaves (cmd/ctrl+enter or the header toggle); both save. */
   onExitEditor: (text: string) => void;
 }
 
@@ -30,11 +30,7 @@ export interface MarkdownEditorHandle {
   requestExit: () => void;
 }
 
-// cmd, meta, or ctrl + enter saves and closes (super under the kitty protocol,
-// meta where cmd arrives ESC-prefixed, ctrl as the terminal fallback); plain
-// enter breaks the line, so the whole body edits like a normal editor. Escape is
-// left unbound - a modeless editor is not escaped out of; you leave by the
-// header toggle or the save chord.
+// three modifiers cover terminal variance for save-and-close; plain enter is a newline, escape stays unbound
 const MARKDOWN_EDITOR_KEY_BINDINGS: KeyBinding[] = [
   { name: "return", super: true, action: "submit" },
   { name: "return", meta: true, action: "submit" },

@@ -24,8 +24,7 @@ export function useThreadBodyEditing(options: {
   canEdit: boolean;
 }): ThreadBodyEditing {
   const { controller, sessionId, canEdit } = options;
-  // hold which thread is being edited, so editing is derived: a thread switch changes sessionId and the
-  // editor closes on its own, with no effect or ref reaching across the render
+  // key editing by thread id so a thread switch closes the editor with no effect or ref
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const editing = editingSessionId !== null && editingSessionId === sessionId;
 
