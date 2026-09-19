@@ -11,7 +11,7 @@ import { testRender } from "@opentui/react/test-utils";
 import { RGBA } from "@opentui/core";
 import { componentFilesMissingStories, loadStories } from "./story";
 import { AnsiScreen } from "./AnsiScreen";
-import { allowEventLoopUpdates } from "../test-support";
+import { settle } from "../test-support";
 
 const stories = await loadStories();
 
@@ -45,8 +45,9 @@ describe("stories catalog", () => {
       // Act
       const setup = await testRender(node, size);
 
-      allowEventLoopUpdates();
-      await setup.waitForVisualIdle();
+      // settle, not just visual-idle: async stories (a file read, a virtualizer's
+      // first measure) commit after React's own scheduler, invisible to idle
+      await settle(setup);
       const frame = setup.captureCharFrame();
 
       // Assert

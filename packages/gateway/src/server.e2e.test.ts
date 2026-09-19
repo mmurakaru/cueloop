@@ -175,7 +175,7 @@ function viewThenQuit(port: number, shareId: string): Promise<string> {
           stream.stderr.on("data", collect);
           // the channel closing on the app's graceful exit is the resolve signal
           stream.on("close", () => (clearTimeout(timer), conn.end(), resolve(frames)));
-          if (!(await until("Welcome")))
+          if (!(await until("welcome")))
             return (
               clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
             );
@@ -213,7 +213,7 @@ describe("share upload then view", () => {
       (frame) => frame.includes("Rollout Plan"),
       20000,
       async (stream, getFrames) => {
-        if (await pollFrames(getFrames, "Welcome")) {
+        if (await pollFrames(getFrames, "welcome")) {
           await new Promise((r) => setTimeout(r, 300));
           stream.write("\x1b");
         }
@@ -328,7 +328,7 @@ function annotateOverShell(port: number, shareId: string, body: string): Promise
           stream.stderr.on("data", collect);
           // first open opens the name prompt over the plan; esc skips it (their
           // notes read anonymous) and reveals the plan the keys below drive
-          if (!(await until("Welcome")))
+          if (!(await until("welcome")))
             return (
               clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
             );
@@ -382,7 +382,7 @@ function nameSelfOverShell(port: number, shareId: string, name: string): Promise
 
           stream.on("data", collect);
           stream.stderr.on("data", collect);
-          if (!(await until("Welcome")))
+          if (!(await until("welcome")))
             return (
               clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
             );
