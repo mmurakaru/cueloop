@@ -44,6 +44,7 @@ export interface PanelColumnProps {
   header: React.ReactNode;
   /** Right-aligned header controls (toggles, search). */
   headerRight?: React.ReactNode;
+  onFocus?: () => void;
   children: React.ReactNode;
   theme?: Theme;
 }
@@ -53,11 +54,13 @@ export function PanelColumn({
   border,
   header,
   headerRight,
+  onFocus,
   children,
   theme,
 }: PanelColumnProps): React.ReactNode {
   return (
     <box
+      onMouseDown={onFocus}
       style={{
         width,
         // grow panes split evenly and clip wide content (a long diff line) rather than stretching

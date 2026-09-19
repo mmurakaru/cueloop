@@ -80,9 +80,9 @@ export async function reviewCommand(argv: string[]): Promise<number> {
     return 0;
   }
 
-  const { runClient } = await import("@cueloop/client");
+  const { runClient, reviewLayout } = await import("@cueloop/client");
 
-  await runClient({ sessionId: session.id });
+  await runClient({ sessionId: session.id, layout: reviewLayout() });
 
   const after = await getSession(session.id);
 

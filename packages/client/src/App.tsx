@@ -9,18 +9,21 @@ import React, {
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock } from "@opentui/core";
 import { marksByDisplay, type Mark } from "./view-plan";
-import { dimmedTheme } from "./theme";
 import {
   DEFAULT_KEYS,
   DEFAULT_QUICK_ACTIONS,
   loadConfig,
   persistAuthorName,
   persistDiffView,
+  persistIdentity,
   persistPins,
   type AutoClose,
   type DiffViewMode,
+  type IdentityConfig,
   type QuickAction,
 } from "./config";
+import { resolveDisplayName } from "./attribution";
+import { resolveGithubIdentity } from "./github-identity";
 import { loadSkills, PaletteNamesContext, SlashSkillsContext } from "./skills";
 import { mergeSlashItems, slashItemsFrom, type SlashItem } from "./slash-palette";
 import {
@@ -39,34 +42,45 @@ import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { useReadySignal } from "./ready-signal";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
+import { ShareDialog } from "./components/ShareDialog";
+import { shareDialogStore } from "./components/share-dialog-store";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { groupInbox, projectName, threadTitle } from "./components/session-tree";
 import { ThreadTree } from "./components/ThreadTree";
 import { ChangesFileTree } from "./components/ChangesColumn";
+import { MenuControlProvider, useMenuControlState } from "./components/menu-control";
 import { ProjectTreeView } from "./components/ProjectTreeView";
-import { AnnotatableFileView } from "./components/AnnotatableFileView";
-import { AppShell, type ProjectPanelMode } from "./components/AppShell";
+import { AppShell, type FocusPane, type ProjectPanelMode } from "./components/AppShell";
 import { EditorGrid } from "./components/EditorGrid";
-import type { EditorTab } from "./components/editor-grid";
+import { GridTabContent } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
-import { ThreadFooter } from "./components/ThreadFooter";
+import { useRememberLayout } from "./use-remember-layout";
+import type { LaunchLayout } from "./launch-layout";
+import { ThreadFooter, THREAD_FOOTER_HEIGHT } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
-  DIFF_CHORD_ENTRIES,
-  RAIL_CHORD_ENTRIES,
+  diffChordEntries,
+  dispatchLeaderCommand,
+  leaderCombosFor,
+  leaderHint,
+  matchesLeader,
+  railChordEntries,
   resolveThreadChord,
   THREAD_CHORD_ENTRIES,
-  TREE_CHORD_ENTRIES,
+  treeChordEntries,
 } from "./thread-chords";
-import {
-  DiffContentView,
-  type DiffFoldControls,
-  type DiffContentViewProps,
-} from "./components/DiffContentView";
-import { commentCountsByFile, fileTargetMarks, marksByRows, type DiffRow } from "./view-diff";
-import { annotationTarget, type Anchor } from "@cueloop/schema";
-import type { DiffFileContents, Thread } from "@cueloop/schema";
+import { type DiffFoldControls } from "./components/DiffContentView";
+import { commentCountsByFile } from "./view-diff";
+import { annotationTarget, threadShareLinks } from "@cueloop/schema";
+import type {
+  Annotation,
+  Artifact,
+  DiffFileContents,
+  Identity,
+  ShareLink,
+  Thread,
+} from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
 import {
@@ -90,7 +104,7 @@ import {
   TrailingOverlays,
 } from "./app-screens";
 /** A toast clears itself after this idle; esc dismisses it sooner. */
-const TOAST_DISMISS_MS = 4000;
+const TOAST_DISMISS_MS = 2000;
 
 export interface AppProps {
   home?: string;
@@ -127,6 +141,10 @@ export interface AppProps {
    * light-on-light. Defaults to dark - the historical assumption.
    */
   appearance?: Appearance;
+  /** The pane composition to open in; a create-command sets it, a bare launch restores the remembered one. */
+  layout?: LaunchLayout;
+  /** Serve mode: the frozen working-tree diff an observer reads for the served workbench thread. */
+  servedArtifact?: Artifact;
 }
 
 /** True while the drop-up or one of its dialogs is open and owns the keyboard. */
@@ -134,9 +152,68 @@ function menuChromeOpen(menuDialog: "keybinds" | "settings" | null): boolean {
   return menuDialog !== null;
 }
 
-/** True while a menu or an overlay owns the keyboard instead of the thread view. */
-function keyboardOwnedElsewhere(menuOwnsKeyboard: boolean, overlay: KeyState["overlay"]): boolean {
-  return menuOwnsKeyboard || overlay !== "none";
+/** Whether a thread already has at least one live share link. */
+function isSharedThread(session: Thread | null): boolean {
+  return session !== null && (threadShareLinks(session)?.length ?? 0) > 0;
+}
+
+/** A thread's live share links for the share dialog, or an empty list with no session. */
+function shareLinksFor(session: Thread | null): ShareLink[] {
+  return session ? (threadShareLinks(session) ?? []) : [];
+}
+
+/** The title the share dialog shows and prefills a new link with, or empty with no session. */
+function shareThreadName(session: Thread | null): string {
+  return session ? threadTitle(session) : "";
+}
+
+/** The drop-up chrome or a floating popover menu (thread actions, editor split) holds the keyboard. */
+function keyboardHeldByMenu(
+  menuDialog: "keybinds" | "settings" | null,
+  openMenuId: string | null,
+): boolean {
+  return menuChromeOpen(menuDialog) || openMenuId !== null;
+}
+
+/** A non-modal toast: escape dismisses it only when nothing else owns escape (no overlay, not span mode). */
+export function toastDismissRequested(
+  toastOpen: boolean,
+  key: { name: string },
+  overlay: KeyState["overlay"],
+  spanMode: boolean,
+): boolean {
+  return toastOpen && key.name === "escape" && overlay === "none" && !spanMode;
+}
+
+/** ctrl+q quits from anywhere, ahead of every focus/menu/overlay gate, with no confirmation. */
+export function quitKeyHandled(
+  key: { name: string; ctrl?: boolean },
+  onExit?: (code: number) => void,
+): boolean {
+  if (!key.ctrl || key.name !== "q") return false;
+  onExit?.(0);
+
+  return true;
+}
+
+/** A popover menu is open, so the shell keyboard is modal: escape closes it, every other key is swallowed. */
+function menuModalHandled(
+  menuControl: { openMenuId: string | null; closeMenu: () => void },
+  key: { name: string },
+): boolean {
+  if (menuControl.openMenuId === null) return false;
+  if (key.name === "escape") menuControl.closeMenu();
+
+  return true;
+}
+
+/** True while a menu, an overlay, or the share dialog owns the keyboard instead of the thread view. */
+function keyboardOwnedElsewhere(
+  menuOwnsKeyboard: boolean,
+  overlay: KeyState["overlay"],
+  shareDialogOpen: boolean,
+): boolean {
+  return menuOwnsKeyboard || overlay !== "none" || shareDialogOpen;
 }
 
 /** The footer submit fires only for the owner of an unresolved review, never an observer. */
@@ -144,161 +221,16 @@ function canSubmitReview(isOwner: boolean, resolved: boolean, observer: boolean)
   return isOwner && !resolved && !observer;
 }
 
-/** The inline-commenting props the diff sheet shares with the thread view, wired once by the app. */
-type DiffSurfaceProps = Pick<
-  DiffContentViewProps,
-  | "session"
-  | "quickActions"
-  | "observer"
-  | "commentsEnabled"
-  | "resolved"
-  | "suspended"
-  | "onComposingChange"
-  | "onObserverBlocked"
-  | "onCursorChange"
-  | "focusedAnnotationId"
-  | "onFocusAnnotation"
-  | "onAnnotate"
-  | "onReply"
-  | "onUpdateAnnotation"
-  | "onExit"
->;
-
-/** The Changes tab body: the whole diff in one scroll container, or a bare hint when nothing changed. */
-function ChangesTabBody(props: {
-  rows: DiffRow[];
-  surface: DiffSurfaceProps;
-  rejectedRows: Set<number>;
-  fold?: DiffFoldControls;
-  fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
-  split?: boolean;
-  dimmed: boolean;
-  theme: Theme;
-}): React.ReactNode {
-  const annotations = props.surface.session.annotations;
-  // a diff thread's Changes view is the artifact itself; any other thread's is the working-tree diff,
-  // whose notes carry a file target and resolve per file - each surface paints only its own notes
-  const forArtifact = props.surface.session.artifact.type === "diff";
-  const marks = useMemo(
-    () =>
-      forArtifact
-        ? marksByRows(
-            annotations.filter((annotation) => annotationTarget(annotation).kind === "artifact"),
-            props.rows,
-            props.surface.focusedAnnotationId,
-          )
-        : fileTargetMarks(annotations, props.rows, props.surface.focusedAnnotationId),
-    [annotations, forArtifact, props.rows, props.surface.focusedAnnotationId],
-  );
-
-  if (props.rows.length === 0) {
-    return (
-      <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
-        <text fg={props.theme.textDim}>No changes</text>
-      </box>
-    );
-  }
-
-  return (
-    <DiffContentView
-      rows={props.rows}
-      marks={marks}
-      {...props.surface}
-      rejectedRows={props.rejectedRows}
-      fold={props.fold}
-      fileStats={props.fileStats}
-      split={props.split}
-      theme={props.dimmed ? dimmedTheme(props.theme) : undefined}
-    />
-  );
-}
-
-/** An editor tab's body: the whole diff for the Changes tab, a file's diff or contents for a file tab. */
-function GridTabContent(props: {
-  tab: EditorTab;
-  rows: DiffRow[];
-  surface: DiffSurfaceProps;
-  rejectedRows: Set<number>;
-  fold?: DiffFoldControls;
-  fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
-  split?: boolean;
-  dimmed: boolean;
-  readFile: (path: string) => Promise<string | null>;
-  /** Persist a comment on a project file; the file view built the anchor against its own lines. */
-  onAddFileComment: (path: string, anchor: Anchor, body: string) => void;
-  theme: Theme;
-}): React.ReactNode {
-  const { tab } = props;
-  if (tab.kind === "file" && tab.fileView === "contents" && tab.path !== undefined) {
-    const filePath = tab.path;
-
-    return (
-      <AnnotatableFileView
-        path={filePath}
-        loadContents={props.readFile}
-        session={props.surface.session}
-        quickActions={props.surface.quickActions}
-        observer={props.surface.observer}
-        resolved={props.surface.resolved}
-        suspended={props.surface.suspended}
-        focusedAnnotationId={props.surface.focusedAnnotationId}
-        onFocusAnnotation={props.surface.onFocusAnnotation}
-        onComposingChange={props.surface.onComposingChange}
-        onCursorChange={props.surface.onCursorChange}
-        onObserverBlocked={props.surface.onObserverBlocked}
-        onAddComment={(anchor, body) => props.onAddFileComment(filePath, anchor, body)}
-        onReply={props.surface.onReply}
-        onUpdateAnnotation={props.surface.onUpdateAnnotation}
-        onExit={props.surface.onExit}
-        theme={props.theme}
-      />
-    );
-  }
-  if (tab.kind !== "file") {
-    return (
-      <ChangesTabBody
-        rows={props.rows}
-        surface={props.surface}
-        rejectedRows={props.rejectedRows}
-        fold={props.fold}
-        fileStats={props.fileStats}
-        split={props.split}
-        dimmed={props.dimmed}
-        theme={props.theme}
-      />
-    );
-  }
-  // a single-file tab shows that file's rows alone, so its row indices are its own: comments and
-  // the caret report back in whole-diff indices, and the fold controls (a band to fold) do not apply
-  const fileRowIndices = props.rows.flatMap((row, index) => (row.file === tab.path ? [index] : []));
-  const rows = fileRowIndices.map((index) => props.rows[index]!);
-  const wholeIndex = (rowIndex: number): number => fileRowIndices[rowIndex] ?? rowIndex;
-  const rejectedRows = new Set(
-    fileRowIndices.flatMap((index, rowIndex) => (props.rejectedRows.has(index) ? [rowIndex] : [])),
-  );
-
-  return (
-    <ChangesTabBody
-      rows={rows}
-      surface={{
-        ...props.surface,
-        onCursorChange: (rowIndex) => props.surface.onCursorChange?.(wholeIndex(rowIndex)),
-        onAnnotate: (span, body) =>
-          props.surface.onAnnotate(
-            {
-              start: { blockIndex: wholeIndex(span.start.blockIndex), char: span.start.char },
-              end: { blockIndex: wholeIndex(span.end.blockIndex), char: span.end.char },
-            },
-            body,
-          ),
-      }}
-      rejectedRows={rejectedRows}
-      fileStats={props.fileStats}
-      split={props.split}
-      dimmed={props.dimmed}
-      theme={props.theme}
-    />
-  );
+/** The author display name for a comment's hover tooltip: the reviewer's own name for their notes, else the resolved collaborator name. */
+function authorLabelResolver(
+  ownName: string | undefined,
+  participants: Identity[] | undefined,
+  overrides: Record<string, string>,
+): (annotation: Annotation) => string | undefined {
+  return (annotation) =>
+    annotation.author === undefined
+      ? (ownName ?? "you")
+      : resolveDisplayName(annotation.author, participants, overrides);
 }
 
 /** The Project pane body: the resolved repo's changed files in changes mode, its full tree otherwise. */
@@ -310,6 +242,7 @@ function ProjectPanelBody(props: {
   onOpenChangedFile: (path: string) => void;
   onOpenProjectFile: (path: string) => void;
   commentCounts?: ReadonlyMap<string, number>;
+  focused?: boolean;
   theme: Theme;
 }): React.ReactNode {
   const [changes, setChanges] = useState<readonly DiffFileContents[]>([]);
@@ -340,6 +273,7 @@ function ProjectPanelBody(props: {
         files={changes}
         onSelectFile={props.onOpenChangedFile}
         commentCounts={props.commentCounts}
+        focused={props.focused}
         theme={props.theme}
       />
     );
@@ -349,6 +283,7 @@ function ProjectPanelBody(props: {
       key={props.reloadKey}
       loadFiles={props.loadProjectFiles}
       onSelectFile={props.onOpenProjectFile}
+      focused={props.focused}
       theme={props.theme}
     />
   );
@@ -364,7 +299,11 @@ function usableScreenReached(
 }
 
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
-function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
+function cheatsheetFor(
+  keyBindings: KeyBindings,
+  threadViewActive: boolean,
+  hint: string,
+): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
 
   if (!threadViewActive) {
@@ -374,11 +313,138 @@ function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): Che
   return [
     ...THREAD_VIEW_CHEATSHEET,
     { title: "Session", entries: [...THREAD_CHORD_ENTRIES] },
-    { title: "Diff", entries: [...DIFF_CHORD_ENTRIES] },
-    { title: "Rail", entries: [...RAIL_CHORD_ENTRIES] },
-    { title: "Tree", entries: [...TREE_CHORD_ENTRIES] },
+    { title: "Diff", entries: diffChordEntries(hint) },
+    { title: "Rail", entries: railChordEntries(hint) },
+    { title: "Tree", entries: treeChordEntries(hint) },
     ...base.filter((section) => section.title === "Agent terminal"),
   ];
+}
+
+/** The Threads sidebar opens from the launch layout; a bare launch opens it only on the inbox. */
+function initialThreadsOpen(
+  layout: LaunchLayout | undefined,
+  sessionId: string | undefined,
+): boolean {
+  return layout ? layout.threads : sessionId === undefined;
+}
+
+function initialFocusedPane(sessionId: string | undefined, zoomed: boolean): FocusPane {
+  if (sessionId === undefined) return "threads";
+
+  return zoomed ? "changes" : "thread";
+}
+
+function bareShellDefersKeys(
+  sessionIsNull: boolean,
+  overlayIsNone: boolean,
+  focusedPane: FocusPane,
+): boolean {
+  return sessionIsNull && overlayIsNone && focusedPane !== "threads";
+}
+
+function surfaceSuspended(base: boolean, focusedPane: FocusPane, pane: FocusPane): boolean {
+  return base || focusedPane !== pane;
+}
+
+export function threadsNavHandled(params: {
+  focusedPane: FocusPane;
+  quiet: boolean;
+  key: { name: string };
+  count: number;
+  setInboxCursor: (update: (cursor: number) => number) => void;
+  openSession: () => void;
+}): boolean {
+  const { focusedPane, quiet, key, count } = params;
+
+  if (focusedPane !== "threads" || !quiet || count === 0) return false;
+  if (key.name === "j" || key.name === "down") {
+    params.setInboxCursor((cursor) => Math.min(cursor + 1, count - 1));
+
+    return true;
+  }
+  if (key.name === "k" || key.name === "up") {
+    params.setInboxCursor((cursor) => Math.max(cursor - 1, 0));
+
+    return true;
+  }
+  if (key.name === "return" || key.name === "enter") {
+    params.openSession();
+
+    return true;
+  }
+
+  return false;
+}
+
+export function appLeaderHandled(params: {
+  focusedPane: FocusPane;
+  key: { name: string; shift?: boolean; ctrl?: boolean; meta?: boolean; super?: boolean };
+  leaderCombos: readonly string[];
+  pending: { current: boolean };
+  runLeaderCommand: (key: { name: string; shift?: boolean }) => void;
+}): boolean {
+  const { focusedPane, key, leaderCombos, pending, runLeaderCommand } = params;
+
+  if (focusedPane !== "threads" && focusedPane !== "project") return false;
+  if (pending.current) {
+    pending.current = false;
+    if (key.name !== "escape") runLeaderCommand(key);
+
+    return true;
+  }
+  if (matchesLeader(key, leaderCombos)) {
+    pending.current = true;
+
+    return true;
+  }
+
+  return false;
+}
+
+export function visiblePanes(
+  sidebarOpen: boolean,
+  threadShown: boolean,
+  changesOpen: boolean,
+  projectOpen: boolean,
+): FocusPane[] {
+  const panes: FocusPane[] = [];
+
+  if (sidebarOpen) panes.push("threads");
+  if (threadShown) panes.push("thread");
+  if (changesOpen) panes.push("changes");
+  if (projectOpen) panes.push("project");
+
+  return panes;
+}
+
+export function nextFocusPane(
+  current: FocusPane,
+  panes: FocusPane[],
+  backward: boolean,
+): FocusPane {
+  if (panes.length === 0) return current;
+  const index = panes.indexOf(current);
+  const step = backward ? -1 : 1;
+
+  return panes[(index + step + panes.length) % panes.length] ?? current;
+}
+
+/** The panes that can own the keyboard: a diff's Thread pane is an inert placeholder, so it is out. */
+function navigableFocusPanes(
+  sidebarOpen: boolean,
+  zoomed: boolean,
+  isDiff: boolean,
+  changesOpen: boolean,
+  projectOpen: boolean,
+): FocusPane[] {
+  return visiblePanes(sidebarOpen, !zoomed && !isDiff, changesOpen, projectOpen);
+}
+
+/** The layout hid or inert-ed the focused pane: fall back to the first navigable one, else stay put. */
+export function reconciledFocus(navigable: FocusPane[], focusedPane: FocusPane): FocusPane | null {
+  if (navigable.length === 0 || navigable.includes(focusedPane)) return null;
+
+  return navigable[0] ?? null;
 }
 
 export function App({
@@ -394,6 +460,8 @@ export function App({
   role = "owner",
   selfAuthor,
   appearance = "dark",
+  layout,
+  servedArtifact,
 }: AppProps): React.ReactNode {
   const { observer, isOwner } = computeRoleCapabilities(readOnly, role);
   const controller = useMemo(
@@ -407,6 +475,7 @@ export function App({
         clock,
         openClient,
         shareTransport,
+        servedArtifact,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [home, sessionId],
@@ -429,11 +498,12 @@ export function App({
 
   // A shared plan you own polls for collaborator notes while it is open; the
   // merge refreshes through the normal event path. Stops on leave.
+  const threadShared = isSharedThread(session);
   useEffect(() => {
-    if (!isOwner || !session?.shareId) return;
+    if (!isOwner || !threadShared) return;
 
     return controller.startShareSync();
-  }, [isOwner, session?.id, session?.shareId, controller]);
+  }, [isOwner, session?.id, threadShared, controller]);
   const renderer = useRenderer();
   const { width: terminalWidth } = useTerminalDimensions();
 
@@ -461,12 +531,26 @@ export function App({
   // picking a thread keeps the sidebar as it was. It opens when the app lands with
   // nothing selected (pick a thread) and stays collapsed on a direct thread open,
   // where the thread owns the width.
-  const [sidebarOpen, setSidebarOpen] = useState(sessionId === undefined);
+  const [sidebarOpen, setSidebarOpen] = useState(() => initialThreadsOpen(layout, sessionId));
   // the Changes + Project right region and its editor grid (tabs, splits, zoom)
-  const workbench = useChangesWorkbench();
+  const workbench = useChangesWorkbench({ layout });
+  const [focusedPane, setFocusedPane] = useState<FocusPane>(() =>
+    initialFocusedPane(sessionId, workbench.zoomed),
+  );
+  // only the session view persists from here; the bare shell owns its own (NoThreadShell), so this
+  // workbench stays inactive with no session and never clobbers what the shell saved
+  useRememberLayout(
+    layout,
+    session !== null,
+    sidebarOpen,
+    workbench.changesOpen,
+    workbench.projectOpen,
+    workbench.zoomed,
+  );
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
   const [diffView, setDiffView] = useState<DiffViewMode>("split");
@@ -488,6 +572,7 @@ export function App({
   const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME_NAME);
   const [themeOverrides, setThemeOverrides] = useState<Partial<Theme>>({});
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
+  const [identity, setIdentity] = useState<IdentityConfig>({ provider: "typed" });
   const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
   const [skills, setSkills] = useState<SlashItem[]>([]);
   const paletteNames = useMemo(
@@ -507,6 +592,7 @@ export function App({
     setThemeName(config.ui.theme);
     setThemeOverrides(config.themeOverrides);
     setAuthorNames(config.authors);
+    setIdentity(config.identity);
     setQuickActions(config.actions);
     setSkills(loadSkills(config.skillsPath));
     setAutoClose(config.ui.autoClose);
@@ -540,6 +626,29 @@ export function App({
     if (!known) setMode({ type: "nameSelf", text: "" });
   }, [role, selfAuthor, session]);
 
+  // Bumped on every identity change so a slow GitHub sync that lands after a newer rename is discarded.
+  const identityGenerationRef = useRef(0);
+  const applyIdentity = (next: IdentityConfig): void => {
+    identityGenerationRef.current += 1;
+    setIdentity(next);
+    try {
+      persistIdentity(next);
+    } catch {
+      controller.setStatus("could not save identity to config");
+    }
+  };
+  const syncGithubIdentity = (): void => {
+    const generation = (identityGenerationRef.current += 1);
+    void resolveGithubIdentity().then((github) => {
+      if (identityGenerationRef.current !== generation) return;
+      if (!github) return controller.setStatus("GitHub not connected - run gh auth login");
+      const name = github.name?.trim() || github.login;
+
+      applyIdentity({ name, provider: "github" });
+      controller.setStatus(`identity synced from GitHub - ${name}`);
+    });
+  };
+
   // ── settings dialog: config-backed model, navigation, persistence ──
   const {
     settingsNav,
@@ -548,6 +657,7 @@ export function App({
     cycleSetting,
     handleSettingsKey,
     onCategorySelect,
+    openSettings,
   } = useSettingsDialog({
     theme,
     appearance,
@@ -562,6 +672,13 @@ export function App({
     quickActions,
     setQuickActions,
     setMenuDialog,
+    identityName: identity.name,
+    identityProvider: identity.provider,
+    onSyncGithubIdentity: syncGithubIdentity,
+    onRenameDisplayName: () => {
+      setMenuDialog(null);
+      setMode({ type: "renameSelf", text: identity.name ?? "" });
+    },
   });
 
   // ── derived view model ──────────────────────
@@ -680,6 +797,9 @@ export function App({
       setAuthorNames((prev) => ({ ...prev, [id]: name }));
     },
     renameThread: (id: string, title: string) => controller.renameSession(id, title),
+    setLocalIdentityName: (name: string) => {
+      applyIdentity(name ? { name, provider: "typed" } : { provider: "typed" });
+    },
     liveInput,
     setCursor,
     setInboxCursor,
@@ -702,16 +822,77 @@ export function App({
       else if (workbench.zoomed) controller.setStatus("split diff");
       else controller.setStatus("split diff shows when zoomed");
     },
+    openShareDialog: () => {
+      if (!isOwner) return controller.setStatus("only the plan owner can share");
+      shareDialogStore.getState().reset();
+      setShareDialogOpen(true);
+    },
   });
 
   const overlay = resolveOverlay(mode, completion.phase, walking);
 
-  const menuOwnsKeyboard = menuChromeOpen(menuDialog);
-  // an overlay (submit, walk, prompt, confirm) or the menu takes the keyboard
-  // from the thread view; the view suspends its own grammar meanwhile
-  const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
+  const menuControl = useMenuControlState();
+  const menuOwnsKeyboard = keyboardHeldByMenu(menuDialog, menuControl.openMenuId);
+  // an overlay (submit, walk, prompt, confirm, share choice), the manage-access
+  // dialog, or the menu takes the keyboard from the thread view; the view suspends
+  // its own grammar meanwhile so typing lands in the dialog, not the thread
+  const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay, shareDialogOpen);
+
+  const leaderCombos = leaderCombosFor(keysRef.current.leader);
+  const leaderPending = useRef(false);
+  const navigablePanes = navigableFocusPanes(
+    sidebarOpen,
+    workbench.zoomed,
+    isDiff,
+    workbench.changesOpen,
+    workbench.projectOpen,
+  );
+  useEffect(() => {
+    // the bare shell drives its panes from its own workbench, so only reconcile against this one
+    if (!session) return;
+    const next = reconciledFocus(navigablePanes, focusedPane);
+
+    if (next) setFocusedPane(next);
+  }, [session, navigablePanes, focusedPane]);
+  const cyclePanes = (backward: boolean): void =>
+    setFocusedPane((current) => nextFocusPane(current, navigablePanes, backward));
+  const runLeaderCommand = (key: { name: string; shift?: boolean }): void => {
+    if (key.name === "tab") return cyclePanes(Boolean(key.shift));
+
+    dispatchLeaderCommand(
+      key,
+      { composing: threadComposing, isOwner, resolved, treeActive: railTab === "tree", isDiff },
+      dispatch,
+    );
+  };
+  // clicking a sidebar thread moves the cursor onto it too, so the row shows its selected backdrop at once
+  const openThread = (id: string): void => {
+    const index = grouped.ordered.findIndex((thread) => thread.id === id);
+
+    if (index >= 0) setInboxCursor(() => index);
+    controller.open(id);
+  };
 
   useKeyboard((key) => {
+    if (quitKeyHandled(key, onExit)) return;
+    // the share dialog owns its own keys while open; the shell grammar stands down
+    if (shareDialogOpen) return;
+    if (menuModalHandled(menuControl, key)) return;
+    if (
+      appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand })
+    )
+      return;
+    if (
+      threadsNavHandled({
+        focusedPane,
+        quiet: overlay === "none" && !menuOwnsKeyboard && !threadComposing,
+        key,
+        count: grouped.ordered.length,
+        setInboxCursor,
+        openSession: () => dispatch({ type: "openSession" }),
+      })
+    )
+      return;
     // The thread view owns the document grammar while active (its own
     // useKeyboard handles marks, comments, and ctrl+q); the session chords
     // (submit, share, edit, walk, the rail) resolve here, and the keymap only
@@ -736,8 +917,9 @@ export function App({
     if (menuDialog) return void (key.name === "escape" && setMenuDialog(null));
     // the toast is non-modal: escape only dismisses it when nothing else owns
     // escape, so an open overlay (compose, submit, prompt, walk) still cancels
-    if (toast && key.name === "escape" && overlay === "none" && mode.type !== "span")
+    if (toastDismissRequested(toast !== null, key, overlay, mode.type === "span"))
       return controller.dismissToast();
+    if (bareShellDefersKeys(session === null, overlay === "none", focusedPane)) return;
     const state = buildKeyState({
       keys: keysRef.current,
       observer,
@@ -782,12 +964,13 @@ export function App({
     <MenuChrome
       menuDialog={menuDialog}
       theme={theme}
-      keybindsSections={cheatsheetFor(keyBindings, threadViewActive)}
+      keybindsSections={cheatsheetFor(keyBindings, threadViewActive, leaderHint(leaderCombos))}
       settingsCategories={settingsCategories}
       settingsValues={settingsValues}
       settingsNav={settingsNav}
       onCategorySelect={onCategorySelect}
       cycleSetting={cycleSetting}
+      onClose={() => setMenuDialog(null)}
     />
   );
 
@@ -800,19 +983,24 @@ export function App({
           <NoThreadShell
             rows={grouped.rows}
             inboxCursor={inboxCursor}
+            onOpenThread={openThread}
             mode={mode}
             theme={theme}
             controller={controller}
             setMode={setMode}
             menuChrome={menuChrome}
-            onOpenMenu={() => setMenuDialog("settings")}
+            onOpenMenu={openSettings}
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((open) => !open)}
+            focusedPane={focusedPane}
+            onFocusPane={setFocusedPane}
+            menuControl={menuControl}
             pinnedIds={pinnedIds}
             onPin={togglePin}
             onRename={(id, title) => setMode({ type: "renameThread", sessionId: id, text: title })}
             quickActions={quickActions}
             onWelcomeComposingChange={setWelcomeComposing}
+            layout={layout}
           />
         </PaletteNamesContext.Provider>
       </SlashSkillsContext.Provider>
@@ -821,6 +1009,11 @@ export function App({
     );
 
   const activeSession = session;
+  const resolveAuthorLabel = authorLabelResolver(
+    identity.name,
+    activeSession.participants,
+    authorNames,
+  );
 
   if (isCompletionOverlayPhase(completion) && activeSession.verdict)
     return (
@@ -830,6 +1023,9 @@ export function App({
         verdict={activeSession.verdict.kind}
         completion={completion}
         status={status}
+        onClose={() => dispatch({ type: "finishReview" })}
+        onBackToPlan={() => dispatch({ type: "dismissCompletion" })}
+        onAlways={() => dispatch({ type: "optInAutoClose" })}
       />
     );
 
@@ -848,6 +1044,7 @@ export function App({
     session: activeSession,
     walkFileList,
     viewedPaths,
+    quickActions,
     liveInput,
     setMode,
     dispatch,
@@ -868,12 +1065,6 @@ export function App({
     if (!isOwner) return;
     if (resolved) return controller.setStatus("review submitted - read-only");
     runEditorHandOff();
-  };
-
-  // clicking the header Share button: publish the plan, copy the ssh line
-  const onShareRequest = (): void => {
-    if (!isOwner) return controller.setStatus("only the plan owner can share");
-    controller.share();
   };
 
   // clicking the rail Submit button: same read-only answer as the submit key
@@ -898,221 +1089,264 @@ export function App({
     <SlashSkillsContext.Provider value={skills}>
       <PaletteNamesContext.Provider value={paletteNames}>
         <ThemeProvider theme={theme}>
-          <AppShell
-            sidebarOpen={sidebarOpen}
-            onToggleSidebar={() => setSidebarOpen((open) => !open)}
-            onOpenMenu={() => setMenuDialog("settings")}
-            threadsPanel={
-              <scrollbox style={{ flexGrow: 1 }} focused={false}>
-                <ThreadTree
-                  rows={grouped.rows}
-                  cursor={inboxCursor}
-                  activeId={activeSession.id}
-                  pinnedIds={pinnedIds}
-                  width={30}
-                  onSelect={(id) => controller.open(id)}
-                  onPin={togglePin}
-                  onRename={(id, title) =>
-                    setMode({ type: "renameThread", sessionId: id, text: title })
-                  }
-                  theme={theme}
-                />
-              </scrollbox>
-            }
-            threadTitle={threadTitle(activeSession)}
-            threadActions={
-              showOwnerActions ? (
-                <Toolbar>
-                  <Button onPress={onEditRequest} theme={theme}>
-                    {" edit "}
-                  </Button>
-                  <Button onPress={onShareRequest} theme={theme}>
-                    {" share "}
-                  </Button>
-                </Toolbar>
-              ) : undefined
-            }
-            threadPanel={
-              <box style={{ flexGrow: 1, flexDirection: "column" }}>
-                <box style={{ flexGrow: 1, flexDirection: "row" }}>
-                  {isPixelPrototype ? (
-                    <PrototypePixels
-                      prototypePath={prototypePath}
-                      canComment={prototypeCanComment}
-                      onCommentElement={onCommentPrototype}
-                      onComposingChange={setPrototypeComposing}
-                      hidden={chromeHidden}
-                    />
-                  ) : isDiff ? (
-                    <box style={{ flexGrow: 1, paddingLeft: 2, paddingTop: 1 }}>
-                      <text fg={theme.textDim}>review the changes on the right</text>
-                    </box>
-                  ) : (
-                    <ThreadView
-                      session={activeSession}
-                      suspended={threadViewSuspended}
-                      editOrphanCount={editOrphanCount}
-                      onComposingChange={setThreadComposing}
-                      resolved={resolved}
-                      onObserverBlocked={(reason) =>
-                        controller.setStatus(
-                          reason === "observer"
-                            ? "observer - read-only"
-                            : "review submitted - read-only",
-                        )
-                      }
-                      onCursorChange={setCursor}
-                      focusedAnnotationId={focusedAnnotationId}
-                      onFocusAnnotation={setFocusedAnnotationId}
-                      display={display}
-                      marks={marks}
-                      quickActions={quickActions}
-                      observer={observer}
-                      onAnnotate={(span, body) =>
-                        void controller.annotate(
-                          "comment",
-                          span.start.blockIndex,
-                          span.start.char,
-                          span.end.char,
-                          body,
-                          span.end.blockIndex,
-                        )
-                      }
-                      onReply={(rootAnnotationId, body) =>
-                        void controller.reply(rootAnnotationId, body)
-                      }
-                      onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
-                      onExit={() => onExit?.(0)}
-                    />
-                  )}
-                </box>
-                {threadFooter}
-              </box>
-            }
-            changesOpen={workbench.changesOpen}
-            projectOpen={workbench.projectOpen}
-            onToggleChanges={workbench.toggleChanges}
-            onToggleProject={workbench.toggleProject}
-            onToggleRight={workbench.toggleRight}
-            projectMode={workbench.projectMode}
-            zoomHideThread={workbench.zoomed}
-            changesFooter={threadFooter}
-            changesPanel={
-              <EditorGrid
-                tree={workbench.grid}
-                focusedGroupId={workbench.activeGroup}
-                commentCounts={diffCommentCounts}
-                onFocusGroup={workbench.focusGroup}
-                onActivateTab={workbench.activate}
-                onCloseTab={workbench.close}
-                onSplit={workbench.split}
-                onZoom={workbench.toggleZoom}
-                zoomed={workbench.zoomed}
-                renderTab={(tab, groupFocused) => (
-                  <GridTabContent
-                    tab={tab}
-                    rows={rows}
-                    surface={{
-                      session: activeSession,
-                      quickActions,
-                      observer,
-                      commentsEnabled: true,
-                      resolved,
-                      suspended: threadViewSuspended || !groupFocused,
-                      onComposingChange: setThreadComposing,
-                      onObserverBlocked: (reason) =>
-                        controller.setStatus(
-                          reason === "observer"
-                            ? "observer - read-only"
-                            : "review submitted - read-only",
-                        ),
-                      onCursorChange: setCursor,
-                      focusedAnnotationId,
-                      onFocusAnnotation: setFocusedAnnotationId,
-                      // a diff thread's Changes view is the artifact itself; any other thread's is the
-                      // live working-tree diff, so its notes carry a file target and anchor there
-                      onAnnotate: (span, body) =>
-                        void controller.annotate(
-                          "comment",
-                          span.start.blockIndex,
-                          span.start.char,
-                          span.end.char,
-                          body,
-                          span.end.blockIndex,
-                          isDiff
-                            ? { kind: "artifact" }
-                            : { kind: "file", path: "", rev: "worktree" },
-                        ),
-                      onReply: (rootAnnotationId, body) =>
-                        void controller.reply(rootAnnotationId, body),
-                      onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
-                      onExit: () => onExit?.(0),
-                    }}
-                    rejectedRows={rejectedRows}
-                    fold={diffFold}
-                    fileStats={controller.fileStats()}
-                    split={diffView === "split" && workbench.zoomed}
-                    dimmed={walking}
-                    readFile={(path) => controller.repoReadFile(path)}
-                    onAddFileComment={(path, anchor, body) =>
-                      void controller.addComment(
-                        anchor,
-                        { kind: "file", path, rev: "worktree" },
-                        body,
-                      )
+          <MenuControlProvider value={menuControl}>
+            <AppShell
+              sidebarOpen={sidebarOpen}
+              onToggleSidebar={() => setSidebarOpen((open) => !open)}
+              onOpenMenu={openSettings}
+              onFocusPane={setFocusedPane}
+              threadsPanel={
+                <scrollbox style={{ flexGrow: 1 }} focused={false}>
+                  <ThreadTree
+                    rows={grouped.rows}
+                    cursor={inboxCursor}
+                    activeId={activeSession.id}
+                    focused={focusedPane === "threads"}
+                    pinnedIds={pinnedIds}
+                    width={30}
+                    onSelect={openThread}
+                    onPin={togglePin}
+                    onRename={(id, title) =>
+                      setMode({ type: "renameThread", sessionId: id, text: title })
+                    }
+                    onRequestDelete={(id, title) =>
+                      setMode({ type: "confirmDelete", sessionId: id, title })
                     }
                     theme={theme}
                   />
-                )}
-                theme={theme}
-              />
-            }
-            projectPanel={
-              <ProjectPanelBody
-                mode={workbench.projectMode}
-                loadChanges={() => controller.repoChanges()}
-                loadProjectFiles={() => controller.repoFiles()}
-                reloadKey={activeSession.id}
-                // the Changes navigator always opens a changed file as a diff - a diff review shows its
-                // captured snapshot, every other thread the live working-tree diff
-                onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
-                onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
-                commentCounts={diffCommentCounts}
-                theme={theme}
-              />
-            }
-            theme={theme}
-          >
-            <TrailingOverlays
-              walking={walking}
-              walk={walk}
-              walkFileList={walkFileList}
-              viewedPaths={viewedPaths}
-              session={activeSession}
-              terminalWidth={terminalWidth}
+                </scrollbox>
+              }
+              threadTitle={threadTitle(activeSession)}
+              threadActions={
+                showOwnerActions ? (
+                  <Toolbar>
+                    <Button onPress={onEditRequest} theme={theme}>
+                      {" edit "}
+                    </Button>
+                    <Button onPress={() => dispatch({ type: "share" })} theme={theme}>
+                      {" share "}
+                    </Button>
+                  </Toolbar>
+                ) : undefined
+              }
+              threadPanel={
+                <box style={{ flexGrow: 1, flexDirection: "column" }}>
+                  <box style={{ flexGrow: 1, flexDirection: "row" }}>
+                    {isPixelPrototype ? (
+                      <PrototypePixels
+                        prototypePath={prototypePath}
+                        canComment={prototypeCanComment}
+                        onCommentElement={onCommentPrototype}
+                        onComposingChange={setPrototypeComposing}
+                        hidden={chromeHidden}
+                      />
+                    ) : isDiff ? (
+                      <box
+                        style={{
+                          flexGrow: 1,
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <text fg={theme.textDim}>Select a thread</text>
+                      </box>
+                    ) : (
+                      <ThreadView
+                        session={activeSession}
+                        suspended={surfaceSuspended(threadViewSuspended, focusedPane, "thread")}
+                        editOrphanCount={editOrphanCount}
+                        onComposingChange={setThreadComposing}
+                        leaderCombos={leaderCombos}
+                        onLeaderCommand={runLeaderCommand}
+                        resolved={resolved}
+                        onObserverBlocked={(reason) =>
+                          controller.setStatus(
+                            reason === "observer"
+                              ? "observer - read-only"
+                              : "review submitted - read-only",
+                          )
+                        }
+                        onCursorChange={setCursor}
+                        focusedAnnotationId={focusedAnnotationId}
+                        onFocusAnnotation={setFocusedAnnotationId}
+                        display={display}
+                        marks={marks}
+                        quickActions={quickActions}
+                        observer={observer}
+                        onAnnotate={(span, body) =>
+                          void controller.annotate(
+                            "comment",
+                            span.start.blockIndex,
+                            span.start.char,
+                            span.end.char,
+                            body,
+                            span.end.blockIndex,
+                          )
+                        }
+                        onReply={(rootAnnotationId, body) =>
+                          void controller.reply(rootAnnotationId, body)
+                        }
+                        onUpdateAnnotation={(id, body) => controller.updateAnnotation(id, body)}
+                        resolveAuthorLabel={resolveAuthorLabel}
+                        onExit={() => onExit?.(0)}
+                      />
+                    )}
+                  </box>
+                  {threadFooter}
+                </box>
+              }
+              changesOpen={workbench.changesOpen}
+              projectOpen={workbench.projectOpen}
+              onToggleChanges={workbench.toggleChanges}
+              onToggleProject={workbench.toggleProject}
+              onToggleRight={workbench.toggleRight}
+              projectMode={workbench.projectMode}
+              zoomHideThread={workbench.zoomed}
+              changesFooter={threadFooter}
+              changesPanel={
+                <EditorGrid
+                  tree={workbench.grid}
+                  focusedGroupId={workbench.activeGroup}
+                  commentCounts={diffCommentCounts}
+                  onFocusGroup={workbench.focusGroup}
+                  onActivateTab={workbench.activate}
+                  onCloseTab={workbench.close}
+                  onSplit={workbench.split}
+                  onZoom={workbench.toggleZoom}
+                  zoomed={workbench.zoomed}
+                  renderTab={(tab, groupFocused) => (
+                    <GridTabContent
+                      tab={tab}
+                      rows={rows}
+                      surface={{
+                        session: activeSession,
+                        quickActions,
+                        observer,
+                        commentsEnabled: true,
+                        resolved,
+                        suspended: surfaceSuspended(
+                          threadViewSuspended || !groupFocused,
+                          focusedPane,
+                          "changes",
+                        ),
+                        onComposingChange: setThreadComposing,
+                        onObserverBlocked: (reason) =>
+                          controller.setStatus(
+                            reason === "observer"
+                              ? "observer - read-only"
+                              : "review submitted - read-only",
+                          ),
+                        onCursorChange: setCursor,
+                        focusedAnnotationId,
+                        onFocusAnnotation: setFocusedAnnotationId,
+                        // a diff thread's Changes view is the artifact itself; any other thread's is the
+                        // live working-tree diff, so its notes carry a file target and anchor there
+                        onAnnotate: (span, body) =>
+                          void controller.annotate(
+                            "comment",
+                            span.start.blockIndex,
+                            span.start.char,
+                            span.end.char,
+                            body,
+                            span.end.blockIndex,
+                            isDiff
+                              ? { kind: "artifact" }
+                              : { kind: "file", path: "", rev: "worktree" },
+                          ),
+                        onReply: (rootAnnotationId, body) =>
+                          void controller.reply(rootAnnotationId, body),
+                        onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
+                        resolveAuthorLabel,
+                        leaderCombos,
+                        onLeaderCommand: runLeaderCommand,
+                        onExit: () => onExit?.(0),
+                      }}
+                      rejectedRows={rejectedRows}
+                      fold={diffFold}
+                      fileStats={controller.fileStats()}
+                      split={diffView === "split" && workbench.zoomed}
+                      dimmed={walking}
+                      readFile={(path) => controller.repoReadFile(path)}
+                      onAddFileComment={(path, anchor, body) =>
+                        void controller.addComment(
+                          anchor,
+                          { kind: "file", path, rev: "worktree" },
+                          body,
+                        )
+                      }
+                      // zoomed, the footer already rides the Changes pane, so no extra offset is needed
+                      emptyBottomPadding={workbench.zoomed ? 0 : THREAD_FOOTER_HEIGHT}
+                      theme={theme}
+                    />
+                  )}
+                  theme={theme}
+                />
+              }
+              projectPanel={
+                <ProjectPanelBody
+                  mode={workbench.projectMode}
+                  loadChanges={() => controller.repoChanges()}
+                  loadProjectFiles={() => controller.repoFiles()}
+                  reloadKey={activeSession.id}
+                  // the Changes navigator always opens a changed file as a diff - a diff review shows its
+                  // captured snapshot, every other thread the live working-tree diff
+                  onOpenChangedFile={(path) => workbench.openFile(path, "diff")}
+                  onOpenProjectFile={(path) => workbench.openFile(path, "contents")}
+                  commentCounts={diffCommentCounts}
+                  focused={focusedPane === "project"}
+                  theme={theme}
+                />
+              }
               theme={theme}
-              mode={mode}
-              toast={toast}
-              setMode={setMode}
-              dispatch={dispatch}
-            />
-            {submitConfirmState !== null ? (
-              <box
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  top: 0,
-                  width: "100%",
-                  height: "100%",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <ConfirmCard {...submitConfirmState} theme={theme} />
-              </box>
-            ) : null}
-            {menuChrome}
-          </AppShell>
+            >
+              <TrailingOverlays
+                walking={walking}
+                walk={walk}
+                walkFileList={walkFileList}
+                viewedPaths={viewedPaths}
+                session={activeSession}
+                terminalWidth={terminalWidth}
+                theme={theme}
+                mode={mode}
+                toast={toast}
+                setMode={setMode}
+                dispatch={dispatch}
+              />
+              {submitConfirmState !== null ? (
+                <box
+                  onMouseUp={submitConfirmState.onCancel}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    width: "100%",
+                    height: "100%",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <box onMouseUp={(event) => event.stopPropagation()}>
+                    <ConfirmCard {...submitConfirmState} theme={theme} />
+                  </box>
+                </box>
+              ) : null}
+              <ShareDialog
+                key={String(shareDialogOpen)}
+                isOpen={shareDialogOpen}
+                threadName={shareThreadName(session)}
+                links={shareLinksFor(session)}
+                isOwner={isOwner}
+                onCreateLink={(input) => controller.createShareLink(input)}
+                onUpdateLink={(id, input) => controller.updateShareLink(id, input)}
+                onDeleteLink={(id) => controller.deleteShareLink(id)}
+                onCopyLink={(id) => controller.copyShareLink(id)}
+                onClose={() => setShareDialogOpen(false)}
+                theme={theme}
+              />
+              {menuChrome}
+            </AppShell>
+          </MenuControlProvider>
         </ThemeProvider>
       </PaletteNamesContext.Provider>
     </SlashSkillsContext.Provider>

@@ -9,6 +9,7 @@ import {
   loadConfig,
   persistAuthorName,
   persistActions,
+  persistLayout,
   persistPins,
   persistTheme,
   quickActionBody,
@@ -316,6 +317,41 @@ describe("loadConfig", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  test("persistLayout round-trips the remembered pane composition through the config file", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-layout-"));
+    const path = join(dir, "config.toml");
+
+    try {
+      // Act
+      persistLayout({ threads: false, rightSidebar: "project", zoomChanges: false }, path);
+
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.layout).toEqual({
+        threads: false,
+        rightSidebar: "project",
+        zoomChanges: false,
+      });
+
+      // Act
+      persistLayout({ threads: true, rightSidebar: "off", zoomChanges: true }, path);
+
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.layout).toEqual({
+        threads: true,
+        rightSidebar: "off",
+        zoomChanges: true,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("layout is unset until the user changes one", () => {
+    // Assert
+    expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.layout).toBeUndefined();
   });
 });
 

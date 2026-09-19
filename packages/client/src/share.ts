@@ -1,5 +1,5 @@
 /**
- * Publish a review session as a share: pack it, stream it to the gateway's
+ * Publish a thread as a share: pack it, stream it to the gateway's
  * `share` user over SSH, and copy the returned `ssh p_…@host` line to the
  * clipboard. The planner holds no key, so all this side does is upload; the
  * gateway seals and stores. Used by both `cueloop share` and the in-TUI
@@ -12,7 +12,13 @@ import {
   SHARE_UPLOAD_USER,
   packSessionBlob,
 } from "@cueloop/daemon/share-blob";
-import { removalEntries, viewFollowing, type Annotation, type Thread } from "@cueloop/schema";
+import {
+  removalEntries,
+  viewFollowing,
+  type Annotation,
+  type ShareAccess,
+  type Thread,
+} from "@cueloop/schema";
 import { ThreadRecordSchema } from "@cueloop/daemon/validate";
 import type { SharedMerge } from "@cueloop/daemon/client";
 import * as v from "valibot";
@@ -33,6 +39,11 @@ export interface ShareResult {
 /** The `p_…` share id inside a `ssh p_…@host` line, or undefined. */
 export function shareIdFromLine(line: string): string | undefined {
   return line.match(/^ssh (\S+)@/)?.[1];
+}
+
+/** The paste line for a share id: `ssh p_…@host`. Used to copy an existing link. */
+export function formatShareLine(shareId: string, target: ShareTarget = {}): string {
+  return `ssh ${shareId}@${target.host ?? DEFAULT_SHARE_HOST}`;
 }
 
 /** Upload the session to the gateway and copy the resulting ssh line. */
@@ -102,15 +113,26 @@ export function mergeFromShare(remote: Thread): SharedMerge {
 export async function pushShare(
   shareId: string,
   annotations: Array<Omit<Annotation, "createdAt">>,
+  // ShareAccess sets a private allowlist; "public" clears it (makes the link public); undefined leaves it
+  access?: ShareAccess | "public",
   target: ShareTarget = {},
 ): Promise<void> {
+  const payload = access ? { shareId, annotations, access } : { shareId, annotations };
   const { stderr, code } = await runShareSsh(
     "cueloop-push",
-    Buffer.from(JSON.stringify({ shareId, annotations })),
+    Buffer.from(JSON.stringify(payload)),
     target,
   );
 
   if (code !== 0) throw new Error(`gateway push failed: ${stderr.trim() || `ssh exited ${code}`}`);
+}
+
+/** Revoke a share: the gateway deletes the blob so its link stops resolving. Owner-gated; idempotent. */
+export async function revokeShare(shareId: string, target: ShareTarget = {}): Promise<void> {
+  const { stderr, code } = await runShareSsh("cueloop-revoke", Buffer.from(shareId), target);
+
+  if (code !== 0)
+    throw new Error(`gateway revoke failed: ${stderr.trim() || `ssh exited ${code}`}`);
 }
 
 export interface ShareWatchHandlers {

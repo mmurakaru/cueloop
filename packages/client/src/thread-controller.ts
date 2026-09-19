@@ -1,5 +1,5 @@
 /**
- * The review-session controller: every daemon round-trip and mutation
+ * The thread controller: every daemon round-trip and mutation
  * primitive behind one React-free object. It owns connect/autostart/subscribe,
  * the session/inbox/status/error snapshot, optimistic apply, the mutation
  * primitives (cut/edit/annotate/submit/...), and the post-submit completion
@@ -8,6 +8,7 @@
  */
 
 import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
+import { createStore, type StoreApi } from "zustand/vanilla";
 import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
 import {
   applyPathView,
@@ -25,11 +26,14 @@ import {
   restoreLine,
   returnPaneFor,
   switchBranch,
+  threadShareLinks,
   viewOfPath,
   type Anchor,
   type Annotation,
   type AnnotationTarget,
+  type Artifact,
   type DiffFileContents,
+  type ShareLink,
   type Thread,
   type SessionHistory,
   type VerdictKind,
@@ -41,13 +45,23 @@ import {
   publishShare,
   pullShare,
   pushShare,
+  revokeShare,
   watchShare,
   shareIdFromLine,
+  formatShareLine,
 } from "./share";
 import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
-import { diffRowBlocks, diffRows, fileChangeCounts, fileRowRange, type DiffRow } from "./view-diff";
+import {
+  diffRowBlocks,
+  diffRows,
+  fileChangeCounts,
+  fileRowRange,
+  readsFrozenDiff,
+  type DiffRow,
+} from "./view-diff";
 import { applyFold } from "./diff-fold";
+import { snapshotWorkbench } from "./workbench-snapshot";
 import { copyToClipboard } from "./clipboard";
 import {
   changeRejectionForRow,
@@ -123,6 +137,41 @@ function planCutId(base: { lineStart: number; lineEnd: number }): string {
   return `plan:${base.lineStart}-${base.lineEnd}`;
 }
 
+/**
+ * Whether two records of the same thread yield the same document projection (display, rows, files,
+ * models). Those derive only from the artifact content and the working copy, so an update that
+ * touched only annotations, status, or the verdict leaves them identical - the projection can be
+ * reused rather than re-parsed. Content and working copy are strings, compared here by value.
+ */
+export function sameDerivationInputs(previous: Thread, next: Thread): boolean {
+  return (
+    previous.id === next.id &&
+    previous.artifact.content === next.artifact.content &&
+    previous.workingCopy === next.workingCopy
+  );
+}
+
+/**
+ * The session with `annotation` upserted, for an optimistic paint the instant the composer closes
+ * rather than after the daemon round-trip - otherwise a saved comment blinks out until the write
+ * lands. An edit keeps the note in place and its timestamp; a new note appends. The daemon's record
+ * replaces this guess when the write returns.
+ */
+export function withAnnotationUpserted(
+  session: Thread,
+  annotation: Omit<Annotation, "createdAt">,
+): Thread {
+  const index = session.annotations.findIndex((entry) => entry.id === annotation.id);
+  const createdAt = index >= 0 ? session.annotations[index]!.createdAt : new Date().toISOString();
+  const optimistic: Annotation = { ...annotation, createdAt };
+  const annotations =
+    index >= 0
+      ? session.annotations.map((entry) => (entry.id === annotation.id ? optimistic : entry))
+      : [...session.annotations, optimistic];
+
+  return { ...session, annotations };
+}
+
 export interface ControllerSnapshot {
   session: Thread | null;
   inbox: Thread[] | null;
@@ -147,8 +196,10 @@ export interface ShareTransport {
   publish: typeof publishShare;
   pull: typeof pullShare;
   push: typeof pushShare;
+  revoke: typeof revokeShare;
   watch: typeof watchShare;
   parseShareId: typeof shareIdFromLine;
+  formatShareLine: typeof formatShareLine;
   collaboratorAnnotations: typeof collaboratorAnnotations;
   mergeFromShare: typeof mergeFromShare;
 }
@@ -158,10 +209,19 @@ const DEFAULT_SHARE_TRANSPORT: ShareTransport = {
   pull: pullShare,
   watch: watchShare,
   push: pushShare,
+  revoke: revokeShare,
   parseShareId: shareIdFromLine,
+  formatShareLine,
   collaboratorAnnotations,
   mergeFromShare,
 };
+
+/** The editable fields of a share link, as the share wizard collects them. */
+export interface NewShareLink {
+  name?: string;
+  requireAuth: boolean;
+  allowlist: string[];
+}
 
 export interface ReviewControllerOptions {
   home?: string;
@@ -180,6 +240,8 @@ export interface ReviewControllerOptions {
    */
   openClient?: () => Promise<SessionClient>;
   shareTransport?: ShareTransport;
+  /** Serve mode: pin this frozen diff onto the served thread so an observer sees a stable snapshot. */
+  servedArtifact?: Artifact;
 }
 
 export interface ReviewController {
@@ -268,6 +330,14 @@ export interface ReviewController {
    * first write a browse-only launch makes - nothing is on disk until it runs.
    */
   commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void>;
+  /** As commentOnWorkbench, for a note drawn on the bare-launch Changes diff (row coords, file target). */
+  commentOnWorkbenchDiff(
+    displayIndex: number,
+    start: number,
+    end: number,
+    endDisplayIndex: number,
+    body: string,
+  ): Promise<void>;
   /**
    * Reply to `rootAnnotationId`: the reply shares the root's anchor and names
    * it in replyTo, so the discussion stays one conversation. Returns the minted id.
@@ -288,8 +358,22 @@ export interface ReviewController {
   walkLeave(): void;
   /** Resolve the review, run the export, start the completion hand-back. */
   submit(verdict: VerdictKind, summary: string): void;
-  /** Publish the current session as a share; the ssh line lands on the clipboard. */
+  /** Publish the current session as a public share link; the ssh line lands on the clipboard. */
   share(): void;
+  /** Stop sharing the current session, revoking every link at the gateway. Owner only. */
+  unshare(): void;
+  /** Replace the private-share allowlist of GitHub logins for the current session. Owner only. */
+  setShareAccess(githubLogins: string[]): void;
+  /** The current thread's share links (a legacy single share migrates to a one-element list). */
+  shareLinks(): ShareLink[];
+  /** Publish a new share link with the given name and auth; the ssh line lands on the clipboard. Owner only. */
+  createShareLink(input: NewShareLink): void;
+  /** Update a link's name and auth in place, re-pushing its access to the gateway. Owner only. */
+  updateShareLink(id: string, input: NewShareLink): void;
+  /** Revoke a link and remove it from the thread. Owner only. */
+  deleteShareLink(id: string): void;
+  /** Copy a link's ssh line to the clipboard. */
+  copyShareLink(id: string): void;
   /** The session tree as rows for the rail's Tree tab, cached per session identity. */
   treeRows(): TreeRow[];
   /**
@@ -324,6 +408,9 @@ interface DerivedSessionProjection {
   display: DisplayBlock[];
   rows: DiffRow[];
   files: WalkFile[];
+  /** Raw per-file contents; parsed into a model lazily on first curation touch, not all upfront. */
+  fileContents: Map<string, DiffFileContents>;
+  /** Parsed file models, filled on demand from fileContents and memoized here. */
   models: Map<string, FileDiffMetadata>;
   tree: TreeRow[];
 }
@@ -334,11 +421,21 @@ interface LiveWorkingDiff {
   files: readonly DiffFileContents[];
 }
 
+interface DerivedCacheEntry {
+  derivedFor: Thread;
+  derivedForLiveDiff: LiveWorkingDiff | null;
+  derived: DerivedSessionProjection;
+}
+
+/** Recently-viewed threads whose parsed projection is kept for an instant return; oldest evicted first. */
+const DERIVED_CACHE_LIMIT = 8;
+
 class Controller implements ReviewController {
   readonly readOnly: boolean;
   private client: SessionClient | null = null;
   private closed = false;
-  private snapshot: ControllerSnapshot = {
+  /** The controller's state lives in a zustand store; internal reads go through the snapshot getter. */
+  private readonly store: StoreApi<ControllerSnapshot> = createStore<ControllerSnapshot>(() => ({
     session: null,
     inbox: null,
     status: "",
@@ -347,8 +444,10 @@ class Controller implements ReviewController {
     completion: { phase: "idle" },
     editOrphanCount: 0,
     walk: null,
-  };
-  private listeners = new Set<() => void>();
+  }));
+  private get snapshot(): ControllerSnapshot {
+    return this.store.getState();
+  }
   private autoClose: AutoClose = "off";
   private quickActions: QuickAction[] = [];
   private editor: string | undefined;
@@ -368,9 +467,14 @@ class Controller implements ReviewController {
     display: [],
     rows: [],
     files: [],
+    fileContents: new Map(),
     models: new Map(),
     tree: [],
   };
+  /** Recently-viewed threads' parsed projections, so returning to a thread reuses its work instead of re-parsing. */
+  private derivedCache = new Map<string, DerivedCacheEntry>();
+  /** The thread the view is on now; a revalidation for a since-abandoned thread is discarded. */
+  private viewingId: string | undefined;
   /** File paths whose diff body is folded to just the file band. */
   private collapsedFiles = new Set<string>();
   /** File paths woven to their full contents (unchanged lines shown as context). */
@@ -386,17 +490,21 @@ class Controller implements ReviewController {
     this.shareTransport = options.shareTransport ?? DEFAULT_SHARE_TRANSPORT;
   }
 
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener);
+  subscribe = (listener: () => void): (() => void) => this.store.subscribe(listener);
 
-    return () => this.listeners.delete(listener);
-  };
-
-  getSnapshot = (): ControllerSnapshot => this.snapshot;
+  getSnapshot = (): ControllerSnapshot => this.store.getState();
 
   private update(patch: Partial<ControllerSnapshot>): void {
-    this.snapshot = { ...this.snapshot, ...patch };
-    for (const listener of this.listeners) listener();
+    this.store.setState(this.freezeServed(patch));
+  }
+
+  /** Serve mode pins the served thread's diff to a snapshot; its annotations and the rest stay live. */
+  private freezeServed(patch: Partial<ControllerSnapshot>): Partial<ControllerSnapshot> {
+    const served = this.options.servedArtifact;
+
+    if (!served || !patch.session || patch.session.id !== this.options.sessionId) return patch;
+
+    return { ...patch, session: { ...patch.session, artifact: served } };
   }
 
   connect(): void {
@@ -423,6 +531,7 @@ class Controller implements ReviewController {
         const inbox = await client.sessionList({ status: "pending" });
 
         if (this.options.sessionId) {
+          this.viewingId = this.options.sessionId;
           this.update({ session: await client.sessionGet(this.options.sessionId), inbox });
         } else {
           this.update({ inbox });
@@ -468,41 +577,125 @@ class Controller implements ReviewController {
   }
 
   // ── derived projections ─────────────────────
-  private ensureDerived(): void {
-    const session = this.snapshot.session;
-    const isDiff = session?.artifact.type === "diff";
-    // a diff thread reads its pinned capture; every other thread reflects the live working tree
-    const liveDiff = isDiff ? null : this.liveDiff;
+  /**
+   * The projection reuses when the same thread's derivation inputs are unchanged. display, rows,
+   * files, and models derive only from the artifact and working copy - never from annotations,
+   * status, or the verdict - so an update that touched only those produces an all-new session
+   * record but an identical projection.
+   */
+  private reusesDerived(session: Thread, liveDiff: LiveWorkingDiff | null): boolean {
+    return (
+      this.derivedFor !== null &&
+      this.derivedForLiveDiff === liveDiff &&
+      sameDerivationInputs(this.derivedFor, session)
+    );
+  }
 
-    if (this.derivedFor === session && this.derivedForLiveDiff === liveDiff) return;
-    // fold state belongs to the session, so a live-tree refresh keeps it; only a new session resets it
-    if (this.derivedFor !== session) {
-      this.collapsedFiles.clear();
-      this.expandedFiles.clear();
-    }
-    this.derivedFor = session;
-    this.derivedForLiveDiff = liveDiff;
-
-    const content = isDiff ? session!.artifact.content : (liveDiff?.patch ?? "");
-    const files = isDiff ? (session?.artifact.files ?? []) : (liveDiff?.files ?? []);
+  private buildDerived(
+    session: Thread | null,
+    frozenDiff: boolean,
+    liveDiff: LiveWorkingDiff | null,
+  ): DerivedSessionProjection {
+    const content = frozenDiff ? session!.artifact.content : (liveDiff?.patch ?? "");
+    const files = frozenDiff ? (session?.artifact.files ?? []) : (liveDiff?.files ?? []);
     const rows = content ? diffRows(content) : [];
-    const models = new Map<string, FileDiffMetadata>();
+    const fileContents = new Map<string, DiffFileContents>();
 
-    for (const file of files) models.set(file.path, parseFileDiff(file));
-    this.derived = {
+    for (const file of files) fileContents.set(file.path, file);
+
+    return {
       display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
       rows,
       files: walkFiles(rows),
-      models,
+      fileContents,
+      models: new Map<string, FileDiffMetadata>(),
       tree: session?.history ? treeRows(session.history) : [],
     };
+  }
+
+  /** The parsed model for a changed file, computed on first touch and memoized in the projection. */
+  private fileModel(path: string): FileDiffMetadata | undefined {
+    const cached = this.derived.models.get(path);
+
+    if (cached) return cached;
+    const contents = this.derived.fileContents.get(path);
+
+    if (!contents) return undefined;
+    const model = parseFileDiff(contents);
+
+    this.derived.models.set(path, model);
+
+    return model;
+  }
+
+  private ensureDerived(): void {
+    const session = this.snapshot.session;
+    const frozenDiff = readsFrozenDiff(session);
+    // a plain diff thread reads its pinned capture; a workbench thread and every other thread reflect the live working tree
+    const liveDiff = frozenDiff ? null : this.liveDiff;
+
+    if (this.derivedFor === session && this.derivedForLiveDiff === liveDiff) return;
+    // reuse the parsed projection across an update that left the inputs unchanged; only the cheap tree can differ
+    if (session !== null && this.reusesDerived(session, liveDiff)) {
+      this.derivedFor = session;
+      this.derived = { ...this.derived, tree: session.history ? treeRows(session.history) : [] };
+
+      return;
+    }
+    // a different thread resets fold state; a same-thread re-derivation (content edit) keeps it
+    if (this.derivedFor?.id !== session?.id) {
+      this.collapsedFiles.clear();
+      this.expandedFiles.clear();
+    }
+    // returning to a recently-viewed thread whose inputs are unchanged reuses its parsed projection
+    const cached = session !== null ? this.derivedCache.get(session.id) : undefined;
+
+    if (
+      cached &&
+      cached.derivedForLiveDiff === liveDiff &&
+      sameDerivationInputs(cached.derivedFor, session!)
+    ) {
+      this.derivedFor = session;
+      this.derivedForLiveDiff = liveDiff;
+      this.derived = {
+        ...cached.derived,
+        tree: session!.history ? treeRows(session!.history) : [],
+      };
+      this.rememberDerived(session!, liveDiff, this.derived);
+
+      return;
+    }
+    this.derivedFor = session;
+    this.derivedForLiveDiff = liveDiff;
+    this.derived = this.buildDerived(session, frozenDiff, liveDiff);
+    if (session !== null) this.rememberDerived(session, liveDiff, this.derived);
+  }
+
+  /** Keep the freshest projections per thread, evicting the least-recently-used past the cap. */
+  private rememberDerived(
+    session: Thread,
+    liveDiff: LiveWorkingDiff | null,
+    derived: DerivedSessionProjection,
+  ): void {
+    this.derivedCache.delete(session.id);
+    this.derivedCache.set(session.id, {
+      derivedFor: session,
+      derivedForLiveDiff: liveDiff,
+      derived,
+    });
+    while (this.derivedCache.size > DERIVED_CACHE_LIMIT) {
+      const oldest = this.derivedCache.keys().next().value;
+
+      if (oldest === undefined) break;
+      this.derivedCache.delete(oldest);
+    }
   }
 
   /** The per-file contents that back the current rows: a diff thread's capture, else the live working tree. */
   private foldFiles(): readonly DiffFileContents[] | undefined {
     const session = this.snapshot.session;
 
-    return session?.artifact.type === "diff" ? session.artifact.files : this.liveDiff?.files;
+    return readsFrozenDiff(session) ? session!.artifact.files : this.liveDiff?.files;
   }
 
   treeRows(): TreeRow[] {
@@ -614,15 +807,16 @@ class Controller implements ReviewController {
   }
 
   async repoChanges(): Promise<readonly DiffFileContents[]> {
-    // a diff review pins its captured snapshot; every other thread reflects the live working tree
+    // a plain diff review pins its captured snapshot; a workbench thread and every other thread reflect the live working tree
     const session = this.snapshot.session;
-    if (session?.artifact.type === "diff") return session.artifact.files ?? [];
+    if (readsFrozenDiff(session)) return session!.artifact.files ?? [];
     // eager: capture the live working-tree diff so the Changes navigator and its file tabs render a real diff
     if (this.client?.repoDiff !== undefined) {
       const diff = await this.client.repoDiff(this.sidebarRepoRoot());
-      // a thread switch during the request would let this response overwrite the new
-      // thread's diff, showing changes from the wrong repo; drop it when the session moved on
-      if (this.snapshot.session !== session) return diff.files;
+      // a thread switch during the request would let this response overwrite the new thread's diff,
+      // showing changes from the wrong repo; compare the thread id, not the object, so an unrelated
+      // re-render that replaced the snapshot for the SAME thread does not drop its diff to "No changes"
+      if (this.snapshot.session?.id !== session?.id) return diff.files;
       this.liveDiff = diff;
       // rows() derive from the fresh patch; re-render so an open diff tab repaints
       this.update({});
@@ -646,7 +840,11 @@ class Controller implements ReviewController {
   // surface that as an unhandled rejection.
   private async refreshSession(id: string): Promise<void> {
     try {
-      if (this.client) this.update({ session: await this.client.sessionGet(id) });
+      if (!this.client) return;
+      const session = await this.client.sessionGet(id);
+
+      // a rapid switch may have moved on during the fetch; never clobber the now-viewed thread
+      if (this.viewingId === session.id) this.update({ session });
     } catch (cause) {
       if (!this.closed) this.setStatus(cause instanceof Error ? cause.message : String(cause));
     }
@@ -688,20 +886,40 @@ class Controller implements ReviewController {
   // ── primitives ───────────────────────────────────
   open(id: string): void {
     this.locallyViewed.clear();
+    this.viewingId = id;
     const cached = this.snapshot.inbox?.find((candidate) => candidate.id === id);
 
+    // paint the sidebar copy at once for a snappy switch, then revalidate: the inbox
+    // copy trails the daemon for a live diff, whose session.updated refreshes the open
+    // thread but not the list, so a returned-to diff would otherwise show stale content
     if (cached) this.update({ session: cached });
-    else void this.refreshSession(id);
+    void this.refreshSession(id);
   }
 
   deleteSession(id: string): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
+    // a deleted thread's links must not outlive it; revoke every one first, best-effort, so an
+    // unreachable gateway never blocks the local delete (the blob's 30-day TTL is the backstop)
+    for (const link of this.linksFor(this.sessionRecord(id)))
+      void this.shareTransport.revoke(link.id).catch(() => {});
     this.client
       ?.sessionDelete(id)
-      .then(() => this.setStatus("plan deleted"))
+      .then(() => this.setStatus("thread deleted"))
       .catch((cause: unknown) =>
         this.setStatus(`delete failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
+  }
+
+  /** The record for a thread id, whether it is the open thread or a sidebar row. */
+  private sessionRecord(id: string): Thread | undefined {
+    if (this.snapshot.session?.id === id) return this.snapshot.session;
+
+    return this.snapshot.inbox?.find((candidate) => candidate.id === id);
+  }
+
+  /** A thread's share links, migrating a legacy single share; empty when never shared. */
+  private linksFor(session: Thread | null | undefined): ShareLink[] {
+    return session ? (threadShareLinks(session) ?? []) : [];
   }
 
   renameSession(id: string, title: string): void {
@@ -790,7 +1008,7 @@ class Controller implements ReviewController {
 
       return null;
     }
-    const model = this.derived.models.get(row.file);
+    const model = this.fileModel(row.file);
 
     if (!model) return null;
 
@@ -853,13 +1071,26 @@ class Controller implements ReviewController {
     this.applyOptimistic(expected, this.client!.sessionCurate(session.id, rejections));
   }
 
+  setShareAccess(githubLogins: string[]): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
+    // legacy single-allowlist entry point: apply it to the thread's primary link
+    const primary = this.linksFor(this.snapshot.session)[0];
+
+    if (!primary) return;
+    this.updateShareLink(primary.id, {
+      name: primary.name,
+      requireAuth: true,
+      allowlist: githubLogins,
+    });
+  }
+
   rejectedRows(): Set<number> {
     this.ensureDerived();
     if (!this.rejections.length) return EMPTY_REJECTED_ROWS;
     const rejected = new Set<number>();
 
     this.derived.rows.forEach((row, index) => {
-      const model = this.derived.models.get(row.file);
+      const model = this.fileModel(row.file);
 
       if (model && isRowRejected(row.file, model, row, this.rejections)) rejected.add(index);
     });
@@ -936,7 +1167,7 @@ class Controller implements ReviewController {
 
   /** The change/deletion rows a rejection covers, for its preview and reveal row. */
   private rowsForRejection(rejection: HunkRejection): DiffRow[] {
-    const model = this.derived.models.get(rejection.path);
+    const model = this.fileModel(rejection.path);
 
     if (!model) return [];
     const rows: DiffRow[] = [];
@@ -1051,7 +1282,7 @@ class Controller implements ReviewController {
         : { id: newAnnotationId(), kind, anchor, body, target: resolvedTarget };
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1067,30 +1298,53 @@ class Controller implements ReviewController {
         : { id: newAnnotationId(), kind: "comment", anchor, body, target };
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
   }
 
-  async commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void> {
-    if (!this.snapshot.session) {
-      if (this.client?.sessionWorkbench === undefined) return;
-      let workbench;
+  /** Find-or-create the per-repo workbench thread and adopt it as active; true once a session exists. */
+  private async ensureWorkbenchSession(): Promise<boolean> {
+    if (this.snapshot.session) return true;
+    if (this.client?.sessionWorkbench === undefined) return false;
+    let workbench;
 
-      try {
-        workbench = await this.client.sessionWorkbench(this.options.cwd ?? process.cwd());
-      } catch (cause) {
-        // the composer already closed, so a lost first comment must at least surface, not vanish
-        this.setStatus(String(cause instanceof Error ? cause.message : cause));
+    try {
+      workbench = await this.client.sessionWorkbench(this.options.cwd ?? process.cwd());
+    } catch (cause) {
+      // the composer already closed, so a lost first comment must at least surface, not vanish
+      this.setStatus(String(cause instanceof Error ? cause.message : cause));
 
-        return;
-      }
-      // adopt the thread as active (the shell flips to the thread view) and let the inbox catch up
-      this.update({ session: workbench });
-      void this.refreshInbox();
+      return false;
     }
+    // adopt the thread as active (the shell flips to the thread view) and let the inbox catch up
+    this.update({ session: workbench });
+    void this.refreshInbox();
+
+    return true;
+  }
+
+  async commentOnWorkbench(anchor: Anchor, target: AnnotationTarget, body: string): Promise<void> {
+    if (!(await this.ensureWorkbenchSession())) return;
     this.addComment(anchor, target, body);
+  }
+
+  /** A first comment on the bare-launch Changes diff: promote to the workbench thread, then anchor it in the diff rows. */
+  async commentOnWorkbenchDiff(
+    displayIndex: number,
+    start: number,
+    end: number,
+    endDisplayIndex: number,
+    body: string,
+  ): Promise<void> {
+    if (!(await this.ensureWorkbenchSession())) return;
+    // annotate re-derives the file path and rev from the diff row it lands on
+    this.annotate("comment", displayIndex, start, end, body, endDisplayIndex, {
+      kind: "file",
+      path: "",
+      rev: "worktree",
+    });
   }
 
   reply(rootAnnotationId: string, body: string): string | undefined {
@@ -1110,7 +1364,7 @@ class Controller implements ReviewController {
     const wire = root.target ? { ...base, target: root.target } : base;
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1124,7 +1378,7 @@ class Controller implements ReviewController {
     const wire = { id: newAnnotationId(), kind: "comment", anchor, body };
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
 
     return wire.id;
@@ -1149,9 +1403,8 @@ class Controller implements ReviewController {
     if (existing.replyTo !== undefined) wire.replyTo = existing.replyTo;
     const persisted = this.client!.sessionComment(session.id, wire);
 
-    this.apply(persisted);
+    this.applyOptimistic(withAnnotationUpserted(session, wire), persisted);
     this.mirrorAnnotation(persisted, wire);
-    this.setStatus("annotation updated");
   }
 
   // push only after the local write lands, so a rejected write never leaks to the share
@@ -1160,12 +1413,16 @@ class Controller implements ReviewController {
     annotation: Omit<Annotation, "createdAt">,
   ): void {
     const session = this.snapshot.session;
-    const shareId = session?.shareId;
+    const branch = session?.history?.branch;
+    // each link follows one branch: a note lands on the links whose branch is the one being edited
+    const links = this.linksFor(session).filter(
+      (link) => branch === undefined || branch === (link.shareBranch ?? MAIN_BRANCH),
+    );
 
-    if (!shareId) return;
-    // the share follows one branch: a note left on another stays the owner's
-    if (session.history && session.history.branch !== (session.shareBranch ?? MAIN_BRANCH)) return;
-    void persisted.then(() => this.shareTransport.push(shareId, [annotation])).catch(() => {});
+    if (links.length === 0) return;
+    void persisted
+      .then(() => Promise.all(links.map((link) => this.shareTransport.push(link.id, [annotation]))))
+      .catch(() => {});
   }
 
   removeAnnotation(id: string): void {
@@ -1270,24 +1527,126 @@ class Controller implements ReviewController {
       );
   }
 
+  /** A workbench thread renders live locally; freeze its diff so a remote reviewer gets a stable snapshot. */
+  private freezeForShare(session: Thread): Promise<Thread> {
+    const repoDiff = this.client?.repoDiff;
+
+    return repoDiff
+      ? snapshotWorkbench(session, (root) => repoDiff.call(this.client, root))
+      : Promise.resolve(session);
+  }
+
   share(): void {
+    this.createShareLink({ requireAuth: false, allowlist: [] });
+  }
+
+  shareLinks(): ShareLink[] {
+    return this.linksFor(this.snapshot.session);
+  }
+
+  createShareLink(input: NewShareLink): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
     const session = this.snapshot.session;
 
-    if (!session) return;
-    this.setStatus("sharing…");
-    this.shareTransport
-      .publish(session)
-      .then(async ({ line, copied }) => {
-        // Stamp the id back so a later pull knows which share to collect from.
-        const shareId = this.shareTransport.parseShareId(line);
+    if (!session || !this.client) return;
+    const client = this.client;
+    const shareBranch = session.history?.branch ?? MAIN_BRANCH;
 
-        if (shareId && this.client) await this.client.sessionSetShareId(session.id, shareId);
+    this.setStatus("sharing…");
+    this.freezeForShare(session)
+      .then((shared) => {
+        // bake this link's access into its own blob: an allowlist gates it, absent = public
+        const access = input.requireAuth ? { githubLogins: input.allowlist } : undefined;
+
+        return this.shareTransport.publish({ ...shared, access, shareBranch });
+      })
+      .then(async ({ line, copied }) => {
+        const id = this.shareTransport.parseShareId(line);
+
+        if (!id) throw new Error("gateway returned no share id");
+        const link: ShareLink = {
+          id,
+          name: input.name?.trim() || undefined,
+          requireAuth: input.requireAuth,
+          allowlist: input.requireAuth ? input.allowlist : [],
+          shareBranch,
+        };
+
+        await client.sessionSetShares(session.id, [...this.linksFor(this.snapshot.session), link]);
         this.setStatus("");
-        this.showToast(line, copied ? "share link copied" : "share link");
+        this.showToast(line, copied ? "link copied" : "link created");
       })
       .catch((cause: unknown) =>
         this.setStatus(`share failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
+  }
+
+  updateShareLink(id: string, input: NewShareLink): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
+    const session = this.snapshot.session;
+
+    if (!session || !this.client) return;
+    const links = this.linksFor(session);
+
+    if (!links.some((link) => link.id === id)) return;
+    const allowlist = input.requireAuth ? input.allowlist : [];
+    // re-push the link's access to its blob: an allowlist for private, "public" clears it
+    void this.shareTransport
+      .push(id, [], input.requireAuth ? { githubLogins: allowlist } : "public")
+      .catch(() => {});
+    const next = links.map((link) =>
+      link.id === id
+        ? {
+            ...link,
+            name: input.name?.trim() || undefined,
+            requireAuth: input.requireAuth,
+            allowlist,
+          }
+        : link,
+    );
+
+    this.applyOptimistic(
+      { ...session, shares: next },
+      this.client.sessionSetShares(session.id, next),
+    );
+    this.setStatus("link updated");
+  }
+
+  deleteShareLink(id: string): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
+    const session = this.snapshot.session;
+
+    if (!session || !this.client) return;
+    const remaining = this.linksFor(session).filter((link) => link.id !== id);
+
+    void this.shareTransport.revoke(id).catch(() => {});
+    this.applyOptimistic(
+      { ...session, shares: remaining },
+      this.client.sessionSetShares(session.id, remaining),
+    );
+    this.setStatus("link revoked");
+  }
+
+  copyShareLink(id: string): void {
+    const line = this.shareTransport.formatShareLine(id);
+
+    void copyToClipboard(line).then((copied) =>
+      this.showToast(line, copied ? "link copied" : "link"),
+    );
+  }
+
+  /** Stop sharing the open thread: revoke every link so none of them resolve. */
+  unshare(): void {
+    if (this.readOnly) return this.setStatus("observer - read-only");
+    const session = this.snapshot.session;
+    const links = this.linksFor(session);
+
+    if (!session || links.length === 0) return this.setStatus("this thread is not shared");
+    this.stopShareSync();
+    void Promise.all(links.map((link) => this.shareTransport.revoke(link.id).catch(() => {})))
+      .then(() => this.setStatus("sharing stopped"))
+      .catch(() => {});
+    void this.client?.sessionSetShares(session.id, []).catch(() => {});
   }
 
   goToEntry(entryId: string, summary?: string): void {
@@ -1373,10 +1732,15 @@ class Controller implements ReviewController {
     client
       .sessionFork(session.id)
       .then(async (fork) => {
-        const { line, copied } = await this.shareTransport.publish(fork);
-        const shareId = this.shareTransport.parseShareId(line);
+        const shareBranch = fork.history?.branch ?? MAIN_BRANCH;
+        const shared = await this.freezeForShare(fork);
+        const { line, copied } = await this.shareTransport.publish({ ...shared, shareBranch });
+        const id = this.shareTransport.parseShareId(line);
 
-        if (shareId) await client.sessionSetShareId(fork.id, shareId);
+        if (id)
+          await client.sessionSetShares(fork.id, [
+            { id, requireAuth: false, allowlist: [], shareBranch },
+          ]);
         this.setStatus("");
         this.showToast(line, copied ? "fork shared - link copied" : "fork shared");
       })
@@ -1407,14 +1771,19 @@ class Controller implements ReviewController {
    * event path. Best-effort: a failed refresh is silent.
    */
   pullShared(): Promise<void> {
-    const session = this.snapshot.session;
+    const links = this.linksFor(this.snapshot.session);
 
-    if (!session?.shareId) return Promise.resolve();
+    if (links.length === 0) return Promise.resolve();
 
-    return this.shareTransport
-      .pull(session.shareId)
-      .then((remote) => this.mergeShared(remote))
-      .catch(() => {});
+    // pull every link's blob and union its collaborator notes back in
+    return Promise.all(
+      links.map((link) =>
+        this.shareTransport
+          .pull(link.id)
+          .then((remote) => this.mergeShared(remote))
+          .catch(() => {}),
+      ),
+    ).then(() => {});
   }
 
   private mergeShared(remote: Thread): Promise<void> {
@@ -1429,9 +1798,10 @@ class Controller implements ReviewController {
   }
 
   /**
-   * Follow the share live while it is open: one watch stream delivers every
-   * change as it lands; a pull on each (re)connect catches up on anything
-   * missed while the link was down, and a dropped link reconnects with
+   * Follow the thread's shares live while it is open. To bound idle cost at one
+   * connection per open thread (not one per link), a single watch stream follows
+   * the primary link for instant updates, while a pull on each (re)connect
+   * catches up every link's collaborator notes. A dropped link reconnects with
    * backoff. Returns a stop handle the caller runs on leave.
    */
   startShareSync(): () => void {
@@ -1442,7 +1812,7 @@ class Controller implements ReviewController {
 
     this.shareRun = run;
     const connect = (): void => {
-      const shareId = this.snapshot.session?.shareId;
+      const shareId = this.linksFor(this.snapshot.session)[0]?.id;
 
       if (this.shareRun !== run || this.closed || !shareId) return;
       void this.pullShared();

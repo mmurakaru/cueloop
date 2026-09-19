@@ -385,6 +385,11 @@ export class DaemonServer {
 
       return this.core.sessionCurate(params.id, params.rejections);
     },
+    "session.setAccess": (_connection, request) => {
+      const params = parseParams("session.setAccess", request.params);
+
+      return this.core.sessionSetAccess(params.id, params.githubLogins);
+    },
     "session.setViewed": (_connection, request) => {
       const params = parseParams("session.setViewed", request.params);
 
@@ -424,6 +429,11 @@ export class DaemonServer {
       const params = parseParams("session.setShareId", request.params);
 
       return this.core.sessionSetShareId(params.id, params.shareId);
+    },
+    "session.setShares": (_connection, request) => {
+      const params = parseParams("session.setShares", request.params);
+
+      return this.core.sessionSetShares(params.id, params.shares);
     },
     "session.delete": (_connection, request) => {
       this.core.sessionDelete(parseParams("session.delete", request.params).id);

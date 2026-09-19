@@ -15,7 +15,9 @@ export interface StoryMeta {
 }
 
 export interface Story {
-  render: () => React.ReactNode;
+  render?: () => React.ReactNode;
+  /** Raw ANSI to paint through AnsiScreen instead of a React tree; exactly one of render or ansi is set. */
+  ansi?: () => string;
   /**
    * Colors (hex tokens) that must appear among the rendered frame's styled
    * spans - the color regression net for color-bearing stories.
@@ -25,18 +27,21 @@ export interface Story {
   size?: { width: number; height: number };
 }
 
+export type StorySection = "App" | "SSH";
+
 export interface LoadedStory {
+  section: StorySection;
   moduleTitle: string;
   storyName: string;
   story: Story;
 }
 
 export function isStory(value: unknown): value is Story {
+  if (typeof value !== "object" || value === null) return false;
+
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "render" in value &&
-    typeof value.render === "function"
+    ("render" in value && typeof value.render === "function") ||
+    ("ansi" in value && typeof value.ansi === "function")
   );
 }
 
@@ -49,22 +54,34 @@ function isStoryMeta(value: unknown): value is StoryMeta {
   );
 }
 
-/** Import every *.stories.tsx next to the components and flatten the exports. */
-export async function loadStories(): Promise<LoadedStory[]> {
-  const glob = new Bun.Glob("**/*.stories.tsx");
-  const files = [...glob.scanSync({ cwd: import.meta.dir })].sort();
-  const loaded: LoadedStory[] = [];
+const GATEWAY_SRC_DIR = `${import.meta.dir}/../../../gateway/src`;
+
+async function collectStories(
+  dir: string,
+  pattern: string,
+  section: StorySection,
+  loaded: LoadedStory[],
+): Promise<void> {
+  const glob = new Bun.Glob(pattern);
+  const files = [...glob.scanSync({ cwd: dir })].sort();
 
   for (const file of files) {
-    const moduleExports = await import(`${import.meta.dir}/${file}`);
+    const moduleExports = await import(`${dir}/${file}`);
     const meta = moduleExports["meta"];
-    const moduleTitle = isStoryMeta(meta) ? meta.title : file.replace(/\.stories\.tsx$/, "");
+    const moduleTitle = isStoryMeta(meta) ? meta.title : file.replace(/\.stories\.tsx?$/, "");
 
     for (const [exportName, exported] of Object.entries(moduleExports)) {
       if (exportName === "meta" || !isStory(exported)) continue;
-      loaded.push({ moduleTitle, storyName: exportName, story: exported });
+      loaded.push({ section, moduleTitle, storyName: exportName, story: exported });
     }
   }
+}
+
+export async function loadStories(): Promise<LoadedStory[]> {
+  const loaded: LoadedStory[] = [];
+
+  await collectStories(import.meta.dir, "**/*.stories.tsx", "App", loaded);
+  await collectStories(GATEWAY_SRC_DIR, "**/*.stories.ts", "SSH", loaded);
 
   return loaded;
 }
@@ -102,11 +119,11 @@ export function buildStoryTree(stories: LoadedStory[]): TreeNode[] {
   const roots: TreeNode[] = [];
   const foldersByPath = new Map<string, StoryTreeFolder>();
 
-  for (const { moduleTitle, storyName } of stories) {
+  for (const { section, moduleTitle, storyName } of stories) {
     let siblings = roots;
     let path = "";
 
-    for (const segment of moduleTitle.split("/")) {
+    for (const segment of [section, ...moduleTitle.split("/")]) {
       path = path === "" ? segment : `${path}/${segment}`;
       let folder = foldersByPath.get(path);
       if (folder === undefined) {

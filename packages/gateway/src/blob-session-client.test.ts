@@ -107,6 +107,26 @@ describe("collaborator write-back", () => {
     ]);
   });
 
+  test("a verified github identity persists on the participant when they comment", async () => {
+    // Arrange
+    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), {
+      ...writeBack,
+      participantName: "Robin",
+      participantSource: { provider: "github", handle: "robin" },
+    });
+
+    // Act
+    const after = await client.sessionAnnotate("ses_1", NOTE("a_collab", "looks risky"));
+
+    // Assert
+    expect(after.participants).toEqual([
+      { id: "SHA256:collab", provider: "github", name: "Robin", handle: "robin" },
+    ]);
+    expect((await storedSession()).participants).toEqual([
+      { id: "SHA256:collab", provider: "github", name: "Robin", handle: "robin" },
+    ]);
+  });
+
   test("editing their own note rewrites it in place", async () => {
     // Arrange
     const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);

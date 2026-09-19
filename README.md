@@ -22,14 +22,14 @@ A terminal-first multiplayer thread for agent-authored work.
 ## Install
 
 ```bash
-npm i -g cueloop@alpha
+curl -fsSL https://cueloop.dev/install.sh | sh
 cueloop --help
 ```
 
 [releases](https://github.com/mmurakaru/cueloop/releases) - [changelog](./packages/cli/CHANGELOG.md)
 
 
-Claude Code plugin (`/cueloop:plan`, `/cueloop:diff`, `/cueloop:review`):
+Claude Code plugin (`/cueloop:reply`, `/cueloop:plan`, `/cueloop:diff`, `/cueloop:review`):
 
 ```
 /plugin marketplace add mmurakaru/cueloop
