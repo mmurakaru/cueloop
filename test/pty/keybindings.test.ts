@@ -250,15 +250,19 @@ describe("thread view chords in a diff review", () => {
   });
 
   ptyTest(
-    "⌃s opens the share choice from the diff view; public reports the gateway failure",
+    "⌃s opens the share dialog; creating a link reports the gateway failure",
     async () => {
-      // Act + Assert - the choice reaches the keyboard from any view; picking public publishes,
-      // and the harness's failing ssh surfaces its stderr in the toast
-      await pressChord(session, "thread", "⌃s", "public link");
+      // Act + Assert - the dialog reaches the keyboard from any view; the new-link wizard
+      // publishes, and the harness's failing ssh surfaces its stderr in the toast
+      await pressChord(session, "thread", "⌃s", "+ new link");
+      await session.press("enter"); // step into the links body
+      await session.pressAndWaitForScreen("enter", (screen) => screen.includes("link name"), {
+        what: "the new-link wizard",
+      });
       const failure = `share failed: gateway upload failed: ${OFFLINE_SSH_MESSAGE}`;
       await session.pressAndWaitForScreen("enter", (screen) => screen.includes(failure), {
         timeoutMs: 10_000,
-        what: "the share failure toast after picking public",
+        what: "the share failure toast after creating the link",
       });
       await pressEscapeUntilGone(session, failure);
     },

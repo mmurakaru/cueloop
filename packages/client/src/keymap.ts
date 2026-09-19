@@ -87,7 +87,6 @@ export interface KeyState {
     | "submit"
     | "confirm"
     | "prompt"
-    | "shareChoice"
     | "spanActions"
     | "completion-prompt"
     | "completion-counting";

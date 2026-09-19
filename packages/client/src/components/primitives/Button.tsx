@@ -29,10 +29,14 @@ export function Button({
   children,
 }: ButtonProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const backgroundColor = variant === "solid" ? tokens.accent : undefined;
+  // a disabled solid button reads as muted, so it never looks like a live call to action
+  const backgroundColor =
+    variant === "solid" ? (isDisabled ? tokens.border : tokens.accent) : undefined;
   const foreground =
     variant === "solid"
-      ? tokens.accentInk
+      ? isDisabled
+        ? tokens.textMuted
+        : tokens.accentInk
       : variant === "accent-text"
         ? tokens.accent
         : tokens.textDim;

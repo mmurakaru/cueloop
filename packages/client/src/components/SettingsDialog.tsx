@@ -118,6 +118,7 @@ export function SettingsDialog({
             expandedIds={new Set<string>()}
             selectedId={category.id}
             hideIcons
+            selectedBackground={tokens.border}
             onSelect={onCategorySelect}
             onToggle={onCategorySelect}
             theme={theme}

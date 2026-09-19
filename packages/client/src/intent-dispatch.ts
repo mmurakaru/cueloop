@@ -40,7 +40,6 @@ export type Mode =
   | { type: "renameThread"; sessionId: string; text: string }
   | { type: "nameSelf"; text: string }
   | { type: "renameSelf"; text: string }
-  | { type: "shareChoice"; index: number }
   | { type: "treePrompt"; ask: TreeAsk; entryId?: string; text: string };
 
 /** What a tree prompt asks for: a branch name, a checkpoint name, or the summary a move back leaves. */
@@ -119,6 +118,8 @@ export interface IntentDispatchDeps {
   openCardEdit: (annotationId: string) => void;
   /** Flip split/stacked diff and persist it (App-owned); split lays out only when wide/zoomed. */
   toggleDiffView: () => void;
+  /** Open the share dialog (App-owned); the dialog owns its own keys and links. */
+  openShareDialog: () => void;
 }
 
 type IntentOfType<Kind extends Intent["type"]> = Extract<Intent, { type: Kind }>;
@@ -386,9 +387,9 @@ function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispa
   deps.setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
 }
 
-// share opens the public/private choice overlay; the App owns the choice keys and publishes on pick
+// share opens the share dialog; it owns its own keys, links list, and publish wizard
 function handleShare(_intent: IntentOfType<"share">, deps: IntentDispatchDeps): void {
-  deps.setMode({ type: "shareChoice", index: 0 });
+  deps.openShareDialog();
 }
 
 function handleCut(_intent: IntentOfType<"cut">, deps: IntentDispatchDeps): void {
