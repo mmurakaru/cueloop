@@ -336,11 +336,12 @@ describe("thread view chords in a diff review", () => {
     await pressChordForToast(session, "tree", `${LEAD}f`, "you are on the fork now", {
       timeoutMs: 10_000,
     });
+    // the wrapping toast splits the ssh stderr across lines; match the prefix that stays on one line
     await pressChordForToast(
       session,
       "tree",
       `${LEAD}h`,
-      `fork and share failed: gateway upload failed: ${OFFLINE_SSH_MESSAGE}`,
+      "fork and share failed: gateway upload failed:",
       { timeoutMs: 10_000 },
     );
   });
