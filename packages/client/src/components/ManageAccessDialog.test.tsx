@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DARK } from "../theme";
 import { clickText, locateTextInFrame, pressKey, settle, typeText } from "../test-support";
+import { NERD } from "./primitives/icons";
 import { ManageAccessDialog } from "./ManageAccessDialog";
 
 function AccessHarness({ initial }: { initial: string[] }): React.ReactNode {
@@ -41,10 +42,15 @@ describe("ManageAccessDialog", () => {
     expect(locateTextInFrame(frame, "@hubot")).not.toBeNull();
   });
 
-  test("clicking a row removes that handle from the allowlist", async () => {
+  test("hovering a handle chip reveals an × that removes it", async () => {
     const setup = await renderAccess(["octocat", "hubot"]);
 
-    await clickText(setup, "@octocat");
+    // hover the chip so its remove × appears, then click it
+    const chip = locateTextInFrame(setup.captureCharFrame(), "@octocat")!;
+
+    await setup.mockMouse.moveTo(chip.column, chip.row);
+    await settle(setup);
+    await clickText(setup, NERD.close);
 
     expect(locateTextInFrame(setup.captureCharFrame(), "@octocat")).toBeNull();
     expect(locateTextInFrame(setup.captureCharFrame(), "@hubot")).not.toBeNull();

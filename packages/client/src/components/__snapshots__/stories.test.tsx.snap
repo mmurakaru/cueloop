@@ -688,12 +688,12 @@ exports[`stories catalog Dialogs/ManageAccess/Empty renders, snapshots, and carr
                                                             
                                                             
       ┌─ Manage access ──────────────────────────────┐      
-      │ Only these GitHub users can open the         │      
-      │ private link.                                │      
+      │ Add collaborators GitHub handles             │      
       │                                              │      
       │                                              │      
       │                                              │      
       │ @handle                                      │      
+      │                                              │      
       │                                              │      
       │  create    cancel                            │      
       └──────────────────────────────────────────────┘      
@@ -709,14 +709,14 @@ exports[`stories catalog Dialogs/ManageAccess/WithHandles renders, snapshots, an
                                                             
                                                             
       ┌─ Manage access ──────────────────────────────┐      
-      │ Only these GitHub users can open the         │      
-      │ private link.                                │      
-      │                                              │      
-      │ @octocat                              remove │      
-      │ @hubot                                remove │      
+      │ Add collaborators GitHub handles             │      
       │                                              │      
       │                                              │      
-      │ @handle                                      │      
+      │                                              │      
+      │                                              │      
+      │  @octocat     @hubot    @handle              │      
+      │                                              │      
+      │                                              │      
       │                                              │      
       │  create    cancel                            │      
       └──────────────────────────────────────────────┘      
