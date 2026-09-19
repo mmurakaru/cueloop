@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonCore } from "./api";
@@ -225,6 +225,26 @@ describe("the fs watcher drives hot-reload", () => {
       content = core.sessionGet(session.id).artifact.content;
     }
     expect(content).toContain("+export const a = 42;");
+  }, 12_000);
+
+  test("watches a directory created after open, so a change inside it refreshes", async () => {
+    // Given an open diff session over a repo that had no such directory
+    const session = await openDiffSession();
+
+    // When a new directory appears, the watcher extends into it (a recursive watch got this free)
+    mkdirSync(join(repo, "pkg"));
+    await Bun.sleep(500);
+    writeFileSync(join(repo, "pkg", "inside.ts"), "export const inside = 1;\n");
+
+    // Then a change inside the new directory drives a re-capture
+    const deadline = Date.now() + 8_000;
+    let content = core.sessionGet(session.id).artifact.content;
+
+    while (!content.includes("+export const inside = 1;") && Date.now() < deadline) {
+      await Bun.sleep(100);
+      content = core.sessionGet(session.id).artifact.content;
+    }
+    expect(content).toContain("+export const inside = 1;");
   }, 12_000);
 
   test("a commit refreshes the diff even though no working-tree file changed", async () => {
