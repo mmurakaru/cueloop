@@ -756,26 +756,6 @@ exports[`stories catalog Surfaces/ProjectTreeView/Loaded renders, snapshots, and
 "
 `;
 
-exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, and carries its colors: Overlays/PromptDialog/NameYourself 1`] = `
-"                                                                
-                                                                
-                                                                
-                                                                
-                                                                
-     ┌─ welcome ──────────────────────────────────────────┐     
-     │                                                    │     
-     │ Your name (optional) - it attributes the notes     │     
-     │ you leave:                                         │     
-     │ your name                                          │     
-     │  save    cancel                                    │     
-     └────────────────────────────────────────────────────┘     
-                                                                
-                                                                
-                                                                
-                                                                
-"
-`;
-
 exports[`stories catalog Overlays/PromptDialog/RenameAuthor renders, snapshots, and carries its colors: Overlays/PromptDialog/RenameAuthor 1`] = `
 "                                                                
                                                                 
@@ -2222,5 +2202,25 @@ exports[`stories catalog Surfaces/DiffContentView/AnnotatedLine renders, snapsho
                                                                                           
                                                                                           
                                                                                           
+"
+`;
+
+exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, and carries its colors: Overlays/PromptDialog/NameYourself 1`] = `
+"                                                                
+                                                                
+                                                                
+                                                                
+                                                                
+     ┌─ welcome ──────────────────────────────────────────┐     
+     │                                                    │     
+     │ Your name (optional) - it attributes the notes you │     
+     │ leave:                                             │     
+     │ your name                                          │     
+     │  save    cancel                                    │     
+     └────────────────────────────────────────────────────┘     
+                                                                
+                                                                
+                                                                
+                                                                
 "
 `;
