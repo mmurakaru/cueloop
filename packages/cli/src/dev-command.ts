@@ -5,10 +5,20 @@
  * live agent. It never touches the real ~/.cueloop home.
  */
 
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { resolveWorkspace } from "@cueloop/daemon/review";
+
+/** Bump whenever the seed content below changes, so a long-lived dev home refreshes instead of keeping
+ *  stale threads (an old seed's diff had no files, which showed as "No changes"). */
+const SEED_VERSION = 2;
+const SEED_TITLES = new Set([
+  "Read the repository",
+  "Review the accent change",
+  "A standalone thought",
+]);
 
 const SEED_PLAN = `# Read the repository
 
@@ -67,14 +77,31 @@ async function seedDevSessions(client: DaemonClient): Promise<void> {
   });
 }
 
-/** `cueloop dev`: seed an isolated dev home once, then open the TUI on it. */
+/** Seed the dev home, refreshing the seed threads when SEED_VERSION moved on so a stale home never
+ *  keeps an old seed (which is why an aged home showed "No changes" - its diff thread had no files). */
+async function refreshDevSeed(client: DaemonClient, home: string): Promise<void> {
+  const versionFile = join(home, ".seed-version");
+  const stored = existsSync(versionFile) ? Number(readFileSync(versionFile, "utf8").trim()) : 0;
+  const existing = await client.sessionList();
+  if (existing.length > 0 && stored === SEED_VERSION) return;
+
+  await Promise.all(
+    existing
+      .filter((thread) => SEED_TITLES.has(thread.artifact.meta.title ?? ""))
+      .map((thread) => client.sessionDelete(thread.id)),
+  );
+  await seedDevSessions(client);
+  mkdirSync(dirname(versionFile), { recursive: true });
+  writeFileSync(versionFile, String(SEED_VERSION));
+}
+
+/** `cueloop dev`: seed an isolated dev home (refreshing a stale seed), then open the TUI on it. */
 export async function devCommand(): Promise<number> {
-  process.env.CUELOOP_HOME ??= join(homedir(), ".cueloop-dev");
+  const home = (process.env.CUELOOP_HOME ??= join(homedir(), ".cueloop-dev"));
 
   const client = await DaemonClient.connect({ autostart: true });
   try {
-    const existing = await client.sessionList();
-    if (existing.length === 0) await seedDevSessions(client);
+    await refreshDevSeed(client, home);
   } finally {
     client.close();
   }

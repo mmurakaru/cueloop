@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   activeSlashToken,
+  insertSlashItem,
   isStandaloneSlashQuery,
   scoreMatch,
   slashFilter,
@@ -82,5 +83,21 @@ describe("isStandaloneSlashQuery", () => {
     expect(isStandaloneSlashQuery("  /lgtm  ")).toBe(true);
     expect(isStandaloneSlashQuery("please inspect /tmp")).toBe(false);
     expect(isStandaloneSlashQuery("just prose")).toBe(false);
+  });
+});
+
+describe("insertSlashItem", () => {
+  test("replaces the active slash token with the reference and lands the caret after it", () => {
+    const result = insertSlashItem("look at /rev", 12, "review");
+
+    expect(result.text).toBe("look at /review ");
+    expect(result.caret).toBe("look at /review ".length);
+  });
+
+  test("keeps text after the caret intact", () => {
+    const result = insertSlashItem("/pl tail", 3, "plan");
+
+    expect(result.text).toBe("/plan  tail");
+    expect(result.caret).toBe("/plan ".length);
   });
 });

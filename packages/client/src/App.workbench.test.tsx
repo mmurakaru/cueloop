@@ -1,8 +1,8 @@
 /** The four-pane workbench in the virtual terminal, mirroring the browser prototype's interactions:
  * a diff session lays out Threads | Thread | Changes editor | Project sidebar; the diff (±) and tree
  * toggles are mutually exclusive and switching to tree keeps the Changes editor open; a project-tree
- * file opens as a read-only contents tab; the split control offers four directions and Split Right makes
- * two editor groups; dismissing the Changes tab collapses the Changes pane but keeps the Project sidebar;
+ * file opens as a read-only contents tab; the split control offers four directions and the arrow keys
+ * split; dismissing the Changes tab collapses the Changes pane but keeps the Project sidebar;
  * the right-sidebar toggle collapses the region to a thin rail and reopens it; zoom hides the Thread pane
  * while the sidebars stay. */
 
@@ -15,6 +15,8 @@ import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
 import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
+import { loadConfig } from "./config";
+import { planLayout, reviewLayout } from "./launch-layout";
 import {
   dragText,
   isolateUserConfig,
@@ -150,7 +152,7 @@ describe("the four-pane workbench", () => {
     expect(frame.split("\n")[HEADER_ROW]!).toContain("README.md");
   });
 
-  test("the split control offers four directions and Split Right makes two groups", async () => {
+  test("the split control offers four directions and arrow-right makes two groups", async () => {
     const setup = await renderApp();
 
     await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
@@ -162,17 +164,16 @@ describe("the four-pane workbench", () => {
     // the split control appears only on a file tab
     const split = locateText(setup, "split");
     await setup.mockMouse.click(split.column, split.row);
-    await waitForText(setup, "Split Right");
+    await waitForText(setup, "right");
 
     const menu = setup.captureCharFrame();
-    expect(menu).toContain("Split Left");
-    expect(menu).toContain("Split Right");
-    expect(menu).toContain("Split Up");
-    expect(menu).toContain("Split Down");
+    expect(menu).toContain("left");
+    expect(menu).toContain("right");
+    expect(menu).toContain("up");
+    expect(menu).toContain("down");
 
-    const right = locateText(setup, "Split Right");
-    await setup.mockMouse.click(right.column, right.row);
-    // two editor groups now ride the header, each with its own split control
+    // the arrow keys drive the popover: right splits the group into two
+    await pressKey(setup, "ARROW_RIGHT");
     await waitForState(setup, () => setup.captureCharFrame().split("split").length - 1 >= 2);
     expect((setup.captureCharFrame().match(/README\.md/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
@@ -237,14 +238,37 @@ describe("the four-pane workbench", () => {
 
     const zoom = locateText(setup, NERD.zoom);
     await setup.mockMouse.click(zoom.column, zoom.row);
-    await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
+    await waitForState(setup, () => !setup.captureCharFrame().includes("Select a thread"));
 
     const frame = setup.captureCharFrame();
     // the Thread pane's prompt is gone...
-    expect(frame).not.toContain("review the changes");
+    expect(frame).not.toContain("Select a thread");
     // ...while the Changes editor and Project sidebar stay
     expect(frame).toContain("store.ts");
     expect(diffToggleColumn(setup)).toBeGreaterThan(0);
+  });
+
+  test("a create-command session remembers its zoom toggle for the next bare launch", async () => {
+    // a create-command opens the review zoomed; toggling zoom off must persist to the remembered layout
+    const setup = await renderReadyApp(
+      <App home={home} sessionId={session.id} layout={reviewLayout()} />,
+      {
+        width: 160,
+        height: 20,
+      },
+    );
+    await waitForText(setup, "store.ts");
+
+    const zoom = locateText(setup, NERD.zoom);
+    await setup.mockMouse.click(zoom.column, zoom.row);
+    await waitForState(
+      setup,
+      () =>
+        loadConfig({ userConfigPath: process.env.CUELOOP_CONFIG }).ui.layout?.zoomChanges === false,
+    );
+    expect(loadConfig({ userConfigPath: process.env.CUELOOP_CONFIG }).ui.layout?.zoomChanges).toBe(
+      false,
+    );
   });
 
   test("selecting a non-diff thread while zoomed exits zoom and restores the Thread pane", async () => {
@@ -268,7 +292,7 @@ describe("the four-pane workbench", () => {
     // zoom the diff - the Thread pane hides and the footer rides the Changes pane
     const zoom = locateText(setup, NERD.zoom);
     await setup.mockMouse.click(zoom.column, zoom.row);
-    await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
+    await waitForState(setup, () => !setup.captureCharFrame().includes("Select a thread"));
 
     // switch to the plan thread: it has no Changes editor, so a stranded zoom would blank the middle
     const planRow = locateText(setup, "Zoomed Plan");
@@ -287,13 +311,13 @@ describe("the four-pane workbench", () => {
     // zoom the Changes editor - the Thread pane hides
     const zoom = locateText(setup, NERD.zoom);
     await setup.mockMouse.click(zoom.column, zoom.row);
-    await waitForState(setup, () => !setup.captureCharFrame().includes("review the changes"));
+    await waitForState(setup, () => !setup.captureCharFrame().includes("Select a thread"));
 
     // toggling the right sidebar off must not strand a blank screen: zoom exits, the Thread pane returns
     await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
-    await waitForText(setup, "review the changes");
+    await waitForText(setup, "Select a thread");
     const frame = setup.captureCharFrame();
-    expect(frame).toContain("review the changes");
+    expect(frame).toContain("Select a thread");
     // the right region is collapsed and the Changes editor is gone
     expect(frame).not.toContain("store.ts");
     expect(diffToggleColumn(setup)).toBe(-1);
@@ -303,11 +327,11 @@ describe("the four-pane workbench", () => {
     const setup = await renderApp();
 
     // the tip is not painted until the pointer is over the control
-    expect(setup.captureCharFrame()).not.toContain("Toggle Right Sidebar");
+    expect(setup.captureCharFrame()).not.toContain("Toggle Sidebar");
 
     await setup.mockMouse.moveTo(rightToggleColumn(setup), HEADER_ROW);
     // the label surfaces at the root, escaping the header cell that would otherwise clip it
-    await waitForText(setup, "Toggle Right Sidebar");
+    await waitForText(setup, "Toggle Sidebar");
   });
 });
 
@@ -396,6 +420,82 @@ describe("the bare-launch welcome shell", () => {
     expect(setup.captureCharFrame()).toContain("README.md");
   });
 
+  test("a review layout opens the Changes panel, listing the working-tree changes", async () => {
+    const setup = await testRender(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} layout={reviewLayout()} />,
+      { width: 180, height: 14 },
+    );
+    await waitForText(setup, "README.md");
+    expect(setup.captureCharFrame()).toContain("README.md");
+  });
+
+  test("a plan layout opens with the right region closed, so no Changes panel shows", async () => {
+    const setup = await testRender(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} layout={planLayout()} />,
+      { width: 180, height: 14 },
+    );
+    await waitForText(setup, "cueloop");
+    // rightSidebar "off": neither the Changes list nor the launch repo's files paint
+    expect(setup.captureCharFrame()).not.toContain("README.md");
+  });
+
+  test("a hand-edited off+zoom layout drops the zoom so the center is not stranded blank", async () => {
+    // zoom fills the middle with the Changes editor; with the region off there is none, so honoring zoom
+    // would hide the Thread pane over a blank center. The Thread placeholder must still render.
+    const setup = await testRender(
+      <App
+        home={welcomeHome}
+        sessionId={undefined}
+        cwd={welcomeRepo}
+        layout={{ threads: true, rightSidebar: "off", zoomChanges: true }}
+      />,
+      { width: 180, height: 14 },
+    );
+    await waitForText(setup, "Select a thread");
+    expect(setup.captureCharFrame()).toContain("Select a thread");
+  });
+
+  test("closing the right region on the vanilla shell remembers it for the next launch", async () => {
+    const setup = await testRender(
+      <App
+        home={welcomeHome}
+        sessionId={undefined}
+        cwd={welcomeRepo}
+        layout={{ threads: true, rightSidebar: "changes", zoomChanges: false }}
+      />,
+      { width: 180, height: 14 },
+    );
+    await waitForText(setup, "README.md");
+
+    // close the Changes/Project region; the remembered layout follows it to "off"
+    await setup.mockMouse.click(rightToggleColumn(setup), HEADER_ROW);
+    await waitForState(
+      setup,
+      () =>
+        loadConfig({ userConfigPath: process.env.CUELOOP_CONFIG }).ui.layout?.rightSidebar ===
+        "off",
+    );
+    expect(loadConfig({ userConfigPath: process.env.CUELOOP_CONFIG }).ui.layout).toEqual({
+      threads: true,
+      rightSidebar: "off",
+      zoomChanges: false,
+    });
+  });
+
+  test("clicking a changed file in the bare shell opens its diff, not its contents", async () => {
+    const setup = await renderWelcome();
+
+    await waitForText(setup, "README.md");
+    const readme = locateText(setup, "README.md");
+    await setup.mockMouse.click(readme.column, readme.row);
+
+    // a diff shows both the removed old line and the added new line; contents would show only the new
+    await waitForText(setup, "A tiny tracked repo.");
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("A tiny tracked repo.");
+    expect(frame).toContain("edited in the working tree");
+  });
+
   test("a bare launch rides a Welcome tab in the editor while the Thread pane waits empty", async () => {
     const setup = await renderWelcome();
 
@@ -406,7 +506,27 @@ describe("the bare-launch welcome shell", () => {
     expect(frame.split("\n")[HEADER_ROW]!).toContain("Welcome");
     expect(frame).toContain("Getting started");
     // the Thread pane shows its empty state until a thread is opened
-    expect(frame).toContain("no threads");
+    expect(frame).toContain("Select a thread");
+  });
+
+  test("the Threads sidebar owns the keyboard until a pane is clicked, so nav never touches the editor", async () => {
+    const setup = await renderReadyApp(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
+      { width: 160, height: 24 },
+    );
+    await waitForText(setup, "Getting started");
+
+    // focus starts on the Threads sidebar: a letter drives the inbox, it never drafts in the editor
+    await typeText(setup, "zzz");
+    expect(setup.captureCharFrame()).not.toContain("zzz");
+
+    // clicking a line in the Welcome editor focuses that pane; now typing composes there
+    const line = locateText(setup, "quick brown fox");
+    await setup.mockMouse.click(line.column, line.row);
+    await typeText(setup, "note");
+    await waitForText(setup, "● note");
+
+    setup.renderer.destroy();
   });
 
   test("typing in the welcome composer never reaches the inbox keys", async () => {
@@ -451,7 +571,7 @@ describe("the bare-launch welcome shell", () => {
     // the Threads sidebar and the Thread empty state remain - never a blank shell
     const frame = setup.captureCharFrame();
     expect(frame).toContain("cueloop");
-    expect(frame).toContain("no threads");
+    expect(frame).toContain("Select a thread");
   });
 
   test("the changed-files and tree toggles switch navigator mode without collapsing", async () => {

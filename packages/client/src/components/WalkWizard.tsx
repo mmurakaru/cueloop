@@ -13,8 +13,7 @@ import { useComponentTheme } from "./theme-context";
 import type { WalkFile } from "../walk";
 import { viewedCount } from "../walk";
 import { Card } from "./primitives/Card";
-import { Button } from "./primitives/Button";
-import { Toolbar } from "./primitives/Toolbar";
+import { DialogActions } from "./primitives/DialogActions";
 
 export interface WalkWizardProps {
   files: WalkFile[];
@@ -75,24 +74,23 @@ export function WalkWizard({
           <Card
             title=" walk complete "
             contentRows={3}
-            borderColor={tokens.green}
+            borderColor={tokens.accent}
             backgroundColor={tokens.elevated}
             theme={theme}
           >
-            <text fg={tokens.text}>
+            <text fg={viewed === files.length ? tokens.green : tokens.text}>
               {viewed === files.length
                 ? `every file viewed (${viewed}/${files.length})`
                 : `${viewed} of ${files.length} files viewed`}
             </text>
             <box style={{ height: 1 }} />
-            <Toolbar>
-              <Button variant="solid" marginRight={2} onPress={onSubmitRequest} theme={theme}>
-                {" Submit review "}
-              </Button>
-              <Button onPress={onBack} theme={theme}>
-                {" [ back "}
-              </Button>
-            </Toolbar>
+            <DialogActions
+              confirmLabel="submit"
+              cancelLabel="back"
+              onConfirm={onSubmitRequest}
+              onCancel={onBack}
+              theme={theme}
+            />
           </Card>
         ) : (
           <>

@@ -81,7 +81,7 @@ export const EndCard: Story = {
       onBack={noop}
     />
   ),
-  // the end card wears the green border and the solid submit button
+  // accent border and solid submit; the all-viewed line turns green
   expectedColors: [DARK.green, DARK.accent, DARK.accentInk],
 };
 
@@ -96,5 +96,5 @@ export const EndCardPartialPass: Story = {
       onBack={noop}
     />
   ),
-  expectedColors: [DARK.green],
+  expectedColors: [DARK.accent, DARK.accentInk],
 };

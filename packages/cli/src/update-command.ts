@@ -1,6 +1,7 @@
 import { basename, dirname, isAbsolute, resolve } from "node:path";
 import * as v from "valibot";
 import { CLI_VERSION } from "./version";
+import { stopDaemon } from "./daemon-control";
 
 const INSTALL_URL = "https://cueloop.dev/install.sh";
 const RELEASES_URL = "https://api.github.com/repos/mmurakaru/cueloop/releases?per_page=100";
@@ -97,8 +98,14 @@ async function runInstaller(targetInstallDir: string): Promise<number> {
       stdin: "pipe",
       stdout: "inherit",
       stderr: "inherit",
-      // an update replaces the binary in place; it never edits the user's shell rc
-      env: { ...process.env, CUELOOP_INSTALL_DIR: targetInstallDir, CUELOOP_NO_MODIFY_PATH: "1" },
+      // an update replaces the binary in place; it never edits the shell rc, and
+      // skips the installer's first-run logo and get-started hint
+      env: {
+        ...process.env,
+        CUELOOP_INSTALL_DIR: targetInstallDir,
+        CUELOOP_NO_MODIFY_PATH: "1",
+        CUELOOP_UPDATE: "1",
+      },
     });
 
     child.stdin.write(parsed.output);
@@ -117,7 +124,12 @@ export interface UpdateDeps {
   installDir: () => string | undefined;
   fetchLatestVersion: () => Promise<string | undefined>;
   runInstaller: (targetInstallDir: string) => Promise<number>;
+  /** Stop the running daemon after an update so the next launch autostarts the new build; resolves true when one was stopped. */
+  stopDaemon: () => Promise<boolean>;
+  /** Progress and status, on stdout - not an error, so it must not read as one. */
   out: (message: string) => void;
+  /** A failure that ends the run, on stderr. */
+  error: (message: string) => void;
 }
 
 /**
@@ -130,12 +142,12 @@ export async function runUpdate(deps: UpdateDeps, dryRun: boolean): Promise<numb
   const targetInstallDir = deps.installDir();
 
   if (targetInstallDir === undefined) {
-    deps.out("cueloop update: HOME is not set and the current binary path is unknown");
+    deps.error("cueloop update: HOME is not set and the current binary path is unknown");
 
     return 1;
   }
   if (!targetInstallDir.startsWith("/")) {
-    deps.out("cueloop update: CUELOOP_INSTALL_DIR must be an absolute path");
+    deps.error("cueloop update: CUELOOP_INSTALL_DIR must be an absolute path");
 
     return 1;
   }
@@ -157,7 +169,14 @@ export async function runUpdate(deps: UpdateDeps, dryRun: boolean): Promise<numb
   deps.out(`updating cueloop in ${targetInstallDir}...`);
   const exitCode = await deps.runInstaller(targetInstallDir);
 
-  if (exitCode === 0) deps.out("Update ran successfully! Please restart cueloop.");
+  if (exitCode === 0) {
+    try {
+      await deps.stopDaemon();
+    } catch {
+      // stopping the old daemon is cleanup; it must never fail an install that already succeeded
+    }
+    deps.out("Update ran successfully! Please restart cueloop.");
+  }
 
   return exitCode;
 }
@@ -170,7 +189,9 @@ export async function updateCommand(argv: string[] = []): Promise<number> {
       installDir: () => resolveInstallDir(process.execPath, process.env),
       fetchLatestVersion,
       runInstaller,
-      out: (message) => console.error(message),
+      stopDaemon: () => stopDaemon(),
+      out: (message) => console.log(message),
+      error: (message) => console.error(message),
     },
     argv.includes("--dry-run"),
   );

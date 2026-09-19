@@ -11,6 +11,7 @@ function OverlayDemo(): React.ReactNode {
 
   useEffect(() => {
     setOverlay(
+      "demo",
       <box
         style={{
           position: "absolute",

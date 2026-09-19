@@ -7,7 +7,7 @@
  * all asserted on the frame, not on internal state.
  */
 
-import { afterEach, beforeEach, describe, expect, mock, test, type Mock } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test, type Mock } from "bun:test";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { TextAttributes } from "@opentui/core";
@@ -17,6 +17,7 @@ import { settle, typeText } from "../test-support";
 import { buildDisplay, marksByDisplay } from "../view-plan";
 import { makeAnchor, parseBlocks, type Annotation } from "@cueloop/schema";
 import type { TextSpan } from "../thread-selection";
+import * as markRuns from "../mark-runs";
 import { fixturePlanSession } from "./story-fixtures";
 import { ThreadView } from "./ThreadView";
 
@@ -808,5 +809,91 @@ describe("discussion identity", () => {
     expect(reply).toHaveBeenCalledTimes(1);
     expect(reply.mock.calls[0]).toEqual(["root", "agreed"]);
     expect(annotate).not.toHaveBeenCalled();
+  });
+});
+
+describe("a new comment sorts into place while typing", () => {
+  const blocks = parseBlocks(PLAN);
+  const anchorOn = (word: string): Annotation["anchor"] =>
+    makeAnchor(blocks, 1, PARAGRAPH.indexOf(word), PARAGRAPH.indexOf(word) + word.length);
+  const early: Annotation = {
+    id: "early",
+    kind: "comment",
+    anchor: anchorOn("persists"),
+    body: "alpha-note",
+    createdAt: "2026-09-01T10:00:00Z",
+  };
+  const late: Annotation = {
+    id: "late",
+    kind: "comment",
+    anchor: anchorOn("atomically"),
+    body: "omega-note",
+    createdAt: "2026-09-01T10:01:00Z",
+  };
+
+  test("a draft anchored between two comments renders between them, not appended to the stack", async () => {
+    // Arrange - two comments on the same line, one earlier and one later than the draft's word
+    setup.renderer.destroy();
+    await mount([early, late]);
+
+    // Act - mark a word between them and start typing a new comment
+    const sessions = locate("sessions");
+
+    await setup.mockMouse.doubleClick(sessions.column + 2, sessions.row);
+    await settle(setup);
+    await typeText(setup, "midway-note");
+    await settle(setup);
+
+    // Assert - the draft sits where it will land on save (by span start), not at the end
+    const rows = setup.captureCharFrame().split("\n");
+    const rowOf = (needle: string): number => rows.findIndex((row) => row.includes(needle));
+
+    expect(rowOf("alpha-note")).toBeGreaterThanOrEqual(0);
+    expect(rowOf("midway-note")).toBeGreaterThan(rowOf("alpha-note"));
+    expect(rowOf("omega-note")).toBeGreaterThan(rowOf("midway-note"));
+  });
+});
+
+describe("virtualization guard", () => {
+  // The performance guard: the thread view must word-wrap only the blocks in the viewport, not the
+  // whole document. Deterministic (a call count, not a wall-clock), so it fails on any machine if a
+  // future change un-virtualizes the view - the regression the nav-latency benchmark would show.
+  test("a large plan word-wraps only the on-screen blocks, not every block", async () => {
+    // Arrange - a plan far taller than the viewport
+    const paragraphs = Array.from({ length: 800 }, (_, index) => `Paragraph ${index} with words.`);
+    const bigPlan = `# Big Plan\n\n${paragraphs.join("\n\n")}\n`;
+    const display = buildDisplay(bigPlan, undefined);
+    const bigSession = fixturePlanSession({
+      artifact: { type: "plan", content: bigPlan, meta: { title: "Big", planPath: "big.md" } },
+      annotations: [],
+    });
+    const spy = spyOn(markRuns, "wrapLines");
+
+    try {
+      // Act
+      const bigSetup = await testRender(
+        <ThreadView
+          session={bigSession}
+          display={display}
+          marks={new Map()}
+          quickActions={DEFAULT_QUICK_ACTIONS}
+          observer={false}
+          onAnnotate={() => {}}
+          onReply={() => {}}
+          onUpdateAnnotation={() => {}}
+          onExit={() => {}}
+        />,
+        { width: 64, height: 24 },
+      );
+
+      await settle(bigSetup);
+
+      // Assert - across the mount's renders the view never wraps a block for each of the 800; a
+      // viewport-worth per render stays far under one full pass over the document
+      expect(spy.mock.calls.length).toBeLessThan(display.length);
+      bigSetup.renderer.destroy();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

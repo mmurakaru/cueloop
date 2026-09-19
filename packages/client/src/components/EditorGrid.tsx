@@ -2,10 +2,13 @@
 // editor group with its own tab strip and header controls. The caller supplies renderTab so the grid
 // stays layout-only - a tab becomes a diff, a file's contents, or the aggregate Changes view upstream.
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useKeyboard } from "@opentui/react";
 import type { BoxRenderable } from "@opentui/core";
 import { DARK, type Theme } from "../theme";
 import { useFrameMeasure } from "../use-frame-measure";
+import { useRootOverlay } from "./RootOverlay";
+import { useMenuControl } from "./menu-control";
 import { IconButton } from "./primitives/IconButton";
 import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
 import type { EditorGroup, EditorNode, EditorTab, SplitDirection } from "./editor-grid";
@@ -27,11 +30,20 @@ export interface EditorGridProps {
 }
 
 const SPLIT_ITEMS: ReadonlyArray<{ label: string; direction: SplitDirection; arrow: string }> = [
-  { label: "Split Left", direction: "left", arrow: "←" },
-  { label: "Split Right", direction: "right", arrow: "→" },
-  { label: "Split Up", direction: "up", arrow: "↑" },
-  { label: "Split Down", direction: "down", arrow: "↓" },
+  { label: "left", direction: "left", arrow: "←" },
+  { label: "right", direction: "right", arrow: "→" },
+  { label: "up", direction: "up", arrow: "↑" },
+  { label: "down", direction: "down", arrow: "↓" },
 ];
+
+const MENU_WIDTH = 12;
+
+/** An arrow key maps straight to its split direction; other keys leave the menu untouched. */
+function splitDirectionForKey(name: string): SplitDirection | null {
+  const item = SPLIT_ITEMS.find((entry) => entry.direction === name);
+
+  return item ? item.direction : null;
+}
 
 function EditorTabButton({
   tab,
@@ -151,13 +163,13 @@ function SplitMenu({
 }): React.ReactNode {
   return (
     <box
+      onMouseUp={(event) => event.stopPropagation()}
       style={{
+        width: MENU_WIDTH,
         flexDirection: "column",
-        flexShrink: 0,
         borderStyle: "single",
         borderColor: tokens.border,
-        // the panel token is transparent in the branded theme, so the menu reads terminal-through
-        backgroundColor: tokens.panel,
+        backgroundColor: tokens.elevated,
       }}
     >
       {SPLIT_ITEMS.map((item) => (
@@ -168,7 +180,7 @@ function SplitMenu({
         >
           <text fg={tokens.text}>{item.label}</text>
           <box style={{ flexGrow: 1 }} />
-          <text fg={tokens.textDim}>{` ${item.arrow}`}</text>
+          <text fg={tokens.textDim}>{item.arrow}</text>
         </box>
       ))}
     </box>
@@ -183,9 +195,63 @@ function EditorGroupPane({
   props: EditorGridProps;
 }): React.ReactNode {
   const tokens = props.theme ?? DARK;
-  const [menuOpen, setMenuOpen] = useState(false);
+  const menuControl = useMenuControl();
+  const { setOverlay, clearOverlay } = useRootOverlay();
+  const menuId = `split:${group.id}`;
+  const menuOpen = menuControl.openMenuId === menuId;
+  const splitRef = useRef<BoxRenderable | null>(null);
+  const anchor = useFrameMeasure(
+    () => ({
+      x: splitRef.current?.x ?? 0,
+      y: splitRef.current?.y ?? 0,
+      width: splitRef.current?.width ?? 0,
+    }),
+    (left, right) => left.x === right.x && left.y === right.y && left.width === right.width,
+    { x: 0, y: 0, width: 0 },
+    menuOpen,
+  );
   const active = group.tabs.find((tab) => tab.id === group.activeTabId) ?? group.tabs[0];
   const isFile = active?.kind === "file";
+
+  useKeyboard((key) => {
+    if (!menuOpen) return;
+    if (key.name === "escape") return menuControl.closeMenu();
+    const direction = splitDirectionForKey(key.name);
+    if (direction) {
+      props.onSplit(group.id, direction);
+      menuControl.closeMenu();
+    }
+  });
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    setOverlay(
+      "split-menu",
+      <box
+        onMouseUp={menuControl.closeMenu}
+        style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%" }}
+      >
+        <box
+          style={{
+            position: "absolute",
+            top: anchor.y + 1,
+            left: Math.max(0, anchor.x + anchor.width - MENU_WIDTH),
+          }}
+        >
+          <SplitMenu
+            onPick={(direction) => {
+              props.onSplit(group.id, direction);
+              menuControl.closeMenu();
+            }}
+            tokens={tokens}
+          />
+        </box>
+      </box>,
+    );
+
+    return () => clearOverlay("split-menu");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuOpen, anchor, tokens]);
   // The strip windows its tabs rather than scrolling a nested scrollbox (which stalls the
   // renderer inside this header): tabs keep the width of their names, only the run that fits
   // renders, and the window follows the active tab so a tab opened past the edge is never hidden.
@@ -281,13 +347,14 @@ function EditorGroupPane({
         <box style={{ flexDirection: "row", flexShrink: 0, paddingLeft: 1, paddingRight: 1 }}>
           {/* search sits out until it does something; split takes its place */}
           {isFile ? (
-            <IconButton
-              glyph="split"
-              active={menuOpen}
-              onPress={() => setMenuOpen((open) => !open)}
-              marginRight={2}
-              theme={tokens}
-            />
+            <box ref={splitRef} style={{ flexShrink: 0, marginRight: 2 }}>
+              <IconButton
+                glyph="split"
+                active={menuOpen}
+                onPress={() => menuControl.toggleMenu(menuId)}
+                theme={tokens}
+              />
+            </box>
           ) : null}
           <IconButton
             glyph={NERD.zoom}
@@ -298,15 +365,6 @@ function EditorGroupPane({
           />
         </box>
       </box>
-      {menuOpen ? (
-        <SplitMenu
-          onPick={(direction) => {
-            setMenuOpen(false);
-            props.onSplit(group.id, direction);
-          }}
-          tokens={tokens}
-        />
-      ) : null}
       <box style={{ flexGrow: 1, flexDirection: "column" }}>
         {active ? props.renderTab(active, props.focusedGroupId === group.id) : null}
       </box>

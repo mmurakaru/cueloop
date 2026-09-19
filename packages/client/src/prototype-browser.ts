@@ -135,6 +135,28 @@ async function warmBrowser(executablePath: string | undefined): Promise<Puppetee
   return browser;
 }
 
+/**
+ * Close the warm Chromium so it never orphans when cueloop exits. Called from
+ * the shutdown path (the normal quit is not a signal, so puppeteer's own signal
+ * handlers do not fire). Idempotent.
+ */
+export async function closePrototypeBrowser(): Promise<void> {
+  const pending = sharedBrowser;
+
+  sharedBrowser = null;
+  if (!pending) return;
+  const browser = await pending.catch(() => null);
+
+  await browser?.close().catch(() => undefined);
+}
+
+/** Test-only: the warm browser's OS process id, or null when none is running. */
+export async function prototypeBrowserPidForTest(): Promise<number | null> {
+  const browser = sharedBrowser ? await sharedBrowser.catch(() => null) : null;
+
+  return browser?.process()?.pid ?? null;
+}
+
 export async function launchPrototypeRenderer(options: LaunchOptions): Promise<PrototypeRenderer> {
   const { pathToFileURL } = await import("node:url");
   const browser = await warmBrowser(options.executablePath);

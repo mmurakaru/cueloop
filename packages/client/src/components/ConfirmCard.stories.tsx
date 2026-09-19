@@ -1,5 +1,6 @@
 import React from "react";
 import { DARK } from "../theme";
+import { DEFAULT_QUICK_ACTIONS } from "../config";
 import type { Story, StoryMeta } from "./story";
 import { ConfirmCard } from "./ConfirmCard";
 
@@ -10,6 +11,7 @@ const callbacks = {
   onSelectVerdict: () => {},
   onSubmit: () => {},
   onCancel: () => {},
+  quickActions: DEFAULT_QUICK_ACTIONS,
 };
 
 export const ApproveDefault: Story = {

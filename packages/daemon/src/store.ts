@@ -24,7 +24,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { historyFromLinear, type Thread } from "@cueloop/schema";
+import { historyFromLinear, withShareLinks, type Thread } from "@cueloop/schema";
 import { migratedSessionsDir, sessionsDir, threadBucket, threadsDir } from "./paths";
 import { validateThreadRecord } from "./validate";
 
@@ -55,9 +55,12 @@ export interface ThreadRepository {
  * reading without a history - migration never loses a record.
  */
 export function withHistory(session: Thread): Thread {
-  if (session.history || session.revisions.length === 0) return session;
+  // migrate a legacy single share into shares[] on the same read that fills history
+  const migrated = withShareLinks(session);
 
-  return { ...session, history: historyFromLinear(session) };
+  if (migrated.history || migrated.revisions.length === 0) return migrated;
+
+  return { ...migrated, history: historyFromLinear(migrated) };
 }
 
 /** Records in the order `list()` promises: oldest first. */

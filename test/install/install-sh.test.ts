@@ -24,6 +24,7 @@ import {
   MISSING_ASSET_VERSION,
   NO_CHECKSUMS_VERSION,
   RELEASE_ASSETS,
+  SCOPED_PACKAGE_TAG,
   startTestReleaseServer,
   testBinaryScript,
   type TestReleaseServer,
@@ -215,6 +216,15 @@ describe("a fresh install", () => {
     });
   }
 
+  test("picks the CLI's own newest tag, not a scoped tag last in minified JSON", async () => {
+    // the fixture lists a scoped tag last in minified JSON; resolution must still pick the CLI release
+    const result = await runInstaller({});
+
+    expectCleanExit(result);
+    expect(installedVersion()).toBe(GOOD_VERSION);
+    expect(result.stderr).not.toContain(SCOPED_PACKAGE_TAG);
+  });
+
   test("says so when the directory is already on PATH", async () => {
     // When installed with the install dir already on PATH
     const result = await runInstaller({ PATH: `${server.installDir}:${process.env.PATH}` });
@@ -222,6 +232,19 @@ describe("a fresh install", () => {
     // Then the hint is the plain start line
     expectCleanExit(result);
     expect(result.stderr).toContain("Run cueloop to get started");
+    expect(result.stderr).not.toContain("not on your PATH");
+  });
+
+  test("an in-place update stays quiet about getting started and PATH", async () => {
+    // When run as an update with the dir already on PATH
+    const result = await runInstaller({
+      PATH: `${server.installDir}:${process.env.PATH}`,
+      CUELOOP_UPDATE: "1",
+    });
+
+    // Then it installs but skips the first-run get-started and PATH hints
+    expectCleanExit(result);
+    expect(result.stderr).not.toContain("to get started");
     expect(result.stderr).not.toContain("not on your PATH");
   });
 

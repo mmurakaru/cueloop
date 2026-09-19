@@ -1,5 +1,7 @@
 export * from "./types";
 export * from "./participants";
+export * from "./share-access";
+export * from "./share-links";
 export * from "./markdown";
 export * from "./inline";
 export * from "./working-copy";
