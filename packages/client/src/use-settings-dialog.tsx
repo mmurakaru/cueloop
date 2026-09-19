@@ -41,7 +41,8 @@ export interface SettingsDialogModel {
 
 const DOWN_KEYS = new Set(["j", "down"]);
 const UP_KEYS = new Set(["k", "up"]);
-const ENTER_BODY_KEYS = new Set(["l", "tab", "return"]);
+const ENTER_BODY_KEYS = new Set(["l", "right", "tab", "return"]);
+const BACK_TO_NAV_KEYS = new Set(["h", "left", "tab"]);
 const ACTIVATE_KEYS = new Set(["return", "space", "l"]);
 
 function moveNavZone(
@@ -66,7 +67,7 @@ function moveNavZone(
 function moveBodyRow(name: string, nav: SettingsNav, rowCount: number): SettingsNav | null {
   if (DOWN_KEYS.has(name)) return { ...nav, rowIndex: Math.min(rowCount - 1, nav.rowIndex + 1) };
   if (UP_KEYS.has(name)) return { ...nav, rowIndex: Math.max(0, nav.rowIndex - 1) };
-  if (name === "h" || name === "tab") return { ...nav, zone: "nav" };
+  if (BACK_TO_NAV_KEYS.has(name)) return { ...nav, zone: "nav" };
 
   return null;
 }

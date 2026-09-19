@@ -444,7 +444,8 @@ export function ShareDialog({
   const handleNavKey = (name: string): void => {
     if (name === "j" || name === "down") return shareDialogStore.getState().setCategory("export");
     if (name === "k" || name === "up") return shareDialogStore.getState().setCategory("external");
-    const enter = name === "l" || name === "return" || name === "enter" || name === "tab";
+    const enter =
+      name === "l" || name === "right" || name === "return" || name === "enter" || name === "tab";
 
     if (enter && category === "external" && isOwner) setActiveZone("body");
   };
@@ -456,7 +457,7 @@ export function ShareDialog({
   };
 
   const handleBodyKey = (name: string): void => {
-    if (name === "h") return setActiveZone("nav");
+    if (name === "h" || name === "left") return setActiveZone("nav");
     if (name === "j" || name === "down")
       return setListCursor((cursor) => Math.min(cursor + 1, rowCount - 1));
     if (name === "k" || name === "up") return setListCursor((cursor) => Math.max(cursor - 1, 0));

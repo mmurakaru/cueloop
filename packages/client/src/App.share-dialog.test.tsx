@@ -134,6 +134,25 @@ describe("share dialog", () => {
     expect(setup.captureCharFrame()).toContain("require auth");
   });
 
+  test("right enters the links body and left returns to the nav", async () => {
+    // Arrange
+    const setup = await testRender(
+      <App home={home} sessionId={session.id} shareTransport={shareTransport} />,
+      { width: 120, height: 32 },
+    );
+    await waitForText(setup, "cueloop");
+
+    // Act + Assert: right arrow crosses into the body (its hint appears)
+    await pressKey(setup, "s", { ctrl: true });
+    await waitForText(setup, "+ new link");
+    await press(setup, "right");
+    await waitForText(setup, "h back");
+
+    // Act + Assert: left arrow returns to the nav (its hint returns)
+    await press(setup, "left");
+    await waitForText(setup, "l/enter open");
+  });
+
   test("escape closes the dialog", async () => {
     // Arrange
     const setup = await testRender(
