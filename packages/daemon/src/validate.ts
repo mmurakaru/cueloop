@@ -15,14 +15,17 @@ import {
   SCHEMA_VERSION,
   type Anchor,
   type Annotation,
+  type AnnotationTarget,
   type Artifact,
   type ArtifactMeta,
   type DiffFileContents,
   type Identity,
-  type ReviewSession,
+  type Thread,
   type HunkRejection,
   type Revision,
   type SessionHistory,
+  type ShareAccess,
+  type ShareLink,
   validateHistory,
   type Verdict,
   type WorkspaceKey,
@@ -57,6 +60,8 @@ export const ArtifactMetaSchema = v.object({
   pr: v.optional(v.string()),
   herdrPane: v.optional(v.string()),
   title: v.optional(v.string()),
+  workbench: v.optional(v.boolean()),
+  snapshot: v.optional(v.boolean()),
 } satisfies EntriesOf<ArtifactMeta>);
 
 export const DiffFileContentsSchema = v.object({
@@ -86,12 +91,20 @@ export const AnchorSchema = v.object({
   selector: v.optional(v.string()),
 } satisfies EntriesOf<Anchor>);
 
+/** The surface a note was made on; absent means the reviewed artifact. */
+export const AnnotationTargetSchema: v.GenericSchema<AnnotationTarget> = v.variant("kind", [
+  v.object({ kind: v.literal("artifact") }),
+  v.object({ kind: v.literal("file"), path: NonEmpty, rev: v.picklist(["worktree", "head"]) }),
+  v.object({ kind: v.literal("welcome") }),
+]);
+
 /** Wire annotations arrive without createdAt - the daemon stamps it. */
 export const AnnotationSchema = v.object({
   id: NonEmpty,
   /** Open kind set: the built-in is comment. */
   kind: NonEmpty,
   anchor: AnchorSchema,
+  target: v.optional(AnnotationTargetSchema),
   body: v.string(),
   orphan: v.optional(v.boolean()),
   author: v.optional(v.string()),
@@ -114,10 +127,19 @@ export const FullAnnotationSchema = v.object({
 
 export const IdentitySchema = v.object({
   id: NonEmpty,
-  provider: v.literal("ssh"),
+  provider: v.picklist(["ssh", "github"]),
   name: v.optional(v.string()),
   handle: v.optional(v.string()),
 } satisfies EntriesOf<Identity>);
+
+export const ShareLinkSchema = v.object({
+  id: NonEmpty,
+  name: v.optional(v.string()),
+  requireAuth: v.boolean(),
+  allowlist: v.array(NonEmpty),
+  owner: v.optional(v.string()),
+  shareBranch: v.optional(v.string()),
+} satisfies EntriesOf<ShareLink>);
 
 export const Params = {
   "session.create": v.object({ workspace: WorkspaceSchema, artifact: ArtifactSchema }),
@@ -139,6 +161,12 @@ export const Params = {
     ),
   }),
   "session.annotate": v.object({
+    id: SessionId,
+    annotation: AnnotationSchema,
+    authorName: v.optional(v.string()),
+  }),
+  // "session.comment" is the primary annotate method; "session.annotate" stays an accepted alias
+  "session.comment": v.object({
     id: SessionId,
     annotation: AnnotationSchema,
     authorName: v.optional(v.string()),
@@ -172,6 +200,8 @@ export const Params = {
   "repo.files": v.object({ cwd: NonEmpty }),
   "repo.fileContents": v.object({ cwd: NonEmpty, path: NonEmpty }),
   "repo.changes": v.object({ cwd: NonEmpty }),
+  "repo.diff": v.object({ cwd: NonEmpty }),
+  "session.workbench": v.object({ cwd: NonEmpty }),
   "session.navigate": v.object({
     id: SessionId,
     entryId: NonEmpty,
@@ -185,6 +215,8 @@ export const Params = {
   "session.fork": v.object({ id: SessionId }),
   "session.refreshDiff": v.object({ id: SessionId }),
   "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
+  "session.setShares": v.object({ id: SessionId, shares: v.array(ShareLinkSchema) }),
+  "session.setAccess": v.object({ id: SessionId, githubLogins: v.array(NonEmpty) }),
   "session.delete": v.object({ id: SessionId }),
   "session.mergeShared": v.object({
     id: SessionId,
@@ -199,6 +231,7 @@ export const Params = {
     id: SessionId,
     verdictKind: v.picklist(["comment", "approve", "request_changes"]),
     summary: v.optional(v.string(), ""),
+    actionBodies: v.optional(v.record(v.string(), v.string())),
   }),
   "session.submitRevision": v.object({
     id: SessionId,
@@ -302,7 +335,7 @@ export const SessionHistorySchema = v.pipe(
 );
 
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
-export const SessionRecordSchema = v.object({
+export const ThreadRecordSchema = v.object({
   schemaVersion: v.literal(SCHEMA_VERSION),
   id: NonEmpty,
   workspace: WorkspaceSchema,
@@ -326,16 +359,20 @@ export const SessionRecordSchema = v.object({
   createdAt: v.string(),
   shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
   parentSessionId: v.optional(v.string()),
+  shares: v.optional(v.array(ShareLinkSchema)),
   shareId: v.optional(v.string()),
   shareBranch: v.optional(v.string()),
   owner: v.optional(v.string()),
+  access: v.optional(
+    v.object({ githubLogins: v.array(NonEmpty) } satisfies EntriesOf<ShareAccess>),
+  ),
   participants: v.optional(v.array(IdentitySchema)),
-} satisfies EntriesOf<ReviewSession>);
+} satisfies EntriesOf<Thread>);
 
-export function validateSessionRecord(
+export function validateThreadRecord(
   raw: Parameters<typeof v.safeParse>[1],
-): { ok: true; value: v.InferOutput<typeof SessionRecordSchema> } | { ok: false; error: string } {
-  const result = v.safeParse(SessionRecordSchema, raw);
+): { ok: true; value: v.InferOutput<typeof ThreadRecordSchema> } | { ok: false; error: string } {
+  const result = v.safeParse(ThreadRecordSchema, raw);
 
   if (result.success) return { ok: true, value: result.output };
   const issue = result.issues[0]!;
@@ -343,3 +380,8 @@ export function validateSessionRecord(
 
   return { ok: false, error: `${path ? path + ": " : ""}${issue.message}` };
 }
+
+/** @deprecated use ThreadRecordSchema */
+export const SessionRecordSchema = ThreadRecordSchema;
+/** @deprecated use validateThreadRecord */
+export const validateSessionRecord = validateThreadRecord;

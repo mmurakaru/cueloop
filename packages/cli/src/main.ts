@@ -23,9 +23,8 @@ import {
 import { sessionCommand } from "./session-commands";
 import { CLI_VERSION } from "./version";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { workingTreeDiff } from "@cueloop/daemon/working-tree";
-import type { ReviewSession } from "@cueloop/schema";
-import { openReview, resolveWorkspace } from "@cueloop/daemon/review";
+import type { Thread } from "@cueloop/schema";
+import { openReview } from "@cueloop/daemon/review";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -105,6 +104,8 @@ interface CommandHandlers {
 const commandHandlers: CommandHandlers = {
   session: (rest) => sessionCommand(rest),
   daemon: (rest) => daemonCommand(rest),
+  stop: async () => (await import("./daemon-control")).stopCommand(),
+  restart: async () => (await import("./daemon-control")).restartCommand(),
   plan: (rest) => planCommand(rest),
   reply: (rest) => replyCommand(rest),
   diff: (rest) => diffCommand(rest),
@@ -114,6 +115,7 @@ const commandHandlers: CommandHandlers = {
   wake: async (rest) => (await import("./wake-command")).wakeCommand(rest),
   actions: async (rest) => (await import("./actions-command")).actionsCommand(rest),
   refine: async (rest) => (await import("./refine-command")).refineCommand(rest),
+  update: async (rest) => (await import("./update-command")).updateCommand(rest),
   review: (rest) => reviewEntry(rest),
   "review-post": async (rest) => (await import("./pr")).reviewPostCommand(rest),
   dev: async () => (await import("./dev-command")).devCommand(),
@@ -161,13 +163,14 @@ function openSelector(parsed: ParsedArgs): string | undefined {
  * one caller that needs a scope-specific hint (a clean working tree).
  */
 async function openReviewOfKind(
-  match: (session: ReviewSession) => boolean,
+  match: (session: Thread) => boolean,
   label: string,
   selector: string | undefined,
+  layout: "review" | "plan" | undefined,
   emptyMessage?: string,
 ): Promise<number> {
   const client = await DaemonClient.connect({ autostart: true });
-  let sessions: ReviewSession[];
+  let sessions: Thread[];
 
   try {
     sessions = await client.sessionList();
@@ -176,7 +179,7 @@ async function openReviewOfKind(
   }
   const target = resolveOpenTarget(sessions, { match, selector });
 
-  if (target.kind === "session") return runTui(target.sessionId);
+  if (target.kind === "session") return runTui(target.sessionId, layout);
   if (target.kind === "no-pending" && emptyMessage !== undefined) {
     console.error(emptyMessage);
 
@@ -189,7 +192,7 @@ async function openReviewOfKind(
 
 /** `cueloop plan [id|title]` - open the latest pending plan, or address one. */
 async function planCommand(argv: string[]): Promise<number> {
-  return openReviewOfKind(isPlanReview, "plan", openSelector(parseArgs(argv)));
+  return openReviewOfKind(isPlanReview, "plan", openSelector(parseArgs(argv)), "plan");
 }
 
 /**
@@ -198,30 +201,34 @@ async function planCommand(argv: string[]): Promise<number> {
  * by the /cueloop:reply skill; the opener is scope-only, like plan.
  */
 async function replyCommand(argv: string[]): Promise<number> {
-  return openReviewOfKind(isReplyReview, "reply", openSelector(parseArgs(argv)));
+  return openReviewOfKind(isReplyReview, "reply", openSelector(parseArgs(argv)), "plan");
 }
 
 /**
- * `cueloop prototype <file.html>` creates a review of a rendered HTML file;
- * a selector or `--open`/`--latest` (or a bare call with no file) opens the
- * latest pending prototype review instead.
+ * `cueloop prototype <file.md>` creates a review of a component design doc
+ * (API / Composition / Callstack); an `.html` file instead creates the opt-in
+ * experimental pixel mockup. A selector or `--open`/`--latest` (or a bare call
+ * with no file) opens the latest pending prototype review instead.
  */
 async function prototypeCommand(argv: string[]): Promise<number> {
   const parsed = parseArgs(argv);
   const selector = openSelector(parsed);
   const wantsOpen = "open" in parsed.flags || "latest" in parsed.flags;
+  // a markdown design doc is the default; an .html entry is the opt-in pixel mockup
+  const isHtmlPrototype = selector?.endsWith(".html") ?? false;
+  const isMarkdownPrototype = selector?.endsWith(".md") || selector?.endsWith(".markdown") || false;
   const looksLikeFile =
-    selector !== undefined && !isSessionId(selector) && selector.endsWith(".html");
+    selector !== undefined && !isSessionId(selector) && (isHtmlPrototype || isMarkdownPrototype);
 
   if (wantsOpen || !looksLikeFile)
-    return openReviewOfKind(isPrototypeReview, "prototype", selector);
+    return openReviewOfKind(isPrototypeReview, "prototype", selector, "plan");
 
   const path = resolve(selector);
-  const html = await Bun.file(path)
+  const content = await Bun.file(path)
     .text()
     .catch(() => undefined);
 
-  if (html === undefined) {
+  if (content === undefined) {
     console.error(`prototype: cannot read ${path}`);
 
     return 1;
@@ -229,54 +236,38 @@ async function prototypeCommand(argv: string[]): Promise<number> {
   const client = await DaemonClient.connect({ autostart: true });
   const review = await openReview(client, {
     type: "prototype",
-    content: html,
-    prototypePath: path,
+    content,
+    // only an HTML entry carries a prototypePath, the signal for the experimental pixel mode
+    prototypePath: isHtmlPrototype ? path : undefined,
     title: basename(path),
   });
 
   client.close();
 
-  return runTui(review.id);
+  return runTui(review.id, "plan");
 }
 
 /**
- * `cueloop diff` disambiguates create from open by intent:
+ * `cueloop diff` opens the repo's workbench in the review layout:
  *   - a selector (`cueloop diff <id|title>`) or an explicit `--open`/`--latest`
- *     opens a pending diff review;
- *   - otherwise a dirty working tree still creates a review as before;
- *   - a clean working tree carries no create input, so it opens the latest
- *     pending diff review instead of erroring.
+ *     opens a specific pending diff thread;
+ *   - a bare `cueloop diff` find-or-creates the per-repo workbench thread - a live-diff
+ *     annotation container - so it is immediately annotatable and always shows the
+ *     current working tree, reusing the same thread across re-runs.
  */
 async function diffCommand(argv: string[]): Promise<number> {
   const parsed = parseArgs(argv);
   const selector = openSelector(parsed);
   const wantsOpen = selector !== undefined || "open" in parsed.flags || "latest" in parsed.flags;
 
-  if (wantsOpen) return openReviewOfKind(isDiffReview, "diff", selector);
+  if (wantsOpen) return openReviewOfKind(isDiffReview, "diff", selector, "review");
 
-  const workspace = await resolveWorkspace();
-  const diff = await workingTreeDiff();
-
-  if (!diff.patch.trim()) {
-    return openReviewOfKind(
-      isDiffReview,
-      "diff",
-      undefined,
-      "working tree is clean and no pending diff review - nothing to open",
-    );
-  }
   const client = await DaemonClient.connect({ autostart: true });
-  const review = await openReview(client, {
-    type: "diff",
-    content: diff.patch,
-    files: diff.files,
-    workspace,
-    title: `working tree @ ${workspace.branch}`,
-  });
+  const workbench = await client.sessionWorkbench(process.cwd());
 
   client.close();
 
-  return runTui(review.id);
+  return runTui(workbench.id, "review");
 }
 
 /**
@@ -302,13 +293,21 @@ async function reviewEntry(argv: string[]): Promise<number> {
     isPrReview,
     "PR",
     explicitOpen || looksLikeSessionId ? selector : undefined,
+    "review",
   );
 }
 
-async function runTui(sessionId?: string): Promise<number> {
-  const { runClient } = await import("@cueloop/client");
+/**
+ * A create-command dictates the pane composition it opens in; a bare launch (`layout`
+ * omitted) restores the remembered one. Resolve the factory here so the heavy client
+ * module stays lazily imported for non-TUI commands.
+ */
+async function runTui(sessionId?: string, layout?: "review" | "plan"): Promise<number> {
+  const { runClient, reviewLayout, planLayout } = await import("@cueloop/client");
+  const resolved =
+    layout === "review" ? reviewLayout() : layout === "plan" ? planLayout() : undefined;
 
-  return runClient({ sessionId });
+  return runClient({ sessionId, layout: resolved });
 }
 
 function printHelp(): void {
@@ -325,7 +324,7 @@ function printHelp(): void {
       "  cueloop diff [id|title]          review your working tree (untracked files included);",
       "                                   with a clean tree, open the latest pending diff review",
       "  cueloop review <pr>              review a pull request (--no-tui prints the session)",
-      "  cueloop prototype <file.html>    review a rendered HTML prototype (or open the latest by id/title)",
+      "  cueloop prototype <file.md>      review a component design doc (or open the latest by id/title)",
       "",
       "share:",
       "  cueloop serve [session-id]       share over ssh: observers are read-only,",
@@ -344,9 +343,12 @@ function printHelp(): void {
       "  cueloop session <primitive> [flags]   script the daemon (create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|resolve|submit-revision)",
       "  cueloop actions list             list the quick-action vocabulary (for annotate --action)",
       "  cueloop refine                   mine past reviews into a markdown report + writeback proposals",
+      "  cueloop update [--dry-run]       update the installed cueloop binary (--dry-run reports the target only)",
       "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the verdict (spawn detached)",
       "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
       "  cueloop daemon                   run the daemon in the foreground",
+      "  cueloop stop                     stop the local daemon",
+      "  cueloop restart                  stop the local daemon and start a fresh one",
       "  cueloop dev                      open the TUI on an isolated home seeded with example threads",
       "",
       "  cueloop -v, --version            print the installed version",

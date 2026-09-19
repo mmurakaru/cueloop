@@ -7,7 +7,7 @@
  */
 
 import { derivePath, followBranch, MAIN_BRANCH, pathOf, type SessionHistory } from "./history";
-import type { Annotation, ReviewSession } from "./types";
+import type { Annotation, Thread } from "./types";
 
 export interface PathView {
   /** The last agent revision on the path: what the artifact shows. */
@@ -51,7 +51,7 @@ export function viewOfPath(history: SessionHistory, known: Annotation[]): PathVi
 }
 
 /** Write a path view back into a record, in place; absent fields are removed. */
-export function applyPathView(session: ReviewSession, view: PathView): void {
+export function applyPathView(session: Thread, view: PathView): void {
   session.artifact = { ...session.artifact, content: view.content };
   session.annotations = view.annotations;
   if (view.workingCopy === undefined) delete session.workingCopy;
@@ -66,12 +66,12 @@ export function applyPathView(session: ReviewSession, view: PathView): void {
  * owner's. A followed branch that no longer exists falls back to main. A record
  * without a history travels as it is.
  */
-export function viewFollowing(session: ReviewSession, branch?: string): ReviewSession {
+export function viewFollowing(session: Thread, branch?: string): Thread {
   const asked = branch ?? session.shareBranch ?? MAIN_BRANCH;
   // a branch that no longer exists falls back to main, matching the daemon
   const followed =
     session.history && session.history.tips[asked] === undefined ? MAIN_BRANCH : asked;
-  const shared: ReviewSession = { ...session, shareBranch: followed };
+  const shared: Thread = { ...session, shareBranch: followed };
 
   if (!session.history) return shared;
   const history = followBranch(session.history, followed);

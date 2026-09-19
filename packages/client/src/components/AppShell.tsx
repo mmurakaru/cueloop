@@ -5,9 +5,12 @@
 // always present when the region is on, Changes rides on top of it, and a thin rail holds the sidebar
 // toggle when the region is closed. Each pane owns its own header controls; the thread header never does.
 
-import React from "react";
+import React, { useRef } from "react";
 import { useTerminalDimensions } from "@opentui/react";
+import type { BoxRenderable } from "@opentui/core";
 import { DARK, type Theme } from "../theme";
+import { useFrameMeasure } from "../use-frame-measure";
+import { truncateTitle } from "./truncate-title";
 import { PanelColumn } from "./PanelColumn";
 import { IconButton } from "./primitives/IconButton";
 import { NERD, HEADER_UNDERLINE_CHARS } from "./primitives/icons";
@@ -15,6 +18,25 @@ import { TooltipProvider } from "./Tooltip";
 import { RootOverlayProvider } from "./RootOverlay";
 
 export type ProjectPanelMode = "changes" | "tree";
+
+/** The thread title on one line: it shrinks with the header and tails off in an ellipsis rather than wrapping. */
+function HeaderTitle({ title, color }: { title: string; color: string }): React.ReactNode {
+  const boxRef = useRef<BoxRenderable | null>(null);
+  const width = useFrameMeasure(
+    () => boxRef.current?.width ?? 0,
+    (left, right) => left === right,
+    0,
+  );
+  const clipped = width > 0 ? truncateTitle(title, width) : title;
+
+  return (
+    <box ref={boxRef} style={{ flexShrink: 1, minWidth: 0 }}>
+      <text fg={color} wrapMode="none">
+        {clipped}
+      </text>
+    </box>
+  );
+}
 
 export interface AppShellProps {
   sidebarOpen: boolean;
@@ -37,6 +59,8 @@ export interface AppShellProps {
   projectMode: ProjectPanelMode;
   /** The Changes editor grid; rendered only when changesOpen. */
   changesPanel?: React.ReactNode;
+  /** The thread footer, shown beneath the Changes grid while the Thread pane is zoomed away. */
+  changesFooter?: React.ReactNode;
   projectPanel: React.ReactNode;
   /** Hide the Thread pane so Changes fills the middle (zoom); the sidebars stay. */
   zoomHideThread?: boolean;
@@ -45,6 +69,37 @@ export interface AppShellProps {
   theme?: Theme;
   threadsWidth?: number;
   projectWidth?: number;
+  onFocusPane?: (pane: FocusPane) => void;
+}
+
+export type FocusPane = "threads" | "thread" | "changes" | "project";
+
+/** The right region's reserved width: the open project pane, nothing when the region is closed, else the collapsed rail. */
+function rightRegionColumns(
+  projectOpen: boolean,
+  projectWidth: number,
+  rightRegionClosed: boolean,
+  collapsedRailWidth: number,
+): number {
+  if (projectOpen) return projectWidth;
+
+  return rightRegionClosed ? 0 : collapsedRailWidth;
+}
+
+/** The Thread header's right cluster: the owner actions, plus the reopen control when the region is closed. */
+function threadHeaderRight(
+  threadActions: React.ReactNode,
+  reopenControl: React.ReactNode,
+  showReopen: boolean,
+): React.ReactNode {
+  if (!showReopen) return threadActions;
+
+  return (
+    <box style={{ flexDirection: "row", alignItems: "center" }}>
+      {threadActions ? <box style={{ paddingRight: 2 }}>{threadActions}</box> : null}
+      {reopenControl}
+    </box>
+  );
 }
 
 export function AppShell({
@@ -62,6 +117,7 @@ export function AppShell({
   onToggleRight,
   projectMode,
   changesPanel,
+  changesFooter,
   projectPanel,
   zoomHideThread,
   footer,
@@ -69,18 +125,25 @@ export function AppShell({
   theme,
   threadsWidth = 30,
   projectWidth = 32,
+  onFocusPane,
 }: AppShellProps): React.ReactNode {
   const tokens = theme ?? DARK;
   const { width: terminalWidth } = useTerminalDimensions();
+  // with both panels closed the right region collapses to nothing: the reopen toggle
+  // rides the thread header, and the middle reclaims the width the rail would have taken
+  const rightRegionClosed = !projectOpen && !changesOpen;
   // Thread and Changes would otherwise split the middle as two flexBasis-0 items, and Yoga adds the
   // Changes left border on top of its share: at even widths the halves come out fractional, the
   // Changes side rounds up, and the row overflows a cell under the Project border. Sizing the Thread
   // pane to a whole number leaves Changes the lone flex item, which lays out exactly.
   const collapsedRailWidth = 4;
-  const middleWidth =
-    terminalWidth -
-    (sidebarOpen ? threadsWidth : 0) -
-    (projectOpen ? projectWidth : collapsedRailWidth);
+  const rightRegionWidth = rightRegionColumns(
+    projectOpen,
+    projectWidth,
+    rightRegionClosed,
+    collapsedRailWidth,
+  );
+  const middleWidth = terminalWidth - (sidebarOpen ? threadsWidth : 0) - rightRegionWidth;
   const threadPaneWidth =
     changesOpen && !zoomHideThread ? Math.max(20, Math.floor(middleWidth / 2)) : undefined;
 
@@ -121,10 +184,25 @@ export function AppShell({
       <IconButton
         glyph={NERD.sidebarRight}
         onPress={onToggleRight}
-        tip="Toggle Right Sidebar"
+        tip="Toggle Sidebar"
         theme={tokens}
       />
     </box>
+  );
+
+  // the reopen control - a divider tick then the toggle - shared by the collapsed
+  // rail and, when the rail is suppressed, the thread header
+  const reopenRightControl = (
+    <>
+      <text fg={tokens.border}>{"│"}</text>
+      <IconButton
+        glyph={NERD.sidebarRightOff}
+        onPress={onToggleRight}
+        tip="Toggle Sidebar"
+        marginLeft={1}
+        theme={tokens}
+      />
+    </>
   );
 
   return (
@@ -140,7 +218,13 @@ export function AppShell({
         <TooltipProvider theme={tokens}>
           <box style={{ flexGrow: 1, flexDirection: "row" }}>
             {sidebarOpen ? (
-              <PanelColumn width={threadsWidth} border="right" header={brandChrome} theme={tokens}>
+              <PanelColumn
+                width={threadsWidth}
+                border="right"
+                header={brandChrome}
+                onFocus={() => onFocusPane?.("threads")}
+                theme={tokens}
+              >
                 {threadsPanel}
               </PanelColumn>
             ) : null}
@@ -148,12 +232,22 @@ export function AppShell({
               <PanelColumn
                 width={threadPaneWidth}
                 header={
-                  <box style={{ flexDirection: "row" }}>
-                    {!sidebarOpen ? <box style={{ paddingRight: 2 }}>{brandChrome}</box> : null}
-                    {threadTitle ? <text fg={tokens.textDim}>{threadTitle}</text> : null}
+                  <box style={{ flexDirection: "row", minWidth: 0 }}>
+                    {!sidebarOpen ? (
+                      <box style={{ paddingRight: 2, flexShrink: 0 }}>{brandChrome}</box>
+                    ) : null}
+                    {threadTitle ? (
+                      <HeaderTitle title={threadTitle} color={tokens.textDim} />
+                    ) : null}
                   </box>
                 }
-                headerRight={threadActions}
+                // with the region closed, the reopen toggle rides the thread header instead of an empty column
+                headerRight={threadHeaderRight(
+                  threadActions,
+                  reopenRightControl,
+                  rightRegionClosed,
+                )}
+                onFocus={() => onFocusPane?.("thread")}
                 theme={tokens}
               >
                 {threadPanel}
@@ -161,6 +255,7 @@ export function AppShell({
             ) : null}
             {changesOpen ? (
               <box
+                onMouseDown={() => onFocusPane?.("changes")}
                 style={{
                   flexDirection: "column",
                   flexGrow: 1,
@@ -173,7 +268,8 @@ export function AppShell({
                   borderColor: tokens.border,
                 }}
               >
-                {changesPanel}
+                <box style={{ flexGrow: 1, minHeight: 0 }}>{changesPanel}</box>
+                {zoomHideThread ? changesFooter : null}
               </box>
             ) : null}
             {projectOpen ? (
@@ -182,12 +278,13 @@ export function AppShell({
                 border="left"
                 header={null}
                 headerRight={projectToggles}
+                onFocus={() => onFocusPane?.("project")}
                 theme={tokens}
               >
                 {projectPanel}
               </PanelColumn>
-            ) : (
-              // collapsed: a divider tick above the continuous header underline holds the reopen toggle;
+            ) : rightRegionClosed ? null : (
+              // Changes open but Project closed: a divider tick above the continuous header underline holds the reopen toggle;
               // the rule lives in the header only, never running the pane's full height. The extra column
               // of right padding keeps the reopen icon off the terminal's last column, which squeezes it
               <box style={{ flexDirection: "column", width: 4 }}>
@@ -204,14 +301,7 @@ export function AppShell({
                     borderColor: tokens.border,
                   }}
                 >
-                  <text fg={tokens.border}>{"│"}</text>
-                  <IconButton
-                    glyph={NERD.sidebarRightOff}
-                    onPress={onToggleRight}
-                    tip="Toggle Right Sidebar"
-                    marginLeft={1}
-                    theme={tokens}
-                  />
+                  {reopenRightControl}
                 </box>
               </box>
             )}

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { Registry } from "@cueloop/extension-api";
 import { OBSIDIAN_DEFAULTS, exportSession, shouldExport, type ObsidianConfig } from "./export";
 import { createObsidianExtension } from "./extension";
@@ -10,7 +10,7 @@ import { frontmatter } from "./frontmatter";
 
 const NOW = new Date("2026-08-07T12:34:56.000Z");
 
-function resolvedSession(overrides: Partial<ReviewSession> = {}): ReviewSession {
+function resolvedSession(overrides: Partial<Thread> = {}): Thread {
   return {
     schemaVersion: "1",
     id: "s_test1",

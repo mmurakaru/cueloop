@@ -3,12 +3,14 @@
 // so the diff reclaims the width. Mirrors the left Threads column on the far side.
 // Co-located here: the state hook that opens it by context and the header toggle.
 
+import { ScrollArea } from "./ScrollArea";
 import React, { useMemo, useState } from "react";
-import type { DiffFileContents, ReviewSession } from "@cueloop/schema";
+import { useKeyboard } from "@opentui/react";
+import type { DiffFileContents, Thread } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import type { DiffRow } from "../view-diff";
 import { Tree } from "./primitives/Tree";
-import { allFolderIds } from "./primitives/tree-model";
+import { allFolderIds, flattenTree } from "./primitives/tree-model";
 import { IconButton } from "./primitives/IconButton";
 import { NERD } from "./primitives/icons";
 import { buildFileTree } from "./file-tree";
@@ -27,7 +29,7 @@ export interface DiffColumnsState {
  * Resets on session change via the guarded render-time pattern, no effect.
  */
 export function useDiffColumns(params: {
-  session: ReviewSession | null;
+  session: Thread | null;
   rows: DiffRow[];
   cursor: number;
   setCursor: (index: number) => void;
@@ -87,6 +89,7 @@ export interface ChangesColumnProps {
   onSelectFile: (path: string) => void;
   /** Comments per file path, shown as a dot-and-count badge on each entry. */
   commentCounts?: ReadonlyMap<string, number>;
+  focused?: boolean;
   width?: number;
   theme?: Theme;
 }
@@ -100,12 +103,14 @@ export function ChangesFileTree({
   selectedPath,
   onSelectFile,
   commentCounts,
+  focused = false,
   theme,
 }: Omit<ChangesColumnProps, "open" | "width">): React.ReactNode {
   const nodes = useMemo(() => buildFileTree(files, commentCounts), [files, commentCounts]);
   // every folder opens by default so each changed file is reachable; the user
   // only ever names the folders they fold shut, so a new file set stays open
   const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(new Set());
+  const [cursor, setCursor] = useState(0);
   const expandedIds = useMemo(() => {
     const expanded = allFolderIds(nodes);
 
@@ -113,29 +118,53 @@ export function ChangesFileTree({
 
     return expanded;
   }, [nodes, collapsedIds]);
+  const rows = useMemo(
+    () => flattenTree(nodes, { expandedIds, flattenEmptyDirectories: true }),
+    [nodes, expandedIds],
+  );
+  const cursorIndex = Math.min(cursor, Math.max(0, rows.length - 1));
+
+  const toggle = (id: string): void =>
+    setCollapsedIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+
+      return next;
+    });
+
+  useKeyboard((key) => {
+    if (!focused || rows.length === 0) return;
+    if (key.name === "j" || key.name === "down")
+      return setCursor(Math.min(cursorIndex + 1, rows.length - 1));
+    if (key.name === "k" || key.name === "up") return setCursor(Math.max(cursorIndex - 1, 0));
+    const row = rows[cursorIndex];
+    if (!row) return;
+    if (key.name === "tab" || key.name === "return" || key.name === "enter")
+      return row.isFolder ? toggle(row.id) : onSelectFile(row.id);
+    if (key.name === "l" && row.isFolder && collapsedIds.has(row.id)) return toggle(row.id);
+    if (key.name === "h" && row.isFolder && !collapsedIds.has(row.id)) return toggle(row.id);
+  });
 
   return (
-    <scrollbox style={{ flexGrow: 1 }} focused={false}>
+    <ScrollArea>
       <Tree
         nodes={nodes}
         expandedIds={expandedIds}
-        selectedId={selectedPath}
+        selectedId={focused ? rows[cursorIndex]?.id : selectedPath}
         flattenEmptyDirectories
         showStatus
-        onSelect={onSelectFile}
-        onToggle={(id) =>
-          setCollapsedIds((current) => {
-            const next = new Set(current);
+        onSelect={(id) => {
+          const index = rows.findIndex((row) => row.id === id);
 
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-
-            return next;
-          })
-        }
+          if (index >= 0) setCursor(index);
+          onSelectFile(id);
+        }}
+        onToggle={toggle}
         theme={theme}
       />
-    </scrollbox>
+    </ScrollArea>
   );
 }
 

@@ -1,7 +1,7 @@
 /** Primitive-first open resolution over a plain session list: latest-pending default, by-id, and fuzzy-by-title (exact wins, unique substring wins, else ambiguous). Pure over the array - no daemon, no TUI. */
 
 import { describe, expect, test } from "bun:test";
-import type { ArtifactType, ReviewSession } from "@cueloop/schema";
+import type { ArtifactType, Thread } from "@cueloop/schema";
 import {
   isDiffReview,
   isPlanReview,
@@ -20,7 +20,7 @@ function session(overrides: {
   status?: "pending" | "resolved";
   createdAt?: string;
   pr?: string;
-}): ReviewSession {
+}): Thread {
   return {
     schemaVersion: "1",
     id: overrides.id,

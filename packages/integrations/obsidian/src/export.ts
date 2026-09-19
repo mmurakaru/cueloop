@@ -6,7 +6,7 @@
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ReviewSession, VerdictKind } from "@cueloop/schema";
+import type { Thread, VerdictKind } from "@cueloop/schema";
 import { detectVaults } from "./detect";
 import { formatFilename, titleFrom, uniquePath, type Separator } from "./filename";
 import { frontmatter } from "./frontmatter";
@@ -45,7 +45,7 @@ export interface ExportResult {
 }
 
 export function exportSession(
-  session: ReviewSession,
+  session: Thread,
   config: ObsidianConfig,
   now: Date = new Date(),
 ): ExportResult {

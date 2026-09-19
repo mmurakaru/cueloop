@@ -8,7 +8,7 @@ import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { ManualClock } from "@opentui/core/testing";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import { isolateUserConfig, press, settle, waitForText, pressKey } from "./test-support";
 
@@ -16,7 +16,7 @@ const PLAN = "# Plan\n\nShip the thing.\n";
 
 let home: string;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 let configPath: string;
 let restoreUserConfig: () => void;
 let clock: ManualClock;
@@ -57,7 +57,7 @@ type Setup = Awaited<ReturnType<typeof renderApp>>;
 
 async function submitApprove(setup: Setup): Promise<void> {
   await pressKey(setup, "RETURN", { meta: true }); // open submit (approve default: no pending items)
-  await press(setup, "enter"); // confirm
+  await pressKey(setup, "RETURN", { meta: true }); // confirm
   await waitForText(setup, "review approved");
 }
 
@@ -74,8 +74,8 @@ describe("completion overlay", () => {
     const frame = await waitForText(setup, "closing in 5s");
 
     expect(frame).toContain("review approved");
-    expect(frame).toContain("close [return]");
-    expect(frame).toContain("return to plan [esc]");
+    expect(frame).toContain("close");
+    expect(frame).toContain("back to plan");
 
     // Act
     await press(setup, "enter");

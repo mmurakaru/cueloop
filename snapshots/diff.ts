@@ -5,7 +5,7 @@
  * real TUI; a vhs tape drives it and captures the frame. Isolated home.
  */
 
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonServer } from "@cueloop/daemon";
@@ -13,6 +13,10 @@ import { runClient } from "@cueloop/client";
 import { diffRows, diffRowAnchor } from "../packages/client/src/view-diff";
 
 const home = mkdtempSync(join(tmpdir(), "cueloop-snapshot-diff-"));
+// An isolated working tree named "cueloop" so the footer reads "cueloop / …" and
+// the DiffWatcher (which watches repoRoot) can't overwrite the seeded files.
+const repoRoot = join(mkdtempSync(join(tmpdir(), "cl-diff-root-")), "cueloop");
+mkdirSync(repoRoot);
 const server = new DaemonServer({ home, idleExitMs: 0 });
 server.start();
 
@@ -34,9 +38,49 @@ index 3a1f2b1..9c4e7a2 100644
    })
 `;
 
+const OLD_CONTENTS = `import { Effect } from "effect"
+import { db } from "./db"
+import { UserNotFound, UserLookupFailed } from "./errors"
+
+export const getUser = (id: string) =>
+  Effect.gen(function* () {
+    const row = yield* db.query(id)
+    return row
+  })
+`;
+
+const NEW_CONTENTS = `import { Effect, Schedule } from "effect"
+import { db } from "./db"
+import { UserNotFound, UserLookupFailed } from "./errors"
+
+export const getUser = (id: string) =>
+  Effect.gen(function* () {
+    const row = yield* db.query(id).pipe(
+      Effect.retry(Schedule.recurs(2)),
+      Effect.catchTag("QueryError", (e) => Effect.fail(new UserLookupFailed({ id, cause: e }))),
+    )
+    return yield* Effect.fromNullable(row).pipe(
+      Effect.mapError(() => new UserNotFound({ id })),
+    )
+  })
+`;
+
 const session = server.core.sessionCreate({
-  workspace: { repoRoot: process.cwd(), branch: "effect-errors" },
-  artifact: { type: "diff", content: PATCH, meta: { title: "user-service.ts", agent: "pi" } },
+  workspace: { repoRoot, branch: "effect-errors" },
+  artifact: {
+    type: "diff",
+    content: PATCH,
+    meta: { title: "user-service.ts", agent: "pi" },
+    // the changed-files set a real `cueloop diff` derives from git; drives the Changes panel
+    files: [
+      {
+        path: "src/user-service.ts",
+        status: "modified",
+        oldContents: OLD_CONTENTS,
+        newContents: NEW_CONTENTS,
+      },
+    ],
+  },
 });
 
 const rows = diffRows(PATCH);

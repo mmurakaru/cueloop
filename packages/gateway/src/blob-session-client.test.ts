@@ -4,7 +4,7 @@ import {
   removalEntries,
   validateHistory,
   type Annotation,
-  type ReviewSession,
+  type Thread,
 } from "@cueloop/schema";
 import { packSessionBlob, unpackSessionBlob } from "@cueloop/daemon/share-blob";
 import { BlobSessionClient, type ShareWriteBack } from "./blob-session-client";
@@ -19,7 +19,7 @@ const PLANNER_NOTE: Annotation = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
-function sessionWith(annotations: Annotation[]): ReviewSession {
+function sessionWith(annotations: Annotation[]): Thread {
   return {
     schemaVersion: "1",
     id: "ses_1",
@@ -79,7 +79,7 @@ describe("collaborator write-back", () => {
     };
   });
 
-  async function storedSession(): Promise<ReviewSession> {
+  async function storedSession(): Promise<Thread> {
     return unpackSessionBlob(
       openBlob(writeBack.masterKey, "p_abc123xy", (await store.get("p_abc123xy"))!),
     );
@@ -104,6 +104,26 @@ describe("collaborator write-back", () => {
     expect((await storedSession()).annotations.map((annotation) => annotation.id)).toEqual([
       "a_planner",
       "a_collab",
+    ]);
+  });
+
+  test("a verified github identity persists on the participant when they comment", async () => {
+    // Arrange
+    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), {
+      ...writeBack,
+      participantName: "Robin",
+      participantSource: { provider: "github", handle: "robin" },
+    });
+
+    // Act
+    const after = await client.sessionAnnotate("ses_1", NOTE("a_collab", "looks risky"));
+
+    // Assert
+    expect(after.participants).toEqual([
+      { id: "SHA256:collab", provider: "github", name: "Robin", handle: "robin" },
+    ]);
+    expect((await storedSession()).participants).toEqual([
+      { id: "SHA256:collab", provider: "github", name: "Robin", handle: "robin" },
     ]);
   });
 

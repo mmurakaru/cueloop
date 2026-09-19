@@ -1,5 +1,240 @@
 # cueloop
 
+## 0.1.0-alpha.78
+
+### Patch Changes
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`123b3e7`](https://github.com/mmurakaru/cueloop/commit/123b3e780c4a7d0fb41e055ef2c3c045df2c2c0a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The send-message summary is now the same composer as inline comments: enter breaks the line, cmd or ctrl and enter sends, and typing a slash opens the same actions-and-skills palette. A pasted image collapses to a numbered placeholder instead of dumping raw bytes into the draft, in both the summary and inline comments. A returning collaborator is no longer re-prompted to connect GitHub for a share they already joined. The join-splash logo is aligned to match the install script.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`7ed5a43`](https://github.com/mmurakaru/cueloop/commit/7ed5a436351cd8079a63c20b033bb20cc6c47272) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Navigating between threads is now instant, even with many projects and large reviews open. Opening a diff no longer word-diffs every line of the whole file up front - only the lines on screen - and opening or switching to a plan no longer builds every block before the first frame, just the ones in view. Under a worst-case load (several projects, large annotated plans, big diffs) the click-to-first-byte drops from about 108ms to about 21ms for a diff and from about 57ms to about 28ms for a plan.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`5cf9149`](https://github.com/mmurakaru/cueloop/commit/5cf9149ad5555a63ddb1e902808b5f7c5f176647) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Faster launch and navigation, and fix a freeze on stale annotations. A stale multi-block annotation no longer freezes the review while its quote is re-matched (the fuzzy search now shares one work budget across an anchor's blocks instead of spending it per block; a 160-block plan drops from ~16s to ~0.3s). The first frame paints before the terminal's theme query instead of after it (cold launch ~320ms to ~257ms). A session update that only changed annotations or status now reuses the parsed document projection instead of re-parsing the whole document. A saved comment paints immediately instead of blinking out until the daemon write returns.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`a81ae19`](https://github.com/mmurakaru/cueloop/commit/a81ae19ed46f12f03c98ad9478b1d37524ac0b5b) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The threads sidebar is cleaner: no star or folder glyphs, and it cascades by nesting so a project's threads sit indented under the project name. Transient notices lose their stray "[esc]" hint, and the redundant "annotation updated" status is gone.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`807b9c8`](https://github.com/mmurakaru/cueloop/commit/807b9c8c8f4307f483e7beac485f7c70ed540f21) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The primitive is now called a thread everywhere - the UI strings, the docs, and the concepts page - matching how it is used; the wire and CLI vocabulary is unchanged. The GitHub connect screens over SSH also read better: they show the short link and the code to type (GitHub no longer prefills it), align cleanly, wrap without clipping, and the data-use line no longer overstates what is kept.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`6f6d935`](https://github.com/mmurakaru/cueloop/commit/6f6d935ff240b61e6f35760321f61db2811a9b50) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Switching between threads is faster. A recently-viewed thread keeps its parsed projection in a small per-thread cache, so returning to it reuses the work instead of re-parsing the diff or plan. A changed file's model is parsed on first curation touch rather than for every file when a diff opens, which the virtualized diff view never needed up front. Opening a large diff is about a fifth faster at the p95 and returns to it are cheaper.
+
+- [#462](https://github.com/mmurakaru/cueloop/pull/462) [`fade841`](https://github.com/mmurakaru/cueloop/commit/fade841e18837d920e858c0a46748540aad37826) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Overlays now share one language. Confirm, rename, submit, delete, the guided-walk end card, share, manage-access, and the completion screen all use the same lowercase word-buttons on an accent frame, instead of a mix of clickable text, key-hint captions, and bracketed labels. Keys still work; the keybinds sheet remains where they are documented.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.78
+  - @cueloop/client@0.1.0-alpha.78
+  - @cueloop/daemon@0.1.0-alpha.78
+  - @cueloop/schema@0.1.0-alpha.78
+
+## 0.1.0-alpha.77
+
+### Minor Changes
+
+- [#454](https://github.com/mmurakaru/cueloop/pull/454) [`9155958`](https://github.com/mmurakaru/cueloop/commit/9155958290a6728871bf80419ab558d079533ecc) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Collaborators can connect GitHub when they open a shared review: a join splash then a connect screen run GitHub's device flow, and the verified login signs their comments with a recognizable name. Connecting is optional - escape stays anonymous - and the token is discarded after one identity lookup.
+
+- [#460](https://github.com/mmurakaru/cueloop/pull/460) [`bdd09aa`](https://github.com/mmurakaru/cueloop/commit/bdd09aa60212f54205ce67e7c0b46e0f49e56d2d) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The gateway now enforces the private-share allowlist: a private share renders only for a collaborator who authenticated a GitHub identity and whose verified login is on the allowlist (matched case-insensitively). Anyone else is refused before the shared view opens. Public shares are unchanged.
+
+- [#459](https://github.com/mmurakaru/cueloop/pull/459) [`d663f4c`](https://github.com/mmurakaru/cueloop/commit/d663f4cb88c771e20ed24f064e5960adb33e064a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A private share now carries an owner-managed allowlist of GitHub logins. The share popover's private option opens a manage-access surface where the owner adds and removes GitHub handles; the list persists with the thread and is editable after the link is created.
+
+- [#451](https://github.com/mmurakaru/cueloop/pull/451) [`d5950dd`](https://github.com/mmurakaru/cueloop/commit/d5950dd7f21a9f92f1b8965d7b4213cb1c98a947) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reviewer identity: an Account settings tab shows your display name and syncs it from your signed-in GitHub account with no prompt, and hovering a comment's author dot shows who wrote it.
+
+- [#461](https://github.com/mmurakaru/cueloop/pull/461) [`0f3a0e8`](https://github.com/mmurakaru/cueloop/commit/0f3a0e8fe640a13119c91949132eadb66569ca19) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reach the share public/private choice from the keyboard in any view. The share shortcut opens an app-level choice overlay - public publishes a link for anyone, private opens the manage-access allowlist - and the header share button opens the same surface, so a keyboard user in the working-tree diff gets the private option that used to live only in the header popover.
+
+- [#455](https://github.com/mmurakaru/cueloop/pull/455) [`38c5b6b`](https://github.com/mmurakaru/cueloop/commit/38c5b6bf1c6d07fc2f9c79926c2130e00e2dc289) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Share now opens a popover to choose a public link (open to anyone with the link) or a private link (invite by identity). The public choice publishes and copies the connection line as before.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.77
+  - @cueloop/client@0.1.0-alpha.77
+  - @cueloop/daemon@0.1.0-alpha.77
+  - @cueloop/schema@0.1.0-alpha.77
+
+## 0.1.0-alpha.76
+
+### Minor Changes
+
+- [#439](https://github.com/mmurakaru/cueloop/pull/439) [`3e217f2`](https://github.com/mmurakaru/cueloop/commit/3e217f257363eed9ea695bcc470117d8a65a7ad5) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The workbench now has a unified pane focus model: exactly one of Threads, Thread, Changes, or Project owns the keyboard, shown by a selected-item backdrop that moves with the arrow keys or `j`/`k` and opens with Enter or Tab. Sidebar navigation no longer moves the caret in the open thread. A rebindable command leader reaches structural commands, and the leader then Tab cycles focus between panes. The project tree and the changed-files tree navigate by keyboard when focused, and the editor split control is a floating popover you drive with the arrow keys. Menus are single-open, so opening one closes any other. Rounding out the pass: the pinned sidebar section is now Starred, dialogs capture focus on open and dismiss on an outside click, empty states are centered, the footer branch truncates rather than wraps, and the pointer no longer sticks in text selection after the terminal drops mouse reporting.
+
+### Patch Changes
+
+- [#442](https://github.com/mmurakaru/cueloop/pull/442) [`40751af`](https://github.com/mmurakaru/cueloop/commit/40751afea30f6446a3b6abb5ac8cc26780a466af) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The diff view opens changed files faster. Its intra-line word-diff cached the per-line word set instead of recomputing it for every comparison in the line-matching grid, cutting the work of rendering a multi-line change block.
+
+- [#442](https://github.com/mmurakaru/cueloop/pull/442) [`4c1ca0a`](https://github.com/mmurakaru/cueloop/commit/4c1ca0ae2d2a300330d835269b32ca16f70412c6) Thanks [@mmurakaru](https://github.com/mmurakaru)! - cueloop launches faster. The terminal background-color query that runs at startup now waits at most 100ms instead of 200ms before falling back to the dark theme, so a terminal that does not answer the query no longer stalls the launch.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.76
+  - @cueloop/client@0.1.0-alpha.76
+  - @cueloop/daemon@0.1.0-alpha.76
+  - @cueloop/schema@0.1.0-alpha.76
+
+## 0.1.0-alpha.75
+
+### Patch Changes
+
+- [#435](https://github.com/mmurakaru/cueloop/pull/435) [`32fc60a`](https://github.com/mmurakaru/cueloop/commit/32fc60a73473004feee1fc8119d80b8356354b63) Thanks [@mmurakaru](https://github.com/mmurakaru)! - `cueloop update` and the curl installer now resolve the right release when the GitHub releases API is returned as minified (single-line) JSON, as some corporate proxies do. `resolve_tag` matched the CLI's own `cueloop@` tags but then extracted the version with a greedy `sed`, which on single-line JSON skipped past every tag to the oldest scoped package tag on the page (`@cueloop/schema@...`) and 404ed on its missing binary. It now takes the first matching CLI tag regardless of whitespace, so the newest `cueloop@` release is chosen either way.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.75
+  - @cueloop/client@0.1.0-alpha.75
+  - @cueloop/daemon@0.1.0-alpha.75
+  - @cueloop/schema@0.1.0-alpha.75
+
+## 0.1.0-alpha.74
+
+### Minor Changes
+
+- [#431](https://github.com/mmurakaru/cueloop/pull/431) [`28a4a7d`](https://github.com/mmurakaru/cueloop/commit/28a4a7d62ef6978f2e37f7c609284efc48e7b227) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The Changes panel now renders a file's working-tree diff on a bare `cueloop` launch, before any thread exists. Clicking a changed file in the Changes tree opens its diff (red/green for a modified file, all-additions for a new one) instead of read-only contents; the Project tree still opens contents. The first comment on a bare-launch diff promotes the per-repo workbench thread and anchors the note, as before. The diff renderer (`GridTabContent`) is shared between the thread workbench and the bare-launch shell so a changed file looks and behaves the same in both.
+
+- [#433](https://github.com/mmurakaru/cueloop/pull/433) [`ade7710`](https://github.com/mmurakaru/cueloop/commit/ade77108a7da6b386a8987038a8968616ccb41ad) Thanks [@mmurakaru](https://github.com/mmurakaru)! - `cueloop diff` now opens the per-repo workbench instead of pinning a standalone diff sheet. It find-or-creates the repo's workbench thread (the same one a bare launch creates on its first comment) and opens it in the review layout - changes panel zoomed, changes tab active - so it is annotatable right away. The Changes tab renders the live working tree, so re-running `cueloop diff` after more edits shows the current diff and reuses the same thread rather than spawning a new one. The workbench thread stays a pure annotation container: a diff review still pins its captured patch, but a workbench thread reflects the live tree.
+
+- [#432](https://github.com/mmurakaru/cueloop/pull/432) [`c3d861f`](https://github.com/mmurakaru/cueloop/commit/c3d861f94569e27a2d0d65511a99ebcf63551ab9) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Each launch opens in a pane layout chosen by how it started. `cueloop diff` and `cueloop review` open the Changes diff zoomed and front-and-centre; `cueloop plan` and `cueloop reply` fill the middle with the thread pane and close the right region. A bare `cueloop` remembers the last layout you left, restoring which sidebars were open and whether the Changes panel was zoomed, and falls back to the inbox with the diff zoomed on first run. Opening a specific thread by id keeps letting that thread drive its own panes. The remembered layout persists to `[ui] layout` in the config.
+
+- [#434](https://github.com/mmurakaru/cueloop/pull/434) [`6bd2b39`](https://github.com/mmurakaru/cueloop/commit/6bd2b39814cd243fdad5dafc8c48a06efaa84c19) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Sharing or serving a workbench thread now freezes a snapshot of the working-tree diff for the remote reviewer, who cannot see your tree. `cueloop share` pins the current diff into the shared artifact (and drops the workbench marker) so the link stays stable no matter how you edit on; `cueloop serve` captures the diff once at serve time and splices it into what each observer reads, while their annotations and the rest of the thread stay live. Your own local session keeps rendering the live working tree.
+
+### Patch Changes
+
+- [#429](https://github.com/mmurakaru/cueloop/pull/429) [`0f082ba`](https://github.com/mmurakaru/cueloop/commit/0f082ba68ad9021a715ce58d6494a970805f2b64) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A batch of TUI refinements:
+
+  - The collapsed-sidebar thread header keeps the gear, the Threads toggle, and the "cueloop" mark on one line; a long title tails off in an ellipsis instead of wrapping the brand onto the underline row. The right-sidebar tooltip reads "Toggle Sidebar".
+  - The sidebar thread list clips long titles with an ellipsis rather than a gradient fade.
+  - The Settings dialog nav lists General, Appearance, Actions, and Keybinds as first-level entries; the redundant "Settings" group header is gone.
+  - The Actions editor makes both the action title and its system prompt editable.
+  - The verdict card drops its "send message" border title (the send button already says it).
+  - Every overlay uses square corners instead of rounded.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.74
+  - @cueloop/client@0.1.0-alpha.74
+  - @cueloop/daemon@0.1.0-alpha.74
+  - @cueloop/schema@0.1.0-alpha.74
+
+## 0.1.0-alpha.73
+
+### Minor Changes
+
+- [#423](https://github.com/mmurakaru/cueloop/pull/423) [`0f3d4f7`](https://github.com/mmurakaru/cueloop/commit/0f3d4f706dcb97823df4e1386202c1de51739931) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Added `cueloop stop` and `cueloop restart` to control the local daemon, and `cueloop update` now stops the running daemon after installing a newer build. The daemon refuses cross-version connections, so a client left talking to a stale daemon fails with "not connected" when it tries to comment; self-healing on update, plus an explicit `restart`, clears that without a manual process kill. `stop` prefers the owner-gated shutdown request and falls back to signalling the daemon's pid when a version-mismatched daemon refuses the handshake.
+
+### Patch Changes
+
+- [#421](https://github.com/mmurakaru/cueloop/pull/421) [`8a60c4f`](https://github.com/mmurakaru/cueloop/commit/8a60c4f4cdcf1592efaa29e9d76eeb8ebf2081c6) Thanks [@mmurakaru](https://github.com/mmurakaru)! - `cueloop update` now prints its progress (current version, checking, updating, restart notice) to stdout instead of stderr, so ordinary status no longer shows up as red error text in terminals that color stderr. Genuine failures still go to stderr.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.73
+  - @cueloop/client@0.1.0-alpha.73
+  - @cueloop/daemon@0.1.0-alpha.73
+  - @cueloop/schema@0.1.0-alpha.73
+
+## 0.1.0-alpha.72
+
+### Patch Changes
+
+- [#413](https://github.com/mmurakaru/cueloop/pull/413) [`cf72af0`](https://github.com/mmurakaru/cueloop/commit/cf72af0274a127424fc9b58acbe7cdd634cb0d8b) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The comment composer no longer reorders characters that arrive faster than it settles: a fast paste, key repeat, or automation used to scramble the draft (e.g. "needs a test" became "anee testds"). The textarea now claims input synchronously at mount, so every character lands in the order it was typed, and a whole-string paste opens a draft with the full text.
+
+  The "/" palette reopens for each "/word" the caret writes, so several actions or skills chain in one comment with prose between them. A completed "/name" reference paints in the accent color in every composer - the plan thread, the diff sheet, and the prototype - through one shared palette context.
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.72
+  - @cueloop/client@0.1.0-alpha.72
+  - @cueloop/daemon@0.1.0-alpha.72
+  - @cueloop/schema@0.1.0-alpha.72
+
+## 0.1.0-alpha.71
+
+### Patch Changes
+
+- [#411](https://github.com/mmurakaru/cueloop/pull/411) [`7d5b2f5`](https://github.com/mmurakaru/cueloop/commit/7d5b2f53f0e3c77223f1c120b174d636a1fcbb61) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The thread footer, with its repo/branch context and "send message" control, now rides the Changes pane while a zoom has hidden the Thread pane. Zooming the diff no longer strands the reviewer without a way to send a message.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.71
+  - @cueloop/client@0.1.0-alpha.71
+  - @cueloop/daemon@0.1.0-alpha.71
+  - @cueloop/schema@0.1.0-alpha.71
+
+## 0.1.0-alpha.70
+
+### Minor Changes
+
+- [#394](https://github.com/mmurakaru/cueloop/pull/394) [`9d324f0`](https://github.com/mmurakaru/cueloop/commit/9d324f07842abbcae957c3f12920edf771711180) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Comment on any project file, not just a diff. Open a file from the Changes tree and select a line to leave a comment anchored to it, the same gesture as a plan or diff. The file reads with ordinary line numbers; your notes ride along with the file.
+
+- [#393](https://github.com/mmurakaru/cueloop/pull/393) [`8a1b082`](https://github.com/mmurakaru/cueloop/commit/8a1b082500348159fe2adb9caba7977960380ec1) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Comment on the working-tree diff from any review. The Changes panel is annotatable no matter how you opened the review, not just from `cueloop diff`: a note there attaches to the file and line it marks and re-anchors as the diff changes. Each surface shows only its own notes - the plan keeps its notes, the diff keeps the ones left on it.
+
+- [#395](https://github.com/mmurakaru/cueloop/pull/395) [`86c0f23`](https://github.com/mmurakaru/cueloop/commit/86c0f23dc164e3e1d8ef3806e1b472e10687acfe) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Feedback groups notes by where you left them. When you submit, the document your agent reads keeps the artifact's notes in one section and gives each file its own section, so a comment left on a file comes back beside that file rather than mixed into the plan.
+
+- [#396](https://github.com/mmurakaru/cueloop/pull/396) [`fa2811e`](https://github.com/mmurakaru/cueloop/commit/fa2811e21cf68e8c355d645f93df741269800dd9) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Threads are stored per project on disk. Each thread is an append-only log under a folder keyed by the repository's identity, so your review history is organized by project and survives moving or re-cloning the repo. Existing reviews migrate automatically on first launch.
+
+- [#404](https://github.com/mmurakaru/cueloop/pull/404) [`3bc9c8c`](https://github.com/mmurakaru/cueloop/commit/3bc9c8cc2cf93050413eaddc38035b5b9a5ac538) Thanks [@mmurakaru](https://github.com/mmurakaru)! - A bare `cueloop` launch is now a real workbench: browse the current checkout and your project files freely, and the first comment you leave lazily creates a per-repo thread that persists across restarts and is shareable like any review. Nothing is written to disk until you comment, and the thread is keyed by the repository's identity, so every launch in that repo reattaches to the same workbench.
+
+- [#408](https://github.com/mmurakaru/cueloop/pull/408) [`e49bf3d`](https://github.com/mmurakaru/cueloop/commit/e49bf3dedbcbebf599c9f05abf84945fa423a8bf) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Added a built-in `/lgtm` quick action - a quick thumbs-up. Picking it inserts `/lgtm`, which expands for the agent to a terse "LGTM - This looks good to me." The quick-actions settings editor now scrolls and keeps the selected row in view, so a longer action list never overflows the dialog.
+
+- [#385](https://github.com/mmurakaru/cueloop/pull/385) [`f91175e`](https://github.com/mmurakaru/cueloop/commit/f91175eda0712eaa3cfb96ce3a21a386a484e08e) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Make the `prototype` review a component design doc by default. `cueloop prototype <file.md>` opens a Markdown proposal - the component's prop API, how it composes from existing primitives, and the callstack it sits in - reviewed as text, so annotations anchor to lines the same way a plan or diff does. The prototype skill prompts the agent to author those three sections.
+
+  Rendering an HTML mockup as terminal pixels is now an opt-in experimental mode (`[experimental] prototype_pixels`); its renderer is code-split so none of the pixel/browser path loads into the runtime unless the flag is on. A closed right region now moves its reopen toggle into the header instead of leaving an empty gutter, and the landing page shots are refreshed to the current terminal UI.
+
+  Scrollbars are now overlays across every view: the bar appears while a surface is scrolling and hides once it goes idle, instead of sitting permanently on any overflowing pane. Reviewer decisions are no longer called "verdicts" in the copy.
+
+- [#407](https://github.com/mmurakaru/cueloop/pull/407) [`3af5f02`](https://github.com/mmurakaru/cueloop/commit/3af5f028305a3d96c975510e5d88f70869b8408f) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The "/" palette now lists your user-level skills alongside cueloop's quick actions. Skills are discovered from `~/.agents/skills` by default (each `<name>/SKILL.md` with a name and description in its frontmatter); set `[skills] path` in your config to point elsewhere. Picking a skill inserts its `/name` and sends it to the agent as-is, since any harness already has it; a quick action of the same name takes precedence.
+
+- [#405](https://github.com/mmurakaru/cueloop/pull/405) [`ac85fc2`](https://github.com/mmurakaru/cueloop/commit/ac85fc25c409704ecf39001fc4f14996be601fbf) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Quick actions in the "/" palette insert a compact reference (a highlighted `/name`) instead of dumping the full prompt into your comment. The reference stays in the comment for you to read, and expands to its full text only when the review is sent to the agent. The palette now lays the name and description out in two columns (the description no longer wraps under the name), ranks matches by a fuzzy score, and tab-completes.
+
+- [#397](https://github.com/mmurakaru/cueloop/pull/397) [`f22619c`](https://github.com/mmurakaru/cueloop/commit/f22619c1208d7ce84f571830b796ec1bea5c1e40) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The welcome page is a live comment playground. Select its text and start typing to leave a comment, exactly as you would on a file or a diff, and type "/" while composing to see the quick actions and skills. Notes made here are a warm-up: they show inline but are never saved.
+
+### Patch Changes
+
+- [#410](https://github.com/mmurakaru/cueloop/pull/410) [`0749d76`](https://github.com/mmurakaru/cueloop/commit/0749d7659a0628af158ffabea95083aa2ff53b28) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Rename the internal `ReviewSession` type to `Thread`, the product's word for the artifact you review: the schema interface, the daemon store and record validators, and the client controller module all follow. The JSON-RPC `session.*` methods and the `cueloop session` CLI verbs are unchanged, so installed agent adapters and scripts keep working. `session.comment` joins as the primary annotate method; `session.annotate` stays as an accepted alias.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.70
+  - @cueloop/client@0.1.0-alpha.70
+  - @cueloop/daemon@0.1.0-alpha.70
+  - @cueloop/schema@0.1.0-alpha.70
+
+## 0.1.0-alpha.69
+
+### Patch Changes
+
+- [#384](https://github.com/mmurakaru/cueloop/pull/384) [`6a60b64`](https://github.com/mmurakaru/cueloop/commit/6a60b643f86e3a5d38639cc0ad68d9c1503d3146) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Adopt the Effect TypeScript library, starting at the daemon wait/wake seam. `effect` is added as a dependency and the interruptible long-poll behind `awaitResolve` and `awaitVerdict` now runs on Effect (`Effect.callback`, `Effect.raceFirst`, `Effect.repeat`) through a new `interruptible-wait` module, keeping the Promise API and socket protocol unchanged. AGENTS.md documents the read-first Effect workflow.
+
+- [#369](https://github.com/mmurakaru/cueloop/pull/369) [`2b52c9c`](https://github.com/mmurakaru/cueloop/commit/2b52c9cf110127d2e3c203193296cb37dacc7205) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The app fires a ready signal once, after the first frame that paints a usable screen with its keyboard handlers subscribed: an `onReady` callback for in-process tests and, when `CUELOOP_READY_FILE` names a file, that file for subprocess tests. Every App suite and the PTY tier boot on it instead of probing keys or reading output silence. CI runs the test suite once instead of retrying it three times; the retry had not fired in the last 18 green runs. No user-visible behavior changes.
+
+- [`532391b`](https://github.com/mmurakaru/cueloop/commit/532391b5945473297161d7d3693e610c9d4b566c) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Tooling and docs only: pull requests get a sticky benchmark comment comparing the head against its merge base on the source-only benchmarks (informational, never blocking), every push to main records a benchmark history on the bench-history branch and runs a daemon memory leak check, and the docs site gains a Performance reference page that renders that history as trend lines. No shipped behavior changes.
+
+- [#373](https://github.com/mmurakaru/cueloop/pull/373) [`7b5da07`](https://github.com/mmurakaru/cueloop/commit/7b5da070f390b0d20c1eeb34bba055cfc03bcdcf) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Release tooling only: a benchmark gate in the release workflow measures the previous published binary and the fresh one on the same runner, interleaved, and refuses to stage a release whose startup or first frame got materially slower (both a relative and an absolute threshold must be exceeded). Reviewed regressions can be accepted until a named version, renamed metrics stay comparable through an alias map, and a manual run can publish over a regression with a written reason. The comparison is attached to the GitHub release. No shipped behavior changes.
+
+- [#372](https://github.com/mmurakaru/cueloop/pull/372) [`591e933`](https://github.com/mmurakaru/cueloop/commit/591e9333875997f25dad696666ef8c60c9beebae) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Tooling only: a benchmark suite under `benchmarks/` measures binary startup, plan and diff parsing, daemon round trips, the TUI's first frame in a real pseudo terminal, key press latency, and memory, with a sampler that runs each script as a cold process and reports median and p95 as JSON. `bun run bench`. No shipped behavior changes.
+
+- [#383](https://github.com/mmurakaru/cueloop/pull/383) [`eda1d43`](https://github.com/mmurakaru/cueloop/commit/eda1d434c7d820d917b17908538896a3b06f020e) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The Changes navigator opens every changed file as a real diff, for any thread - not just a diff review. A non-diff thread (a plan, or the no-session welcome) computes the live working-tree diff against HEAD on demand; a diff review keeps showing its captured snapshot. The read-only file-contents view in the Project panel now syntax-highlights with the language detected from the file path.
+
+  Upgrades no longer strand a stale daemon: the client and daemon exchange build versions on connect, and a newer client automatically replaces a daemon left running from an earlier build instead of talking to old code. In development, `bun run dev:watch` reloads the daemon on source edits.
+
+- [#375](https://github.com/mmurakaru/cueloop/pull/375) [`70b683f`](https://github.com/mmurakaru/cueloop/commit/70b683f074b493ef6c1ff8ee7d003c60643830a9) Thanks [@mmurakaru](https://github.com/mmurakaru)! - An install matrix that verifies every published install path. Six scenario scripts, written in pure POSIX so they run on a bare distribution, drive the curl installer on a clean machine, on a rerun, and across an upgrade, plus the global npm package, the Homebrew formula, and the plugin manifest. A weekly workflow runs them on hosted macOS and Linux, on Windows, and inside Debian, Fedora, Arch, and Alpine containers against the real published release, and files a tracking issue when a scheduled run fails. The release workflow serves the freshly staged binaries from a local release tree and runs the curl scenarios against them before publish, so a broken installer blocks the release. No user-visible behavior changes.
+
+- [#370](https://github.com/mmurakaru/cueloop/pull/370) [`eb20601`](https://github.com/mmurakaru/cueloop/commit/eb206012a1d45b4fddb386a306488f11813abaa5) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The curl installer is idempotent (an exact version match downloads nothing), accepts `CUELOOP_VERSION` as a bare version or a tag, adds its install directory to your shell rc once (or to GITHUB_PATH in Actions), takes `--no-modify-path` and `--help`, and reads `CUELOOP_RELEASES_API` and `CUELOOP_DOWNLOAD_BASE` so mirrors and tests can point it at another server. It runs nothing until its last line, so a truncated `curl | sh` dies on a parse error instead of running a prefix. The install docs list every option, and the nix tab is gone until a flake exists. Tests cover every failure path offline against a local release server, on Linux and macOS.
+
+- [#382](https://github.com/mmurakaru/cueloop/pull/382) [`0d1b0a9`](https://github.com/mmurakaru/cueloop/commit/0d1b0a9fa3a9fc0e05c206d9299196d5846d8a42) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Disable the install-vm nightly schedule until its guest rootfs is tool-complete. The pinned Firecracker CI rootfs is a minimal boot image without curl, wget, or the scenario shells, so a full nightly run is not green yet; the workflow still runs on demand and on harness changes. No user-visible behavior changes.
+
+- [#379](https://github.com/mmurakaru/cueloop/pull/379) [`0ee4ba7`](https://github.com/mmurakaru/cueloop/commit/0ee4ba79345c3aa8ea21c07d330c9f735531fc73) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Pin the install-vm base artifacts to the real Firecracker CI URLs and their sha256, so the clean-machine install tests can run. The rootfs is Ubuntu 22.04 (the version the CI bucket publishes for Firecracker v1.10), and `--update-pins` now records both architectures from one machine. No user-visible behavior changes.
+
+- [#381](https://github.com/mmurakaru/cueloop/pull/381) [`38547c5`](https://github.com/mmurakaru/cueloop/commit/38547c52dfdcce3ec3fa012e3d3524670233bece) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Run the install-vm controller container privileged. Building the guest rootfs (unsquashfs, chroot, mkfs) and booting Firecracker (the kvm and tun devices, tap networking) need capabilities a dropped set cannot cover, so the earlier restricted set failed to even extract the Firecracker binary. No user-visible behavior changes.
+
+- [#380](https://github.com/mmurakaru/cueloop/pull/380) [`f50ecd4`](https://github.com/mmurakaru/cueloop/commit/f50ecd42ab33358a3d8107062181dccd4e05e64e) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Run the clean-machine install tests on x64 only and pass a scenario filter only when the dispatch names one. GitHub's free hosted arm64 Linux runners do not expose /dev/kvm, so a guest cannot boot there; an empty scenario input no longer breaks argument parsing. No user-visible behavior changes.
+
+- [#376](https://github.com/mmurakaru/cueloop/pull/376) [`d8908b4`](https://github.com/mmurakaru/cueloop/commit/d8908b47e7baea1caa3941d7643d553830a4dc4b) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Clean-machine install tests that run the real installer inside a fresh Firecracker microVM, one per scenario, on hosted Linux runners with KVM. A microVM is a truly clean box, so this catches installer bugs that shared runners and containers cannot: a missing shared library, an empty PATH, an unset HOME, a daemon left running, or no network. Seven scenarios cover a clean install, an upgrade, failed-install preservation, offline operation, shell rc edits under bash, zsh, and fish, a machine with no downloader, and an unset HOME. The scenarios reuse the install-matrix contract, so a skipped assertion still fails. A nightly workflow runs them on x64 and arm64 and files a tracking issue on a red run; it never runs on pull requests, since it needs sudo and boots a VM. No user-visible behavior changes.
+
+- [#367](https://github.com/mmurakaru/cueloop/pull/367) [`dcca5e1`](https://github.com/mmurakaru/cueloop/commit/dcca5e1038e510a286574ffd8a7e7bf2c4af0d26) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Test and CI only: a PTY keybinding suite presses every chord the thread view cheatsheet advertises against the real TUI and fails on any chord without a screen expectation or a documented reason it is unwired. The PTY tier now runs in CI on the Apple silicon runner and against the compiled darwin-arm64 binary in the release build. ctrl chords with enter, tab, backspace, and escape are encoded in the xterm modifyOtherKeys form the app's input parser accepts. No shipped behavior changes.
+
+- [#369](https://github.com/mmurakaru/cueloop/pull/369) [`2b52c9c`](https://github.com/mmurakaru/cueloop/commit/2b52c9cf110127d2e3c203193296cb37dacc7205) Thanks [@mmurakaru](https://github.com/mmurakaru)! - `cueloop update` now resolves its install target from the real on-disk executable (`process.execPath`) instead of `argv[1]`, which in a Bun single-file executable is the virtual `/$bunfs/root/cueloop` path. That path made the installer try to write into a read-only filesystem (`mkdir: /$bunfs: Read-only file system`), breaking every self-update. The command also learns the installed version: it reports the current version, checks the newest published release, and short-circuits with `cueloop is up to date (<version>)` when nothing newer exists (never downgrading), printing a restart notice after a successful update. A new `cueloop update --dry-run` reports the resolved target without any network work.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.69
+  - @cueloop/client@0.1.0-alpha.69
+  - @cueloop/daemon@0.1.0-alpha.69
+  - @cueloop/schema@0.1.0-alpha.69
+
+## 0.1.0-alpha.68
+
+### Patch Changes
+
+- [#363](https://github.com/mmurakaru/cueloop/pull/363) [`2c3828d`](https://github.com/mmurakaru/cueloop/commit/2c3828d3e29c08383eab3018921185ecae10d53a) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add `cueloop update`, which reruns the published installer into the stable user bin directory.
+
+- [#361](https://github.com/mmurakaru/cueloop/pull/361) [`9c7659d`](https://github.com/mmurakaru/cueloop/commit/9c7659dd76f30c108d56f9d595604b09664c48b1) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Test-only: the PTY tier now drives the real TUI through a shared harness that feeds pseudo-terminal output into the in-repo Ghostty VT emulator, so tests press named keys and assert on the rendered screen grid instead of stripped raw bytes. Wait helpers carry the last screen in every timeout error and never re-send a dropped key. No shipped behavior changes.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.68
+  - @cueloop/client@0.1.0-alpha.68
+  - @cueloop/daemon@0.1.0-alpha.68
+  - @cueloop/schema@0.1.0-alpha.68
+
 ## 0.1.0-alpha.67
 
 ### Minor Changes

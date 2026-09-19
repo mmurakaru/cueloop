@@ -42,6 +42,9 @@ export interface LaunchOptions {
   deviceScaleFactor?: number;
   /** Absolute path to a Chrome/Chromium binary; falls back to the channel. */
   executablePath?: string;
+  /** The terminal's color scheme, emulated as prefers-color-scheme so a mockup
+   *  with theme-aware CSS renders to match the surface it emerges into. */
+  colorScheme?: "dark" | "light";
 }
 
 /** Cell click -> CSS pixel inside the letterboxed image, or null when outside it. */
@@ -132,6 +135,28 @@ async function warmBrowser(executablePath: string | undefined): Promise<Puppetee
   return browser;
 }
 
+/**
+ * Close the warm Chromium so it never orphans when cueloop exits. Called from
+ * the shutdown path (the normal quit is not a signal, so puppeteer's own signal
+ * handlers do not fire). Idempotent.
+ */
+export async function closePrototypeBrowser(): Promise<void> {
+  const pending = sharedBrowser;
+
+  sharedBrowser = null;
+  if (!pending) return;
+  const browser = await pending.catch(() => null);
+
+  await browser?.close().catch(() => undefined);
+}
+
+/** Test-only: the warm browser's OS process id, or null when none is running. */
+export async function prototypeBrowserPidForTest(): Promise<number | null> {
+  const browser = sharedBrowser ? await sharedBrowser.catch(() => null) : null;
+
+  return browser?.process()?.pid ?? null;
+}
+
 export async function launchPrototypeRenderer(options: LaunchOptions): Promise<PrototypeRenderer> {
   const { pathToFileURL } = await import("node:url");
   const browser = await warmBrowser(options.executablePath);
@@ -145,6 +170,11 @@ export async function launchPrototypeRenderer(options: LaunchOptions): Promise<P
       height: options.viewport.height,
       deviceScaleFactor: options.deviceScaleFactor ?? 2,
     });
+    // match the terminal's scheme so a theme-aware mockup renders its dark or
+    // light variant to sit correctly on the surface it emerges into
+    await page.emulateMediaFeatures([
+      { name: "prefers-color-scheme", value: options.colorScheme ?? "light" },
+    ]);
     // `load` waits for images and styles but skips networkidle0's fixed 500ms
     // idle window, which a static local file would otherwise always pay
     await page.goto(pathToFileURL(options.filePath).href, { waitUntil: "load" });

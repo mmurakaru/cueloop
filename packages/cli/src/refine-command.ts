@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { cueloopHome, reportsDir } from "@cueloop/daemon/paths";
-import { SessionStore } from "@cueloop/daemon/store";
+import { ThreadStore } from "@cueloop/daemon/store";
 import {
   LATEST_REPORT_FILENAME,
   parseRefineState,
@@ -9,7 +9,7 @@ import {
   resolveCleanupPeriodDays,
   timestampedReportFilename,
 } from "@cueloop/daemon/retention";
-import { isAgentNote, type Annotation, type ReviewSession } from "@cueloop/schema";
+import { isAgentNote, type Annotation, type Thread } from "@cueloop/schema";
 import { parseArgs, stringFlag } from "./args";
 
 const DEFAULT_SESSION_LIMIT = 200;
@@ -18,7 +18,7 @@ const BODY_LIMIT = 100;
 
 interface AnnotatedEntry {
   annotation: Annotation;
-  session: ReviewSession;
+  session: Thread;
 }
 
 export async function refineCommand(argv: string[]): Promise<number> {
@@ -27,7 +27,7 @@ export async function refineCommand(argv: string[]): Promise<number> {
   const limit = parseLimit(stringFlag(flags, "limit"));
   const nowMs = Date.now();
 
-  const store = new SessionStore(home);
+  const store = new ThreadStore(home);
 
   store.recover();
   const all = store.list();
@@ -72,7 +72,7 @@ export async function refineCommand(argv: string[]): Promise<number> {
 }
 
 export function buildRefineReport(
-  analyzed: ReviewSession[],
+  analyzed: Thread[],
   totalCount: number,
   generatedAt: string,
 ): string {
@@ -137,13 +137,13 @@ export function buildRefineReport(
   return lines.join("\n");
 }
 
-function hasReviewSignal(session: ReviewSession): boolean {
+function hasReviewSignal(session: Thread): boolean {
   return (
     session.verdict !== null || session.annotations.some((annotation) => !isAgentNote(annotation))
   );
 }
 
-function flattenReviewAnnotations(sessions: ReviewSession[]): AnnotatedEntry[] {
+function flattenReviewAnnotations(sessions: Thread[]): AnnotatedEntry[] {
   const entries: AnnotatedEntry[] = [];
 
   for (const session of sessions) {
@@ -194,13 +194,13 @@ function tally<T>(items: T[], keyOf: (item: T) => string): Map<string, number> {
   return counts;
 }
 
-function primitiveLabel(session: ReviewSession): string {
+function primitiveLabel(session: Thread): string {
   if (session.artifact.type === "diff" && session.artifact.meta.pr) return "pull request";
 
   return session.artifact.type;
 }
 
-function verdictLabel(session: ReviewSession): string {
+function verdictLabel(session: Thread): string {
   switch (session.verdict?.kind) {
     case "approve":
       return "approve";
@@ -239,7 +239,7 @@ function parseLimit(raw: string | undefined): number {
   return Number.isInteger(value) && value > 0 ? value : DEFAULT_SESSION_LIMIT;
 }
 
-function analysisFingerprint(session: ReviewSession): string {
+function analysisFingerprint(session: Thread): string {
   return `${session.revisions.length}:${session.annotations.length}:${session.verdict?.resolvedAt ?? "pending"}`;
 }
 

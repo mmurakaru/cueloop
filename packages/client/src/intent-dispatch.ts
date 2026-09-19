@@ -8,10 +8,10 @@
  */
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { isAddressed, isAgentNote, type ReviewSession, type VerdictKind } from "@cueloop/schema";
+import { isAddressed, isAgentNote, type Thread, type VerdictKind } from "@cueloop/schema";
 import { displayText, spanKey, startSpan, type DisplayBlock, type SpanState } from "./view-plan";
 import type { DiffRow } from "./view-diff";
-import type { ReviewController } from "./session-controller";
+import type { ReviewController } from "./thread-controller";
 import type { Intent } from "./keymap";
 import type { TreeRow } from "./tree-view";
 import { quickActionBody, type QuickAction } from "./config";
@@ -39,6 +39,7 @@ export type Mode =
   | { type: "rename"; authorId: string; text: string }
   | { type: "renameThread"; sessionId: string; text: string }
   | { type: "nameSelf"; text: string }
+  | { type: "renameSelf"; text: string }
   | { type: "treePrompt"; ask: TreeAsk; entryId?: string; text: string };
 
 /** What a tree prompt asks for: a branch name, a checkpoint name, or the summary a move back leaves. */
@@ -54,13 +55,13 @@ export function activeSpanState(mode: Mode): SpanState | null {
  * annotation a revision already addressed is settled - it neither blocks the
  * verdict default nor re-enters the next feedback document.
  */
-export function reviewerAnnotations(session: ReviewSession) {
+export function reviewerAnnotations(session: Thread) {
   return session.annotations.filter(
     (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
   );
 }
 
-export function defaultVerdict(session: ReviewSession): VerdictKind {
+export function defaultVerdict(session: Thread): VerdictKind {
   return reviewerAnnotations(session).length || session.workingCopy !== undefined
     ? "request_changes"
     : "approve";
@@ -80,10 +81,10 @@ export interface IntentDispatchDeps {
   display: DisplayBlock[];
   rows: DiffRow[];
   cursor: number;
-  inbox: ReviewSession[] | null;
+  inbox: Thread[] | null;
   inboxCursor: number;
   mode: Mode;
-  session: ReviewSession | null;
+  session: Thread | null;
   focusedAnnotationId: string | undefined;
   /** The curation item selected for undo, if any. */
   selectedCurationId: string | undefined;
@@ -98,6 +99,8 @@ export interface IntentDispatchDeps {
   renameAuthor: (id: string, name: string) => void;
   /** Rename a thread's title through the daemon. */
   renameThread: (id: string, title: string) => void;
+  /** Set the local reviewer's typed display name and persist it (App-owned). */
+  setLocalIdentityName: (name: string) => void;
 
   liveInput: MutableRefObject<string>;
 
@@ -113,8 +116,10 @@ export interface IntentDispatchDeps {
   selectCardFromDocument: (annotationId: string) => void;
   runEditorHandOff: () => void;
   openCardEdit: (annotationId: string) => void;
-  /** Flip unified/split diff and persist it (App-owned); split lays out only when zoomed. */
+  /** Flip split/stacked diff and persist it (App-owned); split lays out only when wide/zoomed. */
   toggleDiffView: () => void;
+  /** Open the share dialog (App-owned); the dialog owns its own keys and links. */
+  openShareDialog: () => void;
 }
 
 type IntentOfType<Kind extends Intent["type"]> = Extract<Intent, { type: Kind }>;
@@ -238,6 +243,7 @@ function handleConfirmDialog(
   else if (mode.type === "rename") deps.renameAuthor(mode.authorId, mode.text.trim());
   else if (mode.type === "renameThread") deps.renameThread(mode.sessionId, mode.text.trim());
   else if (mode.type === "nameSelf") controller.setSelfName(mode.text.trim());
+  else if (mode.type === "renameSelf") deps.setLocalIdentityName(mode.text.trim());
   else if (mode.type === "treePrompt") confirmTreePrompt(mode, deps);
   deps.setMode({ type: "normal" });
 }
@@ -381,8 +387,9 @@ function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispa
   deps.setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
 }
 
+// share opens the share dialog; it owns its own keys, links list, and publish wizard
 function handleShare(_intent: IntentOfType<"share">, deps: IntentDispatchDeps): void {
-  deps.controller.share();
+  deps.openShareDialog();
 }
 
 function handleCut(_intent: IntentOfType<"cut">, deps: IntentDispatchDeps): void {

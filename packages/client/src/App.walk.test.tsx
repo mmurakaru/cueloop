@@ -5,15 +5,15 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import { DARK } from "./theme";
 import {
   isolateUserConfig,
   press,
   pressKey,
+  renderReadyApp,
   waitForState,
   waitForText,
   waitForTextGone,
@@ -47,7 +47,7 @@ index 555..666 100644
 let home: string;
 let restoreUserConfig: () => void;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-walk-"));
@@ -66,7 +66,7 @@ afterEach(() => {
 });
 
 async function renderApp() {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+  const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
     width: 120,
     height: 34,
   });
@@ -162,7 +162,7 @@ describe("the guided walk", () => {
     expect(setup.captureCharFrame()).toContain("3/3 files viewed");
 
     // Act
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).status === "resolved");
@@ -253,7 +253,7 @@ describe("the guided walk", () => {
     await pressKey(setup, "RETURN", { meta: true });
     // nothing pending despite the note, so the confirm card defaults to approve
     await waitForText(setup, "[Approve]");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).status === "resolved");

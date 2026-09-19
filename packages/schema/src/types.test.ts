@@ -1,11 +1,24 @@
 import { describe, expect, test } from "bun:test";
 import {
+  annotationTarget,
   ARTIFACT_TYPES,
   isArtifactType,
   isMarkdownArtifact,
   newAnnotationId,
   verdictAllows,
 } from "./types";
+
+describe("annotationTarget", () => {
+  test("an annotation with no target means the reviewed artifact", () => {
+    expect(annotationTarget({ target: undefined })).toEqual({ kind: "artifact" });
+  });
+
+  test("a stamped target is returned as-is", () => {
+    const target = { kind: "file", path: "src/x.ts", rev: "worktree" } as const;
+
+    expect(annotationTarget({ target })).toBe(target);
+  });
+});
 
 describe("ARTIFACT_TYPES", () => {
   test("names every primitive exactly once", () => {
@@ -29,11 +42,11 @@ describe("verdictAllows", () => {
 });
 
 describe("isMarkdownArtifact", () => {
-  test("plan and reply are markdown; diff and prototype are not", () => {
+  test("plan, reply, and prototype are markdown; diff is not", () => {
     expect(isMarkdownArtifact("plan")).toBe(true);
     expect(isMarkdownArtifact("reply")).toBe(true);
+    expect(isMarkdownArtifact("prototype")).toBe(true);
     expect(isMarkdownArtifact("diff")).toBe(false);
-    expect(isMarkdownArtifact("prototype")).toBe(false);
   });
 });
 

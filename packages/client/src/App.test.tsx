@@ -5,9 +5,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import {
   clickText,
@@ -17,6 +16,7 @@ import {
   locateText,
   press,
   pressKey,
+  renderReadyApp,
   typeText as type,
   waitForState,
   waitForText,
@@ -37,7 +37,7 @@ The daemon persists sessions to disk atomically.
 let home: string;
 let restoreUserConfig: () => void;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-app-"));
@@ -60,15 +60,10 @@ afterEach(() => {
 });
 
 async function renderApp(sessionId?: string) {
-  const setup = await testRender(<App home={home} sessionId={sessionId ?? session.id} />, {
+  return renderReadyApp(<App home={home} sessionId={sessionId ?? session.id} />, {
     width: 120,
     height: 32,
   });
-
-  // the async daemon connect + first fetch land within the frame wait
-  await waitForText(setup, "cueloop");
-
-  return setup;
 }
 
 describe("plan rendering", () => {
@@ -212,7 +207,7 @@ describe("submit", () => {
 
     // Act
     await type(setup, "Expand the steps.");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "feedback sent");
@@ -236,7 +231,7 @@ describe("submit", () => {
     await waitForText(setup, "[Approve]"); // no pending items → approve default
 
     // Act
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).verdict !== undefined);
@@ -247,14 +242,15 @@ describe("submit", () => {
 describe("no-thread shell", () => {
   test("opening with nothing selected lands in the shell with a Welcome tab and the Threads sidebar", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
-    await waitForText(setup, "cueloop");
+    // the Welcome playground measures its width before it paints, so wait for its copy, not the header
+    await waitForText(setup, "Getting started");
 
     // Assert - the same shell header, the disposable Welcome tab, and the pending thread
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("Welcome to cueloop");
+    expect(frame).toContain("Getting started");
     expect(frame).toContain("Migration Plan");
     expect(frame).not.toContain("· resume"); // the bespoke inbox header is retired
 
@@ -272,9 +268,9 @@ describe("no-thread shell", () => {
       workspace: { repoRoot: "/repo", branch: "main" },
       artifact: { type: "plan", content: "# Other Plan\n", meta: { title: "Other Plan" } },
     });
-    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
-    await waitForText(setup, "Welcome to cueloop");
+    await waitForText(setup, "Getting started");
     await waitForText(setup, "Other Plan"); // the sidebar opens by default here
 
     // Act - open the thread under the cursor
@@ -289,52 +285,55 @@ describe("no-thread shell", () => {
     expect(frame).toContain("Other Plan");
   });
 
-  test("the row kebab menu pins a thread into a Pinned section", async () => {
+  test("the row kebab menu stars a thread into a Starred section", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
     await waitForText(setup, "Migration Plan");
 
-    // Act - hover the row to reveal its kebab, open the menu, and pick Pin
+    // Act - hover the row to reveal its kebab, open the menu, and pick Star
     const row = locateText(setup, "Migration Plan");
 
     await setup.mockMouse.moveTo(row.column, row.row);
     await waitForText(setup, "⋮");
     await clickText(setup, "⋮");
-    await waitForText(setup, "Pin");
-    await clickText(setup, "Pin");
+    // "star" alone collides with "Getting started" in the welcome pane, so target the menu via its
+    // unique "rename" row - the star action sits directly above it
+    await waitForText(setup, "rename");
+    const rename = locateText(setup, "rename");
+    await setup.mockMouse.click(rename.column, rename.row - 1);
 
-    // Assert - a Pinned section now holds the thread
-    await waitForText(setup, "Pinned");
-    expect(frameRow(setup, "Migration Plan")).toBeGreaterThan(frameRow(setup, "Pinned"));
+    // Assert - a Starred section now holds the thread
+    await waitForText(setup, "Starred");
+    expect(frameRow(setup, "Migration Plan")).toBeGreaterThan(frameRow(setup, "Starred"));
   });
 
   test("a bare launch shows the Welcome surface with the right region collapsed", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
-    await waitForText(setup, "Welcome to cueloop");
+    await waitForText(setup, "Getting started");
 
     // Assert - Welcome fills the thread pane (not a Changes tab); the right region stays collapsed
     const frame = setup.captureCharFrame();
 
-    expect(frame).toContain("Welcome to cueloop");
+    expect(frame).toContain("Getting started");
     expect(frame).not.toContain("Changes"); // the Changes editor is closed on a bare launch
     expect(frame).toContain("Migration Plan"); // the sidebar lists the pending thread
   });
 
   test("the menu opens from the shell gear and escape is not a trap", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} />, { width: 120, height: 32 });
+    const setup = await renderReadyApp(<App home={home} />, { width: 120, height: 32 });
 
-    await waitForText(setup, "Welcome to cueloop");
+    await waitForText(setup, "Getting started");
 
     // Act - open the settings dialog from the top-left gear (the Threads panel header, row 0)
     await setup.mockMouse.click(1, 0);
 
     // Assert - the settings dialog with its Keybinds leaf appears
     await waitForText(setup, "Keybinds");
-    expect(setup.captureCharFrame()).toContain("Settings");
+    expect(setup.captureCharFrame()).toContain("settings");
 
     // Act - escape closes the menu (not a trap), and the thread nav still works
     await press(setup, "escape");
@@ -386,13 +385,13 @@ describe("the thread view and the menu", () => {
     await setup.mockMouse.click(1, 0);
     await waitForText(setup, "Keybinds");
 
-    // the nav folder is the last "Settings" on screen (the first is the dialog title)
+    // the nav folder is the last "settings" on screen (the first is the dialog title)
     const lines = setup.captureCharFrame().split("\n");
     let folderRow = -1;
     let folderColumn = -1;
 
     lines.forEach((line, row) => {
-      const column = line.indexOf("Settings");
+      const column = line.indexOf("settings");
 
       if (column !== -1) {
         folderColumn = column;

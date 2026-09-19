@@ -10,14 +10,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "ssh2";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { serveClient, type ServeHandle } from "./serve";
 
 const PLAN = "# Rollout Plan\n\nShip the store move behind a flag.\n";
 
 let home: string;
 let daemon: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 let handle: ServeHandle;
 
 beforeEach(async () => {

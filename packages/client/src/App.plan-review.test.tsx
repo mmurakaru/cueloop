@@ -5,17 +5,18 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
-import { DEFAULT_QUICK_ACTIONS, quickActionBody } from "./config";
+import { DEFAULT_QUICK_ACTIONS } from "./config";
+import { slashItemsFrom } from "./slash-palette";
 import {
   clickText,
   dragText,
   isolateUserConfig,
   press,
   pressKey,
+  renderReadyApp,
   typeText as type,
   waitForState,
   waitForText,
@@ -36,7 +37,7 @@ The daemon persists sessions to disk atomically.
 
 let home: string;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 let restoreUserConfig: () => void;
 
 beforeEach(() => {
@@ -60,7 +61,7 @@ afterEach(() => {
 });
 
 async function renderApp() {
-  const setup = await testRender(<App home={home} sessionId={session.id} />, {
+  const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
     width: 120,
     height: 32,
   });
@@ -110,7 +111,7 @@ describe("share button", () => {
 
   test("a read-only viewer (a plan shared over ssh) never sees the Share button", async () => {
     // Arrange / Act
-    const viewer = await testRender(<App home={home} sessionId={session.id} readOnly />, {
+    const viewer = await renderReadyApp(<App home={home} sessionId={session.id} readOnly />, {
       width: 120,
       height: 32,
     });
@@ -149,7 +150,7 @@ describe("edit affordance", () => {
 
   test("a read-only viewer (a plan shared over ssh) never sees the Edit button", async () => {
     // Arrange / Act
-    const viewer = await testRender(<App home={home} sessionId={session.id} readOnly />, {
+    const viewer = await renderReadyApp(<App home={home} sessionId={session.id} readOnly />, {
       width: 120,
       height: 32,
     });
@@ -227,6 +228,22 @@ describe("the mark stays painted while composing", () => {
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     await waitForState(setup, () => backgroundsOf(setup, "The daemon").includes(THREAD_MARK));
   }, 60_000);
+
+  test("backspace on an empty draft dismisses the composer back to the mark", async () => {
+    // Arrange
+    const setup = await renderApp();
+
+    // Act: mark, type one character, then delete it and backspace again on the now-empty draft
+    await dragText(setup, "The daemon", "daemon persists", "daemon".length);
+    await type(setup, "x");
+    await waitForText(setup, "● x");
+    await press(setup, "backspace");
+    await press(setup, "backspace");
+
+    // Assert: the composer is gone and the mark stays, ready to re-type
+    await waitForTextGone(setup, "● x");
+    expect(backgroundsOf(setup, "The daemon")).toContain(THREAD_MARK);
+  }, 60_000);
 });
 
 describe("compose newline convention", () => {
@@ -294,7 +311,7 @@ describe("quick-actions settings editor", () => {
     // Act - open Settings from the top-left gear, enter Actions, expand the first action, type
     await setup.mockMouse.click(1, 0);
     await waitForText(setup, "Keybinds");
-    await clickText(setup, "Settings");
+    await clickText(setup, "settings");
     await clickText(setup, "Actions");
     await clickText(setup, "Zoom out, research in depth");
     await type(setup, "CUSTOM");
@@ -338,7 +355,7 @@ describe("edit-exit reconciliation", () => {
 });
 
 describe("the quick-action palette", () => {
-  test("/ lists the quick actions and a pick seeds the comment with the preset body", async () => {
+  test("/ lists the quick actions and a pick inserts the reference, not the body", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -351,11 +368,12 @@ describe("the quick-action palette", () => {
     await press(setup, "enter");
     await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert - a comment annotation was created with the second default's body
+    // Assert - the comment holds the /name reference, not the expanded body
     await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
     const stored = server.core.sessionGet(session.id);
+    const secondName = slashItemsFrom(DEFAULT_QUICK_ACTIONS)[1]!.name;
 
     expect(stored.annotations[0]!.kind).toBe("comment");
-    expect(stored.annotations[0]!.body).toBe(quickActionBody(DEFAULT_QUICK_ACTIONS[1]!));
+    expect(stored.annotations[0]!.body.trim()).toBe(`/${secondName}`);
   });
 });

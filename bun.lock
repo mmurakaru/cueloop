@@ -6,7 +6,7 @@
       "name": "cueloop-monorepo",
       "devDependencies": {
         "@changesets/changelog-github": "^1.0.0",
-        "@changesets/cli": "^3.0.0",
+        "@changesets/cli": "^3.0.1",
         "@cueloop/client": "workspace:*",
         "@cueloop/daemon": "workspace:*",
         "@cueloop/schema": "workspace:*",
@@ -16,6 +16,7 @@
         "@types/bun": "^1.4.0",
         "@types/react": "^19.2.0",
         "cueloop": "workspace:*",
+        "effect": "^4.0.0-rc.115",
         "oxfmt": "^0.65.0",
         "oxlint": "^1.79.0",
         "react": "^19.2.0",
@@ -25,35 +26,35 @@
     },
     "packages/adapters": {
       "name": "@cueloop/adapters",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.78",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.63",
-        "@cueloop/schema": "0.1.0-alpha.63",
+        "@cueloop/daemon": "0.1.0-alpha.78",
+        "@cueloop/schema": "0.1.0-alpha.78",
         "valibot": "^1.4.2",
       },
     },
     "packages/cli": {
       "name": "cueloop",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.78",
       "bin": {
         "cueloop": "./src/main.ts",
       },
       "dependencies": {
-        "@cueloop/adapters": "0.1.0-alpha.62",
-        "@cueloop/client": "0.1.0-alpha.62",
-        "@cueloop/daemon": "0.1.0-alpha.62",
-        "@cueloop/schema": "0.1.0-alpha.62",
+        "@cueloop/adapters": "0.1.0-alpha.78",
+        "@cueloop/client": "0.1.0-alpha.78",
+        "@cueloop/daemon": "0.1.0-alpha.78",
+        "@cueloop/schema": "0.1.0-alpha.78",
         "valibot": "^1.4.2",
       },
     },
     "packages/client": {
       "name": "@cueloop/client",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.78",
       "dependencies": {
-        "@cueloop/daemon": "0.1.0-alpha.66",
-        "@cueloop/extension-api": "0.1.0-alpha.66",
-        "@cueloop/integration-obsidian": "0.1.0-alpha.66",
-        "@cueloop/schema": "0.1.0-alpha.66",
+        "@cueloop/daemon": "0.1.0-alpha.78",
+        "@cueloop/extension-api": "0.1.0-alpha.78",
+        "@cueloop/integration-obsidian": "0.1.0-alpha.78",
+        "@cueloop/schema": "0.1.0-alpha.78",
         "@opentui/core": "^0.5.8",
         "@opentui/keymap": "0.5.8",
         "@opentui/react": "^0.5.8",
@@ -64,6 +65,7 @@
         "puppeteer-core": "^25.9.0",
         "react": "^19.2.0",
         "valibot": "^1.4.2",
+        "zustand": "^5.0.15",
       },
       "devDependencies": {
         "@types/react": "^19.2.0",
@@ -73,18 +75,19 @@
     },
     "packages/daemon": {
       "name": "@cueloop/daemon",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.78",
       "dependencies": {
-        "@cueloop/schema": "0.1.0-alpha.66",
+        "@cueloop/schema": "0.1.0-alpha.78",
         "@pierre/diffs": "^1.3.6",
+        "effect": "^4.0.0-rc.115",
         "valibot": "^1.4.2",
       },
     },
     "packages/extension-api": {
       "name": "@cueloop/extension-api",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.78",
       "dependencies": {
-        "@cueloop/schema": "0.1.0-alpha.66",
+        "@cueloop/schema": "0.1.0-alpha.78",
       },
     },
     "packages/gateway": {
@@ -94,9 +97,9 @@
         "cueloop-gateway": "./src/main.ts",
       },
       "dependencies": {
-        "@cueloop/client": "0.1.0-alpha.62",
-        "@cueloop/daemon": "0.1.0-alpha.62",
-        "@cueloop/schema": "0.1.0-alpha.62",
+        "@cueloop/client": "0.1.0-alpha.78",
+        "@cueloop/daemon": "0.1.0-alpha.78",
+        "@cueloop/schema": "0.1.0-alpha.78",
         "@opentui/core": "^0.5.8",
         "@opentui/react": "^0.5.8",
         "react": "^19.2.0",
@@ -109,16 +112,16 @@
     },
     "packages/integrations/obsidian": {
       "name": "@cueloop/integration-obsidian",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.78",
       "dependencies": {
-        "@cueloop/extension-api": "0.1.0-alpha.66",
-        "@cueloop/schema": "0.1.0-alpha.66",
+        "@cueloop/extension-api": "0.1.0-alpha.78",
+        "@cueloop/schema": "0.1.0-alpha.78",
         "valibot": "^1.4.2",
       },
     },
     "packages/schema": {
       "name": "@cueloop/schema",
-      "version": "0.1.0-alpha.66",
+      "version": "0.1.0-alpha.78",
     },
   },
   "packages": {
@@ -130,7 +133,7 @@
 
     "@changesets/changelog-github": ["@changesets/changelog-github@1.0.0", "", { "dependencies": { "@changesets/get-github-info": "^1.0.0", "@changesets/types": "^7.0.0" } }, "sha512-PNCSH5CGJrqOKxRjrMp2NLhceQv2QBs6HkjrLvYQqsEE2/ItN5R8GD/mskZZluoNWYvjPYFsY9T6swXfp5E0UA=="],
 
-    "@changesets/cli": ["@changesets/cli@3.0.0", "", { "dependencies": { "@changesets/apply-release-plan": "^8.0.0", "@changesets/assemble-release-plan": "^7.0.0", "@changesets/changelog-git": "^1.0.0", "@changesets/config": "^4.0.0", "@changesets/errors": "^1.0.0", "@changesets/get-dependents-graph": "^3.0.0", "@changesets/git": "^4.0.0", "@changesets/pre": "^3.0.0", "@changesets/read": "^1.0.0", "@changesets/should-skip-package": "^1.0.0", "@changesets/types": "^7.0.0", "@changesets/write": "^1.0.0", "@clack/prompts": "^1.7.0", "@manypkg/get-packages": "^3.1.0", "@pnpm/deps.graph-sequencer": "^1100.0.1", "cac": "^7.0.0", "import-meta-resolve": "^4.2.0", "launch-editor": "^2.14.1", "package-manager-detector": "^1.6.0", "semver": "^7.8.1", "tinyexec": "^1.3.0" }, "bin": { "changeset": "bin.js" } }, "sha512-V7Gm+GP5OT3mJinMI2YcJD/JyO/a4WChnaMCCzTRhWHgu1zhtsyY7zCjP6n5W6zsgSjJKs+yPmvtREvE0F2g8A=="],
+    "@changesets/cli": ["@changesets/cli@3.0.1", "", { "dependencies": { "@changesets/apply-release-plan": "^8.0.0", "@changesets/assemble-release-plan": "^7.0.0", "@changesets/changelog-git": "^1.0.0", "@changesets/config": "^4.0.0", "@changesets/errors": "^1.0.0", "@changesets/get-dependents-graph": "^3.0.0", "@changesets/git": "^4.0.0", "@changesets/pre": "^3.0.0", "@changesets/read": "^1.0.0", "@changesets/should-skip-package": "^1.0.0", "@changesets/types": "^7.0.0", "@changesets/write": "^1.0.1", "@clack/prompts": "^1.7.0", "@manypkg/get-packages": "^3.1.0", "@pnpm/deps.graph-sequencer": "^1100.0.1", "cac": "^7.0.0", "import-meta-resolve": "^4.2.0", "launch-editor": "^2.14.1", "package-manager-detector": "^1.6.0", "semver": "^7.8.1", "tinyexec": "^1.3.0" }, "bin": { "changeset": "bin.js" } }, "sha512-3IVpRSgiKDj2aRbBHKtWTXSRH2/iR3bWxau9iQUoEsZjDhRIj9nhl90k7FWMxZAJvLgJBbgMq8+qS0xQsenYsQ=="],
 
     "@changesets/config": ["@changesets/config@4.0.0", "", { "dependencies": { "@changesets/get-dependents-graph": "^3.0.0", "@changesets/should-skip-package": "^1.0.0", "@changesets/types": "^7.0.0", "@manypkg/get-packages": "^3.1.0", "picomatch": "^4.0.4" } }, "sha512-mw95/YrkOuhZZxfnVAA4bSXOFUi+KlhzOBTM8C4x777NhUU6HWIl9Z+K+nME+E4PVsv5NQVQwTfiHihAS1A/ow=="],
 
@@ -412,6 +415,8 @@
 
     "diff": ["diff@9.0.0", "", {}, "sha512-svtcdpS8CgJyqAjEQIXdb3OjhFVVYjzGAPO8WGCmRbrml64SPw/jJD4GoE98aR7r25A0XcgrK3F02yw9R/vhQw=="],
 
+    "effect": ["effect@4.0.0-rc.115", "", {}, "sha512-ogYulZ5ffeOzrJqQrG0XOkDO5lKn2s9KNHhoxJy/6wKUkF0i12dlVXWA9TgsgQ+zV/JzizyG0+XMPepZEQX6vw=="],
+
     "emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 
     "escalade": ["escalade@3.2.0", "", {}, "sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA=="],
@@ -569,6 +574,8 @@
     "yargs-parser": ["yargs-parser@22.0.0", "", {}, "sha512-rwu/ClNdSMpkSrUb+d6BRsSkLUq1fmfsY6TOpYzTwvwkg1/NRG85KBy3kq++A8LKQwX6lsu+aWad+2khvuXrqw=="],
 
     "zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+
+    "zustand": ["zustand@5.0.15", "", { "peerDependencies": { "@types/react": ">=18.0.0", "immer": ">=9.0.6", "react": ">=18.0.0", "use-sync-external-store": ">=1.2.0" }, "optionalPeers": ["@types/react", "immer", "react", "use-sync-external-store"] }, "sha512-MpSEjRiBkA9crSYeOUH32rJC7SVqAbm0Fqcqge/bUi2PPoLcBWKOsG+C8mevmpr8TwXHBVkChbbJiyvkE+i/3A=="],
 
     "zwitch": ["zwitch@2.0.4", "", {}, "sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A=="],
 

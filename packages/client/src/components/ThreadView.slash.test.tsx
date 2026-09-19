@@ -1,13 +1,17 @@
-/** Inline skill completion in the composer (#25): the trailing "/word" token and its match. */
+/** The "/" palette in the composer: it reopens for each "/word" the caret writes, so skills chain. */
 
 import { describe, expect, test } from "bun:test";
 import React from "react";
+import type { RGBA } from "@opentui/core";
 import { testRender } from "@opentui/react/test-utils";
 import type { QuickAction } from "../config";
 import { settle, typeText } from "../test-support";
+import { DARK } from "../theme";
 import { buildDisplay, marksByDisplay } from "../view-plan";
 import { fixturePlanSession } from "./story-fixtures";
-import { inlineSlashToken, resolveInlineSuggestion, ThreadView } from "./ThreadView";
+import { ThreadView } from "./ThreadView";
+import { mergeSlashItems, slashItemsFrom, type SlashItem } from "../slash-palette";
+import { PaletteNamesContext, SlashSkillsContext } from "../skills";
 
 const SKILLS: QuickAction[] = [
   { prompt: "typescript magician" },
@@ -17,23 +21,35 @@ const SKILLS: QuickAction[] = [
 
 const PLAN = "# Plan\n\nRefine the store before the rewrite lands.\n";
 
-async function mountComposer() {
+function colorToHex(color: RGBA): string {
+  const [red, green, blue] = color.toInts();
+
+  return "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join("");
+}
+
+/** Render a plan composer, wiring the palette names into context exactly as the app does. */
+async function mountComposerWithSkills(skills: SlashItem[] = [], width = 72) {
   const display = buildDisplay(PLAN, undefined);
+  const names = new Set(mergeSlashItems(slashItemsFrom(SKILLS), skills).map((item) => item.name));
   const setup = await testRender(
-    <ThreadView
-      session={fixturePlanSession({
-        artifact: { type: "plan", content: PLAN, meta: { title: "Plan" } },
-      })}
-      display={display}
-      marks={marksByDisplay([], display)}
-      quickActions={SKILLS}
-      observer={false}
-      onAnnotate={() => {}}
-      onReply={() => {}}
-      onUpdateAnnotation={() => {}}
-      onExit={() => {}}
-    />,
-    { width: 72, height: 20 },
+    <SlashSkillsContext.Provider value={skills}>
+      <PaletteNamesContext.Provider value={names}>
+        <ThreadView
+          session={fixturePlanSession({
+            artifact: { type: "plan", content: PLAN, meta: { title: "Plan" } },
+          })}
+          display={display}
+          marks={marksByDisplay([], display)}
+          quickActions={SKILLS}
+          observer={false}
+          onAnnotate={() => {}}
+          onReply={() => {}}
+          onUpdateAnnotation={() => {}}
+          onExit={() => {}}
+        />
+      </PaletteNamesContext.Provider>
+    </SlashSkillsContext.Provider>,
+    { width, height: 20 },
   );
 
   await settle(setup);
@@ -42,72 +58,124 @@ async function mountComposer() {
   return setup;
 }
 
-describe("inlineSlashToken", () => {
-  test("finds the trailing slash token when text precedes it", () => {
-    expect(inlineSlashToken("please run /type")).toBe("/type");
-  });
+const mountComposer = () => mountComposerWithSkills();
 
-  test("ignores a draft that is itself a leading slash (that is the palette)", () => {
-    expect(inlineSlashToken("/type")).toBeNull();
-  });
-
-  test("is newline-safe: a token at the start of a later line still resolves", () => {
-    expect(inlineSlashToken("first line\n/impl")).toBe("/impl");
-  });
-
-  test("returns null when the trailing word is not a slash token", () => {
-    expect(inlineSlashToken("just some prose")).toBeNull();
-  });
-
-  test("a bare slash mid-sentence is a valid, empty-query token", () => {
-    expect(inlineSlashToken("run /")).toBe("/");
-  });
-});
-
-describe("resolveInlineSuggestion", () => {
-  test("offers the fuzzy closest skill for the trailing token", () => {
-    const inline = resolveInlineSuggestion(false, "run /type", SKILLS);
-
-    expect(inline?.token).toBe("/type");
-    expect(inline?.suggestion.name).toBe("typescript-magician");
-  });
-
-  test("prefers a prefix match over a subsequence match", () => {
-    const inline = resolveInlineSuggestion(false, "run /impl", SKILLS);
-
-    expect(inline?.suggestion.name).toBe("implement");
-  });
-
-  test("stays silent while the palette owns a leading slash", () => {
-    expect(resolveInlineSuggestion(true, "/type", SKILLS)).toBeNull();
-  });
-
-  test("returns null when nothing matches the token", () => {
-    expect(resolveInlineSuggestion(false, "run /zzzz", SKILLS)).toBeNull();
-  });
-});
-
-describe("inline completion in the composer", () => {
-  test("typing an inline slash shows the tab-hint, and tab completes to the full name", async () => {
-    // Arrange - open a composer and type text with a trailing slash token
-    const setup = await mountComposer();
-
-    await typeText(setup, "run /type");
-
-    // Assert - the hint offers the closest skill, marked with the tab glyph
-    const withHint = setup.captureCharFrame();
-
-    expect(withHint).toContain("⇥");
-    expect(withHint).toContain("/typescript-magician");
-
-    // Act - tab completes the token
-    setup.mockInput.pressKey("TAB");
+describe("the command leader", () => {
+  test("the leader chord then a letter runs a command instead of composing a comment", async () => {
+    const commands: string[] = [];
+    const display = buildDisplay(PLAN, undefined);
+    const setup = await testRender(
+      <ThreadView
+        session={fixturePlanSession({
+          artifact: { type: "plan", content: PLAN, meta: { title: "Plan" } },
+        })}
+        display={display}
+        marks={marksByDisplay([], display)}
+        quickActions={[]}
+        observer={false}
+        leaderCombos={["ctrl+g"]}
+        onLeaderCommand={(key) => commands.push(key.name)}
+        onAnnotate={() => {}}
+        onReply={() => {}}
+        onUpdateAnnotation={() => {}}
+        onExit={() => {}}
+      />,
+      { width: 72, height: 20 },
+    );
     await settle(setup);
 
-    // Assert - the hint is gone and the composer now carries the full skill name
+    setup.mockInput.pressKey("g", { ctrl: true });
+    setup.mockInput.pressKey("x");
+    await settle(setup);
+
+    // the command fired and no composer opened (a bare "x" would have started a draft)
+    expect(commands).toEqual(["x"]);
+
+    setup.renderer.destroy();
+  });
+});
+
+describe("skills in the palette", () => {
+  test("a skill from context lists in the / palette and a pick inserts its /name", async () => {
+    const setup = await mountComposerWithSkills([
+      { name: "vitest-patterns", description: "patterns for vitest", body: "" },
+    ]);
+
+    await typeText(setup, "/vitest");
+    expect(setup.captureCharFrame()).toContain("/vitest-patterns");
+
+    setup.mockInput.pressKey("RETURN");
+    await settle(setup);
+    // the reference lands in the draft, exactly like a quick action
+    expect(setup.captureCharFrame()).toContain("/vitest-patterns");
+  });
+});
+
+describe("the palette reopens per token and chains skills", () => {
+  test("a mid-sentence / opens the list, tab completes it, and a second / opens the list again", async () => {
+    const setup = await mountComposer();
+
+    // a trailing "/type" opens the full list under the composer, closest skill first
+    await typeText(setup, "run /type");
+    const firstList = setup.captureCharFrame();
+
+    expect(firstList).toContain("/typescript-magician");
+
+    // tab completes only that token, leaving the prose before it
+    setup.mockInput.pressKey("TAB");
+    await settle(setup);
     const completed = setup.captureCharFrame();
 
-    expect(completed).not.toContain("⇥");
-    expect(completed).toContain("typescript-magician");
+    expect(completed).toContain("run /typescript-magician");
+
+    // a second "/" reopens the palette so another skill chains onto the draft
+    await typeText(setup, "/impl");
+    const secondList = setup.captureCharFrame();
+
+    expect(secondList).toContain("/implement");
+
+    setup.mockInput.pressKey("TAB");
+    await settle(setup);
+    expect(setup.captureCharFrame()).toContain("run /typescript-magician /implement");
+  });
+
+  test("several skills picked on enter, with prose between, all persist in the draft", async () => {
+    const setup = await mountComposerWithSkills([], 120);
+
+    // pick the first skill, keep typing prose, pick the next, and so on
+    await typeText(setup, "start /type");
+    setup.mockInput.pressKey("RETURN");
+    await settle(setup);
+
+    await typeText(setup, "then run /impl");
+    setup.mockInput.pressKey("RETURN");
+    await settle(setup);
+
+    await typeText(setup, "and finally /write");
+    setup.mockInput.pressKey("RETURN");
+    await settle(setup);
+
+    // every pick landed as its full "/name", and the prose between them survived
+    expect(setup.captureCharFrame()).toContain(
+      "start /typescript-magician then run /implement and finally /write-discoverable-code",
+    );
+  });
+
+  test("a completed reference paints in the accent color", async () => {
+    const setup = await mountComposer();
+
+    await typeText(setup, "please /type");
+    setup.mockInput.pressKey("RETURN");
+    await settle(setup);
+
+    const accentText = setup
+      .captureSpans()
+      .lines.flatMap((line) => line.spans.filter((span) => colorToHex(span.fg) === DARK.accent))
+      .map((span) => span.text)
+      .join("");
+
+    expect(accentText).toContain("/typescript-magician");
+    // the prose around the reference is not accented
+    expect(accentText).not.toContain("please");
   });
 });

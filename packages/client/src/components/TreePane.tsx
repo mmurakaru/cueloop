@@ -6,6 +6,7 @@
  * path to the same primitives the option chords reach.
  */
 
+import { ScrollArea } from "./ScrollArea";
 import React, { useEffect, useRef } from "react";
 import { createTextAttributes, type ScrollBoxRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
@@ -84,7 +85,7 @@ export function TreePane({
 
   return (
     <box style={{ flexGrow: 1, flexDirection: "column" }}>
-      <scrollbox ref={scrollRef} style={{ flexGrow: 1 }} focused={false}>
+      <ScrollArea scrollRef={scrollRef}>
         {rows.map((row) => {
           const selected = row.entryId === selectedEntryId;
           const foreground = row.onPath ? tokens.text : tokens.textDim;
@@ -112,7 +113,7 @@ export function TreePane({
             </box>
           );
         })}
-      </scrollbox>
+      </ScrollArea>
       {canMove || canFork ? (
         <box style={{ paddingLeft: 1 }}>
           <Toolbar>

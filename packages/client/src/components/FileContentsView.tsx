@@ -1,9 +1,15 @@
-// A Changes file tab in contents mode: a workspace file rendered read-only with line numbers.
-// Loads on mount and whenever the path changes; a null read shows a "could not read" hint.
+// A Changes/Project file tab in contents mode: a workspace file rendered read-only with line
+// numbers, for surfaces with no thread to anchor notes to (the bare-launch welcome shell).
+// Loads on mount and whenever the path changes; a null read renders a centered "File deleted".
+// Syntax highlighting comes from the native code renderable (tree-sitter), the language
+// auto-detected from the path; unknown languages simply render unstyled.
 
+import { ScrollArea } from "./ScrollArea";
 import React, { useEffect, useRef, useState } from "react";
+import type { CodeRenderable } from "@opentui/core";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
+import { filetypeForPath, syntaxStyleFor } from "./syntax-highlight";
 
 export interface FileContentsViewProps {
   path: string;
@@ -24,6 +30,9 @@ export function FileContentsView({
 }: FileContentsViewProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
   const [loaded, setLoaded] = useState<FileLoad | null>(null);
+  // The gutter mirrors the code renderable's line info, so it needs the mounted
+  // instance; a state-backed ref rebinds the target once the code renderable exists.
+  const [codeTarget, setCodeTarget] = useState<CodeRenderable | null>(null);
   const loadRef = useRef(loadContents);
   useEffect(() => {
     loadRef.current = loadContents;
@@ -53,26 +62,37 @@ export function FileContentsView({
     );
   }
   if (loaded.lines === null) {
+    // a file that no longer reads in the Changes/Project view is one the working tree deleted;
+    // the bottom pad lifts the text one row so it lines up with the footer-shortened thread empty state
     return (
-      <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
-        <text fg={tokens.textDim}>{`could not read ${path}`}</text>
+      <box
+        style={{ flexGrow: 1, alignItems: "center", justifyContent: "center", paddingBottom: 2 }}
+      >
+        <text fg={tokens.textDim}>File deleted</text>
       </box>
     );
   }
-  const lines = loaded.lines;
+  const content = loaded.lines.join("\n");
 
   return (
-    <scrollbox style={{ flexGrow: 1 }} focused={false}>
-      <box style={{ flexDirection: "column", paddingTop: 1 }}>
-        {lines.map((line, index) => (
-          <box key={index} style={{ flexDirection: "row", paddingLeft: 1 }}>
-            <box style={{ width: 5 }}>
-              <text fg={tokens.textDim}>{String(index + 1).padStart(4)}</text>
-            </box>
-            <text fg={tokens.text}>{line.length > 0 ? line : " "}</text>
-          </box>
-        ))}
-      </box>
-    </scrollbox>
+    <ScrollArea>
+      <line-number
+        target={codeTarget ?? undefined}
+        showLineNumbers
+        fg={tokens.textDim}
+        minWidth={5}
+        paddingRight={1}
+        style={{ paddingTop: 1, paddingLeft: 1 }}
+      >
+        <code
+          ref={setCodeTarget}
+          content={content}
+          filetype={filetypeForPath(path)}
+          syntaxStyle={syntaxStyleFor(tokens)}
+          selectable={false}
+          style={{ wrapMode: "none", fg: tokens.text }}
+        />
+      </line-number>
+    </ScrollArea>
   );
 }

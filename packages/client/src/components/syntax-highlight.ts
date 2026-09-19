@@ -97,6 +97,29 @@ export function syntaxStyleFor(theme: Theme): SyntaxStyle {
   return style;
 }
 
+/** A one-group syntax style plus the styleId that paints a "/skill" reference in the accent color. */
+export interface ReferenceStyle {
+  style: SyntaxStyle;
+  styleId: number;
+}
+
+const referenceStyleCache = new WeakMap<Theme, ReferenceStyle>();
+
+export function referenceStyleFor(theme: Theme): ReferenceStyle {
+  const cached = referenceStyleCache.get(theme);
+
+  if (cached) return cached;
+  const entry: ReferenceStyle = {
+    style: SyntaxStyle.fromStyles({ reference: { fg: theme.accent } }),
+    styleId: 0,
+  };
+
+  entry.styleId = entry.style.getStyleId("reference") ?? 0;
+  referenceStyleCache.set(theme, entry);
+
+  return entry;
+}
+
 /** The foreground for a tree-sitter capture group; undefined when unstyled. */
 export function colorForSyntaxGroup(group: string, theme: Theme): string | undefined {
   const styles = syntaxGroupStyles(theme);

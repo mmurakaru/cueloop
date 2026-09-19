@@ -5,17 +5,16 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
 import { NERD } from "./components/primitives/icons";
 import {
   clickText,
   dragText,
   isolateUserConfig,
-  press,
   pressKey,
+  renderReadyApp,
   typeText,
   waitForState,
   waitForText,
@@ -35,7 +34,7 @@ index 111..222 100644
 let home: string;
 let restoreUserConfig: () => void;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-diff-"));
@@ -54,7 +53,7 @@ afterEach(() => {
 });
 
 async function renderApp(sessionId = session.id) {
-  const setup = await testRender(<App home={home} sessionId={sessionId} />, {
+  const setup = await renderReadyApp(<App home={home} sessionId={sessionId} />, {
     width: 120,
     height: 30,
   });
@@ -95,7 +94,7 @@ describe("diff review", () => {
 
     // Act - submit with the session chord (cmd+enter, no composer open), confirm request_changes
     await pressKey(setup, "RETURN", { meta: true });
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "feedback sent");
@@ -103,6 +102,19 @@ describe("diff review", () => {
 
     expect(resolved.verdict!.feedback).toContain("new Map()");
     expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
+  });
+
+  test("pasting an image into a diff comment drops in an [Image #n] placeholder", async () => {
+    // Arrange - mark the added line and open the inline comment composer
+    const setup = await renderApp();
+    await dragText(setup, "new Map()", "new Map()", "new Map()".length);
+    await typeText(setup, "see ");
+
+    // Act - a burst of control bytes stands in for the binary an image paste delivers
+    await setup.mockInput.pasteBracketedText("");
+
+    // Assert - the same placeholder the summary composer shows
+    await waitForText(setup, "see [Image #1]");
   });
 
   test("a comment reopens with its mark painted on the code", async () => {
@@ -199,7 +211,7 @@ describe("diff review", () => {
         ],
       },
     });
-    const setup = await testRender(<App home={home} sessionId={withFiles.id} />, {
+    const setup = await renderReadyApp(<App home={home} sessionId={withFiles.id} />, {
       width: 120,
       height: 30,
     });

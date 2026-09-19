@@ -27,6 +27,7 @@ const PRIMITIVE_ROLES = {
   "session.list": "any",
   "session.wait": "any",
   "session.annotate": "any",
+  "session.comment": "any",
   // any role may call it; a non-owner must act on behalf of an author and stays scoped to it
   "session.removeAnnotation": "any",
   "session.setParticipantName": "any",
@@ -34,6 +35,7 @@ const PRIMITIVE_ROLES = {
   "session.cutBlock": "owner",
   "session.restoreBlock": "owner",
   "session.curate": "owner",
+  "session.setAccess": "owner",
   "session.setViewed": "owner",
   "session.setTitle": "owner",
   // reading the local working tree is the owner's alone; a share carries no repo to read
@@ -43,6 +45,8 @@ const PRIMITIVE_ROLES = {
   "repo.files": "owner",
   "repo.fileContents": "owner",
   "repo.changes": "owner",
+  "repo.diff": "owner",
+  "session.workbench": "owner",
   // the tree is the owner's: collaborators comment on the branch a share follows
   "session.navigate": "owner",
   "session.branch": "owner",
@@ -51,6 +55,7 @@ const PRIMITIVE_ROLES = {
   "session.fork": "owner",
   "session.refreshDiff": "owner",
   "session.setShareId": "owner",
+  "session.setShares": "owner",
   "session.delete": "owner",
   "session.mergeShared": "owner",
   "session.resolve": "owner",

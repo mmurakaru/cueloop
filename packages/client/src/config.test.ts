@@ -9,6 +9,7 @@ import {
   loadConfig,
   persistAuthorName,
   persistActions,
+  persistLayout,
   persistPins,
   persistTheme,
   quickActionBody,
@@ -126,19 +127,51 @@ describe("loadConfig", () => {
     }
   });
 
-  test("[ui] diff_view defaults to unified and parses split", () => {
+  test("[ui] diff_view defaults to split and parses stacked", () => {
     // Arrange
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-diff-"));
     const path = join(dir, "config.toml");
 
-    writeFileSync(path, `[ui]\ndiff_view = "split"\n`);
+    writeFileSync(path, `[ui]\ndiff_view = "stacked"\n`);
 
     try {
       // Assert
-      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.diffView).toBe(
-        "unified",
-      );
-      expect(loadConfig({ userConfigPath: path }).ui.diffView).toBe("split");
+      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.diffView).toBe("split");
+      expect(loadConfig({ userConfigPath: path }).ui.diffView).toBe("stacked");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("[skills] path overrides the default and a malformed value never discards the config", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-skills-"));
+    const path = join(dir, "config.toml");
+
+    try {
+      writeFileSync(path, `[skills]\npath = "/custom/skills"\n`);
+      expect(loadConfig({ userConfigPath: path }).skillsPath).toBe("/custom/skills");
+
+      // a wrong-typed path falls back to the default without dropping the sibling [keys] setting
+      writeFileSync(path, `[skills]\npath = 123\n\n[keys]\ncomment = "z"\n`);
+      const config = loadConfig({ userConfigPath: path });
+
+      expect(config.keys["comment"]).toEqual(["z"]);
+      expect(config.skillsPath).toContain(".agents");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('[ui] diff_view loads the pre-rename "unified" value as "stacked"', () => {
+    // Arrange - an upgrade must not flip a user who had persisted the old spelling
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-diff-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, `[ui]\ndiff_view = "unified"\n`);
+
+    try {
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.diffView).toBe("stacked");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -285,6 +318,41 @@ describe("loadConfig", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("persistLayout round-trips the remembered pane composition through the config file", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-layout-"));
+    const path = join(dir, "config.toml");
+
+    try {
+      // Act
+      persistLayout({ threads: false, rightSidebar: "project", zoomChanges: false }, path);
+
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.layout).toEqual({
+        threads: false,
+        rightSidebar: "project",
+        zoomChanges: false,
+      });
+
+      // Act
+      persistLayout({ threads: true, rightSidebar: "off", zoomChanges: true }, path);
+
+      // Assert
+      expect(loadConfig({ userConfigPath: path }).ui.layout).toEqual({
+        threads: true,
+        rightSidebar: "off",
+        zoomChanges: true,
+      });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("layout is unset until the user changes one", () => {
+    // Assert
+    expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.layout).toBeUndefined();
+  });
 });
 
 describe("integrations.obsidian config", () => {
@@ -359,7 +427,7 @@ describe("quick actions ([[actions]])", () => {
 
     // Assert
     expect(config.actions).toEqual(DEFAULT_QUICK_ACTIONS);
-    expect(config.actions).toHaveLength(7);
+    expect(config.actions).toHaveLength(8);
   });
 
   test("configured actions replace the defaults, with optional metadata", () => {
@@ -500,5 +568,15 @@ describe("[authors] rename map", () => {
     persistAuthorName("SHA256:abc+def/gh", "Alexa", path);
     expect(loadConfig({ userConfigPath: path }).authors["SHA256:abc+def/gh"]).toBe("Alexa");
     rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+describe("the /lgtm default quick action", () => {
+  test("expands to a terse approving note", () => {
+    const lgtm = DEFAULT_QUICK_ACTIONS.find((action) => action.prompt.toLowerCase() === "lgtm");
+
+    expect(lgtm).toBeDefined();
+    // the reference is /lgtm, so the label is the prompt; it expands like every action (label, then note)
+    expect(quickActionBody(lgtm!)).toBe("LGTM\n\nThis looks good to me.");
   });
 });

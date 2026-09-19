@@ -64,7 +64,7 @@ server.core.sessionMergeShared(session.id, {
   annotations: [
     {
       id: "collab_nelson",
-      kind: "suggestion",
+      kind: "comment",
       anchor: makeAnchor(blocks, at("Lamport clock. On"), 0, 18),
       body: "prefer a hybrid logical clock so wall-time skew can't reorder.",
       author: "nelson",

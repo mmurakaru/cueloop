@@ -14,7 +14,7 @@ import type { Discussion } from "../discussions";
 import { useFrameMeasure } from "../use-frame-measure";
 import { useComponentTheme } from "./theme-context";
 import { useRootOverlay } from "./RootOverlay";
-import { SurfaceScrollbar } from "./SurfaceScrollbar";
+import { OverlayScrollbar } from "./OverlayScrollbar";
 
 interface HoveredMarker {
   key: string;
@@ -160,9 +160,9 @@ export function DiscussionMarkerRail({
   // render the preview at the app root (above every pane rule); OpenTUI has no z-index, so an
   // absolute box inside this pane would be sliced by the next pane's border
   useEffect(() => {
-    setOverlay(preview());
+    setOverlay("discussion-preview", preview());
 
-    return () => clearOverlay();
+    return () => clearOverlay("discussion-preview");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hovered, discussions, tokens]);
 
@@ -175,7 +175,7 @@ export function DiscussionMarkerRail({
         onHover={setHovered}
         onJump={onJump}
       />
-      {scrollbox ? <SurfaceScrollbar scrollbox={scrollbox} theme={theme} /> : null}
+      {scrollbox ? <OverlayScrollbar scrollbox={scrollbox} theme={theme} /> : null}
     </>
   );
 }

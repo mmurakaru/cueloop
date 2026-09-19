@@ -1,9 +1,10 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { ReviewSession, VerdictKind } from "@cueloop/schema";
+import type { Thread, VerdictKind } from "@cueloop/schema";
 import type { Mode } from "./intent-dispatch";
 import type { Intent, KeyState } from "./keymap";
-import type { Completion } from "./session-controller";
+import type { Completion } from "./thread-controller";
 import type { WalkFile } from "./walk";
+import type { QuickAction } from "./config";
 import { viewedCount } from "./walk";
 import type { ConfirmCardProps } from "./components/ConfirmCard";
 import type { BreadcrumbItem } from "./components/Breadcrumb";
@@ -17,7 +18,7 @@ export function computeRoleCapabilities(
   return { observer, isOwner: !observer && role === "owner" };
 }
 
-export function deriveReviewFlags(session: ReviewSession | null) {
+export function deriveReviewFlags(session: Thread | null) {
   return {
     isDiff: session?.artifact.type === "diff",
     isPrototype: session?.artifact.type === "prototype",
@@ -27,6 +28,19 @@ export function deriveReviewFlags(session: ReviewSession | null) {
 
 export function isWalking(isDiff: boolean, walk: { index: number } | null): boolean {
   return isDiff && walk !== null;
+}
+
+/**
+ * A prototype renders as a kitty pixel mockup only in the opt-in experimental mode:
+ * the flag is on and the artifact carries an HTML entry. Otherwise it is the default
+ * markdown design doc, rendered through the thread/markdown path.
+ */
+export function isPixelPrototypeMode(
+  isPrototype: boolean,
+  prototypePixels: boolean,
+  prototypePath: string | undefined,
+): boolean {
+  return isPrototype && prototypePixels && Boolean(prototypePath);
 }
 
 export function resolveOverlay(
@@ -59,7 +73,7 @@ export function isCompletionOverlayPhase(
 }
 
 export function buildHeaderItems(params: {
-  session: ReviewSession;
+  session: Thread;
   resolved: boolean;
   observer: boolean;
   role: "owner" | "observer" | "collaborator";
@@ -89,22 +103,23 @@ export function buildHeaderItems(params: {
 }
 
 export function buildRenderFlags(params: {
-  session: ReviewSession;
+  session: Thread;
   isOwner: boolean;
   isDiff: boolean;
-  isPrototype: boolean;
+  isPixelPrototype: boolean;
   resolved: boolean;
   menuDialog: "keybinds" | "settings" | null;
   resolvedIds: Set<string>;
 }) {
-  const { session, isOwner, isDiff, isPrototype, resolved, menuDialog, resolvedIds } = params;
+  const { session, isOwner, isDiff, isPixelPrototype, resolved, menuDialog, resolvedIds } = params;
 
   return {
     showOwnerActions: isOwner && !isDiff && !resolved,
     prototypeCanComment: isOwner && !resolved,
     chromeHidden: menuDialog !== null,
     prototypePath: session.artifact.meta.prototypePath ?? "",
-    railResolvedIds: isDiff || isPrototype ? null : resolvedIds,
+    // a markdown prototype interleaves resolved cards like a plan; only the pixel mockup opts out
+    railResolvedIds: isDiff || isPixelPrototype ? null : resolvedIds,
   };
 }
 
@@ -118,9 +133,10 @@ export function buildSubmitConfirmState(
   deps: DraftHandlerDeps & {
     mode: Mode;
     isDiff: boolean;
-    session: ReviewSession;
+    session: Thread;
     walkFileList: WalkFile[];
     viewedPaths: Set<string>;
+    quickActions: QuickAction[];
   },
 ): Omit<ConfirmCardProps, "theme"> | null {
   const { mode, isDiff, session, walkFileList, viewedPaths, liveInput, setMode, dispatch } = deps;
@@ -130,6 +146,7 @@ export function buildSubmitConfirmState(
   return {
     verdict: mode.verdict,
     summary: mode.summary,
+    quickActions: deps.quickActions,
     viewedSummary:
       isDiff && session.viewedPaths !== undefined
         ? `${viewedCount(walkFileList, viewedPaths)}/${walkFileList.length} files viewed`

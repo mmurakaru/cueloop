@@ -6,7 +6,7 @@
  * walks, so the keyboard grammar keeps a single index across the two groups.
  */
 
-import type { ReviewSession, WorkspaceKey } from "@cueloop/schema";
+import type { Thread, WorkspaceKey } from "@cueloop/schema";
 
 /** A repo's display name: the remote basename when present, else the working-tree folder name. */
 export function projectName(workspace: WorkspaceKey): string {
@@ -33,31 +33,31 @@ export function projectName(workspace: WorkspaceKey): string {
 export type InboxRow =
   | { kind: "section"; id: string; label: string }
   | { kind: "project"; id: string; label: string }
-  | { kind: "thread"; id: string; session: ReviewSession; selectionIndex: number };
+  | { kind: "thread"; id: string; session: Thread; selectionIndex: number; depth: number };
 
 export interface GroupedInbox {
   rows: InboxRow[];
   /** Threads in display order; the inbox cursor indexes this. */
-  ordered: ReviewSession[];
+  ordered: Thread[];
 }
 
-function threadTitle(session: ReviewSession): string {
+function threadTitle(session: Thread): string {
   return session.artifact.meta.title ?? session.id;
 }
 
 interface ProjectGroup {
   name: string;
-  sessions: ReviewSession[];
+  sessions: Thread[];
 }
 
 /** Group pending sessions into Pinned, then Projects (by root commit), then standalone Threads. */
 export function groupInbox(
-  sessions: readonly ReviewSession[],
+  sessions: readonly Thread[],
   pinnedIds?: ReadonlySet<string>,
 ): GroupedInbox {
-  const pinned: ReviewSession[] = [];
+  const pinned: Thread[] = [];
   const projects = new Map<string, ProjectGroup>();
-  const standalone: ReviewSession[] = [];
+  const standalone: Thread[] = [];
 
   for (const session of sessions) {
     if (pinnedIds?.has(session.id) === true) {
@@ -77,15 +77,15 @@ export function groupInbox(
   }
 
   const rows: InboxRow[] = [];
-  const ordered: ReviewSession[] = [];
-  const pushThread = (session: ReviewSession): void => {
-    rows.push({ kind: "thread", id: session.id, session, selectionIndex: ordered.length });
+  const ordered: Thread[] = [];
+  const pushThread = (session: Thread, depth: number): void => {
+    rows.push({ kind: "thread", id: session.id, session, selectionIndex: ordered.length, depth });
     ordered.push(session);
   };
 
   if (pinned.length > 0) {
-    rows.push({ kind: "section", id: "section:pinned", label: "Pinned" });
-    for (const session of pinned) pushThread(session);
+    rows.push({ kind: "section", id: "section:pinned", label: "Starred" });
+    for (const session of pinned) pushThread(session, 1);
   }
 
   const projectEntries = [...projects.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
@@ -93,13 +93,14 @@ export function groupInbox(
     rows.push({ kind: "section", id: "section:projects", label: "Projects" });
     for (const [key, project] of projectEntries) {
       rows.push({ kind: "project", id: `project:${key}`, label: project.name });
-      for (const session of project.sessions) pushThread(session);
+      // a project's threads cascade one level under its name
+      for (const session of project.sessions) pushThread(session, 2);
     }
   }
 
   if (standalone.length > 0) {
     rows.push({ kind: "section", id: "section:threads", label: "Threads" });
-    for (const session of standalone) pushThread(session);
+    for (const session of standalone) pushThread(session, 1);
   }
 
   return { rows, ordered };

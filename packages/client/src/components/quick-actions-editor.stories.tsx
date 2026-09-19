@@ -24,7 +24,9 @@ export const Collapsed: Story = {
         actions={DEFAULT_QUICK_ACTIONS}
         selectedIndex={0}
         expandedIndex={null}
+        expandedField="prompt"
         onToggleExpand={noop}
+        onEditPrompt={() => {}}
         onEditMetadata={noop}
         onReset={noop}
         onAdd={noop}
@@ -42,7 +44,9 @@ export const RowExpanded: Story = {
         actions={DEFAULT_QUICK_ACTIONS}
         selectedIndex={1}
         expandedIndex={1}
+        expandedField="prompt"
         onToggleExpand={noop}
+        onEditPrompt={() => {}}
         onEditMetadata={noop}
         onReset={noop}
         onAdd={noop}

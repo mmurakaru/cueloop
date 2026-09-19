@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { ReviewSession, WorkspaceKey } from "@cueloop/schema";
+import type { Thread, WorkspaceKey } from "@cueloop/schema";
 import { groupInbox, projectName } from "./session-tree";
 
-function session(id: string, title: string, rootCommit?: string, remote?: string): ReviewSession {
+function session(id: string, title: string, rootCommit?: string, remote?: string): Thread {
   const workspace: WorkspaceKey = { repoRoot: `/home/dev/${id}-checkout`, branch: "main" };
   if (rootCommit !== undefined) workspace.rootCommit = rootCommit;
   if (remote !== undefined) workspace.remote = remote;
@@ -112,19 +112,19 @@ describe("groupInbox", () => {
     expect(rows.some((row) => row.kind === "section" && row.label === "Threads")).toBe(true);
   });
 
-  test("a pinned thread lifts into a Pinned section at the top, out of its normal group", () => {
+  test("a pinned thread lifts into a Starred section at the top, out of its normal group", () => {
     // Arrange - one repo-bound thread, one standalone; pin the repo-bound one
     const sessions = [session("a", "Pinned one", "root-1"), session("b", "Loose two")];
 
     // Act
     const { rows, ordered } = groupInbox(sessions, new Set(["a"]));
 
-    // Assert - Pinned is the first section and holds thread a; a is gone from Projects
+    // Assert - Starred is the first section and holds thread a; a is gone from Projects
     const sections = rows
       .filter((row) => row.kind === "section")
       .map((row) => (row.kind === "section" ? row.label : ""));
 
-    expect(sections[0]).toBe("Pinned");
+    expect(sections[0]).toBe("Starred");
     expect(sections).not.toContain("Projects"); // its only member was pinned away
     expect(ordered[0]!.id).toBe("a"); // the cursor walks pinned threads first
     const pinnedThreadIds = rows.filter((row) => row.kind === "thread").map((row) => row.id);

@@ -12,11 +12,12 @@ import {
   newAnnotationId,
   type ArtifactType,
   type DiffFileContents,
-  type ReviewSession,
+  type Thread,
   type WorkspaceKey,
 } from "@cueloop/schema";
 import { verdictResponse } from "./api";
 import type { DaemonClient } from "./client";
+import { ABORTED, pollUntilResolved, raceAbort } from "./interruptible-wait";
 
 // Adapters and CLI primitives reach the verdict mapping through this module too,
 // so a session obtained outside a ReviewHandle maps the same way.
@@ -128,7 +129,7 @@ export interface AwaitVerdictOptions {
   /** Chunk length for the poll loop; between chunks the session is re-read for progress. */
   pollMs?: number;
   /** Called with the fresh session after each chunk that is still pending. */
-  onProgress?: (session: ReviewSession) => void;
+  onProgress?: (session: Thread) => void;
   signal?: AbortSignal;
 }
 
@@ -136,49 +137,13 @@ export interface AwaitVerdictOptions {
 export interface VerdictOutcome {
   allow: boolean;
   feedback: string;
-  session: ReviewSession;
-}
-
-/** Sentinel distinguishing an abort from any daemon response. */
-const ABORTED = Symbol("aborted");
-
-function raceAbort<T>(
-  promise: Promise<T>,
-  signal: AbortSignal | undefined,
-): Promise<T | typeof ABORTED> {
-  if (!signal) return promise;
-  if (signal.aborted) {
-    promise.catch(() => {});
-
-    return Promise.resolve(ABORTED);
-  }
-
-  return new Promise<T | typeof ABORTED>((resolve, reject) => {
-    const onAbort = () => {
-      // The daemon request keeps running until the client closes; swallow its
-      // eventual rejection so the abort path never leaks an unhandled error.
-      promise.catch(() => {});
-      resolve(ABORTED);
-    };
-
-    signal.addEventListener("abort", onAbort, { once: true });
-    promise.then(
-      (value) => {
-        signal.removeEventListener("abort", onAbort);
-        resolve(value);
-      },
-      (error) => {
-        signal.removeEventListener("abort", onAbort);
-        reject(error);
-      },
-    );
-  });
+  session: Thread;
 }
 
 export class ReviewHandle {
   constructor(
     private readonly client: DaemonClient,
-    readonly session: ReviewSession,
+    readonly session: Thread,
   ) {}
 
   get id(): string {
@@ -219,7 +184,7 @@ export class ReviewHandle {
   }
 }
 
-function outcome(session: ReviewSession): VerdictOutcome {
+function outcome(session: Thread): VerdictOutcome {
   return { ...verdictResponse(session), session };
 }
 
@@ -231,7 +196,7 @@ export interface AwaitResolveOptions {
 }
 
 /**
- * Park until a review session resolves, then return the verdict outcome; null
+ * Park until a thread resolves, then return the verdict outcome; null
  * when the signal aborts first. Where ReviewHandle.awaitVerdict needs the handle
  * that opened the review, this needs only a session id - so a background waiter
  * that woke on a session it did not open (a detached Claude Code / Codex waiter,
@@ -247,18 +212,15 @@ export async function awaitResolve(
   options: AwaitResolveOptions = {},
 ): Promise<VerdictOutcome | null> {
   const chunkMs = options.pollMs ?? 30_000;
-  const { signal } = options;
+  const resolved = await pollUntilResolved(
+    () => client.sessionWait(sessionId, chunkMs),
+    options.signal,
+  );
 
-  for (;;) {
-    if (signal?.aborted) return null;
-    const resolved = await raceAbort(client.sessionWait(sessionId, chunkMs), signal);
-
-    if (resolved === ABORTED) return null;
-    if (resolved !== null) return outcome(resolved);
-  }
+  return resolved === null ? null : outcome(resolved);
 }
 
-/** Open a review session (or revise the agent session's existing one) and hand back the wait surface. */
+/** Open a thread (or revise the agent session's existing one) and hand back the wait surface. */
 export async function openReview(
   client: DaemonClient,
   options: OpenReviewOptions,

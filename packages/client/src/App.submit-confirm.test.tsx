@@ -7,7 +7,7 @@ import { join } from "node:path";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
-import { makeAnchor, parseBlocks, type ReviewSession } from "@cueloop/schema";
+import { makeAnchor, parseBlocks, type Thread } from "@cueloop/schema";
 import { App } from "./App";
 import {
   isolateUserConfig,
@@ -33,7 +33,7 @@ The daemon persists sessions to disk atomically.
 let home: string;
 let restoreUserConfig: () => void;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), "cueloop-confirm-"));
@@ -99,8 +99,8 @@ describe("send message confirm", () => {
     const frame = setup.captureCharFrame();
 
     expect(frame).toContain("[Approve]");
-    expect(frame).toContain(" send message ");
-    expect(frame).toContain(" Cancel ");
+    expect(frame).toContain(" send ");
+    expect(frame).toContain(" cancel ");
   });
 
   test("left/right cycles the verdict selector in the overlay", async () => {
@@ -146,7 +146,7 @@ describe("send message confirm", () => {
     // Assert - a bare ESC settles after the parser's escape-sequence window
     const frame = await waitForTextGone(setup, "[Approve]");
 
-    expect(frame).not.toContain(" Cancel ");
+    expect(frame).not.toContain(" cancel ");
   });
 
   test("enter in the overlay resolves the session through the controller", async () => {
@@ -162,7 +162,7 @@ describe("send message confirm", () => {
 
     // Act
     await setup.mockInput.typeText("Tighten the steps.");
-    await press(setup, "enter");
+    await pressKey(setup, "RETURN", { meta: true });
 
     // Assert - the completion flow after submit is unchanged
     await waitForText(setup, "feedback sent");
@@ -170,6 +170,35 @@ describe("send message confirm", () => {
 
     expect(stored.status).toBe("resolved");
     expect(stored.verdict!.kind).toBe("request_changes");
+  });
+
+  test("typing / in the summary opens the skills/actions palette", async () => {
+    // Arrange
+    seedAnnotations(1);
+    const setup = await renderApp();
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "[Changes]");
+
+    // Act
+    await setup.mockInput.typeText("/restate");
+
+    // Assert - the same slash palette the inline composer shows
+    await waitForText(setup, "restate-simplified");
+  });
+
+  test("pasting an image into the summary drops in an [Image #n] placeholder", async () => {
+    // Arrange
+    const setup = await renderApp();
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "[Approve]");
+
+    // Act - a burst of control bytes stands in for the binary an image paste delivers
+    await setup.mockInput.typeText("look at this ");
+    await setup.mockInput.pasteBracketedText("");
+
+    // Assert - the raw bytes never reach the draft; a numbered placeholder does
+    await waitForText(setup, "[Image #1]");
+    expect(setup.captureCharFrame()).toContain("look at this [Image #1]");
   });
 
   test("read-only observers cannot open the confirm overlay", async () => {
@@ -185,7 +214,7 @@ describe("send message confirm", () => {
     const frame = setup.captureCharFrame();
 
     expect(frame).not.toContain("[Changes]");
-    expect(frame).not.toContain(" Cancel ");
+    expect(frame).not.toContain(" cancel ");
     expect(server.core.sessionGet(session.id).status).toBe("pending");
   });
 });

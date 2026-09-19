@@ -13,11 +13,16 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import React from "react";
-import { testRender } from "@opentui/react/test-utils";
 import { DaemonServer } from "@cueloop/daemon";
-import type { ReviewSession } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
-import { isolateUserConfig, press, waitForState, waitForText, pressKey } from "./test-support";
+import {
+  isolateUserConfig,
+  waitForState,
+  waitForText,
+  pressKey,
+  renderReadyApp,
+} from "./test-support";
 
 const PLAN = `# Migration Plan
 
@@ -27,7 +32,7 @@ Move the store atomically.
 let home: string;
 let vault: string;
 let server: DaemonServer;
-let session: ReviewSession;
+let session: Thread;
 let restoreUserConfig: () => void;
 
 beforeEach(() => {
@@ -61,7 +66,7 @@ afterEach(() => {
 describe("obsidian export on resolve", () => {
   test("submitting a review writes the plan into the vault and shows the path", async () => {
     // Arrange
-    const setup = await testRender(<App home={home} sessionId={session.id} />, {
+    const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
       width: 120,
       height: 32,
     });
@@ -75,7 +80,7 @@ describe("obsidian export on resolve", () => {
     await waitForText(setup, "[Approve]");
 
     // Act
-    await press(setup, "enter"); // submit
+    await pressKey(setup, "RETURN", { meta: true }); // submit
 
     // Assert
     // the export is an async round-trip after resolve; the status line lands

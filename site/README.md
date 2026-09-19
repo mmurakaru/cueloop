@@ -24,7 +24,7 @@ site/
       index.astro       landing page: one-line what/why plus the core loop
       install.mdx       install and quickstart
       concepts/
-        review-session.mdx      the core primitive
+        thread.mdx      the core primitive
         annotations.mdx         quote-anchored, stable ids
         plan-diff-review.mdx    the three primitives
         sharing-over-ssh.mdx    the design direction (terminal only)

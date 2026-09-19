@@ -4,8 +4,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { ReviewSession, SessionStatus } from "@cueloop/schema";
-import { SessionStore } from "./store";
+import type { Thread, SessionStatus } from "@cueloop/schema";
+import { ThreadStore } from "./store";
 import { reportsDir } from "./paths";
 import {
   DEFAULT_CLEANUP_PERIOD_DAYS,
@@ -28,7 +28,7 @@ function daysAgo(days: number): string {
   return new Date(NOW_MS - days * DAY_MS).toISOString();
 }
 
-function session(id: string, createdAt: string, status: SessionStatus = "resolved"): ReviewSession {
+function session(id: string, createdAt: string, status: SessionStatus = "resolved"): Thread {
   return {
     schemaVersion: "1",
     id,
@@ -112,7 +112,7 @@ describe("pruneExpiredSessions", () => {
   test("deletes resolved sessions past the window and keeps recent ones", () => {
     // Arrange
     const home = tempDir("cueloop-retention-home-");
-    const store = new SessionStore(home);
+    const store = new ThreadStore(home);
 
     store.upsert(session("ses_old", daysAgo(40)));
     store.upsert(session("ses_new", daysAgo(2)));
@@ -129,7 +129,7 @@ describe("pruneExpiredSessions", () => {
   test("never deletes an active pending session however old", () => {
     // Arrange
     const home = tempDir("cueloop-retention-home-");
-    const store = new SessionStore(home);
+    const store = new ThreadStore(home);
 
     store.upsert(session("ses_active", daysAgo(400), "pending"));
 
@@ -144,7 +144,7 @@ describe("pruneExpiredSessions", () => {
   test("a period of zero prunes nothing", () => {
     // Arrange
     const home = tempDir("cueloop-retention-home-");
-    const store = new SessionStore(home);
+    const store = new ThreadStore(home);
 
     store.upsert(session("ses_old", daysAgo(999)));
 

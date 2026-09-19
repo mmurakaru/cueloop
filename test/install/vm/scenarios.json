@@ -1,0 +1,30 @@
+[
+  {
+    "name": "clean-machine",
+    "description": "install on a fresh VM with no node, bun, or git; run, then stop the daemon"
+  },
+  {
+    "name": "upgrade",
+    "description": "install version A then B; the binary is replaced with no leftovers"
+  },
+  {
+    "name": "failure-preservation",
+    "description": "a bad-checksum, truncated, or missing asset leaves the good binary untouched"
+  },
+  {
+    "name": "offline-after-install",
+    "description": "with the default route gone, the CLI and daemon status still work"
+  },
+  {
+    "name": "shell-rc",
+    "description": "under zsh, bash, and fish the installer adds the rc line exactly once"
+  },
+  {
+    "name": "no-downloader",
+    "description": "no curl or wget fails clearly; wget alone succeeds"
+  },
+  {
+    "name": "home-unset",
+    "description": "an unset HOME fails with a clear message, not a stack trace"
+  }
+]

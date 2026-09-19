@@ -11,7 +11,8 @@ import type {
   Artifact,
   DiffFileStatus,
   HunkRejection,
-  ReviewSession,
+  ShareLink,
+  Thread,
   VerdictKind,
   WorkspaceKey,
 } from "@cueloop/schema";
@@ -29,7 +30,9 @@ import type { SharedMerge } from "./api";
 
 export type { SharedMerge } from "./api";
 import { cueloopHome, ownerTokenPath, socketPath } from "./paths";
-import { Params, SessionRecordSchema } from "./validate";
+import { Params, ThreadRecordSchema, DiffFileContentsSchema } from "./validate";
+import type { WorkingTreeDiff } from "./working-tree";
+import { DAEMON_VERSION } from "./version";
 
 export type { EventFrame } from "./protocol";
 
@@ -49,7 +52,9 @@ type PendingRequest = {
 };
 
 const EmptyResultSchema = v.object({});
-const PingResultSchema = v.object({ pid: v.number() });
+// version is optional: a daemon from before the handshake carried one reads as
+// undefined, which never equals this build - so it is treated as stale and replaced
+const PingResultSchema = v.object({ pid: v.number(), version: v.optional(v.string()) });
 const RefreshDiffResultSchema = v.object({ changed: v.boolean() });
 const HerdrTabResultSchema = v.nullable(v.object({ tabId: v.string(), paneId: v.string() }));
 
@@ -62,25 +67,33 @@ const HerdrTabResultSchema = v.nullable(v.object({ tabId: v.string(), paneId: v.
 export interface SessionClient {
   onEvent(listener: (event: EventFrame) => void): () => void;
   subscribe(): Promise<void>;
-  sessionGet(id: string): Promise<ReviewSession>;
-  sessionList(filter?: { status?: "pending" | "resolved" }): Promise<ReviewSession[]>;
+  sessionGet(id: string): Promise<Thread>;
+  sessionList(filter?: { status?: "pending" | "resolved" }): Promise<Thread[]>;
+  /** Add a comment; the primary annotate method. `sessionAnnotate` is the retained alias. */
+  sessionComment(
+    id: string,
+    annotation: Omit<Annotation, "createdAt">,
+    authorName?: string,
+  ): Promise<Thread>;
   sessionAnnotate(
     id: string,
     annotation: Omit<Annotation, "createdAt">,
     authorName?: string,
-  ): Promise<ReviewSession>;
+  ): Promise<Thread>;
   /** Remove a comment; a non-owner connection removes only the comments of the author it is bound to. */
-  sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession>;
-  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession>;
+  sessionRemoveAnnotation(id: string, annotationId: string): Promise<Thread>;
+  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<Thread>;
   /** Cut the `blockIndex`-th block of the working copy. */
-  sessionCutBlock(id: string, blockIndex: number): Promise<ReviewSession>;
+  sessionCutBlock(id: string, blockIndex: number): Promise<Thread>;
   /** Re-insert the `baseBlockIndex`-th block of the submitted revision before `line` (default: the end). */
-  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<ReviewSession>;
+  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<Thread>;
   /** Replace a diff review's reject decisions; the working copy follows. */
-  sessionCurate(id: string, rejections: HunkRejection[]): Promise<ReviewSession>;
-  sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession>;
+  sessionCurate(id: string, rejections: HunkRejection[]): Promise<Thread>;
+  /** Replace the private-share allowlist of GitHub logins; presence marks the share private. */
+  sessionSetAccess(id: string, githubLogins: string[]): Promise<Thread>;
+  sessionSetViewed(id: string, viewedPaths: string[]): Promise<Thread>;
   /** Rename a session's display title; an empty title restores the derived default. */
-  sessionSetTitle(id: string, title: string): Promise<ReviewSession>;
+  sessionSetTitle(id: string, title: string): Promise<Thread>;
   /** Tracked, repo-relative file paths for the session's workspace; a client with no local repo (a share) omits it. */
   projectFiles?(sessionId: string): Promise<string[]>;
   /** UTF-8 contents of a repo-relative file, or null when it cannot be read safely; omitted by a client with no local repo. */
@@ -91,26 +104,31 @@ export interface SessionClient {
   repoFileContents?(cwd: string, path: string): Promise<string | null>;
   /** Changed files (path plus git status) in the working tree at `cwd`. */
   repoChanges?(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]>;
+  /** The live working-tree diff (patch plus per-file contents) at `cwd`. */
+  repoDiff?(cwd: string): Promise<WorkingTreeDiff>;
+  /** Find-or-create the per-repo workbench thread for `cwd`, so a bare launch's first comment persists. */
+  sessionWorkbench?(cwd: string): Promise<Thread>;
   /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */
-  sessionNavigate(
-    id: string,
-    entryId: string,
-    summary?: string,
-    branch?: string,
-  ): Promise<ReviewSession>;
+  sessionNavigate(id: string, entryId: string, summary?: string, branch?: string): Promise<Thread>;
   /** Start a branch at the current tip and switch to it. */
-  sessionBranch(id: string, name: string): Promise<ReviewSession>;
-  sessionSwitch(id: string, branch: string): Promise<ReviewSession>;
+  sessionBranch(id: string, name: string): Promise<Thread>;
+  sessionSwitch(id: string, branch: string): Promise<Thread>;
   /** Name the current tip as a checkpoint. */
-  sessionLabel(id: string, label: string): Promise<ReviewSession>;
+  sessionLabel(id: string, label: string): Promise<Thread>;
   /** Copy the current path into a new session; returns the fork. */
-  sessionFork(id: string): Promise<ReviewSession>;
-  sessionSetShareId(id: string, shareId: string): Promise<ReviewSession>;
-  sessionMergeShared(id: string, incoming: SharedMerge): Promise<ReviewSession>;
+  sessionFork(id: string): Promise<Thread>;
+  sessionSetShareId(id: string, shareId: string): Promise<Thread>;
+  sessionSetShares(id: string, shares: ShareLink[]): Promise<Thread>;
+  sessionMergeShared(id: string, incoming: SharedMerge): Promise<Thread>;
   sessionDelete(id: string): Promise<void>;
   /** Record the caller's own identity name (collaborator self-naming on a share). */
-  sessionSetSelfName(id: string, name: string): Promise<ReviewSession>;
-  sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession>;
+  sessionSetSelfName(id: string, name: string): Promise<Thread>;
+  sessionResolve(
+    id: string,
+    verdictKind: VerdictKind,
+    summary: string,
+    actionBodies?: Record<string, string>,
+  ): Promise<Thread>;
   close(): void;
 }
 
@@ -145,6 +163,9 @@ export class DaemonClient implements SessionClient {
   private socket: Awaited<ReturnType<typeof Bun.connect>> | null = null;
   private writer: BackpressureWriter | null = null;
   private pending = new Map<number, PendingRequest>();
+  /** The connected daemon's build version and pid, learned from the ping handshake. */
+  private daemonVersion: string | undefined;
+  private daemonPid: number | undefined;
   private nextId = 1;
   private eventListeners = new Set<(event: EventFrame) => void>();
   private closed = false;
@@ -162,14 +183,66 @@ export class DaemonClient implements SessionClient {
     client.home = home;
     try {
       await client.dial(path);
-
-      return client;
+      // A daemon from an earlier build lingers after an upgrade; talking to it
+      // means new client, old behaviour. The owner replaces it so an upgrade
+      // never needs a manual restart; without autostart there is nothing to
+      // replace it with, so the caller hears exactly why.
+      if (client.daemonVersion === DAEMON_VERSION) return client;
+      if (!options.autostart) {
+        client.close();
+        throw new DaemonClientError(
+          "version_mismatch",
+          `daemon is version ${client.daemonVersion ?? "unknown"}, but this client is ${DAEMON_VERSION}; restart the daemon`,
+        );
+      }
+      await client.stopStaleDaemon(path);
     } catch (err) {
       // a live daemon that refused the handshake is not a dead socket: the
       // caller hears why instead of the client replacing a running daemon
       if (!options.autostart || err instanceof DaemonClientError) throw err;
     }
-    // Socket dead or absent: clean a stale file and spawn the daemon detached.
+    // Socket dead, absent, or just-replaced: clean a stale file and spawn detached.
+    return client.attachFreshDaemon(home, path);
+  }
+
+  /**
+   * Tear down a daemon from an earlier build so a fresh one can bind: ask it to
+   * shut down (owner-gated) or, failing that, signal its pid, then wait for it to
+   * release the socket. Best-effort - attachFreshDaemon's stale-socket and
+   * stale-lock cleanup recovers even a daemon that never ran its own teardown.
+   */
+  private async stopStaleDaemon(path: string): Promise<void> {
+    const pid = this.daemonPid;
+
+    try {
+      await this.request("daemon.shutdown", {}, EmptyResultSchema, 2_000);
+    } catch {
+      if (pid !== undefined) {
+        try {
+          process.kill(pid);
+        } catch {}
+      }
+    }
+    this.socket?.end();
+    this.resetConnection();
+    // the old daemon removes its socket in stop(); wait so the new one binds cleanly
+    const deadline = Date.now() + 5_000;
+
+    while (Date.now() < deadline && existsSync(path)) await Bun.sleep(50);
+  }
+
+  /** Reset per-connection state so a fresh dial() can reuse this client instance. */
+  private resetConnection(): void {
+    this.socket = null;
+    this.writer = null;
+    this.closed = false;
+    for (const pendingRequest of this.pending.values())
+      pendingRequest.reject(new Error("daemon connection replaced"));
+    this.pending.clear();
+  }
+
+  /** Clean any stale socket, spawn a detached daemon, and dial it until it answers. */
+  private async attachFreshDaemon(home: string, path: string): Promise<DaemonClient> {
     if (existsSync(path)) rmSync(path, { force: true });
     spawnDaemon(home);
     // Generous: a cold or loaded machine pays for a runtime start before the
@@ -179,9 +252,9 @@ export class DaemonClient implements SessionClient {
 
     while (Date.now() < deadline) {
       try {
-        await client.dial(path);
+        await this.dial(path);
 
-        return client;
+        return this;
       } catch (err) {
         lastError = err;
         await Bun.sleep(50);
@@ -213,8 +286,12 @@ export class DaemonClient implements SessionClient {
     });
     this.writer = new BackpressureWriter(this.socket);
     // Verify liveness: a dead socket file accepts connects on some platforms
-    // only to fail later, so a ping is the actual handshake.
-    await this.request("daemon.ping", {}, PingResultSchema, 2_000);
+    // only to fail later, so a ping is the actual handshake. It also carries the
+    // daemon's build version and pid, so connect() can replace a stale daemon.
+    const pong = await this.request("daemon.ping", {}, PingResultSchema, 2_000);
+
+    this.daemonVersion = pong.version;
+    this.daemonPid = pong.pid;
     // Every connection starts as a collaborator; the owner proves itself with
     // the token the daemon wrote into the home it serves, which only the home's
     // user can read. A capped role just names itself.
@@ -302,84 +379,89 @@ export class DaemonClient implements SessionClient {
   subscribe(): Promise<void> {
     return this.request("events.subscribe", {}, EmptyResultSchema).then(() => undefined);
   }
-  sessionCreate(workspace: WorkspaceKey, artifact: Artifact): Promise<ReviewSession> {
-    return this.request("session.create", { workspace, artifact }, SessionRecordSchema);
+  sessionCreate(workspace: WorkspaceKey, artifact: Artifact): Promise<Thread> {
+    return this.request("session.create", { workspace, artifact }, ThreadRecordSchema);
   }
-  sessionGet(id: string): Promise<ReviewSession> {
-    return this.request("session.get", { id }, SessionRecordSchema);
+  sessionGet(id: string): Promise<Thread> {
+    return this.request("session.get", { id }, ThreadRecordSchema);
   }
-  sessionList(filter?: { status?: "pending" | "resolved" }): Promise<ReviewSession[]> {
-    return this.request("session.list", { filter }, v.array(SessionRecordSchema));
+  sessionList(filter?: { status?: "pending" | "resolved" }): Promise<Thread[]> {
+    return this.request("session.list", { filter }, v.array(ThreadRecordSchema));
   }
   /** Long-poll; null = still pending after timeoutMs (re-poll to collect). */
-  sessionWait(id: string, timeoutMs: number): Promise<ReviewSession | null> {
+  sessionWait(id: string, timeoutMs: number): Promise<Thread | null> {
     return this.request(
       "session.wait",
       { id, timeoutMs },
-      v.nullable(SessionRecordSchema),
+      v.nullable(ThreadRecordSchema),
       timeoutMs + 10_000,
     );
+  }
+  sessionComment(
+    id: string,
+    annotation: Omit<Annotation, "createdAt">,
+    authorName?: string,
+  ): Promise<Thread> {
+    return this.request("session.comment", { id, annotation, authorName }, ThreadRecordSchema);
   }
   sessionAnnotate(
     id: string,
     annotation: Omit<Annotation, "createdAt">,
     authorName?: string,
-  ): Promise<ReviewSession> {
-    return this.request("session.annotate", { id, annotation, authorName }, SessionRecordSchema);
+  ): Promise<Thread> {
+    return this.request("session.annotate", { id, annotation, authorName }, ThreadRecordSchema);
   }
-  sessionRemoveAnnotation(id: string, annotationId: string): Promise<ReviewSession> {
-    return this.request("session.removeAnnotation", { id, annotationId }, SessionRecordSchema);
+  sessionRemoveAnnotation(id: string, annotationId: string): Promise<Thread> {
+    return this.request("session.removeAnnotation", { id, annotationId }, ThreadRecordSchema);
   }
   /** Register a display name for a participant - a collaborator's or an agent's own, on a share or locally. */
-  sessionSetParticipantName(id: string, author: string, name: string): Promise<ReviewSession> {
-    return this.request("session.setParticipantName", { id, author, name }, SessionRecordSchema);
+  sessionSetParticipantName(id: string, author: string, name: string): Promise<Thread> {
+    return this.request("session.setParticipantName", { id, author, name }, ThreadRecordSchema);
   }
-  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<ReviewSession> {
-    return this.request("session.setWorkingCopy", { id, workingCopy }, SessionRecordSchema);
+  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<Thread> {
+    return this.request("session.setWorkingCopy", { id, workingCopy }, ThreadRecordSchema);
   }
-  sessionCutBlock(id: string, blockIndex: number): Promise<ReviewSession> {
-    return this.request("session.cutBlock", { id, blockIndex }, SessionRecordSchema);
+  sessionCutBlock(id: string, blockIndex: number): Promise<Thread> {
+    return this.request("session.cutBlock", { id, blockIndex }, ThreadRecordSchema);
   }
-  sessionNavigate(
-    id: string,
-    entryId: string,
-    summary?: string,
-    branch?: string,
-  ): Promise<ReviewSession> {
+  sessionNavigate(id: string, entryId: string, summary?: string, branch?: string): Promise<Thread> {
     const params: v.InferInput<(typeof Params)["session.navigate"]> = { id, entryId };
 
     if (summary !== undefined) params.summary = summary;
     if (branch !== undefined) params.branch = branch;
 
-    return this.request("session.navigate", params, SessionRecordSchema);
+    return this.request("session.navigate", params, ThreadRecordSchema);
   }
-  sessionBranch(id: string, name: string): Promise<ReviewSession> {
-    return this.request("session.branch", { id, name }, SessionRecordSchema);
+  sessionBranch(id: string, name: string): Promise<Thread> {
+    return this.request("session.branch", { id, name }, ThreadRecordSchema);
   }
-  sessionSwitch(id: string, branch: string): Promise<ReviewSession> {
-    return this.request("session.switch", { id, branch }, SessionRecordSchema);
+  sessionSwitch(id: string, branch: string): Promise<Thread> {
+    return this.request("session.switch", { id, branch }, ThreadRecordSchema);
   }
-  sessionLabel(id: string, label: string): Promise<ReviewSession> {
-    return this.request("session.label", { id, label }, SessionRecordSchema);
+  sessionLabel(id: string, label: string): Promise<Thread> {
+    return this.request("session.label", { id, label }, ThreadRecordSchema);
   }
-  sessionFork(id: string): Promise<ReviewSession> {
-    return this.request("session.fork", { id }, SessionRecordSchema);
+  sessionFork(id: string): Promise<Thread> {
+    return this.request("session.fork", { id }, ThreadRecordSchema);
   }
-  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<ReviewSession> {
+  sessionRestoreBlock(id: string, baseBlockIndex: number, line?: number): Promise<Thread> {
     return this.request(
       "session.restoreBlock",
       line === undefined ? { id, baseBlockIndex } : { id, baseBlockIndex, line },
-      SessionRecordSchema,
+      ThreadRecordSchema,
     );
   }
-  sessionCurate(id: string, rejections: HunkRejection[]): Promise<ReviewSession> {
-    return this.request("session.curate", { id, rejections }, SessionRecordSchema);
+  sessionCurate(id: string, rejections: HunkRejection[]): Promise<Thread> {
+    return this.request("session.curate", { id, rejections }, ThreadRecordSchema);
   }
-  sessionSetViewed(id: string, viewedPaths: string[]): Promise<ReviewSession> {
-    return this.request("session.setViewed", { id, viewedPaths }, SessionRecordSchema);
+  sessionSetAccess(id: string, githubLogins: string[]): Promise<Thread> {
+    return this.request("session.setAccess", { id, githubLogins }, ThreadRecordSchema);
   }
-  sessionSetTitle(id: string, title: string): Promise<ReviewSession> {
-    return this.request("session.setTitle", { id, title }, SessionRecordSchema);
+  sessionSetViewed(id: string, viewedPaths: string[]): Promise<Thread> {
+    return this.request("session.setViewed", { id, viewedPaths }, ThreadRecordSchema);
+  }
+  sessionSetTitle(id: string, title: string): Promise<Thread> {
+    return this.request("session.setTitle", { id, title }, ThreadRecordSchema);
   }
   projectFiles(sessionId: string): Promise<string[]> {
     return this.request("session.projectFiles", { id: sessionId }, v.array(v.string()));
@@ -400,35 +482,58 @@ export class DaemonClient implements SessionClient {
       v.array(v.object({ path: v.string(), status: v.picklist(["added", "modified", "deleted"]) })),
     );
   }
+  repoDiff(cwd: string): Promise<WorkingTreeDiff> {
+    return this.request(
+      "repo.diff",
+      { cwd },
+      v.object({ patch: v.string(), files: v.array(DiffFileContentsSchema) }),
+    );
+  }
+  sessionWorkbench(cwd: string): Promise<Thread> {
+    return this.request("session.workbench", { cwd }, ThreadRecordSchema);
+  }
   /** Re-capture a diff session's working tree; changed=true when the patch moved and an event fired. */
   sessionRefreshDiff(id: string): Promise<{ changed: boolean }> {
     return this.request("session.refreshDiff", { id }, RefreshDiffResultSchema);
   }
-  sessionSetShareId(id: string, shareId: string): Promise<ReviewSession> {
-    return this.request("session.setShareId", { id, shareId }, SessionRecordSchema);
+  sessionSetShareId(id: string, shareId: string): Promise<Thread> {
+    return this.request("session.setShareId", { id, shareId }, ThreadRecordSchema);
   }
-  sessionMergeShared(id: string, incoming: SharedMerge): Promise<ReviewSession> {
-    return this.request("session.mergeShared", { id, ...incoming }, SessionRecordSchema);
+
+  sessionSetShares(id: string, shares: ShareLink[]): Promise<Thread> {
+    return this.request("session.setShares", { id, shares }, ThreadRecordSchema);
+  }
+  sessionMergeShared(id: string, incoming: SharedMerge): Promise<Thread> {
+    return this.request("session.mergeShared", { id, ...incoming }, ThreadRecordSchema);
   }
   sessionDelete(id: string): Promise<void> {
     return this.request("session.delete", { id }, EmptyResultSchema).then(() => undefined);
   }
   /** Local sessions have no collaborator self-name; the share client owns this. */
-  sessionSetSelfName(id: string, _name: string): Promise<ReviewSession> {
+  sessionSetSelfName(id: string, _name: string): Promise<Thread> {
     return this.sessionGet(id);
   }
-  sessionResolve(id: string, verdictKind: VerdictKind, summary: string): Promise<ReviewSession> {
-    return this.request("session.resolve", { id, verdictKind, summary }, SessionRecordSchema);
+  sessionResolve(
+    id: string,
+    verdictKind: VerdictKind,
+    summary: string,
+    actionBodies?: Record<string, string>,
+  ): Promise<Thread> {
+    return this.request(
+      "session.resolve",
+      { id, verdictKind, summary, actionBodies },
+      ThreadRecordSchema,
+    );
   }
   sessionSubmitRevision(
     id: string,
     content: string,
     addressedAnnotationIds: string[] = [],
-  ): Promise<ReviewSession> {
+  ): Promise<Thread> {
     return this.request(
       "session.submitRevision",
       { id, content, addressedAnnotationIds },
-      SessionRecordSchema,
+      ThreadRecordSchema,
     );
   }
   /** herdr adapter scratch: the tab opened for a review; local-only, off the SessionClient contract. */
@@ -453,14 +558,22 @@ export class DaemonClientError extends Error {
 }
 
 // A compiled binary re-execs `cueloop daemon --autostart` (idle-exits like main.ts,
-// unlike the never-exiting foreground daemon); from source, bun runs main.ts.
-export function daemonSpawnCommand(execPath: string, moduleUrl: string): string[] {
+// unlike the never-exiting foreground daemon); from source, bun runs main.ts. In
+// dev (CUELOOP_DEV_WATCH=1, source only) it runs under --watch so daemon-code edits
+// reload the daemon without a manual restart - the version handshake only catches
+// release upgrades, not same-version source changes.
+export function daemonSpawnCommand(
+  execPath: string,
+  moduleUrl: string,
+  devWatch = process.env.CUELOOP_DEV_WATCH === "1",
+): string[] {
   const compiled =
     moduleUrl.includes("$bunfs") || moduleUrl.includes("~BUN") || moduleUrl.includes("%7EBUN");
 
-  return compiled
-    ? [execPath, "daemon", "--autostart"]
-    : [execPath, "run", new URL("./main.ts", moduleUrl).pathname];
+  if (compiled) return [execPath, "daemon", "--autostart"];
+  const mainPath = new URL("./main.ts", moduleUrl).pathname;
+
+  return devWatch ? [execPath, "--watch", "run", mainPath] : [execPath, "run", mainPath];
 }
 
 function spawnDaemon(home: string): void {
