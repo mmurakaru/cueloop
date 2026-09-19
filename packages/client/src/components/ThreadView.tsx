@@ -35,15 +35,14 @@ const OVERSCAN_BLOCKS = 8;
 export { lighten } from "../annotation-palette";
 
 /**
- * How a block's rows are painted: heading weight, muted kinds, the list or
- * quote marker, and tracked changes as the plan sheet drew them - a cut block
- * dim and struck through, an added or edited block tagged on its first row.
+ * How a block's rows are painted: heading weight, muted kinds, and the list or
+ * quote marker. A cut block reads dim and struck through; other edits are
+ * tracked into the working copy but not tagged in the read-only view.
  */
 interface BlockStyle {
   baseFg: string;
   baseAttributes: number;
   marker: string;
-  changeTag: { text: string; fg: string } | null;
 }
 
 function blockStyle(block: DisplayBlock, tokens: Theme): BlockStyle {
@@ -58,18 +57,11 @@ function blockStyle(block: DisplayBlock, tokens: Theme): BlockStyle {
         : block.kind === "quote"
           ? "▏ "
           : "";
-  const changeTag =
-    block.type === "add"
-      ? { text: " [new]", fg: tokens.green }
-      : block.type === "mod"
-        ? { text: " [edited]", fg: tokens.accent }
-        : null;
 
   return {
     baseFg: isCut ? tokens.textDim : muted ? tokens.textMuted : tokens.text,
     baseAttributes: (isHeading ? BOLD : 0) | (isCut ? CUT : 0),
     marker,
-    changeTag,
   };
 }
 
@@ -234,13 +226,10 @@ export function ThreadView({
     marker: string;
     baseFg: string;
     baseAttributes: number;
-    /** A tag after the row's text, such as the tracked-change label. */
-    trailing: { text: string; fg: string } | null;
   }
 
   const lineRowFor = (context: LineContext): React.ReactNode => {
-    const { blockIndex, text, line, lineIndex, ranges, marker, baseFg, baseAttributes, trailing } =
-      context;
+    const { blockIndex, text, line, lineIndex, ranges, marker, baseFg, baseAttributes } = context;
     const lineRanges = lineMarkRanges(ranges, line);
 
     return (
@@ -265,7 +254,6 @@ export function ThreadView({
               {run.text}
             </span>
           ))}
-          {trailing ? <span fg={trailing.fg}>{trailing.text}</span> : null}
         </text>
       </box>
     );
@@ -275,7 +263,7 @@ export function ThreadView({
     const block = display[blockIndex]!;
     const text = displayText(block);
     const ranges = surface.rangesFor(blockIndex);
-    const { baseFg, baseAttributes, marker, changeTag } = blockStyle(block, tokens);
+    const { baseFg, baseAttributes, marker } = blockStyle(block, tokens);
     const lines = wrapLines(text, viewWidth > 0 ? viewWidth - marker.length - 6 : 0);
     const lineRows: React.ReactNode[] = [];
 
@@ -293,7 +281,6 @@ export function ThreadView({
           marker,
           baseFg,
           baseAttributes,
-          trailing: lineIndex === 0 ? changeTag : null,
         }),
       );
       const cards = surface.cardsAfterLine(blockIndex, line, isLastLine);

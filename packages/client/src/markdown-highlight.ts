@@ -1,27 +1,16 @@
 /**
- * Scan raw markdown source into highlight ranges for the inline thread editor:
- * given the editable source string (markers and all), return char ranges tagged
- * with a token group so the editor can color headings, bold, italic, inline and
- * fenced code, links, list markers, and blockquotes while the raw syntax stays
- * visible. Block structure reuses the schema parser (one source of truth for
- * what a heading or list marker is); inline emphasis, code, and links are
- * scanned here. Deliberately not full CommonMark - unknown syntax stays plain.
+ * Scan raw markdown source into highlight ranges for the inline thread editor.
+ * The scheme is deliberately restrained, matching a plain markdown editor: a
+ * heading dims its `#` marker and bolds the title text (no color); links render
+ * in one link color; inline and fenced code gray out. Everything else - bold,
+ * emphasis, list and quote markers, rules - stays plain source. Block structure
+ * reuses the schema parser so a heading or code fence is defined in one place.
  */
 
 import { parseBlocks, LEADING_BLOCK_MARKER, type Block } from "@cueloop/schema";
 
-/** Every markdown token class the editor paints; "marker" is the dimmed syntax punctuation (`**`, `#`, backticks). */
-export const MARKDOWN_HIGHLIGHT_GROUPS = [
-  "heading",
-  "strong",
-  "emphasis",
-  "code",
-  "link",
-  "listMarker",
-  "blockquote",
-  "rule",
-  "marker",
-] as const;
+/** Every markdown token class the editor paints; "marker" is the dimmed heading punctuation. */
+export const MARKDOWN_HIGHLIGHT_GROUPS = ["heading", "marker", "link", "code"] as const;
 
 /** A markdown token class the editor paints. */
 export type MarkdownHighlightGroup = (typeof MARKDOWN_HIGHLIGHT_GROUPS)[number];
@@ -43,65 +32,27 @@ function lineStartOffsets(source: string): number[] {
   return offsets;
 }
 
-// A strong, emphasis, inline-code, or link token. Underscore emphasis is guarded by \w boundaries so
-// snake_case never italicizes (CommonMark's intra-word rule); asterisk emphasis needs a non-space edge,
-// so "2 * 3" stays plain. Inline code matches a balanced backtick run; a link is [text](href).
-const INLINE_TOKEN =
-  /\*\*(?=\S)(?:.+?)(?<=\S)\*\*|(?<!\w)__(?=\S)(?:.+?)(?<=\S)__(?!\w)|\*(?=\S)(?:.+?)(?<=\S)\*|(?<!\w)_(?=\S)(?:.+?)(?<=\S)_(?!\w)|(`+)(?:.+?)\1|\[[^\]]+\]\([^)]+\)/g;
+// Inline code (a balanced backtick run) grays out; a [text](href) link colors as one run. Nothing else
+// inline is styled - bold and emphasis stay plain source.
+const INLINE_TOKEN = /(`+)(?:.+?)\1|\[[^\]]+\]\([^)]+\)/g;
 
-/** Length of the run of `char` that a token opens with (the emphasis or code delimiter width). */
-function openingRunLength(token: string, char: string): number {
-  let length = 0;
-  while (token[length] === char) length++;
-
-  return length;
-}
-
-/** Push emphasis, inline-code, and link ranges found in one text span, with markers dimmed and inner content grouped. */
+/** Gray inline code and color links found in one text span; other inline markup stays plain. */
 function scanInlineTokens(text: string, base: number, into: MarkdownHighlightRange[]): void {
   INLINE_TOKEN.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = INLINE_TOKEN.exec(text)) !== null) {
-    const token = match[0];
     const start = base + match.index;
-    const end = start + token.length;
+    const end = start + match[0].length;
 
-    if (token.startsWith("**") || token.startsWith("__")) {
-      pushDelimited(into, start, end, 2, "strong");
-    } else if (token.startsWith("*") || token.startsWith("_")) {
-      pushDelimited(into, start, end, 1, "emphasis");
-    } else if (token.startsWith("`")) {
-      pushDelimited(into, start, end, openingRunLength(token, "`"), "code");
-    } else {
-      // [text](href): dim the brackets and href wrapper, leave the link text in the link color
-      const textStart = start + 1;
-      const textEnd = start + token.indexOf("](");
-
-      into.push({ start, end: textStart, group: "marker" });
-      into.push({ start: textStart, end: textEnd, group: "link" });
-      into.push({ start: textEnd, end, group: "marker" });
-    }
+    into.push({ start, end, group: match[0].startsWith("`") ? "code" : "link" });
   }
-}
-
-/** A symmetric token (`**bold**`, `_em_`, `` `code` ``): dim the delimiters, color the inner content. */
-function pushDelimited(
-  into: MarkdownHighlightRange[],
-  start: number,
-  end: number,
-  delimiterLength: number,
-  group: MarkdownHighlightGroup,
-): void {
-  into.push({ start, end: start + delimiterLength, group: "marker" });
-  into.push({ start: start + delimiterLength, end: end - delimiterLength, group });
-  into.push({ start: end - delimiterLength, end, group: "marker" });
 }
 
 function isHeadingKind(kind: Block["kind"]): boolean {
   return kind === "h1" || kind === "h2" || kind === "h3";
 }
 
-/** Dim a heading's `#` marker and color the rest of the line. */
+/** Dim a heading's `#` marker and bold the rest of the line (no color). */
 function scanHeadingBlock(
   firstLineStart: number,
   source: string,
@@ -120,31 +71,7 @@ function scanHeadingBlock(
   });
 }
 
-/** Dim each list or quote marker and scan the remaining prose on every line of the block. */
-function scanContentLines(
-  block: Block,
-  source: string,
-  lineStarts: number[],
-  into: MarkdownHighlightRange[],
-): void {
-  const markerGroup: MarkdownHighlightGroup = block.kind === "quote" ? "blockquote" : "listMarker";
-  const hasMarker = block.kind === "li" || block.kind === "oli" || block.kind === "quote";
-
-  for (let line = block.lineStart; line <= block.lineEnd; line++) {
-    const lineStart = lineStarts[line] ?? source.length;
-    const lineText = source.slice(lineStart, lineStarts[line + 1] ?? source.length);
-    const marker = hasMarker ? (lineText.match(LEADING_BLOCK_MARKER)?.[0] ?? "") : "";
-
-    if (marker) into.push({ start: lineStart, end: lineStart + marker.length, group: markerGroup });
-    scanInlineTokens(
-      lineText.slice(marker.length).replace(/\r?\n$/, ""),
-      lineStart + marker.length,
-      into,
-    );
-  }
-}
-
-/** Paint one block's leading marker plus its content, dispatching by block kind. */
+/** Paint one block: heading marker and title, grayed code block, or inline code and links in prose. */
 function scanBlock(
   block: Block,
   source: string,
@@ -155,14 +82,19 @@ function scanBlock(
 
   if (isHeadingKind(block.kind)) {
     scanHeadingBlock(firstLineStart, source, lineStarts, block, into);
-  } else if (block.kind === "hr") {
-    const ruleEnd = firstLineStart + source.slice(firstLineStart).search(/\r?\n|$/);
-
-    into.push({ start: firstLineStart, end: ruleEnd, group: "rule" });
   } else if (block.kind === "code") {
-    into.push({ start: firstLineStart, end: lineStarts[block.lineEnd + 1] ?? source.length, group: "code" });
-  } else {
-    scanContentLines(block, source, lineStarts, into);
+    into.push({
+      start: firstLineStart,
+      end: lineStarts[block.lineEnd + 1] ?? source.length,
+      group: "code",
+    });
+  } else if (block.kind !== "hr") {
+    for (let line = block.lineStart; line <= block.lineEnd; line++) {
+      const lineStart = lineStarts[line] ?? source.length;
+      const lineText = source.slice(lineStart, lineStarts[line + 1] ?? source.length);
+
+      scanInlineTokens(lineText.replace(/\r?\n$/, ""), lineStart, into);
+    }
   }
 }
 

@@ -3,7 +3,7 @@ import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { DARK } from "../theme";
 import { settle } from "../test-support";
-import { MarkdownThreadEditor } from "./MarkdownThreadEditor";
+import { MarkdownThreadEditor, type MarkdownEditorHandle } from "./MarkdownThreadEditor";
 
 describe("MarkdownThreadEditor", () => {
   test("opens on the working copy and shows the caret position and save hint", async () => {
@@ -23,6 +23,28 @@ describe("MarkdownThreadEditor", () => {
     expect(frame).toContain("body text here");
     expect(frame).toContain("Ln 1/4");
     expect(frame).toContain("save & close");
+    setup.renderer.destroy();
+  });
+
+  test("the exit handle saves the current text and leaves (the header toggle's path)", async () => {
+    const handleRef = React.createRef<MarkdownEditorHandle>();
+    let exitedWith = "";
+    const setup = await testRender(
+      <MarkdownThreadEditor
+        ref={handleRef}
+        initialText={"keep this"}
+        theme={DARK}
+        onExitEditor={(text) => {
+          exitedWith = text;
+        }}
+      />,
+      { width: 40, height: 8 },
+    );
+
+    await settle(setup);
+    handleRef.current?.requestExit();
+
+    expect(exitedWith).toBe("keep this");
     setup.renderer.destroy();
   });
 });

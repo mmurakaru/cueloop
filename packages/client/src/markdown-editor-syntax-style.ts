@@ -18,15 +18,10 @@ export interface MarkdownEditorStyle {
 
 function markdownGroupStyles(theme: Theme): Record<MarkdownHighlightGroup, StyleDefinitionInput> {
   return {
-    heading: { fg: theme.accent, bold: true },
-    strong: { bold: true },
-    emphasis: { italic: true },
-    code: { fg: theme.green },
-    link: { fg: theme.blue, underline: true },
-    listMarker: { fg: theme.accent },
-    blockquote: { fg: theme.textMuted },
-    rule: { fg: theme.textDim },
+    heading: { bold: true },
     marker: { fg: theme.textDim },
+    link: { fg: theme.blue, underline: true },
+    code: { fg: theme.textDim },
   };
 }
 

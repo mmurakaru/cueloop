@@ -167,25 +167,25 @@ describe("thread view grammar", () => {
     await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
   });
 
-  test("ctrl+e runs $EDITOR on the working copy and tracks the diff", async () => {
-    const script = join(home, "fake-editor.sh");
+  test("ctrl+e opens the inline editor; the header toggles to normal and leaving tracks the edit", async () => {
+    // Arrange
+    const setup = await renderApp();
 
-    await Bun.write(script, `#!/bin/sh\nsed -i '' 's/atomically/very atomically/' "$1"\n`);
-    Bun.spawnSync(["chmod", "+x", script]);
-    process.env.CUELOOP_EDITOR = script;
-    try {
-      // Arrange
-      const setup = await renderApp();
+    // Act - open the inline markdown editor over the thread body
+    await pressKey(setup, "e", { ctrl: true });
 
-      // Act
-      await pressKey(setup, "e", { ctrl: true });
+    // Assert - the editor owns the pane (its save hint shows) and the header offers the way back
+    await waitForText(setup, "save & close");
+    expect(setup.captureCharFrame()).toContain("normal");
 
-      // Assert
-      await waitForText(setup, "[edited]");
-      expect(server.core.sessionGet(session.id).workingCopy).toContain("very atomically");
-    } finally {
-      delete process.env.CUELOOP_EDITOR;
-    }
+    // Act - type into the body, then leave through the header toggle
+    await type(setup, "MORE");
+    await clickText(setup, "normal");
+
+    // Assert - the edit is tracked into the working copy, and the read-only view is back
+    await waitForState(setup, () =>
+      (server.core.sessionGet(session.id).workingCopy ?? "").includes("MORE"),
+    );
   });
 });
 

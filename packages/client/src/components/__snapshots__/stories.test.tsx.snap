@@ -2226,20 +2226,21 @@ exports[`stories catalog Overlays/PromptDialog/NameYourself renders, snapshots, 
 `;
 
 
+
 exports[`stories catalog Surfaces/MarkdownThreadEditor/Editing renders, snapshots, and carries its colors: Surfaces/MarkdownThreadEditor/Editing 1`] = `
-"# Rollout Plan                                              
-                                                            
-Ship the **store move** behind a \`flag\`.                    
-                                                            
-- first step                                                
-- second step                                               
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-Ln 1/7  Col 1                        ⌘⏎ or esc  save & close
+"# Rollout Plan                                                
+                                                              
+Ship the store move behind a \`flag\`. See [docs](https://x.dev)
+.                                                             
+                                                              
+- first step                                                  
+- second step                                                 
+                                                              
+                                                              
+                                                              
+                                                              
+                                                              
+                                                              
+Ln 1/7  Col 1                          ⌘⏎ or esc  save & close
 "
 `;

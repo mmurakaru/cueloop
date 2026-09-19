@@ -60,7 +60,7 @@ import type { LaunchLayout } from "./launch-layout";
 import { ThreadFooter, THREAD_FOOTER_HEIGHT } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
-import { MarkdownThreadEditor } from "./components/MarkdownThreadEditor";
+import { MarkdownThreadEditor, type MarkdownEditorHandle } from "./components/MarkdownThreadEditor";
 import {
   diffChordEntries,
   dispatchLeaderCommand,
@@ -231,6 +231,28 @@ function canEditThreadBody(
   resolved: boolean,
 ): boolean {
   return threadViewActive && !isDiff && isOwner && !resolved;
+}
+
+/** The owner's header actions: an edit/normal toggle that opens or leaves the inline editor, plus share when not editing. */
+function ownerThreadActions(actions: {
+  editing: boolean;
+  onEdit: () => void;
+  onExitEdit: () => void;
+  onShare: () => void;
+  theme: Theme;
+}): React.ReactNode {
+  return (
+    <Toolbar>
+      <Button onPress={actions.editing ? actions.onExitEdit : actions.onEdit} theme={actions.theme}>
+        {actions.editing ? " normal " : " edit "}
+      </Button>
+      {actions.editing ? null : (
+        <Button onPress={actions.onShare} theme={actions.theme}>
+          {" share "}
+        </Button>
+      )}
+    </Toolbar>
+  );
 }
 
 /** Pick the thread pane's body: the pixel prototype, the diff placeholder, the inline editor, or the read-only view. */
@@ -765,6 +787,8 @@ export function App({
     sessionId: session?.id,
     canEdit: canEditBody,
   });
+  const editorHandleRef = useRef<MarkdownEditorHandle | null>(null);
+  const exitBodyEditor = (): void => editorHandleRef.current?.requestExit();
   // sort position per annotation so the rail interleaves annotation and removal
   // cards in one line-ordered stack: a diff row carries its blockIndex; a plan
   // annotation resolves to the display index it marked
@@ -1147,16 +1171,15 @@ export function App({
               }
               threadTitle={threadTitle(activeSession)}
               threadActions={
-                showOwnerActions ? (
-                  <Toolbar>
-                    <Button onPress={onEditRequest} theme={theme}>
-                      {" edit "}
-                    </Button>
-                    <Button onPress={() => dispatch({ type: "share" })} theme={theme}>
-                      {" share "}
-                    </Button>
-                  </Toolbar>
-                ) : undefined
+                showOwnerActions
+                  ? ownerThreadActions({
+                      editing: bodyEditing.editing,
+                      onEdit: onEditRequest,
+                      onExitEdit: exitBodyEditor,
+                      onShare: () => dispatch({ type: "share" }),
+                      theme,
+                    })
+                  : undefined
               }
               threadPanel={
                 <box style={{ flexGrow: 1, flexDirection: "column" }}>
@@ -1188,6 +1211,7 @@ export function App({
                       ),
                       editor: (
                         <MarkdownThreadEditor
+                          ref={editorHandleRef}
                           initialText={controller.working()}
                           theme={theme}
                           onExitEditor={bodyEditing.exitEditor}
