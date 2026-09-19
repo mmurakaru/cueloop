@@ -10,3 +10,10 @@ export const ShareLink: Story = {
   expectedColors: [DARK.accent],
   size: { width: 60, height: 12 },
 };
+
+export const LongMessage: Story = {
+  render: () => (
+    <Toast body="could not stop sharing: gateway revoke failed - the share may already be gone, try again in a moment" />
+  ),
+  size: { width: 90, height: 14 },
+};

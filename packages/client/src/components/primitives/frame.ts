@@ -10,3 +10,8 @@ import type { BorderStyle } from "@opentui/core";
 
 /** Corner style shared by every bordered frame in the app: square, not rounded. */
 export const FRAME_BORDER_STYLE: BorderStyle = "single";
+
+/** Every frame's border title renders lowercase, so the convention holds without each caller minding case. */
+export function frameTitle(title: string | undefined): string | undefined {
+  return title?.toLowerCase();
+}

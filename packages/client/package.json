@@ -40,7 +40,8 @@
     "diff": "^9",
     "puppeteer-core": "^25.8.0",
     "react": "^19.2.0",
-    "valibot": "^1.4.2"
+    "valibot": "^1.4.2",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",

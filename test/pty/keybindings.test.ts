@@ -249,20 +249,21 @@ describe("thread view chords in a diff review", () => {
     await pressEscapeUntilGone(session, "[Approve]");
   });
 
-  ptyTest(
-    "⌃s opens the share choice from the diff view; public reports the gateway failure",
-    async () => {
-      // Act + Assert - the choice reaches the keyboard from any view; picking public publishes,
-      // and the harness's failing ssh surfaces its stderr in the toast
-      await pressChord(session, "thread", "⌃s", "public link");
-      const failure = `share failed: gateway upload failed: ${OFFLINE_SSH_MESSAGE}`;
-      await session.pressAndWaitForScreen("enter", (screen) => screen.includes(failure), {
-        timeoutMs: 10_000,
-        what: "the share failure toast after picking public",
-      });
-      await pressEscapeUntilGone(session, failure);
-    },
-  );
+  ptyTest("⌃s opens the share dialog; creating a link reports the gateway failure", async () => {
+    // Act + Assert - the dialog reaches the keyboard from any view; the new-link wizard
+    // publishes, and the harness's failing ssh surfaces its stderr in the toast
+    await pressChord(session, "thread", "⌃s", "+ new link");
+    await session.press("enter"); // step into the links body
+    await session.pressAndWaitForScreen("enter", (screen) => screen.includes("link name"), {
+      what: "the new-link wizard",
+    });
+    const failure = `share failed: gateway upload failed: ${OFFLINE_SSH_MESSAGE}`;
+    await session.pressAndWaitForScreen("enter", (screen) => screen.includes(failure), {
+      timeoutMs: 10_000,
+      what: "the share failure toast after creating the link",
+    });
+    await pressEscapeUntilGone(session, failure);
+  });
 
   ptyTest("⌃e hands the diff to the editor; an instant return asks whether to wait", async () => {
     // Act + Assert - an editor that returns at once is treated as a GUI editor, so the tty asks
@@ -335,11 +336,12 @@ describe("thread view chords in a diff review", () => {
     await pressChordForToast(session, "tree", `${LEAD}f`, "you are on the fork now", {
       timeoutMs: 10_000,
     });
+    // the wrapping toast splits the ssh stderr across lines; match the prefix that stays on one line
     await pressChordForToast(
       session,
       "tree",
       `${LEAD}h`,
-      `fork and share failed: gateway upload failed: ${OFFLINE_SSH_MESSAGE}`,
+      "fork and share failed: gateway upload failed:",
       { timeoutMs: 10_000 },
     );
   });

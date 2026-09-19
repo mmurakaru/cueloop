@@ -17,16 +17,20 @@ const pushShare = mock(
   async (
     _shareId: string,
     _annotations: Array<Omit<Annotation, "createdAt">>,
-    _access?: ShareAccess,
+    _access?: ShareAccess | "public",
   ) => {},
 );
+
+const revokeShare = mock(async (_shareId: string) => {});
 
 const shareTransport: ShareTransport = {
   publish: publishShare,
   pull: pullShare,
   push: pushShare,
   watch: () => () => {},
+  revoke: revokeShare,
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
   mergeFromShare,
 };
@@ -88,6 +92,12 @@ function fakeClient(session: Thread): FakeSessionClient {
     sessionSetShareId: mock(
       async (_id: string, shareId: string) => ((session.shareId = shareId), session),
     ),
+    sessionSetShares: mock(
+      async (_id: string, shares: import("@cueloop/schema").ShareLink[]) => (
+        (session.shares = shares),
+        session
+      ),
+    ),
     sessionMergeShared: mock(async (_id: string, incoming: { annotations: Annotation[] }) => {
       const known = new Set(session.annotations.map((existing) => existing.id));
 
@@ -125,7 +135,7 @@ async function connectedController(
 }
 
 describe("share", () => {
-  test("stamps the returned share id back on the session", async () => {
+  test("publishes a public link and records it on the session", async () => {
     // Arrange
     const { controller, client } = await connectedController(sessionFixture());
 
@@ -133,8 +143,10 @@ describe("share", () => {
     controller.share();
     await tick();
 
-    // Assert
-    expect(client.sessionSetShareId).toHaveBeenCalledWith("ses_1", "p_abc123xy");
+    // Assert - a public link (no auth) is persisted with the returned id
+    expect(client.sessionSetShares).toHaveBeenCalledWith("ses_1", [
+      { id: "p_abc123xy", name: undefined, requireAuth: false, allowlist: [], shareBranch: "main" },
+    ]);
   });
 
   test("surfaces the ssh line as a toast, not an inline status", async () => {
@@ -148,7 +160,7 @@ describe("share", () => {
     // Assert
     expect(controller.getSnapshot().toast).toEqual({
       body: "ssh p_abc123xy@cueloop.dev",
-      title: "share link copied",
+      title: "link copied",
     });
     expect(controller.getSnapshot().status).not.toContain("ssh p_abc123xy@cueloop.dev");
   });
@@ -502,5 +514,48 @@ describe("startShareSync", () => {
     expect(streams[0]!.stopped).toBe(true);
     expect(streams).toHaveLength(2);
     expect(streams[1]!.stopped).toBe(false);
+  });
+});
+
+describe("revoke", () => {
+  test("unshare revokes the gateway blob for the shared thread", async () => {
+    revokeShare.mockClear();
+    const { controller } = await connectedController(sessionFixture({ shareId: "p_abc123xy" }));
+
+    controller.unshare();
+    await tick();
+
+    expect(revokeShare).toHaveBeenCalledWith("p_abc123xy");
+  });
+
+  test("unshare on an unshared thread is a no-op", async () => {
+    revokeShare.mockClear();
+    const { controller } = await connectedController(sessionFixture());
+
+    controller.unshare();
+    await tick();
+
+    expect(revokeShare).not.toHaveBeenCalled();
+  });
+
+  test("deleting a shared thread revokes its share first", async () => {
+    revokeShare.mockClear();
+    const session = sessionFixture({ shareId: "p_abc123xy" });
+    const client = fakeClient(session);
+
+    client.sessionDelete = mock(async () => {});
+    const controller = createReviewController({
+      sessionId: session.id,
+      openClient: async () => client,
+      shareTransport,
+    });
+
+    controller.connect();
+    await tick();
+    controller.deleteSession(session.id);
+    await tick();
+
+    expect(revokeShare).toHaveBeenCalledWith("p_abc123xy");
+    expect(client.sessionDelete).toHaveBeenCalledWith(session.id);
   });
 });

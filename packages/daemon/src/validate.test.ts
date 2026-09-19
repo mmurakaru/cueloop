@@ -279,6 +279,16 @@ describe("wire pins", () => {
     verdict: fullVerdict,
     status: "pending",
     createdAt: "now",
+    shares: [
+      {
+        id: "p_abc123xy",
+        name: "review link",
+        requireAuth: true,
+        allowlist: ["octocat"],
+        owner: "SHA256:owner",
+        shareBranch: "main",
+      },
+    ],
     shareId: "p_abc123xy",
     owner: "SHA256:owner",
     access: { githubLogins: ["octocat"] },

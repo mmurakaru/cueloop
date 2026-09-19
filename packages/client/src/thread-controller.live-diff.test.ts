@@ -38,7 +38,9 @@ const shareTransport: ShareTransport = {
   pull: mock(async () => planSession()),
   push: mock(async () => {}),
   watch: () => () => {},
+  revoke: async () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
   collaboratorAnnotations: (session) => session.annotations.filter((entry) => entry.author),
   mergeFromShare,
 };
@@ -82,6 +84,7 @@ function fakeClient(session: Thread): SessionClient {
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetTitle: unimplemented("sessionSetTitle"),
     sessionSetShareId: unimplemented("sessionSetShareId"),
+    sessionSetShares: unimplemented("sessionSetShares"),
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),

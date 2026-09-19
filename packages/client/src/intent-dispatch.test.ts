@@ -108,7 +108,13 @@ function baseController(): ReviewController {
     walkLeave: mock(),
     submit: mock(),
     share: mock(),
+    unshare: mock(),
     setShareAccess: mock(),
+    shareLinks: mock(() => []),
+    createShareLink: mock(),
+    updateShareLink: mock(),
+    deleteShareLink: mock(),
+    copyShareLink: mock(),
     treeRows: mock(() => []),
     goToEntry: mock(),
     branch: mock(),
@@ -158,6 +164,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     runEditorHandOff: mock(),
     openCardEdit: mock(),
     toggleDiffView: mock(),
+    openShareDialog: mock(),
     ...overrides,
   };
 }
@@ -385,7 +392,7 @@ describe("openSubmit", () => {
 });
 
 describe("share", () => {
-  test("opens the public/private choice overlay instead of publishing directly", () => {
+  test("opens the share dialog instead of publishing directly", () => {
     // Arrange
     const deps = makeDeps();
     const dispatch = createIntentDispatch(deps);
@@ -394,7 +401,7 @@ describe("share", () => {
     dispatch({ type: "share" });
 
     // Assert
-    expect(deps.setMode).toHaveBeenCalledWith({ type: "shareChoice", index: 0 });
+    expect(deps.openShareDialog).toHaveBeenCalled();
     expect(deps.controller.share).not.toHaveBeenCalled();
   });
 });

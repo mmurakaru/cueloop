@@ -385,7 +385,8 @@ function foregroundColumns(
   const columns: string[] = [];
 
   for (const span of coloredRowSpans(text, intraline, syntax, baseColor, tokens)) {
-    for (let index = 0; index < span.text.length; index++) columns.push(span.foreground);
+    // one color per code unit, matching the column model that indexes text by .length
+    columns.push(...Array.from({ length: span.text.length }, () => span.foreground));
   }
 
   return columns;

@@ -21,6 +21,9 @@ export interface ThreadFooterProps {
 const ICON_COLUMNS = 2; // folder glyph + its trailing space
 const SEPARATOR = " / ";
 
+/** Rows the footer band occupies, so a footer-less sibling pane can offset its centered content to match. */
+export const THREAD_FOOTER_HEIGHT = 2;
+
 export function ThreadFooter({
   repo,
   branch,
@@ -42,7 +45,7 @@ export function ThreadFooter({
     <box
       style={{
         flexDirection: "row",
-        height: 2,
+        height: THREAD_FOOTER_HEIGHT,
         alignItems: "center",
         paddingLeft: 1,
         paddingRight: 1,

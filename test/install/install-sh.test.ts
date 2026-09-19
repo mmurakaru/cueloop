@@ -235,6 +235,19 @@ describe("a fresh install", () => {
     expect(result.stderr).not.toContain("not on your PATH");
   });
 
+  test("an in-place update stays quiet about getting started and PATH", async () => {
+    // When run as an update with the dir already on PATH
+    const result = await runInstaller({
+      PATH: `${server.installDir}:${process.env.PATH}`,
+      CUELOOP_UPDATE: "1",
+    });
+
+    // Then it installs but skips the first-run get-started and PATH hints
+    expectCleanExit(result);
+    expect(result.stderr).not.toContain("to get started");
+    expect(result.stderr).not.toContain("not on your PATH");
+  });
+
   test("a rerun finds the version installed and downloads nothing", async () => {
     // Given a completed install
     await runInstaller();

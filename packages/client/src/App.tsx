@@ -42,7 +42,8 @@ import { KeyBindings, type CheatsheetSection } from "./key-bindings";
 import { useReadySignal } from "./ready-signal";
 import { ThemeProvider } from "./components/theme-context";
 import { Button } from "./components/primitives/Button";
-import { ShareChoiceDialog, SHARE_CHOICES } from "./components/ShareChoiceDialog";
+import { ShareDialog } from "./components/ShareDialog";
+import { shareDialogStore } from "./components/share-dialog-store";
 import { Toolbar } from "./components/primitives/Toolbar";
 import { groupInbox, projectName, threadTitle } from "./components/session-tree";
 import { ThreadTree } from "./components/ThreadTree";
@@ -55,9 +56,8 @@ import { GridTabContent } from "./components/GridTabContent";
 import { useChangesWorkbench } from "./use-changes-workbench";
 import { useRememberLayout } from "./use-remember-layout";
 import type { LaunchLayout } from "./launch-layout";
-import { ThreadFooter } from "./components/ThreadFooter";
+import { ThreadFooter, THREAD_FOOTER_HEIGHT } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
-import { ManageAccessDialog } from "./components/ManageAccessDialog";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
   diffChordEntries,
@@ -72,8 +72,15 @@ import {
 } from "./thread-chords";
 import { type DiffFoldControls } from "./components/DiffContentView";
 import { commentCountsByFile } from "./view-diff";
-import { annotationTarget } from "@cueloop/schema";
-import type { Annotation, Artifact, DiffFileContents, Identity, Thread } from "@cueloop/schema";
+import { annotationTarget, threadShareLinks } from "@cueloop/schema";
+import type {
+  Annotation,
+  Artifact,
+  DiffFileContents,
+  Identity,
+  ShareLink,
+  Thread,
+} from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
 import {
@@ -145,9 +152,19 @@ function menuChromeOpen(menuDialog: "keybinds" | "settings" | null): boolean {
   return menuDialog !== null;
 }
 
-/** The private-share allowlist for a session, or an empty list for a public one. */
-function allowedGithubLogins(session: Thread | null): string[] {
-  return session?.access?.githubLogins ?? [];
+/** Whether a thread already has at least one live share link. */
+function isSharedThread(session: Thread | null): boolean {
+  return session !== null && (threadShareLinks(session)?.length ?? 0) > 0;
+}
+
+/** A thread's live share links for the share dialog, or an empty list with no session. */
+function shareLinksFor(session: Thread | null): ShareLink[] {
+  return session ? (threadShareLinks(session) ?? []) : [];
+}
+
+/** The title the share dialog shows and prefills a new link with, or empty with no session. */
+function shareThreadName(session: Thread | null): string {
+  return session ? threadTitle(session) : "";
 }
 
 /** The drop-up chrome or a floating popover menu (thread actions, editor split) holds the keyboard. */
@@ -190,75 +207,13 @@ function menuModalHandled(
   return true;
 }
 
-/** True while a menu or an overlay owns the keyboard instead of the thread view. */
-function keyboardOwnedElsewhere(menuOwnsKeyboard: boolean, overlay: KeyState["overlay"]): boolean {
-  return menuOwnsKeyboard || overlay !== "none";
-}
-
-/** The highlighted share option, or the public default when the choice is closed. */
-function shareChoiceIndex(mode: Mode): number {
-  return mode.type === "shareChoice" ? mode.index : 0;
-}
-
-interface ShareChoiceActions {
-  setMode: (mode: Mode) => void;
-  isOwner: boolean;
-  publish: () => void;
-  openManageAccess: () => void;
-}
-
-/** Move the share-choice highlight by one row, clamped to the list. */
-function movedShareChoice(index: number, delta: number): Mode {
-  const next = Math.min(SHARE_CHOICES.length - 1, Math.max(0, index + delta));
-
-  return { type: "shareChoice", index: next };
-}
-
-/** Commit the highlighted share option: public publishes a link, private opens manage-access. */
-function commitShareChoice(index: number, actions: ShareChoiceActions): void {
-  const picked = SHARE_CHOICES[index]?.choice;
-
-  actions.setMode({ type: "normal" });
-
-  if (!actions.isOwner) return;
-
-  if (picked === "private") actions.openManageAccess();
-  else actions.publish();
-}
-
-/** Route one key to the open share choice: escape cancels, arrows move, enter commits. */
-function handleShareChoiceKey(
-  index: number,
-  key: { name: string },
-  actions: ShareChoiceActions,
-): void {
-  if (key.name === "escape") return actions.setMode({ type: "normal" });
-
-  if (key.name === "down" || key.name === "j") return actions.setMode(movedShareChoice(index, 1));
-
-  if (key.name === "up" || key.name === "k") return actions.setMode(movedShareChoice(index, -1));
-
-  if (key.name === "return" || key.name === "enter") commitShareChoice(index, actions);
-}
-
-/**
- * An app-level dialog owns the keyboard while open: the manage-access dialog takes its own keys,
- * and the share choice moves the highlight, commits on enter, and cancels on escape. Returns true
- * when a dialog consumed the key so the caller stops the grammar.
- */
-function appDialogOwnsKey(
-  accessDialogOpen: boolean,
-  mode: Mode,
-  key: { name: string },
-  actions: ShareChoiceActions,
+/** True while a menu, an overlay, or the share dialog owns the keyboard instead of the thread view. */
+function keyboardOwnedElsewhere(
+  menuOwnsKeyboard: boolean,
+  overlay: KeyState["overlay"],
+  shareDialogOpen: boolean,
 ): boolean {
-  if (accessDialogOpen) return true;
-
-  if (mode.type !== "shareChoice") return false;
-
-  handleShareChoiceKey(mode.index, key, actions);
-
-  return true;
+  return menuOwnsKeyboard || overlay !== "none" || shareDialogOpen;
 }
 
 /** The footer submit fires only for the owner of an unresolved review, never an observer. */
@@ -543,11 +498,12 @@ export function App({
 
   // A shared plan you own polls for collaborator notes while it is open; the
   // merge refreshes through the normal event path. Stops on leave.
+  const threadShared = isSharedThread(session);
   useEffect(() => {
-    if (!isOwner || !session?.shareId) return;
+    if (!isOwner || !threadShared) return;
 
     return controller.startShareSync();
-  }, [isOwner, session?.id, session?.shareId, controller]);
+  }, [isOwner, session?.id, threadShared, controller]);
   const renderer = useRenderer();
   const { width: terminalWidth } = useTerminalDimensions();
 
@@ -594,7 +550,7 @@ export function App({
   const [mode, setMode] = useState<Mode>({ type: "normal" });
   // the top-left settings gear drop-down and the centered dialog it opens
   const [menuDialog, setMenuDialog] = useState<"keybinds" | "settings" | null>(null);
-  const [accessDialogOpen, setAccessDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
   const [diffView, setDiffView] = useState<DiffViewMode>("split");
@@ -701,6 +657,7 @@ export function App({
     cycleSetting,
     handleSettingsKey,
     onCategorySelect,
+    openSettings,
   } = useSettingsDialog({
     theme,
     appearance,
@@ -865,15 +822,21 @@ export function App({
       else if (workbench.zoomed) controller.setStatus("split diff");
       else controller.setStatus("split diff shows when zoomed");
     },
+    openShareDialog: () => {
+      if (!isOwner) return controller.setStatus("only the plan owner can share");
+      shareDialogStore.getState().reset();
+      setShareDialogOpen(true);
+    },
   });
 
   const overlay = resolveOverlay(mode, completion.phase, walking);
 
   const menuControl = useMenuControlState();
   const menuOwnsKeyboard = keyboardHeldByMenu(menuDialog, menuControl.openMenuId);
-  // an overlay (submit, walk, prompt, confirm, share choice) or the menu takes the
-  // keyboard from the thread view; the view suspends its own grammar meanwhile
-  const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay);
+  // an overlay (submit, walk, prompt, confirm, share choice), the manage-access
+  // dialog, or the menu takes the keyboard from the thread view; the view suspends
+  // its own grammar meanwhile so typing lands in the dialog, not the thread
+  const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay, shareDialogOpen);
 
   const leaderCombos = leaderCombosFor(keysRef.current.leader);
   const leaderPending = useRef(false);
@@ -912,16 +875,8 @@ export function App({
 
   useKeyboard((key) => {
     if (quitKeyHandled(key, onExit)) return;
-    // an app-level dialog (manage-access, share choice) owns the keyboard while open
-    if (
-      appDialogOwnsKey(accessDialogOpen, mode, key, {
-        setMode,
-        isOwner,
-        publish: () => controller.share(),
-        openManageAccess: () => setAccessDialogOpen(true),
-      })
-    )
-      return;
+    // the share dialog owns its own keys while open; the shell grammar stands down
+    if (shareDialogOpen) return;
     if (menuModalHandled(menuControl, key)) return;
     if (
       appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand })
@@ -1034,7 +989,7 @@ export function App({
             controller={controller}
             setMode={setMode}
             menuChrome={menuChrome}
-            onOpenMenu={() => setMenuDialog("settings")}
+            onOpenMenu={openSettings}
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen((open) => !open)}
             focusedPane={focusedPane}
@@ -1112,19 +1067,6 @@ export function App({
     runEditorHandOff();
   };
 
-  // the share choice's public option: publish the plan, copy the ssh line
-  const onShareRequest = (): void => {
-    if (!isOwner) return controller.setStatus("only the plan owner can share");
-    controller.share();
-  };
-
-  // the share choice's private option opens the manage-access allowlist surface
-  const onPrivateShareRequest = (): void => {
-    if (!isOwner) return controller.setStatus("only the plan owner can share");
-    setAccessDialogOpen(true);
-  };
-  const allowedLogins = allowedGithubLogins(session);
-
   // clicking the rail Submit button: same read-only answer as the submit key
   const onSubmitRequest = (): void => {
     if (observer) return controller.setStatus("observer - read-only");
@@ -1151,7 +1093,7 @@ export function App({
             <AppShell
               sidebarOpen={sidebarOpen}
               onToggleSidebar={() => setSidebarOpen((open) => !open)}
-              onOpenMenu={() => setMenuDialog("settings")}
+              onOpenMenu={openSettings}
               onFocusPane={setFocusedPane}
               threadsPanel={
                 <scrollbox style={{ flexGrow: 1 }} focused={false}>
@@ -1166,6 +1108,9 @@ export function App({
                     onPin={togglePin}
                     onRename={(id, title) =>
                       setMode({ type: "renameThread", sessionId: id, text: title })
+                    }
+                    onRequestDelete={(id, title) =>
+                      setMode({ type: "confirmDelete", sessionId: id, title })
                     }
                     theme={theme}
                   />
@@ -1330,6 +1275,8 @@ export function App({
                           body,
                         )
                       }
+                      // zoomed, the footer already rides the Changes pane, so no extra offset is needed
+                      emptyBottomPadding={workbench.zoomed ? 0 : THREAD_FOOTER_HEIGHT}
                       theme={theme}
                     />
                   )}
@@ -1384,26 +1331,17 @@ export function App({
                   </box>
                 </box>
               ) : null}
-              <ManageAccessDialog
-                isOpen={accessDialogOpen}
-                logins={allowedLogins}
-                onAdd={(login) => controller.setShareAccess([...allowedLogins, login])}
-                onRemove={(login) =>
-                  controller.setShareAccess(allowedLogins.filter((entry) => entry !== login))
-                }
-                onCreateLink={() => {
-                  setAccessDialogOpen(false);
-                  controller.share();
-                }}
-                onClose={() => setAccessDialogOpen(false)}
-                theme={theme}
-              />
-              <ShareChoiceDialog
-                isOpen={mode.type === "shareChoice"}
-                selectedIndex={shareChoiceIndex(mode)}
-                onPublicShare={onShareRequest}
-                onPrivateShare={onPrivateShareRequest}
-                onClose={() => setMode({ type: "normal" })}
+              <ShareDialog
+                key={String(shareDialogOpen)}
+                isOpen={shareDialogOpen}
+                threadName={shareThreadName(session)}
+                links={shareLinksFor(session)}
+                isOwner={isOwner}
+                onCreateLink={(input) => controller.createShareLink(input)}
+                onUpdateLink={(id, input) => controller.updateShareLink(id, input)}
+                onDeleteLink={(id) => controller.deleteShareLink(id)}
+                onCopyLink={(id) => controller.copyShareLink(id)}
+                onClose={() => setShareDialogOpen(false)}
                 theme={theme}
               />
               {menuChrome}

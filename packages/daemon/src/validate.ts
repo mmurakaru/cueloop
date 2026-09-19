@@ -25,6 +25,7 @@ import {
   type Revision,
   type SessionHistory,
   type ShareAccess,
+  type ShareLink,
   validateHistory,
   type Verdict,
   type WorkspaceKey,
@@ -131,6 +132,15 @@ export const IdentitySchema = v.object({
   handle: v.optional(v.string()),
 } satisfies EntriesOf<Identity>);
 
+export const ShareLinkSchema = v.object({
+  id: NonEmpty,
+  name: v.optional(v.string()),
+  requireAuth: v.boolean(),
+  allowlist: v.array(NonEmpty),
+  owner: v.optional(v.string()),
+  shareBranch: v.optional(v.string()),
+} satisfies EntriesOf<ShareLink>);
+
 export const Params = {
   "session.create": v.object({ workspace: WorkspaceSchema, artifact: ArtifactSchema }),
   "session.get": v.object({ id: SessionId }),
@@ -205,6 +215,7 @@ export const Params = {
   "session.fork": v.object({ id: SessionId }),
   "session.refreshDiff": v.object({ id: SessionId }),
   "session.setShareId": v.object({ id: SessionId, shareId: NonEmpty }),
+  "session.setShares": v.object({ id: SessionId, shares: v.array(ShareLinkSchema) }),
   "session.setAccess": v.object({ id: SessionId, githubLogins: v.array(NonEmpty) }),
   "session.delete": v.object({ id: SessionId }),
   "session.mergeShared": v.object({
@@ -348,6 +359,7 @@ export const ThreadRecordSchema = v.object({
   createdAt: v.string(),
   shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
   parentSessionId: v.optional(v.string()),
+  shares: v.optional(v.array(ShareLinkSchema)),
   shareId: v.optional(v.string()),
   shareBranch: v.optional(v.string()),
   owner: v.optional(v.string()),

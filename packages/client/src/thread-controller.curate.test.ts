@@ -118,6 +118,7 @@ function fakeClient(initial: Thread, sink: WorkingCopySink): SessionClient {
     sessionSetViewed: unimplemented("sessionSetViewed"),
     sessionSetTitle: unimplemented("sessionSetTitle"),
     sessionSetShareId: unimplemented("sessionSetShareId"),
+    sessionSetShares: unimplemented("sessionSetShares"),
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),

@@ -4,6 +4,7 @@ import React from "react";
 import { createCliRenderer } from "@opentui/core";
 import { createRoot } from "@opentui/react";
 import { App } from "./App";
+import { closePrototypeBrowser } from "./prototype-browser";
 import type { Appearance } from "./theme-presets";
 import { loadConfig } from "./config";
 import { perfMark } from "./perf/perf-timings";
@@ -41,20 +42,21 @@ export async function runClient(options: RunClientOptions): Promise<number> {
   });
   return new Promise<number>((resolve) => {
     let exited = false;
-    const shutdown = (code: number): void => {
+    const shutdown = async (code: number): Promise<void> => {
       if (exited) return;
       exited = true;
       renderer.destroy();
+      // close the warm prototype Chromium before exit so it never orphans; the
+      // await also gives the renderer time to flush its terminal-restore bytes
+      await closePrototypeBrowser();
       resolve(code);
-      // one microtask between destroy and exit lets the renderer flush
-      // its terminal-restore sequences before the process dies
-      queueMicrotask(() => process.exit(code));
+      process.exit(code);
     };
 
     // a closed pane/terminal hangs up (or the parent kills us); exit instead of
     // lingering as an orphan whose pty read loop keeps burning CPU
-    process.once("SIGHUP", () => shutdown(0));
-    process.once("SIGTERM", () => shutdown(0));
+    process.once("SIGHUP", () => void shutdown(0));
+    process.once("SIGTERM", () => void shutdown(0));
 
     const root = createRoot(renderer);
     const renderApp = (appearance: Appearance): void => {

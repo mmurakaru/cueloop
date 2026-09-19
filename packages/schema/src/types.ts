@@ -237,6 +237,27 @@ export interface ShareAccess {
   githubLogins: string[];
 }
 
+/**
+ * One published share link for a thread. A thread can have several, each an
+ * independent gateway blob keyed by its own `id`. `name` is a local-only label
+ * to tell links apart; `requireAuth` gates the link behind the `allowlist` of
+ * GitHub logins (empty + requireAuth is a private link with no one added yet).
+ */
+export interface ShareLink {
+  /** The share id (`p_…`), the link's address and gateway blob key. */
+  id: string;
+  /** A local, cosmetic label for the list; never leaves the planner's machine. */
+  name?: string;
+  /** True = private (only `allowlist` may open it); false = public. */
+  requireAuth: boolean;
+  /** GitHub logins allowed when `requireAuth`; ignored when public. */
+  allowlist: string[];
+  /** SSH fingerprint that created the link; the gateway stamps it to gate pulls/pushes/revokes. */
+  owner?: string;
+  /** The branch this link follows and shows collaborators; `main` when absent. */
+  shareBranch?: string;
+}
+
 export interface Thread {
   schemaVersion: string;
   id: string;
@@ -277,13 +298,15 @@ export interface Thread {
   shelvedAnnotations?: Annotation[];
   /** The session this one was forked from. */
   parentSessionId?: string;
-  /** Share id once published; lets the planner pull collaborator notes back. */
+  /** Published share links for this thread; each is an independent gateway blob. Migrated from the legacy scalar fields on read. */
+  shares?: ShareLink[];
+  /** @deprecated Legacy single-share id; migrated into `shares` on read. */
   shareId?: string;
-  /** The branch the share follows and shows collaborators; `main` when absent. */
+  /** @deprecated Legacy single-share branch; migrated into `shares` on read. */
   shareBranch?: string;
-  /** SSH fingerprint that created the share; the gateway stamps it to gate pulls. */
+  /** @deprecated Legacy single-share owner fingerprint; migrated into `shares` on read. */
   owner?: string;
-  /** Owner-set allowlist of GitHub logins for a private share; absent = public. */
+  /** @deprecated Legacy single-share allowlist; migrated into `shares` on read. */
   access?: ShareAccess;
   /**
    * Identities that authored annotations here, keyed by id (union-by-id, like

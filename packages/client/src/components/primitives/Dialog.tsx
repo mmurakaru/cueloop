@@ -8,7 +8,7 @@
 import React from "react";
 import type { Theme } from "../../theme";
 import { useComponentTheme } from "../theme-context";
-import { FRAME_BORDER_STYLE } from "./frame";
+import { FRAME_BORDER_STYLE, frameTitle } from "./frame";
 
 export interface DialogProps {
   isOpen: boolean;
@@ -62,7 +62,7 @@ export function Dialog({
           backgroundColor: background,
           flexDirection: "column",
         }}
-        title={title}
+        title={frameTitle(title)}
       >
         {children}
       </box>

@@ -74,6 +74,7 @@ function fakeClient(sessions: Thread[]): SessionClient {
 
       return session;
     }),
+    sessionSetShares: mock(async (id: string) => sessions.find((c) => c.id === id)!),
     sessionMergeShared: mock(
       async (
         id: string,

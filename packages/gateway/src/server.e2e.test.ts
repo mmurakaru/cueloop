@@ -175,7 +175,7 @@ function viewThenQuit(port: number, shareId: string): Promise<string> {
           stream.stderr.on("data", collect);
           // the channel closing on the app's graceful exit is the resolve signal
           stream.on("close", () => (clearTimeout(timer), conn.end(), resolve(frames)));
-          if (!(await until("Welcome")))
+          if (!(await until("welcome")))
             return (
               clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
             );
@@ -213,7 +213,7 @@ describe("share upload then view", () => {
       (frame) => frame.includes("Rollout Plan"),
       20000,
       async (stream, getFrames) => {
-        if (await pollFrames(getFrames, "Welcome")) {
+        if (await pollFrames(getFrames, "welcome")) {
           await new Promise((r) => setTimeout(r, 300));
           stream.write("\x1b");
         }
@@ -328,7 +328,7 @@ function annotateOverShell(port: number, shareId: string, body: string): Promise
           stream.stderr.on("data", collect);
           // first open opens the name prompt over the plan; esc skips it (their
           // notes read anonymous) and reveals the plan the keys below drive
-          if (!(await until("Welcome")))
+          if (!(await until("welcome")))
             return (
               clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
             );
@@ -382,7 +382,7 @@ function nameSelfOverShell(port: number, shareId: string, name: string): Promise
 
           stream.on("data", collect);
           stream.stderr.on("data", collect);
-          if (!(await until("Welcome")))
+          if (!(await until("welcome")))
             return (
               clearTimeout(timer), conn.end(), reject(new Error(`no name prompt:\n${frames}`))
             );
@@ -495,6 +495,66 @@ describe("planner pull", () => {
     // Assert
     expect(result.code).not.toBe(0);
     expect(result.err).toContain("only the planner who shared this can pull it");
+  });
+});
+
+/** Exec `cueloop-revoke` with `privateKey`, streaming the share id; capture stderr/exit. */
+function shareRevoke(
+  port: number,
+  shareId: string,
+  privateKey: string,
+): Promise<{ err: string; code: number | null }> {
+  return new Promise((resolve, reject) => {
+    const conn = new Client();
+    let err = "";
+    let code: number | null = null;
+    const timer = setTimeout(() => reject(new Error("revoke timed out")), 8000);
+
+    conn
+      .on("ready", () => {
+        conn.exec("cueloop-revoke", (error, stream) => {
+          if (error) return reject(error);
+          // drain stdout so the ssh2 stream flows and our stdin end() reaches the server
+          stream.on("data", () => {});
+          stream.stderr.on("data", (chunk: Buffer) => (err += chunk.toString("utf8")));
+          stream.on("exit", (exitCode: number) => (code = exitCode));
+          stream.on("close", () => {
+            clearTimeout(timer);
+            conn.end();
+            resolve({ err, code });
+          });
+          stream.end(shareId);
+        });
+      })
+      .on("error", reject)
+      .connect({ host: "127.0.0.1", port, username: "share", privateKey });
+  });
+}
+
+describe("planner revoke", () => {
+  test("the owner revokes and the blob is gone, so the link stops resolving", async () => {
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+
+    const result = await shareRevoke(handle.port, id, CLIENT_KEY);
+
+    expect(result.code).toBe(0);
+    expect(await store.get(id)).toBeNull();
+  });
+
+  test("a fingerprint that did not share it is refused and the blob survives", async () => {
+    const id = idFrom(await shareUpload(handle.port, packSessionBlob(SESSION)));
+
+    const result = await shareRevoke(handle.port, id, OTHER_KEY);
+
+    expect(result.code).not.toBe(0);
+    expect(result.err).toContain("only the planner who shared this can revoke it");
+    expect(await store.get(id)).not.toBeNull();
+  });
+
+  test("revoking an absent share succeeds, so revoke-on-delete never fails", async () => {
+    const result = await shareRevoke(handle.port, "p_00000000", CLIENT_KEY);
+
+    expect(result.code).toBe(0);
   });
 });
 

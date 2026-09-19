@@ -49,6 +49,8 @@ export function ChangesTabBody(props: {
   fileStats?: ReadonlyMap<string, { additions: number; deletions: number }>;
   split?: boolean;
   dimmed: boolean;
+  /** Rows the sibling Thread pane spends on its footer, so this empty hint centers level with it. */
+  emptyBottomPadding?: number;
   theme: Theme;
 }): React.ReactNode {
   const session = props.surface.session;
@@ -65,6 +67,7 @@ export function ChangesTabBody(props: {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
+          paddingBottom: props.emptyBottomPadding,
         }}
       >
         <text fg={props.theme.textDim}>No changes</text>
@@ -99,6 +102,8 @@ export function GridTabContent(props: {
   readFile: (path: string) => Promise<string | null>;
   /** Persist a comment on a project file; the file view built the anchor against its own lines. */
   onAddFileComment: (path: string, anchor: Anchor, body: string) => void;
+  /** Rows the sibling Thread pane spends on its footer, so the empty hint centers level with it. */
+  emptyBottomPadding?: number;
   theme: Theme;
 }): React.ReactNode {
   const { tab } = props;
@@ -138,6 +143,7 @@ export function GridTabContent(props: {
         fileStats={props.fileStats}
         split={props.split}
         dimmed={props.dimmed}
+        emptyBottomPadding={props.emptyBottomPadding}
         theme={props.theme}
       />
     );
@@ -170,6 +176,7 @@ export function GridTabContent(props: {
       fileStats={props.fileStats}
       split={props.split}
       dimmed={props.dimmed}
+      emptyBottomPadding={props.emptyBottomPadding}
       theme={props.theme}
     />
   );

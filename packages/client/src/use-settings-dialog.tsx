@@ -35,11 +35,14 @@ export interface SettingsDialogModel {
   cycleSetting: (rowKey: string) => void;
   handleSettingsKey: (name: string) => void;
   onCategorySelect: (categoryId: string) => void;
+  /** Open the settings dialog focused on the left nav, from a fresh state. */
+  openSettings: () => void;
 }
 
 const DOWN_KEYS = new Set(["j", "down"]);
 const UP_KEYS = new Set(["k", "up"]);
-const ENTER_BODY_KEYS = new Set(["l", "tab", "return"]);
+const ENTER_BODY_KEYS = new Set(["l", "right", "tab", "return"]);
+const BACK_TO_NAV_KEYS = new Set(["h", "left", "tab"]);
 const ACTIVATE_KEYS = new Set(["return", "space", "l"]);
 
 function moveNavZone(
@@ -64,7 +67,7 @@ function moveNavZone(
 function moveBodyRow(name: string, nav: SettingsNav, rowCount: number): SettingsNav | null {
   if (DOWN_KEYS.has(name)) return { ...nav, rowIndex: Math.min(rowCount - 1, nav.rowIndex + 1) };
   if (UP_KEYS.has(name)) return { ...nav, rowIndex: Math.max(0, nav.rowIndex - 1) };
-  if (name === "h" || name === "tab") return { ...nav, zone: "nav" };
+  if (BACK_TO_NAV_KEYS.has(name)) return { ...nav, zone: "nav" };
 
   return null;
 }
@@ -108,10 +111,11 @@ export function useSettingsDialog(params: {
     onRenameDisplayName,
   } = params;
 
+  // open focused on the left nav, so up/down browses categories until l/tab/enter enters the body
   const [settingsNav, setSettingsNav] = useState<SettingsNav>({
     categoryId: "general",
     rowIndex: 0,
-    zone: "body",
+    zone: "nav",
   });
   const [actionsExpandedIndex, setActionsExpandedIndex] = useState<number | null>(null);
   const [actionsExpandedField, setActionsExpandedField] = useState<"prompt" | "metadata">("prompt");
@@ -247,6 +251,12 @@ export function useSettingsDialog(params: {
     }
   };
 
+  const openSettings = (): void => {
+    setSettingsNav({ categoryId: "general", rowIndex: 0, zone: "nav" });
+    setActionsExpandedIndex(null);
+    setMenuDialog("settings");
+  };
+
   const onCategorySelect = (categoryId: string): void => {
     // ignore a select that names no real category, so the key handler never dereferences nothing
     if (!settingsCategories.some((category) => category.id === categoryId)) return;
@@ -305,5 +315,6 @@ export function useSettingsDialog(params: {
     cycleSetting,
     handleSettingsKey,
     onCategorySelect,
+    openSettings,
   };
 }

@@ -11,6 +11,7 @@ import type {
   Artifact,
   DiffFileStatus,
   HunkRejection,
+  ShareLink,
   Thread,
   VerdictKind,
   WorkspaceKey,
@@ -117,6 +118,7 @@ export interface SessionClient {
   /** Copy the current path into a new session; returns the fork. */
   sessionFork(id: string): Promise<Thread>;
   sessionSetShareId(id: string, shareId: string): Promise<Thread>;
+  sessionSetShares(id: string, shares: ShareLink[]): Promise<Thread>;
   sessionMergeShared(id: string, incoming: SharedMerge): Promise<Thread>;
   sessionDelete(id: string): Promise<void>;
   /** Record the caller's own identity name (collaborator self-naming on a share). */
@@ -496,6 +498,10 @@ export class DaemonClient implements SessionClient {
   }
   sessionSetShareId(id: string, shareId: string): Promise<Thread> {
     return this.request("session.setShareId", { id, shareId }, ThreadRecordSchema);
+  }
+
+  sessionSetShares(id: string, shares: ShareLink[]): Promise<Thread> {
+    return this.request("session.setShares", { id, shares }, ThreadRecordSchema);
   }
   sessionMergeShared(id: string, incoming: SharedMerge): Promise<Thread> {
     return this.request("session.mergeShared", { id, ...incoming }, ThreadRecordSchema);

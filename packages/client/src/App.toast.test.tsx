@@ -28,7 +28,9 @@ const shareTransport: ShareTransport = {
   }),
   push: mock(async () => {}),
   watch: () => () => {},
+  revoke: async () => {},
   parseShareId: (line) => line.match(/^ssh (\S+)@/)?.[1],
+  formatShareLine: (id: string) => "ssh " + id + "@cueloop.dev",
   collaboratorAnnotations: () => [],
   mergeFromShare: () => ({ annotations: [] }),
 };
@@ -73,11 +75,16 @@ describe("share toast", () => {
 
     await waitForText(setup, "cueloop");
 
-    // Act: share opens the choice, enter picks public and raises the toast, then a composer under it
+    // Act: share opens the dialog, the new-link wizard publishes and raises the toast, then a composer under it
     await pressKey(setup, "s", { ctrl: true });
-    await waitForText(setup, "public link");
-    await press(setup, "enter");
-    await waitForText(setup, "share link copied");
+    await waitForText(setup, "+ new link");
+    await press(setup, "enter"); // step into the links body
+    await press(setup, "enter"); // activate "+ new link" - the wizard opens
+    await waitForText(setup, "link name");
+    await press(setup, "enter"); // the name field submits and creates the link
+    await waitForText(setup, "link copied");
+    await press(setup, "escape"); // close the dialog; the non-modal toast stays up
+    await waitForTextGone(setup, "share externally");
     await clickText(setup, "daemon");
     await typeText(setup, "x");
     await waitForText(setup, "● x");
