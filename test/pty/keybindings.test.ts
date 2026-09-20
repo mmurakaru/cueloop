@@ -3,14 +3,27 @@
  * terminal sends, against the real TUI. In a live review a bare letter types a
  * comment, so the structural commands live behind esc: press esc to enter nav
  * mode (the footer shows the nav commands), then a bare letter acts on the session, a
- * discussion, the tree, or a diff row. Bare keys are used throughout so no
- * multiplexer prefix or OS shortcut can intercept them. Env-gated behind
- * CUELOOP_RUN_PTY (`bun run test:pty`).
+ * discussion, the tree, or a diff row. The grammar under test is the command tables
+ * in thread-chords.ts - the same tables the keybinds dialog renders. The last test
+ * enumerates those tables and fails on any command without a screen-level
+ * expectation, so a new command cannot ship unproven. Coverage is collected while
+ * the earlier tests run, so the tier is serial and a single test run in isolation
+ * reports every command as missing. Env-gated behind CUELOOP_RUN_PTY (`bun run test:pty`).
  */
 
 import { afterAll, beforeAll, describe, expect } from "bun:test";
+import {
+  curationCommandEntries,
+  diffCommandEntries,
+  sessionCommandEntries,
+  treeCommandEntries,
+} from "../../packages/client/src/thread-chords";
 import type { TestGitRepo } from "../helpers/git-repo";
-import { cheatsheetChordKeyPress, cheatsheetChordKeyPresses } from "../helpers/pty-key-codes";
+import {
+  cheatsheetChordKeyPress,
+  cheatsheetChordKeyPresses,
+  cheatsheetEntryChords,
+} from "../helpers/pty-key-codes";
 import {
   OTHER_CHANGE,
   PTY_TIER_ENABLED,
@@ -27,6 +40,32 @@ import {
 } from "../helpers/pty-tui-session";
 import { createTestReviewHome, type TestReviewHome } from "../helpers/review-home";
 
+/** The command tables the keybinds dialog renders, by the name the coverage test reports. */
+const COMMAND_TABLES = {
+  session: sessionCommandEntries(),
+  diff: diffCommandEntries(),
+  discussion: curationCommandEntries(),
+  tree: treeCommandEntries(),
+} as const;
+
+type CommandTable = keyof typeof COMMAND_TABLES;
+
+/** Every `table key` pair a test pressed and asserted on. */
+const exercised = new Set<string>();
+
+/** Every `table key` pair the command tables advertise. */
+function advertisedCommands(): string[] {
+  const commands: string[] = [];
+
+  for (const [table, entries] of Object.entries(COMMAND_TABLES)) {
+    for (const entry of entries) {
+      for (const key of cheatsheetEntryChords(entry.keys)) commands.push(`${table} ${key}`);
+    }
+  }
+
+  return commands;
+}
+
 /** Enter nav mode: esc heads there, and the footer shows the nav commands (with "⏎ submit"). */
 async function enterNav(session: PtyTuiSession): Promise<void> {
   // "⏎ submit" sits in both nav footers before the pane's right edge; the compose footer never has it
@@ -35,25 +74,17 @@ async function enterNav(session: PtyTuiSession): Promise<void> {
   });
 }
 
-/** Enter nav mode, press a bare command key, and wait for its effect on screen. */
+/** Enter nav mode, press a bare command key, wait for its effect on screen, and record it as covered. */
 async function navPress(
   session: PtyTuiSession,
-  chord: string,
+  table: CommandTable,
+  key: string,
   expected: string | ((screen: string) => boolean),
   options: PtyScreenWaitOptions = {},
 ): Promise<string> {
-  const predicate =
-    expected instanceof Function ? expected : (screen: string) => screen.includes(expected);
-
   await enterNav(session);
-  const presses = cheatsheetChordKeyPresses(chord);
 
-  for (const press of presses.slice(0, -1)) await session.press(press);
-
-  return session.pressAndWaitForScreen(presses.at(-1)!, predicate, {
-    what: `the effect of nav ${chord}`,
-    ...options,
-  });
+  return navStep(session, table, key, expected, options);
 }
 
 /**
@@ -63,30 +94,35 @@ async function navPress(
  */
 async function navStep(
   session: PtyTuiSession,
-  chord: string,
+  table: CommandTable,
+  key: string,
   expected: string | ((screen: string) => boolean),
   options: PtyScreenWaitOptions = {},
 ): Promise<string> {
   const predicate =
     expected instanceof Function ? expected : (screen: string) => screen.includes(expected);
-  const presses = cheatsheetChordKeyPresses(chord);
+  const presses = cheatsheetChordKeyPresses(key);
 
   for (const press of presses.slice(0, -1)) await session.press(press);
-
-  return session.pressAndWaitForScreen(presses.at(-1)!, predicate, {
-    what: `the effect of nav ${chord} in place`,
+  const screen = await session.pressAndWaitForScreen(presses.at(-1)!, predicate, {
+    what: `the effect of nav ${key}`,
     ...options,
   });
+
+  exercised.add(`${table} ${key}`);
+
+  return screen;
 }
 
 /** Press a nav command that answers with a toast or prompt, then dismiss it with escape. */
 async function navPressForToast(
   session: PtyTuiSession,
-  chord: string,
+  table: CommandTable,
+  key: string,
   body: string,
   options: PtyScreenWaitOptions = {},
 ): Promise<void> {
-  await navPress(session, chord, body, options);
+  await navPress(session, table, key, body, options);
   await pressEscapeUntilGone(session, body);
 }
 
@@ -149,22 +185,23 @@ describe("nav mode in a diff review", () => {
   });
 
   ptyTest("x rejects the change under the caret and u restores it", async () => {
-    await navPressForToast(session, "x", "change rejected - dropped from the working copy");
+    await navPressForToast(session, "diff", "x", "change rejected - dropped from the working copy");
     const curated = reviewHome.server.core.sessionGet(reviewId).workingCopy;
 
     expect(curated).toBeDefined();
     expect(curated).not.toContain("new Map()");
-    await navPressForToast(session, "u", "removal restored");
+    await navPressForToast(session, "diff", "u", "removal restored");
   });
 
   ptyTest("d toggles the diff layout and warns that split needs the wide pane", async () => {
-    await navPress(session, "d", "stacked diff");
-    await navPressForToast(session, "d", "split diff shows when zoomed");
+    await navPress(session, "diff", "d", "stacked diff");
+    await navPressForToast(session, "diff", "d", "split diff shows when zoomed");
   });
 
   ptyTest("c folds the file to its band; clicking the band's chevron unfolds it", async () => {
     await navPress(
       session,
+      "diff",
       "c",
       (screen) => screen.includes("src/store.ts") && !screen.includes("new Map()"),
     );
@@ -176,7 +213,7 @@ describe("nav mode in a diff review", () => {
   });
 
   ptyTest("k starts the guided walk, ] and [ step through files, escape leaves it", async () => {
-    await navPress(session, "k", "file 1 of 2 · 0 viewed");
+    await navPress(session, "diff", "k", "file 1 of 2 · 0 viewed");
     await session.pressAndWaitForScreen(
       "]",
       (screen) => screen.includes("file 2 of 2 · 1 viewed"),
@@ -191,7 +228,7 @@ describe("nav mode in a diff review", () => {
   });
 
   ptyTest("enter opens the send card, arrows change the verdict, escape cancels", async () => {
-    await navPress(session, "enter", "[Approve]");
+    await navPress(session, "session", "⏎", "[Approve]");
     await session.pressAndWaitForScreen("right", (screen) => screen.includes("[Changes]"), {
       what: "the verdict to move right",
     });
@@ -202,7 +239,7 @@ describe("nav mode in a diff review", () => {
   });
 
   ptyTest("s opens the share dialog; creating a link reports the gateway failure", async () => {
-    await navPress(session, "s", "+ new link");
+    await navPress(session, "session", "s", "+ new link");
     await session.press("enter");
     await session.pressAndWaitForScreen("enter", (screen) => screen.includes("link name"), {
       what: "the new-link wizard",
@@ -217,15 +254,10 @@ describe("nav mode in a diff review", () => {
   });
 
   ptyTest("e hands the diff to the editor; an instant return asks whether to wait", async () => {
-    await enterNav(session);
-    await session.pressAndWaitForScreen(
-      "e",
-      (screen) => screen.includes("press Enter to load your edits"),
-      {
-        timeoutMs: 15_000,
-        what: "the wait-for-editor prompt on the tty",
-      },
-    );
+    await navPress(session, "session", "e", "press Enter to load your edits", {
+      timeoutMs: 15_000,
+      what: "the wait-for-editor prompt on the tty",
+    });
     await session.press("n");
     await session.pressAndWaitForScreen("enter", (screen) => screen.includes("no changes"), {
       timeoutMs: 15_000,
@@ -251,18 +283,25 @@ describe("nav mode in a diff review", () => {
       what: "the second comment saved",
     });
 
-    const screen = await navPress(session, "n", (frame) => /┃ ● (first|second) note/.test(frame));
+    const screen = await navPress(session, "discussion", "n", (frame) =>
+      /┃ ● (first|second) note/.test(frame),
+    );
     const [focused, other] = /┃ ● first note/.test(screen)
       ? ["first", "second"]
       : ["second", "first"];
 
-    await navStep(session, "n", `┃ ● ${other} note`);
-    await navStep(session, "p", `┃ ● ${focused} note`);
+    await navStep(session, "discussion", "n", `┃ ● ${other} note`);
+    await navStep(session, "discussion", "p", `┃ ● ${focused} note`);
+  });
+
+  ptyTest("z folds the card under the caret to its summary and unfolds it again", async () => {
+    await navPress(session, "discussion", "z", "○ 1 comment ›");
+    await navStep(session, "discussion", "z", (screen) => !screen.includes("○ 1 comment ›"));
   });
 
   ptyTest("backspace deletes the focused card", async () => {
-    await navPress(session, "n", (screen) => /┃ ● (first|second) note/.test(screen));
-    await navStep(session, "⌫", "annotation deleted");
+    await navPress(session, "discussion", "n", (screen) => /┃ ● (first|second) note/.test(screen));
+    await navStep(session, "discussion", "⌫", "annotation deleted");
     await pressEscapeUntilGone(session, "annotation deleted");
   });
 });
@@ -283,14 +322,18 @@ describe("nav mode in a plan review", () => {
   ptyTest("x cuts the block under the caret and u restores it", async () => {
     await session.press("down");
     await session.press("down");
-    await navPressForToast(session, "x", "block cut");
-    await navPress(session, "u", ROLLOUT_PLAN_LAST_LINE);
+    await navPressForToast(session, "discussion", "x", "block cut");
+    await navPress(session, "discussion", "u", ROLLOUT_PLAN_LAST_LINE);
+  });
+
+  ptyTest("r with no collaborator note focused explains there is nothing to rename", async () => {
+    await navPressForToast(session, "discussion", "r", "that is your own note - nothing to rename");
   });
 
   ptyTest(
     "e opens the inline editor; typed text edits the body and ctrl+enter saves it",
     async () => {
-      await navPress(session, "e", "save & close", { timeoutMs: 15_000 });
+      await navPress(session, "session", "e", "save & close", { timeoutMs: 15_000 });
       await session.type("EDITOK ");
       await session.pressAndWaitForScreen(
         cheatsheetChordKeyPress("⌃enter"),
@@ -301,12 +344,20 @@ describe("nav mode in a plan review", () => {
   );
 
   ptyTest("the tree commands label, branch, go, fork, and fork-share the history", async () => {
-    await navPressForToast(session, "l", "Name for this checkpoint:");
-    await navPressForToast(session, "b", "Name for the new branch:");
-    await navPressForToast(session, "g", "already at the tip");
-    await navPressForToast(session, "f", "you are on the fork now", { timeoutMs: 10_000 });
-    await navPressForToast(session, "h", "fork and share failed: gateway upload failed:", {
+    await navPressForToast(session, "tree", "l", "Name for this checkpoint:");
+    await navPressForToast(session, "tree", "b", "Name for the new branch:");
+    await navPressForToast(session, "tree", "g", "already at the tip");
+    await navPressForToast(session, "tree", "f", "you are on the fork now", { timeoutMs: 10_000 });
+    await navPressForToast(session, "tree", "h", "fork and share failed: gateway upload failed:", {
       timeoutMs: 10_000,
     });
+  });
+});
+
+describe("nav command coverage", () => {
+  ptyTest("every command the keybinds dialog advertises has a PTY expectation", () => {
+    const missing = advertisedCommands().filter((command) => !exercised.has(command));
+
+    expect(missing, `no PTY expectation registered for: ${missing.join(", ")}`).toEqual([]);
   });
 });

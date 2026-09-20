@@ -2,7 +2,7 @@
 layout: ../../../layouts/DocsLayout.astro
 title: Keyboard & mouse
 eyebrow: Docs · Reference
-lede: The thread view reads a plan or reply as one thread with discussions pinned to its text. Type to comment; press esc for nav mode, where a bare letter runs a command. Every command is a bare key, so nothing you press collides with tmux, zellij, or an OS shortcut, and there is nothing to configure.
+lede: The thread view reads a plan or reply as one thread with discussions pinned to its text. Type to comment; press esc for nav mode, where a bare letter runs a command. Every command is a bare key with no prefix and no modifier, so the terminal never swallows one, and there is nothing to configure.
 prev: { title: "Configuration", href: "/docs/reference/configuration/" }
 next: { title: "Sharing over SSH", href: "/docs/sharing/" }
 ---
@@ -22,9 +22,8 @@ The thread has two modes, and the footer always says which one you are in.
 
 esc always heads toward nav, so it never strands you: from typing it enters nav,
 and in nav it drops the mark or a focused comment without leaving. There is no
-leader chord and no modifier - a plain letter can never be swallowed by a
-terminal multiplexer or an OS shortcut, so cueloop needs no setup to run inside
-tmux, zellij, or screen.
+leader chord and no modifier - a plain letter reaches cueloop through any
+terminal, so there is no setup.
 
 ## Marking text
 
@@ -91,6 +90,8 @@ The workbench has four panes: Threads, Thread, Changes, and Project. One pane
 owns the keyboard at a time; click a pane to focus it, or press `tab`
 (`shift+tab` for the previous) to cycle. Only the focused pane responds to its
 keys, so moving through the Threads sidebar never moves the caret in the editor.
+While a comment composer is open, `tab` belongs to the composer (it accepts the
+highlighted `/` palette entry); save or dismiss the draft to cycle panes again.
 
 ## Diff reviews
 

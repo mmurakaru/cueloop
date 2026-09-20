@@ -673,8 +673,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     if (activeCompose) return handleComposeKey(key, activeCompose);
     if (key.name === "escape") {
+      // from type mode esc only enters nav, so a held mark survives for `c`
+      if (!navModeRef.current) return setNavMode(true);
       if (focusedDiscussion !== null) setFocusedDiscussion(null);
-      setNavMode(true);
 
       return collapseCaret();
     }
