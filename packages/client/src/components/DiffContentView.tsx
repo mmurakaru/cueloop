@@ -21,7 +21,7 @@ import { NERD } from "./primitives/icons";
 import { createIntralineResolver, type IntralineRun } from "../diff-intraline";
 import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
 import { splitDiffRows, type SplitLine, type SplitRow } from "../split-diff";
-import { UNDERLINE, type AnnotationPalette } from "../annotation-palette";
+import { BOLD, UNDERLINE, type AnnotationPalette } from "../annotation-palette";
 import { lineMarkRanges, runsFor, wrapLines, type MarkRange } from "../mark-runs";
 import { useFrameMeasure } from "../use-frame-measure";
 import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
@@ -854,6 +854,22 @@ export function DiffContentView({
         >
           {materialized}
         </scrollbox>
+        <box style={{ height: 1, flexDirection: "row", paddingLeft: 2 }}>
+          {surface.navMode ? (
+            <text selectable={false}>
+              <span fg={tokens.accent} attributes={BOLD}>
+                {"NAV"}
+              </span>
+              <span fg={tokens.textDim}>
+                {"  x/X reject · c fold · d layout · k walk · ⏎ submit · type to leave"}
+              </span>
+            </text>
+          ) : (
+            <text selectable={false} fg={tokens.textDim}>
+              {"type to comment · esc for nav mode"}
+            </text>
+          )}
+        </box>
       </box>
       <DiscussionMarkerRail
         discussions={surface.discussions}

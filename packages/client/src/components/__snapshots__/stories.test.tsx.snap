@@ -12,7 +12,7 @@ exports[`stories catalog Surfaces/AnnotatableFileView/Loaded renders, snapshots,
                                                             
                                                             
                                                             
-                                                            
+   type to comment · esc for nav mode                       
 "
 `;
 
@@ -146,7 +146,7 @@ exports[`stories catalog Surfaces/BareWorkbenchFileView/Loaded renders, snapshot
                                                             
                                                             
                                                             
-                                                            
+   type to comment · esc for nav mode                       
 "
 `;
 
@@ -454,7 +454,7 @@ exports[`stories catalog Surfaces/DiffContentView/AnnotatedLine renders, snapsho
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
+   type to comment · esc for nav mode                                                     
 "
 `;
 
@@ -474,7 +474,7 @@ exports[`stories catalog Surfaces/DiffContentView/CaretOnFirstLine renders, snap
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
+   type to comment · esc for nav mode                                                     
 "
 `;
 
@@ -494,7 +494,7 @@ exports[`stories catalog Surfaces/DiffContentView/IntralineWordDiff renders, sna
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
+   type to comment · esc for nav mode                                                     
 "
 `;
 
@@ -514,7 +514,7 @@ exports[`stories catalog Surfaces/DiffContentView/SignedRows renders, snapshots,
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
+   type to comment · esc for nav mode                                                     
 "
 `;
 
@@ -536,7 +536,7 @@ exports[`stories catalog Surfaces/DiffContentView/SplitView renders, snapshots, 
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
+   type to comment · esc for nav mode                                                                                   
 "
 `;
 
@@ -628,7 +628,7 @@ exports[`stories catalog Surfaces/GridTabContent/ChangesTab renders, snapshots, 
                                                                                 
                                                                                 
                                                                                 
-                                                                                
+   type to comment · esc for nav mode                                           
 "
 `;
 
@@ -650,7 +650,7 @@ exports[`stories catalog Surfaces/GridTabContent/FileDiffTab renders, snapshots,
                                                                                 
                                                                                 
                                                                                 
-                                                                                
+   type to comment · esc for nav mode                                           
 "
 `;
 
@@ -1580,7 +1580,7 @@ exports[`stories catalog Surfaces/WelcomePlayground/Welcome renders, snapshots, 
   16 Learn                                                              
   17   - docs        https://cueloop.dev/docs/                          
   18                                                                    
-  19 Version                                                            
+   type to comment · esc for nav mode                                   
 "
 `;
 
