@@ -17,7 +17,7 @@
     "@cueloop/schema": "0.1.0-alpha.78",
     "@opentui/core": "^0.5.11",
     "@opentui/react": "^0.5.11",
-    "react": "^19.2.0",
+    "react": "^19.3.0",
     "ssh2": "^1.17.0",
     "valibot": "^1.4.2"
   },
