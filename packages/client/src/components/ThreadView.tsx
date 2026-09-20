@@ -455,7 +455,6 @@ export function ThreadView({
         >
           {virtualBlocks()}
         </scrollbox>
-        {/* one hint per focused surface: the suspended (unfocused) surface stays quiet */}
         {suspended ? null : (
           <NavModeHint navMode={surface.navMode} surface="thread" theme={tokens} />
         )}

@@ -199,9 +199,6 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return { head: start, anchor: start };
   });
   const [compose, setCompose] = useState<ComposeState | null>(null);
-  // typing composes by default; esc drops to nav mode where bare keys act as commands. A ref backs
-  // the keyboard handler so an esc immediately followed by a command key reads the new mode (state
-  // alone would lag a render); the state drives the footer indicator.
   const [navMode, setNavModeState] = useState(false);
   const navModeRef = useRef(false);
   const setNavMode = (value: boolean): void => {
@@ -675,20 +672,12 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const activeCompose = composeRef.current;
 
     if (activeCompose) return handleComposeKey(key, activeCompose);
-    // esc always heads toward nav mode (vim-like): it drops a focused discussion, else enters nav
-    // from typing, else collapses the held selection while staying in nav. Typing resumes with c or
-    // any unmapped printable, so esc never strands you unable to leave.
-    // esc goes to nav mode and clears transient state in one press: it drops a focused discussion,
-    // enters nav (idempotent), and collapses the held selection. Nav commands act on the caret's
-    // block and commenting on a span is done by typing, so the mark is not needed in nav.
     if (key.name === "escape") {
       if (focusedDiscussion !== null) setFocusedDiscussion(null);
       setNavMode(true);
 
       return collapseCaret();
     }
-    // nav mode: bare keys act. Arrows and tab navigate; a session/curation/tree/diff command
-    // acts through onNavCommand; c starts a comment; any other printable returns to typing.
     if (navModeRef.current) {
       if (handleCaretKey(key)) return;
       if (key.name === "z") return toggleFoldAtCursor();
@@ -882,7 +871,6 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const pressed = positionAt(allGeometry(), event.x, event.y);
 
     if (!pressed || !source.annotatable(pressed.blockIndex)) return;
-    // a click to place the caret is an intent to type there, so it leaves nav mode
     setNavMode(false);
     const stamp = { time: Date.now(), x: event.x, y: event.y };
     const wordMode = isDoubleClick(lastClick.current, stamp);

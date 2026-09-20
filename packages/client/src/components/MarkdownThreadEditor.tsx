@@ -105,7 +105,6 @@ export const MarkdownThreadEditor = forwardRef<MarkdownEditorHandle, MarkdownThr
     }, []);
 
     return (
-      // paddingLeft 2 matches the read-only thread view's line inset, so edit does not shift the body
       <box style={{ flexDirection: "column", flexGrow: 1, paddingLeft: 2 }}>
         <textarea
           ref={editorRef}

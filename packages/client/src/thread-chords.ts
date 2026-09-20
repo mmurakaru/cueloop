@@ -1,12 +1,3 @@
-/**
- * The thread view's command keys. Typing in the thread composes a comment, so
- * the structural commands live in a nav mode: press esc to leave the composer,
- * then a bare letter acts on the session, the discussion under the caret, the
- * tree, or a diff row. Bare letters are chosen so no terminal multiplexer or OS
- * shortcut can intercept them - there is no modifier chord and no leader.
- * Pure: this maps a nav key to an intent or to null (which returns to typing).
- */
-
 import type { Intent } from "./keymap";
 
 export interface NavKey {
@@ -15,13 +6,9 @@ export interface NavKey {
 }
 
 export interface ThreadNavContext {
-  /** Collaborators annotate only; submit, edit, and share are the owner's. */
   isOwner: boolean;
-  /** A resolved session has nothing left to submit. */
   resolved: boolean;
-  /** The tree is showing: n / p move its selection instead of cycling cards. */
   treeActive: boolean;
-  /** A diff review: the row chords act on the code row under the caret (reject, fold, walk). */
   isDiff?: boolean;
 }
 
@@ -30,7 +17,6 @@ export interface ChordEntry {
   label: string;
 }
 
-/** The session commands: submit, edit, and share, all owner-only. */
 export function sessionCommandEntries(): ChordEntry[] {
   return [
     { keys: "⏎", label: "submit the review" },
@@ -39,7 +25,6 @@ export function sessionCommandEntries(): ChordEntry[] {
   ];
 }
 
-/** The diff-review commands, on the caret's row or file. */
 export function diffCommandEntries(): ChordEntry[] {
   return [
     { keys: "x", label: "reject the change under the caret" },
@@ -50,7 +35,6 @@ export function diffCommandEntries(): ChordEntry[] {
   ];
 }
 
-/** The discussion and curation commands, on the discussion under the caret. */
 export function curationCommandEntries(): ChordEntry[] {
   return [
     { keys: "n / p", label: "next / previous card" },
@@ -62,7 +46,6 @@ export function curationCommandEntries(): ChordEntry[] {
   ];
 }
 
-/** The session-history commands: branch, label, fork, and hand off the current path. */
 export function treeCommandEntries(): ChordEntry[] {
   return [
     { keys: "g", label: "go to the entry" },
@@ -73,11 +56,9 @@ export function treeCommandEntries(): ChordEntry[] {
   ];
 }
 
-/** The answers a blocked primitive gets - the same words the keymap uses. */
 const READ_ONLY: Intent = { type: "status", message: "observer - read-only" };
 const RESOLVED: Intent = { type: "status", message: "review submitted - read-only" };
 
-/** Editing, deleting, cutting, and restoring change the review: gated by role and by a verdict. */
 function mutating(intent: Intent, context: ThreadNavContext): Intent {
   if (!context.isOwner) return READ_ONLY;
   if (context.resolved) return RESOLVED;
@@ -85,7 +66,6 @@ function mutating(intent: Intent, context: ThreadNavContext): Intent {
   return intent;
 }
 
-/** The diff's row and file commands; null lets the curation commands answer the letter. */
 function resolveDiffKey(name: string, context: ThreadNavContext): Intent | null {
   switch (name) {
     case "x":
@@ -101,7 +81,6 @@ function resolveDiffKey(name: string, context: ThreadNavContext): Intent | null 
   }
 }
 
-/** The session commands: edit the plan in $EDITOR, share the plan. */
 function resolveSessionKey(name: string, context: ThreadNavContext): Intent | null {
   switch (name) {
     case "e":
@@ -113,11 +92,6 @@ function resolveSessionKey(name: string, context: ThreadNavContext): Intent | nu
   }
 }
 
-/**
- * The discussion, curation, and tree commands. n / p cycle the discussion cards,
- * or move the tree selection while the tree shows. The tree moves are the
- * owner's; renaming an author is open to every role.
- */
 function resolveCurationKey(name: string, context: ThreadNavContext): Intent | null {
   switch (name) {
     case "n":
@@ -154,12 +128,6 @@ export interface SessionChordKey {
   super?: boolean;
 }
 
-/**
- * The session's Ctrl chords, reachable from the thread without nav mode - the
- * same commands nav mode offers on bare keys, kept as reliable, conventional
- * accelerators (terminals deliver Ctrl and cmd chords without a multiplexer
- * clash). cmd/ctrl+enter opens the submit card; ctrl+e edits; ctrl+s shares.
- */
 export function resolveSessionChord(
   key: SessionChordKey,
   context: Pick<ThreadNavContext, "isOwner" | "resolved">,
@@ -178,11 +146,6 @@ export function resolveSessionChord(
   return null;
 }
 
-/**
- * Resolve one nav-mode key to a thread command, or null when no command claims
- * it (the caller then returns to composing). enter submits; a diff row's keys
- * win over the shared letters; the session and curation commands answer the rest.
- */
 export function resolveNavKey(key: NavKey, context: ThreadNavContext): Intent | null {
   const name = key.shift ? key.name.toUpperCase() : key.name;
 

@@ -108,7 +108,6 @@ export interface CueloopConfig {
     theme: ThemeName;
     /** How the Changes diff renders when wide: old|new side by side or one stacked column. */
     diffView: DiffViewMode;
-    /** The verdict the submit card opens on; approve unless set. */
     defaultVerdict: VerdictKind;
     /** Session ids the user has pinned to the top of the sidebar; client-local view state. */
     pins: string[];

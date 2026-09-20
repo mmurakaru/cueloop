@@ -68,7 +68,6 @@ export interface IntentDispatchDeps {
   inboxCursor: number;
   mode: Mode;
   session: Thread | null;
-  /** The verdict the submit card opens on ([ui] default_verdict). */
   defaultVerdict: VerdictKind;
   focusedAnnotationId: string | undefined;
   /** The curation item selected for undo, if any. */

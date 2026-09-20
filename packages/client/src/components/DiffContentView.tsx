@@ -855,7 +855,6 @@ export function DiffContentView({
         >
           {materialized}
         </scrollbox>
-        {/* one hint per focused surface: the suspended (unfocused) surface stays quiet */}
         {suspended ? null : <NavModeHint navMode={surface.navMode} surface="diff" theme={tokens} />}
       </box>
       <DiscussionMarkerRail

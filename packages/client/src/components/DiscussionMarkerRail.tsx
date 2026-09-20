@@ -53,7 +53,6 @@ function ScrollMarkers({
   };
   const hoveredIndex = discussions.findIndex((discussion) => discussion.key === hovered);
   const focusedIndex = discussions.findIndex((discussion) => discussion.key === focused);
-  // filled + full-color when the card is focused (n/p) or the dot is hovered, so the rail shows the active card
   const isActive = (index: number): boolean => index === hoveredIndex || index === focusedIndex;
   const colorFor = (index: number): string => {
     if (isActive(index)) return tokens.text;
@@ -106,12 +105,9 @@ function ScrollMarkers({
 
 export interface DiscussionMarkerRailProps {
   discussions: Discussion[];
-  /** The text a discussion's span covers, for the hover preview. */
   spanQuote: (span: TextSpan) => string;
-  /** The focused discussion (n/p, or a card click): its dot fills to mark the active card. */
   focusedKey?: string | null;
   onJump: (key: string) => void;
-  /** The surface's scrollbox; when given, its scrollbar draws past the dots as the panel's rightmost column. */
   scrollbox?: RefObject<ScrollBoxRenderable | null>;
   theme?: Theme;
 }

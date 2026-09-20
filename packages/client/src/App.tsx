@@ -354,7 +354,6 @@ function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): Che
     return base;
   }
 
-  // in the thread, typing composes; esc drops to nav mode where these bare keys act
   return [
     ...THREAD_VIEW_CHEATSHEET,
     { title: "Nav mode · session", entries: sessionCommandEntries() },
@@ -421,7 +420,6 @@ export function threadsNavHandled(params: {
   return false;
 }
 
-/** Tab cycles the focused pane, but only where the shell owns the keys - never while typing, in an overlay, or under the menu. */
 export function paneCycleRequested(
   key: { name: string },
   overlay: string,
@@ -584,7 +582,6 @@ export function App({
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
   const [diffView, setDiffView] = useState<DiffViewMode>("split");
-  // the verdict the submit card opens on ([ui] default_verdict); approve unless configured
   const [defaultVerdict, setDefaultVerdict] = useState<VerdictKind>("approve");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
@@ -900,8 +897,6 @@ export function App({
   }, [session, navigablePanes, focusedPane]);
   const cyclePanes = (backward: boolean): void =>
     setFocusedPane((current) => nextFocusPane(current, navigablePanes, backward));
-  // the thread surface's nav mode forwards a bare key here; resolve it to a session/curation/tree/diff
-  // command and dispatch, reporting whether it acted so the surface knows to return to typing
   const runNavCommand = (key: { name: string; shift?: boolean }): boolean => {
     const intent = resolveNavKey(key, {
       isOwner,
@@ -925,10 +920,6 @@ export function App({
     controller.open(id);
   };
 
-  // The thread view owns its document grammar and nav mode through its own useKeyboard
-  // (marks, comments, ctrl+q, and the nav-mode commands via onNavCommand). The session's
-  // Ctrl chords (submit, edit, share) resolve here as reliable accelerators; true when the
-  // thread surface owns the key so the shell keymap stands down.
   const threadSurfaceHandledKey = (key: KeyEvent): boolean => {
     if (!threadViewActive || threadViewSuspended) return false;
     if (!threadComposing) {
@@ -947,7 +938,6 @@ export function App({
     // the share dialog owns its own keys while open; the shell grammar stands down
     if (shareDialogOpen) return;
     if (menuModalHandled(menuControl, key)) return;
-    // tab cycles the focused pane; shift+tab goes the other way
     if (paneCycleRequested(key, overlay, menuOwnsKeyboard, threadComposing)) {
       return cyclePanes(Boolean(key.shift));
     }

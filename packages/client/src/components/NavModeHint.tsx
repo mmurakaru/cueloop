@@ -1,16 +1,10 @@
 import React from "react";
 import type { Theme } from "../theme";
 
-/** The one-line hint above the shared footer: how to leave nav mode, or how to enter it. */
 const DIFF_NAV_HINT = "x reject · c fold · d layout · k walk · ⏎ submit · type to leave";
 const THREAD_NAV_HINT = "c comment · e edit · s share · n/p cards · ⏎ submit · type to leave";
 const COMPOSE_HINT = "type to comment · esc for nav mode";
 
-/**
- * The single mode hint the app shows above its footer. It follows the focused
- * surface: a diff lists the diff commands, a thread the thread commands, and
- * either shows the compose hint while typing. Rendered once, never per surface.
- */
 export function NavModeHint({
   navMode,
   surface,
