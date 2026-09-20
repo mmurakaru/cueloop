@@ -157,8 +157,10 @@ describe("send message confirm", () => {
     // Act
     await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert
-    await waitForText(setup, "[Changes]"); // pending items: request changes default
+    // Assert - opens on the default verdict, then cycle to request changes
+    await waitForText(setup, "[Approve]");
+    await press(setup, "right");
+    await waitForText(setup, "[Changes]");
 
     // Act
     await setup.mockInput.typeText("Tighten the steps.");
@@ -177,7 +179,7 @@ describe("send message confirm", () => {
     seedAnnotations(1);
     const setup = await renderApp();
     await pressKey(setup, "RETURN", { meta: true });
-    await waitForText(setup, "[Changes]");
+    await waitForText(setup, "[Approve]");
 
     // Act
     await setup.mockInput.typeText("/restate");
@@ -213,7 +215,7 @@ describe("send message confirm", () => {
     // Assert - no overlay, and the session stays pending
     const frame = setup.captureCharFrame();
 
-    expect(frame).not.toContain("[Changes]");
+    expect(frame).not.toContain("[Approve]");
     expect(frame).not.toContain(" cancel ");
     expect(server.core.sessionGet(session.id).status).toBe("pending");
   });

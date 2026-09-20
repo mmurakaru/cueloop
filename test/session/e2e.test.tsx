@@ -14,6 +14,7 @@ import { DaemonClient } from "@cueloop/daemon/client";
 import { App } from "../../packages/client/src/App";
 import {
   dragText,
+  press,
   pressKey,
   renderReadyApp,
   typeText,
@@ -224,7 +225,9 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       await typeText(setup, "Stage the rollout: 5% then 50% then 100%.");
       await pressKey(setup, "RETURN", { meta: true });
       await waitForText(setup, "Stage the rollout"); // the saved comment renders inline in the thread
-      await pressKey(setup, "RETURN", { meta: true }); // open submit (request_changes default with pending item)
+      await pressKey(setup, "RETURN", { meta: true }); // open submit (approve default)
+      await waitForText(setup, "[Approve]");
+      await press(setup, "right"); // cycle to request changes
       await waitForText(setup, "[Changes]");
       await typeText(setup, "Too aggressive.");
       await pressKey(setup, "RETURN", { meta: true });

@@ -13,6 +13,8 @@ import {
   clickText,
   dragText,
   isolateUserConfig,
+  navCommand,
+  press,
   pressKey,
   renderReadyApp,
   typeText,
@@ -92,8 +94,11 @@ describe("diff review", () => {
     await waitForText(setup, "● Map needs an eviction story.");
     expect(server.core.sessionGet(session.id).annotations[0]!.anchor.quote).toBe("new Map()");
 
-    // Act - submit with the session chord (cmd+enter, no composer open), confirm request_changes
+    // Act - submit with the session chord (cmd+enter, no composer open), cycle to request changes
     await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "[Approve]");
+    await press(setup, "right");
+    await waitForText(setup, "[Changes]");
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
@@ -138,7 +143,7 @@ describe("diff review", () => {
     const setup = await renderApp();
 
     // Act
-    await pressKey(setup, "c", { meta: true });
+    await navCommand(setup, "c");
 
     // Assert - the body is gone but the band (with its counts) remains
     await waitForState(setup, () => !setup.captureCharFrame().includes("new Map()"));
@@ -159,7 +164,7 @@ describe("diff review", () => {
     const setup = await renderApp();
 
     // Act
-    await pressKey(setup, "x", { meta: true });
+    await navCommand(setup, "x");
 
     // Assert
     await waitForText(setup, "hunk curation needs full file contents");
@@ -187,7 +192,7 @@ describe("diff review", () => {
 
     // Act - place the caret on the added line and reject its change
     await clickText(setup, "new Map()");
-    await pressKey(setup, "x", { meta: true });
+    await navCommand(setup, "x");
 
     // Assert - the single change is gone, so the curated working copy is empty
     await waitForText(setup, "change rejected");

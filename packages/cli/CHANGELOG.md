@@ -1,5 +1,26 @@
 # cueloop
 
+## 0.1.0-alpha.79
+
+### Minor Changes
+
+- [#469](https://github.com/mmurakaru/cueloop/pull/469) [`47b873e`](https://github.com/mmurakaru/cueloop/commit/47b873e1d7adbaaba7992aa15c5cd475e3fe51b5) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reach the thread's structural commands through a nav mode instead of a leader chord. In the thread you type to comment, as before; press esc for nav mode - the footer switches to the commands - and a bare letter runs one: e edit, s share, enter submit, n/p move between comments, x cut, u restore, r rename, and the diff and tree letters. Every command is a bare key with no prefix and no modifier, so the terminal never swallows one and there is nothing to set up. Tab and shift+tab cycle the panes. The old ctrl+g leader is gone; cmd/ctrl+enter, ctrl+e, and ctrl+s stay as accelerators.
+
+  The mode hint is one line above the focused surface's footer, a diff rejects a change with a single x, and the submit card opens on approve by default (set `[ui] default_verdict` to change it). The inline plan editor keeps the pane's left inset and saves with ctrl+enter. A focused comment fills its marker-rail dot, not just the card border. The unwired tree-view toggle is dropped from nav until the history view lands. The nav footer names only the commands the surface can run, so the Welcome tab and a project file offer comment and fold rather than the diff commands. The keybinds dialog no longer lists an agent terminal detach chord, which had nothing behind it.
+
+### Patch Changes
+
+- [#466](https://github.com/mmurakaru/cueloop/pull/466) [`8a38a25`](https://github.com/mmurakaru/cueloop/commit/8a38a2537ea930b672519eaf1eed09b9523d0a82) Thanks [@mmurakaru](https://github.com/mmurakaru)! - The Changes pane's "No changes" hint centers level with the thread pane's "Select a thread", offsetting for the thread footer's height.
+
+- [#468](https://github.com/mmurakaru/cueloop/pull/468) [`f796fef`](https://github.com/mmurakaru/cueloop/commit/f796fefa3d495d95e55f5e4dcf72326819f59945) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Edit a thread's body inline, without leaving the pane. The edit shortcut now opens a native markdown editor over the thread - full editor motion, selection, and undo - that lightly marks the source as you type: a heading's marker dims and its title bolds, links color, and inline and fenced code gray. The header action toggles between edit and normal; cmd, meta, or ctrl + enter saves and closes. A diff still hands off to your `$EDITOR`.
+
+- [#468](https://github.com/mmurakaru/cueloop/pull/468) [`f796fef`](https://github.com/mmurakaru/cueloop/commit/f796fefa3d495d95e55f5e4dcf72326819f59945) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Render a thread's plan the way a markdown preview does. Headings sit over a rule, links show their label in the link color with the URL tucked away, inline and fenced code gray, and emphasis reads bold, italic, or struck - the source markers are gone. GFM tables render as an aligned grid and leading YAML frontmatter as a bordered key/value table. Comments still anchor to the source under the rendered text, so a note dropped on a link label lands exactly where it reads.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.79
+  - @cueloop/client@0.1.0-alpha.79
+  - @cueloop/daemon@0.1.0-alpha.79
+  - @cueloop/schema@0.1.0-alpha.79
+
 ## 0.1.0-alpha.78
 
 ### Patch Changes

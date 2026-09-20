@@ -58,12 +58,11 @@ describe("PTY tier: the real TUI in a pseudo-terminal", () => {
       // Assert
       await session.waitForText("● xyz", { what: "the typed draft text" });
 
-      // Act - escape twice drops the draft, then the mark
+      // Act - escape drops the draft but keeps type mode and the mark
       await session.press("escape");
       await session.waitForScreen((screen) => !screen.includes("● xyz"), {
         what: "the draft to close",
       });
-      await session.press("escape");
 
       // Assert
       expect(session.exit()).toBeNull();

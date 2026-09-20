@@ -7,7 +7,7 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
-import type { Clock } from "@opentui/core";
+import type { Clock, KeyEvent } from "@opentui/core";
 import { marksByDisplay, type Mark } from "./view-plan";
 import {
   DEFAULT_KEYS,
@@ -61,15 +61,12 @@ import { ThreadFooter, THREAD_FOOTER_HEIGHT } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
-  diffChordEntries,
-  dispatchLeaderCommand,
-  leaderCombosFor,
-  leaderHint,
-  matchesLeader,
-  railChordEntries,
-  resolveThreadChord,
-  THREAD_CHORD_ENTRIES,
-  treeChordEntries,
+  curationCommandEntries,
+  diffCommandEntries,
+  resolveNavKey,
+  resolveSessionChord,
+  sessionCommandEntries,
+  treeCommandEntries,
 } from "./thread-chords";
 import { type DiffFoldControls } from "./components/DiffContentView";
 import { commentCountsByFile } from "./view-diff";
@@ -81,6 +78,7 @@ import type {
   Identity,
   ShareLink,
   Thread,
+  VerdictKind,
 } from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
@@ -349,11 +347,7 @@ function usableScreenReached(
 }
 
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
-function cheatsheetFor(
-  keyBindings: KeyBindings,
-  threadViewActive: boolean,
-  hint: string,
-): CheatsheetSection[] {
+function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
 
   if (!threadViewActive) {
@@ -362,11 +356,10 @@ function cheatsheetFor(
 
   return [
     ...THREAD_VIEW_CHEATSHEET,
-    { title: "Session", entries: [...THREAD_CHORD_ENTRIES] },
-    { title: "Diff", entries: diffChordEntries(hint) },
-    { title: "Rail", entries: railChordEntries(hint) },
-    { title: "Tree", entries: treeChordEntries(hint) },
-    ...base.filter((section) => section.title === "Agent terminal"),
+    { title: "Nav mode · session", entries: sessionCommandEntries() },
+    { title: "Nav mode · diff", entries: diffCommandEntries() },
+    { title: "Nav mode · discussion", entries: curationCommandEntries() },
+    { title: "Nav mode · history", entries: treeCommandEntries() },
   ];
 }
 
@@ -426,29 +419,13 @@ export function threadsNavHandled(params: {
   return false;
 }
 
-export function appLeaderHandled(params: {
-  focusedPane: FocusPane;
-  key: { name: string; shift?: boolean; ctrl?: boolean; meta?: boolean; super?: boolean };
-  leaderCombos: readonly string[];
-  pending: { current: boolean };
-  runLeaderCommand: (key: { name: string; shift?: boolean }) => void;
-}): boolean {
-  const { focusedPane, key, leaderCombos, pending, runLeaderCommand } = params;
-
-  if (focusedPane !== "threads" && focusedPane !== "project") return false;
-  if (pending.current) {
-    pending.current = false;
-    if (key.name !== "escape") runLeaderCommand(key);
-
-    return true;
-  }
-  if (matchesLeader(key, leaderCombos)) {
-    pending.current = true;
-
-    return true;
-  }
-
-  return false;
+export function paneCycleRequested(
+  key: { name: string },
+  overlay: string,
+  menuOwnsKeyboard: boolean,
+  threadComposing: boolean,
+): boolean {
+  return key.name === "tab" && overlay === "none" && !menuOwnsKeyboard && !threadComposing;
 }
 
 export function visiblePanes(
@@ -604,6 +581,7 @@ export function App({
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
   const [diffView, setDiffView] = useState<DiffViewMode>("split");
+  const [defaultVerdict, setDefaultVerdict] = useState<VerdictKind>("approve");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<RailTab>("review");
@@ -647,6 +625,7 @@ export function App({
     setSkills(loadSkills(config.skillsPath));
     setAutoClose(config.ui.autoClose);
     setDiffView(config.ui.diffView);
+    setDefaultVerdict(config.ui.defaultVerdict);
     setPinnedIds(new Set(config.ui.pins));
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings, appearance]);
@@ -848,6 +827,7 @@ export function App({
     inboxCursor,
     mode,
     session,
+    defaultVerdict,
     focusedAnnotationId,
     selectedCurationId,
     railTab,
@@ -900,8 +880,6 @@ export function App({
   // its own grammar meanwhile so typing lands in the dialog, not the thread
   const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay, shareDialogOpen);
 
-  const leaderCombos = leaderCombosFor(keysRef.current.leader);
-  const leaderPending = useRef(false);
   const navigablePanes = navigableFocusPanes(
     sidebarOpen,
     workbench.zoomed,
@@ -918,14 +896,18 @@ export function App({
   }, [session, navigablePanes, focusedPane]);
   const cyclePanes = (backward: boolean): void =>
     setFocusedPane((current) => nextFocusPane(current, navigablePanes, backward));
-  const runLeaderCommand = (key: { name: string; shift?: boolean }): void => {
-    if (key.name === "tab") return cyclePanes(Boolean(key.shift));
+  const runNavCommand = (key: { name: string; shift?: boolean }): boolean => {
+    const intent = resolveNavKey(key, {
+      isOwner,
+      resolved,
+      treeActive: railTab === "tree",
+      isDiff,
+    });
 
-    dispatchLeaderCommand(
-      key,
-      { composing: threadComposing, isOwner, resolved, treeActive: railTab === "tree", isDiff },
-      dispatch,
-    );
+    if (!intent) return false;
+    dispatch(intent);
+
+    return true;
   };
   // clicking a sidebar thread moves the cursor onto it too, so the row shows its selected backdrop at once
   const openThread = (id: string): void => {
@@ -937,6 +919,17 @@ export function App({
     controller.open(id);
   };
 
+  const threadSurfaceHandledKey = (key: KeyEvent): boolean => {
+    if (!threadViewActive || threadViewSuspended) return false;
+    if (!threadComposing) {
+      const chord = resolveSessionChord(key, { isOwner, resolved });
+
+      if (chord) dispatch(chord);
+    }
+
+    return true;
+  };
+
   useKeyboard((key) => {
     if (quitKeyHandled(key, onExit)) return;
     // the inline body editor owns the pane and every key while open
@@ -944,10 +937,9 @@ export function App({
     // the share dialog owns its own keys while open; the shell grammar stands down
     if (shareDialogOpen) return;
     if (menuModalHandled(menuControl, key)) return;
-    if (
-      appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand })
-    )
-      return;
+    if (paneCycleRequested(key, overlay, menuOwnsKeyboard, threadComposing)) {
+      return cyclePanes(Boolean(key.shift));
+    }
     if (
       threadsNavHandled({
         focusedPane,
@@ -959,23 +951,7 @@ export function App({
       })
     )
       return;
-    // The thread view owns the document grammar while active (its own
-    // useKeyboard handles marks, comments, and ctrl+q); the session chords
-    // (submit, share, edit, walk, the rail) resolve here, and the keymap only
-    // sees keys while an overlay or the menu owns them.
-    if (threadViewActive && !threadViewSuspended) {
-      const chord = resolveThreadChord(key, {
-        composing: threadComposing,
-        isOwner,
-        resolved,
-        treeActive: railTab === "tree",
-        isDiff,
-      });
-
-      if (chord) dispatch(chord);
-
-      return;
-    }
+    if (threadSurfaceHandledKey(key)) return;
     // A compose textarea owns the keyboard while open: let it receive the typed note instead of the
     // global keymap acting on each letter (the prototype, and the bare-shell welcome playground).
     if (prototypeComposing || welcomeComposing) return;
@@ -1030,7 +1006,7 @@ export function App({
     <MenuChrome
       menuDialog={menuDialog}
       theme={theme}
-      keybindsSections={cheatsheetFor(keyBindings, threadViewActive, leaderHint(leaderCombos))}
+      keybindsSections={cheatsheetFor(keyBindings, threadViewActive)}
       settingsCategories={settingsCategories}
       settingsValues={settingsValues}
       settingsNav={settingsNav}
@@ -1229,8 +1205,7 @@ export function App({
                           suspended={surfaceSuspended(threadViewSuspended, focusedPane, "thread")}
                           editOrphanCount={editOrphanCount}
                           onComposingChange={setThreadComposing}
-                          leaderCombos={leaderCombos}
-                          onLeaderCommand={runLeaderCommand}
+                          onNavCommand={runNavCommand}
                           resolved={resolved}
                           onObserverBlocked={(reason) =>
                             controller.setStatus(
@@ -1331,8 +1306,7 @@ export function App({
                           void controller.reply(rootAnnotationId, body),
                         onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
                         resolveAuthorLabel,
-                        leaderCombos,
-                        onLeaderCommand: runLeaderCommand,
+                        onNavCommand: runNavCommand,
                         onExit: () => onExit?.(0),
                       }}
                       rejectedRows={rejectedRows}

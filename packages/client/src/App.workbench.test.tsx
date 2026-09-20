@@ -21,10 +21,12 @@ import {
   dragText,
   isolateUserConfig,
   locateText,
+  press,
   pressKey,
   typeText,
   waitForState,
   waitForText,
+  waitForTextGone,
   renderReadyApp,
 } from "./test-support";
 import { NERD } from "./components/primitives/icons";
@@ -98,6 +100,7 @@ type Setup = Awaited<ReturnType<typeof renderApp>>;
 
 /** The header controls sit on the top content row of the compact header. */
 const HEADER_ROW = 0;
+const BARE_NAV_HINT = "c comment · z fold · type to leave";
 
 /** Column of a Project-header toggle, located by its own glyph so spacing changes never break the click. */
 function toggleColumn(setup: Setup, glyph: string): number {
@@ -494,6 +497,89 @@ describe("the bare-launch welcome shell", () => {
     const frame = setup.captureCharFrame();
     expect(frame).toContain("A tiny tracked repo.");
     expect(frame).toContain("edited in the working tree");
+  });
+
+  test("nav mode on the Welcome tab offers only comment and fold; a diff letter types", async () => {
+    const setup = await renderReadyApp(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
+      { width: 160, height: 28 },
+    );
+    await waitForText(setup, "quick brown fox");
+    const line = locateText(setup, "quick brown fox");
+    await setup.mockMouse.click(line.column, line.row);
+
+    // esc enters nav; the footer names what this surface can do, not the diff commands
+    await press(setup, "escape");
+    await waitForText(setup, BARE_NAV_HINT);
+    expect(setup.captureCharFrame()).not.toContain("x reject");
+
+    // a diff letter has no command here, so it leaves nav and types, as the footer says
+    await pressKey(setup, "d");
+    await waitForText(setup, "● d");
+    await press(setup, "escape");
+    await waitForTextGone(setup, "● d");
+
+    // c opens a comment on the caret word; z folds the saved card
+    await press(setup, "escape");
+    await waitForText(setup, BARE_NAV_HINT);
+    await pressKey(setup, "c");
+    await typeText(setup, "note");
+    await waitForText(setup, "● note");
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "note");
+    await press(setup, "escape");
+    await waitForText(setup, BARE_NAV_HINT);
+    await pressKey(setup, "z");
+    await waitForText(setup, "○ 1 comment ›");
+
+    setup.renderer.destroy();
+  });
+
+  test("nav mode on a bare changed-file diff has no reject or walk; x types instead", async () => {
+    const setup = await renderReadyApp(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
+      { width: 160, height: 28 },
+    );
+    await waitForText(setup, "README.md");
+    const readme = locateText(setup, "README.md");
+    await setup.mockMouse.click(readme.column, readme.row);
+    await waitForText(setup, "edited in the working tree");
+    const line = locateText(setup, "edited in the working tree");
+    await setup.mockMouse.click(line.column, line.row);
+
+    await press(setup, "escape");
+    await waitForText(setup, BARE_NAV_HINT);
+    expect(setup.captureCharFrame()).not.toContain("x reject");
+    await pressKey(setup, "x");
+    await waitForText(setup, "● x");
+    const frame = setup.captureCharFrame();
+    expect(frame).toContain("edited in the working tree");
+    expect(frame).not.toContain("change rejected");
+
+    setup.renderer.destroy();
+  });
+
+  test("nav mode on a project file offers only comment and fold", async () => {
+    const setup = await renderReadyApp(
+      <App home={welcomeHome} sessionId={undefined} cwd={welcomeRepo} />,
+      { width: 160, height: 28 },
+    );
+    await waitForText(setup, "README.md");
+    await setup.mockMouse.click(treeToggleColumn(setup), HEADER_ROW);
+    await waitForText(setup, "README.md");
+    const readme = locateText(setup, "README.md");
+    await setup.mockMouse.click(readme.column, readme.row);
+    await waitForText(setup, "edited in the working tree");
+    const line = locateText(setup, "edited in the working tree");
+    await setup.mockMouse.click(line.column, line.row);
+
+    await press(setup, "escape");
+    await waitForText(setup, BARE_NAV_HINT);
+    expect(setup.captureCharFrame()).not.toContain("x reject");
+    await pressKey(setup, "d");
+    await waitForText(setup, "● d");
+
+    setup.renderer.destroy();
   });
 
   test("a bare launch rides a Welcome tab in the editor while the Thread pane waits empty", async () => {
