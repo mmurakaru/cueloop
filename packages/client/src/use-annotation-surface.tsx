@@ -882,6 +882,8 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const pressed = positionAt(allGeometry(), event.x, event.y);
 
     if (!pressed || !source.annotatable(pressed.blockIndex)) return;
+    // a click to place the caret is an intent to type there, so it leaves nav mode
+    setNavMode(false);
     const stamp = { time: Date.now(), x: event.x, y: event.y };
     const wordMode = isDoubleClick(lastClick.current, stamp);
 

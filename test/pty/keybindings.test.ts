@@ -56,6 +56,29 @@ async function navPress(
   });
 }
 
+/**
+ * Press a bare nav key while already in nav mode, without the escape that navPress
+ * uses to enter it - escape drops the focused card, so cycling focus (n/p) or acting
+ * on it (backspace) must stay in nav across the presses.
+ */
+async function navStep(
+  session: PtyTuiSession,
+  chord: string,
+  expected: string | ((screen: string) => boolean),
+  options: PtyScreenWaitOptions = {},
+): Promise<string> {
+  const predicate =
+    expected instanceof Function ? expected : (screen: string) => screen.includes(expected);
+  const presses = cheatsheetChordKeyPresses(chord);
+
+  for (const press of presses.slice(0, -1)) await session.press(press);
+
+  return session.pressAndWaitForScreen(presses.at(-1)!, predicate, {
+    what: `the effect of nav ${chord} in place`,
+    ...options,
+  });
+}
+
 /** Press a nav command that answers with a toast or prompt, then dismiss it with escape. */
 async function navPressForToast(
   session: PtyTuiSession,
@@ -118,11 +141,11 @@ describe("nav mode in a diff review", () => {
 
   ptyTest("esc shows the NAV footer; typing a letter returns to composing a comment", async () => {
     await enterNav(session);
-    // a bare letter with no command leaves nav and seeds a draft
-    await session.pressAndWaitForScreen("z", (screen) => screen.includes("● z"), {
+    // a bare letter with no diff command leaves nav and seeds a draft
+    await session.pressAndWaitForScreen("w", (screen) => screen.includes("● w"), {
       what: "a draft seeded by typing in nav mode",
     });
-    await pressEscapeUntilGone(session, "● z");
+    await pressEscapeUntilGone(session, "● w");
   });
 
   ptyTest("x rejects the change under the caret and u restores it", async () => {
@@ -217,9 +240,10 @@ describe("nav mode in a diff review", () => {
   });
 
   ptyTest("n and p move the focus between cards", async () => {
-    // seed two comments on two lines; a draft sends with ctrl+enter (bare enter is a newline)
+    // a click leaves any inherited nav mode and places the caret on a real diff row
     const send = cheatsheetChordKeyPress("⌃enter");
 
+    await session.click("new Map()");
     await session.type("first note");
     await session.waitForText("● first note", { what: "the first draft" });
     await session.pressAndWaitForScreen(send, (screen) => !screen.includes("enter save"), {
@@ -237,13 +261,14 @@ describe("nav mode in a diff review", () => {
       ? ["first", "second"]
       : ["second", "first"];
 
-    await navPress(session, "n", `┃ ● ${other} note`);
-    await navPress(session, "p", `┃ ● ${focused} note`);
+    await navStep(session, "n", `┃ ● ${other} note`);
+    await navStep(session, "p", `┃ ● ${focused} note`);
   });
 
   ptyTest("backspace deletes the focused card", async () => {
     await navPress(session, "n", (screen) => /┃ ● (first|second) note/.test(screen));
-    await navPressForToast(session, "⌫", "annotation deleted");
+    await navStep(session, "⌫", "annotation deleted");
+    await pressEscapeUntilGone(session, "annotation deleted");
   });
 });
 
