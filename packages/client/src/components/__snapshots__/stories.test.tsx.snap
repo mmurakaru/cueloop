@@ -1596,34 +1596,6 @@ exports[`stories catalog Surfaces/WelcomePlayground/Welcome renders, snapshots, 
 "
 `;
 
-exports[`stories catalog Chrome/AgentLauncher/Launcher renders, snapshots, and carries its colors: Chrome/AgentLauncher/Launcher 1`] = `
-"  ┌────────────────────────────────────┐
-  │ Claude Code                        │
-  └────────────────────────────────────┘
-  ┌────────────────────────────────────┐
-  │ Pi                                 │
-  └────────────────────────────────────┘
-  ┌────────────────────────────────────┐
-  │ OpenAI Codex                       │
-  └────────────────────────────────────┘
-  plan context: seed the plan           
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-"
-`;
-
 exports[`stories catalog Layout/MenuControl/OneOpenAtATime renders, snapshots, and carries its colors: Layout/MenuControl/OneOpenAtATime 1`] = `
 "                              
  alpha: open                  

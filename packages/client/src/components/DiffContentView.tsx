@@ -855,7 +855,13 @@ export function DiffContentView({
         >
           {materialized}
         </scrollbox>
-        {suspended ? null : <NavModeHint navMode={surface.navMode} surface="diff" theme={tokens} />}
+        {suspended ? null : (
+          <NavModeHint
+            navMode={surface.navMode}
+            surface={onNavCommand ? "diff" : "bare"}
+            theme={tokens}
+          />
+        )}
       </box>
       <DiscussionMarkerRail
         discussions={surface.discussions}
