@@ -96,7 +96,6 @@ export const THREAD_CHORD_ENTRIES = [
   { keys: "⌃enter", label: "submit the review" },
   { keys: "⌃e", label: "edit in $EDITOR" },
   { keys: "⌃s", label: "share" },
-  { keys: "⌃r", label: "cycle the rail" },
 ] as const;
 
 /** The rail and curation chords: the leader plus the plan sheet's old letter. */
@@ -108,7 +107,6 @@ export function railChordEntries(hint: string): ChordEntry[] {
     { keys: `${hint}r`, label: "rename the author" },
     { keys: `${hint}x`, label: "cut the block" },
     { keys: `${hint}u`, label: "restore the last cut" },
-    { keys: "⌥w / ⌥s", label: "widen / narrow the rail" },
   ];
 }
 

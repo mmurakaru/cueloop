@@ -18,7 +18,7 @@ import { quickActionBody, type QuickAction } from "./config";
 import { VERDICTS } from "./components/ConfirmCard";
 
 /** Which pane of the session tree / review the keyboard grammar is aimed at. */
-export type RailTab = "review" | "agent" | "tree";
+export type RailTab = "review" | "tree";
 
 /** The one overlay/mode the TUI is in; every compose/submit/edit flow is a variant. */
 export type Mode =

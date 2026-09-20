@@ -1331,22 +1331,6 @@ exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, a
 "
 `;
 
-exports[`stories catalog Surfaces/ThreadsSidebar/Open renders, snapshots, and carries its colors: Surfaces/ThreadsSidebar/Open 1`] = `
-" Projects                    │                              
-   widget                    │                              
-     Migration Plan          │                              
-                             │                              
- Threads                     │                              
-   working tree              │                              
-                             │                              
-                             │                              
-                             │                              
-                             │                              
-                             │                              
-                             │                              
-"
-`;
-
 exports[`stories catalog Overlays/Toast/LongMessage renders, snapshots, and carries its colors: Overlays/Toast/LongMessage 1`] = `
 "                                                                                          
                                                                                           

@@ -57,10 +57,7 @@ type ChordTable = keyof typeof CHORD_TABLES;
 
 /** Chords the cheatsheet advertises with no visible effect; each names the tracking issue. */
 const UNWIRED_CHORDS = new Map([
-  ["rail ⌥w", "no handler for widen the rail (#366)"],
-  ["rail ⌥s", "no handler for narrow the rail (#366)"],
   [`rail ${LEAD}e`, "the card edit mode has no rendering in the current shell (#366)"],
-  ["thread ⌃r", "no handler for cycle the rail (#366)"],
   [`tree ${LEAD}t`, "the tree rail tab is state only, no component renders it (#366)"],
   [`tree ${LEAD}n`, "moves a tree selection that is never drawn (#366)"],
   [`tree ${LEAD}p`, "moves a tree selection that is never drawn (#366)"],
