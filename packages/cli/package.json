@@ -34,7 +34,7 @@
     "@cueloop/client": "0.1.0-alpha.78",
     "@cueloop/daemon": "0.1.0-alpha.78",
     "@cueloop/schema": "0.1.0-alpha.78",
-    "valibot": "^1.4.2"
+    "valibot": "^1.5.0"
   },
   "engines": {
     "bun": ">=1.3.0"
