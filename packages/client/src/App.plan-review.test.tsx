@@ -375,7 +375,9 @@ describe("thread switch preserves an open edit", () => {
 
     // Assert - the leaving thread's working copy holds the edit rather than dropping it
     await waitForState(setup, () =>
-      (server.core.sessionGet(session.id).workingCopy ?? "").includes("kept across a thread switch"),
+      (server.core.sessionGet(session.id).workingCopy ?? "").includes(
+        "kept across a thread switch",
+      ),
     );
   });
 });
