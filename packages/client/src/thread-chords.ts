@@ -42,7 +42,7 @@ export function sessionCommandEntries(): ChordEntry[] {
 /** The diff-review commands, on the caret's row or file. */
 export function diffCommandEntries(): ChordEntry[] {
   return [
-    { keys: "x / X", label: "reject the change / the hunk" },
+    { keys: "x", label: "reject the change under the caret" },
     { keys: "u", label: "restore the last rejection" },
     { keys: "c", label: "collapse the file to its band" },
     { keys: "d", label: "split / stacked (when wide)" },
@@ -92,8 +92,6 @@ function resolveDiffKey(name: string, context: ThreadNavContext): Intent | null 
   switch (name) {
     case "x":
       return mutating({ type: "rejectChange" }, context);
-    case "X":
-      return mutating({ type: "rejectHunk" }, context);
     case "c":
       return { type: "foldFile" };
     case "d":

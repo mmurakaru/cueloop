@@ -143,6 +143,24 @@ describe("loadConfig", () => {
     }
   });
 
+  test("[ui] default_verdict defaults to approve and parses request_changes", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-verdict-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, `[ui]\ndefault_verdict = "request_changes"\n`);
+
+    try {
+      // Assert
+      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.defaultVerdict).toBe(
+        "approve",
+      );
+      expect(loadConfig({ userConfigPath: path }).ui.defaultVerdict).toBe("request_changes");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("[skills] path overrides the default and a malformed value never discards the config", () => {
     const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-skills-"));
     const path = join(dir, "config.toml");

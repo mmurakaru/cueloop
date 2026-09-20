@@ -21,11 +21,12 @@ import { NERD } from "./primitives/icons";
 import { createIntralineResolver, type IntralineRun } from "../diff-intraline";
 import { highlightDiffRows, type SyntaxSpan } from "../diff-syntax";
 import { splitDiffRows, type SplitLine, type SplitRow } from "../split-diff";
-import { BOLD, UNDERLINE, type AnnotationPalette } from "../annotation-palette";
+import { UNDERLINE, type AnnotationPalette } from "../annotation-palette";
 import { lineMarkRanges, runsFor, wrapLines, type MarkRange } from "../mark-runs";
 import { useFrameMeasure } from "../use-frame-measure";
 import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
+import { NavModeHint } from "./NavModeHint";
 import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
 import { coloredRowSpans } from "./diff-content-view-layout";
 
@@ -854,22 +855,8 @@ export function DiffContentView({
         >
           {materialized}
         </scrollbox>
-        <box style={{ height: 1, flexDirection: "row", paddingLeft: 2 }}>
-          {surface.navMode ? (
-            <text selectable={false}>
-              <span fg={tokens.accent} attributes={BOLD}>
-                {"NAV"}
-              </span>
-              <span fg={tokens.textDim}>
-                {"  x/X reject · c fold · d layout · k walk · ⏎ submit · type to leave"}
-              </span>
-            </text>
-          ) : (
-            <text selectable={false} fg={tokens.textDim}>
-              {"type to comment · esc for nav mode"}
-            </text>
-          )}
-        </box>
+        {/* one hint per focused surface: the suspended (unfocused) surface stays quiet */}
+        {suspended ? null : <NavModeHint navMode={surface.navMode} surface="diff" theme={tokens} />}
       </box>
       <DiscussionMarkerRail
         discussions={surface.discussions}

@@ -14,6 +14,7 @@ import {
   dragText,
   isolateUserConfig,
   navCommand,
+  press,
   pressKey,
   renderReadyApp,
   typeText,
@@ -93,8 +94,11 @@ describe("diff review", () => {
     await waitForText(setup, "● Map needs an eviction story.");
     expect(server.core.sessionGet(session.id).annotations[0]!.anchor.quote).toBe("new Map()");
 
-    // Act - submit with the session chord (cmd+enter, no composer open), confirm request_changes
+    // Act - submit with the session chord (cmd+enter, no composer open), cycle to request changes
     await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "[Approve]");
+    await press(setup, "right");
+    await waitForText(setup, "[Changes]");
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert

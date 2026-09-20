@@ -2,4 +2,6 @@
 "cueloop": patch
 ---
 
-Reach the thread's structural commands through a nav mode instead of a leader chord. In the thread you type to comment, as before; press esc for nav mode - the footer reads NAV - and a bare letter runs a command: e edit, s share, enter submit, n/p move between comments, x cut, u restore, r rename, and the diff and tree letters. Every command is a bare key, so nothing collides with tmux, zellij, screen, or an OS shortcut, and there is nothing to set up. Tab and shift+tab cycle the panes. The old ctrl+g leader is gone; cmd/ctrl+enter, ctrl+e, and ctrl+s stay as accelerators.
+Reach the thread's structural commands through a nav mode instead of a leader chord. In the thread you type to comment, as before; press esc for nav mode - the footer switches to the commands - and a bare letter runs one: e edit, s share, enter submit, n/p move between comments, x cut, u restore, r rename, and the diff and tree letters. Every command is a bare key, so nothing collides with tmux, zellij, screen, or an OS shortcut, and there is nothing to set up. Tab and shift+tab cycle the panes. The old ctrl+g leader is gone; cmd/ctrl+enter, ctrl+e, and ctrl+s stay as accelerators.
+
+The mode hint is one line above the footer that follows the focused surface, a diff rejects a change with a single x, and the submit card opens on approve by default (set `[ui] default_verdict` to change it). The inline plan editor keeps the pane's left inset and saves with ctrl+enter.

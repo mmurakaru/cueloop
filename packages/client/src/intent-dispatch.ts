@@ -8,7 +8,7 @@
  */
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { isAddressed, isAgentNote, type Thread, type VerdictKind } from "@cueloop/schema";
+import { isAddressed, type Thread, type VerdictKind } from "@cueloop/schema";
 import { displayText, spanKey, startSpan, type DisplayBlock, type SpanState } from "./view-plan";
 import type { DiffRow } from "./view-diff";
 import type { ReviewController } from "./thread-controller";
@@ -51,23 +51,6 @@ export function activeSpanState(mode: Mode): SpanState | null {
 }
 
 /**
- * Annotations that still count as feedback: agent notes never do, and an
- * annotation a revision already addressed is settled - it neither blocks the
- * verdict default nor re-enters the next feedback document.
- */
-export function reviewerAnnotations(session: Thread) {
-  return session.annotations.filter(
-    (annotation) => !isAgentNote(annotation) && !isAddressed(annotation),
-  );
-}
-
-export function defaultVerdict(session: Thread): VerdictKind {
-  return reviewerAnnotations(session).length || session.workingCopy !== undefined
-    ? "request_changes"
-    : "approve";
-}
-
-/**
  * Everything the reducer reads or writes, supplied fresh each render: the
  * controller and exit hook, the derived reads (view rows, cursor, mode,
  * session), the refs it pokes, the state setters, and the three App-owned
@@ -85,6 +68,8 @@ export interface IntentDispatchDeps {
   inboxCursor: number;
   mode: Mode;
   session: Thread | null;
+  /** The verdict the submit card opens on ([ui] default_verdict). */
+  defaultVerdict: VerdictKind;
   focusedAnnotationId: string | undefined;
   /** The curation item selected for undo, if any. */
   selectedCurationId: string | undefined;
@@ -384,7 +369,7 @@ function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispa
 
   if (!session) return;
   deps.liveInput.current = "";
-  deps.setMode({ type: "submit", verdict: defaultVerdict(session), summary: "" });
+  deps.setMode({ type: "submit", verdict: deps.defaultVerdict, summary: "" });
 }
 
 // share opens the share dialog; it owns its own keys, links list, and publish wizard

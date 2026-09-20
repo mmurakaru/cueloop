@@ -17,8 +17,8 @@ The thread has two modes, and the footer always says which one you are in.
 - **Type** is the default. A letter opens a comment on the mark, or on the word
   under the caret. This is the primary act, so it needs no key to reach.
 - **Nav** is where the structural commands live. Press **esc** to enter it; the
-  footer reads `NAV`. Now a bare letter runs a command instead of typing. Press
-  `c` (or just start typing) to return to type mode.
+  footer switches to the nav commands. Now a bare letter runs a command instead
+  of typing. Press `c` (or just start typing) to return to type mode.
 
 esc always heads toward nav, so it never strands you: from typing it enters nav,
 and in nav it drops the mark or a focused comment without leaving. There is no
@@ -66,12 +66,12 @@ carries the text of every block it covers, and the card sits under the last one.
 
 ## Nav mode commands
 
-Press **esc** first (the footer reads `NAV`), then a bare letter.
+Press **esc** first (the footer switches to the nav commands), then a bare letter.
 
 | Input       | What it does                               |
 | ----------- | ------------------------------------------ |
 | `c`         | comment on the mark (returns to type)      |
-| `e`         | edit the plan in `$EDITOR`                 |
+| `e`         | edit the plan body in the inline editor    |
 | `s`         | share the plan                             |
 | `enter`     | open the submit card                       |
 | `n` / `p`   | focus the next or previous comment         |
@@ -97,13 +97,13 @@ keys, so moving through the Threads sidebar never moves the caret in the editor.
 A diff review reads the diff sheet in the Thread pane. Enter nav mode with esc,
 then act on the row or file under the caret.
 
-| Input     | What it does                        |
-| --------- | ----------------------------------- |
-| `x` / `X` | reject the change / the whole hunk  |
-| `u`       | restore the last rejection          |
-| `c`       | collapse the file to its band       |
-| `d`       | split or stacked layout (when wide) |
-| `k`       | start the guided walk               |
+| Input | What it does                        |
+| ----- | ----------------------------------- |
+| `x`   | reject the change under the caret   |
+| `u`   | restore the last rejection          |
+| `c`   | collapse the file to its band       |
+| `d`   | split or stacked layout (when wide) |
+| `k`   | start the guided walk               |
 
 In the guided walk, `]` and `[` step through the files and `esc` leaves it.
 

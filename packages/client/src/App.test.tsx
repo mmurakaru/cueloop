@@ -203,10 +203,12 @@ describe("submit", () => {
     // Act: with no composer open the same chord opens submit
     await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert
-    await waitForText(setup, "[Changes]");
+    // Assert - the card opens on the default verdict, approve
+    await waitForText(setup, "[Approve]");
 
-    // Act
+    // Act - cycle to request changes, then send with a summary
+    await press(setup, "right");
+    await waitForText(setup, "[Changes]");
     await type(setup, "Expand the steps.");
     await pressKey(setup, "RETURN", { meta: true });
 

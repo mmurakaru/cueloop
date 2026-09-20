@@ -2,7 +2,7 @@
  * PTY keybinding suite: the thread view's nav mode, pressed as the bytes a
  * terminal sends, against the real TUI. In a live review a bare letter types a
  * comment, so the structural commands live behind esc: press esc to enter nav
- * mode (the footer reads NAV), then a bare letter acts on the session, a
+ * mode (the footer shows the nav commands), then a bare letter acts on the session, a
  * discussion, the tree, or a diff row. Bare keys are used throughout so no
  * multiplexer prefix or OS shortcut can intercept them. Env-gated behind
  * CUELOOP_RUN_PTY (`bun run test:pty`).
@@ -12,7 +12,6 @@ import { afterAll, beforeAll, describe, expect } from "bun:test";
 import type { TestGitRepo } from "../helpers/git-repo";
 import { cheatsheetChordKeyPress, cheatsheetChordKeyPresses } from "../helpers/pty-key-codes";
 import {
-  EDIT_MARKER,
   OTHER_CHANGE,
   PTY_TIER_ENABLED,
   ROLLOUT_PLAN_LAST_LINE,
@@ -28,9 +27,10 @@ import {
 } from "../helpers/pty-tui-session";
 import { createTestReviewHome, type TestReviewHome } from "../helpers/review-home";
 
-/** Enter nav mode: esc heads there, and the footer shows NAV once it owns the keys. */
+/** Enter nav mode: esc heads there, and the footer shows the nav commands (with "⏎ submit"). */
 async function enterNav(session: PtyTuiSession): Promise<void> {
-  await session.pressAndWaitForScreen("escape", (screen) => screen.includes("NAV"), {
+  // "⏎ submit" sits in both nav footers before the pane's right edge; the compose footer never has it
+  await session.pressAndWaitForScreen("escape", (screen) => screen.includes("⏎ submit"), {
     what: "nav mode",
   });
 }
@@ -139,7 +139,7 @@ describe("nav mode in a diff review", () => {
     expect(screen).toContain("private items = new Map();");
   });
 
-  ptyTest("esc shows the NAV footer; typing a letter returns to composing a comment", async () => {
+  ptyTest("esc shows the nav footer; typing a letter returns to composing a comment", async () => {
     await enterNav(session);
     // a bare letter with no diff command leaves nav and seeds a draft
     await session.pressAndWaitForScreen("w", (screen) => screen.includes("● w"), {
@@ -154,11 +154,6 @@ describe("nav mode in a diff review", () => {
 
     expect(curated).toBeDefined();
     expect(curated).not.toContain("new Map()");
-    await navPressForToast(session, "u", "removal restored");
-  });
-
-  ptyTest("X rejects the whole hunk and u restores it", async () => {
-    await navPressForToast(session, "X", "hunk rejected - dropped from the working copy");
     await navPressForToast(session, "u", "removal restored");
   });
 
@@ -277,11 +272,7 @@ describe("nav mode in a plan review", () => {
 
   beforeAll(async () => {
     if (!PTY_TIER_ENABLED) return;
-    session = (
-      await launchPlanReview(reviewHome, {
-        env: { CUELOOP_EDITOR: reviewHome.createAppendingEditor(EDIT_MARKER) },
-      })
-    ).session;
+    session = (await launchPlanReview(reviewHome)).session;
   });
 
   afterAll(async () => {
@@ -296,9 +287,18 @@ describe("nav mode in a plan review", () => {
     await navPress(session, "u", ROLLOUT_PLAN_LAST_LINE);
   });
 
-  ptyTest("e hands the plan to the editor and resumes with its edit", async () => {
-    await navPress(session, "e", EDIT_MARKER, { timeoutMs: 15_000 });
-  });
+  ptyTest(
+    "e opens the inline editor; typed text edits the body and ctrl+enter saves it",
+    async () => {
+      await navPress(session, "e", "save & close", { timeoutMs: 15_000 });
+      await session.type("EDITOK ");
+      await session.pressAndWaitForScreen(
+        cheatsheetChordKeyPress("⌃enter"),
+        (screen) => screen.includes("EDITOK") && !screen.includes("save & close"),
+        { timeoutMs: 15_000, what: "the saved edit in the read-only view" },
+      );
+    },
+  );
 
   ptyTest("the tree commands label, branch, go, fork, and fork-share the history", async () => {
     await navPressForToast(session, "l", "Name for this checkpoint:");

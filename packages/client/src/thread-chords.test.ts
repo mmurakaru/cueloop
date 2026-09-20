@@ -17,7 +17,6 @@ describe("resolveNavKey", () => {
     const diff = { ...owner, isDiff: true };
 
     expect(resolveNavKey({ name: "x" }, diff)).toEqual({ type: "rejectChange" });
-    expect(resolveNavKey({ name: "X" }, diff)).toEqual({ type: "rejectHunk" });
     expect(resolveNavKey({ name: "c" }, diff)).toEqual({ type: "foldFile" });
     expect(resolveNavKey({ name: "d" }, diff)).toEqual({ type: "toggleDiffView" });
     expect(resolveNavKey({ name: "k" }, diff)).toEqual({ type: "walkStart" });
@@ -47,10 +46,8 @@ describe("resolveNavKey", () => {
     expect(resolveNavKey({ name: "h" }, owner)).toEqual({ type: "treeForkShare" });
   });
 
-  test("a shift letter resolves as its uppercase (reject the hunk)", () => {
-    expect(resolveNavKey({ name: "x", shift: true }, { ...owner, isDiff: true })).toEqual({
-      type: "rejectHunk",
-    });
+  test("a shift letter resolves as its uppercase, which no command claims, so it returns to typing", () => {
+    expect(resolveNavKey({ name: "x", shift: true }, { ...owner, isDiff: true })).toBeNull();
   });
 
   test("a collaborator is refused the owner's commands; renaming stays open", () => {

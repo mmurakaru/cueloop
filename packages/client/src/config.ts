@@ -9,6 +9,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { OBSIDIAN_DEFAULTS, type ObsidianConfig } from "@cueloop/integration-obsidian";
+import type { VerdictKind } from "@cueloop/schema";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import * as v from "valibot";
@@ -107,6 +108,8 @@ export interface CueloopConfig {
     theme: ThemeName;
     /** How the Changes diff renders when wide: old|new side by side or one stacked column. */
     diffView: DiffViewMode;
+    /** The verdict the submit card opens on; approve unless set. */
+    defaultVerdict: VerdictKind;
     /** Session ids the user has pinned to the top of the sidebar; client-local view state. */
     pins: string[];
     /** The last pane layout a bare launch restores; unset until the user changes one. */
@@ -211,6 +214,10 @@ const UiSchema = v.object({
   editor: v.fallback(v.optional(v.string()), undefined),
   theme: v.fallback(v.optional(v.string()), undefined),
   diff_view: v.fallback(v.optional(v.picklist(["split", "stacked", "unified"])), undefined),
+  default_verdict: v.fallback(
+    v.optional(v.picklist(["comment", "approve", "request_changes"])),
+    undefined,
+  ),
   pins: v.fallback(v.optional(v.array(v.string())), undefined),
   layout: v.fallback(
     v.optional(
@@ -278,6 +285,7 @@ function applyUi(ui: CueloopConfig["ui"], parsed: v.InferOutput<typeof UiSchema>
   // "unified" is the pre-rename spelling of "stacked"; keep loading it so an upgrade never flips the layout
   if (parsed.diff_view !== undefined)
     ui.diffView = parsed.diff_view === "unified" ? "stacked" : parsed.diff_view;
+  if (parsed.default_verdict !== undefined) ui.defaultVerdict = parsed.default_verdict;
   if (parsed.pins !== undefined) ui.pins = parsed.pins;
   if (parsed.layout !== undefined) {
     ui.layout = {
@@ -357,6 +365,7 @@ export function loadConfig(
       autoClose: "off",
       theme: DEFAULT_THEME_NAME,
       diffView: "split",
+      defaultVerdict: "approve",
       pins: [],
     },
     authors: {},

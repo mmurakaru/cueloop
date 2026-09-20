@@ -7,7 +7,7 @@ import React, {
   useSyncExternalStore,
 } from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
-import type { Clock } from "@opentui/core";
+import type { Clock, KeyEvent } from "@opentui/core";
 import { marksByDisplay, type Mark } from "./view-plan";
 import {
   DEFAULT_KEYS,
@@ -78,6 +78,7 @@ import type {
   Identity,
   ShareLink,
   Thread,
+  VerdictKind,
 } from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
@@ -583,6 +584,8 @@ export function App({
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
   const [diffView, setDiffView] = useState<DiffViewMode>("split");
+  // the verdict the submit card opens on ([ui] default_verdict); approve unless configured
+  const [defaultVerdict, setDefaultVerdict] = useState<VerdictKind>("approve");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<RailTab>("review");
@@ -626,6 +629,7 @@ export function App({
     setSkills(loadSkills(config.skillsPath));
     setAutoClose(config.ui.autoClose);
     setDiffView(config.ui.diffView);
+    setDefaultVerdict(config.ui.defaultVerdict);
     setPinnedIds(new Set(config.ui.pins));
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings, appearance]);
@@ -827,6 +831,7 @@ export function App({
     inboxCursor,
     mode,
     session,
+    defaultVerdict,
     focusedAnnotationId,
     selectedCurationId,
     railTab,
@@ -920,6 +925,21 @@ export function App({
     controller.open(id);
   };
 
+  // The thread view owns its document grammar and nav mode through its own useKeyboard
+  // (marks, comments, ctrl+q, and the nav-mode commands via onNavCommand). The session's
+  // Ctrl chords (submit, edit, share) resolve here as reliable accelerators; true when the
+  // thread surface owns the key so the shell keymap stands down.
+  const threadSurfaceHandledKey = (key: KeyEvent): boolean => {
+    if (!threadViewActive || threadViewSuspended) return false;
+    if (!threadComposing) {
+      const chord = resolveSessionChord(key, { isOwner, resolved });
+
+      if (chord) dispatch(chord);
+    }
+
+    return true;
+  };
+
   useKeyboard((key) => {
     if (quitKeyHandled(key, onExit)) return;
     // the inline body editor owns the pane and every key while open
@@ -942,19 +962,7 @@ export function App({
       })
     )
       return;
-    // The thread view owns its document grammar and nav mode through its own useKeyboard
-    // (marks, comments, ctrl+q, and the nav-mode commands via onNavCommand). The session's
-    // Ctrl chords (submit, edit, share) resolve here as reliable accelerators; the shell keymap
-    // only sees keys while an overlay or the menu owns them.
-    if (threadViewActive && !threadViewSuspended) {
-      if (!threadComposing) {
-        const chord = resolveSessionChord(key, { isOwner, resolved });
-
-        if (chord) dispatch(chord);
-      }
-
-      return;
-    }
+    if (threadSurfaceHandledKey(key)) return;
     // A compose textarea owns the keyboard while open: let it receive the typed note instead of the
     // global keymap acting on each letter (the prototype, and the bare-shell welcome playground).
     if (prototypeComposing || welcomeComposing) return;
