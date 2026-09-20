@@ -97,8 +97,7 @@ export interface DiffContentViewProps {
   onUpdateAnnotation: (id: string, body: string) => void;
   /** The author's display name for a comment's hover tooltip. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
-  leaderCombos?: readonly string[];
-  onLeaderCommand?: (key: KeyEvent) => void;
+  onNavCommand?: (key: KeyEvent) => boolean;
   onExit: () => void;
   /** Row indices the owner rejected during curation; drawn struck through. */
   rejectedRows?: Set<number>;
@@ -493,8 +492,7 @@ export function DiffContentView({
   onReply,
   onUpdateAnnotation,
   resolveAuthorLabel,
-  leaderCombos,
-  onLeaderCommand,
+  onNavCommand,
   onExit,
   rejectedRows = EMPTY_REJECTED,
   fold,
@@ -529,8 +527,7 @@ export function DiffContentView({
     onReply,
     onUpdateAnnotation,
     resolveAuthorLabel,
-    leaderCombos,
-    onLeaderCommand,
+    onNavCommand,
     onExit,
   });
   const { palette } = surface;

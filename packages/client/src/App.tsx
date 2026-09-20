@@ -61,15 +61,12 @@ import { ThreadFooter, THREAD_FOOTER_HEIGHT } from "./components/ThreadFooter";
 import { ConfirmCard } from "./components/ConfirmCard";
 import { THREAD_VIEW_CHEATSHEET, ThreadView } from "./components/ThreadView";
 import {
-  diffChordEntries,
-  dispatchLeaderCommand,
-  leaderCombosFor,
-  leaderHint,
-  matchesLeader,
-  railChordEntries,
-  resolveThreadChord,
-  THREAD_CHORD_ENTRIES,
-  treeChordEntries,
+  curationCommandEntries,
+  diffCommandEntries,
+  resolveNavKey,
+  resolveSessionChord,
+  sessionCommandEntries,
+  treeCommandEntries,
 } from "./thread-chords";
 import { type DiffFoldControls } from "./components/DiffContentView";
 import { commentCountsByFile } from "./view-diff";
@@ -349,23 +346,20 @@ function usableScreenReached(
 }
 
 /** The keybinds dialog content: the thread grammar while the thread view owns the keys. */
-function cheatsheetFor(
-  keyBindings: KeyBindings,
-  threadViewActive: boolean,
-  hint: string,
-): CheatsheetSection[] {
+function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): CheatsheetSection[] {
   const base = keyBindings.cheatsheet();
 
   if (!threadViewActive) {
     return base;
   }
 
+  // in the thread, typing composes; esc drops to nav mode where these bare keys act
   return [
     ...THREAD_VIEW_CHEATSHEET,
-    { title: "Session", entries: [...THREAD_CHORD_ENTRIES] },
-    { title: "Diff", entries: diffChordEntries(hint) },
-    { title: "Rail", entries: railChordEntries(hint) },
-    { title: "Tree", entries: treeChordEntries(hint) },
+    { title: "Nav mode · session", entries: sessionCommandEntries() },
+    { title: "Nav mode · diff", entries: diffCommandEntries() },
+    { title: "Nav mode · discussion", entries: curationCommandEntries() },
+    { title: "Nav mode · tree", entries: treeCommandEntries() },
     ...base.filter((section) => section.title === "Agent terminal"),
   ];
 }
@@ -426,29 +420,14 @@ export function threadsNavHandled(params: {
   return false;
 }
 
-export function appLeaderHandled(params: {
-  focusedPane: FocusPane;
-  key: { name: string; shift?: boolean; ctrl?: boolean; meta?: boolean; super?: boolean };
-  leaderCombos: readonly string[];
-  pending: { current: boolean };
-  runLeaderCommand: (key: { name: string; shift?: boolean }) => void;
-}): boolean {
-  const { focusedPane, key, leaderCombos, pending, runLeaderCommand } = params;
-
-  if (focusedPane !== "threads" && focusedPane !== "project") return false;
-  if (pending.current) {
-    pending.current = false;
-    if (key.name !== "escape") runLeaderCommand(key);
-
-    return true;
-  }
-  if (matchesLeader(key, leaderCombos)) {
-    pending.current = true;
-
-    return true;
-  }
-
-  return false;
+/** Tab cycles the focused pane, but only where the shell owns the keys - never while typing, in an overlay, or under the menu. */
+export function paneCycleRequested(
+  key: { name: string },
+  overlay: string,
+  menuOwnsKeyboard: boolean,
+  threadComposing: boolean,
+): boolean {
+  return key.name === "tab" && overlay === "none" && !menuOwnsKeyboard && !threadComposing;
 }
 
 export function visiblePanes(
@@ -900,8 +879,6 @@ export function App({
   // its own grammar meanwhile so typing lands in the dialog, not the thread
   const threadViewSuspended = keyboardOwnedElsewhere(menuOwnsKeyboard, overlay, shareDialogOpen);
 
-  const leaderCombos = leaderCombosFor(keysRef.current.leader);
-  const leaderPending = useRef(false);
   const navigablePanes = navigableFocusPanes(
     sidebarOpen,
     workbench.zoomed,
@@ -918,14 +895,20 @@ export function App({
   }, [session, navigablePanes, focusedPane]);
   const cyclePanes = (backward: boolean): void =>
     setFocusedPane((current) => nextFocusPane(current, navigablePanes, backward));
-  const runLeaderCommand = (key: { name: string; shift?: boolean }): void => {
-    if (key.name === "tab") return cyclePanes(Boolean(key.shift));
+  // the thread surface's nav mode forwards a bare key here; resolve it to a session/curation/tree/diff
+  // command and dispatch, reporting whether it acted so the surface knows to return to typing
+  const runNavCommand = (key: { name: string; shift?: boolean }): boolean => {
+    const intent = resolveNavKey(key, {
+      isOwner,
+      resolved,
+      treeActive: railTab === "tree",
+      isDiff,
+    });
 
-    dispatchLeaderCommand(
-      key,
-      { composing: threadComposing, isOwner, resolved, treeActive: railTab === "tree", isDiff },
-      dispatch,
-    );
+    if (!intent) return false;
+    dispatch(intent);
+
+    return true;
   };
   // clicking a sidebar thread moves the cursor onto it too, so the row shows its selected backdrop at once
   const openThread = (id: string): void => {
@@ -944,10 +927,10 @@ export function App({
     // the share dialog owns its own keys while open; the shell grammar stands down
     if (shareDialogOpen) return;
     if (menuModalHandled(menuControl, key)) return;
-    if (
-      appLeaderHandled({ focusedPane, key, leaderCombos, pending: leaderPending, runLeaderCommand })
-    )
-      return;
+    // tab cycles the focused pane; shift+tab goes the other way
+    if (paneCycleRequested(key, overlay, menuOwnsKeyboard, threadComposing)) {
+      return cyclePanes(Boolean(key.shift));
+    }
     if (
       threadsNavHandled({
         focusedPane,
@@ -959,20 +942,16 @@ export function App({
       })
     )
       return;
-    // The thread view owns the document grammar while active (its own
-    // useKeyboard handles marks, comments, and ctrl+q); the session chords
-    // (submit, share, edit, walk, the rail) resolve here, and the keymap only
-    // sees keys while an overlay or the menu owns them.
+    // The thread view owns its document grammar and nav mode through its own useKeyboard
+    // (marks, comments, ctrl+q, and the nav-mode commands via onNavCommand). The session's
+    // Ctrl chords (submit, edit, share) resolve here as reliable accelerators; the shell keymap
+    // only sees keys while an overlay or the menu owns them.
     if (threadViewActive && !threadViewSuspended) {
-      const chord = resolveThreadChord(key, {
-        composing: threadComposing,
-        isOwner,
-        resolved,
-        treeActive: railTab === "tree",
-        isDiff,
-      });
+      if (!threadComposing) {
+        const chord = resolveSessionChord(key, { isOwner, resolved });
 
-      if (chord) dispatch(chord);
+        if (chord) dispatch(chord);
+      }
 
       return;
     }
@@ -1030,7 +1009,7 @@ export function App({
     <MenuChrome
       menuDialog={menuDialog}
       theme={theme}
-      keybindsSections={cheatsheetFor(keyBindings, threadViewActive, leaderHint(leaderCombos))}
+      keybindsSections={cheatsheetFor(keyBindings, threadViewActive)}
       settingsCategories={settingsCategories}
       settingsValues={settingsValues}
       settingsNav={settingsNav}
@@ -1229,8 +1208,7 @@ export function App({
                           suspended={surfaceSuspended(threadViewSuspended, focusedPane, "thread")}
                           editOrphanCount={editOrphanCount}
                           onComposingChange={setThreadComposing}
-                          leaderCombos={leaderCombos}
-                          onLeaderCommand={runLeaderCommand}
+                          onNavCommand={runNavCommand}
                           resolved={resolved}
                           onObserverBlocked={(reason) =>
                             controller.setStatus(
@@ -1331,8 +1309,7 @@ export function App({
                           void controller.reply(rootAnnotationId, body),
                         onUpdateAnnotation: (id, body) => controller.updateAnnotation(id, body),
                         resolveAuthorLabel,
-                        leaderCombos,
-                        onLeaderCommand: runLeaderCommand,
+                        onNavCommand: runNavCommand,
                         onExit: () => onExit?.(0),
                       }}
                       rejectedRows={rejectedRows}

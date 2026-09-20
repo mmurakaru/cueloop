@@ -13,6 +13,7 @@ import {
   clickText,
   dragText,
   isolateUserConfig,
+  navCommand,
   pressKey,
   renderReadyApp,
   typeText,
@@ -138,7 +139,7 @@ describe("diff review", () => {
     const setup = await renderApp();
 
     // Act
-    await pressKey(setup, "c", { meta: true });
+    await navCommand(setup, "c");
 
     // Assert - the body is gone but the band (with its counts) remains
     await waitForState(setup, () => !setup.captureCharFrame().includes("new Map()"));
@@ -159,7 +160,7 @@ describe("diff review", () => {
     const setup = await renderApp();
 
     // Act
-    await pressKey(setup, "x", { meta: true });
+    await navCommand(setup, "x");
 
     // Assert
     await waitForText(setup, "hunk curation needs full file contents");
@@ -187,7 +188,7 @@ describe("diff review", () => {
 
     // Act - place the caret on the added line and reject its change
     await clickText(setup, "new Map()");
-    await pressKey(setup, "x", { meta: true });
+    await navCommand(setup, "x");
 
     // Assert - the single change is gone, so the curated working copy is empty
     await waitForText(setup, "change rejected");

@@ -13,6 +13,7 @@ import {
   dragText,
   frameRow,
   isolateUserConfig,
+  navCommand,
   pressKey,
   renderReadyApp,
   typeText,
@@ -97,7 +98,7 @@ describe("observer rendering", () => {
 describe("observer primitives are blocked", () => {
   const attempts: Array<[string, (setup: Setup) => Promise<void>]> = [
     ["comment (typing)", (setup) => typeText(setup, "c")],
-    ["cut (option+x)", (setup) => pressKey(setup, "x", { meta: true })],
+    ["cut (option+x)", (setup) => navCommand(setup, "x")],
     ["edit (ctrl+e)", (setup) => pressKey(setup, "e", { ctrl: true })],
     ["submit (cmd+enter)", (setup) => pressKey(setup, "RETURN", { meta: true })],
   ];
@@ -159,10 +160,10 @@ describe("a resolved review is read-only for its owner too", () => {
     expect(setup.captureCharFrame()).not.toContain("● c");
 
     // Act + Assert: the focused card cannot be deleted or edited
-    await pressKey(setup, "n", { meta: true });
+    await navCommand(setup, "n");
     await pressKey(setup, "BACKSPACE", { meta: true });
-    await pressKey(setup, "e", { meta: true });
-    await pressKey(setup, "x", { meta: true });
+    await pressKey(setup, "e", { ctrl: true });
+    await navCommand(setup, "x");
     expect(snapshot()).toEqual(before);
     expect(server.core.sessionGet(session.id).annotations).toHaveLength(1);
   });
@@ -199,7 +200,7 @@ describe("observer navigation still works", () => {
     const setup = await renderObserver();
 
     // Act - the observer navigates to the annotation without mutating anything
-    await pressKey(setup, "n", { meta: true });
+    await navCommand(setup, "n");
     await setup.renderOnce();
 
     // Assert - the observer reads the controller's comment inline in the thread

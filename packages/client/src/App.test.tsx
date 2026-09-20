@@ -15,6 +15,7 @@ import {
   isolateUserConfig,
   locateText,
   press,
+  navCommand,
   pressKey,
   renderReadyApp,
   typeText as type,
@@ -152,7 +153,7 @@ describe("thread view grammar", () => {
     await clickText(setup, "move the store");
 
     // Act
-    await pressKey(setup, "x", { meta: true });
+    await navCommand(setup, "x");
 
     // Assert - the cut lands in the working copy
     await waitForState(
@@ -161,7 +162,7 @@ describe("thread view grammar", () => {
     );
 
     // Act
-    await pressKey(setup, "x", { meta: true });
+    await navCommand(setup, "x");
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);

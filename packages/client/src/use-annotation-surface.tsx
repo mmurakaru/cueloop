@@ -37,7 +37,6 @@ import {
 } from "./thread-selection";
 import { annotationPaletteFor, type AnnotationPalette } from "./annotation-palette";
 import { printableSequence, type MarkRange, type VisualLine } from "./mark-runs";
-import { matchesLeader } from "./thread-chords";
 import {
   activeSlashToken,
   insertSlashItem,
@@ -107,8 +106,8 @@ export interface AnnotationSurfaceOptions {
   onUpdateAnnotation: (id: string, body: string) => void;
   /** The author's display name for a comment's hover tooltip; the rail resolves it against the participant registry. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
-  leaderCombos?: readonly string[];
-  onLeaderCommand?: (key: KeyEvent) => void;
+  /** Resolve a nav-mode key to a session/curation/tree/diff command; true when it acted. */
+  onNavCommand?: (key: KeyEvent) => boolean;
   onExit: () => void;
 }
 
@@ -119,6 +118,8 @@ export interface AnnotationSurface {
   cursor: number;
   head: TextPosition;
   compose: ComposeState | null;
+  /** True while the surface is in nav mode: bare keys act as commands, typing does not compose. */
+  navMode: boolean;
   focusedDiscussion: string | null;
   /** The block to keep in view: an opening card, a focused discussion, else the caret. */
   revealBlockIndex: number;
@@ -183,8 +184,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onReply,
     onUpdateAnnotation,
     resolveAuthorLabel,
-    leaderCombos,
-    onLeaderCommand,
+    onNavCommand,
     onExit,
   } = options;
   const palette = annotationPaletteFor(tokens);
@@ -199,7 +199,15 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return { head: start, anchor: start };
   });
   const [compose, setCompose] = useState<ComposeState | null>(null);
-  const leaderPending = useRef(false);
+  // typing composes by default; esc drops to nav mode where bare keys act as commands. A ref backs
+  // the keyboard handler so an esc immediately followed by a command key reads the new mode (state
+  // alone would lag a render); the state drives the footer indicator.
+  const [navMode, setNavModeState] = useState(false);
+  const navModeRef = useRef(false);
+  const setNavMode = (value: boolean): void => {
+    navModeRef.current = value;
+    setNavModeState(value);
+  };
 
   useEffect(() => {
     onComposingChange?.(compose !== null);
@@ -514,7 +522,22 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (!composerReady.current) handlePremountKey(key, activeCompose);
   };
 
-  /** m / cmd+[ / cmd+] / tab / return - true when the key was a discussion primitive. */
+  /** Fold or unfold every discussion sitting on the caret's block (nav-mode z). */
+  const toggleFoldAtCursor = (): void => {
+    setFolded((current) => {
+      const next = new Set(current);
+
+      for (const discussion of discussions) {
+        if (discussion.blockIndex !== cursor) continue;
+        if (next.has(discussion.key)) next.delete(discussion.key);
+        else next.add(discussion.key);
+      }
+
+      return next;
+    });
+  };
+
+  /** m / cmd+[ / cmd+] / return - true when the key was a discussion primitive. */
   const handleDiscussionVerb = (key: KeyEvent): boolean => {
     // comment on selection: cmd+option+m (alt+m where cmd arrives ESC-prefixed)
     if (key.name === "m" && (key.super || key.meta || key.option)) {
@@ -535,21 +558,6 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
             : currentIndex - 1;
 
       jumpToDiscussion(discussions[nextIndex]!.key);
-
-      return true;
-    }
-    if (key.name === "tab") {
-      setFolded((current) => {
-        const next = new Set(current);
-
-        for (const discussion of discussions) {
-          if (discussion.blockIndex !== cursor) continue;
-          if (next.has(discussion.key)) next.delete(discussion.key);
-          else next.add(discussion.key);
-        }
-
-        return next;
-      });
 
       return true;
     }
@@ -667,24 +675,33 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const activeCompose = composeRef.current;
 
     if (activeCompose) return handleComposeKey(key, activeCompose);
+    // esc always heads toward nav mode (vim-like): it drops a focused discussion, else enters nav
+    // from typing, else collapses the held selection while staying in nav. Typing resumes with c or
+    // any unmapped printable, so esc never strands you unable to leave.
+    // esc goes to nav mode and clears transient state in one press: it drops a focused discussion,
+    // enters nav (idempotent), and collapses the held selection. Nav commands act on the caret's
+    // block and commenting on a span is done by typing, so the mark is not needed in nav.
     if (key.name === "escape") {
-      if (leaderPending.current) {
-        leaderPending.current = false;
-
-        return;
-      }
-      if (focusedDiscussion !== null) return setFocusedDiscussion(null);
+      if (focusedDiscussion !== null) setFocusedDiscussion(null);
+      setNavMode(true);
 
       return collapseCaret();
     }
-    if (leaderPending.current) {
-      leaderPending.current = false;
-      onLeaderCommand?.(key);
+    // nav mode: bare keys act. Arrows and tab navigate; a session/curation/tree/diff command
+    // acts through onNavCommand; c starts a comment; any other printable returns to typing.
+    if (navModeRef.current) {
+      if (handleCaretKey(key)) return;
+      if (key.name === "z") return toggleFoldAtCursor();
+      if (onNavCommand?.(key)) return;
+      if (key.name === "c") {
+        setNavMode(false);
 
-      return;
-    }
-    if (leaderCombos && matchesLeader(key, leaderCombos)) {
-      leaderPending.current = true;
+        return openNewCompose("");
+      }
+      if (printableSequence(key)) {
+        setNavMode(false);
+        startTyping(key);
+      }
 
       return;
     }
@@ -892,6 +909,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     cursor,
     head,
     compose,
+    navMode,
     focusedDiscussion,
     revealBlockIndex,
     spanQuote,

@@ -159,8 +159,7 @@ export interface ThreadViewProps {
   onUpdateAnnotation: (id: string, body: string) => void;
   /** The author's display name for a comment's hover tooltip. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
-  leaderCombos?: readonly string[];
-  onLeaderCommand?: (key: KeyEvent) => void;
+  onNavCommand?: (key: KeyEvent) => boolean;
   onExit: () => void;
   theme?: Theme;
 }
@@ -183,8 +182,7 @@ export function ThreadView({
   onReply,
   onUpdateAnnotation,
   resolveAuthorLabel,
-  leaderCombos,
-  onLeaderCommand,
+  onNavCommand,
   onExit,
   theme,
 }: ThreadViewProps): React.ReactNode {
@@ -213,8 +211,7 @@ export function ThreadView({
     onReply,
     onUpdateAnnotation,
     resolveAuthorLabel,
-    leaderCombos,
-    onLeaderCommand,
+    onNavCommand,
     onExit,
   });
   const { palette, discussions } = surface;
@@ -459,6 +456,22 @@ export function ThreadView({
         >
           {virtualBlocks()}
         </scrollbox>
+        <box style={{ height: 1, flexDirection: "row", paddingLeft: 2 }}>
+          {surface.navMode ? (
+            <text selectable={false}>
+              <span fg={tokens.accent} attributes={BOLD}>
+                {"NAV"}
+              </span>
+              <span fg={tokens.textDim}>
+                {"  c comment · e edit · s share · n/p cards · ⏎ submit · t tree · type to leave"}
+              </span>
+            </text>
+          ) : (
+            <text selectable={false} fg={tokens.textDim}>
+              {"type to comment · esc for nav mode"}
+            </text>
+          )}
+        </box>
       </box>
       <DiscussionMarkerRail
         discussions={discussions}
