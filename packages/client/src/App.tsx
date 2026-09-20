@@ -929,6 +929,8 @@ export function App({
   };
   // clicking a sidebar thread moves the cursor onto it too, so the row shows its selected backdrop at once
   const openThread = (id: string): void => {
+    // save the open editor into the leaving thread's working copy before the switch, so a click away never drops edits
+    if (bodyEditing.editing) bodyEditing.requestExit();
     const index = grouped.ordered.findIndex((thread) => thread.id === id);
 
     if (index >= 0) setInboxCursor(() => index);

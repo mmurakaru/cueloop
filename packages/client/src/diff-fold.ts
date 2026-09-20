@@ -2,7 +2,7 @@
  * Per-file fold state for the diff sheet, applied over the flat diff rows so the
  * cursor, curation, and rendering all read one array. A collapsed file shows only
  * its file band; an expanded file shows its whole contents with the diff woven in
- * (unchanged lines become context rows), matching VSCode's "expand all lines".
+ * (unchanged lines become context rows), an "expand all lines" view.
  */
 
 import type { DiffRow } from "./view-diff";

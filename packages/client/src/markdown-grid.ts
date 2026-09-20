@@ -1,7 +1,7 @@
 /**
  * Grid layout for the two block kinds the read-only thread renders as tables:
  * a GFM table (bold header over a rule, columns aligned per the delimiter row,
- * no vertical borders - mirroring the VS Code preview) and leading YAML
+ * no vertical borders) and leading YAML
  * frontmatter (a full-bordered key/value grid, bold nowrap keys, wrapped
  * values). Both are pure: they turn a block's source text and a width into
  * positioned, styled segments the renderer prints verbatim, so a char-frame
@@ -28,14 +28,34 @@ export interface MarkdownTable {
   rows: string[][];
 }
 
-/** Split a table row into trimmed cells, dropping one optional leading and trailing pipe. */
+/**
+ * Split a table row into trimmed cells on unescaped pipes, unescaping `\|` into a
+ * literal pipe, and dropping the empty cells an optional leading or trailing
+ * border pipe produces (an intentional blank cell keeps its surrounding spaces).
+ */
 function splitTableRow(line: string): string[] {
-  return line
-    .trim()
-    .replace(/^\|/, "")
-    .replace(/\|$/, "")
-    .split("|")
-    .map((cell) => cell.trim());
+  const trimmed = line.trim();
+  const parts: string[] = [];
+  let cell = "";
+
+  for (let index = 0; index < trimmed.length; index++) {
+    const char = trimmed[index]!;
+
+    if (char === "\\" && trimmed[index + 1] === "|") {
+      cell += "|";
+      index++;
+    } else if (char === "|") {
+      parts.push(cell);
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+  parts.push(cell);
+  if (parts.length > 1 && parts[0] === "") parts.shift();
+  if (parts.length > 1 && parts[parts.length - 1] === "") parts.pop();
+
+  return parts.map((part) => part.trim());
 }
 
 /** Parse a GFM table block's verbatim source into header cells, column alignments, and body rows. */
@@ -67,7 +87,7 @@ function pad(text: string, width: number, align: ColumnAlign): string {
   return text + " ".repeat(slack);
 }
 
-/** Two spaces separate table columns; VS Code's preview draws no vertical rule. */
+/** Two spaces separate table columns; the read-only render draws no vertical rule. */
 const COLUMN_GAP = "  ";
 
 /**
@@ -139,7 +159,7 @@ function wrapCell(value: string, width: number): string[] {
 /**
  * Lay out leading frontmatter as a full-bordered key/value grid: bold nowrap
  * keys on the left, values wrapped to the remaining width on the right, a rule
- * between every row - the VS Code preview's frontmatter table.
+ * between every row.
  */
 export function layoutFrontmatterGrid(rows: FrontmatterRow[], maxWidth: number): GridLine[] {
   if (rows.length === 0) return [];

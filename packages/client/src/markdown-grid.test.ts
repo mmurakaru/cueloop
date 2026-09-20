@@ -26,6 +26,16 @@ describe("parseMarkdownTable", () => {
   test("center alignment reads from a :---: delimiter", () => {
     expect(parseMarkdownTable("| a |\n| :---: |\n| x |").aligns).toEqual(["center"]);
   });
+
+  test("an escaped pipe stays inside its cell instead of splitting the column", () => {
+    const table = parseMarkdownTable("| Name | Note |\n| --- | --- |\n| a | b \\| c |");
+
+    expect(table.rows).toEqual([["a", "b | c"]]);
+  });
+
+  test("a blank cell between border pipes survives the border strip", () => {
+    expect(parseMarkdownTable("|  | b |\n| --- | --- |\n| x | y |").header).toEqual(["", "b"]);
+  });
 });
 
 describe("layoutMarkdownTable", () => {

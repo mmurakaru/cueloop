@@ -191,9 +191,9 @@ export function ThreadView({
   const tokens = useComponentTheme(theme);
   const source: LineSource = {
     count: display.length,
-    // the surface hit-tests and paints in rendered text (inline markers concealed); grids are structure
+    // the surface hit-tests and paints in rendered text (inline markers concealed); a grid anchors on its raw source
     textAt: (blockIndex) => renderedText(display[blockIndex]!),
-    annotatable: (blockIndex) => !isGridKind(display[blockIndex]!.kind),
+    annotatable: () => true,
   };
   const surface = useAnnotationSurface({
     source,
@@ -302,7 +302,7 @@ export function ThreadView({
     );
   };
 
-  // an h1 or h2 sits over a dim rule, mirroring the VS Code preview; h3 gets weight only. The row is
+  // an h1 or h2 sits over a dim rule; h3 gets weight only. The row is
   // always present for those kinds (only its width tracks the measured viewport) so a late width
   // measurement never adds a row and shifts the blocks below it out from under a pending click
   const headingRule = (block: DisplayBlock): React.ReactNode => {
@@ -344,12 +344,24 @@ export function ThreadView({
     );
 
     if (isGridKind(block.kind)) {
+      // a grid annotates as one unit: every row hit-tests to the same block span, a mark tints the grid,
+      // and the block's discussion cards slot under it, so annotations resolving into a grid stay visible
+      const gridLine: VisualLine = { start: 0, end: renderedText(block).length };
+      const marked = surface.rangesFor(blockIndex).some((range) => !range.caretOnly);
+
       return measuredBox(
-        <MarkdownGridBlock
-          block={block}
-          theme={tokens}
-          contentWidth={viewWidth > 0 ? viewWidth - 6 : 40}
-        />,
+        <>
+          <MarkdownGridBlock
+            block={block}
+            theme={tokens}
+            contentWidth={viewWidth > 0 ? viewWidth - 6 : 40}
+            marked={marked}
+            markBackdrop={palette.markBackdrop}
+            registerRow={(rowIndex) => surface.registerLine(blockIndex, rowIndex, gridLine)}
+            onRowMouseDown={surface.onLineMouseDown}
+          />
+          {surface.cardsAfterLine(blockIndex, gridLine, true)}
+        </>,
       );
     }
 

@@ -349,6 +349,37 @@ describe("edit-exit reconciliation", () => {
   });
 });
 
+describe("thread switch preserves an open edit", () => {
+  test("clicking another thread while editing saves the body into the leaving thread", async () => {
+    // Arrange - a second thread sits in the sidebar to switch to
+    server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: {
+        type: "plan",
+        content: "# Second Thread\n\nAnother body.\n",
+        meta: { title: "Second Thread", planPath: "plan.md", agent: "agent/worker-3" },
+      },
+    });
+    const setup = await renderApp();
+
+    // open the Threads sidebar so the other thread is on screen to click
+    await setup.mockMouse.click(4, 0);
+    await waitForText(setup, "Second Thread");
+
+    // Act - open the inline editor, rewrite the body, then click away before an explicit save
+    await pressKey(setup, "e", { ctrl: true });
+    await waitForText(setup, "save & close");
+    await pressKey(setup, "a", { meta: true });
+    await type(setup, "Body kept across a thread switch.");
+    await clickText(setup, "Second Thread");
+
+    // Assert - the leaving thread's working copy holds the edit rather than dropping it
+    await waitForState(setup, () =>
+      (server.core.sessionGet(session.id).workingCopy ?? "").includes("kept across a thread switch"),
+    );
+  });
+});
+
 describe("the quick-action palette", () => {
   test("/ lists the quick actions and a pick inserts the reference, not the body", async () => {
     // Arrange

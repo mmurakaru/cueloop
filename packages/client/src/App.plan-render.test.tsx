@@ -1,5 +1,5 @@
 /**
- * The read-only plan render mirrors the VS Code markdown preview: h1/h2 sit over
+ * The read-only plan render: h1/h2 sit over
  * a rule, links show their label in the link color with the URL concealed,
  * inline code grays with its backticks gone, GFM tables render as an aligned grid
  * and leading YAML frontmatter as a bordered key/value table. Because rendered
@@ -175,6 +175,21 @@ describe("read-only markdown render", () => {
     expect(frame).toContain("title");
     expect(frame).toContain("platform team");
   });
+});
+
+describe("annotating a grid block", () => {
+  test("a comment dragged over a table cell anchors on the grid and marks it", async () => {
+    const setup = await renderPlan();
+
+    // the table renders as a grid, yet it still takes a comment like any other block
+    await dragText(setup, "daemon", "daemon", "daemon".length);
+    await type(setup, "which daemon?");
+    await pressKey(setup, "RETURN", { meta: true });
+
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    // the grid carries the mark backdrop, so an annotation resolving into it stays visible
+    await waitForState(setup, () => backgroundsOf(setup, "daemon").includes(THREAD_MARK));
+  }, 60_000);
 });
 
 describe("anchoring over concealed markup", () => {
