@@ -114,7 +114,7 @@ export interface IntentDispatchDeps {
   setPulsedAnnotationId: Dispatch<SetStateAction<string | null>>;
 
   selectCardFromDocument: (annotationId: string) => void;
-  runEditorHandOff: () => void;
+  openBodyEditor: () => void;
   openCardEdit: (annotationId: string) => void;
   /** Flip split/stacked diff and persist it (App-owned); split lays out only when wide/zoomed. */
   toggleDiffView: () => void;
@@ -451,7 +451,7 @@ function handleRestoreCuration(
 }
 
 function handleEdit(_intent: IntentOfType<"edit">, deps: IntentDispatchDeps): void {
-  deps.runEditorHandOff();
+  deps.openBodyEditor();
 }
 
 function handleEditCard(_intent: IntentOfType<"editCard">, deps: IntentDispatchDeps): void {

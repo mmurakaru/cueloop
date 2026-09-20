@@ -327,30 +327,58 @@ describe("quick-actions settings editor", () => {
 
 describe("edit-exit reconciliation", () => {
   test("an edit that removes an anchored passage orphans the annotation and shows the banner", async () => {
-    const script = join(home, "fake-editor.sh");
+    // Arrange - anchor a comment to a passage
+    const setup = await renderApp();
 
-    await Bun.write(script, `#!/bin/sh\nsed -i '' '/^The daemon persists/d' "$1"\n`);
-    Bun.spawnSync(["chmod", "+x", script]);
-    process.env.CUELOOP_EDITOR = script;
-    try {
-      // Arrange
-      const setup = await renderApp();
+    await clickText(setup, "daemon");
+    await type(setup, "Anchor me to the doomed passage.");
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
 
-      await clickText(setup, "daemon");
-      await type(setup, "Anchor me to the doomed passage.");
-      await pressKey(setup, "RETURN", { meta: true });
-      await waitForState(setup, () => server.core.sessionGet(session.id).annotations.length === 1);
+    // Act - open the inline editor, replace the whole body (dropping the passage), and leave
+    await pressKey(setup, "e", { ctrl: true });
+    await waitForText(setup, "save & close");
+    await pressKey(setup, "a", { meta: true });
+    await type(setup, "A fresh body with no anchored passage.");
+    await clickText(setup, "normal");
 
-      // Act
-      await pressKey(setup, "e", { ctrl: true });
+    // Assert - the thread view banner reports the orphaned annotation
+    await waitForText(setup, "1 annotation no longer match - the passage was removed.");
+    // the annotation is NOT deleted: the feedback serializer handles orphans
+    expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
+  });
+});
 
-      // Assert - the thread view banner reports the orphaned annotation
-      await waitForText(setup, "1 annotation no longer match - the passage was removed.");
-      // the annotation is NOT deleted: the feedback serializer handles orphans
-      expect(server.core.sessionGet(session.id).annotations.length).toBe(1);
-    } finally {
-      delete process.env.CUELOOP_EDITOR;
-    }
+describe("thread switch preserves an open edit", () => {
+  test("clicking another thread while editing saves the body into the leaving thread", async () => {
+    // Arrange - a second thread sits in the sidebar to switch to
+    server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: {
+        type: "plan",
+        content: "# Second Thread\n\nAnother body.\n",
+        meta: { title: "Second Thread", planPath: "plan.md", agent: "agent/worker-3" },
+      },
+    });
+    const setup = await renderApp();
+
+    // open the Threads sidebar so the other thread is on screen to click
+    await setup.mockMouse.click(4, 0);
+    await waitForText(setup, "Second Thread");
+
+    // Act - open the inline editor, rewrite the body, then click away before an explicit save
+    await pressKey(setup, "e", { ctrl: true });
+    await waitForText(setup, "save & close");
+    await pressKey(setup, "a", { meta: true });
+    await type(setup, "Body kept across a thread switch.");
+    await clickText(setup, "Second Thread");
+
+    // Assert - the leaving thread's working copy holds the edit rather than dropping it
+    await waitForState(setup, () =>
+      (server.core.sessionGet(session.id).workingCopy ?? "").includes(
+        "kept across a thread switch",
+      ),
+    );
   });
 });
 

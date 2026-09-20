@@ -6,11 +6,22 @@
  * so no content is ever lost.
  */
 
-export type BlockKind = "h1" | "h2" | "h3" | "p" | "li" | "oli" | "quote" | "code" | "hr";
+export type BlockKind =
+  | "h1"
+  | "h2"
+  | "h3"
+  | "p"
+  | "li"
+  | "oli"
+  | "quote"
+  | "code"
+  | "hr"
+  | "table"
+  | "frontmatter";
 
 export interface Block {
   kind: BlockKind;
-  /** Content with markers stripped; code blocks keep inner lines verbatim. */
+  /** Content with markers stripped; code, table, and frontmatter blocks keep inner lines verbatim. */
   text: string;
   /** For code blocks: the fence info string ("ts", "diff", ...). */
   lang?: string;
@@ -31,110 +42,193 @@ export function stripLeadingBlockMarker(line: string): string {
   return line.replace(LEADING_BLOCK_MARKER, "");
 }
 
+/** A GFM table delimiter row: one or more dash cells split by pipes, each optionally `:`-aligned. */
+function isTableDelimiterRow(line: string): boolean {
+  if (!line.includes("|")) return false;
+  const cells = line
+    .trim()
+    .replace(/^\||\|$/g, "")
+    .split("|");
+
+  return cells.length >= 1 && cells.every((cell) => /^\s*:?-+:?\s*$/.test(cell));
+}
+
+/** A GFM table opens on a header row of pipe cells whose next line is a delimiter row. */
+function isTableStart(lines: string[], index: number): boolean {
+  const header = lines[index];
+  const delimiter = lines[index + 1];
+
+  return (
+    header !== undefined &&
+    header.includes("|") &&
+    delimiter !== undefined &&
+    isTableDelimiterRow(delimiter)
+  );
+}
+
 function isMarkerLine(line: string): boolean {
   return (
     line.startsWith("```") || LEADING_BLOCK_MARKER.test(line) || /^(---|\*\*\*|___)\s*$/.test(line)
   );
 }
 
+/**
+ * Leading YAML frontmatter: a --- fence on the very first line, closed by a
+ * second --- fence. Null when there is no leading fence or no closing fence -
+ * a lone leading --- then falls through to an hr.
+ */
+function frontmatterBlock(lines: string[]): Block | null {
+  if (lines[0]?.trim() !== "---") return null;
+  let close = 1;
+
+  while (close < lines.length && lines[close]!.trim() !== "---") close++;
+  if (close >= lines.length) return null;
+
+  return {
+    kind: "frontmatter",
+    text: lines.slice(1, close).join("\n"),
+    lineStart: 0,
+    lineEnd: close,
+  };
+}
+
+/** A block consumed from a line span, with the next line to resume parsing at. */
+interface BlockScan {
+  block: Block;
+  next: number;
+}
+
+/** A one-line block - a heading, a rule, a bullet, or an ordered item - at `lineIndex`, or null. */
+function singleLineBlock(line: string, lineIndex: number): Block | null {
+  const marked = (kind: BlockKind): Block => ({
+    kind,
+    text: stripLeadingBlockMarker(line),
+    lineStart: lineIndex,
+    lineEnd: lineIndex,
+  });
+
+  if (line.startsWith("### ")) return marked("h3");
+  if (line.startsWith("## ")) return marked("h2");
+  if (line.startsWith("# ")) return marked("h1");
+  if (/^(---|\*\*\*|___)\s*$/.test(line)) {
+    return { kind: "hr", text: "", lineStart: lineIndex, lineEnd: lineIndex };
+  }
+  if (line.startsWith("- ")) return marked("li");
+  if (/^\d+\. /.test(line)) return marked("oli");
+
+  return null;
+}
+
+/** Consume a fenced code block from its opening ``` at `start`. */
+function codeBlock(lines: string[], start: number): BlockScan {
+  const lang = lines[start]!.slice(3).trim() || undefined;
+  let index = start + 1;
+  const body: string[] = [];
+
+  while (index < lines.length && !lines[index]!.startsWith("```")) {
+    body.push(lines[index]!);
+    index++;
+  }
+  const end = Math.min(index, lines.length - 1);
+
+  return {
+    block: { kind: "code", text: body.join("\n"), lang, lineStart: start, lineEnd: end },
+    next: index + 1,
+  };
+}
+
+/** Consume a blockquote's consecutive `> ` lines from `start`. */
+function quoteBlock(lines: string[], start: number): BlockScan {
+  let index = start;
+  const body: string[] = [];
+
+  while (index < lines.length && lines[index]!.startsWith("> ")) {
+    body.push(stripLeadingBlockMarker(lines[index]!));
+    index++;
+  }
+
+  return {
+    block: { kind: "quote", text: body.join("\n"), lineStart: start, lineEnd: index - 1 },
+    next: index,
+  };
+}
+
+/** Consume a GFM table (header, delimiter, then pipe rows) from `start`. */
+function tableBlock(lines: string[], start: number): BlockScan {
+  const body: string[] = [lines[start]!, lines[start + 1]!];
+  let index = start + 2;
+
+  // body rows run until a blank line, a fence, or a line without a pipe
+  while (
+    index < lines.length &&
+    lines[index]!.trim() !== "" &&
+    lines[index]!.includes("|") &&
+    !lines[index]!.startsWith("```")
+  ) {
+    body.push(lines[index]!);
+    index++;
+  }
+
+  return {
+    block: { kind: "table", text: body.join("\n"), lineStart: start, lineEnd: index - 1 },
+    next: index,
+  };
+}
+
+/** Consume a paragraph: consecutive prose lines until a blank line, a marker, or a table. */
+function paragraphBlock(lines: string[], start: number): BlockScan {
+  let index = start;
+  const body: string[] = [];
+
+  while (
+    index < lines.length &&
+    lines[index]!.trim() !== "" &&
+    !isMarkerLine(lines[index]!) &&
+    !isTableStart(lines, index)
+  ) {
+    body.push(lines[index]!);
+    index++;
+  }
+
+  return {
+    block: { kind: "p", text: body.join("\n"), lineStart: start, lineEnd: index - 1 },
+    next: index,
+  };
+}
+
+/** The next block starting at `lineIndex` (never a blank line, never frontmatter). */
+function nextBlock(lines: string[], lineIndex: number): BlockScan {
+  const line = lines[lineIndex]!;
+
+  if (line.startsWith("```")) return codeBlock(lines, lineIndex);
+  const single = singleLineBlock(line, lineIndex);
+
+  if (single) return { block: single, next: lineIndex + 1 };
+  if (line.startsWith("> ")) return quoteBlock(lines, lineIndex);
+  if (isTableStart(lines, lineIndex)) return tableBlock(lines, lineIndex);
+
+  return paragraphBlock(lines, lineIndex);
+}
+
 export function parseBlocks(markdown: string): Block[] {
   const lines = markdown.split("\n");
   const blocks: Block[] = [];
   let lineIndex = 0;
+  const frontmatter = frontmatterBlock(lines);
 
+  if (frontmatter) {
+    blocks.push(frontmatter);
+    lineIndex = frontmatter.lineEnd + 1;
+  }
   while (lineIndex < lines.length) {
-    const line = lines[lineIndex]!;
-
-    if (line.trim() === "") {
+    if (lines[lineIndex]!.trim() === "") {
       lineIndex++;
       continue;
     }
-    if (line.startsWith("```")) {
-      const start = lineIndex;
-      const lang = line.slice(3).trim() || undefined;
+    const scan = nextBlock(lines, lineIndex);
 
-      lineIndex++;
-      const body: string[] = [];
-
-      while (lineIndex < lines.length && !lines[lineIndex]!.startsWith("```")) {
-        body.push(lines[lineIndex]!);
-        lineIndex++;
-      }
-      const end = Math.min(lineIndex, lines.length - 1);
-
-      lineIndex++;
-      blocks.push({ kind: "code", text: body.join("\n"), lang, lineStart: start, lineEnd: end });
-    } else if (line.startsWith("### ")) {
-      blocks.push({
-        kind: "h3",
-        text: stripLeadingBlockMarker(line),
-        lineStart: lineIndex,
-        lineEnd: lineIndex,
-      });
-      lineIndex++;
-    } else if (line.startsWith("## ")) {
-      blocks.push({
-        kind: "h2",
-        text: stripLeadingBlockMarker(line),
-        lineStart: lineIndex,
-        lineEnd: lineIndex,
-      });
-      lineIndex++;
-    } else if (line.startsWith("# ")) {
-      blocks.push({
-        kind: "h1",
-        text: stripLeadingBlockMarker(line),
-        lineStart: lineIndex,
-        lineEnd: lineIndex,
-      });
-      lineIndex++;
-    } else if (/^(---|\*\*\*|___)\s*$/.test(line)) {
-      blocks.push({ kind: "hr", text: "", lineStart: lineIndex, lineEnd: lineIndex });
-      lineIndex++;
-    } else if (line.startsWith("> ")) {
-      const start = lineIndex;
-      const body: string[] = [];
-
-      while (lineIndex < lines.length && lines[lineIndex]!.startsWith("> ")) {
-        body.push(stripLeadingBlockMarker(lines[lineIndex]!));
-        lineIndex++;
-      }
-      blocks.push({
-        kind: "quote",
-        text: body.join("\n"),
-        lineStart: start,
-        lineEnd: lineIndex - 1,
-      });
-    } else if (line.startsWith("- ")) {
-      blocks.push({
-        kind: "li",
-        text: stripLeadingBlockMarker(line),
-        lineStart: lineIndex,
-        lineEnd: lineIndex,
-      });
-      lineIndex++;
-    } else if (/^\d+\. /.test(line)) {
-      blocks.push({
-        kind: "oli",
-        text: stripLeadingBlockMarker(line),
-        lineStart: lineIndex,
-        lineEnd: lineIndex,
-      });
-      lineIndex++;
-    } else {
-      const start = lineIndex;
-      const body: string[] = [];
-
-      while (
-        lineIndex < lines.length &&
-        lines[lineIndex]!.trim() !== "" &&
-        !isMarkerLine(lines[lineIndex]!)
-      ) {
-        body.push(lines[lineIndex]!);
-        lineIndex++;
-      }
-      blocks.push({ kind: "p", text: body.join("\n"), lineStart: start, lineEnd: lineIndex - 1 });
-    }
+    blocks.push(scan.block);
+    lineIndex = scan.next;
   }
 
   return blocks;
@@ -162,6 +256,10 @@ export function blockToMd(block: Block, ordinal = 1): string {
       return "```" + (block.lang ?? "") + "\n" + block.text + "\n```";
     case "hr":
       return "---";
+    case "frontmatter":
+      return "---\n" + block.text + "\n---";
+    case "table":
+      return block.text;
     default:
       return block.text;
   }

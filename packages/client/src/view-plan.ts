@@ -17,7 +17,8 @@ import {
   type Block,
 } from "@cueloop/schema";
 import { wordLevelChanges } from "./diff-intraline";
-import { spanRangeInBlock, type TextSpan } from "./thread-selection";
+import { spanRangeInBlock, type CharRange, type TextSpan } from "./thread-selection";
+import type { MarkRange, VisualLine } from "./mark-runs";
 
 // ── display model ─────────────────────────────
 
@@ -35,6 +36,18 @@ export interface DisplayBlock {
 
 export function displayText(block: DisplayBlock): string {
   return (block.work ?? block.base)!.text;
+}
+
+/**
+ * The text a block actually paints: every rendered run's text in order, with
+ * inline markers concealed. This is the coordinate space the read-only thread
+ * surface hit-tests and paints in; it differs from displayText wherever a block
+ * carries inline markup (a link, code, or emphasis) whose markers drop away.
+ */
+export function renderedText(block: DisplayBlock): string {
+  return blockRuns(block, true)
+    .map((run) => run.text)
+    .join("");
 }
 
 /** Word-overlap similarity gate: an unrelated cut + insert must not merge. */
@@ -214,15 +227,27 @@ export function marksByDisplay(
     const endEntry = workEntries[resolved.endBlockIndex];
 
     if (!startEntry || !endEntry) continue;
+    // resolveAnchor works in the block's work text; the surface paints and hit-tests in rendered
+    // text (markers concealed), so map the span onto the visible characters it covers
+    const renderedStart = renderedOffsetAtOrAfter(
+      blockRuns(startEntry.block, true),
+      resolved.start,
+    );
+    const renderedEndInclusive = renderedOffsetAtOrBefore(
+      blockRuns(endEntry.block, true),
+      Math.max(0, resolved.end - 1),
+    );
+
+    if (renderedStart === null || renderedEndInclusive === null) continue;
     const span: TextSpan = {
-      start: { blockIndex: startEntry.displayIndex, char: resolved.start },
-      end: { blockIndex: endEntry.displayIndex, char: resolved.end },
+      start: { blockIndex: startEntry.displayIndex, char: renderedStart },
+      end: { blockIndex: endEntry.displayIndex, char: renderedEndInclusive + 1 },
     };
 
     // a span paints on every block it covers; the mark carries the whole span
     for (let workIndex = resolved.blockIndex; workIndex <= resolved.endBlockIndex; workIndex++) {
       const entry = workEntries[workIndex]!;
-      const range = spanRangeInBlock(span, entry.displayIndex, entry.block.work!.text.length);
+      const range = spanRangeInBlock(span, entry.displayIndex, renderedText(entry.block).length);
 
       if (!range) continue;
       const marks = marksByIndex.get(entry.displayIndex) ?? [];
@@ -243,7 +268,11 @@ export function marksByDisplay(
 
 /** Base runs for a display block: plain text, or word-diff for mod blocks. */
 export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
-  const literal = block.kind === "code" || block.kind === "hr";
+  const literal =
+    block.kind === "code" ||
+    block.kind === "hr" ||
+    block.kind === "table" ||
+    block.kind === "frontmatter";
 
   if (block.type === "mod" && markup) {
     const changes = wordLevelChanges(block.base!.text, block.work!.text);
@@ -313,6 +342,94 @@ export function inlineStyleRuns(text: string, base: number): StyleRun[] {
   }
 
   return runs;
+}
+
+/** A rendered run positioned by its offset in the block's rendered (concealed) text. */
+export interface RenderedRun {
+  text: string;
+  role: RunRole;
+  /** Offset of this run in the block's rendered text. */
+  start: number;
+  href?: string;
+}
+
+/** The block's role runs positioned in rendered-text coordinates, for painting and hit-testing. */
+export function renderedStyleRuns(block: DisplayBlock): RenderedRun[] {
+  const runs: RenderedRun[] = [];
+  let rendered = 0;
+
+  for (const run of blockRuns(block, true)) {
+    const positioned: RenderedRun = { text: run.text, role: run.role, start: rendered };
+
+    if (run.href !== undefined) positioned.href = run.href;
+    runs.push(positioned);
+    rendered += run.text.length;
+  }
+
+  return runs;
+}
+
+/** A painted run of one visual line: its role, its href, and whether a mark or the caret cell covers it. */
+export interface StyledRun {
+  text: string;
+  role: RunRole;
+  marked: boolean;
+  caretOnly: boolean;
+  href?: string;
+}
+
+/**
+ * Slice a block's rendered role runs to one visual line and split them further
+ * at mark boundaries, so each painted run carries both its markdown role and
+ * whether a discussion mark or the caret cell covers it. Every coordinate here
+ * is a rendered-text offset; `markRanges` are block-level and clipped to the line.
+ */
+export function styledRunsFor(
+  roleRuns: RenderedRun[],
+  line: VisualLine,
+  markRanges: MarkRange[],
+): StyledRun[] {
+  const cuts = new Set<number>([line.start, line.end]);
+
+  for (const run of roleRuns) {
+    if (run.start > line.start && run.start < line.end) cuts.add(run.start);
+    const runEnd = run.start + run.text.length;
+
+    if (runEnd > line.start && runEnd < line.end) cuts.add(runEnd);
+  }
+  for (const range of markRanges) {
+    const start = Math.max(line.start, range.start);
+    const end = Math.min(line.end, range.end);
+
+    if (start < end) {
+      cuts.add(start);
+      cuts.add(end);
+    }
+  }
+  const edges = [...cuts].toSorted((left, right) => left - right);
+  const runs: StyledRun[] = [];
+
+  for (let index = 0; index < edges.length - 1; index++) {
+    const start = edges[index]!;
+    const end = edges[index + 1]!;
+
+    if (end <= start) continue;
+    const roleRun = roleRuns.find(
+      (candidate) => candidate.start <= start && start < candidate.start + candidate.text.length,
+    );
+    const covering = markRanges.filter((range) => range.start <= start && end <= range.end);
+    const styled: StyledRun = {
+      text: roleRun ? roleRun.text.slice(start - roleRun.start, end - roleRun.start) : "",
+      role: roleRun?.role ?? "plain",
+      marked: covering.some((range) => range.caretOnly !== true),
+      caretOnly: covering.some((range) => range.caretOnly === true),
+    };
+
+    if (roleRun?.href !== undefined) styled.href = roleRun.href;
+    runs.push(styled);
+  }
+
+  return runs.length > 0 ? runs : [{ text: "", role: "plain", marked: false, caretOnly: false }];
 }
 
 /** Split runs at mark boundaries; marks only bind to runs with offsets. */
@@ -453,6 +570,38 @@ export function workRangeForRendered(
   }
 
   return range;
+}
+
+/**
+ * Map a rendered-text selection back to the work-text range an anchor is cut
+ * from. The read-only surface yields rendered offsets (markers concealed); an
+ * anchor's quote must come from the block's work text, so convert at the seam
+ * before makeAnchor. A selection may cross blocks: the start rendered offset
+ * lives in `displayIndex`, the end in `endDisplayIndex`.
+ */
+export function renderedSpanToWork(
+  display: DisplayBlock[],
+  displayIndex: number,
+  endDisplayIndex: number,
+  renderedStart: number,
+  renderedEnd: number,
+): CharRange {
+  const startBlock = display[displayIndex]!;
+
+  if (displayIndex === endDisplayIndex) {
+    const range = workRangeForRendered(blockRuns(startBlock, true), renderedStart, renderedEnd);
+
+    return range ?? { start: renderedStart, end: renderedEnd };
+  }
+  const startRuns = blockRuns(startBlock, true);
+  const startRange = workRangeForRendered(
+    startRuns,
+    renderedStart,
+    renderedText(startBlock).length,
+  );
+  const endRange = workRangeForRendered(blockRuns(display[endDisplayIndex]!, true), 0, renderedEnd);
+
+  return { start: startRange?.start ?? renderedStart, end: endRange?.end ?? renderedEnd };
 }
 
 /** Line delta between two revision contents, for the sheet-header summary. */

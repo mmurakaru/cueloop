@@ -50,7 +50,7 @@ import {
   shareIdFromLine,
   formatShareLine,
 } from "./share";
-import { buildDisplay, nextWorkBlock, type DisplayBlock } from "./view-plan";
+import { buildDisplay, nextWorkBlock, renderedSpanToWork, type DisplayBlock } from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
 import {
   diffRowBlocks,
@@ -307,6 +307,8 @@ export interface ReviewController {
   restoreCuration(id: string): void;
   /** The $EDITOR hand-off on the working copy. */
   edit(): void;
+  /** Track an edited thread body as the working copy and re-resolve annotations against it. */
+  saveEditedBody(content: string): void;
   /**
    * Anchor and store an annotation; both plan and diff anchor constructions.
    * `end` is an offset within `endDisplayIndex` (the same block by default).
@@ -1196,13 +1198,22 @@ class Controller implements ReviewController {
       const result = editInEditor(this.working(), "plan.md", { editor: this.editor });
 
       if (result.changed) {
-        this.setWorkingCopy(result.content);
-        this.reconcileAnnotations(session, result.content);
+        this.saveEditedBody(result.content);
         this.setStatus("edits tracked - one diff");
       } else this.setStatus("no changes");
     } catch (err) {
       this.setStatus(err instanceof Error ? err.message : String(err));
     }
+  }
+
+  // no toast: leaving the inline editor is a quiet return to the read-only view
+  saveEditedBody(content: string): void {
+    const session = this.snapshot.session;
+
+    if (!session || session.status === "resolved") return;
+    if (content === this.working()) return;
+    this.setWorkingCopy(content);
+    this.reconcileAnnotations(session, content);
   }
 
   /**
@@ -1266,12 +1277,15 @@ class Controller implements ReviewController {
       const workBlocks = display.filter((entry) => entry.work).map((entry) => entry.work!);
       const workIndexOf = (index: number): number =>
         display.slice(0, index + 1).filter((entry) => entry.work).length - 1;
+      // the plan surface hands back rendered offsets (inline markers concealed); the quote is cut
+      // from work text, so map the selection onto the work characters it covers first
+      const work = renderedSpanToWork(display, displayIndex, endDisplayIndex, start, end);
 
       anchor = makeAnchor(
         workBlocks,
         workIndexOf(displayIndex),
-        start,
-        end,
+        work.start,
+        work.end,
         workIndexOf(endDisplayIndex),
       );
     }

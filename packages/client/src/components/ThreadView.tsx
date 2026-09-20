@@ -16,13 +16,24 @@ import React, { useEffect, useRef } from "react";
 import { useTerminalDimensions } from "@opentui/react";
 import type { KeyEvent, ScrollBoxRenderable } from "@opentui/core";
 import type { Annotation, Thread } from "@cueloop/schema";
-import { displayText, type DisplayBlock, type Mark } from "../view-plan";
+import {
+  displayText,
+  renderedText,
+  renderedStyleRuns,
+  styledRunsFor,
+  type DisplayBlock,
+  type Mark,
+  type RenderedRun,
+  type RunRole,
+  type StyledRun,
+} from "../view-plan";
 import type { TextSpan } from "../thread-selection";
 import type { QuickAction } from "../config";
 import type { CheatsheetSection } from "../key-bindings";
 import type { Theme } from "../theme";
-import { BOLD, CUT, UNDERLINE } from "../annotation-palette";
-import { lineMarkRanges, runsFor, wrapLines, type MarkRange, type VisualLine } from "../mark-runs";
+import { BOLD, CUT, ITALIC, UNDERLINE } from "../annotation-palette";
+import { wrapLines, type MarkRange, type VisualLine } from "../mark-runs";
+import { MarkdownGridBlock } from "./MarkdownGridBlock";
 import { useFrameMeasure } from "../use-frame-measure";
 import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
@@ -35,15 +46,14 @@ const OVERSCAN_BLOCKS = 8;
 export { lighten } from "../annotation-palette";
 
 /**
- * How a block's rows are painted: heading weight, muted kinds, the list or
- * quote marker, and tracked changes as the plan sheet drew them - a cut block
- * dim and struck through, an added or edited block tagged on its first row.
+ * How a block's rows are painted: heading weight, muted kinds, and the list or
+ * quote marker. A cut block reads dim and struck through; other edits are
+ * tracked into the working copy but not tagged in the read-only view.
  */
 interface BlockStyle {
   baseFg: string;
   baseAttributes: number;
   marker: string;
-  changeTag: { text: string; fg: string } | null;
 }
 
 function blockStyle(block: DisplayBlock, tokens: Theme): BlockStyle {
@@ -58,19 +68,34 @@ function blockStyle(block: DisplayBlock, tokens: Theme): BlockStyle {
         : block.kind === "quote"
           ? "▏ "
           : "";
-  const changeTag =
-    block.type === "add"
-      ? { text: " [new]", fg: tokens.green }
-      : block.type === "mod"
-        ? { text: " [edited]", fg: tokens.accent }
-        : null;
 
   return {
     baseFg: isCut ? tokens.textDim : muted ? tokens.textMuted : tokens.text,
     baseAttributes: (isHeading ? BOLD : 0) | (isCut ? CUT : 0),
     marker,
-    changeTag,
   };
+}
+
+/** The read-only color of an inline markdown role: links accent, code and removals dim, insertions green. */
+function roleForeground(role: RunRole, baseFg: string, tokens: Theme): string {
+  if (role === "link") return tokens.blue;
+  if (role === "ins") return tokens.green;
+  if (role === "code" || role === "del") return tokens.textDim;
+
+  return baseFg;
+}
+
+/** The text attributes an inline role adds over a block's base attributes. */
+function roleAttributes(role: RunRole, baseAttributes: number): number {
+  if (role === "strong") return baseAttributes | BOLD;
+  if (role === "em") return baseAttributes | ITALIC;
+  if (role === "strike" || role === "del") return baseAttributes | CUT;
+
+  return baseAttributes;
+}
+
+function isGridKind(kind: DisplayBlock["kind"]): boolean {
+  return kind === "table" || kind === "frontmatter";
 }
 
 /* ------------------------------------------------------------------ view */
@@ -166,7 +191,8 @@ export function ThreadView({
   const tokens = useComponentTheme(theme);
   const source: LineSource = {
     count: display.length,
-    textAt: (blockIndex) => displayText(display[blockIndex]!),
+    // the surface hit-tests and paints in rendered text (inline markers concealed); a grid anchors on its raw source
+    textAt: (blockIndex) => renderedText(display[blockIndex]!),
     annotatable: () => true,
   };
   const surface = useAnnotationSurface({
@@ -227,21 +253,34 @@ export function ThreadView({
 
   interface LineContext {
     blockIndex: number;
-    text: string;
+    roleRuns: RenderedRun[];
     line: VisualLine;
     lineIndex: number;
     ranges: MarkRange[];
     marker: string;
     baseFg: string;
     baseAttributes: number;
-    /** A tag after the row's text, such as the tracked-change label. */
-    trailing: { text: string; fg: string } | null;
   }
 
+  const paintedSpan = (
+    run: StyledRun,
+    runIndex: number,
+    baseFg: string,
+    baseAttributes: number,
+  ) => (
+    <span
+      key={runIndex}
+      fg={roleForeground(run.role, baseFg, tokens)}
+      bg={run.caretOnly ? palette.caretCell : run.marked ? palette.markBackdrop : undefined}
+      attributes={roleAttributes(run.role, baseAttributes) | (run.marked ? UNDERLINE : 0)}
+    >
+      {run.text}
+    </span>
+  );
+
   const lineRowFor = (context: LineContext): React.ReactNode => {
-    const { blockIndex, text, line, lineIndex, ranges, marker, baseFg, baseAttributes, trailing } =
+    const { blockIndex, roleRuns, line, lineIndex, ranges, marker, baseFg, baseAttributes } =
       context;
-    const lineRanges = lineMarkRanges(ranges, line);
 
     return (
       <box key={`line-${lineIndex}`} style={{ flexDirection: "row" }}>
@@ -255,17 +294,25 @@ export function ThreadView({
           ref={surface.registerLine(blockIndex, lineIndex, line)}
           onMouseDown={surface.onLineMouseDown}
         >
-          {runsFor(text.slice(line.start, line.end), lineRanges).map((run, runIndex) => (
-            <span
-              key={runIndex}
-              fg={baseFg}
-              bg={run.caretOnly ? palette.caretCell : run.marked ? palette.markBackdrop : undefined}
-              attributes={baseAttributes | (run.marked ? UNDERLINE : 0)}
-            >
-              {run.text}
-            </span>
-          ))}
-          {trailing ? <span fg={trailing.fg}>{trailing.text}</span> : null}
+          {styledRunsFor(roleRuns, line, ranges).map((run, runIndex) =>
+            paintedSpan(run, runIndex, baseFg, baseAttributes),
+          )}
+        </text>
+      </box>
+    );
+  };
+
+  // an h1 or h2 sits over a dim rule; h3 gets weight only. The row is
+  // always present for those kinds (only its width tracks the measured viewport) so a late width
+  // measurement never adds a row and shifts the blocks below it out from under a pending click
+  const headingRule = (block: DisplayBlock): React.ReactNode => {
+    if (block.kind !== "h1" && block.kind !== "h2") return null;
+    const width = Math.max(1, (viewWidth > 6 ? viewWidth : 46) - 6);
+
+    return (
+      <box key="heading-rule" style={{ flexDirection: "row" }}>
+        <text selectable={false} fg={tokens.textDim}>
+          {"  " + "─".repeat(width)}
         </text>
       </box>
     );
@@ -273,10 +320,54 @@ export function ThreadView({
 
   const blockNodeFor = (blockIndex: number): React.ReactNode => {
     const block = display[blockIndex]!;
-    const text = displayText(block);
+    const { baseFg, baseAttributes, marker } = blockStyle(block, tokens);
+    // list items of one list stay tight; every other block sits a blank row below its neighbour
+    const previous = display[blockIndex - 1];
+    const tight =
+      previous !== undefined &&
+      block.kind === previous.kind &&
+      (block.kind === "li" || block.kind === "oli");
+    // the leading gap rides inside the measured box (not marginTop, which sits outside it) so the
+    // virtualizer's spacer math counts it
+    const leadingGap =
+      blockIndex === 0 || tight ? null : <box key="lead-gap" style={{ height: 1 }} />;
+    const measuredBox = (children: React.ReactNode): React.ReactNode => (
+      <box
+        key={`discussion-block-${blockIndex}`}
+        id={`discussion-block-${blockIndex}`}
+        ref={virtual.measureRef(blockIndex)}
+        style={{ flexDirection: "column" }}
+      >
+        {leadingGap}
+        {children}
+      </box>
+    );
+
+    if (isGridKind(block.kind)) {
+      // a grid annotates as one unit: every row hit-tests to the same block span, a mark tints the grid,
+      // and the block's discussion cards slot under it, so annotations resolving into a grid stay visible
+      const gridLine: VisualLine = { start: 0, end: renderedText(block).length };
+      const marked = surface.rangesFor(blockIndex).some((range) => !range.caretOnly);
+
+      return measuredBox(
+        <>
+          <MarkdownGridBlock
+            block={block}
+            theme={tokens}
+            contentWidth={viewWidth > 0 ? viewWidth - 6 : 40}
+            marked={marked}
+            markBackdrop={palette.markBackdrop}
+            registerRow={(rowIndex) => surface.registerLine(blockIndex, rowIndex, gridLine)}
+            onRowMouseDown={surface.onLineMouseDown}
+          />
+          {surface.cardsAfterLine(blockIndex, gridLine, true)}
+        </>,
+      );
+    }
+
+    const roleRuns = renderedStyleRuns(block);
     const ranges = surface.rangesFor(blockIndex);
-    const { baseFg, baseAttributes, marker, changeTag } = blockStyle(block, tokens);
-    const lines = wrapLines(text, viewWidth > 0 ? viewWidth - marker.length - 6 : 0);
+    const lines = wrapLines(renderedText(block), viewWidth > 0 ? viewWidth - marker.length - 6 : 0);
     const lineRows: React.ReactNode[] = [];
 
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
@@ -286,16 +377,16 @@ export function ThreadView({
       lineRows.push(
         lineRowFor({
           blockIndex,
-          text,
+          roleRuns,
           line,
           lineIndex,
           ranges,
           marker,
           baseFg,
           baseAttributes,
-          trailing: lineIndex === 0 ? changeTag : null,
         }),
       );
+      if (isLastLine) lineRows.push(headingRule(block));
       const cards = surface.cardsAfterLine(blockIndex, line, isLastLine);
 
       lineRows.push(...cards);
@@ -304,13 +395,7 @@ export function ThreadView({
       }
     }
 
-    // list items of one list stay tight; every other block sits a blank row
-    // below its neighbour, and a code block announces its language first
-    const previous = display[blockIndex - 1];
-    const tight =
-      previous !== undefined &&
-      block.kind === previous.kind &&
-      (block.kind === "li" || block.kind === "oli");
+    // a code block announces its language first
     const languageRow =
       block.kind === "code" ? (
         <text key="language" fg={tokens.textDim} selectable={false}>
@@ -318,22 +403,11 @@ export function ThreadView({
         </text>
       ) : null;
 
-    // the leading gap rides inside the measured box (not marginTop, which sits outside it) so the
-    // virtualizer's spacer math counts it
-    const leadingGap =
-      blockIndex === 0 || tight ? null : <box key="lead-gap" style={{ height: 1 }} />;
-
-    return (
-      <box
-        key={`discussion-block-${blockIndex}`}
-        id={`discussion-block-${blockIndex}`}
-        ref={virtual.measureRef(blockIndex)}
-        style={{ flexDirection: "column" }}
-      >
-        {leadingGap}
+    return measuredBox(
+      <>
         {languageRow}
         {lineRows}
-      </box>
+      </>,
     );
   };
 
