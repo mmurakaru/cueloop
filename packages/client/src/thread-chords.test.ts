@@ -33,10 +33,9 @@ describe("resolveNavKey", () => {
     expect(resolveNavKey({ name: "u" }, owner)).toEqual({ type: "restoreCuration" });
   });
 
-  test("the tree commands: toggle, move on the Tree tab, go, branch, label, fork, hand off", () => {
+  test("the tree commands: move on the Tree tab, go, branch, label, fork, hand off", () => {
     const onTree = { ...owner, treeActive: true };
 
-    expect(resolveNavKey({ name: "t" }, owner)).toEqual({ type: "toggleTree" });
     expect(resolveNavKey({ name: "n" }, onTree)).toEqual({ type: "treeMove", direction: 1 });
     expect(resolveNavKey({ name: "p" }, onTree)).toEqual({ type: "treeMove", direction: -1 });
     expect(resolveNavKey({ name: "g" }, owner)).toEqual({ type: "treeGo" });

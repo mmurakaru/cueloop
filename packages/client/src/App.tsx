@@ -360,7 +360,7 @@ function cheatsheetFor(keyBindings: KeyBindings, threadViewActive: boolean): Che
     { title: "Nav mode · session", entries: sessionCommandEntries() },
     { title: "Nav mode · diff", entries: diffCommandEntries() },
     { title: "Nav mode · discussion", entries: curationCommandEntries() },
-    { title: "Nav mode · tree", entries: treeCommandEntries() },
+    { title: "Nav mode · history", entries: treeCommandEntries() },
     ...base.filter((section) => section.title === "Agent terminal"),
   ];
 }

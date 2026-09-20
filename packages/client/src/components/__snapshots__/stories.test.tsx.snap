@@ -766,7 +766,7 @@ exports[`stories catalog Chrome/NavModeHint/DiffNav renders, snapshots, and carr
 `;
 
 exports[`stories catalog Chrome/NavModeHint/ThreadNav renders, snapshots, and carries its colors: Chrome/NavModeHint/ThreadNav 1`] = `
-"  c comment · e edit · s share · n/p cards · ⏎ submit · t tree · type to leave  
+"  c comment · e edit · s share · n/p cards · ⏎ submit · type to leave           
 "
 `;
 

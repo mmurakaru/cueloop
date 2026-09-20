@@ -107,22 +107,20 @@ then act on the row or file under the caret.
 
 In the guided walk, `]` and `[` step through the files and `esc` leaves it.
 
-## The tree
+## Session history
 
-The session's history - revisions, comments, checkpoints, and branches - lives
-on the tree. In nav mode:
+The session's history - revisions, checkpoints, and branches - is carried behind
+these nav-mode commands. They act on the current path:
 
-| Input     | What it does                                             |
-| --------- | -------------------------------------------------------- |
-| `t`       | show or hide the tree                                    |
-| `n` / `p` | select the next or previous entry (while the tree shows) |
-| `g`       | go to the entry: switch to its branch, or move back      |
-| `b`       | start a branch at the tip                                |
-| `l`       | label the tip as a checkpoint                            |
-| `f`       | fork the path into a new session                         |
-| `h`       | fork and hand off: share the fork                        |
+| Input | What it does                                        |
+| ----- | --------------------------------------------------- |
+| `g`   | go to the entry: switch to its branch, or move back |
+| `b`   | start a branch at the tip                           |
+| `l`   | label the tip as a checkpoint                       |
+| `f`   | fork the path into a new session                    |
+| `h`   | fork and hand off: share the fork                   |
 
-Moving the tree is the owner's; a collaborator reads it.
+These are the owner's; a collaborator reads.
 
 ## Quit
 

@@ -3,8 +3,7 @@ import type { Theme } from "../theme";
 
 /** The one-line hint above the shared footer: how to leave nav mode, or how to enter it. */
 const DIFF_NAV_HINT = "x reject · c fold · d layout · k walk · ⏎ submit · type to leave";
-const THREAD_NAV_HINT =
-  "c comment · e edit · s share · n/p cards · ⏎ submit · t tree · type to leave";
+const THREAD_NAV_HINT = "c comment · e edit · s share · n/p cards · ⏎ submit · type to leave";
 const COMPOSE_HINT = "type to comment · esc for nav mode";
 
 /**

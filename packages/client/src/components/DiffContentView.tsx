@@ -861,6 +861,7 @@ export function DiffContentView({
       <DiscussionMarkerRail
         discussions={surface.discussions}
         spanQuote={surface.spanQuote}
+        focusedKey={surface.focusedDiscussion}
         onJump={surface.jumpToDiscussion}
         scrollbox={scrollRef}
         theme={theme}

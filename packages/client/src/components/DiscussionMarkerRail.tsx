@@ -25,12 +25,14 @@ interface HoveredMarker {
 function ScrollMarkers({
   discussions,
   hovered,
+  focused,
   tokens,
   onHover,
   onJump,
 }: {
   discussions: Discussion[];
   hovered: string | null;
+  focused: string | null;
   tokens: Theme;
   onHover: (marker: HoveredMarker | null) => void;
   onJump: (key: string) => void;
@@ -50,8 +52,11 @@ function ScrollMarkers({
     return index >= 0 && index < discussions.length ? index : null;
   };
   const hoveredIndex = discussions.findIndex((discussion) => discussion.key === hovered);
+  const focusedIndex = discussions.findIndex((discussion) => discussion.key === focused);
+  // filled + full-color when the card is focused (n/p) or the dot is hovered, so the rail shows the active card
+  const isActive = (index: number): boolean => index === hoveredIndex || index === focusedIndex;
   const colorFor = (index: number): string => {
-    if (index === hoveredIndex) return tokens.text;
+    if (isActive(index)) return tokens.text;
     if (hoveredIndex >= 0 && discussions.length >= 5 && Math.abs(index - hoveredIndex) === 1) {
       return tokens.textMuted;
     }
@@ -92,7 +97,7 @@ function ScrollMarkers({
           style={{ position: "absolute", top: rowFor(index), left: 0 }}
           fg={colorFor(index)}
         >
-          {(index === hoveredIndex ? "●" : "○").padStart(2)}
+          {(isActive(index) ? "●" : "○").padStart(2)}
         </text>
       ))}
     </box>
@@ -103,6 +108,8 @@ export interface DiscussionMarkerRailProps {
   discussions: Discussion[];
   /** The text a discussion's span covers, for the hover preview. */
   spanQuote: (span: TextSpan) => string;
+  /** The focused discussion (n/p, or a card click): its dot fills to mark the active card. */
+  focusedKey?: string | null;
   onJump: (key: string) => void;
   /** The surface's scrollbox; when given, its scrollbar draws past the dots as the panel's rightmost column. */
   scrollbox?: RefObject<ScrollBoxRenderable | null>;
@@ -112,6 +119,7 @@ export interface DiscussionMarkerRailProps {
 export function DiscussionMarkerRail({
   discussions,
   spanQuote,
+  focusedKey = null,
   onJump,
   scrollbox,
   theme,
@@ -171,6 +179,7 @@ export function DiscussionMarkerRail({
       <ScrollMarkers
         discussions={discussions}
         hovered={hovered?.key ?? null}
+        focused={focusedKey}
         tokens={tokens}
         onHover={setHovered}
         onJump={onJump}

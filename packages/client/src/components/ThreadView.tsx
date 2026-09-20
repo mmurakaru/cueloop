@@ -463,6 +463,7 @@ export function ThreadView({
       <DiscussionMarkerRail
         discussions={discussions}
         spanQuote={surface.spanQuote}
+        focusedKey={surface.focusedDiscussion}
         onJump={surface.jumpToDiscussion}
         scrollbox={scrollRef}
         theme={theme}

@@ -62,11 +62,9 @@ export function curationCommandEntries(): ChordEntry[] {
   ];
 }
 
-/** The tree commands, on the session's history tree. */
+/** The session-history commands: branch, label, fork, and hand off the current path. */
 export function treeCommandEntries(): ChordEntry[] {
   return [
-    { keys: "t", label: "show / hide the tree" },
-    { keys: "n / p", label: "next / previous entry" },
     { keys: "g", label: "go to the entry" },
     { keys: "b", label: "branch off the tip" },
     { keys: "l", label: "label a checkpoint" },
@@ -126,8 +124,6 @@ function resolveCurationKey(name: string, context: ThreadNavContext): Intent | n
       return context.treeActive ? { type: "treeMove", direction: 1 } : { type: "nextAnnotation" };
     case "p":
       return context.treeActive ? { type: "treeMove", direction: -1 } : { type: "prevAnnotation" };
-    case "t":
-      return { type: "toggleTree" };
     case "g":
       return mutating({ type: "treeGo" }, context);
     case "b":
