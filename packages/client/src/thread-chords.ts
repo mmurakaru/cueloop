@@ -54,6 +54,7 @@ export function diffCommandEntries(): ChordEntry[] {
 export function curationCommandEntries(): ChordEntry[] {
   return [
     { keys: "n / p", label: "next / previous card" },
+    { keys: "z", label: "fold / unfold the card" },
     { keys: "⌫", label: "delete the card" },
     { keys: "r", label: "rename the author" },
     { keys: "x", label: "cut the block" },

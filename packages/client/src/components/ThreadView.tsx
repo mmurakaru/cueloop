@@ -103,7 +103,7 @@ function isGridKind(kind: DisplayBlock["kind"]): boolean {
 /** The grammar as the keybinds dialog lists it; the view owns these keys, so they are not rebindable. */
 export const THREAD_VIEW_CHEATSHEET: CheatsheetSection[] = [
   {
-    title: "Thread",
+    title: "Thread (type)",
     entries: [
       { keys: "click", label: "place the caret" },
       { keys: "drag", label: "mark text, across blocks" },
@@ -112,11 +112,9 @@ export const THREAD_VIEW_CHEATSHEET: CheatsheetSection[] = [
       { keys: "⇧← / ⇧→", label: "hold a mark" },
       { keys: "↑ / ↓", label: "move by block" },
       { keys: "type", label: "comment on the mark" },
-      { keys: "⌘⌥m", label: "comment" },
       { keys: "enter", label: "reply to the comment" },
-      { keys: "tab", label: "fold / unfold" },
-      { keys: "⌘] / ⌘[", label: "next / previous comment" },
-      { keys: "esc", label: "drop the mark" },
+      { keys: "esc", label: "nav mode" },
+      { keys: "tab", label: "cycle panes" },
       { keys: "⌃q", label: "quit" },
     ],
   },

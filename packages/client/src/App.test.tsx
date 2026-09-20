@@ -365,7 +365,7 @@ describe("the thread view and the menu", () => {
     // Assert - the thread grammar, not the plan sheet's
     const dialog = setup.captureCharFrame();
 
-    expect(dialog).toContain("⌘⌥m");
+    expect(dialog).toContain("nav mode");
     expect(dialog).toContain("place the caret");
     expect(dialog).not.toContain("grow/shrink");
 
