@@ -143,6 +143,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     inboxCursor: 0,
     mode: { type: "normal" },
     session: null,
+    defaultVerdict: "approve",
     focusedAnnotationId: undefined,
     selectedCurationId: undefined,
     railTab: "review",

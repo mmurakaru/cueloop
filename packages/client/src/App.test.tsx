@@ -15,6 +15,7 @@ import {
   isolateUserConfig,
   locateText,
   press,
+  navCommand,
   pressKey,
   renderReadyApp,
   typeText as type,
@@ -152,7 +153,7 @@ describe("thread view grammar", () => {
     await clickText(setup, "move the store");
 
     // Act
-    await pressKey(setup, "x", { meta: true });
+    await navCommand(setup, "x");
 
     // Assert - the cut lands in the working copy
     await waitForState(
@@ -161,7 +162,7 @@ describe("thread view grammar", () => {
     );
 
     // Act
-    await pressKey(setup, "x", { meta: true });
+    await navCommand(setup, "x");
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
@@ -202,10 +203,12 @@ describe("submit", () => {
     // Act: with no composer open the same chord opens submit
     await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert
-    await waitForText(setup, "[Changes]");
+    // Assert - the card opens on the default verdict, approve
+    await waitForText(setup, "[Approve]");
 
-    // Act
+    // Act - cycle to request changes, then send with a summary
+    await press(setup, "right");
+    await waitForText(setup, "[Changes]");
     await type(setup, "Expand the steps.");
     await pressKey(setup, "RETURN", { meta: true });
 
@@ -364,7 +367,7 @@ describe("the thread view and the menu", () => {
     // Assert - the thread grammar, not the plan sheet's
     const dialog = setup.captureCharFrame();
 
-    expect(dialog).toContain("⌘⌥m");
+    expect(dialog).toContain("nav mode");
     expect(dialog).toContain("place the caret");
     expect(dialog).not.toContain("grow/shrink");
 

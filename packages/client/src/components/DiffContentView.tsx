@@ -26,6 +26,7 @@ import { lineMarkRanges, runsFor, wrapLines, type MarkRange } from "../mark-runs
 import { useFrameMeasure } from "../use-frame-measure";
 import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
+import { NavModeHint } from "./NavModeHint";
 import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
 import { coloredRowSpans } from "./diff-content-view-layout";
 
@@ -97,8 +98,7 @@ export interface DiffContentViewProps {
   onUpdateAnnotation: (id: string, body: string) => void;
   /** The author's display name for a comment's hover tooltip. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
-  leaderCombos?: readonly string[];
-  onLeaderCommand?: (key: KeyEvent) => void;
+  onNavCommand?: (key: KeyEvent) => boolean;
   onExit: () => void;
   /** Row indices the owner rejected during curation; drawn struck through. */
   rejectedRows?: Set<number>;
@@ -493,8 +493,7 @@ export function DiffContentView({
   onReply,
   onUpdateAnnotation,
   resolveAuthorLabel,
-  leaderCombos,
-  onLeaderCommand,
+  onNavCommand,
   onExit,
   rejectedRows = EMPTY_REJECTED,
   fold,
@@ -529,8 +528,7 @@ export function DiffContentView({
     onReply,
     onUpdateAnnotation,
     resolveAuthorLabel,
-    leaderCombos,
-    onLeaderCommand,
+    onNavCommand,
     onExit,
   });
   const { palette } = surface;
@@ -857,10 +855,18 @@ export function DiffContentView({
         >
           {materialized}
         </scrollbox>
+        {suspended ? null : (
+          <NavModeHint
+            navMode={surface.navMode}
+            surface={onNavCommand ? "diff" : "bare"}
+            theme={tokens}
+          />
+        )}
       </box>
       <DiscussionMarkerRail
         discussions={surface.discussions}
         spanQuote={surface.spanQuote}
+        focusedKey={surface.focusedDiscussion}
         onJump={surface.jumpToDiscussion}
         scrollbox={scrollRef}
         theme={theme}

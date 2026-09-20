@@ -12,7 +12,7 @@ exports[`stories catalog Surfaces/AnnotatableFileView/Loaded renders, snapshots,
                                                             
                                                             
                                                             
-                                                            
+   type to comment · esc for nav mode                       
 "
 `;
 
@@ -146,7 +146,7 @@ exports[`stories catalog Surfaces/BareWorkbenchFileView/Loaded renders, snapshot
                                                             
                                                             
                                                             
-                                                            
+   type to comment · esc for nav mode                       
 "
 `;
 
@@ -454,7 +454,7 @@ exports[`stories catalog Surfaces/DiffContentView/AnnotatedLine renders, snapsho
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
+   type to comment · esc for nav mode                                                     
 "
 `;
 
@@ -474,7 +474,7 @@ exports[`stories catalog Surfaces/DiffContentView/CaretOnFirstLine renders, snap
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
+   type to comment · esc for nav mode                                                     
 "
 `;
 
@@ -494,7 +494,7 @@ exports[`stories catalog Surfaces/DiffContentView/IntralineWordDiff renders, sna
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
+   type to comment · esc for nav mode                                                     
 "
 `;
 
@@ -514,7 +514,7 @@ exports[`stories catalog Surfaces/DiffContentView/SignedRows renders, snapshots,
                                                                                           
                                                                                           
                                                                                           
-                                                                                          
+   type to comment · esc for nav mode                                                     
 "
 `;
 
@@ -536,7 +536,7 @@ exports[`stories catalog Surfaces/DiffContentView/SplitView renders, snapshots, 
                                                                                                                         
                                                                                                                         
                                                                                                                         
-                                                                                                                        
+   type to comment · esc for nav mode                                                                                   
 "
 `;
 
@@ -628,7 +628,7 @@ exports[`stories catalog Surfaces/GridTabContent/ChangesTab renders, snapshots, 
                                                                                 
                                                                                 
                                                                                 
-                                                                                
+   type to comment · esc for nav mode                                           
 "
 `;
 
@@ -650,7 +650,7 @@ exports[`stories catalog Surfaces/GridTabContent/FileDiffTab renders, snapshots,
                                                                                 
                                                                                 
                                                                                 
-                                                                                
+   type to comment · esc for nav mode                                           
 "
 `;
 
@@ -726,20 +726,20 @@ exports[`stories catalog Surfaces/MarkdownGridBlock/Table renders, snapshots, an
 `;
 
 exports[`stories catalog Surfaces/MarkdownThreadEditor/Editing renders, snapshots, and carries its colors: Surfaces/MarkdownThreadEditor/Editing 1`] = `
-"# Rollout Plan                                                
+"  # Rollout Plan                                              
                                                               
-Ship the store move behind a \`flag\`. See [docs](https://x.dev)
-.                                                             
+  Ship the store move behind a \`flag\`. See [docs](https://x.  
+  dev).                                                       
                                                               
-- first step                                                  
-- second step                                                 
-                                                              
-                                                              
+  - first step                                                
+  - second step                                               
                                                               
                                                               
                                                               
                                                               
-Ln 1/7  Col 1                                  ⌘⏎ save & close
+                                                              
+                                                              
+  Ln 1/7  Col 1                                ⌃⏎ save & close
 "
 `;
 
@@ -752,6 +752,21 @@ exports[`stories catalog Chrome/MenuBar/Open renders, snapshots, and carries its
  └──────────────┘                                           
                                                             
                                                             
+"
+`;
+
+exports[`stories catalog Chrome/NavModeHint/Composing renders, snapshots, and carries its colors: Chrome/NavModeHint/Composing 1`] = `
+"  type to comment · esc for nav mode                                            
+"
+`;
+
+exports[`stories catalog Chrome/NavModeHint/DiffNav renders, snapshots, and carries its colors: Chrome/NavModeHint/DiffNav 1`] = `
+"  x reject · c fold · d layout · k walk · ⏎ submit · type to leave              
+"
+`;
+
+exports[`stories catalog Chrome/NavModeHint/ThreadNav renders, snapshots, and carries its colors: Chrome/NavModeHint/ThreadNav 1`] = `
+"  c comment · e edit · s share · n/p cards · ⏎ submit · type to leave           
 "
 `;
 
@@ -1327,23 +1342,7 @@ exports[`stories catalog Surfaces/ThreadView/InlineThreads renders, snapshots, a
                                                                                                     
                                                                                                     
                                                                                                     
-                                                                                                    
-"
-`;
-
-exports[`stories catalog Surfaces/ThreadsSidebar/Open renders, snapshots, and carries its colors: Surfaces/ThreadsSidebar/Open 1`] = `
-" Projects                    │                              
-   widget                    │                              
-     Migration Plan          │                              
-                             │                              
- Threads                     │                              
-   working tree              │                              
-                             │                              
-                             │                              
-                             │                              
-                             │                              
-                             │                              
-                             │                              
+  type to comment · esc for nav mode                                                                
 "
 `;
 
@@ -1593,35 +1592,7 @@ exports[`stories catalog Surfaces/WelcomePlayground/Welcome renders, snapshots, 
   16 Learn                                                              
   17   - docs        https://cueloop.dev/docs/                          
   18                                                                    
-  19 Version                                                            
-"
-`;
-
-exports[`stories catalog Chrome/AgentLauncher/Launcher renders, snapshots, and carries its colors: Chrome/AgentLauncher/Launcher 1`] = `
-"  ┌────────────────────────────────────┐
-  │ Claude Code                        │
-  └────────────────────────────────────┘
-  ┌────────────────────────────────────┐
-  │ Pi                                 │
-  └────────────────────────────────────┘
-  ┌────────────────────────────────────┐
-  │ OpenAI Codex                       │
-  └────────────────────────────────────┘
-  plan context: seed the plan           
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
-                                        
+   type to comment · esc for nav mode                                   
 "
 `;
 
