@@ -1,6 +1,6 @@
 /**
  * `cueloop wake <session-id>` - the production caller for the non-blocking wake.
- * A detached child of a coding-agent session parks on the review's verdict and
+ * A detached child of a coding-agent session parks on the review's message and
  * injects it back into that same live session when the human decides, so the
  * agent resumes itself without a blocked, pinned tool call. The plan skill (and
  * the Claude Code hook's non-blocking path) spawn this right after a

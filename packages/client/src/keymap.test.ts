@@ -61,8 +61,8 @@ describe("submit overlay", () => {
     ["escape", [{ type: "closeOverlay" }]],
     ["return", []],
     ["enter", []],
-    ["left", [{ type: "cycleVerdict", direction: -1 }]],
-    ["right", [{ type: "cycleVerdict", direction: 1 }]],
+    ["left", [{ type: "cycleMessage", direction: -1 }]],
+    ["right", [{ type: "cycleMessage", direction: 1 }]],
     ["j", []],
     ["q", []],
   ];
@@ -134,7 +134,7 @@ describe("inbox mode", () => {
 describe("collaborator (share) capabilities", () => {
   test("can annotate: comment opens the composer", () => {
     // Arrange
-    const collab = state({ canEditPlan: false, canSubmitVerdict: false });
+    const collab = state({ canEditPlan: false, canSubmitMessage: false });
 
     // Act / Assert
     expect(reduceKey(collab, key("c"), "comment")).toEqual([
@@ -159,9 +159,9 @@ describe("collaborator (share) capabilities", () => {
     expect(reduceKey(collab, key("c"), "cut")).toEqual([]);
   });
 
-  test("cannot submit a verdict: there is no agent on a share", () => {
+  test("cannot submit a message: there is no agent on a share", () => {
     // Arrange
-    const collab = state({ canSubmitVerdict: false });
+    const collab = state({ canSubmitMessage: false });
 
     // Act / Assert
     expect(reduceKey(collab, key("x"), "submit")).toEqual([

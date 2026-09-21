@@ -1,6 +1,6 @@
 // The thread's bottom band: a header-like bar under the thread column, or the
 // Changes column when a zoom drops the thread column. It carries the repo/branch
-// context on the left and a written, clickable "Send message" control on the right.
+// context on the left and a written, clickable "Send message (n)" control on the right.
 
 import React, { useRef } from "react";
 import type { BoxRenderable } from "@opentui/core";
@@ -15,6 +15,8 @@ export interface ThreadFooterProps {
   onSubmit?: () => void;
   /** When false the send control dims and does not fire (e.g. an observer). */
   canSubmit?: boolean;
+  /** Open reviewer annotations included in the next Message. */
+  pendingAnnotations?: number;
   theme?: Theme;
 }
 
@@ -29,6 +31,7 @@ export function ThreadFooter({
   branch,
   onSubmit,
   canSubmit = true,
+  pendingAnnotations = 0,
   theme,
 }: ThreadFooterProps): React.ReactNode {
   const tokens = theme ?? DARK;
@@ -64,7 +67,9 @@ export function ThreadFooter({
       </box>
       <box style={{ flexGrow: 1 }} />
       <box onMouseUp={canSubmit ? onSubmit : undefined} style={{ flexShrink: 0 }}>
-        <text fg={canSubmit ? tokens.accent : tokens.textDim}>send message</text>
+        <text fg={canSubmit ? tokens.accent : tokens.textDim}>
+          {`Send message (${pendingAnnotations})`}
+        </text>
       </box>
     </box>
   );

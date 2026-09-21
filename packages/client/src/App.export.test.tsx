@@ -43,7 +43,7 @@ beforeEach(() => {
 
   writeFileSync(
     configPath,
-    `[integrations.obsidian]\nvault = ${JSON.stringify(vault)}\nexportOn = "resolve"\n`,
+    `[integrations.obsidian]\nvault = ${JSON.stringify(vault)}\nexportOn = "message"\n`,
   );
   restoreUserConfig = isolateUserConfig(home, "config.toml");
   server = new DaemonServer({ home, idleExitMs: 0 });
@@ -74,7 +74,7 @@ describe("obsidian export on resolve", () => {
     await waitForText(setup, "cueloop");
 
     // Act
-    await pressKey(setup, "RETURN", { meta: true }); // open the submit overlay, keep the default verdict (approve)
+    await pressKey(setup, "RETURN", { meta: true }); // open the submit overlay, keep the default message (approve)
 
     // Assert
     await waitForText(setup, "[Approve]");
@@ -98,7 +98,7 @@ describe("obsidian export on resolve", () => {
 
     expect(written).toContain("source: cueloop");
     expect(written).toContain(`session: ${session.id}`);
-    expect(written).toContain("verdict: approve");
+    expect(written).toContain("message: approved");
     expect(written).toContain("Move the store atomically.");
     expect(setup.captureCharFrame()).toContain("exported to");
   });

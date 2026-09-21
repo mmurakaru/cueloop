@@ -89,8 +89,8 @@ export function buildRefineReport(
     "By primitive:",
     ...byCount(analyzed, primitiveLabel).map(([label, count]) => `- ${label}: ${count}`),
     "",
-    "By verdict:",
-    ...byCount(analyzed, verdictLabel).map(([label, count]) => `- ${label}: ${count}`),
+    "By message:",
+    ...byCount(analyzed, messageLabel).map(([label, count]) => `- ${label}: ${count}`),
     "",
     "## Annotations by kind",
     "",
@@ -105,7 +105,7 @@ export function buildRefineReport(
         const meta = [
           session.id,
           primitiveLabel(session),
-          verdictLabel(session),
+          messageLabel(session),
           isoWeek(annotation.createdAt),
         ].join(" · ");
 
@@ -129,7 +129,7 @@ export function buildRefineReport(
     "## Next",
     "",
     "Group the annotations above into named patterns of three or more members.",
-    "Rank each pattern by how often its members sit on a request-changes or comment verdict.",
+    "Rank each pattern by how often its members sit on a changes-requested message.",
     "Draft one writeback per pattern, routed to a skill, AGENTS.md, CLAUDE.md, or memory.",
     "",
   );
@@ -139,7 +139,7 @@ export function buildRefineReport(
 
 function hasReviewSignal(session: Thread): boolean {
   return (
-    session.verdict !== null || session.annotations.some((annotation) => !isAgentNote(annotation))
+    session.message !== null || session.annotations.some((annotation) => !isAgentNote(annotation))
   );
 }
 
@@ -200,14 +200,12 @@ function primitiveLabel(session: Thread): string {
   return session.artifact.type;
 }
 
-function verdictLabel(session: Thread): string {
-  switch (session.verdict?.kind) {
-    case "approve":
-      return "approve";
-    case "request_changes":
+function messageLabel(session: Thread): string {
+  switch (session.message?.outcome) {
+    case "approved":
+      return "approved";
+    case "changes_requested":
       return "request changes";
-    case "comment":
-      return "comment";
     default:
       return "none";
   }
@@ -240,7 +238,7 @@ function parseLimit(raw: string | undefined): number {
 }
 
 function analysisFingerprint(session: Thread): string {
-  return `${session.revisions.length}:${session.annotations.length}:${session.verdict?.resolvedAt ?? "pending"}`;
+  return `${session.revisions.length}:${session.annotations.length}:${session.message?.sentAt ?? "pending"}`;
 }
 
 function statePath(home: string): string {

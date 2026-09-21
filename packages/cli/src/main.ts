@@ -20,11 +20,11 @@ import {
   openTargetMessage,
   resolveOpenTarget,
 } from "./open-target";
-import { sessionCommand } from "./session-commands";
+import { sessionCommand } from "./thread-commands";
 import { CLI_VERSION } from "./version";
 import { DaemonClient } from "@cueloop/daemon/client";
 import type { Thread } from "@cueloop/schema";
-import { openReview } from "@cueloop/daemon/review";
+import { openReview } from "@cueloop/daemon/thread-review";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -340,12 +340,12 @@ function printHelp(): void {
       "  cueloop <plan|diff|review> --latest  open the latest pending review of that type",
       "",
       "scripting:",
-      "  cueloop session <primitive> [flags]   script the daemon (create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|resolve|submit-revision)",
+      "  cueloop session <primitive> [flags]   script the daemon (create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|send-message|bind-harness|pending-deliveries|acknowledge-delivery|submit-revision)",
       "  cueloop actions list             list the quick-action vocabulary (for annotate --action)",
       "  cueloop refine                   mine past reviews into a markdown report + writeback proposals",
       "  cueloop update [--dry-run]       update the installed cueloop binary (--dry-run reports the target only)",
-      "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the verdict (spawn detached)",
-      "  cueloop review-post <id> <pr>    post a resolved session's verdict back to the PR",
+      "  cueloop wake <id> [--harness codex --thread <id>]  resume the agent with the message (spawn detached)",
+      "  cueloop review-post <id> <pr>    post a resolved session's message back to the PR",
       "  cueloop daemon                   run the daemon in the foreground",
       "  cueloop stop                     stop the local daemon",
       "  cueloop restart                  stop the local daemon and start a fresh one",

@@ -24,16 +24,15 @@ machine, before any sharing.
 For Claude Code and Codex, cueloop installs a plan gate. When the agent produces
 a plan, the gate opens a review and blocks the agent on your decision. The agent
 does not start to build until you respond. You read the plan, annotate the exact
-lines that need work, and send one of three decisions:
+lines that need work, and send one of two messages:
 
 ```text
-comment           # leave feedback; the agent does not proceed
-approve           # the agent proceeds as planned
-request changes   # the agent revises against your annotations
+approved            # the agent proceeds as planned
+changes_requested   # the agent revises against your annotations
 ```
 
-Only `approve` lets the agent build. Both `comment` and `request changes` keep it
-from proceeding as planned.
+Only `approved` lets the agent build. Add comments as annotations before sending
+either message.
 
 The gate delivers your decision back to the agent in that agent's own format, so
 the agent reads it the same way it reads any other tool result. Your annotations
@@ -43,7 +42,7 @@ it has to parse.
 ## Feedback in the agent's format
 
 Different agents expect different shapes. cueloop translates your review into the
-format each agent understands, so a request-changes decision reads naturally to
+format each agent understands, so a changes-requested message reads naturally to
 Claude Code and to Codex alike. You annotate once, in one UI, and cueloop does
 the shaping.
 

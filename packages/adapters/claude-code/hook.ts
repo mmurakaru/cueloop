@@ -4,9 +4,9 @@
  * Instead of freezing the turn inside the tool call until the reviewer decides,
  * the hook opens the review, arms a detached inbox waiter, and denies the exit
  * right away - so the agent ends its turn and the human keeps chatting. When the
- * reviewer submits, the waiter injects the verdict into the live session over
+ * reviewer submits, the waiter injects the message into the live session over
  * the inbox socket. The agent then presents the plan again: an approved plan
- * whose content matches the verdict is allowed through; anything else (a pending
+ * whose content matches the message is allowed through; anything else (a pending
  * review, or one that came back with changes) opens a fresh review round.
  *
  * Wire into ~/.claude/settings.json:
@@ -18,8 +18,8 @@
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
-import { openReview } from "@cueloop/daemon/review";
-import { verdictAllows } from "@cueloop/schema";
+import { openReview } from "@cueloop/daemon/thread-review";
+import { messageAllows } from "@cueloop/schema";
 import { reportLabel, reportState } from "../herdr";
 
 const HookEventSchema = v.object({
@@ -58,7 +58,7 @@ interface PermissionRequestHookOutput {
 
 /**
  * Arm the detached inbox waiter that resumes this Claude Code session when the
- * verdict lands. A child of the hook (itself a child of the session) inherits
+ * message lands. A child of the hook (itself a child of the session) inherits
  * the inbox socket env, and unref lets the hook exit while the waiter parks.
  */
 function spawnDetachedWake(sessionId: string, home?: string): void {
@@ -98,14 +98,14 @@ export async function runHook(
 
     if (
       existing?.status === "resolved" &&
-      existing.verdict !== null &&
-      verdictAllows(existing.verdict.kind) &&
+      existing.message !== null &&
+      messageAllows(existing.message.outcome) &&
       existing.artifact.content === plan
     ) {
       reportState("working");
-      reportLabel(`review done: ${existing.verdict.kind}`);
+      reportLabel(`review done: ${existing.message.outcome}`);
 
-      return { allow: true, reason: existing.verdict.feedback };
+      return { allow: true, reason: existing.message.body };
     }
 
     // First pass (or a revised plan): open-or-revise the review by agent session,
@@ -134,7 +134,7 @@ export async function runHook(
       allow: false,
       reason:
         `cueloop review ${review.id} opened for human review. Do not proceed and do not wait - ` +
-        `end your turn and keep helping the user. cueloop delivers the reviewer's verdict to this ` +
+        `end your turn and keep helping the user. cueloop delivers the reviewer's message to this ` +
         `session as a follow-up: on approval, present this same plan again to proceed; on changes, ` +
         `apply the feedback and present the revised plan.`,
     };

@@ -22,17 +22,17 @@ draft the writebacks; the human approves them.
    It prints JSON with the report path and prunes reports past
    `cleanupPeriodDays`. `report` is the latest report; a timestamped copy is kept
    beside it. A run analyzes up to 200 sessions it has not seen before and skips
-   sessions with no reviewer annotation and no verdict.
+   sessions with no reviewer annotation and no message.
 
 2. Read the report (the `report` path from the JSON). It gives you the corpus
    stats, every reviewer annotation grouped by kind with its session, primitive,
-   verdict, and week, and the weekly volume.
+   message, and week, and the weekly volume.
 
 3. Form the taxonomy. Group the annotations into **named patterns** - a short
    imperative label per recurring objection ("add tests", "wrong file",
    "over-scoped"). A group is a pattern only at **three or more members**; keep
    one-offs in a long-tail list and never write them back. Rank patterns by how
-   often their members sit on a `request changes` or `comment` verdict - those
+   often their members sit on a `changes_requested` message - those
    cost the most reviews.
 
 4. Draft one writeback per pattern, routed per item:
@@ -44,7 +44,7 @@ draft the writebacks; the human approves them.
 5. Submit the writebacks as a cueloop **plan** session for approval - do not edit
    any file directly. Write the proposals as a markdown plan (one section per
    writeback: the pattern, its evidence, the target file, the exact text to add),
-   then follow the `plan` skill to open the review and wake on the verdict. Only
+   then follow the `plan` skill to open the review and wake on the message. Only
    after approval do you apply the approved writebacks to their targets.
 
 ## Boundary

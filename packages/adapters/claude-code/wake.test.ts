@@ -1,11 +1,11 @@
-/** Claude Code detached wake: against a real autostarted daemon and a fake inbox socket, the waiter parks on a review, posts the verdict on resolve, and no-ops when the session is not messaging-enabled. */
+/** Claude Code detached wake: against a real autostarted daemon and a fake inbox socket, the waiter parks on a review, posts the message on resolve, and no-ops when the session is not messaging-enabled. */
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { openReview } from "@cueloop/daemon/review";
+import { openReview } from "@cueloop/daemon/thread-review";
 import { runInboxWake } from "./wake";
 
 const PLAN = "# Wake Plan\n\nShip the daemon behind a flag.\n";
@@ -51,7 +51,7 @@ function fakeInbox() {
 }
 
 describe("runInboxWake", () => {
-  test("parks on the review, then posts the verdict into the inbox on resolve", async () => {
+  test("parks on the review, then posts the message into the inbox on resolve", async () => {
     // Arrange
     const inbox = fakeInbox();
     const client = await DaemonClient.connect({ home, autostart: true });
@@ -63,7 +63,7 @@ describe("runInboxWake", () => {
     });
 
     // Act - the human approves later
-    await client.sessionResolve(review.id, "approve", "Looks good.");
+    await client.sessionSendMessage(review.id, "approved", "Looks good.");
     const delivered = await waiting;
 
     client.close();
@@ -77,7 +77,7 @@ describe("runInboxWake", () => {
     const content = JSON.parse(messageLine).message.content;
 
     expect(content).toContain("approved");
-    expect(content).toContain("# Review: approve");
+    expect(content).toContain("# Review: approved");
     expect(content).toContain("Looks good.");
     inbox.stop();
   }, 15_000);

@@ -8,7 +8,7 @@ export function frontmatter(session: Thread, created: Date): string {
     `created: ${created.toISOString()}`,
     "source: cueloop",
     `session: ${session.id}`,
-    `verdict: ${session.verdict?.kind ?? "pending"}`,
+    `message: ${session.message?.outcome ?? "pending"}`,
     "---",
   ].join("\n");
 }

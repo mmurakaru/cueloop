@@ -1,5 +1,5 @@
 /**
- * A SessionClient backed by one decrypted blob instead of the local daemon.
+ * A ThreadClient backed by one decrypted blob instead of the local daemon.
  * This is the swap that lets the gateway render the real <App> against a share:
  * the controller asks for a session, this hands back the one it holds.
  *
@@ -9,7 +9,7 @@
  * -> put), so the planner's annotations are never lost and concurrent
  * collaborators converge (ADR 0003's id-stable union). Each collaborator note
  * is stamped with their SSH fingerprint; they can only edit or delete their own.
- * Plan edits and agent verdicts stay rejected - a share has neither.
+ * Plan edits and agent messages stay rejected - a share has neither.
  */
 
 import {
@@ -20,7 +20,7 @@ import {
   type ParticipantSource,
   type Thread,
 } from "@cueloop/schema";
-import type { EventFrame, SessionClient } from "@cueloop/daemon/client";
+import type { EventFrame, ThreadClient } from "@cueloop/daemon/client";
 import { packSessionBlob, unpackSessionBlob } from "@cueloop/daemon/share-blob";
 import { openBlob, sealBlob } from "./crypto";
 import type { ShareChangeFeed, ShareStore } from "./store";
@@ -42,7 +42,7 @@ export interface ShareWriteBack {
   changes?: ShareChangeFeed;
 }
 
-export class BlobSessionClient implements SessionClient {
+export class BlobThreadClient implements ThreadClient {
   private session: Thread;
   private readonly listeners = new Set<(event: EventFrame) => void>();
   private unsubscribe: (() => void) | null = null;
@@ -191,7 +191,7 @@ export class BlobSessionClient implements SessionClient {
     );
   }
 
-  sessionResolve(): Promise<Thread> {
+  sessionSendMessage(): Promise<Thread> {
     return rejectReadOnly();
   }
 
@@ -308,6 +308,6 @@ export function withEntry(session: Thread, entry: NewEntry): Thread {
 
 function rejectReadOnly(): Promise<never> {
   return Promise.reject(
-    new Error("a shared plan takes annotations only - no plan edits or verdicts"),
+    new Error("a shared plan takes annotations only - no plan edits or messages"),
   );
 }

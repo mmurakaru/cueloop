@@ -1,4 +1,4 @@
-/** The shared review core against a real DaemonServer in a temp home: workspace resolution, title derivation, open-or-revise by agentSessionId, and both awaitVerdict shapes (one long-poll and the chunked loop with progress and abort). */
+/** The shared review core against a real DaemonServer in a temp home: workspace resolution, title derivation, open-or-revise by agentSessionId, and both awaitMessage shapes (one long-poll and the chunked loop with progress and abort). */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -7,7 +7,7 @@ import { join } from "node:path";
 import type { Thread } from "@cueloop/schema";
 import { DaemonServer } from "./server";
 import { DaemonClient } from "./client";
-import { awaitResolve, openReview, resolveWorkspace } from "./review";
+import { awaitResolve, openReview, resolveWorkspace } from "./thread-review";
 
 const PLAN = "# Rollout Plan\n\nShip it in two stages.\n";
 
@@ -205,49 +205,49 @@ describe("openReview", () => {
   });
 });
 
-describe("awaitVerdict: one long-poll (the hook shape)", () => {
-  test("times out to pending; a later wait collects the stored verdict", async () => {
+describe("awaitMessage: one long-poll (the hook shape)", () => {
+  test("times out to pending; a later wait collects the stored message", async () => {
     // Arrange
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
 
     // Assert
-    expect(await review.awaitVerdict({ timeoutMs: 50 })).toBe("pending");
+    expect(await review.awaitMessage({ timeoutMs: 50 })).toBe("pending");
 
     // Act
-    await client.sessionResolve(review.id, "approve", "Fine.");
-    const verdict = await review.awaitVerdict({ timeoutMs: 1_000 });
+    await client.sessionSendMessage(review.id, "approved", "Fine.");
+    const message = await review.awaitMessage({ timeoutMs: 1_000 });
 
     // Assert
-    expect(verdict).not.toBe("pending");
-    if (verdict === "pending") throw new Error("unreachable");
-    expect(verdict.allow).toBe(true);
-    expect(verdict.feedback).toContain("Fine.");
-    expect(verdict.session.verdict!.kind).toBe("approve");
+    expect(message).not.toBe("pending");
+    if (message === "pending") throw new Error("unreachable");
+    expect(message.allow).toBe(true);
+    expect(message.message.body).toContain("Fine.");
+    expect(message.session.message!.outcome).toBe("approved");
   });
 
-  test("request_changes maps to allow=false with feedback.md attached", async () => {
+  test("changes_requested maps to allow=false with feedback.md attached", async () => {
     // Arrange
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
-    const waiting = review.awaitVerdict({ timeoutMs: 5_000 });
+    const waiting = review.awaitMessage({ timeoutMs: 5_000 });
 
     // Act
-    await client.sessionResolve(review.id, "request_changes", "One stage only.");
-    const verdict = await waiting;
+    await client.sessionSendMessage(review.id, "changes_requested", "One stage only.");
+    const message = await waiting;
 
     // Assert
-    if (verdict === "pending") throw new Error("expected a verdict");
-    expect(verdict.allow).toBe(false);
-    expect(verdict.feedback).toContain("# Review: request changes");
-    expect(verdict.feedback).toContain("One stage only.");
+    if (message === "pending") throw new Error("expected a message");
+    expect(message.allow).toBe(false);
+    expect(message.message.body).toContain("# Review: changes requested");
+    expect(message.message.body).toContain("One stage only.");
   });
 });
 
-describe("awaitVerdict: chunked loop (the pi shape)", () => {
-  test("onProgress sees fresh sessions between chunks; the verdict ends the loop", async () => {
+describe("awaitMessage: chunked loop (the pi shape)", () => {
+  test("onProgress sees fresh sessions between chunks; the message ends the loop", async () => {
     // Arrange
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
     const seen: Thread[] = [];
-    const waiting = review.awaitVerdict({
+    const waiting = review.awaitMessage({
       timeoutMs: Infinity,
       pollMs: 100,
       onProgress: (progress) => seen.push(progress),
@@ -268,20 +268,20 @@ describe("awaitVerdict: chunked loop (the pi shape)", () => {
     expect(seen.some((snapshot) => snapshot.annotations.length === 1)).toBe(true);
 
     // Act
-    await client.sessionResolve(review.id, "request_changes", "Too vague.");
-    const verdict = await waiting;
+    await client.sessionSendMessage(review.id, "changes_requested", "Too vague.");
+    const message = await waiting;
 
     // Assert
-    if (verdict === "pending") throw new Error("expected a verdict");
-    expect(verdict.allow).toBe(false);
-    expect(verdict.session.annotations.length).toBe(1);
+    if (message === "pending") throw new Error("expected a message");
+    expect(message.allow).toBe(false);
+    expect(message.session.annotations.length).toBe(1);
   }, 15_000);
 
   test("abort surfaces as pending and leaves the session collectable", async () => {
     // Arrange
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
     const controller = new AbortController();
-    const waiting = review.awaitVerdict({
+    const waiting = review.awaitMessage({
       timeoutMs: Infinity,
       pollMs: 100,
       signal: controller.signal,
@@ -300,40 +300,40 @@ describe("awaitVerdict: chunked loop (the pi shape)", () => {
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
 
     // Assert
-    expect(await review.awaitVerdict({ timeoutMs: 120, pollMs: 50 })).toBe("pending");
+    expect(await review.awaitMessage({ timeoutMs: 120, pollMs: 50 })).toBe("pending");
   });
 });
 
 describe("awaitResolve: the adapter wake seam (session id only)", () => {
-  test("resolves to the outcome when the verdict lands during the wait", async () => {
+  test("resolves to the outcome when the message lands during the wait", async () => {
     // Arrange
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
     const waiting = awaitResolve(client, review.id, { pollMs: 100 });
 
     // Act
-    await client.sessionResolve(review.id, "approve", "Ship it.");
-    const verdict = await waiting;
+    await client.sessionSendMessage(review.id, "approved", "Ship it.");
+    const message = await waiting;
 
     // Assert
-    expect(verdict).not.toBeNull();
-    expect(verdict!.allow).toBe(true);
-    expect(verdict!.feedback).toContain("Ship it.");
-    expect(verdict!.session.verdict!.kind).toBe("approve");
+    expect(message).not.toBeNull();
+    expect(message!.allow).toBe(true);
+    expect(message!.message.body).toContain("Ship it.");
+    expect(message!.session.message!.outcome).toBe("approved");
   });
 
-  test("returns the stored verdict immediately when the session already resolved", async () => {
+  test("returns the stored message immediately when the session already resolved", async () => {
     // Arrange - a detached waiter that only attaches after the human decided
     const review = await openReview(client, { type: "plan", content: PLAN, cwd: home });
 
-    await client.sessionResolve(review.id, "request_changes", "One stage only.");
+    await client.sessionSendMessage(review.id, "changes_requested", "One stage only.");
 
     // Act
-    const verdict = await awaitResolve(client, review.id);
+    const message = await awaitResolve(client, review.id);
 
     // Assert
-    expect(verdict).not.toBeNull();
-    expect(verdict!.allow).toBe(false);
-    expect(verdict!.feedback).toContain("One stage only.");
+    expect(message).not.toBeNull();
+    expect(message!.allow).toBe(false);
+    expect(message!.message.body).toContain("One stage only.");
   });
 
   test("returns null when the signal aborts first", async () => {
@@ -352,7 +352,7 @@ describe("awaitResolve: the adapter wake seam (session id only)", () => {
 });
 
 describe("awaitResolve: the held wait keeps the daemon alive", () => {
-  test("a pending session does not idle-exit while a waiter is parked, then the verdict lands", async () => {
+  test("a pending session does not idle-exit while a waiter is parked, then the message lands", async () => {
     // Arrange - a daemon with an aggressive idle timer and its own home
     const idleHome = mkdtempSync(join(tmpdir(), "cueloop-idle-"));
     let idleExits = 0;
@@ -376,15 +376,15 @@ describe("awaitResolve: the held wait keeps the daemon alive", () => {
       expect(idleExits).toBe(0);
       expect((await waiterClient.ping()).pid).toBe(process.pid);
 
-      // Act - the human returns a verdict; the parked wait collects it
+      // Act - the human returns a message; the parked wait collects it
       const resolver = await DaemonClient.connect({ home: idleHome });
 
-      await resolver.sessionResolve(review.id, "approve", "Good to go.");
+      await resolver.sessionSendMessage(review.id, "approved", "Good to go.");
       resolver.close();
-      const verdict = await waiting;
+      const message = await waiting;
 
       // Assert
-      expect(verdict!.allow).toBe(true);
+      expect(message!.allow).toBe(true);
     } finally {
       waiterClient.close();
       idleServer.stop();

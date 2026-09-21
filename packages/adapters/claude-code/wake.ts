@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Detached inbox waiter for Claude Code: park on one review's verdict, then post
+ * Detached inbox waiter for Claude Code: park on one review's message, then post
  * it into the live session over the inbox socket. Spawned as a child of the
  * Claude Code session - so it inherits CLAUDE_CODE_MESSAGING_SOCKET and
  * CLAUDE_CODE_MESSAGING_TOKEN - right after a non-blocking openReview. The agent
@@ -27,8 +27,8 @@ export interface InboxWakeOptions {
 }
 
 /**
- * Wait for the verdict on `sessionId`, then post it to the Claude Code inbox.
- * Returns true when a verdict was delivered, false when the session is not
+ * Wait for the message on `sessionId`, then post it to the Claude Code inbox.
+ * Returns true when a message was delivered, false when the session is not
  * messaging-enabled or the wait aborted first.
  */
 export async function runInboxWake(
@@ -41,7 +41,7 @@ export async function runInboxWake(
 
   return runWakeWaiter(
     sessionId,
-    (verdict) => postToInbox(inbox, wakeMessage(sessionId, verdict)),
+    (message) => postToInbox(inbox, wakeMessage(sessionId, message)),
     { home: options.home, pollMs: options.pollMs, signal: options.signal },
   );
 }

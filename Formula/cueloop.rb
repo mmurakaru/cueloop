@@ -13,7 +13,7 @@
 # The release workflow bumps `version` and the four sha256 values from the
 # release's checksums.txt via scripts/update-formula.ts and pushes here.
 class Cueloop < Formula
-  desc "Terminal review surface for coding agents: annotate plans and diffs, return a verdict"
+  desc "Terminal review surface for coding agents: annotate plans and diffs, send a message"
   homepage "https://cueloop.dev"
   version "0.1.0-alpha.61"
   license "Apache-2.0"

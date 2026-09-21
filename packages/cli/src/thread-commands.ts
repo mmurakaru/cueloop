@@ -1,5 +1,5 @@
 /**
- * `cueloop session *` - mirrors the daemon socket API 1:1. One surface,
+ * `cueloop session *` - mirrors the daemon socket API 1:1. One Thread surface,
  * three consumers: agent adapters, the dev loop, and integrations. Output is
  * JSON on stdout; exit code 0 unless the daemon returned an error.
  */
@@ -14,7 +14,7 @@ import {
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
-import { openReview, verdictResponse } from "@cueloop/daemon/review";
+import { openReview, messageResponse } from "@cueloop/daemon/thread-review";
 import { loadConfig, quickActionBody, resolveQuickAction } from "@cueloop/client/config";
 import { slashItemsFrom } from "@cueloop/client/slash-palette";
 import { parseArgs, stringFlag } from "./args";
@@ -29,7 +29,7 @@ function out(value: Parameters<typeof JSON.stringify>[0]): void {
 
 const ReviewNotesSchema = v.array(v.object({ path: v.string(), body: v.string() }));
 const SessionStatusSchema = v.picklist(["pending", "resolved"]);
-const VerdictKindSchema = v.picklist(["comment", "approve", "request_changes"]);
+const MessageOutcomeSchema = v.picklist(["approved", "changes_requested"]);
 
 type SessionFlags = Record<string, string | boolean>;
 type SessionContext = { client: DaemonClient; positional: string[]; flags: SessionFlags };
@@ -93,9 +93,9 @@ async function sessionWaitCommand({ client, positional, flags }: SessionContext)
 
     return 0;
   }
-  const { allow, feedback } = verdictResponse(session);
+  const { allow, message } = messageResponse(session);
 
-  out({ status: "resolved", allow, verdict: session.verdict!.kind, feedback });
+  out({ status: "resolved", allow, message });
 
   return 0;
 }
@@ -336,14 +336,17 @@ async function sessionEventsCommand({
   return stream;
 }
 
-async function sessionResolveCommand({
+async function sessionSendMessageCommand({
   client,
   positional,
   flags,
 }: SessionContext): Promise<number> {
   const id = required(positional[1], "session id");
-  const kind = v.parse(VerdictKindSchema, required(stringFlag(flags, "verdict"), "--verdict"));
-  // expand /name quick-action references in TUI-authored comments, so a CLI resolve sends the agent
+  const outcome = v.parse(
+    MessageOutcomeSchema,
+    required(stringFlag(flags, "outcome"), "--outcome"),
+  );
+  // Expand /name quick-action references in TUI-authored comments, so send-message sends the agent
   // the action bodies too, not the bare references
   const session = await client.sessionGet(id);
   const actions = loadConfig({ repoRoot: session.workspace.repoRoot }).actions;
@@ -351,7 +354,38 @@ async function sessionResolveCommand({
     slashItemsFrom(actions).map((item) => [item.name, item.body]),
   );
 
-  out(await client.sessionResolve(id, kind, stringFlag(flags, "summary") ?? "", actionBodies));
+  out(
+    await client.sessionSendMessage(id, outcome, stringFlag(flags, "summary") ?? "", actionBodies),
+  );
+
+  return 0;
+}
+
+async function harnessBindCommand({ client, positional, flags }: SessionContext): Promise<number> {
+  const threadId = required(positional[1], "thread id");
+  const harness = required(stringFlag(flags, "harness"), "--harness");
+  const harnessSessionId = required(
+    stringFlag(flags, "harness-session-id"),
+    "--harness-session-id",
+  );
+
+  out(await client.harnessBind(threadId, harness, harnessSessionId));
+
+  return 0;
+}
+
+async function deliveryPendingCommand({ client, positional }: SessionContext): Promise<number> {
+  const bindingId = required(positional[1], "binding id");
+
+  out(await client.deliveryPending(bindingId));
+
+  return 0;
+}
+
+async function deliveryAcknowledgeCommand({ client, positional }: SessionContext): Promise<number> {
+  const deliveryId = required(positional[1], "delivery id");
+
+  out(await client.deliveryAcknowledge(deliveryId));
 
   return 0;
 }
@@ -397,7 +431,10 @@ const sessionVerbHandlers: SessionVerbHandlers = {
   fork: sessionForkCommand,
   "name-self": sessionNameSelfCommand,
   events: sessionEventsCommand,
-  resolve: sessionResolveCommand,
+  "send-message": sessionSendMessageCommand,
+  "bind-harness": harnessBindCommand,
+  "pending-deliveries": deliveryPendingCommand,
+  "acknowledge-delivery": deliveryAcknowledgeCommand,
   "submit-revision": sessionSubmitRevisionCommand,
 };
 
@@ -419,7 +456,7 @@ export async function sessionCommand(argv: string[]): Promise<number> {
 
     if (handler === undefined) {
       console.error(
-        "usage: cueloop session <create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|resolve|submit-revision> [flags]",
+        "usage: cueloop session <create|get|list|wait|annotate|remove|cut|restore|curate|set-viewed|navigate|branch|switch|label|fork|name-self|events|send-message|bind-harness|pending-deliveries|acknowledge-delivery|submit-revision> [flags]",
       );
 
       return 2;

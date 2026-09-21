@@ -4,13 +4,13 @@
  * from the current branch's tip back to the root. Nothing is ever deleted:
  * navigating moves a tip, a comment removal is its own entry, a fork copies a
  * path into a new history. Every view of the session - the artifact text,
- * the open comments, the verdict history - derives from the active path.
+ * the open comments, the message history - derives from the active path.
  *
  * Pure: no store, no daemon. The daemon owns persistence; the client and the
  * feedback document read what this module derives.
  */
 
-import type { Annotation, Thread, Verdict } from "./types";
+import type { Annotation, Thread, Message } from "./types";
 
 export type EntryAuthor = "agent" | "reviewer";
 
@@ -25,7 +25,7 @@ export type SessionEntry =
   | (EntryBase & { type: "revision"; by: EntryAuthor; content: string })
   | (EntryBase & { type: "comment"; annotationId: string })
   | (EntryBase & { type: "comment-removed"; annotationId: string })
-  | (EntryBase & { type: "verdict"; verdict: Verdict })
+  | (EntryBase & { type: "message"; message: Message })
   | (EntryBase & { type: "branch-summary"; text: string; abandoned: string[] });
 
 export type EntryType = SessionEntry["type"];
@@ -161,8 +161,8 @@ export interface DerivedPath {
    * is addressed by a revision is the annotation's own state, not the path's.
    */
   annotationIds: string[];
-  /** Verdicts on the path, oldest first. */
-  verdicts: Verdict[];
+  /** Messages on the path, oldest first. */
+  messages: Message[];
   summaries: Array<SessionEntry & { type: "branch-summary" }>;
   /** Agent revisions on the path: one per round. */
   rounds: number;
@@ -176,20 +176,20 @@ export function derivePath(history: SessionHistory, fromId?: string): DerivedPat
 
   if (!head) throw new HistoryError("not-a-revision", "a path without a revision has no head");
   const open = new Set<string>();
-  const verdicts: Verdict[] = [];
+  const messages: Message[] = [];
   const summaries: Array<SessionEntry & { type: "branch-summary" }> = [];
 
   for (const entry of path) {
     if (entry.type === "comment") open.add(entry.annotationId);
     if (entry.type === "comment-removed") open.delete(entry.annotationId);
-    if (entry.type === "verdict") verdicts.push(entry.verdict);
+    if (entry.type === "message") messages.push(entry.message);
     if (entry.type === "branch-summary") summaries.push(entry);
   }
 
   return {
     head,
     annotationIds: [...open],
-    verdicts,
+    messages,
     summaries,
     rounds: revisions.filter((entry) => entry.by === "agent").length,
   };
@@ -301,7 +301,7 @@ export function navigateTo(
 
 /**
  * A fork's history: the current path copied as one branch, keeping comments
- * and labels on it, dropping verdicts and the reviewer's edits, with the tip
+ * and labels on it, dropping messages and the reviewer's edits, with the tip
  * at the copied head. The kept entries are chained anew so no entry points at
  * one that was dropped.
  */
@@ -310,7 +310,7 @@ export function forkHistory(history: SessionHistory): SessionHistory {
   const labels: Record<string, string> = {};
 
   for (const entry of pathOf(history)) {
-    if (entry.type === "verdict" || (entry.type === "revision" && entry.by === "reviewer"))
+    if (entry.type === "message" || (entry.type === "revision" && entry.by === "reviewer"))
       continue;
     kept.push({ ...entry, parentId: kept.at(-1)?.id ?? null });
     const label = history.labels[entry.id];
@@ -357,11 +357,11 @@ export function removalEntries(
 /**
  * A linear session as a one-branch tree: its revisions chained on `main` as
  * agent revisions, its comments attached after the revision that was current
- * when they were made, its verdict (when resolved) after the last revision.
+ * when they were made, its message (when resolved) after the last revision.
  * Deterministic: the same record migrates to the same ids.
  */
 export function historyFromLinear(
-  session: Pick<Thread, "id" | "revisions" | "annotations" | "verdict" | "createdAt">,
+  session: Pick<Thread, "id" | "revisions" | "annotations" | "message" | "createdAt">,
 ): SessionHistory {
   const entries: SessionEntry[] = [];
   let parentId: string | null = null;
@@ -403,12 +403,12 @@ export function historyFromLinear(
       nextComment++;
     }
   });
-  if (session.verdict) {
+  if (session.message) {
     push({
-      id: `${session.id}_verdict`,
-      type: "verdict",
-      verdict: session.verdict,
-      createdAt: session.verdict.resolvedAt,
+      id: `${session.id}_message`,
+      type: "message",
+      message: session.message,
+      createdAt: session.message.sentAt,
     });
   }
   const tip = entries.at(-1);

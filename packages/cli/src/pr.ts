@@ -1,14 +1,14 @@
 /**
  * PR review entry: `cueloop review <pr>` fetches the PR diff through the
  * user's `gh` CLI (auth fully delegated), opens a diff session, and posts the
- * verdict back to the PR as a real review when the session resolves.
+ * message back to the PR as a real review when the session resolves.
  * `cueloop review-post <session-id> <pr>` is the non-interactive post-back
  * half for agents and scripts.
  */
 
-import type { Thread, VerdictKind } from "@cueloop/schema";
+import type { Thread, MessageOutcome } from "@cueloop/schema";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { openReview } from "@cueloop/daemon/review";
+import { openReview } from "@cueloop/daemon/thread-review";
 import { parseArgs } from "./args";
 
 /** The gh binary is injectable so tests can stub it. */
@@ -33,11 +33,10 @@ async function gh(args: string[]): Promise<GhResult> {
   return { code, stdout, stderr };
 }
 
-/** Verdict kinds map 1:1 onto gh review flags. */
-const VERDICT_FLAG: Record<VerdictKind, string> = {
-  approve: "--approve",
-  request_changes: "--request-changes",
-  comment: "--comment",
+/** Message kinds map 1:1 onto gh review flags. */
+const MESSAGE_OUTCOME_FLAG: Record<MessageOutcome, string> = {
+  approved: "--approve",
+  changes_requested: "--request-changes",
 };
 
 export async function reviewCommand(argv: string[]): Promise<number> {
@@ -86,13 +85,13 @@ export async function reviewCommand(argv: string[]): Promise<number> {
 
   const after = await getSession(session.id);
 
-  if (after.status !== "resolved" || !after.verdict) {
+  if (after.status !== "resolved" || !after.message) {
     console.log(`session ${session.id} is unresolved - nothing was posted to PR ${pr}`);
 
     return 0;
   }
 
-  return postVerdict(after, pr);
+  return postMessage(after, pr);
 }
 
 export async function reviewPostCommand(argv: string[]): Promise<number> {
@@ -107,13 +106,13 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
   }
   const session = await getSession(sessionId);
 
-  if (session.status !== "resolved" || !session.verdict) {
+  if (session.status !== "resolved" || !session.message) {
     console.error(`session ${sessionId} is unresolved - nothing was posted to PR ${pr}`);
 
     return 1;
   }
 
-  return postVerdict(session, pr);
+  return postMessage(session, pr);
 }
 
 async function getSession(id: string): Promise<Thread> {
@@ -126,16 +125,16 @@ async function getSession(id: string): Promise<Thread> {
   }
 }
 
-/** Post the resolved session's verdict to the PR: feedback.md is the review body. */
-async function postVerdict(session: Thread, pr: string): Promise<number> {
-  const verdict = session.verdict!;
+/** Post the resolved session's message to the PR: feedback.md is the review body. */
+async function postMessage(session: Thread, pr: string): Promise<number> {
+  const message = session.message!;
   const result = await gh([
     "pr",
     "review",
     pr,
-    VERDICT_FLAG[verdict.kind],
+    MESSAGE_OUTCOME_FLAG[message.outcome],
     "--body",
-    verdict.feedback,
+    message.body,
   ]);
 
   if (result.code !== 0) {
@@ -143,7 +142,7 @@ async function postVerdict(session: Thread, pr: string): Promise<number> {
 
     return 1;
   }
-  console.log(`posted ${verdict.kind} review to PR ${pr} (session ${session.id})`);
+  console.log(`posted ${message.outcome} review to PR ${pr} (session ${session.id})`);
 
   return 0;
 }

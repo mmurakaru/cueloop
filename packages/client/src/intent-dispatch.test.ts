@@ -1,7 +1,7 @@
 /**
  * The intent reducer in isolation: with the App component's dependencies
  * mocked, each Intent maps to exactly the controller call or state update it
- * should - the navigation clamps, the annotation wrap-around, the verdict
+ * should - the navigation clamps, the annotation wrap-around, the message
  * cycle, and the submit-reveal fix, none of which needed a rendered TUI.
  */
 
@@ -36,7 +36,7 @@ function sessionWith(annotations: Annotation[], overrides: Partial<Thread> = {})
     artifact: { type: "plan", content: "# Plan\n", meta: {} },
     revisions: [],
     annotations,
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
@@ -143,7 +143,7 @@ function makeDeps(overrides: Partial<IntentDispatchDeps> = {}): IntentDispatchDe
     inboxCursor: 0,
     mode: { type: "normal" },
     session: null,
-    defaultVerdict: "approve",
+    defaultMessage: "approved",
     focusedAnnotationId: undefined,
     selectedCurationId: undefined,
     railTab: "review",
@@ -255,19 +255,19 @@ describe("annotation navigation", () => {
   });
 });
 
-describe("cycleVerdict", () => {
-  test("advances through the verdict list in the submit overlay", () => {
+describe("cycleMessage", () => {
+  test("advances through the message list in the submit overlay", () => {
     // Arrange
-    const deps = makeDeps({ mode: { type: "submit", verdict: "approve", summary: "" } });
+    const deps = makeDeps({ mode: { type: "submit", message: "approved", summary: "" } });
     const dispatch = createIntentDispatch(deps);
 
     // Act
-    dispatch({ type: "cycleVerdict", direction: 1 });
+    dispatch({ type: "cycleMessage", direction: 1 });
 
     // Assert
     expect(deps.setMode).toHaveBeenCalledWith({
       type: "submit",
-      verdict: "request_changes",
+      message: "changes_requested",
       summary: "",
     });
   });
@@ -368,7 +368,7 @@ describe("marker-actions popover", () => {
 });
 
 describe("openSubmit", () => {
-  test("opens the submit confirm with the default verdict", () => {
+  test("opens the submit confirm with the default message", () => {
     // Arrange
     const deps = makeDeps({ session: sessionWith([]) });
     const dispatch = createIntentDispatch(deps);
@@ -377,7 +377,7 @@ describe("openSubmit", () => {
     dispatch({ type: "openSubmit" });
 
     // Assert
-    expect(deps.setMode).toHaveBeenCalledWith({ type: "submit", verdict: "approve", summary: "" });
+    expect(deps.setMode).toHaveBeenCalledWith({ type: "submit", message: "approved", summary: "" });
   });
 
   test("does nothing without a session", () => {

@@ -127,7 +127,7 @@ function hookEvent(sessionId: string, plan: string) {
 
 async function resolvePending(
   marker: string,
-  kind: "approve" | "request_changes",
+  kind: "approved" | "changes_requested",
   summary: string,
 ): Promise<void> {
   const client = await DaemonClient.connect({ home });
@@ -138,7 +138,7 @@ async function resolvePending(
       const match = pending.find((candidate) => candidate.artifact.content.includes(marker));
 
       if (match) {
-        await client.sessionResolve(match.id, kind, summary);
+        await client.sessionSendMessage(match.id, kind, summary);
 
         return;
       }
@@ -153,7 +153,7 @@ async function resolvePending(
 describe("hook flow inside herdr", () => {
   test("reports blocked on submit, then working when the approved plan is presented again", async () => {
     // Arrange
-    const stub = makeStub("verdict");
+    const stub = makeStub("message");
 
     setHookEnv({ HERDR_ENV: "1", HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath });
     const event = hookEvent("herdr-hook-1", "# Rollout Plan\n\nShip it slowly.\n");
@@ -181,7 +181,7 @@ describe("hook flow inside herdr", () => {
     ]);
 
     // Act - the reviewer approves, then the agent presents the same plan again
-    await resolvePending("Rollout Plan", "approve", "Looks right.");
+    await resolvePending("Rollout Plan", "approved", "Looks right.");
     const second = await runHook(event, { home, armWake: noWake });
 
     // Assert
@@ -194,7 +194,7 @@ describe("hook flow inside herdr", () => {
 
     expect(outcomeLines.sort()).toEqual([
       "pane report-agent pane-7 --source custom:cueloop --state working",
-      "pane report-metadata pane-7 --source custom:cueloop --token summary=review done: approve --ttl-ms 3600000",
+      "pane report-metadata pane-7 --source custom:cueloop --token summary=review done: approved --ttl-ms 3600000",
     ]);
   }, 15_000);
 

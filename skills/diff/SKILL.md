@@ -31,12 +31,12 @@ actual changes line by line.
 
    Notes render in the reviewer's guided walk (an "agent note" block under
    each file card) and as cards in the review rail. They are your context,
-   never reviewer feedback - they do not come back in the verdict.
+   never reviewer feedback - they do not come back in the message.
 
 2. Tell the user to review: `cueloop <id>` (they can also just run
    `cueloop diff` themselves to capture and open in one step).
 3. Arm the wake, then **end your turn and keep helping the user** - do NOT sit
-   on a blocking wait. cueloop injects the verdict as a follow-up message when
+   on a blocking wait. cueloop injects the message as a follow-up message when
    the reviewer submits:
 
    ```bash

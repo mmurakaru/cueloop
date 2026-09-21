@@ -22,12 +22,15 @@ import {
   type Identity,
   type Thread,
   type HunkRejection,
+  type HarnessBinding,
+  type Delivery,
+  type PendingDelivery,
   type Revision,
   type SessionHistory,
   type ShareAccess,
   type ShareLink,
   validateHistory,
-  type Verdict,
+  type Message,
   type WorkspaceKey,
 } from "@cueloop/schema";
 import { DaemonError } from "./errors";
@@ -141,6 +144,23 @@ export const ShareLinkSchema = v.object({
   shareBranch: v.optional(v.string()),
 } satisfies EntriesOf<ShareLink>);
 
+export const HarnessBindingSchema = v.object({
+  id: NonEmpty,
+  threadId: NonEmpty,
+  harness: NonEmpty,
+  harnessSessionId: NonEmpty,
+  createdAt: NonEmpty,
+} satisfies EntriesOf<HarnessBinding>);
+
+export const DeliverySchema = v.object({
+  id: NonEmpty,
+  messageId: NonEmpty,
+  bindingId: NonEmpty,
+  status: v.picklist(["pending", "acknowledged"]),
+  createdAt: NonEmpty,
+  acknowledgedAt: v.optional(NonEmpty),
+} satisfies EntriesOf<Delivery>);
+
 export const Params = {
   "session.create": v.object({ workspace: WorkspaceSchema, artifact: ArtifactSchema }),
   "session.get": v.object({ id: SessionId }),
@@ -227,12 +247,19 @@ export const Params = {
       v.array(v.object({ id: NonEmpty, annotationId: NonEmpty, createdAt: v.string() })),
     ),
   }),
-  "session.resolve": v.object({
+  "session.sendMessage": v.object({
     id: SessionId,
-    verdictKind: v.picklist(["comment", "approve", "request_changes"]),
+    outcome: v.picklist(["approved", "changes_requested"]),
     summary: v.optional(v.string(), ""),
     actionBodies: v.optional(v.record(v.string(), v.string())),
   }),
+  "harness.bind": v.object({
+    threadId: SessionId,
+    harness: NonEmpty,
+    harnessSessionId: NonEmpty,
+  }),
+  "delivery.pending": v.object({ bindingId: NonEmpty }),
+  "delivery.acknowledge": v.object({ deliveryId: NonEmpty }),
   "session.submitRevision": v.object({
     id: SessionId,
     content: v.string(),
@@ -286,12 +313,18 @@ export const RevisionSchema = v.object({
   submittedAt: v.string(),
 } satisfies EntriesOf<Revision>);
 
-export const VerdictSchema = v.object({
-  kind: v.picklist(["comment", "approve", "request_changes"]),
+export const MessageSchema = v.object({
+  id: NonEmpty,
+  outcome: v.picklist(["approved", "changes_requested"]),
   summary: v.string(),
-  feedback: v.string(),
-  resolvedAt: v.string(),
-} satisfies EntriesOf<Verdict>);
+  body: v.string(),
+  sentAt: v.string(),
+} satisfies EntriesOf<Message>);
+
+export const PendingDeliverySchema = v.object({
+  delivery: DeliverySchema,
+  message: MessageSchema,
+} satisfies EntriesOf<PendingDelivery>);
 
 const EntryBaseEntries = {
   id: NonEmpty,
@@ -309,7 +342,7 @@ export const SessionEntrySchema = v.variant("type", [
   }),
   v.object({ ...EntryBaseEntries, type: v.literal("comment"), annotationId: NonEmpty }),
   v.object({ ...EntryBaseEntries, type: v.literal("comment-removed"), annotationId: NonEmpty }),
-  v.object({ ...EntryBaseEntries, type: v.literal("verdict"), verdict: VerdictSchema }),
+  v.object({ ...EntryBaseEntries, type: v.literal("message"), message: MessageSchema }),
   v.object({
     ...EntryBaseEntries,
     type: v.literal("branch-summary"),
@@ -354,7 +387,7 @@ export const ThreadRecordSchema = v.object({
   ),
   workingCopy: v.optional(v.string()),
   viewedPaths: v.optional(v.array(v.string())),
-  verdict: v.nullable(VerdictSchema),
+  message: v.nullable(MessageSchema),
   status: v.picklist(["pending", "resolved"]),
   createdAt: v.string(),
   shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),

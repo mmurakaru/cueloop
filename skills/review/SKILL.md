@@ -1,17 +1,17 @@
 ---
 name: review
-description: Pull a GitHub PR into a cueloop thread. Use when the user asks to review a pull request in cueloop; the verdict posts back to the PR as a real review.
+description: Pull a GitHub PR into a cueloop thread. Use when the user asks to review a pull request in cueloop; the message posts back to the PR as a real review.
 ---
 
 # cueloop PR review
 
-Fetch a pull request into cueloop; the user's verdict and annotations post
+Fetch a pull request into cueloop; the user's message and annotations post
 back to the forge as a real PR review.
 
 ## Steps
 
 1. The one-step path is the CLI (fetches via `gh`, opens the TUI, posts the
-   verdict back on submit):
+   message back on submit):
 
    ```bash
    bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts review <pr-number-or-url>
@@ -19,7 +19,7 @@ back to the forge as a real PR review.
 
    Tell the user to run that; it is interactive.
 
-2. For a non-interactive flow (you wait on the verdict instead):
+2. For a non-interactive flow (you wait on the message instead):
 
    ```bash
    gh pr diff <pr> > /tmp/cueloop-pr.patch
@@ -28,7 +28,7 @@ back to the forge as a real PR review.
    ```
 
    Then arm the wake and **end your turn** - non-blocking, so you keep helping
-   the user while the review is open; cueloop injects the verdict as a
+   the user while the review is open; cueloop injects the message as a
    follow-up message:
 
    ```bash

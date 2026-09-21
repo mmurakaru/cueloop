@@ -28,7 +28,7 @@ function threaded(): SessionHistory {
     id: "ses_1",
     revisions: [{ revision: 1, content: "Plan v1", submittedAt: AT }],
     annotations: [],
-    verdict: null,
+    message: null,
     createdAt: AT,
   });
 
@@ -110,7 +110,7 @@ describe("applyPathView", () => {
       annotations: [annotation("a2")],
       shelvedAnnotations: [annotation("a1")],
       workingCopy: "edited",
-      verdict: null,
+      message: null,
       status: "pending",
       createdAt: AT,
     };
@@ -149,7 +149,7 @@ describe("viewFollowing", () => {
       shelvedAnnotations: [annotation("a2")],
       workingCopy: "Plan v1 edited",
       history,
-      verdict: null,
+      message: null,
       status: "pending",
       createdAt: AT,
     };
@@ -174,7 +174,7 @@ describe("viewFollowing", () => {
       id: "ses_1",
       revisions: [{ revision: 1, content: "Plan v1", submittedAt: AT }],
       annotations: [],
-      verdict: null,
+      message: null,
       createdAt: AT,
     });
     const session: Thread = {
@@ -186,7 +186,7 @@ describe("viewFollowing", () => {
       annotations: [],
       shareBranch: "gone",
       history,
-      verdict: null,
+      message: null,
       status: "pending",
       createdAt: AT,
     };

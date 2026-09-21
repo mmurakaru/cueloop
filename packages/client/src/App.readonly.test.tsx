@@ -137,14 +137,14 @@ describe("observer primitives are blocked", () => {
 
 describe("a resolved review is read-only for its owner too", () => {
   test("typing, deleting a card, and editing answer review submitted - read-only", async () => {
-    // Arrange: a comment exists and the verdict is in
+    // Arrange: a comment exists and the message is in
     server.core.sessionAnnotate(session.id, {
       id: "a_done",
       kind: "comment",
       anchor: makeAnchor(parseBlocks(PLAN), 2, 0, 10),
       body: "settled",
     });
-    server.core.sessionResolve(session.id, "approve", "");
+    server.core.sessionSendMessage(session.id, "approved", "");
     const setup = await renderReadyApp(<App home={home} sessionId={session.id} />, {
       width: 120,
       height: 32,

@@ -1,6 +1,6 @@
 /**
  * The Thread primitive. Everything in cueloop renders, annotates, or
- * resolves this one noun. This module is pure data shapes - no IO, no
+ * extends this one noun. This module is pure data shapes - no IO, no
  * dependencies beyond the history shapes.
  */
 
@@ -59,7 +59,7 @@ export interface ArtifactMeta {
   planPath?: string;
   /** Path to the prototype's entry HTML file on disk. */
   prototypePath?: string;
-  /** Pull request reference the diff came from, so the verdict can be posted back. */
+  /** Pull request reference the diff came from, so the message can be posted back. */
   pr?: string;
   /** herdr pane the submitting agent runs in - the review returns focus there. */
   herdrPane?: string;
@@ -198,14 +198,41 @@ export function isAddressed(annotation: Annotation): boolean {
   return annotation.resolution !== undefined;
 }
 
-export type VerdictKind = "comment" | "approve" | "request_changes";
+/** A harness session bound to a Thread. Harness identity stays outside the Thread itself. */
+export interface HarnessBinding {
+  id: string;
+  threadId: string;
+  harness: string;
+  harnessSessionId: string;
+  createdAt: string;
+}
 
-export interface Verdict {
-  kind: VerdictKind;
+/** Durable routing state for one Message sent to one harness binding. */
+export interface Delivery {
+  id: string;
+  messageId: string;
+  bindingId: string;
+  status: "pending" | "acknowledged";
+  createdAt: string;
+  acknowledgedAt?: string;
+}
+
+/** What a harness adapter pulls: routing state plus its immutable Message payload. */
+export interface PendingDelivery {
+  delivery: Delivery;
+  message: Message;
+}
+
+export type MessageOutcome = "approved" | "changes_requested";
+
+export interface Message {
+  /** Stable identity used to deduplicate at-least-once harness delivery. */
+  id: string;
+  outcome: MessageOutcome;
   summary: string;
-  /** The one structured feedback document sent to the agent. */
-  feedback: string;
-  resolvedAt: string;
+  /** The structured review document sent to the harness. */
+  body: string;
+  sentAt: string;
 }
 
 export interface Revision {
@@ -287,7 +314,7 @@ export interface Thread {
    * progress. Undefined = the walk never started.
    */
   viewedPaths?: string[];
-  verdict: Verdict | null;
+  message: Message | null;
   status: SessionStatus;
   createdAt: string;
   /**
@@ -316,9 +343,16 @@ export interface Thread {
   participants?: Identity[];
 }
 
-/** comment and request_changes both map to deny in agent-native contracts. */
-export function verdictAllows(kind: VerdictKind): boolean {
-  return kind === "approve";
+/** Whether a Message releases a harness gate. */
+export function messageAllows(outcome: MessageOutcome): boolean {
+  return outcome === "approved";
+}
+
+let messageSeq = 0;
+
+/** A process-unique, time-sortable Message id for delivery deduplication. */
+export function newMessageId(): string {
+  return `msg_${Date.now().toString(36)}${(messageSeq++).toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**

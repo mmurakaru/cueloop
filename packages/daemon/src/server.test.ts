@@ -46,12 +46,28 @@ describe("socket round-trip", () => {
     });
     const wait = client.sessionWait(session.id, 5_000);
 
-    await client.sessionResolve(session.id, "request_changes", "Expand it.");
+    await client.sessionSendMessage(session.id, "changes_requested", "Expand it.");
     const resolved = (await wait)!;
 
     // Assert
-    expect(resolved.verdict!.kind).toBe("request_changes");
-    expect(resolved.verdict!.feedback).toContain("More detail please.");
+    expect(resolved.message!.outcome).toBe("changes_requested");
+    expect(resolved.message!.body).toContain("More detail please.");
+  });
+
+  test("harness binding and Message delivery round-trip over the wire", async () => {
+    const thread = await client.sessionCreate(WS, PLAN);
+    const binding = await client.harnessBind(thread.id, "fake", "fake_1");
+    const sent = await client.sessionSendMessage(thread.id, "approved", "Ready.");
+    const pending = await client.deliveryPending(binding.id);
+
+    expect(pending).toHaveLength(1);
+    expect(pending[0]!.message).toEqual(sent.message!);
+    expect(pending[0]!.delivery.status).toBe("pending");
+
+    const acknowledged = await client.deliveryAcknowledge(pending[0]!.delivery.id);
+
+    expect(acknowledged.status).toBe("acknowledged");
+    expect(await client.deliveryPending(binding.id)).toEqual([]);
   });
 
   test("errors carry codes across the wire", async () => {
@@ -70,13 +86,13 @@ describe("socket round-trip", () => {
     // Act
     const session = await client.sessionCreate(WS, PLAN);
 
-    await client.sessionResolve(session.id, "approve", "");
+    await client.sessionSendMessage(session.id, "approved", "");
 
     // Assert
     // events are pushed async over the socket; give the loop a beat
     await Bun.sleep(50);
     expect(seen).toContain("session.created");
-    expect(seen).toContain("session.resolved");
+    expect(seen).toContain("message.sent");
     observer.close();
   });
 
@@ -344,7 +360,7 @@ describe("ownership is proven, never declared", () => {
       ).error,
     ).toBeUndefined();
     expect(
-      (await raw.call("session.resolve", { id: session.id, verdictKind: "approve", summary: "" }))
+      (await raw.call("session.sendMessage", { id: session.id, outcome: "approved", summary: "" }))
         .error?.code,
     ).toBe("forbidden");
     expect((await raw.call("session.delete", { id: session.id })).error?.code).toBe("forbidden");
@@ -422,7 +438,7 @@ describe("ownership is proven, never declared", () => {
     // Assert: the client in beforeEach connected as the owner through the token
     const session = await client.sessionCreate(WS, PLAN);
 
-    expect((await client.sessionResolve(session.id, "approve", "")).status).toBe("resolved");
+    expect((await client.sessionSendMessage(session.id, "approved", "")).status).toBe("resolved");
     expect(statSync(join(home, "owner.token")).mode & 0o777).toBe(0o600);
   });
 });

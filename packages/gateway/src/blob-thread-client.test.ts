@@ -7,7 +7,7 @@ import {
   type Thread,
 } from "@cueloop/schema";
 import { packSessionBlob, unpackSessionBlob } from "@cueloop/daemon/share-blob";
-import { BlobSessionClient, type ShareWriteBack } from "./blob-session-client";
+import { BlobThreadClient, type ShareWriteBack } from "./blob-thread-client";
 import { generateMasterKey, openBlob, sealBlob } from "./crypto";
 import { MemoryShareStore, WatchedShareStore } from "./store";
 
@@ -29,7 +29,7 @@ function sessionWith(annotations: Annotation[]): Thread {
       { revision: 1, content: "# Plan\n\nthing\n", submittedAt: "2026-01-01T00:00:00.000Z" },
     ],
     annotations,
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "2026-01-01T00:00:00.000Z",
   };
@@ -43,7 +43,7 @@ const NOTE = (id: string, body: string): Omit<Annotation, "createdAt"> => ({
 });
 
 describe("read-only viewer (no write-back)", () => {
-  const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]));
+  const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]));
 
   test("sessionGet returns the blob-held session", async () => {
     // Assert
@@ -53,7 +53,7 @@ describe("read-only viewer (no write-back)", () => {
   test("every mutation rejects", async () => {
     // Assert
     await expect(client.sessionAnnotate("ses_1", NOTE("a_1", "hi"))).rejects.toThrow(/read-only/);
-    await expect(client.sessionResolve()).rejects.toThrow();
+    await expect(client.sessionSendMessage()).rejects.toThrow();
   });
 });
 
@@ -87,7 +87,7 @@ describe("collaborator write-back", () => {
 
   test("a new note unions in, stamped with the author, planner's untouched", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     // Act
     const after = await client.sessionAnnotate("ses_1", NOTE("a_collab", "looks risky"));
@@ -109,7 +109,7 @@ describe("collaborator write-back", () => {
 
   test("a verified github identity persists on the participant when they comment", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), {
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), {
       ...writeBack,
       participantName: "Robin",
       participantSource: { provider: "github", handle: "robin" },
@@ -129,7 +129,7 @@ describe("collaborator write-back", () => {
 
   test("editing their own note rewrites it in place", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     await client.sessionAnnotate("ses_1", NOTE("a_collab", "first"));
 
@@ -144,7 +144,7 @@ describe("collaborator write-back", () => {
 
   test("cannot change or delete the planner's note", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     // Act / Assert
     await expect(client.sessionAnnotate("ses_1", NOTE("a_planner", "hijack"))).rejects.toThrow(
@@ -157,7 +157,7 @@ describe("collaborator write-back", () => {
 
   test("can delete their own note", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     await client.sessionAnnotate("ses_1", NOTE("a_collab", "note"));
 
@@ -177,7 +177,7 @@ describe("collaborator write-back", () => {
       "p_abc123xy",
       sealBlob(writeBack.masterKey, "p_abc123xy", packSessionBlob(withHistory)),
     );
-    const client = new BlobSessionClient(withHistory, writeBack);
+    const client = new BlobThreadClient(withHistory, writeBack);
 
     // Act
     await client.sessionAnnotate("ses_1", NOTE("a_collab", "note"));
@@ -198,7 +198,7 @@ describe("collaborator write-back", () => {
 
   test("self-naming records the collaborator's identity in the participant registry", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     // Act
     const after = await client.sessionSetSelfName("ses_1", "  Robin  ");
@@ -212,7 +212,7 @@ describe("collaborator write-back", () => {
 
   test("leaving a note registers the author anonymously so they never read as a raw fingerprint", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     // Act
     const after = await client.sessionAnnotate("ses_1", NOTE("a_collab", "no name given"));
@@ -223,7 +223,7 @@ describe("collaborator write-back", () => {
 
   test("naming after annotating updates the same participant entry", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     await client.sessionAnnotate("ses_1", NOTE("a_collab", "note first"));
 
@@ -236,7 +236,7 @@ describe("collaborator write-back", () => {
 
   test("annotating after naming keeps the name, does not reset to anonymous", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     await client.sessionSetSelfName("ses_1", "Robin");
 
@@ -249,7 +249,7 @@ describe("collaborator write-back", () => {
 
   test("self-naming again updates the existing entry, not a duplicate", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     await client.sessionSetSelfName("ses_1", "Robin");
 
@@ -264,7 +264,7 @@ describe("collaborator write-back", () => {
 
   test("an empty name registers the fingerprint without a name - anonymous", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBack);
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBack);
 
     // Act
     const after = await client.sessionSetSelfName("ses_1", "   ");
@@ -291,8 +291,8 @@ describe("live events", () => {
       author,
       changes: store,
     });
-    const ana = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBackFor("SHA256:ana"));
-    const bob = new BlobSessionClient(sessionWith([PLANNER_NOTE]), writeBackFor("SHA256:bob"));
+    const ana = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBackFor("SHA256:ana"));
+    const bob = new BlobThreadClient(sessionWith([PLANNER_NOTE]), writeBackFor("SHA256:bob"));
     const events: string[] = [];
 
     ana.onEvent((event) => events.push(`${event.event}:${event.sessionId}`));
@@ -320,7 +320,7 @@ describe("live events", () => {
 
   test("without a change feed the viewer stays silent", async () => {
     // Arrange
-    const client = new BlobSessionClient(sessionWith([PLANNER_NOTE]));
+    const client = new BlobThreadClient(sessionWith([PLANNER_NOTE]));
     const events: string[] = [];
 
     client.onEvent((event) => events.push(event.event));

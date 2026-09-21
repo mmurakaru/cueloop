@@ -1,20 +1,20 @@
 /**
  * pi adapter: a pi extension factory. Registers the request_review tool
  * (submit any cueloop primitive, return immediately with the session id), a background waiter
- * per open review that injects the reviewer's verdict back into the live session
+ * per open review that injects the reviewer's message back into the live session
  * with pi.sendUserMessage once it resolves, a tool_call gate that holds
  * write-capable tools while a review this extension opened is still pending, and
  * a /review command that reports session status.
  *
  * Non-blocking by design (ADR 0008): the tool call does not sit inside the
- * verdict wait, so the human keeps chatting with the agent while the plan is
+ * message wait, so the human keeps chatting with the agent while the plan is
  * open. Each review spawns a detached waiter that parks on awaitResolve and
  * wakes the turn with a followUp message; session_shutdown aborts any waiter
  * still parked so a closed pi session never injects into a dead turn.
  */
 
 import { DaemonClient } from "@cueloop/daemon/client";
-import { awaitResolve, openReview } from "@cueloop/daemon/review";
+import { awaitResolve, openReview } from "@cueloop/daemon/thread-review";
 import { ARTIFACT_TYPES, isArtifactType, type ArtifactType } from "@cueloop/schema";
 import { wakeMessage } from "../wake-message";
 import type { PiExtensionAPI, PiToolDefinition, PiToolResult } from "./pi-types";
@@ -40,7 +40,7 @@ export interface ReviewDetails {
   sessionId?: string;
   status: "pending" | "resolved" | "cancelled";
   annotationCount: number;
-  verdictKind?: string;
+  outcome?: string;
 }
 
 export interface CueloopExtensionOptions {
@@ -60,13 +60,13 @@ function errorMessage(cause: unknown): string {
 
 export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
   const pollMs = options.pollMs ?? 10_000;
-  /** Session ids this extension opened whose verdict is still outstanding, each with its waiter's abort. */
+  /** Session ids this extension opened whose message is still outstanding, each with its waiter's abort. */
   const pendingWaiters = new Map<string, AbortController>();
   /** Most recent session this extension created, for /review. */
   let lastSessionId: string | undefined;
 
   /**
-   * The detached waiter: park on the verdict, then wake the live pi turn with a
+   * The detached waiter: park on the message, then wake the live pi turn with a
    * followUp message. Owns the daemon connection for the whole wait, so the held
    * connection also keeps the daemon off its idle-exit path. Never throws into
    * the background: a dropped daemon or a vanished session is reported to the
@@ -79,16 +79,16 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
     controller: AbortController,
   ): Promise<void> {
     try {
-      const verdict = await awaitResolve(client, sessionId, { pollMs, signal: controller.signal });
+      const message = await awaitResolve(client, sessionId, { pollMs, signal: controller.signal });
 
-      // A verdict can win the race with a shutdown abort; recheck before injecting
+      // A message can win the race with a shutdown abort; recheck before injecting
       // so a follow-up never lands in a pi session that has already torn down.
-      if (verdict === null || controller.signal.aborted) return;
-      pi.sendUserMessage(wakeMessage(sessionId, verdict), { deliverAs: "followUp" });
+      if (message === null || controller.signal.aborted) return;
+      pi.sendUserMessage(wakeMessage(sessionId, message), { deliverAs: "followUp" });
     } catch (error) {
       if (controller.signal.aborted) return;
       pi.sendUserMessage(
-        `cueloop could not collect the verdict for review ${sessionId}: ${errorMessage(error)}`,
+        `cueloop could not collect the message for review ${sessionId}: ${errorMessage(error)}`,
         { deliverAs: "followUp" },
       );
     } finally {
@@ -103,7 +103,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
     description:
       `Submit a cueloop artifact (${ARTIFACT_TYPES.join(", ")}) for human review and return ` +
       "immediately with the session id. " +
-      "Do not block: end your turn and keep helping the user. When the reviewer returns a verdict " +
+      "Do not block: end your turn and keep helping the user. When the reviewer returns a message " +
       "cueloop wakes this session with a follow-up message carrying the outcome - an approval to " +
       "proceed, or structured feedback to address before continuing.",
     parameters: {
@@ -173,7 +173,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
         return {
           content: text(
             `cueloop review opened (session ${review.id}). Keep working; I will deliver the ` +
-              `reviewer's verdict as a follow-up when it lands.`,
+              `reviewer's message as a follow-up when it lands.`,
           ),
           details: { sessionId: review.id, status: "pending", annotationCount: 0 },
         };
@@ -202,7 +202,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
 
       return {
         block: true,
-        reason: `cueloop review pending (session ${ids}) - wait for the verdict before writing`,
+        reason: `cueloop review pending (session ${ids}) - wait for the message before writing`,
       };
     });
 
@@ -240,7 +240,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
           notify(
             session.status === "pending"
               ? `cueloop review ${session.id} pending - ${session.annotations.length} annotation(s)`
-              : `cueloop review ${session.id} resolved: ${session.verdict?.kind ?? "unknown"}`,
+              : `cueloop review ${session.id} resolved: ${session.message?.outcome ?? "unknown"}`,
           );
         } finally {
           client.close();

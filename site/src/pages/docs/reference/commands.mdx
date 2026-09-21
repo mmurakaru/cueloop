@@ -82,9 +82,8 @@ Posts a resolved session's decision back to a pull request as a real
 `gh pr review`, without opening the UI. Decisions map directly:
 
 ```text
-approve          → gh pr review --approve
-request changes  → gh pr review --request-changes
-comment          → gh pr review --comment
+approved          → gh pr review --approve
+changes_requested → gh pr review --request-changes
 ```
 
 The decision's feedback becomes the review body.

@@ -36,7 +36,7 @@ function session(id: string, createdAt: string, status: SessionStatus = "resolve
     artifact: { type: "plan", content: "", meta: {} },
     revisions: [],
     annotations: [],
-    verdict: null,
+    message: null,
     status,
     createdAt,
   };

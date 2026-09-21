@@ -43,14 +43,14 @@ export function fitSlope(samples: number[]): number {
   return covariance / variance;
 }
 
-export interface LeakVerdict {
+export interface LeakMessage {
   growthBytes: number;
   slopeBytesPerCycle: number;
   leaking: boolean;
 }
 
 /** Judge post-warmup heap samples against the ceilings. */
-export function judgeHeapSamples(samples: number[]): LeakVerdict {
+export function judgeHeapSamples(samples: number[]): LeakMessage {
   const growthBytes = (samples.at(-1) ?? 0) - (samples[0] ?? 0);
   const slopeBytesPerCycle = fitSlope(samples);
 
@@ -100,13 +100,13 @@ async function cycleDaemon(): Promise<number[]> {
 if (import.meta.main) {
   Object.assign(process.env, HERMETIC_HERDR_ENV);
   const samples = await cycleDaemon();
-  const verdict = judgeHeapSamples(samples);
+  const message = judgeHeapSamples(samples);
   const mib = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
 
   console.log(
-    `daemon-memory-check: ${CYCLES} cycles, heap ${mib(samples[0]!)} -> ${mib(samples.at(-1)!)}, growth ${mib(verdict.growthBytes)}, slope ${(verdict.slopeBytesPerCycle / 1024).toFixed(1)} KiB/cycle`,
+    `daemon-memory-check: ${CYCLES} cycles, heap ${mib(samples[0]!)} -> ${mib(samples.at(-1)!)}, growth ${mib(message.growthBytes)}, slope ${(message.slopeBytesPerCycle / 1024).toFixed(1)} KiB/cycle`,
   );
-  if (verdict.leaking) {
+  if (message.leaking) {
     console.error(
       `daemon-memory-check: FAILED, ceilings are ${mib(MAX_GROWTH_BYTES)} growth and ${MAX_SLOPE_BYTES_PER_CYCLE / 1024} KiB/cycle`,
     );

@@ -5,7 +5,7 @@ import {
   isArtifactType,
   isMarkdownArtifact,
   newAnnotationId,
-  verdictAllows,
+  messageAllows,
 } from "./types";
 
 describe("annotationTarget", () => {
@@ -33,11 +33,11 @@ describe("ARTIFACT_TYPES", () => {
   });
 });
 
-describe("verdictAllows", () => {
+describe("messageAllows", () => {
   test("only approve maps to allow", () => {
-    expect(verdictAllows("approve")).toBe(true);
-    expect(verdictAllows("comment")).toBe(false);
-    expect(verdictAllows("request_changes")).toBe(false);
+    expect(messageAllows("approved")).toBe(true);
+    expect(messageAllows("changes_requested")).toBe(false);
+    expect(messageAllows("changes_requested")).toBe(false);
   });
 });
 

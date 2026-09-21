@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonCore } from "./api";
 import { workingTreeDiff } from "./working-tree";
-import { resolveWorkspace } from "./review";
+import { resolveWorkspace } from "./thread-review";
 import type { Artifact } from "@cueloop/schema";
 
 function git(args: string[], cwd: string): void {
@@ -134,7 +134,7 @@ describe("session.refreshDiff", () => {
     // Given a diff session that has been resolved
     const session = await openDiffSession();
 
-    core.sessionResolve(session.id, "approve", "");
+    core.sessionSendMessage(session.id, "approved", "");
     const resolvedContent = core.sessionGet(session.id).artifact.content;
 
     writeFileSync(join(repo, "a.ts"), "export const a = 99;\n");

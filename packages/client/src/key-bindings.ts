@@ -58,7 +58,7 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
     { commands: ["submit"], label: "submit" },
     { commands: ["quit"], label: "quit" },
   ],
-  // A share viewer: annotate and navigate, no plan edit / verdict submit.
+  // A share viewer: annotate and navigate, no plan edit / message submit.
   collaborator: [
     { commands: ["down", "up"], label: "move" },
     { commands: ["span"], label: "span" },
@@ -90,11 +90,11 @@ const HINT_TEMPLATES: Record<HintMode, HintEntry[]> = {
   ],
   submit: [
     {
-      commands: ["cycle_verdict_left", "cycle_verdict_right"],
+      commands: ["cycle_outcome_left", "cycle_outcome_right"],
       label: "decision",
       labelFirst: true,
     },
-    { commands: ["submit_verdict"], label: "submit" },
+    { commands: ["send_message"], label: "submit" },
     { commands: ["cancel_submit"], label: "cancel" },
   ],
   walk: [
@@ -329,16 +329,16 @@ export class KeyBindings {
       priority: 20,
       when: () => this.context.overlay === "submit",
       bindings: [
-        { key: "return", cmd: "submit_verdict" },
-        { key: "enter", cmd: "submit_verdict" },
-        { key: "left", cmd: "cycle_verdict_left" },
-        { key: "right", cmd: "cycle_verdict_right" },
+        { key: "return", cmd: "send_message" },
+        { key: "enter", cmd: "send_message" },
+        { key: "left", cmd: "cycle_outcome_left" },
+        { key: "right", cmd: "cycle_outcome_right" },
         { key: "escape", cmd: "cancel_submit" },
       ],
       commands: [
-        record("submit_verdict"),
-        record("cycle_verdict_left"),
-        record("cycle_verdict_right"),
+        record("send_message"),
+        record("cycle_outcome_left"),
+        record("cycle_outcome_right"),
         record("cancel_submit"),
       ],
     });

@@ -2,7 +2,7 @@ import React from "react";
 import { DARK } from "../theme";
 import type { Story, StoryMeta } from "./story";
 import { ThreadTree } from "./ThreadTree";
-import { groupInbox } from "./session-tree";
+import { groupInbox } from "./thread-tree";
 import { fixtureDiffSession, fixturePlanSession } from "./story-fixtures";
 
 export const meta: StoryMeta = { title: "Surfaces/ThreadTree" };

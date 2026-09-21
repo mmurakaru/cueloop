@@ -46,8 +46,8 @@ export type Intent =
   | { type: "deselect" }
   | { type: "closeOverlay" }
   | { type: "saveCompose" }
-  | { type: "submitVerdict" }
-  | { type: "cycleVerdict"; direction: -1 | 1 }
+  | { type: "submitMessage" }
+  | { type: "cycleMessage"; direction: -1 | 1 }
   | { type: "finishReview" }
   | { type: "optInAutoClose" }
   | { type: "dismissCompletion" }
@@ -73,10 +73,10 @@ export interface KeyState {
   /**
    * Owner-only primitives a share collaborator lacks (undefined = owner, allowed).
    * A collaborator annotates but cannot edit the plan (cut / $EDITOR runs on
-   * the gateway) or submit an agent verdict (there is no agent on a share).
+   * the gateway) or submit an agent message (there is no agent on a share).
    */
   canEditPlan?: boolean;
-  canSubmitVerdict?: boolean;
+  canSubmitMessage?: boolean;
   /** Owner-only: publish the plan as a share. A collaborator never re-shares. */
   canShare?: boolean;
   /** Layer that owns keys before the grammar runs. */
@@ -193,7 +193,7 @@ function submitOverlayGrammar(state: KeyState, key: KeyInput): Intent[] {
 
   if (name === "escape") return [{ type: "closeOverlay" }];
   if (name === "left" || name === "right") {
-    return [{ type: "cycleVerdict", direction: name === "left" ? -1 : 1 }];
+    return [{ type: "cycleMessage", direction: name === "left" ? -1 : 1 }];
   }
 
   return [];
@@ -398,8 +398,8 @@ function annotationCluster(state: KeyState, action: string | undefined): Intent[
     return [{ type: "openRename" }];
   }
   if (action === "submit") {
-    // a collaborator's notes union back as they go; there is no verdict to submit
-    if (state.canSubmitVerdict === false)
+    // a collaborator's notes union back as they go; there is no message to submit
+    if (state.canSubmitMessage === false)
       return status("shared view - your notes save as you go; q to leave");
 
     return state.resolved ? [] : [{ type: "openSubmit" }];

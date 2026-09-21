@@ -36,7 +36,7 @@ function planEvent(sessionId: string, plan: string) {
 
 async function resolvePending(
   marker: string,
-  kind: "approve" | "request_changes",
+  kind: "approved" | "changes_requested",
   summary: string,
 ): Promise<void> {
   const client = await DaemonClient.connect({ home, autostart: true });
@@ -47,7 +47,7 @@ async function resolvePending(
       const match = pending.find((candidate) => candidate.artifact.content.includes(marker));
 
       if (match) {
-        await client.sessionResolve(match.id, kind, summary);
+        await client.sessionSendMessage(match.id, kind, summary);
 
         return;
       }
@@ -103,7 +103,7 @@ describe("runHook: non-blocking plan gate", () => {
     expect(first.allow).toBe(false);
 
     // Act - reviewer approves, agent presents the same plan again
-    await resolvePending("Approve Me", "approve", "Green light.");
+    await resolvePending("Approve Me", "approved", "Green light.");
     const second = await runHook(event, { home, armWake: () => {} });
 
     // Assert
@@ -116,7 +116,7 @@ describe("runHook: non-blocking plan gate", () => {
     const event = planEvent("cc-changes", "# Changes Me\n\nFirst cut.\n");
 
     await runHook(event, { home, armWake: () => {} });
-    await resolvePending("Changes Me", "request_changes", "Not yet.");
+    await resolvePending("Changes Me", "changes_requested", "Not yet.");
     const armed: string[] = [];
 
     // Act - agent revises and presents the new plan

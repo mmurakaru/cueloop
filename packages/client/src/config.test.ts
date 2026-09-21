@@ -143,19 +143,19 @@ describe("loadConfig", () => {
     }
   });
 
-  test("[ui] default_verdict defaults to approve and parses request_changes", () => {
+  test("[ui] default_message defaults to approve and parses changes_requested", () => {
     // Arrange
-    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-verdict-"));
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-message-"));
     const path = join(dir, "config.toml");
 
-    writeFileSync(path, `[ui]\ndefault_verdict = "request_changes"\n`);
+    writeFileSync(path, `[ui]\ndefault_message = "changes_requested"\n`);
 
     try {
       // Assert
-      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.defaultVerdict).toBe(
-        "approve",
+      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.defaultMessage).toBe(
+        "approved",
       );
-      expect(loadConfig({ userConfigPath: path }).ui.defaultVerdict).toBe("request_changes");
+      expect(loadConfig({ userConfigPath: path }).ui.defaultMessage).toBe("changes_requested");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -393,7 +393,7 @@ describe("integrations.obsidian config", () => {
 
     writeFileSync(
       path,
-      `[integrations.obsidian]\nvault = "/notes/vault"\nfolder = "plans"\nexportOn = "approve"\nseparator = "comma"\n`,
+      `[integrations.obsidian]\nvault = "/notes/vault"\nfolder = "plans"\nexportOn = "approved"\nseparator = "comma"\n`,
     );
 
     try {
@@ -403,7 +403,7 @@ describe("integrations.obsidian config", () => {
       // Assert
       expect(config.integrations.obsidian.vault).toBe("/notes/vault");
       expect(config.integrations.obsidian.folder).toBe("plans");
-      expect(config.integrations.obsidian.exportOn).toBe("approve");
+      expect(config.integrations.obsidian.exportOn).toBe("approved");
       expect(config.integrations.obsidian.separator).toBe("space"); // invalid value falls back
       expect(config.keys["comment"]).toEqual(["c"]); // other sections untouched
     } finally {
@@ -417,7 +417,7 @@ describe("integrations.obsidian config", () => {
     const user = join(dir, "user.toml");
     const repoRoot = join(dir, "repo");
 
-    writeFileSync(user, `[integrations.obsidian]\nvault = "/user/vault"\nexportOn = "resolve"\n`);
+    writeFileSync(user, `[integrations.obsidian]\nvault = "/user/vault"\nexportOn = "message"\n`);
     Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
     writeFileSync(
       join(repoRoot, ".cueloop", "config.toml"),
@@ -430,7 +430,7 @@ describe("integrations.obsidian config", () => {
 
       // Assert
       expect(config.integrations.obsidian.vault).toBe("/user/vault"); // user layer survives
-      expect(config.integrations.obsidian.exportOn).toBe("resolve");
+      expect(config.integrations.obsidian.exportOn).toBe("message");
       expect(config.integrations.obsidian.folder).toBe("repo-plans"); // repo layer wins
     } finally {
       rmSync(dir, { recursive: true, force: true });

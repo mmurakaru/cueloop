@@ -3,14 +3,14 @@
  * Claude Code inbox socket and the Codex queue). Where pi keeps its waiter
  * in-process, Claude Code and Codex have no long-running extension host, so a
  * detached child process parks here: connect to the daemon, wait for the
- * verdict on one session, then hand the resolved outcome to the harness-native
+ * message on one session, then hand the resolved outcome to the harness-native
  * inject. The held connection keeps the daemon off its idle-exit path for the
  * whole wait, and autostart recovers a daemon that died mid-review (the pending
  * session is reloaded from disk).
  */
 
 import { DaemonClient } from "@cueloop/daemon/client";
-import { awaitResolve, type VerdictOutcome } from "@cueloop/daemon/review";
+import { awaitResolve, type MessageResult } from "@cueloop/daemon/thread-review";
 
 export interface WakeWaiterOptions {
   /** State-dir override; the default resolves CUELOOP_HOME from the environment. */
@@ -22,24 +22,24 @@ export interface WakeWaiterOptions {
 }
 
 /**
- * Park on one session's verdict, then inject it into the live harness turn.
- * Returns true when a verdict was delivered, false when the wait aborted first.
+ * Park on one session's message, then inject it into the live harness turn.
+ * Returns true when a message was delivered, false when the wait aborted first.
  */
 export async function runWakeWaiter(
   sessionId: string,
-  inject: (verdict: VerdictOutcome) => void | Promise<void>,
+  inject: (message: MessageResult) => void | Promise<void>,
   options: WakeWaiterOptions = {},
 ): Promise<boolean> {
   const client = await DaemonClient.connect({ home: options.home, autostart: true });
 
   try {
-    const verdict = await awaitResolve(client, sessionId, {
+    const message = await awaitResolve(client, sessionId, {
       pollMs: options.pollMs,
       signal: options.signal,
     });
 
-    if (verdict === null) return false;
-    await inject(verdict);
+    if (message === null) return false;
+    await inject(message);
 
     return true;
   } finally {

@@ -227,13 +227,13 @@ describe("nav mode in a diff review", () => {
     await pressEscapeUntilGone(session, "file 1 of 2");
   });
 
-  ptyTest("enter opens the send card, arrows change the verdict, escape cancels", async () => {
+  ptyTest("enter opens the send card, arrows change the message, escape cancels", async () => {
     await navPress(session, "session", "⏎", "[Approve]");
     await session.pressAndWaitForScreen("right", (screen) => screen.includes("[Changes]"), {
-      what: "the verdict to move right",
+      what: "the message to move right",
     });
     await session.pressAndWaitForScreen("left", (screen) => screen.includes("[Approve]"), {
-      what: "the verdict to move back",
+      what: "the message to move back",
     });
     await pressEscapeUntilGone(session, "[Approve]");
   });

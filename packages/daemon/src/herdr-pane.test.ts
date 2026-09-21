@@ -66,7 +66,7 @@ function newSession(overrides: Partial<Thread> = {}): Thread {
     artifact: { type: "plan", content: "# P", meta: { cwd: "/repo/work", title: "Rollout Plan" } },
     revisions: [{ revision: 1, content: "# P", submittedAt: "now" }],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "now",
     ...overrides,

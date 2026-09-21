@@ -13,7 +13,10 @@ import type {
   HunkRejection,
   ShareLink,
   Thread,
-  VerdictKind,
+  HarnessBinding,
+  Delivery,
+  PendingDelivery,
+  MessageOutcome,
   WorkspaceKey,
 } from "@cueloop/schema";
 import {
@@ -30,7 +33,14 @@ import type { SharedMerge } from "./api";
 
 export type { SharedMerge } from "./api";
 import { cueloopHome, ownerTokenPath, socketPath } from "./paths";
-import { Params, ThreadRecordSchema, DiffFileContentsSchema } from "./validate";
+import {
+  Params,
+  ThreadRecordSchema,
+  DiffFileContentsSchema,
+  HarnessBindingSchema,
+  DeliverySchema,
+  PendingDeliverySchema,
+} from "./validate";
 import type { WorkingTreeDiff } from "./working-tree";
 import { DAEMON_VERSION } from "./version";
 
@@ -64,7 +74,7 @@ const HerdrTabResultSchema = v.nullable(v.object({ tabId: v.string(), paneId: v.
  * blob-backed one. Depending on this interface - not DaemonClient - is what
  * lets the same <App> render a local session or a decrypted share unchanged.
  */
-export interface SessionClient {
+export interface ThreadClient {
   onEvent(listener: (event: EventFrame) => void): () => void;
   subscribe(): Promise<void>;
   sessionGet(id: string): Promise<Thread>;
@@ -123,12 +133,19 @@ export interface SessionClient {
   sessionDelete(id: string): Promise<void>;
   /** Record the caller's own identity name (collaborator self-naming on a share). */
   sessionSetSelfName(id: string, name: string): Promise<Thread>;
-  sessionResolve(
+  sessionSendMessage(
     id: string,
-    verdictKind: VerdictKind,
+    outcome: MessageOutcome,
     summary: string,
     actionBodies?: Record<string, string>,
   ): Promise<Thread>;
+  harnessBind?(
+    threadId: string,
+    harness: string,
+    harnessSessionId: string,
+  ): Promise<HarnessBinding>;
+  deliveryPending?(bindingId: string): Promise<PendingDelivery[]>;
+  deliveryAcknowledge?(deliveryId: string): Promise<Delivery>;
   close(): void;
 }
 
@@ -159,7 +176,7 @@ function readOwnerToken(home: string): string | undefined {
   return parsed.output;
 }
 
-export class DaemonClient implements SessionClient {
+export class DaemonClient implements ThreadClient {
   private socket: Awaited<ReturnType<typeof Bun.connect>> | null = null;
   private writer: BackpressureWriter | null = null;
   private pending = new Map<number, PendingRequest>();
@@ -513,17 +530,34 @@ export class DaemonClient implements SessionClient {
   sessionSetSelfName(id: string, _name: string): Promise<Thread> {
     return this.sessionGet(id);
   }
-  sessionResolve(
+  sessionSendMessage(
     id: string,
-    verdictKind: VerdictKind,
+    outcome: MessageOutcome,
     summary: string,
     actionBodies?: Record<string, string>,
   ): Promise<Thread> {
     return this.request(
-      "session.resolve",
-      { id, verdictKind, summary, actionBodies },
+      "session.sendMessage",
+      { id, outcome, summary, actionBodies },
       ThreadRecordSchema,
     );
+  }
+  harnessBind(
+    threadId: string,
+    harness: string,
+    harnessSessionId: string,
+  ): Promise<HarnessBinding> {
+    return this.request(
+      "harness.bind",
+      { threadId, harness, harnessSessionId },
+      HarnessBindingSchema,
+    );
+  }
+  deliveryPending(bindingId: string): Promise<PendingDelivery[]> {
+    return this.request("delivery.pending", { bindingId }, v.array(PendingDeliverySchema));
+  }
+  deliveryAcknowledge(deliveryId: string): Promise<Delivery> {
+    return this.request("delivery.acknowledge", { deliveryId }, DeliverySchema);
   }
   sessionSubmitRevision(
     id: string,
@@ -536,7 +570,7 @@ export class DaemonClient implements SessionClient {
       ThreadRecordSchema,
     );
   }
-  /** herdr adapter scratch: the tab opened for a review; local-only, off the SessionClient contract. */
+  /** herdr adapter scratch: the tab opened for a review; local-only, off the ThreadClient contract. */
   herdrGetTab(id: string): Promise<HerdrTabHandle | null> {
     return this.request("herdr.getTab", { id }, HerdrTabResultSchema);
   }

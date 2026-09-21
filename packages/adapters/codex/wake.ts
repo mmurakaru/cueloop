@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Detached queue waiter for Codex: park on one review's verdict, then queue it
+ * Detached queue waiter for Codex: park on one review's message, then queue it
  * into the running Codex thread with `codex queue`. Spawned right after a
  * non-blocking openReview; the agent ends its turn and this process resumes it
  * with the feedback when the human decides, then exits.
@@ -26,8 +26,8 @@ export interface CodexWakeOptions {
 }
 
 /**
- * Wait for the verdict on `sessionId`, then queue it into Codex thread
- * `threadId`. Returns true when a verdict was delivered; rejects when the queue
+ * Wait for the message on `sessionId`, then queue it into Codex thread
+ * `threadId`. Returns true when a message was delivered; rejects when the queue
  * add fails, so a detached run exits non-zero and the failure is visible.
  */
 export async function runCodexWake(
@@ -37,10 +37,10 @@ export async function runCodexWake(
 ): Promise<boolean> {
   return runWakeWaiter(
     sessionId,
-    async (verdict) => {
+    async (message) => {
       const result = await queueCodexMessage({
         threadId,
-        message: wakeMessage(sessionId, verdict),
+        message: wakeMessage(sessionId, message),
         codexBin: options.codexBin,
         cwd: options.cwd,
       });

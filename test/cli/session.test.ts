@@ -17,7 +17,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
-import type { Thread } from "@cueloop/schema";
+import type { HarnessBinding, PendingDelivery, Thread } from "@cueloop/schema";
 import { cliJson, runCli } from "../helpers/cli";
 
 const PLAN = "# Plan\n\n## Steps\n\nDo the migration in two phases.\n";
@@ -108,7 +108,41 @@ describe("cueloop session (black box)", () => {
     expect(cliJson<{ status: string }>(waited)).toEqual({ status: "pending" });
   });
 
-  test("annotate + resolve from separate processes; wait collects the verdict", async () => {
+  test("bind, deliver, and acknowledge a Message across CLI processes", async () => {
+    const created = cliJson<Thread>(
+      await runCli(home, ["session", "create", "--type", "plan", "--agent", "fake"], PLAN),
+    );
+    const binding = cliJson<HarnessBinding>(
+      await runCli(home, [
+        "session",
+        "bind-harness",
+        created.id,
+        "--harness",
+        "fake",
+        "--harness-session-id",
+        "fake_1",
+      ]),
+    );
+
+    expect(binding.threadId).toBe(created.id);
+    expect(
+      (await runCli(home, ["session", "send-message", created.id, "--outcome", "approved"])).code,
+    ).toBe(0);
+    const pending = cliJson<PendingDelivery[]>(
+      await runCli(home, ["session", "pending-deliveries", binding.id]),
+    );
+
+    expect(pending).toHaveLength(1);
+    expect(pending[0]!.message.outcome).toBe("approved");
+    expect(
+      (await runCli(home, ["session", "acknowledge-delivery", pending[0]!.delivery.id])).code,
+    ).toBe(0);
+    expect(
+      cliJson<PendingDelivery[]>(await runCli(home, ["session", "pending-deliveries", binding.id])),
+    ).toEqual([]);
+  });
+
+  test("annotate + resolve from separate processes; wait collects the message", async () => {
     // Act
     const annotated = await runCli(home, [
       "session",
@@ -130,10 +164,10 @@ describe("cueloop session (black box)", () => {
     // Act
     const resolved = await runCli(home, [
       "session",
-      "resolve",
+      "send-message",
       sessionId,
-      "--verdict",
-      "request_changes",
+      "--outcome",
+      "changes_requested",
       "--summary",
       "Phase names please.",
     ]);
@@ -142,15 +176,18 @@ describe("cueloop session (black box)", () => {
     expect(resolved.code).toBe(0);
 
     // Act
-    const verdict = cliJson<{ status: string; allow: boolean; feedback: string }>(
-      await runCli(home, ["session", "wait", sessionId, "--timeout-ms", "1000"]),
-    );
+    const message = cliJson<{
+      status: string;
+      allow: boolean;
+      message: { body: string; outcome: string; id: string };
+    }>(await runCli(home, ["session", "wait", sessionId, "--timeout-ms", "1000"]));
 
     // Assert
-    expect(verdict.status).toBe("resolved");
-    expect(verdict.allow).toBe(false);
-    expect(verdict.feedback).toContain("Name the phases.");
-    expect(verdict.feedback).toContain("> two phases");
+    expect(message.status).toBe("resolved");
+    expect(message.allow).toBe(false);
+    expect(message.message.outcome).toBe("changes_requested");
+    expect(message.message.body).toContain("Name the phases.");
+    expect(message.message.body).toContain("> two phases");
   });
 
   test("revision reopens through the CLI", async () => {
@@ -661,17 +698,17 @@ describe("cueloop session (black box)", () => {
     // Act - the same agent tries to resolve (owner-only)
     const resolved = await runCli(home, [
       "session",
-      "resolve",
+      "send-message",
       capped.id,
       "--role",
       "agent",
-      "--verdict",
-      "approve",
+      "--outcome",
+      "approved",
     ]);
 
     // Assert - the daemon refuses the escalation
     expect(resolved.code).not.toBe(0);
-    expect(resolved.stderr).toContain("cannot call session.resolve");
+    expect(resolved.stderr).toContain("cannot call session.sendMessage");
   });
 
   test("help output and unknown primitives", async () => {

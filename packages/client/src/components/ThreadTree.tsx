@@ -17,7 +17,7 @@ import { useMenuControl } from "./menu-control";
 import { IconButton } from "./primitives/IconButton";
 import { NERD } from "./primitives/icons";
 import { truncateTitle } from "./truncate-title";
-import { threadTitle, type InboxRow } from "./session-tree";
+import { threadTitle, type InboxRow } from "./thread-tree";
 
 export interface ThreadTreeProps {
   rows: InboxRow[];

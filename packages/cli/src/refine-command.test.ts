@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Annotation, Thread, Verdict, VerdictKind } from "@cueloop/schema";
+import type { Annotation, Thread, Message, MessageOutcome } from "@cueloop/schema";
 import { ThreadStore } from "@cueloop/daemon/store";
 import { reportsDir } from "@cueloop/daemon/paths";
 import { buildRefineReport, refineCommand } from "./refine-command";
@@ -23,8 +23,14 @@ function annotation(quote: string, body: string): Annotation {
   };
 }
 
-function verdict(kind: VerdictKind): Verdict {
-  return { kind, summary: "", feedback: "", resolvedAt: "2026-08-20T11:00:00Z" };
+function message(outcome: MessageOutcome): Message {
+  return {
+    id: `msg_${outcome}`,
+    outcome,
+    summary: "",
+    body: "",
+    sentAt: "2026-08-20T11:00:00Z",
+  };
 }
 
 function session(
@@ -40,7 +46,7 @@ function session(
     artifact: { type: type ?? "plan", content: "", meta: {} },
     revisions: [],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "2026-08-20T10:00:00Z",
     ...rest,
@@ -51,10 +57,10 @@ describe("buildRefineReport", () => {
   test("reports the analyzed and total counts, distributions, and annotations", () => {
     // Arrange
     const analyzed = [
-      session("ses_a", { verdict: verdict("approve"), status: "resolved" }),
+      session("ses_a", { message: message("approved"), status: "resolved" }),
       session("ses_b", {
         type: "diff",
-        verdict: verdict("request_changes"),
+        message: message("changes_requested"),
         status: "resolved",
         annotations: [annotation("skip tests", "please add a regression test")],
       }),
@@ -67,7 +73,7 @@ describe("buildRefineReport", () => {
     expect(markdown).toContain("2 sessions analyzed (3 total).");
     expect(markdown).toContain("- plan: 1");
     expect(markdown).toContain("- diff: 1");
-    expect(markdown).toContain("- approve: 1");
+    expect(markdown).toContain("- approved: 1");
     expect(markdown).toContain("- request changes: 1");
     expect(markdown).toContain("skip tests");
     expect(markdown).toContain("please add a regression test");
@@ -89,10 +95,10 @@ describe("refineCommand", () => {
     const home = tempHome();
     const store = new ThreadStore(home);
 
-    store.upsert(session("ses_a", { verdict: verdict("approve"), status: "resolved" }));
+    store.upsert(session("ses_a", { message: message("approved"), status: "resolved" }));
     store.upsert(
       session("ses_b", {
-        verdict: verdict("request_changes"),
+        message: message("changes_requested"),
         status: "resolved",
         annotations: [annotation("wrong file", "this belongs in store.ts")],
       }),
@@ -124,7 +130,7 @@ describe("refineCommand", () => {
 
     store.upsert(
       session("ses_x", {
-        verdict: verdict("approve"),
+        message: message("approved"),
         status: "resolved",
         annotations: [annotation("first", "one")],
       }),
@@ -140,7 +146,7 @@ describe("refineCommand", () => {
     // Arrange
     store.upsert(
       session("ses_x", {
-        verdict: { ...verdict("request_changes"), resolvedAt: "2026-08-21T09:00:00Z" },
+        message: { ...message("changes_requested"), sentAt: "2026-08-21T09:00:00Z" },
         status: "resolved",
         annotations: [annotation("first", "one"), annotation("second", "two")],
       }),

@@ -1,4 +1,4 @@
-/** The send-message confirm: cmd+enter opens a centered overlay with a verdict selector, summary input, and word-buttons. Char-frame assertions over the real App and an in-process daemon, like App.test.tsx. */
+/** The send-message confirm: cmd+enter opens a centered overlay with a message selector, summary input, and word-buttons. Char-frame assertions over the real App and an in-process daemon, like App.test.tsx. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -89,12 +89,12 @@ describe("send message confirm", () => {
     const setup = await renderApp();
 
     // Assert - the footer carries the send control before the overlay opens
-    expect(setup.captureCharFrame()).toContain("send message");
+    expect(setup.captureCharFrame()).toContain("Send message (0)");
 
     // Act
     await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert - the overlay: verdict selector and word-buttons
+    // Assert - the overlay: message selector and word-buttons
     await waitForText(setup, "[Approve]"); // nothing pending: approve default
     const frame = setup.captureCharFrame();
 
@@ -103,7 +103,7 @@ describe("send message confirm", () => {
     expect(frame).toContain(" cancel ");
   });
 
-  test("left/right cycles the verdict selector in the overlay", async () => {
+  test("left/right cycles the message selector in the overlay", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -122,7 +122,7 @@ describe("send message confirm", () => {
     await press(setup, "right");
 
     // Assert
-    await waitForText(setup, "[Comment]");
+    await waitForText(setup, "[Approve]");
 
     // Act
     await press(setup, "left");
@@ -157,7 +157,7 @@ describe("send message confirm", () => {
     // Act
     await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert - opens on the default verdict, then cycle to request changes
+    // Assert - opens on the default message, then cycle to request changes
     await waitForText(setup, "[Approve]");
     await press(setup, "right");
     await waitForText(setup, "[Changes]");
@@ -171,7 +171,7 @@ describe("send message confirm", () => {
     const stored = server.core.sessionGet(session.id);
 
     expect(stored.status).toBe("resolved");
-    expect(stored.verdict!.kind).toBe("request_changes");
+    expect(stored.message!.outcome).toBe("changes_requested");
   });
 
   test("typing / in the summary opens the skills/actions palette", async () => {

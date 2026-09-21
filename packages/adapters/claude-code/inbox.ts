@@ -2,7 +2,7 @@
  * Claude Code's per-session inbox socket: how an own-child process posts a
  * message into a live session, which Claude reads between tool calls (or as a
  * fresh turn when idle). This is the wake transport for the non-blocking review
- * flow - a detached waiter posts the verdict here so the driving agent resumes
+ * flow - a detached waiter posts the message here so the driving agent resumes
  * without a pinned, blocking tool call.
  *
  * Wire format taken verbatim from Claude Code's own embedded example (v2.1.238,

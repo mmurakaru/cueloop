@@ -1,8 +1,8 @@
 /**
  * The daemon's method surface. Transport-independent: the socket
  * server and the in-process test harness both call these handlers.
- * The wait contract: verdicts outlive waits - session.wait long-polls,
- * and a verdict resolved while nobody waited is delivered on next contact.
+ * The wait contract: messages outlive waits - session.wait long-polls,
+ * and a message resolved while nobody waited is delivered on next contact.
  */
 
 import {
@@ -27,10 +27,11 @@ import {
   parseBlocks,
   registerParticipant,
   resolveAnchor,
+  newMessageId,
   isBlockCut,
   restoreBlock,
   switchBranch,
-  verdictAllows,
+  messageAllows,
   type Annotation,
   type DiffFileStatus,
   type HunkRejection,
@@ -38,22 +39,26 @@ import {
   type Artifact,
   type ShareLink,
   type Identity,
+  type HarnessBinding,
+  type Delivery,
+  type PendingDelivery,
   type Thread,
   type SessionHistory,
-  type Verdict,
-  type VerdictKind,
+  type Message,
+  type MessageOutcome,
   type WorkspaceKey,
 } from "@cueloop/schema";
 import { curateDiff } from "./curate";
 import { ThreadStore, withHistory } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
 import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
+import { HarnessStateStore } from "./harness-state-store";
 import { DiffWatcher } from "./diff-watcher";
 import { PrReviewPoller } from "./pr-poller";
 import { prDiff } from "./gh";
 import { workingTreeDiff, workingChangeList, type WorkingTreeDiff } from "./working-tree";
 import { listProjectFiles, readProjectFile } from "./project-files";
-import { resolveWorkspace } from "./review";
+import { resolveWorkspace } from "./thread-review";
 import { DaemonError } from "./errors";
 
 /** What a share hands back: the notes and names it collected, and the removals it recorded. */
@@ -67,7 +72,7 @@ export interface SharedMerge {
 export type EventName =
   | "session.created"
   | "session.updated"
-  | "session.resolved"
+  | "message.sent"
   | "session.revised"
   | "inbox.changed";
 
@@ -83,6 +88,7 @@ type EventListener = (event: DaemonEvent) => void;
 export class DaemonCore {
   readonly store: ThreadStore;
   readonly herdrTabs: HerdrTabStore;
+  readonly harnessState: HarnessStateStore;
   private waiters = new Map<string, ((session: Thread) => void)[]>();
   private listeners = new Set<EventListener>();
   private seq = 0;
@@ -104,10 +110,14 @@ export class DaemonCore {
     this.store.recover();
     pruneExpiredSessions(this.store, resolveCleanupPeriodDays(), Date.now());
     this.herdrTabs = new HerdrTabStore(home);
+    this.harnessState = new HarnessStateStore(home);
     this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
     this.prPoller = new PrReviewPoller((sessionId) => void this.sessionRefreshPrDiff(sessionId));
     // resume hot-reload for diff sessions that survived a daemon restart
-    for (const session of this.store.list()) this.trackLiveDiffSession(session);
+    for (const session of this.store.list()) {
+      this.trackLiveDiffSession(session);
+      this.reconcileDeliveries(session);
+    }
   }
 
   /** Release the watchers and pollers behind diff hot-reload; call on daemon shutdown. */
@@ -125,6 +135,52 @@ export class DaemonCore {
     this.herdrTabs.set(sessionId, handle);
   }
 
+  harnessBind(input: {
+    threadId: string;
+    harness: string;
+    harnessSessionId: string;
+  }): HarnessBinding {
+    this.sessionGet(input.threadId);
+    const binding = this.harnessState.bind(input);
+
+    this.reconcileDeliveries(this.sessionGet(input.threadId));
+
+    return binding;
+  }
+
+  deliveryPending(bindingId: string): PendingDelivery[] {
+    const binding = this.harnessState.binding(bindingId);
+
+    if (!binding) throw new DaemonError("not_found", `no harness binding ${bindingId}`);
+    const session = this.sessionGet(binding.threadId);
+
+    return this.harnessState.pending(bindingId).map((delivery) => {
+      const historical = session.history?.entries.find(
+        (entry) => entry.type === "message" && entry.message.id === delivery.messageId,
+      );
+      const message =
+        session.message?.id === delivery.messageId
+          ? session.message
+          : historical?.type === "message"
+            ? historical.message
+            : null;
+
+      if (!message || message.id !== delivery.messageId) {
+        throw new DaemonError("not_found", `no message ${delivery.messageId}`);
+      }
+
+      return { delivery, message };
+    });
+  }
+
+  deliveryAcknowledge(deliveryId: string): Delivery {
+    if (!this.harnessState.delivery(deliveryId)) {
+      throw new DaemonError("not_found", `no delivery ${deliveryId}`);
+    }
+
+    return this.harnessState.acknowledge(deliveryId);
+  }
+
   onEvent(listener: EventListener): () => void {
     this.listeners.add(listener);
 
@@ -138,7 +194,7 @@ export class DaemonCore {
     for (const listener of this.listeners) listener(frame);
   }
 
-  /** True when nothing awaits a verdict - drives idle-exit. */
+  /** True when nothing awaits a message - drives idle-exit. */
   hasPendingSessions(): boolean {
     return this.store.list().some((session) => session.status === "pending");
   }
@@ -152,18 +208,28 @@ export class DaemonCore {
       artifact: params.artifact,
       revisions: [{ revision: 1, content: params.artifact.content, submittedAt: now }],
       annotations: [],
-      verdict: null,
+      message: null,
       status: "pending",
       createdAt: now,
     };
 
     session.history = historyFromLinear(session);
     this.store.upsert(session);
+    this.reconcileDeliveries(session);
     this.trackLiveDiffSession(session);
     this.emit("session.created", session.id);
     this.emit("inbox.changed", session.id);
 
     return session;
+  }
+
+  private reconcileDeliveries(session: Thread): void {
+    if (!session.message) return;
+
+    const binding = this.harnessState.submittingBinding(session.id);
+
+    if (binding)
+      this.harnessState.enqueue({ bindingId: binding.id, messageId: session.message.id });
   }
 
   private newSessionId(now: string): string {
@@ -194,9 +260,9 @@ export class DaemonCore {
   }
 
   /**
-   * Long-poll for the verdict. Resolves immediately when already resolved;
-   * otherwise parks until sessionResolve fires or timeoutMs elapses (null =
-   * still pending - the caller re-polls later; the verdict is never lost).
+   * Long-poll for the message. Resolves immediately when already resolved;
+   * otherwise parks until sessionSendMessage fires or timeoutMs elapses (null =
+   * still pending - the caller re-polls later; the message is never lost).
    */
   sessionWait(id: string, timeoutMs: number): Promise<Thread | null> {
     const current = this.sessionGet(id);
@@ -611,35 +677,38 @@ export class DaemonCore {
     return session;
   }
 
-  sessionResolve(
+  sessionSendMessage(
     id: string,
-    verdictKind: VerdictKind,
+    outcome: MessageOutcome,
     summary: string,
     actionBodies?: Record<string, string>,
   ): Thread {
     const session = this.mutable(id);
-    const verdict: Verdict = {
-      kind: verdictKind,
+    const sentAt = new Date().toISOString();
+    const message: Message = {
+      id: newMessageId(),
+      outcome,
       summary,
-      feedback: feedbackForSession(session, verdictKind, summary, actionBodies),
-      resolvedAt: new Date().toISOString(),
+      body: feedbackForSession(session, outcome, summary, actionBodies),
+      sentAt,
     };
 
-    session.verdict = verdict;
+    session.message = message;
     session.status = "resolved";
     const entryId = this.record(session, {
-      type: "verdict",
-      verdict,
-      createdAt: verdict.resolvedAt,
+      type: "message",
+      message,
+      createdAt: message.sentAt,
     });
     this.store.upsert(session);
+    this.reconcileDeliveries(session);
     // a resolved diff review is frozen; stop hot-reloading its working tree
     this.untrackLiveDiffSession(session);
     const parked = this.waiters.get(id) ?? [];
 
     this.waiters.delete(id);
     for (const parkedWaiter of parked) parkedWaiter(session);
-    this.emit("session.resolved", id, entryId);
+    this.emit("message.sent", id, entryId);
     this.emit("inbox.changed", id);
 
     return session;
@@ -675,7 +744,7 @@ export class DaemonCore {
       createdAt: now,
     });
     delete session.workingCopy;
-    session.verdict = null;
+    session.message = null;
     session.status = "pending";
 
     // a reported root comment addresses its whole discussion: replies are
@@ -776,7 +845,7 @@ export class DaemonCore {
 
   /**
    * Copy the current path into a new pending session: its revisions, open
-   * comments, labels, and participant names travel; verdicts, edits, and the
+   * comments, labels, and participant names travel; messages, edits, and the
    * share do not. A resolved session can be forked.
    */
   sessionFork(id: string): Thread {
@@ -799,7 +868,7 @@ export class DaemonCore {
         })),
       annotations: [],
       history,
-      verdict: null,
+      message: null,
       status: "pending",
       createdAt: now,
       parentSessionId: id,
@@ -1060,8 +1129,8 @@ function isPrReviewSession(session: Thread): boolean {
 }
 
 /** Convenience for adapters: map a resolved session to the agent contract. */
-export function verdictResponse(session: Thread) {
-  if (!session.verdict) throw new DaemonError("pending", "session has no verdict");
+export function messageResponse(session: Thread) {
+  if (!session.message) throw new DaemonError("pending", "session has no message");
 
-  return { allow: verdictAllows(session.verdict.kind), feedback: session.verdict.feedback };
+  return { allow: messageAllows(session.message.outcome), message: session.message };
 }
