@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun run ${CLAUDE_PLUGIN_ROOT}/hooks/capability-guard.ts",
+            "command": "sh ${CLAUDE_PLUGIN_ROOT}/hooks/capability-guard.sh",
             "timeout": 5
           }
         ]
