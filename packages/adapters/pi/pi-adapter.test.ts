@@ -34,6 +34,7 @@ interface FakePi {
   tools: Map<string, PiToolDefinition<any, any>>;
   commands: Map<string, PiCommandOptions>;
   wakes: string[];
+  messageAttempts(): number;
   gate: PiToolCallHandler;
   fire(event: PiSessionEvent["type"], sessionId?: string): Promise<void>;
 }
@@ -42,7 +43,7 @@ function context(sessionId = "pi-session-1"): PiContext {
   return { cwd: home, sessionManager: { getSessionId: () => sessionId } };
 }
 
-function fakePi(): FakePi {
+function fakePi(options: { failFirstMessage?: boolean } = {}): FakePi {
   const tools = new Map<string, PiToolDefinition<any, any>>();
   const commands = new Map<string, PiCommandOptions>();
   const wakes: string[] = [];
@@ -51,10 +52,19 @@ function fakePi(): FakePi {
     ((event: PiSessionEvent, ctx: PiContext) => void | Promise<void>)[]
   >();
   let gate: PiToolCallHandler = () => undefined;
+  let failFirstMessage = options.failFirstMessage ?? false;
+  let attempts = 0;
   const api: PiExtensionAPI = {
     registerTool: (tool) => tools.set(tool.name, tool),
     registerCommand: (name, command) => commands.set(name, command),
-    sendUserMessage: (message) => wakes.push(message),
+    sendUserMessage: (message) => {
+      attempts += 1;
+      if (failFirstMessage) {
+        failFirstMessage = false;
+        throw new Error("native pi message injection failed");
+      }
+      wakes.push(message);
+    },
     on(event: PiSessionEvent["type"] | "tool_call", handler: any) {
       if (event === "tool_call") {
         gate = handler;
@@ -74,6 +84,7 @@ function fakePi(): FakePi {
     tools,
     commands,
     wakes,
+    messageAttempts: () => attempts,
     gate: (event, ctx) => gate(event, ctx),
     async fire(event, sessionId = "pi-session-1") {
       for (const handler of handlers.get(event) ?? [])
@@ -128,6 +139,64 @@ describe("pi Thread adapter", () => {
     expect(await client.deliveryPending(bindings[0]!.id)).toEqual([]);
     client.close();
     await fake.fire("session_shutdown");
+  });
+
+  test("keeps the mutation gate closed and retries when native Message injection fails", async () => {
+    const fake = fakePi({ failFirstMessage: true });
+    const opened = await open(fake, { workflow: "plan", content: "# Retry delivery" }, "pi-retry");
+    const client = await DaemonClient.connect({ home });
+
+    await client.sessionSendMessage(opened.details.sessionId!, "approved", "Try again.");
+    for (let attempt = 0; attempt < 100 && fake.messageAttempts() === 0; attempt++)
+      await Bun.sleep(10);
+    expect(fake.messageAttempts()).toBe(1);
+    expect((await fake.gate(toolCall("write"), context("pi-retry")))?.block).toBe(true);
+    const [binding] = await client.harnessBindingsForSession("pi", "pi-retry");
+
+    expect(await client.deliveryPending(binding!.id)).toHaveLength(1);
+    await waitForWake(fake);
+    expect(fake.wakes).toHaveLength(1);
+    expect(fake.messageAttempts()).toBe(2);
+    expect(await fake.gate(toolCall("write"), context("pi-retry"))).toBeUndefined();
+    client.close();
+    await fake.fire("session_shutdown", "pi-retry");
+  });
+
+  test("reconnects after the daemon exits and replays a pending Message", async () => {
+    const fake = fakePi();
+    const opened = await open(
+      fake,
+      { workflow: "plan", content: "# Restart delivery" },
+      "pi-restart",
+    );
+    const oldDaemon = await DaemonClient.connect({ home });
+
+    await oldDaemon.shutdown();
+    oldDaemon.close();
+    const replacement = await DaemonClient.connect({ home, autostart: true });
+
+    await replacement.sessionSendMessage(opened.details.sessionId!, "approved", "After restart.");
+    await waitForWake(fake);
+    expect(fake.wakes).toHaveLength(1);
+    expect(fake.wakes[0]).toContain("After restart.");
+    replacement.close();
+    await fake.fire("session_shutdown", "pi-restart");
+  });
+
+  test("rejects malformed host tool input before opening a Thread", async () => {
+    const fake = fakePi();
+    const result = await fake.tools
+      .get("open_thread")!
+      .execute(
+        "invalid-call",
+        { workflow: "plan", content: { unexpected: true } },
+        undefined,
+        undefined,
+        context("pi-invalid"),
+      );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("pi Thread request is invalid");
   });
 
   test("opens reply, prototype, and diff in the canonical panels", async () => {

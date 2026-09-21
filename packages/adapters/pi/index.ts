@@ -1,9 +1,10 @@
 /** pi owns lifecycle and message injection; the shared controller owns Threads. */
 
 import { join } from "node:path";
+import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { cueloopHome } from "@cueloop/daemon/paths";
-import { WORKFLOW_KINDS, type HarnessBinding, type WorkflowKind } from "@cueloop/schema";
+import { WORKFLOW_KINDS, type HarnessBinding } from "@cueloop/schema";
 import {
   createHarnessThreadController,
   type HarnessThreadController,
@@ -18,14 +19,15 @@ import type { PiContext, PiExtensionAPI, PiToolDefinition, PiToolResult } from "
 
 const OPEN_THREAD_TOOL = "open_thread";
 const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls"]);
+const OpenThreadParamsSchema = v.object({
+  workflow: v.picklist(WORKFLOW_KINDS),
+  content: v.optional(v.string()),
+  proposal: v.optional(v.string()),
+  pullRequestReference: v.optional(v.string()),
+  title: v.optional(v.string()),
+});
 
-export interface OpenThreadParams {
-  workflow: WorkflowKind;
-  content?: string;
-  proposal?: string;
-  pullRequestReference?: string;
-  title?: string;
-}
+export type OpenThreadParams = v.InferOutput<typeof OpenThreadParamsSchema>;
 
 export interface ThreadDetails {
   sessionId?: string;
@@ -78,16 +80,16 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
   let activeSessionId: string | null = null;
   let starting: Promise<void> | null = null;
   let generation = 0;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   const bindings = new Map<string, HarnessBinding>();
   const pendingThreads = new Set<string>();
+  const reconciliationTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   return function cueloopExtension(pi: PiExtensionAPI): void {
     async function reconcile(binding: HarnessBinding): Promise<void> {
       if (!client || !controller || binding.harnessSessionId !== activeSessionId) return;
+      pendingThreads.add(binding.threadId);
       const thread = await client.sessionGet(binding.threadId);
-
-      if (thread.status === "pending") pendingThreads.add(thread.id);
-      else pendingThreads.delete(thread.id);
 
       await controller.deliverPending(binding.id, {
         sendMessage: (message) =>
@@ -97,9 +99,34 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
             pi.sendUserMessage(wakeMessage(thread.id, message), { deliverAs: "followUp" });
           }),
       });
+      if (thread.status !== "pending") pendingThreads.delete(thread.id);
     }
 
-    function stop(): void {
+    function retryReconcile(binding: HarnessBinding): void {
+      if (reconciliationTimers.has(binding.id)) return;
+      const timer = setTimeout(() => {
+        reconciliationTimers.delete(binding.id);
+        if (bindings.get(binding.id) !== binding) return;
+        void reconcile(binding).catch(() => retryReconcile(binding));
+      }, 500);
+
+      timer.unref?.();
+      reconciliationTimers.set(binding.id, timer);
+    }
+
+    function scheduleReconnect(context: PiContext): void {
+      if (reconnectTimer) return;
+      const expectedGeneration = generation;
+
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        if (generation !== expectedGeneration) return;
+        void start(context, true).catch(() => scheduleReconnect(context));
+      }, 500);
+      reconnectTimer.unref?.();
+    }
+
+    function stop(preservePending = false): void {
       generation += 1;
       client?.close();
       client = null;
@@ -107,16 +134,31 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       activeSessionId = null;
       starting = null;
       bindings.clear();
-      pendingThreads.clear();
+      if (!preservePending) pendingThreads.clear();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+      for (const timer of reconciliationTimers.values()) clearTimeout(timer);
+      reconciliationTimers.clear();
     }
 
-    async function start(context: PiContext): Promise<void> {
+    async function start(context: PiContext, preservePending = false): Promise<void> {
       const sessionId = context.sessionManager?.getSessionId();
 
       if (!sessionId) throw new Error("pi did not provide a conversation ID");
-      if (client && activeSessionId === sessionId) return;
       if (starting) return starting;
-      stop();
+      const existingClient = client;
+      const sameSession = existingClient !== null && activeSessionId === sessionId;
+
+      if (sameSession) {
+        try {
+          await existingClient.ping();
+
+          return;
+        } catch {
+          preservePending = true;
+        }
+      }
+      stop(preservePending);
       const currentGeneration = generation;
 
       starting = (async () => {
@@ -137,23 +179,35 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
           client = connected;
           controller = shared;
           activeSessionId = sessionId;
+          connected.onDisconnect(() => {
+            if (generation === currentGeneration && pendingThreads.size > 0)
+              scheduleReconnect(context);
+          });
           connected.onEvent((event) => {
             if (event.event !== "message.sent" && event.event !== "session.revised") return;
             const binding = [...bindings.values()].find(
               (item) => item.threadId === event.sessionId,
             );
 
-            if (binding) void reconcile(binding).catch(() => {});
+            if (binding) void reconcile(binding).catch(() => retryReconcile(binding));
           });
           await connected.subscribe();
           const restored = await connected.harnessBindingsForSession("pi", sessionId);
 
           for (const binding of restored) {
             bindings.set(binding.id, binding);
-            await reconcile(binding);
+            try {
+              await reconcile(binding);
+            } catch {
+              retryReconcile(binding);
+            }
           }
+          const restoredThreads = new Set(restored.map((binding) => binding.threadId));
+
+          for (const threadId of pendingThreads)
+            if (!restoredThreads.has(threadId)) pendingThreads.delete(threadId);
         } catch (error) {
-          stop();
+          stop(preservePending);
 
           throw error;
         }
@@ -191,13 +245,18 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
         }
 
         try {
+          const parsed = v.safeParse(OpenThreadParamsSchema, params);
+
+          if (!parsed.success) throw new Error("pi Thread request is invalid");
           await start(context);
           const sessionId = activeSessionId;
 
-          if (!controller || !sessionId || !WORKFLOW_KINDS.includes(params.workflow)) {
+          if (!controller || !sessionId) {
             throw new Error("pi Thread adapter is not ready");
           }
-          const opened = await controller.openWorkflow(requestFor(params, sessionId, context.cwd));
+          const opened = await controller.openWorkflow(
+            requestFor(parsed.output, sessionId, context.cwd),
+          );
 
           bindings.set(opened.binding.id, opened.binding);
           if (opened.approvedRetry) {

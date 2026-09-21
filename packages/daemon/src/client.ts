@@ -214,6 +214,7 @@ export class DaemonClient implements ThreadClient {
   private daemonPid: number | undefined;
   private nextId = 1;
   private eventListeners = new Set<(event: EventFrame) => void>();
+  private disconnectListeners = new Set<() => void>();
   private closed = false;
   private role: DaemonRole = "owner";
   private author: string | undefined;
@@ -340,6 +341,7 @@ export class DaemonClient implements ThreadClient {
       for (const pendingRequest of this.pending.values())
         pendingRequest.reject(new Error("daemon connection closed"));
       this.pending.clear();
+      for (const listener of this.disconnectListeners) listener();
     };
 
     if (typeof Bun !== "undefined") {
@@ -408,6 +410,13 @@ export class DaemonClient implements ThreadClient {
     this.eventListeners.add(listener);
 
     return () => this.eventListeners.delete(listener);
+  }
+
+  /** Notify an adapter when its daemon socket closes so it can reconnect and replay Messages. */
+  onDisconnect(listener: () => void): () => void {
+    this.disconnectListeners.add(listener);
+
+    return () => this.disconnectListeners.delete(listener);
   }
 
   private routeInboundFrame(line: string): void {
