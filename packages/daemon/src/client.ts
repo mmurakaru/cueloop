@@ -597,7 +597,7 @@ export class DaemonClient implements ThreadClient {
       ThreadRecordSchema,
     );
   }
-  /** herdr adapter scratch: the tab opened for a review; local-only, off the ThreadClient contract. */
+  /** Read Herdr's local Thread surface handle, outside the ThreadClient contract. */
   herdrGetThreadSurface(id: string): Promise<HerdrThreadSurfaceHandle | null> {
     return this.request("herdr.getThreadSurface", { id }, HerdrThreadSurfaceResultSchema);
   }

@@ -286,7 +286,7 @@ export const Params = {
     author: v.optional(NonEmpty),
   }),
   "daemon.shutdown": v.object({}),
-  // herdr adapter scratch: the review's opened tab, kept off the session record.
+  // Herdr terminal handles stay outside canonical Thread records.
   "herdr.getThreadSurface": v.object({ id: SessionId }),
   "herdr.setThreadSurface": v.object({
     id: SessionId,

@@ -135,7 +135,7 @@ export class DaemonCore {
     this.prPoller.close();
   }
 
-  /** The herdr tab opened for a review, if any (adapter scratch, not on the session). */
+  /** The Herdr Thread surface handle, kept outside the canonical Thread. */
   herdrGetThreadSurface(sessionId: string): HerdrThreadSurfaceHandle | null {
     return this.herdrThreadSurfaces.get(sessionId);
   }
