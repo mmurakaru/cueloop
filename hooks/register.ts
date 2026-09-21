@@ -105,6 +105,76 @@ type BridgeResponse =
   | { operation: "ack"; deliveryId: string }
   | { operation: "refine"; report: string };
 
+/* oxlint-disable type-evidence/no-unknown-parameters, type-evidence/no-unsafe-dictionary-type, type-evidence/no-runtime-typeof -- Claude Mod cannot import valibot, so this parser validates the subprocess boundary locally. */
+function bridgeObject(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Claude Mod cueloop bridge returned a malformed object");
+
+  // SAFETY: the preceding check excludes null, arrays, and non-object values.
+  return value as Record<string, unknown>;
+}
+
+function bridgeString(value: unknown): string {
+  if (typeof value !== "string")
+    throw new Error("Claude Mod cueloop bridge returned a malformed string");
+
+  return value;
+}
+
+function bridgeBoolean(value: unknown): boolean {
+  if (typeof value !== "boolean")
+    throw new Error("Claude Mod cueloop bridge returned a malformed boolean");
+
+  return value;
+}
+
+function parseBridgeResponse(
+  stdout: string,
+  operation: BridgeRequest["operation"],
+): BridgeResponse {
+  const parsed: unknown = JSON.parse(stdout);
+  const raw = bridgeObject(parsed);
+
+  if (raw.operation !== operation)
+    throw new Error("Claude Mod cueloop harness bridge returned the wrong operation");
+  if (operation === "open") {
+    const manualOpenCommand =
+      raw.manualOpenCommand === undefined ? undefined : bridgeString(raw.manualOpenCommand);
+
+    return {
+      operation,
+      threadId: bridgeString(raw.threadId),
+      approvedRetry: bridgeBoolean(raw.approvedRetry),
+      manualOpenCommand,
+    };
+  }
+  if (operation === "pending") {
+    if (!Array.isArray(raw.pendingThreadIds) || !Array.isArray(raw.deliveries))
+      throw new Error("Claude Mod cueloop bridge returned malformed pending deliveries");
+    const pendingThreadIds = raw.pendingThreadIds.map(bridgeString);
+    const deliveries = raw.deliveries.map((rawDelivery: unknown) => {
+      const delivery = bridgeObject(rawDelivery);
+      const message = bridgeObject(delivery.message);
+
+      return {
+        bindingId: bridgeString(delivery.bindingId),
+        threadId: bridgeString(delivery.threadId),
+        deliveryId: bridgeString(delivery.deliveryId),
+        message: { id: bridgeString(message.id) },
+        wakeText: bridgeString(delivery.wakeText),
+      };
+    });
+
+    return { operation, deliveries, pendingThreadIds };
+  }
+  if (operation === "ack") {
+    return { operation, deliveryId: bridgeString(raw.deliveryId) };
+  }
+
+  return { operation, report: bridgeString(raw.report) };
+}
+/* oxlint-enable type-evidence/no-unknown-parameters, type-evidence/no-unsafe-dictionary-type, type-evidence/no-runtime-typeof */
+
 export type ClaudeModEngine = Engine;
 
 export type ClaudeModOn = On;
@@ -148,13 +218,7 @@ async function callBridge(engine: Engine, request: BridgeRequest): Promise<Bridg
   if (result.exitCode !== 0)
     throw new Error(`Claude Mod cueloop harness bridge failed: ${result.stderr.trim()}`);
 
-  // SAFETY: the cueloop CLI validates requests and serializes this closed response union.
-  const response = JSON.parse(result.stdout) as BridgeResponse;
-
-  if (response.operation !== request.operation)
-    throw new Error("Claude Mod cueloop harness bridge returned the wrong operation");
-
-  return response;
+  return parseBridgeResponse(result.stdout, request.operation);
 }
 
 type ModState = {

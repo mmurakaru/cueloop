@@ -50,6 +50,7 @@ function createTestMod() {
   let failNextAck = false;
   let bridgeUnavailable = false;
   let claudeVersion = "2.1.278 (Claude Code)";
+  let malformedBridgeOutput: string | null = null;
   const engine: ClaudeModEngine = {
     session: { id: async () => "claude-mod-test", cwd: async () => home },
     prompt: {
@@ -74,6 +75,13 @@ function createTestMod() {
         if (!options?.stdin) throw new Error("missing bridge request");
         const request = JSON.parse(options.stdin);
 
+        if (malformedBridgeOutput !== null) {
+          const output = malformedBridgeOutput;
+
+          malformedBridgeOutput = null;
+
+          return { exitCode: 0, stdout: output, stderr: "" };
+        }
         if (bridgeUnavailable) {
           return { exitCode: 1, stdout: "", stderr: "cueloop harness bridge unavailable" };
         }
@@ -146,6 +154,9 @@ function createTestMod() {
     },
     setClaudeVersion: (version: string) => {
       claudeVersion = version;
+    },
+    returnMalformedOnce: (output: string) => {
+      malformedBridgeOutput = output;
     },
   };
 }
@@ -263,5 +274,27 @@ describe("register Claude Mod", () => {
 
     expect(denied).toHaveProperty("deny");
     expect("deny" in denied && denied.deny).toContain("2.1.278 or newer");
+  });
+
+  test("rejects malformed bridge output before it can open or deliver a Thread", async () => {
+    const mod = createTestMod();
+
+    mod.returnMalformedOnce('{"operation":"pending","deliveries":[{}],"pendingThreadIds":[]}');
+    await mod.dispatch("session.start", { cwd: home, isInteractive: true });
+    expect(await mod.dispatch("tool.call", { tool: "Bash", tool_use_id: "bash" })).toHaveProperty(
+      "deny",
+    );
+    mod.tick();
+    await mod.dispatch("session.compact", { trigger: "manual" });
+    mod.returnMalformedOnce('{"operation":"open","threadId":"fake","approvedRetry":"yes"}');
+    const opened = await mod.dispatch("tool.call", {
+      tool: "mcp__cueloop__open_thread",
+      tool_use_id: "open",
+      workflow: "reply",
+      content: "# Reply\n\nHello.",
+    });
+
+    expect(opened).toHaveProperty("deny");
+    expect(await client.sessionList()).toEqual([]);
   });
 });
