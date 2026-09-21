@@ -498,12 +498,16 @@ export class DaemonServer {
         params.files,
       );
     },
-    "herdr.getTab": (_connection, request) =>
-      this.core.herdrGetTab(parseParams("herdr.getTab", request.params).id),
-    "herdr.setTab": (_connection, request) => {
-      const params = parseParams("herdr.setTab", request.params);
+    "herdr.getThreadSurface": (_connection, request) =>
+      this.core.herdrGetThreadSurface(parseParams("herdr.getThreadSurface", request.params).id),
+    "herdr.setThreadSurface": (_connection, request) => {
+      const params = parseParams("herdr.setThreadSurface", request.params);
 
-      this.core.herdrSetTab(params.id, { tabId: params.tabId, paneId: params.paneId });
+      this.core.herdrSetThreadSurface(params.id, {
+        tabId: params.tabId,
+        paneId: params.paneId,
+        mode: params.mode,
+      });
 
       return {};
     },

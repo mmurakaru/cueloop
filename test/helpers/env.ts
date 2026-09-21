@@ -14,6 +14,8 @@ import { isolatedUserConfigPath } from "../../packages/client/src/test-support";
 export const HERMETIC_HERDR_ENV = {
   HERDR_ENV: "",
   HERDR_PANE_ID: "",
+  HERDR_TAB_ID: "",
+  HERDR_WORKSPACE_ID: "",
   HERDR_BIN_PATH: "",
 } as const;
 

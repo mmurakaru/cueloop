@@ -286,9 +286,14 @@ export const Params = {
     author: v.optional(NonEmpty),
   }),
   "daemon.shutdown": v.object({}),
-  // herdr adapter scratch: the review's opened tab, kept off the session record.
-  "herdr.getTab": v.object({ id: SessionId }),
-  "herdr.setTab": v.object({ id: SessionId, tabId: NonEmpty, paneId: NonEmpty }),
+  // Herdr terminal handles stay outside canonical Thread records.
+  "herdr.getThreadSurface": v.object({ id: SessionId }),
+  "herdr.setThreadSurface": v.object({
+    id: SessionId,
+    tabId: NonEmpty,
+    paneId: NonEmpty,
+    mode: v.optional(v.picklist(["tab", "pane"])),
+  }),
 } as const;
 
 export type MethodName = keyof typeof Params;

@@ -10,5 +10,6 @@ export * from "./anchor";
 export * from "./fuzzy";
 export * from "./feedback";
 export * from "./herdr";
+export * from "./thread-surface";
 export * from "./history";
 export * from "./path-view";

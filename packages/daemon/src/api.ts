@@ -52,7 +52,10 @@ import {
 import { curateDiff } from "./curate";
 import { ThreadStore, withHistory } from "./store";
 import { pruneExpiredSessions, resolveCleanupPeriodDays } from "./retention";
-import { HerdrTabStore, type HerdrTabHandle } from "./herdr-tab-store";
+import {
+  HerdrThreadSurfaceStore,
+  type HerdrThreadSurfaceHandle,
+} from "./herdr-thread-surface-store";
 import { HarnessStateStore } from "./harness-state-store";
 import { DiffWatcher } from "./diff-watcher";
 import { PrReviewPoller } from "./pr-poller";
@@ -88,7 +91,7 @@ type EventListener = (event: DaemonEvent) => void;
 
 export class DaemonCore {
   readonly store: ThreadStore;
-  readonly herdrTabs: HerdrTabStore;
+  readonly herdrThreadSurfaces: HerdrThreadSurfaceStore;
   readonly harnessState: HarnessStateStore;
   private waiters = new Map<string, ((session: Thread) => void)[]>();
   private listeners = new Set<EventListener>();
@@ -117,7 +120,7 @@ export class DaemonCore {
       Date.now(),
       this.harnessState.pendingThreadIds(),
     );
-    this.herdrTabs = new HerdrTabStore(home);
+    this.herdrThreadSurfaces = new HerdrThreadSurfaceStore(home);
     this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
     this.prPoller = new PrReviewPoller((sessionId) => void this.sessionRefreshPrDiff(sessionId));
     // resume hot-reload for diff sessions that survived a daemon restart
@@ -132,13 +135,13 @@ export class DaemonCore {
     this.prPoller.close();
   }
 
-  /** The herdr tab opened for a review, if any (adapter scratch, not on the session). */
-  herdrGetTab(sessionId: string): HerdrTabHandle | null {
-    return this.herdrTabs.get(sessionId);
+  /** The Herdr Thread surface handle, kept outside the canonical Thread. */
+  herdrGetThreadSurface(sessionId: string): HerdrThreadSurfaceHandle | null {
+    return this.herdrThreadSurfaces.get(sessionId);
   }
 
-  herdrSetTab(sessionId: string, handle: HerdrTabHandle): void {
-    this.herdrTabs.set(sessionId, handle);
+  herdrSetThreadSurface(sessionId: string, handle: HerdrThreadSurfaceHandle): void {
+    this.herdrThreadSurfaces.set(sessionId, handle);
   }
 
   harnessBind(input: {
@@ -573,7 +576,7 @@ export class DaemonCore {
     if (!this.store.delete(id)) throw new DaemonError("not_found", `no session ${id}`);
     if (session) this.untrackLiveDiffSession(session);
     this.diffRefreshGenerations.delete(id);
-    this.herdrTabs.delete(id);
+    this.herdrThreadSurfaces.delete(id);
     this.emit("inbox.changed", id);
   }
 

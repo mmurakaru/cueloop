@@ -1,6 +1,6 @@
 // Test preload (bunfig.toml [test].preload): runs once per test process before
 // any test. It neutralizes the developer's ambient herdr session in process.env
-// so IN-PROCESS code paths - e.g. runHook -> openHerdrPaneForReview, which reads
+// so IN-PROCESS code paths - e.g. runHook -> openHerdrThreadSurface, which reads
 // process.env directly - never spawn a real `herdr tab create` and leak tabs
 // into the live session. Subprocess spawns are covered separately by
 // HERMETIC_HERDR_ENV (test/helpers/env.ts); this closes the in-process gap.

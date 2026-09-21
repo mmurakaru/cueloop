@@ -84,6 +84,7 @@ describe("runHook: non-blocking plan gate", () => {
     expect(decision.allow).toBe(false);
     expect(decision.reason).toContain("opened for human review");
     expect(armed.length).toBe(1);
+    expect(decision.reason).toContain(`Open cueloop threads: cueloop ${armed[0]}`);
     const client = await DaemonClient.connect({ home });
     const pending = await client.sessionList({ status: "pending" });
 

@@ -241,7 +241,12 @@ describe("cueloop session (black box)", () => {
       home,
       ["session", "create", "--type", "plan", "--title", "Auto Open", "--cwd", home],
       PLAN,
-      { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: binPath },
+      {
+        HERDR_ENV: "1",
+        HERDR_PANE_ID: "w1:p1",
+        HERDR_WORKSPACE_ID: "w1",
+        HERDR_BIN_PATH: binPath,
+      },
     );
 
     // Assert
@@ -250,10 +255,77 @@ describe("cueloop session (black box)", () => {
     const lines = readFileSync(logPath, "utf8").split("\n").filter(Boolean);
 
     expect(lines).toEqual([
-      `tab create --cwd ${home} --label Auto Open --focus`,
+      `tab create --workspace w1 --cwd ${home} --label Auto Open --focus`,
       `pane send-text w1:p2 cueloop ${session.id}`,
       "pane send-keys w1:p2 enter",
     ]);
+  });
+
+  test("personal pane setting opens a 50 percent right-hand Herdr pane", async () => {
+    const configPath = join(home, "herdr-pane.toml");
+    const logPath = join(home, "herdr-pane-cli.log");
+    const binPath = join(home, "herdr-pane-cli.sh");
+
+    writeFileSync(configPath, '[integrations.herdr]\nthread_surface = "pane"\n');
+    writeFileSync(
+      binPath,
+      `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "pane" ] && [ "$2" = "split" ]; then\n  printf '{"result":{"pane":{"pane_id":"w1:p3"}}}'\nfi\n`,
+    );
+    chmodSync(binPath, 0o755);
+
+    const created = await runCli(
+      home,
+      ["session", "create", "--type", "plan", "--title", "Pane Open", "--cwd", home],
+      PLAN,
+      {
+        HERDR_ENV: "1",
+        HERDR_PANE_ID: "w1:p1",
+        HERDR_TAB_ID: "w1:t1",
+        HERDR_BIN_PATH: binPath,
+        CUELOOP_CONFIG: configPath,
+      },
+    );
+
+    expect(created.code).toBe(0);
+    const session = cliJson<Thread>(created);
+
+    expect(readFileSync(logPath, "utf8").split("\n").filter(Boolean)).toEqual([
+      `pane split w1:p1 --direction right --ratio 0.5 --cwd ${home} --focus`,
+      `pane send-text w1:p3 cueloop ${session.id}`,
+      "pane send-keys w1:p3 enter",
+    ]);
+    expect(session.status).toBe("pending");
+    const client = await DaemonClient.connect({ home });
+
+    try {
+      expect(await client.herdrGetThreadSurface(session.id)).toEqual({
+        mode: "pane",
+        tabId: "w1:t1",
+        paneId: "w1:p3",
+      });
+    } finally {
+      client.close();
+    }
+  });
+
+  test("failed Herdr launch returns a manual command and keeps the Thread pending", async () => {
+    const created = await runCli(
+      home,
+      ["session", "create", "--type", "plan", "--title", "Manual Open"],
+      PLAN,
+      {
+        HERDR_ENV: "1",
+        HERDR_PANE_ID: "w1:p1",
+        HERDR_BIN_PATH: join(home, "missing-herdr"),
+        CUELOOP_CONFIG: join(home, "missing-config.toml"),
+      },
+    );
+
+    expect(created.code).toBe(0);
+    const session = cliJson<Thread>(created);
+
+    expect(created.stderr).toContain(`Open cueloop threads: cueloop ${session.id}`);
+    expect(session.status).toBe("pending");
   });
 
   test("create outside herdr opens no tab", async () => {
