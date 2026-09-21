@@ -24,6 +24,21 @@ beforeEach(() => {
 afterEach(() => rmSync(home, { recursive: true, force: true }));
 
 describe("session lifecycle", () => {
+  test("startup retention clears native surface handles for expired Threads", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.store.upsert({ ...session, status: "resolved", createdAt: "2020-01-01T00:00:00Z" });
+    core.herdrSetThreadSurface(session.id, { tabId: "tab-old", paneId: "pane-old" });
+    core.ghosttySetThreadSurface(session.id, { terminalId: "terminal-old" });
+
+    const restarted = new DaemonCore(home);
+
+    expect(restarted.store.get(session.id)).toBeUndefined();
+    expect(restarted.herdrGetThreadSurface(session.id)).toBeNull();
+    expect(restarted.ghosttyGetThreadSurface(session.id)).toBeNull();
+    restarted.dispose();
+  });
+
   test("create → get → list", () => {
     // Act
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });

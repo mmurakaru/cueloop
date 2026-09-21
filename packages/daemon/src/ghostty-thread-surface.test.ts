@@ -6,6 +6,7 @@ import type { Thread } from "@cueloop/schema";
 import {
   insideGhostty,
   openGhosttyThreadSurface as openActualGhosttyThreadSurface,
+  resolveCueloopLaunchCommand,
   supportsGhosttyAppleScript,
   GHOSTTY_OPEN_APPLESCRIPT,
   type GhosttyThreadSurfacePersistence,
@@ -143,6 +144,15 @@ describe("Ghostty AppleScript capability", () => {
     expect(insideGhostty({ GHOSTTY_RESOURCES_DIR: "/Applications/Ghostty.app" })).toBe(true);
     expect(insideGhostty({ TERM_PROGRAM: "other" })).toBe(false);
   });
+
+  test("source CLI invocation uses its absolute entry when no cueloop binary is installed", () => {
+    const entry = join(import.meta.dir, "../../cli/src/main.ts");
+
+    expect(resolveCueloopLaunchCommand(process.execPath, entry, "")).toBe(
+      `'${process.execPath}' run '${entry}'`,
+    );
+    expect(resolveCueloopLaunchCommand(process.execPath, "/other", "")).toBeNull();
+  });
 });
 
 describe("openGhosttyThreadSurface", () => {
@@ -164,10 +174,14 @@ describe("openGhosttyThreadSurface", () => {
     expect(log(native.logPath)).toEqual(["version", `open:${mode}:/repo/work`]);
     const script = readFileSync(native.scriptPath, "utf8");
 
-    expect(script).toContain("set initial working directory of cfg to threadDirectory");
+    expect(script).toContain(
+      "set initial working directory of surfaceConfiguration to threadDirectory",
+    );
     expect(script).toContain("input text shellCommand to createdTerminal");
     expect(script).toContain("set targetWindow to front window");
-    expect(script).toContain("split sourceTerminal direction right with configuration cfg");
+    expect(script).toContain(
+      "split sourceTerminal direction right with configuration surfaceConfiguration",
+    );
     expect(script).toContain('perform action "new_tab" on sourceTerminal');
     expect(script).toContain("focus createdTerminal");
     expect(readFileSync(native.shellPath, "utf8").trim()).toBe(

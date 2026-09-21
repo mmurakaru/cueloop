@@ -119,14 +119,19 @@ export class DaemonCore {
     this.store.recover();
     this.harnessState = new HarnessStateStore(home);
     for (const session of this.store.list()) this.reconcileDeliveries(session);
-    pruneExpiredSessions(
+    this.herdrThreadSurfaces = new HerdrThreadSurfaceStore(home);
+    this.ghosttyThreadSurfaces = new GhosttyThreadSurfaceStore(home);
+    const expiredThreadIds = pruneExpiredSessions(
       this.store,
       resolveCleanupPeriodDays(),
       Date.now(),
       this.harnessState.pendingThreadIds(),
     );
-    this.herdrThreadSurfaces = new HerdrThreadSurfaceStore(home);
-    this.ghosttyThreadSurfaces = new GhosttyThreadSurfaceStore(home);
+
+    for (const threadId of expiredThreadIds) {
+      this.herdrThreadSurfaces.delete(threadId);
+      this.ghosttyThreadSurfaces.delete(threadId);
+    }
     this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
     this.prPoller = new PrReviewPoller((sessionId) => void this.sessionRefreshPrDiff(sessionId));
     // resume hot-reload for diff sessions that survived a daemon restart

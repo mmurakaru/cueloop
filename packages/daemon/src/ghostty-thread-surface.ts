@@ -1,7 +1,7 @@
 /** Open or focus a cueloop Thread through Ghostty's macOS AppleScript API. */
 
 import { spawnSync } from "node:child_process";
-import { accessSync, constants, statSync } from "node:fs";
+import { accessSync, constants, existsSync, statSync } from "node:fs";
 import { basename, delimiter, isAbsolute, join } from "node:path";
 import type { Thread, ThreadSurfaceOpenStatus } from "@cueloop/schema";
 import type { GhosttyThreadSurfaceHandle } from "./ghostty-thread-surface-store";
@@ -33,15 +33,15 @@ export const GHOSTTY_OPEN_APPLESCRIPT = `on run argv
       set createdTab to item 1 of newTabs
       set createdTerminal to focused terminal of createdTab
     else
-      set cfg to new surface configuration
-      set initial working directory of cfg to threadDirectory
+      set surfaceConfiguration to new surface configuration
+      set initial working directory of surfaceConfiguration to threadDirectory
       if placement is "window" then
-        set createdWindow to new window with configuration cfg
+        set createdWindow to new window with configuration surfaceConfiguration
         set createdTerminal to focused terminal of selected tab of createdWindow
       else
         set targetWindow to front window
         set sourceTerminal to focused terminal of selected tab of targetWindow
-        set createdTerminal to split sourceTerminal direction right with configuration cfg
+        set createdTerminal to split sourceTerminal direction right with configuration surfaceConfiguration
       end if
     end if
     try
@@ -123,16 +123,29 @@ function runAppleScript(binPath: string, script: string, args: string[] = []): s
   }
 }
 
-function resolveCueloopExecutable(): string | null {
-  if (basename(process.execPath) === "cueloop") return process.execPath;
+export function resolveCueloopLaunchCommand(
+  executable = process.execPath,
+  entry = process.argv[1],
+  path = process.env.PATH,
+): string | null {
+  if (basename(executable) === "cueloop") return shellQuote(executable);
 
-  for (const entry of process.env.PATH?.split(delimiter) ?? []) {
-    if (!isAbsolute(entry)) continue;
-    const candidate = join(entry, "cueloop");
+  if (
+    entry &&
+    isAbsolute(entry) &&
+    entry.endsWith(join("packages", "cli", "src", "main.ts")) &&
+    existsSync(entry)
+  ) {
+    return `${shellQuote(executable)} run ${shellQuote(entry)}`;
+  }
+
+  for (const directory of path?.split(delimiter) ?? []) {
+    if (!isAbsolute(directory)) continue;
+    const candidate = join(directory, "cueloop");
 
     try {
       accessSync(candidate, constants.X_OK);
-      if (statSync(candidate).isFile()) return candidate;
+      if (statSync(candidate).isFile()) return shellQuote(candidate);
     } catch {
       // A PATH entry without an executable cannot launch the Thread.
     }
@@ -228,15 +241,18 @@ async function openClaimedGhosttyThreadSurface(
     if (result !== "closed") return { status: "failed", retainClaim: false };
   }
 
-  const executable = cueloopBinPath === undefined ? resolveCueloopExecutable() : cueloopBinPath;
+  const launchCommand =
+    cueloopBinPath === undefined
+      ? resolveCueloopLaunchCommand()
+      : cueloopBinPath && shellQuote(cueloopBinPath);
 
-  if (!executable) return { status: "failed", retainClaim: false };
+  if (!launchCommand) return { status: "failed", retainClaim: false };
 
   const cwd = thread.artifact.meta.cwd ?? thread.workspace.repoRoot;
   const terminalId = runAppleScript(binPath, GHOSTTY_OPEN_APPLESCRIPT, [
     mode,
     cwd,
-    `cd -- ${shellQuote(cwd)} && ${shellQuote(executable)} ${shellQuote(thread.id)}`,
+    `cd -- ${shellQuote(cwd)} && ${launchCommand} ${shellQuote(thread.id)}`,
   ]);
 
   if (!terminalId) return { status: "failed", retainClaim: false };
