@@ -17,12 +17,10 @@ import { parseArgs } from "./args";
 
 /** The gh binary is injectable so tests can stub it. */
 function ghBin(): string {
-
   return process.env.CUELOOP_GH || "gh";
 }
 
 function forge(): GitHubForgeReviewPort {
-
   return new GitHubForgeReviewPort(
     new DeliveredMessageStore(join(cueloopHome(), "forge-delivered-messages.json")),
     ghBin(),
