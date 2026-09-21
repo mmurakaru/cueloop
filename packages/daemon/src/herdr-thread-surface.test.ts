@@ -20,7 +20,7 @@ const dir = mkdtempSync(join(tmpdir(), "cueloop-herdr-thread-surface-"));
  * pane_id and tab_id (herdr 0.8.2 shape), and answers `pane get` alive or dead
  * per `paneAlive` so the liveness branch can be exercised.
  */
-function makeStub(name: string, paneAlive = false, neighborPaneId = "w1:p3") {
+function makeStub(name: string, paneAlive = false, leftNeighborPaneId = "w1:p1") {
   const logPath = join(dir, `${name}.log`);
   const binPath = join(dir, `${name}.sh`);
   const paneGet = paneAlive ? `printf '{"result":{"pane":{"pane_id":"w1:p2"}}}'` : "exit 1";
@@ -36,7 +36,16 @@ if [ "$1" = "pane" ] && [ "$2" = "split" ]; then
   printf '{"result":{"pane":{"pane_id":"w1:p3"}}}'
 fi
 if [ "$1" = "pane" ] && [ "$2" = "neighbor" ]; then
-  printf '{"result":{"neighbor":{"neighbor_pane_id":"${neighborPaneId}"}}}'
+  if [ "$4" = "w1:p3" ] && [ "$6" = "left" ]; then
+    printf '{"result":{"neighbor":{"neighbor_pane_id":"${leftNeighborPaneId}"}}}'
+  elif [ "$4" = "${leftNeighborPaneId}" ] && [ "$6" = "right" ]; then
+    printf '{"result":{"neighbor":{"neighbor_pane_id":"w1:p3"}}}'
+  else
+    printf '{"result":{"neighbor":{"neighbor_pane_id":null}}}'
+  fi
+fi
+if [ "$1" = "pane" ] && [ "$2" = "focus" ]; then
+  printf '{"result":{"focus":{"focused_pane_id":"w1:p3"}}}'
 fi
 if [ "$1" = "pane" ] && [ "$2" = "get" ]; then ${paneGet}; fi
 exit 0
@@ -85,10 +94,8 @@ function newSession(overrides: Partial<Thread> = {}): Thread {
 
 describe("openHerdrThreadTab", () => {
   test("creates a focused tab, launches the review, and returns the handle", () => {
-    // Arrange
     const stub = makeStub("open");
 
-    // Act
     const handle = openHerdrThreadTab({
       sessionId: "ses_abc",
       cwd: "/repo/work",
@@ -96,7 +103,6 @@ describe("openHerdrThreadTab", () => {
       label: "Rollout Plan",
     });
 
-    // Assert
     expect(handle).toEqual({ tabId: "w1:t2", paneId: "w1:p2" });
     expect(readLines(stub.logPath)).toEqual([
       "tab create --cwd /repo/work --label Rollout Plan --focus",
@@ -117,7 +123,6 @@ describe("openHerdrThreadTab", () => {
   });
 
   test("returns null when tab create yields no ids - no send-text, no send-keys", () => {
-    // Arrange
     const logPath = join(dir, "nopane.log");
     const binPath = join(dir, "nopane.sh");
 
@@ -127,7 +132,6 @@ describe("openHerdrThreadTab", () => {
     );
     chmodSync(binPath, 0o755);
 
-    // Act
     const handle = openHerdrThreadTab({
       sessionId: "ses_abc",
       cwd: "/repo/work",
@@ -135,7 +139,6 @@ describe("openHerdrThreadTab", () => {
       label: "x",
     });
 
-    // Assert
     expect(handle).toBeNull();
     expect(readLines(logPath)).toEqual(["tab create --cwd /repo/work --label x --focus"]);
   });
@@ -219,13 +222,14 @@ describe("openHerdrThreadSurface", () => {
     );
     expect(readLines(live.logPath)).toEqual([
       "pane get w1:p3",
-      "pane neighbor --pane w1:p1 --direction right",
       "tab focus w1:t1",
+      "pane neighbor --pane w1:p3 --direction left",
+      "pane neighbor --pane w1:p1 --direction right",
       "pane focus --pane w1:p1 --direction right",
     ]);
   });
 
-  test("a moved live pane fails without opening a duplicate or focusing the wrong pane", async () => {
+  test("a moved live pane focuses through its new neighbor without opening a duplicate", async () => {
     const stub = makeStub("pane-moved", true, "w1:p4");
     const store = fakePersistence({
       mode: "pane",
@@ -241,11 +245,14 @@ describe("openHerdrThreadSurface", () => {
     };
 
     expect(await openHerdrThreadSurface(newSession(), store.persistence, env, "pane")).toBe(
-      "failed",
+      "focused",
     );
     expect(readLines(stub.logPath)).toEqual([
       "pane get w1:p3",
-      "pane neighbor --pane w1:p1 --direction right",
+      "tab focus w1:t1",
+      "pane neighbor --pane w1:p3 --direction left",
+      "pane neighbor --pane w1:p4 --direction right",
+      "pane focus --pane w1:p4 --direction right",
     ]);
   });
 
@@ -269,15 +276,12 @@ describe("openHerdrThreadSurface", () => {
     expect(store.saved()).toBeNull();
   });
   test("opens and records a tab for a review with no recorded tab", async () => {
-    // Arrange
     const stub = makeStub("gated-new");
     const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };
     const store = fakePersistence(null);
 
-    // Act
     await openHerdrThreadSurface(newSession({ id: "ses_xyz" }), store.persistence, env);
 
-    // Assert
     expect(readLines(stub.logPath)).toEqual([
       "tab create --cwd /repo/work --label Rollout Plan --focus",
       "pane send-text w1:p2 cueloop ses_xyz",
@@ -287,31 +291,25 @@ describe("openHerdrThreadSurface", () => {
   });
 
   test("no-op outside herdr - no herdr process is spawned", async () => {
-    // Arrange
     const stub = makeStub("gated-outside");
     const store = fakePersistence(null);
 
-    // Act
     await openHerdrThreadSurface(newSession(), store.persistence, {
       HERDR_PANE_ID: "w1:p1",
       HERDR_BIN_PATH: stub.binPath,
     });
 
-    // Assert
     expect(existsSync(stub.logPath)).toBeFalse();
     expect(store.saved()).toBeNull();
   });
 
   test("focuses the recorded tab when its pane is still alive, without reopening", async () => {
-    // Arrange
     const stub = makeStub("gated-alive", true);
     const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };
     const store = fakePersistence({ tabId: "w9:t9", paneId: "w9:p9" });
 
-    // Act
     await openHerdrThreadSurface(newSession(), store.persistence, env);
 
-    // Assert
     const lines = readLines(stub.logPath);
 
     expect(lines).toContain("pane get w9:p9");
@@ -321,7 +319,6 @@ describe("openHerdrThreadSurface", () => {
   });
 
   test("a persistence failure never escapes - review creation stays best-effort", async () => {
-    // Arrange - the daemon store rejects; the opener must still resolve quietly
     const stub = makeStub("gated-persist-fail");
     const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };
     const persistence: HerdrThreadSurfacePersistence = {
@@ -331,13 +328,11 @@ describe("openHerdrThreadSurface", () => {
       },
     };
 
-    // Act & Assert - no throw
     await openHerdrThreadSurface(newSession(), persistence, env);
     expect(readLines(stub.logPath).some((line) => line.startsWith("tab create"))).toBeTrue();
   });
 
   test("a recall failure (stale daemon) still opens a fresh tab", async () => {
-    // Arrange - a daemon predating the herdr-tab primitives rejects the recall
     const stub = makeStub("gated-recall-fail");
     const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };
     const persistence: HerdrThreadSurfacePersistence = {
@@ -347,10 +342,8 @@ describe("openHerdrThreadSurface", () => {
       herdrSetThreadSurface: async () => {},
     };
 
-    // Act
     await openHerdrThreadSurface(newSession({ id: "ses_stale" }), persistence, env);
 
-    // Assert - the recall throwing must not abort the open
     expect(readLines(stub.logPath)).toEqual([
       "tab create --cwd /repo/work --label Rollout Plan --focus",
       "pane send-text w1:p2 cueloop ses_stale",
@@ -359,15 +352,12 @@ describe("openHerdrThreadSurface", () => {
   });
 
   test("reopens and re-records when the recorded pane is dead", async () => {
-    // Arrange
     const stub = makeStub("gated-dead", false);
     const env = { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: stub.binPath };
     const store = fakePersistence({ tabId: "old:t", paneId: "old:p" });
 
-    // Act
     await openHerdrThreadSurface(newSession({ id: "ses_re" }), store.persistence, env);
 
-    // Assert
     const lines = readLines(stub.logPath);
 
     expect(lines).toContain("pane get old:p");

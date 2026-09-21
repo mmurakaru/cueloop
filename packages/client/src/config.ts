@@ -10,10 +10,6 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { OBSIDIAN_DEFAULTS, type ObsidianConfig } from "@cueloop/integration-obsidian";
 import type { MessageOutcome } from "@cueloop/schema";
-import {
-  loadHerdrThreadSurface,
-  type HerdrThreadSurface,
-} from "@cueloop/daemon/thread-surface-config";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import * as v from "valibot";
@@ -27,7 +23,6 @@ export interface KeymapConfig {
 
 export interface IntegrationsConfig {
   obsidian: ObsidianConfig;
-  herdr: { threadSurface: HerdrThreadSurface };
 }
 
 /** Post-submit behavior: "off" prompts, 0 closes instantly, N counts down. */
@@ -311,10 +306,7 @@ function layer(
     identity: { ...base.identity },
     actions: [...base.actions],
     skillsPath: base.skillsPath,
-    integrations: {
-      obsidian: { ...base.integrations.obsidian },
-      herdr: { ...base.integrations.herdr },
-    },
+    integrations: { obsidian: { ...base.integrations.obsidian } },
     experimental: { ...base.experimental },
   };
   const actions = parseActions(raw.actions);
@@ -376,10 +368,7 @@ export function loadConfig(
     identity: { provider: "typed" },
     actions: [...DEFAULT_QUICK_ACTIONS],
     skillsPath: join(homedir(), ".agents", "skills"),
-    integrations: {
-      obsidian: { ...OBSIDIAN_DEFAULTS },
-      herdr: { threadSurface: loadHerdrThreadSurface(options.userConfigPath) },
-    },
+    integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
     experimental: { prototypePixels: false },
   };
   // Theme name and per-token overrides are separate concerns, composed once

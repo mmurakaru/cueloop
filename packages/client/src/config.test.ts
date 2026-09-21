@@ -438,45 +438,6 @@ describe("integrations.obsidian config", () => {
   });
 });
 
-describe("integrations.herdr thread surface", () => {
-  test("defaults to tab and accepts personal pane or none", () => {
-    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-herdr-"));
-    const user = join(dir, "user.toml");
-
-    try {
-      expect(loadConfig({ userConfigPath: user }).integrations.herdr.threadSurface).toBe("tab");
-      writeFileSync(user, '[integrations.herdr]\nthread_surface = "pane"\n');
-      expect(loadConfig({ userConfigPath: user }).integrations.herdr.threadSurface).toBe("pane");
-      writeFileSync(user, '[integrations.herdr]\nthread_surface = "none"\n');
-      expect(loadConfig({ userConfigPath: user }).integrations.herdr.threadSurface).toBe("none");
-      writeFileSync(user, '[integrations.herdr]\nthread_surface = "invalid"\n');
-      expect(loadConfig({ userConfigPath: user }).integrations.herdr.threadSurface).toBe("tab");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-
-  test("repository config cannot override terminal automation", () => {
-    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-herdr-repo-"));
-    const user = join(dir, "user.toml");
-    const repoRoot = join(dir, "repo");
-
-    try {
-      writeFileSync(user, '[integrations.herdr]\nthread_surface = "pane"\n');
-      Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
-      writeFileSync(
-        join(repoRoot, ".cueloop", "config.toml"),
-        '[integrations.herdr]\nthread_surface = "none"\n',
-      );
-      expect(loadConfig({ userConfigPath: user, repoRoot }).integrations.herdr.threadSurface).toBe(
-        "pane",
-      );
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
-    }
-  });
-});
-
 describe("quick actions ([[actions]])", () => {
   test("absent config keeps the built-in defaults", () => {
     // Act

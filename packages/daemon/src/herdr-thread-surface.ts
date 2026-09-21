@@ -1,6 +1,11 @@
 /** Open or focus the canonical cueloop Thread in Herdr without changing Thread state. */
 
-import { detectHerdr, type HerdrEnv, type Thread } from "@cueloop/schema";
+import {
+  detectHerdr,
+  type HerdrEnv,
+  type Thread,
+  type ThreadSurfaceOpenStatus,
+} from "@cueloop/schema";
 import * as v from "valibot";
 import type { HerdrThreadSurfaceHandle } from "./herdr-thread-surface-store";
 import { loadHerdrThreadSurface, type HerdrThreadSurface } from "./thread-surface-config";
@@ -22,13 +27,15 @@ const CreatedPaneSchema = v.object({
   result: v.optional(v.object({ pane: v.optional(v.object({ pane_id: v.string() })) })),
 });
 const PaneNeighborSchema = v.object({
+  result: v.object({
+    neighbor: v.object({ neighbor_pane_id: v.optional(v.nullable(v.string())) }),
+  }),
+});
+const PaneFocusSchema = v.object({
   result: v.optional(
-    v.object({ neighbor: v.optional(v.object({ neighbor_pane_id: v.nullable(v.string()) })) }),
+    v.object({ focus: v.optional(v.object({ focused_pane_id: v.nullable(v.string()) })) }),
   ),
 });
-
-/** Whether terminal automation opened, focused, skipped, or failed to show a Thread. */
-export type ThreadSurfaceOpenResult = "opened" | "focused" | "disabled" | "unavailable" | "failed";
 
 /** Inputs for a new Herdr Thread tab. */
 export interface OpenHerdrThreadTabOptions {
@@ -75,6 +82,7 @@ export function openHerdrThreadTab(
     const tabId = parsed.output.result?.root_pane?.tab_id;
 
     if (!paneId || !tabId) return null;
+
     return sendCueloopThreadCommand(binPath, paneId, sessionId) ? { tabId, paneId } : null;
   } catch {
     return null;
@@ -177,32 +185,65 @@ function focusHerdrTab(binPath: string, tabId: string): boolean {
 }
 
 function focusHerdrThreadSurface(binPath: string, handle: HerdrThreadSurfaceHandle): boolean {
-  if (handle.mode !== "pane") return focusHerdrTab(binPath, handle.tabId);
-  const sourcePaneId = handle.sourcePaneId;
+  if (!focusHerdrTab(binPath, handle.tabId)) return false;
+
+  if (handle.mode !== "pane") return true;
 
   try {
-    const neighbor = Bun.spawnSync(
-      [binPath, "pane", "neighbor", "--pane", sourcePaneId, "--direction", "right"],
-      { stdout: "pipe", stderr: "ignore", timeout: HERDR_SPAWN_TIMEOUT_MS },
-    );
-    const parsed = v.safeParse(PaneNeighborSchema, JSON.parse(neighbor.stdout.toString()));
+    const directions = [
+      ["left", "right"],
+      ["right", "left"],
+      ["up", "down"],
+      ["down", "up"],
+    ] as const;
+    let hasNeighbor = false;
 
-    if (
-      neighbor.exitCode !== 0 ||
-      !parsed.success ||
-      parsed.output.result?.neighbor?.neighbor_pane_id !== handle.paneId
-    ) {
-      return false;
+    for (const [direction, opposite] of directions) {
+      const neighbor = herdrPaneNeighbor(binPath, handle.paneId, direction);
+
+      if (neighbor === undefined) return false;
+      if (neighbor === null) continue;
+      hasNeighbor = true;
+
+      if (herdrPaneNeighbor(binPath, neighbor, opposite) !== handle.paneId) continue;
+      const focused = Bun.spawnSync(
+        [binPath, "pane", "focus", "--pane", neighbor, "--direction", opposite],
+        { stdout: "pipe", stderr: "ignore", timeout: HERDR_SPAWN_TIMEOUT_MS },
+      );
+      const parsed = v.safeParse(PaneFocusSchema, JSON.parse(focused.stdout.toString()));
+
+      if (
+        focused.exitCode === 0 &&
+        parsed.success &&
+        parsed.output.result?.focus?.focused_pane_id === handle.paneId
+      ) {
+        return true;
+      }
     }
-    if (!focusHerdrTab(binPath, handle.tabId)) return false;
-    const focused = Bun.spawnSync(
-      [binPath, "pane", "focus", "--pane", sourcePaneId, "--direction", "right"],
-      { stdout: "ignore", stderr: "ignore", timeout: HERDR_SPAWN_TIMEOUT_MS },
-    );
 
-    return focused.exitCode === 0;
+    return !hasNeighbor;
   } catch {
     return false;
+  }
+}
+
+function herdrPaneNeighbor(
+  binPath: string,
+  paneId: string,
+  direction: string,
+): string | null | undefined {
+  try {
+    const neighbor = Bun.spawnSync(
+      [binPath, "pane", "neighbor", "--pane", paneId, "--direction", direction],
+      { stdout: "pipe", stderr: "ignore", timeout: HERDR_SPAWN_TIMEOUT_MS },
+    );
+
+    if (neighbor.exitCode !== 0) return undefined;
+    const parsed = v.safeParse(PaneNeighborSchema, JSON.parse(neighbor.stdout.toString()));
+
+    return parsed.success ? (parsed.output.result.neighbor.neighbor_pane_id ?? null) : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -212,10 +253,11 @@ export async function openHerdrThreadSurface(
   persistence: HerdrThreadSurfacePersistence,
   env: HerdrEnv = process.env,
   mode: HerdrThreadSurface = loadHerdrThreadSurface(),
-): Promise<ThreadSurfaceOpenResult> {
+): Promise<ThreadSurfaceOpenStatus> {
   const herdr = detectHerdr(env);
 
   if (!herdr) return "unavailable";
+
   if (mode === "none") return "disabled";
   const recorded = await recallHerdrThreadSurface(persistence, session.id);
 

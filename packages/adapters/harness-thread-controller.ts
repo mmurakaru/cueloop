@@ -12,7 +12,9 @@ import type {
   DiffFileContents,
   Thread,
   WorkspaceKey,
+  ThreadSurfaceOpenStatus,
 } from "@cueloop/schema";
+import { manualThreadOpenCommand } from "@cueloop/schema";
 import {
   findExistingReview,
   openReview,
@@ -47,9 +49,6 @@ export interface OpenPlanThreadInput {
 
 /** Which built-in cueloop panel an opened Thread uses. */
 export type ThreadPanel = "thread" | "changes";
-
-/** Outcome of opening cueloop threads through a terminal integration. */
-export type ThreadSurfaceOpenStatus = "opened" | "focused" | "disabled" | "unavailable" | "failed";
 
 /** Terminal integration port; the harness never renders its own review UI. */
 export interface ThreadSurfacePort {
@@ -215,10 +214,10 @@ export class HarnessThreadController {
       const result = await this.ports.surface.openThreads(thread.id, panel, thread);
 
       return result === "failed" || result === "unavailable" || result === "disabled"
-        ? `Open cueloop threads: cueloop ${thread.id}`
+        ? manualThreadOpenCommand(thread.id)
         : undefined;
     } catch {
-      return `Open cueloop threads: cueloop ${thread.id}`;
+      return manualThreadOpenCommand(thread.id);
     }
   }
 

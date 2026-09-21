@@ -7,13 +7,14 @@
 import {
   ARTIFACT_TYPES,
   isArtifactType,
+  manualThreadOpenCommand,
   newAnnotationId,
   type Anchor,
   type Annotation,
 } from "@cueloop/schema";
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { openHerdrThreadSurface } from "@cueloop/daemon/herdr-thread-surface";
+import { createHerdrThreadSurfacePort } from "@cueloop/adapters/herdr-thread-surface-port";
 import { openReview, messageResponse } from "@cueloop/daemon/thread-review";
 import { loadConfig, quickActionBody, resolveQuickAction } from "@cueloop/client/config";
 import { slashItemsFrom } from "@cueloop/client/slash-palette";
@@ -61,10 +62,15 @@ async function sessionCreate({ client, flags }: SessionContext): Promise<number>
     notes,
   });
 
-  const openResult = await openHerdrThreadSurface(review.session, client);
+  const panel = review.session.artifact.type === "diff" ? "changes" : "thread";
+  const openResult = await createHerdrThreadSurfacePort(client).openThreads(
+    review.id,
+    panel,
+    review.session,
+  );
 
   if (openResult !== "opened" && openResult !== "focused") {
-    console.error(`Open cueloop threads: cueloop ${review.id}`);
+    console.error(manualThreadOpenCommand(review.id));
   }
   out(review.session);
 

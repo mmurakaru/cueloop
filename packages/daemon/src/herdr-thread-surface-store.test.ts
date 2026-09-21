@@ -18,54 +18,41 @@ afterEach(() => {
 
 describe("HerdrThreadSurfaceStore", () => {
   test("set then get returns the handle; get for an unknown session is null", () => {
-    // Arrange
     const store = new HerdrThreadSurfaceStore(home);
 
-    // Act
     store.set("ses_1", { tabId: "w1:t2", paneId: "w1:p2" });
 
-    // Assert
     expect(store.get("ses_1")).toEqual({ tabId: "w1:t2", paneId: "w1:p2" });
     expect(store.get("ses_missing")).toBeNull();
   });
 
   test("handles survive a reload from disk", () => {
-    // Arrange
     new HerdrThreadSurfaceStore(home).set("ses_1", { tabId: "w1:t2", paneId: "w1:p2" });
 
-    // Act - a fresh store over the same home loads the persisted file
     const reloaded = new HerdrThreadSurfaceStore(home);
 
-    // Assert
     expect(reloaded.get("ses_1")).toEqual({ tabId: "w1:t2", paneId: "w1:p2" });
   });
 
   test("delete removes the handle", () => {
-    // Arrange
     const store = new HerdrThreadSurfaceStore(home);
 
     store.set("ses_1", { tabId: "w1:t2", paneId: "w1:p2" });
 
-    // Act
     store.delete("ses_1");
 
-    // Assert
     expect(store.get("ses_1")).toBeNull();
   });
 
   test("a corrupt file starts empty instead of throwing", () => {
-    // Arrange
     writeFileSync(herdrThreadSurfacesPath(home), "not json");
 
-    // Act
     const store = new HerdrThreadSurfaceStore(home);
 
-    // Assert
     expect(store.get("ses_1")).toBeNull();
   });
 
   test("malformed entries are dropped, well-formed ones survive", () => {
-    // Arrange - valid JSON, but entries with the wrong shape
     writeFileSync(
       herdrThreadSurfacesPath(home),
       JSON.stringify({
@@ -77,10 +64,8 @@ describe("HerdrThreadSurfaceStore", () => {
       }),
     );
 
-    // Act
     const store = new HerdrThreadSurfaceStore(home);
 
-    // Assert
     expect(store.get("ses_ok")).toEqual({ tabId: "w1:t2", paneId: "w1:p2" });
     expect(store.get("ses_partial")).toBeNull();
     expect(store.get("ses_typed")).toBeNull();
@@ -89,10 +74,8 @@ describe("HerdrThreadSurfaceStore", () => {
   });
 
   test("a non-object top level starts empty", () => {
-    // Arrange
     writeFileSync(herdrThreadSurfacesPath(home), JSON.stringify(["not", "a", "map"]));
 
-    // Act & Assert
     expect(new HerdrThreadSurfaceStore(home).get("ses_1")).toBeNull();
   });
 });

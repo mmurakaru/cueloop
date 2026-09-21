@@ -4,7 +4,7 @@ import { loadBundledExporters } from "./integrations";
 import type { IntegrationsConfig } from "./config";
 
 function integrations(overrides: Partial<typeof OBSIDIAN_DEFAULTS> = {}): IntegrationsConfig {
-  return { obsidian: { ...OBSIDIAN_DEFAULTS, ...overrides }, herdr: { threadSurface: "tab" } };
+  return { obsidian: { ...OBSIDIAN_DEFAULTS, ...overrides } };
 }
 
 describe("loadBundledExporters", () => {

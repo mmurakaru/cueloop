@@ -17,9 +17,9 @@
 
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { openHerdrThreadSurface } from "@cueloop/daemon/herdr-thread-surface";
+import { createHerdrThreadSurfacePort } from "../herdr-thread-surface-port";
 import { findExistingReview, openReview } from "@cueloop/daemon/thread-review";
-import { messageAllows } from "@cueloop/schema";
+import { manualThreadOpenCommand, messageAllows } from "@cueloop/schema";
 import { reportLabel, reportState } from "../herdr";
 
 const HookEventSchema = v.object({
@@ -119,10 +119,14 @@ export async function runHook(
       herdrPane: process.env.HERDR_ENV === "1" ? process.env.HERDR_PANE_ID : undefined,
     });
 
-    const openResult = await openHerdrThreadSurface(review.session, client);
-    const manualOpenCommand =
+    const openResult = await createHerdrThreadSurfacePort(client).openThreads(
+      review.id,
+      "thread",
+      review.session,
+    );
+    const manualOpenMessage =
       openResult !== "opened" && openResult !== "focused"
-        ? ` Open cueloop threads: cueloop ${review.id}.`
+        ? `\n${manualThreadOpenCommand(review.id)}`
         : "";
     // herdr tier 1: the pane shows blocked + "plan ready for review" while the
     // reviewer works; no-ops outside herdr.
@@ -137,7 +141,7 @@ export async function runHook(
         `cueloop review ${review.id} opened for human review. Do not proceed and do not wait - ` +
         `end your turn and keep helping the user. cueloop delivers the reviewer's message to this ` +
         `session as a follow-up: on approval, present this same plan again to proceed; on changes, ` +
-        `apply the feedback and present the revised plan.${manualOpenCommand}`,
+        `apply the feedback and present the revised plan.${manualOpenMessage}`,
     };
   } finally {
     client.close();
