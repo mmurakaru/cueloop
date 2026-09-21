@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadHerdrThreadSurface } from "./thread-surface-config";
+import { loadGhosttyThreadSurface, loadHerdrThreadSurface } from "./thread-surface-config";
 
 let dir: string;
 let userPath: string;
@@ -10,6 +10,30 @@ let userPath: string;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "cueloop-herdr-config-"));
   userPath = join(dir, "user.toml");
+});
+
+describe("personal Ghostty Thread surface config", () => {
+  test("defaults to tab and accepts pane, window, or none", () => {
+    expect(loadGhosttyThreadSurface(userPath)).toBe("tab");
+
+    for (const mode of ["pane", "window", "none"] as const) {
+      writeFileSync(userPath, `[integrations.ghostty]\nthread_surface = "${mode}"\n`);
+      expect(loadGhosttyThreadSurface(userPath)).toBe(mode);
+    }
+
+    writeFileSync(userPath, '[integrations.ghostty]\nthread_surface = "invalid"\n');
+    expect(loadGhosttyThreadSurface(userPath)).toBe("tab");
+  });
+
+  test("ignores repository config", () => {
+    const repoConfig = join(dir, "repo", ".cueloop", "config.toml");
+
+    mkdirSync(join(dir, "repo", ".cueloop"), { recursive: true });
+    writeFileSync(userPath, '[integrations.ghostty]\nthread_surface = "window"\n');
+    writeFileSync(repoConfig, '[integrations.ghostty]\nthread_surface = "none"\n');
+
+    expect(loadGhosttyThreadSurface(userPath)).toBe("window");
+  });
 });
 
 afterEach(() => {

@@ -22,11 +22,14 @@ artifact types.
 The surface port opens the built-in panel; terminal and multiplexer launch
 implementations belong to their integrations.
 
-Herdr uses `createHerdrThreadSurfacePort`. Personal config accepts
+`createTerminalThreadSurfacePort` selects Herdr when nested inside Ghostty and
+otherwise uses Ghostty on macOS. Personal config accepts
 `[integrations.herdr] thread_surface = "tab" | "pane" | "none"`; tab is the
-default. Repository config cannot trigger terminal automation. A pane opens on
-the right at 50 percent width. Native handles live in daemon adapter scratch,
-not in the Thread. If opening fails, the controller leaves the Thread pending
+default. Ghostty accepts `[integrations.ghostty] thread_surface = "tab" | "pane" |
+"window" | "none"`, also defaulting to tab. Repository config cannot trigger
+terminal automation. A pane opens on the right at 50 percent width. Native
+handles live in daemon adapter scratch, not in the Thread. If opening fails,
+the controller leaves the Thread pending
 and returns `Open cueloop threads: cueloop <thread-id>` to the harness.
 
 The daemon persists bindings and deliveries outside the Thread. It routes a

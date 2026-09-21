@@ -17,7 +17,7 @@
 
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { createHerdrThreadSurfacePort } from "../herdr-thread-surface-port";
+import { createTerminalThreadSurfacePort } from "../terminal-thread-surface-port";
 import { findExistingReview, openReview } from "@cueloop/daemon/thread-review";
 import { manualThreadOpenCommand, messageAllows } from "@cueloop/schema";
 import { reportLabel, reportState } from "../herdr";
@@ -119,7 +119,7 @@ export async function runHook(
       herdrPane: process.env.HERDR_ENV === "1" ? process.env.HERDR_PANE_ID : undefined,
     });
 
-    const openResult = await createHerdrThreadSurfacePort(client).openThreads(
+    const openResult = await createTerminalThreadSurfacePort(client).openThreads(
       review.id,
       "thread",
       review.session,

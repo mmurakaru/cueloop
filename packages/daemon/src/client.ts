@@ -30,6 +30,7 @@ import {
 } from "./protocol";
 import type { DaemonRole } from "./capabilities";
 import type { HerdrThreadSurfaceHandle } from "./herdr-thread-surface-store";
+import type { GhosttyThreadSurfaceHandle } from "./ghostty-thread-surface-store";
 import type { SharedMerge } from "./api";
 
 export type { SharedMerge } from "./api";
@@ -74,6 +75,7 @@ const HerdrThreadSurfaceResultSchema = v.nullable(
     mode: v.optional(v.picklist(["tab", "pane"])),
   }),
 );
+const GhosttyThreadSurfaceResultSchema = v.nullable(v.object({ terminalId: v.string() }));
 
 /**
  * The session primitives the review controller drives. DaemonClient is the local
@@ -603,6 +605,18 @@ export class DaemonClient implements ThreadClient {
   }
   async herdrSetThreadSurface(id: string, handle: HerdrThreadSurfaceHandle): Promise<void> {
     await this.request("herdr.setThreadSurface", { id, ...handle }, EmptyResultSchema);
+  }
+  ghosttyGetThreadSurface(id: string): Promise<GhosttyThreadSurfaceHandle | null> {
+    return this.request("ghostty.getThreadSurface", { id }, GhosttyThreadSurfaceResultSchema);
+  }
+  async ghosttySetThreadSurface(id: string, handle: GhosttyThreadSurfaceHandle): Promise<void> {
+    await this.request("ghostty.setThreadSurface", { id, ...handle }, EmptyResultSchema);
+  }
+  ghosttyClaimThreadSurface(id: string): Promise<boolean> {
+    return this.request("ghostty.claimThreadSurface", { id }, v.boolean());
+  }
+  async ghosttyReleaseThreadSurface(id: string): Promise<void> {
+    await this.request("ghostty.releaseThreadSurface", { id }, EmptyResultSchema);
   }
   shutdown(): Promise<void> {
     return this.request("daemon.shutdown", {}, EmptyResultSchema).then(() => undefined);

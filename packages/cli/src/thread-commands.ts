@@ -14,7 +14,7 @@ import {
 } from "@cueloop/schema";
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { createHerdrThreadSurfacePort } from "@cueloop/adapters/herdr-thread-surface-port";
+import { createTerminalThreadSurfacePort } from "@cueloop/adapters/terminal-thread-surface-port";
 import { openReview, messageResponse } from "@cueloop/daemon/thread-review";
 import { loadConfig, quickActionBody, resolveQuickAction } from "@cueloop/client/config";
 import { slashItemsFrom } from "@cueloop/client/slash-palette";
@@ -63,7 +63,7 @@ async function sessionCreate({ client, flags }: SessionContext): Promise<number>
   });
 
   const panel = review.session.artifact.type === "diff" ? "changes" : "thread";
-  const openResult = await createHerdrThreadSurfacePort(client).openThreads(
+  const openResult = await createTerminalThreadSurfacePort(client).openThreads(
     review.id,
     panel,
     review.session,
