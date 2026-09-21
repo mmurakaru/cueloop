@@ -36,7 +36,7 @@ test("PR benchmark comment collapses the table but keeps the status visible", ()
   expect(markdown).toContain("merge base `abcdef1` vs head `123456a`");
 });
 
-test("PR benchmark comment keeps a regression warning outside the collapsed table", () => {
+test("PR benchmark comment keeps regression status in the visible heading", () => {
   const markdown = formatPrComment(
     { ...comparison, failed: true, rows: [{ ...comparison.rows[0]!, status: "fail" }] },
     base,
@@ -45,4 +45,19 @@ test("PR benchmark comment keeps a regression warning outside the collapsed tabl
 
   expect(markdown).toContain("## Benchmarks: 1 row worth a look\n\n<details>");
   expect(markdown).toContain("| fail |");
+});
+
+test("PR benchmark comment keeps a missing-baseline notice visible", () => {
+  const markdown = formatPrComment(
+    {
+      ...comparison,
+      rows: [{ ...comparison.rows[0]!, base: null, delta: null, status: "missing-base" }],
+    },
+    base,
+    head,
+  );
+  const notice = "The merge base predates the benchmark suite";
+
+  expect(markdown).toContain(notice);
+  expect(markdown.indexOf(notice)).toBeLessThan(markdown.indexOf("<details>"));
 });
