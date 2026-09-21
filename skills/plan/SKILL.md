@@ -5,11 +5,18 @@ description: Submit a Markdown plan to a cueloop Thread for human review. Use wh
 
 # cueloop plan
 
-Submit the complete Markdown plan through the harness's cueloop `plan` workflow.
-The adapter opens the thread panel and delivers the resolved Message into this
-conversation. Give the user the Thread ID so they can reopen it.
+When the harness exposes cueloop's `plan` workflow, submit the complete Markdown
+plan through it. Otherwise, write the plan to a file and use the installed CLI:
+
+```bash
+cueloop session create --type plan --content-file <plan.md>
+```
+
+Read the returned Thread ID and give it to the user. On the CLI path, collect
+the Message with `cueloop session wait <id> --timeout-ms 60000`; repeat while
+the response says `pending`. This path does not inject a native harness message.
 
 Keep the plan's exact wording: annotations attach to its text. When changes are
 requested, apply any edited text and every annotation, then revise the same
-Thread. Proceed with implementation only after approval. Native message
-delivery belongs to the harness adapter, not this skill.
+Thread with `cueloop session submit-revision <id> --content-file <plan.md>` on
+the CLI path. Proceed with implementation only after approval.

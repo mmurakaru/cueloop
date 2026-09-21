@@ -55,9 +55,16 @@ export interface ThreadSurfacePort {
 
 /** Forge operations shared by every harness's PR review workflow. */
 export interface ForgeReviewPort {
-  importPullRequest(pr: string): Promise<{ content: string; title?: string }>;
+  importPullRequest(
+    pullRequestReference: string,
+    cwd?: string,
+  ): Promise<{ content: string; title?: string }>;
   /** Must ignore a Message ID already posted to this PR. */
-  postPullRequestMessage(pr: string, message: Message): void | Promise<void>;
+  postPullRequestMessage(
+    pullRequestReference: string,
+    message: Message,
+    cwd?: string,
+  ): void | Promise<void>;
 }
 
 /** Corpus analysis shared by every harness's refine workflow. */
@@ -82,7 +89,7 @@ export type ArtifactWorkflowRequest = OpenPlanThreadInput & {
 /** A pull request imported into a diff Thread. */
 export type ReviewWorkflowRequest = Omit<OpenPlanThreadInput, "content"> & {
   workflow: "review";
-  pr: string;
+  pullRequestReference: string;
 };
 
 /** A corpus-backed writeback proposal submitted as a plan Thread. */
@@ -125,14 +132,15 @@ export class HarnessThreadController {
   /** Open any workflow through the same Thread lifecycle and built-in panels. */
   async openWorkflow(input: HarnessWorkflowRequest): Promise<OpenedWorkflow> {
     if (input.workflow === "review") {
-      const imported = await this.ports.forge.importPullRequest(input.pr);
+      const cwd = input.cwd ?? input.workspace?.repoRoot;
+      const imported = await this.ports.forge.importPullRequest(input.pullRequestReference, cwd);
       const review = await openReview(this.client, {
         type: "diff",
         workflow: "review",
         content: imported.content,
-        title: imported.title ?? `PR ${input.pr}`,
-        pr: input.pr,
-        cwd: input.cwd,
+        title: imported.title ?? `PR ${input.pullRequestReference}`,
+        pr: input.pullRequestReference,
+        cwd,
         workspace: input.workspace,
         agent: input.harness,
         agentSessionId: input.harnessSessionId,
@@ -254,7 +262,11 @@ export class HarnessThreadController {
 
     for (const item of pending) {
       if (thread.artifact.meta.pr) {
-        await this.ports.forge.postPullRequestMessage(thread.artifact.meta.pr, item.message);
+        await this.ports.forge.postPullRequestMessage(
+          thread.artifact.meta.pr,
+          item.message,
+          thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
+        );
       }
 
       await adapter.sendMessage(item.message);

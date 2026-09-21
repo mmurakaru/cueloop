@@ -109,15 +109,20 @@ export class DaemonCore {
   constructor(home: string) {
     this.store = new ThreadStore(home);
     this.store.recover();
-    pruneExpiredSessions(this.store, resolveCleanupPeriodDays(), Date.now());
-    this.herdrTabs = new HerdrTabStore(home);
     this.harnessState = new HarnessStateStore(home);
+    for (const session of this.store.list()) this.reconcileDeliveries(session);
+    pruneExpiredSessions(
+      this.store,
+      resolveCleanupPeriodDays(),
+      Date.now(),
+      this.harnessState.pendingThreadIds(),
+    );
+    this.herdrTabs = new HerdrTabStore(home);
     this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
     this.prPoller = new PrReviewPoller((sessionId) => void this.sessionRefreshPrDiff(sessionId));
     // resume hot-reload for diff sessions that survived a daemon restart
     for (const session of this.store.list()) {
       this.trackLiveDiffSession(session);
-      this.reconcileDeliveries(session);
     }
   }
 
@@ -635,7 +640,7 @@ export class DaemonCore {
     if (session.artifact.type !== "diff") {
       throw new DaemonError("invalid_params", "only a diff review is curated by hunk");
     }
-    if (!session.artifact.files) {
+    if (!session.artifact.files?.length) {
       throw new DaemonError("invalid_params", "hunk curation needs full file contents");
     }
     if (rejections.length === 0) delete session.curation;

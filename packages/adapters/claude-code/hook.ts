@@ -18,7 +18,7 @@
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
-import { openReview } from "@cueloop/daemon/thread-review";
+import { findExistingReview, openReview } from "@cueloop/daemon/thread-review";
 import { messageAllows } from "@cueloop/schema";
 import { reportLabel, reportState } from "../herdr";
 
@@ -90,11 +90,14 @@ export async function runHook(
   try {
     // Second pass: this exact plan already came back approved, so let the agent
     // exit plan mode and proceed. Any other state falls through to a review round.
-    const existing = event.session_id
-      ? (await client.sessionList()).find(
-          (candidate) => candidate.artifact.meta.agentSessionId === event.session_id,
-        )
-      : undefined;
+    const reviewOptions = {
+      type: "plan" as const,
+      content: plan,
+      cwd: event.cwd,
+      agent: "claude-code",
+      agentSessionId: event.session_id,
+    };
+    const existing = await findExistingReview(client, reviewOptions);
 
     if (
       existing?.status === "resolved" &&
@@ -111,11 +114,7 @@ export async function runHook(
     // First pass (or a revised plan): open-or-revise the review by agent session,
     // arm the wake, and deny now so the agent ends its turn instead of blocking.
     const review = await openReview(client, {
-      type: "plan",
-      content: plan,
-      cwd: event.cwd,
-      agent: "claude-code",
-      agentSessionId: event.session_id,
+      ...reviewOptions,
       // first-class herdr: the review knows which pane to return to
       herdrPane: process.env.HERDR_ENV === "1" ? process.env.HERDR_PANE_ID : undefined,
     });

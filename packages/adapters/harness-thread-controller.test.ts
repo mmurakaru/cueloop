@@ -115,8 +115,8 @@ describe("HarnessThreadController", () => {
       workspace: { repoRoot: "/repo", branch: "main" },
       workflow: "review" as const,
     };
-    const first = await controller.openWorkflow({ ...identity, pr: "42" });
-    const second = await controller.openWorkflow({ ...identity, pr: "43" });
+    const first = await controller.openWorkflow({ ...identity, pullRequestReference: "42" });
+    const second = await controller.openWorkflow({ ...identity, pullRequestReference: "43" });
 
     expect(first.thread.id).not.toBe(second.thread.id);
     expect(second.thread.artifact.meta.pr).toBe("43");
@@ -138,7 +138,7 @@ describe("HarnessThreadController", () => {
       harnessSessionId: "same-session",
       workspace: { repoRoot: "/repo", branch: "main" },
       workflow: "review" as const,
-      pr: "42",
+      pullRequestReference: "42",
     };
     const first = await controller.openWorkflow(input);
     const second = await controller.openWorkflow(input);
@@ -289,13 +289,15 @@ describe("HarnessThreadController", () => {
         },
       },
       forge: {
-        async importPullRequest(pr) {
-          expect(pr).toBe("org/repo#42");
+        async importPullRequest(pullRequestReference, cwd) {
+          expect(pullRequestReference).toBe("org/repo#42");
+          expect(cwd).toBe("/repo");
 
           return { content: "diff --git a/a.ts b/a.ts\n", title: "PR 42" };
         },
-        async postPullRequestMessage(pr, message) {
-          posted.push({ pr, message });
+        async postPullRequestMessage(pullRequestReference, message, cwd) {
+          expect(cwd).toBe("/repo");
+          posted.push({ pr: pullRequestReference, message });
         },
       },
       corpus: {
@@ -309,7 +311,7 @@ describe("HarnessThreadController", () => {
       harnessSessionId: "fake_1",
       workspace: { repoRoot: "/repo", branch: "main" },
       workflow: "review",
-      pr: "org/repo#42",
+      pullRequestReference: "org/repo#42",
     });
     const received: Message[] = [];
     const harness = new FakeHarness(

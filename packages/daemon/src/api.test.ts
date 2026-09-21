@@ -653,6 +653,25 @@ describe("curation primitives", () => {
     // Assert
     expect(() => core.sessionCurate(created.id, [])).toThrow(/only a diff review/);
   });
+
+  test("rejects hunk curation after a patch-only diff revision clears file snapshots", () => {
+    const created = core.sessionCreate({
+      workspace: WS,
+      artifact: {
+        type: "diff",
+        content: "diff --git a/a.ts b/a.ts\n",
+        meta: {},
+        files: [{ path: "a.ts", status: "modified", oldContents: "old", newContents: "new" }],
+      },
+    });
+
+    core.sessionSubmitRevision(created.id, "diff --git a/b.ts b/b.ts\n", [], []);
+
+    expect(() => core.sessionCurate(created.id, [{ path: "b.ts", hunkIndex: 0 }])).toThrow(
+      /hunk curation needs full file contents/,
+    );
+    expect(core.sessionGet(created.id).workingCopy).toBeUndefined();
+  });
 });
 
 describe("tree primitives", () => {

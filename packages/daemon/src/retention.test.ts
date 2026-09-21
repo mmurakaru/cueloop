@@ -126,6 +126,15 @@ describe("pruneExpiredSessions", () => {
     expect(store.get("ses_new")).toBeDefined();
   });
 
+  test("keeps an expired resolved Thread while its Message is awaiting delivery", () => {
+    const store = new ThreadStore(tempDir("cueloop-retention-home-"));
+
+    store.upsert(session("ses_waiting", daysAgo(40)));
+
+    expect(pruneExpiredSessions(store, 30, NOW_MS, new Set(["ses_waiting"]))).toEqual([]);
+    expect(store.get("ses_waiting")).toBeDefined();
+  });
+
   test("never deletes an active pending session however old", () => {
     // Arrange
     const home = tempDir("cueloop-retention-home-");

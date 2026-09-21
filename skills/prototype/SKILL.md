@@ -82,13 +82,15 @@ main.ts
 ## Submit and respond
 
 Write the doc to one Markdown file and submit it through the harness's cueloop
-`prototype` workflow. The adapter opens the thread panel and delivers the
-resolved Message into this conversation. Give the user the Thread ID so they
-can reopen it.
+`prototype` workflow when available. Otherwise, run
+`cueloop session create --type prototype --content-file <design.md>` and give
+the user the returned Thread ID. On the CLI path, collect the Message with
+`cueloop session wait <id> --timeout-ms 60000`, repeating while pending.
 
 On approval, proceed with the component. When changes are requested, apply
 every edited line and annotation to the design doc, then revise the same
-Thread. Native message delivery belongs to the harness adapter, not this skill.
+Thread with `cueloop session submit-revision <id> --content-file <design.md>`
+on the CLI path.
 
 Reviewing a rendered pixel mockup instead of a design doc is an opt-in
 experimental mode, set by the `[experimental]` config section. It needs a

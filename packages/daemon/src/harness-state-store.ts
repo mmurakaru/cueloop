@@ -99,6 +99,20 @@ export class HarnessStateStore {
     );
   }
 
+  /** A pending delivery keeps its Thread's immutable Message body available for redelivery. */
+  pendingThreadIds(): Set<string> {
+    const ids = new Set<string>();
+
+    for (const delivery of this.deliveries.values()) {
+      if (delivery.status !== "pending") continue;
+      const binding = this.bindings.get(delivery.bindingId);
+
+      if (binding) ids.add(binding.threadId);
+    }
+
+    return ids;
+  }
+
   acknowledged(bindingId: string, messageId: string): boolean {
     return [...this.deliveries.values()].some(
       (delivery) =>

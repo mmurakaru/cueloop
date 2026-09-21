@@ -16,9 +16,13 @@ const MESSAGE_OUTCOME_FLAG: Record<MessageOutcome, string> = {
   changes_requested: "--request-changes",
 };
 
-async function runForgeCommand(command: string, args: string[]): Promise<ForgeCommandResult> {
+async function runForgeCommand(
+  command: string,
+  args: string[],
+  cwd?: string,
+): Promise<ForgeCommandResult> {
   return await new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(command, args, { cwd, stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";
 
@@ -44,32 +48,48 @@ export class GitHubForgeReviewPort implements ForgeReviewPort {
     private readonly command = "gh",
   ) {}
 
-  async importPullRequest(pr: string): Promise<{ content: string; title: string }> {
-    const result = await runForgeCommand(this.command, ["pr", "diff", pr]);
+  async importPullRequest(
+    pullRequestReference: string,
+    cwd?: string,
+  ): Promise<{ content: string; title: string }> {
+    const result = await runForgeCommand(this.command, ["pr", "diff", pullRequestReference], cwd);
 
     if (result.code !== 0) {
-      throw new Error(result.stderr.trim() || `gh pr diff ${pr} failed (exit ${result.code})`);
+      throw new Error(
+        result.stderr.trim() || `gh pr diff ${pullRequestReference} failed (exit ${result.code})`,
+      );
     }
     if (!result.stdout.trim()) {
-      throw new Error(`PR ${pr} has an empty diff - nothing to review`);
+      throw new Error(`PR ${pullRequestReference} has an empty diff - nothing to review`);
     }
 
-    return { content: result.stdout, title: `PR ${pr}` };
+    return { content: result.stdout, title: `PR ${pullRequestReference}` };
   }
 
-  async postPullRequestMessage(pr: string, message: Message): Promise<void> {
+  async postPullRequestMessage(
+    pullRequestReference: string,
+    message: Message,
+    cwd?: string,
+  ): Promise<void> {
     const inject = async () => {
-      const result = await runForgeCommand(this.command, [
-        "pr",
-        "review",
-        pr,
-        MESSAGE_OUTCOME_FLAG[message.outcome],
-        "--body",
-        message.body,
-      ]);
+      const result = await runForgeCommand(
+        this.command,
+        [
+          "pr",
+          "review",
+          pullRequestReference,
+          MESSAGE_OUTCOME_FLAG[message.outcome],
+          "--body",
+          message.body,
+        ],
+        cwd,
+      );
 
       if (result.code !== 0) {
-        throw new Error(result.stderr.trim() || `gh pr review ${pr} failed (exit ${result.code})`);
+        throw new Error(
+          result.stderr.trim() ||
+            `gh pr review ${pullRequestReference} failed (exit ${result.code})`,
+        );
       }
     };
 

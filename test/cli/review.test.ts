@@ -210,6 +210,41 @@ describe("cueloop review-post (black box)", () => {
     expect(after - before).toBe(1);
   });
 
+  test("concurrent post-back processes retain both Message IDs", async () => {
+    const first = await createResolvedSession("48", "approved", "First ready.");
+    const second = await createResolvedSession("49", "approved", "Second ready.");
+    const before = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    const results = await Promise.all([
+      runCli(home, ["review-post", first.id, "48"], undefined, ghEnv()),
+      runCli(home, ["review-post", second.id, "49"], undefined, ghEnv()),
+    ]);
+
+    expect(results.map((result) => result.code)).toEqual([0, 0]);
+    expect((await runCli(home, ["review-post", first.id, "48"], undefined, ghEnv())).code).toBe(0);
+    expect((await runCli(home, ["review-post", second.id, "49"], undefined, ghEnv())).code).toBe(0);
+
+    const after = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    expect(after - before).toBe(2);
+  });
+
+  test("concurrent retries of one Message post one PR review", async () => {
+    const session = await createResolvedSession("50", "approved", "Ready once.");
+    const before = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    const results = await Promise.all([
+      runCli(home, ["review-post", session.id, "50"], undefined, ghEnv()),
+      runCli(home, ["review-post", session.id, "50"], undefined, ghEnv()),
+    ]);
+
+    expect(results.map((result) => result.code)).toEqual([0, 0]);
+
+    const after = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    expect(after - before).toBe(1);
+  });
+
   test("changes_requested maps to --request-changes", async () => {
     // Arrange
     const session = await createResolvedSession("43", "changes_requested", "Rename the constant.");

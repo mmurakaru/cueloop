@@ -113,6 +113,7 @@ async function getSession(id: string): Promise<Thread> {
 /** Post the resolved session's message to the PR: feedback.md is the review body. */
 async function postMessage(session: Thread, pr: string): Promise<number> {
   const message = session.message!;
+
   try {
     await forge().postPullRequestMessage(pr, message);
   } catch (error) {

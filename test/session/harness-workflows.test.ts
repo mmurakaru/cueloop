@@ -69,7 +69,7 @@ test("all six workflows open, deliver, and acknowledge through a fake harness ov
       request: { ...identity, workflow: "diff", content: "diff --git a/a.ts b/a.ts\n" },
       panel: "changes",
     },
-    { request: { ...identity, workflow: "review", pr: "42" }, panel: "changes" },
+    { request: { ...identity, workflow: "review", pullRequestReference: "42" }, panel: "changes" },
     { request: { ...identity, workflow: "refine", proposal: "# Writeback" }, panel: "thread" },
   ];
   const adapter = {

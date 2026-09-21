@@ -998,7 +998,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session || session.status === "resolved") return null;
-    if (!session.artifact.files) {
+    if (!session.artifact.files?.length) {
       this.setStatus("hunk curation needs full file contents (PR diffs cannot be curated)");
 
       return null;

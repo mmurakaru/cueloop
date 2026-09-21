@@ -61,4 +61,63 @@ describe("DeliveredMessageStore", () => {
 
     expect(() => new DeliveredMessageStore(path)).toThrow();
   });
+
+  test("serializes concurrent sends from independent store instances", async () => {
+    const secondMessage = { ...message, id: "msg_2" };
+    const injected: string[] = [];
+    const gate: { release?: () => void; started?: () => void } = {};
+    const firstStarted = new Promise<void>((resolve) => {
+      gate.started = resolve;
+    });
+    const firstInjection = new Promise<void>((resolve) => {
+      gate.release = resolve;
+    });
+    const first = new DeliveredMessageStore(path).sendOnce(message, async () => {
+      injected.push(message.id);
+      gate.started?.();
+      await firstInjection;
+    });
+    const second = new DeliveredMessageStore(path).sendOnce(secondMessage, () => {
+      injected.push(secondMessage.id);
+    });
+
+    await firstStarted;
+    expect(injected).toEqual([message.id]);
+    gate.release?.();
+    await Promise.all([first, second]);
+    await new DeliveredMessageStore(path).sendOnce(message, () => {
+      injected.push(message.id);
+    });
+    await new DeliveredMessageStore(path).sendOnce(secondMessage, () => {
+      injected.push(secondMessage.id);
+    });
+
+    expect(injected).toEqual([message.id, secondMessage.id]);
+  });
+
+  test("serializes concurrent retries of the same Message", async () => {
+    const injected: string[] = [];
+
+    await Promise.all([
+      new DeliveredMessageStore(path).sendOnce(message, () => {
+        injected.push(message.id);
+      }),
+      new DeliveredMessageStore(path).sendOnce(message, () => {
+        injected.push(message.id);
+      }),
+    ]);
+
+    expect(injected).toEqual([message.id]);
+  });
+
+  test("recovers an abandoned lock from a terminated process", async () => {
+    writeFileSync(path + ".lock", "99999999");
+    const injected: string[] = [];
+
+    await new DeliveredMessageStore(path).sendOnce(message, () => {
+      injected.push(message.id);
+    });
+
+    expect(injected).toEqual([message.id]);
+  });
 });

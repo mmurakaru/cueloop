@@ -6,10 +6,12 @@ description: Submit the previous reply to a cueloop Thread for human review. Use
 # cueloop reply
 
 Submit your previous reply verbatim as Markdown through the harness's cueloop
-`reply` workflow. Do not summarize it. The adapter opens the thread panel and
-delivers the resolved Message into this conversation. Give the user the Thread
-ID so they can reopen it.
+`reply` workflow when available. Otherwise, write it to a file and run
+`cueloop session create --type reply --content-file <reply.md>`. Give the user
+the returned Thread ID. On the CLI path, collect the Message with
+`cueloop session wait <id> --timeout-ms 60000`, repeating while pending.
 
 If changes are requested, apply the edited wording and each annotation before
-resubmitting the reply to the same Thread. Use `plan` instead for a proposal
+resubmitting the reply to the same Thread. On the CLI path, use
+`cueloop session submit-revision <id> --content-file <reply.md>`. Use `plan` for a proposal
 that has not yet been presented as a reply.

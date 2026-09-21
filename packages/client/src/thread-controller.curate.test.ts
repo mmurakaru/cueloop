@@ -299,6 +299,16 @@ describe("diff hunk curation", () => {
     expect(controller.getSnapshot().status).toContain("hunk curation needs full file contents");
     expect(sink.workingCopy).toBeUndefined();
   });
+
+  test("curation is disabled when a revision cleared its file snapshots", async () => {
+    const { controller, client } = await connected(diffSession([]));
+
+    controller.toggleRejectChange(4);
+    await tick();
+
+    expect(controller.getSnapshot().status).toContain("hunk curation needs full file contents");
+    expect(client.sessionCurate).not.toHaveBeenCalled();
+  });
 });
 
 const PLAN_CONTENT = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";

@@ -6,11 +6,14 @@ description: Submit working-tree changes to the cueloop changes panel. Use when 
 # cueloop diff
 
 Capture the working-tree patch, including untracked files, through the
-harness's cueloop `diff` workflow. Submit full changed-file contents when
-available so hunk curation stays applyable. The adapter opens the changes
-panel and delivers the resolved Message into this conversation. Give the user
-the Thread ID so they can reopen it.
+harness's cueloop `diff` workflow when available. Submit full changed-file
+contents so hunk curation stays applyable. Otherwise, write a complete patch
+to a file and run `cueloop session create --type diff --content-file <patch>`.
+The CLI path has no file snapshots, so hunk curation is unavailable. Give the
+user the returned Thread ID and collect the Message with
+`cueloop session wait <id> --timeout-ms 60000`, repeating while pending.
 
 File notes may explain intent in plain prose; they are context, not reviewer
 feedback. If changes are requested, fix each cited line and submit an updated
-diff for review. Native message delivery belongs to the harness adapter.
+diff for review with `cueloop session submit-revision <id> --content-file <patch>`
+on the CLI path.

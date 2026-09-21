@@ -57,6 +57,29 @@ describe("durable harness delivery", () => {
     expect(core().deliveryPending(binding.id)).toEqual([]);
   });
 
+  test("retains an expired Thread until its pending Message is acknowledged", () => {
+    const first = core();
+    const thread = createPlan(first);
+    const binding = first.harnessBind({
+      threadId: thread.id,
+      harness: "fake",
+      harnessSessionId: "fake_1",
+    });
+
+    first.sessionSendMessage(thread.id, "approved", "Ready.");
+    const oldThread = first.sessionGet(thread.id);
+
+    first.store.upsert({ ...oldThread, createdAt: "2020-01-01T00:00:00.000Z" });
+
+    const reloaded = core();
+    const delivery = reloaded.deliveryPending(binding.id)[0];
+
+    expect(delivery?.message.body).toContain("Ready.");
+    reloaded.deliveryAcknowledge(delivery!.delivery.id);
+
+    expect(core().store.get(thread.id)).toBeUndefined();
+  });
+
   test("rebuilds a delivery if the Thread saved its Message before enqueue", () => {
     const first = core();
     const thread = createPlan(first);
@@ -66,6 +89,10 @@ describe("durable harness delivery", () => {
       harnessSessionId: "fake_1",
     });
     const sent = first.sessionSendMessage(thread.id, "approved", "Ready.");
+    first.store.upsert({
+      ...first.sessionGet(thread.id),
+      createdAt: "2020-01-01T00:00:00.000Z",
+    });
 
     writeFileSync(harnessStatePath(home), JSON.stringify({ bindings: [binding], deliveries: [] }));
 
