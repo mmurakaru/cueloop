@@ -4,26 +4,18 @@ import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import * as v from "valibot";
 import { herdrThreadSurfacesPath } from "./paths";
 
-/** Herdr-native handle; pane focus needs its original left-hand pane. */
-export type HerdrThreadSurfaceHandle =
-  | { mode?: "tab"; tabId: string; paneId: string }
-  | { mode: "pane"; tabId: string; paneId: string; sourcePaneId: string };
+/** Herdr-native handle, stored outside the canonical Thread. */
+export interface HerdrThreadSurfaceHandle {
+  mode?: "tab" | "pane";
+  tabId: string;
+  paneId: string;
+}
 
-const HerdrThreadTabHandleSchema = v.object({
+const HerdrThreadSurfaceHandleSchema = v.object({
   tabId: v.string(),
   paneId: v.string(),
-  mode: v.optional(v.literal("tab")),
+  mode: v.optional(v.picklist(["tab", "pane"])),
 });
-const HerdrThreadPaneHandleSchema = v.object({
-  tabId: v.string(),
-  paneId: v.string(),
-  mode: v.literal("pane"),
-  sourcePaneId: v.string(),
-});
-const HerdrThreadSurfaceHandleSchema = v.union([
-  HerdrThreadTabHandleSchema,
-  HerdrThreadPaneHandleSchema,
-]);
 const HerdrThreadSurfaceMapSchema = v.record(v.string(), v.unknown());
 
 export class HerdrThreadSurfaceStore {

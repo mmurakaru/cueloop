@@ -288,21 +288,12 @@ export const Params = {
   "daemon.shutdown": v.object({}),
   // herdr adapter scratch: the review's opened tab, kept off the session record.
   "herdr.getThreadSurface": v.object({ id: SessionId }),
-  "herdr.setThreadSurface": v.union([
-    v.object({
-      id: SessionId,
-      tabId: NonEmpty,
-      paneId: NonEmpty,
-      mode: v.optional(v.literal("tab")),
-    }),
-    v.object({
-      id: SessionId,
-      tabId: NonEmpty,
-      paneId: NonEmpty,
-      mode: v.literal("pane"),
-      sourcePaneId: NonEmpty,
-    }),
-  ]),
+  "herdr.setThreadSurface": v.object({
+    id: SessionId,
+    tabId: NonEmpty,
+    paneId: NonEmpty,
+    mode: v.optional(v.picklist(["tab", "pane"])),
+  }),
 } as const;
 
 export type MethodName = keyof typeof Params;

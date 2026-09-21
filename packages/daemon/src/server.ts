@@ -503,17 +503,11 @@ export class DaemonServer {
     "herdr.setThreadSurface": (_connection, request) => {
       const params = parseParams("herdr.setThreadSurface", request.params);
 
-      this.core.herdrSetThreadSurface(
-        params.id,
-        params.mode === "pane"
-          ? {
-              tabId: params.tabId,
-              paneId: params.paneId,
-              mode: "pane",
-              sourcePaneId: params.sourcePaneId,
-            }
-          : { tabId: params.tabId, paneId: params.paneId, mode: params.mode },
-      );
+      this.core.herdrSetThreadSurface(params.id, {
+        tabId: params.tabId,
+        paneId: params.paneId,
+        mode: params.mode,
+      });
 
       return {};
     },

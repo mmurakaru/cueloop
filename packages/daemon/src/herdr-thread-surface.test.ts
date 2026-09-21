@@ -159,7 +159,6 @@ describe("openHerdrThreadPane", () => {
       mode: "pane",
       tabId: "w1:t1",
       paneId: "w1:p3",
-      sourcePaneId: "w1:p1",
     });
     expect(readLines(stub.logPath)).toEqual([
       "pane split w1:p1 --direction right --ratio 0.5 --cwd /repo/work --focus",
@@ -200,7 +199,6 @@ describe("openHerdrThreadSurface", () => {
       mode: "pane",
       tabId: "w1:t1",
       paneId: "w1:p9",
-      sourcePaneId: "w1:p1",
     });
 
     expect(await openHerdrThreadSurface(newSession(), store.persistence, env, "pane")).toBe(
@@ -211,7 +209,6 @@ describe("openHerdrThreadSurface", () => {
       mode: "pane",
       tabId: "w1:t1",
       paneId: "w1:p3",
-      sourcePaneId: "w1:p1",
     });
 
     const live = makeStub("pane-focus", true);
@@ -235,7 +232,6 @@ describe("openHerdrThreadSurface", () => {
       mode: "pane",
       tabId: "w1:t1",
       paneId: "w1:p3",
-      sourcePaneId: "w1:p1",
     });
     const env = {
       HERDR_ENV: "1",

@@ -68,15 +68,11 @@ const EmptyResultSchema = v.object({});
 const PingResultSchema = v.object({ pid: v.number(), version: v.optional(v.string()) });
 const RefreshDiffResultSchema = v.object({ changed: v.boolean() });
 const HerdrThreadSurfaceResultSchema = v.nullable(
-  v.union([
-    v.object({ tabId: v.string(), paneId: v.string(), mode: v.optional(v.literal("tab")) }),
-    v.object({
-      tabId: v.string(),
-      paneId: v.string(),
-      mode: v.literal("pane"),
-      sourcePaneId: v.string(),
-    }),
-  ]),
+  v.object({
+    tabId: v.string(),
+    paneId: v.string(),
+    mode: v.optional(v.picklist(["tab", "pane"])),
+  }),
 );
 
 /**

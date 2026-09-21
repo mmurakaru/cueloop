@@ -302,7 +302,6 @@ describe("cueloop session (black box)", () => {
         mode: "pane",
         tabId: "w1:t1",
         paneId: "w1:p3",
-        sourcePaneId: "w1:p1",
       });
     } finally {
       client.close();

@@ -59,7 +59,7 @@ describe("HerdrThreadSurfaceStore", () => {
         ses_ok: { tabId: "w1:t2", paneId: "w1:p2" },
         ses_partial: { tabId: "w1:t2" },
         ses_typed: { tabId: 1, paneId: 2 },
-        ses_pane_missing_source: { tabId: "w1:t2", paneId: "w1:p3", mode: "pane" },
+        ses_invalid_mode: { tabId: "w1:t2", paneId: "w1:p3", mode: "window" },
         ses_null: null,
       }),
     );
@@ -69,7 +69,7 @@ describe("HerdrThreadSurfaceStore", () => {
     expect(store.get("ses_ok")).toEqual({ tabId: "w1:t2", paneId: "w1:p2" });
     expect(store.get("ses_partial")).toBeNull();
     expect(store.get("ses_typed")).toBeNull();
-    expect(store.get("ses_pane_missing_source")).toBeNull();
+    expect(store.get("ses_invalid_mode")).toBeNull();
     expect(store.get("ses_null")).toBeNull();
   });
 

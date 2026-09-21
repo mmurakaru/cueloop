@@ -128,7 +128,7 @@ export function openHerdrThreadPane(
 
     if (!paneId || !sendCueloopThreadCommand(binPath, paneId, sessionId)) return null;
 
-    return { mode: "pane", tabId, paneId, sourcePaneId };
+    return { mode: "pane", tabId, paneId };
   } catch {
     return null;
   }
