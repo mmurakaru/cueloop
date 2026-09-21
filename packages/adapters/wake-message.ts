@@ -1,7 +1,7 @@
 /**
  * The one place that phrases a resolved review as the message that wakes a
- * driving agent's turn. Every non-blocking adapter (pi sendUserMessage, the
- * Claude Code inbox socket, the Codex queue) injects this exact text, so the
+ * driving agent's turn. Every non-blocking adapter (pi sendUserMessage,
+ * Claude Mod prompt submission, the Codex queue) injects this exact text, so the
  * agent reads the same instruction whatever the harness. feedback.md is carried
  * verbatim after the lead line - it already holds the message kind, the summary,
  * and any annotations.
