@@ -1,6 +1,6 @@
 {
   "name": "cueloop",
-  "description": "Review surface for coding agents: plan gate, reply review, diff review, PR review, prototype review, corpus refine - /cueloop:plan, /cueloop:reply, /cueloop:diff, /cueloop:review, /cueloop:prototype, /cueloop:annotate, /cueloop:refine",
+  "description": "Claude Mod for cueloop Threads: plan, reply, prototype, diff, review, and refine",
   "version": "0.1.0-alpha.80",
   "author": {
     "name": "cueloop"

@@ -1,5 +1,6 @@
 {
   "name": "cueloop",
+  "description": "Claude Code integration for cueloop Threads",
   "owner": {
     "name": "mmurakaru",
     "email": "hello@cueloop.dev"
@@ -11,7 +12,7 @@
         "source": "github",
         "repo": "mmurakaru/cueloop"
       },
-      "description": "Review surface for coding agents: the plan gate hook plus /cueloop:plan, /cueloop:reply, /cueloop:diff, /cueloop:review, /cueloop:prototype, /cueloop:annotate, /cueloop:refine skills",
+      "description": "Claude Mod with native Thread gating, Message delivery, and cueloop workflow skills",
       "author": {
         "name": "mmurakaru"
       },

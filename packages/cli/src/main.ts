@@ -113,6 +113,7 @@ const commandHandlers: CommandHandlers = {
   serve: (rest) => serveEntry(rest),
   share: (rest) => shareEntry(rest),
   wake: async (rest) => (await import("./wake-command")).wakeCommand(rest),
+  harness: async () => (await import("./harness-command")).harnessCommand(),
   actions: async (rest) => (await import("./actions-command")).actionsCommand(rest),
   refine: async (rest) => (await import("./refine-command")).refineCommand(rest),
   update: async (rest) => (await import("./update-command")).updateCommand(rest),
