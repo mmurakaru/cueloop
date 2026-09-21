@@ -81,6 +81,18 @@ describe("one daemon per home", () => {
     expect(daemonServer.start()).toBe(socketPath(home));
   });
 
+  test("an autostarted daemon reclaims a stale socket after taking the lock", async () => {
+    writeFileSync(socketPath(home), "stale socket");
+    const client = await DaemonClient.connect({ home, autostart: true });
+
+    try {
+      expect((await client.ping()).pid).toBeGreaterThan(0);
+    } finally {
+      await client.shutdown();
+      client.close();
+    }
+  });
+
   test("stopping releases the lock so a restart works", () => {
     // Arrange
     const first = server();
@@ -125,4 +137,26 @@ describe("one daemon per home", () => {
       admin.close();
     }
   }, 60_000);
+
+  test("autostart joins a daemon that bound its socket after the first dial", async () => {
+    const running = server();
+    const path = running.start();
+    const created = running.core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const client = new DaemonClient();
+    const previousTimeout = process.env.CUELOOP_START_TIMEOUT_MS;
+
+    client["home"] = home;
+    process.env.CUELOOP_START_TIMEOUT_MS = "250";
+
+    try {
+      await client["attachFreshDaemon"](home, path!);
+
+      expect((await client.sessionGet(created.id)).id).toBe(created.id);
+      expect(existsSync(path!)).toBe(true);
+    } finally {
+      client.close();
+      if (previousTimeout === undefined) delete process.env.CUELOOP_START_TIMEOUT_MS;
+      else process.env.CUELOOP_START_TIMEOUT_MS = previousTimeout;
+    }
+  });
 });

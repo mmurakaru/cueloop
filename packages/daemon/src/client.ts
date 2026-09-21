@@ -4,7 +4,7 @@
  * autostart spawns a detached daemon when the socket is dead, then attaches.
  */
 
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import * as v from "valibot";
 import type {
   Annotation,
@@ -225,15 +225,15 @@ export class DaemonClient implements ThreadClient {
       // caller hears why instead of the client replacing a running daemon
       if (!options.autostart || err instanceof DaemonClientError) throw err;
     }
-    // Socket dead, absent, or just-replaced: clean a stale file and spawn detached.
+    // Socket dead, absent, or just-replaced: let the new daemon own socket cleanup.
     return client.attachFreshDaemon(home, path);
   }
 
   /**
    * Tear down a daemon from an earlier build so a fresh one can bind: ask it to
    * shut down (owner-gated) or, failing that, signal its pid, then wait for it to
-   * release the socket. Best-effort - attachFreshDaemon's stale-socket and
-   * stale-lock cleanup recovers even a daemon that never ran its own teardown.
+   * release the socket. Best-effort - the next daemon reclaims stale socket
+   * and lock files after it takes ownership.
    */
   private async stopStaleDaemon(path: string): Promise<void> {
     const pid = this.daemonPid;
@@ -265,9 +265,8 @@ export class DaemonClient implements ThreadClient {
     this.pending.clear();
   }
 
-  /** Clean any stale socket, spawn a detached daemon, and dial it until it answers. */
+  /** Spawn a detached daemon and dial the lock owner until it answers. */
   private async attachFreshDaemon(home: string, path: string): Promise<DaemonClient> {
-    if (existsSync(path)) rmSync(path, { force: true });
     spawnDaemon(home);
     // Generous: a cold or loaded machine pays for a runtime start before the
     // socket exists, and giving up early looks to callers like a broken daemon.

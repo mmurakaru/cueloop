@@ -15,6 +15,11 @@ const message: Message = {
   sentAt: "2026-09-21T00:00:00.000Z",
 };
 
+interface InjectionGate {
+  release?: () => void;
+  started?: () => void;
+}
+
 afterEach(() => {
   rmSync(path, { force: true });
 });
@@ -65,7 +70,7 @@ describe("DeliveredMessageStore", () => {
   test("serializes concurrent sends from independent store instances", async () => {
     const secondMessage = { ...message, id: "msg_2" };
     const injected: string[] = [];
-    const gate: { release?: () => void; started?: () => void } = {};
+    const gate: InjectionGate = {};
     const firstStarted = new Promise<void>((resolve) => {
       gate.started = resolve;
     });
