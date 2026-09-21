@@ -41,6 +41,56 @@ afterEach(() => {
 });
 
 describe("createCodexDeliveryService", () => {
+  test("a stale Codex session does not block delivery to another session", async () => {
+    const sessions = createCodexSessionRegistry(home);
+
+    sessions.activate("codex-session-2");
+    const opened = await runHarnessBridge(
+      {
+        operation: "open",
+        harness: "codex",
+        harnessSessionId: "codex-session-2",
+        cwd: home,
+        workflow: "plan",
+        content: "# Second plan",
+      },
+      home,
+    );
+
+    if (opened.operation !== "open") throw new Error("expected open Thread");
+    await client.sessionSendMessage(opened.threadId, "approved", "Continue second session.");
+    writeFileSync(
+      codexBin,
+      '#!/bin/sh\n[ "$3" = codex-session-1 ] && exit 1\necho sent >> invocations.txt\nprintf "%s" "$5" > messages.txt\n',
+    );
+    const first = await runHarnessBridge(
+      {
+        operation: "open",
+        harness: "codex",
+        harnessSessionId: "codex-session-1",
+        cwd: home,
+        workflow: "plan",
+        content: "# First plan",
+      },
+      home,
+    );
+
+    if (first.operation !== "open") throw new Error("expected open Thread");
+    await client.sessionSendMessage(first.threadId, "approved", "Blocked first session.");
+
+    await expect(createCodexDeliveryService({ home, codexBin }).reconcile()).rejects.toThrow(
+      "Codex Message injection failed",
+    );
+    expect(readFileSync(join(home, "messages.txt"), "utf8")).toContain("Continue second session.");
+    const pending = await runHarnessBridge(
+      { operation: "pending", harness: "codex", harnessSessionId: "codex-session-2" },
+      home,
+    );
+
+    if (pending.operation !== "pending") throw new Error("expected pending response");
+    expect(pending.deliveries).toEqual([]);
+  });
+
   test("redelivers after a failed queue and does not duplicate an acknowledged Message", async () => {
     const opened = await runHarnessBridge(
       {

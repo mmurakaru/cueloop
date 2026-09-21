@@ -17,6 +17,7 @@ const OpenThreadInputSchema = v.object({
   title: v.optional(v.string()),
   harnessSessionId: v.pipe(v.string(), v.minLength(1)),
   cwd: v.string(),
+  hookToken: v.pipe(v.string(), v.minLength(1)),
 });
 const RefineCorpusInputSchema = v.object({});
 
@@ -48,13 +49,14 @@ export function createCodexMcpServer(home = cueloopHome()): McpServer {
     },
     async (input) => {
       try {
-        if (!sessions.list().includes(input.harnessSessionId)) {
+        if (!sessions.authorized(input.harnessSessionId, input.cwd, input.hookToken)) {
           throw new Error(
-            "cueloop Codex session is not active; trust the plugin hooks and restart Codex",
+            "cueloop Codex session is not authorized; trust the plugin hooks and restart Codex",
           );
         }
+        const { hookToken: _hookToken, ...threadInput } = input;
         const result = await runHarnessBridge(
-          { operation: "open", harness: "codex", ...input },
+          { operation: "open", harness: "codex", ...threadInput },
           home,
         );
 
@@ -91,10 +93,12 @@ export async function codexMcpCommand(): Promise<number> {
   const delivery = createCodexDeliveryService();
 
   delivery.start();
-  serveStdio(() => createCodexMcpServer(), {
+  const server = serveStdio(() => createCodexMcpServer(), {
     onerror: (error) => console.error(`cueloop Codex MCP: ${String(error)}`),
   });
-  await new Promise(() => {});
+  await new Promise<void>((resolve) => process.stdin.once("end", resolve));
+  delivery.stop();
+  await server.close();
 
   return 0;
 }

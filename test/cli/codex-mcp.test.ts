@@ -22,7 +22,7 @@ afterEach(async () => {
 test("Codex MCP lists the shared workflow tool in a real stdio exchange", async () => {
   server = new DaemonServer({ home, idleExitMs: 0 });
   server.start();
-  createCodexSessionRegistry(home).activate("codex-mcp-session");
+  const hookToken = createCodexSessionRegistry(home).activate("codex-mcp-session", home);
   const executable = process.env.CUELOOP_TEST_EXECUTABLE;
   const command = executable
     ? [resolve(executable), "mcp"]
@@ -43,6 +43,7 @@ test("Codex MCP lists the shared workflow tool in a real stdio exchange", async 
   let buffer = "";
 
   async function receive(id: number): Promise<{
+    isError?: boolean;
     result?: { tools?: { name: string }[]; content?: { type: string; text: string }[] };
   }> {
     const deadline = Date.now() + 10_000;
@@ -109,6 +110,7 @@ test("Codex MCP lists the shared workflow tool in a real stdio exchange", async 
           content: "# MCP plan\n\nShip it.",
           harnessSessionId: "codex-mcp-session",
           cwd: home,
+          hookToken,
         },
       },
     })}\n`,
@@ -118,4 +120,27 @@ test("Codex MCP lists the shared workflow tool in a real stdio exchange", async 
 
   expect(opened).toContain('"operation":"open"');
   expect(opened).toContain('"threadId":"ses_');
+
+  input.write(
+    `${JSON.stringify({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: {
+        name: "open_thread",
+        arguments: {
+          workflow: "plan",
+          content: "# Forged plan",
+          harnessSessionId: "codex-mcp-session",
+          cwd: home,
+          hookToken: "forged",
+        },
+      },
+    })}\n`,
+  );
+  await input.flush();
+  expect((await receive(4)).result?.content?.[0]?.text).toContain("not authorized");
+
+  input.end();
+  expect(await Promise.race([processHandle.exited, Bun.sleep(2000).then(() => -1)])).toBe(0);
 });

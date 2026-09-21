@@ -45,7 +45,16 @@ describe("runCodexHook", () => {
       content: "# Plan",
       harnessSessionId: "codex-1",
       cwd: "/project",
+      hookToken: expect.any(String),
     });
+    // SAFETY: The open_thread PreToolUse branch returns updatedInput with a hookToken.
+    const updatedInput = (
+      rewritten as { hookSpecificOutput: { updatedInput: { hookToken: string } } }
+    ).hookSpecificOutput.updatedInput;
+
+    expect(sessions.authorized("codex-1", "/project", updatedInput.hookToken)).toBeTrue();
+    expect(sessions.authorized("forged", "/project", updatedInput.hookToken)).toBeFalse();
+    expect(sessions.authorized("codex-1", "/elsewhere", updatedInput.hookToken)).toBeFalse();
     runCodexHook({ hook_event_name: "SessionEnd", session_id: "codex-1", cwd: "/project" }, home);
     expect(sessions.list()).toEqual([]);
   });

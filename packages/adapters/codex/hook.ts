@@ -18,7 +18,7 @@ export function runCodexHook(
   const sessions = createCodexSessionRegistry(home);
 
   if (input.hook_event_name === "SessionStart") {
-    sessions.activate(input.session_id);
+    sessions.activate(input.session_id, input.cwd);
 
     return {
       hookSpecificOutput: {
@@ -33,9 +33,11 @@ export function runCodexHook(
 
     return;
   }
-  if (input.tool_name !== "mcp__cueloop__open_thread") return;
+  if (input.tool_name !== "mcp__cueloop__open_thread") {
+    return;
+  }
 
-  sessions.activate(input.session_id);
+  const hookToken = sessions.activate(input.session_id, input.cwd);
 
   return {
     hookSpecificOutput: {
@@ -45,6 +47,7 @@ export function runCodexHook(
         ...input.tool_input,
         harnessSessionId: input.session_id,
         cwd: input.cwd,
+        hookToken,
       },
     },
   };

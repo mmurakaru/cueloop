@@ -1,4 +1,3 @@
-/** One queued follow-up for a running Codex thread. */
 export interface CodexQueueOptions {
   /** The Codex thread/session id to queue into. */
   threadId: string;
