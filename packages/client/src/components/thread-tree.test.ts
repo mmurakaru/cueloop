@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { Thread, WorkspaceKey } from "@cueloop/schema";
-import { groupInbox, projectName } from "./session-tree";
+import { groupInbox, projectName } from "./thread-tree";
 
 function session(id: string, title: string, rootCommit?: string, remote?: string): Thread {
   const workspace: WorkspaceKey = { repoRoot: `/home/dev/${id}-checkout`, branch: "main" };
@@ -14,7 +14,7 @@ function session(id: string, title: string, rootCommit?: string, remote?: string
     artifact: { type: "plan", content: `# ${title}\n`, meta: { title } },
     revisions: [],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "2026-01-01T00:00:00.000Z",
   };

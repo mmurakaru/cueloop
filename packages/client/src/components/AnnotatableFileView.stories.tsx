@@ -15,7 +15,7 @@ const SESSION: Thread = {
   artifact: { type: "plan", content: "# Plan\n", meta: {} },
   revisions: [{ revision: 1, content: "# Plan\n", submittedAt: "2026-01-01T00:00:00Z" }],
   annotations: [],
-  verdict: null,
+  message: null,
   status: "pending",
   createdAt: "2026-01-01T00:00:00Z",
 };

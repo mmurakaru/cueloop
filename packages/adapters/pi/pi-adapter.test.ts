@@ -137,10 +137,10 @@ async function waitForWake(fake: FakePi): Promise<WakeMessage[]> {
   return fake.wakes;
 }
 
-async function resolve(sessionId: string, kind: "approve" | "request_changes", summary: string) {
+async function resolve(sessionId: string, kind: "approved" | "changes_requested", summary: string) {
   const client = await DaemonClient.connect({ home });
 
-  await client.sessionResolve(sessionId, kind, summary);
+  await client.sessionSendMessage(sessionId, kind, summary);
   client.close();
 }
 
@@ -149,7 +149,7 @@ describe("pi adapter: non-blocking request_review", () => {
     // Arrange
     const fake = loadExtension();
 
-    // Act - the tool call resolves without waiting for the verdict
+    // Act - the tool call resolves without waiting for the message
     const sessionId = await openPending(fake, "# Approve Plan\n\nShip the daemon behind a flag.\n");
 
     // Assert - the session is really open and attributed to pi
@@ -161,14 +161,14 @@ describe("pi adapter: non-blocking request_review", () => {
     expect(session.artifact.meta.title).toBe("Approve Plan");
 
     // Act - the human approves later; the parked waiter wakes the turn
-    await resolve(sessionId, "approve", "Looks good.");
+    await resolve(sessionId, "approved", "Looks good.");
     const wakes = await waitForWake(fake);
 
     // Assert
     expect(wakes.length).toBe(1);
     expect(wakes[0]!.options?.deliverAs).toBe("followUp");
     expect(wakes[0]!.content).toContain("approved");
-    expect(wakes[0]!.content).toContain("# Review: approve");
+    expect(wakes[0]!.content).toContain("# Review: approved");
     expect(wakes[0]!.content).toContain("Looks good.");
   }, 15_000);
 
@@ -248,8 +248,8 @@ describe("pi adapter: non-blocking request_review", () => {
     expect(session.artifact.meta.title).toBe("Findings");
     expect((await fake.toolCallHandler(toolCall("edit"), context))?.block).toBe(true);
 
-    // Act - the reviewer returns the verdict
-    await resolve(sessionId, "request_changes", "Cite the benchmark.");
+    // Act - the reviewer returns the message
+    await resolve(sessionId, "changes_requested", "Cite the benchmark.");
     const wakes = await waitForWake(fake);
 
     // Assert - the same pi session wakes as a follow-up and the gate releases
@@ -260,7 +260,7 @@ describe("pi adapter: non-blocking request_review", () => {
     expect(await fake.toolCallHandler(toolCall("edit"), context)).toBeUndefined();
   }, 15_000);
 
-  test("wakes with feedback.md carrying the annotations on request_changes", async () => {
+  test("wakes with feedback.md carrying the annotations on changes_requested", async () => {
     // Arrange
     const fake = loadExtension();
     const sessionId = await openPending(
@@ -278,13 +278,13 @@ describe("pi adapter: non-blocking request_review", () => {
       body: "Stage the rollout instead.",
     });
     client.close();
-    await resolve(sessionId, "request_changes", "Too aggressive.");
+    await resolve(sessionId, "changes_requested", "Too aggressive.");
     const wakes = await waitForWake(fake);
 
     // Assert
     expect(wakes.length).toBe(1);
     expect(wakes[0]!.content).toContain("returned changes");
-    expect(wakes[0]!.content).toContain("# Review: request changes");
+    expect(wakes[0]!.content).toContain("# Review: changes requested");
     expect(wakes[0]!.content).toContain("Too aggressive.");
     expect(wakes[0]!.content).toContain("Stage the rollout instead.");
   }, 15_000);
@@ -313,8 +313,8 @@ describe("pi adapter: tool_call gate", () => {
       expect(await fake.toolCallHandler(toolCall(name), context)).toBeUndefined();
     }
 
-    // Act - the verdict wakes the turn and clears the pending set
-    await resolve(sessionId, "approve", "Fine.");
+    // Act - the message wakes the turn and clears the pending set
+    await resolve(sessionId, "approved", "Fine.");
     await waitForWake(fake);
 
     // Assert - the gate has released
@@ -324,7 +324,7 @@ describe("pi adapter: tool_call gate", () => {
 });
 
 describe("pi adapter: session_shutdown", () => {
-  test("aborts the parked waiter - a later verdict never wakes a dead session", async () => {
+  test("aborts the parked waiter - a later message never wakes a dead session", async () => {
     // Arrange
     const fake = loadExtension();
     const context = makeContext();
@@ -343,7 +343,7 @@ describe("pi adapter: session_shutdown", () => {
     expect(fake.wakes.length).toBe(0);
 
     // Act - resolving now must not inject into the gone session
-    await resolve(sessionId, "approve", "Too late.");
+    await resolve(sessionId, "approved", "Too late.");
     await Bun.sleep(200);
 
     // Assert
@@ -375,11 +375,11 @@ describe("pi adapter: review command", () => {
     expect(notes.at(-1)).toContain("pending");
 
     // Act
-    await resolve(sessionId, "approve", "OK.");
+    await resolve(sessionId, "approved", "OK.");
     await waitForWake(fake);
     await command.handler("", context);
 
     // Assert
-    expect(notes.at(-1)).toContain("resolved: approve");
+    expect(notes.at(-1)).toContain("resolved: approved");
   }, 15_000);
 });

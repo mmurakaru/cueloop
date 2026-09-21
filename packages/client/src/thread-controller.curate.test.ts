@@ -9,7 +9,7 @@ import {
   type Thread,
 } from "@cueloop/schema";
 import { curateDiff } from "@cueloop/daemon/curate";
-import type { SessionClient } from "@cueloop/daemon/client";
+import type { ThreadClient } from "@cueloop/daemon/client";
 import { createReviewController } from "./thread-controller";
 
 const PATCH = `diff --git a/src/store.ts b/src/store.ts
@@ -40,7 +40,7 @@ function diffSession(files?: DiffFileContents[]): Thread {
     artifact: { type: "diff", content: PATCH, meta: {}, files },
     revisions: [{ revision: 1, content: PATCH, submittedAt: "2026-01-01T00:00:00.000Z" }],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "2026-01-01T00:00:00.000Z",
   };
@@ -54,7 +54,7 @@ const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
 /** A fake client that records the working copy the controller writes. */
-function fakeClient(initial: Thread, sink: WorkingCopySink): SessionClient {
+function fakeClient(initial: Thread, sink: WorkingCopySink): ThreadClient {
   let session = initial;
 
   return {
@@ -122,7 +122,7 @@ function fakeClient(initial: Thread, sink: WorkingCopySink): SessionClient {
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),
-    sessionResolve: unimplemented("sessionResolve"),
+    sessionSendMessage: unimplemented("sessionSendMessage"),
     close: () => {},
   };
 }
@@ -299,6 +299,16 @@ describe("diff hunk curation", () => {
     expect(controller.getSnapshot().status).toContain("hunk curation needs full file contents");
     expect(sink.workingCopy).toBeUndefined();
   });
+
+  test("curation is disabled when a revision cleared its file snapshots", async () => {
+    const { controller, client } = await connected(diffSession([]));
+
+    controller.toggleRejectChange(4);
+    await tick();
+
+    expect(controller.getSnapshot().status).toContain("hunk curation needs full file contents");
+    expect(client.sessionCurate).not.toHaveBeenCalled();
+  });
 });
 
 const PLAN_CONTENT = "# Title\n\nFirst paragraph.\n\nSecond paragraph.\n";
@@ -313,7 +323,7 @@ function planSession(workingCopy?: string): Thread {
     artifact: { type: "plan", content: PLAN_CONTENT, meta: {} },
     revisions: [{ revision: 1, content: PLAN_CONTENT, submittedAt: "2026-01-01T00:00:00.000Z" }],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "2026-01-01T00:00:00.000Z",
     workingCopy,

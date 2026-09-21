@@ -1,6 +1,6 @@
 /**
  * The install-matrix host end to end: build an offline release tree, run the
- * scenario scripts against it through run.ts, and check the aggregate verdict.
+ * scenario scripts against it through run.ts, and check the aggregate message.
  * Proves the harness passes a clean release and, just as important, fails a
  * broken one, so a green matrix in CI means something. No network, no real
  * binary; the served asset is the shared stand-in script.

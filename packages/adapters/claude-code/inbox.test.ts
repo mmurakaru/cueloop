@@ -85,14 +85,14 @@ describe("postToInbox", () => {
     });
 
     // Act
-    await postToInbox({ socketPath, token: "tok-xyz" }, "verdict: approved");
+    await postToInbox({ socketPath, token: "tok-xyz" }, "message: approved");
     await closed.promise;
     server.stop();
 
     // Assert
     expect(received).toBe(
       '{"type":"auth","token":"tok-xyz"}\n' +
-        '{"type":"user","message":{"role":"user","content":"verdict: approved"}}\n',
+        '{"type":"user","message":{"role":"user","content":"message: approved"}}\n',
     );
   });
 

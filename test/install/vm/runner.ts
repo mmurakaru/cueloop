@@ -240,7 +240,7 @@ export async function stageFixtures(fixturesDir: string): Promise<FixtureVersion
   return versions;
 }
 
-/** Aggregate each guest's assertions.tsv under `runsDir` into one verdict. */
+/** Aggregate each guest's assertions.tsv under `runsDir` into one message. */
 export function aggregate(runsDir: string, specs: ScenarioSpec[], platform: string): MatrixResult {
   const scenarios: ScenarioResult[] = specs.map((spec) => {
     const assertionsPath = join(runsDir, spec.name, "assertions.tsv");

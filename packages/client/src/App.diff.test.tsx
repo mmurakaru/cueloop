@@ -105,8 +105,8 @@ describe("diff review", () => {
     await waitForText(setup, "feedback sent");
     const resolved = server.core.sessionGet(session.id);
 
-    expect(resolved.verdict!.feedback).toContain("new Map()");
-    expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
+    expect(resolved.message!.body).toContain("new Map()");
+    expect(resolved.message!.body).toContain("Map needs an eviction story.");
   });
 
   test("pasting an image into a diff comment drops in an [Image #n] placeholder", async () => {

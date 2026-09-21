@@ -63,14 +63,14 @@ describe("mode layers own their keys", () => {
     expect(resolver.resolveAction({ name: "j", shift: false })).toBeUndefined();
   });
 
-  test("the submit overlay adds the verdict arrows", () => {
+  test("the submit overlay adds the message arrows", () => {
     // Arrange
     const resolver = bindings({ overlay: "submit" });
 
     // Assert
-    expect(resolver.resolveAction({ name: "left", shift: false })).toBe("cycle_verdict_left");
-    expect(resolver.resolveAction({ name: "right", shift: false })).toBe("cycle_verdict_right");
-    expect(resolver.resolveAction({ name: "return", shift: false })).toBe("submit_verdict");
+    expect(resolver.resolveAction({ name: "left", shift: false })).toBe("cycle_outcome_left");
+    expect(resolver.resolveAction({ name: "right", shift: false })).toBe("cycle_outcome_right");
+    expect(resolver.resolveAction({ name: "return", shift: false })).toBe("send_message");
   });
 
   test("the walk overlay owns the bracket stepping and leaves the grammar keys dead", () => {

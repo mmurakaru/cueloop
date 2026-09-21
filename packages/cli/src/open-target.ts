@@ -6,7 +6,7 @@
  *
  * Rules, in order:
  *   - no selector opens the latest pending session in scope (most recent
- *     createdAt, verdict still open) - the `--latest` default;
+ *     createdAt, message still open) - the `--latest` default;
  *   - a selector that exactly equals a session id opens that session, pending
  *     or resolved;
  *   - otherwise the selector matches session titles, case-insensitive: an

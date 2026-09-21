@@ -17,7 +17,7 @@ interface Props {
 
 const {
   title = "cueloop - a terminal-first review surface for coding agents",
-  description = "cueloop is where you review what your coding agent is about to do. Read the plan or the diff in your terminal, annotate it, and send a verdict back - then share it over SSH.",
+  description = "cueloop is where you review what your coding agent is about to do. Read the plan or the diff in your terminal, annotate it, and send a message back - then share it over SSH.",
 } = Astro.props;
 
 const canonical = new URL(Astro.url.pathname, Astro.site);
@@ -114,7 +114,7 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
           </a>
           <p class="site-footer__tag">
             A terminal-first review surface for coding agents. Read the plan,
-            annotate it, send the verdict back.
+            annotate it, send the message back.
           </p>
         </div>
         <div class="site-footer__cols">

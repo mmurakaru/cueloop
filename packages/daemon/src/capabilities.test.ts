@@ -5,7 +5,7 @@ import type { MethodName } from "./validate";
 describe("roleAllowsMethod", () => {
   test("the owner may call every primitive", () => {
     // Assert
-    const owned: MethodName[] = ["session.resolve", "session.submitRevision", "session.delete"];
+    const owned: MethodName[] = ["session.sendMessage", "session.submitRevision", "session.delete"];
 
     for (const method of owned) expect(roleAllowsMethod("owner", method)).toBe(true);
   });
@@ -17,7 +17,7 @@ describe("roleAllowsMethod", () => {
     for (const method of open) expect(roleAllowsMethod("agent", method)).toBe(true);
     // Assert - denied
     const owned: MethodName[] = [
-      "session.resolve",
+      "session.sendMessage",
       "session.submitRevision",
       "session.setWorkingCopy",
       "session.delete",
@@ -32,7 +32,7 @@ describe("roleAllowsMethod", () => {
     ];
 
     for (const method of owned) expect(roleAllowsMethod("agent", method)).toBe(false);
-    expect(roleAllowsMethod("collaborator", "session.resolve")).toBe(false);
+    expect(roleAllowsMethod("collaborator", "session.sendMessage")).toBe(false);
     // removal and naming are open to every role; the primitive itself scopes a
     // non-owner to the author it acts as
     expect(roleAllowsMethod("agent", "session.removeAnnotation")).toBe(true);

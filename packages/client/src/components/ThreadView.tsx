@@ -143,7 +143,7 @@ export interface ThreadViewProps {
   editOrphanCount?: number;
   /** Reports whether a composer is open, so session chords can yield to typing. */
   onComposingChange?: (composing: boolean) => void;
-  /** A verdict is in: no draft may open; the app answers with its read-only status. */
+  /** A message is in: no draft may open; the app answers with its read-only status. */
   resolved?: boolean;
   /** An observer or a resolved review refused a draft; the app shows why. */
   onObserverBlocked?: (reason: "observer" | "resolved") => void;

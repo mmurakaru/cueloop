@@ -64,3 +64,8 @@ export function ownerTokenPath(home = cueloopHome()): string {
 export function herdrTabsPath(home = cueloopHome()): string {
   return join(home, "herdr-tabs.json");
 }
+
+/** Harness bindings and Message deliveries, stored independently of Thread records. */
+export function harnessStatePath(home = cueloopHome()): string {
+  return join(home, "harness-state.json");
+}

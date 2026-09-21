@@ -1,5 +1,5 @@
 /**
- * The end-to-end review loop: agent → daemon → TUI → verdict → agent, with
+ * The end-to-end review loop: agent → daemon → TUI → message → agent, with
  * every party real - the hook runs as a subprocess reading stdin like
  * Claude Code spawns it, the daemon autostarts from the hook, and the
  * reviewer drives the actual App in a virtual terminal.
@@ -220,7 +220,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       await waitForText(setup, "Rollout Plan");
       expect(setup.captureCharFrame()).toContain("Enable it for everyone immediately.");
 
-      // Act - annotate the risky paragraph, then submit request_changes
+      // Act - annotate the risky paragraph, then submit changes_requested
       await dragText(setup, "Enable it", "immediately.", "immediately.".length);
       await typeText(setup, "Stage the rollout: 5% then 50% then 100%.");
       await pressKey(setup, "RETURN", { meta: true });
@@ -236,7 +236,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       const frames = await inbox.frames;
       const content = JSON.parse(frames.trim().split("\n").at(-1)!).message.content;
 
-      expect(content).toContain("# Review: request changes");
+      expect(content).toContain("# Review: changes requested");
       expect(content).toContain("Too aggressive.");
       expect(content).toContain("Stage the rollout: 5% then 50% then 100%.");
       expect(content).toContain("> Enable it for everyone immediately.");
@@ -246,7 +246,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
   );
 
   test(
-    "approve then re-present: the same plan is allowed through carrying the verdict",
+    "approve then re-present: the same plan is allowed through carrying the message",
     async () => {
       // Arrange - first pass opens the review and denies
       const first = await spawnHook(PLAN, { sessionId: "cc-approve" }).result;
@@ -260,13 +260,13 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       // Act - reviewer approves, then the agent presents the same plan again
       const client = await DaemonClient.connect({ home });
 
-      await client.sessionResolve(sessionId, "approve", "Staged rollout looks right.");
+      await client.sessionSendMessage(sessionId, "approved", "Staged rollout looks right.");
       client.close();
       const second = await spawnHook(PLAN, { sessionId: "cc-approve" }).result;
 
       // Assert
       expect(second.decision).toBe("allow");
-      expect(second.reason).toContain("# Review: approve");
+      expect(second.reason).toContain("# Review: approved");
       expect(second.reason).toContain("Staged rollout looks right.");
     },
     TEST_TIMEOUT_MS,
@@ -283,7 +283,7 @@ describe("slice 1: Claude Code plan round-trip (non-blocking)", () => {
       );
       const client = await DaemonClient.connect({ home });
 
-      await client.sessionResolve(sessionId, "request_changes", "Too aggressive.");
+      await client.sessionSendMessage(sessionId, "changes_requested", "Too aggressive.");
 
       // Act - the agent revises and presents the new plan
       const revised = PLAN.replace(

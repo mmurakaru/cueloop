@@ -449,15 +449,44 @@ export class DaemonServer {
         removals: params.removals,
       });
     },
-    "session.resolve": (_connection, request) => {
-      const params = parseParams("session.resolve", request.params);
+    "session.sendMessage": (_connection, request) => {
+      const params = parseParams("session.sendMessage", request.params);
 
-      return this.core.sessionResolve(
+      return this.core.sessionSendMessage(
         params.id,
-        params.verdictKind,
+        params.outcome,
         params.summary,
         params.actionBodies,
       );
+    },
+    "harness.bind": (_connection, request) => {
+      const params = parseParams("harness.bind", request.params);
+
+      return this.core.harnessBind(params);
+    },
+    "harness.getBinding": (_connection, request) => {
+      const params = parseParams("harness.getBinding", request.params);
+
+      return this.core.harnessGetBinding(params.bindingId);
+    },
+    "harness.consumeApprovedRetry": (_connection, request) => {
+      const params = parseParams("harness.consumeApprovedRetry", request.params);
+
+      return this.core.harnessConsumeApprovedRetry(
+        params.bindingId,
+        params.messageId,
+        params.content,
+      );
+    },
+    "delivery.pending": (_connection, request) => {
+      const params = parseParams("delivery.pending", request.params);
+
+      return this.core.deliveryPending(params.bindingId);
+    },
+    "delivery.acknowledge": (_connection, request) => {
+      const params = parseParams("delivery.acknowledge", request.params);
+
+      return this.core.deliveryAcknowledge(params.deliveryId);
     },
     "session.submitRevision": (_connection, request) => {
       const params = parseParams("session.submitRevision", request.params);
@@ -466,6 +495,7 @@ export class DaemonServer {
         params.id,
         params.content,
         params.addressedAnnotationIds,
+        params.files,
       );
     },
     "herdr.getTab": (_connection, request) =>

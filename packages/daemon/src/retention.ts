@@ -71,12 +71,13 @@ export function pruneExpiredSessions(
   store: ThreadStore,
   periodDays: number,
   nowMs: number,
+  protectedThreadIds: ReadonlySet<string> = new Set(),
 ): string[] {
   if (periodDays <= 0) return [];
   const pruned: string[] = [];
 
   for (const session of store.list()) {
-    if (session.status !== "resolved") continue;
+    if (session.status !== "resolved" || protectedThreadIds.has(session.id)) continue;
     if (isExpired(session.createdAt, periodDays, nowMs) && store.delete(session.id)) {
       pruned.push(session.id);
     }

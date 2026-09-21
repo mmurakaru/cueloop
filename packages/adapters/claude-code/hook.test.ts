@@ -1,7 +1,7 @@
 /** The non-blocking ExitPlanMode gate: opening a plan denies immediately and arms the wake; the same plan re-presented after approval is allowed through; a plan that came back with changes opens a fresh review round instead of an allow. */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
@@ -36,7 +36,7 @@ function planEvent(sessionId: string, plan: string) {
 
 async function resolvePending(
   marker: string,
-  kind: "approve" | "request_changes",
+  kind: "approved" | "changes_requested",
   summary: string,
 ): Promise<void> {
   const client = await DaemonClient.connect({ home, autostart: true });
@@ -47,7 +47,7 @@ async function resolvePending(
       const match = pending.find((candidate) => candidate.artifact.content.includes(marker));
 
       if (match) {
-        await client.sessionResolve(match.id, kind, summary);
+        await client.sessionSendMessage(match.id, kind, summary);
 
         return;
       }
@@ -103,7 +103,7 @@ describe("runHook: non-blocking plan gate", () => {
     expect(first.allow).toBe(false);
 
     // Act - reviewer approves, agent presents the same plan again
-    await resolvePending("Approve Me", "approve", "Green light.");
+    await resolvePending("Approve Me", "approved", "Green light.");
     const second = await runHook(event, { home, armWake: () => {} });
 
     // Assert
@@ -111,12 +111,31 @@ describe("runHook: non-blocking plan gate", () => {
     expect(second.reason).toContain("Green light.");
   });
 
+  test("approval checks the Thread in the current workspace", async () => {
+    const firstCwd = join(home, "workspace-first");
+    const secondCwd = join(home, "workspace-second");
+
+    mkdirSync(firstCwd, { recursive: true });
+    mkdirSync(secondCwd, { recursive: true });
+    const firstEvent = { ...planEvent("cc-two-workspaces", "# First\n"), cwd: firstCwd };
+    const secondEvent = { ...planEvent("cc-two-workspaces", "# Second\n"), cwd: secondCwd };
+
+    await runHook(firstEvent, { home, armWake: () => {} });
+    await runHook(secondEvent, { home, armWake: () => {} });
+    await resolvePending("# Second", "approved", "Second approved.");
+
+    const decision = await runHook(secondEvent, { home, armWake: () => {} });
+
+    expect(decision.allow).toBe(true);
+    expect(decision.reason).toContain("Second approved.");
+  });
+
   test("a plan that came back with changes opens a fresh round, not an allow", async () => {
     // Arrange
     const event = planEvent("cc-changes", "# Changes Me\n\nFirst cut.\n");
 
     await runHook(event, { home, armWake: () => {} });
-    await resolvePending("Changes Me", "request_changes", "Not yet.");
+    await resolvePending("Changes Me", "changes_requested", "Not yet.");
     const armed: string[] = [];
 
     // Act - agent revises and presents the new plan

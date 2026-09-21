@@ -35,7 +35,7 @@ import {
 } from "./theme-presets";
 import type { Theme } from "./theme";
 import { createReviewController, type ShareTransport } from "./thread-controller";
-import type { SessionClient } from "@cueloop/daemon/client";
+import type { ThreadClient } from "@cueloop/daemon/client";
 import { createIntentDispatch, type Mode, type RailTab } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings, type CheatsheetSection } from "./key-bindings";
@@ -45,7 +45,7 @@ import { Button } from "./components/primitives/Button";
 import { ShareDialog } from "./components/ShareDialog";
 import { shareDialogStore } from "./components/share-dialog-store";
 import { Toolbar } from "./components/primitives/Toolbar";
-import { groupInbox, projectName, threadTitle } from "./components/session-tree";
+import { groupInbox, projectName, threadTitle } from "./components/thread-tree";
 import { ThreadTree } from "./components/ThreadTree";
 import { ChangesFileTree } from "./components/ChangesColumn";
 import { MenuControlProvider, useMenuControlState } from "./components/menu-control";
@@ -70,7 +70,7 @@ import {
 } from "./thread-chords";
 import { type DiffFoldControls } from "./components/DiffContentView";
 import { commentCountsByFile } from "./view-diff";
-import { annotationTarget, threadShareLinks } from "@cueloop/schema";
+import { annotationTarget, isAddressed, isAgentNote, threadShareLinks } from "@cueloop/schema";
 import type {
   Annotation,
   Artifact,
@@ -78,7 +78,7 @@ import type {
   Identity,
   ShareLink,
   Thread,
-  VerdictKind,
+  MessageOutcome,
 } from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
@@ -121,12 +121,12 @@ export interface AppProps {
   /** Timer source for the auto-close countdown; tests inject a ManualClock. */
   clock?: Clock;
   /** Session source; the sharing gateway injects a blob-backed client. */
-  openClient?: () => Promise<SessionClient>;
+  openClient?: () => Promise<ThreadClient>;
   shareTransport?: ShareTransport;
   /**
    * Who is at the keyboard. `owner` is the local planner (default). `observer`
    * is a passive `cueloop serve` watcher (read-only). `collaborator` is a share
-   * viewer: annotates, but cannot edit the plan or submit an agent verdict.
+   * viewer: annotates, but cannot edit the plan or submit an agent message.
    */
   role?: "owner" | "observer" | "collaborator";
   /**
@@ -581,7 +581,7 @@ export function App({
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
   const [diffView, setDiffView] = useState<DiffViewMode>("split");
-  const [defaultVerdict, setDefaultVerdict] = useState<VerdictKind>("approve");
+  const [defaultMessage, setDefaultMessage] = useState<MessageOutcome>("approved");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<RailTab>("review");
@@ -625,7 +625,7 @@ export function App({
     setSkills(loadSkills(config.skillsPath));
     setAutoClose(config.ui.autoClose);
     setDiffView(config.ui.diffView);
-    setDefaultVerdict(config.ui.defaultVerdict);
+    setDefaultMessage(config.ui.defaultMessage);
     setPinnedIds(new Set(config.ui.pins));
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings, appearance]);
@@ -827,7 +827,7 @@ export function App({
     inboxCursor,
     mode,
     session,
-    defaultVerdict,
+    defaultMessage,
     focusedAnnotationId,
     selectedCurationId,
     railTab,
@@ -1057,12 +1057,12 @@ export function App({
     authorNames,
   );
 
-  if (isCompletionOverlayPhase(completion) && activeSession.verdict)
+  if (isCompletionOverlayPhase(completion) && activeSession.message)
     return (
       <CompletionScreen
         theme={theme}
         session={activeSession}
-        verdict={activeSession.verdict.kind}
+        message={activeSession.message.outcome}
         completion={completion}
         status={status}
         onClose={() => dispatch({ type: "finishReview" })}
@@ -1123,6 +1123,11 @@ export function App({
       branch={activeSession.workspace.branch}
       onSubmit={onSubmitRequest}
       canSubmit={canSubmitReview(isOwner, resolved, observer)}
+      pendingAnnotations={
+        activeSession.annotations.filter(
+          (annotation) => !isAddressed(annotation) && !isAgentNote(annotation),
+        ).length
+      }
       theme={theme}
     />
   );

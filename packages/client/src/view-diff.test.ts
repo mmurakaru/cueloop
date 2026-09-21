@@ -135,7 +135,7 @@ describe("changesMarks", () => {
       artifact: { type: "diff", content: PATCH, meta },
       revisions: [{ revision: 1, content: PATCH, submittedAt: "2026-01-01T00:00:00Z" }],
       annotations,
-      verdict: null,
+      message: null,
       status: "pending",
       createdAt: "2026-01-01T00:00:00Z",
     };

@@ -1,7 +1,7 @@
 {
   "name": "cueloop",
   "version": "0.1.0-alpha.79",
-  "description": "Terminal review surface for coding agents: annotate plans and diffs, return a verdict, send structured feedback back",
+  "description": "Terminal review surface for coding agents: annotate plans and diffs, return a message, send structured feedback back",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
     "url": "https://github.com/mmurakaru/cueloop/issues"

@@ -4,7 +4,7 @@
  *   Terminal A: bun run examples/2-agent-roundtrip/run.ts agent
  *   Terminal B: cueloop            (or: bun run packages/cli/src/main.ts)
  * The "agent" submits a plan through the Claude Code hook contract and
- * blocks; review it in terminal B; the verdict prints in terminal A.
+ * blocks; review it in terminal B; the message prints in terminal A.
  */
 
 import { join } from "node:path";
@@ -21,7 +21,7 @@ const event = {
   },
 };
 
-console.log("submitting the plan and blocking on your verdict…");
+console.log("submitting the plan and blocking on your message…");
 const proc = Bun.spawn([process.execPath, "run", HOOK], {
   stdin: new TextEncoder().encode(JSON.stringify(event)),
   stdout: "pipe",

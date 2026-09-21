@@ -2,7 +2,7 @@
  * Codex live-injection: queue a follow-up turn into a running Codex thread with
  * the shipped `codex queue` CLI, which calls the app-server thread/queue/add
  * method. The queued message auto-submits when the thread next goes idle - the
- * non-blocking "verdict continues the driving agent" shape, with no hand-rolled
+ * non-blocking "message continues the driving agent" shape, with no hand-rolled
  * JSON-RPC.
  *
  * Requires the driving Codex to run under the shared app-server daemon: a

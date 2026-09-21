@@ -86,7 +86,7 @@ export type PiSessionHandler = (event: PiSessionEvent) => void | Promise<void>;
 /**
  * How an injected message reaches the live turn: "followUp" queues it for after
  * the current turn ends, "steer" interrupts the running turn. cueloop wakes with
- * "followUp" so a returning verdict never cuts off work the human is mid-request.
+ * "followUp" so a returning message never cuts off work the human is mid-request.
  */
 export interface PiSendMessageOptions {
   deliverAs?: "followUp" | "steer";

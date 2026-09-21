@@ -12,14 +12,14 @@ import {
   type Annotation,
   type ArtifactType,
   type Thread,
-  type VerdictKind,
+  type MessageOutcome,
 } from "./types";
 import { parseBlocks, sectionOf, type Block } from "./markdown";
 import { resolveAnchor } from "./anchor";
 import { unifiedDiffText } from "./diff";
 
 export interface FeedbackInput {
-  verdictKind: VerdictKind;
+  outcome: MessageOutcome;
   summary: string;
   /** The submitted artifact content (latest revision). */
   artifactContent: string;
@@ -80,7 +80,7 @@ export function renderFeedback(input: FeedbackInput): string {
   );
   const lines: string[] = [];
 
-  lines.push("# Review: " + input.verdictKind.replace("_", " "));
+  lines.push("# Review: " + input.outcome.replaceAll("_", " "));
   lines.push("");
   if (input.summary.trim()) {
     lines.push(input.summary.trim());
@@ -247,12 +247,12 @@ function annotationSectionLines(
 
 export function feedbackForSession(
   session: Thread,
-  verdictKind: VerdictKind,
+  outcome: MessageOutcome,
   summary: string,
   actionBodies?: Record<string, string>,
 ): string {
   return renderFeedback({
-    verdictKind,
+    outcome,
     summary,
     artifactContent: session.artifact.content,
     workingCopy: session.workingCopy,

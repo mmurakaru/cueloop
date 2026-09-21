@@ -9,7 +9,7 @@
 
 import { SystemClock, type Clock, type TimerHandle } from "@opentui/core";
 import { createStore, type StoreApi } from "zustand/vanilla";
-import { DaemonClient, type SessionClient } from "@cueloop/daemon/client";
+import { DaemonClient, type ThreadClient } from "@cueloop/daemon/client";
 import {
   applyPathView,
   createBranch,
@@ -36,7 +36,7 @@ import {
   type ShareLink,
   type Thread,
   type SessionHistory,
-  type VerdictKind,
+  type MessageOutcome,
 } from "@cueloop/schema";
 import { loadBundledExporters, type BundledExporter } from "./integrations";
 import {
@@ -140,7 +140,7 @@ function planCutId(base: { lineStart: number; lineEnd: number }): string {
 /**
  * Whether two records of the same thread yield the same document projection (display, rows, files,
  * models). Those derive only from the artifact content and the working copy, so an update that
- * touched only annotations, status, or the verdict leaves them identical - the projection can be
+ * touched only annotations, status, or the message leaves them identical - the projection can be
  * reused rather than re-parsed. Content and working copy are strings, compared here by value.
  */
 export function sameDerivationInputs(previous: Thread, next: Thread): boolean {
@@ -238,7 +238,7 @@ export interface ReviewControllerOptions {
    * daemon; the sharing gateway injects a blob-backed client so the same <App>
    * renders a decrypted share instead.
    */
-  openClient?: () => Promise<SessionClient>;
+  openClient?: () => Promise<ThreadClient>;
   shareTransport?: ShareTransport;
   /** Serve mode: pin this frozen diff onto the served thread so an observer sees a stable snapshot. */
   servedArtifact?: Artifact;
@@ -359,7 +359,7 @@ export interface ReviewController {
   /** Leave the walk; the viewed set stays on the session record. */
   walkLeave(): void;
   /** Resolve the review, run the export, start the completion hand-back. */
-  submit(verdict: VerdictKind, summary: string): void;
+  submit(message: MessageOutcome, summary: string): void;
   /** Publish the current session as a public share link; the ssh line lands on the clipboard. */
   share(): void;
   /** Stop sharing the current session, revoking every link at the gateway. Owner only. */
@@ -434,7 +434,7 @@ const DERIVED_CACHE_LIMIT = 8;
 
 class Controller implements ReviewController {
   readonly readOnly: boolean;
-  private client: SessionClient | null = null;
+  private client: ThreadClient | null = null;
   private closed = false;
   /** The controller's state lives in a zustand store; internal reads go through the snapshot getter. */
   private readonly store: StoreApi<ControllerSnapshot> = createStore<ControllerSnapshot>(() => ({
@@ -582,7 +582,7 @@ class Controller implements ReviewController {
   /**
    * The projection reuses when the same thread's derivation inputs are unchanged. display, rows,
    * files, and models derive only from the artifact and working copy - never from annotations,
-   * status, or the verdict - so an update that touched only those produces an all-new session
+   * status, or the message - so an update that touched only those produces an all-new session
    * record but an identical projection.
    */
   private reusesDerived(session: Thread, liveDiff: LiveWorkingDiff | null): boolean {
@@ -998,7 +998,7 @@ class Controller implements ReviewController {
     const session = this.snapshot.session;
 
     if (!session || session.status === "resolved") return null;
-    if (!session.artifact.files) {
+    if (!session.artifact.files?.length) {
       this.setStatus("hunk curation needs full file contents (PR diffs cannot be curated)");
 
       return null;
@@ -1503,7 +1503,7 @@ class Controller implements ReviewController {
     if (this.snapshot.walk) this.update({ walk: null });
   }
 
-  submit(verdict: VerdictKind, summary: string): void {
+  submit(message: MessageOutcome, summary: string): void {
     const session = this.snapshot.session;
 
     if (!session) return;
@@ -1511,14 +1511,14 @@ class Controller implements ReviewController {
     const actionBodies = Object.fromEntries(
       slashItemsFrom(this.quickActions).map((item) => [item.name, item.body]),
     );
-    this.client!.sessionResolve(session.id, verdict, summary, actionBodies)
+    this.client!.sessionSendMessage(session.id, message, summary, actionBodies)
       .then((resolved) => {
-        // The completion overlay heading already states the verdict, so the
+        // The completion overlay heading already states the message, so the
         // status line stays empty here - only export/error messages fill it.
         this.update({ session: resolved, status: "" });
         // notes-vault export: guarded by each exporter's policy (default manual = no-op)
         for (const exporter of this.exporters) {
-          if (!exporter.runsOn(verdict)) continue;
+          if (!exporter.runsOn(message)) continue;
           void exporter.run(resolved).then((exportResult) => {
             this.setStatus(
               exportResult.success && exportResult.path

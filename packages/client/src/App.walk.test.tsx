@@ -159,7 +159,7 @@ describe("the guided walk", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "send message");
+    await waitForText(setup, "Send message (");
     expect(setup.captureCharFrame()).toContain("3/3 files viewed");
 
     // Act
@@ -248,7 +248,7 @@ describe("the guided walk", () => {
 
     // Act
     // a note is agent context, not reviewer feedback: it neither counts nor
-    // flips the default verdict, and never comes back in the feedback doc
+    // flips the default message, and never comes back in the feedback doc
     await press(setup, "escape");
     await waitForTextGone(setup, "agent note");
     await pressKey(setup, "RETURN", { meta: true });
@@ -260,8 +260,8 @@ describe("the guided walk", () => {
     await waitForState(setup, () => server.core.sessionGet(session.id).status === "resolved");
     const resolved = server.core.sessionGet(session.id);
 
-    expect(resolved.verdict!.kind).toBe("approve");
-    expect(resolved.verdict!.feedback).not.toContain("Swaps the stale line");
+    expect(resolved.message!.outcome).toBe("approved");
+    expect(resolved.message!.body).not.toContain("Swaps the stale line");
   });
 
   test("the sheet dims behind the wizard; the preview keeps the diff colors", async () => {
@@ -286,7 +286,7 @@ describe("the guided walk", () => {
 
   test("walking a resolved review answers read-only", async () => {
     // Arrange
-    server.core.sessionResolve(session.id, "approve", "");
+    server.core.sessionSendMessage(session.id, "approved", "");
     const setup = await renderApp();
 
     // Act - renderApp already waited for the diff to load; the session is resolved

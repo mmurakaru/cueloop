@@ -87,7 +87,7 @@ export interface AnnotationSurfaceOptions {
    * thread anchors comments in plan coordinates, so a draft here would misanchor.
    */
   commentsEnabled?: boolean;
-  /** A verdict is in: no draft may open; the app answers with its read-only status. */
+  /** A message is in: no draft may open; the app answers with its read-only status. */
   resolved: boolean;
   /** True while a menu, dialog, or overlay owns the keyboard. */
   suspended: boolean;

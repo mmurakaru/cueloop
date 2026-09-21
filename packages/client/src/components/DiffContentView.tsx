@@ -79,7 +79,7 @@ export interface DiffContentViewProps {
   observer: boolean;
   /** Whether comments can be drafted here; false for a non-diff thread's view-only live diff. */
   commentsEnabled?: boolean;
-  /** A verdict is in: no draft may open; the app answers with its read-only status. */
+  /** A message is in: no draft may open; the app answers with its read-only status. */
   resolved?: boolean;
   /** True while a menu, dialog, or overlay owns the keyboard. */
   suspended?: boolean;

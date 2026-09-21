@@ -1,8 +1,8 @@
 /**
- * The shared review core: one open/wait/verdict path for every consumer -
+ * The shared Thread review core: one open/wait/message path for every consumer -
  * CLI commands and agent adapters. openReview resolves the workspace, shapes
- * the artifact, and opens-or-revises by agentSessionId; awaitVerdict maps the
- * wait contract onto the agent contract through verdictResponse. An
+ * the artifact, and opens-or-revises by agentSessionId; awaitMessage maps the
+ * wait contract onto the agent contract through messageResponse. An
  * adapter keeps only two bespoke parts: parsing its host's event shape and
  * serializing the decision in its host's contract.
  */
@@ -10,18 +10,20 @@
 import {
   isMarkdownArtifact,
   newAnnotationId,
+  type Annotation,
+  type Artifact,
   type ArtifactType,
   type DiffFileContents,
   type Thread,
   type WorkspaceKey,
+  type WorkflowKind,
 } from "@cueloop/schema";
-import { verdictResponse } from "./api";
-import type { DaemonClient } from "./client";
+import { messageResponse } from "./api";
 import { ABORTED, pollUntilResolved, raceAbort } from "./interruptible-wait";
 
-// Adapters and CLI primitives reach the verdict mapping through this module too,
+// Adapters and CLI primitives reach the message mapping through this module too,
 // so a session obtained outside a ReviewHandle maps the same way.
-export { verdictResponse };
+export { messageResponse };
 
 async function git(args: string[], cwd: string): Promise<string | null> {
   try {
@@ -73,6 +75,8 @@ function firstHeading(markdown: string): string | undefined {
 
 export interface OpenReviewOptions {
   type: ArtifactType;
+  /** Workflow identity keeps plan/refine and diff/review Threads separate. */
+  workflow?: WorkflowKind;
   content: string;
   /** Workspace resolution root and meta.cwd; defaults to process.cwd(). */
   cwd?: string;
@@ -107,9 +111,28 @@ export interface ReviewNote {
   body: string;
 }
 
+/** The transport-neutral daemon operations used by the shared review lifecycle. */
+export interface ThreadSessionClient {
+  sessionList(filter?: { status?: "pending" | "resolved" }): Promise<Thread[]>;
+  sessionCreate(workspace: WorkspaceKey, artifact: Artifact): Promise<Thread>;
+  sessionSubmitRevision(
+    id: string,
+    content: string,
+    addressedAnnotationIds?: string[],
+    files?: DiffFileContents[],
+  ): Promise<Thread>;
+  sessionAnnotate(
+    id: string,
+    annotation: Omit<Annotation, "createdAt">,
+    authorName?: string,
+  ): Promise<Thread>;
+  sessionGet(id: string): Promise<Thread>;
+  sessionWait(id: string, timeoutMs: number): Promise<Thread | null>;
+}
+
 /** Anchor a note at its file: quote = the path, no context selectors. */
 async function attachNotes(
-  client: DaemonClient,
+  client: ThreadSessionClient,
   sessionId: string,
   notes: ReviewNote[],
 ): Promise<void> {
@@ -123,7 +146,7 @@ async function attachNotes(
   }
 }
 
-export interface AwaitVerdictOptions {
+export interface AwaitMessageOptions {
   /** Total wait budget; Infinity keeps polling until resolved or aborted. */
   timeoutMs: number;
   /** Chunk length for the poll loop; between chunks the session is re-read for progress. */
@@ -134,15 +157,15 @@ export interface AwaitVerdictOptions {
 }
 
 /** A resolved review mapped onto the agent contract, plus the full session. */
-export interface VerdictOutcome {
+export interface MessageResult {
   allow: boolean;
-  feedback: string;
+  message: import("@cueloop/schema").Message;
   session: Thread;
 }
 
 export class ReviewHandle {
   constructor(
-    private readonly client: DaemonClient,
+    private readonly client: Pick<ThreadSessionClient, "sessionWait" | "sessionGet">,
     readonly session: Thread,
   ) {}
 
@@ -151,12 +174,12 @@ export class ReviewHandle {
   }
 
   /**
-   * Block on the verdict. "pending" means the budget ran out or the signal
-   * aborted - the session stays open and the verdict is collectable later
-   * (verdicts outlive waits). With only timeoutMs this is one long-poll;
+   * Block on the message. "pending" means the budget ran out or the signal
+   * aborted - the session stays open and the message is collectable later
+   * (messages outlive waits). With only timeoutMs this is one long-poll;
    * pollMs/onProgress/signal switch to the chunked loop.
    */
-  async awaitVerdict(options: AwaitVerdictOptions): Promise<VerdictOutcome | "pending"> {
+  async awaitMessage(options: AwaitMessageOptions): Promise<MessageResult | "pending"> {
     const { timeoutMs, pollMs, onProgress, signal } = options;
 
     if (pollMs === undefined && onProgress === undefined && signal === undefined) {
@@ -174,18 +197,20 @@ export class ReviewHandle {
       const resolved = await raceAbort(this.client.sessionWait(this.session.id, budget), signal);
 
       if (resolved === ABORTED) return "pending";
+
       if (resolved !== null) return outcome(resolved);
       // Still pending after this chunk: re-read to surface reviewer progress.
       const current = await raceAbort(this.client.sessionGet(this.session.id), signal);
 
       if (current === ABORTED) return "pending";
+
       onProgress?.(current);
     }
   }
 }
 
-function outcome(session: Thread): VerdictOutcome {
-  return { ...verdictResponse(session), session };
+function outcome(session: Thread): MessageResult {
+  return { ...messageResponse(session), session };
 }
 
 export interface AwaitResolveOptions {
@@ -196,21 +221,21 @@ export interface AwaitResolveOptions {
 }
 
 /**
- * Park until a thread resolves, then return the verdict outcome; null
- * when the signal aborts first. Where ReviewHandle.awaitVerdict needs the handle
+ * Park until a thread resolves, then return the message outcome; null
+ * when the signal aborts first. Where ReviewHandle.awaitMessage needs the handle
  * that opened the review, this needs only a session id - so a background waiter
  * that woke on a session it did not open (a detached Claude Code / Codex waiter,
- * or pi's session_start listener) can collect the same verdict. This is the
+ * or pi's session_start listener) can collect the same message. This is the
  * wake seam every non-blocking adapter builds on. Loops the daemon long-poll, so
- * a verdict that lands between chunks is never missed and a session already
+ * a message that lands between chunks is never missed and a session already
  * resolved returns on the first chunk. The held connection also keeps the daemon
  * off its idle-exit path for the whole wait.
  */
 export async function awaitResolve(
-  client: DaemonClient,
+  client: Pick<ThreadSessionClient, "sessionWait">,
   sessionId: string,
   options: AwaitResolveOptions = {},
-): Promise<VerdictOutcome | null> {
+): Promise<MessageResult | null> {
   const chunkMs = options.pollMs ?? 30_000;
   const resolved = await pollUntilResolved(
     () => client.sessionWait(sessionId, chunkMs),
@@ -220,40 +245,63 @@ export async function awaitResolve(
   return resolved === null ? null : outcome(resolved);
 }
 
+/** Find the Thread already submitted by this agent in the same workspace and primitive. */
+export async function findExistingReview(
+  client: ThreadSessionClient,
+  options: OpenReviewOptions,
+): Promise<Thread | undefined> {
+  const cwd = options.cwd ?? process.cwd();
+  const workspace = options.workspace ?? (await resolveWorkspace(cwd));
+
+  if (options.agentSessionId === undefined) return undefined;
+
+  return (await client.sessionList()).find(
+    (candidate) =>
+      candidate.artifact.meta.agentSessionId === options.agentSessionId &&
+      candidate.artifact.meta.agent === options.agent &&
+      candidate.artifact.type === options.type &&
+      (candidate.artifact.meta.workflow ??
+        (candidate.artifact.meta.pr ? "review" : candidate.artifact.type)) ===
+        (options.workflow ?? (options.pr ? "review" : options.type)) &&
+      candidate.artifact.meta.pr === options.pr &&
+      candidate.workspace.repoRoot === workspace.repoRoot &&
+      candidate.workspace.branch === workspace.branch,
+  );
+}
+
 /** Open a thread (or revise the agent session's existing one) and hand back the wait surface. */
 export async function openReview(
-  client: DaemonClient,
+  client: ThreadSessionClient,
   options: OpenReviewOptions,
 ): Promise<ReviewHandle> {
   const cwd = options.cwd ?? process.cwd();
   const workspace = options.workspace ?? (await resolveWorkspace(cwd));
+  const existing = await findExistingReview(client, options);
 
-  // Resubmits from the same agent session become revisions, not new sessions -
-  // but only within the same primitive: a different artifact type is a new
-  // review, never a silent type mismatch on the old session.
-  if (options.agentSessionId !== undefined) {
-    const existing = (await client.sessionList()).find(
-      (candidate) =>
-        candidate.artifact.meta.agentSessionId === options.agentSessionId &&
-        candidate.artifact.type === options.type,
+  if (existing !== undefined) {
+    // PR diffs have no full file contents. An absent local-diff capture clears
+    // old curatable files, while a PR revision must keep curation disabled.
+    const revisionFiles = options.type !== "diff" || options.pr ? undefined : (options.files ?? []);
+    let revised = await client.sessionSubmitRevision(
+      existing.id,
+      options.content,
+      [],
+      revisionFiles,
     );
 
-    if (existing !== undefined) {
-      let revised = await client.sessionSubmitRevision(existing.id, options.content);
-
-      if (options.notes?.length) {
-        await attachNotes(client, revised.id, options.notes);
-        revised = await client.sessionGet(revised.id);
-      }
-
-      return new ReviewHandle(client, revised);
+    if (options.notes?.length) {
+      await attachNotes(client, revised.id, options.notes);
+      revised = await client.sessionGet(revised.id);
     }
+
+    return new ReviewHandle(client, revised);
   }
   let session = await client.sessionCreate(workspace, {
     type: options.type,
     content: options.content,
     files: options.files,
     meta: {
+      workflow: options.workflow,
       agent: options.agent,
       agentSessionId: options.agentSessionId,
       planPath: options.planPath,

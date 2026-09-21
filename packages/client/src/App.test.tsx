@@ -79,7 +79,7 @@ describe("plan rendering", () => {
     expect(frame).toContain("Context");
     expect(frame).toContain("persists sessions to disk atomically");
     expect(frame).toContain("· move the store");
-    expect(frame).toContain("send message");
+    expect(frame).toContain("Send message (");
   });
 
   test("a direct open still populates the Threads sidebar with other pending reviews", async () => {
@@ -191,7 +191,7 @@ describe("thread view grammar", () => {
 });
 
 describe("submit", () => {
-  test("cmd+⏎ opens the rail confirm card; verdict + summary resolve the session", async () => {
+  test("cmd+⏎ opens the rail confirm card; message + summary resolve the session", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -203,7 +203,7 @@ describe("submit", () => {
     // Act: with no composer open the same chord opens submit
     await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert - the card opens on the default verdict, approve
+    // Assert - the card opens on the default message, approve
     await waitForText(setup, "[Approve]");
 
     // Act - cycle to request changes, then send with a summary
@@ -217,13 +217,13 @@ describe("submit", () => {
     const stored = server.core.sessionGet(session.id);
 
     expect(stored.status).toBe("resolved");
-    expect(stored.verdict!.kind).toBe("request_changes");
-    expect(stored.verdict!.feedback).toContain("Needs a phase list.");
+    expect(stored.message!.outcome).toBe("changes_requested");
+    expect(stored.message!.body).toContain("Needs a phase list.");
     // submit hands the reviewer back to the agent via the completion overlay
     expect(setup.captureCharFrame()).toContain("feedback sent");
   });
 
-  test("approve via ←/→ verdict cycling", async () => {
+  test("approve via ←/→ message cycling", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -237,8 +237,8 @@ describe("submit", () => {
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
-    await waitForState(setup, () => server.core.sessionGet(session.id).verdict !== undefined);
-    expect(server.core.sessionGet(session.id).verdict!.kind).toBe("approve");
+    await waitForState(setup, () => server.core.sessionGet(session.id).message !== undefined);
+    expect(server.core.sessionGet(session.id).message!.outcome).toBe("approved");
   });
 });
 
@@ -261,7 +261,7 @@ describe("no-thread shell", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "send message");
+    await waitForText(setup, "Send message (");
   });
 
   test("picking a thread from the no-thread shell keeps the Threads sidebar open", async () => {
@@ -278,7 +278,7 @@ describe("no-thread shell", () => {
 
     // Act - open the thread under the cursor
     await press(setup, "enter");
-    await waitForText(setup, "send message");
+    await waitForText(setup, "Send message (");
 
     // Assert - the sidebar stayed open across the swap: both titles are on screen,
     // and the non-opened one can only come from the still-open sidebar
@@ -344,7 +344,7 @@ describe("no-thread shell", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "send message");
+    await waitForText(setup, "Send message (");
   });
 });
 

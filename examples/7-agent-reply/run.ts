@@ -2,7 +2,7 @@
 /**
  * Example 7: seed a reply session and open the TUI on it. A reply is the
  * agent's previous message pulled back for line-level review; it renders like a
- * plan (markdown), so the reviewer selects spans, comments, and casts a verdict.
+ * plan (markdown), so the reviewer selects spans, comments, and casts a message.
  *   bun run examples/7-agent-reply/run.ts
  * Uses an isolated home under /tmp so it never touches your real inbox.
  */

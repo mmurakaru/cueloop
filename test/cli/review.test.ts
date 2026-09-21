@@ -2,7 +2,7 @@
  * Black-box PR review flow (tier 3): the real entrypoint spawned as a
  * subprocess with CUELOOP_GH pointing at a stub gh script that records its
  * args and emits a fixture diff. Covers `review --no-tui` session creation
- * and `review-post` verdict mapping for every verdict kind.
+ * and `review-post` message mapping for every message kind.
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
@@ -94,10 +94,10 @@ afterAll(async () => {
   rmSync(ghDir, { recursive: true, force: true });
 });
 
-/** Create a PR diff session non-interactively and resolve it with one verdict. */
+/** Create a PR diff session non-interactively and resolve it with one message. */
 async function createResolvedSession(
   pr: string,
-  verdict: string,
+  message: string,
   summary: string,
 ): Promise<Thread> {
   const created = cliJson<Thread>(
@@ -105,10 +105,10 @@ async function createResolvedSession(
   );
   const runResult = await runCli(home, [
     "session",
-    "resolve",
+    "send-message",
     created.id,
-    "--verdict",
-    verdict,
+    "--outcome",
+    message,
     "--summary",
     summary,
   ]);
@@ -176,27 +176,78 @@ describe("cueloop review (black box)", () => {
 });
 
 describe("cueloop review-post (black box)", () => {
-  test("approve maps to gh pr review --approve with feedback.md as body", async () => {
+  test("approved maps to gh pr review --approve with feedback.md as body", async () => {
     // Arrange
-    const session = await createResolvedSession("42", "approve", "Ship it.");
+    const session = await createResolvedSession("42", "approved", "Ship it.");
 
     // Act
     const runResult = await runCli(home, ["review-post", session.id, "42"], undefined, ghEnv());
 
     // Assert
     expect(runResult.code).toBe(0);
-    expect(runResult.stdout).toContain("posted approve review to PR 42");
+    expect(runResult.stdout).toContain("posted approved review to PR 42");
     const call = ghCalls().at(-1)!;
 
     expect(call.slice(0, 4)).toEqual(["pr", "review", "42", "--approve"]);
     expect(call[4]).toBe("--body");
-    expect(call[5]).toBe(session.verdict!.feedback);
+    expect(call[5]).toBe(session.message!.body);
     expect(call[5]).toContain("Ship it.");
   });
 
-  test("request_changes maps to --request-changes", async () => {
+  test("retrying post-back does not create a duplicate PR review", async () => {
+    const session = await createResolvedSession("47", "approved", "Ready.");
+    const before = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    expect((await runCli(home, ["review-post", session.id, "47"], undefined, ghEnv())).code).toBe(
+      0,
+    );
+    expect((await runCli(home, ["review-post", session.id, "47"], undefined, ghEnv())).code).toBe(
+      0,
+    );
+
+    const after = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    expect(after - before).toBe(1);
+  });
+
+  test("concurrent post-back processes retain both Message IDs", async () => {
+    const first = await createResolvedSession("48", "approved", "First ready.");
+    const second = await createResolvedSession("49", "approved", "Second ready.");
+    const before = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    const results = await Promise.all([
+      runCli(home, ["review-post", first.id, "48"], undefined, ghEnv()),
+      runCli(home, ["review-post", second.id, "49"], undefined, ghEnv()),
+    ]);
+
+    expect(results.map((result) => result.code)).toEqual([0, 0]);
+    expect((await runCli(home, ["review-post", first.id, "48"], undefined, ghEnv())).code).toBe(0);
+    expect((await runCli(home, ["review-post", second.id, "49"], undefined, ghEnv())).code).toBe(0);
+
+    const after = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    expect(after - before).toBe(2);
+  });
+
+  test("concurrent retries of one Message post one PR review", async () => {
+    const session = await createResolvedSession("50", "approved", "Ready once.");
+    const before = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    const results = await Promise.all([
+      runCli(home, ["review-post", session.id, "50"], undefined, ghEnv()),
+      runCli(home, ["review-post", session.id, "50"], undefined, ghEnv()),
+    ]);
+
+    expect(results.map((result) => result.code)).toEqual([0, 0]);
+
+    const after = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    expect(after - before).toBe(1);
+  });
+
+  test("changes_requested maps to --request-changes", async () => {
     // Arrange
-    const session = await createResolvedSession("43", "request_changes", "Rename the constant.");
+    const session = await createResolvedSession("43", "changes_requested", "Rename the constant.");
 
     // Act
     const runResult = await runCli(home, ["review-post", session.id, "43"], undefined, ghEnv());
@@ -207,21 +258,6 @@ describe("cueloop review-post (black box)", () => {
 
     expect(call.slice(0, 4)).toEqual(["pr", "review", "43", "--request-changes"]);
     expect(call[5]).toContain("Rename the constant.");
-  });
-
-  test("comment maps to --comment", async () => {
-    // Arrange
-    const session = await createResolvedSession("44", "comment", "Looks reasonable overall.");
-
-    // Act
-    const runResult = await runCli(home, ["review-post", session.id, "44"], undefined, ghEnv());
-
-    // Assert
-    expect(runResult.code).toBe(0);
-    const call = ghCalls().at(-1)!;
-
-    expect(call.slice(0, 4)).toEqual(["pr", "review", "44", "--comment"]);
-    expect(call[5]).toContain("Looks reasonable overall.");
   });
 
   test("annotations flow into the posted body through feedback.md", async () => {
@@ -247,10 +283,10 @@ describe("cueloop review-post (black box)", () => {
     // Act
     const parsed = await runCli(home, [
       "session",
-      "resolve",
+      "send-message",
       created.id,
-      "--verdict",
-      "request_changes",
+      "--outcome",
+      "changes_requested",
       "--summary",
       "Explain the bump.",
     ]);
@@ -287,7 +323,7 @@ describe("cueloop review-post (black box)", () => {
 
   test("gh review failure exits 1", async () => {
     // Arrange
-    const session = await createResolvedSession("47", "approve", "Fine.");
+    const session = await createResolvedSession("47", "approved", "Fine.");
 
     // Act
     const runResult = await runCli(

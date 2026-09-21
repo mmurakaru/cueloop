@@ -1,11 +1,11 @@
-/** Codex detached wake: against a real autostarted daemon and a fake codex binary, the waiter parks on a review, then queues the verdict on resolve; a queue failure rejects so a detached run exits non-zero. */
+/** Codex detached wake: against a real autostarted daemon and a fake codex binary, the waiter parks on a review, then queues the message on resolve; a queue failure rejects so a detached run exits non-zero. */
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { openReview } from "@cueloop/daemon/review";
+import { openReview } from "@cueloop/daemon/thread-review";
 import { runCodexWake } from "./wake";
 
 const PLAN = "# Codex Wake Plan\n\nShip the daemon behind a flag.\n";
@@ -50,7 +50,7 @@ function writeFakeCodex(fail = false): string {
 }
 
 describe("runCodexWake", () => {
-  test("parks on the review, then queues the verdict into the thread on resolve", async () => {
+  test("parks on the review, then queues the message into the thread on resolve", async () => {
     // Arrange
     const codexBin = writeFakeCodex();
     const client = await DaemonClient.connect({ home, autostart: true });
@@ -58,7 +58,7 @@ describe("runCodexWake", () => {
     const waiting = runCodexWake(review.id, "thr_9", { home, pollMs: 100, codexBin, cwd: tempDir });
 
     // Act
-    await client.sessionResolve(review.id, "request_changes", "Stage it.");
+    await client.sessionSendMessage(review.id, "changes_requested", "Stage it.");
     const delivered = await waiting;
 
     client.close();
@@ -69,7 +69,7 @@ describe("runCodexWake", () => {
     const message = readFileSync(join(tempDir, "msg.txt"), "utf8");
 
     expect(message).toContain("returned changes");
-    expect(message).toContain("# Review: request changes");
+    expect(message).toContain("# Review: changes requested");
     expect(message).toContain("Stage it.");
   }, 15_000);
 
@@ -81,7 +81,7 @@ describe("runCodexWake", () => {
     const waiting = runCodexWake(review.id, "thr_x", { home, pollMs: 100, codexBin, cwd: tempDir });
 
     // Act
-    await client.sessionResolve(review.id, "approve", "ok");
+    await client.sessionSendMessage(review.id, "approved", "ok");
     client.close();
 
     // Assert

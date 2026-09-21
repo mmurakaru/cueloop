@@ -18,10 +18,16 @@ import {
   validateHistory,
   type SessionHistory,
 } from "./history";
-import type { Annotation, Verdict } from "./types";
+import type { Annotation, Message } from "./types";
 
 const AT = "2026-09-01T10:00:00.000Z";
-const VERDICT: Verdict = { kind: "approve", summary: "", feedback: "", resolvedAt: AT };
+const MESSAGE: Message = {
+  id: "msg_1",
+  outcome: "approved",
+  summary: "",
+  body: "",
+  sentAt: AT,
+};
 
 function annotation(id: string, createdAt: string): Annotation {
   return {
@@ -39,13 +45,13 @@ function root(): SessionHistory {
     id: "ses_1",
     revisions: [{ revision: 1, content: "Plan v1", submittedAt: AT }],
     annotations: [],
-    verdict: null,
+    message: null,
     createdAt: AT,
   });
 }
 
 describe("appendEntry and derivePath", () => {
-  test("entries chain on the current tip and the path derives the head, comments, and verdicts", () => {
+  test("entries chain on the current tip and the path derives the head, comments, and messages", () => {
     // Arrange
     let history = root();
 
@@ -57,7 +63,7 @@ describe("appendEntry and derivePath", () => {
       annotationId: "a1",
       createdAt: AT,
     }).history;
-    history = appendEntry(history, { type: "verdict", verdict: VERDICT, createdAt: AT }).history;
+    history = appendEntry(history, { type: "message", message: MESSAGE, createdAt: AT }).history;
     history = appendEntry(history, {
       type: "revision",
       by: "agent",
@@ -70,14 +76,14 @@ describe("appendEntry and derivePath", () => {
 
     expect(derived.head.content).toBe("Plan v2");
     expect(derived.annotationIds).toEqual(["a2"]);
-    expect(derived.verdicts).toEqual([VERDICT]);
+    expect(derived.messages).toEqual([MESSAGE]);
     expect(derived.rounds).toBe(2);
     expect(pathOf(history).map((entry) => entry.type)).toEqual([
       "revision",
       "comment",
       "comment",
       "comment-removed",
-      "verdict",
+      "message",
       "revision",
     ]);
   });
@@ -209,12 +215,12 @@ describe("validateHistory and cycles", () => {
 });
 
 describe("forkHistory", () => {
-  test("copies the path with its comments and labels, drops verdicts, starts at the head", () => {
+  test("copies the path with its comments and labels, drops messages, starts at the head", () => {
     // Arrange
     let history = root();
 
     history = appendEntry(history, { type: "comment", annotationId: "a1", createdAt: AT }).history;
-    history = appendEntry(history, { type: "verdict", verdict: VERDICT, createdAt: AT }).history;
+    history = appendEntry(history, { type: "message", message: MESSAGE, createdAt: AT }).history;
     history = labelTip(history, "approved v1");
     const approvedTip = tipOf(history);
 
@@ -229,16 +235,16 @@ describe("forkHistory", () => {
     expect(fork.entries.map((entry) => entry.type)).toEqual(["revision", "comment"]);
     expect(fork.tips).toEqual({ [MAIN_BRANCH]: fork.entries[1]!.id });
     expect(derivePath(fork).annotationIds).toEqual(["a1"]);
-    // the label sat on the dropped verdict entry, so it does not travel
+    // the label sat on the dropped message entry, so it does not travel
     expect(fork.labels).toEqual({});
     expect(history.labels[approvedTip]).toBe("approved v1");
   });
 
   test("entries after a dropped one are chained to the kept entry before it", () => {
-    // Arrange: rev1, verdict, rev2 by the agent, a reviewer edit, a comment on top
+    // Arrange: rev1, message, rev2 by the agent, a reviewer edit, a comment on top
     let history = root();
 
-    history = appendEntry(history, { type: "verdict", verdict: VERDICT, createdAt: AT }).history;
+    history = appendEntry(history, { type: "message", message: MESSAGE, createdAt: AT }).history;
     history = appendEntry(history, {
       type: "revision",
       by: "agent",
@@ -289,7 +295,7 @@ describe("recaptureMainHead", () => {
 });
 
 describe("historyFromLinear", () => {
-  test("chains revisions on main, files comments after the revision they were made on, ends with the verdict", () => {
+  test("chains revisions on main, files comments after the revision they were made on, ends with the message", () => {
     // Act
     const history = historyFromLinear({
       id: "ses_9",
@@ -301,7 +307,7 @@ describe("historyFromLinear", () => {
         annotation("late", "2026-09-01T13:00:00.000Z"),
         annotation("early", "2026-09-01T11:00:00.000Z"),
       ],
-      verdict: VERDICT,
+      message: MESSAGE,
       createdAt: "2026-09-01T09:00:00.000Z",
     });
 
@@ -310,14 +316,14 @@ describe("historyFromLinear", () => {
       history.entries.map(
         (entry) => `${entry.type}:${"annotationId" in entry ? entry.annotationId : ""}`,
       ),
-    ).toEqual(["revision:", "comment:early", "revision:", "comment:late", "verdict:"]);
+    ).toEqual(["revision:", "comment:early", "revision:", "comment:late", "message:"]);
     expect(history.entries[0]!.id).toBe("ses_9_rev1");
     expect(history.branch).toBe(MAIN_BRANCH);
     const derived = derivePath(history);
 
     expect(derived.head.content).toBe("v2");
     expect(derived.annotationIds).toEqual(["early", "late"]);
-    expect(derived.verdicts).toEqual([VERDICT]);
+    expect(derived.messages).toEqual([MESSAGE]);
     expect(derived.rounds).toBe(2);
   });
 
@@ -327,7 +333,7 @@ describe("historyFromLinear", () => {
       id: "ses_2",
       revisions: [{ revision: 1, content: "v1", submittedAt: AT }],
       annotations: [annotation("a", AT)],
-      verdict: null,
+      message: null,
       createdAt: AT,
     };
 
@@ -343,7 +349,7 @@ describe("followBranch", () => {
       id: "ses_1",
       revisions: [{ revision: 1, content: "v1", submittedAt: AT }],
       annotations: [],
-      verdict: null,
+      message: null,
       createdAt: AT,
     });
 
@@ -373,7 +379,7 @@ describe("removalEntries", () => {
       id: "ses_1",
       revisions: [{ revision: 1, content: "v1", submittedAt: AT }],
       annotations: [],
-      verdict: null,
+      message: null,
       createdAt: AT,
     });
 

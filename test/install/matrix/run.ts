@@ -1,6 +1,6 @@
 /**
  * The install-matrix host: run each POSIX install scenario, then aggregate the
- * facts it recorded into one verdict. A scenario is a pure `sh` script (so it
+ * facts it recorded into one message. A scenario is a pure `sh` script (so it
  * runs unchanged in a Bun-less container) that installs the product some way
  * and appends tab-separated assertions to a file; this host reads them and
  * writes result.json plus a JUnit report, exiting non-zero on any failure. Each
@@ -44,7 +44,7 @@ export interface ScenarioAssertion {
   detail: string;
 }
 
-/** The outcome of one scenario: its recorded assertions and the verdict. */
+/** The outcome of one scenario: its recorded assertions and the message. */
 export interface ScenarioResult {
   name: string;
   description: string;
@@ -209,7 +209,7 @@ async function runScenario(
   };
 }
 
-/** Run the requested scenarios and return the aggregate verdict. */
+/** Run the requested scenarios and return the aggregate message. */
 export async function runMatrix(options: MatrixOptions): Promise<MatrixResult> {
   const specs = loadScenarioSpecs();
   const selected = options.scenarioNames.map((name) => {
