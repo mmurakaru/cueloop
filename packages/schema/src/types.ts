@@ -33,6 +33,11 @@ export const ARTIFACT_TYPES = ["plan", "diff", "prototype", "reply"] as const;
 
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 
+/** Harness workflows; review and refine are compositions, never artifact types. */
+export const WORKFLOW_KINDS = ["plan", "reply", "prototype", "diff", "review", "refine"] as const;
+
+export type WorkflowKind = (typeof WORKFLOW_KINDS)[number];
+
 /** Trust-boundary guard: is this string one of the artifact primitives? */
 export function isArtifactType(value: string): value is ArtifactType {
   return ARTIFACT_TYPES.some((candidate) => candidate === value);
@@ -51,6 +56,8 @@ export function isMarkdownArtifact(type: ArtifactType): boolean {
 }
 
 export interface ArtifactMeta {
+  /** The workflow that submitted this artifact, distinct from its artifact type. */
+  workflow?: WorkflowKind;
   cwd?: string;
   agent?: string;
   /** Agent-native session id, for resume/fork context. */

@@ -60,6 +60,7 @@ const PRIMITIVE_ROLES = {
   "session.mergeShared": "owner",
   "session.sendMessage": "owner",
   "harness.bind": "owner",
+  "harness.getBinding": "owner",
   "harness.consumeApprovedRetry": "owner",
   "delivery.pending": "owner",
   "delivery.acknowledge": "owner",

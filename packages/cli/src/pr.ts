@@ -6,7 +6,8 @@
  * half for agents and scripts.
  */
 
-import type { Thread, MessageOutcome } from "@cueloop/schema";
+import type { Thread } from "@cueloop/schema";
+import { GitHubForgeReviewPort } from "@cueloop/adapters/forge-review";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { openReview } from "@cueloop/daemon/thread-review";
 import { parseArgs } from "./args";
@@ -16,28 +17,9 @@ function ghBin(): string {
   return process.env.CUELOOP_GH || "gh";
 }
 
-interface GhResult {
-  code: number;
-  stdout: string;
-  stderr: string;
+function forge(): GitHubForgeReviewPort {
+  return new GitHubForgeReviewPort(ghBin());
 }
-
-async function gh(args: string[]): Promise<GhResult> {
-  const proc = Bun.spawn([ghBin(), ...args], { stdout: "pipe", stderr: "pipe" });
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
-
-  return { code, stdout, stderr };
-}
-
-/** Message kinds map 1:1 onto gh review flags. */
-const MESSAGE_OUTCOME_FLAG: Record<MessageOutcome, string> = {
-  approved: "--approve",
-  changes_requested: "--request-changes",
-};
 
 export async function reviewCommand(argv: string[]): Promise<number> {
   const { positional, flags } = parseArgs(argv);
@@ -48,15 +30,12 @@ export async function reviewCommand(argv: string[]): Promise<number> {
 
     return 2;
   }
-  const diff = await gh(["pr", "diff", pr]);
+  let imported: { content: string; title: string };
 
-  if (diff.code !== 0) {
-    console.error(diff.stderr.trim() || `gh pr diff ${pr} failed (exit ${diff.code})`);
-
-    return 1;
-  }
-  if (!diff.stdout.trim()) {
-    console.error(`PR ${pr} has an empty diff - nothing to review`);
+  try {
+    imported = await forge().importPullRequest(pr);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
 
     return 1;
   }
@@ -65,8 +44,8 @@ export async function reviewCommand(argv: string[]): Promise<number> {
   // hunk curation stays disabled for PR reviews (see diff-hunk-curate.ts).
   const review = await openReview(client, {
     type: "diff",
-    content: diff.stdout,
-    title: `PR ${pr}`,
+    content: imported.content,
+    title: imported.title,
     pr,
   });
   const session = review.session;
@@ -128,17 +107,10 @@ async function getSession(id: string): Promise<Thread> {
 /** Post the resolved session's message to the PR: feedback.md is the review body. */
 async function postMessage(session: Thread, pr: string): Promise<number> {
   const message = session.message!;
-  const result = await gh([
-    "pr",
-    "review",
-    pr,
-    MESSAGE_OUTCOME_FLAG[message.outcome],
-    "--body",
-    message.body,
-  ]);
-
-  if (result.code !== 0) {
-    console.error(result.stderr.trim() || `gh pr review ${pr} failed (exit ${result.code})`);
+  try {
+    await forge().postPullRequestMessage(pr, message);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
 
     return 1;
   }

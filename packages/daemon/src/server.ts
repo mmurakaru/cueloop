@@ -464,6 +464,11 @@ export class DaemonServer {
 
       return this.core.harnessBind(params);
     },
+    "harness.getBinding": (_connection, request) => {
+      const params = parseParams("harness.getBinding", request.params);
+
+      return this.core.harnessGetBinding(params.bindingId);
+    },
     "harness.consumeApprovedRetry": (_connection, request) => {
       const params = parseParams("harness.consumeApprovedRetry", request.params);
 

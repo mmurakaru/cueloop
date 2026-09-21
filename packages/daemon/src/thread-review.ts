@@ -16,6 +16,7 @@ import {
   type DiffFileContents,
   type Thread,
   type WorkspaceKey,
+  type WorkflowKind,
 } from "@cueloop/schema";
 import { messageResponse } from "./api";
 import { ABORTED, pollUntilResolved, raceAbort } from "./interruptible-wait";
@@ -74,6 +75,8 @@ function firstHeading(markdown: string): string | undefined {
 
 export interface OpenReviewOptions {
   type: ArtifactType;
+  /** Workflow identity keeps plan/refine and diff/review Threads separate. */
+  workflow?: WorkflowKind;
   content: string;
   /** Workspace resolution root and meta.cwd; defaults to process.cwd(). */
   cwd?: string;
@@ -256,6 +259,10 @@ export async function findExistingReview(
       candidate.artifact.meta.agentSessionId === options.agentSessionId &&
       candidate.artifact.meta.agent === options.agent &&
       candidate.artifact.type === options.type &&
+      (candidate.artifact.meta.workflow ??
+        (candidate.artifact.meta.pr ? "review" : candidate.artifact.type)) ===
+        (options.workflow ?? (options.pr ? "review" : options.type)) &&
+      candidate.artifact.meta.pr === options.pr &&
       candidate.workspace.repoRoot === workspace.repoRoot &&
       candidate.workspace.branch === workspace.branch,
   );
@@ -285,6 +292,7 @@ export async function openReview(
     content: options.content,
     files: options.files,
     meta: {
+      workflow: options.workflow,
       agent: options.agent,
       agentSessionId: options.agentSessionId,
       planPath: options.planPath,

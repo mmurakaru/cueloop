@@ -12,6 +12,7 @@
 import * as v from "valibot";
 import {
   ARTIFACT_TYPES,
+  WORKFLOW_KINDS,
   SCHEMA_VERSION,
   type Anchor,
   type Annotation,
@@ -55,6 +56,7 @@ export const WorkspaceSchema = v.object({
 } satisfies EntriesOf<WorkspaceKey>);
 
 export const ArtifactMetaSchema = v.object({
+  workflow: v.optional(v.picklist(WORKFLOW_KINDS)),
   cwd: v.optional(v.string()),
   agent: v.optional(v.string()),
   agentSessionId: v.optional(v.string()),
@@ -259,6 +261,7 @@ export const Params = {
     harness: NonEmpty,
     harnessSessionId: NonEmpty,
   }),
+  "harness.getBinding": v.object({ bindingId: NonEmpty }),
   "harness.consumeApprovedRetry": v.object({
     bindingId: NonEmpty,
     messageId: NonEmpty,

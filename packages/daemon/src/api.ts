@@ -148,6 +148,14 @@ export class DaemonCore {
     return binding;
   }
 
+  harnessGetBinding(bindingId: string): HarnessBinding {
+    const binding = this.harnessState.binding(bindingId);
+
+    if (!binding) throw new DaemonError("not_found", `no harness binding ${bindingId}`);
+
+    return binding;
+  }
+
   harnessConsumeApprovedRetry(bindingId: string, messageId: string, content: string): boolean {
     const binding = this.harnessState.binding(bindingId);
 

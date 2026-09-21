@@ -6,11 +6,20 @@ receives a resolved Message, and sends that Message into its native harness.
 
 ```text
 Harness lifecycle event
-  -> harness adapter: identity, artifact, native message injection
-  -> shared cueloop Thread and UX core: bindings, delivery, acknowledgement
-  -> existing cueloop TUI: thread panel for plan/reply/prototype;
+  -> harness adapter: identify session, send Message through native API
+  -> shared cueloop Thread and UX core: submit/revise artifact,
+     open cueloop threads, route Message, acknowledge delivery
+  -> existing cueloop TUI: thread panel for plan/reply/prototype/refine;
                            changes panel for diff/review
 ```
+
+`HarnessThreadController.openWorkflow` is the adapter-facing contract for all
+six workflows. Plan, reply, and prototype submit Markdown; diff submits a
+working-tree patch; review imports a PR diff and posts its Message to the forge;
+refine analyzes the stored corpus and submits writeback proposals as a plan
+Thread. Review and refine remain workflow metadata, not new artifact types.
+The surface port opens the built-in panel; terminal and multiplexer launch
+implementations belong to their integrations.
 
 The daemon persists bindings and deliveries outside the Thread. It routes a
 Message to the submitting binding by default and retries an unacknowledged
@@ -19,6 +28,7 @@ plan may pass through the shared controller unchanged one time. An adapter sends
 the Message through its harness API,
 deduplicates by Message ID with `DeliveredMessageStore`, then acknowledges the delivery.
 Native injection should use the Message ID as an idempotency key when the harness
-supports one. A crash between native injection and recording the ID can otherwise
-repeat that injection; delivery itself is at least once. The same Thread can
-later route Messages to another bound harness without changing the TUI.
+supports one. Forge post-back also needs a Message ID journal. A crash between
+an external side effect and recording the ID can repeat it; delivery itself is
+at least once. The same Thread can later route Messages to another bound harness
+without changing the TUI.

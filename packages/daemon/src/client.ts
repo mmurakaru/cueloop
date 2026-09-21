@@ -144,6 +144,7 @@ export interface ThreadClient {
     harness: string,
     harnessSessionId: string,
   ): Promise<HarnessBinding>;
+  harnessGetBinding?(bindingId: string): Promise<HarnessBinding>;
   harnessConsumeApprovedRetry?(
     bindingId: string,
     messageId: string,
@@ -557,6 +558,9 @@ export class DaemonClient implements ThreadClient {
       { threadId, harness, harnessSessionId },
       HarnessBindingSchema,
     );
+  }
+  harnessGetBinding(bindingId: string): Promise<HarnessBinding> {
+    return this.request("harness.getBinding", { bindingId }, HarnessBindingSchema);
   }
   harnessConsumeApprovedRetry(
     bindingId: string,

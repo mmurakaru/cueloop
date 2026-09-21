@@ -57,6 +57,9 @@ describe("socket round-trip", () => {
   test("harness binding and Message delivery round-trip over the wire", async () => {
     const thread = await client.sessionCreate(WS, PLAN);
     const binding = await client.harnessBind(thread.id, "fake", "fake_1");
+
+    expect(await client.harnessGetBinding(binding.id)).toEqual(binding);
+
     const sent = await client.sessionSendMessage(thread.id, "approved", "Ready.");
     const pending = await client.deliveryPending(binding.id);
 

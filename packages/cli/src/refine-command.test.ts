@@ -7,7 +7,8 @@ import { join } from "node:path";
 import type { Annotation, Thread, Message, MessageOutcome } from "@cueloop/schema";
 import { ThreadStore } from "@cueloop/daemon/store";
 import { reportsDir } from "@cueloop/daemon/paths";
-import { buildRefineReport, refineCommand } from "./refine-command";
+import { buildRefineReport } from "@cueloop/adapters/refine-corpus";
+import { refineCommand } from "./refine-command";
 
 function tempHome(): string {
   return mkdtempSync(join(tmpdir(), "cueloop-refine-home-"));

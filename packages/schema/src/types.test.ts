@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   annotationTarget,
   ARTIFACT_TYPES,
+  WORKFLOW_KINDS,
   isArtifactType,
   isMarkdownArtifact,
   newAnnotationId,
@@ -30,6 +31,14 @@ describe("ARTIFACT_TYPES", () => {
     for (const type of ARTIFACT_TYPES) expect(isArtifactType(type)).toBe(true);
     expect(isArtifactType("blueprint")).toBe(false);
     expect(isArtifactType("")).toBe(false);
+  });
+});
+
+describe("WORKFLOW_KINDS", () => {
+  test("review and refine are workflows, not artifact types", () => {
+    expect(WORKFLOW_KINDS).toEqual(["plan", "reply", "prototype", "diff", "review", "refine"]);
+    expect(isArtifactType("review")).toBe(false);
+    expect(isArtifactType("refine")).toBe(false);
   });
 });
 

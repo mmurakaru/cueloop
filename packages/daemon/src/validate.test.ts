@@ -179,6 +179,7 @@ describe("wire pins", () => {
   const entryKeys = (schema: { entries: object }) => Object.keys(schema.entries).sort();
 
   const fullMeta: Required<ArtifactMeta> = {
+    workflow: "plan",
     cwd: "/repo",
     agent: "claude-code",
     agentSessionId: "sess-1",

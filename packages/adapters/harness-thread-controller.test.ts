@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { Annotation, Artifact, Message, WorkspaceKey } from "@cueloop/schema";
 import { DaemonCore } from "@cueloop/daemon/api";
 import { DeliveredMessageStore } from "./delivered-message-store";
+import { LocalRefineCorpusPort } from "./refine-corpus";
 import {
   HarnessThreadController,
   type HarnessThreadClient,
@@ -59,6 +60,10 @@ class CoreClient implements HarnessThreadClient {
     return this.core.harnessBind({ threadId, harness, harnessSessionId });
   }
 
+  async harnessGetBinding(bindingId: string) {
+    return this.core.harnessGetBinding(bindingId);
+  }
+
   async harnessConsumeApprovedRetry(bindingId: string, messageId: string, content: string) {
     return this.core.harnessConsumeApprovedRetry(bindingId, messageId, content);
   }
@@ -88,8 +93,229 @@ afterEach(() => {
 });
 
 describe("HarnessThreadController", () => {
+  test("a second PR in one harness session opens a distinct Thread", async () => {
+    const controller = new HarnessThreadController(client, {
+      surface: { openThreads() {} },
+      forge: {
+        async importPullRequest(pr) {
+          return { content: `diff --git a/${pr} b/${pr}\n` };
+        },
+        async postPullRequestMessage() {},
+      },
+      corpus: new LocalRefineCorpusPort(home),
+    });
+    const identity = {
+      harness: "fake",
+      harnessSessionId: "same-session",
+      workspace: { repoRoot: "/repo", branch: "main" },
+      workflow: "review" as const,
+    };
+    const first = await controller.openWorkflow({ ...identity, pr: "42" });
+    const second = await controller.openWorkflow({ ...identity, pr: "43" });
+
+    expect(first.thread.id).not.toBe(second.thread.id);
+    expect(second.thread.artifact.meta.pr).toBe("43");
+  });
+
+  test("refine uses the persisted corpus report", async () => {
+    const source = core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: { type: "plan", content: "# Earlier plan", meta: {} },
+    });
+
+    core.sessionSendMessage(source.id, "changes_requested", "Add tests.");
+    const controller = new HarnessThreadController(client, {
+      surface: { openThreads() {} },
+      forge: {
+        async importPullRequest() {
+          throw new Error("unexpected import");
+        },
+        async postPullRequestMessage() {
+          throw new Error("unexpected post");
+        },
+      },
+      corpus: new LocalRefineCorpusPort(home),
+    });
+    const opened = await controller.openWorkflow({
+      harness: "fake",
+      harnessSessionId: "refine-session",
+      workspace: { repoRoot: "/repo", branch: "main" },
+      workflow: "refine",
+      proposal: "# Writeback proposal",
+    });
+
+    expect(opened.analysis.report).toContain("1 sessions analyzed");
+    expect(opened.thread.artifact.meta.workflow).toBe("refine");
+  });
+
+  test("opens Markdown workflows in the thread panel and diff in changes", async () => {
+    const opened: { threadId: string; panel: string }[] = [];
+    const controller = new HarnessThreadController(client, {
+      surface: {
+        openThreads(threadId, panel) {
+          opened.push({ threadId, panel });
+        },
+      },
+      forge: {
+        async importPullRequest() {
+          throw new Error("unexpected forge import");
+        },
+        async postPullRequestMessage() {
+          throw new Error("unexpected forge post");
+        },
+      },
+      corpus: {
+        async analyzeRefineCorpus() {
+          throw new Error("unexpected corpus analysis");
+        },
+      },
+    });
+    const identity = {
+      harness: "fake",
+      harnessSessionId: "one-conversation",
+      workspace: { repoRoot: "/repo", branch: "main" },
+    };
+
+    const plan = await controller.openWorkflow({
+      ...identity,
+      workflow: "plan",
+      content: "# Plan",
+    });
+    const reply = await controller.openWorkflow({
+      ...identity,
+      workflow: "reply",
+      content: "# Reply",
+    });
+    const prototype = await controller.openWorkflow({
+      ...identity,
+      workflow: "prototype",
+      content: "# API\n\n# Composition\n\n# Callstack",
+    });
+    const diff = await controller.openWorkflow({
+      ...identity,
+      workflow: "diff",
+      content: "diff --git a/a.ts b/a.ts\n",
+    });
+
+    expect([
+      plan.thread.artifact.type,
+      reply.thread.artifact.type,
+      prototype.thread.artifact.type,
+      diff.thread.artifact.type,
+    ]).toEqual(["plan", "reply", "prototype", "diff"]);
+    expect(
+      new Set([plan.thread.id, reply.thread.id, prototype.thread.id, diff.thread.id]).size,
+    ).toBe(4);
+    expect(opened).toEqual([
+      { threadId: plan.thread.id, panel: "thread" },
+      { threadId: reply.thread.id, panel: "thread" },
+      { threadId: prototype.thread.id, panel: "thread" },
+      { threadId: diff.thread.id, panel: "changes" },
+    ]);
+  });
+
+  test("review imports a PR diff and posts its Message back to the forge", async () => {
+    const opened: { threadId: string; panel: string }[] = [];
+    const posted: { pr: string; message: Message }[] = [];
+    const controller = new HarnessThreadController(client, {
+      surface: {
+        openThreads(threadId, panel) {
+          opened.push({ threadId, panel });
+        },
+      },
+      forge: {
+        async importPullRequest(pr) {
+          expect(pr).toBe("org/repo#42");
+
+          return { content: "diff --git a/a.ts b/a.ts\n", title: "PR 42" };
+        },
+        async postPullRequestMessage(pr, message) {
+          posted.push({ pr, message });
+        },
+      },
+      corpus: {
+        async analyzeRefineCorpus() {
+          throw new Error("unexpected corpus analysis");
+        },
+      },
+    });
+    const review = await controller.openWorkflow({
+      harness: "fake",
+      harnessSessionId: "fake_1",
+      workspace: { repoRoot: "/repo", branch: "main" },
+      workflow: "review",
+      pr: "org/repo#42",
+    });
+    const received: Message[] = [];
+    const harness = new FakeHarness(
+      new DeliveredMessageStore(join(home, "review-delivered.json")),
+      received,
+    );
+
+    expect(review.thread.artifact.type).toBe("diff");
+    expect(review.thread.artifact.meta.pr).toBe("org/repo#42");
+    expect(opened).toEqual([{ threadId: review.thread.id, panel: "changes" }]);
+
+    core.sessionSendMessage(review.thread.id, "changes_requested", "Add tests.");
+    await controller.deliverPending(review.binding.id, harness);
+
+    expect(posted).toEqual([{ pr: "org/repo#42", message: received[0]! }]);
+    expect(posted[0]!.message.body).toContain("Add tests.");
+  });
+
+  test("refine analyzes the corpus and submits proposals as a plan Thread", async () => {
+    const opened: { threadId: string; panel: string }[] = [];
+    const controller = new HarnessThreadController(client, {
+      surface: {
+        openThreads(threadId, panel) {
+          opened.push({ threadId, panel });
+        },
+      },
+      forge: {
+        async importPullRequest() {
+          throw new Error("unexpected forge import");
+        },
+        async postPullRequestMessage() {
+          throw new Error("unexpected forge post");
+        },
+      },
+      corpus: {
+        async analyzeRefineCorpus() {
+          return { report: "# refine report\n\n- add tests: 3 reviews" };
+        },
+      },
+    });
+    const result = await controller.openWorkflow({
+      harness: "fake",
+      harnessSessionId: "fake_1",
+      workspace: { repoRoot: "/repo", branch: "main" },
+      workflow: "refine",
+      proposal: "# Writebacks\n\nAdd regression tests.",
+    });
+
+    expect(result.thread.artifact.type).toBe("plan");
+    expect(result.thread.artifact.content).toBe("# Writebacks\n\nAdd regression tests.");
+    expect(result.analysis.report).toContain("add tests: 3 reviews");
+    expect(opened).toEqual([{ threadId: result.thread.id, panel: "thread" }]);
+  });
+
   test("opens, revises, retries safely, and delivers the approved Message", async () => {
-    const controller = new HarnessThreadController(client);
+    const controller = new HarnessThreadController(client, {
+      surface: { openThreads() {} },
+      forge: {
+        async importPullRequest() {
+          throw new Error("unexpected forge import");
+        },
+        async postPullRequestMessage() {
+          throw new Error("unexpected forge post");
+        },
+      },
+      corpus: {
+        async analyzeRefineCorpus() {
+          throw new Error("unexpected corpus analysis");
+        },
+      },
+    });
     const received: Message[] = [];
     const journalPath = join(home, "fake-delivered-messages.json");
     const harness = new FakeHarness(new DeliveredMessageStore(journalPath), received);
