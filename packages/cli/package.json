@@ -1,6 +1,6 @@
 {
   "name": "cueloop",
-  "version": "0.1.0-alpha.79",
+  "version": "0.1.0-alpha.80",
   "description": "Terminal review surface for coding agents: annotate plans and diffs, return a message, send structured feedback back",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -30,10 +30,10 @@
     "build:binary": "bun build --compile --external cpu-features ./src/main.ts --outfile dist/cueloop"
   },
   "dependencies": {
-    "@cueloop/adapters": "0.1.0-alpha.79",
-    "@cueloop/client": "0.1.0-alpha.79",
-    "@cueloop/daemon": "0.1.0-alpha.79",
-    "@cueloop/schema": "0.1.0-alpha.79",
+    "@cueloop/adapters": "0.1.0-alpha.80",
+    "@cueloop/client": "0.1.0-alpha.80",
+    "@cueloop/daemon": "0.1.0-alpha.80",
+    "@cueloop/schema": "0.1.0-alpha.80",
     "valibot": "^1.4.2"
   },
   "engines": {
