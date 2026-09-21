@@ -83,7 +83,13 @@ export function openHerdrThreadTab(
 
     if (!paneId || !tabId) return null;
 
-    return sendCueloopThreadCommand(binPath, paneId, sessionId) ? { tabId, paneId } : null;
+    if (!sendCueloopThreadCommand(binPath, paneId, sessionId)) {
+      closeUnlaunchedHerdrSurface(binPath, "tab", tabId);
+
+      return null;
+    }
+
+    return { tabId, paneId };
   } catch {
     return null;
   }
@@ -126,11 +132,28 @@ export function openHerdrThreadPane(
     const parsed = v.safeParse(CreatedPaneSchema, JSON.parse(created.stdout.toString()));
     const paneId = parsed.success ? parsed.output.result?.pane?.pane_id : undefined;
 
-    if (!paneId || !sendCueloopThreadCommand(binPath, paneId, sessionId)) return null;
+    if (!paneId) return null;
+    if (!sendCueloopThreadCommand(binPath, paneId, sessionId)) {
+      closeUnlaunchedHerdrSurface(binPath, "pane", paneId);
+
+      return null;
+    }
 
     return { mode: "pane", tabId, paneId };
   } catch {
     return null;
+  }
+}
+
+function closeUnlaunchedHerdrSurface(binPath: string, kind: "tab" | "pane", id: string): void {
+  try {
+    Bun.spawnSync([binPath, kind, "close", id], {
+      stdout: "ignore",
+      stderr: "ignore",
+      timeout: HERDR_SPAWN_TIMEOUT_MS,
+    });
+  } catch {
+    // The pending Thread remains available through the manual command.
   }
 }
 

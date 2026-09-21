@@ -20,7 +20,12 @@ const dir = mkdtempSync(join(tmpdir(), "cueloop-herdr-thread-surface-"));
  * pane_id and tab_id (herdr 0.8.2 shape), and answers `pane get` alive or dead
  * per `paneAlive` so the liveness branch can be exercised.
  */
-function makeStub(name: string, paneAlive = false, leftNeighborPaneId = "w1:p1") {
+function makeStub(
+  name: string,
+  paneAlive = false,
+  leftNeighborPaneId = "w1:p1",
+  failedCommand?: "send-text" | "send-keys",
+) {
   const logPath = join(dir, `${name}.log`);
   const binPath = join(dir, `${name}.sh`);
   const paneGet = paneAlive ? `printf '{"result":{"pane":{"pane_id":"w1:p2"}}}'` : "exit 1";
@@ -29,6 +34,7 @@ function makeStub(name: string, paneAlive = false, leftNeighborPaneId = "w1:p1")
     binPath,
     `#!/bin/sh
 printf '%s\\n' "$*" >> "${logPath}"
+if [ "$1" = "pane" ] && [ "$2" = "${failedCommand ?? "never"}" ]; then exit 1; fi
 if [ "$1" = "tab" ] && [ "$2" = "create" ]; then
   printf '{"result":{"root_pane":{"pane_id":"w1:p2","tab_id":"w1:t2"}}}'
 fi
@@ -142,6 +148,24 @@ describe("openHerdrThreadTab", () => {
     expect(handle).toBeNull();
     expect(readLines(logPath)).toEqual(["tab create --cwd /repo/work --label x --focus"]);
   });
+
+  test("closes a tab if the Thread command cannot be sent", () => {
+    const stub = makeStub("tab-send-failed", false, "w1:p1", "send-text");
+
+    expect(
+      openHerdrThreadTab({
+        sessionId: "ses_abc",
+        cwd: "/repo/work",
+        binPath: stub.binPath,
+        label: "Rollout Plan",
+      }),
+    ).toBeNull();
+    expect(readLines(stub.logPath)).toEqual([
+      "tab create --cwd /repo/work --label Rollout Plan --focus",
+      "pane send-text w1:p2 cueloop ses_abc",
+      "tab close w1:t2",
+    ]);
+  });
 });
 
 describe("openHerdrThreadPane", () => {
@@ -164,6 +188,26 @@ describe("openHerdrThreadPane", () => {
       "pane split w1:p1 --direction right --ratio 0.5 --cwd /repo/work --focus",
       "pane send-text w1:p3 cueloop ses_abc",
       "pane send-keys w1:p3 enter",
+    ]);
+  });
+
+  test("closes a pane if the Thread command cannot be entered", () => {
+    const stub = makeStub("pane-enter-failed", false, "w1:p1", "send-keys");
+
+    expect(
+      openHerdrThreadPane({
+        sessionId: "ses_abc",
+        cwd: "/repo/work",
+        binPath: stub.binPath,
+        sourcePaneId: "w1:p1",
+        tabId: "w1:t1",
+      }),
+    ).toBeNull();
+    expect(readLines(stub.logPath)).toEqual([
+      "pane split w1:p1 --direction right --ratio 0.5 --cwd /repo/work --focus",
+      "pane send-text w1:p3 cueloop ses_abc",
+      "pane send-keys w1:p3 enter",
+      "pane close w1:p3",
     ]);
   });
 });
