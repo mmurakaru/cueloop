@@ -13,7 +13,7 @@ import {
 } from "@cueloop/schema";
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { openHerdrPaneForReview } from "@cueloop/daemon/herdr-pane";
+import { openHerdrThreadSurface } from "@cueloop/daemon/herdr-thread-surface";
 import { openReview, messageResponse } from "@cueloop/daemon/thread-review";
 import { loadConfig, quickActionBody, resolveQuickAction } from "@cueloop/client/config";
 import { slashItemsFrom } from "@cueloop/client/slash-palette";
@@ -61,8 +61,11 @@ async function sessionCreate({ client, flags }: SessionContext): Promise<number>
     notes,
   });
 
-  // herdr auto-open: render the review in a tab (no-op outside herdr).
-  await openHerdrPaneForReview(review.session, client);
+  const openResult = await openHerdrThreadSurface(review.session, client);
+
+  if (openResult !== "opened" && openResult !== "focused") {
+    console.error(`Open cueloop threads: cueloop ${review.id}`);
+  }
   out(review.session);
 
   return 0;

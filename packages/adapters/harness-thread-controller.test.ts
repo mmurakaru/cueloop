@@ -98,6 +98,29 @@ afterEach(() => {
 });
 
 describe("HarnessThreadController", () => {
+  test("a failed terminal launch returns a manual command and leaves the Thread pending", async () => {
+    const controller = new HarnessThreadController(client, {
+      surface: { openThreads: () => "failed" },
+      forge: {
+        async importPullRequest() {
+          throw new Error("unexpected import");
+        },
+        async postPullRequestMessage() {},
+      },
+      corpus: new LocalRefineCorpusPort(client, home),
+    });
+    const opened = await controller.openWorkflow({
+      workflow: "plan",
+      harness: "fake",
+      harnessSessionId: "manual-open",
+      content: "# Pending plan",
+      workspace: { repoRoot: "/repo", branch: "main" },
+    });
+
+    expect(opened.manualOpenCommand).toBe(`Open cueloop threads: cueloop ${opened.thread.id}`);
+    expect((await client.sessionGet(opened.thread.id)).status).toBe("pending");
+  });
+
   test("a second PR in one harness session opens a distinct Thread", async () => {
     const controller = new HarnessThreadController(client, {
       surface: { openThreads() {} },

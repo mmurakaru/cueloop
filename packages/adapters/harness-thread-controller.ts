@@ -48,9 +48,16 @@ export interface OpenPlanThreadInput {
 /** Which built-in cueloop panel an opened Thread uses. */
 export type ThreadPanel = "thread" | "changes";
 
+/** Outcome of opening cueloop threads through a terminal integration. */
+export type ThreadSurfaceOpenStatus = "opened" | "focused" | "disabled" | "unavailable" | "failed";
+
 /** Terminal integration port; the harness never renders its own review UI. */
 export interface ThreadSurfacePort {
-  openThreads(threadId: string, panel: ThreadPanel): void | Promise<void>;
+  openThreads(
+    threadId: string,
+    panel: ThreadPanel,
+    thread: Thread,
+  ): ThreadSurfaceOpenStatus | void | Promise<ThreadSurfaceOpenStatus | void>;
 }
 
 /** Forge operations shared by every harness's PR review workflow. */
@@ -108,6 +115,8 @@ export type HarnessWorkflowRequest =
 export type OpenedWorkflow = BoundThread & {
   workflow: HarnessWorkflowRequest["workflow"];
   panel: ThreadPanel;
+  /** Manual fallback when terminal automation fails; the Thread remains pending. */
+  manualOpenCommand?: string;
 };
 
 export interface BoundThread {
@@ -151,7 +160,7 @@ export class HarnessThreadController {
         input.harnessSessionId,
       );
 
-      await this.ports.surface.openThreads(review.id, "changes");
+      const manualOpenCommand = await this.openThreadSurface(review.session, "changes");
 
       return {
         binding,
@@ -159,6 +168,7 @@ export class HarnessThreadController {
         approvedRetry: false,
         workflow: "review",
         panel: "changes",
+        manualOpenCommand,
       };
     }
     if (input.workflow === "refine") {
@@ -177,7 +187,7 @@ export class HarnessThreadController {
         input.harnessSessionId,
       );
 
-      await this.ports.surface.openThreads(review.id, "thread");
+      const manualOpenCommand = await this.openThreadSurface(review.session, "thread");
 
       return {
         binding,
@@ -185,6 +195,7 @@ export class HarnessThreadController {
         approvedRetry: false,
         workflow: "refine",
         panel: "thread",
+        manualOpenCommand,
       };
     }
 
@@ -194,9 +205,21 @@ export class HarnessThreadController {
         ? await this.openPlanThread(input)
         : await this.openArtifactWorkflow(input);
 
-    await this.ports.surface.openThreads(bound.thread.id, panel);
+    const manualOpenCommand = await this.openThreadSurface(bound.thread, panel);
 
-    return { ...bound, workflow: input.workflow, panel };
+    return { ...bound, workflow: input.workflow, panel, manualOpenCommand };
+  }
+
+  private async openThreadSurface(thread: Thread, panel: ThreadPanel): Promise<string | undefined> {
+    try {
+      const result = await this.ports.surface.openThreads(thread.id, panel, thread);
+
+      return result === "failed" || result === "unavailable" || result === "disabled"
+        ? `Open cueloop threads: cueloop ${thread.id}`
+        : undefined;
+    } catch {
+      return `Open cueloop threads: cueloop ${thread.id}`;
+    }
   }
 
   private async openArtifactWorkflow(input: ArtifactWorkflowRequest): Promise<BoundThread> {

@@ -1,11 +1,11 @@
-/** herdr tab side-store: set/get/delete round-trips, survives a reload from disk, and ignores a corrupt file. */
+/** Herdr Thread-surface handles survive reload and reject corrupt records. */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HerdrTabStore } from "./herdr-tab-store";
-import { herdrTabsPath } from "./paths";
+import { HerdrThreadSurfaceStore } from "./herdr-thread-surface-store";
+import { herdrThreadSurfacesPath } from "./paths";
 
 let home: string;
 
@@ -16,10 +16,10 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-describe("HerdrTabStore", () => {
+describe("HerdrThreadSurfaceStore", () => {
   test("set then get returns the handle; get for an unknown session is null", () => {
     // Arrange
-    const store = new HerdrTabStore(home);
+    const store = new HerdrThreadSurfaceStore(home);
 
     // Act
     store.set("ses_1", { tabId: "w1:t2", paneId: "w1:p2" });
@@ -31,10 +31,10 @@ describe("HerdrTabStore", () => {
 
   test("handles survive a reload from disk", () => {
     // Arrange
-    new HerdrTabStore(home).set("ses_1", { tabId: "w1:t2", paneId: "w1:p2" });
+    new HerdrThreadSurfaceStore(home).set("ses_1", { tabId: "w1:t2", paneId: "w1:p2" });
 
     // Act - a fresh store over the same home loads the persisted file
-    const reloaded = new HerdrTabStore(home);
+    const reloaded = new HerdrThreadSurfaceStore(home);
 
     // Assert
     expect(reloaded.get("ses_1")).toEqual({ tabId: "w1:t2", paneId: "w1:p2" });
@@ -42,7 +42,7 @@ describe("HerdrTabStore", () => {
 
   test("delete removes the handle", () => {
     // Arrange
-    const store = new HerdrTabStore(home);
+    const store = new HerdrThreadSurfaceStore(home);
 
     store.set("ses_1", { tabId: "w1:t2", paneId: "w1:p2" });
 
@@ -55,10 +55,10 @@ describe("HerdrTabStore", () => {
 
   test("a corrupt file starts empty instead of throwing", () => {
     // Arrange
-    writeFileSync(herdrTabsPath(home), "not json");
+    writeFileSync(herdrThreadSurfacesPath(home), "not json");
 
     // Act
-    const store = new HerdrTabStore(home);
+    const store = new HerdrThreadSurfaceStore(home);
 
     // Assert
     expect(store.get("ses_1")).toBeNull();
@@ -67,30 +67,32 @@ describe("HerdrTabStore", () => {
   test("malformed entries are dropped, well-formed ones survive", () => {
     // Arrange - valid JSON, but entries with the wrong shape
     writeFileSync(
-      herdrTabsPath(home),
+      herdrThreadSurfacesPath(home),
       JSON.stringify({
         ses_ok: { tabId: "w1:t2", paneId: "w1:p2" },
         ses_partial: { tabId: "w1:t2" },
         ses_typed: { tabId: 1, paneId: 2 },
+        ses_pane_missing_source: { tabId: "w1:t2", paneId: "w1:p3", mode: "pane" },
         ses_null: null,
       }),
     );
 
     // Act
-    const store = new HerdrTabStore(home);
+    const store = new HerdrThreadSurfaceStore(home);
 
     // Assert
     expect(store.get("ses_ok")).toEqual({ tabId: "w1:t2", paneId: "w1:p2" });
     expect(store.get("ses_partial")).toBeNull();
     expect(store.get("ses_typed")).toBeNull();
+    expect(store.get("ses_pane_missing_source")).toBeNull();
     expect(store.get("ses_null")).toBeNull();
   });
 
   test("a non-object top level starts empty", () => {
     // Arrange
-    writeFileSync(herdrTabsPath(home), JSON.stringify(["not", "a", "map"]));
+    writeFileSync(herdrThreadSurfacesPath(home), JSON.stringify(["not", "a", "map"]));
 
     // Act & Assert
-    expect(new HerdrTabStore(home).get("ses_1")).toBeNull();
+    expect(new HerdrThreadSurfaceStore(home).get("ses_1")).toBeNull();
   });
 });

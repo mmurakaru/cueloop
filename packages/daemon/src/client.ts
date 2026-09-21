@@ -29,7 +29,7 @@ import {
   type Response,
 } from "./protocol";
 import type { DaemonRole } from "./capabilities";
-import type { HerdrTabHandle } from "./herdr-tab-store";
+import type { HerdrThreadSurfaceHandle } from "./herdr-thread-surface-store";
 import type { SharedMerge } from "./api";
 
 export type { SharedMerge } from "./api";
@@ -67,7 +67,17 @@ const EmptyResultSchema = v.object({});
 // undefined, which never equals this build - so it is treated as stale and replaced
 const PingResultSchema = v.object({ pid: v.number(), version: v.optional(v.string()) });
 const RefreshDiffResultSchema = v.object({ changed: v.boolean() });
-const HerdrTabResultSchema = v.nullable(v.object({ tabId: v.string(), paneId: v.string() }));
+const HerdrThreadSurfaceResultSchema = v.nullable(
+  v.union([
+    v.object({ tabId: v.string(), paneId: v.string(), mode: v.optional(v.literal("tab")) }),
+    v.object({
+      tabId: v.string(),
+      paneId: v.string(),
+      mode: v.literal("pane"),
+      sourcePaneId: v.string(),
+    }),
+  ]),
+);
 
 /**
  * The session primitives the review controller drives. DaemonClient is the local
@@ -592,11 +602,11 @@ export class DaemonClient implements ThreadClient {
     );
   }
   /** herdr adapter scratch: the tab opened for a review; local-only, off the ThreadClient contract. */
-  herdrGetTab(id: string): Promise<HerdrTabHandle | null> {
-    return this.request("herdr.getTab", { id }, HerdrTabResultSchema);
+  herdrGetThreadSurface(id: string): Promise<HerdrThreadSurfaceHandle | null> {
+    return this.request("herdr.getThreadSurface", { id }, HerdrThreadSurfaceResultSchema);
   }
-  async herdrSetTab(id: string, handle: HerdrTabHandle): Promise<void> {
-    await this.request("herdr.setTab", { id, ...handle }, EmptyResultSchema);
+  async herdrSetThreadSurface(id: string, handle: HerdrThreadSurfaceHandle): Promise<void> {
+    await this.request("herdr.setThreadSurface", { id, ...handle }, EmptyResultSchema);
   }
   shutdown(): Promise<void> {
     return this.request("daemon.shutdown", {}, EmptyResultSchema).then(() => undefined);

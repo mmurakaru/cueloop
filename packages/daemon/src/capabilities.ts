@@ -65,8 +65,8 @@ const PRIMITIVE_ROLES = {
   "delivery.pending": "owner",
   "delivery.acknowledge": "owner",
   "session.submitRevision": "owner",
-  "herdr.getTab": "owner",
-  "herdr.setTab": "owner",
+  "herdr.getThreadSurface": "owner",
+  "herdr.setThreadSurface": "owner",
 } as const satisfies Record<MethodName, Audience>;
 
 /** Whether `role` may call `method`. */
