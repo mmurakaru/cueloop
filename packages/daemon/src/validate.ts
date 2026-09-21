@@ -262,6 +262,7 @@ export const Params = {
     harnessSessionId: NonEmpty,
   }),
   "harness.getBinding": v.object({ bindingId: NonEmpty }),
+  "harness.bindingsForSession": v.object({ harness: NonEmpty, harnessSessionId: NonEmpty }),
   "harness.consumeApprovedRetry": v.object({
     bindingId: NonEmpty,
     messageId: NonEmpty,

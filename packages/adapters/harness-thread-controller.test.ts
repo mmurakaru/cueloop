@@ -4,25 +4,25 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Annotation, Artifact, Message, WorkspaceKey } from "@cueloop/schema";
 import { DaemonCore } from "@cueloop/daemon/api";
-import { DeliveredMessageStore } from "./delivered-message-store";
-import { LocalRefineCorpusPort } from "./refine-corpus";
+import { createDeliveredMessageStore, type DeliveredMessageStore } from "./delivered-message-store";
+import { createLocalRefineCorpusPort } from "./refine-corpus";
 import {
-  HarnessThreadController,
+  createHarnessThreadController,
   type HarnessThreadClient,
   type HarnessMessageAdapter,
 } from "./harness-thread-controller";
 
-class FakeHarness implements HarnessMessageAdapter {
-  constructor(
-    private readonly delivered: DeliveredMessageStore,
-    readonly received: Message[],
-  ) {}
-
-  sendMessage(message: Message): Promise<void> {
-    return this.delivered.sendOnce(message, (payload) => {
-      this.received.push(payload);
-    });
-  }
+function createFakeHarness(
+  delivered: DeliveredMessageStore,
+  received: Message[],
+): HarnessMessageAdapter {
+  return {
+    sendMessage(message) {
+      return delivered.sendOnce(message, (payload) => {
+        received.push(payload);
+      });
+    },
+  };
 }
 
 class CoreClient implements HarnessThreadClient {
@@ -97,9 +97,9 @@ afterEach(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-describe("HarnessThreadController", () => {
+describe("createHarnessThreadController", () => {
   test("a failed terminal launch returns a manual command and leaves the Thread pending", async () => {
-    const controller = new HarnessThreadController(client, {
+    const controller = createHarnessThreadController(client, {
       surface: { openThreads: () => "failed" },
       forge: {
         async importPullRequest() {
@@ -107,7 +107,7 @@ describe("HarnessThreadController", () => {
         },
         async postPullRequestMessage() {},
       },
-      corpus: new LocalRefineCorpusPort(client, home),
+      corpus: createLocalRefineCorpusPort(client, home),
     });
     const opened = await controller.openWorkflow({
       workflow: "plan",
@@ -122,7 +122,7 @@ describe("HarnessThreadController", () => {
   });
 
   test("a second PR in one harness session opens a distinct Thread", async () => {
-    const controller = new HarnessThreadController(client, {
+    const controller = createHarnessThreadController(client, {
       surface: { openThreads() {} },
       forge: {
         async importPullRequest(pr) {
@@ -130,7 +130,7 @@ describe("HarnessThreadController", () => {
         },
         async postPullRequestMessage() {},
       },
-      corpus: new LocalRefineCorpusPort(client, home),
+      corpus: createLocalRefineCorpusPort(client, home),
     });
     const identity = {
       harness: "fake",
@@ -146,7 +146,7 @@ describe("HarnessThreadController", () => {
   });
 
   test("reopening a PR Thread keeps hunk curation disabled", async () => {
-    const controller = new HarnessThreadController(client, {
+    const controller = createHarnessThreadController(client, {
       surface: { openThreads() {} },
       forge: {
         async importPullRequest() {
@@ -154,7 +154,7 @@ describe("HarnessThreadController", () => {
         },
         async postPullRequestMessage() {},
       },
-      corpus: new LocalRefineCorpusPort(client, home),
+      corpus: createLocalRefineCorpusPort(client, home),
     });
     const input = {
       harness: "fake",
@@ -177,7 +177,7 @@ describe("HarnessThreadController", () => {
     });
 
     core.sessionSendMessage(source.id, "changes_requested", "Add tests.");
-    const controller = new HarnessThreadController(client, {
+    const controller = createHarnessThreadController(client, {
       surface: { openThreads() {} },
       forge: {
         async importPullRequest() {
@@ -187,7 +187,7 @@ describe("HarnessThreadController", () => {
           throw new Error("unexpected post");
         },
       },
-      corpus: new LocalRefineCorpusPort(client, home),
+      corpus: createLocalRefineCorpusPort(client, home),
     });
     const analysis = await controller.analyzeRefineCorpus();
     const opened = await controller.openWorkflow({
@@ -204,7 +204,7 @@ describe("HarnessThreadController", () => {
 
   test("opens Markdown workflows in the thread panel and diff in changes", async () => {
     const opened: { threadId: string; panel: string }[] = [];
-    const controller = new HarnessThreadController(client, {
+    const controller = createHarnessThreadController(client, {
       surface: {
         openThreads(threadId, panel) {
           opened.push({ threadId, panel });
@@ -269,7 +269,7 @@ describe("HarnessThreadController", () => {
   });
 
   test("revising a diff replaces full file contents used by hunk curation", async () => {
-    const controller = new HarnessThreadController(client, {
+    const controller = createHarnessThreadController(client, {
       surface: { openThreads() {} },
       forge: {
         async importPullRequest() {
@@ -279,7 +279,7 @@ describe("HarnessThreadController", () => {
           throw new Error("unexpected post");
         },
       },
-      corpus: new LocalRefineCorpusPort(client, home),
+      corpus: createLocalRefineCorpusPort(client, home),
     });
     const identity = {
       harness: "fake",
@@ -305,7 +305,7 @@ describe("HarnessThreadController", () => {
   test("review imports a PR diff and posts its Message back to the forge", async () => {
     const opened: { threadId: string; panel: string }[] = [];
     const posted: { pr: string; message: Message }[] = [];
-    const controller = new HarnessThreadController(client, {
+    const controller = createHarnessThreadController(client, {
       surface: {
         openThreads(threadId, panel) {
           opened.push({ threadId, panel });
@@ -337,8 +337,8 @@ describe("HarnessThreadController", () => {
       pullRequestReference: "org/repo#42",
     });
     const received: Message[] = [];
-    const harness = new FakeHarness(
-      new DeliveredMessageStore(join(home, "review-delivered.json")),
+    const harness = createFakeHarness(
+      createDeliveredMessageStore(join(home, "review-delivered.json")),
       received,
     );
 
@@ -355,7 +355,7 @@ describe("HarnessThreadController", () => {
 
   test("refine analyzes the corpus and submits proposals as a plan Thread", async () => {
     const opened: { threadId: string; panel: string }[] = [];
-    const controller = new HarnessThreadController(client, {
+    const controller = createHarnessThreadController(client, {
       surface: {
         openThreads(threadId, panel) {
           opened.push({ threadId, panel });
@@ -391,7 +391,7 @@ describe("HarnessThreadController", () => {
   });
 
   test("opens, revises, retries safely, and delivers the approved Message", async () => {
-    const controller = new HarnessThreadController(client, {
+    const controller = createHarnessThreadController(client, {
       surface: { openThreads() {} },
       forge: {
         async importPullRequest() {
@@ -409,7 +409,7 @@ describe("HarnessThreadController", () => {
     });
     const received: Message[] = [];
     const journalPath = join(home, "fake-delivered-messages.json");
-    const harness = new FakeHarness(new DeliveredMessageStore(journalPath), received);
+    const harness = createFakeHarness(createDeliveredMessageStore(journalPath), received);
     const input = {
       harness: "fake",
       harnessSessionId: "fake_1",
@@ -432,7 +432,7 @@ describe("HarnessThreadController", () => {
     );
     client.deliveryAcknowledge = acknowledge;
 
-    const reloadedHarness = new FakeHarness(new DeliveredMessageStore(journalPath), received);
+    const reloadedHarness = createFakeHarness(createDeliveredMessageStore(journalPath), received);
 
     expect(await controller.deliverPending(opened.binding.id, reloadedHarness)).toBe(1);
     expect(received).toHaveLength(1);

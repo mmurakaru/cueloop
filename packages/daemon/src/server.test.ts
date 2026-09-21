@@ -59,6 +59,8 @@ describe("socket round-trip", () => {
     const binding = await client.harnessBind(thread.id, "fake", "fake_1");
 
     expect(await client.harnessGetBinding(binding.id)).toEqual(binding);
+    expect(await client.harnessBindingsForSession("fake", "fake_1")).toEqual([binding]);
+    expect(await client.harnessBindingsForSession("fake", "different")).toEqual([]);
 
     const sent = await client.sessionSendMessage(thread.id, "approved", "Ready.");
     const pending = await client.deliveryPending(binding.id);

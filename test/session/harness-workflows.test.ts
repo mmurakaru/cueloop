@@ -6,11 +6,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Message } from "@cueloop/schema";
 import {
-  HarnessThreadController,
+  createHarnessThreadController,
   type HarnessWorkflowRequest,
   type ThreadPanel,
 } from "@cueloop/adapters/harness-thread-controller";
-import { DeliveredMessageStore } from "@cueloop/adapters/delivered-message-store";
+import { createDeliveredMessageStore } from "@cueloop/adapters/delivered-message-store";
 import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "@cueloop/daemon/client";
 
@@ -35,8 +35,8 @@ test("all six workflows open, deliver, and acknowledge through a fake harness ov
   const opened: string[] = [];
   const received: Message[] = [];
   const posted: Message[] = [];
-  const delivered = new DeliveredMessageStore(join(home, "fake-harness-delivered.json"));
-  const controller = new HarnessThreadController(client, {
+  const delivered = createDeliveredMessageStore(join(home, "fake-harness-delivered.json"));
+  const controller = createHarnessThreadController(client, {
     surface: {
       openThreads(threadId, panel) {
         opened.push(`${threadId}:${panel}`);

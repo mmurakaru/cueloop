@@ -34,6 +34,21 @@ function createPlan(instance: DaemonCore) {
 }
 
 describe("durable harness delivery", () => {
+  test("reload finds only bindings for the active harness conversation", () => {
+    const first = core();
+    const thread = createPlan(first);
+    const current = first.harnessBind({
+      threadId: thread.id,
+      harness: "pi",
+      harnessSessionId: "pi-current",
+    });
+
+    first.harnessBind({ threadId: thread.id, harness: "pi", harnessSessionId: "pi-other" });
+    first.harnessBind({ threadId: thread.id, harness: "codex", harnessSessionId: "pi-current" });
+
+    expect(core().harnessBindingsForSession("pi", "pi-current")).toEqual([current]);
+  });
+
   test("redelivers after reload until the harness acknowledges the Message", () => {
     const first = core();
     const thread = createPlan(first);

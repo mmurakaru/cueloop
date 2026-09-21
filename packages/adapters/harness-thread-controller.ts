@@ -125,24 +125,29 @@ export interface BoundThread {
   approvedRetry: boolean;
 }
 
-/** Opens plan Threads and delivers Messages for any harness adapter. */
-export class HarnessThreadController {
-  constructor(
-    private readonly client: HarnessThreadClient,
-    private readonly ports: HarnessWorkflowPorts,
-  ) {}
+/** Operations shared by the harness-specific Thread adapters. */
+export interface HarnessThreadController {
+  analyzeRefineCorpus(): Promise<{ report: string }>;
+  openWorkflow(input: HarnessWorkflowRequest): Promise<OpenedWorkflow>;
+  openPlanThread(input: OpenPlanThreadInput): Promise<BoundThread>;
+  deliverPending(bindingId: string, adapter: HarnessMessageAdapter): Promise<number>;
+}
 
-  /** Analyze first; the harness drafts writebacks from this report before submitting refine. */
-  analyzeRefineCorpus(): Promise<{ report: string }> {
-    return this.ports.corpus.analyzeRefineCorpus();
+/** Bind the shared Thread workflow to a daemon client and native harness ports. */
+export function createHarnessThreadController(
+  client: HarnessThreadClient,
+  ports: HarnessWorkflowPorts,
+): HarnessThreadController {
+  function analyzeRefineCorpus(): Promise<{ report: string }> {
+    return ports.corpus.analyzeRefineCorpus();
   }
 
   /** Open any workflow through the same Thread lifecycle and built-in panels. */
-  async openWorkflow(input: HarnessWorkflowRequest): Promise<OpenedWorkflow> {
+  async function openWorkflow(input: HarnessWorkflowRequest): Promise<OpenedWorkflow> {
     if (input.workflow === "review") {
       const cwd = input.cwd ?? input.workspace?.repoRoot;
-      const imported = await this.ports.forge.importPullRequest(input.pullRequestReference, cwd);
-      const review = await openReview(this.client, {
+      const imported = await ports.forge.importPullRequest(input.pullRequestReference, cwd);
+      const review = await openReview(client, {
         type: "diff",
         workflow: "review",
         content: imported.content,
@@ -153,13 +158,9 @@ export class HarnessThreadController {
         agent: input.harness,
         agentSessionId: input.harnessSessionId,
       });
-      const binding = await this.client.harnessBind(
-        review.id,
-        input.harness,
-        input.harnessSessionId,
-      );
+      const binding = await client.harnessBind(review.id, input.harness, input.harnessSessionId);
 
-      const manualOpenCommand = await this.openThreadSurface(review.session, "changes");
+      const manualOpenCommand = await openThreadSurface(review.session, "changes");
 
       return {
         binding,
@@ -171,7 +172,7 @@ export class HarnessThreadController {
       };
     }
     if (input.workflow === "refine") {
-      const review = await openReview(this.client, {
+      const review = await openReview(client, {
         type: "plan",
         workflow: "refine",
         content: input.proposal,
@@ -180,13 +181,9 @@ export class HarnessThreadController {
         agent: input.harness,
         agentSessionId: input.harnessSessionId,
       });
-      const binding = await this.client.harnessBind(
-        review.id,
-        input.harness,
-        input.harnessSessionId,
-      );
+      const binding = await client.harnessBind(review.id, input.harness, input.harnessSessionId);
 
-      const manualOpenCommand = await this.openThreadSurface(review.session, "thread");
+      const manualOpenCommand = await openThreadSurface(review.session, "thread");
 
       return {
         binding,
@@ -200,18 +197,19 @@ export class HarnessThreadController {
 
     const panel: ThreadPanel = input.workflow === "diff" ? "changes" : "thread";
     const bound =
-      input.workflow === "plan"
-        ? await this.openPlanThread(input)
-        : await this.openArtifactWorkflow(input);
+      input.workflow === "plan" ? await openPlanThread(input) : await openArtifactWorkflow(input);
 
-    const manualOpenCommand = await this.openThreadSurface(bound.thread, panel);
+    const manualOpenCommand = await openThreadSurface(bound.thread, panel);
 
     return { ...bound, workflow: input.workflow, panel, manualOpenCommand };
   }
 
-  private async openThreadSurface(thread: Thread, panel: ThreadPanel): Promise<string | undefined> {
+  async function openThreadSurface(
+    thread: Thread,
+    panel: ThreadPanel,
+  ): Promise<string | undefined> {
     try {
-      const result = await this.ports.surface.openThreads(thread.id, panel, thread);
+      const result = await ports.surface.openThreads(thread.id, panel, thread);
 
       return result === "failed" || result === "unavailable" || result === "disabled"
         ? manualThreadOpenCommand(thread.id)
@@ -221,8 +219,8 @@ export class HarnessThreadController {
     }
   }
 
-  private async openArtifactWorkflow(input: ArtifactWorkflowRequest): Promise<BoundThread> {
-    const review = await openReview(this.client, {
+  async function openArtifactWorkflow(input: ArtifactWorkflowRequest): Promise<BoundThread> {
+    const review = await openReview(client, {
       type: input.workflow,
       workflow: input.workflow,
       content: input.content,
@@ -233,13 +231,13 @@ export class HarnessThreadController {
       title: input.title,
       files: input.files,
     });
-    const binding = await this.client.harnessBind(review.id, input.harness, input.harnessSessionId);
+    const binding = await client.harnessBind(review.id, input.harness, input.harnessSessionId);
 
     return { binding, thread: review.session, approvedRetry: false };
   }
 
   /** Open the first plan Thread or revise the one already bound to this harness session. */
-  async openPlanThread(input: OpenPlanThreadInput): Promise<BoundThread> {
+  async function openPlanThread(input: OpenPlanThreadInput): Promise<BoundThread> {
     const options = {
       type: "plan",
       workflow: "plan",
@@ -249,19 +247,15 @@ export class HarnessThreadController {
       agent: input.harness,
       agentSessionId: input.harnessSessionId,
     } as const;
-    const existing = await findExistingReview(this.client, options);
+    const existing = await findExistingReview(client, options);
 
     if (
       existing?.status === "resolved" &&
       existing.message?.outcome === "approved" &&
       existing.artifact.content === input.content
     ) {
-      const binding = await this.client.harnessBind(
-        existing.id,
-        input.harness,
-        input.harnessSessionId,
-      );
-      const approvedRetry = await this.client.harnessConsumeApprovedRetry(
+      const binding = await client.harnessBind(existing.id, input.harness, input.harnessSessionId);
+      const approvedRetry = await client.harnessConsumeApprovedRetry(
         binding.id,
         existing.message.id,
         input.content,
@@ -270,21 +264,24 @@ export class HarnessThreadController {
       if (approvedRetry) return { binding, thread: existing, approvedRetry: true };
     }
 
-    const review = await openReview(this.client, options);
-    const binding = await this.client.harnessBind(review.id, input.harness, input.harnessSessionId);
+    const review = await openReview(client, options);
+    const binding = await client.harnessBind(review.id, input.harness, input.harnessSessionId);
 
     return { binding, thread: review.session, approvedRetry: false };
   }
 
   /** Deliver every pending Message in order, acknowledging only after native injection succeeds. */
-  async deliverPending(bindingId: string, adapter: HarnessMessageAdapter): Promise<number> {
-    const binding = await this.client.harnessGetBinding(bindingId);
-    const thread = await this.client.sessionGet(binding.threadId);
-    const pending = await this.client.deliveryPending(bindingId);
+  async function deliverPending(
+    bindingId: string,
+    adapter: HarnessMessageAdapter,
+  ): Promise<number> {
+    const binding = await client.harnessGetBinding(bindingId);
+    const thread = await client.sessionGet(binding.threadId);
+    const pending = await client.deliveryPending(bindingId);
 
     for (const item of pending) {
       if (thread.artifact.meta.pr) {
-        await this.ports.forge.postPullRequestMessage(
+        await ports.forge.postPullRequestMessage(
           thread.artifact.meta.pr,
           item.message,
           thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
@@ -292,9 +289,11 @@ export class HarnessThreadController {
       }
 
       await adapter.sendMessage(item.message);
-      await this.client.deliveryAcknowledge(item.delivery.id);
+      await client.deliveryAcknowledge(item.delivery.id);
     }
 
     return pending.length;
   }
+
+  return { analyzeRefineCorpus, openWorkflow, openPlanThread, deliverPending };
 }

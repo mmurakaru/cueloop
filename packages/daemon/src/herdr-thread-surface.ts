@@ -6,11 +6,29 @@ import {
   type Thread,
   type ThreadSurfaceOpenStatus,
 } from "@cueloop/schema";
+import { spawnSync } from "node:child_process";
 import * as v from "valibot";
 import type { HerdrThreadSurfaceHandle } from "./herdr-thread-surface-store";
 import { loadHerdrThreadSurface, type HerdrThreadSurface } from "./thread-surface-config";
 
 const HERDR_SPAWN_TIMEOUT_MS = 2000;
+
+interface HerdrCommandResult {
+  exitCode: number;
+  stdout: Buffer;
+}
+
+function runHerdrCommand(
+  command: string[],
+  options: { stdout: "pipe" | "ignore"; stderr: "ignore"; timeout: number },
+): HerdrCommandResult {
+  const result = spawnSync(command[0]!, command.slice(1), {
+    stdio: ["ignore", options.stdout, options.stderr],
+    timeout: options.timeout,
+  });
+
+  return { exitCode: result.status ?? 1, stdout: result.stdout ?? Buffer.alloc(0) };
+}
 const CreatedTabSchema = v.object({
   result: v.optional(
     v.object({
@@ -59,7 +77,7 @@ export function openHerdrThreadTab(
   const { sessionId, cwd, binPath, label, workspaceId } = options;
 
   try {
-    const created = Bun.spawnSync(
+    const created = runHerdrCommand(
       [
         binPath,
         "tab",
@@ -111,7 +129,7 @@ export function openHerdrThreadPane(
   const { sessionId, cwd, binPath, sourcePaneId, tabId } = options;
 
   try {
-    const created = Bun.spawnSync(
+    const created = runHerdrCommand(
       [
         binPath,
         "pane",
@@ -147,7 +165,7 @@ export function openHerdrThreadPane(
 
 function closeUnlaunchedHerdrSurface(binPath: string, kind: "tab" | "pane", id: string): void {
   try {
-    Bun.spawnSync([binPath, kind, "close", id], {
+    runHerdrCommand([binPath, kind, "close", id], {
       stdout: "ignore",
       stderr: "ignore",
       timeout: HERDR_SPAWN_TIMEOUT_MS,
@@ -158,14 +176,14 @@ function closeUnlaunchedHerdrSurface(binPath: string, kind: "tab" | "pane", id: 
 }
 
 function sendCueloopThreadCommand(binPath: string, paneId: string, sessionId: string): boolean {
-  const typed = Bun.spawnSync([binPath, "pane", "send-text", paneId, `cueloop ${sessionId}`], {
+  const typed = runHerdrCommand([binPath, "pane", "send-text", paneId, `cueloop ${sessionId}`], {
     stdout: "ignore",
     stderr: "ignore",
     timeout: HERDR_SPAWN_TIMEOUT_MS,
   });
 
   if (typed.exitCode !== 0) return false;
-  const entered = Bun.spawnSync([binPath, "pane", "send-keys", paneId, "enter"], {
+  const entered = runHerdrCommand([binPath, "pane", "send-keys", paneId, "enter"], {
     stdout: "ignore",
     stderr: "ignore",
     timeout: HERDR_SPAWN_TIMEOUT_MS,
@@ -177,7 +195,7 @@ function sendCueloopThreadCommand(binPath: string, paneId: string, sessionId: st
 /** Check the recorded pane ID before deciding whether to reopen. */
 function herdrPaneAlive(binPath: string, paneId: string): boolean {
   try {
-    const got = Bun.spawnSync([binPath, "pane", "get", paneId], {
+    const got = runHerdrCommand([binPath, "pane", "get", paneId], {
       stdout: "pipe",
       stderr: "ignore",
       timeout: HERDR_SPAWN_TIMEOUT_MS,
@@ -195,7 +213,7 @@ function herdrPaneAlive(binPath: string, paneId: string): boolean {
 /** Focus a recorded Herdr tab. */
 function focusHerdrTab(binPath: string, tabId: string): boolean {
   try {
-    const focused = Bun.spawnSync([binPath, "tab", "focus", tabId], {
+    const focused = runHerdrCommand([binPath, "tab", "focus", tabId], {
       stdout: "ignore",
       stderr: "ignore",
       timeout: HERDR_SPAWN_TIMEOUT_MS,
@@ -229,7 +247,7 @@ function focusHerdrThreadSurface(binPath: string, handle: HerdrThreadSurfaceHand
       hasNeighbor = true;
 
       if (herdrPaneNeighbor(binPath, neighbor, opposite) !== handle.paneId) continue;
-      const focused = Bun.spawnSync(
+      const focused = runHerdrCommand(
         [binPath, "pane", "focus", "--pane", neighbor, "--direction", opposite],
         { stdout: "pipe", stderr: "ignore", timeout: HERDR_SPAWN_TIMEOUT_MS },
       );
@@ -256,7 +274,7 @@ function herdrPaneNeighbor(
   direction: string,
 ): string | null | undefined {
   try {
-    const neighbor = Bun.spawnSync(
+    const neighbor = runHerdrCommand(
       [binPath, "pane", "neighbor", "--pane", paneId, "--direction", direction],
       { stdout: "pipe", stderr: "ignore", timeout: HERDR_SPAWN_TIMEOUT_MS },
     );

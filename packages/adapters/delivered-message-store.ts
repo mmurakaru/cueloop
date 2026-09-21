@@ -17,33 +17,35 @@ const DeliveredMessageIdsSchema = v.array(v.pipe(v.string(), v.minLength(1)));
 const FileErrorSchema = v.object({ code: v.string() });
 
 /** Persisted IDs make a successful native send harmless to repeat after an ack failure. */
-export class DeliveredMessageStore {
-  constructor(private readonly path: string) {
-    this.load();
-  }
+export interface DeliveredMessageStore {
+  sendOnce(message: Message, inject: (message: Message) => void | Promise<void>): Promise<void>;
+}
 
+/** Keep native Message injection idempotent across adapter reloads. */
+export function createDeliveredMessageStore(path: string): DeliveredMessageStore {
+  load();
   /** Call native injection once per Message ID; record success before daemon acknowledgement. */
-  async sendOnce(
+  async function sendOnce(
     message: Message,
     inject: (message: Message) => void | Promise<void>,
   ): Promise<void> {
-    const unlock = await this.lock();
+    const unlock = await lock();
 
     try {
-      const ids = new Set(this.load());
+      const ids = new Set(load());
 
       if (ids.has(message.id)) return;
 
       await inject(message);
       ids.add(message.id);
-      this.persist(ids);
+      persist(ids);
     } finally {
       unlock();
     }
   }
 
-  private async lock(): Promise<() => void> {
-    const lockPath = this.path + ".lock";
+  async function lock(): Promise<() => void> {
+    const lockPath = path + ".lock";
     const deadline = Date.now() + 30_000;
 
     for (;;) {
@@ -65,16 +67,16 @@ export class DeliveredMessageStore {
         const parsed = v.safeParse(FileErrorSchema, error);
 
         if (!parsed.success || parsed.output.code !== "EEXIST") throw error;
-        if (this.reapAbandonedLock(lockPath)) continue;
+        if (reapAbandonedLock(lockPath)) continue;
         if (Date.now() >= deadline)
-          throw new Error(`timed out waiting for Message journal ${this.path}`);
+          throw new Error(`timed out waiting for Message journal ${path}`, { cause: error });
 
-        await Bun.sleep(25);
+        await new Promise((resolve) => setTimeout(resolve, 25));
       }
     }
   }
 
-  private reapAbandonedLock(lockPath: string): boolean {
+  function reapAbandonedLock(lockPath: string): boolean {
     try {
       const before = statSync(lockPath);
       const ownerPid = Number(readFileSync(lockPath, "utf8"));
@@ -102,18 +104,18 @@ export class DeliveredMessageStore {
     }
   }
 
-  private persist(ids: Set<string>): void {
-    const temporaryPath = `${this.path}.${process.pid}.${crypto.randomUUID()}.tmp`;
+  function persist(ids: Set<string>): void {
+    const temporaryPath = `${path}.${process.pid}.${crypto.randomUUID()}.tmp`;
 
     writeFileSync(temporaryPath, JSON.stringify([...ids]));
-    renameSync(temporaryPath, this.path);
+    renameSync(temporaryPath, path);
   }
 
-  private load(): string[] {
+  function load(): string[] {
     let serialized: string;
 
     try {
-      serialized = readFileSync(this.path, "utf8");
+      serialized = readFileSync(path, "utf8");
     } catch (error) {
       const parsed = v.safeParse(FileErrorSchema, error);
 
@@ -124,4 +126,6 @@ export class DeliveredMessageStore {
 
     return v.parse(DeliveredMessageIdsSchema, JSON.parse(serialized));
   }
+
+  return { sendOnce };
 }

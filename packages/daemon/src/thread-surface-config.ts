@@ -3,6 +3,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { parse as parseToml } from "smol-toml";
 import * as v from "valibot";
 
 /** Placement of a cueloop Thread inside Herdr. */
@@ -53,10 +54,7 @@ function loadPersonalThreadSurfaceConfig(userConfigPath?: string) {
   if (!existsSync(path)) return null;
 
   try {
-    const parsed = v.safeParse(
-      PersonalThreadSurfaceSchema,
-      Bun.TOML.parse(readFileSync(path, "utf8")),
-    );
+    const parsed = v.safeParse(PersonalThreadSurfaceSchema, parseToml(readFileSync(path, "utf8")));
 
     return parsed.success ? parsed.output : null;
   } catch {

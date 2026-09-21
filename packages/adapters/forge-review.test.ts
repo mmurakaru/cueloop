@@ -3,8 +3,8 @@ import { chmodSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Message } from "@cueloop/schema";
-import { DeliveredMessageStore } from "./delivered-message-store";
-import { GitHubForgeReviewPort } from "./forge-review";
+import { createDeliveredMessageStore } from "./delivered-message-store";
+import { createGitHubForgeReviewPort } from "./forge-review";
 
 const home = mkdtempSync(join(tmpdir(), "cueloop-forge-context-"));
 const command = join(home, "fake-gh");
@@ -22,10 +22,10 @@ chmodSync(command, 0o700);
 
 afterAll(() => rmSync(home, { recursive: true, force: true }));
 
-describe("GitHubForgeReviewPort", () => {
+describe("createGitHubForgeReviewPort", () => {
   test("runs both import and post-back in the requested repository", async () => {
-    const port = new GitHubForgeReviewPort(
-      new DeliveredMessageStore(join(home, "delivered.json")),
+    const port = createGitHubForgeReviewPort(
+      createDeliveredMessageStore(join(home, "delivered.json")),
       command,
     );
 

@@ -1,0 +1,43 @@
+{
+  "name": "@cueloop/pi",
+  "version": "0.1.0-alpha.80",
+  "description": "cueloop Thread integration for pi",
+  "keywords": [
+    "pi-package"
+  ],
+  "homepage": "https://github.com/mmurakaru/cueloop#readme",
+  "bugs": {
+    "url": "https://github.com/mmurakaru/cueloop/issues"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mmurakaru/cueloop.git",
+    "directory": "packages/pi"
+  },
+  "files": [
+    "extension.ts",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./extension.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@cueloop/adapters": "0.1.0-alpha.80"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.86.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "pi": {
+    "extensions": [
+      "./extension.ts"
+    ]
+  }
+}
