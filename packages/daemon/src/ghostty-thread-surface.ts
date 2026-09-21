@@ -1,5 +1,8 @@
 /** Open or focus a cueloop Thread through Ghostty's macOS AppleScript API. */
 
+import { spawnSync } from "node:child_process";
+import { accessSync, constants, statSync } from "node:fs";
+import { basename, delimiter, isAbsolute, join } from "node:path";
 import type { Thread, ThreadSurfaceOpenStatus } from "@cueloop/schema";
 import type { GhosttyThreadSurfaceHandle } from "./ghostty-thread-surface-store";
 import { loadGhosttyThreadSurface, type GhosttyThreadSurface } from "./thread-surface-config";
@@ -8,13 +11,13 @@ const APPLESCRIPT_TIMEOUT_MS = 10000;
 const VERSION_SCRIPT = 'tell application "Ghostty" to get version';
 export const GHOSTTY_OPEN_APPLESCRIPT = `on run argv
   set placement to item 1 of argv
-  set threadCommand to item 2 of argv
-  set threadDirectory to item 3 of argv
-  set shellCommand to item 4 of argv
+  set threadDirectory to item 2 of argv
+  set shellCommand to item 3 of argv
   tell application "Ghostty"
     if placement is "tab" then
       set targetWindow to front window
       set beforeCount to count of tabs of targetWindow
+      set beforeIds to id of every tab of targetWindow
       set sourceTerminal to focused terminal of selected tab of targetWindow
       if not (perform action "new_tab" on sourceTerminal) then error "Ghostty rejected new_tab"
       repeat 50 times
@@ -22,46 +25,44 @@ export const GHOSTTY_OPEN_APPLESCRIPT = `on run argv
         delay 0.1
       end repeat
       if (count of tabs of targetWindow) <= beforeCount then error "Ghostty did not create a tab"
-      set createdTab to selected tab of targetWindow
-      try
-        set createdTerminal to focused terminal of createdTab
-        repeat 50 times
-          if (name of createdTerminal) is not "👻" then exit repeat
-          delay 0.1
-        end repeat
-        if (name of createdTerminal) is "👻" then error "Ghostty tab has no shell"
-        input text shellCommand to createdTerminal
-        send key "enter" to createdTerminal
-        focus createdTerminal
-        return id of createdTerminal
-      on error
-        close tab createdTab
-        error "Ghostty tab did not launch the Thread"
-      end try
-    end if
-    set cfg to new surface configuration
-    set initial working directory of cfg to threadDirectory
-    set command of cfg to threadCommand
-    if placement is "window" then
-      set createdWindow to new window with configuration cfg
-      try
+      set newTabs to {}
+      repeat with candidateTab in tabs of targetWindow
+        if (id of candidateTab) is not in beforeIds then set end of newTabs to candidateTab
+      end repeat
+      if (count of newTabs) is not 1 then error "Ghostty tab identity is ambiguous"
+      set createdTab to item 1 of newTabs
+      set createdTerminal to focused terminal of createdTab
+    else
+      set cfg to new surface configuration
+      set initial working directory of cfg to threadDirectory
+      if placement is "window" then
+        set createdWindow to new window with configuration cfg
         set createdTerminal to focused terminal of selected tab of createdWindow
-        focus createdTerminal
-        return id of createdTerminal
-      on error
-        close window createdWindow
-        error "Ghostty window did not launch the Thread"
-      end try
+      else
+        set targetWindow to front window
+        set sourceTerminal to focused terminal of selected tab of targetWindow
+        set createdTerminal to split sourceTerminal direction right with configuration cfg
+      end if
     end if
-    set targetWindow to front window
-    set sourceTerminal to focused terminal of selected tab of targetWindow
-    set createdTerminal to split sourceTerminal direction right with configuration cfg
     try
+      repeat 50 times
+        if (name of createdTerminal) is not "👻" and (name of createdTerminal) is not "" then exit repeat
+        delay 0.1
+      end repeat
+      if (name of createdTerminal) is "👻" or (name of createdTerminal) is "" then error "Ghostty surface has no shell"
+      input text shellCommand to createdTerminal
+      send key "enter" to createdTerminal
       focus createdTerminal
       return id of createdTerminal
     on error
-      close createdTerminal
-      error "Ghostty pane did not launch the Thread"
+      if placement is "tab" then
+        close tab createdTab
+      else if placement is "window" then
+        close window createdWindow
+      else
+        close createdTerminal
+      end if
+      error "Ghostty surface did not launch the Thread"
     end try
   end tell
 end run`;
@@ -77,8 +78,22 @@ const FOCUS_SCRIPT = `on run argv
   end tell
   return "closed"
 end run`;
+const CLOSE_SCRIPT = `on run argv
+  set targetId to item 1 of argv
+  tell application "Ghostty"
+    repeat with candidate in terminals
+      if (id of candidate) is targetId then
+        close candidate
+        return "closed"
+      end if
+    end repeat
+  end tell
+  return "absent"
+end run`;
 
 export interface GhosttyThreadSurfacePersistence {
+  ghosttyClaimThreadSurface(threadId: string): Promise<boolean>;
+  ghosttyReleaseThreadSurface(threadId: string): Promise<void>;
   ghosttyGetThreadSurface(threadId: string): Promise<GhosttyThreadSurfaceHandle | null>;
   ghosttySetThreadSurface(threadId: string, handle: GhosttyThreadSurfaceHandle): Promise<void>;
 }
@@ -89,18 +104,41 @@ export interface GhosttyEnv {
   GHOSTTY_RESOURCES_DIR?: string;
 }
 
+interface GhosttyLaunchResult {
+  status: ThreadSurfaceOpenStatus;
+  retainClaim: boolean;
+}
+
 function runAppleScript(binPath: string, script: string, args: string[] = []): string | null {
   try {
-    const result = Bun.spawnSync([binPath, "-e", script, ...args], {
-      stdout: "pipe",
-      stderr: "ignore",
+    const result = spawnSync(binPath, ["-e", script, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
       timeout: APPLESCRIPT_TIMEOUT_MS,
     });
 
-    return result.exitCode === 0 ? result.stdout.toString().trim() : null;
+    return result.status === 0 ? result.stdout.trim() : null;
   } catch {
     return null;
   }
+}
+
+function resolveCueloopExecutable(): string | null {
+  if (basename(process.execPath) === "cueloop") return process.execPath;
+
+  for (const entry of process.env.PATH?.split(delimiter) ?? []) {
+    if (!isAbsolute(entry)) continue;
+    const candidate = join(entry, "cueloop");
+
+    try {
+      accessSync(candidate, constants.X_OK);
+      if (statSync(candidate).isFile()) return candidate;
+    } catch {
+      // A PATH entry without an executable cannot launch the Thread.
+    }
+  }
+
+  return null;
 }
 
 function shellQuote(value: string): string {
@@ -131,41 +169,85 @@ export async function openGhosttyThreadSurface(
   mode: GhosttyThreadSurface = loadGhosttyThreadSurface(),
   binPath = "osascript",
   platform: NodeJS.Platform = process.platform,
+  cueloopBinPath?: string | null,
 ): Promise<ThreadSurfaceOpenStatus> {
   if (platform !== "darwin" || !insideGhostty(env)) return "unavailable";
   if (mode === "none") return "disabled";
   if (!supportsGhosttyAppleScript(runAppleScript(binPath, VERSION_SCRIPT))) return "failed";
 
-  let recorded: GhosttyThreadSurfaceHandle | null = null;
+  try {
+    if (!(await persistence.ghosttyClaimThreadSurface(thread.id))) return "failed";
+  } catch {
+    return "failed";
+  }
+
+  let result: GhosttyLaunchResult;
+
+  try {
+    result = await openClaimedGhosttyThreadSurface(
+      thread,
+      persistence,
+      mode,
+      binPath,
+      cueloopBinPath,
+    );
+  } catch {
+    result = { status: "failed", retainClaim: true };
+  }
+
+  if (result.retainClaim) return "failed";
+
+  try {
+    await persistence.ghosttyReleaseThreadSurface(thread.id);
+  } catch {
+    return "failed";
+  }
+
+  return result.status;
+}
+
+async function openClaimedGhosttyThreadSurface(
+  thread: Thread,
+  persistence: GhosttyThreadSurfacePersistence,
+  mode: Exclude<GhosttyThreadSurface, "none">,
+  binPath: string,
+  cueloopBinPath?: string | null,
+): Promise<GhosttyLaunchResult> {
+  let recorded: GhosttyThreadSurfaceHandle | null;
 
   try {
     recorded = await persistence.ghosttyGetThreadSurface(thread.id);
   } catch {
-    // A stale daemon must not hide the pending Thread.
+    return { status: "failed", retainClaim: false };
   }
 
   if (recorded) {
     const result = runAppleScript(binPath, FOCUS_SCRIPT, [recorded.terminalId]);
 
-    if (result === "focused") return "focused";
-    if (result !== "closed") return "failed";
+    if (result === "focused") return { status: "focused", retainClaim: false };
+    if (result !== "closed") return { status: "failed", retainClaim: false };
   }
+
+  const executable = cueloopBinPath === undefined ? resolveCueloopExecutable() : cueloopBinPath;
+
+  if (!executable) return { status: "failed", retainClaim: false };
 
   const cwd = thread.artifact.meta.cwd ?? thread.workspace.repoRoot;
   const terminalId = runAppleScript(binPath, GHOSTTY_OPEN_APPLESCRIPT, [
     mode,
-    `cueloop ${thread.id}`,
     cwd,
-    `cd -- ${shellQuote(cwd)} && cueloop ${shellQuote(thread.id)}`,
+    `cd -- ${shellQuote(cwd)} && ${shellQuote(executable)} ${shellQuote(thread.id)}`,
   ]);
 
-  if (!terminalId) return "failed";
+  if (!terminalId) return { status: "failed", retainClaim: false };
 
   try {
     await persistence.ghosttySetThreadSurface(thread.id, { terminalId });
   } catch {
-    // Opening is best-effort; a later request can still use the manual command.
+    const closed = runAppleScript(binPath, CLOSE_SCRIPT, [terminalId]);
+
+    return { status: "failed", retainClaim: closed !== "closed" && closed !== "absent" };
   }
 
-  return "opened";
+  return { status: "opened", retainClaim: false };
 }

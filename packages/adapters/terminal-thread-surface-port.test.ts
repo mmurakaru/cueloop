@@ -32,6 +32,8 @@ test("Herdr owns the placement when nested inside Ghostty", async () => {
     herdrSetThreadSurface: async () => {},
     ghosttyGetThreadSurface: async () => null,
     ghosttySetThreadSurface: async () => {},
+    ghosttyClaimThreadSurface: async () => true,
+    ghosttyReleaseThreadSurface: async () => {},
   };
   const port = createTerminalThreadSurfacePort(
     persistence,

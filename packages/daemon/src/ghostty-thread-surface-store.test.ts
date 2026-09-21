@@ -33,4 +33,17 @@ describe("GhosttyThreadSurfaceStore", () => {
 
     expect(new GhosttyThreadSurfaceStore(home).get("ses_one")).toBeNull();
   });
+
+  test("reserves a Thread before launch and fails closed across daemon restart", () => {
+    const store = new GhosttyThreadSurfaceStore(home);
+
+    expect(store.claim("ses_one")).toBe(true);
+    expect(store.claim("ses_one")).toBe(false);
+    expect(new GhosttyThreadSurfaceStore(home).claim("ses_one")).toBe(false);
+    store.set("ses_one", { terminalId: "term-1" });
+    expect(new GhosttyThreadSurfaceStore(home).claim("ses_one")).toBe(true);
+    store.release("ses_one");
+    expect(new GhosttyThreadSurfaceStore(home).get("ses_one")).toEqual({ terminalId: "term-1" });
+    expect(new GhosttyThreadSurfaceStore(home).claim("ses_one")).toBe(true);
+  });
 });

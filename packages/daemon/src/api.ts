@@ -158,6 +158,14 @@ export class DaemonCore {
     this.ghosttyThreadSurfaces.set(sessionId, handle);
   }
 
+  ghosttyClaimThreadSurface(sessionId: string): boolean {
+    return this.ghosttyThreadSurfaces.claim(sessionId);
+  }
+
+  ghosttyReleaseThreadSurface(sessionId: string): void {
+    this.ghosttyThreadSurfaces.release(sessionId);
+  }
+
   harnessBind(input: {
     threadId: string;
     harness: string;

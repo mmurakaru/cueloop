@@ -612,6 +612,12 @@ export class DaemonClient implements ThreadClient {
   async ghosttySetThreadSurface(id: string, handle: GhosttyThreadSurfaceHandle): Promise<void> {
     await this.request("ghostty.setThreadSurface", { id, ...handle }, EmptyResultSchema);
   }
+  ghosttyClaimThreadSurface(id: string): Promise<boolean> {
+    return this.request("ghostty.claimThreadSurface", { id }, v.boolean());
+  }
+  async ghosttyReleaseThreadSurface(id: string): Promise<void> {
+    await this.request("ghostty.releaseThreadSurface", { id }, EmptyResultSchema);
+  }
   shutdown(): Promise<void> {
     return this.request("daemon.shutdown", {}, EmptyResultSchema).then(() => undefined);
   }

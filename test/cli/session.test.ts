@@ -339,12 +339,77 @@ describe("cueloop session (black box)", () => {
 
     try {
       expect(await client.ghosttyGetThreadSurface(session.id)).toBeNull();
+      expect(await client.ghosttyClaimThreadSurface(session.id)).toBe(true);
+      expect(await client.ghosttyClaimThreadSurface(session.id)).toBe(false);
       await client.ghosttySetThreadSurface(session.id, { terminalId: "term-1" });
+      await client.ghosttyReleaseThreadSurface(session.id);
       expect(await client.ghosttyGetThreadSurface(session.id)).toEqual({ terminalId: "term-1" });
     } finally {
       client.close();
     }
   });
+
+  test.skipIf(process.platform !== "darwin")(
+    "a Ghostty-backed CLI creation opens the pending Thread and stores its native handle",
+    async () => {
+      const binDir = join(home, "ghostty-bin");
+      const scriptPath = join(binDir, "osascript");
+      const logPath = join(binDir, "opens.log");
+
+      mkdirSync(binDir, { recursive: true });
+      writeFileSync(join(binDir, "cueloop"), "#!/bin/sh\nexit 0\n");
+      chmodSync(join(binDir, "cueloop"), 0o755);
+      writeFileSync(
+        scriptPath,
+        `#!/bin/sh
+if [ "$2" = 'tell application "Ghostty" to get version' ]; then
+  printf '1.3.1\\n'
+  exit 0
+fi
+printf '%s|%s|%s\\n' "$3" "$4" "$5" >> "${logPath}"
+if [ "$GHOSTTY_STUB_FAIL" = "1" ]; then exit 1; fi
+printf 'term-1\\n'
+`,
+      );
+      chmodSync(scriptPath, 0o755);
+      const env = {
+        TERM_PROGRAM: "ghostty",
+        GHOSTTY_RESOURCES_DIR: "/Applications/Ghostty.app",
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+      };
+      const created = await runCli(
+        home,
+        ["session", "create", "--type", "plan", "--title", "Ghostty Open"],
+        PLAN,
+        env,
+      );
+      const session = cliJson<Thread>(created);
+      const client = await DaemonClient.connect({ home });
+
+      try {
+        expect(created.code).toBe(0);
+        expect(created.stderr).not.toContain("Open cueloop threads:");
+        expect(session.status).toBe("pending");
+        expect(await client.ghosttyGetThreadSurface(session.id)).toEqual({ terminalId: "term-1" });
+        expect(readFileSync(logPath, "utf8")).toContain(`tab|`);
+
+        const failed = await runCli(
+          home,
+          ["session", "create", "--type", "plan", "--title", "Ghostty Fallback"],
+          PLAN,
+          { ...env, GHOSTTY_STUB_FAIL: "1" },
+        );
+        const failedThread = cliJson<Thread>(failed);
+
+        expect(failed.code).toBe(0);
+        expect(failed.stderr).toContain(`Open cueloop threads: cueloop ${failedThread.id}`);
+        expect(failedThread.status).toBe("pending");
+        expect(await client.ghosttyGetThreadSurface(failedThread.id)).toBeNull();
+      } finally {
+        client.close();
+      }
+    },
+  );
 
   test("create outside herdr opens no tab", async () => {
     // Arrange
