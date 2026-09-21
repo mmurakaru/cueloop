@@ -1,5 +1,30 @@
 # cueloop
 
+## 0.1.0-alpha.80
+
+### Minor Changes
+
+- [#487](https://github.com/mmurakaru/cueloop/pull/487) [`bdf6d30`](https://github.com/mmurakaru/cueloop/commit/bdf6d303f03cbedb02d50dea84a95105a9758c26) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add one shared Thread workflow contract for plan, reply, prototype, diff, review,
+  and refine. Review imports and posts PR Messages through a shared forge port;
+  refine shares corpus analysis with the CLI. Shared skills leave native message
+  delivery to each harness adapter.
+
+- [#487](https://github.com/mmurakaru/cueloop/pull/487) [`bdf6d30`](https://github.com/mmurakaru/cueloop/commit/bdf6d303f03cbedb02d50dea84a95105a9758c26) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add durable harness bindings and Message delivery for Threads. The daemon and
+  CLI now send stable-ID Messages with `approved` or `changes_requested` outcomes,
+  and harness adapters can redeliver safely until native injection is acknowledged.
+  An unchanged approved plan has one persisted retry, and adapter Message IDs are
+  journaled across reloads.
+  The TUI uses `Send message (n)`, and active code and commands use Thread and
+  Message names without the pre-alpha decision aliases.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.80
+  - @cueloop/client@0.1.0-alpha.80
+  - @cueloop/daemon@0.1.0-alpha.80
+  - @cueloop/schema@0.1.0-alpha.80
+
 ## 0.1.0-alpha.79
 
 ### Minor Changes
