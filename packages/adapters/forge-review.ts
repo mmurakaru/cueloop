@@ -3,7 +3,7 @@
 import { spawn } from "node:child_process";
 import type { Message, MessageOutcome } from "@cueloop/schema";
 import type { ForgeReviewPort } from "./harness-thread-controller";
-import { DeliveredMessageStore } from "./delivered-message-store";
+import type { DeliveredMessageStore } from "./delivered-message-store";
 
 interface ForgeCommandResult {
   code: number;
@@ -41,18 +41,13 @@ async function runForgeCommand(
   });
 }
 
-/** Uses the user's authenticated gh CLI and journals successful post-back by Message ID. */
-export class GitHubForgeReviewPort implements ForgeReviewPort {
-  constructor(
-    private readonly delivered: DeliveredMessageStore,
-    private readonly command = "gh",
-  ) {}
-
-  async importPullRequest(
+/** Use the authenticated gh CLI and journal successful post-back by Message ID. */
+export function createGitHubForgeReviewPort(delivered: DeliveredMessageStore, command = "gh") {
+  async function importPullRequest(
     pullRequestReference: string,
     cwd?: string,
   ): Promise<{ content: string; title: string }> {
-    const result = await runForgeCommand(this.command, ["pr", "diff", pullRequestReference], cwd);
+    const result = await runForgeCommand(command, ["pr", "diff", pullRequestReference], cwd);
 
     if (result.code !== 0) {
       throw new Error(
@@ -66,14 +61,14 @@ export class GitHubForgeReviewPort implements ForgeReviewPort {
     return { content: result.stdout, title: `PR ${pullRequestReference}` };
   }
 
-  async postPullRequestMessage(
+  async function postPullRequestMessage(
     pullRequestReference: string,
     message: Message,
     cwd?: string,
   ): Promise<void> {
     const inject = async () => {
       const result = await runForgeCommand(
-        this.command,
+        command,
         [
           "pr",
           "review",
@@ -93,6 +88,8 @@ export class GitHubForgeReviewPort implements ForgeReviewPort {
       }
     };
 
-    await this.delivered.sendOnce(message, inject);
+    await delivered.sendOnce(message, inject);
   }
+
+  return { importPullRequest, postPullRequestMessage } satisfies ForgeReviewPort;
 }

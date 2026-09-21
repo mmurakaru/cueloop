@@ -30,19 +30,24 @@ export interface RefineCorpusAnalysis {
   total: number;
 }
 
-/** Local corpus implementation shared with the refine CLI command. */
-export class LocalRefineCorpusPort implements RefineCorpusPort {
-  constructor(
-    private readonly client: Pick<ThreadSessionClient, "sessionList">,
-    private readonly home = cueloopHome(),
-    private readonly limit?: number,
-  ) {}
+/** The local refine report retains paths and counts beyond the shared port contract. */
+export interface LocalRefineCorpusPort extends RefineCorpusPort {
+  analyzeRefineCorpus(): Promise<RefineCorpusAnalysis>;
+}
 
-  async analyzeRefineCorpus(): Promise<RefineCorpusAnalysis> {
-    const sessions = await this.client.sessionList();
+/** Bind local Thread corpus analysis to the client used by refine workflows. */
+export function createLocalRefineCorpusPort(
+  client: Pick<ThreadSessionClient, "sessionList">,
+  home = cueloopHome(),
+  limit?: number,
+): LocalRefineCorpusPort {
+  return {
+    async analyzeRefineCorpus(): Promise<RefineCorpusAnalysis> {
+      const sessions = await client.sessionList();
 
-    return analyzeRefineCorpus(sessions, this.home, this.limit);
-  }
+      return analyzeRefineCorpus(sessions, home, limit);
+    },
+  };
 }
 
 /** Analyze stored Threads and persist the report without editing their artifacts. */

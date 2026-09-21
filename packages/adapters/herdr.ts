@@ -9,6 +9,7 @@
  */
 
 import { type HerdrEnv, detectHerdr } from "@cueloop/schema";
+import { spawn } from "node:child_process";
 
 export type HerdrAgentState = "blocked" | "working" | "done" | "idle";
 
@@ -53,7 +54,10 @@ export function reportLabel(text: string, env: HerdrEnv = process.env): void {
 
 function spawnQuiet(command: string[]): void {
   try {
-    Bun.spawn(command, { stdio: ["ignore", "ignore", "ignore"] }).unref();
+    const child = spawn(command[0]!, command.slice(1), { stdio: "ignore" });
+
+    child.on("error", () => {});
+    child.unref();
   } catch {
     // best-effort reporting: a missing or broken binary is not our failure
   }

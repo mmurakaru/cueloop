@@ -192,6 +192,10 @@ export class DaemonCore {
     return binding;
   }
 
+  harnessBindingsForSession(harness: string, harnessSessionId: string): HarnessBinding[] {
+    return this.harnessState.bindingsForSession(harness, harnessSessionId);
+  }
+
   harnessConsumeApprovedRetry(bindingId: string, messageId: string, content: string): boolean {
     const binding = this.harnessState.binding(bindingId);
 

@@ -61,6 +61,7 @@ const PRIMITIVE_ROLES = {
   "session.sendMessage": "owner",
   "harness.bind": "owner",
   "harness.getBinding": "owner",
+  "harness.bindingsForSession": "owner",
   "harness.consumeApprovedRetry": "owner",
   "delivery.pending": "owner",
   "delivery.acknowledge": "owner",

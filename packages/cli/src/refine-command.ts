@@ -1,7 +1,10 @@
 /** CLI wrapper around the shared corpus analysis used by harness refine workflows. */
 
 import { cueloopHome } from "@cueloop/daemon/paths";
-import { LocalRefineCorpusPort } from "@cueloop/adapters/refine-corpus";
+import {
+  createLocalRefineCorpusPort,
+  type RefineCorpusAnalysis,
+} from "@cueloop/adapters/refine-corpus";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { parseArgs, stringFlag } from "./args";
 
@@ -11,10 +14,10 @@ export async function refineCommand(argv: string[]): Promise<number> {
   const home = stringFlag(flags, "home") ?? cueloopHome();
   const rawLimit = stringFlag(flags, "limit");
   const client = await DaemonClient.connect({ home, autostart: true });
-  let result: Awaited<ReturnType<LocalRefineCorpusPort["analyzeRefineCorpus"]>>;
+  let result: RefineCorpusAnalysis;
 
   try {
-    const corpus = new LocalRefineCorpusPort(
+    const corpus = createLocalRefineCorpusPort(
       client,
       home,
       rawLimit === undefined ? undefined : Number(rawLimit),

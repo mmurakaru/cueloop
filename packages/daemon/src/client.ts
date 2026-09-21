@@ -4,7 +4,19 @@
  * autostart spawns a detached daemon when the socket is dead, then attaches.
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
+import {
+  appendFileSync,
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  rmSync,
+} from "node:fs";
+import { createConnection } from "node:net";
+import { join } from "node:path";
 import * as v from "valibot";
 import type {
   Annotation,
@@ -154,6 +166,7 @@ export interface ThreadClient {
     harnessSessionId: string,
   ): Promise<HarnessBinding>;
   harnessGetBinding?(bindingId: string): Promise<HarnessBinding>;
+  harnessBindingsForSession?(harness: string, harnessSessionId: string): Promise<HarnessBinding[]>;
   harnessConsumeApprovedRetry?(
     bindingId: string,
     messageId: string,
@@ -192,8 +205,9 @@ function readOwnerToken(home: string): string | undefined {
 }
 
 export class DaemonClient implements ThreadClient {
-  private socket: Awaited<ReturnType<typeof Bun.connect>> | null = null;
+  private socket: { end(): void } | null = null;
   private writer: BackpressureWriter | null = null;
+  private connectionEpoch = 0;
   private pending = new Map<number, PendingRequest>();
   /** The connected daemon's build version and pid, learned from the ping handshake. */
   private daemonVersion: string | undefined;
@@ -260,11 +274,12 @@ export class DaemonClient implements ThreadClient {
     // the old daemon removes its socket in stop(); wait so the new one binds cleanly
     const deadline = Date.now() + 5_000;
 
-    while (Date.now() < deadline && existsSync(path)) await Bun.sleep(50);
+    while (Date.now() < deadline && existsSync(path)) await sleep(50);
   }
 
   /** Reset per-connection state so a fresh dial() can reuse this client instance. */
   private resetConnection(): void {
+    this.connectionEpoch += 1;
     this.socket = null;
     this.writer = null;
     this.closed = false;
@@ -275,47 +290,95 @@ export class DaemonClient implements ThreadClient {
 
   /** Spawn a detached daemon and dial the lock owner until it answers. */
   private async attachFreshDaemon(home: string, path: string): Promise<DaemonClient> {
-    spawnDaemon(home);
+    const startupLogPath = spawnDaemon(home);
     // Generous: a cold or loaded machine pays for a runtime start before the
     // socket exists, and giving up early looks to callers like a broken daemon.
     const deadline = Date.now() + Number(process.env.CUELOOP_START_TIMEOUT_MS ?? 30_000);
     let lastError: unknown;
 
-    while (Date.now() < deadline) {
-      try {
-        await this.dial(path);
+    try {
+      while (Date.now() < deadline) {
+        try {
+          await this.dial(path);
+          if (this.daemonVersion !== DAEMON_VERSION) {
+            this.close();
+            if (typeof Bun === "undefined") {
+              throw new DaemonClientError(
+                "version_mismatch",
+                `installed cueloop is ${this.daemonVersion ?? "unknown"}, but this adapter is ${DAEMON_VERSION}; run cueloop update`,
+              );
+            }
 
-        return this;
-      } catch (err) {
-        lastError = err;
-        await Bun.sleep(50);
+            throw new Error("daemon autostarted an older build");
+          }
+
+          return this;
+        } catch (err) {
+          if (err instanceof DaemonClientError) throw err;
+          this.socket?.end();
+          this.resetConnection();
+          lastError = err;
+          await sleep(50);
+        }
       }
+      const output = readFileSync(startupLogPath, "utf8").trim();
+      const detail = output ? `\ndaemon startup output:\n${output.slice(-4_096)}` : "";
+
+      throw new Error(`daemon did not come up at ${path}: ${String(lastError)}${detail}`);
+    } finally {
+      rmSync(startupLogPath, { force: true });
     }
-    throw new Error(`daemon did not come up at ${path}: ${String(lastError)}`);
   }
 
   private async dial(path: string): Promise<void> {
     const buffer = new LineBuffer();
+    const epoch = ++this.connectionEpoch;
 
-    this.socket = await Bun.connect({
-      unix: path,
-      socket: {
-        data: (_socket, data) => {
-          buffer.push(data.toString(), (line) => this.routeInboundFrame(line));
+    const close = () => {
+      if (this.connectionEpoch !== epoch) return;
+      this.closed = true;
+      for (const pendingRequest of this.pending.values())
+        pendingRequest.reject(new Error("daemon connection closed"));
+      this.pending.clear();
+    };
+
+    if (typeof Bun !== "undefined") {
+      const socket = await Bun.connect({
+        unix: path,
+        socket: {
+          data: (_socket, data) => {
+            buffer.push(data.toString(), (line) => this.routeInboundFrame(line));
+          },
+          drain: () => this.writer?.drain(),
+          close,
+          error() {},
         },
-        drain: () => {
-          this.writer?.drain();
+      });
+
+      this.socket = socket;
+      this.writer = new BackpressureWriter(socket);
+    } else {
+      const socket = createConnection(path);
+
+      await new Promise<void>((resolve, reject) => {
+        socket.once("connect", resolve);
+        socket.once("error", reject);
+      });
+      socket.on("data", (data) => {
+        buffer.push(data.toString(), (line) => this.routeInboundFrame(line));
+      });
+      socket.on("close", close);
+      socket.on("error", () => {});
+      this.socket = socket;
+      // Node queues the complete Buffer internally when write returns false.
+      this.writer = new BackpressureWriter({
+        write(data) {
+          socket.write(data);
+
+          return data.length;
         },
-        close: () => {
-          this.closed = true;
-          for (const pendingRequest of this.pending.values())
-            pendingRequest.reject(new Error("daemon connection closed"));
-          this.pending.clear();
-        },
-        error() {},
-      },
-    });
-    this.writer = new BackpressureWriter(this.socket);
+      });
+    }
     // Verify liveness: a dead socket file accepts connects on some platforms
     // only to fail later, so a ping is the actual handshake. It also carries the
     // daemon's build version and pid, so connect() can replace a stale daemon.
@@ -570,6 +633,13 @@ export class DaemonClient implements ThreadClient {
   harnessGetBinding(bindingId: string): Promise<HarnessBinding> {
     return this.request("harness.getBinding", { bindingId }, HarnessBindingSchema);
   }
+  harnessBindingsForSession(harness: string, harnessSessionId: string): Promise<HarnessBinding[]> {
+    return this.request(
+      "harness.bindingsForSession",
+      { harness, harnessSessionId },
+      v.array(HarnessBindingSchema),
+    );
+  }
   harnessConsumeApprovedRetry(
     bindingId: string,
     messageId: string,
@@ -651,9 +721,37 @@ export function daemonSpawnCommand(
   return devWatch ? [execPath, "--watch", "run", mainPath] : [execPath, "run", mainPath];
 }
 
-function spawnDaemon(home: string): void {
-  Bun.spawn(daemonSpawnCommand(process.execPath, import.meta.url), {
-    env: { ...process.env, CUELOOP_HOME: home },
-    stdio: ["ignore", "ignore", "ignore"],
-  }).unref();
+function spawnDaemon(home: string): string {
+  mkdirSync(home, { recursive: true, mode: 0o700 });
+  const startupLogPath = join(
+    home,
+    `daemon-startup-${process.pid}-${randomBytes(6).toString("hex")}.log`,
+  );
+  const logFd = openSync(startupLogPath, "wx", 0o600);
+
+  try {
+    if (typeof Bun === "undefined") {
+      const child = spawn(process.env.CUELOOP_EXECUTABLE ?? "cueloop", ["daemon", "--autostart"], {
+        env: { ...process.env, CUELOOP_HOME: home },
+        stdio: ["ignore", logFd, logFd],
+        detached: true,
+      });
+
+      child.on("error", (error) => appendFileSync(startupLogPath, `${String(error)}\n`));
+      child.unref();
+    } else {
+      Bun.spawn(daemonSpawnCommand(process.execPath, import.meta.url), {
+        env: { ...process.env, CUELOOP_HOME: home },
+        stdio: ["ignore", logFd, logFd],
+      }).unref();
+    }
+  } finally {
+    closeSync(logFd);
+  }
+
+  return startupLogPath;
+}
+
+function sleep(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs));
 }

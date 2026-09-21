@@ -8,8 +8,8 @@
 
 import type { Thread } from "@cueloop/schema";
 import { join } from "node:path";
-import { GitHubForgeReviewPort } from "@cueloop/adapters/forge-review";
-import { DeliveredMessageStore } from "@cueloop/adapters/delivered-message-store";
+import { createGitHubForgeReviewPort } from "@cueloop/adapters/forge-review";
+import { createDeliveredMessageStore } from "@cueloop/adapters/delivered-message-store";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { cueloopHome } from "@cueloop/daemon/paths";
 import { openReview } from "@cueloop/daemon/thread-review";
@@ -20,9 +20,9 @@ function ghBin(): string {
   return process.env.CUELOOP_GH || "gh";
 }
 
-function forge(): GitHubForgeReviewPort {
-  return new GitHubForgeReviewPort(
-    new DeliveredMessageStore(join(cueloopHome(), "forge-delivered-messages.json")),
+function forge(): ReturnType<typeof createGitHubForgeReviewPort> {
+  return createGitHubForgeReviewPort(
+    createDeliveredMessageStore(join(cueloopHome(), "forge-delivered-messages.json")),
     ghBin(),
   );
 }

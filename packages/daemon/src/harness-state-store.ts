@@ -55,6 +55,12 @@ export class HarnessStateStore {
     return this.bindings.get(id) ?? null;
   }
 
+  bindingsForSession(harness: string, harnessSessionId: string): HarnessBinding[] {
+    return [...this.bindings.values()].filter(
+      (binding) => binding.harness === harness && binding.harnessSessionId === harnessSessionId,
+    );
+  }
+
   consumeApprovedRetry(bindingId: string, messageId: string): boolean {
     const binding = this.bindings.get(bindingId);
 

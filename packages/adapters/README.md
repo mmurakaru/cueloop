@@ -13,7 +13,7 @@ Harness lifecycle event
                            changes panel for diff/review
 ```
 
-`HarnessThreadController.openWorkflow` is the adapter-facing contract for all
+`createHarnessThreadController().openWorkflow` is the adapter-facing contract for all
 six workflows. Plan, reply, and prototype submit Markdown; diff submits a
 working-tree patch; review imports a PR diff and posts its Message to the forge;
 refine first exposes corpus analysis, then submits agent-drafted writeback
@@ -37,7 +37,7 @@ Message to the submitting binding by default and retries an unacknowledged
 delivery after restart. Once an approved Message is acknowledged, the same
 plan may pass through the shared controller unchanged one time. An adapter sends
 the Message through its harness API,
-deduplicates by Message ID with `DeliveredMessageStore`, then acknowledges the delivery.
+deduplicates by Message ID with `createDeliveredMessageStore`, then acknowledges the delivery.
 Native injection should use the Message ID as an idempotency key when the harness
 supports one. Forge post-back also needs a Message ID journal. A crash between
 an external side effect and recording the ID can repeat it; delivery itself is

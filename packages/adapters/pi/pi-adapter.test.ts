@@ -1,22 +1,18 @@
-/** pi adapter integration: the extension factory run against a fake pi API that captures registrations, sendUserMessage wakes, and lifecycle handlers, with request_review driven end to end against a real daemon in a temp CUELOOP_HOME. */
-
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { ARTIFACT_TYPES, type ArtifactType } from "@cueloop/schema";
-import { createCueloopExtension, type RequestReviewParams, type ReviewDetails } from "./index";
+import { WORKFLOW_KINDS } from "@cueloop/schema";
+import { createCueloopExtension, type OpenThreadParams } from "./index";
 import type {
   PiCommandOptions,
   PiContext,
   PiExtensionAPI,
-  PiSendMessageOptions,
-  PiSessionHandler,
+  PiSessionEvent,
   PiToolCallEvent,
   PiToolCallHandler,
   PiToolDefinition,
-  PiToolResult,
 } from "./pi-types";
 
 let home: string;
@@ -26,360 +22,215 @@ beforeAll(() => {
 });
 afterAll(async () => {
   try {
-    const daemonClient = await DaemonClient.connect({ home });
+    const client = await DaemonClient.connect({ home });
 
-    await daemonClient.shutdown();
-    daemonClient.close();
-  } catch {
-    // daemon already gone
-  }
+    await client.shutdown();
+    client.close();
+  } catch {}
   rmSync(home, { recursive: true, force: true });
 });
 
-interface WakeMessage {
-  content: string;
-  options?: PiSendMessageOptions;
-}
-
 interface FakePi {
-  api: PiExtensionAPI;
   tools: Map<string, PiToolDefinition<any, any>>;
   commands: Map<string, PiCommandOptions>;
-  toolCallHandler: PiToolCallHandler;
-  fireShutdown: () => void;
-  wakes: WakeMessage[];
+  wakes: string[];
+  gate: PiToolCallHandler;
+  fire(event: PiSessionEvent["type"], sessionId?: string): Promise<void>;
 }
 
-function createFakePi(): FakePi {
+function context(sessionId = "pi-session-1"): PiContext {
+  return { cwd: home, sessionManager: { getSessionId: () => sessionId } };
+}
+
+function fakePi(): FakePi {
   const tools = new Map<string, PiToolDefinition<any, any>>();
   const commands = new Map<string, PiCommandOptions>();
-  const toolCallHandlers: PiToolCallHandler[] = [];
-  const sessionHandlers = new Map<string, PiSessionHandler[]>();
-  const wakes: WakeMessage[] = [];
-  function on(event: "tool_call", handler: PiToolCallHandler): void;
-  function on(event: "session_start" | "session_shutdown", handler: PiSessionHandler): void;
-  function on(
-    ...registration:
-      | ["tool_call", PiToolCallHandler]
-      | ["session_start" | "session_shutdown", PiSessionHandler]
-  ): void {
-    if (registration[0] === "tool_call") {
-      toolCallHandlers.push(registration[1]);
-
-      return;
-    }
-    const [event, handler] = registration;
-    const list = sessionHandlers.get(event) ?? [];
-
-    list.push(handler);
-    sessionHandlers.set(event, list);
-  }
+  const wakes: string[] = [];
+  const handlers = new Map<
+    PiSessionEvent["type"],
+    ((event: PiSessionEvent, ctx: PiContext) => void | Promise<void>)[]
+  >();
+  let gate: PiToolCallHandler = () => undefined;
   const api: PiExtensionAPI = {
     registerTool: (tool) => tools.set(tool.name, tool),
-    registerCommand: (name, options) => commands.set(name, options),
-    on,
-    sendUserMessage: (content, options) => wakes.push({ content, options }),
+    registerCommand: (name, command) => commands.set(name, command),
+    sendUserMessage: (message) => wakes.push(message),
+    on(event: PiSessionEvent["type"] | "tool_call", handler: any) {
+      if (event === "tool_call") {
+        gate = handler;
+
+        return;
+      }
+      const registered = handlers.get(event) ?? [];
+
+      registered.push(handler);
+      handlers.set(event, registered);
+    },
   };
+
+  createCueloopExtension({ home })(api);
 
   return {
-    api,
     tools,
     commands,
-    toolCallHandler: (event, context) => toolCallHandlers[0]!(event, context),
-    fireShutdown: () => {
-      for (const handler of sessionHandlers.get("session_shutdown") ?? [])
-        handler({ type: "session_shutdown" });
-    },
     wakes,
+    gate: (event, ctx) => gate(event, ctx),
+    async fire(event, sessionId = "pi-session-1") {
+      for (const handler of handlers.get(event) ?? [])
+        await handler({ type: event }, context(sessionId));
+    },
   };
 }
 
-function loadExtension(): FakePi {
-  const fake = createFakePi();
-
-  createCueloopExtension({ home, pollMs: 100 })(fake.api);
-
-  return fake;
+async function open(fake: FakePi, params: OpenThreadParams, sessionId = "pi-session-1") {
+  return fake.tools
+    .get("open_thread")!
+    .execute("call-1", params, undefined, undefined, context(sessionId));
 }
 
-function makeContext(notes: string[] = []): PiContext {
-  return { cwd: home, ui: { notify: (message) => notes.push(message) } };
+async function waitForWake(fake: FakePi): Promise<void> {
+  for (let attempt = 0; attempt < 100 && fake.wakes.length === 0; attempt++) await Bun.sleep(20);
 }
 
-function toolCall(toolName: string): PiToolCallEvent {
-  return { type: "tool_call", toolCallId: "call-" + toolName, toolName, input: {} };
+function toolCall(name: string): PiToolCallEvent {
+  return { type: "tool_call", toolCallId: `call-${name}`, toolName: name, input: {} };
 }
 
-async function openPending(fake: FakePi, content: string, type?: ArtifactType): Promise<string> {
-  const tool = fake.tools.get("request_review")!;
-  const params: RequestReviewParams = { content };
+describe("pi Thread adapter", () => {
+  test("advertises the six shared workflows", () => {
+    const fake = fakePi();
+    const tool = fake.tools.get("open_thread")!;
 
-  if (type) params.type = type;
-  const result: PiToolResult<ReviewDetails> = await tool.execute(
-    "t-" + content.length,
-    params,
-    undefined,
-    undefined,
-    makeContext(),
-  );
-
-  expect(result.isError).toBeFalsy();
-  expect(result.details.status).toBe("pending");
-  expect(result.details.sessionId).toBeDefined();
-
-  return result.details.sessionId!;
-}
-
-/** Park until the extension has woken the turn at least once, then return the wakes. */
-async function waitForWake(fake: FakePi): Promise<WakeMessage[]> {
-  for (let i = 0; i < 100 && fake.wakes.length === 0; i++) await Bun.sleep(20);
-
-  return fake.wakes;
-}
-
-async function resolve(sessionId: string, kind: "approved" | "changes_requested", summary: string) {
-  const client = await DaemonClient.connect({ home });
-
-  await client.sessionSendMessage(sessionId, kind, summary);
-  client.close();
-}
-
-describe("pi adapter: non-blocking request_review", () => {
-  test("returns immediately with the session id, then wakes the turn on approve", async () => {
-    // Arrange
-    const fake = loadExtension();
-
-    // Act - the tool call resolves without waiting for the message
-    const sessionId = await openPending(fake, "# Approve Plan\n\nShip the daemon behind a flag.\n");
-
-    // Assert - the session is really open and attributed to pi
-    const client = await DaemonClient.connect({ home });
-    const session = await client.sessionGet(sessionId);
-
-    client.close();
-    expect(session.artifact.meta.agent).toBe("pi");
-    expect(session.artifact.meta.title).toBe("Approve Plan");
-
-    // Act - the human approves later; the parked waiter wakes the turn
-    await resolve(sessionId, "approved", "Looks good.");
-    const wakes = await waitForWake(fake);
-
-    // Assert
-    expect(wakes.length).toBe(1);
-    expect(wakes[0]!.options?.deliverAs).toBe("followUp");
-    expect(wakes[0]!.content).toContain("approved");
-    expect(wakes[0]!.content).toContain("# Review: approved");
-    expect(wakes[0]!.content).toContain("Looks good.");
-  }, 15_000);
-
-  test("a pre-aborted tool call returns cancelled without opening a review", async () => {
-    // Arrange
-    const fake = loadExtension();
-    const tool = fake.tools.get("request_review")!;
-    const controller = new AbortController();
-
-    controller.abort();
-
-    // Act
-    const result: PiToolResult<ReviewDetails> = await tool.execute(
-      "t-pre",
-      { content: "# Never Opens\n\nDo not create a session.\n" },
-      controller.signal,
-      undefined,
-      makeContext(),
-    );
-
-    // Assert
-    expect(result.isError).toBe(true);
-    expect(result.details.status).toBe("cancelled");
-    expect(result.details.sessionId).toBeUndefined();
+    expect(tool.parameters.properties.workflow?.enum).toEqual(WORKFLOW_KINDS);
+    expect(fake.tools.has("refine_corpus")).toBe(true);
+    expect(fake.commands.has("threads")).toBe(true);
   });
 
-  test("the tool's type enum derives from the schema union - every primitive is offered", () => {
-    // Arrange
-    const fake = loadExtension();
+  test("opens a plan, gates mutations, and injects and acknowledges its Message", async () => {
+    const fake = fakePi();
+    const opened = await open(fake, { workflow: "plan", content: "# Pi Plan\n\nShip it." });
+    const threadId = opened.details.sessionId!;
 
-    // Act
-    const tool = fake.tools.get("request_review")!;
+    expect(opened.details.status).toBe("pending");
+    expect((await fake.gate(toolCall("write"), context()))?.block).toBe(true);
+    expect(await fake.gate(toolCall("read"), context())).toBeUndefined();
 
-    // Assert - derived, not hardcoded: the enum IS the schema union
-    expect(tool.parameters.properties.type!.enum).toEqual(ARTIFACT_TYPES);
-    expect(tool.parameters.required).toEqual(["content"]);
-  });
-
-  test("an unknown artifact type is refused without opening a session", async () => {
-    // Arrange
-    const fake = loadExtension();
-    const tool = fake.tools.get("request_review")!;
-
-    // Act
-    const result: PiToolResult<ReviewDetails> = await tool.execute(
-      "t-unknown",
-      { content: "# Nope\n", type: "blueprint" },
-      undefined,
-      undefined,
-      makeContext(),
-    );
-
-    // Assert
-    expect(result.isError).toBe(true);
-    expect(result.details.sessionId).toBeUndefined();
-    expect(result.content[0]!.text).toContain(ARTIFACT_TYPES.join(", "));
-  });
-
-  test("a reply review wakes the same session on resolve - create, resolve, follow-up", async () => {
-    // Arrange
-    const fake = loadExtension();
-    const context = makeContext();
-
-    // Act - the previous reply goes under review through the same tool
-    const sessionId = await openPending(
-      fake,
-      "# Findings\n\nThe cache invalidation is safe to ship.\n",
-      "reply",
-    );
-
-    // Assert - a real reply session, attributed to pi, gating writes
-    const client = await DaemonClient.connect({ home });
-    const session = await client.sessionGet(sessionId);
-    client.close();
-    expect(session.artifact.type).toBe("reply");
-    expect(session.artifact.meta.agent).toBe("pi");
-    expect(session.artifact.meta.title).toBe("Findings");
-    expect((await fake.toolCallHandler(toolCall("edit"), context))?.block).toBe(true);
-
-    // Act - the reviewer returns the message
-    await resolve(sessionId, "changes_requested", "Cite the benchmark.");
-    const wakes = await waitForWake(fake);
-
-    // Assert - the same pi session wakes as a follow-up and the gate releases
-    expect(wakes.length).toBe(1);
-    expect(wakes[0]!.options?.deliverAs).toBe("followUp");
-    expect(wakes[0]!.content).toContain(sessionId);
-    expect(wakes[0]!.content).toContain("Cite the benchmark.");
-    expect(await fake.toolCallHandler(toolCall("edit"), context)).toBeUndefined();
-  }, 15_000);
-
-  test("wakes with feedback.md carrying the annotations on changes_requested", async () => {
-    // Arrange
-    const fake = loadExtension();
-    const sessionId = await openPending(
-      fake,
-      "# Changes Plan\n\nEnable it for everyone immediately.\n",
-    );
-
-    // Act
     const client = await DaemonClient.connect({ home });
 
-    await client.sessionAnnotate(sessionId, {
-      id: "ann-1",
-      kind: "comment",
-      anchor: { quote: "Enable it for everyone immediately.", prefix: "", suffix: "" },
-      body: "Stage the rollout instead.",
-    });
-    client.close();
-    await resolve(sessionId, "changes_requested", "Too aggressive.");
-    const wakes = await waitForWake(fake);
-
-    // Assert
-    expect(wakes.length).toBe(1);
-    expect(wakes[0]!.content).toContain("returned changes");
-    expect(wakes[0]!.content).toContain("# Review: changes requested");
-    expect(wakes[0]!.content).toContain("Too aggressive.");
-    expect(wakes[0]!.content).toContain("Stage the rollout instead.");
-  }, 15_000);
-});
-
-describe("pi adapter: tool_call gate", () => {
-  test("blocks write tools while pending, allows read-only tools, releases after the wake", async () => {
-    // Arrange
-    const fake = loadExtension();
-    const context = makeContext();
-
-    // Assert - no session yet: nothing is blocked
-    expect(await fake.toolCallHandler(toolCall("edit"), context)).toBeUndefined();
-
-    // Act
-    const sessionId = await openPending(fake, "# Gate Plan\n\nRefactor everything.\n");
-
-    // Assert - writes blocked, reads pass
-    for (const name of ["edit", "write", "bash", "some_custom_tool"]) {
-      const decision = await fake.toolCallHandler(toolCall(name), context);
-
-      expect(decision?.block).toBe(true);
-      expect(decision?.reason).toContain("cueloop review pending");
-    }
-    for (const name of ["read", "grep", "find", "ls", "request_review"]) {
-      expect(await fake.toolCallHandler(toolCall(name), context)).toBeUndefined();
-    }
-
-    // Act - the message wakes the turn and clears the pending set
-    await resolve(sessionId, "approved", "Fine.");
+    await client.sessionSendMessage(threadId, "approved", "Looks good.");
     await waitForWake(fake);
 
-    // Assert - the gate has released
-    expect(await fake.toolCallHandler(toolCall("edit"), context)).toBeUndefined();
-    expect(await fake.toolCallHandler(toolCall("bash"), context)).toBeUndefined();
-  }, 15_000);
-});
+    expect(fake.wakes).toHaveLength(1);
+    expect(fake.wakes[0]).toContain("Looks good.");
+    expect(await fake.gate(toolCall("write"), context())).toBeUndefined();
+    const bindings = await client.harnessBindingsForSession("pi", "pi-session-1");
 
-describe("pi adapter: session_shutdown", () => {
-  test("aborts the parked waiter - a later message never wakes a dead session", async () => {
-    // Arrange
-    const fake = loadExtension();
-    const context = makeContext();
-    const sessionId = await openPending(fake, "# Shutdown Plan\n\nSomething slow.\n");
+    expect(await client.deliveryPending(bindings[0]!.id)).toEqual([]);
+    client.close();
+    await fake.fire("session_shutdown");
+  });
 
-    expect((await fake.toolCallHandler(toolCall("edit"), context))?.block).toBe(true);
+  test("opens reply, prototype, and diff in the canonical panels", async () => {
+    const fake = fakePi();
 
-    // Act - the pi session tears down while the review is still open
-    fake.fireShutdown();
-    // give the aborted waiter a moment to unwind and release the gate
-    for (let i = 0; i < 100 && (await fake.toolCallHandler(toolCall("edit"), context)); i++)
-      await Bun.sleep(20);
+    for (const workflow of ["reply", "prototype", "diff"] as const) {
+      const opened = await open(fake, { workflow, content: `${workflow} content` });
 
-    // Assert - the gate released without any wake
-    expect(await fake.toolCallHandler(toolCall("edit"), context)).toBeUndefined();
-    expect(fake.wakes.length).toBe(0);
+      expect(opened.details.status).toBe("pending");
+      expect(opened.details.sessionId).toBeDefined();
+    }
+    await fake.fire("session_shutdown");
+  });
 
-    // Act - resolving now must not inject into the gone session
-    await resolve(sessionId, "approved", "Too late.");
-    await Bun.sleep(200);
+  test("refine analyzes the corpus and opens its proposal as a Thread", async () => {
+    const fake = fakePi();
+    const report = await fake.tools
+      .get("refine_corpus")!
+      .execute("refine-report", {}, undefined, undefined, context("pi-refine"));
 
-    // Assert
-    expect(fake.wakes.length).toBe(0);
-  }, 15_000);
-});
+    expect(report.content[0]?.text).toContain("# refine report");
+    const opened = await open(
+      fake,
+      { workflow: "refine", proposal: "# Improve future Threads" },
+      "pi-refine",
+    );
 
-describe("pi adapter: review command", () => {
-  test("reports session status via context.ui", async () => {
-    // Arrange
-    const fake = loadExtension();
-    const command = fake.commands.get("review")!;
-    const notes: string[] = [];
-    const context = makeContext(notes);
+    expect(opened.details.status).toBe("pending");
+    await fake.fire("session_shutdown", "pi-refine");
+  });
 
-    // Act - before any review from this extension instance
-    await command.handler("", context);
+  test("review imports a PR diff, then posts and injects the Message", async () => {
+    const binDirectory = join(home, "fake-gh-bin");
 
-    // Assert
-    expect(notes.length).toBe(1);
+    mkdirSync(binDirectory, { recursive: true });
+    const commandPath = join(binDirectory, "gh");
 
-    // Act
-    const sessionId = await openPending(fake, "# Status Plan\n\nCheck status reporting.\n");
+    writeFileSync(
+      commandPath,
+      "#!/bin/sh\nif [ \"$2\" = diff ]; then printf 'diff --git a/a.ts b/a.ts\\n--- a/a.ts\\n+++ b/a.ts\\n@@ -0,0 +1 @@\\n+export const ready = true;\\n'; fi\n",
+    );
+    chmodSync(commandPath, 0o755);
+    const previousPath = process.env.PATH;
 
-    await command.handler("", context);
+    process.env.PATH = `${binDirectory}${delimiter}${previousPath ?? ""}`;
 
-    // Assert
-    expect(notes.at(-1)).toContain(sessionId);
-    expect(notes.at(-1)).toContain("pending");
+    try {
+      const fake = fakePi();
+      const opened = await open(
+        fake,
+        { workflow: "review", pullRequestReference: "123" },
+        "pi-review",
+      );
 
-    // Act
-    await resolve(sessionId, "approved", "OK.");
-    await waitForWake(fake);
-    await command.handler("", context);
+      expect(opened.details.status).toBe("pending");
+      const client = await DaemonClient.connect({ home });
 
-    // Assert
-    expect(notes.at(-1)).toContain("resolved: approved");
-  }, 15_000);
+      await client.sessionSendMessage(opened.details.sessionId!, "approved", "Ready to merge.");
+      await waitForWake(fake);
+      expect(fake.wakes[0]).toContain("Ready to merge.");
+      client.close();
+      await fake.fire("session_shutdown", "pi-review");
+    } finally {
+      process.env.PATH = previousPath;
+    }
+  });
+
+  test("reload reconciles a pending Thread without injecting into the old conversation", async () => {
+    const first = fakePi();
+    const opened = await open(first, { workflow: "plan", content: "# Resume Plan" }, "pi-reload");
+
+    await first.fire("session_shutdown", "pi-reload");
+    const second = fakePi();
+
+    await second.fire("session_start", "pi-reload");
+    expect((await second.gate(toolCall("edit"), context("pi-reload")))?.block).toBe(true);
+
+    const client = await DaemonClient.connect({ home });
+
+    await client.sessionSendMessage(opened.details.sessionId!, "changes_requested", "Revise it.");
+    await waitForWake(second);
+
+    expect(first.wakes).toEqual([]);
+    expect(second.wakes).toHaveLength(1);
+    expect(second.wakes[0]).toContain("Revise it.");
+    client.close();
+    await second.fire("session_shutdown", "pi-reload");
+  });
+
+  test("session replacement releases the old gate and does not target its new conversation", async () => {
+    const fake = fakePi();
+    const opened = await open(fake, { workflow: "plan", content: "# Old Plan" }, "pi-old");
+
+    await fake.fire("session_switch", "pi-new");
+    expect(await fake.gate(toolCall("edit"), context("pi-new"))).toBeUndefined();
+
+    const client = await DaemonClient.connect({ home });
+
+    await client.sessionSendMessage(opened.details.sessionId!, "approved", "Old response.");
+    await Bun.sleep(100);
+
+    expect(fake.wakes).toEqual([]);
+    client.close();
+    await fake.fire("session_shutdown", "pi-new");
+  });
 });

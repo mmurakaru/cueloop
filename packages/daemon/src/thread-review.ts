@@ -18,6 +18,8 @@ import {
   type WorkspaceKey,
   type WorkflowKind,
 } from "@cueloop/schema";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { messageResponse } from "./api";
 import { ABORTED, pollUntilResolved, raceAbort } from "./interruptible-wait";
 
@@ -27,12 +29,9 @@ export { messageResponse };
 
 async function git(args: string[], cwd: string): Promise<string | null> {
   try {
-    const proc = Bun.spawn(["git", ...args], { cwd, stdout: "pipe", stderr: "ignore" });
-    const out = await new Response(proc.stdout).text();
+    const { stdout } = await promisify(execFile)("git", args, { cwd });
 
-    if ((await proc.exited) !== 0) return null;
-
-    return out.trim();
+    return stdout.trim();
   } catch {
     return null;
   }

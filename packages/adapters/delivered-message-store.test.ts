@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Message } from "@cueloop/schema";
-import { DeliveredMessageStore } from "./delivered-message-store";
+import { createDeliveredMessageStore } from "./delivered-message-store";
 
 const home = mkdtempSync(join(tmpdir(), "cueloop-delivered-messages-"));
 const path = join(home, "ids.json");
@@ -28,15 +28,15 @@ afterAll(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-describe("DeliveredMessageStore", () => {
+describe("createDeliveredMessageStore", () => {
   test("deduplicates a successful injection after adapter reload", async () => {
     const injected: Message[] = [];
-    const first = new DeliveredMessageStore(path);
+    const first = createDeliveredMessageStore(path);
 
     await first.sendOnce(message, (payload) => {
       injected.push(payload);
     });
-    await new DeliveredMessageStore(path).sendOnce(message, (payload) => {
+    await createDeliveredMessageStore(path).sendOnce(message, (payload) => {
       injected.push(payload);
     });
 
@@ -44,7 +44,7 @@ describe("DeliveredMessageStore", () => {
   });
 
   test("does not record a failed native injection", async () => {
-    const first = new DeliveredMessageStore(path);
+    const first = createDeliveredMessageStore(path);
 
     await expect(
       first.sendOnce(message, () => {
@@ -54,7 +54,7 @@ describe("DeliveredMessageStore", () => {
 
     const injected: Message[] = [];
 
-    await new DeliveredMessageStore(path).sendOnce(message, (payload) => {
+    await createDeliveredMessageStore(path).sendOnce(message, (payload) => {
       injected.push(payload);
     });
 
@@ -64,7 +64,7 @@ describe("DeliveredMessageStore", () => {
   test("rejects a corrupt journal instead of re-injecting old Messages", () => {
     writeFileSync(path, "{broken");
 
-    expect(() => new DeliveredMessageStore(path)).toThrow();
+    expect(() => createDeliveredMessageStore(path)).toThrow();
   });
 
   test("serializes concurrent sends from independent store instances", async () => {
@@ -77,12 +77,12 @@ describe("DeliveredMessageStore", () => {
     const firstInjection = new Promise<void>((resolve) => {
       gate.release = resolve;
     });
-    const first = new DeliveredMessageStore(path).sendOnce(message, async () => {
+    const first = createDeliveredMessageStore(path).sendOnce(message, async () => {
       injected.push(message.id);
       gate.started?.();
       await firstInjection;
     });
-    const second = new DeliveredMessageStore(path).sendOnce(secondMessage, () => {
+    const second = createDeliveredMessageStore(path).sendOnce(secondMessage, () => {
       injected.push(secondMessage.id);
     });
 
@@ -90,10 +90,10 @@ describe("DeliveredMessageStore", () => {
     expect(injected).toEqual([message.id]);
     gate.release?.();
     await Promise.all([first, second]);
-    await new DeliveredMessageStore(path).sendOnce(message, () => {
+    await createDeliveredMessageStore(path).sendOnce(message, () => {
       injected.push(message.id);
     });
-    await new DeliveredMessageStore(path).sendOnce(secondMessage, () => {
+    await createDeliveredMessageStore(path).sendOnce(secondMessage, () => {
       injected.push(secondMessage.id);
     });
 
@@ -104,10 +104,10 @@ describe("DeliveredMessageStore", () => {
     const injected: string[] = [];
 
     await Promise.all([
-      new DeliveredMessageStore(path).sendOnce(message, () => {
+      createDeliveredMessageStore(path).sendOnce(message, () => {
         injected.push(message.id);
       }),
-      new DeliveredMessageStore(path).sendOnce(message, () => {
+      createDeliveredMessageStore(path).sendOnce(message, () => {
         injected.push(message.id);
       }),
     ]);
@@ -119,7 +119,7 @@ describe("DeliveredMessageStore", () => {
     writeFileSync(path + ".lock", "99999999");
     const injected: string[] = [];
 
-    await new DeliveredMessageStore(path).sendOnce(message, () => {
+    await createDeliveredMessageStore(path).sendOnce(message, () => {
       injected.push(message.id);
     });
 
