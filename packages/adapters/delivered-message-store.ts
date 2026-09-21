@@ -1,5 +1,3 @@
-/** Adapter-local Message ID journal for deduplicating native injection after reload. */
-
 import {
   closeSync,
   openSync,

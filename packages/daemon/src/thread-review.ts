@@ -1,12 +1,3 @@
-/**
- * The shared Thread review core: one open/wait/message path for every consumer -
- * CLI commands and agent adapters. openReview resolves the workspace, shapes
- * the artifact, and opens-or-revises by agentSessionId; awaitMessage maps the
- * wait contract onto the agent contract through messageResponse. An
- * adapter keeps only two bespoke parts: parsing its host's event shape and
- * serializing the decision in its host's contract.
- */
-
 import {
   isMarkdownArtifact,
   newAnnotationId,

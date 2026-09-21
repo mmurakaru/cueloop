@@ -1,10 +1,3 @@
-/**
- * Durable harness routing state. Bindings identify where a Thread came from;
- * deliveries record which Message still needs to reach that binding. Keeping
- * both outside Thread records prevents harness identity from leaking into the
- * product primitive and makes redelivery independent of the review lifecycle.
- */
-
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import type { Delivery, HarnessBinding } from "@cueloop/schema";
 import * as v from "valibot";

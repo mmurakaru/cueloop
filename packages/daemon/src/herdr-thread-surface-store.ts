@@ -1,5 +1,3 @@
-/** Herdr handles persist outside canonical Threads in one atomic JSON map. */
-
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import * as v from "valibot";
 import { herdrThreadSurfacesPath } from "./paths";

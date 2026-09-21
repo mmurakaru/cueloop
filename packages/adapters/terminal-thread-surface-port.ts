@@ -1,5 +1,3 @@
-/** Select one native terminal while keeping the cueloop Thread surface shared. */
-
 import {
   openGhosttyThreadSurface,
   type GhosttyThreadSurfacePersistence,

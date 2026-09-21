@@ -1,5 +1,3 @@
-/** Claude Mod entry. The host permits only local imports and `claude-code`. */
-
 type Workflow = "plan" | "reply" | "prototype" | "diff" | "review" | "refine";
 type ToolCall = {
   tool: string;

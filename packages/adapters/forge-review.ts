@@ -1,5 +1,3 @@
-/** GitHub pull request import and Message post-back shared by CLI and harness workflows. */
-
 import { spawn } from "node:child_process";
 import type { Message, MessageOutcome } from "@cueloop/schema";
 import type { ForgeReviewPort } from "./harness-thread-controller";

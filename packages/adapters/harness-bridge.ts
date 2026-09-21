@@ -1,5 +1,3 @@
-/** One-shot bridge from sandboxed harness plugins to the shared Thread controller. */
-
 import { join } from "node:path";
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";

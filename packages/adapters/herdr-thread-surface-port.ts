@@ -1,5 +1,3 @@
-/** Connect the shared Thread controller to Herdr's terminal launcher. */
-
 import {
   openHerdrThreadSurface,
   type HerdrThreadSurfacePersistence,

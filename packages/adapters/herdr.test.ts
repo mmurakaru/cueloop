@@ -1,5 +1,3 @@
-/** herdr tier-1 tests: HERDR_BIN_PATH points at a stub that logs its argv, and the harness bridge drives an in-process DaemonServer. Outside herdr (HERDR_ENV unset) the contract is total silence. */
-
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

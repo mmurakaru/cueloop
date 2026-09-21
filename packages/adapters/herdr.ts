@@ -1,13 +1,3 @@
-/**
- * herdr agent-state reporting: cueloop reports semantic agent state (blocked
- * while a review waits, working after the message) plus a sidebar label
- * through the herdr CLI, over the shared env contract in @cueloop/schema.
- * This is tier 1 (no plugin, no socket); the herdr plugin tier builds on it.
- * Invariants: fire-and-forget (reporting never blocks or throws); outside
- * herdr every call is a no-op, so a plain terminal behaves byte-identically;
- * tests point HERDR_BIN_PATH at a stub script.
- */
-
 import { type HerdrEnv, detectHerdr } from "@cueloop/schema";
 import { spawn } from "node:child_process";
 

@@ -1,5 +1,3 @@
-/** Ghostty terminal IDs persist outside canonical Threads. */
-
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import * as v from "valibot";
 import { ghosttyThreadSurfacesPath } from "./paths";

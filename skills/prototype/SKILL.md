@@ -1,6 +1,9 @@
 ---
 name: prototype
-description: Submit a component design proposal to cueloop for human review without blocking. Use when the user asks to review a UI component's shape before implementing it: its prop/type API, how it composes from existing primitives, and its callstack. You write one Markdown design doc (API, Composition, Callstack); the reviewer annotates the text and cueloop delivers the decision as a follow-up message. It does not block, so keep working while it is open.
+description: >-
+  Submit a component design proposal to cueloop for human review without blocking.
+  Use when the user asks to review a UI component's shape before implementing it:
+  its prop/type API, composition, and callstack.
 ---
 
 # cueloop prototype review

@@ -1,5 +1,3 @@
-/** Open or focus the canonical cueloop Thread in Herdr without changing Thread state. */
-
 import {
   detectHerdr,
   type HerdrEnv,
