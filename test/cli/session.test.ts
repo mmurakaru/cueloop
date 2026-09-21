@@ -328,6 +328,24 @@ describe("cueloop session (black box)", () => {
     expect(session.status).toBe("pending");
   });
 
+  test("Ghostty terminal identity survives a daemon socket round trip", async () => {
+    const created = await runCli(
+      home,
+      ["session", "create", "--type", "plan", "--title", "Ghostty Handle"],
+      PLAN,
+    );
+    const session = cliJson<Thread>(created);
+    const client = await DaemonClient.connect({ home });
+
+    try {
+      expect(await client.ghosttyGetThreadSurface(session.id)).toBeNull();
+      await client.ghosttySetThreadSurface(session.id, { terminalId: "term-1" });
+      expect(await client.ghosttyGetThreadSurface(session.id)).toEqual({ terminalId: "term-1" });
+    } finally {
+      client.close();
+    }
+  });
+
   test("create outside herdr opens no tab", async () => {
     // Arrange
     const logPath = join(home, "herdr-none.log");

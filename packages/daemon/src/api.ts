@@ -56,6 +56,10 @@ import {
   HerdrThreadSurfaceStore,
   type HerdrThreadSurfaceHandle,
 } from "./herdr-thread-surface-store";
+import {
+  GhosttyThreadSurfaceStore,
+  type GhosttyThreadSurfaceHandle,
+} from "./ghostty-thread-surface-store";
 import { HarnessStateStore } from "./harness-state-store";
 import { DiffWatcher } from "./diff-watcher";
 import { PrReviewPoller } from "./pr-poller";
@@ -92,6 +96,7 @@ type EventListener = (event: DaemonEvent) => void;
 export class DaemonCore {
   readonly store: ThreadStore;
   readonly herdrThreadSurfaces: HerdrThreadSurfaceStore;
+  readonly ghosttyThreadSurfaces: GhosttyThreadSurfaceStore;
   readonly harnessState: HarnessStateStore;
   private waiters = new Map<string, ((session: Thread) => void)[]>();
   private listeners = new Set<EventListener>();
@@ -121,6 +126,7 @@ export class DaemonCore {
       this.harnessState.pendingThreadIds(),
     );
     this.herdrThreadSurfaces = new HerdrThreadSurfaceStore(home);
+    this.ghosttyThreadSurfaces = new GhosttyThreadSurfaceStore(home);
     this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
     this.prPoller = new PrReviewPoller((sessionId) => void this.sessionRefreshPrDiff(sessionId));
     // resume hot-reload for diff sessions that survived a daemon restart
@@ -142,6 +148,14 @@ export class DaemonCore {
 
   herdrSetThreadSurface(sessionId: string, handle: HerdrThreadSurfaceHandle): void {
     this.herdrThreadSurfaces.set(sessionId, handle);
+  }
+
+  ghosttyGetThreadSurface(sessionId: string): GhosttyThreadSurfaceHandle | null {
+    return this.ghosttyThreadSurfaces.get(sessionId);
+  }
+
+  ghosttySetThreadSurface(sessionId: string, handle: GhosttyThreadSurfaceHandle): void {
+    this.ghosttyThreadSurfaces.set(sessionId, handle);
   }
 
   harnessBind(input: {
@@ -577,6 +591,7 @@ export class DaemonCore {
     if (session) this.untrackLiveDiffSession(session);
     this.diffRefreshGenerations.delete(id);
     this.herdrThreadSurfaces.delete(id);
+    this.ghosttyThreadSurfaces.delete(id);
     this.emit("inbox.changed", id);
   }
 

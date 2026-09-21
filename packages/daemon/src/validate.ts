@@ -294,6 +294,8 @@ export const Params = {
     paneId: NonEmpty,
     mode: v.optional(v.picklist(["tab", "pane"])),
   }),
+  "ghostty.getThreadSurface": v.object({ id: SessionId }),
+  "ghostty.setThreadSurface": v.object({ id: SessionId, terminalId: NonEmpty }),
 } as const;
 
 export type MethodName = keyof typeof Params;

@@ -28,6 +28,7 @@
     "./paths": "./src/paths.ts",
     "./retention": "./src/retention.ts",
     "./herdr-thread-surface": "./src/herdr-thread-surface.ts",
+    "./ghostty-thread-surface": "./src/ghostty-thread-surface.ts",
     "./thread-surface-config": "./src/thread-surface-config.ts",
     "./herdr-split": "./src/herdr-split.ts",
     "./share-blob": "./src/share-blob.ts",

@@ -511,6 +511,15 @@ export class DaemonServer {
 
       return {};
     },
+    "ghostty.getThreadSurface": (_connection, request) =>
+      this.core.ghosttyGetThreadSurface(parseParams("ghostty.getThreadSurface", request.params).id),
+    "ghostty.setThreadSurface": (_connection, request) => {
+      const params = parseParams("ghostty.setThreadSurface", request.params);
+
+      this.core.ghosttySetThreadSurface(params.id, { terminalId: params.terminalId });
+
+      return {};
+    },
   };
 
   private async dispatch(connection: Connection, request: Request): Promise<Response["result"]> {

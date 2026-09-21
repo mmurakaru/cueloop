@@ -67,6 +67,8 @@ const PRIMITIVE_ROLES = {
   "session.submitRevision": "owner",
   "herdr.getThreadSurface": "owner",
   "herdr.setThreadSurface": "owner",
+  "ghostty.getThreadSurface": "owner",
+  "ghostty.setThreadSurface": "owner",
 } as const satisfies Record<MethodName, Audience>;
 
 /** Whether `role` may call `method`. */

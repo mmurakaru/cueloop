@@ -14,7 +14,7 @@ import { join } from "node:path";
 import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { largePlanMarkdown } from "../../benchmarks/lib/fixtures";
-import { HERMETIC_HERDR_ENV } from "../../test/helpers/env";
+import { HERMETIC_TERMINAL_ENV } from "../../test/helpers/env";
 
 const CYCLES = 50;
 const WARMUP_CYCLES = 5;
@@ -98,7 +98,7 @@ async function cycleDaemon(): Promise<number[]> {
 }
 
 if (import.meta.main) {
-  Object.assign(process.env, HERMETIC_HERDR_ENV);
+  Object.assign(process.env, HERMETIC_TERMINAL_ENV);
   const samples = await cycleDaemon();
   const message = judgeHeapSamples(samples);
   const mib = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
