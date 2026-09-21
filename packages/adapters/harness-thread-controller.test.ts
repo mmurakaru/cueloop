@@ -36,8 +36,13 @@ class CoreClient implements HarnessThreadClient {
     return this.core.sessionCreate({ workspace, artifact });
   }
 
-  async sessionSubmitRevision(id: string, content: string, addressed: string[] = []) {
-    return this.core.sessionSubmitRevision(id, content, addressed);
+  async sessionSubmitRevision(
+    id: string,
+    content: string,
+    addressed: string[] = [],
+    files?: Artifact["files"],
+  ) {
+    return this.core.sessionSubmitRevision(id, content, addressed, files);
   }
 
   async sessionAnnotate(
@@ -102,7 +107,7 @@ describe("HarnessThreadController", () => {
         },
         async postPullRequestMessage() {},
       },
-      corpus: new LocalRefineCorpusPort(home),
+      corpus: new LocalRefineCorpusPort(client, home),
     });
     const identity = {
       harness: "fake",
@@ -134,8 +139,9 @@ describe("HarnessThreadController", () => {
           throw new Error("unexpected post");
         },
       },
-      corpus: new LocalRefineCorpusPort(home),
+      corpus: new LocalRefineCorpusPort(client, home),
     });
+    const analysis = await controller.analyzeRefineCorpus();
     const opened = await controller.openWorkflow({
       harness: "fake",
       harnessSessionId: "refine-session",
@@ -144,7 +150,7 @@ describe("HarnessThreadController", () => {
       proposal: "# Writeback proposal",
     });
 
-    expect(opened.analysis.report).toContain("1 sessions analyzed");
+    expect(analysis.report).toContain("1 sessions analyzed");
     expect(opened.thread.artifact.meta.workflow).toBe("refine");
   });
 
@@ -212,6 +218,40 @@ describe("HarnessThreadController", () => {
       { threadId: prototype.thread.id, panel: "thread" },
       { threadId: diff.thread.id, panel: "changes" },
     ]);
+  });
+
+  test("revising a diff replaces full file contents used by hunk curation", async () => {
+    const controller = new HarnessThreadController(client, {
+      surface: { openThreads() {} },
+      forge: {
+        async importPullRequest() {
+          throw new Error("unexpected import");
+        },
+        async postPullRequestMessage() {
+          throw new Error("unexpected post");
+        },
+      },
+      corpus: new LocalRefineCorpusPort(client, home),
+    });
+    const identity = {
+      harness: "fake",
+      harnessSessionId: "diff-session",
+      workspace: { repoRoot: "/repo", branch: "main" },
+      workflow: "diff" as const,
+    };
+    const first = await controller.openWorkflow({
+      ...identity,
+      content: "diff --git a/a.ts b/a.ts\n-old\n+first\n",
+      files: [{ path: "a.ts", status: "modified", oldContents: "old", newContents: "first" }],
+    });
+    const second = await controller.openWorkflow({
+      ...identity,
+      content: "diff --git a/a.ts b/a.ts\n-old\n+second\n",
+      files: [{ path: "a.ts", status: "modified", oldContents: "old", newContents: "second" }],
+    });
+
+    expect(second.thread.id).toBe(first.thread.id);
+    expect(second.thread.artifact.files?.[0]?.newContents).toBe("second");
   });
 
   test("review imports a PR diff and posts its Message back to the forge", async () => {
@@ -285,6 +325,7 @@ describe("HarnessThreadController", () => {
         },
       },
     });
+    const analysis = await controller.analyzeRefineCorpus();
     const result = await controller.openWorkflow({
       harness: "fake",
       harnessSessionId: "fake_1",
@@ -295,7 +336,7 @@ describe("HarnessThreadController", () => {
 
     expect(result.thread.artifact.type).toBe("plan");
     expect(result.thread.artifact.content).toBe("# Writebacks\n\nAdd regression tests.");
-    expect(result.analysis.report).toContain("add tests: 3 reviews");
+    expect(analysis.report).toContain("add tests: 3 reviews");
     expect(opened).toEqual([{ threadId: result.thread.id, panel: "thread" }]);
   });
 

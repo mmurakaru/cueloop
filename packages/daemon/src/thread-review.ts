@@ -119,6 +119,7 @@ export interface ThreadSessionClient {
     id: string,
     content: string,
     addressedAnnotationIds?: string[],
+    files?: DiffFileContents[],
   ): Promise<Thread>;
   sessionAnnotate(
     id: string,
@@ -278,7 +279,12 @@ export async function openReview(
   const existing = await findExistingReview(client, options);
 
   if (existing !== undefined) {
-    let revised = await client.sessionSubmitRevision(existing.id, options.content);
+    let revised = await client.sessionSubmitRevision(
+      existing.id,
+      options.content,
+      [],
+      options.type === "diff" ? (options.files ?? []) : undefined,
+    );
 
     if (options.notes?.length) {
       await attachNotes(client, revised.id, options.notes);

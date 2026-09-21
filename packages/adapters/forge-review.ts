@@ -37,11 +37,11 @@ async function runForgeCommand(command: string, args: string[]): Promise<ForgeCo
   });
 }
 
-/** Uses the user's authenticated gh CLI; an optional journal deduplicates post-back on retry. */
+/** Uses the user's authenticated gh CLI and journals successful post-back by Message ID. */
 export class GitHubForgeReviewPort implements ForgeReviewPort {
   constructor(
+    private readonly delivered: DeliveredMessageStore,
     private readonly command = "gh",
-    private readonly delivered?: DeliveredMessageStore,
   ) {}
 
   async importPullRequest(pr: string): Promise<{ content: string; title: string }> {
@@ -73,10 +73,6 @@ export class GitHubForgeReviewPort implements ForgeReviewPort {
       }
     };
 
-    if (this.delivered) {
-      await this.delivered.sendOnce(message, inject);
-    } else {
-      await inject();
-    }
+    await this.delivered.sendOnce(message, inject);
   }
 }

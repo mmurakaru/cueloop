@@ -34,6 +34,7 @@ import {
   messageAllows,
   type Annotation,
   type DiffFileStatus,
+  type DiffFileContents,
   type HunkRejection,
   type NewEntry,
   type Artifact,
@@ -757,13 +758,14 @@ export class DaemonCore {
     id: string,
     content: string,
     addressedAnnotationIds: string[] = [],
+    files?: DiffFileContents[],
   ): Thread {
     const session = this.sessionGet(id);
     const now = new Date().toISOString();
     const revisionNumber = session.revisions.length + 1;
 
     session.revisions.push({ revision: revisionNumber, content, submittedAt: now });
-    session.artifact = { ...session.artifact, content };
+    session.artifact = { ...session.artifact, content, files: files ?? session.artifact.files };
     // the agent's revision lands on main wherever its tip sits; the artifact
     // shows the head of the branch the reviewer is on
     const entryId = this.recordOnMain(session, {

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Annotation, Thread, Message, MessageOutcome } from "@cueloop/schema";
 import { ThreadStore } from "@cueloop/daemon/store";
+import { DaemonServer } from "@cueloop/daemon";
 import { reportsDir } from "@cueloop/daemon/paths";
 import { buildRefineReport } from "@cueloop/adapters/refine-corpus";
 import { refineCommand } from "./refine-command";
@@ -49,7 +50,7 @@ function session(
     annotations: [],
     message: null,
     status: "pending",
-    createdAt: "2026-08-20T10:00:00Z",
+    createdAt: new Date().toISOString(),
     ...rest,
   };
 }
@@ -109,19 +110,26 @@ describe("refineCommand", () => {
     );
     store.upsert(session("ses_empty"));
     const reportPath = join(reportsDir(home), "report.md");
+    const server = new DaemonServer({ home, idleExitMs: 0 });
+
+    server.start();
 
     // Act
-    const firstCode = await refineCommand(["--home", home]);
+    try {
+      const firstCode = await refineCommand(["--home", home]);
 
-    // Assert
-    expect(firstCode).toBe(0);
-    expect(readFileSync(reportPath, "utf8")).toContain("3 sessions analyzed (4 total).");
+      // Assert
+      expect(firstCode).toBe(0);
+      expect(readFileSync(reportPath, "utf8")).toContain("3 sessions analyzed (4 total).");
 
-    // Act
-    await refineCommand(["--home", home]);
+      // Act
+      await refineCommand(["--home", home]);
 
-    // Assert
-    expect(readFileSync(reportPath, "utf8")).toContain("1 sessions analyzed (4 total).");
+      // Assert
+      expect(readFileSync(reportPath, "utf8")).toContain("1 sessions analyzed (4 total).");
+    } finally {
+      server.stop();
+    }
   });
 
   test("re-analyzes a resolved session that is reopened and resolved again with new feedback", async () => {
@@ -137,9 +145,16 @@ describe("refineCommand", () => {
       }),
     );
     const reportPath = join(reportsDir(home), "report.md");
+    const firstServer = new DaemonServer({ home, idleExitMs: 0 });
+
+    firstServer.start();
 
     // Act
-    await refineCommand(["--home", home]);
+    try {
+      await refineCommand(["--home", home]);
+    } finally {
+      firstServer.stop();
+    }
 
     // Assert
     expect(readFileSync(reportPath, "utf8")).toContain("1 sessions analyzed (1 total).");
@@ -152,9 +167,16 @@ describe("refineCommand", () => {
         annotations: [annotation("first", "one"), annotation("second", "two")],
       }),
     );
+    const secondServer = new DaemonServer({ home, idleExitMs: 0 });
+
+    secondServer.start();
 
     // Act
-    await refineCommand(["--home", home]);
+    try {
+      await refineCommand(["--home", home]);
+    } finally {
+      secondServer.stop();
+    }
 
     // Assert
     const secondReport = readFileSync(reportPath, "utf8");

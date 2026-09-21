@@ -79,6 +79,27 @@ describe("socket round-trip", () => {
     ).toBe(false);
   });
 
+  test("diff revision replaces full changed-file contents over the wire", async () => {
+    const files = [
+      { path: "a.ts", status: "modified" as const, oldContents: "old", newContents: "first" },
+    ];
+    const thread = await client.sessionCreate(WS, {
+      type: "diff",
+      content: "first patch",
+      files,
+      meta: {},
+    });
+    const revised = await client.sessionSubmitRevision(
+      thread.id,
+      "second patch",
+      [],
+      [{ ...files[0]!, newContents: "second" }],
+    );
+
+    expect(revised.artifact.files?.[0]?.newContents).toBe("second");
+    expect((await client.sessionGet(thread.id)).artifact.files?.[0]?.newContents).toBe("second");
+  });
+
   test("errors carry codes across the wire", async () => {
     await expect(client.sessionGet("nope")).rejects.toBeInstanceOf(DaemonClientError);
     await expect(client.sessionGet("nope")).rejects.toHaveProperty("code", "not_found");

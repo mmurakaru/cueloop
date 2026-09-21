@@ -272,6 +272,7 @@ export const Params = {
   "session.submitRevision": v.object({
     id: SessionId,
     content: v.string(),
+    files: v.optional(v.array(DiffFileContentsSchema)),
     /** Annotation ids the agent acted on; each is marked addressed. */
     addressedAnnotationIds: v.optional(v.array(NonEmpty), []),
   }),

@@ -1,7 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { cueloopHome, reportsDir } from "@cueloop/daemon/paths";
-import { ThreadStore } from "@cueloop/daemon/store";
+import type { ThreadSessionClient } from "@cueloop/daemon/thread-review";
 import {
   LATEST_REPORT_FILENAME,
   parseRefineState,
@@ -32,25 +32,27 @@ export interface RefineCorpusAnalysis {
 
 /** Local corpus implementation shared with the refine CLI command. */
 export class LocalRefineCorpusPort implements RefineCorpusPort {
-  constructor(private readonly home = cueloopHome()) {}
+  constructor(
+    private readonly client: Pick<ThreadSessionClient, "sessionList">,
+    private readonly home = cueloopHome(),
+    private readonly limit?: number,
+  ) {}
 
   async analyzeRefineCorpus(): Promise<RefineCorpusAnalysis> {
-    return analyzeRefineCorpus(this.home);
+    const sessions = await this.client.sessionList();
+
+    return analyzeRefineCorpus(sessions, this.home, this.limit);
   }
 }
 
 /** Analyze stored Threads and persist the report without editing their artifacts. */
 export function analyzeRefineCorpus(
+  all: Thread[],
   home = cueloopHome(),
   requestedLimit?: number,
   nowMs = Date.now(),
 ): RefineCorpusAnalysis {
   const limit = parseLimit(requestedLimit);
-
-  const store = new ThreadStore(home);
-
-  store.recover();
-  const all = store.list();
 
   const analyzedState = readState(home);
   const fresh = all.filter(

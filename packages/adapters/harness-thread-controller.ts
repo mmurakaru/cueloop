@@ -56,6 +56,7 @@ export interface ThreadSurfacePort {
 /** Forge operations shared by every harness's PR review workflow. */
 export interface ForgeReviewPort {
   importPullRequest(pr: string): Promise<{ content: string; title?: string }>;
+  /** Must ignore a Message ID already posted to this PR. */
   postPullRequestMessage(pr: string, message: Message): void | Promise<void>;
 }
 
@@ -96,17 +97,10 @@ export type HarnessWorkflowRequest =
   | ReviewWorkflowRequest
   | RefineWorkflowRequest;
 
-/** The Thread and built-in panel returned for a non-refine workflow. */
+/** The Thread and built-in panel returned for a workflow. */
 export type OpenedWorkflow = BoundThread & {
-  workflow: Exclude<HarnessWorkflowRequest["workflow"], "refine">;
+  workflow: HarnessWorkflowRequest["workflow"];
   panel: ThreadPanel;
-};
-
-/** Refine returns its corpus report beside the plan Thread. */
-export type OpenedRefineWorkflow = BoundThread & {
-  workflow: "refine";
-  panel: "thread";
-  analysis: { report: string };
 };
 
 export interface BoundThread {
@@ -123,14 +117,13 @@ export class HarnessThreadController {
     private readonly ports: HarnessWorkflowPorts,
   ) {}
 
+  /** Analyze first; the harness drafts writebacks from this report before submitting refine. */
+  analyzeRefineCorpus(): Promise<{ report: string }> {
+    return this.ports.corpus.analyzeRefineCorpus();
+  }
+
   /** Open any workflow through the same Thread lifecycle and built-in panels. */
-  openWorkflow(input: RefineWorkflowRequest): Promise<OpenedRefineWorkflow>;
-  openWorkflow(input: ReviewWorkflowRequest): Promise<OpenedWorkflow>;
-  openWorkflow(input: ArtifactWorkflowRequest): Promise<OpenedWorkflow>;
-  openWorkflow(input: HarnessWorkflowRequest): Promise<OpenedWorkflow | OpenedRefineWorkflow>;
-  async openWorkflow(
-    input: HarnessWorkflowRequest,
-  ): Promise<OpenedWorkflow | OpenedRefineWorkflow> {
+  async openWorkflow(input: HarnessWorkflowRequest): Promise<OpenedWorkflow> {
     if (input.workflow === "review") {
       const imported = await this.ports.forge.importPullRequest(input.pr);
       const review = await openReview(this.client, {
@@ -161,7 +154,6 @@ export class HarnessThreadController {
       };
     }
     if (input.workflow === "refine") {
-      const analysis = await this.ports.corpus.analyzeRefineCorpus();
       const review = await openReview(this.client, {
         type: "plan",
         workflow: "refine",
@@ -185,7 +177,6 @@ export class HarnessThreadController {
         approvedRetry: false,
         workflow: "refine",
         panel: "thread",
-        analysis,
       };
     }
 

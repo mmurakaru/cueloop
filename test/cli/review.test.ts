@@ -194,6 +194,22 @@ describe("cueloop review-post (black box)", () => {
     expect(call[5]).toContain("Ship it.");
   });
 
+  test("retrying post-back does not create a duplicate PR review", async () => {
+    const session = await createResolvedSession("47", "approved", "Ready.");
+    const before = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    expect((await runCli(home, ["review-post", session.id, "47"], undefined, ghEnv())).code).toBe(
+      0,
+    );
+    expect((await runCli(home, ["review-post", session.id, "47"], undefined, ghEnv())).code).toBe(
+      0,
+    );
+
+    const after = ghCalls().filter((args) => args[0] === "pr" && args[1] === "review").length;
+
+    expect(after - before).toBe(1);
+  });
+
   test("changes_requested maps to --request-changes", async () => {
     // Arrange
     const session = await createResolvedSession("43", "changes_requested", "Rename the constant.");

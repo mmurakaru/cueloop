@@ -495,6 +495,7 @@ export class DaemonServer {
         params.id,
         params.content,
         params.addressedAnnotationIds,
+        params.files,
       );
     },
     "herdr.getTab": (_connection, request) =>

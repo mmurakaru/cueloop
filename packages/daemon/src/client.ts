@@ -10,6 +10,7 @@ import type {
   Annotation,
   Artifact,
   DiffFileStatus,
+  DiffFileContents,
   HunkRejection,
   ShareLink,
   Thread,
@@ -583,10 +584,11 @@ export class DaemonClient implements ThreadClient {
     id: string,
     content: string,
     addressedAnnotationIds: string[] = [],
+    files?: DiffFileContents[],
   ): Promise<Thread> {
     return this.request(
       "session.submitRevision",
-      { id, content, addressedAnnotationIds },
+      { id, content, addressedAnnotationIds, files },
       ThreadRecordSchema,
     );
   }

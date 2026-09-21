@@ -16,8 +16,9 @@ Harness lifecycle event
 `HarnessThreadController.openWorkflow` is the adapter-facing contract for all
 six workflows. Plan, reply, and prototype submit Markdown; diff submits a
 working-tree patch; review imports a PR diff and posts its Message to the forge;
-refine analyzes the stored corpus and submits writeback proposals as a plan
-Thread. Review and refine remain workflow metadata, not new artifact types.
+refine first exposes corpus analysis, then submits agent-drafted writeback
+proposals as a plan Thread. Review and refine remain workflow metadata, not new
+artifact types.
 The surface port opens the built-in panel; terminal and multiplexer launch
 implementations belong to their integrations.
 
