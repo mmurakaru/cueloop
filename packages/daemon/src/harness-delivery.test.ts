@@ -137,4 +137,30 @@ describe("durable harness delivery", () => {
     expect(instance.deliveryPending(submitter.id)).toHaveLength(1);
     expect(instance.deliveryPending(other.id)).toEqual([]);
   });
+
+  test("consumes the unchanged approved retry once across daemon reload", () => {
+    const instance = core();
+    const thread = createPlan(instance);
+    const binding = instance.harnessBind({
+      threadId: thread.id,
+      harness: "fake",
+      harnessSessionId: "fake_1",
+    });
+    const sent = instance.sessionSendMessage(thread.id, "approved", "Ready.");
+    const messageId = sent.message!.id;
+
+    expect(() => instance.harnessConsumeApprovedRetry(binding.id, messageId, "# Plan")).toThrow(
+      "no unchanged approved plan",
+    );
+
+    const delivery = instance.deliveryPending(binding.id)[0]!.delivery;
+
+    instance.deliveryAcknowledge(delivery.id);
+
+    expect(instance.harnessConsumeApprovedRetry(binding.id, messageId, "# Plan")).toBe(true);
+    expect(core().harnessConsumeApprovedRetry(binding.id, messageId, "# Plan")).toBe(false);
+    expect(() => core().harnessConsumeApprovedRetry(binding.id, messageId, "# Changed")).toThrow(
+      "no unchanged approved plan",
+    );
+  });
 });

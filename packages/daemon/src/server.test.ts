@@ -68,6 +68,12 @@ describe("socket round-trip", () => {
 
     expect(acknowledged.status).toBe("acknowledged");
     expect(await client.deliveryPending(binding.id)).toEqual([]);
+    expect(
+      await client.harnessConsumeApprovedRetry(binding.id, sent.message!.id, PLAN.content),
+    ).toBe(true);
+    expect(
+      await client.harnessConsumeApprovedRetry(binding.id, sent.message!.id, PLAN.content),
+    ).toBe(false);
   });
 
   test("errors carry codes across the wire", async () => {

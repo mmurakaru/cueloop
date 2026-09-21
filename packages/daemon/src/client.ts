@@ -144,6 +144,11 @@ export interface ThreadClient {
     harness: string,
     harnessSessionId: string,
   ): Promise<HarnessBinding>;
+  harnessConsumeApprovedRetry?(
+    bindingId: string,
+    messageId: string,
+    content: string,
+  ): Promise<boolean>;
   deliveryPending?(bindingId: string): Promise<PendingDelivery[]>;
   deliveryAcknowledge?(deliveryId: string): Promise<Delivery>;
   close(): void;
@@ -551,6 +556,17 @@ export class DaemonClient implements ThreadClient {
       "harness.bind",
       { threadId, harness, harnessSessionId },
       HarnessBindingSchema,
+    );
+  }
+  harnessConsumeApprovedRetry(
+    bindingId: string,
+    messageId: string,
+    content: string,
+  ): Promise<boolean> {
+    return this.request(
+      "harness.consumeApprovedRetry",
+      { bindingId, messageId, content },
+      v.boolean(),
     );
   }
   deliveryPending(bindingId: string): Promise<PendingDelivery[]> {

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Annotation, Artifact, Message, WorkspaceKey } from "@cueloop/schema";
 import { DaemonCore } from "@cueloop/daemon/api";
+import { DeliveredMessageStore } from "./delivered-message-store";
 import {
   HarnessThreadController,
   type HarnessThreadClient,
@@ -11,14 +12,15 @@ import {
 } from "./harness-thread-controller";
 
 class FakeHarness implements HarnessMessageAdapter {
-  readonly received: Message[] = [];
-  private readonly seen = new Set<string>();
+  constructor(
+    private readonly delivered: DeliveredMessageStore,
+    readonly received: Message[],
+  ) {}
 
-  sendMessage(message: Message): void {
-    if (this.seen.has(message.id)) return;
-
-    this.seen.add(message.id);
-    this.received.push(message);
+  sendMessage(message: Message): Promise<void> {
+    return this.delivered.sendOnce(message, (payload) => {
+      this.received.push(payload);
+    });
   }
 }
 
@@ -57,6 +59,10 @@ class CoreClient implements HarnessThreadClient {
     return this.core.harnessBind({ threadId, harness, harnessSessionId });
   }
 
+  async harnessConsumeApprovedRetry(bindingId: string, messageId: string, content: string) {
+    return this.core.harnessConsumeApprovedRetry(bindingId, messageId, content);
+  }
+
   async deliveryPending(bindingId: string) {
     return this.core.deliveryPending(bindingId);
   }
@@ -84,7 +90,9 @@ afterEach(() => {
 describe("HarnessThreadController", () => {
   test("opens, revises, retries safely, and delivers the approved Message", async () => {
     const controller = new HarnessThreadController(client);
-    const harness = new FakeHarness();
+    const received: Message[] = [];
+    const journalPath = join(home, "fake-delivered-messages.json");
+    const harness = new FakeHarness(new DeliveredMessageStore(journalPath), received);
     const input = {
       harness: "fake",
       harnessSessionId: "fake_1",
@@ -92,6 +100,8 @@ describe("HarnessThreadController", () => {
       workspace: { repoRoot: "/repo", branch: "main" },
     };
     const opened = await controller.openPlanThread(input);
+
+    expect(opened.approvedRetry).toBe(false);
 
     core.sessionSendMessage(opened.thread.id, "changes_requested", "Add detail.");
 
@@ -105,19 +115,28 @@ describe("HarnessThreadController", () => {
     );
     client.deliveryAcknowledge = acknowledge;
 
-    expect(await controller.deliverPending(opened.binding.id, harness)).toBe(1);
-    expect(harness.received).toHaveLength(1);
+    const reloadedHarness = new FakeHarness(new DeliveredMessageStore(journalPath), received);
+
+    expect(await controller.deliverPending(opened.binding.id, reloadedHarness)).toBe(1);
+    expect(received).toHaveLength(1);
 
     const revised = await controller.openPlanThread(input);
 
     expect(revised.thread.id).toBe(opened.thread.id);
     expect(revised.thread.revisions).toHaveLength(2);
     core.sessionSendMessage(revised.thread.id, "approved", "Ready.");
-    expect(await controller.deliverPending(revised.binding.id, harness)).toBe(1);
+    expect(await controller.deliverPending(revised.binding.id, reloadedHarness)).toBe(1);
 
-    expect(harness.received.map((message) => message.outcome)).toEqual([
-      "changes_requested",
-      "approved",
-    ]);
+    expect(received.map((message) => message.outcome)).toEqual(["changes_requested", "approved"]);
+
+    const retry = await controller.openPlanThread(input);
+
+    expect(retry.approvedRetry).toBe(true);
+    expect(retry.thread.revisions).toHaveLength(2);
+
+    const secondRetry = await controller.openPlanThread(input);
+
+    expect(secondRetry.approvedRetry).toBe(false);
+    expect(secondRetry.thread.revisions).toHaveLength(3);
   });
 });

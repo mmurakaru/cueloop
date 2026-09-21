@@ -17,6 +17,7 @@
     "codex",
     "pi",
     "src",
+    "delivered-message-store.ts",
     "harness-thread-controller.ts",
     "wake-message.ts",
     "wake-waiter.ts",
@@ -31,6 +32,7 @@
     "./codex/wake": "./codex/wake.ts",
     "./pi": "./pi/index.ts",
     "./harness-thread-controller": "./harness-thread-controller.ts",
+    "./delivered-message-store": "./delivered-message-store.ts",
     "./wake-message": "./wake-message.ts",
     "./wake-waiter": "./wake-waiter.ts"
   },

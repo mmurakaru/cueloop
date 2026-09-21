@@ -150,6 +150,7 @@ export const HarnessBindingSchema = v.object({
   harness: NonEmpty,
   harnessSessionId: NonEmpty,
   createdAt: NonEmpty,
+  approvedRetryMessageId: v.optional(NonEmpty),
 } satisfies EntriesOf<HarnessBinding>);
 
 export const DeliverySchema = v.object({
@@ -257,6 +258,11 @@ export const Params = {
     threadId: SessionId,
     harness: NonEmpty,
     harnessSessionId: NonEmpty,
+  }),
+  "harness.consumeApprovedRetry": v.object({
+    bindingId: NonEmpty,
+    messageId: NonEmpty,
+    content: v.string(),
   }),
   "delivery.pending": v.object({ bindingId: NonEmpty }),
   "delivery.acknowledge": v.object({ deliveryId: NonEmpty }),

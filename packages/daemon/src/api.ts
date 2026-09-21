@@ -148,6 +148,27 @@ export class DaemonCore {
     return binding;
   }
 
+  harnessConsumeApprovedRetry(bindingId: string, messageId: string, content: string): boolean {
+    const binding = this.harnessState.binding(bindingId);
+
+    if (!binding) throw new DaemonError("not_found", `no harness binding ${bindingId}`);
+    const session = this.sessionGet(binding.threadId);
+
+    if (
+      session.artifact.type !== "plan" ||
+      session.status !== "resolved" ||
+      session.message?.id !== messageId ||
+      session.message.outcome !== "approved" ||
+      session.artifact.content !== content ||
+      this.harnessState.submittingBinding(session.id)?.id !== bindingId ||
+      !this.harnessState.acknowledged(bindingId, messageId)
+    ) {
+      throw new DaemonError("invalid_state", `no unchanged approved plan for ${bindingId}`);
+    }
+
+    return this.harnessState.consumeApprovedRetry(bindingId, messageId);
+  }
+
   deliveryPending(bindingId: string): PendingDelivery[] {
     const binding = this.harnessState.binding(bindingId);
 

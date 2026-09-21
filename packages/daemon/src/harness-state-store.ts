@@ -9,26 +9,11 @@ import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import type { Delivery, HarnessBinding } from "@cueloop/schema";
 import * as v from "valibot";
 import { harnessStatePath } from "./paths";
+import { DeliverySchema, HarnessBindingSchema } from "./validate";
 
 type BindInput = Pick<HarnessBinding, "threadId" | "harness" | "harnessSessionId">;
 type EnqueueInput = Pick<Delivery, "bindingId" | "messageId">;
 
-const NonEmpty = v.pipe(v.string(), v.minLength(1));
-const HarnessBindingSchema = v.object({
-  id: NonEmpty,
-  threadId: NonEmpty,
-  harness: NonEmpty,
-  harnessSessionId: NonEmpty,
-  createdAt: NonEmpty,
-});
-const DeliverySchema = v.object({
-  id: NonEmpty,
-  messageId: NonEmpty,
-  bindingId: NonEmpty,
-  status: v.picklist(["pending", "acknowledged"]),
-  createdAt: NonEmpty,
-  acknowledgedAt: v.optional(NonEmpty),
-});
 const HarnessStateSchema = v.object({
   bindings: v.array(HarnessBindingSchema),
   deliveries: v.array(DeliverySchema),
@@ -70,6 +55,19 @@ export class HarnessStateStore {
     return this.bindings.get(id) ?? null;
   }
 
+  consumeApprovedRetry(bindingId: string, messageId: string): boolean {
+    const binding = this.bindings.get(bindingId);
+
+    if (!binding) throw new Error(`no harness binding ${bindingId}`);
+
+    if (binding.approvedRetryMessageId === messageId) return false;
+
+    this.bindings.set(bindingId, { ...binding, approvedRetryMessageId: messageId });
+    this.persist();
+
+    return true;
+  }
+
   /** The first binding is the submitter; other bindings need explicit future routing. */
   submittingBinding(threadId: string): HarnessBinding | null {
     return [...this.bindings.values()].find((binding) => binding.threadId === threadId) ?? null;
@@ -101,6 +99,15 @@ export class HarnessStateStore {
     );
   }
 
+  acknowledged(bindingId: string, messageId: string): boolean {
+    return [...this.deliveries.values()].some(
+      (delivery) =>
+        delivery.bindingId === bindingId &&
+        delivery.messageId === messageId &&
+        delivery.status === "acknowledged",
+    );
+  }
+
   delivery(deliveryId: string): Delivery | null {
     return this.deliveries.get(deliveryId) ?? null;
   }
@@ -109,6 +116,7 @@ export class HarnessStateStore {
     const delivery = this.deliveries.get(deliveryId);
 
     if (!delivery) throw new Error(`no delivery ${deliveryId}`);
+
     if (delivery.status === "acknowledged") return delivery;
     const acknowledged: Delivery = {
       ...delivery,

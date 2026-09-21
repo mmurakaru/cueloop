@@ -193,11 +193,13 @@ export class ReviewHandle {
       const resolved = await raceAbort(this.client.sessionWait(this.session.id, budget), signal);
 
       if (resolved === ABORTED) return "pending";
+
       if (resolved !== null) return outcome(resolved);
       // Still pending after this chunk: re-read to surface reviewer progress.
       const current = await raceAbort(this.client.sessionGet(this.session.id), signal);
 
       if (current === ABORTED) return "pending";
+
       onProgress?.(current);
     }
   }
@@ -239,6 +241,26 @@ export async function awaitResolve(
   return resolved === null ? null : outcome(resolved);
 }
 
+/** Find the Thread already submitted by this agent in the same workspace and primitive. */
+export async function findExistingReview(
+  client: ThreadSessionClient,
+  options: OpenReviewOptions,
+): Promise<Thread | undefined> {
+  const cwd = options.cwd ?? process.cwd();
+  const workspace = options.workspace ?? (await resolveWorkspace(cwd));
+
+  if (options.agentSessionId === undefined) return undefined;
+
+  return (await client.sessionList()).find(
+    (candidate) =>
+      candidate.artifact.meta.agentSessionId === options.agentSessionId &&
+      candidate.artifact.meta.agent === options.agent &&
+      candidate.artifact.type === options.type &&
+      candidate.workspace.repoRoot === workspace.repoRoot &&
+      candidate.workspace.branch === workspace.branch,
+  );
+}
+
 /** Open a thread (or revise the agent session's existing one) and hand back the wait surface. */
 export async function openReview(
   client: ThreadSessionClient,
@@ -246,30 +268,17 @@ export async function openReview(
 ): Promise<ReviewHandle> {
   const cwd = options.cwd ?? process.cwd();
   const workspace = options.workspace ?? (await resolveWorkspace(cwd));
+  const existing = await findExistingReview(client, options);
 
-  // Resubmits from the same agent session become revisions, not new sessions -
-  // but only within the same primitive: a different artifact type is a new
-  // review, never a silent type mismatch on the old session.
-  if (options.agentSessionId !== undefined) {
-    const existing = (await client.sessionList()).find(
-      (candidate) =>
-        candidate.artifact.meta.agentSessionId === options.agentSessionId &&
-        candidate.artifact.meta.agent === options.agent &&
-        candidate.artifact.type === options.type &&
-        candidate.workspace.repoRoot === workspace.repoRoot &&
-        candidate.workspace.branch === workspace.branch,
-    );
+  if (existing !== undefined) {
+    let revised = await client.sessionSubmitRevision(existing.id, options.content);
 
-    if (existing !== undefined) {
-      let revised = await client.sessionSubmitRevision(existing.id, options.content);
-
-      if (options.notes?.length) {
-        await attachNotes(client, revised.id, options.notes);
-        revised = await client.sessionGet(revised.id);
-      }
-
-      return new ReviewHandle(client, revised);
+    if (options.notes?.length) {
+      await attachNotes(client, revised.id, options.notes);
+      revised = await client.sessionGet(revised.id);
     }
+
+    return new ReviewHandle(client, revised);
   }
   let session = await client.sessionCreate(workspace, {
     type: options.type,

@@ -205,6 +205,8 @@ export interface HarnessBinding {
   harness: string;
   harnessSessionId: string;
   createdAt: string;
+  /** Approval whose one unchanged plan resubmission this harness has consumed. */
+  approvedRetryMessageId?: string;
 }
 
 /** Durable routing state for one Message sent to one harness binding. */
