@@ -122,6 +122,31 @@ describe("HarnessThreadController", () => {
     expect(second.thread.artifact.meta.pr).toBe("43");
   });
 
+  test("reopening a PR Thread keeps hunk curation disabled", async () => {
+    const controller = new HarnessThreadController(client, {
+      surface: { openThreads() {} },
+      forge: {
+        async importPullRequest() {
+          return { content: "diff --git a/a.ts b/a.ts\n" };
+        },
+        async postPullRequestMessage() {},
+      },
+      corpus: new LocalRefineCorpusPort(client, home),
+    });
+    const input = {
+      harness: "fake",
+      harnessSessionId: "same-session",
+      workspace: { repoRoot: "/repo", branch: "main" },
+      workflow: "review" as const,
+      pr: "42",
+    };
+    const first = await controller.openWorkflow(input);
+    const second = await controller.openWorkflow(input);
+
+    expect(second.thread.id).toBe(first.thread.id);
+    expect(second.thread.artifact.files).toBeUndefined();
+  });
+
   test("refine uses the persisted corpus report", async () => {
     const source = core.sessionCreate({
       workspace: { repoRoot: "/repo", branch: "main" },

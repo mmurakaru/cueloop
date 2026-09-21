@@ -279,11 +279,14 @@ export async function openReview(
   const existing = await findExistingReview(client, options);
 
   if (existing !== undefined) {
+    // PR diffs have no full file contents. An absent local-diff capture clears
+    // old curatable files, while a PR revision must keep curation disabled.
+    const revisionFiles = options.type !== "diff" || options.pr ? undefined : (options.files ?? []);
     let revised = await client.sessionSubmitRevision(
       existing.id,
       options.content,
       [],
-      options.type === "diff" ? (options.files ?? []) : undefined,
+      revisionFiles,
     );
 
     if (options.notes?.length) {
