@@ -6,7 +6,10 @@ import * as v from "valibot";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../..");
 const HostPinsSchema = v.object({ claude: v.string(), codex: v.string(), pi: v.string() });
-const pins = v.parse(HostPinsSchema, await Bun.file(join(import.meta.dir, "pins.json")).json());
+const hostVersions = v.parse(
+  HostPinsSchema,
+  await Bun.file(join(import.meta.dir, "pins.json")).json(),
+);
 const validateOnly = process.argv.includes("--validate-only");
 const localSmoke = process.argv.includes("--local-smoke");
 
@@ -159,7 +162,7 @@ try {
   mkdirSync(hostEnv.CLAUDE_CONFIG_DIR);
   mkdirSync(hostEnv.CODEX_HOME);
   mkdirSync(join(marketplace, ".claude-plugin"), { recursive: true });
-  const cli = v.parse(
+  const cliPackage = v.parse(
     v.object({ version: v.string() }),
     await Bun.file(join(REPO_ROOT, "packages/cli/package.json")).json(),
   );
@@ -178,7 +181,7 @@ try {
             command: `printf '%s\\n' '${REPO_ROOT.replaceAll("'", "'\\''")}'`,
             mode: "link",
           },
-          version: cli.version,
+          version: cliPackage.version,
         },
       ],
     }),
@@ -193,9 +196,9 @@ try {
     }
     if (!localSmoke) {
       for (const [command, version] of [
-        ["claude", pins.claude],
-        ["codex", pins.codex],
-        ["pi", pins.pi],
+        ["claude", hostVersions.claude],
+        ["codex", hostVersions.codex],
+        ["pi", hostVersions.pi],
       ] as const) {
         const actual = runHostCommand([command, "--version"]);
 
@@ -215,7 +218,7 @@ try {
     );
     const claudePlugin = claudeList.find((plugin) => plugin.id === "cueloop@cueloop-host-smoke");
 
-    if (!claudePlugin?.version.startsWith(cli.version)) {
+    if (!claudePlugin?.version.startsWith(cliPackage.version)) {
       throw new Error("Claude Code did not install the matching cueloop Mod plugin");
     }
     checkInstalledSkills(claudePlugin.installPath, "Claude Code");
@@ -231,13 +234,13 @@ try {
 
     if (
       !codexList.installed.some(
-        (plugin) => plugin.pluginId === "cueloop@cueloop" && plugin.version === cli.version,
+        (plugin) => plugin.pluginId === "cueloop@cueloop" && plugin.version === cliPackage.version,
       )
     ) {
       throw new Error("Codex did not install the matching cueloop plugin");
     }
     checkInstalledSkills(
-      join(hostEnv.CODEX_HOME, "plugins/cache/cueloop/cueloop", cli.version),
+      join(hostEnv.CODEX_HOME, "plugins/cache/cueloop/cueloop", cliPackage.version),
       "Codex",
     );
     if (!runHostCommand(["codex", "mcp", "list"]).includes("cueloop")) {
