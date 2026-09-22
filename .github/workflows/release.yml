@@ -70,7 +70,7 @@ jobs:
       version: ${{ steps.check.outputs.version }}
       tag: ${{ steps.check.outputs.tag }}
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v7
       - name: Require a reason for an accepted benchmark regression
