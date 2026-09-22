@@ -141,14 +141,15 @@ describe("one daemon per home", () => {
     mkdirSync(ownerTokenPath(home));
     const previousTimeout = process.env.CUELOOP_START_TIMEOUT_MS;
 
-    process.env.CUELOOP_START_TIMEOUT_MS = "250";
+    // This checks error reporting, not startup speed; allow the child to start on a loaded runner.
+    process.env.CUELOOP_START_TIMEOUT_MS = "5000";
     try {
       await expect(DaemonClient.connect({ home, autostart: true })).rejects.toThrow("EISDIR");
     } finally {
       if (previousTimeout === undefined) delete process.env.CUELOOP_START_TIMEOUT_MS;
       else process.env.CUELOOP_START_TIMEOUT_MS = previousTimeout;
     }
-  });
+  }, 10_000);
 
   test("stopping releases the lock so a restart works", () => {
     // Arrange
