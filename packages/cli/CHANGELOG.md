@@ -1,5 +1,17 @@
 # cueloop
 
+## 0.1.0-alpha.83
+
+### Patch Changes
+
+- [#501](https://github.com/mmurakaru/cueloop/pull/501) [`c36e1fb`](https://github.com/mmurakaru/cueloop/commit/c36e1fbe5eea7f9f3f5f0bc444cf2d39e2d1ec57) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep ordinary Claude Code tools available when the Mod or cueloop bridge is unavailable, and remove the unconditional command hook that blocked every tool call.
+  Keep a live daemon running when an installed adapter uses a different cueloop version.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.83
+  - @cueloop/client@0.1.0-alpha.83
+  - @cueloop/daemon@0.1.0-alpha.83
+  - @cueloop/schema@0.1.0-alpha.83
+
 ## 0.1.0-alpha.82
 
 ### Patch Changes
