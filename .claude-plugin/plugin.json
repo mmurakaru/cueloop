@@ -1,7 +1,7 @@
 {
   "name": "cueloop",
   "description": "Claude Mod for cueloop Threads: plan, reply, prototype, diff, review, and refine",
-  "version": "0.1.0-alpha.80",
+  "version": "0.1.0-alpha.81",
   "author": {
     "name": "cueloop"
   }

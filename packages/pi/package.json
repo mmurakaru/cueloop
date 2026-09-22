@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/pi",
-  "version": "0.1.0-alpha.80",
+  "version": "0.1.0-alpha.81",
   "description": "cueloop Thread integration for pi",
   "keywords": [
     "pi-package"
@@ -27,7 +27,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@cueloop/adapters": "0.1.0-alpha.80"
+    "@cueloop/adapters": "0.1.0-alpha.81"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "^0.86.0"

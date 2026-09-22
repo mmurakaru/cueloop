@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "cueloop",
-  "version": "0.1.0-alpha.80",
+  "version": "0.1.0-alpha.81",
   "description": "Review plans, changes, replies, and prototypes in cueloop Threads",
   "author": {
     "name": "cueloop",
@@ -10,7 +10,11 @@
   "homepage": "https://cueloop.dev",
   "repository": "https://github.com/mmurakaru/cueloop",
   "license": "Apache-2.0",
-  "keywords": ["review", "threads", "coding-agents"],
+  "keywords": [
+    "review",
+    "threads",
+    "coding-agents"
+  ],
   "extensions": {
     "com.openai": {
       "hooks": "./hooks/codex-hooks.json",
@@ -20,9 +24,14 @@
         "longDescription": "Send plans and changes to cueloop Threads and return Messages to Codex.",
         "developerName": "cueloop",
         "category": "Productivity",
-        "capabilities": ["Read", "Write"],
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
         "websiteURL": "https://cueloop.dev",
-        "defaultPrompt": ["Review this plan in a cueloop Thread."]
+        "defaultPrompt": [
+          "Review this plan in a cueloop Thread."
+        ]
       }
     }
   }
