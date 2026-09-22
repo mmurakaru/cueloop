@@ -28,15 +28,19 @@ cueloop --help
 
 [releases](https://github.com/mmurakaru/cueloop/releases) - [changelog](./packages/cli/CHANGELOG.md)
 
-Claude Code integration requires Claude Code 2.1.278 or newer with Mods enabled. Start it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude`.
-
 ## Harness installation
 
 ### Claude Code
 
+This plugin uses the experimental Claude Mod feature, tested with Claude Code 2.1.278. Enable it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. Without the flag, cueloop stays inactive and Claude Code works normally.
+
 ```bash
-claude plugin marketplace add mmurakaru/cueloop && claude plugin install cueloop@cueloop
+claude plugin marketplace add mmurakaru/cueloop
+claude plugin install cueloop@cueloop
+CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude
 ```
+
+Then `/cueloop:plan`.
 
 ### Codex
 

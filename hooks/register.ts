@@ -180,30 +180,6 @@ export type ClaudeModOn = On;
 const READ_ONLY_TOOLS = new Set(["Read", "Grep", "Glob", "LS", "WebSearch", "WebFetch"]);
 const OPEN_THREAD_TOOL = "mcp__cueloop__open_thread";
 const REFINE_CORPUS_TOOL = "mcp__cueloop__refine_corpus";
-const MINIMUM_CLAUDE_CODE_VERSION = [2, 1, 278] as const;
-
-function supportsClaudeCodeVersion(actual: number[]): boolean {
-  for (const [index, required] of MINIMUM_CLAUDE_CODE_VERSION.entries()) {
-    if (actual[index]! > required) {
-      return true;
-    }
-    if (actual[index]! < required) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-async function assertSupportedClaudeCode(engine: Engine): Promise<void> {
-  const result = await engine.process.run(["claude", "--version"], { timeoutMs: 5_000 });
-  const match = /^(\d+)\.(\d+)\.(\d+)/.exec(result.stdout.trim());
-  const actual = match?.slice(1).map(Number);
-  const supported = result.exitCode === 0 && actual && supportsClaudeCodeVersion(actual);
-
-  if (!supported)
-    throw new Error("cueloop requires Claude Code 2.1.278 or newer with function hooks enabled");
-}
 
 async function callBridge(engine: Engine, request: BridgeRequest): Promise<BridgeResponse> {
   const entry = await engine.env.get("CUELOOP_HARNESS_ENTRY");
@@ -220,12 +196,12 @@ async function callBridge(engine: Engine, request: BridgeRequest): Promise<Bridg
 }
 
 type ModState = {
+  active: boolean;
   sessionId: string | null;
   pendingThreadIds: string[];
   available: boolean;
   timer: { cancel(): void } | null;
   polling: Promise<void> | null;
-  unavailableReason: string | null;
 };
 
 async function pollMessages(engine: Engine, state: ModState): Promise<void> {
@@ -337,63 +313,71 @@ async function openThread(
 
 export function register(on: On): void {
   const state: ModState = {
+    active: false,
     sessionId: null,
     pendingThreadIds: [],
     available: false,
     timer: null,
     polling: null,
-    unavailableReason: null,
   };
 
   on("session.start", async (engine, input, next) => {
-    state.sessionId = await engine.session.id();
     try {
-      await assertSupportedClaudeCode(engine);
-      state.unavailableReason = null;
-    } catch (error) {
-      state.unavailableReason = String(error);
+      if (
+        (await engine.env.get("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")) !== "1" ||
+        (await engine.env.get("CUELOOP_DISABLE")) === "1"
+      )
+        return next(input);
+
+      state.sessionId = await engine.session.id();
+      await engine.tool.register({
+        name: "open_thread",
+        description:
+          "Open or revise a cueloop Thread for plan, reply, prototype, diff, review, or refine.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            workflow: {
+              type: "string",
+              enum: ["plan", "reply", "prototype", "diff", "review", "refine"],
+            },
+            content: { type: "string" },
+            proposal: { type: "string" },
+            pullRequestReference: { type: "string" },
+            title: { type: "string" },
+          },
+          required: ["workflow"],
+        },
+      });
+      await engine.tool.register({
+        name: "refine_corpus",
+        description: "Analyze resolved cueloop Threads before drafting a refine proposal.",
+        inputSchema: { type: "object", properties: {} },
+      });
+      state.active = true;
+      await pollMessages(engine, state);
+      state.timer?.cancel();
+      state.timer = engine.clock.every(1_000, () => {
+        void pollMessages(engine, state);
+      });
+    } catch {
+      state.active = false;
       state.available = false;
+      state.timer?.cancel();
+      state.timer = null;
 
       return next(input);
     }
-    await engine.tool.register({
-      name: "open_thread",
-      description:
-        "Open or revise a cueloop Thread for plan, reply, prototype, diff, review, or refine.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          workflow: {
-            type: "string",
-            enum: ["plan", "reply", "prototype", "diff", "review", "refine"],
-          },
-          content: { type: "string" },
-          proposal: { type: "string" },
-          pullRequestReference: { type: "string" },
-          title: { type: "string" },
-        },
-        required: ["workflow"],
-      },
-    });
-    await engine.tool.register({
-      name: "refine_corpus",
-      description: "Analyze resolved cueloop Threads before drafting a refine proposal.",
-      inputSchema: { type: "object", properties: {} },
-    });
-    await pollMessages(engine, state);
-    state.timer?.cancel();
-    state.timer = engine.clock.every(1_000, () => {
-      void pollMessages(engine, state);
-    });
 
     return next(input);
   });
 
   on("tool.call", async (engine, input, next) => {
-    if (state.unavailableReason && !READ_ONLY_TOOLS.has(input.tool)) {
-      return { deny: state.unavailableReason };
-    }
+    if (!state.active) return next(input);
+
     if (input.tool === "ExitPlanMode") {
+      if (!state.available) return next(input);
+
       if (!input.plan) {
         return { deny: "Claude Mod could not read the plan; cueloop gate stayed closed." };
       }
@@ -407,7 +391,9 @@ export function register(on: On): void {
         return next(input);
       }
 
-      return { deny: "result" in result.output ? result.output.result : result.output.deny };
+      if ("deny" in result.output) return next(input);
+
+      return { deny: result.output.result };
     }
     if (input.tool === OPEN_THREAD_TOOL) {
       const opened = await openThread(engine, state, input);
@@ -425,10 +411,7 @@ export function register(on: On): void {
         return { deny: `Claude Mod cueloop refine unavailable: ${String(error)}` };
       }
     }
-    if (!state.available && !READ_ONLY_TOOLS.has(input.tool)) {
-      return { deny: "Claude Mod cueloop is unavailable; review gate stayed closed." };
-    }
-    if (state.pendingThreadIds.length > 0 && !READ_ONLY_TOOLS.has(input.tool)) {
+    if (state.available && state.pendingThreadIds.length > 0 && !READ_ONLY_TOOLS.has(input.tool)) {
       return { deny: `cueloop Threads pending: ${state.pendingThreadIds.join(", ")}` };
     }
 
@@ -436,7 +419,7 @@ export function register(on: On): void {
   });
 
   on("session.compact", async (engine, input, next) => {
-    await pollMessages(engine, state);
+    if (state.active) await pollMessages(engine, state);
 
     return next(input);
   });

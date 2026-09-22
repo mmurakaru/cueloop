@@ -51,7 +51,8 @@ function createTestMod() {
   let tick: (() => void) | null = null;
   let failNextAck = false;
   let bridgeUnavailable = false;
-  let claudeVersion = "2.1.278 (Claude Code)";
+  let functionHooks = "1";
+  let disabled = false;
   let malformedBridgeOutput: string | null = null;
   const engine: ClaudeModEngine = {
     session: { id: async () => "claude-mod-test", cwd: async () => home },
@@ -72,9 +73,6 @@ function createTestMod() {
     },
     process: {
       run: async (argv, options) => {
-        if (argv[0] === "claude" && argv[1] === "--version") {
-          return { exitCode: 0, stdout: claudeVersion, stderr: "" };
-        }
         if (!options?.stdin) throw new Error("missing bridge request");
         const request = JSON.parse(options.stdin);
 
@@ -98,7 +96,14 @@ function createTestMod() {
         return { exitCode: 0, stdout: JSON.stringify(response), stderr: "" };
       },
     },
-    env: { get: async () => undefined },
+    env: {
+      get: async (name) => {
+        if (name === "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS") return functionHooks;
+        if (name === "CUELOOP_DISABLE") return disabled ? "1" : undefined;
+
+        return undefined;
+      },
+    },
     store: {
       get: async (key) => stored.get(key),
       set: async (key, value) => {
@@ -156,8 +161,11 @@ function createTestMod() {
     setBridgeUnavailable: (unavailable: boolean) => {
       bridgeUnavailable = unavailable;
     },
-    setClaudeVersion: (version: string) => {
-      claudeVersion = version;
+    setFunctionHooks: (value: string) => {
+      functionHooks = value;
+    },
+    setDisabled: (value: boolean) => {
+      disabled = value;
     },
     returnMalformedOnce: (output: string) => {
       malformedBridgeOutput = output;
@@ -247,7 +255,7 @@ describe("register Claude Mod", () => {
     expect(mod.tick()).toBeUndefined();
   });
 
-  test("fails closed while the bridge is unavailable and resumes after recovery", async () => {
+  test("leaves Claude tools usable while the bridge is unavailable and resumes after recovery", async () => {
     const mod = createTestMod();
 
     mod.setBridgeUnavailable(true);
@@ -255,9 +263,16 @@ describe("register Claude Mod", () => {
     expect(await mod.dispatch("tool.call", { tool: "Read", tool_use_id: "read-only" })).toEqual({
       result: "passed",
     });
-    expect(await mod.dispatch("tool.call", { tool: "Bash", tool_use_id: "write" })).toHaveProperty(
-      "deny",
-    );
+    expect(await mod.dispatch("tool.call", { tool: "Bash", tool_use_id: "write" })).toEqual({
+      result: "passed",
+    });
+    expect(
+      await mod.dispatch("tool.call", {
+        tool: "ExitPlanMode",
+        tool_use_id: "plan-without-bridge",
+        plan: "# Plan\n\nContinue.",
+      }),
+    ).toEqual({ result: "passed" });
     mod.setBridgeUnavailable(false);
     mod.tick();
     for (let attempt = 0; attempt < 100; attempt++) {
@@ -273,18 +288,59 @@ describe("register Claude Mod", () => {
     throw new Error("Claude Mod did not recover after bridge became available");
   });
 
-  test("fails closed on an unsupported Claude Code version", async () => {
+  test("is inert without the explicit Mod flag", async () => {
     const mod = createTestMod();
 
-    mod.setClaudeVersion("2.1.277 (Claude Code)");
+    mod.setFunctionHooks("0");
     await mod.dispatch("session.start", { cwd: home, isInteractive: true });
-    expect(await mod.dispatch("tool.call", { tool: "Read", tool_use_id: "read-old" })).toEqual({
+    expect(mod.registered).toEqual([]);
+    expect(await mod.dispatch("tool.call", { tool: "Bash", tool_use_id: "bash" })).toEqual({
       result: "passed",
     });
-    const denied = await mod.dispatch("tool.call", { tool: "Bash", tool_use_id: "bash-old" });
+    expect(
+      await mod.dispatch("tool.call", {
+        tool: "ExitPlanMode",
+        tool_use_id: "plan",
+        plan: "# Plan\n\nContinue.",
+      }),
+    ).toEqual({ result: "passed" });
+    expect(await client.sessionList()).toEqual([]);
+  });
 
-    expect(denied).toHaveProperty("deny");
-    expect("deny" in denied && denied.deny).toContain("2.1.278 or newer");
+  test("leaves ordinary tools alone if the bridge fails after opening a Thread", async () => {
+    const mod = createTestMod();
+
+    await mod.dispatch("session.start", { cwd: home, isInteractive: true });
+    const opened = await mod.dispatch("tool.call", {
+      tool: "mcp__cueloop__open_thread",
+      tool_use_id: "open-before-outage",
+      workflow: "reply",
+      content: "# Reply\n\nHello.",
+    });
+
+    expect(opened).toHaveProperty("result");
+    expect(
+      await mod.dispatch("tool.call", { tool: "Write", tool_use_id: "pending" }),
+    ).toHaveProperty("deny");
+    mod.setBridgeUnavailable(true);
+    await mod.dispatch("session.compact", { trigger: "manual" });
+    expect(await mod.dispatch("tool.call", { tool: "Write", tool_use_id: "outage" })).toEqual({
+      result: "passed",
+    });
+    expect(await mod.dispatch("tool.call", { tool: "Bash", tool_use_id: "outage" })).toEqual({
+      result: "passed",
+    });
+  });
+
+  test("is inert when cueloop is disabled", async () => {
+    const mod = createTestMod();
+
+    mod.setDisabled(true);
+    await mod.dispatch("session.start", { cwd: home, isInteractive: true });
+    expect(mod.registered).toEqual([]);
+    expect(await mod.dispatch("tool.call", { tool: "Write", tool_use_id: "write" })).toEqual({
+      result: "passed",
+    });
   });
 
   test("rejects malformed bridge output before it can open or deliver a Thread", async () => {
@@ -292,9 +348,9 @@ describe("register Claude Mod", () => {
 
     mod.returnMalformedOnce('{"operation":"pending","deliveries":[{}],"pendingThreadIds":[]}');
     await mod.dispatch("session.start", { cwd: home, isInteractive: true });
-    expect(await mod.dispatch("tool.call", { tool: "Bash", tool_use_id: "bash" })).toHaveProperty(
-      "deny",
-    );
+    expect(await mod.dispatch("tool.call", { tool: "Bash", tool_use_id: "bash" })).toEqual({
+      result: "passed",
+    });
     mod.tick();
     await mod.dispatch("session.compact", { trigger: "manual" });
     mod.returnMalformedOnce('{"operation":"open","threadId":"fake","approvedRetry":"yes"}');
