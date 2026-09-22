@@ -33,7 +33,7 @@ jobs:
   version-pr:
     name: Version PR
     needs: guard
-    if: needs.guard.outputs.publish == 'false'
+    if: needs.guard.outputs.publish == 'false' && needs.guard.outputs.finalize == 'false'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -65,8 +65,12 @@ jobs:
     outputs:
       publish: ${{ steps.check.outputs.publish }}
       any_published: ${{ steps.check.outputs.any_published }}
+      finalize: ${{ steps.check.outputs.finalize }}
+      release_published: ${{ steps.check.outputs.release_published }}
       version: ${{ steps.check.outputs.version }}
       tag: ${{ steps.check.outputs.tag }}
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - name: Require a reason for an accepted benchmark regression
@@ -75,6 +79,9 @@ jobs:
           echo "benchmark_regression_reason is required when allow_benchmark_regression is set" >&2
           exit 1
       - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           version=$(jq -r .version packages/cli/package.json)
           tag="cueloop@${version}"
@@ -103,8 +110,28 @@ jobs:
               exit 1
             fi
           done
+          finalize=$publish
+          release_published=false
+          if [ "$publish" = false ] && [ "$any_published" = true ]; then
+            set +e
+            release_lookup=$(gh release view "$tag" --json isDraft -q .isDraft 2>&1)
+            release_status=$?
+            set -e
+            if [ "$release_status" -eq 0 ]; then
+              if [ "$release_lookup" = true ]; then
+                finalize=true
+              else
+                release_published=true
+              fi
+            else
+              echo "could not inspect release $tag: $release_lookup" >&2
+              exit 1
+            fi
+          fi
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
           echo "any_published=$any_published" >> "$GITHUB_OUTPUT"
+          echo "finalize=$finalize" >> "$GITHUB_OUTPUT"
+          echo "release_published=$release_published" >> "$GITHUB_OUTPUT"
 
   # Each platform compiles on its own runner: the embedded @opentui/core native
   # package is platform-specific, so one host cannot cross-compile the set.
@@ -355,7 +382,10 @@ jobs:
   finalize:
     name: Finalize release
     needs: [guard, publish-npm]
-    if: needs.guard.outputs.publish == 'true'
+    if: >-
+      always() && needs.guard.result == 'success' && needs.guard.outputs.finalize == 'true' &&
+      (needs.publish-npm.result == 'success' ||
+       (needs.guard.outputs.publish == 'false' && needs.publish-npm.result == 'skipped'))
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -369,6 +399,21 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
       - run: bun install --frozen-lockfile
+      - name: Verify staged binaries on a resumed draft
+        if: needs.guard.outputs.publish == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.guard.outputs.tag }}
+        run: |
+          gh release download "$TAG" --dir staged-assets
+          cd staged-assets
+          test "$(ls cueloop-* | wc -l | tr -d ' ')" -eq 4
+          test "$(wc -l < checksums.txt | tr -d ' ')" -eq 4
+          for target in darwin-arm64 darwin-x64 linux-arm64 linux-x64; do
+            grep -q "  cueloop-${target}\$" checksums.txt
+          done
+          sha256sum -c checksums.txt
       - name: Sync prerelease dist-tags
         run: bun run scripts/sync-dist-tags.ts
         env:
@@ -378,11 +423,13 @@ jobs:
       - name: Verify the published release
         run: bun run verify:published
       - uses: actions/download-artifact@v8
+        if: needs.guard.outputs.publish == 'true'
         with:
           path: benchmarks-out
           pattern: benchmark-*
           merge-multiple: true
       - name: Attach the benchmark comparisons to the release
+        if: needs.guard.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.guard.outputs.tag }}
@@ -398,15 +445,15 @@ jobs:
         run: gh release edit "$TAG" --draft=false --latest
 
   # Bump the tap formula from the release's checksums.txt and push it to
-  # mmurakaru/homebrew-tap. The push step no-ops until TAP_TOKEN is set. Also
-  # runs on workflow_dispatch, so a failed tap push is retried by re-running.
+  # mmurakaru/homebrew-tap. The push step no-ops until TAP_TOKEN is set. A
+  # manual retry may update the tap only after the release is already live.
   homebrew:
     name: Update Homebrew tap
     needs: [guard, finalize]
     if: >-
       always() && needs.guard.result == 'success' &&
-      ((needs.guard.outputs.publish == 'true' && needs.finalize.result == 'success') ||
-      github.event_name == 'workflow_dispatch')
+      (needs.finalize.result == 'success' ||
+       (github.event_name == 'workflow_dispatch' && needs.guard.outputs.release_published == 'true'))
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7

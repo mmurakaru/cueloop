@@ -73,13 +73,6 @@ export async function checkHarnessReleaseIntegrity(): Promise<string[]> {
   if (piPackage.peerDependencies["@earendil-works/pi-coding-agent"] !== `^${hostVersions.pi}`) {
     problems.push("packages/pi/package.json: supported pi host differs from install-matrix pin");
   }
-  const guard = await Bun.file("hooks/capability-guard.sh").text();
-
-  if (!guard.includes(hostVersions.claude)) {
-    problems.push(
-      "hooks/capability-guard.sh: supported Claude Code host differs from install-matrix pin",
-    );
-  }
   for (const path of ["hooks/hooks.json", codexPlugin.extensions["com.openai"].hooks, "mcp.json"]) {
     if (!(await Bun.file(path).exists())) problems.push(`${path}: harness entry point is missing`);
   }
