@@ -8,6 +8,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonServer } from "@cueloop/daemon";
@@ -41,6 +42,29 @@ afterEach(() => {
 });
 
 describe("createCodexDeliveryService", () => {
+  test("a malformed session record does not stop healthy sessions", async () => {
+    const hash = createHash("sha256").update("broken-session").digest("hex");
+
+    writeFileSync(join(home, "codex-active-sessions", `${hash}.json`), "{");
+    const opened = await runHarnessBridge(
+      {
+        operation: "open",
+        harness: "codex",
+        harnessSessionId: "codex-session-1",
+        cwd: home,
+        workflow: "plan",
+        content: "# Plan",
+      },
+      home,
+    );
+
+    if (opened.operation !== "open") throw new Error("expected open Thread");
+    await client.sessionSendMessage(opened.threadId, "approved", "Continue.");
+    await createCodexDeliveryService({ home, codexBin }).reconcile();
+
+    expect(readFileSync(join(home, "messages.txt"), "utf8")).toContain("Continue.");
+  });
+
   test("a stale Codex session does not block delivery to another session", async () => {
     const sessions = createCodexSessionRegistry(home);
 

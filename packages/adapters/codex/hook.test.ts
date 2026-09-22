@@ -73,4 +73,15 @@ describe("runCodexHook", () => {
       ),
     ).toBeUndefined();
   });
+
+  test("concurrent open_thread hooks keep both authorizations valid", () => {
+    const sessions = createCodexSessionRegistry(home);
+    const first = sessions.activate("codex-1", "/project");
+    const second = sessions.activate("codex-1", "/nested");
+
+    expect(first).not.toBe(second);
+    expect(sessions.authorized("codex-1", "/project", first)).toBeTrue();
+    expect(sessions.authorized("codex-1", "/nested", second)).toBeTrue();
+    expect(sessions.authorized("codex-1", "/elsewhere", first)).toBeFalse();
+  });
 });
