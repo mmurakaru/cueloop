@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.82
+
+### Patch Changes
+
+- [#498](https://github.com/mmurakaru/cueloop/pull/498) [`078b3ab`](https://github.com/mmurakaru/cueloop/commit/078b3abb0fe5e77f79e3c87c5d3f07a6be9ddd22) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reduce standalone CLI startup time by minifying its binary.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.82
+  - @cueloop/client@0.1.0-alpha.82
+  - @cueloop/daemon@0.1.0-alpha.82
+  - @cueloop/schema@0.1.0-alpha.82
+
 ## 0.1.0-alpha.81
 
 ### Minor Changes
