@@ -10,6 +10,7 @@ interface ForgeCommandResult {
 }
 
 const MESSAGE_OUTCOME_FLAG: Record<MessageOutcome, string> = {
+  comment: "--comment",
   approved: "--approve",
   changes_requested: "--request-changes",
 };

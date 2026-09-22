@@ -6,6 +6,7 @@
 
 import {
   ARTIFACT_TYPES,
+  MESSAGE_OUTCOMES,
   isArtifactType,
   manualThreadOpenCommand,
   newAnnotationId,
@@ -30,7 +31,7 @@ function out(value: Parameters<typeof JSON.stringify>[0]): void {
 
 const ReviewNotesSchema = v.array(v.object({ path: v.string(), body: v.string() }));
 const SessionStatusSchema = v.picklist(["pending", "resolved"]);
-const MessageOutcomeSchema = v.picklist(["approved", "changes_requested"]);
+const MessageOutcomeSchema = v.picklist(MESSAGE_OUTCOMES);
 
 type SessionFlags = Record<string, string | boolean>;
 type SessionContext = { client: DaemonClient; positional: string[]; flags: SessionFlags };

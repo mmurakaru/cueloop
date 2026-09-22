@@ -158,7 +158,7 @@ export interface ThreadViewProps {
   onUpdateAnnotation: (id: string, body: string) => void;
   /** The author's display name for a comment's hover tooltip. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
-  onNavCommand?: (key: KeyEvent) => boolean;
+  onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;
   onExit: () => void;
   theme?: Theme;
 }

@@ -33,6 +33,8 @@ The daemon persists sessions to disk atomically.
 
 - move the store
 - add recovery
+
+Use the **safe** mode.
 `;
 
 let home: string;
@@ -168,6 +170,33 @@ describe("thread view grammar", () => {
     await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
   });
 
+  test("Cut removes only the marked characters instead of their whole block", async () => {
+    const setup = await renderApp();
+
+    await dragText(setup, "move the store", "move the store", "move".length);
+    await navCommand(setup, "x");
+    await waitForState(setup, () =>
+      (server.core.sessionGet(session.id).workingCopy ?? "").includes("-  the store"),
+    );
+    const working = server.core.sessionGet(session.id).workingCopy ?? "";
+
+    expect(working).not.toContain("move the store");
+    expect(working).toContain("-  the store");
+    expect(working).toContain("- add recovery");
+  });
+
+  test("Cut maps rendered inline Markdown back to its exact source characters", async () => {
+    const setup = await renderApp();
+
+    await dragText(setup, "safe", "safe", "safe".length);
+    await navCommand(setup, "x");
+    await waitForState(setup, () =>
+      (server.core.sessionGet(session.id).workingCopy ?? "").includes("Use the **** mode."),
+    );
+
+    expect(server.core.sessionGet(session.id).workingCopy).toContain("Use the **** mode.");
+  });
+
   test("ctrl+e opens the inline editor; the header toggles to normal and leaving tracks the edit", async () => {
     // Arrange
     const setup = await renderApp();
@@ -208,7 +237,7 @@ describe("submit", () => {
 
     // Act - cycle to request changes, then send with a summary
     await press(setup, "right");
-    await waitForText(setup, "[Changes]");
+    await waitForText(setup, "[Request changes]");
     await type(setup, "Expand the steps.");
     await pressKey(setup, "RETURN", { meta: true });
 

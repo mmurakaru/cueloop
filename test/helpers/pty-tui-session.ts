@@ -308,6 +308,23 @@ export class PtyTuiSession implements PtyScreenReader {
     await this.writeAndSettle(`\x1b[<0;${x};${y}M\x1b[<0;${x};${y}m`);
   }
 
+  /** Drag between 0-based cells with the left button held. */
+  async dragAt(
+    fromColumn: number,
+    fromRow: number,
+    toColumn: number,
+    toRow: number,
+  ): Promise<void> {
+    const fromX = fromColumn + 1;
+    const fromY = fromRow + 1;
+    const toX = toColumn + 1;
+    const toY = toRow + 1;
+
+    await this.writeAndSettle(
+      `\x1b[<0;${fromX};${fromY}M\x1b[<32;${toX};${toY}M\x1b[<0;${toX};${toY}m`,
+    );
+  }
+
   /** Resize the emulator and the child's tty together, which delivers SIGWINCH. */
   resize(cols: number, rows: number): void {
     this.terminal.resize(cols, rows);

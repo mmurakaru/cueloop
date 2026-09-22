@@ -117,4 +117,54 @@ describe("runHarnessBridge", () => {
     ).rejects.toThrow("does not match");
     expect(await client.deliveryPending(delivery.bindingId)).toHaveLength(1);
   });
+
+  test("delivers and acknowledges Comment while the Thread stays pending", async () => {
+    const opened = await runHarnessBridge(
+      {
+        operation: "open",
+        harness: "codex",
+        harnessSessionId: "codex-comment",
+        cwd: home,
+        workflow: "reply",
+        content: "# Reply\n\nHello.",
+      },
+      home,
+    );
+
+    expect(opened.operation).toBe("open");
+    if (opened.operation !== "open") throw new Error("expected an opened Thread");
+    await client.sessionSendMessage(opened.threadId, "comment", "Consider the greeting.");
+    const pending = await runHarnessBridge(
+      { operation: "pending", harness: "codex", harnessSessionId: "codex-comment" },
+      home,
+    );
+
+    expect(pending.operation).toBe("pending");
+    if (pending.operation !== "pending") throw new Error("expected pending Messages");
+    expect(pending.pendingThreadIds).toEqual([opened.threadId]);
+    expect(pending.deliveries).toHaveLength(1);
+    expect(pending.deliveries[0]!.threadStatus).toBe("pending");
+    expect(pending.deliveries[0]!.wakeText).toContain("has new comments");
+    expect(pending.deliveries[0]!.wakeText).toContain("Consider the greeting.");
+    const delivery = pending.deliveries[0]!;
+
+    await runHarnessBridge(
+      {
+        operation: "ack",
+        bindingId: delivery.bindingId,
+        deliveryId: delivery.deliveryId,
+        messageId: delivery.message.id,
+      },
+      home,
+    );
+    const after = await runHarnessBridge(
+      { operation: "pending", harness: "codex", harnessSessionId: "codex-comment" },
+      home,
+    );
+
+    expect(after.operation).toBe("pending");
+    if (after.operation !== "pending") throw new Error("expected pending Messages");
+    expect(after.deliveries).toEqual([]);
+    expect(after.pendingThreadIds).toEqual([opened.threadId]);
+  });
 });

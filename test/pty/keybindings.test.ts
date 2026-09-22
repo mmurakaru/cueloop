@@ -126,6 +126,25 @@ async function navPressForToast(
   await pressEscapeUntilGone(session, body);
 }
 
+async function waitForWorkingCopy(
+  reviewHome: TestReviewHome,
+  reviewId: string,
+  expected: string,
+): Promise<void> {
+  const deadline = Date.now() + 5_000;
+
+  while (Date.now() < deadline) {
+    if (reviewHome.server.core.sessionGet(reviewId).workingCopy?.includes(expected)) return;
+    await Bun.sleep(5);
+  }
+
+  const actual = reviewHome.server.core.sessionGet(reviewId).workingCopy;
+
+  throw new Error(
+    `working copy did not contain ${JSON.stringify(expected)}: ${JSON.stringify(actual)}`,
+  );
+}
+
 /** Escape closes toasts, prompts, cards, and overlays; wait for `text` to leave the screen. */
 async function pressEscapeUntilGone(session: PtyTuiSession, text: string): Promise<void> {
   await session.pressAndWaitForScreen("escape", (screen) => !screen.includes(text), {
@@ -229,13 +248,16 @@ describe("nav mode in a diff review", () => {
 
   ptyTest("enter opens the send card, arrows change the message, escape cancels", async () => {
     await navPress(session, "session", "⏎", "[Approve]");
-    await session.pressAndWaitForScreen("right", (screen) => screen.includes("[Changes]"), {
+    await session.pressAndWaitForScreen("right", (screen) => screen.includes("[Request changes]"), {
       what: "the message to move right",
     });
     await session.pressAndWaitForScreen("left", (screen) => screen.includes("[Approve]"), {
       what: "the message to move back",
     });
-    await pressEscapeUntilGone(session, "[Approve]");
+    await session.pressAndWaitForScreen("left", (screen) => screen.includes("[Comment]"), {
+      what: "the message to move left",
+    });
+    await pressEscapeUntilGone(session, "[Comment]");
   });
 
   ptyTest("s opens the share dialog; creating a link reports the gateway failure", async () => {
@@ -311,7 +333,9 @@ describe("nav mode in a plan review", () => {
 
   beforeAll(async () => {
     if (!PTY_TIER_ENABLED) return;
-    session = (await launchPlanReview(reviewHome)).session;
+    const launched = await launchPlanReview(reviewHome);
+
+    session = launched.session;
   });
 
   afterAll(async () => {
@@ -351,6 +375,32 @@ describe("nav mode in a plan review", () => {
     await navPressForToast(session, "tree", "h", "fork and share failed: gateway upload failed:", {
       timeoutMs: 10_000,
     });
+  });
+});
+
+describe("marked Cut in a plan review", () => {
+  let session: PtyTuiSession;
+  let reviewId: string;
+
+  beforeAll(async () => {
+    if (!PTY_TIER_ENABLED) return;
+    const launched = await launchPlanReview(reviewHome);
+
+    session = launched.session;
+    reviewId = launched.review.id;
+  });
+
+  afterAll(async () => {
+    if (!PTY_TIER_ENABLED) return;
+    await session.close();
+  });
+
+  ptyTest("x cuts only the marked characters when a drag selection is held", async () => {
+    const target = session.locate("everyone");
+
+    await session.dragAt(target.column, target.row, target.column + "everyone".length, target.row);
+    await navPress(session, "discussion", "x", "selection cut");
+    await waitForWorkingCopy(reviewHome, reviewId, "Enable it for  immediately.");
   });
 });
 

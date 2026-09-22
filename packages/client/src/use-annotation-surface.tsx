@@ -107,7 +107,7 @@ export interface AnnotationSurfaceOptions {
   /** The author's display name for a comment's hover tooltip; the rail resolves it against the participant registry. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
   /** Resolve a nav-mode key to a session/curation/tree/diff command; true when it acted. */
-  onNavCommand?: (key: KeyEvent) => boolean;
+  onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;
   onExit: () => void;
 }
 
@@ -682,7 +682,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (navModeRef.current) {
       if (handleCaretKey(key)) return;
       if (key.name === "z") return toggleFoldAtCursor();
-      if (onNavCommand?.(key)) return;
+      if (onNavCommand?.(key, heldSpan)) return;
       if (key.name === "c") {
         setNavMode(false);
 

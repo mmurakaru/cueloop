@@ -69,6 +69,29 @@ import { listProjectFiles, readProjectFile } from "./project-files";
 import { resolveWorkspace } from "./thread-review";
 import { DaemonError } from "./errors";
 
+/** Reviewer-controlled fields that make an annotation new or edited for delivery. */
+function annotationDeliveryFingerprint(annotation: Annotation | undefined): string {
+  if (!annotation) return "";
+
+  return JSON.stringify({
+    kind: annotation.kind,
+    anchor: {
+      quote: annotation.anchor.quote,
+      prefix: annotation.anchor.prefix,
+      suffix: annotation.anchor.suffix,
+      blockIndex: annotation.anchor.blockIndex,
+      endBlockIndex: annotation.anchor.endBlockIndex,
+      start: annotation.anchor.start,
+      end: annotation.anchor.end,
+      selector: annotation.anchor.selector,
+    },
+    target: annotation.target,
+    body: annotation.body,
+    author: annotation.author,
+    replyTo: annotation.replyTo,
+  });
+}
+
 /** What a share hands back: the notes and names it collected, and the removals it recorded. */
 export interface SharedMerge {
   annotations: Annotation[];
@@ -755,16 +778,29 @@ export class DaemonCore {
   ): Thread {
     const session = this.mutable(id);
     const sentAt = new Date().toISOString();
+    const sentAnnotations = new Map(
+      (session.history?.entries ?? [])
+        .filter((entry) => entry.type === "message")
+        .flatMap((entry) => (entry.type === "message" ? (entry.message.annotations ?? []) : []))
+        .map((annotation) => [annotation.id, annotation]),
+    );
+    const annotations = session.annotations.filter(
+      (annotation) =>
+        !isAddressed(annotation) &&
+        annotationDeliveryFingerprint(sentAnnotations.get(annotation.id)) !==
+          annotationDeliveryFingerprint(annotation),
+    );
     const message: Message = {
       id: newMessageId(),
       outcome,
       summary,
-      body: feedbackForSession(session, outcome, summary, actionBodies),
+      body: feedbackForSession(session, outcome, summary, actionBodies, annotations),
+      annotations,
       sentAt,
     };
 
     session.message = message;
-    session.status = "resolved";
+    session.status = outcome === "comment" ? "pending" : "resolved";
     const entryId = this.record(session, {
       type: "message",
       message,
@@ -772,13 +808,18 @@ export class DaemonCore {
     });
     this.store.upsert(session);
     this.reconcileDeliveries(session);
+    this.emit("message.sent", id, entryId);
+    if (outcome === "comment") {
+      this.emit("session.updated", id, entryId);
+
+      return session;
+    }
     // a resolved diff review is frozen; stop hot-reloading its working tree
     this.untrackLiveDiffSession(session);
     const parked = this.waiters.get(id) ?? [];
 
     this.waiters.delete(id);
     for (const parkedWaiter of parked) parkedWaiter(session);
-    this.emit("message.sent", id, entryId);
     this.emit("inbox.changed", id);
 
     return session;

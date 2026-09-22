@@ -1,11 +1,6 @@
-/**
- * Working-copy block surgery: the only module that slices raw source text by
- * Block line ranges. Cut removes a block's lines; restore re-inserts a base
- * block's chunk and reports when the working copy round-trips back to the
- * submitted revision (pristine). Callers never touch lineStart/lineEnd.
- */
+/** Working-copy source surgery for block and character cuts plus block restoration. */
 
-import { parseBlocks, type Block } from "./markdown";
+import { parseBlocks, sourceOffsetAt, type Block } from "./markdown";
 
 /** Chunk of the base source a block occupies (for restore and display). */
 export function sourceChunk(base: string, block: Block): string {
@@ -23,6 +18,26 @@ export function cutBlock(working: string, block: Block): string {
   while (before.length && before[before.length - 1]!.trim() === "") before.pop();
 
   return [...before, ...after].join("\n");
+}
+
+/**
+ * Remove exactly the selected block-text range while retaining surrounding
+ * Markdown markers. A cross-block range also removes the source between its
+ * endpoint characters.
+ */
+export function cutTextRange(
+  working: string,
+  startBlock: Block,
+  start: number,
+  endBlock: Block,
+  end: number,
+): string {
+  const sourceStart = sourceOffsetAt(working, startBlock, start) ?? -1;
+  const sourceEnd = sourceOffsetAt(working, endBlock, end) ?? -1;
+
+  if (sourceStart < 0 || sourceEnd <= sourceStart) return working;
+
+  return working.slice(0, sourceStart) + working.slice(sourceEnd);
 }
 
 /** The line a restored block re-enters at: the next surviving block's start. */

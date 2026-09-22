@@ -98,7 +98,7 @@ describe("diff review", () => {
     await pressKey(setup, "RETURN", { meta: true });
     await waitForText(setup, "[Approve]");
     await press(setup, "right");
-    await waitForText(setup, "[Changes]");
+    await waitForText(setup, "[Request changes]");
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert

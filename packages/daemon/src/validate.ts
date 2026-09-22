@@ -12,6 +12,7 @@
 import * as v from "valibot";
 import {
   ARTIFACT_TYPES,
+  MESSAGE_OUTCOMES,
   WORKFLOW_KINDS,
   SCHEMA_VERSION,
   type Anchor,
@@ -252,7 +253,7 @@ export const Params = {
   }),
   "session.sendMessage": v.object({
     id: SessionId,
-    outcome: v.picklist(["approved", "changes_requested"]),
+    outcome: v.picklist(MESSAGE_OUTCOMES),
     summary: v.optional(v.string(), ""),
     actionBodies: v.optional(v.record(v.string(), v.string())),
   }),
@@ -336,9 +337,10 @@ export const RevisionSchema = v.object({
 
 export const MessageSchema = v.object({
   id: NonEmpty,
-  outcome: v.picklist(["approved", "changes_requested"]),
+  outcome: v.picklist(MESSAGE_OUTCOMES),
   summary: v.string(),
   body: v.string(),
+  annotations: v.optional(v.array(FullAnnotationSchema)),
   sentAt: v.string(),
 } satisfies EntriesOf<Message>);
 

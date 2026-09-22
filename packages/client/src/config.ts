@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { OBSIDIAN_DEFAULTS, type ObsidianConfig } from "@cueloop/integration-obsidian";
-import type { MessageOutcome } from "@cueloop/schema";
+import { MESSAGE_OUTCOMES, type MessageOutcome } from "@cueloop/schema";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import * as v from "valibot";
@@ -213,7 +213,7 @@ const UiSchema = v.object({
   editor: v.fallback(v.optional(v.string()), undefined),
   theme: v.fallback(v.optional(v.string()), undefined),
   diff_view: v.fallback(v.optional(v.picklist(["split", "stacked", "unified"])), undefined),
-  default_message: v.fallback(v.optional(v.picklist(["approved", "changes_requested"])), undefined),
+  default_message: v.fallback(v.optional(v.picklist(MESSAGE_OUTCOMES)), undefined),
   pins: v.fallback(v.optional(v.array(v.string())), undefined),
   layout: v.fallback(
     v.optional(

@@ -8,14 +8,13 @@
  */
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { isAddressed, type Thread, type MessageOutcome } from "@cueloop/schema";
+import { isAddressed, MESSAGE_OUTCOMES, type Thread, type MessageOutcome } from "@cueloop/schema";
 import { displayText, spanKey, startSpan, type DisplayBlock, type SpanState } from "./view-plan";
 import type { DiffRow } from "./view-diff";
 import type { ReviewController } from "./thread-controller";
 import type { Intent } from "./keymap";
 import type { TreeRow } from "./tree-view";
 import { quickActionBody, type QuickAction } from "./config";
-import { MESSAGE_OUTCOMES } from "./components/ConfirmCard";
 
 /** Which pane of the session tree / review the keyboard grammar is aimed at. */
 export type RailTab = "review" | "tree";
@@ -256,11 +255,10 @@ function handleSpanKey(intent: IntentOfType<"spanKey">, deps: IntentDispatchDeps
 }
 
 function handleSpanCut(_intent: IntentOfType<"spanCut">, deps: IntentDispatchDeps): void {
-  // the block the span sits in, cut whole (partial-span cut is not modeled)
   const { mode } = deps;
 
   if (mode.type === "span") {
-    deps.controller.cut(mode.span.displayIndex);
+    deps.controller.cut(mode.span.displayIndex, mode.span.start, mode.span.end);
     deps.setMode({ type: "normal" });
   }
 }

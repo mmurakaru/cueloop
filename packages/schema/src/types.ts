@@ -232,7 +232,8 @@ export interface PendingDelivery {
   message: Message;
 }
 
-export type MessageOutcome = "approved" | "changes_requested";
+export const MESSAGE_OUTCOMES = ["comment", "approved", "changes_requested"] as const;
+export type MessageOutcome = (typeof MESSAGE_OUTCOMES)[number];
 
 export interface Message {
   /** Stable identity used to deduplicate at-least-once harness delivery. */
@@ -241,6 +242,8 @@ export interface Message {
   summary: string;
   /** The structured review document sent to the harness. */
   body: string;
+  /** Annotation snapshots included in this delivery, for incremental sends. */
+  annotations?: Annotation[];
   sentAt: string;
 }
 

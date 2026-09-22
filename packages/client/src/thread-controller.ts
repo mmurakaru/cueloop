@@ -14,6 +14,7 @@ import {
   applyPathView,
   createBranch,
   cutBlock,
+  cutTextRange,
   detectHerdr,
   labelTip,
   MAIN_BRANCH,
@@ -293,8 +294,8 @@ export interface ReviewController {
   renameSession(id: string, title: string): void;
   /** Record the viewer's own name into the share's participant registry (collaborator self-naming). */
   setSelfName(name: string): void;
-  /** Cut the block under the cursor, or restore a cut one. */
-  cut(displayIndex: number): void;
+  /** Cut a marked range, or toggle the block under the cursor. */
+  cut(displayIndex: number, start?: number, end?: number, endDisplayIndex?: number): void;
   /** Toggle rejection of the whole hunk under the diff cursor (owner curation). */
   toggleRejectHunk(rowIndex: number): void;
   /** Toggle rejection of the single change under the diff cursor (owner curation). */
@@ -941,7 +942,7 @@ class Controller implements ReviewController {
     this.apply(this.client!.sessionSetSelfName(session.id, name));
   }
 
-  cut(displayIndex: number): void {
+  cut(displayIndex: number, start?: number, end?: number, endDisplayIndex = displayIndex): void {
     const session = this.snapshot.session;
 
     if (!session || session.status === "resolved") return;
@@ -950,7 +951,18 @@ class Controller implements ReviewController {
     if (!block) return;
     const working = this.working();
 
-    if (block.type === "del") {
+    if (start !== undefined && end !== undefined && block.work) {
+      const display = this.display();
+      const endBlock = display[endDisplayIndex];
+
+      if (!endBlock?.work) return;
+      const range = renderedSpanToWork(display, displayIndex, endDisplayIndex, start, end);
+      const content = cutTextRange(working, block.work, range.start, endBlock.work, range.end);
+
+      if (content === working) return;
+      this.setWorkingCopy(content);
+      this.setStatus("selection cut - it serializes into the diff");
+    } else if (block.type === "del") {
       this.restoreDelBlock(block, displayIndex);
     } else if (block.work) {
       const workIndex = parseBlocks(working).findIndex(
@@ -1516,6 +1528,11 @@ class Controller implements ReviewController {
         // The completion overlay heading already states the message, so the
         // status line stays empty here - only export/error messages fill it.
         this.update({ session: resolved, status: "" });
+        if (message === "comment") {
+          this.setStatus("comment sent - thread stays open");
+
+          return;
+        }
         // notes-vault export: guarded by each exporter's policy (default manual = no-op)
         for (const exporter of this.exporters) {
           if (!exporter.runsOn(message)) continue;

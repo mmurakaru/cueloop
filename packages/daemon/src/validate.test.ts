@@ -224,6 +224,7 @@ describe("wire pins", () => {
     outcome: "approved",
     summary: "",
     body: "",
+    annotations: [fullAnnotation],
     sentAt: "now",
   };
   const fullRevision: Required<Revision> = { revision: 1, content: "# P", submittedAt: "now" };

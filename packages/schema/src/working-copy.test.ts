@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { cutBlock, restoreBlock, restoreLine, sourceChunk } from "./working-copy";
+import { cutBlock, cutTextRange, restoreBlock, restoreLine, sourceChunk } from "./working-copy";
 import { parseBlocks, type Block } from "./markdown";
 
 const BASE = `# Plan
@@ -63,6 +63,63 @@ describe("cutBlock", () => {
     // Assert
     expect(cut).not.toContain("const x");
     expect(cut).toContain("- second item");
+  });
+});
+
+describe("cutTextRange", () => {
+  test("cuts only the selected characters inside a block", () => {
+    const paragraph = block(BASE, "spans two lines");
+    const start = paragraph.text.indexOf("paragraph");
+    const cut = cutTextRange(BASE, paragraph, start, paragraph, start + "paragraph".length);
+
+    expect(cut).toContain("A  that\nspans two lines.");
+    expect(cut).toContain("## Context");
+    expect(cut).toContain("- first item");
+  });
+
+  test("preserves a list marker around a partial cut", () => {
+    const item = block(BASE, "first item");
+    const cut = cutTextRange(BASE, item, 0, item, "first ".length);
+
+    expect(cut).toContain("- item");
+    expect(cut).not.toContain("- first item");
+  });
+
+  test.each([
+    ["heading", "# remove keep", "#  keep"],
+    ["ordered list", "12. remove keep", "12.  keep"],
+    ["fenced code", "```ts\nremove keep\n```", "```ts\n keep\n```"],
+    ["frontmatter", "---\nname: remove keep\n---", "---\nname:  keep\n---"],
+    ["table", "| remove | keep |\n| --- | --- |", "|  | keep |\n| --- | --- |"],
+  ])("preserves %s source markers", (_label, source, expected) => {
+    const target = block(source, "remove");
+    const start = target.text.indexOf("remove");
+
+    expect(cutTextRange(source, target, start, target, start + "remove".length)).toBe(expected);
+  });
+
+  test("cuts an exact range across marked quote lines", () => {
+    const source = "> keep alpha\n> remove beta\n> keep gamma";
+    const quote = parseBlocks(source)[0]!;
+    const start = quote.text.indexOf("alpha");
+    const end = quote.text.indexOf("keep gamma");
+
+    const cut = cutTextRange(source, quote, start, quote, end);
+
+    expect(cut).toBe("> keep keep gamma");
+  });
+
+  test("cuts an exact range across separate blocks", () => {
+    const source = "Keep before remove this.\n\n- remove that keep after";
+    const blocks = parseBlocks(source);
+    const first = blocks[0]!;
+    const second = blocks[1]!;
+    const start = first.text.indexOf("remove");
+    const end = second.text.indexOf("keep after");
+
+    const cut = cutTextRange(source, first, start, second, end);
+
+    expect(cut).toBe("Keep before keep after");
   });
 });
 

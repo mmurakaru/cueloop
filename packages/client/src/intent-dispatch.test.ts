@@ -276,7 +276,7 @@ describe("cycleMessage", () => {
 describe("marker-actions popover", () => {
   const span = { displayIndex: 3, wordIndex: 0, wordEnd: 0, start: 2, end: 9 };
 
-  test("spanCut cuts the span's block and closes the popover", () => {
+  test("spanCut cuts only the marked character range and closes the popover", () => {
     // Arrange
     const deps = makeDeps({ mode: { type: "span", span } });
     const dispatch = createIntentDispatch(deps);
@@ -285,7 +285,7 @@ describe("marker-actions popover", () => {
     dispatch({ type: "spanCut" });
 
     // Assert
-    expect(deps.controller.cut).toHaveBeenCalledWith(3);
+    expect(deps.controller.cut).toHaveBeenCalledWith(3, 2, 9);
     expect(deps.setMode).toHaveBeenCalledWith({ type: "normal" });
   });
 

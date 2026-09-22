@@ -896,7 +896,13 @@ export function App({
   }, [session, navigablePanes, focusedPane]);
   const cyclePanes = (backward: boolean): void =>
     setFocusedPane((current) => nextFocusPane(current, navigablePanes, backward));
-  const runNavCommand = (key: { name: string; shift?: boolean }): boolean => {
+  const runNavCommand = (
+    key: { name: string; shift?: boolean },
+    selection: {
+      start: { blockIndex: number; char: number };
+      end: { blockIndex: number; char: number };
+    } | null = null,
+  ): boolean => {
     const intent = resolveNavKey(key, {
       isOwner,
       resolved,
@@ -905,7 +911,14 @@ export function App({
     });
 
     if (!intent) return false;
-    dispatch(intent);
+    if (intent.type === "cut" && selection) {
+      controller.cut(
+        selection.start.blockIndex,
+        selection.start.char,
+        selection.end.char,
+        selection.end.blockIndex,
+      );
+    } else dispatch(intent);
 
     return true;
   };

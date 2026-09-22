@@ -169,6 +169,71 @@ describe("session lifecycle", () => {
     ).toThrow("already resolved");
   });
 
+  test("Comment delivers only changed annotations and keeps the Thread pending", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(session.id, {
+      id: "first",
+      kind: "comment",
+      anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
+      body: "first note",
+    });
+
+    const commented = core.sessionSendMessage(session.id, "comment", "Interim feedback");
+
+    expect(commented.status).toBe("pending");
+    expect(commented.message!.annotations?.map((annotation) => annotation.id)).toEqual(["first"]);
+    expect(commented.message!.body).toContain("first note");
+
+    core.sessionAnnotate(session.id, {
+      id: "second",
+      kind: "comment",
+      anchor: { quote: "Context", prefix: "Plan", suffix: "Do" },
+      body: "second note",
+    });
+
+    const secondComment = core.sessionSendMessage(session.id, "comment", "Another note");
+
+    expect(secondComment.status).toBe("pending");
+    expect(secondComment.message!.annotations?.map((annotation) => annotation.id)).toEqual([
+      "second",
+    ]);
+    expect(secondComment.message!.body).not.toContain("first note");
+    expect(secondComment.message!.body).toContain("second note");
+
+    core.sessionAnnotate(session.id, {
+      id: "first",
+      kind: "comment",
+      anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
+      body: "edited first note",
+    });
+
+    const resolved = core.sessionSendMessage(session.id, "approved", "Ready");
+
+    expect(resolved.status).toBe("resolved");
+    expect(resolved.message!.annotations?.map((annotation) => annotation.id)).toEqual(["first"]);
+    expect(resolved.message!.body).toContain("edited first note");
+    expect(resolved.message!.body).not.toContain("second note");
+  });
+
+  test("agent-side resolution does not redeliver a sent annotation", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(session.id, {
+      id: "sent",
+      kind: "comment",
+      anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
+      body: "sent note",
+    });
+    core.sessionSendMessage(session.id, "comment", "Interim feedback");
+    core.sessionSubmitRevision(session.id, PLAN.content, ["sent"]);
+
+    const resolved = core.sessionSendMessage(session.id, "approved", "Ready");
+
+    expect(resolved.message!.annotations).toEqual([]);
+    expect(resolved.message!.body).not.toContain("sent note");
+  });
+
   test("working copy stores edits and clears on revert or no-op", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
