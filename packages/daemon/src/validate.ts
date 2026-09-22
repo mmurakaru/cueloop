@@ -282,6 +282,7 @@ export const Params = {
   // the owner token proves ownership; without it a request for owner stays a collaborator
   "daemon.hello": v.object({
     role: v.picklist(["owner", "collaborator", "agent"]),
+    clientVersion: v.optional(v.string()),
     token: v.optional(v.string()),
     // the author a non-owner acts as, bound once for the connection
     author: v.optional(NonEmpty),

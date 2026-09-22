@@ -297,6 +297,13 @@ export class DaemonServer {
       if (params.role === "owner" && params.token !== this.ownerToken) {
         throw new DaemonError("forbidden", "owner token required");
       }
+      if (params.clientVersion !== this.version) {
+        throw new DaemonError(
+          "version_mismatch",
+          `daemon is version ${this.version}, but this client is ${params.clientVersion ?? "unknown"}; align cueloop versions before restarting the daemon`,
+        );
+      }
+
       connection.role = params.role;
       // identity is bound once, here; a non-owner never names it per call
       if (params.role !== "owner" && params.author !== undefined) connection.author = params.author;

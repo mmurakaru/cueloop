@@ -32,15 +32,13 @@ cueloop --help
 
 ### Claude Code
 
-This plugin uses the experimental Claude Mod feature, tested with Claude Code 2.1.278. Enable it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. Without the flag, cueloop stays inactive and Claude Code works normally.
+This plugin uses the experimental Claude Mod feature:
 
 ```bash
 claude plugin marketplace add mmurakaru/cueloop
 claude plugin install cueloop@cueloop
 CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude
 ```
-
-Then `/cueloop:plan`.
 
 ### Codex
 
