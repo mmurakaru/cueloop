@@ -24,13 +24,14 @@
     "terminal-thread-surface-port.ts",
     "refine-corpus.ts",
     "wake-message.ts",
-    "wake-waiter.ts",
     "README.md"
   ],
   "type": "module",
   "exports": {
     "./codex/queue": "./codex/queue.ts",
-    "./codex/wake": "./codex/wake.ts",
+    "./codex/hook": "./codex/hook.ts",
+    "./codex/delivery-service": "./codex/delivery-service.ts",
+    "./codex/session-registry": "./codex/session-registry.ts",
     "./pi": "./pi/index.ts",
     "./harness-thread-controller": "./harness-thread-controller.ts",
     "./harness-bridge": "./harness-bridge.ts",
@@ -39,8 +40,7 @@
     "./refine-corpus": "./refine-corpus.ts",
     "./delivered-message-store": "./delivered-message-store.ts",
     "./forge-review": "./forge-review.ts",
-    "./wake-message": "./wake-message.ts",
-    "./wake-waiter": "./wake-waiter.ts"
+    "./wake-message": "./wake-message.ts"
   },
   "publishConfig": {
     "access": "public"

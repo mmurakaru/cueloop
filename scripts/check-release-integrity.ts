@@ -1,10 +1,3 @@
-/**
- * Guard the release machinery against silent regression. A rebase that resolves
- * a package.json conflict the wrong way can quietly drop the changesets
- * scripts, and the loss only surfaces when a release fails - after the merge.
- * CI runs this on every PR.
- */
-
 const problems: string[] = [];
 
 const root = await Bun.file("package.json").json();
@@ -27,6 +20,26 @@ if (!(await Bun.file(".changeset/config.json").exists()))
   problems.push(".changeset/config.json is missing");
 if (!(await Bun.file("scripts/sync-plugin-version.ts").exists())) {
   problems.push("scripts/sync-plugin-version.ts is missing (the version step calls it)");
+}
+
+const codexManifest = await Bun.file("plugin.json").json();
+const codexCompatibilityManifest = await Bun.file(".codex-plugin/plugin.json").json();
+const expectedCodexCompatibilityManifest = {
+  name: codexManifest.name,
+  version: codexManifest.version,
+  description: codexManifest.description,
+  author: { name: codexManifest.author.name },
+  skills: "./skills/",
+  interface: codexManifest.extensions["com.openai"].interface,
+};
+
+if (
+  JSON.stringify(codexCompatibilityManifest) !== JSON.stringify(expectedCodexCompatibilityManifest)
+) {
+  problems.push("Codex compatibility manifest differs from plugin.json");
+}
+for (const path of ["mcp.json", codexManifest.extensions["com.openai"].hooks]) {
+  if (!(await Bun.file(path).exists())) problems.push(`Codex plugin references missing ${path}`);
 }
 
 // every publishable workspace package needs publish metadata

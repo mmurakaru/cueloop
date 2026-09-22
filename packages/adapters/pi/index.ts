@@ -1,5 +1,3 @@
-/** pi owns lifecycle and message injection; the shared controller owns Threads. */
-
 import { join } from "node:path";
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";

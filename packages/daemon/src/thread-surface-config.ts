@@ -1,5 +1,3 @@
-/** Personal-only terminal automation settings. Repository config cannot open terminals. */
-
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";

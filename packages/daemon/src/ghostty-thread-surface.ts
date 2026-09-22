@@ -1,5 +1,3 @@
-/** Open or focus a cueloop Thread through Ghostty's macOS AppleScript API. */
-
 import { spawnSync } from "node:child_process";
 import { accessSync, constants, existsSync, statSync } from "node:fs";
 import { basename, delimiter, isAbsolute, join } from "node:path";

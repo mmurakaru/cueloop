@@ -1,9 +1,3 @@
-/**
- * Harness-neutral orchestration for six Thread workflows. An adapter supplies
- * stable harness identity and native sendMessage; cueloop owns open-or-revise,
- * durable routing, acknowledgement, and retry.
- */
-
 import type {
   Delivery,
   HarnessBinding,

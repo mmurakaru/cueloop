@@ -1,12 +1,3 @@
-/**
- * Structural typing of the pi ExtensionAPI surface this adapter uses.
- * pi is an integration target, not a dependency: the real API object arrives
- * at the factory when pi loads the extension, so these shapes only need to be
- * structurally compatible with pi's - registerTool, registerCommand,
- * on("tool_call" | "session_shutdown"), sendUserMessage (the wake path), and
- * context.ui.notify.
- */
-
 export interface TextContent {
   type: "text";
   text: string;

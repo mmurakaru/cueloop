@@ -1,19 +1,3 @@
-/**
- * Codex live-injection: queue a follow-up turn into a running Codex thread with
- * the shipped `codex queue` CLI, which calls the app-server thread/queue/add
- * method. The queued message auto-submits when the thread next goes idle - the
- * non-blocking "message continues the driving agent" shape, with no hand-rolled
- * JSON-RPC.
- *
- * Requires the driving Codex to run under the shared app-server daemon: a
- * private embedded app-server holds a single-writer lock and the queue add
- * fails. This is the weakest of the three native wake paths (ADR 0008) - it is
- * shipped last, kept to this thin CLI shell-out, and its flags are pinned to the
- * `codex queue --thread <id> --message <text>` contract from the Codex source
- * (cli/src/queue_cmd.rs). Needs live-codex QA before it is trusted.
- */
-
-/** One queued follow-up for a running Codex thread. */
 export interface CodexQueueOptions {
   /** The Codex thread/session id to queue into. */
   threadId: string;
