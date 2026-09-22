@@ -1,10 +1,11 @@
 name: release
 
 # One workflow: build binaries -> stage a draft release -> publish npm -> flip
-# the release live, so npm and the GitHub Release are both-or-neither. It stays
+# the release live. npm can publish only part of the package set before failing,
+# so retries check every package and keep the draft until the set is complete. It stays
 # one workflow because a `release: published` event from GITHUB_TOKEN cannot
-# trigger a second workflow (anti-recursion). Changesets owns versioning; npm
-# auth is OIDC; only the dist-tag sync needs NPM_TOKEN.
+# trigger a second workflow (anti-recursion). Changesets owns versioning; existing
+# packages use OIDC, while the npm token creates the new pi package.
 
 on:
   push:
@@ -55,7 +56,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
-  # True only on the push that merged the Release PR: a CLI version npm lacks.
+  # Publish until every workspace package is visible at this version. A failed
+  # Changesets publish can leave only some packages on npm, so the CLI alone
+  # cannot say whether the release is complete.
   guard:
     name: Release guard
     runs-on: ubuntu-24.04
@@ -76,26 +79,25 @@ jobs:
           tag="cueloop@${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-          # Publish only on a confirmed-absent version; a transient npm error
-          # must not be read as "unpublished" and republish over a live release.
-          set +e
-          lookup=$(npm view "cueloop@${version}" version 2>&1)
-          status=$?
-          set -e
-          if [ "$status" -eq 0 ]; then
-            # exit 0 with output = version is on npm; empty = package exists,
-            # this version does not yet (the normal just-merged-release case).
-            if [ -n "$lookup" ]; then
-              echo "publish=false" >> "$GITHUB_OUTPUT"
+          publish=false
+          for manifest in packages/*/package.json packages/integrations/*/package.json; do
+            [ -f "$manifest" ] || continue
+            name=$(jq -r 'if .private then empty else .name end' "$manifest")
+            [ -n "$name" ] || continue
+            set +e
+            lookup=$(npm view "${name}@${version}" version --prefer-online 2>&1)
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ]; then
+              [ -n "$lookup" ] || publish=true
+            elif printf '%s' "$lookup" | grep -q 'E404'; then
+              publish=true
             else
-              echo "publish=true" >> "$GITHUB_OUTPUT"
+              echo "npm view could not confirm ${name}@${version}: $lookup" >&2
+              exit 1
             fi
-          elif printf '%s' "$lookup" | grep -q 'E404'; then
-            echo "publish=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "npm view could not confirm publish state: $lookup" >&2
-            exit 1
-          fi
+          done
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
 
   # Each platform compiles on its own runner: the embedded @opentui/core native
   # package is platform-specific, so one host cannot cross-compile the set.
@@ -227,15 +229,17 @@ jobs:
           RELEASE_COMMIT_SHA: ${{ github.sha }}
         run: |
           if gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null | grep -q true; then
-            gh release delete "$TAG" --yes
+            gh release edit "$TAG" --target "$RELEASE_COMMIT_SHA"
+            gh release upload "$TAG" assets/cueloop-* assets/checksums.txt --clobber
+          else
+            # --target pins the tag; changeset publish's local tag never reaches the remote.
+            gh release create "$TAG" \
+              --draft \
+              --target "$RELEASE_COMMIT_SHA" \
+              --title "$TAG" \
+              --notes "cueloop $TAG" \
+              assets/cueloop-* assets/checksums.txt
           fi
-          # --target pins the tag; changeset publish's local tag never reaches the remote.
-          gh release create "$TAG" \
-            --draft \
-            --target "$RELEASE_COMMIT_SHA" \
-            --title "$TAG" \
-            --notes "cueloop $TAG" \
-            assets/cueloop-* assets/checksums.txt
 
   # The curl installer against the exact staged binaries, on each target's own
   # OS, before anything is published. The draft assets are served from a local
@@ -309,10 +313,9 @@ jobs:
           path: dist/install-matrix
           if-no-files-found: ignore
 
-  # The one irreversible step, isolated so cleanup can key on it alone: once this
-  # job succeeds, npm has the packages and the draft is never deleted. OIDC
-  # trusted publishing, no npm token. typecheck+test guard a Release PR whose own
-  # CI may not have run.
+  # Package publication is not atomic. Keep the draft if any publish step fails;
+  # the next run skips versions npm already has and finishes the missing set.
+  # typecheck+test guard a Release PR whose own CI may not have run.
   publish-npm:
     name: Publish to npm
     needs: [guard, stage, install-gate]
@@ -334,6 +337,24 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run test
+      - name: Publish pi with the npm token
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
+        run: |
+          version=$(jq -r .version packages/pi/package.json)
+          if npm view "@cueloop/pi@${version}" version --prefer-online >/dev/null 2>&1; then
+            exit 0
+          fi
+          (cd packages/pi && npm publish --access public --tag alpha)
+          for attempt in $(seq 1 36); do
+            if npm view "@cueloop/pi@${version}" version --prefer-online >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "@cueloop/pi@${version} is not visible after publishing" >&2
+          exit 1
       - name: Publish
         run: bun run ci:publish
         env:
@@ -425,14 +446,14 @@ jobs:
           git diff --cached --quiet || git commit -m "cueloop ${TAG}"
           git push
 
-  # Delete the draft only when npm did not publish, so a live release and its
-  # binaries are never removed; a re-run then starts clean.
+  # Only a skipped publish job proves npm was untouched. A failed publish job
+  # may have published some packages, so keep its draft for an idempotent retry.
   cleanup:
     name: Cleanup failed draft
     needs: [guard, build, stage, install-gate, publish-npm, finalize]
     if: >-
       always() && needs.guard.outputs.publish == 'true' &&
-      contains(needs.*.result, 'failure') && needs.publish-npm.result != 'success'
+      contains(needs.*.result, 'failure') && needs.publish-npm.result == 'skipped'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
