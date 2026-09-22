@@ -1,3 +1,5 @@
+import { checkHarnessReleaseIntegrity } from "./check-harness-release-integrity";
+
 const problems: string[] = [];
 
 const root = await Bun.file("package.json").json();
@@ -21,6 +23,7 @@ if (!(await Bun.file(".changeset/config.json").exists()))
 if (!(await Bun.file("scripts/sync-plugin-version.ts").exists())) {
   problems.push("scripts/sync-plugin-version.ts is missing (the version step calls it)");
 }
+problems.push(...(await checkHarnessReleaseIntegrity()));
 
 const codexManifest = await Bun.file("plugin.json").json();
 const codexCompatibilityManifest = await Bun.file(".codex-plugin/plugin.json").json();

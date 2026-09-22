@@ -28,23 +28,37 @@ cueloop --help
 
 [releases](https://github.com/mmurakaru/cueloop/releases) - [changelog](./packages/cli/CHANGELOG.md)
 
+Claude Code integration requires Claude Mods.
 
-Claude Code plugin (`/cueloop:reply`, `/cueloop:plan`, `/cueloop:diff`, `/cueloop:review`):
+## Harness installation
 
+### Claude Code
+
+```bash
+claude plugin marketplace add mmurakaru/cueloop && claude plugin install cueloop@cueloop
 ```
-/plugin marketplace add mmurakaru/cueloop
-/plugin install cueloop@cueloop
+
+### Codex
+
+```bash
+codex plugin marketplace add mmurakaru/cueloop && codex plugin add cueloop@cueloop
+```
+
+### pi
+
+```bash
+pi install npm:@cueloop/pi
 ```
 
 ## Packages
 
-| package | description |
-| --- | --- |
-| [`cueloop`](https://www.npmjs.com/package/cueloop) | the CLI and TUI |
-| [`@cueloop/schema`](https://www.npmjs.com/package/@cueloop/schema) | the Thread primitive, anchors, feedback serialization |
-| [`@cueloop/daemon`](https://www.npmjs.com/package/@cueloop/daemon) | the session daemon and its client |
-| [`@cueloop/client`](https://www.npmjs.com/package/@cueloop/client) | the review UI |
-| [`@cueloop/extension-api`](https://www.npmjs.com/package/@cueloop/extension-api) | the typed extension contract |
-| [`@cueloop/adapters`](https://www.npmjs.com/package/@cueloop/adapters) | Claude Code, pi and codex adapters |
-| [`@cueloop/integration-obsidian`](https://www.npmjs.com/package/@cueloop/integration-obsidian) | the Obsidian vault export integration |
-| [`@cueloop/gateway`](./packages/gateway) | the SSH sharing gateway |
+| package                                                                                        | description                                           |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [`cueloop`](https://www.npmjs.com/package/cueloop)                                             | the CLI and TUI                                       |
+| [`@cueloop/schema`](https://www.npmjs.com/package/@cueloop/schema)                             | the Thread primitive, anchors, feedback serialization |
+| [`@cueloop/daemon`](https://www.npmjs.com/package/@cueloop/daemon)                             | the session daemon and its client                     |
+| [`@cueloop/client`](https://www.npmjs.com/package/@cueloop/client)                             | the review UI                                         |
+| [`@cueloop/extension-api`](https://www.npmjs.com/package/@cueloop/extension-api)               | the typed extension contract                          |
+| [`@cueloop/adapters`](https://www.npmjs.com/package/@cueloop/adapters)                         | Claude Code, pi and codex adapters                    |
+| [`@cueloop/integration-obsidian`](https://www.npmjs.com/package/@cueloop/integration-obsidian) | the Obsidian vault export integration                 |
+| [`@cueloop/gateway`](./packages/gateway)                                                       | the SSH sharing gateway                               |

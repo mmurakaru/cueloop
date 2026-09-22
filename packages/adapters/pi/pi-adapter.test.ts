@@ -103,6 +103,15 @@ async function waitForWake(fake: FakePi): Promise<void> {
   for (let attempt = 0; attempt < 100 && fake.wakes.length === 0; attempt++) await Bun.sleep(20);
 }
 
+async function waitForGateOpen(fake: FakePi, sessionId: string): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if ((await fake.gate(toolCall("write"), context(sessionId))) === undefined) return;
+    await Bun.sleep(10);
+  }
+
+  throw new Error("pi mutation gate stayed closed after Message delivery");
+}
+
 function toolCall(name: string): PiToolCallEvent {
   return { type: "tool_call", toolCallId: `call-${name}`, toolName: name, input: {} };
 }
@@ -133,7 +142,7 @@ describe("pi Thread adapter", () => {
 
     expect(fake.wakes).toHaveLength(1);
     expect(fake.wakes[0]).toContain("Looks good.");
-    expect(await fake.gate(toolCall("write"), context())).toBeUndefined();
+    await waitForGateOpen(fake, "pi-session-1");
     const bindings = await client.harnessBindingsForSession("pi", "pi-session-1");
 
     expect(await client.deliveryPending(bindings[0]!.id)).toEqual([]);
@@ -157,7 +166,7 @@ describe("pi Thread adapter", () => {
     await waitForWake(fake);
     expect(fake.wakes).toHaveLength(1);
     expect(fake.messageAttempts()).toBe(2);
-    expect(await fake.gate(toolCall("write"), context("pi-retry"))).toBeUndefined();
+    await waitForGateOpen(fake, "pi-retry");
     client.close();
     await fake.fire("session_shutdown", "pi-retry");
   });

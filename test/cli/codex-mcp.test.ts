@@ -44,7 +44,10 @@ test("Codex MCP lists the shared workflow tool in a real stdio exchange", async 
 
   async function receive(id: number): Promise<{
     isError?: boolean;
-    result?: { tools?: { name: string }[]; content?: { type: string; text: string }[] };
+    result?: {
+      tools?: { name: string; inputSchema?: { properties?: { workflow?: { enum?: string[] } } } }[];
+      content?: { type: string; text: string }[];
+    };
   }> {
     const deadline = Date.now() + 10_000;
 
@@ -93,10 +96,12 @@ test("Codex MCP lists the shared workflow tool in a real stdio exchange", async 
   input.write(`${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} })}\n`);
   await input.flush();
 
-  expect((await receive(2)).result?.tools?.map((tool) => tool.name)).toEqual([
-    "open_thread",
-    "refine_corpus",
-  ]);
+  const tools = (await receive(2)).result?.tools;
+
+  expect(tools?.map((tool) => tool.name)).toEqual(["open_thread", "refine_corpus"]);
+  expect(
+    tools?.find((tool) => tool.name === "open_thread")?.inputSchema?.properties?.workflow?.enum,
+  ).toEqual(["plan", "reply", "prototype", "diff", "review", "refine"]);
 
   input.write(
     `${JSON.stringify({

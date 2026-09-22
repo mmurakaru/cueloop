@@ -21,6 +21,6 @@
   },
   {
     "name": "plugin",
-    "description": "the Claude Code plugin manifest is valid and version-matched"
+    "description": "Claude Code, Codex, and pi integration versions match the CLI"
   }
 ]
