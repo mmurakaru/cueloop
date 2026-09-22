@@ -77,6 +77,28 @@ describe("daemon version handshake", () => {
     expect(liveServer.core.sessionGet(session.id).id).toBe(session.id);
   });
 
+  test("a rejected client releases its connection so the daemon can become idle", async () => {
+    let idleExited = false;
+    const liveServer = new DaemonServer({
+      home,
+      idleExitMs: 50,
+      version: "0.1.0-alpha.81",
+      onIdleExit: () => {
+        idleExited = true;
+      },
+    });
+
+    servers.push(liveServer);
+    liveServer.start();
+
+    await expect(DaemonClient.connect({ home, autostart: true })).rejects.toMatchObject({
+      code: "version_mismatch",
+    });
+    await Bun.sleep(100);
+
+    expect(idleExited).toBe(true);
+  });
+
   test("a current daemon connects and serves normally", async () => {
     // Arrange - a daemon on this build
     server(DAEMON_VERSION).start();

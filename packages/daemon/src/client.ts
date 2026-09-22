@@ -240,7 +240,11 @@ export class DaemonClient implements ThreadClient {
       );
     } catch (err) {
       // Autostart repairs an unavailable socket, never a live incompatible daemon.
-      if (!options.autostart || err instanceof DaemonClientError) throw err;
+      if (!options.autostart || err instanceof DaemonClientError) {
+        client.close();
+
+        throw err;
+      }
     }
 
     // Socket dead or absent: let the new daemon own stale socket cleanup.
