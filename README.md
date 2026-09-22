@@ -28,7 +28,7 @@ cueloop --help
 
 [releases](https://github.com/mmurakaru/cueloop/releases) - [changelog](./packages/cli/CHANGELOG.md)
 
-Claude Code integration requires Claude Mods.
+Claude Code integration requires Claude Code 2.1.278 or newer with Mods enabled. Start it with `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude`.
 
 ## Harness installation
 

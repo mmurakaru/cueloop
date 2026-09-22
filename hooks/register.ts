@@ -390,7 +390,7 @@ export function register(on: On): void {
   });
 
   on("tool.call", async (engine, input, next) => {
-    if (state.unavailableReason) {
+    if (state.unavailableReason && !READ_ONLY_TOOLS.has(input.tool)) {
       return { deny: state.unavailableReason };
     }
     if (input.tool === "ExitPlanMode") {
@@ -425,7 +425,7 @@ export function register(on: On): void {
         return { deny: `Claude Mod cueloop refine unavailable: ${String(error)}` };
       }
     }
-    if (!state.available) {
+    if (!state.available && !READ_ONLY_TOOLS.has(input.tool)) {
       return { deny: "Claude Mod cueloop is unavailable; review gate stayed closed." };
     }
     if (state.pendingThreadIds.length > 0 && !READ_ONLY_TOOLS.has(input.tool)) {

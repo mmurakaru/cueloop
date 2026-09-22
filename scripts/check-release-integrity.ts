@@ -13,6 +13,9 @@ if (root.scripts?.test && !root.scripts.test.includes("./test")) {
     'the "test" script must cover ./test (the integration and e2e tiers), not just ./packages',
   );
 }
+if (root.scripts?.test && !root.scripts.test.includes("./hooks")) {
+  problems.push('the "test" script must cover ./hooks (the Claude Mod and plugin manifest)');
+}
 for (const dep of ["@changesets/cli", "@changesets/changelog-github"]) {
   if (!root.devDependencies?.[dep])
     problems.push(`package.json is missing the ${dep} devDependency`);

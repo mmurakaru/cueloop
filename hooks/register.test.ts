@@ -252,6 +252,9 @@ describe("register Claude Mod", () => {
 
     mod.setBridgeUnavailable(true);
     await mod.dispatch("session.start", { cwd: home, isInteractive: true });
+    expect(await mod.dispatch("tool.call", { tool: "Read", tool_use_id: "read-only" })).toEqual({
+      result: "passed",
+    });
     expect(await mod.dispatch("tool.call", { tool: "Bash", tool_use_id: "write" })).toHaveProperty(
       "deny",
     );
@@ -275,6 +278,9 @@ describe("register Claude Mod", () => {
 
     mod.setClaudeVersion("2.1.277 (Claude Code)");
     await mod.dispatch("session.start", { cwd: home, isInteractive: true });
+    expect(await mod.dispatch("tool.call", { tool: "Read", tool_use_id: "read-old" })).toEqual({
+      result: "passed",
+    });
     const denied = await mod.dispatch("tool.call", { tool: "Bash", tool_use_id: "bash-old" });
 
     expect(denied).toHaveProperty("deny");
