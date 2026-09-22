@@ -18,7 +18,7 @@ a bare distribution with no Node and no Bun.
 | `curl-upgrade` | the previous version is replaced by the target version, with no partial file left behind                                             |
 | `npm`          | `npm install -g cueloop@<version>` installs the published CLI and it runs                                                            |
 | `brew`         | the Homebrew formula installs and passes its own test block                                                                          |
-| `plugin`       | the Claude Code plugin manifest is valid and version-matched to the CLI                                                              |
+| `plugin`       | Claude Code, Codex, and pi integration versions match the CLI                                                                        |
 
 Each scenario declares the evidence it must record with `expect` at the top. A
 finalizer in `lib.sh` turns any declared-but-unrecorded id into a failure on

@@ -363,6 +363,8 @@ jobs:
         run: bun run scripts/sync-dist-tags.ts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Install pinned pi host
+        run: npm install -g "@earendil-works/pi-coding-agent@$(jq -r .pi test/install/harness-hosts/pins.json)"
       - name: Verify the published release
         run: bun run verify:published
       - uses: actions/download-artifact@v8

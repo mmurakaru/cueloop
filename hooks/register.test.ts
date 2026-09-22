@@ -6,6 +6,7 @@ import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { runHarnessBridge } from "../packages/adapters/harness-bridge";
 import { register, type ClaudeModEngine, type ClaudeModOn } from "./register";
+import { WORKFLOW_KINDS } from "@cueloop/schema";
 
 type TestInput =
   | { cwd: string; isInteractive: boolean }
@@ -46,6 +47,7 @@ function createTestMod() {
   const submitted: string[] = [];
   const stored = new Map<string, boolean>();
   const registered: string[] = [];
+  let registeredWorkflows: readonly string[] | undefined;
   let tick: (() => void) | null = null;
   let failNextAck = false;
   let bridgeUnavailable = false;
@@ -61,8 +63,9 @@ function createTestMod() {
       },
     },
     tool: {
-      register: async ({ name }) => {
+      register: async ({ name, inputSchema }) => {
         registered.push(name);
+        if (name === "open_thread") registeredWorkflows = inputSchema.properties.workflow?.enum;
 
         return {};
       },
@@ -145,6 +148,7 @@ function createTestMod() {
     dispatch,
     submitted,
     registered,
+    registeredWorkflows: () => registeredWorkflows,
     tick: () => tick?.(),
     failAckOnce: () => {
       failNextAck = true;
@@ -177,6 +181,7 @@ describe("register Claude Mod", () => {
 
     await mod.dispatch("session.start", { cwd: home, isInteractive: true });
     expect(mod.registered).toEqual(["open_thread", "refine_corpus"]);
+    expect(mod.registeredWorkflows()).toEqual(WORKFLOW_KINDS);
     const denied = await mod.dispatch("tool.call", {
       tool: "ExitPlanMode",
       tool_use_id: "plan-1",
