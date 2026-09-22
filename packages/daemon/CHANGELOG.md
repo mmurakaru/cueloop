@@ -1,5 +1,13 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.81
+
+### Patch Changes
+
+- [#492](https://github.com/mmurakaru/cueloop/pull/492) [`5b0a8ec`](https://github.com/mmurakaru/cueloop/commit/5b0a8ecb3a0ee730e54853525c6b8ff0a66770fa) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Prevent concurrent daemon startups from stealing an unpublished lock, retry cleanly after a socket closes during the handshake, and report the daemon's startup error when autostart fails.
+- Updated dependencies []:
+  - @cueloop/schema@0.1.0-alpha.81
+
 ## 0.1.0-alpha.80
 
 ### Patch Changes

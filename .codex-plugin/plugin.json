@@ -1,6 +1,6 @@
 {
   "name": "cueloop",
-  "version": "0.1.0-alpha.80",
+  "version": "0.1.0-alpha.81",
   "description": "Review plans, changes, replies, and prototypes in cueloop Threads",
   "author": {
     "name": "cueloop"
@@ -12,8 +12,13 @@
     "longDescription": "Send plans and changes to cueloop Threads and return Messages to Codex.",
     "developerName": "cueloop",
     "category": "Productivity",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://cueloop.dev",
-    "defaultPrompt": ["Review this plan in a cueloop Thread."]
+    "defaultPrompt": [
+      "Review this plan in a cueloop Thread."
+    ]
   }
 }

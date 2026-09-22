@@ -1,5 +1,19 @@
 # @cueloop/adapters
 
+## 0.1.0-alpha.81
+
+### Minor Changes
+
+- [#493](https://github.com/mmurakaru/cueloop/pull/493) [`6211a3e`](https://github.com/mmurakaru/cueloop/commit/6211a3eca3cea3f33fea24d3018fe0ca1f31f761) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Use a Claude Mod on Claude Code 2.1.278 or newer for native Thread gating and Message injection. Move shared workflow operations behind the cueloop harness bridge and remove the legacy review hook, private inbox, and detached Claude waiter. A guard blocks tools when the Mod is unavailable.
+
+- [#494](https://github.com/mmurakaru/cueloop/pull/494) [`755ec8d`](https://github.com/mmurakaru/cueloop/commit/755ec8dea8947da599de16a35e211be2c9533f27) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Ship a portable Codex plugin with shared Thread workflows, native session binding, and durable Message delivery through the long-lived MCP process.
+
+### Patch Changes
+
+- Updated dependencies [[`5b0a8ec`](https://github.com/mmurakaru/cueloop/commit/5b0a8ecb3a0ee730e54853525c6b8ff0a66770fa)]:
+  - @cueloop/daemon@0.1.0-alpha.81
+  - @cueloop/schema@0.1.0-alpha.81
+
 ## 0.1.0-alpha.80
 
 ### Patch Changes
