@@ -4,8 +4,8 @@ name: release
 # the release live. npm can publish only part of the package set before failing,
 # so retries check every package and keep the draft until the set is complete. It stays
 # one workflow because a `release: published` event from GITHUB_TOKEN cannot
-# trigger a second workflow (anti-recursion). Changesets owns versioning; existing
-# packages use OIDC, while the npm token creates the new pi package.
+# trigger a second workflow (anti-recursion). Changesets owns versioning; all
+# package publishes use OIDC after a one-time, interactive first publish.
 
 on:
   push:
@@ -64,6 +64,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       publish: ${{ steps.check.outputs.publish }}
+      any_published: ${{ steps.check.outputs.any_published }}
       version: ${{ steps.check.outputs.version }}
       tag: ${{ steps.check.outputs.tag }}
     steps:
@@ -80,6 +81,7 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           publish=false
+          any_published=false
           for manifest in packages/*/package.json packages/integrations/*/package.json; do
             [ -f "$manifest" ] || continue
             name=$(jq -r 'if .private then empty else .name end' "$manifest")
@@ -89,7 +91,11 @@ jobs:
             status=$?
             set -e
             if [ "$status" -eq 0 ]; then
-              [ -n "$lookup" ] || publish=true
+              if [ -n "$lookup" ]; then
+                any_published=true
+              else
+                publish=true
+              fi
             elif printf '%s' "$lookup" | grep -q 'E404'; then
               publish=true
             else
@@ -98,6 +104,7 @@ jobs:
             fi
           done
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "any_published=$any_published" >> "$GITHUB_OUTPUT"
 
   # Each platform compiles on its own runner: the embedded @opentui/core native
   # package is platform-specific, so one host cannot cross-compile the set.
@@ -337,24 +344,6 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run typecheck
       - run: bun run test
-      - name: Publish pi with the npm token
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: "true"
-        run: |
-          version=$(jq -r .version packages/pi/package.json)
-          if npm view "@cueloop/pi@${version}" version --prefer-online >/dev/null 2>&1; then
-            exit 0
-          fi
-          (cd packages/pi && npm publish --access public --tag alpha)
-          for attempt in $(seq 1 36); do
-            if npm view "@cueloop/pi@${version}" version --prefer-online >/dev/null 2>&1; then
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "@cueloop/pi@${version} is not visible after publishing" >&2
-          exit 1
       - name: Publish
         run: bun run ci:publish
         env:
@@ -446,13 +435,14 @@ jobs:
           git diff --cached --quiet || git commit -m "cueloop ${TAG}"
           git push
 
-  # Only a skipped publish job proves npm was untouched. A failed publish job
-  # may have published some packages, so keep its draft for an idempotent retry.
+  # Remove a failed draft only before any package at this version is on npm.
+  # A skipped publish on a retry does not undo an earlier partial publish.
   cleanup:
     name: Cleanup failed draft
     needs: [guard, build, stage, install-gate, publish-npm, finalize]
     if: >-
       always() && needs.guard.outputs.publish == 'true' &&
+      needs.guard.outputs.any_published == 'false' &&
       contains(needs.*.result, 'failure') && needs.publish-npm.result == 'skipped'
     runs-on: ubuntu-24.04
     permissions:
