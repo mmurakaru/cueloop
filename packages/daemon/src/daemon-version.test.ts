@@ -6,12 +6,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonServer } from "./server";
 import { DaemonClient, DaemonClientError, daemonSpawnCommand } from "./client";
 import { DAEMON_VERSION } from "./version";
+import { pidPath } from "./paths";
 import type { Artifact, WorkspaceKey } from "@cueloop/schema";
 
 const WS: WorkspaceKey = { repoRoot: "/repo", branch: "main" };
@@ -29,7 +30,12 @@ afterEach(() => {
 });
 
 function server(version?: string): DaemonServer {
-  const daemonServer = new DaemonServer({ home, idleExitMs: 0, version });
+  const daemonServer = new DaemonServer({
+    home,
+    idleExitMs: 0,
+    version,
+    onIdleExit: () => {},
+  });
 
   servers.push(daemonServer);
 
@@ -48,6 +54,27 @@ describe("daemon version handshake", () => {
     await expect(DaemonClient.connect({ home, autostart: false })).rejects.toBeInstanceOf(
       DaemonClientError,
     );
+  });
+
+  test("autostart never replaces a live daemon from another version", async () => {
+    const liveServer = server("0.1.0-alpha.81");
+
+    liveServer.start();
+    const session = liveServer.core.sessionCreate({ workspace: WS, artifact: PLAN });
+    let replacement: DaemonClient | undefined;
+    let connectionError: unknown;
+
+    try {
+      replacement = await DaemonClient.connect({ home, autostart: true });
+    } catch (error) {
+      connectionError = error;
+    }
+
+    replacement?.close();
+    expect(connectionError).toBeInstanceOf(DaemonClientError);
+    expect(connectionError).toMatchObject({ code: "version_mismatch" });
+    expect(readFileSync(pidPath(home), "utf8")).toBe(String(process.pid));
+    expect(liveServer.core.sessionGet(session.id).id).toBe(session.id);
   });
 
   test("a current daemon connects and serves normally", async () => {

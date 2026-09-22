@@ -5,6 +5,7 @@ import { join } from "node:path";
 import * as v from "valibot";
 import { DaemonServer } from "./server";
 import { DaemonClient, DaemonClientError } from "./client";
+import { DAEMON_VERSION } from "./version";
 import type { Artifact, WorkspaceKey } from "@cueloop/schema";
 
 const WS: WorkspaceKey = { repoRoot: "/repo", branch: "main" };
@@ -413,12 +414,32 @@ describe("ownership is proven, never declared", () => {
     // Act: the token the daemon wrote into its home
     const token = readFileSync(join(home, "owner.token"), "utf8").trim();
 
-    expect((await raw.call("daemon.hello", { role: "owner", token })).error).toBeUndefined();
+    expect(
+      (
+        await raw.call("daemon.hello", {
+          role: "owner",
+          token,
+          clientVersion: DAEMON_VERSION,
+        })
+      ).error,
+    ).toBeUndefined();
 
     // Assert: owner primitives open up
     const created = await raw.call("session.create", { workspace: WS, artifact: PLAN });
 
     expect(created.error).toBeUndefined();
+    raw.close();
+  });
+
+  test("an older owner cannot shut down a newer daemon", async () => {
+    const raw = await rawConnection();
+    const token = readFileSync(join(home, "owner.token"), "utf8").trim();
+
+    expect((await raw.call("daemon.hello", { role: "owner", token })).error?.code).toBe(
+      "version_mismatch",
+    );
+    expect((await raw.call("daemon.shutdown", {})).error?.code).toBe("forbidden");
+    expect((await raw.call("daemon.ping", {})).error).toBeUndefined();
     raw.close();
   });
 

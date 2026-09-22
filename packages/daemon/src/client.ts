@@ -77,7 +77,7 @@ type PendingRequest = {
 
 const EmptyResultSchema = v.object({});
 // version is optional: a daemon from before the handshake carried one reads as
-// undefined, which never equals this build - so it is treated as stale and replaced
+// undefined, which never equals this build.
 const PingResultSchema = v.object({ pid: v.number(), version: v.optional(v.string()) });
 const RefreshDiffResultSchema = v.object({ changed: v.boolean() });
 const HerdrThreadSurfaceResultSchema = v.nullable(
@@ -180,6 +180,7 @@ export interface ThreadClient {
 /** What a connection says about itself: its role, the owner token when it claims ownership, the author it acts as otherwise. */
 interface HelloParams {
   role: DaemonRole;
+  clientVersion: string;
   token?: string;
   author?: string;
 }
@@ -209,9 +210,8 @@ export class DaemonClient implements ThreadClient {
   private writer: BackpressureWriter | null = null;
   private connectionEpoch = 0;
   private pending = new Map<number, PendingRequest>();
-  /** The connected daemon's build version and pid, learned from the ping handshake. */
+  /** The connected daemon's build version, learned from the ping handshake. */
   private daemonVersion: string | undefined;
-  private daemonPid: number | undefined;
   private nextId = 1;
   private eventListeners = new Set<(event: EventFrame) => void>();
   private disconnectListeners = new Set<() => void>();
@@ -230,52 +230,21 @@ export class DaemonClient implements ThreadClient {
     client.home = home;
     try {
       await client.dial(path);
-      // A daemon from an earlier build lingers after an upgrade; talking to it
-      // means new client, old behaviour. The owner replaces it so an upgrade
-      // never needs a manual restart; without autostart there is nothing to
-      // replace it with, so the caller hears exactly why.
       if (client.daemonVersion === DAEMON_VERSION) return client;
-      if (!options.autostart) {
-        client.close();
-        throw new DaemonClientError(
-          "version_mismatch",
-          `daemon is version ${client.daemonVersion ?? "unknown"}, but this client is ${DAEMON_VERSION}; restart the daemon`,
-        );
-      }
-      await client.stopStaleDaemon(path);
+      const daemonVersion = client.daemonVersion ?? "unknown";
+
+      client.close();
+      throw new DaemonClientError(
+        "version_mismatch",
+        `daemon is version ${daemonVersion}, but this client is ${DAEMON_VERSION}; align cueloop versions before restarting the daemon`,
+      );
     } catch (err) {
-      // a live daemon that refused the handshake is not a dead socket: the
-      // caller hears why instead of the client replacing a running daemon
+      // Autostart repairs an unavailable socket, never a live incompatible daemon.
       if (!options.autostart || err instanceof DaemonClientError) throw err;
     }
-    // Socket dead, absent, or just-replaced: let the new daemon own socket cleanup.
+
+    // Socket dead or absent: let the new daemon own stale socket cleanup.
     return client.attachFreshDaemon(home, path);
-  }
-
-  /**
-   * Tear down a daemon from an earlier build so a fresh one can bind: ask it to
-   * shut down (owner-gated) or, failing that, signal its pid, then wait for it to
-   * release the socket. Best-effort - the next daemon reclaims stale socket
-   * and lock files after it takes ownership.
-   */
-  private async stopStaleDaemon(path: string): Promise<void> {
-    const pid = this.daemonPid;
-
-    try {
-      await this.request("daemon.shutdown", {}, EmptyResultSchema, 2_000);
-    } catch {
-      if (pid !== undefined) {
-        try {
-          process.kill(pid);
-        } catch {}
-      }
-    }
-    this.socket?.end();
-    this.resetConnection();
-    // the old daemon removes its socket in stop(); wait so the new one binds cleanly
-    const deadline = Date.now() + 5_000;
-
-    while (Date.now() < deadline && existsSync(path)) await sleep(50);
   }
 
   /** Reset per-connection state so a fresh dial() can reuse this client instance. */
@@ -383,11 +352,10 @@ export class DaemonClient implements ThreadClient {
     }
     // Verify liveness: a dead socket file accepts connects on some platforms
     // only to fail later, so a ping is the actual handshake. It also carries the
-    // daemon's build version and pid, so connect() can replace a stale daemon.
+    // daemon's build version, so connect() can reject incompatible clients.
     const pong = await this.request("daemon.ping", {}, PingResultSchema, 2_000);
 
     this.daemonVersion = pong.version;
-    this.daemonPid = pong.pid;
     // Every connection starts as a collaborator; the owner proves itself with
     // the token the daemon wrote into the home it serves, which only the home's
     // user can read. A capped role just names itself.
@@ -397,13 +365,15 @@ export class DaemonClient implements ThreadClient {
   private helloParams(): HelloParams {
     if (this.role !== "owner") {
       return this.author === undefined
-        ? { role: this.role }
-        : { role: this.role, author: this.author };
+        ? { role: this.role, clientVersion: DAEMON_VERSION }
+        : { role: this.role, clientVersion: DAEMON_VERSION, author: this.author };
     }
     const token = readOwnerToken(this.home);
 
     // a daemon from before owner tokens has no file; it still knows the bare hello
-    return token === undefined ? { role: "owner" } : { role: "owner", token };
+    return token === undefined
+      ? { role: "owner", clientVersion: DAEMON_VERSION }
+      : { role: "owner", clientVersion: DAEMON_VERSION, token };
   }
 
   onEvent(listener: (event: EventFrame) => void): () => void {
