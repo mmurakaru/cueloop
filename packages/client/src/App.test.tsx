@@ -278,11 +278,11 @@ describe("submit", () => {
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert - the card opens on the default message, approve
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
 
     // Act - cycle to request changes, then send with a summary
     await press(setup, "right");
-    await waitForText(setup, "[Request changes]");
+    await waitForText(setup, "[changes]");
     await type(setup, "Expand the steps.");
     await pressKey(setup, "RETURN", { meta: true });
 
@@ -305,7 +305,7 @@ describe("submit", () => {
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
-    await waitForText(setup, "[Approve]"); // no pending items → approve default
+    await waitForText(setup, "[approve]"); // no pending items → approve default
 
     // Act
     await pressKey(setup, "RETURN", { meta: true });

@@ -23,9 +23,9 @@ const PALETTE_WINDOW = 5;
 
 /** Selector words in the confirm card - one word per message. */
 export const MESSAGE_OUTCOME_LABEL: Record<MessageOutcome, string> = {
-  comment: "Comment",
-  approved: "Approve",
-  changes_requested: "Request changes",
+  comment: "comment",
+  approved: "approve",
+  changes_requested: "changes",
 };
 
 export interface ConfirmCardProps {
@@ -56,10 +56,10 @@ export function outcomeColor(message: MessageOutcome, tokens: Theme): string {
 }
 
 /**
- * The message selector: one row of pressable words, matching the reading
- * direction of a choice between two outcomes. Selection stays controlled by
- * the grammar (←/→ cycle the message); a click selects directly. The
- * selected message wears brackets and its color.
+ * The message selector: one row of pressable words in reading order.
+ * Selection stays controlled by the grammar (←/→ cycle the message); a click
+ * selects directly. Every message keeps its brackets so active color never changes the row's
+ * width or moves a neighboring choice.
  */
 function MessageSelector({
   message,
@@ -81,9 +81,7 @@ function MessageSelector({
           onMouseUp={() => onSelectMessage(candidate)}
         >
           <text fg={candidate === message ? outcomeColor(candidate, tokens) : tokens.textDim}>
-            {candidate === message
-              ? `[${MESSAGE_OUTCOME_LABEL[candidate]}]`
-              : MESSAGE_OUTCOME_LABEL[candidate]}
+            {`[${MESSAGE_OUTCOME_LABEL[candidate]}]`}
           </text>
         </box>
       ))}

@@ -84,7 +84,7 @@ function seedAnnotations(count: number): void {
 }
 
 describe("send message confirm", () => {
-  test("cmd+enter opens the send-message confirm overlay", async () => {
+  test("cmd+enter opens the send-message confirm overlay with stable message choices", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -95,14 +95,31 @@ describe("send message confirm", () => {
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert - the overlay: message selector and word-buttons
-    await waitForText(setup, "[Approve]"); // nothing pending: approve default
-    const frame = setup.captureCharFrame();
+    await waitForText(setup, "[approve]"); // nothing pending: approve default
+    const initialFrame = setup.captureCharFrame();
+    const initialSelector = initialFrame
+      .split("\n")
+      .find((row) => row.includes("[comment] [approve] [changes]"));
 
-    expect(frame).toContain("[Approve]");
-    expect(frame).toContain(" Comment ");
-    expect(frame).toContain(" Request changes ");
-    expect(frame).toContain(" send ");
-    expect(frame).toContain(" cancel ");
+    expect(initialSelector).toBeDefined();
+    expect(initialFrame).toContain(" send ");
+    expect(initialFrame).toContain(" cancel ");
+
+    // Act - move the active choice across the selector
+    await press(setup, "right");
+    const changesSelector = setup
+      .captureCharFrame()
+      .split("\n")
+      .find((row) => row.includes("[comment] [approve] [changes]"));
+    await press(setup, "right");
+    const commentSelector = setup
+      .captureCharFrame()
+      .split("\n")
+      .find((row) => row.includes("[comment] [approve] [changes]"));
+
+    // Assert - active styling does not move or resize any choice
+    expect(changesSelector).toBe(initialSelector);
+    expect(commentSelector).toBe(initialSelector);
   });
 
   test("left/right cycles the message selector in the overlay", async () => {
@@ -112,25 +129,25 @@ describe("send message confirm", () => {
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
 
     // Act
     await press(setup, "right");
 
     // Assert
-    await waitForText(setup, "[Request changes]");
+    await waitForText(setup, "[changes]");
 
     // Act
     await press(setup, "right");
 
     // Assert
-    await waitForText(setup, "[Comment]");
+    await waitForText(setup, "[comment]");
 
     // Act
     await press(setup, "left");
 
     // Assert
-    await waitForText(setup, "[Request changes]");
+    await waitForText(setup, "[changes]");
   });
 
   test("esc closes the overlay", async () => {
@@ -140,13 +157,13 @@ describe("send message confirm", () => {
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
 
     // Act
     await press(setup, "escape");
 
     // Assert - a bare ESC settles after the parser's escape-sequence window
-    const frame = await waitForTextGone(setup, "[Approve]");
+    const frame = await waitForTextGone(setup, "[approve]");
 
     expect(frame).not.toContain(" cancel ");
   });
@@ -160,9 +177,9 @@ describe("send message confirm", () => {
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert - opens on the default message, then cycle to request changes
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
     await press(setup, "right");
-    await waitForText(setup, "[Request changes]");
+    await waitForText(setup, "[changes]");
 
     // Act
     await setup.mockInput.typeText("Tighten the steps.");
@@ -181,9 +198,9 @@ describe("send message confirm", () => {
     const setup = await renderApp();
 
     await pressKey(setup, "RETURN", { meta: true });
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
     await press(setup, "left");
-    await waitForText(setup, "[Comment]");
+    await waitForText(setup, "[comment]");
 
     await setup.mockInput.typeText("For now.");
     await pressKey(setup, "RETURN", { meta: true });
@@ -204,7 +221,7 @@ describe("send message confirm", () => {
     seedAnnotations(1);
     const setup = await renderApp();
     await pressKey(setup, "RETURN", { meta: true });
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
 
     // Act
     await setup.mockInput.typeText("/restate");
@@ -217,7 +234,7 @@ describe("send message confirm", () => {
     // Arrange
     const setup = await renderApp();
     await pressKey(setup, "RETURN", { meta: true });
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
 
     // Act - a burst of control bytes stands in for the binary an image paste delivers
     await setup.mockInput.typeText("look at this ");
@@ -240,7 +257,7 @@ describe("send message confirm", () => {
     // Assert - no overlay, and the session stays pending
     const frame = setup.captureCharFrame();
 
-    expect(frame).not.toContain("[Approve]");
+    expect(frame).not.toContain("[approve]");
     expect(frame).not.toContain(" cancel ");
     expect(server.core.sessionGet(session.id).status).toBe("pending");
   });
