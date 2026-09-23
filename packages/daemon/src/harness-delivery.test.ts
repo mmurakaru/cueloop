@@ -34,6 +34,23 @@ function createPlan(instance: DaemonCore) {
 }
 
 describe("durable harness delivery", () => {
+  test("delivers Comment without resolving the Thread", () => {
+    const instance = core();
+    const thread = createPlan(instance);
+    const binding = instance.harnessBind({
+      threadId: thread.id,
+      harness: "fake",
+      harnessSessionId: "fake_1",
+    });
+
+    const sent = instance.sessionSendMessage(thread.id, "comment", "Interim note.");
+    const pending = instance.deliveryPending(binding.id);
+
+    expect(sent.status).toBe("pending");
+    expect(pending).toHaveLength(1);
+    expect(pending[0]!.message.outcome).toBe("comment");
+  });
+
   test("reload finds only bindings for the active harness conversation", () => {
     const first = core();
     const thread = createPlan(first);

@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import {
+  applyTextCuts,
   cutBlock,
   parseBlocks,
   restoreBlock,
@@ -7,6 +8,7 @@ import {
   type DiffFileContents,
   type HunkRejection,
   type Thread,
+  type TextCut,
 } from "@cueloop/schema";
 import { curateDiff } from "@cueloop/daemon/curate";
 import type { ThreadClient } from "@cueloop/daemon/client";
@@ -48,6 +50,7 @@ function diffSession(files?: DiffFileContents[]): Thread {
 
 interface WorkingCopySink {
   workingCopy?: string;
+  textCuts?: TextCut[];
 }
 
 const unimplemented = (member: string) => () =>
@@ -65,11 +68,15 @@ function fakeClient(initial: Thread, sink: WorkingCopySink): ThreadClient {
     sessionComment: unimplemented("sessionComment"),
     sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
-    sessionSetWorkingCopy: mock(async (_id: string, content: string | undefined) => {
-      sink.workingCopy = content;
+    sessionSetWorkingCopy: mock(
+      async (_id: string, content: string | undefined, textCuts?: TextCut[]) => {
+        sink.workingCopy = content;
+        sink.textCuts = textCuts;
+        session = { ...session, workingCopy: content, textCuts };
 
-      return { ...session, workingCopy: content };
-    }),
+        return session;
+      },
+    ),
     // the daemon's block primitives, stood in for with the same pure helpers it uses
     sessionCutBlock: mock(async (_id: string, blockIndex: number) => {
       const working = session.workingCopy ?? session.artifact.content;
@@ -154,7 +161,7 @@ describe("diff hunk curation", () => {
     await tick();
 
     // Assert
-    expect(controller.getSnapshot().status).toContain("change rejected");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(sink.workingCopy).toBe("");
   });
 
@@ -181,7 +188,7 @@ describe("diff hunk curation", () => {
     await tick();
 
     // Assert - no decisions left, so the working copy reverts to undefined
-    expect(controller.getSnapshot().status).toContain("change restored");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(sink.workingCopy).toBeUndefined();
     expect(controller.rejectedRows().size).toBe(0);
   });
@@ -195,7 +202,7 @@ describe("diff hunk curation", () => {
     await tick();
 
     // Assert - the single hunk is the whole diff, so nothing remains
-    expect(controller.getSnapshot().status).toContain("hunk rejected");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(sink.workingCopy).toBe("");
   });
 
@@ -249,7 +256,7 @@ describe("diff hunk curation", () => {
     await tick();
 
     // Assert - the list empties and the working copy reverts to the full diff
-    expect(controller.getSnapshot().status).toContain("removal restored");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(controller.curationItems().length).toBe(0);
     expect(sink.workingCopy).toBeUndefined();
     expect(controller.rejectedRows().size).toBe(0);
@@ -355,7 +362,7 @@ describe("plan cut removals", () => {
     await tick();
 
     // Assert - restoring the only cut round-trips to the submitted revision
-    expect(controller.getSnapshot().status).toContain("removal restored");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(sink.workingCopy).toBeUndefined();
   });
 
@@ -372,6 +379,25 @@ describe("plan cut removals", () => {
     expect(client.sessionCutBlock).toHaveBeenNthCalledWith(1, "ses_plan", 1);
     expect(client.sessionCutBlock).toHaveBeenNthCalledWith(2, "ses_plan", 1);
     expect(sink.workingCopy).toBe("# Title\n");
+  });
+
+  test("a whole-block Cut composes with an earlier exact Cut", async () => {
+    const start = PLAN_CONTENT.indexOf("paragraph.");
+    const end = PLAN_CONTENT.indexOf("Second") + "Sec".length;
+    const textCuts = [{ start, end, quote: PLAN_CONTENT.slice(start, end) }];
+    const session = {
+      ...planSession(applyTextCuts(PLAN_CONTENT, textCuts)),
+      textCuts,
+    };
+    const { controller, client, sink } = await connected(session);
+
+    controller.cut(1);
+    await tick();
+
+    expect(client.sessionSetWorkingCopy).toHaveBeenCalledTimes(1);
+    expect(client.sessionCutBlock).not.toHaveBeenCalled();
+    expect(sink.textCuts).toHaveLength(1);
+    expect(sink.workingCopy).toBe("# Title\nond paragraph.\n");
   });
 });
 

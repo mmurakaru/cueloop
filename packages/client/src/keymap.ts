@@ -315,8 +315,6 @@ function spanGrammar(state: KeyState, name: string): Intent[] {
     if (state.resolved) return status("review submitted - read-only");
     if (name === "c") return [{ type: "openCompose", kind: "comment", from: "span" }];
     if (name === "a") return [{ type: "openSpanActions" }];
-    // partial-span cut is not in the working-copy model, so cut removes the
-    // whole block the span sits in; owner-only, like plan cut
     if (state.canEditPlan === false) return [];
 
     return [{ type: "spanCut" }];

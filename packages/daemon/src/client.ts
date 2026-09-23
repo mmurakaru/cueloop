@@ -31,6 +31,7 @@ import type {
   PendingDelivery,
   MessageOutcome,
   WorkspaceKey,
+  TextCut,
 } from "@cueloop/schema";
 import {
   BackpressureWriter,
@@ -113,7 +114,11 @@ export interface ThreadClient {
   ): Promise<Thread>;
   /** Remove a comment; a non-owner connection removes only the comments of the author it is bound to. */
   sessionRemoveAnnotation(id: string, annotationId: string): Promise<Thread>;
-  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<Thread>;
+  sessionSetWorkingCopy(
+    id: string,
+    workingCopy: string | undefined,
+    textCuts?: TextCut[],
+  ): Promise<Thread>;
   /** Cut the `blockIndex`-th block of the working copy. */
   sessionCutBlock(id: string, blockIndex: number): Promise<Thread>;
   /** Re-insert the `baseBlockIndex`-th block of the submitted revision before `line` (default: the end). */
@@ -495,8 +500,16 @@ export class DaemonClient implements ThreadClient {
   sessionSetParticipantName(id: string, author: string, name: string): Promise<Thread> {
     return this.request("session.setParticipantName", { id, author, name }, ThreadRecordSchema);
   }
-  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Promise<Thread> {
-    return this.request("session.setWorkingCopy", { id, workingCopy }, ThreadRecordSchema);
+  sessionSetWorkingCopy(
+    id: string,
+    workingCopy: string | undefined,
+    textCuts?: TextCut[],
+  ): Promise<Thread> {
+    return this.request(
+      "session.setWorkingCopy",
+      { id, workingCopy, textCuts },
+      ThreadRecordSchema,
+    );
   }
   sessionCutBlock(id: string, blockIndex: number): Promise<Thread> {
     return this.request("session.cutBlock", { id, blockIndex }, ThreadRecordSchema);

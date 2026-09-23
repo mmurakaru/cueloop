@@ -8,6 +8,7 @@
 import {
   SCHEMA_VERSION,
   appendEntry,
+  applyTextCuts,
   applyPathView,
   createBranch,
   cutBlock,
@@ -44,6 +45,7 @@ import {
   type Delivery,
   type PendingDelivery,
   type Thread,
+  type TextCut,
   type SessionHistory,
   type Message,
   type MessageOutcome,
@@ -68,6 +70,29 @@ import { workingTreeDiff, workingChangeList, type WorkingTreeDiff } from "./work
 import { listProjectFiles, readProjectFile } from "./project-files";
 import { resolveWorkspace } from "./thread-review";
 import { DaemonError } from "./errors";
+
+/** Reviewer-controlled fields that make an annotation new or edited for delivery. */
+function annotationDeliveryFingerprint(annotation: Annotation | undefined): string {
+  if (!annotation) return "";
+
+  return JSON.stringify({
+    kind: annotation.kind,
+    anchor: {
+      quote: annotation.anchor.quote,
+      prefix: annotation.anchor.prefix,
+      suffix: annotation.anchor.suffix,
+      blockIndex: annotation.anchor.blockIndex,
+      endBlockIndex: annotation.anchor.endBlockIndex,
+      start: annotation.anchor.start,
+      end: annotation.anchor.end,
+      selector: annotation.anchor.selector,
+    },
+    target: annotation.target,
+    body: annotation.body,
+    author: annotation.author,
+    replyTo: annotation.replyTo,
+  });
+}
 
 /** What a share hands back: the notes and names it collected, and the removals it recorded. */
 export interface SharedMerge {
@@ -445,14 +470,42 @@ export class DaemonCore {
   }
 
   /** The reviewer's working copy; undefined clears it (revert all edits). */
-  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Thread {
+  sessionSetWorkingCopy(id: string, workingCopy: string | undefined, textCuts?: TextCut[]): Thread {
     const session = this.mutable(id);
-    const entryId = this.applyWorkingCopy(session, workingCopy);
+
+    if (textCuts?.length) this.assertTextCuts(session.artifact.content, workingCopy, textCuts);
+    const entryId = this.applyWorkingCopy(session, workingCopy, textCuts);
 
     this.store.upsert(session);
     this.emit("session.updated", id, entryId);
 
     return session;
+  }
+
+  private assertTextCuts(
+    source: string,
+    workingCopy: string | undefined,
+    textCuts: readonly TextCut[],
+  ): void {
+    let previousEnd = 0;
+    const valid = textCuts.every((cut) => {
+      const matches =
+        cut.start >= previousEnd &&
+        cut.end > cut.start &&
+        cut.end <= source.length &&
+        source.slice(cut.start, cut.end) === cut.quote;
+
+      previousEnd = cut.end;
+
+      return matches;
+    });
+
+    if (!valid || workingCopy === undefined || applyTextCuts(source, textCuts) !== workingCopy) {
+      throw new DaemonError(
+        "invalid_params",
+        "text Cuts do not match the submitted artifact and working copy",
+      );
+    }
   }
 
   /**
@@ -755,16 +808,29 @@ export class DaemonCore {
   ): Thread {
     const session = this.mutable(id);
     const sentAt = new Date().toISOString();
+    const sentAnnotations = new Map(
+      (session.history?.entries ?? [])
+        .filter((entry) => entry.type === "message")
+        .flatMap((entry) => (entry.type === "message" ? (entry.message.annotations ?? []) : []))
+        .map((annotation) => [annotation.id, annotation]),
+    );
+    const annotations = session.annotations.filter(
+      (annotation) =>
+        !isAddressed(annotation) &&
+        annotationDeliveryFingerprint(sentAnnotations.get(annotation.id)) !==
+          annotationDeliveryFingerprint(annotation),
+    );
     const message: Message = {
       id: newMessageId(),
       outcome,
       summary,
-      body: feedbackForSession(session, outcome, summary, actionBodies),
+      body: feedbackForSession(session, outcome, summary, actionBodies, annotations),
+      annotations,
       sentAt,
     };
 
     session.message = message;
-    session.status = "resolved";
+    session.status = outcome === "comment" ? "pending" : "resolved";
     const entryId = this.record(session, {
       type: "message",
       message,
@@ -772,13 +838,18 @@ export class DaemonCore {
     });
     this.store.upsert(session);
     this.reconcileDeliveries(session);
+    this.emit("message.sent", id, entryId);
+    if (outcome === "comment") {
+      this.emit("session.updated", id, entryId);
+
+      return session;
+    }
     // a resolved diff review is frozen; stop hot-reloading its working tree
     this.untrackLiveDiffSession(session);
     const parked = this.waiters.get(id) ?? [];
 
     this.waiters.delete(id);
     for (const parkedWaiter of parked) parkedWaiter(session);
-    this.emit("message.sent", id, entryId);
     this.emit("inbox.changed", id);
 
     return session;
@@ -815,6 +886,7 @@ export class DaemonCore {
       createdAt: now,
     });
     delete session.workingCopy;
+    delete session.textCuts;
     session.message = null;
     session.status = "pending";
 
@@ -1063,25 +1135,35 @@ export class DaemonCore {
    * Set or clear the working copy and, when the reviewer's text changed, record
    * it as a reviewer revision on the current branch. Returns that entry's id.
    */
-  private applyWorkingCopy(session: Thread, workingCopy: string | undefined): string | undefined {
+  private applyWorkingCopy(
+    session: Thread,
+    workingCopy: string | undefined,
+    textCuts?: TextCut[],
+  ): string | undefined {
     const before = session.workingCopy ?? session.artifact.content;
     const next =
       workingCopy === undefined || workingCopy === session.artifact.content
         ? undefined
         : workingCopy;
 
+    if (textCuts?.length) session.textCuts = textCuts;
+    else delete session.textCuts;
     if (next === undefined) delete session.workingCopy;
     else session.workingCopy = next;
     const after = next ?? session.artifact.content;
 
     if (after === before) return undefined;
 
-    return this.record(session, {
+    const revision: Extract<NewEntry, { type: "revision" }> = {
       type: "revision",
       by: "reviewer",
       content: after,
       createdAt: new Date().toISOString(),
-    });
+    };
+
+    if (textCuts?.length) revision.textCuts = textCuts;
+
+    return this.record(session, revision);
   }
 
   /** The session's history; a record without a revision has none and cannot be moved through. */

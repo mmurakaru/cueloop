@@ -45,7 +45,7 @@ export const docsNav: NavGroup[] = [
     items: [
       { title: "Overview", href: "/docs/sharing/" },
       { title: "Share a plan", href: "/docs/sharing/quickstart/" },
-      { title: "How the loop works", href: "/docs/sharing/how-it-works/" },
+      { title: "How sharing works", href: "/docs/sharing/how-it-works/" },
       { title: "Identity & attribution", href: "/docs/sharing/identity/" },
       { title: "Security & privacy", href: "/docs/sharing/security/" },
     ],

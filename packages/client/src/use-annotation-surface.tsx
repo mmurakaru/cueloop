@@ -104,10 +104,16 @@ export interface AnnotationSurfaceOptions {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  /** The visible scroll viewport used to keep a held mouse mark moving at its edges. */
+  dragViewport?: () => {
+    top: number;
+    bottom: number;
+    scrollBy: (rows: -1 | 1) => boolean;
+  } | null;
   /** The author's display name for a comment's hover tooltip; the rail resolves it against the participant registry. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
   /** Resolve a nav-mode key to a session/curation/tree/diff command; true when it acted. */
-  onNavCommand?: (key: KeyEvent) => boolean;
+  onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;
   onExit: () => void;
 }
 
@@ -164,6 +170,14 @@ function firstAnnotatable(source: LineSource): number {
   return 0;
 }
 
+/** The visual-row direction requested by an arrow or readline-style caret key. */
+function verticalCaretDelta(key: KeyEvent): -1 | 0 | 1 {
+  if (key.name === "up" || (key.ctrl && key.name === "p")) return -1;
+  if (key.name === "down" || (key.ctrl && key.name === "n")) return 1;
+
+  return 0;
+}
+
 export function useAnnotationSurface(options: AnnotationSurfaceOptions): AnnotationSurface {
   const {
     source,
@@ -183,6 +197,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    dragViewport,
     resolveAuthorLabel,
     onNavCommand,
     onExit,
@@ -199,6 +214,11 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return { head: start, anchor: start };
   });
   const [compose, setCompose] = useState<ComposeState | null>(null);
+  const dragPointer = useRef<{ x: number; y: number } | null>(null);
+  const edgeScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const dragViewportRef = useRef(dragViewport);
+
+  dragViewportRef.current = dragViewport;
   const [navMode, setNavModeState] = useState(false);
   const navModeRef = useRef(false);
   const setNavMode = (value: boolean): void => {
@@ -316,6 +336,27 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       x: entry.renderable.x,
       y: entry.renderable.y,
     }));
+  const verticalTextPosition = (position: TextPosition, direction: -1 | 1): TextPosition | null => {
+    const lines = allGeometry()
+      .filter((line) => source.annotatable(line.blockIndex))
+      .toSorted((left, right) => left.y - right.y || left.x - right.x);
+    const currentIndex = lines.findIndex(
+      (line) =>
+        line.blockIndex === position.blockIndex &&
+        line.start <= position.char &&
+        position.char <= line.end,
+    );
+    const target = currentIndex === -1 ? undefined : lines[currentIndex + direction];
+
+    if (!target) return null;
+    const current = lines[currentIndex]!;
+    const column = Math.max(0, position.char - current.start);
+
+    return {
+      blockIndex: target.blockIndex,
+      char: Math.min(target.end, target.start + column),
+    };
+  };
 
   const openCompose = (state: ComposeState): void => {
     // a view-only surface (a non-diff thread's live diff) never opens a draft
@@ -428,13 +469,33 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   // on screen - the mark follows the pointer across blocks.
   const handleRootDrag = (event: TerminalMouseEvent): void => {
     if (!dragging.current) return;
+    dragPointer.current = { x: event.x, y: event.y };
     const position = positionAt(allGeometry(), event.x, event.y);
 
     if (position) extendSelectionTo(position);
+    if (edgeScrollTimer.current === null) {
+      edgeScrollTimer.current = setInterval(() => {
+        const pointer = dragPointer.current;
+        const viewport = dragViewportRef.current?.();
+
+        if (!dragging.current || !pointer || !viewport) return;
+        const direction = pointer.y <= viewport.top ? -1 : pointer.y >= viewport.bottom ? 1 : 0;
+
+        if (direction === 0 || !viewport.scrollBy(direction)) return;
+        const next = positionAt(allGeometry(), pointer.x, pointer.y);
+
+        if (next) extendSelectionTo(next);
+      }, 100);
+    }
   };
   const endDrag = (): void => {
     dragging.current = null;
+    dragPointer.current = null;
+    if (edgeScrollTimer.current !== null) clearInterval(edgeScrollTimer.current);
+    edgeScrollTimer.current = null;
   };
+
+  useEffect(() => endDrag, []);
 
   const jumpToDiscussion = (key: string): void => {
     const target = discussions.find((discussion) => discussion.key === key);
@@ -611,22 +672,21 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
 
   const handleCaretKey = (key: KeyEvent): boolean => {
-    const vertical =
-      key.name === "up" || (key.ctrl && key.name === "p")
-        ? -1
-        : key.name === "down" || (key.ctrl && key.name === "n")
-          ? 1
-          : 0;
+    const vertical = verticalCaretDelta(key);
 
     if (vertical !== 0) {
-      const next = nearestAnnotatable(source, cursor, vertical);
+      const nextBlock = nearestAnnotatable(source, cursor, vertical);
+      const nextHead = verticalTextPosition(head, vertical) ?? {
+        blockIndex: nextBlock,
+        char: key.shift ? Math.min(head.char, textLengthOf(nextBlock)) : 0,
+      };
 
       setCaret({
-        head: { blockIndex: next, char: 0 },
-        anchor: { blockIndex: next, char: 0 },
+        head: nextHead,
+        anchor: key.shift ? caret.anchor : nextHead,
       });
       setFocusedDiscussion(null);
-      setCursor(next);
+      setCursor(nextHead.blockIndex);
 
       return true;
     }
@@ -682,7 +742,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (navModeRef.current) {
       if (handleCaretKey(key)) return;
       if (key.name === "z") return toggleFoldAtCursor();
-      if (onNavCommand?.(key)) return;
+      if (onNavCommand?.(key, heldSpan)) return;
       if (key.name === "c") {
         setNavMode(false);
 

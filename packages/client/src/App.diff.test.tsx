@@ -98,7 +98,7 @@ describe("diff review", () => {
     await pressKey(setup, "RETURN", { meta: true });
     await waitForText(setup, "[Approve]");
     await press(setup, "right");
-    await waitForText(setup, "[Changes]");
+    await waitForText(setup, "[Request changes]");
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
@@ -195,10 +195,11 @@ describe("diff review", () => {
     await navCommand(setup, "x");
 
     // Assert - the single change is gone, so the curated working copy is empty
-    await waitForText(setup, "change rejected");
+    await waitForState(setup, () => server.core.sessionGet(withFiles.id).workingCopy === "");
     const stored = server.core.sessionGet(withFiles.id);
 
     expect(stored.workingCopy).toBe("");
+    expect(setup.captureCharFrame()).not.toContain("change rejected");
   });
 
   test("a diff opens with the Changes column listing every changed file", async () => {

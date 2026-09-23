@@ -2,37 +2,30 @@
 layout: ../../layouts/DocsLayout.astro
 title: Overview
 eyebrow: Docs · Start here
-lede: cueloop is a terminal-first review surface for coding agents. When your agent has a plan or a diff, you review it in the terminal, annotate the exact lines, and send a decision back - then share it over SSH.
+lede: Review plans, replies, diffs, prototypes, and pull requests with your coding agent from the terminal.
 next: { title: "Install & quickstart", href: "/docs/install/" }
 ---
 
-Coding agents move fast. cueloop puts a deliberate human gate between what the
-agent _proposes_ and what it _does_. Instead of skimming a wall of text and
-hitting "yes", you open the plan or the diff in a real terminal UI, mark up the
-parts that matter, and hand back a structured decision the agent can act on.
+cueloop opens agent-authored work as a Thread. Read it, mark the exact text that
+needs attention, add annotations, and send a Message back to the agent.
 
-## The shape of it
+## What you can review
 
-- **One primitive - the thread.** A thread pairs an _artifact_
-  (a plan, an agent's reply, a working-tree diff, a pull request, or a component
-  design doc) with _annotations_ anchored to the relevant text. Everything else
-  is built on it.
-- **Two directions of feedback.** You review your agent's work and send a
-  decision back to the agent. Separately, you can _share_ a plan with a teammate
-  over SSH and merge their annotations back into yours.
-- **No browser, no account.** A local daemon speaks over a unix socket; the UI
-  is an [OpenTUI](https://github.com/sst/opentui) React app. Sharing runs over
-  plain SSH.
+- **plan** opens an agent plan.
+- **reply** opens an agent response.
+- **diff** opens working-tree changes.
+- **prototype** opens a component design document.
+- **review** opens a pull request.
 
-## Where to go next
+Every review uses the same controls and keeps its revisions and annotations
+together.
 
-- New here? Start with [Install & quickstart](/docs/install/).
-- Want the model? Read [The thread](/docs/concepts/thread/) and
-  [Annotations](/docs/concepts/annotations/).
-- Ready to collaborate? [Sharing over SSH](/docs/sharing/) walks the whole loop.
+## Start here
 
-<div class="callout">
-  <div class="callout__label">Terminal-first</div>
-  cueloop never opens a browser. If it happens in cueloop, it happens in a terminal - locally, or
-  over SSH on someone else's.
-</div>
+1. [Install cueloop and connect your agent](/docs/install/).
+2. Learn how [Threads](/docs/concepts/thread/) and
+   [annotations](/docs/concepts/annotations/) work.
+3. Use the [keyboard and mouse reference](/docs/reference/keyboard/) while you
+   review.
+
+To review with a teammate, see [Sharing over SSH](/docs/sharing/).

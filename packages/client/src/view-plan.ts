@@ -13,8 +13,12 @@ import {
   lcsDiff,
   parseBlocks,
   resolveAnchor,
+  applyTextCuts,
+  blockTextSourceSegments,
   type Annotation,
   type Block,
+  type BlockTextSourceSegment,
+  type TextCut,
 } from "@cueloop/schema";
 import { wordLevelChanges } from "./diff-intraline";
 import { spanRangeInBlock, type CharRange, type TextSpan } from "./thread-selection";
@@ -31,6 +35,10 @@ export interface DisplayBlock {
   work?: Block;
   /** Block in the submitted revision (absent for add). */
   base?: Block;
+  /** Source projection for mapping a visible base-text selection back to Markdown. */
+  baseSourceSegments?: readonly BlockTextSourceSegment[];
+  /** Exact base-text ranges removed by character Cut. */
+  textCutRanges?: CharRange[];
   orderedItemNumber?: number;
 }
 
@@ -50,9 +58,54 @@ export function renderedText(block: DisplayBlock): string {
     .join("");
 }
 
+/** Exact character runs when one contiguous insertion or deletion produced the new text. */
+function singleRangeTextChanges(
+  oldText: string,
+  newText: string,
+): ReturnType<typeof wordLevelChanges> | null {
+  if (oldText === newText || oldText.length === newText.length) return null;
+  let prefixLength = 0;
+
+  while (
+    prefixLength < oldText.length &&
+    prefixLength < newText.length &&
+    oldText[prefixLength] === newText[prefixLength]
+  )
+    prefixLength++;
+  let suffixLength = 0;
+  const shorterLength = Math.min(oldText.length, newText.length);
+
+  while (
+    suffixLength < shorterLength - prefixLength &&
+    oldText[oldText.length - 1 - suffixLength] === newText[newText.length - 1 - suffixLength]
+  )
+    suffixLength++;
+  if (prefixLength + suffixLength !== shorterLength) return null;
+  const commonPrefix = oldText.slice(0, prefixLength);
+  const commonSuffix = oldText.slice(oldText.length - suffixLength);
+  const changed =
+    oldText.length > newText.length
+      ? {
+          text: oldText.slice(prefixLength, oldText.length - suffixLength),
+          kind: "removed" as const,
+        }
+      : {
+          text: newText.slice(prefixLength, newText.length - suffixLength),
+          kind: "added" as const,
+        };
+
+  return [
+    { text: commonPrefix, kind: "common" as const },
+    changed,
+    { text: commonSuffix, kind: "common" as const },
+  ].filter((change) => change.text.length > 0);
+}
+
 /** Word-overlap similarity gate: an unrelated cut + insert must not merge. */
-function similar(baseBlock: Block, workBlock: Block): boolean {
+function similar(baseBlock: Block, workBlock: Block, expectedText?: string): boolean {
   if (baseBlock.kind !== workBlock.kind) return false;
+  if (expectedText === workBlock.text) return true;
+  if (singleRangeTextChanges(baseBlock.text, workBlock.text)) return true;
   const words = (text: string) => new Set(text.toLowerCase().split(/\s+/).filter(Boolean));
   const baseWords = words(baseBlock.text);
   const workWords = words(workBlock.text);
@@ -65,8 +118,84 @@ function similar(baseBlock: Block, workBlock: Block): boolean {
 }
 
 /** Reconcile base blocks vs working blocks into the display list. */
-export function buildDisplay(baseContent: string, workingContent?: string): DisplayBlock[] {
+export function buildDisplay(
+  baseContent: string,
+  workingContent?: string,
+  textCuts: readonly TextCut[] = [],
+): DisplayBlock[] {
   const baseBlocks = parseBlocks(baseContent);
+  const exactCuts =
+    textCuts.length > 0 && workingContent === applyTextCuts(baseContent, textCuts) ? textCuts : [];
+  const sourceSegments =
+    exactCuts.length > 0 ? blockTextSourceSegments(baseContent, baseBlocks) : [];
+  const cutData = new Map<Block, Pick<DisplayBlock, "baseSourceSegments" | "textCutRanges">>();
+  let cutIndex = 0;
+
+  baseBlocks.forEach((block, blockIndex) => {
+    const segments = sourceSegments[blockIndex];
+
+    if (!segments?.length) return;
+    const sourceStart = segments[0]!.sourceStart;
+    const last = segments.at(-1)!;
+    const sourceEnd = last.sourceStart + last.textEnd - last.textStart;
+
+    while (cutIndex < exactCuts.length && exactCuts[cutIndex]!.end <= sourceStart) cutIndex++;
+    const ranges: CharRange[] = [];
+
+    for (let index = cutIndex; index < exactCuts.length; index++) {
+      const cut = exactCuts[index]!;
+
+      if (cut.start >= sourceEnd) break;
+      const start = blockTextBoundary(segments, block.text.length, cut.start);
+      const end = blockTextBoundary(segments, block.text.length, cut.end);
+
+      if (end > start) ranges.push({ start, end });
+    }
+    const data: Pick<DisplayBlock, "baseSourceSegments" | "textCutRanges"> = {
+      baseSourceSegments: segments,
+    };
+
+    if (ranges.length > 0) data.textCutRanges = ranges;
+    cutData.set(block, data);
+  });
+  const blockCutData = (block: Block) => cutData.get(block) ?? {};
+  const expectedBlockText = (block: Block): string | undefined => {
+    const data = blockCutData(block);
+
+    if (!data.textCutRanges) return undefined;
+    let text = block.text;
+
+    for (let index = data.textCutRanges.length - 1; index >= 0; index--) {
+      const { start, end } = data.textCutRanges[index]!;
+
+      text = text.slice(0, start) + text.slice(end);
+    }
+
+    return text;
+  };
+
+  if (exactCuts.length > 0) {
+    const display = baseBlocks.map((base): DisplayBlock => {
+      const data = blockCutData(base);
+
+      if (!data.textCutRanges) {
+        return { type: "same", kind: base.kind, base, work: base, ...data };
+      }
+      const text = expectedBlockText(base)!;
+
+      return {
+        type: "mod",
+        kind: base.kind,
+        base,
+        work: { ...base, text },
+        ...data,
+      };
+    });
+
+    numberOrderedListItems(display);
+
+    return display;
+  }
 
   if (workingContent === undefined) {
     const display: DisplayBlock[] = baseBlocks.map((block) => ({
@@ -74,6 +203,7 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
       kind: block.kind,
       work: block,
       base: block,
+      ...blockCutData(block),
     }));
 
     numberOrderedListItems(display);
@@ -112,20 +242,32 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
     let addedIndex = 0;
 
     while (deletedIndex < deletedBlocks.length && addedIndex < addedBlocks.length) {
-      if (similar(deletedBlocks[deletedIndex]!, addedBlocks[addedIndex]!)) {
+      if (
+        similar(
+          deletedBlocks[deletedIndex]!,
+          addedBlocks[addedIndex]!,
+          expectedBlockText(deletedBlocks[deletedIndex]!),
+        )
+      ) {
+        const base = deletedBlocks[deletedIndex]!;
+
         display.push({
           type: "mod",
           kind: addedBlocks[addedIndex]!.kind,
-          base: deletedBlocks[deletedIndex]!,
+          base,
           work: addedBlocks[addedIndex]!,
+          ...blockCutData(base),
         });
         deletedIndex++;
         addedIndex++;
       } else if (deletedBlocks.length - deletedIndex >= addedBlocks.length - addedIndex) {
+        const base = deletedBlocks[deletedIndex]!;
+
         display.push({
           type: "del",
-          kind: deletedBlocks[deletedIndex]!.kind,
-          base: deletedBlocks[deletedIndex]!,
+          kind: base.kind,
+          base,
+          ...blockCutData(base),
         });
         deletedIndex++;
       } else {
@@ -138,11 +280,15 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
       }
     }
     while (deletedIndex < deletedBlocks.length) {
+      const base = deletedBlocks[deletedIndex]!;
+
       display.push({
         type: "del",
-        kind: deletedBlocks[deletedIndex]!.kind,
-        base: deletedBlocks[deletedIndex++]!,
+        kind: base.kind,
+        base,
+        ...blockCutData(base),
       });
+      deletedIndex++;
     }
     while (addedIndex < addedBlocks.length) {
       display.push({
@@ -155,6 +301,21 @@ export function buildDisplay(baseContent: string, workingContent?: string): Disp
   numberOrderedListItems(display);
 
   return display;
+}
+
+function blockTextBoundary(
+  segments: readonly BlockTextSourceSegment[],
+  textLength: number,
+  sourceOffset: number,
+): number {
+  for (const segment of segments) {
+    const sourceEnd = segment.sourceStart + segment.textEnd - segment.textStart;
+
+    if (sourceOffset < segment.sourceStart) return segment.textStart;
+    if (sourceOffset <= sourceEnd) return segment.textStart + sourceOffset - segment.sourceStart;
+  }
+
+  return textLength;
 }
 
 function numberOrderedListItems(display: DisplayBlock[]): void {
@@ -186,6 +347,8 @@ export interface StyleRun {
   role: RunRole;
   /** Offset of this run in the block's working text; null for del runs. */
   start: number | null;
+  /** Offset in the submitted block when an exact Cut preserves source provenance. */
+  baseStart?: number;
   annotationId?: string;
   /** Link target for `link` runs. */
   href?: string;
@@ -266,6 +429,75 @@ export function marksByDisplay(
   return marksByIndex;
 }
 
+function exactCutRuns(block: DisplayBlock, literal: boolean): StyleRun[] | null {
+  if (!block.base || !block.work || !block.textCutRanges) return null;
+  const localCuts = block.textCutRanges;
+  const expected = localCuts.reduceRight(
+    (text, cut) => text.slice(0, cut.start) + text.slice(cut.end),
+    block.base.text,
+  );
+
+  if (expected !== block.work.text) return null;
+  const sourceRuns = literal
+    ? [{ text: block.base.text, role: "plain" as const, start: 0 }]
+    : inlineStyleRuns(block.base.text, 0);
+  const runs: StyleRun[] = [];
+  let cutIndex = 0;
+  let deletedBefore = 0;
+
+  for (const sourceRun of sourceRuns) {
+    if (sourceRun.start === null) continue;
+    const runStart = sourceRun.start;
+    const runEnd = runStart + sourceRun.text.length;
+    let position = runStart;
+
+    while (cutIndex < localCuts.length && localCuts[cutIndex]!.end <= position) {
+      deletedBefore += localCuts[cutIndex]!.end - localCuts[cutIndex]!.start;
+      cutIndex++;
+    }
+    while (position < runEnd) {
+      const cut = localCuts[cutIndex];
+
+      if (!cut || cut.start >= runEnd) {
+        runs.push({
+          ...sourceRun,
+          text: block.base.text.slice(position, runEnd),
+          start: position - deletedBefore,
+          baseStart: position,
+        });
+        break;
+      }
+      if (position < cut.start) {
+        const commonEnd = Math.min(runEnd, cut.start);
+
+        runs.push({
+          ...sourceRun,
+          text: block.base.text.slice(position, commonEnd),
+          start: position - deletedBefore,
+          baseStart: position,
+        });
+        position = commonEnd;
+        continue;
+      }
+      const removedEnd = Math.min(runEnd, cut.end);
+
+      runs.push({
+        text: block.base.text.slice(position, removedEnd),
+        role: "del",
+        start: null,
+        baseStart: position,
+      });
+      position = removedEnd;
+      if (position === cut.end) {
+        deletedBefore += cut.end - cut.start;
+        cutIndex++;
+      }
+    }
+  }
+
+  return runs;
+}
+
 /** Base runs for a display block: plain text, or word-diff for mod blocks. */
 export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
   const literal =
@@ -274,8 +506,16 @@ export function blockRuns(block: DisplayBlock, markup: boolean): StyleRun[] {
     block.kind === "table" ||
     block.kind === "frontmatter";
 
+  if (markup) {
+    const exact = exactCutRuns(block, literal);
+
+    if (exact) return exact;
+  }
+
   if (block.type === "mod" && markup) {
-    const changes = wordLevelChanges(block.base!.text, block.work!.text);
+    const changes =
+      singleRangeTextChanges(block.base!.text, block.work!.text) ??
+      wordLevelChanges(block.base!.text, block.work!.text);
     const runs: StyleRun[] = [];
     let workOffset = 0;
 
@@ -566,6 +806,38 @@ export function workRangeForRendered(
     else {
       range.start = Math.min(range.start, workStart);
       range.end = Math.max(range.end, workEnd);
+    }
+  }
+
+  return range;
+}
+
+/** Base-text range covered by a rendered selection in an exact Cut projection. */
+export function baseRangeForRendered(
+  runs: StyleRun[],
+  renderedStart: number,
+  renderedEnd: number,
+): { start: number; end: number } | null {
+  let rendered = 0;
+  let range: { start: number; end: number } | null = null;
+
+  for (const run of runs) {
+    const runRenderedStart = rendered;
+    const runRenderedEnd = rendered + run.text.length;
+
+    rendered = runRenderedEnd;
+    if (run.baseStart === undefined) continue;
+    const overlapStart = Math.max(renderedStart, runRenderedStart);
+    const overlapEnd = Math.min(renderedEnd, runRenderedEnd);
+
+    if (overlapEnd <= overlapStart) continue;
+    const baseStart = run.baseStart + overlapStart - runRenderedStart;
+    const baseEnd = run.baseStart + overlapEnd - runRenderedStart;
+
+    if (!range) range = { start: baseStart, end: baseEnd };
+    else {
+      range.start = Math.min(range.start, baseStart);
+      range.end = Math.max(range.end, baseEnd);
     }
   }
 

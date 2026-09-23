@@ -169,6 +169,71 @@ describe("session lifecycle", () => {
     ).toThrow("already resolved");
   });
 
+  test("Comment delivers only changed annotations and keeps the Thread pending", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(session.id, {
+      id: "first",
+      kind: "comment",
+      anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
+      body: "first note",
+    });
+
+    const commented = core.sessionSendMessage(session.id, "comment", "Interim feedback");
+
+    expect(commented.status).toBe("pending");
+    expect(commented.message!.annotations?.map((annotation) => annotation.id)).toEqual(["first"]);
+    expect(commented.message!.body).toContain("first note");
+
+    core.sessionAnnotate(session.id, {
+      id: "second",
+      kind: "comment",
+      anchor: { quote: "Context", prefix: "Plan", suffix: "Do" },
+      body: "second note",
+    });
+
+    const secondComment = core.sessionSendMessage(session.id, "comment", "Another note");
+
+    expect(secondComment.status).toBe("pending");
+    expect(secondComment.message!.annotations?.map((annotation) => annotation.id)).toEqual([
+      "second",
+    ]);
+    expect(secondComment.message!.body).not.toContain("first note");
+    expect(secondComment.message!.body).toContain("second note");
+
+    core.sessionAnnotate(session.id, {
+      id: "first",
+      kind: "comment",
+      anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
+      body: "edited first note",
+    });
+
+    const resolved = core.sessionSendMessage(session.id, "approved", "Ready");
+
+    expect(resolved.status).toBe("resolved");
+    expect(resolved.message!.annotations?.map((annotation) => annotation.id)).toEqual(["first"]);
+    expect(resolved.message!.body).toContain("edited first note");
+    expect(resolved.message!.body).not.toContain("second note");
+  });
+
+  test("agent-side resolution does not redeliver a sent annotation", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    core.sessionAnnotate(session.id, {
+      id: "sent",
+      kind: "comment",
+      anchor: { quote: "carefully", prefix: "the thing ", suffix: "." },
+      body: "sent note",
+    });
+    core.sessionSendMessage(session.id, "comment", "Interim feedback");
+    core.sessionSubmitRevision(session.id, PLAN.content, ["sent"]);
+
+    const resolved = core.sessionSendMessage(session.id, "approved", "Ready");
+
+    expect(resolved.message!.annotations).toEqual([]);
+    expect(resolved.message!.body).not.toContain("sent note");
+  });
+
   test("working copy stores edits and clears on revert or no-op", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
@@ -184,6 +249,55 @@ describe("session lifecycle", () => {
 
     // Assert
     expect(core.sessionGet(session.id).workingCopy).toBeUndefined();
+  });
+
+  test("character Cut provenance survives persistence and clears on an arbitrary edit", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const start = PLAN.content.indexOf("carefully");
+    const end = start + "carefully".length;
+    const workingCopy = PLAN.content.slice(0, start) + PLAN.content.slice(end);
+    const cut = { start, end, quote: "carefully" };
+
+    core.sessionSetWorkingCopy(session.id, workingCopy, [cut]);
+
+    expect(core.sessionGet(session.id).textCuts).toEqual([cut]);
+    expect(new DaemonCore(home).sessionGet(session.id).textCuts).toEqual([cut]);
+    const cutTip = core.sessionGet(session.id).history!.tips.main!;
+    const root = core.sessionGet(session.id).history!.entries[0]!.id;
+
+    core.sessionBranch(session.id, "with-cut");
+    core.sessionNavigate(session.id, root, undefined, "main");
+    expect(core.sessionGet(session.id).textCuts).toBeUndefined();
+    core.sessionSwitch(session.id, "with-cut");
+    expect(core.sessionGet(session.id).history!.tips["with-cut"]).toBe(cutTip);
+    expect(core.sessionGet(session.id).textCuts).toEqual([cut]);
+    core.sessionSetWorkingCopy(session.id, PLAN.content.replace("carefully", "safely"));
+    expect(core.sessionGet(session.id).textCuts).toBeUndefined();
+  });
+
+  test("rejects character Cut provenance that does not match the artifact", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    for (const textCuts of [
+      [{ start: 0, end: 5, quote: "stale" }],
+      [{ start: PLAN.content.length - 1, end: PLAN.content.length + 1, quote: "xx" }],
+    ]) {
+      expect(() => core.sessionSetWorkingCopy(session.id, "remaining", textCuts)).toThrow(
+        "text Cuts do not match the submitted artifact and working copy",
+      );
+    }
+    expect(core.sessionGet(session.id).workingCopy).toBeUndefined();
+    expect(core.sessionGet(session.id).textCuts).toBeUndefined();
+  });
+
+  test("rejects character Cut provenance whose result differs from the working copy", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const start = PLAN.content.indexOf("carefully");
+    const textCuts = [{ start, end: start + "carefully".length, quote: "carefully" }];
+
+    expect(() => core.sessionSetWorkingCopy(session.id, "different", textCuts)).toThrow(
+      "text Cuts do not match the submitted artifact and working copy",
+    );
   });
 
   test("a thread rename sets the title, clears back to the default on empty, and survives a restart", () => {
@@ -235,8 +349,13 @@ describe("session lifecycle", () => {
   test("revision reopens the session and resets working copy + message", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const start = PLAN.content.indexOf("carefully");
+    const end = start + "carefully".length;
+    const cut = { start, end, quote: "carefully" };
 
-    core.sessionSetWorkingCopy(session.id, PLAN.content + "\nedit");
+    core.sessionSetWorkingCopy(session.id, PLAN.content.slice(0, start) + PLAN.content.slice(end), [
+      cut,
+    ]);
     core.sessionSendMessage(session.id, "changes_requested", "redo");
 
     // Act
@@ -246,6 +365,7 @@ describe("session lifecycle", () => {
     expect(revised.status).toBe("pending");
     expect(revised.message).toBeNull();
     expect(revised.workingCopy).toBeUndefined();
+    expect(revised.textCuts).toBeUndefined();
     expect(revised.revisions.length).toBe(2);
     expect(revised.artifact.content).toBe("# Plan v2\n");
   });

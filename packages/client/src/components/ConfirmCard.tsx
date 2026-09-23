@@ -7,7 +7,7 @@
 
 import React, { useContext } from "react";
 import { useTerminalDimensions } from "@opentui/react";
-import type { MessageOutcome } from "@cueloop/schema";
+import { MESSAGE_OUTCOMES, type MessageOutcome } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import type { QuickAction } from "../config";
 import { SlashSkillsContext } from "../skills";
@@ -18,15 +18,14 @@ import { composeRowCount } from "./AnnotationCards";
 import { SlashComposer } from "./SlashComposer";
 import { DialogActions } from "./primitives/DialogActions";
 
-const SUBMIT_CARD_MAX_WIDTH = 48;
+const SUBMIT_CARD_MAX_WIDTH = 52;
 const PALETTE_WINDOW = 5;
-
-export const MESSAGE_OUTCOMES: MessageOutcome[] = ["approved", "changes_requested"];
 
 /** Selector words in the confirm card - one word per message. */
 export const MESSAGE_OUTCOME_LABEL: Record<MessageOutcome, string> = {
+  comment: "Comment",
   approved: "Approve",
-  changes_requested: "Changes",
+  changes_requested: "Request changes",
 };
 
 export interface ConfirmCardProps {
@@ -84,7 +83,7 @@ function MessageSelector({
           <text fg={candidate === message ? outcomeColor(candidate, tokens) : tokens.textDim}>
             {candidate === message
               ? `[${MESSAGE_OUTCOME_LABEL[candidate]}]`
-              : ` ${MESSAGE_OUTCOME_LABEL[candidate]} `}
+              : MESSAGE_OUTCOME_LABEL[candidate]}
           </text>
         </box>
       ))}
@@ -106,7 +105,7 @@ export function ConfirmCard({
   const tokens = useComponentTheme(theme);
   const skills = useContext(SlashSkillsContext);
   const { width: terminalWidth } = useTerminalDimensions();
-  const cardWidth = Math.max(24, Math.min(terminalWidth - 6, SUBMIT_CARD_MAX_WIDTH));
+  const cardWidth = Math.max(24, Math.min(terminalWidth - 2, SUBMIT_CARD_MAX_WIDTH));
 
   const composerRows = composeRowCount(summary, cardWidth - 4);
   const token = activeSlashToken(summary, summary.length);

@@ -57,7 +57,12 @@ export function describeEntry(entry: SessionEntry, round?: number): EntryDescrip
       return { glyph: "·", text: "comment removed" };
     case "message":
       return {
-        glyph: entry.message.outcome === "approved" ? "✓" : "✗",
+        glyph:
+          entry.message.outcome === "approved"
+            ? "✓"
+            : entry.message.outcome === "changes_requested"
+              ? "✗"
+              : "·",
         text: entry.message.outcome.replace("_", " "),
       };
     case "branch-summary":

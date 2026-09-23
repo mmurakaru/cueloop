@@ -250,6 +250,7 @@ export function feedbackForSession(
   outcome: MessageOutcome,
   summary: string,
   actionBodies?: Record<string, string>,
+  annotations: Annotation[] = session.annotations,
 ): string {
   return renderFeedback({
     outcome,
@@ -257,7 +258,7 @@ export function feedbackForSession(
     artifactContent: session.artifact.content,
     workingCopy: session.workingCopy,
     artifactType: session.artifact.type,
-    annotations: session.annotations,
+    annotations,
     artifactPath: session.artifact.meta.prototypePath ?? session.artifact.meta.planPath,
     sessionId: session.id,
     actionBodies,

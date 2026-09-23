@@ -12,6 +12,7 @@
 import * as v from "valibot";
 import {
   ARTIFACT_TYPES,
+  MESSAGE_OUTCOMES,
   WORKFLOW_KINDS,
   SCHEMA_VERSION,
   type Anchor,
@@ -22,6 +23,7 @@ import {
   type DiffFileContents,
   type Identity,
   type Thread,
+  type TextCut,
   type HunkRejection,
   type HarnessBinding,
   type Delivery,
@@ -33,6 +35,7 @@ import {
   validateHistory,
   type Message,
   type WorkspaceKey,
+  applyTextCuts,
 } from "@cueloop/schema";
 import { DaemonError } from "./errors";
 import type { Request } from "./protocol";
@@ -47,6 +50,25 @@ import type { Request } from "./protocol";
 type EntriesOf<T> = { [K in keyof T]-?: v.GenericSchema<any, any> };
 
 const NonEmpty = v.pipe(v.string(), v.minLength(1));
+
+const TextCutSchema = v.object({
+  start: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  end: v.pipe(v.number(), v.integer(), v.minValue(1)),
+  quote: NonEmpty,
+} satisfies EntriesOf<TextCut>);
+
+const TextCutsSchema = v.pipe(
+  v.array(TextCutSchema),
+  v.check(
+    (cuts) =>
+      cuts.every(
+        (cut, index) =>
+          cut.end - cut.start === cut.quote.length &&
+          (index === 0 || cuts[index - 1]!.end <= cut.start),
+      ),
+    "text Cuts must be ordered, non-overlapping, and match their quote lengths",
+  ),
+);
 
 export const WorkspaceSchema = v.object({
   repoRoot: NonEmpty,
@@ -196,7 +218,11 @@ export const Params = {
   }),
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
   "session.setParticipantName": v.object({ id: SessionId, author: NonEmpty, name: NonEmpty }),
-  "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
+  "session.setWorkingCopy": v.object({
+    id: SessionId,
+    workingCopy: v.optional(v.string()),
+    textCuts: v.optional(TextCutsSchema),
+  }),
   "session.cutBlock": v.object({
     id: SessionId,
     blockIndex: v.pipe(v.number(), v.integer(), v.minValue(0)),
@@ -252,7 +278,7 @@ export const Params = {
   }),
   "session.sendMessage": v.object({
     id: SessionId,
-    outcome: v.picklist(["approved", "changes_requested"]),
+    outcome: v.picklist(MESSAGE_OUTCOMES),
     summary: v.optional(v.string(), ""),
     actionBodies: v.optional(v.record(v.string(), v.string())),
   }),
@@ -336,9 +362,10 @@ export const RevisionSchema = v.object({
 
 export const MessageSchema = v.object({
   id: NonEmpty,
-  outcome: v.picklist(["approved", "changes_requested"]),
+  outcome: v.picklist(MESSAGE_OUTCOMES),
   summary: v.string(),
   body: v.string(),
+  annotations: v.optional(v.array(FullAnnotationSchema)),
   sentAt: v.string(),
 } satisfies EntriesOf<Message>);
 
@@ -360,6 +387,7 @@ export const SessionEntrySchema = v.variant("type", [
     type: v.literal("revision"),
     by: v.picklist(["agent", "reviewer"]),
     content: v.string(),
+    textCuts: v.optional(TextCutsSchema),
   }),
   v.object({ ...EntryBaseEntries, type: v.literal("comment"), annotationId: NonEmpty }),
   v.object({ ...EntryBaseEntries, type: v.literal("comment-removed"), annotationId: NonEmpty }),
@@ -389,39 +417,53 @@ export const SessionHistorySchema = v.pipe(
 );
 
 /** Persisted records are validated on recovery: a bad file is skipped, not fatal. */
-export const ThreadRecordSchema = v.object({
-  schemaVersion: v.literal(SCHEMA_VERSION),
-  id: NonEmpty,
-  workspace: WorkspaceSchema,
-  artifact: ArtifactSchema,
-  revisions: v.array(RevisionSchema),
-  annotations: v.array(FullAnnotationSchema),
-  history: v.optional(SessionHistorySchema),
-  curation: v.optional(
-    v.array(
-      v.object({
-        path: NonEmpty,
-        hunkIndex: v.number(),
-        changeIndex: v.optional(v.number()),
-      } satisfies EntriesOf<HunkRejection>),
+export const ThreadRecordSchema = v.pipe(
+  v.object({
+    schemaVersion: v.literal(SCHEMA_VERSION),
+    id: NonEmpty,
+    workspace: WorkspaceSchema,
+    artifact: ArtifactSchema,
+    revisions: v.array(RevisionSchema),
+    annotations: v.array(FullAnnotationSchema),
+    history: v.optional(SessionHistorySchema),
+    curation: v.optional(
+      v.array(
+        v.object({
+          path: NonEmpty,
+          hunkIndex: v.number(),
+          changeIndex: v.optional(v.number()),
+        } satisfies EntriesOf<HunkRejection>),
+      ),
     ),
-  ),
-  workingCopy: v.optional(v.string()),
-  viewedPaths: v.optional(v.array(v.string())),
-  message: v.nullable(MessageSchema),
-  status: v.picklist(["pending", "resolved"]),
-  createdAt: v.string(),
-  shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
-  parentSessionId: v.optional(v.string()),
-  shares: v.optional(v.array(ShareLinkSchema)),
-  shareId: v.optional(v.string()),
-  shareBranch: v.optional(v.string()),
-  owner: v.optional(v.string()),
-  access: v.optional(
-    v.object({ githubLogins: v.array(NonEmpty) } satisfies EntriesOf<ShareAccess>),
-  ),
-  participants: v.optional(v.array(IdentitySchema)),
-} satisfies EntriesOf<Thread>);
+    workingCopy: v.optional(v.string()),
+    textCuts: v.optional(TextCutsSchema),
+    viewedPaths: v.optional(v.array(v.string())),
+    message: v.nullable(MessageSchema),
+    status: v.picklist(["pending", "resolved"]),
+    createdAt: v.string(),
+    shelvedAnnotations: v.optional(v.array(FullAnnotationSchema)),
+    parentSessionId: v.optional(v.string()),
+    shares: v.optional(v.array(ShareLinkSchema)),
+    shareId: v.optional(v.string()),
+    shareBranch: v.optional(v.string()),
+    owner: v.optional(v.string()),
+    access: v.optional(
+      v.object({ githubLogins: v.array(NonEmpty) } satisfies EntriesOf<ShareAccess>),
+    ),
+    participants: v.optional(v.array(IdentitySchema)),
+  } satisfies EntriesOf<Thread>),
+  v.rawCheck(({ dataset, addIssue }) => {
+    if (!dataset.typed || !dataset.value.textCuts?.length) return;
+    const { artifact, textCuts, workingCopy } = dataset.value;
+    const matchesSource = textCuts.every(
+      (cut) => artifact.content.slice(cut.start, cut.end) === cut.quote,
+    );
+
+    if (!matchesSource || workingCopy !== applyTextCuts(artifact.content, textCuts)) {
+      addIssue({ message: "text Cuts do not match the submitted artifact and working copy" });
+    }
+  }),
+);
 
 export function validateThreadRecord(
   raw: Parameters<typeof v.safeParse>[1],

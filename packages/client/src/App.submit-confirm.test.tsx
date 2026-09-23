@@ -99,6 +99,8 @@ describe("send message confirm", () => {
     const frame = setup.captureCharFrame();
 
     expect(frame).toContain("[Approve]");
+    expect(frame).toContain(" Comment ");
+    expect(frame).toContain(" Request changes ");
     expect(frame).toContain(" send ");
     expect(frame).toContain(" cancel ");
   });
@@ -116,19 +118,19 @@ describe("send message confirm", () => {
     await press(setup, "right");
 
     // Assert
-    await waitForText(setup, "[Changes]");
+    await waitForText(setup, "[Request changes]");
 
     // Act
     await press(setup, "right");
 
     // Assert
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[Comment]");
 
     // Act
     await press(setup, "left");
 
     // Assert
-    await waitForText(setup, "[Changes]");
+    await waitForText(setup, "[Request changes]");
   });
 
   test("esc closes the overlay", async () => {
@@ -160,7 +162,7 @@ describe("send message confirm", () => {
     // Assert - opens on the default message, then cycle to request changes
     await waitForText(setup, "[Approve]");
     await press(setup, "right");
-    await waitForText(setup, "[Changes]");
+    await waitForText(setup, "[Request changes]");
 
     // Act
     await setup.mockInput.typeText("Tighten the steps.");
@@ -172,6 +174,29 @@ describe("send message confirm", () => {
 
     expect(stored.status).toBe("resolved");
     expect(stored.message!.outcome).toBe("changes_requested");
+  });
+
+  test("Comment sends feedback while leaving the Thread open", async () => {
+    seedAnnotations(1);
+    const setup = await renderApp();
+
+    await pressKey(setup, "RETURN", { meta: true });
+    await waitForText(setup, "[Approve]");
+    await press(setup, "left");
+    await waitForText(setup, "[Comment]");
+
+    await setup.mockInput.typeText("For now.");
+    await pressKey(setup, "RETURN", { meta: true });
+
+    await waitForText(setup, "comment sent - thread stays open");
+    const stored = server.core.sessionGet(session.id);
+
+    expect(stored.status).toBe("pending");
+    expect(stored.message!.outcome).toBe("comment");
+    expect(stored.message!.annotations?.map((annotation) => annotation.id)).toEqual([
+      "a_confirm_1",
+    ]);
+    expect(setup.captureCharFrame()).not.toContain("feedback sent");
   });
 
   test("typing / in the summary opens the skills/actions palette", async () => {

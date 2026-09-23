@@ -674,7 +674,6 @@ export function App({
       const name = github.name?.trim() || github.login;
 
       applyIdentity({ name, provider: "github" });
-      controller.setStatus(`identity synced from GitHub - ${name}`);
     });
   };
 
@@ -859,10 +858,6 @@ export function App({
 
       setDiffView(next);
       persistDiffView(next);
-      // every toggle names the new mode; picking split on a narrow pane also says it needs the wide layout
-      if (next === "stacked") controller.setStatus("stacked diff");
-      else if (workbench.zoomed) controller.setStatus("split diff");
-      else controller.setStatus("split diff shows when zoomed");
     },
     openShareDialog: () => {
       if (!isOwner) return controller.setStatus("only the plan owner can share");
@@ -896,7 +891,13 @@ export function App({
   }, [session, navigablePanes, focusedPane]);
   const cyclePanes = (backward: boolean): void =>
     setFocusedPane((current) => nextFocusPane(current, navigablePanes, backward));
-  const runNavCommand = (key: { name: string; shift?: boolean }): boolean => {
+  const runNavCommand = (
+    key: { name: string; shift?: boolean },
+    selection: {
+      start: { blockIndex: number; char: number };
+      end: { blockIndex: number; char: number };
+    } | null = null,
+  ): boolean => {
     const intent = resolveNavKey(key, {
       isOwner,
       resolved,
@@ -905,7 +906,14 @@ export function App({
     });
 
     if (!intent) return false;
-    dispatch(intent);
+    if (intent.type === "cut" && selection) {
+      controller.cut(
+        selection.start.blockIndex,
+        selection.start.char,
+        selection.end.char,
+        selection.end.blockIndex,
+      );
+    } else dispatch(intent);
 
     return true;
   };

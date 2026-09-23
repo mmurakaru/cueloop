@@ -1555,7 +1555,10 @@ html[data-theme="dark"] .shot--light {
   gap: 0.1rem;
 }
 .toc__item--d3 {
-  margin-left: 0.8rem;
+  margin-left: 0;
+}
+.toc__item--d3 .toc__link {
+  padding-left: 1.4rem;
 }
 .toc__link {
   display: block;

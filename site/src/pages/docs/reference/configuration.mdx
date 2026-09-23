@@ -68,15 +68,15 @@ default_message = "approved" # the message the submit card opens on
 theme = "cueloop"         # a built-in theme preset (see below)
 ```
 
-| Key               | Type                                | Default    | Meaning                                                                                                                                     |
-| ----------------- | ----------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auto_close`      | `"off"` or number ≥ 0               | `"off"`    | after a decision: `"off"` prompts, `0` closes at once, `N` counts down N seconds                                                            |
-| `editor`          | string                              | `$EDITOR`  | editor for long annotation bodies                                                                                                           |
-| `review_width`    | number, clamped 24-50               | `34`       | width of the expanded review panel                                                                                                          |
-| `review_state`    | `expanded` \| `compact` \| `hidden` | `expanded` | review panel mode                                                                                                                           |
-| `diff_view`       | `split` \| `stacked`                | `split`    | the wide Changes layout: old\|new side by side, or one stacked column. A narrow pane is always stacked. `unified` still loads as `stacked`. |
-| `default_message` | `approved` \| `changes_requested`   | `approved` | the message the submit card opens on                                                                                                        |
-| `theme`           | a preset name (see `[theme]`)       | `cueloop`  | the built-in color theme; also settable in Settings › Appearance                                                                            |
+| Key               | Type                                           | Default    | Meaning                                                                                                                                     |
+| ----------------- | ---------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto_close`      | `"off"` or number ≥ 0                          | `"off"`    | after sending: `"off"` prompts, `0` closes at once, `N` counts down N seconds                                                               |
+| `editor`          | string                                         | `$EDITOR`  | editor for long annotation bodies                                                                                                           |
+| `review_width`    | number, clamped 24-50                          | `34`       | width of the expanded review panel                                                                                                          |
+| `review_state`    | `expanded` \| `compact` \| `hidden`            | `expanded` | review panel mode                                                                                                                           |
+| `diff_view`       | `split` \| `stacked`                           | `split`    | the wide Changes layout: old\|new side by side, or one stacked column. A narrow pane is always stacked. `unified` still loads as `stacked`. |
+| `default_message` | `comment` \| `approved` \| `changes_requested` | `approved` | the message the submit card opens on                                                                                                        |
+| `theme`           | a preset name (see `[theme]`)                  | `cueloop`  | the built-in color theme; also settable in Settings › Appearance                                                                            |
 
 `review_width` and `review_state` also persist as you adjust them in the UI, so
 your last layout carries over between runs.
@@ -195,9 +195,6 @@ exportOn = "manual"
 | Variable         | Default      | Used for                                                 |
 | ---------------- | ------------ | -------------------------------------------------------- |
 | `CUELOOP_CONFIG` | -            | path to your user config file                            |
-| `CUELOOP_HOME`   | `~/.cueloop` | daemon state: socket, sessions, pid, lock                |
+| `CUELOOP_HOME`   | `~/.cueloop` | local cueloop data directory                             |
 | `CUELOOP_GH`     | `gh`         | the GitHub CLI used to fetch and post PR reviews         |
 | `EDITOR`         | -            | editor for the edit action (overridden by `[ui] editor`) |
-
-The gateway that serves shared plans reads its own `CUELOOP_GATEWAY_*` and key
-variables, but those are server-side and do not affect the local CLI.

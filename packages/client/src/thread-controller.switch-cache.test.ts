@@ -141,7 +141,7 @@ describe("switching threads keeps the cached projection curatable", () => {
     controller.toggleRejectChange(4);
     await tick();
 
-    expect(controller.getSnapshot().status).toContain("change rejected");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(controller.getSnapshot().session?.workingCopy).toBe("");
   });
 

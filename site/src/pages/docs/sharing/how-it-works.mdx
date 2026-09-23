@@ -1,97 +1,27 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: How the loop works
+title: How sharing works
 eyebrow: Docs · Sharing over SSH
-lede: The four steps in depth - share, render, annotate, merge back. Each step is small on its own; together they let a teammate review a plan with no install and hand their notes back without ever overwriting yours.
+lede: A shared Thread stays synchronized without replacing anyone's annotations.
 prev: { title: "Share a plan", href: "/docs/sharing/quickstart/" }
 next: { title: "Identity & attribution", href: "/docs/sharing/identity/" }
 ---
 
-<div class="learn">
-  <div class="learn__label">You'll learn</div>
-  <ul>
-    <li>what each of the four steps does under the hood</li>
-    <li>how a short id and AES-256-GCM protect a shared plan</li>
-    <li>why an id-keyed union means nothing is ever lost</li>
-    <li>why a share follows one branch and carries its whole history</li>
-  </ul>
-</div>
+## One branch per share
 
-Sharing is four steps. This page explains what each one does.
+A share follows the branch you shared. Revisions and annotations on that branch
+remain available to everyone using the SSH command.
 
-## 1. Share
+## Changes stay synchronized
 
-When you press Share, cueloop serialises the thread into one blob: the
-plan, every annotation on it, and the history of one branch - the entries that
-led to what the branch shows. A share follows a single branch, `main` by
-default, so a collaborator always sees that branch's plan, wherever you have
-navigated your own view. It compresses the blob, then encrypts it, PUTs the
-ciphertext to a hosted object store under a fresh short id, and copies the
-connection line to your clipboard:
+New annotations appear as collaborators send them. If the connection drops,
+cueloop reconnects and catches up.
 
-```bash
-ssh p_7f3k9x2q@cueloop.dev
-```
+cueloop combines annotations by identity instead of replacing the full Thread.
+One collaborator cannot overwrite another collaborator's notes.
 
-The store holds only ciphertext. The id in the username is the only handle to
-the plan.
+## The owner sends the agent Message
 
-## 2. Render
-
-Your collaborator pastes the line. The SSH gateway reads the username
-`p_7f3k9x2q` as the share id, loads the matching blob from the store, and
-decrypts it. It then renders cueloop's real terminal UI over the SSH connection,
-reusing the same serving path cueloop uses locally. The collaborator sees the
-plan with every existing annotation already in place - not a copy, the live
-shared review.
-
-## 3. Annotate
-
-Inside the rendered UI, the collaborator navigates and annotates exactly as in
-the local UI. Anchors, keys, and panes behave the same way. Each new annotation
-carries a stable id and the author's identity, captured from their SSH key.
-
-## 4. Merge back
-
-On submit, the collaborator's annotations are unioned into the stored review by
-stable id. Union by id is what makes merge-back safe:
-
-- A new annotation has an id that is not in the store yet, so it is added.
-- An annotation the collaborator edited keeps its id, so it updates in place.
-- Every annotation already in the store and not part of this submit is left
-  exactly as it was.
-
-Removing a comment is itself an entry, not a deletion. When a collaborator
-removes their own note, the share records a removal entry and shelves the note;
-that entry reaches you and every other collaborator, so the comment disappears
-from the shared view without ever being erased from the history. Your own notes
-and edits travel up to the share the same way, appended as entries.
-
-Your own annotations are never overwritten, because the merge only ever appends
-entries and unions notes by id. Two collaborators working at once cannot clobber
-each other either: their ids differ, so both sets land, and each removal is
-recorded once by its entry id even if a later pull carries it again.
-
-## 5. Stay in sync
-
-Every write to the store notifies everyone on that share. A collaborator's
-view refreshes the moment you or another collaborator saves a note, and your
-local session follows the share over one long-lived SSH stream: each change
-arrives as it lands, attributed to its author, and a dropped link reconnects
-and catches up on its own. Your own notes and replies travel the other way the
-same instant you save them.
-
-## Why nothing is ever lost
-
-The store is the single source of truth for a shared plan, and every write is an
-id-keyed union that only ever appends to the entry log. There is no "last write
-wins" and no full-document overwrite. An annotation is added or updated by its
-own id, a removal is a new entry that shelves a note without erasing it, and
-nothing else moves. That is why a merge-back can only ever grow the history,
-never rewrite it.
-
-<div class="callout callout--tip">
-  <div class="callout__label">Union, not overwrite</div>
-  Every merge-back is an id-keyed union into the stored review. Notes are added or updated by their
-  own id - never overwritten in bulk, never dropped.
-</div>
+Collaborators can read and annotate the shared Thread. They cannot Approve or
+Request changes from your agent. You review the combined feedback and choose
+what to send.

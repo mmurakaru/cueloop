@@ -45,7 +45,7 @@ describe("WORKFLOW_KINDS", () => {
 describe("messageAllows", () => {
   test("only approve maps to allow", () => {
     expect(messageAllows("approved")).toBe(true);
-    expect(messageAllows("changes_requested")).toBe(false);
+    expect(messageAllows("comment")).toBe(false);
     expect(messageAllows("changes_requested")).toBe(false);
   });
 });

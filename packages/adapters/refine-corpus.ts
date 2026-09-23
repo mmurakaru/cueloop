@@ -222,6 +222,8 @@ function primitiveLabel(session: Thread): string {
 
 function messageLabel(session: Thread): string {
   switch (session.message?.outcome) {
+    case "comment":
+      return "comment";
     case "approved":
       return "approved";
     case "changes_requested":

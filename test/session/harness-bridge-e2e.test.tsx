@@ -71,7 +71,7 @@ describe("Claude Thread bridge round-trip", () => {
     await pressKey(setup, "RETURN", { meta: true });
     await waitForText(setup, "[Approve]");
     await press(setup, "right");
-    await waitForText(setup, "[Changes]");
+    await waitForText(setup, "[Request changes]");
     await typeText(setup, "Too aggressive.");
     await pressKey(setup, "RETURN", { meta: true });
 

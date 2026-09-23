@@ -12,18 +12,24 @@ import { createStore, type StoreApi } from "zustand/vanilla";
 import { DaemonClient, type ThreadClient } from "@cueloop/daemon/client";
 import {
   applyPathView,
+  applyTextCuts,
+  blockCutSourceRange,
   createBranch,
   cutBlock,
+  cutTextRange,
   detectHerdr,
   labelTip,
   MAIN_BRANCH,
   makeAnchor,
+  mergeTextCut,
   navigateTo,
   newAnnotationId,
   parseBlocks,
   resolveAnchor,
   restoreBlock,
   restoreLine,
+  restoreTextCut,
+  sourceOffsetAt,
   returnPaneFor,
   switchBranch,
   threadShareLinks,
@@ -50,7 +56,15 @@ import {
   shareIdFromLine,
   formatShareLine,
 } from "./share";
-import { buildDisplay, nextWorkBlock, renderedSpanToWork, type DisplayBlock } from "./view-plan";
+import {
+  baseRangeForRendered,
+  blockRuns,
+  buildDisplay,
+  nextWorkBlock,
+  renderedSpanToWork,
+  renderedText,
+  type DisplayBlock,
+} from "./view-plan";
 import { entryTarget, treeRows, type TreeRow } from "./tree-view";
 import {
   diffRowBlocks,
@@ -105,9 +119,6 @@ const EMPTY_REJECTED_ROWS: Set<number> = new Set();
 /** Shared empty list so "nothing curated out" is a stable identity for renders. */
 const EMPTY_CURATION_ITEMS: CurationItem[] = [];
 
-/** Status shown when a curated-out removal (diff rejection or plan cut) is restored. */
-const REMOVAL_RESTORED_STATUS = "removal restored";
-
 export interface ToastState {
   title?: string;
   body: string;
@@ -144,10 +155,24 @@ function planCutId(base: { lineStart: number; lineEnd: number }): string {
  * reused rather than re-parsed. Content and working copy are strings, compared here by value.
  */
 export function sameDerivationInputs(previous: Thread, next: Thread): boolean {
+  const sameCuts =
+    previous.textCuts === next.textCuts ||
+    ((previous.textCuts?.length ?? 0) === (next.textCuts?.length ?? 0) &&
+      (previous.textCuts ?? []).every((cut, index) => {
+        const candidate = next.textCuts?.[index];
+
+        return (
+          candidate?.start === cut.start &&
+          candidate.end === cut.end &&
+          candidate.quote === cut.quote
+        );
+      }));
+
   return (
     previous.id === next.id &&
     previous.artifact.content === next.artifact.content &&
-    previous.workingCopy === next.workingCopy
+    previous.workingCopy === next.workingCopy &&
+    sameCuts
   );
 }
 
@@ -293,8 +318,8 @@ export interface ReviewController {
   renameSession(id: string, title: string): void;
   /** Record the viewer's own name into the share's participant registry (collaborator self-naming). */
   setSelfName(name: string): void;
-  /** Cut the block under the cursor, or restore a cut one. */
-  cut(displayIndex: number): void;
+  /** Cut a marked range, or toggle the block under the cursor. */
+  cut(displayIndex: number, start?: number, end?: number, endDisplayIndex?: number): void;
   /** Toggle rejection of the whole hunk under the diff cursor (owner curation). */
   toggleRejectHunk(rowIndex: number): void;
   /** Toggle rejection of the single change under the diff cursor (owner curation). */
@@ -606,7 +631,9 @@ class Controller implements ReviewController {
     for (const file of files) fileContents.set(file.path, file);
 
     return {
-      display: session ? buildDisplay(session.artifact.content, session.workingCopy) : [],
+      display: session
+        ? buildDisplay(session.artifact.content, session.workingCopy, session.textCuts)
+        : [],
       rows,
       files: walkFiles(rows),
       fileContents,
@@ -904,9 +931,8 @@ class Controller implements ReviewController {
     // unreachable gateway never blocks the local delete (the blob's 30-day TTL is the backstop)
     for (const link of this.linksFor(this.sessionRecord(id)))
       void this.shareTransport.revoke(link.id).catch(() => {});
-    this.client
+    void this.client
       ?.sessionDelete(id)
-      .then(() => this.setStatus("thread deleted"))
       .catch((cause: unknown) =>
         this.setStatus(`delete failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
@@ -926,9 +952,8 @@ class Controller implements ReviewController {
 
   renameSession(id: string, title: string): void {
     if (this.readOnly) return this.setStatus("observer - read-only");
-    this.client
+    void this.client
       ?.sessionSetTitle(id, title)
-      .then(() => this.setStatus("thread renamed"))
       .catch((cause: unknown) =>
         this.setStatus(`rename failed: ${cause instanceof Error ? cause.message : String(cause)}`),
       );
@@ -941,7 +966,7 @@ class Controller implements ReviewController {
     this.apply(this.client!.sessionSetSelfName(session.id, name));
   }
 
-  cut(displayIndex: number): void {
+  cut(displayIndex: number, start?: number, end?: number, endDisplayIndex = displayIndex): void {
     const session = this.snapshot.session;
 
     if (!session || session.status === "resolved") return;
@@ -950,20 +975,142 @@ class Controller implements ReviewController {
     if (!block) return;
     const working = this.working();
 
-    if (block.type === "del") {
-      this.restoreDelBlock(block, displayIndex);
-    } else if (block.work) {
-      const workIndex = parseBlocks(working).findIndex(
-        (candidate) => candidate.lineStart === block.work!.lineStart,
+    if (start !== undefined && end !== undefined && block.work) {
+      const display = this.display();
+      const endBlock = display[endDisplayIndex];
+
+      if (!endBlock?.work) return;
+      const exactSourceRange = this.exactCutSourceRange(
+        session,
+        display,
+        displayIndex,
+        endDisplayIndex,
+        start,
+        end,
       );
 
-      if (workIndex === -1) return;
-      this.applyOptimistic(
-        { ...session, workingCopy: cutBlock(working, block.work) },
-        this.client!.sessionCutBlock(session.id, workIndex),
-      );
-      this.setStatus("block cut - it serializes into the diff");
+      if (exactSourceRange) {
+        const existingCuts = session.textCuts ?? [];
+        const textCuts =
+          restoreTextCut(
+            session.artifact.content,
+            existingCuts,
+            exactSourceRange.start,
+            exactSourceRange.end,
+          ) ??
+          mergeTextCut(
+            session.artifact.content,
+            existingCuts,
+            exactSourceRange.start,
+            exactSourceRange.end,
+          );
+        const content = applyTextCuts(session.artifact.content, textCuts);
+
+        if (content === working) return;
+        const expected: Thread = { ...session, workingCopy: content, textCuts };
+
+        if (textCuts.length === 0) {
+          delete expected.workingCopy;
+          delete expected.textCuts;
+        }
+
+        this.applyOptimistic(
+          expected,
+          this.client!.sessionSetWorkingCopy(session.id, content, textCuts),
+        );
+
+        return;
+      }
+      const range = renderedSpanToWork(display, displayIndex, endDisplayIndex, start, end);
+      const content = cutTextRange(working, block.work, range.start, endBlock.work, range.end);
+
+      if (content === working) return;
+      this.setWorkingCopy(content);
+    } else if (block.type === "del") {
+      this.restoreDelBlock(block, displayIndex);
+    } else if (block.work) {
+      this.cutWholeBlock(session, block, working);
     }
+  }
+
+  private cutWholeBlock(session: Thread, block: DisplayBlock, working: string): void {
+    if (!block.work) return;
+    const base = session.artifact.content;
+    const existingCuts = session.textCuts ?? [];
+
+    if (existingCuts.length > 0 && block.base && working === applyTextCuts(base, existingCuts)) {
+      const range = blockCutSourceRange(base, block.base);
+      const textCuts = mergeTextCut(base, existingCuts, range.start, range.end);
+      const content = applyTextCuts(base, textCuts);
+
+      if (content === working) return;
+      this.applyOptimistic(
+        { ...session, workingCopy: content, textCuts },
+        this.client!.sessionSetWorkingCopy(session.id, content, textCuts),
+      );
+
+      return;
+    }
+    const workIndex = parseBlocks(working).findIndex(
+      (candidate) => candidate.lineStart === block.work!.lineStart,
+    );
+
+    if (workIndex === -1) return;
+    this.applyOptimistic(
+      { ...session, workingCopy: cutBlock(working, block.work) },
+      this.client!.sessionCutBlock(session.id, workIndex),
+    );
+  }
+
+  private exactCutSourceRange(
+    session: Thread,
+    display: DisplayBlock[],
+    displayIndex: number,
+    endDisplayIndex: number,
+    renderedStart: number,
+    renderedEnd: number,
+  ): { start: number; end: number } | null {
+    const base = session.artifact.content;
+    const existingCuts = session.textCuts ?? [];
+
+    if ((session.workingCopy ?? base) !== applyTextCuts(base, existingCuts)) return null;
+    const startBlock = display[displayIndex];
+    const endBlock = display[endDisplayIndex];
+
+    if (!startBlock?.base || !endBlock?.base) return null;
+    if (existingCuts.length === 0) {
+      const workRange = renderedSpanToWork(
+        display,
+        displayIndex,
+        endDisplayIndex,
+        renderedStart,
+        renderedEnd,
+      );
+      const sourceStart = sourceOffsetAt(base, startBlock.base, workRange.start);
+      const sourceEnd = sourceOffsetAt(base, endBlock.base, workRange.end);
+
+      return sourceStart === undefined || sourceEnd === undefined
+        ? null
+        : { start: sourceStart, end: sourceEnd };
+    }
+    const startRange = baseRangeForRendered(
+      blockRuns(startBlock, true),
+      renderedStart,
+      displayIndex === endDisplayIndex ? renderedEnd : renderedText(startBlock).length,
+    );
+    const endRange =
+      displayIndex === endDisplayIndex
+        ? startRange
+        : baseRangeForRendered(blockRuns(endBlock, true), 0, renderedEnd);
+
+    if (!startRange || !endRange) return null;
+
+    const sourceStart = sourceOffsetAt(base, startBlock.base, startRange.start);
+    const sourceEnd = sourceOffsetAt(base, endBlock.base, endRange.end);
+
+    return sourceStart === undefined || sourceEnd === undefined
+      ? null
+      : { start: sourceStart, end: sourceEnd };
   }
 
   /** Re-insert a cut plan block at the next surviving block's line (Cut toggle + rail undo). */
@@ -989,7 +1136,6 @@ class Controller implements ReviewController {
 
     if (expected.workingCopy === undefined) delete expected.workingCopy;
     this.applyOptimistic(expected, this.client!.sessionRestoreBlock(session.id, baseIndex, line));
-    this.setStatus(REMOVAL_RESTORED_STATUS);
   }
 
   // ── diff hunk curation ──────────────────────
@@ -1028,7 +1174,6 @@ class Controller implements ReviewController {
 
     if (this.rejections.some(wholeHunk)) {
       this.curate(this.rejections.filter((rejection) => !wholeHunk(rejection)));
-      this.setStatus("hunk restored");
     } else {
       // a whole-hunk reject supersedes any change-level rejects inside it
       const others = this.rejections.filter(
@@ -1037,7 +1182,6 @@ class Controller implements ReviewController {
       );
 
       this.curate([...others, target]);
-      this.setStatus("hunk rejected - dropped from the working copy");
     }
   }
 
@@ -1055,10 +1199,8 @@ class Controller implements ReviewController {
     if (wholeCovers) return this.setStatus("the whole hunk is rejected - restore it first");
     if (this.rejections.some((rejection) => sameRejection(rejection, target))) {
       this.curate(this.rejections.filter((rejection) => !sameRejection(rejection, target)));
-      this.setStatus("change restored");
     } else {
       this.curate([...this.rejections, target]);
-      this.setStatus("change rejected - dropped from the working copy");
     }
   }
 
@@ -1116,7 +1258,6 @@ class Controller implements ReviewController {
 
       if (kept.length === this.rejections.length) return;
       this.curate(kept);
-      this.setStatus(REMOVAL_RESTORED_STATUS);
 
       return;
     }
@@ -1197,10 +1338,7 @@ class Controller implements ReviewController {
     try {
       const result = editInEditor(this.working(), "plan.md", { editor: this.editor });
 
-      if (result.changed) {
-        this.saveEditedBody(result.content);
-        this.setStatus("edits tracked - one diff");
-      } else this.setStatus("no changes");
+      if (result.changed) this.saveEditedBody(result.content);
     } catch (err) {
       this.setStatus(err instanceof Error ? err.message : String(err));
     }
@@ -1444,7 +1582,6 @@ class Controller implements ReviewController {
 
     if (!session) return;
     this.apply(this.client!.sessionRemoveAnnotation(session.id, id));
-    this.setStatus("annotation deleted");
   }
 
   setWorkingCopy(content: string | undefined): void {
@@ -1516,6 +1653,11 @@ class Controller implements ReviewController {
         // The completion overlay heading already states the message, so the
         // status line stays empty here - only export/error messages fill it.
         this.update({ session: resolved, status: "" });
+        if (message === "comment") {
+          this.setStatus("comment sent - thread stays open");
+
+          return;
+        }
         // notes-vault export: guarded by each exporter's policy (default manual = no-op)
         for (const exporter of this.exporters) {
           if (!exporter.runsOn(message)) continue;
@@ -1623,7 +1765,6 @@ class Controller implements ReviewController {
       { ...session, shares: next },
       this.client.sessionSetShares(session.id, next),
     );
-    this.setStatus("link updated");
   }
 
   deleteShareLink(id: string): void {
@@ -1638,7 +1779,6 @@ class Controller implements ReviewController {
       { ...session, shares: remaining },
       this.client.sessionSetShares(session.id, remaining),
     );
-    this.setStatus("link revoked");
   }
 
   copyShareLink(id: string): void {
@@ -1657,9 +1797,7 @@ class Controller implements ReviewController {
 
     if (!session || links.length === 0) return this.setStatus("this thread is not shared");
     this.stopShareSync();
-    void Promise.all(links.map((link) => this.shareTransport.revoke(link.id).catch(() => {})))
-      .then(() => this.setStatus("sharing stopped"))
-      .catch(() => {});
+    void Promise.all(links.map((link) => this.shareTransport.revoke(link.id).catch(() => {})));
     void this.client?.sessionSetShares(session.id, []).catch(() => {});
   }
 
@@ -1675,7 +1813,6 @@ class Controller implements ReviewController {
       this.moveTree(session, switchBranch(session.history, target.branch), () =>
         this.client!.sessionSwitch(session.id, target.branch),
       );
-      this.setStatus(`on branch ${target.branch}`);
 
       return;
     }
@@ -1687,11 +1824,6 @@ class Controller implements ReviewController {
 
     this.moveTree(session, moved, () =>
       this.client!.sessionNavigate(session.id, entryId, options.summary, branch),
-    );
-    this.setStatus(
-      options.summary === undefined
-        ? "moved back - later entries stay in the tree"
-        : "moved back with a summary",
     );
   }
 
@@ -1706,7 +1838,6 @@ class Controller implements ReviewController {
     this.moveTree(session, createBranch(session.history, branchName), () =>
       this.client!.sessionBranch(session.id, branchName),
     );
-    this.setStatus(`on branch ${branchName}`);
   }
 
   labelTip(label: string): void {
@@ -1718,7 +1849,6 @@ class Controller implements ReviewController {
     this.moveTree(session, labelTip(session.history, name), () =>
       this.client!.sessionLabel(session.id, name),
     );
-    this.setStatus(`checkpoint ${name}`);
   }
 
   fork(): void {
@@ -1729,7 +1859,6 @@ class Controller implements ReviewController {
       .sessionFork(session.id)
       .then((fork) => {
         this.update({ session: fork });
-        this.showToast(`forked ${session.id} - you are on the fork now`, "fork");
       })
       .catch((cause: unknown) =>
         this.setStatus(`fork failed: ${cause instanceof Error ? cause.message : String(cause)}`),

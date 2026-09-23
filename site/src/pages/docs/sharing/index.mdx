@@ -2,66 +2,23 @@
 layout: ../../../layouts/DocsLayout.astro
 title: Sharing over SSH
 eyebrow: Docs · Sharing over SSH
-lede: You share a plan review as one line of SSH. A teammate pastes it, cueloop renders the plan in their terminal, they annotate, and their notes merge back into yours - with no install or account on their side.
+lede: Send one SSH command so a teammate can annotate your Thread from their terminal.
 prev: { title: "Configuration", href: "/docs/reference/configuration/" }
 next: { title: "Share a plan", href: "/docs/sharing/quickstart/" }
 ---
 
-<div class="learn">
-  <div class="learn__label">You'll learn</div>
-  <ul>
-    <li>what the one-line SSH share is</li>
-    <li>the four steps of the sharing loop: share, render, annotate, merge back</li>
-    <li>how a teammate reviews with no install or account</li>
-  </ul>
-</div>
-
-Reviewing a plan alone is fast. Sometimes you want a second pair of eyes before
-the agent starts to build. Sharing over SSH lets a teammate open the exact plan
-you are looking at, annotate the lines that matter, and hand their notes back -
-without installing cueloop or signing up for anything.
-
-## The one-line pitch
-
-When you press Share in a plan review, cueloop copies a single line to your
-clipboard:
+Press Share in a plan review. cueloop copies a command like this:
 
 ```bash
 ssh p_7f3k9x2q@cueloop.dev
 ```
 
-You send that line to a teammate. They paste it into their terminal and land
-inside your plan, with every annotation you already made in place. The username
-part is the share id; `cueloop.dev` is the gateway that renders the UI over the
-connection.
+Send the command to a teammate. They need an SSH client, but they do not need to
+install cueloop or create an account.
 
-## The loop at a glance
+Your teammate opens the Thread, adds annotations, and sends them back. Their
+annotations appear alongside yours with author attribution. Only you can send a
+Message from the Thread to your agent.
 
-Sharing is a four-step loop between you (the planner) and one or more
-collaborators:
-
-- **Share.** You press Share. cueloop packages the thread, encrypts it,
-  stores it under a fresh short id, and copies the `ssh` line to your clipboard.
-- **Render.** A collaborator pastes the line. The gateway loads the session,
-  decrypts it, and renders cueloop's real terminal UI over SSH - the plan with
-  your annotations already there.
-- **Annotate.** The collaborator navigates and annotates exactly as they would
-  in the local UI.
-- **Merge back.** On submit, their annotations join the stored review by stable
-  id. You pull the merged notes into your local session, each attributed to its
-  author. Your own annotations are never touched.
-
-## Terminal only, always
-
-There is no web page in this loop. The planner shares from a terminal, the
-collaborator reviews in a terminal, and the annotations travel back through the
-same SSH connection. Nothing opens a browser at any point.
-
-Read [Share a plan](/docs/sharing/quickstart/) for the step-by-step, or
-[How the loop works](/docs/sharing/how-it-works/) for what happens under each
-step.
-
-<div class="callout callout--tip">
-  <div class="callout__label">What a collaborator needs</div>
-  An SSH client and the one line you sent. That is the whole setup.
-</div>
+Continue with [Share a plan](/docs/sharing/quickstart/) for the steps on each
+side.

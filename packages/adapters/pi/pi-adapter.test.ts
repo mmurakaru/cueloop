@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
-import { DaemonClient } from "@cueloop/daemon/client";
+import { DaemonClient, DaemonClientError } from "@cueloop/daemon/client";
 import { WORKFLOW_KINDS } from "@cueloop/schema";
-import { createCueloopExtension, type OpenThreadParams } from "./index";
+import { createCueloopExtension, piUnavailableMessage, type OpenThreadParams } from "./index";
 import type {
   PiCommandOptions,
   PiContext,
@@ -117,6 +117,15 @@ function toolCall(name: string): PiToolCallEvent {
 }
 
 describe("pi Thread adapter", () => {
+  test("a version mismatch shows the pi extension update command", () => {
+    const error = new DaemonClientError(
+      "version_mismatch",
+      "daemon is version 0.1.0-alpha.83, but this client is unknown",
+    );
+
+    expect(piUnavailableMessage(error)).toBe("pi update --extensions");
+  });
+
   test("advertises the six shared workflows", () => {
     const fake = fakePi();
     const tool = fake.tools.get("open_thread")!;

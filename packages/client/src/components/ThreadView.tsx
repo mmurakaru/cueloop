@@ -35,7 +35,7 @@ import { BOLD, CUT, ITALIC, UNDERLINE } from "../annotation-palette";
 import { wrapLines, type MarkRange, type VisualLine } from "../mark-runs";
 import { MarkdownGridBlock } from "./MarkdownGridBlock";
 import { useFrameMeasure } from "../use-frame-measure";
-import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
+import { scrollBoxDragViewport, useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
 import { NavModeHint } from "./NavModeHint";
 import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
@@ -158,7 +158,7 @@ export interface ThreadViewProps {
   onUpdateAnnotation: (id: string, body: string) => void;
   /** The author's display name for a comment's hover tooltip. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
-  onNavCommand?: (key: KeyEvent) => boolean;
+  onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;
   onExit: () => void;
   theme?: Theme;
 }
@@ -192,6 +192,7 @@ export function ThreadView({
     textAt: (blockIndex) => renderedText(display[blockIndex]!),
     annotatable: () => true,
   };
+  const scrollRef = useRef<ScrollBoxRenderable | null>(null);
   const surface = useAnnotationSurface({
     source,
     session,
@@ -209,12 +210,12 @@ export function ThreadView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    dragViewport: () => scrollBoxDragViewport(scrollRef.current),
     resolveAuthorLabel,
     onNavCommand,
     onExit,
   });
   const { palette, discussions } = surface;
-  const scrollRef = useRef<ScrollBoxRenderable | null>(null);
   const { height: terminalHeight } = useTerminalDimensions();
   const viewWidth = useFrameMeasure(
     () => scrollRef.current?.content?.width ?? 0,
