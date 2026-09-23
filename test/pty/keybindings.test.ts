@@ -295,17 +295,17 @@ describe("nav mode in a diff review", () => {
   });
 
   ptyTest("enter opens the send card, arrows change the message, escape cancels", async () => {
-    await navPress(session, "session", "⏎", "[Approve]");
-    await session.pressAndWaitForScreen("right", (screen) => screen.includes("[Request changes]"), {
+    await navPress(session, "session", "⏎", "[approve]");
+    await session.pressAndWaitForScreen("right", (screen) => screen.includes("[changes]"), {
       what: "the message to move right",
     });
-    await session.pressAndWaitForScreen("left", (screen) => screen.includes("[Approve]"), {
+    await session.pressAndWaitForScreen("left", (screen) => screen.includes("[approve]"), {
       what: "the message to move back",
     });
-    await session.pressAndWaitForScreen("left", (screen) => screen.includes("[Comment]"), {
+    await session.pressAndWaitForScreen("left", (screen) => screen.includes("[comment]"), {
       what: "the message to move left",
     });
-    await pressEscapeUntilGone(session, "[Comment]");
+    await pressEscapeUntilGone(session, "[comment]");
   });
 
   ptyTest("s opens the share dialog; creating a link reports the gateway failure", async () => {

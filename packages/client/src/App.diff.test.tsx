@@ -96,9 +96,9 @@ describe("diff review", () => {
 
     // Act - submit with the session chord (cmd+enter, no composer open), cycle to request changes
     await pressKey(setup, "RETURN", { meta: true });
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
     await press(setup, "right");
-    await waitForText(setup, "[Request changes]");
+    await waitForText(setup, "[changes]");
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert

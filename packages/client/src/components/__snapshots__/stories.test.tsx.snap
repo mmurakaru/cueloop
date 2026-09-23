@@ -364,7 +364,7 @@ exports[`stories catalog Overlays/CompletionOverlay/FeedbackCounting renders, sn
 
 exports[`stories catalog Cards/ConfirmCard/ApproveDefault renders, snapshots, and carries its colors: Cards/ConfirmCard/ApproveDefault 1`] = `
 "┌────────────────────────────────────┐  
-│  Comment [Approve] Request changes │  
+│    [comment] [approve] [changes]   │  
 │                                    │  
 │  summary for the agent (optional)  │  
 │                                    │  
@@ -382,7 +382,7 @@ exports[`stories catalog Cards/ConfirmCard/ApproveDefault renders, snapshots, an
 
 exports[`stories catalog Cards/ConfirmCard/RequestChanges renders, snapshots, and carries its colors: Cards/ConfirmCard/RequestChanges 1`] = `
 "┌────────────────────────────────────┐  
-│  Comment Approve [Request changes] │  
+│    [comment] [approve] [changes]   │  
 │                                    │  
 │  Tighten the steps.                │  
 │                                    │  
@@ -402,7 +402,7 @@ exports[`stories catalog Cards/ConfirmCard/WithViewedSummary renders, snapshots,
 "┌────────────────────────────────────┐  
 │ 2/3 files viewed                   │  
 │                                    │  
-│  Comment [Approve] Request changes │  
+│    [comment] [approve] [changes]   │  
 │                                    │  
 │  summary for the agent (optional)  │  
 │                                    │  

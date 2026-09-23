@@ -253,7 +253,7 @@ describe("the guided walk", () => {
     await waitForTextGone(setup, "agent note");
     await pressKey(setup, "RETURN", { meta: true });
     // nothing pending despite the note, so the confirm card defaults to approve
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert

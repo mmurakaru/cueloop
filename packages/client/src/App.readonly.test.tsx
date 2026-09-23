@@ -114,7 +114,7 @@ describe("observer primitives are blocked", () => {
 
       // no draft card and no submit card ever appear
       expect(frame).not.toContain("● c");
-      expect(frame).not.toContain("[Approve]");
+      expect(frame).not.toContain("[approve]");
       expect(snapshot()).toEqual(before);
     });
   }

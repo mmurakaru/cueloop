@@ -77,7 +77,7 @@ describe("obsidian export on resolve", () => {
     await pressKey(setup, "RETURN", { meta: true }); // open the submit overlay, keep the default message (approve)
 
     // Assert
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
 
     // Act
     await pressKey(setup, "RETURN", { meta: true }); // submit
