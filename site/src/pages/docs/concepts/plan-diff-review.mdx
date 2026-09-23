@@ -2,7 +2,7 @@
 layout: ../../../layouts/DocsLayout.astro
 title: The review primitives
 eyebrow: Docs · Concepts
-lede: One primitive per artifact type. plan for plans, reply for an agent's message, diff for the working tree, prototype for a component design doc, review for pull requests - and bare cueloop for the inbox across all of them.
+lede: Open a plan, reply, working-tree diff, prototype, or pull request with one command.
 prev: { title: "Annotations", href: "/docs/concepts/annotations/" }
 next: { title: "Branches and checkpoints", href: "/docs/concepts/history/" }
 ---
@@ -15,14 +15,13 @@ next: { title: "Branches and checkpoints", href: "/docs/concepts/history/" }
       how <code>diff</code> creates a review from your working tree
     </li>
     <li>
-      how <code>review</code> posts a decision back to a pull request
+      how <code>review</code> posts a review back to a pull request
     </li>
   </ul>
 </div>
 
-cueloop maps one primitive onto each artifact type. The primitive tells cueloop what kind
-of thing you want to review; it then picks the latest pending one of that type,
-or the specific one you name.
+The command tells cueloop what kind of work to open. Without an ID or title,
+cueloop picks the latest pending Thread of that type.
 
 ```bash
 cueloop                 # open the inbox across all types
@@ -31,7 +30,7 @@ cueloop reply           # latest pending reply review
 cueloop diff            # latest pending diff review
 cueloop prototype       # latest pending prototype review
 cueloop review          # latest pending pull-request review
-cueloop review 42       # pull PR 42 in and post the decision back to it
+cueloop review 42       # review PR 42 and post the result
 ```
 
 ## plan
@@ -45,8 +44,7 @@ flight at once.
 `cueloop reply` opens the latest pending reply review. A reply is the agent's
 previous message, submitted for review before you act on it. It is a markdown
 artifact, so it renders and behaves exactly like a plan: you select spans,
-comment, edit the wording directly, and send a decision back to the agent as
-structured feedback.
+comment, edit the wording directly, and send a Message back to the agent.
 
 ## diff
 
@@ -69,22 +67,18 @@ sentences. Reviewing a rendered pixel mockup instead is an opt-in experimental m
 
 `cueloop review` opens the latest pending pull-request review. Give it a PR and
 `cueloop review <pr>` pulls that specific pull request in, lets you annotate it,
-and posts the decision back to the pull request itself.
+and posts the review back to the pull request itself.
 
 ## refine - the retrospective
 
-The primitives above are forward-flow: they put one pending artifact in front of you.
-`cueloop refine` looks backward. It reads the stored corpus of past reviews and
-produces a markdown report of every reviewer annotation, grouped and attributed,
-so the feedback that keeps recurring can be turned into concrete edits to how
-your agent plans. See the
+`cueloop refine` reads past reviews and produces a Markdown report of reviewer
+annotations. Use it to find feedback that keeps recurring. See the
 [Command reference](/docs/reference/commands/) for the flags.
 
 ## The inbox and `--latest`
 
-Bare `cueloop` opens the inbox across all types, so you do not have to know which
-primitive you want before you look. And on any primitive, `--latest` - alias `--open` -
-always selects the latest review of that type.
+Bare `cueloop` opens the inbox across all types. On any review command,
+`--latest` - alias `--open` - selects the latest review of that type.
 
 ```bash
 cueloop plan --latest

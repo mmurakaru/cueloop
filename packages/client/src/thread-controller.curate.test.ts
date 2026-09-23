@@ -154,7 +154,7 @@ describe("diff hunk curation", () => {
     await tick();
 
     // Assert
-    expect(controller.getSnapshot().status).toContain("change rejected");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(sink.workingCopy).toBe("");
   });
 
@@ -181,7 +181,7 @@ describe("diff hunk curation", () => {
     await tick();
 
     // Assert - no decisions left, so the working copy reverts to undefined
-    expect(controller.getSnapshot().status).toContain("change restored");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(sink.workingCopy).toBeUndefined();
     expect(controller.rejectedRows().size).toBe(0);
   });
@@ -195,7 +195,7 @@ describe("diff hunk curation", () => {
     await tick();
 
     // Assert - the single hunk is the whole diff, so nothing remains
-    expect(controller.getSnapshot().status).toContain("hunk rejected");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(sink.workingCopy).toBe("");
   });
 
@@ -249,7 +249,7 @@ describe("diff hunk curation", () => {
     await tick();
 
     // Assert - the list empties and the working copy reverts to the full diff
-    expect(controller.getSnapshot().status).toContain("removal restored");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(controller.curationItems().length).toBe(0);
     expect(sink.workingCopy).toBeUndefined();
     expect(controller.rejectedRows().size).toBe(0);
@@ -355,7 +355,7 @@ describe("plan cut removals", () => {
     await tick();
 
     // Assert - restoring the only cut round-trips to the submitted revision
-    expect(controller.getSnapshot().status).toContain("removal restored");
+    expect(controller.getSnapshot().toast).toBeNull();
     expect(sink.workingCopy).toBeUndefined();
   });
 

@@ -1,6 +1,90 @@
 /** Working-copy source surgery for block and character cuts plus block restoration. */
 
 import { parseBlocks, sourceOffsetAt, type Block } from "./markdown";
+import type { TextCut } from "./types";
+
+/** Add one source range and normalize overlaps without copying on a no-op. */
+export function mergeTextCut(
+  source: string,
+  cuts: readonly TextCut[],
+  start: number,
+  end: number,
+): TextCut[] {
+  const boundedStart = Math.max(0, Math.min(start, source.length));
+  const boundedEnd = Math.max(boundedStart, Math.min(end, source.length));
+
+  if (boundedEnd === boundedStart) {
+    // SAFETY: a no-op returns the caller's array unchanged; callers never mutate the result.
+    return cuts as TextCut[];
+  }
+  const ranges = [
+    ...cuts.map((cut) => ({ start: cut.start, end: cut.end })),
+    { start: boundedStart, end: boundedEnd },
+  ]
+    .map((range) => ({
+      start: Math.max(0, Math.min(range.start, source.length)),
+      end: Math.max(0, Math.min(range.end, source.length)),
+    }))
+    .filter((range) => range.end > range.start)
+    .toSorted((left, right) => left.start - right.start || left.end - right.end);
+  const merged: Array<{ start: number; end: number }> = [];
+
+  for (const range of ranges) {
+    const previous = merged.at(-1);
+
+    if (previous && range.start <= previous.end) previous.end = Math.max(previous.end, range.end);
+    else merged.push(range);
+  }
+
+  return merged.map((range) => ({
+    ...range,
+    quote: source.slice(range.start, range.end),
+  }));
+}
+
+/** Restore a selected part of one contiguous character Cut. */
+export function restoreTextCut(
+  source: string,
+  cuts: readonly TextCut[],
+  start: number,
+  end: number,
+): TextCut[] | null {
+  const cutIndex = cuts.findIndex((cut) => cut.start <= start && end <= cut.end);
+
+  if (cutIndex === -1 || end <= start) return null;
+  const cut = cuts[cutIndex]!;
+  const replacements: TextCut[] = [];
+
+  if (cut.start < start) {
+    replacements.push({ start: cut.start, end: start, quote: source.slice(cut.start, start) });
+  }
+  if (end < cut.end) {
+    replacements.push({ start: end, end: cut.end, quote: source.slice(end, cut.end) });
+  }
+
+  return [...cuts.slice(0, cutIndex), ...replacements, ...cuts.slice(cutIndex + 1)];
+}
+
+/** Apply valid source ranges in source order, ignoring stale or overlapping records. */
+export function applyTextCuts(source: string, cuts: readonly TextCut[]): string {
+  if (cuts.length === 0) return source;
+  let cursor = 0;
+  const pieces: string[] = [];
+
+  for (const cut of cuts.toSorted(
+    (left, right) => left.start - right.start || left.end - right.end,
+  )) {
+    if (cut.start < cursor || cut.start < 0 || cut.end > source.length || cut.end <= cut.start)
+      continue;
+    if (source.slice(cut.start, cut.end) !== cut.quote) continue;
+
+    pieces.push(source.slice(cursor, cut.start));
+    cursor = cut.end;
+  }
+  pieces.push(source.slice(cursor));
+
+  return pieces.join("");
+}
 
 /** Chunk of the base source a block occupies (for restore and display). */
 export function sourceChunk(base: string, block: Block): string {

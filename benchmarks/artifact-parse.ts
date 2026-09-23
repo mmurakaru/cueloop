@@ -6,8 +6,16 @@
  * counts describe the batches so a result file is self-explaining.
  */
 
-import { makeAnchor, parseBlocks, resolveAnchor } from "@cueloop/schema";
+import {
+  applyTextCuts,
+  makeAnchor,
+  mergeTextCut,
+  parseBlocks,
+  resolveAnchor,
+  type TextCut,
+} from "@cueloop/schema";
 import { diffRows } from "../packages/client/src/view-diff";
+import { buildDisplay } from "../packages/client/src/view-plan";
 import { createTestGitRepo } from "../test/helpers/git-repo";
 import {
   largePlanMarkdown,
@@ -25,6 +33,7 @@ const LINES_PER_FILE = 48;
 const MANY_FILES_ROUNDS = 5;
 const LARGE_FILE_LINES = 18_000;
 const LARGE_FILE_ROUNDS = 50;
+const TEXT_CUT_PROJECTION_ROUNDS = 250;
 
 // plan parse
 const plan = largePlanMarkdown(PLAN_SECTIONS);
@@ -40,6 +49,23 @@ emitMetric(
 emitMetric(
   "wide_plan_parse_ms",
   timeBatchMs(() => parseBlocks(widePlan), PARSE_ROUNDS),
+);
+
+// exact character Cuts: validate the source projection cost over a large plan
+const cutNeedles = ["behind a flag", "watch the error budget", "drain the queue"];
+let textCuts: TextCut[] = [];
+
+for (const [index, needle] of cutNeedles.entries()) {
+  const start = plan.indexOf(needle, Math.floor((index * plan.length) / cutNeedles.length));
+
+  textCuts = mergeTextCut(plan, textCuts, start, start + needle.length);
+}
+const cutWorkingCopy = applyTextCuts(plan, textCuts);
+
+emitMetric("text_cut_projection_rounds", TEXT_CUT_PROJECTION_ROUNDS);
+emitMetric(
+  "text_cut_projection_ms",
+  timeBatchMs(() => buildDisplay(plan, cutWorkingCopy, textCuts), TEXT_CUT_PROJECTION_ROUNDS),
 );
 
 // anchors: an exact quote resolves on the first tier; an edited block forces the fuzzy tier

@@ -29,7 +29,7 @@ export interface Block {
   lineEnd: number;
 }
 
-interface BlockSourceSegment {
+export interface BlockTextSourceSegment {
   textStart: number;
   textEnd: number;
   sourceStart: number;
@@ -219,10 +219,10 @@ function nextBlock(lines: string[], lineIndex: number): BlockScan {
 function blockSourceSegments(
   sourceLines: string[],
   block: Block,
-): BlockSourceSegment[] | undefined {
-  const sourceStart = sourceLines
+  sourceStart = sourceLines
     .slice(0, block.lineStart)
-    .reduce((offset, line) => offset + line.length + 1, 0);
+    .reduce((offset, line) => offset + line.length + 1, 0),
+): BlockTextSourceSegment[] | undefined {
   const rawLines = sourceLines.slice(block.lineStart, block.lineEnd + 1);
   let contentLines: Array<{ rawLine: number; prefix: number }>;
 
@@ -274,6 +274,25 @@ function blockSourceSegments(
   });
 
   return segments;
+}
+
+/** Project several parsed blocks onto source offsets without splitting the Markdown per block. */
+export function blockTextSourceSegments(
+  markdown: string,
+  blocks: readonly Block[],
+): Array<readonly BlockTextSourceSegment[] | undefined> {
+  const sourceLines = markdown.split("\n");
+  const lineStarts: number[] = [];
+  let sourceOffset = 0;
+
+  for (const line of sourceLines) {
+    lineStarts.push(sourceOffset);
+    sourceOffset += line.length + 1;
+  }
+
+  return blocks.map((block) =>
+    blockSourceSegments(sourceLines, block, lineStarts[block.lineStart] ?? sourceOffset),
+  );
 }
 
 /** Resolve a marker-free block-text boundary through the parser's source projection. */

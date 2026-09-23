@@ -37,6 +37,7 @@ function threaded(): SessionHistory {
     type: "revision",
     by: "reviewer",
     content: "Plan v1 edited",
+    textCuts: [{ start: 5, end: 8, quote: "v1 " }],
     createdAt: AT,
   }).history;
   history = appendEntry(history, { type: "comment", annotationId: "a2", createdAt: AT }).history;
@@ -52,6 +53,7 @@ describe("viewOfPath", () => {
     // Assert
     expect(view.content).toBe("Plan v1");
     expect(view.workingCopy).toBe("Plan v1 edited");
+    expect(view.textCuts).toEqual([{ start: 5, end: 8, quote: "v1 " }]);
     expect(view.annotations.map((entry) => entry.id)).toEqual(["a1", "a2"]);
     expect(view.shelvedAnnotations).toEqual([]);
   });
@@ -73,9 +75,11 @@ describe("viewOfPath", () => {
 
     // Assert
     expect(back.workingCopy).toBeUndefined();
+    expect(back.textCuts).toBeUndefined();
     expect(back.annotations.map((entry) => entry.id)).toEqual(["a1"]);
     expect(back.shelvedAnnotations.map((entry) => entry.id)).toEqual(["a2"]);
     expect(forward.annotations.map((entry) => entry.id)).toEqual(["a1", "a2"]);
+    expect(forward.textCuts).toEqual([{ start: 5, end: 8, quote: "v1 " }]);
     expect(forward.shelvedAnnotations).toEqual([]);
   });
 
@@ -119,6 +123,7 @@ describe("applyPathView", () => {
     applyPathView(session, {
       content: "Plan v1",
       workingCopy: undefined,
+      textCuts: undefined,
       annotations: [annotation("a1"), annotation("a2")],
       shelvedAnnotations: [],
     });

@@ -23,6 +23,7 @@ import {
   type DiffFileContents,
   type Identity,
   type Thread,
+  type TextCut,
   type HunkRejection,
   type HarnessBinding,
   type Delivery,
@@ -48,6 +49,12 @@ import type { Request } from "./protocol";
 type EntriesOf<T> = { [K in keyof T]-?: v.GenericSchema<any, any> };
 
 const NonEmpty = v.pipe(v.string(), v.minLength(1));
+
+const TextCutSchema = v.object({
+  start: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  end: v.pipe(v.number(), v.integer(), v.minValue(1)),
+  quote: NonEmpty,
+} satisfies EntriesOf<TextCut>);
 
 export const WorkspaceSchema = v.object({
   repoRoot: NonEmpty,
@@ -197,7 +204,11 @@ export const Params = {
   }),
   "session.removeAnnotation": v.object({ id: SessionId, annotationId: NonEmpty }),
   "session.setParticipantName": v.object({ id: SessionId, author: NonEmpty, name: NonEmpty }),
-  "session.setWorkingCopy": v.object({ id: SessionId, workingCopy: v.optional(v.string()) }),
+  "session.setWorkingCopy": v.object({
+    id: SessionId,
+    workingCopy: v.optional(v.string()),
+    textCuts: v.optional(v.array(TextCutSchema)),
+  }),
   "session.cutBlock": v.object({
     id: SessionId,
     blockIndex: v.pipe(v.number(), v.integer(), v.minValue(0)),
@@ -362,6 +373,7 @@ export const SessionEntrySchema = v.variant("type", [
     type: v.literal("revision"),
     by: v.picklist(["agent", "reviewer"]),
     content: v.string(),
+    textCuts: v.optional(v.array(TextCutSchema)),
   }),
   v.object({ ...EntryBaseEntries, type: v.literal("comment"), annotationId: NonEmpty }),
   v.object({ ...EntryBaseEntries, type: v.literal("comment-removed"), annotationId: NonEmpty }),
@@ -409,6 +421,7 @@ export const ThreadRecordSchema = v.object({
     ),
   ),
   workingCopy: v.optional(v.string()),
+  textCuts: v.optional(v.array(TextCutSchema)),
   viewedPaths: v.optional(v.array(v.string())),
   message: v.nullable(MessageSchema),
   status: v.picklist(["pending", "resolved"]),

@@ -2,88 +2,81 @@
 layout: ../../layouts/DocsLayout.astro
 title: Install & quickstart
 eyebrow: Docs · Start here
-lede: Install cueloop, open your first review in the terminal, and wire the plan gate into your agent. A practical five-minute start.
+lede: Install cueloop, connect your coding agent, and open your first Thread.
 prev: { title: "Overview", href: "/docs/" }
 next: { title: "The thread", href: "/docs/concepts/thread/" }
 ---
 
 import InstallTabs from "../../components/InstallTabs.tsx";
 
-cueloop is a single command-line tool. The fastest path is the native
-installer - one curl line, or Homebrew - which drops a self-contained binary on
-your PATH and stays there regardless of your Node setup. Package managers work
-too if you already live in one.
+## Install cueloop
 
 <InstallTabs client:load />
 
-The curl script detects your OS and architecture, downloads the matching binary
-from GitHub Releases, verifies its checksum, and installs it to /usr/local/bin
-when that is writable, else to ~/.local/bin. The binary bundles its own runtime,
-so it needs neither Node nor a separate Bun. Homebrew installs the same binary and keeps it current with a
-plain brew upgrade.
+Confirm the installation:
 
-### Installer options
+```bash
+cueloop --version
+```
 
-The curl script takes two flags and reads a few environment variables. None
-are needed for a normal install.
+The installer adds cueloop to your `PATH`. If it cannot update your shell
+configuration, it prints the line to add yourself. See
+[Configuration](/docs/reference/configuration/) for custom install directories,
+version pins, and mirrors.
 
-| Setting                                          | Effect                                                                                     |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `--no-modify-path` or `CUELOOP_NO_MODIFY_PATH=1` | Print the PATH line instead of adding it to your shell rc                                  |
-| `--help`                                         | Print the options                                                                          |
-| `CUELOOP_INSTALL_DIR`                            | Install into this directory (default: `/usr/local/bin` when writable, else `~/.local/bin`) |
-| `CUELOOP_VERSION`                                | Pin a version such as `0.1.0` (or its tag `cueloop@0.1.0`) instead of the newest release   |
-| `CUELOOP_NO_BANNER`                              | Skip the logo                                                                              |
-| `CUELOOP_RELEASES_API`, `CUELOOP_DOWNLOAD_BASE`  | Read the release listing and binaries from another server, for mirrors and tests           |
+## Connect your coding agent
 
-The install directory is added to your PATH once, in the rc file of your login
-shell (`.zshrc`, the first existing of `.bashrc`, `.bash_profile`, `.profile`,
-fish's `config.fish`, or `.profile` for any other shell). Inside GitHub Actions
-it is appended to `GITHUB_PATH` instead. A rerun that finds the requested version installed downloads nothing.
+Install the integration for each agent you use.
 
-<div class="callout callout--note">
-  <div class="callout__label">Using npm, bun, or pnpm? Pin your Node version</div>A global npm-style
-  install writes the cueloop launcher into the bin directory of the active Node version. Switch Node
-  - an nvm default drift, a new .nvmrc - and that launcher drops off your PATH. Pin the Node version
-  you install under, or use the curl or Homebrew path, which do not depend on Node at all.
-</div>
+### Claude Code
 
-## First run
+The Claude Code plugin uses Claude Mod, an experimental feature. Enable function
+hooks when you start Claude Code.
 
-Run `cueloop` with no arguments to open the inbox. The inbox lists every pending
-review across all types - plans, working-tree diffs, and pull requests - so you
-always land on the same place.
+```bash
+claude plugin marketplace add mmurakaru/cueloop
+claude plugin install cueloop@cueloop
+CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude
+```
+
+### Codex
+
+```bash
+codex plugin marketplace add mmurakaru/cueloop && codex plugin add cueloop@cueloop
+```
+
+### pi
+
+```bash
+pi install npm:@cueloop/pi
+```
+
+## Open your first Thread
+
+Run cueloop with no arguments to open all pending Threads:
 
 ```bash
 cueloop
 ```
 
-From there, three primitives jump straight to the artifact you want:
+Open a specific kind of work when you already know what you want to review:
 
 ```bash
-cueloop plan          # open the latest pending plan
-cueloop diff          # open the working-tree diff
-cueloop review <pr>   # pull a pull request in and review it
+cueloop plan          # latest pending plan
+cueloop diff          # current working-tree changes
+cueloop review <pr>   # pull request by number or URL
 ```
 
-Inside a review you read the artifact, annotate the exact lines that matter, and
-send a decision. The decision is the structured result your agent waits on.
+Mark text, add annotations, then send a Message. Approve lets the agent
+continue. Comment sends feedback and keeps the Thread open. Request changes
+asks the agent for a revision.
 
-## Wire an agent
+## Update cueloop
 
-The point of cueloop is the gate between what an agent proposes and what it does.
-For Claude Code or Codex, the plan gate opens a review and blocks on your
-decision before the agent starts to build. The agent stays paused until you
-send a decision, and it builds only when you approve.
+```bash
+cueloop update
+```
 
-See [Agent integration](/docs/agents/) for the exact hook setup.
-
-That is the whole quickstart. cueloop reads an optional TOML config for
-keybindings, the review surface, the theme, and Obsidian export, but every key
-has a default - so you can start reviewing now and tune later.
-
-<div class="callout callout--tip">
-  <div class="callout__label">Start now, tune later</div>
-  Every config key has a sensible default. See [Commands](/docs/reference/commands/) for the full
-  command surface and [Configuration](/docs/reference/configuration/) for every setting.
-</div>
+Restart your agent after updating its integration. Continue with
+[The thread](/docs/concepts/thread/) or open the
+[command reference](/docs/reference/commands/).

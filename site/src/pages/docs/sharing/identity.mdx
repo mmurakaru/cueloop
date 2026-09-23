@@ -2,60 +2,25 @@
 layout: ../../../layouts/DocsLayout.astro
 title: Identity & attribution
 eyebrow: Docs · Sharing over SSH
-lede: Identity comes from the SSH key, so there is no signup. Every collaborator's annotation renders as a bordered box titled with their name, coloured per author. Their submit writes to the shared review only - never to your agent.
-prev: { title: "How the loop works", href: "/docs/sharing/how-it-works/" }
+lede: cueloop uses each collaborator's SSH key to keep annotations attributed without an account.
+prev: { title: "How sharing works", href: "/docs/sharing/how-it-works/" }
 next: { title: "Security & privacy", href: "/docs/sharing/security/" }
 ---
 
-Sharing needs to know who wrote each note, but it must not ask a collaborator to
-create an account. Identity rides on the SSH key they already have.
+## SSH key identity
 
-## Identity from the key
+The same SSH key maps to the same collaborator across visits. cueloop does not
+ask for an email, password, or account.
 
-The gateway accepts any SSH key and captures its fingerprint as the
-collaborator's identity. The fingerprint is stable - the same key means the same
-person across sessions - and it costs nothing to obtain, because anyone
-connecting over SSH already presents a key. There is no signup, no password, and
-no email.
+## Display names
 
-## An optional display name
+On the first send, a collaborator can add a display name. cueloop remembers the
+name for that SSH key. Skipping the prompt leaves the collaborator anonymous.
 
-A fingerprint is stable but not readable. So on their first submit, a
-collaborator is prompted for an optional display name:
+Each annotation shows its author. Your own annotations keep their normal label,
+so you can distinguish local feedback from shared feedback.
 
-```text
-Display name (optional): Priya
-```
+## Owner control
 
-cueloop caches the name against their fingerprint, so later sessions skip the
-prompt. A collaborator who skips the prompt stays anonymous, and their notes are
-attributed to no one in particular.
-
-## Attribution renders name-in-border
-
-Each collaborator's annotation is a bordered box whose border title is the
-author's name, coloured per author so two people are easy to tell apart. An
-anonymous author's border is gray. This reuses cueloop's existing agent-note box
-style, so shared notes look native next to everything else in the review.
-
-Your own annotations keep their usual title - the annotation kind plus the quoted
-text they anchor to - so at a glance you can tell your notes from a
-collaborator's.
-
-## Two submit directions stay separate
-
-There are two distinct submits in cueloop, and they go to different places:
-
-- A **collaborator's submit** writes annotations back to the shared store only.
-  It never sends feedback to your agent.
-- **Your submit** is the decision that reaches the agent. You decide what,
-  if anything, from the shared review goes into it.
-
-Keeping these apart means a teammate can annotate freely without any risk of
-their notes reaching the agent on their own. The gate to the agent is always
-yours.
-
-<div class="callout">
-  <div class="callout__label">You hold the gate</div>A collaborator can only write to the shared
-  review. Only you decide what reaches the agent.
-</div>
+A collaborator can update the shared Thread. Only the owner can send a Message
+to the coding agent.

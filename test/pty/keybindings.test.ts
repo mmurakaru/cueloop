@@ -12,6 +12,8 @@
  */
 
 import { afterAll, beforeAll, describe, expect } from "bun:test";
+import type { Thread } from "@cueloop/schema";
+import { loadConfig } from "../../packages/client/src/config";
 import {
   curationCommandEntries,
   diffCommandEntries,
@@ -27,7 +29,6 @@ import {
 import {
   OTHER_CHANGE,
   PTY_TIER_ENABLED,
-  ROLLOUT_PLAN_LAST_LINE,
   STORE_CHANGE,
   launchDiffReview,
   launchPlanReview,
@@ -114,6 +115,17 @@ async function navStep(
   return screen;
 }
 
+/** Press a nav command whose durable state, rather than a toast, is asserted by the caller. */
+async function navPressForState(
+  session: PtyTuiSession,
+  table: CommandTable,
+  key: string,
+): Promise<void> {
+  await enterNav(session);
+  for (const press of cheatsheetChordKeyPresses(key)) await session.press(press);
+  exercised.add(`${table} ${key}`);
+}
+
 /** Press a nav command that answers with a toast or prompt, then dismiss it with escape. */
 async function navPressForToast(
   session: PtyTuiSession,
@@ -143,6 +155,33 @@ async function waitForWorkingCopy(
   throw new Error(
     `working copy did not contain ${JSON.stringify(expected)}: ${JSON.stringify(actual)}`,
   );
+}
+
+async function waitForReviewState(
+  reviewId: string,
+  predicate: (review: Thread) => boolean,
+): Promise<void> {
+  const deadline = Date.now() + 5_000;
+
+  while (Date.now() < deadline) {
+    if (predicate(reviewHome.server.core.sessionGet(reviewId))) return;
+    await Bun.sleep(5);
+  }
+
+  throw new Error(`review state did not settle for ${reviewId}`);
+}
+
+async function waitForDiffView(expected: "split" | "stacked"): Promise<void> {
+  const deadline = Date.now() + 5_000;
+
+  while (Date.now() < deadline) {
+    const config = loadConfig({ userConfigPath: `${reviewHome.home}/no-config.toml` });
+
+    if (config.ui.diffView === expected) return;
+    await Bun.sleep(5);
+  }
+
+  throw new Error(`diff view did not persist as ${expected}`);
 }
 
 /** Escape closes toasts, prompts, cards, and overlays; wait for `text` to leave the screen. */
@@ -204,17 +243,26 @@ describe("nav mode in a diff review", () => {
   });
 
   ptyTest("x rejects the change under the caret and u restores it", async () => {
-    await navPressForToast(session, "diff", "x", "change rejected - dropped from the working copy");
+    await navPressForState(session, "diff", "x");
+    await waitForReviewState(
+      reviewId,
+      (review) => review.workingCopy !== undefined && !review.workingCopy.includes("new Map()"),
+    );
     const curated = reviewHome.server.core.sessionGet(reviewId).workingCopy;
 
     expect(curated).toBeDefined();
     expect(curated).not.toContain("new Map()");
-    await navPressForToast(session, "diff", "u", "removal restored");
+    await navPressForState(session, "diff", "u");
+    await waitForReviewState(reviewId, (review) => review.workingCopy === undefined);
   });
 
-  ptyTest("d toggles the diff layout and warns that split needs the wide pane", async () => {
-    await navPress(session, "diff", "d", "stacked diff");
-    await navPressForToast(session, "diff", "d", "split diff shows when zoomed");
+  ptyTest("d persists both diff layouts without raising a success toast", async () => {
+    await navPressForState(session, "diff", "d");
+    await waitForDiffView("stacked");
+    expect(session.text()).not.toContain("stacked diff");
+    await navPressForState(session, "diff", "d");
+    await waitForDiffView("split");
+    expect(session.text()).not.toContain("split diff");
   });
 
   ptyTest("c folds the file to its band; clicking the band's chevron unfolds it", async () => {
@@ -281,11 +329,16 @@ describe("nav mode in a diff review", () => {
       what: "the wait-for-editor prompt on the tty",
     });
     await session.press("n");
-    await session.pressAndWaitForScreen("enter", (screen) => screen.includes("no changes"), {
-      timeoutMs: 15_000,
-      what: "the no-changes toast after skipping the edit",
-    });
-    await pressEscapeUntilGone(session, "no changes");
+    await session.pressAndWaitForScreen(
+      "enter",
+      (screen) =>
+        screen.includes("new Map()") && !screen.includes("press Enter to load your edits"),
+      {
+        timeoutMs: 15_000,
+        what: "the unchanged diff after skipping the edit",
+      },
+    );
+    expect(session.text()).not.toContain("no changes");
   });
 
   ptyTest("n and p move the focus between cards", async () => {
@@ -322,20 +375,26 @@ describe("nav mode in a diff review", () => {
   });
 
   ptyTest("backspace deletes the focused card", async () => {
-    await navPress(session, "discussion", "n", (screen) => /┃ ● (first|second) note/.test(screen));
-    await navStep(session, "discussion", "⌫", "annotation deleted");
-    await pressEscapeUntilGone(session, "annotation deleted");
+    const screen = await navPress(session, "discussion", "n", (frame) =>
+      /┃ ● (first|second) note/.test(frame),
+    );
+    const focused = /┃ ● first note/.test(screen) ? "first note" : "second note";
+
+    await navStep(session, "discussion", "⌫", (frame) => !frame.includes(focused));
+    expect(session.text()).not.toContain("annotation deleted");
   });
 });
 
 describe("nav mode in a plan review", () => {
   let session: PtyTuiSession;
+  let reviewId: string;
 
   beforeAll(async () => {
     if (!PTY_TIER_ENABLED) return;
     const launched = await launchPlanReview(reviewHome);
 
     session = launched.session;
+    reviewId = launched.review.id;
   });
 
   afterAll(async () => {
@@ -346,8 +405,13 @@ describe("nav mode in a plan review", () => {
   ptyTest("x cuts the block under the caret and u restores it", async () => {
     await session.press("down");
     await session.press("down");
-    await navPressForToast(session, "discussion", "x", "block cut");
-    await navPress(session, "discussion", "u", ROLLOUT_PLAN_LAST_LINE);
+    await navPressForState(session, "discussion", "x");
+    await waitForReviewState(
+      reviewId,
+      (review) => review.workingCopy?.includes("Ship the daemon behind a flag.") === false,
+    );
+    await navPressForState(session, "discussion", "u");
+    await waitForReviewState(reviewId, (review) => review.workingCopy === undefined);
   });
 
   ptyTest("r with no collaborator note focused explains there is nothing to rename", async () => {
@@ -371,7 +435,17 @@ describe("nav mode in a plan review", () => {
     await navPressForToast(session, "tree", "l", "Name for this checkpoint:");
     await navPressForToast(session, "tree", "b", "Name for the new branch:");
     await navPressForToast(session, "tree", "g", "already at the tip");
-    await navPressForToast(session, "tree", "f", "you are on the fork now", { timeoutMs: 10_000 });
+    const sessionsBeforeFork = reviewHome.server.core.sessionList().length;
+
+    await navPressForState(session, "tree", "f");
+    const forkDeadline = Date.now() + 10_000;
+
+    while (
+      reviewHome.server.core.sessionList().length === sessionsBeforeFork &&
+      Date.now() < forkDeadline
+    )
+      await Bun.sleep(5);
+    expect(reviewHome.server.core.sessionList().length).toBe(sessionsBeforeFork + 1);
     await navPressForToast(session, "tree", "h", "fork and share failed: gateway upload failed:", {
       timeoutMs: 10_000,
     });
@@ -399,8 +473,52 @@ describe("marked Cut in a plan review", () => {
     const target = session.locate("everyone");
 
     await session.dragAt(target.column, target.row, target.column + "everyone".length, target.row);
-    await navPress(session, "discussion", "x", "selection cut");
+    await navPressForState(session, "discussion", "x");
     await waitForWorkingCopy(reviewHome, reviewId, "Enable it for  immediately.");
+    expect(session.text()).not.toContain("selection cut");
+  });
+});
+
+describe("marking through a real terminal", () => {
+  let session: PtyTuiSession;
+
+  beforeAll(async () => {
+    if (!PTY_TIER_ENABLED) return;
+    const items = Array.from({ length: 30 }, (_, index) => `- item ${index + 1}`);
+    const launched = await launchPlanReview(reviewHome, {
+      rows: 14,
+      content: `# Long plan\n\n${items.join("\n")}`,
+      title: "Long plan",
+      readyText: "item 1",
+    });
+
+    session = launched.session;
+  });
+
+  afterAll(async () => {
+    if (!PTY_TIER_ENABLED) return;
+    await session.close();
+  });
+
+  ptyTest("shift+down extends a mark and scrolls the held endpoint into view", async () => {
+    await session.click("item 1");
+
+    for (let index = 0; index < 14; index++) await session.press(["shift", "down"]);
+
+    await session.waitForText("item 15", { what: "the keyboard mark endpoint after scrolling" });
+  });
+
+  ptyTest("holding a mouse mark at the lower edge scrolls the document", async () => {
+    const start = session.locate("item 15");
+    const bottomRow = 11;
+
+    session.mouseDownAt(start.column, start.row);
+    session.mouseDragTo(start.column, bottomRow);
+    await Bun.sleep(350);
+    session.mouseUpAt(start.column, bottomRow);
+    await session.waitForScreen((screen) => screen.includes("item 20"), {
+      what: "content below the held mouse mark",
+    });
   });
 });
 

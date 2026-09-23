@@ -8,6 +8,7 @@ import React from "react";
 import { DaemonServer } from "@cueloop/daemon";
 import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
+import { DARK } from "./theme";
 import {
   clickText,
   dragText,
@@ -67,6 +68,25 @@ async function renderApp(sessionId?: string) {
     width: 120,
     height: 32,
   });
+}
+
+type Setup = Awaited<ReturnType<typeof renderApp>>;
+
+function foregroundsOf(setup: Setup, needle: string): string[] {
+  const foregrounds: string[] = [];
+
+  for (const line of setup.captureSpans().lines) {
+    for (const span of line.spans) {
+      if (!span.text.includes(needle)) continue;
+      const [red, green, blue] = span.fg.toInts();
+
+      foregrounds.push(
+        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""),
+      );
+    }
+  }
+
+  return foregrounds;
 }
 
 describe("plan rendering", () => {
@@ -179,10 +199,35 @@ describe("thread view grammar", () => {
       (server.core.sessionGet(session.id).workingCopy ?? "").includes("-  the store"),
     );
     const working = server.core.sessionGet(session.id).workingCopy ?? "";
+    const textCuts = server.core.sessionGet(session.id).textCuts;
 
     expect(working).not.toContain("move the store");
     expect(working).toContain("-  the store");
     expect(working).toContain("- add recovery");
+    expect(textCuts).toHaveLength(1);
+    expect(textCuts?.[0]?.quote).toBe("move");
+    expect(foregroundsOf(setup, "the store")).not.toContain(DARK.green);
+    expect(setup.captureCharFrame()).not.toContain("selection cut");
+
+    await pressKey(setup, "x");
+    await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
+
+    expect(server.core.sessionGet(session.id).textCuts).toBeUndefined();
+  });
+
+  test("a large partial Cut keeps its surviving prefix plain in one modified block", async () => {
+    const original = "A seeded plan so cueloop dev always has a thread to open.";
+    const shortened = server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: { type: "plan", content: original, meta: { title: "Partial Cut" } },
+    });
+
+    server.core.sessionSetWorkingCopy(shortened.id, "A seed");
+    const setup = await renderApp(shortened.id);
+
+    await waitForText(setup, "A seed");
+    expect(foregroundsOf(setup, "seed")).toContain(DARK.text);
+    expect(foregroundsOf(setup, "seed")).not.toContain(DARK.green);
   });
 
   test("Cut maps rendered inline Markdown back to its exact source characters", async () => {

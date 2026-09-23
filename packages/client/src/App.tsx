@@ -674,7 +674,6 @@ export function App({
       const name = github.name?.trim() || github.login;
 
       applyIdentity({ name, provider: "github" });
-      controller.setStatus(`identity synced from GitHub - ${name}`);
     });
   };
 
@@ -859,10 +858,6 @@ export function App({
 
       setDiffView(next);
       persistDiffView(next);
-      // every toggle names the new mode; picking split on a narrow pane also says it needs the wide layout
-      if (next === "stacked") controller.setStatus("stacked diff");
-      else if (workbench.zoomed) controller.setStatus("split diff");
-      else controller.setStatus("split diff shows when zoomed");
     },
     openShareDialog: () => {
       if (!isOwner) return controller.setStatus("only the plan owner can share");

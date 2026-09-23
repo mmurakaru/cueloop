@@ -377,7 +377,7 @@ export class DaemonServer {
     "session.setWorkingCopy": (_connection, request) => {
       const params = parseParams("session.setWorkingCopy", request.params);
 
-      return this.core.sessionSetWorkingCopy(params.id, params.workingCopy);
+      return this.core.sessionSetWorkingCopy(params.id, params.workingCopy, params.textCuts);
     },
     "session.cutBlock": (_connection, request) => {
       const params = parseParams("session.cutBlock", request.params);

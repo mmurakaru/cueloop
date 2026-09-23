@@ -297,6 +297,13 @@ export interface ShareLink {
   shareBranch?: string;
 }
 
+/** One exact character range removed from the submitted artifact source. */
+export interface TextCut {
+  start: number;
+  end: number;
+  quote: string;
+}
+
 export interface Thread {
   schemaVersion: string;
   id: string;
@@ -320,6 +327,8 @@ export interface Thread {
    * Undefined = no direct edits.
    */
   workingCopy?: string;
+  /** Exact source ranges behind character Cuts in the current working copy. */
+  textCuts?: TextCut[];
   /**
    * File paths the reviewer marked viewed during the guided walk (diff
    * sessions). Persisting with the session means a resumed review keeps its

@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { cutBlock, cutTextRange, restoreBlock, restoreLine, sourceChunk } from "./working-copy";
+import {
+  applyTextCuts,
+  cutBlock,
+  cutTextRange,
+  mergeTextCut,
+  restoreTextCut,
+  restoreBlock,
+  restoreLine,
+  sourceChunk,
+} from "./working-copy";
 import { parseBlocks, type Block } from "./markdown";
 
 const BASE = `# Plan
@@ -120,6 +129,67 @@ describe("cutTextRange", () => {
     const cut = cutTextRange(source, first, start, second, end);
 
     expect(cut).toBe("Keep before keep after");
+  });
+});
+
+describe("exact text Cuts", () => {
+  test("stores and applies the selected source characters exactly", () => {
+    const source = "It lands under unin Threads then in the sidebar.";
+    const start = source.indexOf("under");
+    const end = source.indexOf(" in the sidebar");
+    const cuts = mergeTextCut(source, [], start, end);
+
+    expect(cuts).toEqual([{ start, end, quote: "under unin Threads then" }]);
+    expect(applyTextCuts(source, cuts)).toBe("It lands  in the sidebar.");
+  });
+
+  test("merges overlapping and adjacent ranges in one linear source interval", () => {
+    const source = "alpha beta gamma delta";
+    const first = mergeTextCut(source, [], 6, 10);
+    const merged = mergeTextCut(source, first, 10, 16);
+
+    expect(merged).toEqual([{ start: 6, end: 16, quote: "beta gamma" }]);
+    expect(applyTextCuts(source, merged)).toBe("alpha  delta");
+  });
+
+  test("returns the original references for no-op ranges", () => {
+    const source = "unchanged";
+    const cuts = [{ start: 0, end: 2, quote: "un" }];
+
+    expect(mergeTextCut(source, cuts, 4, 4)).toBe(cuts);
+    expect(applyTextCuts(source, [])).toBe(source);
+  });
+
+  test("applies out-of-order Cuts and ignores stale or overlapping records", () => {
+    const source = "alpha beta gamma";
+
+    expect(
+      applyTextCuts(source, [
+        { start: 11, end: 16, quote: "gamma" },
+        { start: 0, end: 5, quote: "alpha" },
+        { start: 2, end: 8, quote: "stale" },
+        { start: 6, end: 10, quote: "beta" },
+      ]),
+    ).toBe("  ");
+  });
+
+  test("restores an exact subrange without disturbing the rest of its Cut", () => {
+    const source = "alpha beta gamma delta";
+    const cuts = mergeTextCut(source, [], 6, 16);
+    const restored = restoreTextCut(source, cuts, 11, 16);
+
+    expect(restored).toEqual([{ start: 6, end: 11, quote: "beta " }]);
+    expect(applyTextCuts(source, restored ?? [])).toBe("alpha gamma delta");
+  });
+
+  test("does not restore across separate Cuts", () => {
+    const source = "alpha beta gamma delta";
+    const cuts = [
+      { start: 6, end: 10, quote: "beta" },
+      { start: 11, end: 16, quote: "gamma" },
+    ];
+
+    expect(restoreTextCut(source, cuts, 6, 16)).toBeNull();
   });
 });
 

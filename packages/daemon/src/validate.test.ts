@@ -278,6 +278,7 @@ describe("wire pins", () => {
     parentSessionId: "ses_0",
     shareBranch: "main",
     workingCopy: "# P edited",
+    textCuts: [{ start: 2, end: 3, quote: "P" }],
     viewedPaths: ["src/a.ts"],
     message: fullMessage,
     status: "pending",

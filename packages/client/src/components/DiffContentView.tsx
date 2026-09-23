@@ -24,7 +24,7 @@ import { splitDiffRows, type SplitLine, type SplitRow } from "../split-diff";
 import { UNDERLINE, type AnnotationPalette } from "../annotation-palette";
 import { lineMarkRanges, runsFor, wrapLines, type MarkRange } from "../mark-runs";
 import { useFrameMeasure } from "../use-frame-measure";
-import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
+import { scrollBoxDragViewport, useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
 import { NavModeHint } from "./NavModeHint";
 import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
@@ -527,6 +527,7 @@ export function DiffContentView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    dragViewport: () => scrollBoxDragViewport(scrollRef.current),
     resolveAuthorLabel,
     onNavCommand,
     onExit,

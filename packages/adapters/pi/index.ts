@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import * as v from "valibot";
-import { DaemonClient } from "@cueloop/daemon/client";
+import { DaemonClient, DaemonClientError } from "@cueloop/daemon/client";
 import { cueloopHome } from "@cueloop/daemon/paths";
 import { WORKFLOW_KINDS, type HarnessBinding } from "@cueloop/schema";
 import {
@@ -44,6 +44,14 @@ function text(message: string): PiToolResult<ThreadDetails>["content"] {
 
 function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
+}
+
+export function piUnavailableMessage(cause: unknown): string {
+  if (cause instanceof DaemonClientError && cause.code === "version_mismatch") {
+    return "pi update --extensions";
+  }
+
+  return `cueloop unavailable: ${errorMessage(cause)}`;
 }
 
 function requestFor(
@@ -323,7 +331,7 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       try {
         await start(context);
       } catch (error) {
-        context.ui?.notify?.(`cueloop unavailable: ${errorMessage(error)}`, "error");
+        context.ui?.notify?.(piUnavailableMessage(error), "error");
       }
     });
     pi.on("session_switch", async (_event, context) => {

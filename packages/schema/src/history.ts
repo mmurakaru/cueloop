@@ -10,7 +10,7 @@
  * feedback document read what this module derives.
  */
 
-import type { Annotation, Thread, Message } from "./types";
+import type { Annotation, Thread, Message, TextCut } from "./types";
 
 export type EntryAuthor = "agent" | "reviewer";
 
@@ -22,7 +22,13 @@ interface EntryBase {
 }
 
 export type SessionEntry =
-  | (EntryBase & { type: "revision"; by: EntryAuthor; content: string })
+  | (EntryBase & {
+      type: "revision";
+      by: EntryAuthor;
+      content: string;
+      /** Exact character Cuts that produced a reviewer revision. */
+      textCuts?: TextCut[];
+    })
   | (EntryBase & { type: "comment"; annotationId: string })
   | (EntryBase & { type: "comment-removed"; annotationId: string })
   | (EntryBase & { type: "message"; message: Message })

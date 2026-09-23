@@ -251,6 +251,30 @@ describe("session lifecycle", () => {
     expect(core.sessionGet(session.id).workingCopy).toBeUndefined();
   });
 
+  test("character Cut provenance survives persistence and clears on an arbitrary edit", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const start = PLAN.content.indexOf("carefully");
+    const end = start + "carefully".length;
+    const workingCopy = PLAN.content.slice(0, start) + PLAN.content.slice(end);
+    const cut = { start, end, quote: "carefully" };
+
+    core.sessionSetWorkingCopy(session.id, workingCopy, [cut]);
+
+    expect(core.sessionGet(session.id).textCuts).toEqual([cut]);
+    expect(new DaemonCore(home).sessionGet(session.id).textCuts).toEqual([cut]);
+    const cutTip = core.sessionGet(session.id).history!.tips.main!;
+    const root = core.sessionGet(session.id).history!.entries[0]!.id;
+
+    core.sessionBranch(session.id, "with-cut");
+    core.sessionNavigate(session.id, root, undefined, "main");
+    expect(core.sessionGet(session.id).textCuts).toBeUndefined();
+    core.sessionSwitch(session.id, "with-cut");
+    expect(core.sessionGet(session.id).history!.tips["with-cut"]).toBe(cutTip);
+    expect(core.sessionGet(session.id).textCuts).toEqual([cut]);
+    core.sessionSetWorkingCopy(session.id, PLAN.content.replace("carefully", "safely"));
+    expect(core.sessionGet(session.id).textCuts).toBeUndefined();
+  });
+
   test("a thread rename sets the title, clears back to the default on empty, and survives a restart", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
@@ -300,8 +324,13 @@ describe("session lifecycle", () => {
   test("revision reopens the session and resets working copy + message", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const start = PLAN.content.indexOf("carefully");
+    const end = start + "carefully".length;
+    const cut = { start, end, quote: "carefully" };
 
-    core.sessionSetWorkingCopy(session.id, PLAN.content + "\nedit");
+    core.sessionSetWorkingCopy(session.id, PLAN.content.slice(0, start) + PLAN.content.slice(end), [
+      cut,
+    ]);
     core.sessionSendMessage(session.id, "changes_requested", "redo");
 
     // Act
@@ -311,6 +340,7 @@ describe("session lifecycle", () => {
     expect(revised.status).toBe("pending");
     expect(revised.message).toBeNull();
     expect(revised.workingCopy).toBeUndefined();
+    expect(revised.textCuts).toBeUndefined();
     expect(revised.revisions.length).toBe(2);
     expect(revised.artifact.content).toBe("# Plan v2\n");
   });

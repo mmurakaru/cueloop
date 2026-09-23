@@ -44,6 +44,7 @@ import {
   type Delivery,
   type PendingDelivery,
   type Thread,
+  type TextCut,
   type SessionHistory,
   type Message,
   type MessageOutcome,
@@ -468,9 +469,9 @@ export class DaemonCore {
   }
 
   /** The reviewer's working copy; undefined clears it (revert all edits). */
-  sessionSetWorkingCopy(id: string, workingCopy: string | undefined): Thread {
+  sessionSetWorkingCopy(id: string, workingCopy: string | undefined, textCuts?: TextCut[]): Thread {
     const session = this.mutable(id);
-    const entryId = this.applyWorkingCopy(session, workingCopy);
+    const entryId = this.applyWorkingCopy(session, workingCopy, textCuts);
 
     this.store.upsert(session);
     this.emit("session.updated", id, entryId);
@@ -856,6 +857,7 @@ export class DaemonCore {
       createdAt: now,
     });
     delete session.workingCopy;
+    delete session.textCuts;
     session.message = null;
     session.status = "pending";
 
@@ -1104,25 +1106,35 @@ export class DaemonCore {
    * Set or clear the working copy and, when the reviewer's text changed, record
    * it as a reviewer revision on the current branch. Returns that entry's id.
    */
-  private applyWorkingCopy(session: Thread, workingCopy: string | undefined): string | undefined {
+  private applyWorkingCopy(
+    session: Thread,
+    workingCopy: string | undefined,
+    textCuts?: TextCut[],
+  ): string | undefined {
     const before = session.workingCopy ?? session.artifact.content;
     const next =
       workingCopy === undefined || workingCopy === session.artifact.content
         ? undefined
         : workingCopy;
 
+    if (textCuts?.length) session.textCuts = textCuts;
+    else delete session.textCuts;
     if (next === undefined) delete session.workingCopy;
     else session.workingCopy = next;
     const after = next ?? session.artifact.content;
 
     if (after === before) return undefined;
 
-    return this.record(session, {
+    const revision: Extract<NewEntry, { type: "revision" }> = {
       type: "revision",
       by: "reviewer",
       content: after,
       createdAt: new Date().toISOString(),
-    });
+    };
+
+    if (textCuts?.length) revision.textCuts = textCuts;
+
+    return this.record(session, revision);
   }
 
   /** The session's history; a record without a revision has none and cannot be moved through. */
