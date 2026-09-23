@@ -13,6 +13,7 @@ import { DaemonClient, type ThreadClient } from "@cueloop/daemon/client";
 import {
   applyPathView,
   applyTextCuts,
+  blockCutSourceRange,
   createBranch,
   cutBlock,
   cutTextRange,
@@ -1028,16 +1029,37 @@ class Controller implements ReviewController {
     } else if (block.type === "del") {
       this.restoreDelBlock(block, displayIndex);
     } else if (block.work) {
-      const workIndex = parseBlocks(working).findIndex(
-        (candidate) => candidate.lineStart === block.work!.lineStart,
+      this.cutWholeBlock(session, block, working);
+    }
+  }
+
+  private cutWholeBlock(session: Thread, block: DisplayBlock, working: string): void {
+    if (!block.work) return;
+    const base = session.artifact.content;
+    const existingCuts = session.textCuts ?? [];
+
+    if (existingCuts.length > 0 && block.base && working === applyTextCuts(base, existingCuts)) {
+      const range = blockCutSourceRange(base, block.base);
+      const textCuts = mergeTextCut(base, existingCuts, range.start, range.end);
+      const content = applyTextCuts(base, textCuts);
+
+      if (content === working) return;
+      this.applyOptimistic(
+        { ...session, workingCopy: content, textCuts },
+        this.client!.sessionSetWorkingCopy(session.id, content, textCuts),
       );
 
-      if (workIndex === -1) return;
-      this.applyOptimistic(
-        { ...session, workingCopy: cutBlock(working, block.work) },
-        this.client!.sessionCutBlock(session.id, workIndex),
-      );
+      return;
     }
+    const workIndex = parseBlocks(working).findIndex(
+      (candidate) => candidate.lineStart === block.work!.lineStart,
+    );
+
+    if (workIndex === -1) return;
+    this.applyOptimistic(
+      { ...session, workingCopy: cutBlock(working, block.work) },
+      this.client!.sessionCutBlock(session.id, workIndex),
+    );
   }
 
   private exactCutSourceRange(

@@ -8,6 +8,7 @@
 import {
   SCHEMA_VERSION,
   appendEntry,
+  applyTextCuts,
   applyPathView,
   createBranch,
   cutBlock,
@@ -471,12 +472,40 @@ export class DaemonCore {
   /** The reviewer's working copy; undefined clears it (revert all edits). */
   sessionSetWorkingCopy(id: string, workingCopy: string | undefined, textCuts?: TextCut[]): Thread {
     const session = this.mutable(id);
+
+    if (textCuts?.length) this.assertTextCuts(session.artifact.content, workingCopy, textCuts);
     const entryId = this.applyWorkingCopy(session, workingCopy, textCuts);
 
     this.store.upsert(session);
     this.emit("session.updated", id, entryId);
 
     return session;
+  }
+
+  private assertTextCuts(
+    source: string,
+    workingCopy: string | undefined,
+    textCuts: readonly TextCut[],
+  ): void {
+    let previousEnd = 0;
+    const valid = textCuts.every((cut) => {
+      const matches =
+        cut.start >= previousEnd &&
+        cut.end > cut.start &&
+        cut.end <= source.length &&
+        source.slice(cut.start, cut.end) === cut.quote;
+
+      previousEnd = cut.end;
+
+      return matches;
+    });
+
+    if (!valid || workingCopy === undefined || applyTextCuts(source, textCuts) !== workingCopy) {
+      throw new DaemonError(
+        "invalid_params",
+        "text Cuts do not match the submitted artifact and working copy",
+      );
+    }
   }
 
   /**

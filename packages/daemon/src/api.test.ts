@@ -275,6 +275,31 @@ describe("session lifecycle", () => {
     expect(core.sessionGet(session.id).textCuts).toBeUndefined();
   });
 
+  test("rejects character Cut provenance that does not match the artifact", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+
+    for (const textCuts of [
+      [{ start: 0, end: 5, quote: "stale" }],
+      [{ start: PLAN.content.length - 1, end: PLAN.content.length + 1, quote: "xx" }],
+    ]) {
+      expect(() => core.sessionSetWorkingCopy(session.id, "remaining", textCuts)).toThrow(
+        "text Cuts do not match the submitted artifact and working copy",
+      );
+    }
+    expect(core.sessionGet(session.id).workingCopy).toBeUndefined();
+    expect(core.sessionGet(session.id).textCuts).toBeUndefined();
+  });
+
+  test("rejects character Cut provenance whose result differs from the working copy", () => {
+    const session = core.sessionCreate({ workspace: WS, artifact: PLAN });
+    const start = PLAN.content.indexOf("carefully");
+    const textCuts = [{ start, end: start + "carefully".length, quote: "carefully" }];
+
+    expect(() => core.sessionSetWorkingCopy(session.id, "different", textCuts)).toThrow(
+      "text Cuts do not match the submitted artifact and working copy",
+    );
+  });
+
   test("a thread rename sets the title, clears back to the default on empty, and survives a restart", () => {
     // Arrange
     const session = core.sessionCreate({ workspace: WS, artifact: PLAN });

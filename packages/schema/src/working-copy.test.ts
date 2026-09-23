@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyTextCuts,
+  blockCutSourceRange,
   cutBlock,
   cutTextRange,
   mergeTextCut,
@@ -73,6 +74,16 @@ describe("cutBlock", () => {
     expect(cut).not.toContain("const x");
     expect(cut).toContain("- second item");
   });
+
+  test.each(["Plan", "spans two lines", "first item", "const x"])(
+    "reports the exact source interval cut from %s",
+    (text) => {
+      const target = block(BASE, text);
+      const range = blockCutSourceRange(BASE, target);
+
+      expect(BASE.slice(0, range.start) + BASE.slice(range.end)).toBe(cutBlock(BASE, target));
+    },
+  );
 });
 
 describe("cutTextRange", () => {

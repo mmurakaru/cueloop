@@ -104,6 +104,24 @@ export function cutBlock(working: string, block: Block): string {
   return [...before, ...after].join("\n");
 }
 
+/** Source interval removed by a whole-block Cut, including its leading blank-line padding. */
+export function blockCutSourceRange(source: string, block: Block) {
+  const lines = source.split("\n");
+  let startLine = block.lineStart;
+
+  while (startLine > 0 && lines[startLine - 1]!.trim() === "") startLine--;
+  const lineStarts = [0];
+
+  for (let index = 0; index < source.length; index++) {
+    if (source.charCodeAt(index) === 10) lineStarts.push(index + 1);
+  }
+
+  return {
+    start: lineStarts[startLine] ?? source.length,
+    end: lineStarts[block.lineEnd + 1] ?? source.length,
+  };
+}
+
 /**
  * Remove exactly the selected block-text range while retaining surrounding
  * Markdown markers. A cross-block range also removes the source between its

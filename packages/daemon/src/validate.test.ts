@@ -76,6 +76,30 @@ describe("parseParams", () => {
     }
   });
 
+  test.each([
+    [
+      [
+        { start: 2, end: 4, quote: "ab" },
+        { start: 1, end: 2, quote: "c" },
+      ],
+    ],
+    [
+      [
+        { start: 1, end: 4, quote: "abc" },
+        { start: 3, end: 5, quote: "de" },
+      ],
+    ],
+    [[{ start: 1, end: 4, quote: "ab" }]],
+  ])("rejects malformed text Cut provenance", (textCuts) => {
+    expect(() =>
+      parseParams("session.setWorkingCopy", {
+        id: "ses_1",
+        workingCopy: "remaining",
+        textCuts,
+      }),
+    ).toThrow("text Cuts must be ordered, non-overlapping, and match their quote lengths");
+  });
+
   test("rejects an unknown artifact type", () => {
     expect(() =>
       parseParams("session.create", {
@@ -277,7 +301,7 @@ describe("wire pins", () => {
     shelvedAnnotations: [fullAnnotation],
     parentSessionId: "ses_0",
     shareBranch: "main",
-    workingCopy: "# P edited",
+    workingCopy: "# ",
     textCuts: [{ start: 2, end: 3, quote: "P" }],
     viewedPaths: ["src/a.ts"],
     message: fullMessage,
@@ -320,6 +344,20 @@ describe("wire pins", () => {
     // Assert
     expect(parsed.ok).toBe(false);
     if (!parsed.ok) expect(parsed.error).toContain("history:");
+  });
+
+  test("a persisted Thread with stale text Cut provenance is refused", () => {
+    const result = validateThreadRecord({
+      ...fullSession,
+      workingCopy: "# P",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain(
+        "text Cuts do not match the submitted artifact and working copy",
+      );
+    }
   });
 
   test("schema key sets match the schema types", () => {
