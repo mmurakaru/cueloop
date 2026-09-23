@@ -1,5 +1,21 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.84
+
+### Minor Changes
+
+- [#505](https://github.com/mmurakaru/cueloop/pull/505) [`b5f43e5`](https://github.com/mmurakaru/cueloop/commit/b5f43e5adaa95275420e474281c122826ad91acb) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add non-resolving Comment messages and exact character Cut/restore behavior.
+
+  Keep held marks moving at viewport edges, preserve their visual column across
+  vertical keyboard movement, center empty project panels, and remove success
+  toasts from edit actions. Point pi version mismatches at its extension update
+  command and streamline the installation, harness, Thread, and sharing docs.
+
+### Patch Changes
+
+- Updated dependencies [[`b5f43e5`](https://github.com/mmurakaru/cueloop/commit/b5f43e5adaa95275420e474281c122826ad91acb)]:
+  - @cueloop/schema@0.1.0-alpha.84
+
 ## 0.1.0-alpha.83
 
 ### Patch Changes
