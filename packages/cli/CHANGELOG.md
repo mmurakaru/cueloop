@@ -1,5 +1,19 @@
 # cueloop
 
+## 0.1.0-alpha.85
+
+### Minor Changes
+
+- [#508](https://github.com/mmurakaru/cueloop/pull/508) [`e86e4de`](https://github.com/mmurakaru/cueloop/commit/e86e4de84b175b73e252240e6d814eb7f2d4fbad) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Publish agent-readable website resources and a read-only discovery API.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.85
+  - @cueloop/client@0.1.0-alpha.85
+  - @cueloop/daemon@0.1.0-alpha.85
+  - @cueloop/schema@0.1.0-alpha.85
+
 ## 0.1.0-alpha.84
 
 ### Minor Changes
