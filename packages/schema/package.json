@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/schema",
-  "version": "0.1.0-alpha.85",
+  "version": "0.1.0-alpha.86",
   "description": "The Thread primitive: types, markdown block model, quote-primary anchors, feedback serialization",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {

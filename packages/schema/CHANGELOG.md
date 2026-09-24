@@ -1,5 +1,13 @@
 # @cueloop/schema
 
+## 0.1.0-alpha.86
+
+### Minor Changes
+
+- [#511](https://github.com/mmurakaru/cueloop/pull/511) [`5881bb2`](https://github.com/mmurakaru/cueloop/commit/5881bb28f35b0eba32495b625e233ff0615d73e4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add an agent-driven pull-request review workflow with configurable skills and workspaces, line-anchored findings, explicit GitHub publishing, PR refresh state, and self-hosted severity badges.
+
+  Keep the welcome screen version tied to the published client package.
+
 ## 0.1.0-alpha.85
 
 No changes in this release.
