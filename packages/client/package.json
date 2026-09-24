@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/client",
-  "version": "0.1.0-alpha.84",
+  "version": "0.1.0-alpha.85",
   "description": "The cueloop review UI: projection renderer, keyboard grammar, review rail",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -27,10 +27,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@cueloop/daemon": "0.1.0-alpha.84",
-    "@cueloop/extension-api": "0.1.0-alpha.84",
-    "@cueloop/integration-obsidian": "0.1.0-alpha.84",
-    "@cueloop/schema": "0.1.0-alpha.84",
+    "@cueloop/daemon": "0.1.0-alpha.85",
+    "@cueloop/extension-api": "0.1.0-alpha.85",
+    "@cueloop/integration-obsidian": "0.1.0-alpha.85",
+    "@cueloop/schema": "0.1.0-alpha.85",
     "@opentui/core": "^0.5.11",
     "@opentui/keymap": "0.5.11",
     "@opentui/react": "^0.5.11",
