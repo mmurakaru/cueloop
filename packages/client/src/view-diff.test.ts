@@ -231,6 +231,52 @@ describe("changesMarks", () => {
     expect(findingMark?.end).toBe(0);
   });
 
+  test("a PR finding on an empty line remains visible with its replies", () => {
+    const patch = `diff --git a/x.ts b/x.ts
+--- a/x.ts
++++ b/x.ts
+@@ -1,1 +1,2 @@
+ const keep = 0;
++
+`;
+    const rows = diffRows(patch);
+    const range = fileRowRange(rows, "x.ts")!;
+    const fileRows = rows.slice(range.start, range.end);
+    const emptyRow = fileRows.findIndex((row) => row.kind === "add" && row.text === "\n");
+    const finding: Annotation = {
+      id: "empty-finding",
+      kind: "comment",
+      anchor: diffRowAnchor(fileRows, emptyRow),
+      target: { kind: "file", path: "x.ts", rev: "worktree" },
+      body: "Keep this blank line.",
+      author: "agent",
+      createdAt: "2026-01-01T00:00:00Z",
+      reviewComment: {
+        severity: "p2",
+        title: "Empty line",
+        path: "x.ts",
+        line: 2,
+        side: "RIGHT",
+      },
+    };
+    const reply: Annotation = {
+      ...finding,
+      id: "empty-reply",
+      body: "Visible reply.",
+      author: "reviewer",
+      replyTo: finding.id,
+      reviewComment: undefined,
+    };
+    const marks = changesMarks(diffThread({ pr: "org/repo#1" }, [finding, reply]), rows);
+    const marked = [...marks.values()].flat();
+    const findingMark = marked.find((mark) => mark.annotationId === finding.id);
+    const replyMark = marked.find((mark) => mark.annotationId === reply.id);
+
+    expect(findingMark).toMatchObject({ start: 0, end: 0 });
+    expect(findingMark?.outdated).toBeUndefined();
+    expect(replyMark?.span).toEqual(findingMark?.span);
+  });
+
   test("replies stay grouped with an outdated PR finding", () => {
     const rows = diffRows(PATCH);
     const finding: Annotation = {

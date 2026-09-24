@@ -198,12 +198,18 @@ function addResolvedMark(
   for (let rowIndex = startBlockIndex; rowIndex <= endBlockIndex; rowIndex++) {
     const range = spanRangeInBlock(span, rowIndex, blocks[rowIndex]!.text.length);
 
-    if (!range) continue;
+    const marksEmptyLine =
+      range === null &&
+      startBlockIndex === endBlockIndex &&
+      rowIndex === startBlockIndex &&
+      blocks[rowIndex]!.text.length === 0;
+
+    if (!range && !marksEmptyLine) continue;
     const marks = marksByIndex.get(rowIndex) ?? [];
 
     marks.push({
-      start: range.start,
-      end: range.end,
+      start: range?.start ?? 0,
+      end: range?.end ?? 0,
       role: annotation.id === focusedId ? "mark-focus" : "mark-comment",
       annotationId: annotation.id,
       span,

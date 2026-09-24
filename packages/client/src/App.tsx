@@ -263,8 +263,8 @@ function refreshPullRequestAction(onRefresh: () => void, theme: Theme): React.Re
   );
 }
 
-/** Present PR context with the ordinary read-only Thread renderer. */
-function prBriefThread(session: Thread): Thread {
+/** Present pull request context with the ordinary read-only Thread renderer. */
+function pullRequestBriefThread(session: Thread): Thread {
   return {
     ...session,
     artifact: {
@@ -1137,16 +1137,21 @@ export function App({
     setMode,
     dispatch,
   });
-  const { showOwnerActions, showPrRefresh, prototypeCanComment, chromeHidden, prototypePath } =
-    buildRenderFlags({
-      session: activeSession,
-      isOwner,
-      isDiff,
-      isPixelPrototype,
-      resolved,
-      menuDialog,
-      resolvedIds,
-    });
+  const {
+    showOwnerActions,
+    showPullRequestRefresh,
+    prototypeCanComment,
+    chromeHidden,
+    prototypePath,
+  } = buildRenderFlags({
+    session: activeSession,
+    isOwner,
+    isDiff,
+    isPixelPrototype,
+    resolved,
+    menuDialog,
+    resolvedIds,
+  });
 
   const onEditRequest = (): void => {
     // A share viewer/observer has no Edit affordance (the button is hidden), so
@@ -1220,7 +1225,7 @@ export function App({
                       onShare: () => dispatch({ type: "share" }),
                       theme,
                     })
-                  : showPrRefresh
+                  : showPullRequestRefresh
                     ? refreshPullRequestAction(() => void controller.refreshPullRequest(), theme)
                     : undefined
               }
@@ -1242,7 +1247,7 @@ export function App({
                       ),
                       diffPlaceholder: activeSession.artifact.meta.prBrief ? (
                         <ThreadView
-                          session={prBriefThread(activeSession)}
+                          session={pullRequestBriefThread(activeSession)}
                           display={buildDisplay(activeSession.artifact.meta.prBrief)}
                           marks={new Map()}
                           quickActions={quickActions}

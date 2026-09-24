@@ -63,6 +63,23 @@ describe("loadConfig", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("review settings update a CRLF table without duplicating it", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-review-crlf-config-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, '[review]\r\nskill = "code-review"\r\nworkspace = "worktree"\r\n');
+    try {
+      persistReviewWorkspace("current", path);
+
+      const text = readFileSync(path, "utf8");
+
+      expect(loadConfig({ userConfigPath: path }).review.workspace).toBe("current");
+      expect(text.match(/^\[review\]/gm)).toHaveLength(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
   test("defaults when no file exists", () => {
     // Act
     const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
