@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonCore } from "./api";
@@ -168,10 +168,17 @@ describe("PR review sessions", () => {
   test("refresh re-pulls the PR diff via gh and never clobbers it with the working tree", async () => {
     // Given a stub gh that reports a PR diff distinct from the local working tree
     const ghStub = join(repo, "gh-stub.sh");
+    const ghLog = join(repo, "gh-stub.log");
 
     writeFileSync(
       ghStub,
-      '#!/bin/sh\ncase "$2" in\n  diff) printf "STUB PR DIFF\\n" ;;\n  view) printf "sha-2\\n" ;;\nesac\n',
+      `#!/bin/sh
+printf '%s\n' "$*" >> '${ghLog}'
+case "$2" in
+  diff) printf "STUB PR DIFF\\n" ;;
+  view) printf '{"baseRefOid":"base-2","headRefOid":"sha-2"}\\n' ;;
+esac
+`,
     );
     chmodSync(ghStub, 0o755);
     const previousGh = process.env.CUELOOP_GH;
@@ -185,7 +192,14 @@ describe("PR review sessions", () => {
         type: "diff",
         content: "OLD PR DIFF\n",
         files: [],
-        meta: { pr: "org/repo#1" },
+        meta: {
+          pr: "1",
+          prUrl: "https://github.com/org/repo/pull/1",
+          prBaseSha: "base-1",
+          prHeadSha: "sha-1",
+          prRefreshBaseSha: "base-2",
+          prRefreshHeadSha: "sha-2",
+        },
       };
       const session = core.sessionCreate({ workspace, artifact });
 
@@ -200,6 +214,11 @@ describe("PR review sessions", () => {
 
       expect(refreshed.artifact.content).toContain("STUB PR DIFF");
       expect(refreshed.artifact.content).not.toContain("export const a = 123;");
+      expect(refreshed.artifact.meta.prBaseSha).toBe("base-2");
+      expect(refreshed.artifact.meta.prHeadSha).toBe("sha-2");
+      expect(refreshed.artifact.meta.prRefreshBaseSha).toBeUndefined();
+      expect(refreshed.artifact.meta.prRefreshHeadSha).toBeUndefined();
+      expect(readFileSync(ghLog, "utf8")).toContain("https://github.com/org/repo/pull/1");
     } finally {
       if (previousGh === undefined) delete process.env.CUELOOP_GH;
       else process.env.CUELOOP_GH = previousGh;

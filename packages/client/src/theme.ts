@@ -15,6 +15,7 @@ export interface Theme {
   textDim: string;
   accent: string;
   accentInk: string;
+  warning: string;
   green: string;
   red: string;
   blue: string;
@@ -43,6 +44,7 @@ export function dimmedTheme(theme: Theme): Theme {
     text: theme.textDim,
     textMuted: theme.textDim,
     accent: theme.textDim,
+    warning: theme.textDim,
     green: theme.textDim,
     red: theme.textDim,
     blue: theme.textDim,
@@ -66,6 +68,7 @@ export const DARK: Theme = {
   textDim: "#6b7280",
   accent: "#cba6f7",
   accentInk: "#17171a",
+  warning: "#e5a45c",
   green: "#62d96b",
   red: "#f08080",
   blue: "#a9c8f5",
@@ -96,6 +99,7 @@ export const LIGHT: Theme = {
   textDim: "#868c9c",
   accent: "#5b3ea6",
   accentInk: "#fbfbfa",
+  warning: "#a45f12",
   green: "#2f8a3e",
   red: "#c0392b",
   blue: "#2f6fb0",

@@ -65,7 +65,7 @@ import {
 import { HarnessStateStore } from "./harness-state-store";
 import { DiffWatcher } from "./diff-watcher";
 import { PrReviewPoller } from "./pr-poller";
-import { prDiff } from "./gh";
+import { prSnapshot } from "./gh";
 import { workingTreeDiff, workingChangeList, type WorkingTreeDiff } from "./working-tree";
 import { listProjectFiles, readProjectFile } from "./project-files";
 import { resolveWorkspace } from "./thread-review";
@@ -90,6 +90,7 @@ function annotationDeliveryFingerprint(annotation: Annotation | undefined): stri
     target: annotation.target,
     body: annotation.body,
     author: annotation.author,
+    reviewComment: annotation.reviewComment,
     replyTo: annotation.replyTo,
   });
 }
@@ -158,7 +159,9 @@ export class DaemonCore {
       this.ghosttyThreadSurfaces.delete(threadId);
     }
     this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
-    this.prPoller = new PrReviewPoller((sessionId) => void this.sessionRefreshPrDiff(sessionId));
+    this.prPoller = new PrReviewPoller((sessionId, refs) =>
+      this.markPrRefreshAvailable(sessionId, refs),
+    );
     // resume hot-reload for diff sessions that survived a daemon restart
     for (const session of this.store.list()) {
       this.trackLiveDiffSession(session);
@@ -1073,31 +1076,72 @@ export class DaemonCore {
 
     if (!session || session.status !== "pending" || session.artifact.type !== "diff")
       return { changed: false };
-    const pr = session.artifact.meta.pr;
+    const pr = session.artifact.meta.prUrl ?? session.artifact.meta.pr;
 
     if (pr === undefined) return { changed: false };
     const generation = (this.diffRefreshGenerations.get(id) ?? 0) + 1;
 
     this.diffRefreshGenerations.set(id, generation);
-    const patch = await prDiff(pr);
+    const snapshot = await prSnapshot(pr);
 
     // gh failed (offline, unauthenticated): keep the diff we have, try again next poll
-    if (patch === null) return { changed: false };
+    if (snapshot === null) return { changed: false };
     // the pull yields the event loop: discard a stale capture or a closed session
     if (this.diffRefreshGenerations.get(id) !== generation) return { changed: false };
     const current = this.store.get(id);
 
     if (!current || current.status !== "pending" || current.artifact.type !== "diff")
       return { changed: false };
-    if (patch === current.artifact.content) return { changed: false };
-    current.artifact = { ...current.artifact, content: patch };
+    const contentChanged = snapshot.patch !== current.artifact.content;
+
+    if (
+      !contentChanged &&
+      snapshot.baseSha === current.artifact.meta.prBaseSha &&
+      snapshot.headSha === current.artifact.meta.prHeadSha &&
+      current.artifact.meta.prRefreshBaseSha === undefined &&
+      current.artifact.meta.prRefreshHeadSha === undefined
+    )
+      return { changed: false };
+    current.artifact = {
+      ...current.artifact,
+      content: snapshot.patch,
+      meta: {
+        ...current.artifact.meta,
+        prBaseSha: snapshot.baseSha,
+        prHeadSha: snapshot.headSha,
+        prRefreshBaseSha: undefined,
+        prRefreshHeadSha: undefined,
+      },
+    };
     const history = withHistory(current).history;
 
-    if (history) current.history = recaptureMainHead(history, patch);
+    if (history && contentChanged) current.history = recaptureMainHead(history, snapshot.patch);
     this.store.upsert(current);
     this.emit("session.updated", id);
 
-    return { changed: true };
+    return { changed: contentChanged };
+  }
+
+  /** Record moved PR refs without replacing the review until the reviewer refreshes it. */
+  private markPrRefreshAvailable(id: string, refs: { baseSha: string; headSha: string }): void {
+    const session = this.store.get(id);
+
+    if (!session || session.status !== "pending" || session.artifact.meta.pr === undefined) return;
+    if (
+      session.artifact.meta.prBaseSha === refs.baseSha &&
+      session.artifact.meta.prHeadSha === refs.headSha
+    )
+      return;
+    session.artifact = {
+      ...session.artifact,
+      meta: {
+        ...session.artifact.meta,
+        prRefreshBaseSha: refs.baseSha,
+        prRefreshHeadSha: refs.headSha,
+      },
+    };
+    this.store.upsert(session);
+    this.emit("session.updated", id);
   }
 
   /** Re-capture every working-tree diff session sharing a repo root (one debounced fs change). */
@@ -1122,7 +1166,16 @@ export class DaemonCore {
     if (isWorkingTreeDiffSession(session))
       this.diffWatcher.trackDiffRepo(session.workspace.repoRoot, session.id);
     else if (isPrReviewSession(session))
-      this.prPoller.trackPr(session.id, session.artifact.meta.pr!);
+      this.prPoller.trackPr(
+        session.id,
+        session.artifact.meta.prUrl ?? session.artifact.meta.pr!,
+        session.artifact.meta.prBaseSha && session.artifact.meta.prHeadSha
+          ? {
+              baseSha: session.artifact.meta.prBaseSha,
+              headSha: session.artifact.meta.prHeadSha,
+            }
+          : null,
+      );
   }
 
   private untrackLiveDiffSession(session: Thread): void {

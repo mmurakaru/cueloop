@@ -47,6 +47,8 @@ cueloop review <pr>         # pull a pull request in and review it
 - `--open [id|title]` - open a pending review, optionally by id or title.
 - `--no-tui` - (on `review <pr>`) skip the UI and print the created session as
   JSON.
+- `--head-sha <sha>` - (on `review <pr>`) refuse to open a Thread if the PR
+  moved after the agent reviewed it.
 
 ## Share over SSH
 
@@ -73,15 +75,16 @@ See [Share a Thread](/docs/sharing/) for the full workflow.
 ## Post to GitHub
 
 ```bash
-cueloop review-post <session-id> <pr>
+cueloop review-post <session-id> --comments C1,C3 --event comment
 ```
 
-Posts a completed Thread back to a pull request as a GitHub review without
-opening the UI. Messages map directly:
+Posts selected agent findings from a completed Thread. Omit `--comments` to
+post every unresolved agent finding. Posting is always explicit.
 
 ```text
-approved          → gh pr review --approve
-changes_requested → gh pr review --request-changes
+comment         → COMMENT
+approve         → APPROVE
+request-changes → REQUEST_CHANGES
 ```
 
 The Message summary becomes the review body.

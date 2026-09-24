@@ -78,6 +78,10 @@ export interface OpenReviewOptions {
   planPath?: string;
   prototypePath?: string;
   pr?: string;
+  prBrief?: string;
+  prBaseSha?: string;
+  prHeadSha?: string;
+  prUrl?: string;
   herdrPane?: string;
   /**
    * Full file contents per changed file for a working-tree diff, carried onto
@@ -297,6 +301,10 @@ export async function openReview(
       planPath: options.planPath,
       prototypePath: options.prototypePath,
       pr: options.pr,
+      prBrief: options.prBrief,
+      prBaseSha: options.prBaseSha,
+      prHeadSha: options.prHeadSha,
+      prUrl: options.prUrl,
       herdrPane: options.herdrPane,
       title:
         options.title ??

@@ -158,15 +158,6 @@ export async function runHarnessBridge(
 
     if (!delivery || delivery.message.id !== request.messageId)
       throw new Error("Harness bridge acknowledgement does not match a pending Message");
-    const thread = await client.sessionGet(binding.threadId);
-
-    if (thread.artifact.meta.pr) {
-      await forge.postPullRequestMessage(
-        thread.artifact.meta.pr,
-        delivery.message,
-        thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
-      );
-    }
     await client.deliveryAcknowledge(delivery.delivery.id);
     if (binding.harness === "claude-code") {
       reportState("working");

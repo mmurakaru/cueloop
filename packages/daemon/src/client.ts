@@ -142,6 +142,8 @@ export interface ThreadClient {
   repoChanges?(cwd: string): Promise<{ path: string; status: DiffFileStatus }[]>;
   /** The live working-tree diff (patch plus per-file contents) at `cwd`. */
   repoDiff?(cwd: string): Promise<WorkingTreeDiff>;
+  /** Refresh a local diff or explicitly pull a moved PR head. */
+  sessionRefreshDiff?(id: string): Promise<{ changed: boolean }>;
   /** Find-or-create the per-repo workbench thread for `cwd`, so a bare launch's first comment persists. */
   sessionWorkbench?(cwd: string): Promise<Thread>;
   /** Move a branch's tip (the current one, or `branch` after switching to it) back to an entry on its path; a summary records the abandoned segment. */

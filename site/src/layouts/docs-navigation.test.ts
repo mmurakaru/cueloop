@@ -9,8 +9,6 @@ test("animates the docs sidebar only after a user toggle", () => {
   const styles = readFileSync(`${sourceRoot}/styles/global.css`, "utf8");
 
   expect(layout).toContain('shell.classList.add("is-nav-interacting")');
-  expect(styles).toContain(
-    ".docs-shell.is-nav-interacting:not(.is-nav-collapsed) .docs-aside",
-  );
+  expect(styles).toContain(".docs-shell.is-nav-interacting:not(.is-nav-collapsed) .docs-aside");
   expect(styles).not.toContain(".docs-shell:not(.is-nav-collapsed) .docs-aside");
 });

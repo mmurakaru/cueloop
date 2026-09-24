@@ -226,6 +226,61 @@ export function fileTargetMarks(
     if (!range) continue;
     const base = range.start;
     const fileMarks = marksByRows(fileAnnotations, rows.slice(range.start, range.end), focusedId);
+    const resolvedIds = new Set(
+      [...fileMarks.values()]
+        .flat()
+        .flatMap((mark) => (mark.annotationId === undefined ? [] : [mark.annotationId])),
+    );
+
+    for (const annotation of fileAnnotations) {
+      const finding = annotation.reviewComment;
+
+      if (!finding || resolvedIds.has(annotation.id) || isAddressed(annotation)) continue;
+      const relativeRow = rows
+        .slice(range.start, range.end)
+        .findIndex(
+          (row) =>
+            (finding.side === "RIGHT" ? row.newLine : row.oldLine) === finding.line &&
+            row.kind !== "file" &&
+            row.kind !== "hunk",
+        );
+      const fallbackRow = relativeRow === -1 ? 0 : relativeRow;
+      const mark: Mark = {
+        start: 0,
+        end: 0,
+        role: annotation.id === focusedId ? "mark-focus" : "mark-comment",
+        annotationId: annotation.id,
+        outdated: true,
+        span: {
+          start: { blockIndex: fallbackRow, char: 0 },
+          end: { blockIndex: fallbackRow, char: 0 },
+        },
+      };
+
+      fileMarks.set(fallbackRow, [...(fileMarks.get(fallbackRow) ?? []), mark]);
+      resolvedIds.add(annotation.id);
+    }
+
+    for (const annotation of fileAnnotations) {
+      if (!annotation.replyTo || resolvedIds.has(annotation.id) || isAddressed(annotation))
+        continue;
+      const parent = [...fileMarks.entries()].find(([, marks]) =>
+        marks.some((mark) => mark.annotationId === annotation.replyTo),
+      );
+
+      if (!parent) continue;
+      const [fallbackRow, parentMarks] = parent;
+      const parentMark = parentMarks.find((mark) => mark.annotationId === annotation.replyTo)!;
+      const replyMark: Mark = {
+        ...parentMark,
+        role: annotation.id === focusedId ? "mark-focus" : "mark-comment",
+        annotationId: annotation.id,
+        outdated: parentMark.outdated,
+      };
+
+      fileMarks.set(fallbackRow, [...parentMarks, replyMark]);
+      resolvedIds.add(annotation.id);
+    }
 
     for (const [relativeRow, marks] of fileMarks) {
       result.set(
@@ -279,8 +334,17 @@ export function changesMarks(
     const artifactNotes = session.annotations.filter(
       (annotation) => annotationTarget(annotation).kind === "artifact",
     );
+    const marks = marksByRows(artifactNotes, rows, focusedId);
 
-    return marksByRows(artifactNotes, rows, focusedId);
+    // Agent PR findings carry a file target so repeated text cannot bind across files.
+    // Plain diff comments still use the artifact target for backward compatibility.
+    if (session.artifact.meta.pr !== undefined) {
+      for (const [row, fileMarks] of fileTargetMarks(session.annotations, rows, focusedId)) {
+        marks.set(row, [...(marks.get(row) ?? []), ...fileMarks]);
+      }
+    }
+
+    return marks;
   }
 
   return fileTargetMarks(session.annotations, rows, focusedId);
@@ -312,15 +376,19 @@ export function diffRowAnchor(rows: DiffRow[], rowIndex: number) {
   const next = rows[rowIndex + 1];
 
   return {
-    quote: row.text,
+    quote: diffRowText(row),
     prefix:
       prev && (prev.kind === "ctx" || prev.kind === "add" || prev.kind === "del")
-        ? prev.text.slice(-24)
+        ? diffRowText(prev).slice(-24)
         : "",
     suffix:
       next && (next.kind === "ctx" || next.kind === "add" || next.kind === "del")
-        ? next.text.slice(0, 24)
+        ? diffRowText(next).slice(0, 24)
         : "",
+    blockIndex: rowIndex,
+    endBlockIndex: rowIndex,
+    start: 0,
+    end: diffRowText(row).length,
   };
 }
 

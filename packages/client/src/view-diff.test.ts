@@ -165,12 +165,82 @@ describe("changesMarks", () => {
     expect([...changesMarks(session, rows).keys()].length).toBeGreaterThan(0);
   });
 
-  test("a pinned diff review paints only artifact notes, not the working tree's file targets", () => {
+  test("a pinned PR diff paints its file-scoped agent findings", () => {
+    const rows = diffRows(PATCH);
+    const finding = {
+      ...fileNote(rows),
+      author: "agent",
+      reviewComment: {
+        severity: "p1" as const,
+        title: "Finding",
+        path: "x.ts",
+        line: 2,
+        side: "RIGHT" as const,
+      },
+    };
+    const session = diffThread({ pr: "org/repo#1" }, [finding]);
+
+    expect([...changesMarks(session, rows).keys()].length).toBeGreaterThan(0);
+  });
+
+  test("an outdated PR finding stays on its recorded line without rebinding", () => {
+    const rows = diffRows(PATCH);
+    const finding: Annotation = {
+      ...fileNote(rows),
+      anchor: { quote: "text that is no longer present", prefix: "", suffix: "" },
+      author: "agent",
+      reviewComment: {
+        severity: "p1",
+        title: "Finding",
+        path: "x.ts",
+        line: 2,
+        side: "RIGHT",
+      },
+    };
+    const session = diffThread({ pr: "org/repo#1" }, [finding]);
+    const marks = changesMarks(session, rows);
+
+    const findingMark = [...marks.values()].flat().find((mark) => mark.annotationId === finding.id);
+
+    expect(findingMark?.outdated).toBe(true);
+  });
+
+  test("replies stay grouped with an outdated PR finding", () => {
+    const rows = diffRows(PATCH);
+    const finding: Annotation = {
+      ...fileNote(rows),
+      anchor: { quote: "text that is no longer present", prefix: "", suffix: "" },
+      author: "agent",
+      reviewComment: {
+        severity: "p1",
+        title: "Finding",
+        path: "x.ts",
+        line: 2,
+        side: "RIGHT",
+      },
+    };
+    const reply: Annotation = {
+      ...finding,
+      id: "reply-1",
+      author: "reviewer",
+      body: "Keep this discussion visible.",
+      replyTo: finding.id,
+      reviewComment: undefined,
+    };
+    const marks = changesMarks(diffThread({ pr: "org/repo#1" }, [finding, reply]), rows);
+    const marked = [...marks.values()].flat();
+    const findingMark = marked.find((mark) => mark.annotationId === finding.id);
+    const replyMark = marked.find((mark) => mark.annotationId === reply.id);
+
+    expect(replyMark?.span).toEqual(findingMark?.span);
+    expect(replyMark?.outdated).toBe(true);
+  });
+
+  test("a plain pinned diff ignores working-tree file targets", () => {
     const rows = diffRows(PATCH);
     const session = diffThread({}, [fileNote(rows)]);
 
-    // the same file-targeted note is not an artifact note, so a frozen review leaves it unpainted
-    expect([...changesMarks(session, rows).keys()].length).toBe(0);
+    expect([...changesMarks(session, rows).keys()]).toEqual([]);
   });
 
   test("a shared snapshot still paints the workbench's file-targeted feedback", () => {

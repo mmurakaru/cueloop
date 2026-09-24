@@ -246,7 +246,7 @@ describe("pi Thread adapter", () => {
     await fake.fire("session_shutdown", "pi-refine");
   });
 
-  test("review imports a PR diff, then posts and injects the Message", async () => {
+  test("review imports a PR diff, then injects the local Message", async () => {
     const binDirectory = join(home, "fake-gh-bin");
 
     mkdirSync(binDirectory, { recursive: true });
@@ -254,7 +254,7 @@ describe("pi Thread adapter", () => {
 
     writeFileSync(
       commandPath,
-      "#!/bin/sh\nif [ \"$2\" = diff ]; then printf 'diff --git a/a.ts b/a.ts\\n--- a/a.ts\\n+++ b/a.ts\\n@@ -0,0 +1 @@\\n+export const ready = true;\\n'; fi\n",
+      '#!/bin/sh\nif [ "$2" = diff ]; then printf \'diff --git a/a.ts b/a.ts\\n--- a/a.ts\\n+++ b/a.ts\\n@@ -0,0 +1 @@\\n+export const ready = true;\\n\'; elif [ "$2" = view ] && [ "$6" = -q ]; then printf \'head123\\n\'; elif [ "$2" = view ]; then printf \'%s\' \'{"number":123,"title":"Ready","body":"Details","url":"https://github.com/org/repo/pull/123","author":{"login":"alex"},"baseRefName":"main","baseRefOid":"base123","headRefName":"ready","headRefOid":"head123"}\'; fi\n',
     );
     chmodSync(commandPath, 0o755);
     const previousPath = process.env.PATH;

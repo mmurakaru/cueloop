@@ -8,6 +8,8 @@ import React from "react";
 import { DaemonServer } from "@cueloop/daemon";
 import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
+import { pullRequestReviewLayout } from "./launch-layout";
+import { DARK } from "./theme";
 import { NERD } from "./components/primitives/icons";
 import {
   clickText,
@@ -66,6 +68,42 @@ async function renderApp(sessionId = session.id) {
 }
 
 describe("diff review", () => {
+  test("pull request review shows its brief beside Changes and signals a moved head", async () => {
+    const pullRequest = server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "detached" },
+      artifact: {
+        type: "diff",
+        content: PATCH,
+        meta: {
+          title: "Fix store",
+          pr: "org/repo#42",
+          prBrief: "# Fix store\n\n## PR description\n\nUse a map.",
+          prHeadSha: "head-1",
+          prRefreshHeadSha: "head-2",
+        },
+      },
+    });
+    const setup = await renderReadyApp(
+      <App home={home} sessionId={pullRequest.id} layout={pullRequestReviewLayout()} />,
+      { width: 160, height: 30 },
+    );
+
+    await waitForText(setup, "Use a map.");
+    await waitForText(setup, "new Map()");
+    await waitForText(setup, "refresh");
+    const refreshSpan = setup
+      .captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("refresh"));
+    const refreshColor = refreshSpan?.fg
+      .toInts()
+      .slice(0, 3)
+      .map((part) => part.toString(16).padStart(2, "0"))
+      .join("");
+
+    expect(`#${refreshColor}`).toBe(DARK.warning);
+  });
+
   test("renders file header, hunks, and signed lines", async () => {
     // Arrange
     const setup = await renderApp();

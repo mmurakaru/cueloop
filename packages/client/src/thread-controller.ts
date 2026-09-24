@@ -310,6 +310,8 @@ export interface ReviewController {
   repoReadFile(path: string): Promise<string | null>;
   /** The launch repo's working-tree changed files for the no-session welcome Changes tree. */
   repoChanges(): Promise<readonly DiffFileContents[]>;
+  /** Explicitly pull a PR diff after its head moved. */
+  refreshPullRequest(): Promise<void>;
   /** Open a session from the inbox. */
   open(id: string): void;
   /** Delete a session for good (inbox delete); the inbox refreshes on the event. */
@@ -862,6 +864,17 @@ class Controller implements ReviewController {
       oldContents: "",
       newContents: "",
     }));
+  }
+
+  async refreshPullRequest(): Promise<void> {
+    const session = this.snapshot.session;
+
+    if (!session?.artifact.meta.prRefreshHeadSha || !this.client?.sessionRefreshDiff) return;
+    try {
+      await this.client.sessionRefreshDiff(session.id);
+    } catch (cause) {
+      this.setStatus(cause instanceof Error ? cause.message : String(cause));
+    }
   }
 
   // Refreshes race the connection teardown: an event can arrive while close()

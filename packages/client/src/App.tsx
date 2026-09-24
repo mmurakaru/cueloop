@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock, KeyEvent } from "@opentui/core";
-import { marksByDisplay, type Mark } from "./view-plan";
+import { buildDisplay, marksByDisplay, type Mark } from "./view-plan";
 import {
   DEFAULT_KEYS,
   DEFAULT_QUICK_ACTIONS,
@@ -21,6 +21,7 @@ import {
   type DiffViewMode,
   type IdentityConfig,
   type QuickAction,
+  type ReviewWorkspaceMode,
 } from "./config";
 import { resolveDisplayName } from "./attribution";
 import { resolveGithubIdentity } from "./github-identity";
@@ -250,6 +251,30 @@ function ownerThreadActions(actions: {
       )}
     </Toolbar>
   );
+}
+
+function refreshPullRequestAction(onRefresh: () => void, theme: Theme): React.ReactNode {
+  return (
+    <Toolbar>
+      <Button onPress={onRefresh} foreground={theme.warning} theme={theme}>
+        {" refresh "}
+      </Button>
+    </Toolbar>
+  );
+}
+
+/** Present PR context with the ordinary read-only Thread renderer. */
+function prBriefThread(session: Thread): Thread {
+  return {
+    ...session,
+    artifact: {
+      ...session.artifact,
+      type: "reply",
+      content: session.artifact.meta.prBrief ?? "",
+    },
+    workingCopy: undefined,
+    annotations: [],
+  };
 }
 
 /** Pick the thread pane's body: the pixel prototype, the diff placeholder, the inline editor, or the read-only view. */
@@ -603,6 +628,12 @@ export function App({
   const [identity, setIdentity] = useState<IdentityConfig>({ provider: "typed" });
   const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
   const [skills, setSkills] = useState<SlashItem[]>([]);
+  const [reviewSkill, setReviewSkill] = useState("code-review");
+  const [reviewWorkspace, setReviewWorkspace] = useState<ReviewWorkspaceMode>("worktree");
+  const reviewSkillOptions = useMemo(
+    () => [...new Set([reviewSkill, "code-review", ...skills.map((skill) => skill.name)])],
+    [reviewSkill, skills],
+  );
   const paletteNames = useMemo(
     () => new Set(mergeSlashItems(slashItemsFrom(quickActions), skills).map((item) => item.name)),
     [quickActions, skills],
@@ -623,6 +654,8 @@ export function App({
     setIdentity(config.identity);
     setQuickActions(config.actions);
     setSkills(loadSkills(config.skillsPath));
+    setReviewSkill(config.review.skill);
+    setReviewWorkspace(config.review.workspace);
     setAutoClose(config.ui.autoClose);
     setDiffView(config.ui.diffView);
     setDefaultMessage(config.ui.defaultMessage);
@@ -707,6 +740,11 @@ export function App({
       setMenuDialog(null);
       setMode({ type: "renameSelf", text: identity.name ?? "" });
     },
+    reviewSkill,
+    reviewSkillOptions,
+    setReviewSkill,
+    reviewWorkspace,
+    setReviewWorkspace,
   });
 
   // ── derived view model ──────────────────────
@@ -1181,7 +1219,9 @@ export function App({
                       onShare: () => dispatch({ type: "share" }),
                       theme,
                     })
-                  : undefined
+                  : activeSession.artifact.meta.prRefreshHeadSha
+                    ? refreshPullRequestAction(() => void controller.refreshPullRequest(), theme)
+                    : undefined
               }
               threadPanel={
                 <box style={{ flexGrow: 1, flexDirection: "column" }}>
@@ -1199,7 +1239,25 @@ export function App({
                           hidden={chromeHidden}
                         />
                       ),
-                      diffPlaceholder: (
+                      diffPlaceholder: activeSession.artifact.meta.prBrief ? (
+                        <ThreadView
+                          session={prBriefThread(activeSession)}
+                          display={buildDisplay(activeSession.artifact.meta.prBrief)}
+                          marks={new Map()}
+                          quickActions={quickActions}
+                          suspended={threadViewSuspended}
+                          resolved
+                          observer
+                          onComposingChange={() => {}}
+                          onObserverBlocked={() => {}}
+                          onCursorChange={() => {}}
+                          onAnnotate={() => {}}
+                          onReply={() => {}}
+                          onUpdateAnnotation={() => {}}
+                          resolveAuthorLabel={() => undefined}
+                          onExit={() => onExit?.(0)}
+                        />
+                      ) : (
                         <box
                           style={{
                             flexGrow: 1,

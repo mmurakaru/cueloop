@@ -509,9 +509,32 @@ export function DiffContentView({
     textAt: (rowIndex) => diffRowText(rows[rowIndex]!),
     annotatable: (rowIndex) => isCodeRow(rows[rowIndex]),
   };
+  const outdatedIds = useMemo(
+    () =>
+      new Set(
+        [...marks.values()]
+          .flat()
+          .flatMap((mark) =>
+            mark.outdated && mark.annotationId !== undefined ? [mark.annotationId] : [],
+          ),
+      ),
+    [marks],
+  );
+  const displaySession = useMemo(
+    () =>
+      outdatedIds.size === 0
+        ? session
+        : {
+            ...session,
+            annotations: session.annotations.map((annotation) =>
+              outdatedIds.has(annotation.id) ? { ...annotation, orphan: true } : annotation,
+            ),
+          },
+    [outdatedIds, session],
+  );
   const surface = useAnnotationSurface({
     source,
-    session,
+    session: displaySession,
     marks,
     quickActions,
     tokens,
@@ -528,7 +551,11 @@ export function DiffContentView({
     onReply,
     onUpdateAnnotation,
     dragViewport: () => scrollBoxDragViewport(scrollRef.current),
-    resolveAuthorLabel,
+    resolveAuthorLabel: (annotation) => {
+      const label = resolveAuthorLabel?.(annotation);
+
+      return annotation.orphan ? `outdated${label ? ` - ${label}` : ""}` : label;
+    },
     onNavCommand,
     onExit,
   });

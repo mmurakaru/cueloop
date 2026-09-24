@@ -68,6 +68,16 @@ export interface ArtifactMeta {
   prototypePath?: string;
   /** Pull request reference the diff came from, so the message can be posted back. */
   pr?: string;
+  /** Markdown shown in the Thread pane beside a pull request diff. */
+  prBrief?: string;
+  /** Exact pull request commits captured by this review. */
+  prBaseSha?: string;
+  prHeadSha?: string;
+  /** Newer remote commits detected by the poller; the reviewer chooses when to refresh. */
+  prRefreshBaseSha?: string;
+  prRefreshHeadSha?: string;
+  /** Canonical GitHub pull request URL. */
+  prUrl?: string;
   /** herdr pane the submitting agent runs in - the review returns focus there. */
   herdrPane?: string;
   title?: string;
@@ -179,6 +189,8 @@ export interface Annotation {
    * planner can tell whose note is whose and never overwrite a collaborator's.
    */
   author?: string;
+  /** GitHub line anchor and presentation fields for an agent-authored PR review comment. */
+  reviewComment?: ReviewComment;
   /**
    * The root comment this one replies to. Absent on a root. A reply shares its
    * root's anchor, so a discussion stays one conversation when the text moves.
@@ -192,6 +204,23 @@ export interface Annotation {
    */
   resolution?: AnnotationResolution;
   createdAt: string;
+}
+
+export const REVIEW_SEVERITIES = ["p0", "p1", "p2"] as const;
+export type ReviewSeverity = (typeof REVIEW_SEVERITIES)[number];
+
+/** Data needed to render and publish one agent-authored pull request comment. */
+export interface ReviewComment {
+  severity: ReviewSeverity;
+  title: string;
+  path: string;
+  line: number;
+  startLine?: number;
+  /** Quote-primary anchor for the first line of a multiline finding. */
+  startAnchor?: Anchor;
+  side: "LEFT" | "RIGHT";
+  suggestion?: string;
+  prompt?: string;
 }
 
 export interface AnnotationResolution {
