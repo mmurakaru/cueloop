@@ -3,13 +3,13 @@ layout: ../../../layouts/DocsLayout.astro
 title: Commands
 eyebrow: Docs · Reference
 lede: Open Threads, share over SSH, post pull-request reviews, and automate cueloop from scripts.
-prev: { title: "The review primitives", href: "/docs/concepts/plan-diff-review/" }
+prev: { title: "History", href: "/docs/concepts/history/" }
 next: { title: "Configuration", href: "/docs/reference/configuration/" }
 ---
 
 This page lists the available commands. For the ideas behind the review
 workflows, read
-[The review primitives](/docs/concepts/plan-diff-review/).
+[Review agent work](/docs/concepts/plan-diff-review/).
 
 ## Open a review
 
@@ -28,13 +28,13 @@ cueloop review <pr>         # pull a pull request in and review it
   address a specific one.
 - **`cueloop reply`** opens the latest pending reply review - an agent's message
   submitted for review before you act on it. It reads like a plan and uses the
-  same annotations and Messages.
+  same comments and Messages.
 - **`cueloop diff`** is dual-mode: on a dirty working tree with no argument it
   _creates_ a review from the current changes (untracked files included); with a
   selector, or on a clean tree, it opens the latest pending diff review.
 - **`cueloop prototype`** is dual-mode: with a Markdown file it _creates_ a review
   of a component design doc (its prop API, composition, and callstack) that you
-  annotate by line; with no file (or `--latest` / `--open`) it opens the latest
+  comment by line; with no file (or `--latest` / `--open`) it opens the latest
   pending prototype review. An `.html` file instead creates the opt-in experimental
   pixel mockup (`[experimental] prototype_pixels`).
 - **`cueloop review <pr>`** is dual-mode too: a bare `review` (or `--latest` /
@@ -53,7 +53,7 @@ cueloop review <pr>         # pull a pull request in and review it
 ```bash
 cueloop share [session-id]        # upload a plan, copy the ssh line
 cueloop share --fork [session-id] # fork the plan, then share the fork
-cueloop share pull [session-id]   # pull a teammate's annotations back
+cueloop share pull [session-id]   # pull a teammate's comments back
 cueloop serve [session-id]        # serve a live session over SSH yourself
 ```
 
@@ -62,13 +62,13 @@ cueloop serve [session-id]        # serve a live session over SSH yourself
   session. Flags: `--host` (default `cueloop.dev`), `--port` (default `22`),
   `--fork` to share a fork of the session so a second teammate gets their own
   copy and discussion.
-- **`cueloop share pull`** adds a teammate's annotations to your plan. Run
+- **`cueloop share pull`** adds a teammate's comments to your plan. Run
   `cueloop share` first. Only the key that shared the plan can pull it.
 - **`cueloop serve`** hosts a session from your own machine over SSH; observers
   are read-only and you stay the writable controller. Flags: `--port` (default
   `2222`, `0` picks a free port), `--host` (default `127.0.0.1`).
 
-See [Sharing over SSH](/docs/sharing/) for the whole loop.
+See [Share a Thread](/docs/sharing/) for the full workflow.
 
 ## Post to GitHub
 
@@ -136,10 +136,9 @@ cueloop share --fork [<id>]                              # fork, then share the 
 ```
 
 Navigating back does not delete later work. A fork copies the current path into
-a new Thread. See [Branches and checkpoints](/docs/concepts/history/) for the
-full behavior.
+a new Thread. See [History](/docs/concepts/history/) for the full behavior.
 
-**`cueloop refine`** writes a Markdown report of reviewer annotations from past
+**`cueloop refine`** writes a Markdown report of reviewer comments from past
 Threads. It prints JSON with the report path. Use `--limit` to change the
 default maximum of 200 Threads.
 

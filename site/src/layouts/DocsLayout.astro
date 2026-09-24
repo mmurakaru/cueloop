@@ -11,6 +11,7 @@ import DocsSidebar from "../components/DocsSidebar.tsx";
 import DocsToc from "../components/DocsToc.tsx";
 import CopyPage from "../components/CopyPage.tsx";
 import { docsNav, normalizePath } from "../nav";
+import { renderAgentMarkdownDocument } from "../agent/mdx-markdown";
 
 type Props = MarkdownLayoutProps<{
   title: string;
@@ -50,8 +51,7 @@ const keyCandidates =
     : [`../pages/docs/${rest}.mdx`, `../pages/docs/${rest}/index.mdx`];
 const sourceKey = keyCandidates.find((candidate) => candidate in rawMap);
 const rawSource = sourceKey ? String(rawMap[sourceKey]) : "";
-// Strip the frontmatter block; keep the body for copying.
-const markdown = rawSource.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "").trim();
+const markdown = renderAgentMarkdownDocument(rawSource).trim();
 const sourcePath = sourceKey ? `site/${sourceKey.replace("../", "src/")}` : "";
 const editUrl = sourcePath ? `${REPO}/edit/main/${sourcePath}` : REPO;
 const pageUrl = new URL(path, Astro.site).href;

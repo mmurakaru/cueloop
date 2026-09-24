@@ -1,16 +1,16 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: The thread
-eyebrow: Docs · Concepts
-lede: A Thread keeps the work under review, its annotations, and every revision together.
-prev: { title: "Install & quickstart", href: "/docs/install/" }
-next: { title: "Annotations", href: "/docs/concepts/annotations/" }
+title: Threads
+eyebrow: Docs · Understand cueloop
+lede: A Thread keeps the work, comments, Messages, and revisions together.
+prev: { title: "Connect coding agents", href: "/docs/agents/" }
+next: { title: "Comments", href: "/docs/concepts/comments/" }
 ---
 
 A Thread is the unit of review in cueloop. It contains:
 
 - the plan, reply, diff, prototype, or pull request you are reviewing,
-- annotations attached to exact text, and
+- comments attached to exact text, and
 - Messages sent between you and the agent.
 
 ## Revisions stay in one Thread
@@ -18,13 +18,13 @@ A Thread is the unit of review in cueloop. It contains:
 When an agent responds to feedback, cueloop adds the revision to the existing
 Thread. You do not get a new item for every round.
 
-Annotations remain attached when their quoted text still exists. If cueloop
-cannot match an annotation safely, it marks the annotation as outdated instead
+Comments remain attached when their quoted text still exists. If cueloop
+cannot match a comment safely, it marks the comment as outdated instead
 of attaching it to the wrong text.
 
 ## Thread status
 
-A pending Thread is waiting for a Message. Approve or Request changes completes
+A pending Thread is waiting for a Message. Approve or Changes completes
 that review round. Comment sends feedback while leaving the Thread open.
 
 Each Thread has an ID that starts with `ses_`. You can use the ID with any
@@ -34,6 +34,6 @@ command that accepts a Thread.
 cueloop ses_20260809210620_13hwi
 ```
 
-Read [Annotations](/docs/concepts/annotations/) next, or use
-[Branches and checkpoints](/docs/concepts/history/) when you need to explore an
+Read [Comments](/docs/concepts/comments/) next, or use
+[History](/docs/concepts/history/) when you need to explore an
 alternative without replacing the current work.

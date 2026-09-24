@@ -1,63 +1,31 @@
 # cueloop site
 
-The marketing and docs site for cueloop. A small static [Astro](https://astro.build) site
-that explains the concepts, living in the repo so the docs evolve with the code.
+The Astro site for [cueloop.dev](https://www.cueloop.dev). It contains the
+product page, documentation, public discovery API, and agent-readable files.
 
-This site is **not** part of the published `cueloop` npm package. It is a standalone folder
-with its own `package.json` and its own install. It is deliberately kept out of the Bun
-workspace at the repo root, so the root `bun install --frozen-lockfile`, `typecheck`, and
-`test` runs never touch it.
-
-## Layout
-
-```
-site/
-  astro.config.mjs      static build, MDX integration, site = www.cueloop.dev
-  tsconfig.json         extends astro/tsconfigs/strict (self-contained)
-  wrangler.toml         Cloudflare Pages config stub - NOT yet deployed
-  src/
-    concepts.ts         the concept pages, in reading order (one source of truth)
-    layouts/            BaseLayout (shell) and DocLayout (concept pages)
-    components/         Placeholder (a marked slot for future art)
-    styles/global.css   one small terminal-native stylesheet
-    pages/
-      index.astro       landing page: one-line what/why plus the core loop
-      install.mdx       install and quickstart
-      concepts/
-        thread.mdx      the core primitive
-        annotations.mdx         quote-anchored, stable ids
-        plan-diff-review.mdx    the three primitives
-        sharing-over-ssh.mdx    the design direction (terminal only)
-  public/               static assets (favicon)
-```
+The site has its own dependencies and is not part of the root Bun workspace.
 
 ## Develop
 
-From this folder:
-
 ```bash
-bun install     # installs the site's own dependencies
-bun run dev      # local dev server
-bun run build    # static build to ./dist
-bun run preview  # serve the built site
+cd site
+bun install
+bun run dev
 ```
 
-The build writes static HTML to `site/dist`.
+## Verify
 
-## Deploy (deferred - not yet live)
+```bash
+bun run test
+bun run check
+bun run build
+```
 
-The site is intended for [Cloudflare Pages](https://developers.cloudflare.com/pages/) on
-`www.cueloop.dev` (orange-cloud, proxied). The apex `cueloop.dev` is grey-cloud: the SSH
-gateway (see the "Sharing over SSH" concept page) runs there and needs raw TCP to the origin,
-which Cloudflare's HTTP proxy cannot front, so the two never collide.
+The build writes the static site and Markdown page variants to `site/dist`.
+Cloudflare Pages Functions add content negotiation and the read-only public API.
 
-`wrangler.toml` in this folder is a **stub**, present so the Pages build settings are
-discoverable and version-controlled. It is not yet wired to a Cloudflare account, and no
-deploy has run. When the account exists, the intended Pages build settings are:
+## Deploy
 
-- **Build command:** `bun run build` (or `npm run build`)
-- **Build output directory:** `dist`
-- **Root directory:** `site`
-
-Do not run a deploy from this repository until the Cloudflare account and the `www.cueloop.dev`
-hostname are set up.
+The `Deploy site` GitHub Actions workflow deploys `main` to
+`www.cueloop.dev`. Add the `deploy-preview` label to a pull request to create a
+preview deployment.
