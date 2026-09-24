@@ -205,6 +205,32 @@ describe("changesMarks", () => {
     expect(findingMark?.outdated).toBe(true);
   });
 
+  test("a PR finding does not fuzzily rebind to different text", () => {
+    const rows = diffRows(PATCH);
+    const finding: Annotation = {
+      ...fileNote(rows),
+      anchor: {
+        quote: "  private item = new Map();",
+        prefix: "export class Store {",
+        suffix: "}",
+      },
+      author: "agent",
+      reviewComment: {
+        severity: "p1",
+        title: "Finding",
+        path: "x.ts",
+        line: 2,
+        side: "RIGHT",
+      },
+    };
+    const marks = changesMarks(diffThread({ pr: "org/repo#1" }, [finding]), rows);
+    const findingMark = [...marks.values()].flat().find((mark) => mark.annotationId === finding.id);
+
+    expect(findingMark?.outdated).toBe(true);
+    expect(findingMark?.start).toBe(0);
+    expect(findingMark?.end).toBe(0);
+  });
+
   test("replies stay grouped with an outdated PR finding", () => {
     const rows = diffRows(PATCH);
     const finding: Annotation = {

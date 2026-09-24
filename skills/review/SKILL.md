@@ -13,7 +13,7 @@ Use this workflow for `/cueloop:review <pull-request>`.
    - `worktree`: create or reuse `~/.cueloop/worktrees/<owner>-<repo>/pr-<number>-<short-sha>`, fetch the head, and add it as a detached git worktree.
    - `current`: compare `git rev-parse HEAD` with `headRefOid`. Stop if they differ.
 4. Write a short review brief with the PR title, a `## TL;DR` of two to four bullets, and the original body under `## PR description`.
-5. Run the configured review skill in that workspace. The built-in default is `code-review`, vendored from [mattpocock/skills](https://github.com/mattpocock/skills/tree/c55ee46073ed923f86ce59a5eb3b6d895095d1b7/skills/engineering/code-review).
+5. Run the configured review skill in that workspace. Give it the PR base SHA as its fixed point, the PR body as its spec source, and the existing review comments as deduplication context. For the built-in `code-review` skill, this context is complete: use `gh issue view` for issue references and do not require repository-specific issue-tracker setup. The built-in skill is vendored verbatim from [mattpocock/skills](https://github.com/mattpocock/skills/tree/c55ee46073ed923f86ce59a5eb3b6d895095d1b7/skills/engineering/code-review).
 6. Create the Thread from that workspace:
    `cueloop review <pull-request> --head-sha <headRefOid> --no-tui --brief-file <brief-file>`
 7. Record each actionable finding with `cueloop review-comment <thread-id>`. Give it:

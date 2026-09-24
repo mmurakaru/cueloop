@@ -490,7 +490,10 @@ function persistTableSetting(
   const path = userConfigPathFrom(userConfigPath);
   let text = existsSync(path) ? readFileSync(path, "utf8") : "";
   const escapedTable = escapeRegExp(table);
-  const block = new RegExp(`(^\\[${escapedTable}\\]\\s*$)([\\s\\S]*?)(?=^\\[|(?![\\s\\S]))`, "m");
+  const block = new RegExp(
+    `(^\\[${escapedTable}\\][ \\t]*(?:#[^\\n]*)?$)([\\s\\S]*?)(?=^\\[|(?![\\s\\S]))`,
+    "m",
+  );
   const match = block.exec(text);
 
   if (match) {

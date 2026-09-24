@@ -100,35 +100,13 @@ async function reanchorReviewComments(
   session: Thread,
   comments: Annotation[],
 ): Promise<Annotation[]> {
-  const { diffRows, diffRowText } = await import("@cueloop/client");
+  const { diffRows, resolveReviewAnchorRow } = await import("@cueloop/client");
   const rows = diffRows(session.artifact.content);
 
   return comments.map((annotation) => {
     const finding = annotation.reviewComment!;
     const resolveLine = (anchor: Annotation["anchor"]) => {
-      const scored = rows.flatMap((row, index) => {
-        if (
-          row.file !== finding.path ||
-          diffRowText(row) !== anchor.quote ||
-          (finding.side === "RIGHT" ? row.newLine === undefined : row.oldLine === undefined)
-        )
-          return [];
-        const previous = rows[index - 1];
-        const next = rows[index + 1];
-        const prefix = previous ? diffRowText(previous).slice(-24) : "";
-        const suffix = next ? diffRowText(next).slice(0, 24) : "";
-
-        return [
-          {
-            row,
-            score: Number(prefix === anchor.prefix) + Number(suffix === anchor.suffix),
-          },
-        ];
-      });
-      const bestScore = Math.max(...scored.map((candidate) => candidate.score));
-      const best = scored.filter((candidate) => candidate.score === bestScore);
-
-      return best.length === 1 ? best[0]!.row : undefined;
+      return resolveReviewAnchorRow(rows, anchor, finding.path, finding.side)?.row;
     };
     const matched = resolveLine(annotation.anchor);
 

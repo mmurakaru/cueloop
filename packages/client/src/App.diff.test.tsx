@@ -104,6 +104,31 @@ describe("diff review", () => {
     expect(`#${refreshColor}`).toBe(DARK.warning);
   });
 
+  test("a resolved pull request review does not offer refresh", async () => {
+    const pullRequest = server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "detached" },
+      artifact: {
+        type: "diff",
+        content: PATCH,
+        meta: {
+          title: "Fix store",
+          pr: "org/repo#42",
+          prHeadSha: "head-1",
+          prRefreshHeadSha: "head-2",
+        },
+      },
+    });
+
+    server.core.sessionSendMessage(pullRequest.id, "approved", "Ready to merge.");
+    const setup = await renderReadyApp(
+      <App home={home} sessionId={pullRequest.id} layout={pullRequestReviewLayout()} />,
+      { width: 160, height: 30 },
+    );
+
+    await waitForText(setup, "new Map()");
+    expect(setup.captureCharFrame()).not.toContain("refresh");
+  });
+
   test("renders file header, hunks, and signed lines", async () => {
     // Arrange
     const setup = await renderApp();

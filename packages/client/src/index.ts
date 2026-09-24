@@ -7,7 +7,14 @@ export {
   reviewLayout,
   type LaunchLayout,
 } from "./launch-layout";
-export { diffRowAnchor, diffRows, diffRowText, fileRowRange, type DiffRow } from "./view-diff";
+export {
+  diffRowAnchor,
+  diffRows,
+  diffRowText,
+  fileRowRange,
+  resolveReviewAnchorRow,
+  type DiffRow,
+} from "./view-diff";
 export { loadConfig, type ReviewWorkspaceMode } from "./config";
 export { serveClient, type ServeHandle, type ServeOptions } from "./serve";
 export { App, type AppProps } from "./App";

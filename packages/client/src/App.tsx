@@ -1137,15 +1137,16 @@ export function App({
     setMode,
     dispatch,
   });
-  const { showOwnerActions, prototypeCanComment, chromeHidden, prototypePath } = buildRenderFlags({
-    session: activeSession,
-    isOwner,
-    isDiff,
-    isPixelPrototype,
-    resolved,
-    menuDialog,
-    resolvedIds,
-  });
+  const { showOwnerActions, showPrRefresh, prototypeCanComment, chromeHidden, prototypePath } =
+    buildRenderFlags({
+      session: activeSession,
+      isOwner,
+      isDiff,
+      isPixelPrototype,
+      resolved,
+      menuDialog,
+      resolvedIds,
+    });
 
   const onEditRequest = (): void => {
     // A share viewer/observer has no Edit affordance (the button is hidden), so
@@ -1219,7 +1220,7 @@ export function App({
                       onShare: () => dispatch({ type: "share" }),
                       theme,
                     })
-                  : activeSession.artifact.meta.prRefreshHeadSha
+                  : showPrRefresh
                     ? refreshPullRequestAction(() => void controller.refreshPullRequest(), theme)
                     : undefined
               }

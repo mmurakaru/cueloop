@@ -507,6 +507,60 @@ describe("explicit GitHub publication", () => {
     expect(postedPayloads().at(-1)!.comments[0]!.line).toBe(10);
   });
 
+  test("refuses repeated hunk-boundary quotes with no distinguishing context", async () => {
+    const session = await createReview("48");
+    const comment = await runCli(
+      home,
+      [
+        "review-comment",
+        session.id,
+        "--path",
+        "a.ts",
+        "--line",
+        "1",
+        "--side",
+        "RIGHT",
+        "--severity",
+        "p1",
+        "--title",
+        "Ambiguous boundary",
+        "--body",
+        "Do not guess which repeated line to publish.",
+      ],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(comment.code).toBe(0);
+    const client = await DaemonClient.connect({ home });
+    const repeatedDiff = [
+      "diff --git a/a.ts b/a.ts",
+      "index 0000001..0000002 100644",
+      "--- a/a.ts",
+      "+++ b/a.ts",
+      "@@ -1 +1 @@",
+      "-export const first = 1;",
+      "+export const a = 2;",
+      "@@ -10 +10 @@",
+      "-export const second = 1;",
+      "+export const a = 2;",
+      "",
+    ].join("\n");
+
+    await client.sessionSubmitRevision(session.id, repeatedDiff);
+    client.close();
+    await resolveReview(session);
+    const post = await runCli(
+      home,
+      ["review-post", session.id, "--comments", "C1"],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(post.code).toBe(1);
+    expect(post.stderr).toContain("outdated or ambiguous");
+  });
+
   for (const scenario of [
     {
       name: "lines inserted before the range",

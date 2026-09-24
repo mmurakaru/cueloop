@@ -45,6 +45,24 @@ describe("loadConfig", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("review settings update a table whose header has a comment", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-review-commented-config-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, '[review] # preferred settings\nskill = "my-review"\n');
+    try {
+      persistReviewSkill("code-review", path);
+
+      const text = readFileSync(path, "utf8");
+
+      expect(loadConfig({ userConfigPath: path }).review.skill).toBe("code-review");
+      expect(text.match(/^\[review\]/gm)).toHaveLength(1);
+      expect(text).toContain("[review] # preferred settings");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
   test("defaults when no file exists", () => {
     // Act
     const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
