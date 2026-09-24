@@ -47,6 +47,27 @@ import Example from "./Example";
 <div><code>literal</code></div>
 \`\`\``);
   });
+
+  test("removes the email-obfuscation wrapper around SSH examples", () => {
+    const markdown = renderAgentMarkdownDocument(`---
+title: Share a Thread
+---
+
+import EmailObfuscationEscape from "./EmailObfuscationEscape.astro";
+
+<EmailObfuscationEscape>
+
+\`\`\`bash
+ssh p_7f3k9x2q@cueloop.dev
+\`\`\`
+
+</EmailObfuscationEscape>
+`);
+
+    expect(markdown).toContain("ssh p_7f3k9x2q@cueloop.dev");
+    expect(markdown).not.toContain("EmailObfuscationEscape");
+    expect(markdown).not.toContain("email_off");
+  });
 });
 
 describe("markdownRouteForDocsFile", () => {

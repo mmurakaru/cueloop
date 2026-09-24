@@ -56,6 +56,7 @@ export function renderAgentMarkdownDocument(source: string): string {
           /<BenchTrend[^>]*\/>/g,
           "[View benchmark history](https://www.cueloop.dev/docs/reference/performance/)",
         )
+        .replace(/<\/?EmailObfuscationEscape>/g, "")
         .replace(/<code>([\s\S]*?)<\/code>/g, "`$1`")
         .replace(/<\/?(?:div|span)(?:\s[^>]*)?>/g, "")
         .replace(/\{" "\}/g, " ")
