@@ -113,13 +113,14 @@ export default function ThemeToggle() {
     pref === "system" ? "System theme" : pref === "light" ? "Light theme" : "Dark theme";
 
   return (
-    <Button
-      className="theme-toggle"
-      onPress={cycle}
-      aria-label={`Theme: ${label}. Click to switch.`}
-      title={label}
-    >
-      {pref === "system" ? <MonitorIcon /> : pref === "light" ? <SunIcon /> : <MoonIcon />}
-    </Button>
+    <span title={label} style={{ display: "contents" }}>
+      <Button
+        className="theme-toggle"
+        onPress={cycle}
+        aria-label={`Theme: ${label}. Click to switch.`}
+      >
+        {pref === "system" ? <MonitorIcon /> : pref === "light" ? <SunIcon /> : <MoonIcon />}
+      </Button>
+    </span>
   );
 }

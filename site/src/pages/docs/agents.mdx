@@ -1,41 +1,39 @@
 ---
 layout: ../../layouts/DocsLayout.astro
-title: Agent integration
-eyebrow: Docs · Agents
-lede: Open a Thread from your coding agent and send the result back to the same conversation.
-prev: { title: "Security & privacy", href: "/docs/sharing/security/" }
+title: Connect coding agents
+eyebrow: Docs · Use cueloop
+lede: Open a Thread from Claude Code, Codex, or pi and return the Message to the same conversation.
+prev: { title: "Share a Thread", href: "/docs/sharing/" }
+next: { title: "Threads", href: "/docs/concepts/thread/" }
 ---
 
-Install your agent integration from the
-[quickstart](/docs/install/#connect-your-coding-agent). The integration adds the
-same review workflows to Claude Code, Codex, and pi.
+Install an integration from the [quickstart](/docs/install/#connect-an-agent).
+Each integration uses the same cueloop workflows and review actions.
 
 ## Review workflows
 
-| Workflow    | Opens                                           |
-| ----------- | ----------------------------------------------- |
-| `plan`      | a plan in the Thread panel                      |
-| `reply`     | an agent response in the Thread panel           |
-| `prototype` | a component design document in the Thread panel |
-| `diff`      | working-tree changes in the Changes panel       |
-| `review`    | pull-request changes in the Changes panel       |
-| `refine`    | a report built from previous Threads            |
+| Workflow    | What opens                    |
+| ----------- | ----------------------------- |
+| `plan`      | a plan                        |
+| `reply`     | an agent response             |
+| `prototype` | a component design document   |
+| `diff`      | working-tree changes          |
+| `review`    | pull-request changes          |
+| `refine`    | a report from earlier Threads |
 
 ## Send a Message
 
 The agent waits while you review. Choose one action when you are ready:
 
-- **Comment** sends the current annotations and keeps the Thread open.
-- **Approve** sends the annotations and lets the agent continue.
-- **Request changes** sends the annotations and asks the agent for a revision.
+- **Comment** sends new comments and keeps the Thread open.
+- **Approve** sends comments and lets the agent continue.
+- **Changes** sends comments and asks the agent for a revision.
 
-Annotations stay attached to the text you marked. Replies stay grouped with
-their original annotation.
+Comments stay attached to the marked text. Replies form a comment thread.
 
 ## Work in herdr
 
-When you run an agent in herdr, cueloop can open the Thread in a herdr tab or
-panel. Configure the target in
-[Configuration](/docs/reference/configuration/).
+When an agent runs in herdr, cueloop can open the Thread in a herdr tab or
+panel. You can choose the target in [Configuration](/docs/reference/configuration/).
 
 For command-line usage, see [Commands](/docs/reference/commands/).

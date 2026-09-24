@@ -1,10 +1,10 @@
 ---
 layout: ../../layouts/DocsLayout.astro
-title: Install & quickstart
-eyebrow: Docs · Start here
-lede: Install cueloop, connect your coding agent, and open your first Thread.
+title: Install and quickstart
+eyebrow: Docs · Get started
+lede: Install cueloop, connect a coding agent, and complete one review.
 prev: { title: "Overview", href: "/docs/" }
-next: { title: "The thread", href: "/docs/concepts/thread/" }
+next: { title: "Review agent work", href: "/docs/concepts/plan-diff-review/" }
 ---
 
 import InstallTabs from "../../components/InstallTabs.tsx";
@@ -19,14 +19,12 @@ Confirm the installation:
 cueloop --version
 ```
 
-The installer adds cueloop to your `PATH`. If it cannot update your shell
-configuration, it prints the line to add yourself. See
-[Configuration](/docs/reference/configuration/) for custom install directories,
-version pins, and mirrors.
+The installer adds cueloop to your `PATH`. If it cannot update your shell, it
+prints the command you need to run.
 
-## Connect your coding agent
+## Connect an agent
 
-Install the integration for each agent you use.
+Install the integration for the agent you use.
 
 ### Claude Code
 
@@ -51,25 +49,24 @@ codex plugin marketplace add mmurakaru/cueloop && codex plugin add cueloop@cuelo
 pi install npm:@cueloop/pi
 ```
 
-## Open your first Thread
+## Complete your first review
 
-Run cueloop with no arguments to open all pending Threads:
+Ask your agent to draft a plan and open it with the `plan` workflow. cueloop
+opens a new terminal tab when your terminal integration supports it.
 
-```bash
-cueloop
-```
-
-Open a specific kind of work when you already know what you want to review:
+You can also open the latest pending plan yourself:
 
 ```bash
-cueloop plan          # latest pending plan
-cueloop diff          # current working-tree changes
-cueloop review <pr>   # pull request by number or URL
+cueloop plan
 ```
 
-Mark text, add annotations, then send a Message. Approve lets the agent
-continue. Comment sends feedback and keeps the Thread open. Request changes
-asks the agent for a revision.
+In the Thread:
+
+1. Mark text and type a comment.
+2. Choose **Comment** to send feedback and keep the Thread open.
+3. Choose **Approve** when the plan is ready, or **Changes** when it needs a revision.
+
+The agent receives your Message in the same conversation.
 
 ## Update cueloop
 
@@ -77,6 +74,5 @@ asks the agent for a revision.
 cueloop update
 ```
 
-Restart your agent after updating its integration. Continue with
-[The thread](/docs/concepts/thread/) or open the
-[command reference](/docs/reference/commands/).
+Restart your agent after updating its integration. See
+[Review agent work](/docs/concepts/plan-diff-review/) for every workflow.

@@ -1,92 +1,65 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: The review primitives
-eyebrow: Docs · Concepts
-lede: Open a plan, reply, working-tree diff, prototype, or pull request with one command.
-prev: { title: "Annotations", href: "/docs/concepts/annotations/" }
-next: { title: "Branches and checkpoints", href: "/docs/concepts/history/" }
+title: Review agent work
+eyebrow: Docs · Use cueloop
+lede: Open a plan, reply, diff, prototype, or pull request with one command.
+prev: { title: "Install and quickstart", href: "/docs/install/" }
+next: { title: "Share a Thread", href: "/docs/sharing/" }
 ---
 
-<div class="learn">
-  <div class="learn__label">You'll learn</div>
-  <ul>
-    <li>which primitive opens which artifact</li>
-    <li>
-      how <code>diff</code> creates a review from your working tree
-    </li>
-    <li>
-      how <code>review</code> posts a review back to a pull request
-    </li>
-  </ul>
-</div>
-
-The command tells cueloop what kind of work to open. Without an ID or title,
-cueloop picks the latest pending Thread of that type.
+The command selects the workflow. Without an ID or title, cueloop opens the
+latest pending Thread of that type.
 
 ```bash
-cueloop                 # open the inbox across all types
-cueloop plan            # latest pending plan review
-cueloop reply           # latest pending reply review
-cueloop diff            # latest pending diff review
-cueloop prototype       # latest pending prototype review
-cueloop review          # latest pending pull-request review
-cueloop review 42       # review PR 42 and post the result
+cueloop                 # open all pending Threads
+cueloop plan            # open a plan
+cueloop reply           # open an agent response
+cueloop diff            # review working-tree changes
+cueloop prototype       # review a component design document
+cueloop review 42       # review pull request 42
 ```
 
-## plan
+## Review a plan or reply
 
-`cueloop plan` opens the latest pending plan review. You can also address a
-specific plan by its id or by its title, which is handy when several plans are in
-flight at once.
+`cueloop plan` opens the latest pending plan. Pass a Thread ID or title when
+several plans are open.
 
-## reply
+`cueloop reply` opens the agent's previous response. Plans and replies use the
+same Thread view. You can comment on text, edit it, and send a Message.
 
-`cueloop reply` opens the latest pending reply review. A reply is the agent's
-previous message, submitted for review before you act on it. It is a markdown
-artifact, so it renders and behaves exactly like a plan: you select spans,
-comment, edit the wording directly, and send a Message back to the agent.
+## Review working-tree changes
 
-## diff
+Run `cueloop diff` in a repository with uncommitted changes. cueloop creates a
+Thread from the working tree and opens it in the Changes view.
 
-`cueloop diff` opens the latest pending diff review. With a dirty working tree and
-no argument, it does one extra thing: it creates a review from the current
-working tree instead of waiting for one to exist. So on a repo with uncommitted
-changes, `cueloop diff` is the fastest way to put your own work in front of
-yourself.
+## Review a prototype
 
-## prototype
-
-`cueloop prototype` opens the latest pending prototype review. Give it a Markdown
-file and `cueloop prototype Combobox.md` creates a review of a component design doc:
-the prop API, how it composes from existing primitives, and the callstack it fits
-into. You anchor comments to its lines, the same way a plan anchors comments to
-sentences. Reviewing a rendered pixel mockup instead is an opt-in experimental mode
-(`[experimental] prototype_pixels`).
-
-## review
-
-`cueloop review` opens the latest pending pull-request review. Give it a PR and
-`cueloop review <pr>` pulls that specific pull request in, lets you annotate it,
-and posts the review back to the pull request itself.
-
-## refine - the retrospective
-
-`cueloop refine` reads past reviews and produces a Markdown report of reviewer
-annotations. Use it to find feedback that keeps recurring. See the
-[Command reference](/docs/reference/commands/) for the flags.
-
-## The inbox and `--latest`
-
-Bare `cueloop` opens the inbox across all types. On any review command,
-`--latest` - alias `--open` - selects the latest review of that type.
+Pass a Markdown design document to `cueloop prototype`:
 
 ```bash
-cueloop plan --latest
-cueloop diff --open
+cueloop prototype Combobox.md
 ```
 
-<div class="callout">
-  <div class="callout__label">One primitive per type</div>
-  plan, reply, diff, prototype, review. Each primitive owns one artifact type, defaults to the
-  latest pending one, and takes an id or title when you need a specific one.
-</div>
+The document opens in the Thread view. Comments attach to its text.
+
+## Review a pull request
+
+Pass a pull request number or URL to `cueloop review`. Comments stay attached to
+the changed lines. Comment, Approve, or Changes posts the review to GitHub.
+
+## Review recurring feedback
+
+`cueloop refine` creates a Markdown report from comments in earlier Threads.
+Use it to find repeated feedback.
+
+## Open a specific Thread
+
+Bare `cueloop` opens all pending Threads. Pass an ID or title to most workflow
+commands to open one Thread.
+
+```bash
+cueloop plan ses_20260809210620_13hwi
+cueloop diff "Handle API errors"
+```
+
+See [Commands](/docs/reference/commands/) for all flags and automation commands.

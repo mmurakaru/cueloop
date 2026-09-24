@@ -1,24 +1,35 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: Sharing over SSH
-eyebrow: Docs · Sharing over SSH
-lede: Send one SSH command so a teammate can annotate your Thread from their terminal.
-prev: { title: "Configuration", href: "/docs/reference/configuration/" }
-next: { title: "Share a plan", href: "/docs/sharing/quickstart/" }
+title: Share a Thread
+eyebrow: Docs · Use cueloop
+lede: Send one SSH command so a teammate can comment from their terminal.
+prev: { title: "Review agent work", href: "/docs/concepts/plan-diff-review/" }
+next: { title: "Connect coding agents", href: "/docs/agents/" }
 ---
 
-Press Share in a plan review. cueloop copies a command like this:
+## Share
+
+Open a Thread and choose **Share**. cueloop copies a command:
 
 ```bash
 ssh p_7f3k9x2q@cueloop.dev
 ```
 
-Send the command to a teammate. They need an SSH client, but they do not need to
+Send the command to a teammate. They need an SSH client. They do not need to
 install cueloop or create an account.
 
-Your teammate opens the Thread, adds annotations, and sends them back. Their
-annotations appear alongside yours with author attribution. Only you can send a
-Message from the Thread to your agent.
+## Comment
 
-Continue with [Share a plan](/docs/sharing/quickstart/) for the steps on each
-side.
+Your teammate runs the command, marks text, and adds comments. On the first
+send, cueloop asks for an optional display name.
+
+Their comments appear in your Thread with their name. New comments continue to
+sync if either side reconnects.
+
+## Send the Message
+
+Only the Thread owner can send a Message to the agent. Review all comments,
+then choose Comment, Approve, or Changes.
+
+See [Security and privacy](/docs/sharing/security/) for access, encryption, and
+expiration details.

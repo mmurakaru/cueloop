@@ -2,9 +2,9 @@
 layout: ../../../layouts/DocsLayout.astro
 title: Configuration
 eyebrow: Docs · Reference
-lede: cueloop reads an optional TOML config. Every key has a default, so you set only what you want to change - keybindings, the review surface, the theme, and the Obsidian export.
+lede: Override keys, layout, theme, integrations, or storage in one optional TOML file.
 prev: { title: "Commands", href: "/docs/reference/commands/" }
-next: { title: "Keyboard & mouse", href: "/docs/reference/keyboard/" }
+next: { title: "Keyboard and mouse", href: "/docs/reference/keyboard/" }
 ---
 
 Configuration is optional. cueloop ships with sensible defaults and reads a TOML
@@ -42,8 +42,8 @@ submit = ["return", "enter"]
 | `comment`                             | `c`                   | add a comment                                           |
 | `cut`                                 | `x`                   | cut the selected span                                   |
 | `edit`                                | `e`                   | edit the body (inline for a plan, `$EDITOR` for a diff) |
-| `next_annotation` / `prev_annotation` | `n` / `p`             | move between annotations                                |
-| `delete_annotation`                   | `backspace`           | delete an annotation                                    |
+| `next_annotation` / `prev_annotation` | `n` / `p`             | move between comments                                   |
+| `delete_annotation`                   | `backspace`           | delete a comment                                        |
 | `submit`                              | `return`,`enter`      | submit the review                                       |
 | `share`                               | `S`                   | share the plan                                          |
 | `quit`                                | `q`                   | quit                                                    |
@@ -71,7 +71,7 @@ theme = "cueloop"         # a built-in theme preset (see below)
 | Key               | Type                                           | Default    | Meaning                                                                                                                                     |
 | ----------------- | ---------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `auto_close`      | `"off"` or number ≥ 0                          | `"off"`    | after sending: `"off"` prompts, `0` closes at once, `N` counts down N seconds                                                               |
-| `editor`          | string                                         | `$EDITOR`  | editor for long annotation bodies                                                                                                           |
+| `editor`          | string                                         | `$EDITOR`  | editor for long comment bodies                                                                                                              |
 | `review_width`    | number, clamped 24-50                          | `34`       | width of the expanded review panel                                                                                                          |
 | `review_state`    | `expanded` \| `compact` \| `hidden`            | `expanded` | review panel mode                                                                                                                           |
 | `diff_view`       | `split` \| `stacked`                           | `split`    | the wide Changes layout: old\|new side by side, or one stacked column. A narrow pane is always stacked. `unified` still loads as `stacked`. |

@@ -1,9 +1,3 @@
-/*
- * The docs navigation model - one source of truth for the collapsible sidebar
- * and for cross-links. Each group renders as a React Aria Disclosure; the group
- * holding the current page starts expanded.
- */
-
 export interface NavItem {
   title: string;
   href: string;
@@ -16,19 +10,26 @@ export interface NavGroup {
 
 export const docsNav: NavGroup[] = [
   {
-    title: "Start here",
+    title: "Get started",
     items: [
       { title: "Overview", href: "/docs/" },
-      { title: "Install & quickstart", href: "/docs/install/" },
+      { title: "Install and quickstart", href: "/docs/install/" },
     ],
   },
   {
-    title: "Concepts",
+    title: "Use cueloop",
     items: [
-      { title: "The thread", href: "/docs/concepts/thread/" },
-      { title: "Annotations", href: "/docs/concepts/annotations/" },
-      { title: "The review primitives", href: "/docs/concepts/plan-diff-review/" },
-      { title: "Branches and checkpoints", href: "/docs/concepts/history/" },
+      { title: "Review agent work", href: "/docs/concepts/plan-diff-review/" },
+      { title: "Share a Thread", href: "/docs/sharing/" },
+      { title: "Connect coding agents", href: "/docs/agents/" },
+    ],
+  },
+  {
+    title: "Understand cueloop",
+    items: [
+      { title: "Threads", href: "/docs/concepts/thread/" },
+      { title: "Comments", href: "/docs/concepts/comments/" },
+      { title: "History", href: "/docs/concepts/history/" },
     ],
   },
   {
@@ -36,23 +37,11 @@ export const docsNav: NavGroup[] = [
     items: [
       { title: "Commands", href: "/docs/reference/commands/" },
       { title: "Configuration", href: "/docs/reference/configuration/" },
-      { title: "Keyboard & mouse", href: "/docs/reference/keyboard/" },
+      { title: "Keyboard and mouse", href: "/docs/reference/keyboard/" },
+      { title: "Public API", href: "/docs/reference/api/" },
+      { title: "Security and privacy", href: "/docs/sharing/security/" },
       { title: "Performance", href: "/docs/reference/performance/" },
     ],
-  },
-  {
-    title: "Sharing over SSH",
-    items: [
-      { title: "Overview", href: "/docs/sharing/" },
-      { title: "Share a plan", href: "/docs/sharing/quickstart/" },
-      { title: "How sharing works", href: "/docs/sharing/how-it-works/" },
-      { title: "Identity & attribution", href: "/docs/sharing/identity/" },
-      { title: "Security & privacy", href: "/docs/sharing/security/" },
-    ],
-  },
-  {
-    title: "Agents",
-    items: [{ title: "Agent integration", href: "/docs/agents/" }],
   },
 ];
 
