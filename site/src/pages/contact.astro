@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import EmailObfuscationEscape from "../components/EmailObfuscationEscape.astro";
 ---
 
 <BaseLayout
@@ -18,11 +19,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </p>
         <h2>Support and questions</h2>
         <p>
-          Email <a href="mailto:hello@cueloop.dev">hello@cueloop.dev</a> for private support or
-          questions about the project. For reproducible bugs and feature requests, open an issue in
-          the <a href="https://github.com/mmurakaru/cueloop/issues">public issue tracker</a>. Include
-          the cueloop version, operating system, command you ran, and the smallest example that shows
-          the problem. Do not include source code, tokens, private repository URLs, or other secrets.
+          Email <EmailObfuscationEscape><a href="mailto:hello@cueloop.dev"
+            >hello@cueloop.dev</a
+          ></EmailObfuscationEscape> for private support or questions about the project. For
+          reproducible bugs and feature requests, open an issue in the <a
+            href="https://github.com/mmurakaru/cueloop/issues">public issue tracker</a
+          >. Include the cueloop version, operating system, command you ran, and the smallest example
+          that shows the problem. Do not include source code, tokens, private repository URLs, or
+          other secrets.
         </p>
         <h2>Security reports</h2>
         <p>
