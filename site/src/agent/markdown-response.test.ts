@@ -92,4 +92,17 @@ describe("serveNegotiatedDocument", () => {
     expect(response.status).toBe(406);
     expect(response.headers.get("vary")).toBe("Accept");
   });
+
+  test("rejects an oversized Accept header at the request boundary", async () => {
+    const response = await serveNegotiatedDocument(
+      new Request("https://www.cueloop.dev/docs/", {
+        headers: { Accept: "x".repeat(8_193) },
+      }),
+      responseFetcher(new Response("markdown")),
+      responseFetcher(new Response("html")),
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("vary")).toBe("Accept");
+  });
 });

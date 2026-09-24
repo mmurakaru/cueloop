@@ -1,3 +1,5 @@
+import { maxLength, pipe, safeParse, startsWith, string } from "valibot";
+
 const apiHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Cache-Control": "public, max-age=300",
@@ -44,6 +46,8 @@ const apiRoutes = {
 
 type PublicApiPath = keyof typeof apiRoutes;
 type PublicApiBody = (typeof apiRoutes)[PublicApiPath];
+
+const apiPathnameSchema = pipe(string(), startsWith("/api"), maxLength(2_048));
 
 function isPublicApiPath(pathname: string): pathname is PublicApiPath {
   return pathname in apiRoutes;
@@ -113,7 +117,19 @@ export function handleCueloopPublicApi(request: Request): Response {
     return response;
   }
 
-  const pathname = new URL(request.url).pathname.replace(/\/$/, "") || "/";
+  const parsedPathname = safeParse(apiPathnameSchema, new URL(request.url).pathname);
+
+  if (!parsedPathname.success) {
+    return apiProblem(
+      request,
+      400,
+      "Invalid API path",
+      "api_path_invalid",
+      "The API path must start with /api and be no longer than 2048 characters.",
+    );
+  }
+
+  const pathname = parsedPathname.output.replace(/\/$/, "") || "/";
 
   if (!isPublicApiPath(pathname)) {
     return apiProblem(

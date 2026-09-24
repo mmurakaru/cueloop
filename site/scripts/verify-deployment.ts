@@ -5,6 +5,8 @@ interface DeploymentCheck {
   contentType?: string;
   bodyIncludes?: string;
   varyOnAccept?: boolean;
+  redirect?: RequestRedirect;
+  location?: string;
 }
 
 const checks: DeploymentCheck[] = [
@@ -44,6 +46,18 @@ const checks: DeploymentCheck[] = [
     bodyIncludes: "# Not found",
     varyOnAccept: true,
   },
+  {
+    path: "/docs/concepts/annotations/",
+    expectedStatus: 301,
+    redirect: "manual",
+    location: "/docs/concepts/comments/",
+  },
+  {
+    path: "/docs/sharing/quickstart/",
+    expectedStatus: 301,
+    redirect: "manual",
+    location: "/docs/sharing/",
+  },
 ];
 
 function invariant(condition: boolean, message: string): asserts condition {
@@ -60,7 +74,7 @@ async function verifyResponse(
   try {
     const response = await fetch(new URL(check.path, baseUrl), {
       headers: check.accept ? { Accept: check.accept } : undefined,
-      redirect: "follow",
+      redirect: check.redirect ?? "follow",
     });
     const body = await response.text();
 
@@ -87,6 +101,12 @@ async function verifyResponse(
           ?.split(",")
           .some((value) => value.trim().toLowerCase() === "accept") === true,
         `${label}: response does not vary on Accept`,
+      );
+    }
+    if (check.location) {
+      invariant(
+        response.headers.get("location") === check.location,
+        `${label}: expected Location ${check.location}`,
       );
     }
   } catch (error) {

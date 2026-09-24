@@ -1,4 +1,5 @@
 import { negotiateDocumentContent } from "./http-content-negotiation";
+import { maxLength, nullable, pipe, safeParse, string } from "valibot";
 
 /** Fetches one asset or routed response from the Cloudflare Pages runtime. */
 export type AssetFetcher = (request: Request) => Promise<Response>;
@@ -11,6 +12,8 @@ The requested cueloop.dev page does not exist.
 - [View the sitemap](https://www.cueloop.dev/sitemap.xml)
 - [Read llms.txt](https://www.cueloop.dev/llms.txt)
 `;
+
+const acceptHeaderSchema = nullable(pipe(string(), maxLength(8_192)));
 
 function isDocumentPath(pathname: string): boolean {
   if (pathname.startsWith("/_markdown/") || pathname === "/api" || pathname.startsWith("/api/")) {
@@ -67,7 +70,16 @@ export async function serveNegotiatedDocument(
     return fetchHtml(request);
   }
 
-  const representation = negotiateDocumentContent(request.headers.get("Accept"));
+  const acceptHeader = safeParse(acceptHeaderSchema, request.headers.get("Accept"));
+
+  if (!acceptHeader.success) {
+    return new Response("The Accept header is too long.\n", {
+      status: 400,
+      headers: { "Content-Type": "text/plain; charset=utf-8", Vary: "Accept" },
+    });
+  }
+
+  const representation = negotiateDocumentContent(acceptHeader.output);
 
   if (representation === "not-acceptable") {
     return new Response("cueloop.dev pages are available as text/html or text/markdown.\n", {

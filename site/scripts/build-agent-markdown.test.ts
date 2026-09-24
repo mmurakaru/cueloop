@@ -24,6 +24,29 @@ Open a Thread.
     expect(markdown).not.toContain("import InstallTabs");
     expect(markdown).not.toContain("<InstallTabs");
   });
+
+  test("preserves fenced and inline code exactly", () => {
+    const markdown = renderAgentMarkdownDocument(`---
+title: Code examples
+lede: Copy these examples as written.
+---
+
+Use \`<code>literal</code>\` in a sentence.
+
+\`\`\`tsx
+import Example from "./Example";
+
+<div><code>literal</code></div>
+\`\`\`
+`);
+
+    expect(markdown).toContain("Use `<code>literal</code>` in a sentence.");
+    expect(markdown).toContain(`\`\`\`tsx
+import Example from "./Example";
+
+<div><code>literal</code></div>
+\`\`\``);
+  });
 });
 
 describe("markdownRouteForDocsFile", () => {

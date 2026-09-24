@@ -34,6 +34,15 @@ describe("handleCueloopPublicApi", () => {
     expect(response.headers.get("allow")).toBe("GET, HEAD, OPTIONS");
   });
 
+  test("returns a structured JSON error for an oversized API path", async () => {
+    const response = handleCueloopPublicApi(
+      new Request(`https://www.cueloop.dev/api/v1/${"x".repeat(2_048)}`),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.text()).toContain('"code":"api_path_invalid"');
+  });
+
   test("answers preflight requests without authentication", () => {
     const response = handleCueloopPublicApi(
       new Request("https://www.cueloop.dev/api/v1/product", { method: "OPTIONS" }),

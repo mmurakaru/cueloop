@@ -30,6 +30,10 @@
     "/docs/reference/keyboard/index.md",
     "/docs/reference/performance/index.md",
     "/docs/sharing/index.md",
-    "/docs/sharing/security/index.md"
+    "/docs/sharing/security/index.md",
+    "/docs/concepts/annotations/*",
+    "/docs/sharing/quickstart/*",
+    "/docs/sharing/how-it-works/*",
+    "/docs/sharing/identity/*"
   ]
 }
