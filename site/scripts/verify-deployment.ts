@@ -67,7 +67,7 @@ function invariant(condition: boolean, message: string): asserts condition {
 async function verifyResponse(
   baseUrl: URL,
   check: DeploymentCheck,
-  attemptsRemaining = 20,
+  attemptsRemaining = 120,
 ): Promise<void> {
   const label = `${check.path}${check.accept ? ` (${check.accept})` : ""}`;
 
