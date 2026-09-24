@@ -600,9 +600,11 @@ export function DiffContentView({
   const revealItem = layout.itemOfRow[surface.revealBlockIndex];
 
   useEffect(() => {
-    if (revealItem !== undefined) virtual.scrollToIndex(revealItem);
+    if (revealItem !== undefined) {
+      virtual.scrollToIndex(revealItem, surface.compose ? "end" : "auto");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surface.revealBlockIndex]);
+  }, [surface.revealBlockIndex, surface.compose]);
 
   /**
    * The visual lines of one code row painted with gutter, colors, and marks; cards collected after.
