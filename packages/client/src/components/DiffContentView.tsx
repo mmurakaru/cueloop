@@ -509,9 +509,32 @@ export function DiffContentView({
     textAt: (rowIndex) => diffRowText(rows[rowIndex]!),
     annotatable: (rowIndex) => isCodeRow(rows[rowIndex]),
   };
+  const outdatedIds = useMemo(
+    () =>
+      new Set(
+        [...marks.values()]
+          .flat()
+          .flatMap((mark) =>
+            mark.outdated && mark.annotationId !== undefined ? [mark.annotationId] : [],
+          ),
+      ),
+    [marks],
+  );
+  const displaySession = useMemo(
+    () =>
+      outdatedIds.size === 0
+        ? session
+        : {
+            ...session,
+            annotations: session.annotations.map((annotation) =>
+              outdatedIds.has(annotation.id) ? { ...annotation, orphan: true } : annotation,
+            ),
+          },
+    [outdatedIds, session],
+  );
   const surface = useAnnotationSurface({
     source,
-    session,
+    session: displaySession,
     marks,
     quickActions,
     tokens,
@@ -528,7 +551,11 @@ export function DiffContentView({
     onReply,
     onUpdateAnnotation,
     dragViewport: () => scrollBoxDragViewport(scrollRef.current),
-    resolveAuthorLabel,
+    resolveAuthorLabel: (annotation) => {
+      const label = resolveAuthorLabel?.(annotation);
+
+      return annotation.orphan ? `outdated${label ? ` - ${label}` : ""}` : label;
+    },
     onNavCommand,
     onExit,
   });
@@ -573,9 +600,11 @@ export function DiffContentView({
   const revealItem = layout.itemOfRow[surface.revealBlockIndex];
 
   useEffect(() => {
-    if (revealItem !== undefined) virtual.scrollToIndex(revealItem);
+    if (revealItem !== undefined) {
+      virtual.scrollToIndex(revealItem, surface.compose ? "end" : "auto");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surface.revealBlockIndex]);
+  }, [surface.revealBlockIndex, surface.compose]);
 
   /**
    * The visual lines of one code row painted with gutter, colors, and marks; cards collected after.

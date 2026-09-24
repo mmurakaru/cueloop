@@ -14,11 +14,11 @@ import {
 } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import type { QuickAction } from "../config";
+import { CLIENT_VERSION } from "../version";
 import { DiffContentView } from "./DiffContentView";
 import { diffRowBlocks, fileContentsRows, marksByRows } from "../view-diff";
 
 export interface WelcomePlaygroundProps {
-  version: string;
   quickActions: QuickAction[];
   /** Reports whether the playground composer is open, so the shell suspends its inbox keys while typing. */
   onComposingChange?: (composing: boolean) => void;
@@ -72,10 +72,7 @@ function playgroundThread(annotations: Annotation[]): Thread {
 
 export function WelcomePlayground(props: WelcomePlaygroundProps): React.ReactNode {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const rows = useMemo(
-    () => fileContentsRows("welcome", welcomeCopy(props.version)),
-    [props.version],
-  );
+  const rows = useMemo(() => fileContentsRows("welcome", welcomeCopy(CLIENT_VERSION)), []);
   const session = playgroundThread(annotations);
 
   return (

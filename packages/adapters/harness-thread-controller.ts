@@ -58,8 +58,17 @@ export interface ForgeReviewPort {
   importPullRequest(
     pullRequestReference: string,
     cwd?: string,
-  ): Promise<{ content: string; title?: string }>;
-  /** Must ignore a Message ID already posted to this PR. */
+  ): Promise<{
+    content: string;
+    title?: string;
+    pullRequest?: {
+      body: string;
+      url: string;
+      baseRefOid: string;
+      headRefOid: string;
+    };
+  }>;
+  /** Legacy explicit Message post-back. Never called during ordinary delivery. */
   postPullRequestMessage(
     pullRequestReference: string,
     message: Message,
@@ -147,6 +156,12 @@ export function createHarnessThreadController(
         content: imported.content,
         title: imported.title ?? `PR ${input.pullRequestReference}`,
         pr: input.pullRequestReference,
+        prBrief: imported.pullRequest
+          ? `# ${imported.title ?? `PR ${input.pullRequestReference}`}\n\n## PR description\n\n${imported.pullRequest.body}`
+          : undefined,
+        prBaseSha: imported.pullRequest?.baseRefOid,
+        prHeadSha: imported.pullRequest?.headRefOid,
+        prUrl: imported.pullRequest?.url,
         cwd,
         workspace: input.workspace,
         agent: input.harness,
@@ -269,19 +284,9 @@ export function createHarnessThreadController(
     bindingId: string,
     adapter: HarnessMessageAdapter,
   ): Promise<number> {
-    const binding = await client.harnessGetBinding(bindingId);
-    const thread = await client.sessionGet(binding.threadId);
     const pending = await client.deliveryPending(bindingId);
 
     for (const item of pending) {
-      if (thread.artifact.meta.pr) {
-        await ports.forge.postPullRequestMessage(
-          thread.artifact.meta.pr,
-          item.message,
-          thread.artifact.meta.cwd ?? thread.workspace.repoRoot,
-        );
-      }
-
       await adapter.sendMessage(item.message);
       await client.deliveryAcknowledge(item.delivery.id);
     }

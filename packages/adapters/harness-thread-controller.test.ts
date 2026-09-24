@@ -302,7 +302,7 @@ describe("createHarnessThreadController", () => {
     expect(second.thread.artifact.files?.[0]?.newContents).toBe("second");
   });
 
-  test("review imports a PR diff and posts its Message back to the forge", async () => {
+  test("review imports a PR diff but delivery never posts to the forge", async () => {
     const opened: { threadId: string; panel: string }[] = [];
     const posted: { pr: string; message: Message }[] = [];
     const controller = createHarnessThreadController(client, {
@@ -349,8 +349,8 @@ describe("createHarnessThreadController", () => {
     core.sessionSendMessage(review.thread.id, "changes_requested", "Add tests.");
     await controller.deliverPending(review.binding.id, harness);
 
-    expect(posted).toEqual([{ pr: "org/repo#42", message: received[0]! }]);
-    expect(posted[0]!.message.body).toContain("Add tests.");
+    expect(received[0]!.body).toContain("Add tests.");
+    expect(posted).toEqual([]);
   });
 
   test("refine analyzes the corpus and submits proposals as a plan Thread", async () => {

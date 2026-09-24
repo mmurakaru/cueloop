@@ -1,20 +1,18 @@
 /**
- * Polls each open PR review for new commits so the review hot-reloads when the
- * PR head advances. A remote PR has no push signal, so this checks the head sha
- * on an interval - one cheap gh call - and only asks the caller to re-pull the
- * full diff when the head actually moved. Best-effort: a missing or failing gh
- * leaves the last known head in place and never throws.
+ * Polls each open PR review for new commits. A remote PR has no push signal, so
+ * this checks its base/head pair on an interval and only exposes refresh when
+ * either side moved. Best-effort: a missing or failing gh keeps the last refs.
  */
 
-import { prHeadSha } from "./gh";
+import { prRefs, type PullRequestRefs } from "./gh";
 
-/** One cheap head-sha check per interval; the expensive full-diff pull happens only on a move. */
+/** One cheap refs check per interval; the expensive full-diff pull happens only on a move. */
 const PR_POLL_INTERVAL_MS = 30_000;
 
 interface PrPoll {
   pr: string;
-  /** Last head sha seen; null until the baseline check lands, so the first observation never fires. */
-  lastSha: string | null;
+  /** Last refs seen; null until the baseline check lands, so the first observation never fires. */
+  lastRefs: PullRequestRefs | null;
   timer: ReturnType<typeof setInterval>;
 }
 
@@ -22,41 +20,42 @@ export class PrReviewPoller {
   private readonly polls = new Map<string, PrPoll>();
 
   constructor(
-    private readonly onPrAdvance: (sessionId: string) => void,
-    private readonly headSha: (pr: string) => Promise<string | null> = prHeadSha,
+    private readonly onPrAdvance: (sessionId: string, refs: PullRequestRefs) => void,
+    private readonly refs: (pr: string) => Promise<PullRequestRefs | null> = prRefs,
     private readonly intervalMs: number = PR_POLL_INTERVAL_MS,
   ) {}
 
-  /** Start polling a PR review. Idempotent per session; the baseline check runs at once. */
-  trackPr(sessionId: string, pr: string): void {
+  /** Start polling a PR review. Idempotent per session; the persisted reviewed head is the baseline. */
+  trackPr(sessionId: string, pr: string, reviewedRefs: PullRequestRefs | null = null): void {
     if (this.polls.has(sessionId)) return;
     const timer = setInterval(() => void this.refreshHead(sessionId), this.intervalMs);
     // the poll timer must not by itself keep the daemon alive against idle-exit
     timer.unref?.();
-    this.polls.set(sessionId, { pr, lastSha: null, timer });
+    this.polls.set(sessionId, { pr, lastRefs: reviewedRefs, timer });
     void this.refreshHead(sessionId);
   }
 
-  /** Check the PR head once; fire onPrAdvance only when it moved off a known baseline. */
+  /** Check the PR refs once; fire onPrAdvance only when they moved off a known baseline. */
   async refreshHead(sessionId: string): Promise<void> {
     const poll = this.polls.get(sessionId);
 
     if (!poll) return;
-    const sha = await this.headSha(poll.pr).catch(() => null);
+    const refs = await this.refs(poll.pr).catch(() => null);
 
-    if (sha === null) return;
+    if (refs === null) return;
     // the await yields; re-read so an untrack during the call is honoured
     const current = this.polls.get(sessionId);
 
     if (!current) return;
-    if (current.lastSha === null) {
-      current.lastSha = sha;
+    if (current.lastRefs === null) {
+      current.lastRefs = refs;
 
       return;
     }
-    if (sha === current.lastSha) return;
-    current.lastSha = sha;
-    this.onPrAdvance(sessionId);
+    if (refs.baseSha === current.lastRefs.baseSha && refs.headSha === current.lastRefs.headSha)
+      return;
+    current.lastRefs = refs;
+    this.onPrAdvance(sessionId, refs);
   }
 
   untrackPr(sessionId: string): void {

@@ -45,7 +45,11 @@ The document opens in the Thread view. Comments attach to its text.
 ## Review a pull request
 
 Pass a pull request number or URL to `cueloop review`. Comments stay attached to
-the changed lines. Comment, Approve, or Changes posts the review to GitHub.
+the changed lines. Resolving the Thread stays local. Ask the agent to post when
+you are ready.
+
+`/cueloop:review` runs the review skill configured in Settings. The default is
+the vendored [code-review skill](https://github.com/mattpocock/skills/tree/c55ee46073ed923f86ce59a5eb3b6d895095d1b7/skills/engineering/code-review).
 
 ## Review recurring feedback
 

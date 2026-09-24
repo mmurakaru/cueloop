@@ -492,6 +492,29 @@ describe("marking across rows", () => {
     expect(setup.captureCharFrame()).not.toContain("# Plan");
     expect(highlightedText().length).toBeGreaterThan("daemon".length);
   });
+
+  test("opening a comment on the document's last line reveals its composer", async () => {
+    setup.renderer.destroy();
+    await mount([], 10);
+
+    for (let step = 0; step < 20; step++) {
+      setup.mockInput.pressKey("ARROW_DOWN");
+      // eslint-disable-next-line no-await-in-loop
+      await settle(setup);
+    }
+    const lastLine = locate(BULLETS[1]!);
+
+    await setup.mockMouse.drag(
+      lastLine.column,
+      lastLine.row,
+      lastLine.column + "schema.ts".length,
+      lastLine.row,
+    );
+    await settle(setup);
+    await typeText(setup, "bottom comment");
+
+    expect(setup.captureCharFrame()).toContain("● bottom comment");
+  });
 });
 
 describe("marking across blocks", () => {

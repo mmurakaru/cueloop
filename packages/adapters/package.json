@@ -18,6 +18,7 @@
     "src",
     "delivered-message-store.ts",
     "forge-review.ts",
+    "github-review-comment.ts",
     "harness-thread-controller.ts",
     "harness-bridge.ts",
     "herdr-thread-surface-port.ts",
@@ -40,6 +41,7 @@
     "./refine-corpus": "./refine-corpus.ts",
     "./delivered-message-store": "./delivered-message-store.ts",
     "./forge-review": "./forge-review.ts",
+    "./github-review-comment": "./github-review-comment.ts",
     "./wake-message": "./wake-message.ts"
   },
   "publishConfig": {

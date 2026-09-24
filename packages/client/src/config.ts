@@ -32,6 +32,14 @@ export type AutoClose = "off" | number;
  *  (unzoomed) pane has no room for two columns, so it is always stacked regardless of this choice. */
 export type DiffViewMode = "split" | "stacked";
 
+export type ReviewWorkspaceMode = "worktree" | "current";
+
+/** Agent review defaults shared by the slash workflow and Settings. */
+export interface ReviewConfig {
+  skill: string;
+  workspace: ReviewWorkspaceMode;
+}
+
 /** One marker-popover quick action: a preset comment body, plus optional extra lines. */
 export interface QuickAction {
   prompt: string;
@@ -122,6 +130,7 @@ export interface CueloopConfig {
   actions: QuickAction[];
   /** Directory of user-level skills surfaced in the "/" palette ([skills] path); ~/.agents/skills default. */
   skillsPath: string;
+  review: ReviewConfig;
   integrations: IntegrationsConfig;
   /** Opt-in experimental features ([experimental] table); all default off. */
   experimental: ExperimentalConfig;
@@ -185,6 +194,7 @@ const ConfigDocumentSchema = v.object({
   ui: v.optional(v.unknown()),
   experimental: v.optional(v.unknown()),
   skills: v.fallback(v.optional(SkillsSectionSchema), undefined),
+  review: v.optional(v.unknown()),
 });
 
 const IdentitySchema = v.object({
@@ -236,6 +246,10 @@ const ObsidianSchema = v.object({
 const IntegrationsSchema = v.object({ obsidian: v.optional(ObsidianSchema) });
 const ExperimentalSchema = v.object({
   prototype_pixels: v.fallback(v.optional(v.boolean()), undefined),
+});
+const ReviewSchema = v.object({
+  skill: v.fallback(v.optional(v.string()), undefined),
+  workspace: v.fallback(v.optional(v.picklist(["worktree", "current"])), undefined),
 });
 const ThemeOverridesSchema = v.record(v.string(), v.unknown());
 
@@ -292,6 +306,11 @@ function applyUi(ui: CueloopConfig["ui"], parsed: v.InferOutput<typeof UiSchema>
   }
 }
 
+function applyReview(review: ReviewConfig, parsed: v.InferOutput<typeof ReviewSchema>): void {
+  if (parsed.skill?.trim()) review.skill = parsed.skill.trim();
+  if (parsed.workspace !== undefined) review.workspace = parsed.workspace;
+}
+
 function layer(
   base: CueloopConfig,
   raw: v.InferOutput<typeof ConfigDocumentSchema>,
@@ -306,6 +325,7 @@ function layer(
     identity: { ...base.identity },
     actions: [...base.actions],
     skillsPath: base.skillsPath,
+    review: { ...base.review },
     integrations: { obsidian: { ...base.integrations.obsidian } },
     experimental: { ...base.experimental },
   };
@@ -316,6 +336,7 @@ function layer(
   const ui = v.safeParse(UiSchema, raw.ui);
   const integrations = v.safeParse(IntegrationsSchema, raw.integrations);
   const experimental = v.safeParse(ExperimentalSchema, raw.experimental);
+  const review = v.safeParse(ReviewSchema, raw.review);
 
   if (actions) out.actions = actions;
   out.skillsPath = skillsPathFrom(raw.skills, base.skillsPath);
@@ -346,6 +367,7 @@ function layer(
   if (experimental.success && experimental.output.prototype_pixels !== undefined) {
     out.experimental.prototypePixels = experimental.output.prototype_pixels;
   }
+  if (review.success) applyReview(out.review, review.output);
 
   return out;
 }
@@ -368,6 +390,7 @@ export function loadConfig(
     identity: { provider: "typed" },
     actions: [...DEFAULT_QUICK_ACTIONS],
     skillsPath: join(homedir(), ".agents", "skills"),
+    review: { skill: "code-review", workspace: "worktree" },
     integrations: { obsidian: { ...OBSIDIAN_DEFAULTS } },
     experimental: { prototypePixels: false },
   };
@@ -458,6 +481,36 @@ function persistUiSetting(key: string, rendered: string, userConfigPath?: string
   writeFileSync(path, text);
 }
 
+function persistTableSetting(
+  table: string,
+  key: string,
+  rendered: string,
+  userConfigPath?: string,
+): void {
+  const path = userConfigPathFrom(userConfigPath);
+  let text = existsSync(path) ? readFileSync(path, "utf8") : "";
+  const escapedTable = escapeRegExp(table);
+  const block = new RegExp(
+    `(^\\[${escapedTable}\\][ \\t]*(?:#[^\\r\\n]*)?\\r?$)([\\s\\S]*?)(?=^\\[|(?![\\s\\S]))`,
+    "m",
+  );
+  const match = block.exec(text);
+
+  if (match) {
+    const assignment = new RegExp(`^(\\s*)${escapeRegExp(key)}\\s*=.*$`, "m");
+    const body = assignment.test(match[2]!)
+      ? match[2]!.replace(assignment, `$1${key} = ${rendered}`)
+      : `\n${key} = ${rendered}${match[2]!}`;
+
+    text =
+      text.slice(0, match.index) + match[1]! + body + text.slice(match.index + match[0].length);
+  } else {
+    text = `${text.trimEnd()}${text.trim() ? "\n\n" : ""}[${table}]\n${key} = ${rendered}\n`;
+  }
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, text);
+}
+
 /** A double-quoted TOML basic string with the quote-breaking characters escaped. */
 function tomlString(value: string): string {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")}"`;
@@ -519,6 +572,19 @@ export function persistTheme(name: ThemeName, userConfigPath?: string): void {
 /** Persist the diff-view choice (`[ui] diff_view`) into the user config. */
 export function persistDiffView(mode: DiffViewMode, userConfigPath?: string): void {
   persistUiSetting("diff_view", `"${mode}"`, userConfigPath);
+}
+
+/** Persist the configured agent review skill (`[review] skill`). */
+export function persistReviewSkill(skill: string, userConfigPath?: string): void {
+  persistTableSetting("review", "skill", tomlString(skill), userConfigPath);
+}
+
+/** Persist where agent review work runs (`[review] workspace`). */
+export function persistReviewWorkspace(
+  workspace: ReviewWorkspaceMode,
+  userConfigPath?: string,
+): void {
+  persistTableSetting("review", "workspace", tomlString(workspace), userConfigPath);
 }
 
 /** Persist the pinned-thread ids (`[ui] pins`) into the user config. */

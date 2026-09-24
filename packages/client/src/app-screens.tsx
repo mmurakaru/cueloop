@@ -319,7 +319,6 @@ export function NoThreadShell(props: {
               renderTab={(tab) =>
                 tab.kind === "welcome" ? (
                   <WelcomePlayground
-                    version={CLIENT_VERSION}
                     quickActions={quickActions}
                     onComposingChange={onWelcomeComposingChange}
                     suspended={focusedPane !== "changes" || menuControl.openMenuId !== null}

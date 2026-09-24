@@ -81,6 +81,18 @@ theme = "cueloop"         # a built-in theme preset (see below)
 `review_width` and `review_state` also persist as you adjust them in the UI, so
 your last layout carries over between runs.
 
+## `[review]`
+
+```toml
+[review]
+skill = "code-review"
+workspace = "worktree" # "worktree" or "current"
+```
+
+The review skill inspects a pull request before cueloop opens the Thread.
+Worktree mode keeps the current checkout untouched. Current mode refuses to run
+unless the checkout is already at the pull request head.
+
 ## `[[actions]]`
 
 On a plan, `v` marks a span and shows the marker toolbar
@@ -145,7 +157,7 @@ panel = "#1a1a23"
 ```
 
 Tokens: `background`, `panel`, `elevated`, `border`, `text`, `textMuted`, `textDim`,
-`accent`, `accentInk`, `green`, `red`, `blue`, `cursorBackground`, `markCommentBackground`,
+`accent`, `accentInk`, `green`, `red`, `blue`, `warning`, `cursorBackground`, `markCommentBackground`,
 `insertedForeground`, `deletedForeground`, `insertedBackground`, `insertedEmphasisBackground`,
 `deletedBackground`, `deletedEmphasisBackground`, `backdrop`. The four `*Background` tokens are the
 diff's line bands and the brighter tint under a changed word. Unknown tokens are ignored.

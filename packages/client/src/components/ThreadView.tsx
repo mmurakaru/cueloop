@@ -244,9 +244,9 @@ export function ThreadView({
   });
 
   useEffect(() => {
-    virtual.scrollToIndex(surface.revealBlockIndex);
+    virtual.scrollToIndex(surface.revealBlockIndex, surface.compose ? "end" : "auto");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surface.revealBlockIndex]);
+  }, [surface.revealBlockIndex, surface.compose]);
 
   interface LineContext {
     blockIndex: number;

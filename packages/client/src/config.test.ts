@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -11,6 +11,8 @@ import {
   persistActions,
   persistLayout,
   persistPins,
+  persistReviewSkill,
+  persistReviewWorkspace,
   persistTheme,
   quickActionBody,
   resolveQuickAction,
@@ -19,6 +21,65 @@ import { DARK } from "./theme";
 import { themeForName } from "./theme-presets";
 
 describe("loadConfig", () => {
+  test("review defaults use the bundled skill in an isolated worktree", () => {
+    const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
+
+    expect(config.review).toEqual({ skill: "code-review", workspace: "worktree" });
+  });
+
+  test("review settings load and persist without changing other tables", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-review-config-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, '[ui]\ntheme = "cueloop"\n\n[review]\nskill = "my-review"\n');
+    try {
+      persistReviewSkill("code-review", path);
+      persistReviewWorkspace("current", path);
+
+      expect(loadConfig({ userConfigPath: path }).review).toEqual({
+        skill: "code-review",
+        workspace: "current",
+      });
+      expect(readFileSync(path, "utf8")).toContain('[ui]\ntheme = "cueloop"');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("review settings update a table whose header has a comment", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-review-commented-config-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, '[review] # preferred settings\nskill = "my-review"\n');
+    try {
+      persistReviewSkill("code-review", path);
+
+      const text = readFileSync(path, "utf8");
+
+      expect(loadConfig({ userConfigPath: path }).review.skill).toBe("code-review");
+      expect(text.match(/^\[review\]/gm)).toHaveLength(1);
+      expect(text).toContain("[review] # preferred settings");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("review settings update a CRLF table without duplicating it", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-review-crlf-config-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, '[review]\r\nskill = "code-review"\r\nworkspace = "worktree"\r\n');
+    try {
+      persistReviewWorkspace("current", path);
+
+      const text = readFileSync(path, "utf8");
+
+      expect(loadConfig({ userConfigPath: path }).review.workspace).toBe("current");
+      expect(text.match(/^\[review\]/gm)).toHaveLength(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
   test("defaults when no file exists", () => {
     // Act
     const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });

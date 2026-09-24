@@ -115,6 +115,7 @@ export function buildRenderFlags(params: {
 
   return {
     showOwnerActions: isOwner && !isDiff && !resolved,
+    showPullRequestRefresh: !resolved && session.artifact.meta.prRefreshHeadSha !== undefined,
     prototypeCanComment: isOwner && !resolved,
     chromeHidden: menuDialog !== null,
     prototypePath: session.artifact.meta.prototypePath ?? "",

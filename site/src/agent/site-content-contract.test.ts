@@ -23,6 +23,19 @@ test("uses Comments as the public docs term", () => {
   expect(readSiteFile("pages/docs/concepts/comments.mdx")).toContain("A comment is feedback");
 });
 
+test("keeps Cloudflare email protection out of the SSH copy surface", () => {
+  const escape = readSiteFile("components/EmailObfuscationEscape.astro");
+  const sharing = readSiteFile("pages/docs/sharing/index.mdx");
+  const contact = readSiteFile("pages/contact.astro");
+  const privacy = readSiteFile("pages/privacy.astro");
+
+  expect(escape).toBe("<!--email_off--><slot /><!--/email_off-->\n");
+  expect(sharing).toContain("<EmailObfuscationEscape>");
+  expect(sharing).toContain("ssh p_7f3k9x2q@cueloop.dev");
+  expect(contact).toContain('<EmailObfuscationEscape><a href="mailto:hello@cueloop.dev"');
+  expect(privacy).toContain('<EmailObfuscationEscape><a href="mailto:hello@cueloop.dev"');
+});
+
 test("publishes agent discovery and instruction files", () => {
   const llms = readSiteFile("../public/llms.txt");
   const robots = readSiteFile("../public/robots.txt");

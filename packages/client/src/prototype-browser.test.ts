@@ -1,5 +1,10 @@
-import { describe, expect, test } from "bun:test";
-import { closePrototypeBrowser, cssBoxToCell, imageCellToCss } from "./prototype-browser";
+import { afterEach, describe, expect, mock, test } from "bun:test";
+import {
+  closePrototypeBrowser,
+  cssBoxToCell,
+  imageCellToCss,
+  setPrototypeBrowserForTest,
+} from "./prototype-browser";
 
 const IMAGE = { x: 1, y: 1, width: 80, height: 40 };
 const VIEWPORT = { width: 1280, height: 720 };
@@ -56,9 +61,21 @@ describe("cssBoxToCell", () => {
 });
 
 describe("closePrototypeBrowser", () => {
+  afterEach(() => setPrototypeBrowserForTest(null));
+
   test("is a safe no-op when no prototype browser was ever launched", async () => {
     // the shutdown path calls this on every quit; with no warm Chromium it must not throw or load puppeteer
     await expect(closePrototypeBrowser()).resolves.toBeUndefined();
     await expect(closePrototypeBrowser()).resolves.toBeUndefined();
+  });
+
+  test("closes a warm browser once without launching Chrome", async () => {
+    const close = mock(async () => {});
+
+    setPrototypeBrowserForTest({ close });
+    await closePrototypeBrowser();
+    await closePrototypeBrowser();
+
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });

@@ -94,5 +94,5 @@ test("all six workflows open, deliver, and acknowledge through a fake harness ov
 
   expect(opened.map((item) => item.split(":").at(-1))).toEqual(cases.map(({ panel }) => panel));
   expect(received).toHaveLength(6);
-  expect(posted).toEqual([received[4]!]);
+  expect(posted).toEqual([]);
 });

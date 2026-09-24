@@ -145,6 +145,7 @@ const pageUrl = new URL(path, Astro.site).href;
       if (isMobile()) {
         shell.classList.toggle("is-nav-open");
       } else {
+        shell.classList.add("is-nav-interacting");
         const collapsed = shell.classList.toggle("is-nav-collapsed");
         writeStore(NAV_KEY, collapsed ? "collapsed" : "open");
       }

@@ -361,6 +361,8 @@ export interface Mark {
   annotationId?: string;
   /** The whole anchored stretch in display coordinates; one thread per span. */
   span?: TextSpan;
+  /** The recorded PR line remains visible, but its quote no longer resolves. */
+  outdated?: boolean;
 }
 
 /**
