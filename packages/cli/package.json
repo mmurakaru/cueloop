@@ -1,6 +1,6 @@
 {
   "name": "cueloop",
-  "version": "0.1.0-alpha.88",
+  "version": "0.1.0-alpha.89",
   "description": "Terminal review surface for coding agents: annotate plans and diffs, return a message, send structured feedback back",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -30,10 +30,10 @@
     "build:binary": "bun build --compile --minify --external cpu-features ./src/main.ts --outfile dist/cueloop"
   },
   "dependencies": {
-    "@cueloop/adapters": "0.1.0-alpha.88",
-    "@cueloop/client": "0.1.0-alpha.88",
-    "@cueloop/daemon": "0.1.0-alpha.88",
-    "@cueloop/schema": "0.1.0-alpha.88",
+    "@cueloop/adapters": "0.1.0-alpha.89",
+    "@cueloop/client": "0.1.0-alpha.89",
+    "@cueloop/daemon": "0.1.0-alpha.89",
+    "@cueloop/schema": "0.1.0-alpha.89",
     "@modelcontextprotocol/server": "2.0.0",
     "@valibot/to-json-schema": "1.4.0",
     "valibot": "^1.5.0"
