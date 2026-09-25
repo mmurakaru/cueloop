@@ -54,6 +54,38 @@ export class HarnessStateStore {
     );
   }
 
+  deleteThreadState(threadId: string): boolean {
+    const bindingIds = new Set(
+      [...this.bindings.values()]
+        .filter((binding) => binding.threadId === threadId)
+        .map((binding) => binding.id),
+    );
+
+    return this.deleteBindingsAndDeliveries(bindingIds);
+  }
+
+  deleteOrphanedThreadState(existingThreadIds: ReadonlySet<string>): string[] {
+    const orphanedBindings = [...this.bindings.values()].filter(
+      (binding) => !existingThreadIds.has(binding.threadId),
+    );
+    const orphanedThreadIds = [...new Set(orphanedBindings.map((binding) => binding.threadId))];
+
+    this.deleteBindingsAndDeliveries(new Set(orphanedBindings.map((binding) => binding.id)));
+
+    return orphanedThreadIds;
+  }
+
+  private deleteBindingsAndDeliveries(bindingIds: ReadonlySet<string>): boolean {
+    if (bindingIds.size === 0) return false;
+    for (const bindingId of bindingIds) this.bindings.delete(bindingId);
+    for (const delivery of this.deliveries.values()) {
+      if (bindingIds.has(delivery.bindingId)) this.deliveries.delete(delivery.id);
+    }
+    this.persist();
+
+    return true;
+  }
+
   consumeApprovedRetry(bindingId: string, messageId: string): boolean {
     const binding = this.bindings.get(bindingId);
 

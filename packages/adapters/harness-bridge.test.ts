@@ -79,6 +79,35 @@ describe("runHarnessBridge", () => {
     expect(second.approvedRetry).toBeFalse();
   });
 
+  test("deleted Threads leave no pending state for Codex or Claude", async () => {
+    await Promise.all(
+      (["codex", "claude-code"] as const).map(async (harness) => {
+        const harnessSessionId = `${harness}-deleted`;
+        const opened = await runHarnessBridge(
+          {
+            operation: "open",
+            harness,
+            harnessSessionId,
+            cwd: home,
+            workflow: "reply",
+            content: "# Reply\n\nHello.",
+          },
+          home,
+        );
+
+        expect(opened.operation).toBe("open");
+        if (opened.operation !== "open") throw new Error("expected an opened Thread");
+        await client.sessionDelete(opened.threadId);
+        const pending = await runHarnessBridge(
+          { operation: "pending", harness, harnessSessionId },
+          home,
+        );
+
+        expect(pending).toEqual({ operation: "pending", deliveries: [], pendingThreadIds: [] });
+      }),
+    );
+  });
+
   test("keeps a mismatched acknowledgement pending", async () => {
     const opened = await runHarnessBridge(
       {

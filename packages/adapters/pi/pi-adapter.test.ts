@@ -182,6 +182,24 @@ describe("pi Thread adapter", () => {
     await fake.fire("session_shutdown");
   });
 
+  test("deleting a Thread releases its mutation gate", async () => {
+    const fake = fakePi();
+    const opened = await open(
+      fake,
+      { workflow: "plan", content: "# Delete this Thread" },
+      "pi-delete",
+    );
+    const client = await DaemonClient.connect({ home });
+
+    expect((await fake.gate(toolCall("write"), context("pi-delete")))?.block).toBe(true);
+    await client.sessionDelete(opened.details.sessionId!);
+    await waitForGateOpen(fake, "pi-delete");
+
+    expect(await client.harnessBindingsForSession("pi", "pi-delete")).toEqual([]);
+    client.close();
+    await fake.fire("session_shutdown", "pi-delete");
+  });
+
   test("keeps the mutation gate closed and retries when native Message injection fails", async () => {
     const fake = fakePi({ failFirstMessage: true });
     const opened = await open(fake, { workflow: "plan", content: "# Retry delivery" }, "pi-retry");

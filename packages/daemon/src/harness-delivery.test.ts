@@ -66,6 +66,49 @@ describe("durable harness delivery", () => {
     expect(core().harnessBindingsForSession("pi", "pi-current")).toEqual([current]);
   });
 
+  test("Thread deletion removes pi, Codex, and Claude harness state", () => {
+    const instance = core();
+    const thread = createPlan(instance);
+    const bindings = ["pi", "codex", "claude-code"].map((harness) =>
+      instance.harnessBind({
+        threadId: thread.id,
+        harness,
+        harnessSessionId: `${harness}-session`,
+      }),
+    );
+
+    instance.sessionSendMessage(thread.id, "approved", "Ready.");
+    const deliveryId = instance.deliveryPending(bindings[0]!.id)[0]!.delivery.id;
+
+    instance.sessionDelete(thread.id);
+
+    for (const [index, harness] of ["pi", "codex", "claude-code"].entries()) {
+      expect(instance.harnessBindingsForSession(harness, `${harness}-session`)).toEqual([]);
+      expect(() => instance.harnessGetBinding(bindings[index]!.id)).toThrow("no harness binding");
+    }
+    expect(() => instance.deliveryAcknowledge(deliveryId)).toThrow("no delivery");
+  });
+
+  test("startup removes harness state orphaned by an older deletion", () => {
+    const first = core();
+    const thread = createPlan(first);
+    const binding = first.harnessBind({
+      threadId: thread.id,
+      harness: "codex",
+      harnessSessionId: "codex-orphan",
+    });
+
+    first.sessionSendMessage(thread.id, "approved", "Ready.");
+    const deliveryId = first.deliveryPending(binding.id)[0]!.delivery.id;
+
+    first.store.delete(thread.id);
+    const restarted = core();
+
+    expect(restarted.harnessBindingsForSession("codex", "codex-orphan")).toEqual([]);
+    expect(() => restarted.harnessGetBinding(binding.id)).toThrow("no harness binding");
+    expect(() => restarted.deliveryAcknowledge(deliveryId)).toThrow("no delivery");
+  });
+
   test("redelivers after reload until the harness acknowledges the Message", () => {
     const first = core();
     const thread = createPlan(first);

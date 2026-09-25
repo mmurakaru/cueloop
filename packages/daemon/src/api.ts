@@ -106,6 +106,7 @@ export interface SharedMerge {
 export type EventName =
   | "session.created"
   | "session.updated"
+  | "session.deleted"
   | "message.sent"
   | "session.revised"
   | "inbox.changed";
@@ -124,7 +125,7 @@ export class DaemonCore {
   readonly herdrThreadSurfaces: HerdrThreadSurfaceStore;
   readonly ghosttyThreadSurfaces: GhosttyThreadSurfaceStore;
   readonly harnessState: HarnessStateStore;
-  private waiters = new Map<string, ((session: Thread) => void)[]>();
+  private waiters = new Map<string, ((session: Thread | null) => void)[]>();
   private listeners = new Set<EventListener>();
   private seq = 0;
   /** Drives diff hot-reload: watches each live diff session's repo for working-tree changes. */
@@ -158,6 +159,9 @@ export class DaemonCore {
       this.herdrThreadSurfaces.delete(threadId);
       this.ghosttyThreadSurfaces.delete(threadId);
     }
+    this.harnessState.deleteOrphanedThreadState(
+      new Set(this.store.list().map((session) => session.id)),
+    );
     this.diffWatcher = new DiffWatcher((repoRoot) => void this.refreshDiffsForRepo(repoRoot));
     this.prPoller = new PrReviewPoller((sessionId, refs) =>
       this.markPrRefreshAvailable(sessionId, refs),
@@ -377,7 +381,7 @@ export class DaemonCore {
         if (waiterIndex !== -1) list.splice(waiterIndex, 1);
         resolve(null);
       }, timeoutMs);
-      const waiter = (session: Thread) => {
+      const waiter = (session: Thread | null) => {
         if (done) return;
         done = true;
         clearTimeout(timer);
@@ -656,7 +660,7 @@ export class DaemonCore {
     return session;
   }
 
-  /** Remove a session for good (inbox delete); resolved or pending, both go. */
+  /** Remove a Thread and all local state that refers to it. */
   sessionDelete(id: string): void {
     const session = this.store.get(id);
 
@@ -665,6 +669,12 @@ export class DaemonCore {
     this.diffRefreshGenerations.delete(id);
     this.herdrThreadSurfaces.delete(id);
     this.ghosttyThreadSurfaces.delete(id);
+    this.harnessState.deleteThreadState(id);
+    const parked = this.waiters.get(id) ?? [];
+
+    this.waiters.delete(id);
+    for (const parkedWaiter of parked) parkedWaiter(null);
+    this.emit("session.deleted", id);
     this.emit("inbox.changed", id);
   }
 
