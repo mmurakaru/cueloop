@@ -84,7 +84,6 @@ function reviewPublicationId(
   session: Thread,
   event: GitHubReviewEvent,
   commentIds: string[],
-  body?: string,
 ): string {
   const fingerprint = JSON.stringify({
     sessionId: session.id,
@@ -92,7 +91,6 @@ function reviewPublicationId(
     event,
     head: session.artifact.meta.prHeadSha,
     comments: commentIds.toSorted(),
-    body,
   });
 
   return `github-review:${createHash("sha256").update(fingerprint).digest("hex")}`;
@@ -463,9 +461,8 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
 
     return 2;
   }
-  const body = reviewSummary(event, textFlag(flags, "body", "body-file"));
-
   try {
+    const body = reviewSummary(event, textFlag(flags, "body", "body-file"));
     const forgePort = forge();
     const remote = await forgePort.readPullRequest(
       session.artifact.meta.prUrl,
@@ -487,7 +484,6 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
         session,
         event,
         comments.map((comment) => comment.id),
-        body,
       ),
       pullRequest: {
         number,

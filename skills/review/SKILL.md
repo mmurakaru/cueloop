@@ -22,7 +22,7 @@ Use this workflow for `/cueloop:review <pull-request>`.
    - `--title`
    - `--body` or `--body-file`
    - optional `--suggestion-file` and `--prompt-file`
-8. Open the Thread with `cueloop review-open <thread-id>`. Keep this turn open and run `cueloop session wait <thread-id> --timeout-ms 60000`, repeating while the status is pending. Read each Message and use replies to refine findings in the same Thread. Do not end the turn while waiting for a CLI-created review: it has no harness binding to wake the agent.
+8. Open the Thread with `cueloop review-open <thread-id>`. Keep this turn open and run `cueloop session wait <thread-id> --timeout-ms 60000`. After each wait, run `cueloop session get <thread-id>` and inspect `history.entries` for Message IDs you have not handled. Act on each new Message, including a `comment` Message that leaves the Thread pending. Repeat the wait while the status is pending. Use replies to refine findings in the same Thread. Do not end the turn while waiting for a CLI-created review: it has no harness binding to wake the agent.
 
 The Thread Message is an instruction to the agent. If it directs you to post findings, post the selected unresolved agent findings. If it directs you to approve or request changes, use that event. Do not ask for the same authorization again in the agent conversation. Resolving the Thread does not itself post to GitHub; the agent must run:
 

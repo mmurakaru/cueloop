@@ -305,6 +305,34 @@ describe("explicit GitHub publication", () => {
     expect(postedPayloads().at(-1)?.body).toBe(
       "The findings are worth addressing in follow-up work.",
     );
+    const publicationCount = postedPayloads().length;
+
+    writeFileSync(bodyFile, "An updated draft for the same review.\n");
+    const retry = await runCli(
+      home,
+      ["review-post", session.id, "--event", "approve", "--body-file", bodyFile],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(retry.code).toBe(0);
+    expect(postedPayloads()).toHaveLength(publicationCount);
+  });
+
+  test("reports review body flag errors without a stack trace", async () => {
+    const session = await createReview("body-errors");
+
+    await resolveReview(session);
+    for (const args of [
+      ["--body-file", join(home, "missing-review-body.md")],
+      ["--body", "Draft", "--body-file", join(home, "missing-review-body.md")],
+    ]) {
+      const result = await runCli(home, ["review-post", session.id, ...args], undefined, ghEnv());
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).not.toContain("at reviewPostCommand");
+      expect(result.stderr).not.toContain("at textFlag");
+    }
   });
 
   test("refuses unresolved Threads and failed GitHub posts", async () => {
