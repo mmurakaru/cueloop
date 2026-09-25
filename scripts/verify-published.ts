@@ -9,9 +9,10 @@
  * the breakage is loud instead of discovered by the first user.
  */
 
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { WORKFLOW_KINDS } from "@cueloop/schema";
 import * as v from "valibot";
 
 const RegistryDocSchema = v.object({
@@ -65,8 +66,21 @@ async function publishedPiLoads(
   work: string,
   piHome: string,
 ): Promise<boolean> {
+  const probePath = join(work, "pi-extension-probe.ts");
+  const toolsPath = join(work, "pi-extension-tools.json");
+
+  writeFileSync(
+    probePath,
+    `import { writeFileSync } from "node:fs";
+export default function (pi: any) {
+  pi.registerCommand("cueloop-extension-probe", {
+    handler: async () => writeFileSync(${JSON.stringify(toolsPath)}, JSON.stringify(pi.getAllTools().map((tool: any) => tool.name))),
+  });
+}
+`,
+  );
   const host = Bun.spawn(
-    [executable, "--mode", "rpc", "--offline", "--no-session", "--no-skills"],
+    [executable, "--mode", "rpc", "--offline", "--no-session", "-e", probePath],
     {
       cwd: work,
       stdin: "pipe",
@@ -88,28 +102,34 @@ async function publishedPiLoads(
     const input = host.stdin as Bun.FileSink;
 
     input.write('{"type":"get_commands"}\n');
+    input.write('{"type":"prompt","message":"/cueloop-extension-probe"}\n');
     await input.flush();
     input.end();
     const timeout = setTimeout(() => host.kill(), 15_000);
     const exitCode = await host.exited.finally(() => clearTimeout(timeout));
+    if (exitCode !== 0 || !existsSync(toolsPath)) return false;
     const output = await new Response(host.stdout).text();
+    const commandLine = output
+      .split("\n")
+      .find((line) => line.includes('"command":"get_commands"'));
+
+    if (!commandLine) return false;
+    const commands = v.parse(
+      v.object({
+        success: v.literal(true),
+        data: v.object({ commands: v.array(v.object({ name: v.string() })) }),
+      }),
+      JSON.parse(commandLine),
+    ).data.commands;
+    const commandNames = new Set(commands.map(({ name }) => name));
+    const toolNames = v.parse(v.array(v.string()), JSON.parse(readFileSync(toolsPath, "utf8")));
 
     return (
-      exitCode === 0 &&
-      output.split("\n").some((line) => {
-        if (!line.includes('"command":"get_commands"')) return false;
-        const message = v.safeParse(
-          v.object({
-            success: v.literal(true),
-            data: v.object({ commands: v.array(v.object({ name: v.string() })) }),
-          }),
-          JSON.parse(line),
-        );
-
-        return (
-          message.success && message.output.data.commands.some(({ name }) => name === "threads")
-        );
-      })
+      toolNames.includes("open_thread") &&
+      WORKFLOW_KINDS.every(
+        (workflow) =>
+          commandNames.has(`cueloop:${workflow}`) && commandNames.has(`skill:cueloop-${workflow}`),
+      )
     );
   } finally {
     host.kill();

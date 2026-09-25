@@ -48,7 +48,7 @@ function errorMessage(cause: unknown): string {
 
 export function piUnavailableMessage(cause: unknown): string {
   if (cause instanceof DaemonClientError && cause.code === "version_mismatch") {
-    return "pi update --extensions";
+    return `cueloop version mismatch: ${errorMessage(cause)}. Run \`cueloop restart\`; if it persists, update the older component with \`cueloop update\` or \`pi update npm:@cueloop/pi\`.`;
   }
 
   return `cueloop unavailable: ${errorMessage(cause)}`;
@@ -343,19 +343,17 @@ export function createCueloopExtension(options: CueloopExtensionOptions = {}) {
       await start(context);
     });
     pi.on("session_shutdown", () => stop());
+    for (const workflow of WORKFLOW_KINDS) {
+      pi.registerCommand(`cueloop:${workflow}`, {
+        description: `Run the cueloop ${workflow} workflow`,
+        handler: (args) => {
+          const argument = args.trim();
+          const request = `/skill:cueloop-${workflow}${argument ? ` ${argument}` : ""}`;
 
-    pi.registerCommand("threads", {
-      description: "Show the active cueloop Threads",
-      handler: async (_args, context) => {
-        await start(context);
-        context.ui?.notify?.(
-          pendingThreads.size
-            ? `Pending Threads: ${[...pendingThreads].join(", ")}`
-            : "No pending Threads",
-          "info",
-        );
-      },
-    });
+          pi.sendUserMessage(request, { deliverAs: "followUp", expandPromptTemplates: true });
+        },
+      });
+    }
   };
 }
 
