@@ -1,5 +1,16 @@
 # @cueloop/pi
 
+## 0.1.0-alpha.88
+
+### Minor Changes
+
+- [#516](https://github.com/mmurakaru/cueloop/pull/516) [`d75f3ce`](https://github.com/mmurakaru/cueloop/commit/d75f3ce04894638b8223462ebcbb30a88ea713e0) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Package cueloop's shared skills with the pi extension, add `/cueloop:<workflow>` commands that invoke them, and remove the pi-only `/threads` command. Show repair guidance when cueloop and pi package versions differ.
+
+### Patch Changes
+
+- Updated dependencies [[`d75f3ce`](https://github.com/mmurakaru/cueloop/commit/d75f3ce04894638b8223462ebcbb30a88ea713e0)]:
+  - @cueloop/adapters@0.1.0-alpha.88
+
 ## 0.1.0-alpha.87
 
 ### Patch Changes
