@@ -78,14 +78,28 @@ export function ProjectTreeView({
 
   if (paths === null) {
     return (
-      <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+      <box
+        style={{
+          flexGrow: 1,
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <text fg={tokens.textDim}>loading...</text>
       </box>
     );
   }
   if (paths.length === 0) {
     return (
-      <box style={{ flexGrow: 1, paddingLeft: 1, paddingTop: 1 }}>
+      <box
+        style={{
+          flexGrow: 1,
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <text fg={tokens.textDim}>empty</text>
       </box>
     );

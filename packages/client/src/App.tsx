@@ -8,7 +8,7 @@ import React, {
 } from "react";
 import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { Clock, KeyEvent } from "@opentui/core";
-import { marksByDisplay, type Mark } from "./view-plan";
+import { buildDisplay, marksByDisplay, type Mark } from "./view-plan";
 import {
   DEFAULT_KEYS,
   DEFAULT_QUICK_ACTIONS,
@@ -21,6 +21,7 @@ import {
   type DiffViewMode,
   type IdentityConfig,
   type QuickAction,
+  type ReviewWorkspaceMode,
 } from "./config";
 import { resolveDisplayName } from "./attribution";
 import { resolveGithubIdentity } from "./github-identity";
@@ -35,7 +36,7 @@ import {
 } from "./theme-presets";
 import type { Theme } from "./theme";
 import { createReviewController, type ShareTransport } from "./thread-controller";
-import type { SessionClient } from "@cueloop/daemon/client";
+import type { ThreadClient } from "@cueloop/daemon/client";
 import { createIntentDispatch, type Mode, type RailTab } from "./intent-dispatch";
 import { reduceKey, type KeyState } from "./keymap";
 import { KeyBindings, type CheatsheetSection } from "./key-bindings";
@@ -45,7 +46,7 @@ import { Button } from "./components/primitives/Button";
 import { ShareDialog } from "./components/ShareDialog";
 import { shareDialogStore } from "./components/share-dialog-store";
 import { Toolbar } from "./components/primitives/Toolbar";
-import { groupInbox, projectName, threadTitle } from "./components/session-tree";
+import { groupInbox, projectName, threadTitle } from "./components/thread-tree";
 import { ThreadTree } from "./components/ThreadTree";
 import { ChangesFileTree } from "./components/ChangesColumn";
 import { MenuControlProvider, useMenuControlState } from "./components/menu-control";
@@ -70,7 +71,7 @@ import {
 } from "./thread-chords";
 import { type DiffFoldControls } from "./components/DiffContentView";
 import { commentCountsByFile } from "./view-diff";
-import { annotationTarget, threadShareLinks } from "@cueloop/schema";
+import { annotationTarget, isAddressed, isAgentNote, threadShareLinks } from "@cueloop/schema";
 import type {
   Annotation,
   Artifact,
@@ -78,7 +79,7 @@ import type {
   Identity,
   ShareLink,
   Thread,
-  VerdictKind,
+  MessageOutcome,
 } from "@cueloop/schema";
 import { PrototypePixels } from "./prototype-pixels";
 import type { PrototypeElement } from "./prototype-browser";
@@ -121,12 +122,12 @@ export interface AppProps {
   /** Timer source for the auto-close countdown; tests inject a ManualClock. */
   clock?: Clock;
   /** Session source; the sharing gateway injects a blob-backed client. */
-  openClient?: () => Promise<SessionClient>;
+  openClient?: () => Promise<ThreadClient>;
   shareTransport?: ShareTransport;
   /**
    * Who is at the keyboard. `owner` is the local planner (default). `observer`
    * is a passive `cueloop serve` watcher (read-only). `collaborator` is a share
-   * viewer: annotates, but cannot edit the plan or submit an agent verdict.
+   * viewer: annotates, but cannot edit the plan or submit an agent message.
    */
   role?: "owner" | "observer" | "collaborator";
   /**
@@ -250,6 +251,30 @@ function ownerThreadActions(actions: {
       )}
     </Toolbar>
   );
+}
+
+function refreshPullRequestAction(onRefresh: () => void, theme: Theme): React.ReactNode {
+  return (
+    <Toolbar>
+      <Button onPress={onRefresh} foreground={theme.warning} theme={theme}>
+        {" refresh "}
+      </Button>
+    </Toolbar>
+  );
+}
+
+/** Present pull request context with the ordinary read-only Thread renderer. */
+function pullRequestBriefThread(session: Thread): Thread {
+  return {
+    ...session,
+    artifact: {
+      ...session.artifact,
+      type: "reply",
+      content: session.artifact.meta.prBrief ?? "",
+    },
+    workingCopy: undefined,
+    annotations: [],
+  };
 }
 
 /** Pick the thread pane's body: the pixel prototype, the diff placeholder, the inline editor, or the read-only view. */
@@ -581,7 +606,7 @@ export function App({
   const [autoClose, setAutoClose] = useState<AutoClose>("off");
   // unified or side-by-side diff; split only lays out when the Changes pane is zoomed
   const [diffView, setDiffView] = useState<DiffViewMode>("split");
-  const [defaultVerdict, setDefaultVerdict] = useState<VerdictKind>("approve");
+  const [defaultMessage, setDefaultMessage] = useState<MessageOutcome>("approved");
   const [focusedAnnotationId, setFocusedAnnotationId] = useState<string | undefined>(undefined);
   const [selectedCurationId, setSelectedCurationId] = useState<string | undefined>(undefined);
   const [railTab, setRailTab] = useState<RailTab>("review");
@@ -603,6 +628,12 @@ export function App({
   const [identity, setIdentity] = useState<IdentityConfig>({ provider: "typed" });
   const [quickActions, setQuickActions] = useState<QuickAction[]>(DEFAULT_QUICK_ACTIONS);
   const [skills, setSkills] = useState<SlashItem[]>([]);
+  const [reviewSkill, setReviewSkill] = useState("code-review");
+  const [reviewWorkspace, setReviewWorkspace] = useState<ReviewWorkspaceMode>("worktree");
+  const reviewSkillOptions = useMemo(
+    () => [...new Set([reviewSkill, "code-review", ...skills.map((skill) => skill.name)])],
+    [reviewSkill, skills],
+  );
   const paletteNames = useMemo(
     () => new Set(mergeSlashItems(slashItemsFrom(quickActions), skills).map((item) => item.name)),
     [quickActions, skills],
@@ -623,9 +654,11 @@ export function App({
     setIdentity(config.identity);
     setQuickActions(config.actions);
     setSkills(loadSkills(config.skillsPath));
+    setReviewSkill(config.review.skill);
+    setReviewWorkspace(config.review.workspace);
     setAutoClose(config.ui.autoClose);
     setDiffView(config.ui.diffView);
-    setDefaultVerdict(config.ui.defaultVerdict);
+    setDefaultMessage(config.ui.defaultMessage);
     setPinnedIds(new Set(config.ui.pins));
     controller.applyConfig(config);
   }, [session?.workspace.repoRoot, controller, keyBindings, appearance]);
@@ -674,7 +707,6 @@ export function App({
       const name = github.name?.trim() || github.login;
 
       applyIdentity({ name, provider: "github" });
-      controller.setStatus(`identity synced from GitHub - ${name}`);
     });
   };
 
@@ -708,6 +740,11 @@ export function App({
       setMenuDialog(null);
       setMode({ type: "renameSelf", text: identity.name ?? "" });
     },
+    reviewSkill,
+    reviewSkillOptions,
+    setReviewSkill,
+    reviewWorkspace,
+    setReviewWorkspace,
   });
 
   // ── derived view model ──────────────────────
@@ -827,7 +864,7 @@ export function App({
     inboxCursor,
     mode,
     session,
-    defaultVerdict,
+    defaultMessage,
     focusedAnnotationId,
     selectedCurationId,
     railTab,
@@ -859,10 +896,6 @@ export function App({
 
       setDiffView(next);
       persistDiffView(next);
-      // every toggle names the new mode; picking split on a narrow pane also says it needs the wide layout
-      if (next === "stacked") controller.setStatus("stacked diff");
-      else if (workbench.zoomed) controller.setStatus("split diff");
-      else controller.setStatus("split diff shows when zoomed");
     },
     openShareDialog: () => {
       if (!isOwner) return controller.setStatus("only the plan owner can share");
@@ -896,7 +929,13 @@ export function App({
   }, [session, navigablePanes, focusedPane]);
   const cyclePanes = (backward: boolean): void =>
     setFocusedPane((current) => nextFocusPane(current, navigablePanes, backward));
-  const runNavCommand = (key: { name: string; shift?: boolean }): boolean => {
+  const runNavCommand = (
+    key: { name: string; shift?: boolean },
+    selection: {
+      start: { blockIndex: number; char: number };
+      end: { blockIndex: number; char: number };
+    } | null = null,
+  ): boolean => {
     const intent = resolveNavKey(key, {
       isOwner,
       resolved,
@@ -905,7 +944,14 @@ export function App({
     });
 
     if (!intent) return false;
-    dispatch(intent);
+    if (intent.type === "cut" && selection) {
+      controller.cut(
+        selection.start.blockIndex,
+        selection.start.char,
+        selection.end.char,
+        selection.end.blockIndex,
+      );
+    } else dispatch(intent);
 
     return true;
   };
@@ -1057,12 +1103,12 @@ export function App({
     authorNames,
   );
 
-  if (isCompletionOverlayPhase(completion) && activeSession.verdict)
+  if (isCompletionOverlayPhase(completion) && activeSession.message)
     return (
       <CompletionScreen
         theme={theme}
         session={activeSession}
-        verdict={activeSession.verdict.kind}
+        message={activeSession.message.outcome}
         completion={completion}
         status={status}
         onClose={() => dispatch({ type: "finishReview" })}
@@ -1091,7 +1137,13 @@ export function App({
     setMode,
     dispatch,
   });
-  const { showOwnerActions, prototypeCanComment, chromeHidden, prototypePath } = buildRenderFlags({
+  const {
+    showOwnerActions,
+    showPullRequestRefresh,
+    prototypeCanComment,
+    chromeHidden,
+    prototypePath,
+  } = buildRenderFlags({
     session: activeSession,
     isOwner,
     isDiff,
@@ -1123,6 +1175,11 @@ export function App({
       branch={activeSession.workspace.branch}
       onSubmit={onSubmitRequest}
       canSubmit={canSubmitReview(isOwner, resolved, observer)}
+      pendingAnnotations={
+        activeSession.annotations.filter(
+          (annotation) => !isAddressed(annotation) && !isAgentNote(annotation),
+        ).length
+      }
       theme={theme}
     />
   );
@@ -1168,7 +1225,9 @@ export function App({
                       onShare: () => dispatch({ type: "share" }),
                       theme,
                     })
-                  : undefined
+                  : showPullRequestRefresh
+                    ? refreshPullRequestAction(() => void controller.refreshPullRequest(), theme)
+                    : undefined
               }
               threadPanel={
                 <box style={{ flexGrow: 1, flexDirection: "column" }}>
@@ -1186,7 +1245,25 @@ export function App({
                           hidden={chromeHidden}
                         />
                       ),
-                      diffPlaceholder: (
+                      diffPlaceholder: activeSession.artifact.meta.prBrief ? (
+                        <ThreadView
+                          session={pullRequestBriefThread(activeSession)}
+                          display={buildDisplay(activeSession.artifact.meta.prBrief)}
+                          marks={new Map()}
+                          quickActions={quickActions}
+                          suspended={threadViewSuspended}
+                          resolved
+                          observer
+                          onComposingChange={() => {}}
+                          onObserverBlocked={() => {}}
+                          onCursorChange={() => {}}
+                          onAnnotate={() => {}}
+                          onReply={() => {}}
+                          onUpdateAnnotation={() => {}}
+                          resolveAuthorLabel={() => undefined}
+                          onExit={() => onExit?.(0)}
+                        />
+                      ) : (
                         <box
                           style={{
                             flexGrow: 1,

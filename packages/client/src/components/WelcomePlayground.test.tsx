@@ -9,29 +9,31 @@ import { testRender } from "@opentui/react/test-utils";
 import React from "react";
 import { WelcomePlayground } from "./WelcomePlayground";
 import { DARK } from "../theme";
+import { CLIENT_VERSION } from "../version";
 import { dragText, typeText, pressKey, waitForText } from "../test-support";
 
 describe("WelcomePlayground", () => {
   test("the copy prompts the select-and-type and the slash gestures", async () => {
-    const setup = await testRender(
-      <WelcomePlayground version="1.2.3" quickActions={[]} theme={DARK} />,
-      { width: 80, height: 24 },
-    );
+    const setup = await testRender(<WelcomePlayground quickActions={[]} theme={DARK} />, {
+      width: 80,
+      height: 24,
+    });
 
     await waitForText(setup, "Getting started");
     const frame = setup.captureCharFrame();
 
     expect(frame).toContain("start typing to leave your first comment");
     expect(frame).toContain('type "/"');
+    expect(frame).toContain(`cueloop v${CLIENT_VERSION}`);
 
     setup.renderer.destroy();
   });
 
   test("selecting the copy and typing leaves a comment inline, exactly like a file", async () => {
-    const setup = await testRender(
-      <WelcomePlayground version="1.2.3" quickActions={[]} theme={DARK} />,
-      { width: 80, height: 24 },
-    );
+    const setup = await testRender(<WelcomePlayground quickActions={[]} theme={DARK} />, {
+      width: 80,
+      height: 24,
+    });
 
     // Act - select the practice line, type a comment, send it
     await waitForText(setup, "quick brown fox");

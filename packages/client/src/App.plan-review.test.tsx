@@ -125,7 +125,7 @@ describe("share button", () => {
 
   test("a resolved plan hides Edit and Share (no re-sharing a finished review)", async () => {
     // Arrange - resolve the session before opening it
-    server.core.sessionResolve(session.id, "approve", "");
+    server.core.sessionSendMessage(session.id, "approved", "");
 
     // Act
     const setup = await renderApp();

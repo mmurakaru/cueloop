@@ -8,6 +8,8 @@ import React from "react";
 import { DaemonServer } from "@cueloop/daemon";
 import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
+import { pullRequestReviewLayout } from "./launch-layout";
+import { DARK } from "./theme";
 import { NERD } from "./components/primitives/icons";
 import {
   clickText,
@@ -66,6 +68,67 @@ async function renderApp(sessionId = session.id) {
 }
 
 describe("diff review", () => {
+  test("pull request review shows its brief beside Changes and signals a moved head", async () => {
+    const pullRequest = server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "detached" },
+      artifact: {
+        type: "diff",
+        content: PATCH,
+        meta: {
+          title: "Fix store",
+          pr: "org/repo#42",
+          prBrief: "# Fix store\n\n## PR description\n\nUse a map.",
+          prHeadSha: "head-1",
+          prRefreshHeadSha: "head-2",
+        },
+      },
+    });
+    const setup = await renderReadyApp(
+      <App home={home} sessionId={pullRequest.id} layout={pullRequestReviewLayout()} />,
+      { width: 160, height: 30 },
+    );
+
+    await waitForText(setup, "Use a map.");
+    await waitForText(setup, "new Map()");
+    await waitForText(setup, "refresh");
+    const refreshSpan = setup
+      .captureSpans()
+      .lines.flatMap((line) => line.spans)
+      .find((span) => span.text.includes("refresh"));
+    const refreshColor = refreshSpan?.fg
+      .toInts()
+      .slice(0, 3)
+      .map((part) => part.toString(16).padStart(2, "0"))
+      .join("");
+
+    expect(`#${refreshColor}`).toBe(DARK.warning);
+  });
+
+  test("a resolved pull request review does not offer refresh", async () => {
+    const pullRequest = server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "detached" },
+      artifact: {
+        type: "diff",
+        content: PATCH,
+        meta: {
+          title: "Fix store",
+          pr: "org/repo#42",
+          prHeadSha: "head-1",
+          prRefreshHeadSha: "head-2",
+        },
+      },
+    });
+
+    server.core.sessionSendMessage(pullRequest.id, "approved", "Ready to merge.");
+    const setup = await renderReadyApp(
+      <App home={home} sessionId={pullRequest.id} layout={pullRequestReviewLayout()} />,
+      { width: 160, height: 30 },
+    );
+
+    await waitForText(setup, "new Map()");
+    expect(setup.captureCharFrame()).not.toContain("refresh");
+  });
+
   test("renders file header, hunks, and signed lines", async () => {
     // Arrange
     const setup = await renderApp();
@@ -96,17 +159,17 @@ describe("diff review", () => {
 
     // Act - submit with the session chord (cmd+enter, no composer open), cycle to request changes
     await pressKey(setup, "RETURN", { meta: true });
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
     await press(setup, "right");
-    await waitForText(setup, "[Changes]");
+    await waitForText(setup, "[changes]");
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForText(setup, "feedback sent");
     const resolved = server.core.sessionGet(session.id);
 
-    expect(resolved.verdict!.feedback).toContain("new Map()");
-    expect(resolved.verdict!.feedback).toContain("Map needs an eviction story.");
+    expect(resolved.message!.body).toContain("new Map()");
+    expect(resolved.message!.body).toContain("Map needs an eviction story.");
   });
 
   test("pasting an image into a diff comment drops in an [Image #n] placeholder", async () => {
@@ -195,10 +258,11 @@ describe("diff review", () => {
     await navCommand(setup, "x");
 
     // Assert - the single change is gone, so the curated working copy is empty
-    await waitForText(setup, "change rejected");
+    await waitForState(setup, () => server.core.sessionGet(withFiles.id).workingCopy === "");
     const stored = server.core.sessionGet(withFiles.id);
 
     expect(stored.workingCopy).toBe("");
+    expect(setup.captureCharFrame()).not.toContain("change rejected");
   });
 
   test("a diff opens with the Changes column listing every changed file", async () => {

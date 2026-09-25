@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { resolveWorkspace } from "@cueloop/daemon/review";
+import { resolveWorkspace } from "@cueloop/daemon/thread-review";
 
 /** Bump whenever the seed content below changes, so a long-lived dev home refreshes instead of keeping
  *  stale threads (an old seed's diff had no files, which showed as "No changes"). */

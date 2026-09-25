@@ -147,7 +147,7 @@ async function measureTrees(
   };
 }
 
-/** The comment body: a title that does not read as a gate, the table, and the caveats a reader needs. */
+/** The sticky benchmark comment keeps status visible while collapsing the full comparison table. */
 export function formatPrComment(comparison: Comparison, base: Tree, head: Tree): string {
   const attention = comparison.rows.filter(
     (row) => row.status === "fail" || row.status === "missing-head",
@@ -160,17 +160,15 @@ export function formatPrComment(comparison: Comparison, base: Tree, head: Tree):
       ? `## Benchmarks: ${attention.length} row${attention.length === 1 ? "" : "s"} worth a look`
       : "## Benchmarks: no material change";
   const table = formatComparisonMarkdown(comparison, {
-    title,
+    title: `<summary>View ${comparison.rows.length} benchmark row${comparison.rows.length === 1 ? "" : "s"}</summary>`,
     subtitle: `merge base \`${base.sha.slice(0, 7)}\` vs head \`${head.sha.slice(0, 7)}\`, source only, compared on the sampler median; informational, never blocks a merge.`,
   });
-  const notes = [
-    baseMissing
-      ? "The merge base predates the benchmark suite, so there is nothing to compare against yet."
-      : null,
-    `Rows marked \`fail\` exceed the release gate's thresholds (timings +15% and +${formatMetricValue(GATE_FLOOR_MS, "ms")}, memory +20% and +8.0 MiB) on a shared runner; rerun before trusting a single sample.`,
-  ].filter((note) => note !== null);
+  const baselineNotice = baseMissing
+    ? "The merge base predates the benchmark suite, so there is nothing to compare against yet."
+    : null;
+  const caveat = `Rows marked \`fail\` exceed the release gate's thresholds (timings +15% and +${formatMetricValue(GATE_FLOOR_MS, "ms")}, memory +20% and +8.0 MiB) on a shared runner; rerun before trusting a single sample.`;
 
-  return `${PR_COMMENT_MARKER}\n${table}\n${notes.map((note) => `${note}\n`).join("\n")}`;
+  return `${PR_COMMENT_MARKER}\n${title}\n\n${baselineNotice ? `${baselineNotice}\n\n` : ""}<details>\n${table}\n${caveat}\n\n</details>\n`;
 }
 
 if (import.meta.main) {

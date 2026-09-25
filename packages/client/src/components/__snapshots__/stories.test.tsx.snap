@@ -151,7 +151,7 @@ exports[`stories catalog Surfaces/BareWorkbenchFileView/Loaded renders, snapshot
 `;
 
 exports[`stories catalog Chrome/Breadcrumb/SessionHeader renders, snapshots, and carries its colors: Chrome/Breadcrumb/SessionHeader 1`] = `
-" cueloop · Migration Plan · rev 2 · resolved: approve                           
+" cueloop · Migration Plan · rev 2 · resolved: approved                          
                                                                                 
                                                                                 
                                                                                 
@@ -185,7 +185,7 @@ exports[`stories catalog Surfaces/ChangesColumn/Changed renders, snapshots, and 
 │      components                                          
 │        ChangesColumn.tsx  A                              
 │    daemon/src                                            
-│      review.ts            D                              
+│      thread-review.ts     D                              
 │  README.md                M                              
 │                                                           
 │                                                           
@@ -363,13 +363,13 @@ exports[`stories catalog Overlays/CompletionOverlay/FeedbackCounting renders, sn
 `;
 
 exports[`stories catalog Cards/ConfirmCard/ApproveDefault renders, snapshots, and carries its colors: Cards/ConfirmCard/ApproveDefault 1`] = `
-"┌────────────────────────────────┐      
-│   Comment  [Approve]  Changes  │      
-│                                │      
-│  summary for the agent (       │      
-│                                │      
-│  send    cancel                │      
-└────────────────────────────────┘      
+"┌────────────────────────────────────┐  
+│    [comment] [approve] [changes]   │  
+│                                    │  
+│  summary for the agent (optional)  │  
+│                                    │  
+│  send    cancel                    │  
+└────────────────────────────────────┘  
                                         
                                         
                                         
@@ -381,13 +381,13 @@ exports[`stories catalog Cards/ConfirmCard/ApproveDefault renders, snapshots, an
 `;
 
 exports[`stories catalog Cards/ConfirmCard/RequestChanges renders, snapshots, and carries its colors: Cards/ConfirmCard/RequestChanges 1`] = `
-"┌────────────────────────────────┐      
-│   Comment   Approve  [Changes] │      
-│                                │      
-│  Tighten the steps.            │      
-│                                │      
-│  send    cancel                │      
-└────────────────────────────────┘      
+"┌────────────────────────────────────┐  
+│    [comment] [approve] [changes]   │  
+│                                    │  
+│  Tighten the steps.                │  
+│                                    │  
+│  send    cancel                    │  
+└────────────────────────────────────┘  
                                         
                                         
                                         
@@ -399,15 +399,15 @@ exports[`stories catalog Cards/ConfirmCard/RequestChanges renders, snapshots, an
 `;
 
 exports[`stories catalog Cards/ConfirmCard/WithViewedSummary renders, snapshots, and carries its colors: Cards/ConfirmCard/WithViewedSummary 1`] = `
-"┌────────────────────────────────┐      
-│ 2/3 files viewed               │      
-│                                │      
-│   Comment  [Approve]  Changes  │      
-│                                │      
-│  summary for the agent (       │      
-│                                │      
-│  send    cancel                │      
-└────────────────────────────────┘      
+"┌────────────────────────────────────┐  
+│ 2/3 files viewed                   │  
+│                                    │  
+│    [comment] [approve] [changes]   │  
+│                                    │  
+│  summary for the agent (optional)  │  
+│                                    │  
+│  send    cancel                    │  
+└────────────────────────────────────┘  
                                         
                                         
                                         
@@ -689,7 +689,7 @@ exports[`stories catalog Overlays/KeybindsDialog/Cheatsheet renders, snapshots, 
          │ enter       submit                               │         
          │                                                  │         
          │ Submit                                           │         
-         │ ← / →       verdict                              │         
+         │ ← / →       message                              │         
          │ esc         cancel                               │         
          │                                                  │         
          │                                            [esc] │         
@@ -1270,13 +1270,13 @@ exports[`stories catalog Chrome/SlashComposer/WithDraft renders, snapshots, and 
 
 exports[`stories catalog Chrome/ThreadFooter/Default renders, snapshots, and carries its colors: Chrome/ThreadFooter/Default 1`] = `
 "────────────────────────────────────────────────────────────────────────────────
-  cueloop / main                                                  send message 
+  cueloop / main                                              Send message (0) 
 "
 `;
 
 exports[`stories catalog Chrome/ThreadFooter/ReadOnly renders, snapshots, and carries its colors: Chrome/ThreadFooter/ReadOnly 1`] = `
 "────────────────────────────────────────────────────────────────────────────────
-  cueloop / design/tui                                            send message 
+  cueloop / design/tui                                        Send message (0) 
 "
 `;
 

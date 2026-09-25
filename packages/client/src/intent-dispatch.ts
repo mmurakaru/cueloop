@@ -8,14 +8,13 @@
  */
 
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { isAddressed, type Thread, type VerdictKind } from "@cueloop/schema";
+import { isAddressed, MESSAGE_OUTCOMES, type Thread, type MessageOutcome } from "@cueloop/schema";
 import { displayText, spanKey, startSpan, type DisplayBlock, type SpanState } from "./view-plan";
 import type { DiffRow } from "./view-diff";
 import type { ReviewController } from "./thread-controller";
 import type { Intent } from "./keymap";
 import type { TreeRow } from "./tree-view";
 import { quickActionBody, type QuickAction } from "./config";
-import { VERDICTS } from "./components/ConfirmCard";
 
 /** Which pane of the session tree / review the keyboard grammar is aimed at. */
 export type RailTab = "review" | "tree";
@@ -34,7 +33,7 @@ export type Mode =
       text: string;
     }
   | { type: "railEdit"; id: string; text: string }
-  | { type: "submit"; verdict: VerdictKind; summary: string }
+  | { type: "submit"; message: MessageOutcome; summary: string }
   | { type: "confirmDelete"; sessionId: string; title: string }
   | { type: "rename"; authorId: string; text: string }
   | { type: "renameThread"; sessionId: string; text: string }
@@ -68,7 +67,7 @@ export interface IntentDispatchDeps {
   inboxCursor: number;
   mode: Mode;
   session: Thread | null;
-  defaultVerdict: VerdictKind;
+  defaultMessage: MessageOutcome;
   focusedAnnotationId: string | undefined;
   /** The curation item selected for undo, if any. */
   selectedCurationId: string | undefined;
@@ -256,11 +255,10 @@ function handleSpanKey(intent: IntentOfType<"spanKey">, deps: IntentDispatchDeps
 }
 
 function handleSpanCut(_intent: IntentOfType<"spanCut">, deps: IntentDispatchDeps): void {
-  // the block the span sits in, cut whole (partial-span cut is not modeled)
   const { mode } = deps;
 
   if (mode.type === "span") {
-    deps.controller.cut(mode.span.displayIndex);
+    deps.controller.cut(mode.span.displayIndex, mode.span.start, mode.span.end);
     deps.setMode({ type: "normal" });
   }
 }
@@ -368,7 +366,7 @@ function handleOpenSubmit(_intent: IntentOfType<"openSubmit">, deps: IntentDispa
 
   if (!session) return;
   deps.liveInput.current = "";
-  deps.setMode({ type: "submit", verdict: deps.defaultVerdict, summary: "" });
+  deps.setMode({ type: "submit", message: deps.defaultMessage, summary: "" });
 }
 
 // share opens the share dialog; it owns its own keys, links list, and publish wizard
@@ -524,24 +522,25 @@ function handleSaveCompose(_intent: IntentOfType<"saveCompose">, deps: IntentDis
   deps.setMode({ type: "normal" });
 }
 
-function handleSubmitVerdict(
-  _intent: IntentOfType<"submitVerdict">,
+function handleSubmitMessage(
+  _intent: IntentOfType<"submitMessage">,
   deps: IntentDispatchDeps,
 ): void {
   const { mode } = deps;
 
-  if (mode.type === "submit") deps.controller.submit(mode.verdict, deps.liveInput.current);
+  if (mode.type === "submit") deps.controller.submit(mode.message, deps.liveInput.current);
   deps.setMode({ type: "normal" });
 }
 
-function handleCycleVerdict(intent: IntentOfType<"cycleVerdict">, deps: IntentDispatchDeps): void {
+function handleCycleMessage(intent: IntentOfType<"cycleMessage">, deps: IntentDispatchDeps): void {
   const { mode } = deps;
 
   if (mode.type !== "submit") return;
-  const verdictIndex =
-    (VERDICTS.indexOf(mode.verdict) + intent.direction + VERDICTS.length) % VERDICTS.length;
+  const messageIndex =
+    (MESSAGE_OUTCOMES.indexOf(mode.message) + intent.direction + MESSAGE_OUTCOMES.length) %
+    MESSAGE_OUTCOMES.length;
 
-  deps.setMode({ ...mode, verdict: VERDICTS[verdictIndex]! });
+  deps.setMode({ ...mode, message: MESSAGE_OUTCOMES[messageIndex]! });
 }
 
 function handleFinishReview(_intent: IntentOfType<"finishReview">, deps: IntentDispatchDeps): void {
@@ -664,8 +663,8 @@ const intentHandlers: IntentHandlers = {
   deselect: handleDeselect,
   closeOverlay: handleCloseOverlay,
   saveCompose: handleSaveCompose,
-  submitVerdict: handleSubmitVerdict,
-  cycleVerdict: handleCycleVerdict,
+  submitMessage: handleSubmitMessage,
+  cycleMessage: handleCycleMessage,
   finishReview: handleFinishReview,
   optInAutoClose: handleOptInAutoClose,
   dismissCompletion: handleDismissCompletion,

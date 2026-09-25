@@ -24,7 +24,7 @@ import { splitDiffRows, type SplitLine, type SplitRow } from "../split-diff";
 import { UNDERLINE, type AnnotationPalette } from "../annotation-palette";
 import { lineMarkRanges, runsFor, wrapLines, type MarkRange } from "../mark-runs";
 import { useFrameMeasure } from "../use-frame-measure";
-import { useTerminalVirtualizer } from "../use-terminal-virtualizer";
+import { scrollBoxDragViewport, useTerminalVirtualizer } from "../use-terminal-virtualizer";
 import { useAnnotationSurface, type LineSource } from "../use-annotation-surface";
 import { NavModeHint } from "./NavModeHint";
 import { DiscussionMarkerRail } from "./DiscussionMarkerRail";
@@ -79,7 +79,7 @@ export interface DiffContentViewProps {
   observer: boolean;
   /** Whether comments can be drafted here; false for a non-diff thread's view-only live diff. */
   commentsEnabled?: boolean;
-  /** A verdict is in: no draft may open; the app answers with its read-only status. */
+  /** A message is in: no draft may open; the app answers with its read-only status. */
   resolved?: boolean;
   /** True while a menu, dialog, or overlay owns the keyboard. */
   suspended?: boolean;
@@ -98,7 +98,7 @@ export interface DiffContentViewProps {
   onUpdateAnnotation: (id: string, body: string) => void;
   /** The author's display name for a comment's hover tooltip. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
-  onNavCommand?: (key: KeyEvent) => boolean;
+  onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;
   onExit: () => void;
   /** Row indices the owner rejected during curation; drawn struck through. */
   rejectedRows?: Set<number>;
@@ -509,9 +509,32 @@ export function DiffContentView({
     textAt: (rowIndex) => diffRowText(rows[rowIndex]!),
     annotatable: (rowIndex) => isCodeRow(rows[rowIndex]),
   };
+  const outdatedIds = useMemo(
+    () =>
+      new Set(
+        [...marks.values()]
+          .flat()
+          .flatMap((mark) =>
+            mark.outdated && mark.annotationId !== undefined ? [mark.annotationId] : [],
+          ),
+      ),
+    [marks],
+  );
+  const displaySession = useMemo(
+    () =>
+      outdatedIds.size === 0
+        ? session
+        : {
+            ...session,
+            annotations: session.annotations.map((annotation) =>
+              outdatedIds.has(annotation.id) ? { ...annotation, orphan: true } : annotation,
+            ),
+          },
+    [outdatedIds, session],
+  );
   const surface = useAnnotationSurface({
     source,
-    session,
+    session: displaySession,
     marks,
     quickActions,
     tokens,
@@ -527,7 +550,12 @@ export function DiffContentView({
     onAnnotate,
     onReply,
     onUpdateAnnotation,
-    resolveAuthorLabel,
+    dragViewport: () => scrollBoxDragViewport(scrollRef.current),
+    resolveAuthorLabel: (annotation) => {
+      const label = resolveAuthorLabel?.(annotation);
+
+      return annotation.orphan ? `outdated${label ? ` - ${label}` : ""}` : label;
+    },
     onNavCommand,
     onExit,
   });
@@ -572,9 +600,11 @@ export function DiffContentView({
   const revealItem = layout.itemOfRow[surface.revealBlockIndex];
 
   useEffect(() => {
-    if (revealItem !== undefined) virtual.scrollToIndex(revealItem);
+    if (revealItem !== undefined) {
+      virtual.scrollToIndex(revealItem, surface.compose ? "end" : "auto");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surface.revealBlockIndex]);
+  }, [surface.revealBlockIndex, surface.compose]);
 
   /**
    * The visual lines of one code row painted with gutter, colors, and marks; cards collected after.

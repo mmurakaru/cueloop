@@ -12,7 +12,7 @@ function threadFixture(overrides: Partial<Thread> = {}): Thread {
       { revision: 1, content: "# Plan\n\nShip it.\n", submittedAt: "2026-01-01T00:00:00.000Z" },
     ],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,

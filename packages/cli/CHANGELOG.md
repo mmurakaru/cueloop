@@ -1,5 +1,126 @@
 # cueloop
 
+## 0.1.0-alpha.86
+
+### Minor Changes
+
+- [#511](https://github.com/mmurakaru/cueloop/pull/511) [`5881bb2`](https://github.com/mmurakaru/cueloop/commit/5881bb28f35b0eba32495b625e233ff0615d73e4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add an agent-driven pull-request review workflow with configurable skills and workspaces, line-anchored findings, explicit GitHub publishing, PR refresh state, and self-hosted severity badges.
+
+  Keep the welcome screen version tied to the published client package.
+
+### Patch Changes
+
+- Updated dependencies [[`5881bb2`](https://github.com/mmurakaru/cueloop/commit/5881bb28f35b0eba32495b625e233ff0615d73e4)]:
+  - @cueloop/schema@0.1.0-alpha.86
+  - @cueloop/daemon@0.1.0-alpha.86
+  - @cueloop/adapters@0.1.0-alpha.86
+  - @cueloop/client@0.1.0-alpha.86
+
+## 0.1.0-alpha.85
+
+### Minor Changes
+
+- [#508](https://github.com/mmurakaru/cueloop/pull/508) [`e86e4de`](https://github.com/mmurakaru/cueloop/commit/e86e4de84b175b73e252240e6d814eb7f2d4fbad) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Publish agent-readable website resources and a read-only discovery API.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.85
+  - @cueloop/client@0.1.0-alpha.85
+  - @cueloop/daemon@0.1.0-alpha.85
+  - @cueloop/schema@0.1.0-alpha.85
+
+## 0.1.0-alpha.84
+
+### Minor Changes
+
+- [#505](https://github.com/mmurakaru/cueloop/pull/505) [`b5f43e5`](https://github.com/mmurakaru/cueloop/commit/b5f43e5adaa95275420e474281c122826ad91acb) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add non-resolving Comment messages and exact character Cut/restore behavior.
+
+  Keep held marks moving at viewport edges, preserve their visual column across
+  vertical keyboard movement, center empty project panels, and remove success
+  toasts from edit actions. Point pi version mismatches at its extension update
+  command and streamline the installation, harness, Thread, and sharing docs.
+
+### Patch Changes
+
+- Updated dependencies [[`b5f43e5`](https://github.com/mmurakaru/cueloop/commit/b5f43e5adaa95275420e474281c122826ad91acb), [`fe05241`](https://github.com/mmurakaru/cueloop/commit/fe05241a69753e7b32e01d406779435d1e8a95c3)]:
+  - @cueloop/schema@0.1.0-alpha.84
+  - @cueloop/client@0.1.0-alpha.84
+  - @cueloop/daemon@0.1.0-alpha.84
+  - @cueloop/adapters@0.1.0-alpha.84
+
+## 0.1.0-alpha.83
+
+### Patch Changes
+
+- [#501](https://github.com/mmurakaru/cueloop/pull/501) [`c36e1fb`](https://github.com/mmurakaru/cueloop/commit/c36e1fbe5eea7f9f3f5f0bc444cf2d39e2d1ec57) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep ordinary Claude Code tools available when the Mod or cueloop bridge is unavailable, and remove the unconditional command hook that blocked every tool call.
+  Keep a live daemon running when an installed adapter uses a different cueloop version.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.83
+  - @cueloop/client@0.1.0-alpha.83
+  - @cueloop/daemon@0.1.0-alpha.83
+  - @cueloop/schema@0.1.0-alpha.83
+
+## 0.1.0-alpha.82
+
+### Patch Changes
+
+- [#498](https://github.com/mmurakaru/cueloop/pull/498) [`078b3ab`](https://github.com/mmurakaru/cueloop/commit/078b3abb0fe5e77f79e3c87c5d3f07a6be9ddd22) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Reduce standalone CLI startup time by minifying its binary.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.82
+  - @cueloop/client@0.1.0-alpha.82
+  - @cueloop/daemon@0.1.0-alpha.82
+  - @cueloop/schema@0.1.0-alpha.82
+
+## 0.1.0-alpha.81
+
+### Minor Changes
+
+- [#493](https://github.com/mmurakaru/cueloop/pull/493) [`6211a3e`](https://github.com/mmurakaru/cueloop/commit/6211a3eca3cea3f33fea24d3018fe0ca1f31f761) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Use a Claude Mod on Claude Code 2.1.278 or newer for native Thread gating and Message injection. Move shared workflow operations behind the cueloop harness bridge and remove the legacy review hook, private inbox, and detached Claude waiter. A guard blocks tools when the Mod is unavailable.
+
+- [#494](https://github.com/mmurakaru/cueloop/pull/494) [`755ec8d`](https://github.com/mmurakaru/cueloop/commit/755ec8dea8947da599de16a35e211be2c9533f27) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Ship a portable Codex plugin with shared Thread workflows, native session binding, and durable Message delivery through the long-lived MCP process.
+
+- [#491](https://github.com/mmurakaru/cueloop/pull/491) [`915df76`](https://github.com/mmurakaru/cueloop/commit/915df76f5d8b2736f9f864d0897f69884ddb108e) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Open pending Threads in Ghostty tabs, right-hand panes, or windows through its
+  macOS AppleScript API. Reuse live terminals, reopen closed ones, and fall back to
+  the manual command when automation fails.
+
+- [#489](https://github.com/mmurakaru/cueloop/pull/489) [`bb458ce`](https://github.com/mmurakaru/cueloop/commit/bb458ce72b5308067371555587bca26ebc23ee80) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Open pending Threads in a focused Herdr tab or a 50 percent right-hand pane,
+  selected through personal config. Reuse live surfaces, reopen closed ones, and
+  return a manual open command when terminal automation fails.
+
+### Patch Changes
+
+- Updated dependencies [[`6211a3e`](https://github.com/mmurakaru/cueloop/commit/6211a3eca3cea3f33fea24d3018fe0ca1f31f761), [`755ec8d`](https://github.com/mmurakaru/cueloop/commit/755ec8dea8947da599de16a35e211be2c9533f27), [`5b0a8ec`](https://github.com/mmurakaru/cueloop/commit/5b0a8ecb3a0ee730e54853525c6b8ff0a66770fa)]:
+  - @cueloop/adapters@0.1.0-alpha.81
+  - @cueloop/daemon@0.1.0-alpha.81
+  - @cueloop/client@0.1.0-alpha.81
+  - @cueloop/schema@0.1.0-alpha.81
+
+## 0.1.0-alpha.80
+
+### Minor Changes
+
+- [#487](https://github.com/mmurakaru/cueloop/pull/487) [`bdf6d30`](https://github.com/mmurakaru/cueloop/commit/bdf6d303f03cbedb02d50dea84a95105a9758c26) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add one shared Thread workflow contract for plan, reply, prototype, diff, review,
+  and refine. Review imports and posts PR Messages through a shared forge port;
+  refine shares corpus analysis with the CLI. Shared skills leave native message
+  delivery to each harness adapter.
+
+- [#487](https://github.com/mmurakaru/cueloop/pull/487) [`bdf6d30`](https://github.com/mmurakaru/cueloop/commit/bdf6d303f03cbedb02d50dea84a95105a9758c26) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add durable harness bindings and Message delivery for Threads. The daemon and
+  CLI now send stable-ID Messages with `approved` or `changes_requested` outcomes,
+  and harness adapters can redeliver safely until native injection is acknowledged.
+  An unchanged approved plan has one persisted retry, and adapter Message IDs are
+  journaled across reloads.
+  The TUI uses `Send message (n)`, and active code and commands use Thread and
+  Message names without the pre-alpha decision aliases.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.80
+  - @cueloop/client@0.1.0-alpha.80
+  - @cueloop/daemon@0.1.0-alpha.80
+  - @cueloop/schema@0.1.0-alpha.80
+
 ## 0.1.0-alpha.79
 
 ### Minor Changes

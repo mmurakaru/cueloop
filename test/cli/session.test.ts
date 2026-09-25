@@ -17,7 +17,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonClient } from "@cueloop/daemon/client";
-import type { Thread } from "@cueloop/schema";
+import type { HarnessBinding, PendingDelivery, Thread } from "@cueloop/schema";
 import { cliJson, runCli } from "../helpers/cli";
 
 const PLAN = "# Plan\n\n## Steps\n\nDo the migration in two phases.\n";
@@ -108,7 +108,41 @@ describe("cueloop session (black box)", () => {
     expect(cliJson<{ status: string }>(waited)).toEqual({ status: "pending" });
   });
 
-  test("annotate + resolve from separate processes; wait collects the verdict", async () => {
+  test("bind, deliver, and acknowledge a Message across CLI processes", async () => {
+    const created = cliJson<Thread>(
+      await runCli(home, ["session", "create", "--type", "plan", "--agent", "fake"], PLAN),
+    );
+    const binding = cliJson<HarnessBinding>(
+      await runCli(home, [
+        "session",
+        "bind-harness",
+        created.id,
+        "--harness",
+        "fake",
+        "--harness-session-id",
+        "fake_1",
+      ]),
+    );
+
+    expect(binding.threadId).toBe(created.id);
+    expect(
+      (await runCli(home, ["session", "send-message", created.id, "--outcome", "approved"])).code,
+    ).toBe(0);
+    const pending = cliJson<PendingDelivery[]>(
+      await runCli(home, ["session", "pending-deliveries", binding.id]),
+    );
+
+    expect(pending).toHaveLength(1);
+    expect(pending[0]!.message.outcome).toBe("approved");
+    expect(
+      (await runCli(home, ["session", "acknowledge-delivery", pending[0]!.delivery.id])).code,
+    ).toBe(0);
+    expect(
+      cliJson<PendingDelivery[]>(await runCli(home, ["session", "pending-deliveries", binding.id])),
+    ).toEqual([]);
+  });
+
+  test("annotate + resolve from separate processes; wait collects the message", async () => {
     // Act
     const annotated = await runCli(home, [
       "session",
@@ -130,10 +164,10 @@ describe("cueloop session (black box)", () => {
     // Act
     const resolved = await runCli(home, [
       "session",
-      "resolve",
+      "send-message",
       sessionId,
-      "--verdict",
-      "request_changes",
+      "--outcome",
+      "changes_requested",
       "--summary",
       "Phase names please.",
     ]);
@@ -142,15 +176,18 @@ describe("cueloop session (black box)", () => {
     expect(resolved.code).toBe(0);
 
     // Act
-    const verdict = cliJson<{ status: string; allow: boolean; feedback: string }>(
-      await runCli(home, ["session", "wait", sessionId, "--timeout-ms", "1000"]),
-    );
+    const message = cliJson<{
+      status: string;
+      allow: boolean;
+      message: { body: string; outcome: string; id: string };
+    }>(await runCli(home, ["session", "wait", sessionId, "--timeout-ms", "1000"]));
 
     // Assert
-    expect(verdict.status).toBe("resolved");
-    expect(verdict.allow).toBe(false);
-    expect(verdict.feedback).toContain("Name the phases.");
-    expect(verdict.feedback).toContain("> two phases");
+    expect(message.status).toBe("resolved");
+    expect(message.allow).toBe(false);
+    expect(message.message.outcome).toBe("changes_requested");
+    expect(message.message.body).toContain("Name the phases.");
+    expect(message.message.body).toContain("> two phases");
   });
 
   test("revision reopens through the CLI", async () => {
@@ -204,7 +241,12 @@ describe("cueloop session (black box)", () => {
       home,
       ["session", "create", "--type", "plan", "--title", "Auto Open", "--cwd", home],
       PLAN,
-      { HERDR_ENV: "1", HERDR_PANE_ID: "w1:p1", HERDR_BIN_PATH: binPath },
+      {
+        HERDR_ENV: "1",
+        HERDR_PANE_ID: "w1:p1",
+        HERDR_WORKSPACE_ID: "w1",
+        HERDR_BIN_PATH: binPath,
+      },
     );
 
     // Assert
@@ -213,11 +255,161 @@ describe("cueloop session (black box)", () => {
     const lines = readFileSync(logPath, "utf8").split("\n").filter(Boolean);
 
     expect(lines).toEqual([
-      `tab create --cwd ${home} --label Auto Open --focus`,
+      `tab create --workspace w1 --cwd ${home} --label Auto Open --focus`,
       `pane send-text w1:p2 cueloop ${session.id}`,
       "pane send-keys w1:p2 enter",
     ]);
   });
+
+  test("personal pane setting opens a 50 percent right-hand Herdr pane", async () => {
+    const configPath = join(home, "herdr-pane.toml");
+    const logPath = join(home, "herdr-pane-cli.log");
+    const binPath = join(home, "herdr-pane-cli.sh");
+
+    writeFileSync(configPath, '[integrations.herdr]\nthread_surface = "pane"\n');
+    writeFileSync(
+      binPath,
+      `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logPath}"\nif [ "$1" = "pane" ] && [ "$2" = "split" ]; then\n  printf '{"result":{"pane":{"pane_id":"w1:p3"}}}'\nfi\n`,
+    );
+    chmodSync(binPath, 0o755);
+
+    const created = await runCli(
+      home,
+      ["session", "create", "--type", "plan", "--title", "Pane Open", "--cwd", home],
+      PLAN,
+      {
+        HERDR_ENV: "1",
+        HERDR_PANE_ID: "w1:p1",
+        HERDR_TAB_ID: "w1:t1",
+        HERDR_BIN_PATH: binPath,
+        CUELOOP_CONFIG: configPath,
+      },
+    );
+
+    expect(created.code).toBe(0);
+    const session = cliJson<Thread>(created);
+
+    expect(readFileSync(logPath, "utf8").split("\n").filter(Boolean)).toEqual([
+      `pane split w1:p1 --direction right --ratio 0.5 --cwd ${home} --focus`,
+      `pane send-text w1:p3 cueloop ${session.id}`,
+      "pane send-keys w1:p3 enter",
+    ]);
+    expect(session.status).toBe("pending");
+    const client = await DaemonClient.connect({ home });
+
+    try {
+      expect(await client.herdrGetThreadSurface(session.id)).toEqual({
+        mode: "pane",
+        tabId: "w1:t1",
+        paneId: "w1:p3",
+      });
+    } finally {
+      client.close();
+    }
+  });
+
+  test("failed Herdr launch returns a manual command and keeps the Thread pending", async () => {
+    const created = await runCli(
+      home,
+      ["session", "create", "--type", "plan", "--title", "Manual Open"],
+      PLAN,
+      {
+        HERDR_ENV: "1",
+        HERDR_PANE_ID: "w1:p1",
+        HERDR_BIN_PATH: join(home, "missing-herdr"),
+        CUELOOP_CONFIG: join(home, "missing-config.toml"),
+      },
+    );
+
+    expect(created.code).toBe(0);
+    const session = cliJson<Thread>(created);
+
+    expect(created.stderr).toContain(`Open cueloop threads: cueloop ${session.id}`);
+    expect(session.status).toBe("pending");
+  });
+
+  test("Ghostty terminal identity survives a daemon socket round trip", async () => {
+    const created = await runCli(
+      home,
+      ["session", "create", "--type", "plan", "--title", "Ghostty Handle"],
+      PLAN,
+    );
+    const session = cliJson<Thread>(created);
+    const client = await DaemonClient.connect({ home });
+
+    try {
+      expect(await client.ghosttyGetThreadSurface(session.id)).toBeNull();
+      expect(await client.ghosttyClaimThreadSurface(session.id)).toBe(true);
+      expect(await client.ghosttyClaimThreadSurface(session.id)).toBe(false);
+      await client.ghosttySetThreadSurface(session.id, { terminalId: "term-1" });
+      await client.ghosttyReleaseThreadSurface(session.id);
+      expect(await client.ghosttyGetThreadSurface(session.id)).toEqual({ terminalId: "term-1" });
+    } finally {
+      client.close();
+    }
+  });
+
+  test.skipIf(process.platform !== "darwin")(
+    "a Ghostty-backed CLI creation opens the pending Thread and stores its native handle",
+    async () => {
+      const binDir = join(home, "ghostty-bin");
+      const scriptPath = join(binDir, "osascript");
+      const logPath = join(binDir, "opens.log");
+
+      mkdirSync(binDir, { recursive: true });
+      writeFileSync(join(binDir, "cueloop"), "#!/bin/sh\nexit 0\n");
+      chmodSync(join(binDir, "cueloop"), 0o755);
+      writeFileSync(
+        scriptPath,
+        `#!/bin/sh
+if [ "$2" = 'tell application "Ghostty" to get version' ]; then
+  printf '1.3.1\\n'
+  exit 0
+fi
+printf '%s|%s|%s\\n' "$3" "$4" "$5" >> "${logPath}"
+if [ "$GHOSTTY_STUB_FAIL" = "1" ]; then exit 1; fi
+printf 'term-1\\n'
+`,
+      );
+      chmodSync(scriptPath, 0o755);
+      const env = {
+        TERM_PROGRAM: "ghostty",
+        GHOSTTY_RESOURCES_DIR: "/Applications/Ghostty.app",
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+      };
+      const created = await runCli(
+        home,
+        ["session", "create", "--type", "plan", "--title", "Ghostty Open"],
+        PLAN,
+        env,
+      );
+      const session = cliJson<Thread>(created);
+      const client = await DaemonClient.connect({ home });
+
+      try {
+        expect(created.code).toBe(0);
+        expect(created.stderr).not.toContain("Open cueloop threads:");
+        expect(session.status).toBe("pending");
+        expect(await client.ghosttyGetThreadSurface(session.id)).toEqual({ terminalId: "term-1" });
+        expect(readFileSync(logPath, "utf8")).toContain(`tab|`);
+
+        const failed = await runCli(
+          home,
+          ["session", "create", "--type", "plan", "--title", "Ghostty Fallback"],
+          PLAN,
+          { ...env, GHOSTTY_STUB_FAIL: "1" },
+        );
+        const failedThread = cliJson<Thread>(failed);
+
+        expect(failed.code).toBe(0);
+        expect(failed.stderr).toContain(`Open cueloop threads: cueloop ${failedThread.id}`);
+        expect(failedThread.status).toBe("pending");
+        expect(await client.ghosttyGetThreadSurface(failedThread.id)).toBeNull();
+      } finally {
+        client.close();
+      }
+    },
+  );
 
   test("create outside herdr opens no tab", async () => {
     // Arrange
@@ -661,17 +853,17 @@ describe("cueloop session (black box)", () => {
     // Act - the same agent tries to resolve (owner-only)
     const resolved = await runCli(home, [
       "session",
-      "resolve",
+      "send-message",
       capped.id,
       "--role",
       "agent",
-      "--verdict",
-      "approve",
+      "--outcome",
+      "approved",
     ]);
 
     // Assert - the daemon refuses the escalation
     expect(resolved.code).not.toBe(0);
-    expect(resolved.stderr).toContain("cannot call session.resolve");
+    expect(resolved.stderr).toContain("cannot call session.sendMessage");
   });
 
   test("help output and unknown primitives", async () => {

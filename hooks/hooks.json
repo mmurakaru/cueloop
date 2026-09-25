@@ -1,16 +1,4 @@
 {
-  "hooks": {
-    "PermissionRequest": [
-      {
-        "matcher": "ExitPlanMode",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bun run ${CLAUDE_PLUGIN_ROOT}/packages/adapters/claude-code/hook.ts",
-            "timeout": 600
-          }
-        ]
-      }
-    ]
-  }
+  "description": "cueloop Claude Mod lifecycle and Message delivery",
+  "modules": ["./register.ts"]
 }

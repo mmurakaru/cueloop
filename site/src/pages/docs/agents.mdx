@@ -1,76 +1,39 @@
 ---
 layout: ../../layouts/DocsLayout.astro
-title: Agent integration
-eyebrow: Docs · Agents
-lede: cueloop sits between what your coding agent proposes and what it does. The plan gate opens a review and blocks the agent on your decision, then hands your feedback back in the agent's own format. herdr reports agent state and can open the pane for you.
-prev: { title: "Security & privacy", href: "/docs/sharing/security/" }
+title: Connect coding agents
+eyebrow: Docs · Use cueloop
+lede: Open a Thread from Claude Code, Codex, or pi and return the Message to the same conversation.
+prev: { title: "Share a Thread", href: "/docs/sharing/" }
+next: { title: "Threads", href: "/docs/concepts/thread/" }
 ---
 
-<div class="learn">
-  <div class="learn__label">You'll learn</div>
-  <ul>
-    <li>how the plan gate blocks an agent on your decision</li>
-    <li>the three decisions, and which one lets the agent build</li>
-    <li>how your feedback reaches the agent in its own format</li>
-  </ul>
-</div>
+Install an integration from the [quickstart](/docs/install/#connect-an-agent).
+Each integration uses the same cueloop workflows and review actions.
 
-The point of cueloop is the gate between what an agent proposes and what it does.
-This page covers the local agent loop - the review that happens on your own
-machine, before any sharing.
+## Review workflows
 
-## The plan gate
+| Workflow    | What opens                    |
+| ----------- | ----------------------------- |
+| `plan`      | a plan                        |
+| `reply`     | an agent response             |
+| `prototype` | a component design document   |
+| `diff`      | working-tree changes          |
+| `review`    | pull-request changes          |
+| `refine`    | a report from earlier Threads |
 
-For Claude Code and Codex, cueloop installs a plan gate. When the agent produces
-a plan, the gate opens a review and blocks the agent on your decision. The agent
-does not start to build until you respond. You read the plan, annotate the exact
-lines that need work, and send one of three decisions:
+## Send a Message
 
-```text
-comment           # leave feedback; the agent does not proceed
-approve           # the agent proceeds as planned
-request changes   # the agent revises against your annotations
-```
+The agent waits while you review. Choose one action when you are ready:
 
-Only `approve` lets the agent build. Both `comment` and `request changes` keep it
-from proceeding as planned.
+- **Comment** sends new comments and keeps the Thread open.
+- **Approve** sends comments and lets the agent continue.
+- **Changes** sends comments and asks the agent for a revision.
 
-The gate delivers your decision back to the agent in that agent's own format, so
-the agent reads it the same way it reads any other tool result. Your annotations
-become structured feedback the agent can act on line by line, not a wall of prose
-it has to parse.
+Comments stay attached to the marked text. Replies form a comment thread.
 
-## Feedback in the agent's format
+## Work in herdr
 
-Different agents expect different shapes. cueloop translates your review into the
-format each agent understands, so a request-changes decision reads naturally to
-Claude Code and to Codex alike. You annotate once, in one UI, and cueloop does
-the shaping.
+When an agent runs in herdr, cueloop can open the Thread in a herdr tab or
+panel. You can choose the target in [Configuration](/docs/reference/configuration/).
 
-## herdr integration
-
-If you run [herdr](https://github.com/herdr), cueloop reports agent state to it -
-whether an agent is waiting on a plan review, building, or idle. herdr can then
-auto-open a cueloop pane when an agent reaches the gate, so a pending review
-surfaces the moment it exists instead of waiting for you to check.
-
-## The two directions, again
-
-This page is about the direction that reaches the agent: your review, your
-decision, back to the agent. The other direction - sharing a plan with a teammate
-over SSH and merging their annotations into yours - is a separate loop. See
-[Sharing over SSH](/docs/sharing/) for that. A collaborator's notes never reach
-the agent on their own; only your decision does.
-
-## Where to go next
-
-- Revisit [The thread](/docs/concepts/thread/) - the primitive
-  every gate is built on.
-- Look up the exact commands and flags in the
-  [Command reference](/docs/reference/commands/).
-- Read [Sharing over SSH](/docs/sharing/) for the other direction of feedback.
-
-<div class="callout">
-  <div class="callout__label">Blocking by design</div>
-  The plan gate blocks the agent on your decision. It builds only when you approve.
-</div>
+For command-line usage, see [Commands](/docs/reference/commands/).

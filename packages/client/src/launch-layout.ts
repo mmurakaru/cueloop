@@ -14,9 +14,14 @@ export interface LaunchLayout {
   zoomChanges: boolean;
 }
 
-/** `cueloop diff` / `cueloop review`: the diff front and center. */
+/** `cueloop diff`: the diff front and center. */
 export function reviewLayout(): LaunchLayout {
   return { threads: true, rightSidebar: "changes", zoomChanges: true };
+}
+
+/** `cueloop review <pr>`: PR context beside the Changes panel. */
+export function pullRequestReviewLayout(): LaunchLayout {
+  return { threads: true, rightSidebar: "changes", zoomChanges: false };
 }
 
 /** `cueloop plan` / `cueloop reply`: the thread pane fills the middle; no Changes panel. */

@@ -6,7 +6,7 @@ import {
   type Annotation,
   type Thread,
 } from "@cueloop/schema";
-import type { SessionClient } from "@cueloop/daemon/client";
+import type { ThreadClient } from "@cueloop/daemon/client";
 import { pullSession, shareSession, type PullDeps, type ShareDeps } from "./share-command";
 
 function sessionFixture(id: string, overrides: Partial<Thread> = {}): Thread {
@@ -17,7 +17,7 @@ function sessionFixture(id: string, overrides: Partial<Thread> = {}): Thread {
     artifact: { type: "plan", content: "# Plan\n", meta: {} },
     revisions: [{ revision: 1, content: "# Plan\n", submittedAt: "2026-01-01T00:00:00.000Z" }],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
@@ -39,8 +39,8 @@ function annotationFixture(id: string, author?: string): Annotation {
 const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
-/** A SessionClient that answers get/list from a fixed list and records the share/merge primitives. */
-function fakeClient(sessions: Thread[]): SessionClient {
+/** A ThreadClient that answers get/list from a fixed list and records the share/merge primitives. */
+function fakeClient(sessions: Thread[]): ThreadClient {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
@@ -96,7 +96,7 @@ function fakeClient(sessions: Thread[]): SessionClient {
     ),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),
-    sessionResolve: unimplemented("sessionResolve"),
+    sessionSendMessage: unimplemented("sessionSendMessage"),
     close: () => {},
   };
 }

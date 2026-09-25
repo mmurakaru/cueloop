@@ -31,6 +31,9 @@
     "@cueloop/adapters": [
       "@cueloop/schema",
       "@cueloop/daemon"
+    ],
+    "@cueloop/pi": [
+      "@cueloop/adapters"
     ]
   },
   "moduleImportBudget": 20,

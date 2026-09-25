@@ -1,12 +1,10 @@
-/** herdr tier-1 tests: HERDR_BIN_PATH points at a stub that logs its argv (the env contract is the seam), and the hook flow drives runHook against an in-process DaemonServer. Outside herdr (HERDR_ENV unset) the contract is total silence. */
-
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DaemonServer } from "@cueloop/daemon";
 import { DaemonClient } from "@cueloop/daemon/client";
-import { runHook } from "./claude-code/hook";
+import { runHarnessBridge } from "./harness-bridge";
 import { reportLabel, reportState } from "./herdr";
 
 let dir: string;
@@ -115,19 +113,20 @@ describe("report helpers", () => {
   });
 });
 
-function hookEvent(sessionId: string, plan: string) {
+function openRequest(sessionId: string, plan: string) {
   return {
-    hook_event_name: "PreToolUse",
-    session_id: sessionId,
+    operation: "open" as const,
+    harness: "claude-code" as const,
+    harnessSessionId: sessionId,
     cwd: home,
-    tool_name: "ExitPlanMode",
-    tool_input: { plan },
+    workflow: "plan" as const,
+    content: plan,
   };
 }
 
 async function resolvePending(
   marker: string,
-  kind: "approve" | "request_changes",
+  kind: "approved" | "changes_requested",
   summary: string,
 ): Promise<void> {
   const client = await DaemonClient.connect({ home });
@@ -138,7 +137,7 @@ async function resolvePending(
       const match = pending.find((candidate) => candidate.artifact.content.includes(marker));
 
       if (match) {
-        await client.sessionResolve(match.id, kind, summary);
+        await client.sessionSendMessage(match.id, kind, summary);
 
         return;
       }
@@ -150,21 +149,21 @@ async function resolvePending(
   }
 }
 
-describe("hook flow inside herdr", () => {
+describe("harness bridge inside herdr", () => {
   test("reports blocked on submit, then working when the approved plan is presented again", async () => {
     // Arrange
-    const stub = makeStub("verdict");
+    const stub = makeStub("message");
 
     setHookEnv({ HERDR_ENV: "1", HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath });
-    const event = hookEvent("herdr-hook-1", "# Rollout Plan\n\nShip it slowly.\n");
-    const noWake = () => {};
+    const request = openRequest("herdr-hook-1", "# Rollout Plan\n\nShip it slowly.\n");
 
     // Act - first pass: opens the review + tab, reports blocked, denies immediately
-    const first = await runHook(event, { home, armWake: noWake });
+    const first = await runHarnessBridge(request, home);
 
     // Assert
-    expect(first.allow).toBeFalse();
-    expect(first.reason).toContain("opened for human review");
+    expect(first.operation).toBe("open");
+    if (first.operation !== "open") throw new Error("expected an opened Thread");
+    expect(first.approvedRetry).toBeFalse();
     const before = await waitForLines(stub.logPath, 5);
     const paneLines = before.filter(
       (line) => line.startsWith("tab ") || line.startsWith("pane send-"),
@@ -181,12 +180,31 @@ describe("hook flow inside herdr", () => {
     ]);
 
     // Act - the reviewer approves, then the agent presents the same plan again
-    await resolvePending("Rollout Plan", "approve", "Looks right.");
-    const second = await runHook(event, { home, armWake: noWake });
+    await resolvePending("Rollout Plan", "approved", "Looks right.");
+    const pending = await runHarnessBridge(
+      { operation: "pending", harness: "claude-code", harnessSessionId: "herdr-hook-1" },
+      home,
+    );
+
+    expect(pending.operation).toBe("pending");
+    if (pending.operation !== "pending") throw new Error("expected pending Messages");
+    const delivery = pending.deliveries[0]!;
+
+    await runHarnessBridge(
+      {
+        operation: "ack",
+        bindingId: delivery.bindingId,
+        deliveryId: delivery.deliveryId,
+        messageId: delivery.message.id,
+      },
+      home,
+    );
+    const second = await runHarnessBridge(request, home);
 
     // Assert
-    expect(second.allow).toBeTrue();
-    expect(second.reason).toContain("Looks right.");
+    expect(second.operation).toBe("open");
+    if (second.operation !== "open") throw new Error("expected an opened Thread");
+    expect(second.approvedRetry).toBeTrue();
     const after = await waitForLines(stub.logPath, 7);
     const outcomeLines = after.filter(
       (line) => line.includes("--state working") || line.includes("summary=review done"),
@@ -194,7 +212,7 @@ describe("hook flow inside herdr", () => {
 
     expect(outcomeLines.sort()).toEqual([
       "pane report-agent pane-7 --source custom:cueloop --state working",
-      "pane report-metadata pane-7 --source custom:cueloop --token summary=review done: approve --ttl-ms 3600000",
+      "pane report-metadata pane-7 --source custom:cueloop --token summary=review done: approved --ttl-ms 3600000",
     ]);
   }, 15_000);
 
@@ -205,14 +223,15 @@ describe("hook flow inside herdr", () => {
     setHookEnv({ HERDR_ENV: "1", HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath });
 
     // Act
-    const decision = await runHook(hookEvent("herdr-hook-2", "# Late Plan\n\nSlow.\n"), {
+    const decision = await runHarnessBridge(
+      openRequest("herdr-hook-2", "# Late Plan\n\nSlow.\n"),
       home,
-      armWake: () => {},
-    });
+    );
 
     // Assert
-    expect(decision.allow).toBeFalse();
-    expect(decision.reason).toContain("opened for human review");
+    expect(decision.operation).toBe("open");
+    if (decision.operation !== "open") throw new Error("expected an opened Thread");
+    expect(decision.approvedRetry).toBeFalse();
     await Bun.sleep(150); // give any stray report time to land
     // pane auto-open (3 lines) + blocked report + label = 5; never a working report
     const lines = await waitForLines(stub.logPath, 5);
@@ -225,7 +244,7 @@ describe("hook flow inside herdr", () => {
   }, 15_000);
 });
 
-describe("hook flow outside herdr", () => {
+describe("harness bridge outside herdr", () => {
   test("total silence: HERDR_ENV unset means no herdr process is spawned", async () => {
     // Arrange
     const stub = makeStub("silence");
@@ -234,13 +253,13 @@ describe("hook flow outside herdr", () => {
     setHookEnv({ HERDR_PANE_ID: "pane-7", HERDR_BIN_PATH: stub.binPath });
 
     // Act
-    const decision = await runHook(hookEvent("herdr-hook-3", "# Quiet Plan\n\nNo pane.\n"), {
+    const decision = await runHarnessBridge(
+      openRequest("herdr-hook-3", "# Quiet Plan\n\nNo pane.\n"),
       home,
-      armWake: () => {},
-    });
+    );
 
     // Assert
-    expect(decision.allow).toBeFalse();
+    expect(decision.operation).toBe("open");
     await Bun.sleep(200); // window for any stray fire-and-forget spawn
     expect(existsSync(stub.logPath)).toBeFalse();
   }, 15_000);

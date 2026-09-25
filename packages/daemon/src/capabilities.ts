@@ -58,10 +58,20 @@ const PRIMITIVE_ROLES = {
   "session.setShares": "owner",
   "session.delete": "owner",
   "session.mergeShared": "owner",
-  "session.resolve": "owner",
+  "session.sendMessage": "owner",
+  "harness.bind": "owner",
+  "harness.getBinding": "owner",
+  "harness.bindingsForSession": "owner",
+  "harness.consumeApprovedRetry": "owner",
+  "delivery.pending": "owner",
+  "delivery.acknowledge": "owner",
   "session.submitRevision": "owner",
-  "herdr.getTab": "owner",
-  "herdr.setTab": "owner",
+  "herdr.getThreadSurface": "owner",
+  "herdr.setThreadSurface": "owner",
+  "ghostty.getThreadSurface": "owner",
+  "ghostty.setThreadSurface": "owner",
+  "ghostty.claimThreadSurface": "owner",
+  "ghostty.releaseThreadSurface": "owner",
 } as const satisfies Record<MethodName, Audience>;
 
 /** Whether `role` may call `method`. */

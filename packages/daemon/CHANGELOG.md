@@ -1,5 +1,70 @@
 # @cueloop/daemon
 
+## 0.1.0-alpha.86
+
+### Minor Changes
+
+- [#511](https://github.com/mmurakaru/cueloop/pull/511) [`5881bb2`](https://github.com/mmurakaru/cueloop/commit/5881bb28f35b0eba32495b625e233ff0615d73e4) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add an agent-driven pull-request review workflow with configurable skills and workspaces, line-anchored findings, explicit GitHub publishing, PR refresh state, and self-hosted severity badges.
+
+  Keep the welcome screen version tied to the published client package.
+
+### Patch Changes
+
+- Updated dependencies [[`5881bb2`](https://github.com/mmurakaru/cueloop/commit/5881bb28f35b0eba32495b625e233ff0615d73e4)]:
+  - @cueloop/schema@0.1.0-alpha.86
+
+## 0.1.0-alpha.85
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/schema@0.1.0-alpha.85
+
+## 0.1.0-alpha.84
+
+### Minor Changes
+
+- [#505](https://github.com/mmurakaru/cueloop/pull/505) [`b5f43e5`](https://github.com/mmurakaru/cueloop/commit/b5f43e5adaa95275420e474281c122826ad91acb) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add non-resolving Comment messages and exact character Cut/restore behavior.
+
+  Keep held marks moving at viewport edges, preserve their visual column across
+  vertical keyboard movement, center empty project panels, and remove success
+  toasts from edit actions. Point pi version mismatches at its extension update
+  command and streamline the installation, harness, Thread, and sharing docs.
+
+### Patch Changes
+
+- Updated dependencies [[`b5f43e5`](https://github.com/mmurakaru/cueloop/commit/b5f43e5adaa95275420e474281c122826ad91acb)]:
+  - @cueloop/schema@0.1.0-alpha.84
+
+## 0.1.0-alpha.83
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/schema@0.1.0-alpha.83
+
+## 0.1.0-alpha.82
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/schema@0.1.0-alpha.82
+
+## 0.1.0-alpha.81
+
+### Patch Changes
+
+- [#492](https://github.com/mmurakaru/cueloop/pull/492) [`5b0a8ec`](https://github.com/mmurakaru/cueloop/commit/5b0a8ecb3a0ee730e54853525c6b8ff0a66770fa) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Prevent concurrent daemon startups from stealing an unpublished lock, retry cleanly after a socket closes during the handshake, and report the daemon's startup error when autostart fails.
+- Updated dependencies []:
+  - @cueloop/schema@0.1.0-alpha.81
+
+## 0.1.0-alpha.80
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/schema@0.1.0-alpha.80
+
 ## 0.1.0-alpha.79
 
 ### Patch Changes
