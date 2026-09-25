@@ -36,15 +36,15 @@
     "@opentui/react": "^0.5.11",
     "@opentui/ssh": "0.5.11",
     "@pierre/diffs": "^1.4.1",
-    "@tanstack/virtual-core": "^3.17.9",
+    "@tanstack/virtual-core": "^3.17.11",
     "diff": "^9",
-    "puppeteer-core": "^25.9.0",
-    "react": "^19.2.0",
-    "valibot": "^1.4.2",
+    "puppeteer-core": "^25.10.0",
+    "react": "^19.3.0",
+    "valibot": "^1.5.0",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
-    "@types/react": "^19.2.0",
+    "@types/react": "^19.3.0",
     "@types/ssh2": "^1.15.6",
     "ssh2": "^1.17.0"
   },
