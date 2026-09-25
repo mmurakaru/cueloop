@@ -1,5 +1,15 @@
 # cueloop
 
+## 0.1.0-alpha.88
+
+### Patch Changes
+
+- Updated dependencies [[`d75f3ce`](https://github.com/mmurakaru/cueloop/commit/d75f3ce04894638b8223462ebcbb30a88ea713e0)]:
+  - @cueloop/adapters@0.1.0-alpha.88
+  - @cueloop/client@0.1.0-alpha.88
+  - @cueloop/daemon@0.1.0-alpha.88
+  - @cueloop/schema@0.1.0-alpha.88
+
 ## 0.1.0-alpha.87
 
 ### Patch Changes
