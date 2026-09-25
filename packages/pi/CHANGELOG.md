@@ -1,5 +1,13 @@
 # @cueloop/pi
 
+## 0.1.0-alpha.89
+
+### Patch Changes
+
+- [#518](https://github.com/mmurakaru/cueloop/pull/518) [`41182e1`](https://github.com/mmurakaru/cueloop/commit/41182e15b26352dffee368341fcc9fce1dff2c12) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Add `cueloop session delete <session-id>`. Deleting a Thread clears its harness bindings and deliveries for pi, Codex, and Claude Code, and daemon startup removes harness state left by older deletions.
+- Updated dependencies [[`41182e1`](https://github.com/mmurakaru/cueloop/commit/41182e15b26352dffee368341fcc9fce1dff2c12)]:
+  - @cueloop/adapters@0.1.0-alpha.89
+
 ## 0.1.0-alpha.88
 
 ### Minor Changes
