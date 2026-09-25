@@ -5,7 +5,7 @@ import { test, expect } from "bun:test";
 import React from "react";
 import { testRender } from "@opentui/react/test-utils";
 import { ProjectTreeView } from "./ProjectTreeView";
-import { settle, waitForText } from "../test-support";
+import { locateText, settle, waitForText } from "../test-support";
 import { DARK } from "../theme";
 
 test("tab expands a folder, then j moves down and tab opens the file", async () => {
@@ -55,5 +55,21 @@ test("without focus the keyboard does nothing", async () => {
   expect(setup.captureCharFrame()).not.toContain("a.ts");
   expect(opened).toEqual([]);
 
+  setup.renderer.destroy();
+});
+
+test("the empty project hint stays centered in the panel", async () => {
+  const setup = await testRender(
+    <ProjectTreeView loadFiles={async () => []} onSelectFile={() => {}} theme={DARK} />,
+    { width: 40, height: 12 },
+  );
+
+  await waitForText(setup, "empty");
+  const position = locateText(setup, "empty");
+
+  expect(position.column).toBeGreaterThanOrEqual(17);
+  expect(position.column).toBeLessThanOrEqual(18);
+  expect(position.row).toBeGreaterThanOrEqual(5);
+  expect(position.row).toBeLessThanOrEqual(6);
   setup.renderer.destroy();
 });

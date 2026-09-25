@@ -1,6 +1,6 @@
 /**
  * The Thread primitive. Everything in cueloop renders, annotates, or
- * resolves this one noun. This module is pure data shapes - no IO, no
+ * extends this one noun. This module is pure data shapes - no IO, no
  * dependencies beyond the history shapes.
  */
 
@@ -33,6 +33,11 @@ export const ARTIFACT_TYPES = ["plan", "diff", "prototype", "reply"] as const;
 
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number];
 
+/** Harness workflows; review and refine are compositions, never artifact types. */
+export const WORKFLOW_KINDS = ["plan", "reply", "prototype", "diff", "review", "refine"] as const;
+
+export type WorkflowKind = (typeof WORKFLOW_KINDS)[number];
+
 /** Trust-boundary guard: is this string one of the artifact primitives? */
 export function isArtifactType(value: string): value is ArtifactType {
   return ARTIFACT_TYPES.some((candidate) => candidate === value);
@@ -51,6 +56,8 @@ export function isMarkdownArtifact(type: ArtifactType): boolean {
 }
 
 export interface ArtifactMeta {
+  /** The workflow that submitted this artifact, distinct from its artifact type. */
+  workflow?: WorkflowKind;
   cwd?: string;
   agent?: string;
   /** Agent-native session id, for resume/fork context. */
@@ -59,8 +66,18 @@ export interface ArtifactMeta {
   planPath?: string;
   /** Path to the prototype's entry HTML file on disk. */
   prototypePath?: string;
-  /** Pull request reference the diff came from, so the verdict can be posted back. */
+  /** Pull request reference the diff came from, so the message can be posted back. */
   pr?: string;
+  /** Markdown shown in the Thread pane beside a pull request diff. */
+  prBrief?: string;
+  /** Exact pull request commits captured by this review. */
+  prBaseSha?: string;
+  prHeadSha?: string;
+  /** Newer remote commits detected by the poller; the reviewer chooses when to refresh. */
+  prRefreshBaseSha?: string;
+  prRefreshHeadSha?: string;
+  /** Canonical GitHub pull request URL. */
+  prUrl?: string;
   /** herdr pane the submitting agent runs in - the review returns focus there. */
   herdrPane?: string;
   title?: string;
@@ -172,6 +189,8 @@ export interface Annotation {
    * planner can tell whose note is whose and never overwrite a collaborator's.
    */
   author?: string;
+  /** GitHub line anchor and presentation fields for an agent-authored PR review comment. */
+  reviewComment?: ReviewComment;
   /**
    * The root comment this one replies to. Absent on a root. A reply shares its
    * root's anchor, so a discussion stays one conversation when the text moves.
@@ -187,6 +206,23 @@ export interface Annotation {
   createdAt: string;
 }
 
+export const REVIEW_SEVERITIES = ["p0", "p1", "p2"] as const;
+export type ReviewSeverity = (typeof REVIEW_SEVERITIES)[number];
+
+/** Data needed to render and publish one agent-authored pull request comment. */
+export interface ReviewComment {
+  severity: ReviewSeverity;
+  title: string;
+  path: string;
+  line: number;
+  startLine?: number;
+  /** Quote-primary anchor for the first line of a multiline finding. */
+  startAnchor?: Anchor;
+  side: "LEFT" | "RIGHT";
+  suggestion?: string;
+  prompt?: string;
+}
+
 export interface AnnotationResolution {
   /** The revision number whose submission addressed this annotation. */
   revision: number;
@@ -198,14 +234,46 @@ export function isAddressed(annotation: Annotation): boolean {
   return annotation.resolution !== undefined;
 }
 
-export type VerdictKind = "comment" | "approve" | "request_changes";
+/** A harness session bound to a Thread. Harness identity stays outside the Thread itself. */
+export interface HarnessBinding {
+  id: string;
+  threadId: string;
+  harness: string;
+  harnessSessionId: string;
+  createdAt: string;
+  /** Approval whose one unchanged plan resubmission this harness has consumed. */
+  approvedRetryMessageId?: string;
+}
 
-export interface Verdict {
-  kind: VerdictKind;
+/** Durable routing state for one Message sent to one harness binding. */
+export interface Delivery {
+  id: string;
+  messageId: string;
+  bindingId: string;
+  status: "pending" | "acknowledged";
+  createdAt: string;
+  acknowledgedAt?: string;
+}
+
+/** What a harness adapter pulls: routing state plus its immutable Message payload. */
+export interface PendingDelivery {
+  delivery: Delivery;
+  message: Message;
+}
+
+export const MESSAGE_OUTCOMES = ["comment", "approved", "changes_requested"] as const;
+export type MessageOutcome = (typeof MESSAGE_OUTCOMES)[number];
+
+export interface Message {
+  /** Stable identity used to deduplicate at-least-once harness delivery. */
+  id: string;
+  outcome: MessageOutcome;
   summary: string;
-  /** The one structured feedback document sent to the agent. */
-  feedback: string;
-  resolvedAt: string;
+  /** The structured review document sent to the harness. */
+  body: string;
+  /** Annotation snapshots included in this delivery, for incremental sends. */
+  annotations?: Annotation[];
+  sentAt: string;
 }
 
 export interface Revision {
@@ -258,6 +326,13 @@ export interface ShareLink {
   shareBranch?: string;
 }
 
+/** One exact character range removed from the submitted artifact source. */
+export interface TextCut {
+  start: number;
+  end: number;
+  quote: string;
+}
+
 export interface Thread {
   schemaVersion: string;
   id: string;
@@ -281,13 +356,15 @@ export interface Thread {
    * Undefined = no direct edits.
    */
   workingCopy?: string;
+  /** Exact source ranges behind character Cuts in the current working copy. */
+  textCuts?: TextCut[];
   /**
    * File paths the reviewer marked viewed during the guided walk (diff
    * sessions). Persisting with the session means a resumed review keeps its
    * progress. Undefined = the walk never started.
    */
   viewedPaths?: string[];
-  verdict: Verdict | null;
+  message: Message | null;
   status: SessionStatus;
   createdAt: string;
   /**
@@ -316,9 +393,16 @@ export interface Thread {
   participants?: Identity[];
 }
 
-/** comment and request_changes both map to deny in agent-native contracts. */
-export function verdictAllows(kind: VerdictKind): boolean {
-  return kind === "approve";
+/** Whether a Message releases a harness gate. */
+export function messageAllows(outcome: MessageOutcome): boolean {
+  return outcome === "approved";
+}
+
+let messageSeq = 0;
+
+/** A process-unique, time-sortable Message id for delivery deduplication. */
+export function newMessageId(): string {
+  return `msg_${Date.now().toString(36)}${(messageSeq++).toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**

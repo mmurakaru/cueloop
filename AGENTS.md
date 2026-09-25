@@ -5,7 +5,7 @@
 - Terminal-first review surface for coding agents. The product is the primitive:
   a Thread anyone can render, annotate, and extend.
 - One loop: an agent submits an artifact and blocks; a human annotates and returns
-  a verdict; annotations serialize into structured feedback the agent acts on.
+  a message; annotations serialize into structured feedback the agent acts on.
 - Canonical decisions live in the GitHub map issue (#1) and its closed tickets.
   Do not re-litigate closed decisions in code review.
 
@@ -25,7 +25,7 @@ packages/
   daemon/         Socket server (NDJSON + events), session store, wait broker.
   client/         The TUI (OpenTUI React): shell, projection renderer, selection.
   extension-api/  The typed exporter contract for integrations.
-  adapters/       claude-code hook, pi package, skills (codex planned).
+  adapters/       Shared Thread controller, Claude Mod, Codex plugin, pi extension.
   cli/            Entry points; `cueloop session *` mirrors the socket API 1:1.
 ```
 
@@ -89,7 +89,7 @@ Verification recipes:
 - rendering/interaction change → tier 2 frame assertions; add tier 4 coverage for
   scrolling/resize/key-routing behavior.
 - daemon/protocol change → tier 3 with a real socket round-trip.
-- adapter change → the e2e round-trip test (hook → daemon → client → verdict → hook).
+- adapter change → the e2e round-trip test (hook → daemon → client → message → hook).
 - Test helpers are named with `Test` (`createTestSession`) and live in `test/helpers/`.
 
 ## naming and style
@@ -102,7 +102,7 @@ Verification recipes:
 - Blank-line padding: keep a blank line before every `return` and after a run of
   declarations. oxlint cannot enforce this yet (upstream oxc#479 for the rule,
   oxc#22053 for oxfmt); enable it in config once it lands.
-- Keybindings/labels locked: deletion = Cut, submit = "Submit review (n)".
+- Keybindings/labels locked: deletion = Cut, submit = "Send message (n)".
 
 ## releases
 

@@ -31,6 +31,32 @@ export interface TerminalVirtualizer {
   scrollToIndex: (index: number, align?: "auto" | "start" | "center" | "end") => void;
 }
 
+/** Visible rows and one-row scrolling for a held mouse mark at a viewport edge. */
+export interface ScrollDragViewport {
+  top: number;
+  bottom: number;
+  scrollBy: (rows: -1 | 1) => boolean;
+}
+
+/** Adapt an OpenTUI scrollbox to the annotation surface's edge-scroll contract. */
+export function scrollBoxDragViewport(
+  scrollbox: ScrollBoxRenderable | null,
+): ScrollDragViewport | null {
+  if (!scrollbox) return null;
+
+  return {
+    top: scrollbox.viewport.screenY,
+    bottom: scrollbox.viewport.screenY + scrollbox.viewport.height - 1,
+    scrollBy: (rows) => {
+      const before = scrollbox.scrollTop;
+
+      scrollbox.scrollBy(rows);
+
+      return scrollbox.scrollTop !== before;
+    },
+  };
+}
+
 /**
  * The scroll container as the core reads it: the offset and the extents it clamps a scroll
  * target with. These are the `Element` members of the same names, so the view passes as one.

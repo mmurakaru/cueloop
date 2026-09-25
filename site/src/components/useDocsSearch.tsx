@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { array, object, parse, string } from "valibot";
 import type { SearchDoc } from "../search-data";
 
 /** A result plus the char ranges of the title that matched the query. */
@@ -14,6 +15,15 @@ export interface SearchHit {
 }
 
 let indexCache: SearchDoc[] | null = null;
+const searchDocsSchema = array(
+  object({
+    title: string(),
+    description: string(),
+    href: string(),
+    group: string(),
+    headings: array(string()),
+  }),
+);
 
 export function useDocsSearch(query: string, limit = 8): SearchHit[] {
   const [docs, setDocs] = useState<SearchDoc[]>(indexCache ?? []);
@@ -22,7 +32,8 @@ export function useDocsSearch(query: string, limit = 8): SearchHit[] {
     if (indexCache) return;
     fetch("/search-index.json")
       .then((response) => response.json())
-      .then((data: SearchDoc[]) => {
+      .then((value) => parse(searchDocsSchema, value))
+      .then((data) => {
         indexCache = data;
         setDocs(data);
       })

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -11,6 +11,8 @@ import {
   persistActions,
   persistLayout,
   persistPins,
+  persistReviewSkill,
+  persistReviewWorkspace,
   persistTheme,
   quickActionBody,
   resolveQuickAction,
@@ -19,6 +21,65 @@ import { DARK } from "./theme";
 import { themeForName } from "./theme-presets";
 
 describe("loadConfig", () => {
+  test("review defaults use the bundled skill in an isolated worktree", () => {
+    const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
+
+    expect(config.review).toEqual({ skill: "code-review", workspace: "worktree" });
+  });
+
+  test("review settings load and persist without changing other tables", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-review-config-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, '[ui]\ntheme = "cueloop"\n\n[review]\nskill = "my-review"\n');
+    try {
+      persistReviewSkill("code-review", path);
+      persistReviewWorkspace("current", path);
+
+      expect(loadConfig({ userConfigPath: path }).review).toEqual({
+        skill: "code-review",
+        workspace: "current",
+      });
+      expect(readFileSync(path, "utf8")).toContain('[ui]\ntheme = "cueloop"');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("review settings update a table whose header has a comment", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-review-commented-config-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, '[review] # preferred settings\nskill = "my-review"\n');
+    try {
+      persistReviewSkill("code-review", path);
+
+      const text = readFileSync(path, "utf8");
+
+      expect(loadConfig({ userConfigPath: path }).review.skill).toBe("code-review");
+      expect(text.match(/^\[review\]/gm)).toHaveLength(1);
+      expect(text).toContain("[review] # preferred settings");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("review settings update a CRLF table without duplicating it", () => {
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-review-crlf-config-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, '[review]\r\nskill = "code-review"\r\nworkspace = "worktree"\r\n');
+    try {
+      persistReviewWorkspace("current", path);
+
+      const text = readFileSync(path, "utf8");
+
+      expect(loadConfig({ userConfigPath: path }).review.workspace).toBe("current");
+      expect(text.match(/^\[review\]/gm)).toHaveLength(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
   test("defaults when no file exists", () => {
     // Act
     const config = loadConfig({ userConfigPath: "/nonexistent/config.toml" });
@@ -138,6 +199,24 @@ describe("loadConfig", () => {
       // Assert
       expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.diffView).toBe("split");
       expect(loadConfig({ userConfigPath: path }).ui.diffView).toBe("stacked");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("[ui] default_message defaults to approve and parses changes_requested", () => {
+    // Arrange
+    const dir = mkdtempSync(join(tmpdir(), "cueloop-cfg-message-"));
+    const path = join(dir, "config.toml");
+
+    writeFileSync(path, `[ui]\ndefault_message = "changes_requested"\n`);
+
+    try {
+      // Assert
+      expect(loadConfig({ userConfigPath: "/nonexistent/config.toml" }).ui.defaultMessage).toBe(
+        "approved",
+      );
+      expect(loadConfig({ userConfigPath: path }).ui.defaultMessage).toBe("changes_requested");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -375,7 +454,7 @@ describe("integrations.obsidian config", () => {
 
     writeFileSync(
       path,
-      `[integrations.obsidian]\nvault = "/notes/vault"\nfolder = "plans"\nexportOn = "approve"\nseparator = "comma"\n`,
+      `[integrations.obsidian]\nvault = "/notes/vault"\nfolder = "plans"\nexportOn = "approved"\nseparator = "comma"\n`,
     );
 
     try {
@@ -385,7 +464,7 @@ describe("integrations.obsidian config", () => {
       // Assert
       expect(config.integrations.obsidian.vault).toBe("/notes/vault");
       expect(config.integrations.obsidian.folder).toBe("plans");
-      expect(config.integrations.obsidian.exportOn).toBe("approve");
+      expect(config.integrations.obsidian.exportOn).toBe("approved");
       expect(config.integrations.obsidian.separator).toBe("space"); // invalid value falls back
       expect(config.keys["comment"]).toEqual(["c"]); // other sections untouched
     } finally {
@@ -399,7 +478,7 @@ describe("integrations.obsidian config", () => {
     const user = join(dir, "user.toml");
     const repoRoot = join(dir, "repo");
 
-    writeFileSync(user, `[integrations.obsidian]\nvault = "/user/vault"\nexportOn = "resolve"\n`);
+    writeFileSync(user, `[integrations.obsidian]\nvault = "/user/vault"\nexportOn = "message"\n`);
     Bun.spawnSync(["mkdir", "-p", join(repoRoot, ".cueloop")]);
     writeFileSync(
       join(repoRoot, ".cueloop", "config.toml"),
@@ -412,7 +491,7 @@ describe("integrations.obsidian config", () => {
 
       // Assert
       expect(config.integrations.obsidian.vault).toBe("/user/vault"); // user layer survives
-      expect(config.integrations.obsidian.exportOn).toBe("resolve");
+      expect(config.integrations.obsidian.exportOn).toBe("message");
       expect(config.integrations.obsidian.folder).toBe("repo-plans"); // repo layer wins
     } finally {
       rmSync(dir, { recursive: true, force: true });

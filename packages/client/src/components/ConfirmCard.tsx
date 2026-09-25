@@ -1,13 +1,13 @@
 /**
  * The Submit button expanded into a bordered confirm card at the rail bottom:
- * the verdict selector (arrow keys or click), the optional summary, and plain
+ * the message selector (arrow keys or click), the optional summary, and plain
  * word-buttons - key hints live in the status line only. The bordered height
  * derives from the content rows through Card, so layout and render never drift.
  */
 
 import React, { useContext } from "react";
 import { useTerminalDimensions } from "@opentui/react";
-import type { VerdictKind } from "@cueloop/schema";
+import { MESSAGE_OUTCOMES, type MessageOutcome } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import type { QuickAction } from "../config";
 import { SlashSkillsContext } from "../skills";
@@ -18,20 +18,18 @@ import { composeRowCount } from "./AnnotationCards";
 import { SlashComposer } from "./SlashComposer";
 import { DialogActions } from "./primitives/DialogActions";
 
-const SUBMIT_CARD_MAX_WIDTH = 48;
+const SUBMIT_CARD_MAX_WIDTH = 52;
 const PALETTE_WINDOW = 5;
 
-export const VERDICTS: VerdictKind[] = ["comment", "approve", "request_changes"];
-
-/** Selector words in the confirm card - one word per verdict. */
-export const VERDICT_LABEL: Record<VerdictKind, string> = {
-  comment: "Comment",
-  approve: "Approve",
-  request_changes: "Changes",
+/** Selector words in the confirm card - one word per message. */
+export const MESSAGE_OUTCOME_LABEL: Record<MessageOutcome, string> = {
+  comment: "comment",
+  approved: "approve",
+  changes_requested: "changes",
 };
 
 export interface ConfirmCardProps {
-  verdict: VerdictKind;
+  message: MessageOutcome;
   summary: string;
   /**
    * The guided walk's honest coverage line for diff sessions, e.g.
@@ -39,53 +37,51 @@ export interface ConfirmCardProps {
    */
   viewedSummary?: string;
   onInput: (summary: string) => void;
-  onSelectVerdict: (verdict: VerdictKind) => void;
+  onSelectMessage: (message: MessageOutcome) => void;
   onSubmit: () => void;
   onCancel: () => void;
   quickActions: QuickAction[];
   theme?: Theme;
 }
 
-/** 1-row verdict selector, spacer, summary input, spacer, buttons. */
+/** 1-row message selector, spacer, summary input, spacer, buttons. */
 const CONFIRM_CONTENT_ROWS = 5;
 
-export function verdictColor(verdict: VerdictKind, tokens: Theme): string {
-  return verdict === "approve"
+export function outcomeColor(message: MessageOutcome, tokens: Theme): string {
+  return message === "approved"
     ? tokens.green
-    : verdict === "request_changes"
+    : message === "changes_requested"
       ? tokens.red
       : tokens.blue;
 }
 
 /**
- * The verdict selector: one row of pressable words, matching the reading
- * direction of a choice between three peers. Selection stays controlled by
- * the grammar (←/→ cycle the verdict); a click selects directly. The
- * selected verdict wears brackets and its color.
+ * The message selector: one row of pressable words in reading order.
+ * Selection stays controlled by the grammar (←/→ cycle the message); a click
+ * selects directly. Every message keeps its brackets so active color never changes the row's
+ * width or moves a neighboring choice.
  */
-function VerdictSelector({
-  verdict,
-  onSelectVerdict,
+function MessageSelector({
+  message,
+  onSelectMessage,
   theme,
 }: {
-  verdict: VerdictKind;
-  onSelectVerdict: (verdict: VerdictKind) => void;
+  message: MessageOutcome;
+  onSelectMessage: (message: MessageOutcome) => void;
   theme?: Theme;
 }): React.ReactNode {
   const tokens = useComponentTheme(theme);
 
   return (
     <box style={{ flexDirection: "row", height: 1, width: "100%", justifyContent: "center" }}>
-      {VERDICTS.map((candidate) => (
+      {MESSAGE_OUTCOMES.map((candidate) => (
         <box
           key={candidate}
           style={{ paddingRight: 1 }}
-          onMouseUp={() => onSelectVerdict(candidate)}
+          onMouseUp={() => onSelectMessage(candidate)}
         >
-          <text fg={candidate === verdict ? verdictColor(candidate, tokens) : tokens.textDim}>
-            {candidate === verdict
-              ? `[${VERDICT_LABEL[candidate]}]`
-              : ` ${VERDICT_LABEL[candidate]} `}
+          <text fg={candidate === message ? outcomeColor(candidate, tokens) : tokens.textDim}>
+            {`[${MESSAGE_OUTCOME_LABEL[candidate]}]`}
           </text>
         </box>
       ))}
@@ -94,11 +90,11 @@ function VerdictSelector({
 }
 
 export function ConfirmCard({
-  verdict,
+  message,
   summary,
   viewedSummary,
   onInput,
-  onSelectVerdict,
+  onSelectMessage,
   onSubmit,
   onCancel,
   quickActions,
@@ -107,7 +103,7 @@ export function ConfirmCard({
   const tokens = useComponentTheme(theme);
   const skills = useContext(SlashSkillsContext);
   const { width: terminalWidth } = useTerminalDimensions();
-  const cardWidth = Math.max(24, Math.min(terminalWidth - 6, SUBMIT_CARD_MAX_WIDTH));
+  const cardWidth = Math.max(24, Math.min(terminalWidth - 2, SUBMIT_CARD_MAX_WIDTH));
 
   const composerRows = composeRowCount(summary, cardWidth - 4);
   const token = activeSlashToken(summary, summary.length);
@@ -133,7 +129,7 @@ export function ConfirmCard({
     >
       {viewedSummary !== undefined ? <text fg={tokens.textDim}>{viewedSummary}</text> : null}
       {viewedSummary !== undefined ? <box style={{ height: 1 }} /> : null}
-      <VerdictSelector verdict={verdict} onSelectVerdict={onSelectVerdict} theme={theme} />
+      <MessageSelector message={message} onSelectMessage={onSelectMessage} theme={theme} />
       <box style={{ height: 1 }} />
       <SlashComposer
         seed={summary}

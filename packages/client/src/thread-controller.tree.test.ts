@@ -14,7 +14,7 @@ import {
   type Annotation,
   type Thread,
 } from "@cueloop/schema";
-import type { SessionClient } from "@cueloop/daemon/client";
+import type { ThreadClient } from "@cueloop/daemon/client";
 import { createReviewController, type ShareTransport } from "./thread-controller";
 import { mergeFromShare } from "./share";
 
@@ -39,7 +39,7 @@ function sessionFixture(): Thread {
     artifact: { type: "plan", content: "# Plan\n", meta: {} },
     revisions: [{ revision: 1, content: "# Plan\n", submittedAt: AT }],
     annotations: [annotation("a1", "first")],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: AT,
   };
@@ -101,9 +101,9 @@ function fakeClient(session: Thread) {
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),
-    sessionResolve: unimplemented("sessionResolve"),
+    sessionSendMessage: unimplemented("sessionSendMessage"),
     close: () => {},
-  } satisfies SessionClient;
+  } satisfies ThreadClient;
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));

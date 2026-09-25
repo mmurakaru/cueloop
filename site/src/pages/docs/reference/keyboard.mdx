@@ -1,14 +1,33 @@
 ---
 layout: ../../../layouts/DocsLayout.astro
-title: Keyboard & mouse
+title: Keyboard and mouse
 eyebrow: Docs · Reference
-lede: The thread view reads a plan or reply as one thread with discussions pinned to its text. Mark text with the mouse or the keyboard, type to comment, and send with cmd+enter. Structural commands sit behind a command leader you can rebind.
+lede: Review Threads with direct keyboard and mouse controls.
 prev: { title: "Configuration", href: "/docs/reference/configuration/" }
-next: { title: "Sharing over SSH", href: "/docs/sharing/" }
+next: { title: "Public API", href: "/docs/reference/api/" }
 ---
 
-Plans and replies open in the thread view. Press the menu's **keybinds**
-entry to see this list in the terminal.
+Plans and replies open in the Thread view. Open **Keybinds** from the menu to
+see this list in the terminal.
+
+## Two modes: type and nav
+
+The thread has two modes, and the footer always says which one you are in.
+
+- **Type** is the default. A letter opens a comment on the mark, or on the word
+  under the caret. This is the primary act, so it needs no key to reach.
+- **Nav** is where the structural commands live. Press **esc** to enter it; the
+  footer switches to the nav commands. Now a bare letter runs a command instead
+  of typing. Press `c` (or just start typing) to return to type mode.
+
+esc always heads toward nav, so it never strands you: from typing it enters nav,
+and in nav it drops the mark or a focused comment without leaving. There is no
+leader chord and no modifier - a plain letter reaches cueloop through any
+terminal, so there is no setup.
+
+The footer lists only the commands the surface under the caret can run. The
+Welcome tab and a file opened from the Project tree have no review behind them,
+so their nav mode offers `c` comment and `z` fold; any other letter types.
 
 ## Marking text
 
@@ -24,21 +43,15 @@ paragraph into the bullets under it.
 | `←` / `→`             | move the caret by word; it flows across blocks    |
 | `shift+←` / `shift+→` | hold a mark from the caret                        |
 | `↑` / `↓`             | move the caret by block                           |
-| `esc`                 | drop the mark                                     |
-
-A drag that leaves a block on its blank line below marks to the end of that
-block; the next block joins the mark once the pointer reaches its text.
+| `esc`                 | enter nav mode; in nav, drop the mark             |
 
 ## Commenting
 
-| Input             | What it does                                               |
-| ----------------- | ---------------------------------------------------------- |
-| type              | open a comment on the mark, or on the word under the caret |
-| `cmd+option+m`    | open a comment on the mark                                 |
-| `enter`           | reply to the comment under the caret                       |
-| `tab`             | fold or unfold the discussion under the caret              |
-| `cmd+]` / `cmd+[` | jump to the next or previous comment                       |
-| `ctrl+q`          | quit                                                       |
+| Input   | What it does                                               |
+| ------- | ---------------------------------------------------------- |
+| type    | open a comment on the mark, or on the word under the caret |
+| `enter` | reply to the comment under the caret                       |
+| `esc`   | enter nav mode                                             |
 
 Inside a comment:
 
@@ -48,83 +61,73 @@ Inside a comment:
 | `enter`                       | new line, kept as typed                                |
 | `backspace` on an empty draft | dismiss the draft; the mark stays                      |
 | `/`                           | the actions palette                                    |
-| click elsewhere               | save the draft                                         |
+| `esc`                         | dismiss the draft                                      |
+| click away                    | save the draft                                         |
 
 A comment on a mark that spans blocks anchors to the whole stretch: its quote
 carries the text of every block it covers, and the card sits under the last one.
 
-<div class="callout callout--tip">
-  <div class="callout__label">Ghostty and cmd+enter</div>Ghostty binds cmd+enter to fullscreen by
-  default. Add <code>keybind = super+enter=unbind</code> to its config, or send with ctrl+enter.
-</div>
+## Nav mode commands
 
-## The command leader
+Press **esc** first (the footer switches to the nav commands), then a bare letter.
 
-Letters type a comment, so the structural commands - the rail, curation, the
-diff, and the tree - sit behind a **command leader**: press the leader, then a
-letter. The default leader is `ctrl+g`, chosen because it is free, delivered
-reliably by every terminal, and never gets in the way of typing. Rebind it in
-the [`[keys]` table](/docs/reference/configuration/#keys) under `leader`.
+| Input       | What it does                               |
+| ----------- | ------------------------------------------ |
+| `c`         | comment on the mark (returns to type)      |
+| `e`         | edit the plan body in the inline editor    |
+| `s`         | share the plan                             |
+| `enter`     | open the submit card                       |
+| `n` / `p`   | focus the next or previous comment         |
+| `x`         | cut the block under the caret              |
+| `u`         | restore the last cut                       |
+| `r`         | rename a collaborator                      |
+| `backspace` | delete the focused comment                 |
+| `z`         | fold or unfold the comment under the caret |
 
-The Option chords below still work where a terminal delivers them (`option+x`
-is the same as `ctrl+g x`), but the leader is the portable path because Option
-is not reliable across all terminal configurations.
+The session commands also have Ctrl accelerators you can press without leaving
+type mode: `cmd+enter` (or `ctrl+enter`) opens the submit card, `ctrl+e` edits,
+and `ctrl+s` shares. Nav mode is the discoverable path; these are the shortcut.
 
 ## Panes and focus
 
 The workbench has four panes: Threads, Thread, Changes, and Project. One pane
-owns the keyboard at a time; click a pane to focus it, or press the leader then
-`tab` (`shift+tab` for the previous) to cycle. Only the focused pane responds to
-navigation keys, so moving through the Threads sidebar never moves the caret in
-the editor.
-
-## The session
-
-Everything that acts on the review as a whole sits on a ctrl chord, which
-terminals deliver reliably.
-
-| Input        | What it does                                     |
-| ------------ | ------------------------------------------------ |
-| `ctrl+enter` | open the submit card (with no comment open)      |
-| `ctrl+e`     | edit the plan in `$EDITOR`                       |
-| `ctrl+s`     | share the plan                                   |
-| `ctrl+r`     | cycle the review rail: expanded, compact, hidden |
-
-## The rail and curation
-
-The leader plus a letter drives the review rail and the curation of the plan.
-
-| Input                       | What it does                    |
-| --------------------------- | ------------------------------- |
-| `ctrl+g` `n` / `ctrl+g` `p` | focus the next or previous card |
-| `ctrl+g` `e`                | edit the focused card in place  |
-| `ctrl+g` `backspace`        | delete the focused card         |
-| `ctrl+g` `r`                | rename a collaborator           |
-| `ctrl+g` `x`                | cut the block under the caret   |
-| `ctrl+g` `u`                | restore the last cut            |
-| `option+w` / `option+s`     | widen or narrow the rail        |
-
-## The tree
-
-The rail's Tree tab shows the session's history: revisions, comments,
-checkpoints, and branches, with the path you are on bright and the current tip
-marked. The leader plus a letter walks it; the buttons under the tree reach the
-same primitives with the mouse, and clicking a selected row goes there.
-
-| Input                       | What it does                                              |
-| --------------------------- | --------------------------------------------------------- |
-| `ctrl+g` `t`                | show or hide the tree                                     |
-| `ctrl+g` `n` / `ctrl+g` `p` | select the next or previous entry (while the tree shows)  |
-| `ctrl+g` `g`                | go to the entry: switch to its branch, or move back to it |
-| `ctrl+g` `b`                | start a branch at the tip                                 |
-| `ctrl+g` `l`                | label the tip as a checkpoint                             |
-| `ctrl+g` `f`                | fork the path into a new session                          |
-| `ctrl+g` `h`                | fork and hand off: share the fork                         |
-
-Moving the tree is the owner's; a collaborator reads it. A move back asks for
-an optional summary of what you leave behind.
+owns the keyboard at a time; click a pane to focus it, or press `tab`
+(`shift+tab` for the previous) to cycle. Only the focused pane responds to its
+keys, so moving through the Threads sidebar never moves the caret in the editor.
+While a comment composer is open, `tab` belongs to the composer (it accepts the
+highlighted `/` palette entry); save or dismiss the draft to cycle panes again.
 
 ## Diff reviews
 
-Diff reviews keep the diff sheet and the rebindable keys of the
-[`[keys]` table](/docs/reference/configuration/#keys).
+A diff review reads the diff sheet in the Thread pane. Enter nav mode with esc,
+then act on the row or file under the caret.
+
+| Input | What it does                        |
+| ----- | ----------------------------------- |
+| `x`   | reject the change under the caret   |
+| `u`   | restore the last rejection          |
+| `c`   | collapse the file to its band       |
+| `d`   | split or stacked layout (when wide) |
+| `k`   | start the guided walk               |
+
+In the guided walk, `]` and `[` step through the files and `esc` leaves it.
+
+## Session history
+
+The session's history - revisions, checkpoints, and branches - is carried behind
+these nav-mode commands. They act on the current path:
+
+| Input | What it does                                        |
+| ----- | --------------------------------------------------- |
+| `g`   | go to the entry: switch to its branch, or move back |
+| `b`   | start a branch at the tip                           |
+| `l`   | label the tip as a checkpoint                       |
+| `f`   | fork the path into a new session                    |
+| `h`   | fork and hand off: share the fork                   |
+
+These are the owner's; a collaborator reads.
+
+## Quit
+
+`ctrl+q` quits from anywhere - the one chord cueloop keeps, since terminals
+deliver it reliably and it never collides with a multiplexer prefix.

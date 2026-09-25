@@ -19,7 +19,15 @@ import {
   styledRunsFor,
   workRangeForRendered,
 } from "./view-plan";
-import { cutBlock, parseBlocks, restoreBlock, restoreLine, type Annotation } from "@cueloop/schema";
+import {
+  applyTextCuts,
+  cutBlock,
+  mergeTextCut,
+  parseBlocks,
+  restoreBlock,
+  restoreLine,
+  type Annotation,
+} from "@cueloop/schema";
 
 const BASE = `# Plan
 
@@ -54,6 +62,14 @@ describe("buildDisplay reconciliation", () => {
     expect(mod.work!.text).toContain("writes");
   });
 
+  test("a partial Cut stays one modified block even when only a short prefix survives", () => {
+    const base = "A seeded plan so cueloop dev always has a thread to open.";
+    const display = buildDisplay(base, "A seed");
+
+    expect(display).toHaveLength(1);
+    expect(display[0]!.type).toBe("mod");
+  });
+
   test("unrelated cut + insert do NOT merge into a mod", () => {
     // Arrange
     const working = BASE.replace("- second item\n", "") + "\nA totally new closing note.\n";
@@ -81,6 +97,55 @@ describe("buildDisplay reconciliation", () => {
 });
 
 describe("blockRuns + overlayMarks", () => {
+  test("a partial-word Cut leaves surviving characters plain instead of inserted", () => {
+    const base = "It lands under unin Threads then in the sidebar rather than a project.";
+    const firstStart = base.indexOf("under");
+    const firstEnd = firstStart + "under".length;
+    const secondStart = base.indexOf("Threads");
+    const secondEnd = secondStart + "Threads".length;
+    const cuts = mergeTextCut(
+      base,
+      mergeTextCut(base, [], firstStart, firstEnd),
+      secondStart,
+      secondEnd,
+    );
+    const [block] = buildDisplay(base, applyTextCuts(base, cuts), cuts);
+    const runs = blockRuns(block!, true);
+
+    expect(runs.filter((run) => run.role === "del").map((run) => run.text)).toEqual([
+      "under",
+      "Threads",
+    ]);
+    expect(
+      runs
+        .filter((run) => run.role !== "del")
+        .map((run) => run.text)
+        .join(""),
+    ).toBe("It lands  unin  then in the sidebar rather than a project.");
+    expect(runs.some((run) => run.role === "ins")).toBe(false);
+  });
+
+  test("a cross-block Cut keeps every survivor plain and strikes only selected characters", () => {
+    const base = "Keep before remove this.\n\n- remove that keep after";
+    const cuts = mergeTextCut(base, [], 12, 40);
+    const display = buildDisplay(base, applyTextCuts(base, cuts), cuts);
+    const runs = display.flatMap((block) => blockRuns(block, true));
+
+    expect(runs.filter((run) => run.role === "ins")).toEqual([]);
+    expect(
+      runs
+        .filter((run) => run.role === "del")
+        .map((run) => run.text)
+        .join(""),
+    ).toBe(base.slice(12, 40).replace("\n\n- ", ""));
+    expect(
+      runs
+        .filter((run) => run.role !== "del")
+        .map((run) => run.text)
+        .join(""),
+    ).toBe("Keep before keep after");
+  });
+
   test("mod blocks emit word-diff runs that reconstruct both sides", () => {
     // Arrange
     const block = buildDisplay("plain old text here\n", "plain new text here\n")[0]!;

@@ -1,6 +1,6 @@
 /**
  * The install-vm host's pure logic: version derivation and the aggregation of
- * guest assertion files into a verdict. The VM boot itself needs KVM and is
+ * guest assertion files into a message. The VM boot itself needs KVM and is
  * exercised by install-vm.yml, not here.
  */
 
@@ -23,7 +23,7 @@ describe("install-vm runner", () => {
     });
   });
 
-  test("aggregates guest assertions into a verdict", () => {
+  test("aggregates guest assertions into a message", () => {
     const runsDir = mkdtempSync(join(tmpdir(), "install-vm-runs-"));
 
     try {

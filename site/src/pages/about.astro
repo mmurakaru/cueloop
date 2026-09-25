@@ -1,0 +1,42 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout
+  title="About cueloop"
+  description="Why cueloop exists, how it works, and who it is for."
+>
+  <section class="section">
+    <div class="container">
+      <div class="prose">
+        <p><a href="/">← cueloop</a></p>
+        <h1>About cueloop</h1>
+        <p>
+          cueloop is an open-source review surface for people who work with coding agents in a
+          terminal. It gives plans, replies, diffs, prototypes, and pull requests one place to pause
+          before the agent continues. You can mark exact text, add comments, and send a clear Message
+          back to the same agent conversation.
+        </p>
+        <p>
+          The product is built around a Thread. A Thread keeps the work under review, its comments,
+          replies, Messages, and revisions together. This makes each review easy to follow without
+          moving the work into a separate web application. cueloop runs locally by default and can
+          open in a terminal tab or panel through supported integrations.
+        </p>
+        <h2>Who it is for</h2>
+        <p>
+          cueloop is for developers who want a deliberate review step between an agent proposal and
+          the next code change. It is also for teams that want to share a Thread over SSH and collect
+          comments without requiring every reviewer to install cueloop or create an account.
+        </p>
+        <h2>Open source</h2>
+        <p>
+          The source, issue tracker, and release history are public on
+          <a href="https://github.com/mmurakaru/cueloop">GitHub</a>. The project uses the Apache 2.0
+          license. Read the <a href="/docs/">documentation</a> to install cueloop and connect a coding
+          agent.
+        </p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
