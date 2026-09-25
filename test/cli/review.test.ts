@@ -238,7 +238,7 @@ describe("explicit GitHub publication", () => {
 
     expect(call[0]).toBe("api");
     expect(payload.event).toBe("APPROVE");
-    expect(payload.body).toBe("Ship it.");
+    expect(payload.body).toBeUndefined();
     expect(payload.comments).toHaveLength(1);
     expect(payload.comments[0]!.path).toBe("a.ts");
     expect(payload.comments[0]!.line).toBe(1);
@@ -282,9 +282,57 @@ describe("explicit GitHub publication", () => {
     expect(post.code).toBe(0);
     const payload = postedPayloads().at(-1)!;
 
-    expect(payload.body).toBe("Please address the selected findings.");
+    expect(payload.body).toBe("Review submitted with cueloop.");
     expect(payload.body).not.toContain("Private reviewer note.");
+    expect(payload.body).not.toContain("Please address the selected findings.");
     expect(payload.comments).toEqual([]);
+  });
+
+  test("uses a separately drafted GitHub review body", async () => {
+    const session = await createReview("body-file");
+    const bodyFile = join(home, "review-body.md");
+
+    await resolveReview(session, "approved", "Post the comments and approve the PR.");
+    writeFileSync(bodyFile, "The findings are worth addressing in follow-up work.\n");
+    const post = await runCli(
+      home,
+      ["review-post", session.id, "--event", "approve", "--body-file", bodyFile],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(post.code).toBe(0);
+    expect(postedPayloads().at(-1)?.body).toBe(
+      "The findings are worth addressing in follow-up work.",
+    );
+    const publicationCount = postedPayloads().length;
+
+    writeFileSync(bodyFile, "An updated draft for the same review.\n");
+    const retry = await runCli(
+      home,
+      ["review-post", session.id, "--event", "approve", "--body-file", bodyFile],
+      undefined,
+      ghEnv(),
+    );
+
+    expect(retry.code).toBe(0);
+    expect(postedPayloads()).toHaveLength(publicationCount);
+  });
+
+  test("reports review body flag errors without a stack trace", async () => {
+    const session = await createReview("body-errors");
+
+    await resolveReview(session);
+    for (const args of [
+      ["--body-file", join(home, "missing-review-body.md")],
+      ["--body", "Draft", "--body-file", join(home, "missing-review-body.md")],
+    ]) {
+      const result = await runCli(home, ["review-post", session.id, ...args], undefined, ghEnv());
+
+      expect(result.code).toBe(1);
+      expect(result.stderr).not.toContain("at reviewPostCommand");
+      expect(result.stderr).not.toContain("at textFlag");
+    }
   });
 
   test("refuses unresolved Threads and failed GitHub posts", async () => {

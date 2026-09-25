@@ -71,8 +71,8 @@ function reviewEvent(value: string): GitHubReviewEvent | undefined {
   return undefined;
 }
 
-function reviewSummary(event: GitHubReviewEvent, summary: string): string | undefined {
-  const trimmed = summary.trim();
+function reviewSummary(event: GitHubReviewEvent, body?: string): string | undefined {
+  const trimmed = body?.trim();
 
   if (trimmed) return trimmed;
   if (event === "APPROVE") return undefined;
@@ -412,7 +412,7 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
 
   if (!sessionId) {
     console.error(
-      "usage: cueloop review-post <session-id> [--comments C1,C2] [--event comment|approve|request-changes]",
+      "usage: cueloop review-post <session-id> [--comments C1,C2] [--event comment|approve|request-changes] [--body <text>|--body-file <path>]",
     );
 
     return 2;
@@ -461,8 +461,8 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
 
     return 2;
   }
-
   try {
+    const body = reviewSummary(event, textFlag(flags, "body", "body-file"));
     const forgePort = forge();
     const remote = await forgePort.readPullRequest(
       session.artifact.meta.prUrl,
@@ -492,7 +492,7 @@ export async function reviewPostCommand(argv: string[]): Promise<number> {
       },
       comments,
       event,
-      body: reviewSummary(event, session.message.summary),
+      body,
       cwd: session.artifact.meta.cwd,
     });
 
