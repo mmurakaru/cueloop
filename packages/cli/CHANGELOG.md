@@ -1,5 +1,16 @@
 # cueloop
 
+## 0.1.0-alpha.87
+
+### Patch Changes
+
+- [#514](https://github.com/mmurakaru/cueloop/pull/514) [`8a8c8a6`](https://github.com/mmurakaru/cueloop/commit/8a8c8a65be5932591ebe655e695ed2bf3031a722) Thanks [@mmurakaru](https://github.com/mmurakaru)! - Keep Thread send-message instructions out of GitHub review bodies and wait for CLI-created PR reviews in the review skill.
+- Updated dependencies []:
+  - @cueloop/adapters@0.1.0-alpha.87
+  - @cueloop/client@0.1.0-alpha.87
+  - @cueloop/daemon@0.1.0-alpha.87
+  - @cueloop/schema@0.1.0-alpha.87
+
 ## 0.1.0-alpha.86
 
 ### Minor Changes

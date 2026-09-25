@@ -1,5 +1,9 @@
 # @cueloop/schema
 
+## 0.1.0-alpha.87
+
+No changes in this release.
+
 ## 0.1.0-alpha.86
 
 ### Minor Changes
