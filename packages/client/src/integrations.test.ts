@@ -18,24 +18,24 @@ describe("loadBundledExporters", () => {
 
   test("runsOn mirrors the configured export policy", async () => {
     // Arrange
-    const onApprove = (await loadBundledExporters(integrations({ exportOn: "approve" })))[0]!;
+    const onApprove = (await loadBundledExporters(integrations({ exportOn: "approved" })))[0]!;
 
     // Assert
-    expect(onApprove.runsOn("approve")).toBeTrue();
-    expect(onApprove.runsOn("request_changes")).toBeFalse();
+    expect(onApprove.runsOn("approved")).toBeTrue();
+    expect(onApprove.runsOn("changes_requested")).toBeFalse();
 
     // Arrange
-    const onResolve = (await loadBundledExporters(integrations({ exportOn: "resolve" })))[0]!;
+    const onMessage = (await loadBundledExporters(integrations({ exportOn: "message" })))[0]!;
 
     // Assert
-    expect(onResolve.runsOn("approve")).toBeTrue();
-    expect(onResolve.runsOn("request_changes")).toBeTrue();
+    expect(onMessage.runsOn("approved")).toBeTrue();
+    expect(onMessage.runsOn("changes_requested")).toBeTrue();
 
     // Arrange
     const manual = (await loadBundledExporters(integrations({ exportOn: "manual" })))[0]!;
 
     // Assert
-    expect(manual.runsOn("approve")).toBeFalse();
-    expect(manual.runsOn("request_changes")).toBeFalse();
+    expect(manual.runsOn("approved")).toBeFalse();
+    expect(manual.runsOn("changes_requested")).toBeFalse();
   });
 });

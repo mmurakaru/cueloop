@@ -1,0 +1,32 @@
+# cueloop
+
+cueloop is a terminal-first review surface for coding agents. It opens agent work as a Thread, keeps comments attached to exact text, and returns a Message to the same agent conversation.
+
+## When to use cueloop
+
+Use cueloop when a coding agent should pause for a human review of a plan, reply, diff, prototype, or pull request. Use it to add line-level comments, approve work, ask for changes, or share a Thread with a teammate over SSH.
+
+Do not use the public API to create or modify reviews. Review operations run through the cueloop CLI or a Claude Code, Codex, or pi integration.
+
+## Start here
+
+- [Documentation](https://www.cueloop.dev/docs/index.md)
+- [Install and quickstart](https://www.cueloop.dev/docs/install/index.md)
+- [Review workflows](https://www.cueloop.dev/docs/concepts/plan-diff-review/index.md)
+- [Agent integrations](https://www.cueloop.dev/docs/agents/index.md)
+- [CLI command reference](https://www.cueloop.dev/docs/reference/commands/index.md)
+
+## Machine-readable resources
+
+- [OpenAPI 3.1](https://www.cueloop.dev/openapi.json)
+- [Public API](https://www.cueloop.dev/api/v1)
+- [Sitemap](https://www.cueloop.dev/sitemap.xml)
+- [Agent skill](https://www.cueloop.dev/SKILL.md)
+
+## Install
+
+```bash
+curl -fsSL https://cueloop.dev/install.sh | sh
+```
+
+Source: https://github.com/mmurakaru/cueloop

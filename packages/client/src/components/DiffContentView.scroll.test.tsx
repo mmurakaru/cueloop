@@ -9,7 +9,7 @@ import { DiffContentView } from "./DiffContentView";
 import { diffRows, marksByRows } from "../view-diff";
 import { DARK } from "../theme";
 import { annotationPaletteFor } from "../annotation-palette";
-import { press } from "../test-support";
+import { press, settle, typeText } from "../test-support";
 import { fixtureDiffSession } from "./story-fixtures";
 
 const noop = (): void => {};
@@ -117,5 +117,33 @@ test("walking the caret down past wrapped discussion cards keeps it on screen an
   // and the walk did scroll: the tall diff does not fit the viewport
   expect(scrollTops[scrollTops.length - 1]!).toBeGreaterThan(0);
 
+  setup.renderer.destroy();
+}, 25000);
+
+test("opening a comment on the diff's last line reveals its composer", async () => {
+  const rows = diffRows(tallPatch(24));
+  const setup = await testRender(
+    <DiffContentView
+      rows={rows}
+      session={fixtureDiffSession()}
+      marks={marksByRows([], rows)}
+      quickActions={[]}
+      observer={false}
+      onAnnotate={noop}
+      onReply={noop}
+      onUpdateAnnotation={noop}
+      onExit={noop}
+    />,
+    { width: 60, height: 10 },
+  );
+
+  await settle(setup);
+  for (let step = 0; step < rows.length + 2; step++) {
+    // eslint-disable-next-line no-await-in-loop
+    await press(setup, "down");
+  }
+  await typeText(setup, "bottom comment");
+
+  expect(setup.captureCharFrame()).toContain("● bottom comment");
   setup.renderer.destroy();
 }, 25000);

@@ -15,6 +15,7 @@ export interface ButtonProps {
   isDisabled?: boolean;
   /** solid = accent-filled call to action; plain = quiet word-button. */
   variant?: "solid" | "plain" | "accent-text";
+  foreground?: string;
   marginRight?: number;
   theme?: Theme;
   children: string;
@@ -24,6 +25,7 @@ export function Button({
   onPress,
   isDisabled = false,
   variant = "plain",
+  foreground: foregroundOverride,
   marginRight,
   theme,
   children,
@@ -33,13 +35,14 @@ export function Button({
   const backgroundColor =
     variant === "solid" ? (isDisabled ? tokens.border : tokens.accent) : undefined;
   const foreground =
-    variant === "solid"
+    foregroundOverride ??
+    (variant === "solid"
       ? isDisabled
         ? tokens.textMuted
         : tokens.accentInk
       : variant === "accent-text"
         ? tokens.accent
-        : tokens.textDim;
+        : tokens.textDim);
 
   return (
     <box

@@ -2,10 +2,11 @@ import { describe, expect, test } from "bun:test";
 import {
   annotationTarget,
   ARTIFACT_TYPES,
+  WORKFLOW_KINDS,
   isArtifactType,
   isMarkdownArtifact,
   newAnnotationId,
-  verdictAllows,
+  messageAllows,
 } from "./types";
 
 describe("annotationTarget", () => {
@@ -33,11 +34,19 @@ describe("ARTIFACT_TYPES", () => {
   });
 });
 
-describe("verdictAllows", () => {
+describe("WORKFLOW_KINDS", () => {
+  test("review and refine are workflows, not artifact types", () => {
+    expect(WORKFLOW_KINDS).toEqual(["plan", "reply", "prototype", "diff", "review", "refine"]);
+    expect(isArtifactType("review")).toBe(false);
+    expect(isArtifactType("refine")).toBe(false);
+  });
+});
+
+describe("messageAllows", () => {
   test("only approve maps to allow", () => {
-    expect(verdictAllows("approve")).toBe(true);
-    expect(verdictAllows("comment")).toBe(false);
-    expect(verdictAllows("request_changes")).toBe(false);
+    expect(messageAllows("approved")).toBe(true);
+    expect(messageAllows("comment")).toBe(false);
+    expect(messageAllows("changes_requested")).toBe(false);
   });
 });
 

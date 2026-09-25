@@ -23,7 +23,7 @@ export function draftThread(): Thread {
     artifact: { type: "diff", content: "", meta: {} },
     revisions: [],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "1970-01-01T00:00:00.000Z",
   };

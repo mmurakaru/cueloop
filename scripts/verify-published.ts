@@ -9,7 +9,7 @@
  * the breakage is loud instead of discovered by the first user.
  */
 
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as v from "valibot";
@@ -59,6 +59,63 @@ const fresh = (url: string) =>
   fetch(url, { headers: { "cache-control": "no-cache", pragma: "no-cache" } });
 
 const problems: string[] = [];
+
+async function publishedPiLoads(
+  executable: string,
+  work: string,
+  piHome: string,
+): Promise<boolean> {
+  const host = Bun.spawn(
+    [executable, "--mode", "rpc", "--offline", "--no-session", "--no-skills"],
+    {
+      cwd: work,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: {
+        ...process.env,
+        PI_CODING_AGENT_DIR: piHome,
+        PI_OFFLINE: "1",
+        CUELOOP_HOME: join(work, "pi-state"),
+        CUELOOP_EXECUTABLE: join(work, "missing-cueloop"),
+        CUELOOP_START_TIMEOUT_MS: "100",
+      },
+    },
+  );
+
+  try {
+    // SAFETY: Bun.spawn receives "pipe" for stdin above.
+    const input = host.stdin as Bun.FileSink;
+
+    input.write('{"type":"get_commands"}\n');
+    await input.flush();
+    input.end();
+    const timeout = setTimeout(() => host.kill(), 15_000);
+    const exitCode = await host.exited.finally(() => clearTimeout(timeout));
+    const output = await new Response(host.stdout).text();
+
+    return (
+      exitCode === 0 &&
+      output.split("\n").some((line) => {
+        if (!line.includes('"command":"get_commands"')) return false;
+        const message = v.safeParse(
+          v.object({
+            success: v.literal(true),
+            data: v.object({ commands: v.array(v.object({ name: v.string() })) }),
+          }),
+          JSON.parse(line),
+        );
+
+        return (
+          message.success && message.output.data.commands.some(({ name }) => name === "threads")
+        );
+      })
+    );
+  } finally {
+    host.kill();
+    await host.exited;
+  }
+}
 
 // 1. every package must be visible on the registry at this exact version
 for (const name of new Set(names)) {
@@ -120,6 +177,32 @@ if (problems.length === 0) {
         problems.push(
           `the installed CLI does not run: exit ${run.exitCode}, stderr ${run.stderr.toString().trim().slice(0, 200)}`,
         );
+      }
+    }
+    const piHome = join(work, "pi-agent");
+    const globalPrefix = Bun.spawnSync(["npm", "prefix", "-g"]).stdout.toString().trim();
+    const piExecutable = join(globalPrefix, "bin", "pi");
+
+    if (!existsSync(piExecutable)) throw new Error(`pi host is not installed at ${piExecutable}`);
+    const piInstall = Bun.spawnSync([piExecutable, "install", `npm:@cueloop/pi@${version}`], {
+      cwd: work,
+      env: { ...process.env, PI_CODING_AGENT_DIR: piHome },
+    });
+
+    if (piInstall.exitCode !== 0) {
+      problems.push(
+        `@cueloop/pi@${version} does not install in pi: ${piInstall.stderr.toString().trim().slice(-500)}`,
+      );
+    } else {
+      const piList = Bun.spawnSync([piExecutable, "list"], {
+        cwd: work,
+        env: { ...process.env, PI_CODING_AGENT_DIR: piHome },
+      });
+
+      if (piList.exitCode !== 0 || !piList.stdout.toString().includes("@cueloop/pi")) {
+        problems.push(`pi did not list the installed @cueloop/pi@${version} package`);
+      } else if (!(await publishedPiLoads(piExecutable, work, piHome))) {
+        problems.push(`pi did not load the published @cueloop/pi@${version} extension`);
       }
     }
   } finally {

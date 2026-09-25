@@ -1,12 +1,3 @@
-/**
- * Structural typing of the pi ExtensionAPI surface this adapter uses.
- * pi is an integration target, not a dependency: the real API object arrives
- * at the factory when pi loads the extension, so these shapes only need to be
- * structurally compatible with pi's - registerTool, registerCommand,
- * on("tool_call" | "session_shutdown"), sendUserMessage (the wake path), and
- * context.ui.notify.
- */
-
 export interface TextContent {
   type: "text";
   text: string;
@@ -30,6 +21,7 @@ export interface PiUIContext {
 export interface PiContext {
   cwd: string;
   ui?: PiUIContext;
+  sessionManager?: { getSessionId(): string };
 }
 
 /** Plain JSON-schema parameters; structurally what pi's TypeBox schemas are. */
@@ -78,7 +70,7 @@ export interface PiCommandOptions {
 
 /** Fired once as the pi session tears down; the adapter aborts in-flight waiters here. */
 export interface PiSessionEvent {
-  type: "session_start" | "session_shutdown";
+  type: "session_start" | "session_shutdown" | "session_switch" | "session_fork";
 }
 
 export type PiSessionHandler = (event: PiSessionEvent) => void | Promise<void>;
@@ -86,7 +78,7 @@ export type PiSessionHandler = (event: PiSessionEvent) => void | Promise<void>;
 /**
  * How an injected message reaches the live turn: "followUp" queues it for after
  * the current turn ends, "steer" interrupts the running turn. cueloop wakes with
- * "followUp" so a returning verdict never cuts off work the human is mid-request.
+ * "followUp" so a returning message never cuts off work the human is mid-request.
  */
 export interface PiSendMessageOptions {
   deliverAs?: "followUp" | "steer";
@@ -96,7 +88,10 @@ export interface PiExtensionAPI {
   registerTool(tool: PiToolDefinition<any, any>): void;
   registerCommand(name: string, options: PiCommandOptions): void;
   on(event: "tool_call", handler: PiToolCallHandler): void;
-  on(event: "session_start" | "session_shutdown", handler: PiSessionHandler): void;
+  on(
+    event: "session_start" | "session_shutdown" | "session_switch" | "session_fork",
+    handler: (event: PiSessionEvent, context: PiContext) => void | Promise<void>,
+  ): void;
   /** Inject a message into the live session - the non-blocking wake path. */
   sendUserMessage(content: string, options?: PiSendMessageOptions): void;
 }

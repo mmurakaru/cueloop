@@ -4,7 +4,7 @@
  * talking to the old-version daemon (which refuses the handshake).
  */
 
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import * as v from "valibot";
 import { DaemonClient } from "@cueloop/daemon/client";
 import { cueloopHome, pidPath, socketPath } from "@cueloop/daemon/paths";
@@ -95,10 +95,6 @@ export async function restartCommand(): Promise<number> {
   const home = cueloopHome();
 
   await stopDaemon(home);
-  // a wedged daemon that never released its socket would otherwise be reused, not replaced
-  const socket = socketPath(home);
-
-  if (existsSync(socket)) rmSync(socket, { force: true });
   const client = await DaemonClient.connect({ home, autostart: true });
 
   client.close();

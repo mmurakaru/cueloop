@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, mock, test, type Mock } from "bun:test";
 import { ManualClock } from "@opentui/core/testing";
 import { SCHEMA_VERSION, type Annotation, type ShareAccess, type Thread } from "@cueloop/schema";
-import type { SessionClient } from "@cueloop/daemon/client";
+import type { ThreadClient } from "@cueloop/daemon/client";
 import {
   createReviewController,
   SHARE_RECONNECT_MAX_MS,
@@ -43,7 +43,7 @@ function sessionFixture(overrides: Partial<Thread> = {}): Thread {
     artifact: { type: "plan", content: "# Plan\n", meta: {} },
     revisions: [{ revision: 1, content: "# Plan\n", submittedAt: "2026-01-01T00:00:00.000Z" }],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
@@ -61,20 +61,20 @@ function annotation(id: string, author: string): Annotation {
   };
 }
 
-interface FakeSessionClient extends SessionClient {
-  sessionComment: Mock<SessionClient["sessionComment"]>;
+interface FakeThreadClient extends ThreadClient {
+  sessionComment: Mock<ThreadClient["sessionComment"]>;
 }
 
 const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
-function fakeClient(session: Thread): FakeSessionClient {
+function fakeClient(session: Thread): FakeThreadClient {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
     sessionGet: async () => session,
     sessionList: async () => [session],
-    sessionComment: mock<SessionClient["sessionComment"]>(async () => session),
+    sessionComment: mock<ThreadClient["sessionComment"]>(async () => session),
     sessionAnnotate: unimplemented("sessionAnnotate"),
     sessionRemoveAnnotation: unimplemented("sessionRemoveAnnotation"),
     sessionSetWorkingCopy: unimplemented("sessionSetWorkingCopy"),
@@ -108,7 +108,7 @@ function fakeClient(session: Thread): FakeSessionClient {
     }),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),
-    sessionResolve: unimplemented("sessionResolve"),
+    sessionSendMessage: unimplemented("sessionSendMessage"),
     close: () => {},
   };
 }
@@ -119,7 +119,7 @@ async function connectedController(
   session: Thread,
   clock?: ManualClock,
   transport: ShareTransport = shareTransport,
-): Promise<{ controller: ReturnType<typeof createReviewController>; client: FakeSessionClient }> {
+): Promise<{ controller: ReturnType<typeof createReviewController>; client: FakeThreadClient }> {
   const client = fakeClient(session);
   const controller = createReviewController({
     sessionId: session.id,

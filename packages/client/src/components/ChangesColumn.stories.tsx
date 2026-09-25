@@ -18,7 +18,12 @@ const files: DiffFileContents[] = [
     newContents: "c",
     status: "added",
   },
-  { path: "packages/daemon/src/review.ts", oldContents: "d", newContents: "", status: "deleted" },
+  {
+    path: "packages/daemon/src/thread-review.ts",
+    oldContents: "d",
+    newContents: "",
+    status: "deleted",
+  },
   { path: "README.md", oldContents: "e", newContents: "f", status: "modified" },
 ];
 

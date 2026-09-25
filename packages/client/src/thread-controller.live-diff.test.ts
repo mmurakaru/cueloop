@@ -7,7 +7,7 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import { SCHEMA_VERSION, type Annotation, type Thread } from "@cueloop/schema";
-import type { SessionClient } from "@cueloop/daemon/client";
+import type { ThreadClient } from "@cueloop/daemon/client";
 import { createReviewController, type ShareTransport } from "./thread-controller";
 import { mergeFromShare } from "./share";
 
@@ -53,7 +53,7 @@ function planSession(id = "ses_plan", repoRoot = "/repo"): Thread {
     artifact: { type: "plan", content: "# Plan\n", meta: {} },
     revisions: [{ revision: 1, content: "# Plan\n", submittedAt: AT }],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: AT,
   };
@@ -62,7 +62,7 @@ function planSession(id = "ses_plan", repoRoot = "/repo"): Thread {
 const unimplemented = (member: string) => () =>
   Promise.reject(new Error(`fakeClient does not implement ${member}`));
 
-function fakeClient(session: Thread): SessionClient {
+function fakeClient(session: Thread): ThreadClient {
   return {
     onEvent: () => () => {},
     subscribe: async () => {},
@@ -88,10 +88,10 @@ function fakeClient(session: Thread): SessionClient {
     sessionMergeShared: unimplemented("sessionMergeShared"),
     sessionDelete: unimplemented("sessionDelete"),
     sessionSetSelfName: unimplemented("sessionSetSelfName"),
-    sessionResolve: unimplemented("sessionResolve"),
+    sessionSendMessage: unimplemented("sessionSendMessage"),
     repoDiff: async () => ({ patch: PATCH, files: FILES }),
     close: () => {},
-  } satisfies SessionClient;
+  } satisfies ThreadClient;
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -133,7 +133,7 @@ describe("live working-tree diff for a non-diff thread", () => {
 
         return { ...session, annotations: [{ ...annotation, createdAt: AT }] };
       },
-    } satisfies SessionClient;
+    } satisfies ThreadClient;
     const controller = createReviewController({
       sessionId: session.id,
       openClient: async () => client,
@@ -176,7 +176,7 @@ describe("live working-tree diff for a non-diff thread", () => {
       ...fakeClient(sessionA),
       sessionList: async () => [sessionA, sessionB],
       repoDiff: async (cwd: string) => (cwd === "/repoA" ? pendingA : diffB),
-    } satisfies SessionClient;
+    } satisfies ThreadClient;
 
     const controller = createReviewController({
       sessionId: sessionA.id,
@@ -228,7 +228,7 @@ function diffSession(meta: Thread["artifact"]["meta"], id = "ses_diff"): Thread 
     artifact: { type: "diff", content: STALE_PATCH, files: STALE_FILES, meta },
     revisions: [{ revision: 1, content: STALE_PATCH, submittedAt: AT }],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: AT,
   };
@@ -258,7 +258,7 @@ describe("frozen vs live diff by thread kind", () => {
   test("a plain diff review pins its captured snapshot and never queries the live tree", async () => {
     const session = diffSession({});
     const repoDiff = mock(async () => ({ patch: PATCH, files: FILES }));
-    const client = { ...fakeClient(session), repoDiff } satisfies SessionClient;
+    const client = { ...fakeClient(session), repoDiff } satisfies ThreadClient;
     const controller = createReviewController({
       sessionId: session.id,
       openClient: async () => client,
@@ -289,7 +289,7 @@ describe("serve mode pins the served thread to a frozen snapshot", () => {
   test("the served artifact wins over the thread's own capture and the live tree", async () => {
     const session = diffSession({ workbench: true });
     const repoDiff = mock(async () => ({ patch: PATCH, files: FILES }));
-    const client = { ...fakeClient(session), repoDiff } satisfies SessionClient;
+    const client = { ...fakeClient(session), repoDiff } satisfies ThreadClient;
     const controller = createReviewController({
       sessionId: session.id,
       openClient: async () => client,

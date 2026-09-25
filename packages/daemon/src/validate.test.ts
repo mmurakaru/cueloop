@@ -13,7 +13,7 @@ import {
   IdentitySchema,
   RevisionSchema,
   ThreadRecordSchema,
-  VerdictSchema,
+  MessageSchema,
   WorkspaceSchema,
   isKnownMethod,
   parseParams,
@@ -29,7 +29,7 @@ import {
   type Identity,
   type Thread,
   type Revision,
-  type Verdict,
+  type Message,
   type WorkspaceKey,
 } from "@cueloop/schema";
 
@@ -76,6 +76,30 @@ describe("parseParams", () => {
     }
   });
 
+  test.each([
+    [
+      [
+        { start: 2, end: 4, quote: "ab" },
+        { start: 1, end: 2, quote: "c" },
+      ],
+    ],
+    [
+      [
+        { start: 1, end: 4, quote: "abc" },
+        { start: 3, end: 5, quote: "de" },
+      ],
+    ],
+    [[{ start: 1, end: 4, quote: "ab" }]],
+  ])("rejects malformed text Cut provenance", (textCuts) => {
+    expect(() =>
+      parseParams("session.setWorkingCopy", {
+        id: "ses_1",
+        workingCopy: "remaining",
+        textCuts,
+      }),
+    ).toThrow("text Cuts must be ordered, non-overlapping, and match their quote lengths");
+  });
+
   test("rejects an unknown artifact type", () => {
     expect(() =>
       parseParams("session.create", {
@@ -97,10 +121,10 @@ describe("parseParams", () => {
     ).toThrow();
   });
 
-  test("verdict kinds are closed", () => {
-    expect(parseParams("session.resolve", { id: "s", verdictKind: "approve" }).summary).toBe("");
-    expect(() => parseParams("session.resolve", { id: "s", verdictKind: "lgtm" })).toThrow(
-      /verdictKind/,
+  test("message kinds are closed", () => {
+    expect(parseParams("session.sendMessage", { id: "s", outcome: "approved" }).summary).toBe("");
+    expect(() => parseParams("session.sendMessage", { id: "s", outcome: "lgtm" })).toThrow(
+      /outcome/,
     );
   });
 
@@ -141,7 +165,7 @@ describe("validateThreadRecord", () => {
     artifact: { type: "plan", content: "# P", meta: {} },
     revisions: [{ revision: 1, content: "# P", submittedAt: "now" }],
     annotations: [],
-    verdict: null,
+    message: null,
     status: "pending",
     createdAt: "now",
   };
@@ -179,12 +203,19 @@ describe("wire pins", () => {
   const entryKeys = (schema: { entries: object }) => Object.keys(schema.entries).sort();
 
   const fullMeta: Required<ArtifactMeta> = {
+    workflow: "plan",
     cwd: "/repo",
     agent: "claude-code",
     agentSessionId: "sess-1",
     planPath: "/repo/plan.md",
     prototypePath: "/repo/proto.html",
     pr: "org/repo#1",
+    prBrief: "# PR",
+    prBaseSha: "base",
+    prHeadSha: "head",
+    prRefreshBaseSha: "next-base",
+    prRefreshHeadSha: "next",
+    prUrl: "https://github.com/org/repo/pull/1",
     herdrPane: "%7",
     title: "Plan",
     workbench: false,
@@ -208,6 +239,17 @@ describe("wire pins", () => {
     body: "b",
     orphan: false,
     author: "SHA256:abc",
+    reviewComment: {
+      severity: "p1",
+      title: "Finding",
+      path: "src/x.ts",
+      line: 1,
+      startLine: 1,
+      startAnchor: fullAnchor,
+      side: "RIGHT",
+      suggestion: "replacement",
+      prompt: "fix it",
+    },
     replyTo: "a0",
     resolution: { revision: 2, source: "agent" },
     createdAt: "now",
@@ -218,11 +260,13 @@ describe("wire pins", () => {
     meta: fullMeta,
     files: [{ path: "src/a.ts", oldContents: "old\n", newContents: "new\n", status: "modified" }],
   };
-  const fullVerdict: Required<Verdict> = {
-    kind: "approve",
+  const fullMessage: Required<Message> = {
+    id: "msg_1",
+    outcome: "approved",
     summary: "",
-    feedback: "",
-    resolvedAt: "now",
+    body: "",
+    annotations: [fullAnnotation],
+    sentAt: "now",
   };
   const fullRevision: Required<Revision> = { revision: 1, content: "# P", submittedAt: "now" };
   const fullWorkspace: Required<WorkspaceKey> = {
@@ -256,7 +300,7 @@ describe("wire pins", () => {
         },
         { id: "e2", parentId: "e1", type: "comment", annotationId: "a1", createdAt: "now" },
         { id: "e3", parentId: "e2", type: "comment-removed", annotationId: "a1", createdAt: "now" },
-        { id: "e4", parentId: "e3", type: "verdict", verdict: fullVerdict, createdAt: "now" },
+        { id: "e4", parentId: "e3", type: "message", message: fullMessage, createdAt: "now" },
         {
           id: "e5",
           parentId: "e4",
@@ -274,9 +318,10 @@ describe("wire pins", () => {
     shelvedAnnotations: [fullAnnotation],
     parentSessionId: "ses_0",
     shareBranch: "main",
-    workingCopy: "# P edited",
+    workingCopy: "# ",
+    textCuts: [{ start: 2, end: 3, quote: "P" }],
     viewedPaths: ["src/a.ts"],
-    verdict: fullVerdict,
+    message: fullMessage,
     status: "pending",
     createdAt: "now",
     shares: [
@@ -318,6 +363,20 @@ describe("wire pins", () => {
     if (!parsed.ok) expect(parsed.error).toContain("history:");
   });
 
+  test("a persisted Thread with stale text Cut provenance is refused", () => {
+    const result = validateThreadRecord({
+      ...fullSession,
+      workingCopy: "# P",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain(
+        "text Cuts do not match the submitted artifact and working copy",
+      );
+    }
+  });
+
   test("schema key sets match the schema types", () => {
     expect(entryKeys(WorkspaceSchema)).toEqual(keys(fullWorkspace));
     expect(entryKeys(ArtifactMetaSchema)).toEqual(keys(fullMeta));
@@ -328,7 +387,7 @@ describe("wire pins", () => {
 
     expect(entryKeys(AnnotationSchema)).toEqual(keys(wireAnnotation));
     expect(entryKeys(RevisionSchema)).toEqual(keys(fullRevision));
-    expect(entryKeys(VerdictSchema)).toEqual(keys(fullVerdict));
+    expect(entryKeys(MessageSchema)).toEqual(keys(fullMessage));
     expect(entryKeys(IdentitySchema)).toEqual(keys(fullIdentity));
     expect(entryKeys(ThreadRecordSchema)).toEqual(keys(fullSession));
     // persisted annotations carry the stamped createdAt

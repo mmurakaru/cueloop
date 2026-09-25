@@ -12,6 +12,7 @@ import { DARK } from "./theme";
 import {
   isolateUserConfig,
   press,
+  navCommand,
   pressKey,
   renderReadyApp,
   waitForState,
@@ -104,7 +105,7 @@ describe("the guided walk", () => {
     const setup = await renderApp();
 
     // Act
-    await pressKey(setup, "k", { meta: true });
+    await navCommand(setup, "k");
 
     // Assert
     await waitForText(setup, "file 1 of 3 · 0 viewed");
@@ -158,7 +159,7 @@ describe("the guided walk", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "send message");
+    await waitForText(setup, "Send message (");
     expect(setup.captureCharFrame()).toContain("3/3 files viewed");
 
     // Act
@@ -172,7 +173,7 @@ describe("the guided walk", () => {
     // Arrange
     const setup = await renderApp();
 
-    await pressKey(setup, "k", { meta: true });
+    await navCommand(setup, "k");
     await waitForText(setup, "file 1 of 3 · 0 viewed");
     await press(setup, "]");
     await waitForText(setup, "file 2 of 3 · 1 viewed");
@@ -186,7 +187,7 @@ describe("the guided walk", () => {
     expect(setup.captureCharFrame()).not.toContain("· 1 viewed");
 
     // Act
-    await pressKey(setup, "k", { meta: true });
+    await navCommand(setup, "k");
 
     // Assert
     await waitForText(setup, "file 2 of 3 · 1 viewed");
@@ -196,7 +197,7 @@ describe("the guided walk", () => {
     // Arrange
     const first = await renderApp();
 
-    await pressKey(first, "k", { meta: true });
+    await navCommand(first, "k");
     await waitForText(first, "file 1 of 3 · 0 viewed");
     await press(first, "]");
     await press(first, "]");
@@ -211,7 +212,7 @@ describe("the guided walk", () => {
     // a fresh client reads the viewed set back from the session record
     const second = await renderApp();
 
-    await pressKey(second, "k", { meta: true });
+    await navCommand(second, "k");
 
     // Assert
     await waitForText(second, "file 3 of 3 · 2 viewed");
@@ -232,7 +233,7 @@ describe("the guided walk", () => {
     const setup = await renderApp();
 
     // Act
-    await pressKey(setup, "k", { meta: true });
+    await navCommand(setup, "k");
 
     // Assert
     await waitForText(setup, "file 1 of 3");
@@ -247,20 +248,20 @@ describe("the guided walk", () => {
 
     // Act
     // a note is agent context, not reviewer feedback: it neither counts nor
-    // flips the default verdict, and never comes back in the feedback doc
+    // flips the default message, and never comes back in the feedback doc
     await press(setup, "escape");
     await waitForTextGone(setup, "agent note");
     await pressKey(setup, "RETURN", { meta: true });
     // nothing pending despite the note, so the confirm card defaults to approve
-    await waitForText(setup, "[Approve]");
+    await waitForText(setup, "[approve]");
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).status === "resolved");
     const resolved = server.core.sessionGet(session.id);
 
-    expect(resolved.verdict!.kind).toBe("approve");
-    expect(resolved.verdict!.feedback).not.toContain("Swaps the stale line");
+    expect(resolved.message!.outcome).toBe("approved");
+    expect(resolved.message!.body).not.toContain("Swaps the stale line");
   });
 
   test("the sheet dims behind the wizard; the preview keeps the diff colors", async () => {
@@ -273,7 +274,7 @@ describe("the guided walk", () => {
     expect(foregroundsOf(setup, "new")).toContain(DARK.insertedForeground);
 
     // Act
-    await pressKey(setup, "k", { meta: true });
+    await navCommand(setup, "k");
 
     // Assert
     await waitForText(setup, "file 1 of 3 · 0 viewed");
@@ -285,11 +286,11 @@ describe("the guided walk", () => {
 
   test("walking a resolved review answers read-only", async () => {
     // Arrange
-    server.core.sessionResolve(session.id, "approve", "");
+    server.core.sessionSendMessage(session.id, "approved", "");
     const setup = await renderApp();
 
     // Act - renderApp already waited for the diff to load; the session is resolved
-    await pressKey(setup, "k", { meta: true });
+    await navCommand(setup, "k");
 
     // Assert
     await waitForText(setup, "review submitted - read-only");

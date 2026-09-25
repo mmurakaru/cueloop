@@ -157,6 +157,20 @@ export async function pressKey(
   await settle(setup);
 }
 
+/**
+ * Run a thread nav-mode command: esc drops the surface into nav mode, then a bare
+ * key acts (a letter, or a named key like "enter"/"backspace"). The caret and any
+ * held selection carry into nav, so the command lands where the caret is.
+ */
+export async function navCommand(setup: TestRendererSetup, key: string): Promise<void> {
+  await press(setup, "escape");
+  await new Promise((resolve) => setTimeout(resolve, 40));
+  await settle(setup);
+  // a single letter is a discrete keypress (nav command); named keys route through press
+  if (key.length === 1) await pressKey(setup, key);
+  else await press(setup, key);
+}
+
 /** A 0-based cell position within a captured char frame. */
 export interface FrameLocation {
   row: number;

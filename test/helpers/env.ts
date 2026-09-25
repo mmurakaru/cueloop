@@ -2,24 +2,25 @@ import { isolatedUserConfigPath } from "../../packages/client/src/test-support";
 
 /**
  * Environment overrides that make a spawned test subprocess hermetic against the
- * developer's own tooling session. Without them, a suite run from inside a herdr
- * pane inherits HERDR_ENV=1, so every `cueloop session create` and every hook
- * spawn calls the real `herdr tab create` and leaks tabs into the live session.
- * Emptying HERDR_ENV disables the whole integration (see `detectHerdr`), the same
- * way tests empty CLAUDE_CODE_MESSAGING_SOCKET to disable the ambient inbox.
+ * developer's own tooling session. Without them, a suite run from a supported
+ * terminal can open real tabs during `cueloop session create` or hook tests.
  *
  * Spread AFTER `...process.env` so it wins over the inherited ambient, and BEFORE
- * any per-test env so a test can still opt back in by setting HERDR_ENV itself.
+ * any per-test env so a test can opt back in explicitly.
  */
-export const HERMETIC_HERDR_ENV = {
+export const HERMETIC_TERMINAL_ENV = {
   HERDR_ENV: "",
   HERDR_PANE_ID: "",
+  HERDR_TAB_ID: "",
+  HERDR_WORKSPACE_ID: "",
   HERDR_BIN_PATH: "",
+  TERM_PROGRAM: "",
+  GHOSTTY_RESOURCES_DIR: "",
 } as const;
 
 /**
  * The environment for a cueloop subprocess under test: the ambient env with the
- * herdr session neutralized, CUELOOP_HOME pointed at the test home, the user
+ * terminal integration neutralized, CUELOOP_HOME pointed at the test home, the user
  * config isolated into that home, and no daemon idle exit. `overrides` win.
  */
 export function hermeticCueloopEnvironment(
@@ -34,7 +35,7 @@ export function hermeticCueloopEnvironment(
 
   return Object.assign(
     environment,
-    HERMETIC_HERDR_ENV,
+    HERMETIC_TERMINAL_ENV,
     {
       CUELOOP_HOME: home,
       CUELOOP_CONFIG: isolatedUserConfigPath(home),

@@ -1,4 +1,10 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/*.snap", "misc/**"]
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/*.snap",
+    "**/worker-configuration.d.ts",
+    "misc/**"
+  ]
 }

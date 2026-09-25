@@ -1,6 +1,6 @@
 ---
 name: annotate
-description: Read a cueloop plan or diff and comment on it as a review-side agent, without leaving the review. Use when you are helping a collaborator poke holes in a plan under review - you annotate on their behalf; you never rewrite the plan or cast the verdict.
+description: Read a cueloop plan or diff and comment on it as a review-side agent, without leaving the review. Use when you are helping a collaborator poke holes in a plan under review - you annotate on their behalf; you never rewrite the plan or cast the message.
 ---
 
 # cueloop annotate
@@ -13,9 +13,9 @@ their rail exactly as if they had typed them.
 ## Rights boundary
 
 You may **read** and **comment** only. You may not rewrite the plan
-(`submit-revision` is the driving agent's alone), cast the verdict (`resolve` is
+(`submit-revision` is the driving agent's alone), send the Message (`resolve` is
 the human's alone), or cut / edit / share (owner-only). The plan stays
-single-writer: you annotate, the human curates, the verdict carries it back.
+single-writer: you annotate, the human curates, the message carries it back.
 
 Pass `--role agent` on every command below. The daemon then caps this connection
 to read + annotate and rejects any escalation - the boundary is enforced, not
@@ -26,14 +26,14 @@ just documented.
 1. Read the artifact and its existing annotations:
 
    ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session get <id> --role agent
+   cueloop session get <id> --role agent
    ```
 
 2. See the shared quick-action vocabulary for this session (the same presets the
    human picks); `--session` reads the reviewed session's own repo:
 
    ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts actions list --session <id> --role agent
+   cueloop actions list --session <id> --role agent
    ```
 
 3. Comment on a span. **Anchor contract: `--quote` is the exact text from the
@@ -43,7 +43,7 @@ just documented.
    `--author` (and `--author-name` on the first comment so the rail shows a name):
 
    ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session annotate <id> --role agent \
+   cueloop session annotate <id> --role agent \
      --author <collaborator-id> --author-name "<display name>" \
      --quote "<exact span from the plan>" \
      --body "<your comment>"
@@ -53,7 +53,7 @@ just documented.
    name from `actions list`:
 
    ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session annotate <id> --role agent \
+   cueloop session annotate <id> --role agent \
      --author <collaborator-id> --quote "<exact span>" --action "Out of scope"
    ```
 

@@ -37,7 +37,6 @@ import {
 } from "./thread-selection";
 import { annotationPaletteFor, type AnnotationPalette } from "./annotation-palette";
 import { printableSequence, type MarkRange, type VisualLine } from "./mark-runs";
-import { matchesLeader } from "./thread-chords";
 import {
   activeSlashToken,
   insertSlashItem,
@@ -88,7 +87,7 @@ export interface AnnotationSurfaceOptions {
    * thread anchors comments in plan coordinates, so a draft here would misanchor.
    */
   commentsEnabled?: boolean;
-  /** A verdict is in: no draft may open; the app answers with its read-only status. */
+  /** A message is in: no draft may open; the app answers with its read-only status. */
   resolved: boolean;
   /** True while a menu, dialog, or overlay owns the keyboard. */
   suspended: boolean;
@@ -105,10 +104,16 @@ export interface AnnotationSurfaceOptions {
   onAnnotate: (span: TextSpan, body: string) => void;
   onReply: (rootAnnotationId: string, body: string) => void;
   onUpdateAnnotation: (id: string, body: string) => void;
+  /** The visible scroll viewport used to keep a held mouse mark moving at its edges. */
+  dragViewport?: () => {
+    top: number;
+    bottom: number;
+    scrollBy: (rows: -1 | 1) => boolean;
+  } | null;
   /** The author's display name for a comment's hover tooltip; the rail resolves it against the participant registry. */
   resolveAuthorLabel?: (annotation: Annotation) => string | undefined;
-  leaderCombos?: readonly string[];
-  onLeaderCommand?: (key: KeyEvent) => void;
+  /** Resolve a nav-mode key to a session/curation/tree/diff command; true when it acted. */
+  onNavCommand?: (key: KeyEvent, selection: TextSpan | null) => boolean;
   onExit: () => void;
 }
 
@@ -119,6 +124,8 @@ export interface AnnotationSurface {
   cursor: number;
   head: TextPosition;
   compose: ComposeState | null;
+  /** True while the surface is in nav mode: bare keys act as commands, typing does not compose. */
+  navMode: boolean;
   focusedDiscussion: string | null;
   /** The block to keep in view: an opening card, a focused discussion, else the caret. */
   revealBlockIndex: number;
@@ -163,6 +170,14 @@ function firstAnnotatable(source: LineSource): number {
   return 0;
 }
 
+/** The visual-row direction requested by an arrow or readline-style caret key. */
+function verticalCaretDelta(key: KeyEvent): -1 | 0 | 1 {
+  if (key.name === "up" || (key.ctrl && key.name === "p")) return -1;
+  if (key.name === "down" || (key.ctrl && key.name === "n")) return 1;
+
+  return 0;
+}
+
 export function useAnnotationSurface(options: AnnotationSurfaceOptions): AnnotationSurface {
   const {
     source,
@@ -182,9 +197,9 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     onAnnotate,
     onReply,
     onUpdateAnnotation,
+    dragViewport,
     resolveAuthorLabel,
-    leaderCombos,
-    onLeaderCommand,
+    onNavCommand,
     onExit,
   } = options;
   const palette = annotationPaletteFor(tokens);
@@ -199,7 +214,17 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     return { head: start, anchor: start };
   });
   const [compose, setCompose] = useState<ComposeState | null>(null);
-  const leaderPending = useRef(false);
+  const dragPointer = useRef<{ x: number; y: number } | null>(null);
+  const edgeScrollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const dragViewportRef = useRef(dragViewport);
+
+  dragViewportRef.current = dragViewport;
+  const [navMode, setNavModeState] = useState(false);
+  const navModeRef = useRef(false);
+  const setNavMode = (value: boolean): void => {
+    navModeRef.current = value;
+    setNavModeState(value);
+  };
 
   useEffect(() => {
     onComposingChange?.(compose !== null);
@@ -311,6 +336,27 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
       x: entry.renderable.x,
       y: entry.renderable.y,
     }));
+  const verticalTextPosition = (position: TextPosition, direction: -1 | 1): TextPosition | null => {
+    const lines = allGeometry()
+      .filter((line) => source.annotatable(line.blockIndex))
+      .toSorted((left, right) => left.y - right.y || left.x - right.x);
+    const currentIndex = lines.findIndex(
+      (line) =>
+        line.blockIndex === position.blockIndex &&
+        line.start <= position.char &&
+        position.char <= line.end,
+    );
+    const target = currentIndex === -1 ? undefined : lines[currentIndex + direction];
+
+    if (!target) return null;
+    const current = lines[currentIndex]!;
+    const column = Math.max(0, position.char - current.start);
+
+    return {
+      blockIndex: target.blockIndex,
+      char: Math.min(target.end, target.start + column),
+    };
+  };
 
   const openCompose = (state: ComposeState): void => {
     // a view-only surface (a non-diff thread's live diff) never opens a draft
@@ -423,13 +469,33 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   // on screen - the mark follows the pointer across blocks.
   const handleRootDrag = (event: TerminalMouseEvent): void => {
     if (!dragging.current) return;
+    dragPointer.current = { x: event.x, y: event.y };
     const position = positionAt(allGeometry(), event.x, event.y);
 
     if (position) extendSelectionTo(position);
+    if (edgeScrollTimer.current === null) {
+      edgeScrollTimer.current = setInterval(() => {
+        const pointer = dragPointer.current;
+        const viewport = dragViewportRef.current?.();
+
+        if (!dragging.current || !pointer || !viewport) return;
+        const direction = pointer.y <= viewport.top ? -1 : pointer.y >= viewport.bottom ? 1 : 0;
+
+        if (direction === 0 || !viewport.scrollBy(direction)) return;
+        const next = positionAt(allGeometry(), pointer.x, pointer.y);
+
+        if (next) extendSelectionTo(next);
+      }, 100);
+    }
   };
   const endDrag = (): void => {
     dragging.current = null;
+    dragPointer.current = null;
+    if (edgeScrollTimer.current !== null) clearInterval(edgeScrollTimer.current);
+    edgeScrollTimer.current = null;
   };
+
+  useEffect(() => endDrag, []);
 
   const jumpToDiscussion = (key: string): void => {
     const target = discussions.find((discussion) => discussion.key === key);
@@ -514,7 +580,22 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     if (!composerReady.current) handlePremountKey(key, activeCompose);
   };
 
-  /** m / cmd+[ / cmd+] / tab / return - true when the key was a discussion primitive. */
+  /** Fold or unfold every discussion sitting on the caret's block (nav-mode z). */
+  const toggleFoldAtCursor = (): void => {
+    setFolded((current) => {
+      const next = new Set(current);
+
+      for (const discussion of discussions) {
+        if (discussion.blockIndex !== cursor) continue;
+        if (next.has(discussion.key)) next.delete(discussion.key);
+        else next.add(discussion.key);
+      }
+
+      return next;
+    });
+  };
+
+  /** m / cmd+[ / cmd+] / return - true when the key was a discussion primitive. */
   const handleDiscussionVerb = (key: KeyEvent): boolean => {
     // comment on selection: cmd+option+m (alt+m where cmd arrives ESC-prefixed)
     if (key.name === "m" && (key.super || key.meta || key.option)) {
@@ -535,21 +616,6 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
             : currentIndex - 1;
 
       jumpToDiscussion(discussions[nextIndex]!.key);
-
-      return true;
-    }
-    if (key.name === "tab") {
-      setFolded((current) => {
-        const next = new Set(current);
-
-        for (const discussion of discussions) {
-          if (discussion.blockIndex !== cursor) continue;
-          if (next.has(discussion.key)) next.delete(discussion.key);
-          else next.add(discussion.key);
-        }
-
-        return next;
-      });
 
       return true;
     }
@@ -606,22 +672,21 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
   };
 
   const handleCaretKey = (key: KeyEvent): boolean => {
-    const vertical =
-      key.name === "up" || (key.ctrl && key.name === "p")
-        ? -1
-        : key.name === "down" || (key.ctrl && key.name === "n")
-          ? 1
-          : 0;
+    const vertical = verticalCaretDelta(key);
 
     if (vertical !== 0) {
-      const next = nearestAnnotatable(source, cursor, vertical);
+      const nextBlock = nearestAnnotatable(source, cursor, vertical);
+      const nextHead = verticalTextPosition(head, vertical) ?? {
+        blockIndex: nextBlock,
+        char: key.shift ? Math.min(head.char, textLengthOf(nextBlock)) : 0,
+      };
 
       setCaret({
-        head: { blockIndex: next, char: 0 },
-        anchor: { blockIndex: next, char: 0 },
+        head: nextHead,
+        anchor: key.shift ? caret.anchor : nextHead,
       });
       setFocusedDiscussion(null);
-      setCursor(next);
+      setCursor(nextHead.blockIndex);
 
       return true;
     }
@@ -668,23 +733,25 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
 
     if (activeCompose) return handleComposeKey(key, activeCompose);
     if (key.name === "escape") {
-      if (leaderPending.current) {
-        leaderPending.current = false;
-
-        return;
-      }
-      if (focusedDiscussion !== null) return setFocusedDiscussion(null);
+      // from type mode esc only enters nav, so a held mark survives for `c`
+      if (!navModeRef.current) return setNavMode(true);
+      if (focusedDiscussion !== null) setFocusedDiscussion(null);
 
       return collapseCaret();
     }
-    if (leaderPending.current) {
-      leaderPending.current = false;
-      onLeaderCommand?.(key);
+    if (navModeRef.current) {
+      if (handleCaretKey(key)) return;
+      if (key.name === "z") return toggleFoldAtCursor();
+      if (onNavCommand?.(key, heldSpan)) return;
+      if (key.name === "c") {
+        setNavMode(false);
 
-      return;
-    }
-    if (leaderCombos && matchesLeader(key, leaderCombos)) {
-      leaderPending.current = true;
+        return openNewCompose("");
+      }
+      if (printableSequence(key)) {
+        setNavMode(false);
+        startTyping(key);
+      }
 
       return;
     }
@@ -865,6 +932,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     const pressed = positionAt(allGeometry(), event.x, event.y);
 
     if (!pressed || !source.annotatable(pressed.blockIndex)) return;
+    setNavMode(false);
     const stamp = { time: Date.now(), x: event.x, y: event.y };
     const wordMode = isDoubleClick(lastClick.current, stamp);
 
@@ -892,6 +960,7 @@ export function useAnnotationSurface(options: AnnotationSurfaceOptions): Annotat
     cursor,
     head,
     compose,
+    navMode,
     focusedDiscussion,
     revealBlockIndex,
     spanQuote,

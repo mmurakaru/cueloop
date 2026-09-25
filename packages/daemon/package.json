@@ -1,6 +1,6 @@
 {
   "name": "@cueloop/daemon",
-  "version": "0.1.0-alpha.78",
+  "version": "0.1.0-alpha.86",
   "description": "The cueloop session daemon and its client: socket protocol, atomic store, resumable waits",
   "homepage": "https://github.com/mmurakaru/cueloop#readme",
   "bugs": {
@@ -20,13 +20,16 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
-    "./review": "./src/review.ts",
+    "./thread-review": "./src/thread-review.ts",
+    "./api": "./src/api.ts",
     "./working-tree": "./src/working-tree.ts",
     "./store": "./src/store.ts",
     "./validate": "./src/validate.ts",
     "./paths": "./src/paths.ts",
     "./retention": "./src/retention.ts",
-    "./herdr-pane": "./src/herdr-pane.ts",
+    "./herdr-thread-surface": "./src/herdr-thread-surface.ts",
+    "./ghostty-thread-surface": "./src/ghostty-thread-surface.ts",
+    "./thread-surface-config": "./src/thread-surface-config.ts",
     "./herdr-split": "./src/herdr-split.ts",
     "./share-blob": "./src/share-blob.ts",
     "./curate": "./src/curate.ts"
@@ -35,9 +38,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@cueloop/schema": "0.1.0-alpha.78",
+    "@cueloop/schema": "0.1.0-alpha.86",
     "@pierre/diffs": "^1.4.1",
     "effect": "^4.0.0-rc.115",
+    "smol-toml": "^1.8.0",
     "valibot": "^1.4.2"
   },
   "engines": {

@@ -1,6 +1,21 @@
 export { runClient, type RunClientOptions } from "./run";
 export { snapshotWorkbench, type RepoDiff } from "./workbench-snapshot";
-export { defaultLayout, planLayout, reviewLayout, type LaunchLayout } from "./launch-layout";
+export {
+  defaultLayout,
+  planLayout,
+  pullRequestReviewLayout,
+  reviewLayout,
+  type LaunchLayout,
+} from "./launch-layout";
+export {
+  diffRowAnchor,
+  diffRows,
+  diffRowText,
+  fileRowRange,
+  resolveReviewAnchorRow,
+  type DiffRow,
+} from "./view-diff";
+export { loadConfig, type ReviewWorkspaceMode } from "./config";
 export { serveClient, type ServeHandle, type ServeOptions } from "./serve";
 export { App, type AppProps } from "./App";
 export {

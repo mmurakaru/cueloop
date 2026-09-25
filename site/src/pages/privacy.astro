@@ -1,5 +1,6 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import EmailObfuscationEscape from "../components/EmailObfuscationEscape.astro";
 
 const updated = "September 18, 2026";
 ---
@@ -24,7 +25,7 @@ const updated = "September 18, 2026";
         <h2>cueloop is local-first</h2>
         <p>
           When you review a plan or a diff, everything runs in your terminal. The artifact under
-          review, your annotations, and your code live on your own machine. None of it reaches
+          review, your comments, and your code live on your own machine. None of it reaches
           cueloop.dev unless you explicitly share a review.
         </p>
 
@@ -41,7 +42,7 @@ const updated = "September 18, 2026";
             You can skip signing in and take part anonymously.
           </li>
           <li>
-            <strong>Shared review content.</strong> The artifact and annotations you share are relayed
+            <strong>Shared review content.</strong> The artifact and comments you share are relayed
             through the gateway so the people you shared with can open them, and are kept only while
             the share is active.
           </li>
@@ -68,8 +69,10 @@ const updated = "September 18, 2026";
         <h2>Your choices</h2>
         <p>
           For questions about this policy, or to ask us to remove data associated with your account,
-          email <a href="mailto:hello@cueloop.dev">hello@cueloop.dev</a>. If our practices change,
-          we will update this page and its date above.
+          email <EmailObfuscationEscape><a href="mailto:hello@cueloop.dev"
+            >hello@cueloop.dev</a
+          ></EmailObfuscationEscape>. If our practices change, we will update this page and its date
+          above.
         </p>
       </div>
     </div>

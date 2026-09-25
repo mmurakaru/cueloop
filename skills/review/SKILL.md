@@ -1,46 +1,33 @@
 ---
 name: review
-description: Pull a GitHub PR into a cueloop thread. Use when the user asks to review a pull request in cueloop; the verdict posts back to the PR as a real review.
+description: Review a GitHub pull request in cueloop, record agent findings on the diff, and refine them with the user before any explicit GitHub post.
 ---
 
-# cueloop PR review
+# cueloop review
 
-Fetch a pull request into cueloop; the user's verdict and annotations post
-back to the forge as a real PR review.
+Use this workflow for `/cueloop:review <pull-request>`.
 
-## Steps
+1. Run `cueloop review-config`. Read `skill` and `workspace`.
+2. Read the pull request with `gh pr view <pull-request> --json number,title,body,url,baseRefOid,headRefOid`. Also read its existing review comments. Give them to the configured skill as deduplication context, but do not copy them into the cueloop Thread.
+3. Work at the exact PR head:
+   - `worktree`: create or reuse `~/.cueloop/worktrees/<owner>-<repo>/pr-<number>-<short-sha>`, fetch the head, and add it as a detached git worktree.
+   - `current`: compare `git rev-parse HEAD` with `headRefOid`. Stop if they differ.
+4. Write a short review brief with the PR title, a `## TL;DR` of two to four bullets, and the original body under `## PR description`.
+5. Run the configured review skill in that workspace. Give it the PR base SHA as its fixed point, the PR body as its spec source, and the existing review comments as deduplication context. For the built-in `code-review` skill, this context is complete: use `gh issue view` for issue references and do not require repository-specific issue-tracker setup. The built-in skill is vendored verbatim from [mattpocock/skills](https://github.com/mattpocock/skills/tree/c55ee46073ed923f86ce59a5eb3b6d895095d1b7/skills/engineering/code-review).
+6. Create the Thread from that workspace:
+   `cueloop review <pull-request> --head-sha <headRefOid> --no-tui --brief-file <brief-file>`
+7. Record each actionable finding with `cueloop review-comment <thread-id>`. Give it:
+   - `--path`, `--line`, and `--side LEFT|RIGHT`
+   - `--severity p0|p1|p2`
+   - `--title`
+   - `--body` or `--body-file`
+   - optional `--suggestion-file` and `--prompt-file`
+8. Open the Thread with `cueloop review-open <thread-id>`, then wait for its Message. Use replies to refine findings in the same Thread.
 
-1. The one-step path is the CLI (fetches via `gh`, opens the TUI, posts the
-   verdict back on submit):
+Resolving the Thread never posts to GitHub. Only post after the user explicitly asks in the agent conversation. Use:
 
-   ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts review <pr-number-or-url>
-   ```
+`cueloop review-post <thread-id> --comments C1,C3 --event comment|approve|request-changes`
 
-   Tell the user to run that; it is interactive.
+Omit `--comments` to post every unresolved agent finding. Human comments and replies stay local. Default to `--event comment` unless the user explicitly asks to approve or request changes.
 
-2. For a non-interactive flow (you wait on the verdict instead):
-
-   ```bash
-   gh pr diff <pr> > /tmp/cueloop-pr.patch
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session create \
-     --type diff --title "PR <pr>" --content-file /tmp/cueloop-pr.patch
-   ```
-
-   Then arm the wake and **end your turn** - non-blocking, so you keep helping
-   the user while the review is open; cueloop injects the verdict as a
-   follow-up message:
-
-   ```bash
-   if [ -n "$CLAUDE_CODE_MESSAGING_SOCKET" ]; then
-     nohup bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts wake <id> \
-       >/dev/null 2>&1 &
-     disown 2>/dev/null || true
-   else
-     bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session wait <id> \
-       --timeout-ms 540000
-   fi
-   ```
-
-3. Requires the `gh` CLI authenticated (`gh auth status`); cueloop delegates
-   all forge auth to it.
+If import or posting fails, run `gh auth status`.

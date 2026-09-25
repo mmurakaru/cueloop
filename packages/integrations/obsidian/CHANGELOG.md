@@ -1,5 +1,69 @@
 # @cueloop/integration-obsidian
 
+## 0.1.0-alpha.86
+
+### Patch Changes
+
+- Updated dependencies [[`5881bb2`](https://github.com/mmurakaru/cueloop/commit/5881bb28f35b0eba32495b625e233ff0615d73e4)]:
+  - @cueloop/schema@0.1.0-alpha.86
+  - @cueloop/extension-api@0.1.0-alpha.86
+
+## 0.1.0-alpha.85
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.85
+  - @cueloop/schema@0.1.0-alpha.85
+
+## 0.1.0-alpha.84
+
+### Patch Changes
+
+- Updated dependencies [[`b5f43e5`](https://github.com/mmurakaru/cueloop/commit/b5f43e5adaa95275420e474281c122826ad91acb)]:
+  - @cueloop/schema@0.1.0-alpha.84
+  - @cueloop/extension-api@0.1.0-alpha.84
+
+## 0.1.0-alpha.83
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.83
+  - @cueloop/schema@0.1.0-alpha.83
+
+## 0.1.0-alpha.82
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.82
+  - @cueloop/schema@0.1.0-alpha.82
+
+## 0.1.0-alpha.81
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.81
+  - @cueloop/schema@0.1.0-alpha.81
+
+## 0.1.0-alpha.80
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.80
+  - @cueloop/schema@0.1.0-alpha.80
+
+## 0.1.0-alpha.79
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @cueloop/extension-api@0.1.0-alpha.79
+  - @cueloop/schema@0.1.0-alpha.79
+
 ## 0.1.0-alpha.78
 
 ### Patch Changes
