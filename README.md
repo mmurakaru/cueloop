@@ -16,11 +16,12 @@ A terminal-first multiplayer thread for agent-authored work.
 
 ## The primitives
 
-- **plan**
 - **reply**
+- **plan**
 - **diff**
 - **review**
 - **prototype**
+- **refine**
 
 ## Install
 
