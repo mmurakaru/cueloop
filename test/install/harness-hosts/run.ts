@@ -44,6 +44,8 @@ function checkInstalledSkills(root: string, harness: string): void {
 
 async function inspectPiExtension(work: string): Promise<void> {
   const workflowInventory = join(work, "pi-workflows.json");
+
+  runHostCommand(["node", "packages/pi/prepare-skills.mjs"]);
   const processHandle = Bun.spawn(
     [
       hostExecutables.pi,
@@ -52,9 +54,8 @@ async function inspectPiExtension(work: string): Promise<void> {
       "--offline",
       "--no-session",
       "--no-extensions",
-      "--no-skills",
       "-e",
-      join(REPO_ROOT, "packages/pi/extension.ts"),
+      join(REPO_ROOT, "packages/pi"),
       "-e",
       join(import.meta.dir, "pi-workflow-inventory.ts"),
     ],
@@ -117,6 +118,9 @@ async function inspectPiExtension(work: string): Promise<void> {
     for (const workflow of WORKFLOW_KINDS) {
       if (!commandNames.includes(`cueloop:${workflow}`)) {
         throw new Error(`pi did not register /cueloop:${workflow}`);
+      }
+      if (!commandNames.includes(`skill:cueloop-${workflow}`)) {
+        throw new Error(`pi did not load skill:cueloop-${workflow}`);
       }
     }
     if (!existsSync(workflowInventory)) throw new Error("pi did not invoke the workflow probe");
