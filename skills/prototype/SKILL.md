@@ -1,6 +1,9 @@
 ---
 name: prototype
-description: Submit a component design proposal to cueloop for human review without blocking. Use when the user asks to review a UI component's shape before implementing it: its prop/type API, how it composes from existing primitives, and its callstack. You write one Markdown design doc (API, Composition, Callstack); the reviewer annotates the text and cueloop delivers the decision as a follow-up message. It does not block, so keep working while it is open.
+description: >-
+  Submit a component design proposal to cueloop for human review without blocking.
+  Use when the user asks to review a UI component's shape before implementing it:
+  its prop/type API, composition, and callstack.
 ---
 
 # cueloop prototype review
@@ -9,7 +12,7 @@ Review a UI component on paper before you build it: its interface, how it is
 assembled from primitives you already have, and its callstack. You write a single
 Markdown design doc; the reviewer reads it in the terminal and annotates the exact
 lines. The review does not block: you submit, keep working with the user, and
-cueloop wakes you with the decision when the reviewer is done.
+cueloop delivers the Message when the reviewer is done.
 
 Write the doc as plain Markdown with exactly these three sections, in order. Keep
 everything line-addressable text, since the reviewer anchors comments to lines and
@@ -79,47 +82,18 @@ main.ts
       CliOutput.link(link)
 ```
 
-## Submit and wait
+## Submit and respond
 
-1. Write the doc to a single `.md` file.
-2. Create the session (the daemon autostarts) and note the `id` in the JSON:
+Write the doc to one Markdown file and submit it through the harness's cueloop
+`prototype` workflow when available. Otherwise, run
+`cueloop session create --type prototype --content-file <design.md>` and give
+the user the returned Thread ID. On the CLI path, collect the Message with
+`cueloop session wait <id> --timeout-ms 60000`, repeating while pending.
 
-   ```bash
-   bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session create \
-     --type prototype --title "<component name>" --agent claude-code \
-     --content-file <abs-path-to-md>
-   ```
-
-3. Tell the user: `review it with: cueloop <id>` (or `cueloop prototype <path-to-md>`).
-4. Arm the wake, then **end your turn and keep helping the user**. Do NOT sit
-   on a blocking wait. When the reviewer submits, cueloop injects the decision
-   into this session as a follow-up message; act on it then (step 5).
-
-   ```bash
-   if [ -n "$CLAUDE_CODE_MESSAGING_SOCKET" ]; then
-     nohup bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts wake <id> \
-       >/dev/null 2>&1 &
-     disown 2>/dev/null || true
-   else
-     bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session wait <id> \
-       --timeout-ms 540000
-   fi
-   ```
-
-5. Act on the decision (delivered as a follow-up message, or printed by the
-   inline fallback):
-   - `"allow": true`: proceed with the component as designed.
-   - `"allow": false`: the `feedback` field lists each annotation with the line
-     it targets and the reviewer's comment. Apply every comment to the doc, then
-     resubmit and re-arm the wake:
-
-     ```bash
-     bun run ${CLAUDE_PLUGIN_ROOT}/packages/cli/src/main.ts session submit-revision <id> \
-       --content-file <abs-path-to-md>
-     ```
-
-   - `"status": "pending"` (inline fallback only): the reviewer is not done;
-     wait again with the same command. The decision is never lost.
+On approval, proceed with the component. When changes are requested, apply
+every edited line and annotation to the design doc, then revise the same
+Thread with `cueloop session submit-revision <id> --content-file <design.md>`
+on the CLI path.
 
 Reviewing a rendered pixel mockup instead of a design doc is an opt-in
 experimental mode, set by the `[experimental]` config section. It needs a

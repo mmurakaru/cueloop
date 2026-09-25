@@ -5,14 +5,14 @@
  */
 
 import React from "react";
-import type { VerdictKind } from "@cueloop/schema";
+import type { MessageOutcome } from "@cueloop/schema";
 import type { Theme } from "../theme";
 import { useComponentTheme } from "./theme-context";
 import { Toolbar } from "./primitives/Toolbar";
 import { Button } from "./primitives/Button";
 
 export interface CompletionOverlayProps {
-  verdict: VerdictKind;
+  message: MessageOutcome;
   completion: { phase: "prompt" } | { phase: "counting"; remaining: number };
   /** Latest status line (e.g. the vault-export path) stays visible here. */
   status: string;
@@ -25,7 +25,7 @@ export interface CompletionOverlayProps {
 }
 
 export function CompletionOverlay({
-  verdict,
+  message,
   completion,
   status,
   returnsTo,
@@ -35,7 +35,7 @@ export function CompletionOverlay({
   theme,
 }: CompletionOverlayProps): React.ReactNode {
   const tokens = useComponentTheme(theme);
-  const approved = verdict === "approve";
+  const approved = message === "approved";
 
   return (
     <box

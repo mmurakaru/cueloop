@@ -36,7 +36,7 @@ function session(id: string, createdAt: string, status: SessionStatus = "resolve
     artifact: { type: "plan", content: "", meta: {} },
     revisions: [],
     annotations: [],
-    verdict: null,
+    message: null,
     status,
     createdAt,
   };
@@ -124,6 +124,15 @@ describe("pruneExpiredSessions", () => {
     expect(pruned).toEqual(["ses_old"]);
     expect(store.get("ses_old")).toBeUndefined();
     expect(store.get("ses_new")).toBeDefined();
+  });
+
+  test("keeps an expired resolved Thread while its Message is awaiting delivery", () => {
+    const store = new ThreadStore(tempDir("cueloop-retention-home-"));
+
+    store.upsert(session("ses_waiting", daysAgo(40)));
+
+    expect(pruneExpiredSessions(store, 30, NOW_MS, new Set(["ses_waiting"]))).toEqual([]);
+    expect(store.get("ses_waiting")).toBeDefined();
   });
 
   test("never deletes an active pending session however old", () => {

@@ -7,14 +7,14 @@
 
 import { Registry, type Exporter } from "@cueloop/extension-api";
 import { createObsidianExtension, shouldExport } from "@cueloop/integration-obsidian";
-import type { VerdictKind } from "@cueloop/schema";
+import type { MessageOutcome } from "@cueloop/schema";
 import type { IntegrationsConfig } from "./config";
 
-/** An exporter plus the policy deciding which verdicts trigger it. */
+/** An exporter plus the policy deciding which messages trigger it. */
 export interface BundledExporter {
   name: string;
   run: Exporter;
-  runsOn(verdict: VerdictKind): boolean;
+  runsOn(message: MessageOutcome): boolean;
 }
 
 /** Load the bundled integrations from config as generic exporters. */
@@ -28,5 +28,5 @@ export async function loadBundledExporters(
 
   if (!run) return [];
 
-  return [{ name: "obsidian", run, runsOn: (verdict) => shouldExport(obsidian.exportOn, verdict) }];
+  return [{ name: "obsidian", run, runsOn: (message) => shouldExport(obsidian.exportOn, message) }];
 }

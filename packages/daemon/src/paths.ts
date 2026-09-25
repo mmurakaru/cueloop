@@ -60,7 +60,17 @@ export function ownerTokenPath(home = cueloopHome()): string {
   return join(home, "owner.token");
 }
 
-/** Adapter scratch: herdr tab handles keyed by session id, kept out of the core session record. */
-export function herdrTabsPath(home = cueloopHome()): string {
+/** Adapter scratch for Herdr handles; the disk name stays stable across tab and pane support. */
+export function herdrThreadSurfacesPath(home = cueloopHome()): string {
   return join(home, "herdr-tabs.json");
+}
+
+/** Ghostty-native terminal IDs are adapter scratch, not Thread state. */
+export function ghosttyThreadSurfacesPath(home = cueloopHome()): string {
+  return join(home, "ghostty-thread-surfaces.json");
+}
+
+/** Harness bindings and Message deliveries, stored independently of Thread records. */
+export function harnessStatePath(home = cueloopHome()): string {
+  return join(home, "harness-state.json");
 }

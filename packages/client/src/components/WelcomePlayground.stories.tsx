@@ -6,7 +6,7 @@ import { WelcomePlayground } from "./WelcomePlayground";
 export const meta: StoryMeta = { title: "Surfaces/WelcomePlayground" };
 
 export const Welcome: Story = {
-  render: () => <WelcomePlayground version="0.1.0-alpha.66" quickActions={[]} theme={DARK} />,
+  render: () => <WelcomePlayground quickActions={[]} theme={DARK} />,
   expectedColors: [DARK.textDim],
   size: { width: 72, height: 20 },
 };

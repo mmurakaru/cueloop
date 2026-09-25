@@ -10,7 +10,7 @@ const noop = () => {};
 export const ApprovedPrompt: Story = {
   render: () => (
     <CompletionOverlay
-      verdict="approve"
+      message="approved"
       completion={{ phase: "prompt" }}
       status=""
       onClose={noop}
@@ -24,7 +24,7 @@ export const ApprovedPrompt: Story = {
 export const FeedbackCounting: Story = {
   render: () => (
     <CompletionOverlay
-      verdict="request_changes"
+      message="changes_requested"
       completion={{ phase: "counting", remaining: 3 }}
       status="exported to vault/cueloop/plan.md"
       returnsTo="agent/worker-3"

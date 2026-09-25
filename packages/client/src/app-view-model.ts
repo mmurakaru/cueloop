@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { Thread, VerdictKind } from "@cueloop/schema";
+import type { Thread, MessageOutcome } from "@cueloop/schema";
 import type { Mode } from "./intent-dispatch";
 import type { Intent, KeyState } from "./keymap";
 import type { Completion } from "./thread-controller";
@@ -85,7 +85,7 @@ export function buildHeaderItems(params: {
     ...(resolved
       ? [
           {
-            label: `resolved: ${session.verdict!.kind.replace("_", " ")}`,
+            label: `resolved: ${session.message!.outcome.replace("_", " ")}`,
             tone: "green" as const,
           },
         ]
@@ -115,6 +115,7 @@ export function buildRenderFlags(params: {
 
   return {
     showOwnerActions: isOwner && !isDiff && !resolved,
+    showPullRequestRefresh: !resolved && session.artifact.meta.prRefreshHeadSha !== undefined,
     prototypeCanComment: isOwner && !resolved,
     chromeHidden: menuDialog !== null,
     prototypePath: session.artifact.meta.prototypePath ?? "",
@@ -144,7 +145,7 @@ export function buildSubmitConfirmState(
   if (mode.type !== "submit") return null;
 
   return {
-    verdict: mode.verdict,
+    message: mode.message,
     summary: mode.summary,
     quickActions: deps.quickActions,
     viewedSummary:
@@ -155,8 +156,8 @@ export function buildSubmitConfirmState(
       liveInput.current = summary;
       setMode({ ...mode, summary });
     },
-    onSelectVerdict: (verdict: VerdictKind) => setMode({ ...mode, verdict }),
-    onSubmit: () => dispatch({ type: "submitVerdict" }),
+    onSelectMessage: (message: MessageOutcome) => setMode({ ...mode, message }),
+    onSubmit: () => dispatch({ type: "submitMessage" }),
     onCancel: () => dispatch({ type: "closeOverlay" }),
   };
 }

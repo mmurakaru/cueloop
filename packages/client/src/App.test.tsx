@@ -8,6 +8,7 @@ import React from "react";
 import { DaemonServer } from "@cueloop/daemon";
 import type { Thread } from "@cueloop/schema";
 import { App } from "./App";
+import { DARK } from "./theme";
 import {
   clickText,
   dragText,
@@ -15,6 +16,7 @@ import {
   isolateUserConfig,
   locateText,
   press,
+  navCommand,
   pressKey,
   renderReadyApp,
   typeText as type,
@@ -32,6 +34,8 @@ The daemon persists sessions to disk atomically.
 
 - move the store
 - add recovery
+
+Use the **safe** mode.
 `;
 
 let home: string;
@@ -66,6 +70,25 @@ async function renderApp(sessionId?: string) {
   });
 }
 
+type Setup = Awaited<ReturnType<typeof renderApp>>;
+
+function foregroundsOf(setup: Setup, needle: string): string[] {
+  const foregrounds: string[] = [];
+
+  for (const line of setup.captureSpans().lines) {
+    for (const span of line.spans) {
+      if (!span.text.includes(needle)) continue;
+      const [red, green, blue] = span.fg.toInts();
+
+      foregrounds.push(
+        "#" + [red, green, blue].map((part) => part.toString(16).padStart(2, "0")).join(""),
+      );
+    }
+  }
+
+  return foregrounds;
+}
+
 describe("plan rendering", () => {
   test("renders the plan with headings, list markers, and the footer", async () => {
     // Arrange
@@ -78,7 +101,7 @@ describe("plan rendering", () => {
     expect(frame).toContain("Context");
     expect(frame).toContain("persists sessions to disk atomically");
     expect(frame).toContain("· move the store");
-    expect(frame).toContain("send message");
+    expect(frame).toContain("Send message (");
   });
 
   test("a direct open still populates the Threads sidebar with other pending reviews", async () => {
@@ -152,7 +175,7 @@ describe("thread view grammar", () => {
     await clickText(setup, "move the store");
 
     // Act
-    await pressKey(setup, "x", { meta: true });
+    await navCommand(setup, "x");
 
     // Assert - the cut lands in the working copy
     await waitForState(
@@ -161,10 +184,62 @@ describe("thread view grammar", () => {
     );
 
     // Act
-    await pressKey(setup, "x", { meta: true });
+    await navCommand(setup, "x");
 
     // Assert
     await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
+  });
+
+  test("Cut removes only the marked characters instead of their whole block", async () => {
+    const setup = await renderApp();
+
+    await dragText(setup, "move the store", "move the store", "move".length);
+    await navCommand(setup, "x");
+    await waitForState(setup, () =>
+      (server.core.sessionGet(session.id).workingCopy ?? "").includes("-  the store"),
+    );
+    const working = server.core.sessionGet(session.id).workingCopy ?? "";
+    const textCuts = server.core.sessionGet(session.id).textCuts;
+
+    expect(working).not.toContain("move the store");
+    expect(working).toContain("-  the store");
+    expect(working).toContain("- add recovery");
+    expect(textCuts).toHaveLength(1);
+    expect(textCuts?.[0]?.quote).toBe("move");
+    expect(foregroundsOf(setup, "the store")).not.toContain(DARK.green);
+    expect(setup.captureCharFrame()).not.toContain("selection cut");
+
+    await pressKey(setup, "x");
+    await waitForState(setup, () => server.core.sessionGet(session.id).workingCopy === undefined);
+
+    expect(server.core.sessionGet(session.id).textCuts).toBeUndefined();
+  });
+
+  test("a large partial Cut keeps its surviving prefix plain in one modified block", async () => {
+    const original = "A seeded plan so cueloop dev always has a thread to open.";
+    const shortened = server.core.sessionCreate({
+      workspace: { repoRoot: "/repo", branch: "main" },
+      artifact: { type: "plan", content: original, meta: { title: "Partial Cut" } },
+    });
+
+    server.core.sessionSetWorkingCopy(shortened.id, "A seed");
+    const setup = await renderApp(shortened.id);
+
+    await waitForText(setup, "A seed");
+    expect(foregroundsOf(setup, "seed")).toContain(DARK.text);
+    expect(foregroundsOf(setup, "seed")).not.toContain(DARK.green);
+  });
+
+  test("Cut maps rendered inline Markdown back to its exact source characters", async () => {
+    const setup = await renderApp();
+
+    await dragText(setup, "safe", "safe", "safe".length);
+    await navCommand(setup, "x");
+    await waitForState(setup, () =>
+      (server.core.sessionGet(session.id).workingCopy ?? "").includes("Use the **** mode."),
+    );
+
+    expect(server.core.sessionGet(session.id).workingCopy).toContain("Use the **** mode.");
   });
 
   test("ctrl+e opens the inline editor; the header toggles to normal and leaving tracks the edit", async () => {
@@ -190,7 +265,7 @@ describe("thread view grammar", () => {
 });
 
 describe("submit", () => {
-  test("cmd+⏎ opens the rail confirm card; verdict + summary resolve the session", async () => {
+  test("cmd+⏎ opens the rail confirm card; message + summary resolve the session", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -202,10 +277,12 @@ describe("submit", () => {
     // Act: with no composer open the same chord opens submit
     await pressKey(setup, "RETURN", { meta: true });
 
-    // Assert
-    await waitForText(setup, "[Changes]");
+    // Assert - the card opens on the default message, approve
+    await waitForText(setup, "[approve]");
 
-    // Act
+    // Act - cycle to request changes, then send with a summary
+    await press(setup, "right");
+    await waitForText(setup, "[changes]");
     await type(setup, "Expand the steps.");
     await pressKey(setup, "RETURN", { meta: true });
 
@@ -214,13 +291,13 @@ describe("submit", () => {
     const stored = server.core.sessionGet(session.id);
 
     expect(stored.status).toBe("resolved");
-    expect(stored.verdict!.kind).toBe("request_changes");
-    expect(stored.verdict!.feedback).toContain("Needs a phase list.");
+    expect(stored.message!.outcome).toBe("changes_requested");
+    expect(stored.message!.body).toContain("Needs a phase list.");
     // submit hands the reviewer back to the agent via the completion overlay
     expect(setup.captureCharFrame()).toContain("feedback sent");
   });
 
-  test("approve via ←/→ verdict cycling", async () => {
+  test("approve via ←/→ message cycling", async () => {
     // Arrange
     const setup = await renderApp();
 
@@ -228,14 +305,14 @@ describe("submit", () => {
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
-    await waitForText(setup, "[Approve]"); // no pending items → approve default
+    await waitForText(setup, "[approve]"); // no pending items → approve default
 
     // Act
     await pressKey(setup, "RETURN", { meta: true });
 
     // Assert
-    await waitForState(setup, () => server.core.sessionGet(session.id).verdict !== undefined);
-    expect(server.core.sessionGet(session.id).verdict!.kind).toBe("approve");
+    await waitForState(setup, () => server.core.sessionGet(session.id).message !== undefined);
+    expect(server.core.sessionGet(session.id).message!.outcome).toBe("approved");
   });
 });
 
@@ -258,7 +335,7 @@ describe("no-thread shell", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "send message");
+    await waitForText(setup, "Send message (");
   });
 
   test("picking a thread from the no-thread shell keeps the Threads sidebar open", async () => {
@@ -275,7 +352,7 @@ describe("no-thread shell", () => {
 
     // Act - open the thread under the cursor
     await press(setup, "enter");
-    await waitForText(setup, "send message");
+    await waitForText(setup, "Send message (");
 
     // Assert - the sidebar stayed open across the swap: both titles are on screen,
     // and the non-opened one can only come from the still-open sidebar
@@ -341,7 +418,7 @@ describe("no-thread shell", () => {
     await press(setup, "enter");
 
     // Assert
-    await waitForText(setup, "send message");
+    await waitForText(setup, "Send message (");
   });
 });
 
@@ -364,7 +441,7 @@ describe("the thread view and the menu", () => {
     // Assert - the thread grammar, not the plan sheet's
     const dialog = setup.captureCharFrame();
 
-    expect(dialog).toContain("⌘⌥m");
+    expect(dialog).toContain("nav mode");
     expect(dialog).toContain("place the caret");
     expect(dialog).not.toContain("grow/shrink");
 

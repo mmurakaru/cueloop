@@ -18,7 +18,7 @@ const SECTIONS = [
   {
     title: "Submit",
     entries: [
-      { keys: "← / →", label: "verdict" },
+      { keys: "← / →", label: "message" },
       { keys: "esc", label: "cancel" },
     ],
   },

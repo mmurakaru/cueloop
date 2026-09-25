@@ -31,11 +31,15 @@
     "@cueloop/adapters": [
       "@cueloop/schema",
       "@cueloop/daemon"
+    ],
+    "@cueloop/pi": [
+      "@cueloop/adapters"
     ]
   },
   "moduleImportBudget": 20,
   "moduleBudgets": {
     "packages/client/src/App.tsx": 47,
-    "packages/client/src/app-screens.tsx": 32
+    "packages/client/src/app-screens.tsx": 32,
+    "packages/client/src/components/DiffContentView.tsx": 21
   }
 }

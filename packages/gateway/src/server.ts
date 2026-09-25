@@ -29,7 +29,7 @@ import {
   unpackSessionBlob,
   MAX_BLOB_BYTES,
 } from "@cueloop/daemon/share-blob";
-import { BlobSessionClient, withEntry } from "./blob-session-client";
+import { BlobThreadClient, withEntry } from "./blob-thread-client";
 import {
   renderOverChannel,
   TERMINAL_RESTORE,
@@ -278,8 +278,8 @@ export async function startGateway(options: GatewayOptions): Promise<GatewayHand
       }
       // Every viewer is a collaborator: they annotate, and each note unions
       // back into the stored blob stamped with their fingerprint. They cannot
-      // edit the plan or submit a verdict (the App's collaborator role).
-      const client = new BlobSessionClient(session, {
+      // edit the plan or submit a message (the App's collaborator role).
+      const client = new BlobThreadClient(session, {
         store,
         masterKey: options.masterKey,
         shareId,

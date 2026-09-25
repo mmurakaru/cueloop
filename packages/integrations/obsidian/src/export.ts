@@ -6,12 +6,12 @@
 
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Thread, VerdictKind } from "@cueloop/schema";
+import type { Thread, MessageOutcome } from "@cueloop/schema";
 import { detectVaults } from "./detect";
 import { formatFilename, titleFrom, uniquePath, type Separator } from "./filename";
 import { frontmatter } from "./frontmatter";
 
-export type ExportOn = "approve" | "resolve" | "manual";
+export type ExportOn = "approved" | "message" | "manual";
 
 export interface ObsidianConfig {
   /** Vault path; when unset, the first auto-detected vault is used. */
@@ -31,11 +31,11 @@ export const OBSIDIAN_DEFAULTS: ObsidianConfig = {
   exportOn: "manual",
 };
 
-/** approve exports only approvals; resolve exports any verdict; manual never auto-exports. */
-export function shouldExport(exportOn: ExportOn, verdict: VerdictKind): boolean {
-  if (exportOn === "approve") return verdict === "approve";
+/** approved exports only approvals; message exports any Message; manual never auto-exports. */
+export function shouldExport(exportOn: ExportOn, message: MessageOutcome): boolean {
+  if (exportOn === "approved") return message === "approved";
 
-  return exportOn === "resolve";
+  return exportOn === "message";
 }
 
 export interface ExportResult {
